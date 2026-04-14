@@ -1,6 +1,6 @@
 export const metadata = {
   title: "Churchill Control System",
-  description: "Restaurant control and accounting system",
+  description: "Restaurant control system",
 };
 
 export default function RootLayout({ children }) {

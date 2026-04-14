@@ -13,7 +13,7 @@ export default function ControlFinal() {
   const [cost, setCost] = useState(0);
   const [profit, setProfit] = useState(0);
 
-  // ✅ LOAD DATA FROM HISTORY (NEW)
+  // LOAD FROM HISTORY
   useEffect(() => {
     const dataParam = searchParams.get("data");
 
@@ -34,12 +34,12 @@ export default function ControlFinal() {
     }
   }, [searchParams]);
 
-  // ✅ CALCULATE TOTALS (SAFE)
+  // CALCULATE TOTALS
   useEffect(() => {
     let totalRevenue = 0;
     let totalCost = 0;
 
-    dishes.forEach((d: any) => {
+    dishes.forEach((d) => {
       const r = Number(d?.revenue ?? d?.total ?? 0);
       const c = Number(d?.cost ?? d?.totalCost ?? 0);
 
@@ -52,7 +52,6 @@ export default function ControlFinal() {
     setProfit(totalRevenue - totalCost);
   }, [dishes]);
 
-  // 🔧 EXISTING UI (UNCHANGED STRUCTURE)
   return (
     <div style={{ padding: 24 }}>
       <h1>Control Panel</h1>
@@ -71,7 +70,7 @@ export default function ControlFinal() {
       <div>
         <h3>Dishes</h3>
 
-        {dishes.map((dish: any, index) => (
+        {dishes.map((dish, index) => (
           <div
             key={index}
             style={{
@@ -142,9 +141,7 @@ export default function ControlFinal() {
       <div style={{ marginTop: 20 }}>
         <div>Revenue: {revenue}</div>
         <div>Cost: {cost}</div>
-        <div style={{ fontWeight: 700 }}>
-          Profit: {profit}
-        </div>
+        <div style={{ fontWeight: 700 }}>Profit: {profit}</div>
       </div>
     </div>
   );

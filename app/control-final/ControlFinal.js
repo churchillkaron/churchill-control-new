@@ -15,7 +15,7 @@ export default function ControlFinal() {
   const [cost, setCost] = useState(0);
   const [profit, setProfit] = useState(0);
 
-  // Load from history
+  // LOAD FROM HISTORY
   useEffect(() => {
     const dataParam = searchParams.get("data");
 
@@ -23,6 +23,7 @@ export default function ControlFinal() {
 
     try {
       const decoded = JSON.parse(decodeURIComponent(dataParam));
+
       if (decoded?.date) setDate(decoded.date);
       if (Array.isArray(decoded?.dishes)) setDishes(decoded.dishes);
     } catch (err) {
@@ -30,7 +31,7 @@ export default function ControlFinal() {
     }
   }, [searchParams]);
 
-  // Calculate totals
+  // CALCULATE TOTALS
   useEffect(() => {
     let totalRevenue = 0;
     let totalCost = 0;
@@ -76,6 +77,10 @@ export default function ControlFinal() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "40px auto", padding: 20 }}>
+      
+      {/* 🔴 TEST (VERY IMPORTANT) */}
+      <h1 style={{ color: "red" }}>NEW UI TEST</h1>
+
       <h1 style={{ marginBottom: 20 }}>Daily Control</h1>
 
       <input
@@ -90,7 +95,7 @@ export default function ControlFinal() {
         }}
       />
 
-      {/* Table header */}
+      {/* TABLE HEADER */}
       <div
         style={{
           display: "grid",
@@ -105,7 +110,7 @@ export default function ControlFinal() {
         <div>Cost</div>
       </div>
 
-      {/* Rows */}
+      {/* DISH ROWS */}
       {dishes.map((dish, index) => (
         <div
           key={index}
@@ -165,7 +170,7 @@ export default function ControlFinal() {
         + Add Dish
       </button>
 
-      {/* Totals */}
+      {/* TOTALS */}
       <div
         style={{
           marginTop: 30,

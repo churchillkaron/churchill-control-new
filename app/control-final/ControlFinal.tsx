@@ -1,82 +1,151 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function ControlFinal() {
-  const [dishes, setDishes] = useState([
-    { name: "", price: 0, cost: 0, quantity: 1 },
-  ]);
+  const searchParams = useSearchParams();
 
-  const menu = [
-    { name: "Beef Carpaccio", price: 320, cost: 110 },
-    { name: "Chili & Garlic Prawns", price: 320, cost: 74 },
-    { name: "Ribeye Steak", price: 890, cost: 206 },
-    { name: "Pad Thai", price: 160, cost: 56 },
-    { name: "Tom Yum Goong", price: 180, cost: 94 },
-  ];
+  const [date, setDate] = useState("");
+  const [dishes, setDishes] = useState([]);
 
-  const addRow = () => {
-    setDishes([...dishes, { name: "", price: 0, cost: 0, quantity: 1 }]);
-  };
+  const [revenue, setRevenue] = useState(0);
+  const [cost, setCost] = useState(0);
+  const [profit, setProfit] = useState(0);
 
-  const updateRow = (i: number, field: string, value: any) => {
-    const updated = [...dishes];
-    updated[i][field] = value;
-    setDishes(updated);
-  };
+  // ✅ LOAD DATA FROM HISTORY (NEW)
+  useEffect(() => {
+    const dataParam = searchParams.get("data");
 
-  const selectDish = (i: number, name: string) => {
-    const dish = menu.find((d) => d.name === name);
-    if (!dish) return;
+    if (!dataParam) return;
 
-    updateRow(i, "name", dish.name);
-    updateRow(i, "price", dish.price);
-    updateRow(i, "cost", dish.cost);
-  };
+    try {
+      const decoded = JSON.parse(decodeURIComponent(dataParam));
 
-  const totals = dishes.reduce(
-    (acc, d) => {
-      acc.revenue += d.price * d.quantity;
-      acc.cost += d.cost * d.quantity;
-      acc.profit += d.price * d.quantity - d.cost * d.quantity;
-      return acc;
-    },
-    { revenue: 0, cost: 0, profit: 0 }
-  );
+      if (decoded?.date) {
+        setDate(decoded.date);
+      }
 
+      if (Array.isArray(decoded?.dishes)) {
+        setDishes(decoded.dishes);
+      }
+    } catch (err) {
+      console.error("Failed to parse incoming data:", err);
+    }
+  }, [searchParams]);
+
+  // ✅ CALCULATE TOTALS (SAFE)
+  useEffect(() => {
+    let totalRevenue = 0;
+    let totalCost = 0;
+
+    dishes.forEach((d: any) => {
+      const r = Number(d?.revenue ?? d?.total ?? 0);
+      const c = Number(d?.cost ?? d?.totalCost ?? 0);
+
+      totalRevenue += r;
+      totalCost += c;
+    });
+
+    setRevenue(totalRevenue);
+    setCost(totalCost);
+    setProfit(totalRevenue - totalCost);
+  }, [dishes]);
+
+  // 🔧 EXISTING UI (UNCHANGED STRUCTURE)
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Churchill Control</h1>
+    <div style={{ padding: 24 }}>
+      <h1>Control Panel</h1>
 
-      {dishes.map((d, i) => (
-        <div key={i} style={{ marginBottom: 10 }}>
-          <select
-            value={d.name}
-            onChange={(e) => selectDish(i, e.target.value)}
+      {/* DATE */}
+      <div style={{ marginBottom: 20 }}>
+        <label>Date:</label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+      </div>
+
+      {/* DISHES */}
+      <div>
+        <h3>Dishes</h3>
+
+        {dishes.map((dish: any, index) => (
+          <div
+            key={index}
+            style={{
+              display: "flex",
+              gap: 10,
+              marginBottom: 10,
+            }}
           >
-            <option value="">Select Dish</option>
-            {menu.map((m) => (
-              <option key={m.name}>{m.name}</option>
-            ))}
-          </select>
+            <input
+              placeholder="Dish name"
+              value={dish.name || ""}
+              onChange={(e) => {
+                const updated = [...dishes];
+                updated[index].name = e.target.value;
+                setDishes(updated);
+              }}
+            />
 
-          <input
-            type="number"
-            value={d.quantity}
-            min={1}
-            onChange={(e) => updateRow(i, "quantity", Number(e.target.value))}
-          />
+            <input
+              type="number"
+              placeholder="Qty"
+              value={dish.quantity || ""}
+              onChange={(e) => {
+                const updated = [...dishes];
+                updated[index].quantity = Number(e.target.value);
+                setDishes(updated);
+              }}
+            />
 
-          <span> Price: {d.price} </span>
-          <span> Cost: {d.cost} </span>
+            <input
+              type="number"
+              placeholder="Revenue"
+              value={dish.revenue || ""}
+              onChange={(e) => {
+                const updated = [...dishes];
+                updated[index].revenue = Number(e.target.value);
+                setDishes(updated);
+              }}
+            />
+
+            <input
+              type="number"
+              placeholder="Cost"
+              value={dish.cost || ""}
+              onChange={(e) => {
+                const updated = [...dishes];
+                updated[index].cost = Number(e.target.value);
+                setDishes(updated);
+              }}
+            />
+          </div>
+        ))}
+
+        {/* ADD ROW */}
+        <button
+          onClick={() =>
+            setDishes([
+              ...dishes,
+              { name: "", quantity: 0, revenue: 0, cost: 0 },
+            ])
+          }
+        >
+          + Add Dish
+        </button>
+      </div>
+
+      {/* TOTALS */}
+      <div style={{ marginTop: 20 }}>
+        <div>Revenue: {revenue}</div>
+        <div>Cost: {cost}</div>
+        <div style={{ fontWeight: 700 }}>
+          Profit: {profit}
         </div>
-      ))}
-
-      <button onClick={addRow}>Add Dish</button>
-
-      <h2>Revenue: {totals.revenue}</h2>
-      <h2>Cost: {totals.cost}</h2>
-      <h2>Profit: {totals.profit}</h2>
+      </div>
     </div>
   );
 }

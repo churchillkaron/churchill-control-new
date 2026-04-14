@@ -1,587 +1,282 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
+function formatMoney(value) {
+  const number = Number(value) || 0;
+  return `฿${number.toLocaleString()}`;
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (isNaN(d)) return value;
+
+  return d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function parseDishes(dishes) {
+  if (!dishes) return [];
+  if (Array.isArray(dishes)) return dishes;
+
+  try {
+    const parsed = JSON.parse(dishes);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getDishName(d, i) {
+  return d?.name || d?.dish || d?.title || `Dish ${i + 1}`;
+}
+
+function getDishQty(d) {
+  return Number(d?.quantity ?? d?.qty ?? 0);
+}
+
+function getDishRevenue(d) {
+  return Number(d?.revenue ?? d?.total ?? 0);
+}
+
+function getDishCost(d) {
+  return Number(d?.cost ?? d?.totalCost ?? 0);
+}
+
+function getDishProfit(d) {
+  if (d?.profit !== undefined) return Number(d.profit);
+  return getDishRevenue(d) - getDishCost(d);
+}
 
 export default function HistoryPage() {
   const [reports, setReports] = useState([]);
-  const [selectedReport, setSelectedReport] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+
+  const router = useRouter();
 
   useEffect(() => {
-    let ignore = false;
-
-    async function loadHistory() {
+    async function load() {
       try {
-        setLoading(true);
-        setError("");
-
         const res = await fetch("/api/history", {
-          method: "GET",
           cache: "no-store",
         });
 
-        if (!res.ok) {
-          throw new Error("Failed to load history");
-        }
-
         const data = await res.json();
 
-        const rows = Array.isArray(data) ? data : Array.isArray(data?.rows) ? data.rows : [];
+        const list = Array.isArray(data)
+          ? data
+          : data?.data || data?.reports || [];
 
-        if (!ignore) {
-          setReports(rows);
+        const sorted = [...list].sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        );
 
-          if (rows.length > 0) {
-            setSelectedReport(rows[0]);
-          }
+        setReports(sorted);
+
+        if (sorted.length > 0) {
+          setSelectedId(sorted[0].id);
         }
       } catch (err) {
-        if (!ignore) {
-          setError(err.message || "Something went wrong while loading history.");
-        }
+        console.error("History load error:", err);
       } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
-    loadHistory();
-
-    return () => {
-      ignore = true;
-    };
+    load();
   }, []);
 
-  const summary = useMemo(() => {
-    const totalRevenue = reports.reduce((sum, report) => sum + toNumber(report?.revenue), 0);
-    const totalCost = reports.reduce((sum, report) => sum + toNumber(report?.cost), 0);
-    const totalProfit = reports.reduce((sum, report) => sum + toNumber(report?.profit), 0);
+  const selected = useMemo(() => {
+    return reports.find((r) => r.id === selectedId);
+  }, [reports, selectedId]);
 
-    return {
-      days: reports.length,
-      revenue: totalRevenue,
-      cost: totalCost,
-      profit: totalProfit,
-    };
-  }, [reports]);
+  const dishes = parseDishes(selected?.dishes);
+
+  function handleEdit() {
+    if (!selected) return;
+
+    const encoded = encodeURIComponent(
+      JSON.stringify({
+        date: selected.date,
+        dishes: dishes,
+      })
+    );
+
+    router.push(`/control-final?data=${encoded}`);
+  }
+
+  if (loading) {
+    return <div style={{ padding: 20 }}>Loading history...</div>;
+  }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        <header style={styles.header}>
-          <div>
-            <p style={styles.eyebrow}>Churchill Control System</p>
-            <h1 style={styles.title}>History</h1>
-            <p style={styles.subtitle}>
-              Review previous daily reports with totals and dish-level breakdown.
-            </p>
-          </div>
-        </header>
+    <div style={{ padding: 24, background: "#f5f7fb", minHeight: "100vh" }}>
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 20 }}>
+        Daily Reports History
+      </h1>
 
-        <section style={styles.summaryGrid}>
-          <SummaryCard label="Saved Days" value={String(summary.days)} />
-          <SummaryCard label="Total Revenue" value={formatCurrency(summary.revenue)} />
-          <SummaryCard label="Total Cost" value={formatCurrency(summary.cost)} />
-          <SummaryCard label="Total Profit" value={formatCurrency(summary.profit)} />
-        </section>
+      <div style={{ display: "flex", gap: 20 }}>
+        {/* LEFT PANEL */}
+        <div
+          style={{
+            width: 420,
+            background: "#fff",
+            borderRadius: 16,
+            border: "1px solid #e5e7eb",
+            overflow: "hidden",
+          }}
+        >
+          {reports.map((r) => {
+            const active = r.id === selectedId;
 
-        {loading ? (
-          <div style={styles.messageCard}>Loading history...</div>
-        ) : error ? (
-          <div style={styles.errorCard}>{error}</div>
-        ) : reports.length === 0 ? (
-          <div style={styles.messageCard}>No saved history found yet.</div>
-        ) : (
-          <div style={styles.contentGrid}>
-            <section style={styles.listPanel}>
-              <div style={styles.panelHeader}>
-                <h2 style={styles.panelTitle}>Saved Reports</h2>
-                <span style={styles.panelCount}>{reports.length} total</span>
+            return (
+              <div
+                key={r.id}
+                onClick={() => setSelectedId(r.id)}
+                style={{
+                  padding: 16,
+                  cursor: "pointer",
+                  borderBottom: "1px solid #eee",
+                  background: active ? "#e6f0ff" : "#fff",
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>
+                  {formatDate(r.date)}
+                </div>
+
+                <div style={{ fontSize: 13, marginTop: 6 }}>
+                  Revenue: {formatMoney(r.revenue)}
+                </div>
+                <div style={{ fontSize: 13 }}>
+                  Cost: {formatMoney(r.cost)}
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color:
+                      Number(r.profit) >= 0 ? "#15803d" : "#b91c1c",
+                  }}
+                >
+                  Profit: {formatMoney(r.profit)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* RIGHT PANEL */}
+        <div
+          style={{
+            flex: 1,
+            background: "#fff",
+            borderRadius: 16,
+            border: "1px solid #e5e7eb",
+            padding: 20,
+          }}
+        >
+          {!selected ? (
+            <div>No data</div>
+          ) : (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 20,
+                }}
+              >
+                <h2>{formatDate(selected.date)}</h2>
+
+                {/* 🚀 NEW BUTTON */}
+                <button
+                  onClick={handleEdit}
+                  style={{
+                    padding: "10px 16px",
+                    background: "#2563eb",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Edit in Control
+                </button>
               </div>
 
-              <div style={styles.reportList}>
-                {reports.map((report) => {
-                  const isActive = selectedReport?.id === report.id;
-
-                  return (
-                    <button
-                      key={report.id}
-                      type="button"
-                      onClick={() => setSelectedReport(report)}
-                      style={{
-                        ...styles.reportButton,
-                        ...(isActive ? styles.reportButtonActive : {}),
-                      }}
-                    >
-                      <div style={styles.reportButtonTop}>
-                        <strong style={styles.reportDate}>{formatDate(report?.date)}</strong>
-                        <span style={styles.reportProfit}>
-                          {formatCurrency(toNumber(report?.profit))}
-                        </span>
-                      </div>
-
-                      <div style={styles.reportButtonBottom}>
-                        <span>Revenue: {formatCurrency(toNumber(report?.revenue))}</span>
-                        <span>Cost: {formatCurrency(toNumber(report?.cost))}</span>
-                      </div>
-                    </button>
-                  );
-                })}
+              {/* SUMMARY */}
+              <div style={{ marginBottom: 20 }}>
+                <div>Revenue: {formatMoney(selected.revenue)}</div>
+                <div>Cost: {formatMoney(selected.cost)}</div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color:
+                      Number(selected.profit) >= 0
+                        ? "#15803d"
+                        : "#b91c1c",
+                  }}
+                >
+                  Profit: {formatMoney(selected.profit)}
+                </div>
               </div>
-            </section>
 
-            <section style={styles.detailPanel}>
-              {selectedReport ? (
-                <>
-                  <div style={styles.panelHeader}>
-                    <div>
-                      <h2 style={styles.panelTitle}>Report Details</h2>
-                      <p style={styles.detailDate}>{formatDate(selectedReport?.date)}</p>
-                    </div>
-                  </div>
+              {/* DISHES */}
+              <h3 style={{ marginBottom: 10 }}>Dish Breakdown</h3>
 
-                  <div style={styles.detailTotalsGrid}>
-                    <DetailStat label="Revenue" value={formatCurrency(toNumber(selectedReport?.revenue))} />
-                    <DetailStat label="Cost" value={formatCurrency(toNumber(selectedReport?.cost))} />
-                    <DetailStat label="Profit" value={formatCurrency(toNumber(selectedReport?.profit))} />
-                  </div>
-
-                  <div style={styles.breakdownCard}>
-                    <div style={styles.breakdownHeader}>
-                      <h3 style={styles.breakdownTitle}>Dish Breakdown</h3>
-                      <span style={styles.breakdownCount}>
-                        {normalizeDishes(selectedReport?.dishes).length} items
-                      </span>
-                    </div>
-
-                    {normalizeDishes(selectedReport?.dishes).length === 0 ? (
-                      <div style={styles.emptyBreakdown}>No dish details saved for this day.</div>
-                    ) : (
-                      <div style={styles.tableWrap}>
-                        <table style={styles.table}>
-                          <thead>
-                            <tr>
-                              <th style={styles.th}>Dish</th>
-                              <th style={styles.thCenter}>Qty</th>
-                              <th style={styles.thRight}>Price</th>
-                              <th style={styles.thRight}>Cost</th>
-                              <th style={styles.thRight}>Revenue</th>
-                              <th style={styles.thRight}>Total Cost</th>
-                              <th style={styles.thRight}>Profit</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {normalizeDishes(selectedReport?.dishes).map((dish, index) => {
-                              const quantity = Math.max(1, toNumber(dish?.quantity || 1));
-                              const price = toNumber(dish?.price);
-                              const cost = toNumber(dish?.cost);
-                              const revenue = price * quantity;
-                              const totalCost = cost * quantity;
-                              const profit = revenue - totalCost;
-
-                              return (
-                                <tr key={`${dish?.name || "dish"}-${index}`} style={styles.tr}>
-                                  <td style={styles.tdName}>{dish?.name || dish?.dish || "Unnamed dish"}</td>
-                                  <td style={styles.tdCenter}>{quantity}</td>
-                                  <td style={styles.tdRight}>{formatCurrency(price)}</td>
-                                  <td style={styles.tdRight}>{formatCurrency(cost)}</td>
-                                  <td style={styles.tdRight}>{formatCurrency(revenue)}</td>
-                                  <td style={styles.tdRight}>{formatCurrency(totalCost)}</td>
-                                  <td style={styles.tdRight}>{formatCurrency(profit)}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={styles.metaCard}>
-                    <div style={styles.metaRow}>
-                      <span style={styles.metaLabel}>Report ID</span>
-                      <span style={styles.metaValue}>{selectedReport?.id ?? "-"}</span>
-                    </div>
-                    <div style={styles.metaRow}>
-                      <span style={styles.metaLabel}>Created</span>
-                      <span style={styles.metaValue}>
-                        {selectedReport?.created_at
-                          ? new Date(selectedReport.created_at).toLocaleString()
-                          : "-"}
-                      </span>
-                    </div>
-                  </div>
-                </>
+              {dishes.length === 0 ? (
+                <div>No dishes saved</div>
               ) : (
-                <div style={styles.messageCard}>Select a report to view details.</div>
+                <table style={{ width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th align="left">Dish</th>
+                      <th align="right">Qty</th>
+                      <th align="right">Revenue</th>
+                      <th align="right">Cost</th>
+                      <th align="right">Profit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dishes.map((d, i) => (
+                      <tr key={i}>
+                        <td>{getDishName(d, i)}</td>
+                        <td align="right">{getDishQty(d)}</td>
+                        <td align="right">
+                          {formatMoney(getDishRevenue(d))}
+                        </td>
+                        <td align="right">
+                          {formatMoney(getDishCost(d))}
+                        </td>
+                        <td
+                          align="right"
+                          style={{
+                            fontWeight: 700,
+                            color:
+                              getDishProfit(d) >= 0
+                                ? "#15803d"
+                                : "#b91c1c",
+                          }}
+                        >
+                          {formatMoney(getDishProfit(d))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
-            </section>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
-function SummaryCard({ label, value }) {
-  return (
-    <div style={styles.summaryCard}>
-      <div style={styles.summaryLabel}>{label}</div>
-      <div style={styles.summaryValue}>{value}</div>
-    </div>
-  );
-}
-
-function DetailStat({ label, value }) {
-  return (
-    <div style={styles.detailStat}>
-      <div style={styles.detailStatLabel}>{label}</div>
-      <div style={styles.detailStatValue}>{value}</div>
-    </div>
-  );
-}
-
-function toNumber(value) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
-}
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(toNumber(value));
-}
-
-function formatDate(value) {
-  if (!value) return "No date";
-
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [year, month, day] = value.split("-");
-    return `${day}/${month}/${year}`;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-
-  return date.toLocaleDateString();
-}
-
-function normalizeDishes(dishes) {
-  if (Array.isArray(dishes)) return dishes;
-
-  if (typeof dishes === "string") {
-    try {
-      const parsed = JSON.parse(dishes);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  return [];
-}
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "#f5f7fb",
-    padding: "32px 16px",
-  },
-  container: {
-    maxWidth: "1400px",
-    margin: "0 auto",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "16px",
-    marginBottom: "24px",
-  },
-  eyebrow: {
-    margin: 0,
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#64748b",
-    textTransform: "uppercase",
-    letterSpacing: "0.08em",
-  },
-  title: {
-    margin: "6px 0 8px 0",
-    fontSize: "36px",
-    fontWeight: 800,
-    color: "#0f172a",
-  },
-  subtitle: {
-    margin: 0,
-    fontSize: "16px",
-    color: "#475569",
-  },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: "16px",
-    marginBottom: "24px",
-  },
-  summaryCard: {
-    background: "#ffffff",
-    borderRadius: "18px",
-    padding: "20px",
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
-    border: "1px solid #e2e8f0",
-  },
-  summaryLabel: {
-    fontSize: "14px",
-    color: "#64748b",
-    marginBottom: "8px",
-  },
-  summaryValue: {
-    fontSize: "28px",
-    fontWeight: 800,
-    color: "#0f172a",
-  },
-  contentGrid: {
-    display: "grid",
-    gridTemplateColumns: "360px minmax(0, 1fr)",
-    gap: "20px",
-    alignItems: "start",
-  },
-  listPanel: {
-    background: "#ffffff",
-    borderRadius: "20px",
-    padding: "18px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
-  },
-  detailPanel: {
-    background: "#ffffff",
-    borderRadius: "20px",
-    padding: "20px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
-  },
-  panelHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "12px",
-    marginBottom: "16px",
-  },
-  panelTitle: {
-    margin: 0,
-    fontSize: "22px",
-    fontWeight: 800,
-    color: "#0f172a",
-  },
-  panelCount: {
-    fontSize: "13px",
-    color: "#64748b",
-    fontWeight: 700,
-    background: "#f1f5f9",
-    padding: "6px 10px",
-    borderRadius: "999px",
-  },
-  reportList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    maxHeight: "70vh",
-    overflowY: "auto",
-    paddingRight: "4px",
-  },
-  reportButton: {
-    width: "100%",
-    textAlign: "left",
-    border: "1px solid #e2e8f0",
-    borderRadius: "16px",
-    padding: "14px",
-    background: "#ffffff",
-    cursor: "pointer",
-    transition: "all 0.2s ease",
-  },
-  reportButtonActive: {
-    border: "1px solid #0f172a",
-    background: "#f8fafc",
-    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
-  },
-  reportButtonTop: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: "12px",
-    marginBottom: "8px",
-  },
-  reportButtonBottom: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-    fontSize: "13px",
-    color: "#64748b",
-  },
-  reportDate: {
-    color: "#0f172a",
-    fontSize: "16px",
-  },
-  reportProfit: {
-    color: "#0f172a",
-    fontSize: "14px",
-    fontWeight: 700,
-  },
-  detailDate: {
-    margin: "6px 0 0 0",
-    color: "#64748b",
-    fontSize: "15px",
-  },
-  detailTotalsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: "14px",
-    marginBottom: "20px",
-  },
-  detailStat: {
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    borderRadius: "16px",
-    padding: "16px",
-  },
-  detailStatLabel: {
-    fontSize: "13px",
-    color: "#64748b",
-    marginBottom: "8px",
-  },
-  detailStatValue: {
-    fontSize: "24px",
-    fontWeight: 800,
-    color: "#0f172a",
-  },
-  breakdownCard: {
-    border: "1px solid #e2e8f0",
-    borderRadius: "18px",
-    overflow: "hidden",
-    background: "#ffffff",
-    marginBottom: "18px",
-  },
-  breakdownHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "12px",
-    padding: "16px 18px",
-    borderBottom: "1px solid #e2e8f0",
-    background: "#f8fafc",
-  },
-  breakdownTitle: {
-    margin: 0,
-    fontSize: "18px",
-    fontWeight: 800,
-    color: "#0f172a",
-  },
-  breakdownCount: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#64748b",
-  },
-  emptyBreakdown: {
-    padding: "18px",
-    color: "#64748b",
-  },
-  tableWrap: {
-    width: "100%",
-    overflowX: "auto",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    minWidth: "900px",
-  },
-  th: {
-    textAlign: "left",
-    fontSize: "13px",
-    fontWeight: 800,
-    color: "#475569",
-    padding: "14px 16px",
-    borderBottom: "1px solid #e2e8f0",
-    background: "#ffffff",
-  },
-  thCenter: {
-    textAlign: "center",
-    fontSize: "13px",
-    fontWeight: 800,
-    color: "#475569",
-    padding: "14px 16px",
-    borderBottom: "1px solid #e2e8f0",
-    background: "#ffffff",
-  },
-  thRight: {
-    textAlign: "right",
-    fontSize: "13px",
-    fontWeight: 800,
-    color: "#475569",
-    padding: "14px 16px",
-    borderBottom: "1px solid #e2e8f0",
-    background: "#ffffff",
-  },
-  tr: {
-    borderBottom: "1px solid #f1f5f9",
-  },
-  tdName: {
-    padding: "14px 16px",
-    color: "#0f172a",
-    fontWeight: 600,
-  },
-  tdCenter: {
-    padding: "14px 16px",
-    textAlign: "center",
-    color: "#334155",
-  },
-  tdRight: {
-    padding: "14px 16px",
-    textAlign: "right",
-    color: "#334155",
-  },
-  metaCard: {
-    border: "1px solid #e2e8f0",
-    borderRadius: "18px",
-    background: "#ffffff",
-    overflow: "hidden",
-  },
-  metaRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: "16px",
-    padding: "14px 16px",
-    borderBottom: "1px solid #f1f5f9",
-  },
-  metaLabel: {
-    color: "#64748b",
-    fontSize: "14px",
-    fontWeight: 600,
-  },
-  metaValue: {
-    color: "#0f172a",
-    fontSize: "14px",
-    fontWeight: 600,
-    textAlign: "right",
-  },
-  messageCard: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "20px",
-    padding: "24px",
-    color: "#475569",
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
-  },
-  errorCard: {
-    background: "#fff1f2",
-    border: "1px solid #fecdd3",
-    borderRadius: "20px",
-    padding: "24px",
-    color: "#be123c",
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
-  },
-};

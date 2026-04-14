@@ -4,42 +4,37 @@ import { useEffect, useState } from "react";
 
 export default function ControlFinal() {
   const [dishes, setDishes] = useState([]);
-  const [rows, setRows] = useState([
-    { dishId: "", quantity: 0 },
-  ]);
+  const [rows, setRows] = useState([]);
 
   useEffect(() => {
     fetch("/api/get-dishes")
       .then((res) => res.json())
-      .then((data) => setDishes(data));
+      .then((data) => {
+        setDishes(data);
+        setRows(
+          data.map((dish) => ({
+            id: dish.id,
+            name: dish.name,
+            price: dish.price,
+            cost: dish.cost,
+            quantity: 0,
+          }))
+        );
+      });
   }, []);
 
-  const addRow = () => {
-    setRows([...rows, { dishId: "", quantity: 0 }]);
-  };
-
-  const updateRow = (index, field, value) => {
+  const updateQty = (index, value) => {
     const updated = [...rows];
-    updated[index][field] = value;
+    updated[index].quantity = Number(value);
     setRows(updated);
   };
 
-  const getDish = (id) => dishes.find((d) => d.id === id);
-
-  const calculateRow = (row) => {
-    const dish = getDish(row.dishId);
-    if (!dish) return { revenue: 0, cost: 0, profit: 0 };
-
-    const revenue = dish.price * row.quantity;
-    const cost = dish.cost * row.quantity;
-    const profit = revenue - cost;
-
-    return { revenue, cost, profit };
-  };
-
   const totals = rows.reduce(
-    (acc, row) => {
-      const { revenue, cost, profit } = calculateRow(row);
+    (acc, item) => {
+      const revenue = item.price * item.quantity;
+      const cost = item.cost * item.quantity;
+      const profit = revenue - cost;
+
       return {
         revenue: acc.revenue + revenue,
         cost: acc.cost + cost,
@@ -52,58 +47,60 @@ export default function ControlFinal() {
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8">
 
-      <h1 className="text-2xl font-bold mb-6">Daily Control</h1>
+      <h1 className="text-3xl font-bold mb-6">Daily Control</h1>
 
-      <div className="bg-white rounded-xl shadow p-4">
-        {rows.map((row, index) => {
-          const { revenue, cost, profit } = calculateRow(row);
+      <div className="bg-white rounded-xl shadow overflow-hidden">
+
+        <div className="grid grid-cols-5 bg-gray-200 p-3 font-semibold text-sm">
+          <div>Dish</div>
+          <div className="text-center">Qty</div>
+          <div className="text-right">Revenue</div>
+          <div className="text-right">Cost</div>
+          <div className="text-right">Profit</div>
+        </div>
+
+        {rows.map((item, index) => {
+          const revenue = item.price * item.quantity;
+          const cost = item.cost * item.quantity;
+          const profit = revenue - cost;
 
           return (
-            <div key={index} className="grid grid-cols-5 gap-3 mb-3">
-
-              <select
-                value={row.dishId}
-                onChange={(e) =>
-                  updateRow(index, "dishId", e.target.value)
-                }
-                className="border p-2 rounded"
-              >
-                <option value="">Dish</option>
-                {dishes.map((dish) => (
-                  <option key={dish.id} value={dish.id}>
-                    {dish.name}
-                  </option>
-                ))}
-              </select>
+            <div
+              key={item.id}
+              className="grid grid-cols-5 p-3 border-b items-center"
+            >
+              <div>{item.name}</div>
 
               <input
                 type="number"
-                value={row.quantity}
-                onChange={(e) =>
-                  updateRow(index, "quantity", Number(e.target.value))
-                }
-                className="border p-2 rounded"
+                value={item.quantity}
+                onChange={(e) => updateQty(index, e.target.value)}
+                className="border rounded px-2 py-1 w-20 mx-auto text-center"
               />
 
-              <div>฿{revenue.toFixed(0)}</div>
-              <div>฿{cost.toFixed(0)}</div>
-              <div>฿{profit.toFixed(0)}</div>
+              <div className="text-right">
+                ฿{revenue.toFixed(0)}
+              </div>
+
+              <div className="text-right text-gray-500">
+                ฿{cost.toFixed(0)}
+              </div>
+
+              <div className="text-right font-semibold text-green-600">
+                ฿{profit.toFixed(0)}
+              </div>
             </div>
           );
         })}
-
-        <button
-          onClick={addRow}
-          className="mt-4 bg-black text-white px-4 py-2 rounded"
-        >
-          + Add Dish
-        </button>
       </div>
 
-      <div className="mt-6 bg-white p-4 rounded shadow">
+      <div className="mt-6 bg-white rounded-xl shadow p-4">
+        <h2 className="font-semibold mb-2">Totals</h2>
         <p>Revenue: ฿{totals.revenue.toFixed(0)}</p>
         <p>Cost: ฿{totals.cost.toFixed(0)}</p>
-        <p>Profit: ฿{totals.profit.toFixed(0)}</p>
+        <p className="font-bold text-green-600">
+          Profit: ฿{totals.profit.toFixed(0)}
+        </p>
       </div>
 
     </div>

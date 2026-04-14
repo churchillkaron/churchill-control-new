@@ -15,7 +15,7 @@ export default function ControlFinal() {
   const [cost, setCost] = useState(0);
   const [profit, setProfit] = useState(0);
 
-  // LOAD FROM HISTORY
+  // Load from history
   useEffect(() => {
     const dataParam = searchParams.get("data");
 
@@ -23,7 +23,6 @@ export default function ControlFinal() {
 
     try {
       const decoded = JSON.parse(decodeURIComponent(dataParam));
-
       if (decoded?.date) setDate(decoded.date);
       if (Array.isArray(decoded?.dishes)) setDishes(decoded.dishes);
     } catch (err) {
@@ -31,17 +30,14 @@ export default function ControlFinal() {
     }
   }, [searchParams]);
 
-  // CALCULATE TOTALS
+  // Calculate totals
   useEffect(() => {
     let totalRevenue = 0;
     let totalCost = 0;
 
     dishes.forEach((d) => {
-      const r = Number(d?.revenue ?? 0);
-      const c = Number(d?.cost ?? 0);
-
-      totalRevenue += r;
-      totalCost += c;
+      totalRevenue += Number(d.revenue || 0);
+      totalCost += Number(d.cost || 0);
     });
 
     setRevenue(totalRevenue);
@@ -62,32 +58,39 @@ export default function ControlFinal() {
     ]);
   }
 
+  function saveDay() {
+    fetch("/api/save-day", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        date,
+        dishes,
+        revenue,
+        cost,
+        profit,
+      }),
+    });
+  }
+
   return (
-    <div
-      style={{
-        maxWidth: 1000,
-        margin: "40px auto",
-        padding: 20,
-      }}
-    >
+    <div style={{ maxWidth: 1000, margin: "40px auto", padding: 20 }}>
       <h1 style={{ marginBottom: 20 }}>Daily Control</h1>
 
-      {/* DATE */}
-      <div style={{ marginBottom: 20 }}>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={{
-            padding: 10,
-            fontSize: 16,
-            borderRadius: 8,
-            border: "1px solid #ddd",
-          }}
-        />
-      </div>
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        style={{
+          padding: 10,
+          borderRadius: 8,
+          border: "1px solid #ddd",
+          marginBottom: 20,
+        }}
+      />
 
-      {/* TABLE HEADER */}
+      {/* Table header */}
       <div
         style={{
           display: "grid",
@@ -102,7 +105,7 @@ export default function ControlFinal() {
         <div>Cost</div>
       </div>
 
-      {/* DISH ROWS */}
+      {/* Rows */}
       {dishes.map((dish, index) => (
         <div
           key={index}
@@ -147,30 +150,29 @@ export default function ControlFinal() {
         </div>
       ))}
 
-      {/* ADD BUTTON */}
       <button
         onClick={addDish}
         style={{
           marginTop: 10,
           padding: "10px 20px",
-          borderRadius: 8,
-          border: "none",
           background: "#111",
           color: "#fff",
+          border: "none",
+          borderRadius: 8,
           cursor: "pointer",
         }}
       >
         + Add Dish
       </button>
 
-      {/* TOTALS */}
+      {/* Totals */}
       <div
         style={{
           marginTop: 30,
           padding: 20,
+          border: "1px solid #eee",
           borderRadius: 12,
           background: "#fff",
-          border: "1px solid #eee",
         }}
       >
         <div>Revenue: ฿{revenue}</div>
@@ -185,16 +187,16 @@ export default function ControlFinal() {
         </div>
 
         <button
+          onClick={saveDay}
           style={{
             marginTop: 20,
             width: "100%",
             padding: 15,
-            borderRadius: 10,
-            border: "none",
             background: "#16a34a",
             color: "#fff",
+            border: "none",
+            borderRadius: 10,
             fontWeight: "bold",
-            fontSize: 16,
             cursor: "pointer",
           }}
         >

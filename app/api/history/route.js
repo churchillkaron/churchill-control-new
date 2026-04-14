@@ -1,30 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-export async function POST(request) {
+export async function GET() {
   try {
-    const body = await request.json();
-
-    // ✅ USE YOUR EXISTING ENV (NO NEXT_PUBLIC)
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_ANON_KEY
     );
 
-    const cleanDate = new Date().toISOString().split("T")[0];
-
-    const insertData = {
-      date: cleanDate,
-      dishes: body.dishes || [],
-      revenue: body.totals?.revenue || 0,
-      cost: body.totals?.cost || 0,
-      profit: body.totals?.profit || 0,
-    };
-
     const { data, error } = await supabase
       .from("daily-reports")
-      .insert([insertData])
-      .select();
+      .select("*")
+      .order("date", { ascending: false });
 
     if (error) {
       return NextResponse.json(
@@ -35,7 +22,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       ok: true,
-      inserted: data,
+      rows: data,
     });
   } catch (err) {
     return NextResponse.json(

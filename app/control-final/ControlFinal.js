@@ -3,31 +3,28 @@
 import { useState, useRef, useEffect } from 'react';
 
 const DISH_PRESETS = [
-  "Beef Carpaccio",
-  "Chili Garlic Prawns",
-  "Signature Bruschetta",
-  "Seared Scallops",
-  "Mango Tomato Salad",
-  "Beef Short Ribs",
-  "Ribeye Steak",
-  "Beef Tenderloin",
-  "Pork Tenderloin",
-  "Salmon",
-  "Sambal Half Chicken",
-  "Veal Stew",
-  "Potato Gratin",
-  "Potato Wedges",
-  "Cauliflower Puree",
-  "Tom Yum Goong",
-  "Tom Kha Gai",
-  "Pad Thai",
-  "Pad Ka Prow",
-  "Chicken Cashew Nuts",
-  "Beef with Oyster Sauce",
-  "Massaman Curry",
-  "Green Curry",
-  "Panang Curry",
-  "Pineapple Fried Rice"
+  { name: "Beef Carpaccio", price: 320, cost: 160 },
+  { name: "Chili Garlic Prawns", price: 280, cost: 140 },
+  { name: "Signature Bruschetta", price: 180, cost: 70 },
+  { name: "Seared Scallops", price: 360, cost: 180 },
+  { name: "Mango Tomato Salad", price: 150, cost: 60 },
+  { name: "Beef Short Ribs", price: 420, cost: 240 },
+  { name: "Ribeye Steak", price: 650, cost: 380 },
+  { name: "Beef Tenderloin", price: 690, cost: 400 },
+  { name: "Pork Tenderloin", price: 350, cost: 180 },
+  { name: "Salmon", price: 420, cost: 230 },
+  { name: "Sambal Half Chicken", price: 300, cost: 150 },
+  { name: "Veal Stew", price: 380, cost: 210 },
+  { name: "Tom Yum Goong", price: 220, cost: 110 },
+  { name: "Tom Kha Gai", price: 200, cost: 100 },
+  { name: "Pad Thai", price: 180, cost: 90 },
+  { name: "Pad Ka Prow", price: 170, cost: 85 },
+  { name: "Chicken Cashew Nuts", price: 190, cost: 95 },
+  { name: "Beef with Oyster Sauce", price: 220, cost: 120 },
+  { name: "Massaman Curry", price: 240, cost: 130 },
+  { name: "Green Curry", price: 220, cost: 110 },
+  { name: "Panang Curry", price: 230, cost: 120 },
+  { name: "Pineapple Fried Rice", price: 200, cost: 100 }
 ];
 
 export default function ControlFinal() {
@@ -60,6 +57,25 @@ export default function ControlFinal() {
     setDishes(updated);
   }
 
+  function selectDish(index, name) {
+    const preset = DISH_PRESETS.find(d => d.name === name);
+
+    const updated = [...dishes];
+
+    if (preset) {
+      updated[index] = {
+        ...updated[index],
+        name: preset.name,
+        price: preset.price,
+        cost: preset.cost
+      };
+    } else {
+      updated[index].name = name;
+    }
+
+    setDishes(updated);
+  }
+
   function addDish() {
     setDishes([...dishes, { name: '', qty: '', price: '', cost: '' }]);
   }
@@ -83,9 +99,7 @@ export default function ControlFinal() {
 
   function getValidDishes() {
     return dishes.filter(
-      (d) =>
-        d.name.trim() !== '' &&
-        sanitizeNumber(d.qty) > 0
+      d => d.name.trim() !== '' && sanitizeNumber(d.qty) > 0
     );
   }
 
@@ -95,7 +109,7 @@ export default function ControlFinal() {
     let revenue = 0;
     let cost = 0;
 
-    valid.forEach((d) => {
+    valid.forEach(d => {
       const qty = sanitizeNumber(d.qty);
       const price = sanitizeNumber(d.price);
       const c = sanitizeNumber(d.cost);
@@ -107,7 +121,7 @@ export default function ControlFinal() {
     return {
       revenue,
       cost,
-      profit: revenue - cost,
+      profit: revenue - cost
     };
   }
 
@@ -180,14 +194,14 @@ export default function ControlFinal() {
                   <select
                     value={dish.name}
                     onChange={(e) =>
-                      updateDish(rowIndex, 'name', e.target.value)
+                      selectDish(rowIndex, e.target.value)
                     }
-                    style={{ width: '100%', padding: 8, marginBottom: 4 }}
+                    style={{ width: '100%', padding: 8 }}
                   >
                     <option value="">Select dish</option>
-                    {DISH_PRESETS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
+                    {DISH_PRESETS.map(d => (
+                      <option key={d.name} value={d.name}>
+                        {d.name}
                       </option>
                     ))}
                   </select>
@@ -197,46 +211,15 @@ export default function ControlFinal() {
                   <input
                     type="number"
                     min="0"
-                    ref={(el) =>
-                      (inputsRef.current[rowIndex * 4 + 1] = el)
-                    }
                     value={dish.qty}
                     onChange={(e) =>
                       updateDish(rowIndex, 'qty', e.target.value)
                     }
-                    onKeyDown={(e) => handleEnter(e, rowIndex, 1)}
                   />
                 </td>
 
-                <td>
-                  <input
-                    type="number"
-                    min="0"
-                    ref={(el) =>
-                      (inputsRef.current[rowIndex * 4 + 2] = el)
-                    }
-                    value={dish.price}
-                    onChange={(e) =>
-                      updateDish(rowIndex, 'price', e.target.value)
-                    }
-                    onKeyDown={(e) => handleEnter(e, rowIndex, 2)}
-                  />
-                </td>
-
-                <td>
-                  <input
-                    type="number"
-                    min="0"
-                    ref={(el) =>
-                      (inputsRef.current[rowIndex * 4 + 3] = el)
-                    }
-                    value={dish.cost}
-                    onChange={(e) =>
-                      updateDish(rowIndex, 'cost', e.target.value)
-                    }
-                    onKeyDown={(e) => handleEnter(e, rowIndex, 3)}
-                  />
-                </td>
+                <td>{price}</td>
+                <td>{cost}</td>
 
                 <td>{revenue.toFixed(2)}</td>
                 <td>{profit.toFixed(2)}</td>

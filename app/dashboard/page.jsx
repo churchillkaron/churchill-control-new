@@ -6,17 +6,26 @@ import { useEffect, useMemo, useState } from "react";
 
 export default function DashboardPage() {
   const [data, setData] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/history", { cache: "no-store" });
-        const json = await res.json();
-        setData(Array.isArray(json) ? json : []);
+        const [historyRes, summaryRes] = await Promise.all([
+          fetch("/api/history", { cache: "no-store" }),
+          fetch("/api/accounting-summary", { cache: "no-store" }),
+        ]);
+
+        const history = await historyRes.json();
+        const summaryData = await summaryRes.json();
+
+        setData(Array.isArray(history) ? history : []);
+        setSummary(summaryData || {});
       } catch (err) {
         console.error(err);
         setData([]);
+        setSummary({});
       } finally {
         setLoading(false);
       }
@@ -25,64 +34,38 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  const totalRevenue = useMemo(
-    () => data.reduce((sum, d) => sum + Number(d.revenue || 0), 0),
-    [data]
-  );
+  const totalRevenue = summary?.revenue || 0;
+  const totalSales = summary?.sales || 0;
+  const avgTicket = summary?.avg || 0;
+  const drinkRevenue = summary?.drinks || 0;
 
-  const totalCost = useMemo(
-    () => data.reduce((sum, d) => sum + Number(d.cost || 0), 0),
-    [data]
-  );
+  const drinksPerSale = totalSales > 0 ? drinkRevenue / totalSales : 0;
 
-  const totalProfit = useMemo(
-    () => data.reduce((sum, d) => sum + Number(d.profit || 0), 0),
-    [data]
-  );
-
-  const foodCostPct = totalRevenue > 0 ? (totalCost / totalRevenue) * 100 : 0;
-
-  const bestDay = useMemo(() => {
-    if (!data.length) return null;
-    return [...data].sort((a, b) => b.profit - a.profit)[0];
-  }, [data]);
-
-  const worstDay = useMemo(() => {
-    if (!data.length) return null;
-    return [...data].sort((a, b) => a.profit - b.profit)[0];
-  }, [data]);
-
-  // 🔥 CHURCHILL SCORE ENGINE
+  // 🔥 REAL AI ENGINE
   const ai = useMemo(() => {
-    if (!data.length) return { list: [], score: 0, status: "NO DATA" };
-
-    const totalCovers = data.reduce((sum, d) => sum + Number(d.dishes?.meta?.covers || 0), 0);
-    const totalDrinkRevenue = data.reduce((sum, d) => sum + Number(d.dishes?.meta?.drinkRevenue || 0), 0);
-
-    const revenuePerCover = totalCovers > 0 ? totalRevenue / totalCovers : 0;
-    const drinksPerCover = totalCovers > 0 ? totalDrinkRevenue / totalCovers : 0;
+    if (!summary) return { list: [], score: 0, status: "NO DATA" };
 
     let score = 100;
     const list = [];
 
-    if (revenuePerCover < 400) {
-      list.push("Upselling weak — push starters and sides.");
+    if (avgTicket < 400) {
+      list.push("Low ticket size — staff must upsell mains, sides, and extras.");
       score -= 25;
     }
 
-    if (drinksPerCover < 120) {
-      list.push("Drinks-first weak — sell drinks immediately.");
+    if (drinksPerSale < 120) {
+      list.push("Drinks-first weak — staff must push drinks immediately.");
       score -= 25;
     }
 
-    if (drinksPerCover < 80) {
+    if (drinksPerSale < 80) {
       list.push("Critical: very low drink conversion.");
       score -= 30;
     }
 
-    if (foodCostPct > 60) {
-      list.push("Food cost too high — control portions.");
-      score -= 20;
+    if (avgTicket > 600 && drinksPerSale < 150) {
+      list.push("Strong food but weak drinks — push second-round drinks.");
+      score -= 15;
     }
 
     let status = "GOOD";
@@ -90,8 +73,8 @@ export default function DashboardPage() {
     if (score < 60) status = "BAD";
     if (score < 40) status = "CRITICAL";
 
-    return { list, score, status, revenuePerCover, drinksPerCover };
-  }, [data, totalRevenue, totalCost, foodCostPct]);
+    return { list, score, status };
+  }, [summary, avgTicket, drinksPerSale]);
 
   const maxRevenue = Math.max(...data.map(d => d.revenue || 0), 1);
 
@@ -111,10 +94,10 @@ export default function DashboardPage() {
         gap: 16,
         marginBottom: 30,
       }}>
-        <Card title="Total Revenue" value={`THB ${totalRevenue}`} highlight />
-        <Card title="Total Cost" value={`THB ${totalCost}`} />
-        <Card title="Gross Profit" value={`THB ${totalProfit}`} />
-        <Card title="Food Cost %" value={`${foodCostPct.toFixed(1)}%`} />
+        <Card title="Revenue" value={`THB ${totalRevenue}`} highlight />
+        <Card title="Sales" value={totalSales} />
+        <Card title="Avg Ticket" value={`THB ${Math.round(avgTicket)}`} />
+        <Card title="Drink Revenue" value={`THB ${drinkRevenue}`} />
       </div>
 
       {/* 📊 CHART */}
@@ -137,17 +120,6 @@ export default function DashboardPage() {
             );
           })}
         </div>
-      </div>
-
-      {/* BEST / WORST */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: 16,
-        marginBottom: 30,
-      }}>
-        <Box title="Best Day" data={bestDay} />
-        <Box title="Worst Day" data={worstDay} />
       </div>
 
       {/* 🔥 AI MANAGER */}
@@ -192,21 +164,6 @@ function Card({ title, value, highlight }) {
         color: highlight ? "#f97316" : "white",
       }}>
         {value}
-      </div>
-    </div>
-  );
-}
-
-function Box({ title, data }) {
-  if (!data) return null;
-
-  return (
-    <div style={{ background: "#131313", padding: 20, borderRadius: 14 }}>
-      <div style={{ color: "#aaa", fontSize: 12 }}>{title}</div>
-      <div style={{ marginTop: 10 }}>
-        <strong>{data.date}</strong><br />
-        Revenue: {data.revenue}<br />
-        Profit: {data.profit}
       </div>
     </div>
   );

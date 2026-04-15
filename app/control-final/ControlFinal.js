@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function ControlFinal() {
   const [dishes, setDishes] = useState([
@@ -9,6 +9,10 @@ export default function ControlFinal() {
 
   const [message, setMessage] = useState('');
   const inputsRef = useRef([]);
+
+  useEffect(() => {
+    inputsRef.current[0]?.focus();
+  }, []);
 
   function sanitizeNumber(value) {
     const num = Number(value);
@@ -118,12 +122,13 @@ export default function ControlFinal() {
   const totals = calculateTotals();
 
   return (
-    <div style={{ padding: 30, maxWidth: 1000, margin: '0 auto' }}>
-      <h1 style={{ marginBottom: 20 }}>Control Panel</h1>
+    <div style={{ padding: 40, maxWidth: 1000, margin: '0 auto' }}>
+      <h1 style={{ marginBottom: 30 }}>Control Panel</h1>
 
-      <table style={{ width: '100%', marginBottom: 20 }}>
+      {/* TABLE */}
+      <table style={{ width: '100%', marginBottom: 30 }}>
         <thead>
-          <tr>
+          <tr style={{ textAlign: 'left' }}>
             <th>Dish</th>
             <th>Qty</th>
             <th>Price</th>
@@ -154,7 +159,8 @@ export default function ControlFinal() {
                       updateDish(rowIndex, 'name', e.target.value)
                     }
                     onKeyDown={(e) => handleEnter(e, rowIndex, 0)}
-                    placeholder="Dish name"
+                    placeholder="e.g. Burger"
+                    style={{ width: '100%', padding: 8 }}
                   />
                 </td>
 
@@ -170,6 +176,7 @@ export default function ControlFinal() {
                       updateDish(rowIndex, 'qty', e.target.value)
                     }
                     onKeyDown={(e) => handleEnter(e, rowIndex, 1)}
+                    style={{ width: 80, padding: 8 }}
                   />
                 </td>
 
@@ -185,6 +192,7 @@ export default function ControlFinal() {
                       updateDish(rowIndex, 'price', e.target.value)
                     }
                     onKeyDown={(e) => handleEnter(e, rowIndex, 2)}
+                    style={{ width: 100, padding: 8 }}
                   />
                 </td>
 
@@ -200,6 +208,7 @@ export default function ControlFinal() {
                       updateDish(rowIndex, 'cost', e.target.value)
                     }
                     onKeyDown={(e) => handleEnter(e, rowIndex, 3)}
+                    style={{ width: 100, padding: 8 }}
                   />
                 </td>
 
@@ -211,24 +220,28 @@ export default function ControlFinal() {
         </tbody>
       </table>
 
+      {/* ACTION */}
       <button
         onClick={addDish}
-        style={{ marginBottom: 20 }}
+        style={{ marginBottom: 30 }}
       >
         + Add Dish
       </button>
 
-      <div style={{ marginBottom: 20 }}>
+      {/* TOTALS */}
+      <div style={{ marginBottom: 30 }}>
         <h3>Total Revenue: {totals.revenue.toFixed(2)}</h3>
         <h3>Total Cost: {totals.cost.toFixed(2)}</h3>
         <h2>Profit: {totals.profit.toFixed(2)}</h2>
       </div>
 
+      {/* SAVE */}
       <button
         onClick={saveDay}
         style={{
-          padding: '10px 20px',
+          padding: '12px 24px',
           fontSize: 16,
+          fontWeight: 'bold',
           cursor: 'pointer',
         }}
       >

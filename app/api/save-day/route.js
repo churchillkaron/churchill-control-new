@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { getSupabase } from '../../../lib/supabase'
 
@@ -14,34 +16,17 @@ export async function POST(req) {
 
     const { data, error } = await supabase
       .from('daily-reports')
-      .insert([
-        {
-          date,
-          dishes,
-          revenue,
-          cost,
-          profit,
-        },
-      ])
+      .insert([{ date, dishes, revenue, cost, profit }])
       .select()
       .single()
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({
-      success: true,
-      data,
-    })
+    return NextResponse.json({ success: true, data })
 
   } catch (err) {
-    return NextResponse.json(
-      { error: err.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

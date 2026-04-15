@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { getSupabase } from '../../../lib/supabase'
 
@@ -10,10 +12,7 @@ export async function GET() {
       .select('total')
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     const revenue = (data || []).reduce(
@@ -21,17 +20,12 @@ export async function GET() {
       0
     )
 
-    const sales = (data || []).length
-
     return NextResponse.json({
       revenue,
-      sales,
+      sales: data.length,
     })
 
   } catch (err) {
-    return NextResponse.json(
-      { error: err.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

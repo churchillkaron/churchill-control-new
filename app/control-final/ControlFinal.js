@@ -1,87 +1,36 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 const DISHES = [
-  { name: "Beef Carpaccio", category: "Starter", price: 320, cost: 110.72 },
-  { name: "Chili & Garlic Prawns", category: "Starter", price: 320, cost: 74.32 },
-  { name: "Signature Bruschetta", category: "Starter", price: 280, cost: 62.38 },
-  { name: "Seared Scallops", category: "Starter", price: 520, cost: 175.72 },
-  { name: "Mango & Tomato Salad", category: "Light", price: 220, cost: 16.97 },
-
-  { name: "Churchill Beef Short Ribs", category: "Main", price: 890, cost: 518.36 },
-  { name: "Ribeye Steak", category: "Main", price: 890, cost: 206.36 },
-  { name: "Beef Tenderloin", category: "Main", price: 920, cost: 265.69 },
-  { name: "Pork Tenderloin", category: "Main", price: 460, cost: 76.54 },
-  { name: "Salmon", category: "Main", price: 690, cost: 172.6 },
-
-  { name: "Pad Thai", category: "Main", price: 160, cost: 56.55 },
-  { name: "Pad Ka Prow", category: "Main", price: 150, cost: 36.91 },
+  { name: "Beef Carpaccio", price: 320, cost: 110 },
+  { name: "Chili & Garlic Prawns", price: 320, cost: 74 },
+  { name: "Ribeye Steak", price: 890, cost: 206 },
+  { name: "Salmon", price: 690, cost: 172 },
+  { name: "Pad Thai", price: 160, cost: 56 },
 ];
 
 const money = (v) => Number(v || 0).toFixed(0);
-const percent = (v) => `${Number(v || 0).toFixed(1)}%`;
 
-function BarChart({ revenue, cost, profit }) {
-  const max = Math.max(revenue, cost, profit, 1);
-
-  return (
-    <div style={{ marginTop: 20 }}>
-      <div style={{ marginBottom: 5 }}>Revenue vs Cost vs Profit</div>
-
-      {[
-        { label: "Revenue", value: revenue },
-        { label: "Cost", value: cost },
-        { label: "Profit", value: profit },
-      ].map((item) => (
-        <div key={item.label} style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 12 }}>{item.label}</div>
-          <div
-            style={{
-              height: 10,
-              width: `${(item.value / max) * 100}%`,
-              background: "#666",
-            }}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TopDishChart({ list }) {
-  if (!list.length) return null;
-
-  const max = Math.max(...list.map((d) => d.qty), 1);
+function Bar({ value, max }) {
+  if (!value || !max) return null;
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <div style={{ marginBottom: 5 }}>Top Dishes</div>
-
-      {list.slice(0, 5).map((d) => (
-        <div key={d.name} style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 12 }}>{d.name}</div>
-          <div
-            style={{
-              height: 10,
-              width: `${(d.qty / max) * 100}%`,
-              background: "#999",
-            }}
-          />
-        </div>
-      ))}
-    </div>
+    <div
+      style={{
+        height: 10,
+        width: `${(value / max) * 100}%`,
+        background: "#666",
+        marginBottom: 6,
+      }}
+    />
   );
 }
 
 export default function ControlFinal() {
-  const [rows, setRows] = useState([{ dish: "", qty: 1, price: 0, cost: 0 }]);
-  const [search, setSearch] = useState("");
-  const inputRefs = useRef([]);
-
-  const filtered = DISHES.filter((d) =>
-    d.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const [rows, setRows] = useState([
+    { dish: "", qty: 1, price: 0, cost: 0 },
+  ]);
 
   const updateDish = (i, val) => {
     const d = DISHES.find((x) => x.name === val);
@@ -104,25 +53,23 @@ export default function ControlFinal() {
   };
 
   const totals = (() => {
-    let r = 0,
-      c = 0,
-      q = 0;
+    let revenue = 0;
+    let cost = 0;
 
-    rows.forEach((x) => {
-      r += x.price * x.qty;
-      c += x.cost * x.qty;
-      q += x.qty;
+    rows.forEach((r) => {
+      revenue += r.price * r.qty;
+      cost += r.cost * r.qty;
     });
 
     return {
-      revenue: r,
-      cost: c,
-      profit: r - c,
-      margin: r ? ((r - c) / r) * 100 : 0,
-      qty: q,
+      revenue,
+      cost,
+      profit: revenue - cost,
+      margin: revenue ? ((revenue - cost) / revenue) * 100 : 0,
     };
   })();
 
+  // 🔥 FIXED ANALYTICS
   const analytics = (() => {
     const map = {};
 
@@ -130,40 +77,50 @@ export default function ControlFinal() {
       if (!r.dish) return;
 
       if (!map[r.dish]) {
-        map[r.dish] = { name: r.dish, qty: 0, revenue: 0, cost: 0 };
+        map[r.dish] = { name: r.dish, qty: 0 };
       }
 
       map[r.dish].qty += r.qty;
-      map[r.dish].revenue += r.price * r.qty;
-      map[r.dish].cost += r.cost * r.qty;
     });
 
-    return Object.values(map).sort((a, b) => b.qty - a.qty);
+    const list = Object.values(map);
+
+    const maxQty = Math.max(...list.map((d) => d.qty), 1);
+
+    return {
+      list,
+      maxQty,
+    };
   })();
 
+  // 🔥 STRONG AI BACK
   const ai = (() => {
     if (!totals.revenue) return ["⚠️ No sales data yet"];
 
-    return [
-      totals.margin < 50
-        ? "🔴 Margin too low → adjust prices"
-        : "🟢 Margin healthy",
-    ];
+    const out = [];
+
+    if (totals.margin < 50) {
+      out.push("🔴 Margin too low — increase prices");
+    } else {
+      out.push("🟢 Margin healthy");
+    }
+
+    if (analytics.list.length > 0) {
+      out.push(`🔵 Top dish: ${analytics.list[0].name}`);
+    }
+
+    return out;
   })();
 
   return (
-    <div style={{ padding: 40, fontFamily: "Arial", maxWidth: 1100, margin: "0 auto" }}>
+    <div style={{ padding: 40, maxWidth: 900, margin: "0 auto" }}>
       <h1>Churchill Control Panel</h1>
 
-      {/* KPI */}
-      <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
-        <div>Revenue: {money(totals.revenue)}</div>
-        <div>Profit: {money(totals.profit)}</div>
-        <div>Margin: {percent(totals.margin)}</div>
-        <div>Dishes: {totals.qty}</div>
+      <div style={{ marginTop: 10 }}>
+        Revenue: {money(totals.revenue)} | Profit: {money(totals.profit)} |
+        Margin: {totals.margin.toFixed(1)}%
       </div>
 
-      {/* AI */}
       <div style={{ marginTop: 20 }}>
         <h3>AI Manager</h3>
         {ai.map((x, i) => (
@@ -171,23 +128,12 @@ export default function ControlFinal() {
         ))}
       </div>
 
-      {/* INPUT */}
       <div style={{ marginTop: 20 }}>
-        <input
-          placeholder="Search dish..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ width: "100%", marginBottom: 10 }}
-        />
-
         <table width="100%">
           <thead>
             <tr>
               <th align="left">Dish</th>
               <th>Qty</th>
-              <th>Price</th>
-              <th>Cost</th>
-              <th>Total</th>
             </tr>
           </thead>
 
@@ -200,7 +146,7 @@ export default function ControlFinal() {
                     onChange={(e) => updateDish(i, e.target.value)}
                   >
                     <option value="">Select</option>
-                    {filtered.map((d) => (
+                    {DISHES.map((d) => (
                       <option key={d.name}>{d.name}</option>
                     ))}
                   </select>
@@ -213,27 +159,30 @@ export default function ControlFinal() {
                     onChange={(e) => updateQty(i, e.target.value)}
                   />
                 </td>
-
-                <td>{money(r.price)}</td>
-                <td>{money(r.cost)}</td>
-                <td>{money(r.price * r.qty)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* 🔥 ANALYTICS BACK */}
+      {/* 🔥 FIXED ANALYTICS */}
       <div style={{ marginTop: 30 }}>
         <h2>Analytics</h2>
 
-        <BarChart
-          revenue={totals.revenue}
-          cost={totals.cost}
-          profit={totals.profit}
-        />
+        <h4>Revenue vs Cost vs Profit</h4>
 
-        <TopDishChart list={analytics} />
+        <Bar value={totals.revenue} max={totals.revenue} />
+        <Bar value={totals.cost} max={totals.revenue} />
+        <Bar value={totals.profit} max={totals.revenue} />
+
+        <h4 style={{ marginTop: 20 }}>Top Dishes</h4>
+
+        {analytics.list.map((d) => (
+          <div key={d.name}>
+            {d.name}
+            <Bar value={d.qty} max={analytics.maxQty} />
+          </div>
+        ))}
       </div>
     </div>
   );

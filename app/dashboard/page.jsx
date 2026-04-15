@@ -11,116 +11,127 @@ export default function Dashboard() {
       .then(res => setData(res || []));
   }, []);
 
-  function calculateTotals() {
-    let revenue = 0;
-    let cost = 0;
+  function analyzeDishes() {
+    const map = {};
+
+    data.forEach(day => {
+      (day.dishes || []).forEach(d => {
+        if (!map[d.name]) {
+          map[d.name] = {
+            qty: 0,
+            revenue: 0,
+            cost: 0
+          };
+        }
+
+        const qty = Number(d.qty) || 0;
+        const price = Number(d.price) || 0;
+        const cost = Number(d.cost) || 0;
+
+        map[d.name].qty += qty;
+        map[d.name].revenue += qty * price;
+        map[d.name].cost += qty * cost;
+      });
+    });
+
+    const result = Object.keys(map).map(name => {
+      const d = map[name];
+      return {
+        name,
+        qty: d.qty,
+        revenue: d.revenue,
+        profit: d.revenue - d.cost,
+        margin: d.revenue > 0 ? (d.revenue - d.cost) / d.revenue : 0
+      };
+    });
+
+    return result;
+  }
+
+  function getStats() {
+    let totalProfit = 0;
 
     data.forEach(d => {
-      revenue += d.revenue || 0;
-      cost += d.cost || 0;
+      totalProfit += d.profit || 0;
     });
 
     return {
-      revenue,
-      cost,
-      profit: revenue - cost
+      avgProfit: data.length ? totalProfit / data.length : 0
     };
   }
 
-  function prepareChartData() {
-    const sorted = [...data].sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
-    );
+  const dishes = analyzeDishes();
 
-    return sorted.map(d => ({
-      date: new Date(d.date).toLocaleDateString(),
-      revenue: d.revenue || 0,
-      profit: d.profit || 0
-    }));
-  }
+  const topSelling = [...dishes]
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 5);
 
-  const totals = calculateTotals();
-  const chartData = prepareChartData();
+  const mostProfitable = [...dishes]
+    .sort((a, b) => b.profit - a.profit)
+    .slice(0, 5);
+
+  const lowMargin = dishes
+    .filter(d => d.margin < 0.4)
+    .sort((a, b) => a.margin - b.margin)
+    .slice(0, 5);
+
+  const stats = getStats();
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Dashboard</h1>
+        <h1 style={styles.title}>Performance Dashboard</h1>
 
-        {/* SUMMARY */}
-        <div style={styles.grid}>
-          <Card title="Revenue" value={totals.revenue} />
-          <Card title="Cost" value={totals.cost} />
-          <Card title="Profit" value={totals.profit} />
-          <Card title="Days" value={data.length} />
+        {/* AVG PROFIT */}
+        <div style={styles.card}>
+          <h3>Average Profit / Day</h3>
+          <h2>{stats.avgProfit.toFixed(2)}</h2>
         </div>
 
-        {/* CHART */}
-        <div style={styles.chartCard}>
-          <h2>Performance</h2>
-          <LineChart data={chartData} />
-        </div>
+        {/* TOP SELLING */}
+        <Section title="Top Selling Dishes">
+          {topSelling.map(d => (
+            <Row key={d.name} label={d.name} value={d.qty} />
+          ))}
+        </Section>
+
+        {/* MOST PROFITABLE */}
+        <Section title="Most Profitable Dishes">
+          {mostProfitable.map(d => (
+            <Row key={d.name} label={d.name} value={d.profit.toFixed(2)} />
+          ))}
+        </Section>
+
+        {/* LOW MARGIN */}
+        <Section title="Low Margin (Fix These)">
+          {lowMargin.map(d => (
+            <Row
+              key={d.name}
+              label={d.name}
+              value={(d.margin * 100).toFixed(1) + '%'}
+            />
+          ))}
+        </Section>
       </div>
     </div>
   );
 }
 
-function Card({ title, value }) {
+function Section({ title, children }) {
   return (
-    <div style={styles.card}>
-      <p>{title}</p>
-      <h2>
-        {typeof value === 'number'
-          ? value.toFixed(2)
-          : value}
-      </h2>
+    <div style={styles.section}>
+      <h2>{title}</h2>
+      {children}
     </div>
   );
 }
 
-function LineChart({ data }) {
-  if (!data.length) return <p>No data yet</p>;
-
-  const width = 800;
-  const height = 300;
-  const padding = 40;
-
-  const maxValue = Math.max(
-    ...data.map(d => Math.max(d.revenue, d.profit))
-  );
-
-  const stepX = (width - padding * 2) / (data.length - 1);
-
-  function getY(value) {
-    return height - padding - (value / maxValue) * (height - padding * 2);
-  }
-
-  const revenuePoints = data
-    .map((d, i) => `${padding + i * stepX},${getY(d.revenue)}`)
-    .join(' ');
-
-  const profitPoints = data
-    .map((d, i) => `${padding + i * stepX},${getY(d.profit)}`)
-    .join(' ');
-
+function Row({ label, value }) {
   return (
-    <svg width="100%" height={height}>
-      {/* Revenue line */}
-      <polyline
-        fill="none"
-        stroke="#ff8c00"
-        strokeWidth="3"
-        points={revenuePoints}
-      />
-
-      {/* Profit line */}
-      <polyline
-        fill="none"
-        stroke="#2e7d32"
-        strokeWidth="3"
-        points={profitPoints}
-      />
-    </svg>
+    <div style={styles.row}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
@@ -131,26 +142,28 @@ const styles = {
     padding: 40
   },
   container: {
-    maxWidth: 1100,
+    maxWidth: 900,
     margin: '0 auto'
   },
   title: {
     marginBottom: 30
   },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: 20,
-    marginBottom: 40
-  },
   card: {
     background: '#fff',
     padding: 20,
-    borderRadius: 10
+    borderRadius: 10,
+    marginBottom: 30
   },
-  chartCard: {
+  section: {
     background: '#fff',
     padding: 20,
-    borderRadius: 10
+    borderRadius: 10,
+    marginBottom: 20
+  },
+  row: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '8px 0',
+    borderBottom: '1px solid #eee'
   }
 };

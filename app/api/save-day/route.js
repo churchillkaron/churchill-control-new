@@ -14,17 +14,55 @@ export async function POST(req) {
     const cost = Number(body.cost || 0)
     const profit = Number(body.profit || 0)
 
-    const { data, error } = await supabase
+    // 🔥 CHECK IF DATE EXISTS
+    const { data: existing, error: fetchError } = await supabase
       .from('daily-reports')
-      .insert([{ date, dishes, revenue, cost, profit }])
-      .select()
-      .single()
+      .select('id')
+      .eq('date', date)
+      .maybeSingle()
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (fetchError) {
+      return NextResponse.json({ error: fetchError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, data })
+    let result
+
+    if (existing) {
+      // 🔥 UPDATE EXISTING DAY
+      const { data, error } = await supabase
+        .from('daily-reports')
+        .update({
+          dishes,
+          revenue,
+          cost,
+          profit,
+        })
+        .eq('id', existing.id)
+        .select()
+        .single()
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      result = { mode: 'updated', data }
+
+    } else {
+      // 🔥 INSERT NEW DAY
+      const { data, error } = await supabase
+        .from('daily-reports')
+        .insert([{ date, dishes, revenue, cost, profit }])
+        .select()
+        .single()
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      result = { mode: 'inserted', data }
+    }
+
+    return NextResponse.json(result)
 
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })

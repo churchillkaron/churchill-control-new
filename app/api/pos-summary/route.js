@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { getSupabase } from '../../../lib/supabase'
 
@@ -20,12 +22,14 @@ export async function GET() {
       )
     }
 
-    const revenue = (data || []).reduce(
+    const safeData = Array.isArray(data) ? data : []
+
+    const revenue = safeData.reduce(
       (sum, row) => sum + Number(row.total || 0),
       0
     )
 
-    const sales = (data || []).length
+    const sales = safeData.length
     const avg = sales ? revenue / sales : 0
 
     return NextResponse.json({

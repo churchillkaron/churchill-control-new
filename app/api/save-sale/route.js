@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { getSupabase } from '../../../lib/supabase'
 
@@ -22,11 +24,18 @@ export async function POST(req) {
       )
     }
 
+    // 🔥 ENSURE SAFE ITEM STRUCTURE
+    const safeItems = items.map((item) => ({
+      name: item?.name || '',
+      qty: Number(item?.qty || 0),
+      price: Number(item?.price || 0),
+    }))
+
     const { data, error } = await supabase
       .from('pos-sales')
       .insert([
         {
-          items,
+          items: safeItems,
           subtotal,
           service,
           discount,

@@ -6,11 +6,11 @@ import { getSupabase } from '../../../lib/supabase'
 
 export async function GET() {
   try {
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    const supabase = getSupabase()
+
+    if (!supabase) {
       return NextResponse.json([])
     }
-
-    const supabase = getSupabase()
 
     const { data, error } = await supabase
       .from('daily-reports')
@@ -19,12 +19,14 @@ export async function GET() {
       .limit(30)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('History API error:', error.message)
+      return NextResponse.json([])
     }
 
     return NextResponse.json(Array.isArray(data) ? data : [])
 
   } catch (err) {
+    console.error('History API crash:', err.message)
     return NextResponse.json([])
   }
 }

@@ -13,10 +13,9 @@ export default function DashboardPage() {
       try {
         const res = await fetch("/api/history", { cache: "no-store" });
         const json = await res.json();
-
         setData(Array.isArray(json) ? json : []);
       } catch (err) {
-        console.error("Dashboard load error:", err);
+        console.error(err);
         setData([]);
       } finally {
         setLoading(false);
@@ -41,48 +40,79 @@ export default function DashboardPage() {
     [data]
   );
 
+  const foodCostPct = totalRevenue > 0 ? (totalCost / totalRevenue) * 100 : 0;
+
   if (loading) {
-    return (
-      <div style={{ padding: 20 }}>
-        <h2>Dashboard</h2>
-        <p>Loading...</p>
-      </div>
-    );
+    return <div style={{ padding: 20, color: "white" }}>Loading...</div>;
   }
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Dashboard</h2>
+    <div style={{ background: "#0b0b0b", minHeight: "100vh", padding: 20, color: "white" }}>
 
-      {/* 🔥 SUMMARY */}
-      <div style={{ marginBottom: 20 }}>
-        <strong>Total Revenue:</strong> {totalRevenue} <br />
-        <strong>Total Cost:</strong> {totalCost} <br />
-        <strong>Total Profit:</strong> {totalProfit} <br />
-        <strong>Days:</strong> {data.length}
+      <h1 style={{ marginBottom: 20 }}>Dashboard</h1>
+
+      {/* 🔥 KPI CARDS */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 16,
+          marginBottom: 30,
+        }}
+      >
+        <Card title="Total Revenue" value={`THB ${totalRevenue}`} highlight />
+        <Card title="Total Cost" value={`THB ${totalCost}`} />
+        <Card title="Gross Profit" value={`THB ${totalProfit}`} />
+        <Card title="Food Cost %" value={`${foodCostPct.toFixed(1)}%`} />
       </div>
 
-      {/* 🔥 LIST */}
-      {data.length === 0 ? (
-        <p>No data yet</p>
-      ) : (
-        data.map((day, index) => (
+      {/* 🔥 HISTORY BLOCK */}
+      <div style={{ display: "grid", gap: 12 }}>
+        {data.map((day, i) => (
           <div
-            key={index}
+            key={i}
             style={{
-              padding: 10,
-              marginBottom: 10,
-              border: "1px solid #333",
-              borderRadius: 8,
+              background: "#131313",
+              padding: 16,
+              borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.05)",
             }}
           >
-            <strong>{day.date}</strong><br />
-            Revenue: {day.revenue}<br />
-            Cost: {day.cost}<br />
-            Profit: {day.profit}
+            <strong>{day.date}</strong>
+
+            <div style={{ marginTop: 8 }}>
+              Revenue: THB {day.revenue}
+            </div>
+            <div>Cost: THB {day.cost}</div>
+            <div>Profit: THB {day.profit}</div>
           </div>
-        ))
-      )}
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Card({ title, value, highlight }) {
+  return (
+    <div
+      style={{
+        background: "#131313",
+        padding: 20,
+        borderRadius: 14,
+        border: "1px solid rgba(255,255,255,0.05)",
+      }}
+    >
+      <div style={{ color: "#aaa", fontSize: 12 }}>{title}</div>
+      <div
+        style={{
+          fontSize: 24,
+          fontWeight: "bold",
+          marginTop: 6,
+          color: highlight ? "#f97316" : "white",
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }

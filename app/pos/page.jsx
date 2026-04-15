@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 const THEME = {
   bg: '#0b0b0b',
@@ -11,185 +11,141 @@ const THEME = {
   muted: '#b8aa8a',
   orange: '#d97706',
   khaki: '#c2b280',
+  red: '#7f1d1d',
 }
 
-function formatTHB(v) {
-  return `THB ${Number(v || 0).toLocaleString()}`
-}
+/* 🔥 REAL MENU */
 
-function formatTime(v) {
-  return new Date(v).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+const MENU_ITEMS = [
+  // BREAKFAST
+  { id: 1, name: 'English Breakfast', price: 290, category: 'Breakfast' },
+  { id: 2, name: 'All Day Breakfast', price: 250, category: 'Breakfast' },
+
+  // BURGERS
+  { id: 3, name: 'Classic Cheeseburger', price: 280, category: 'Burgers' },
+  { id: 4, name: 'Double Beef Burger', price: 350, category: 'Burgers' },
+  { id: 5, name: 'Pulled Beef Burger', price: 320, category: 'Burgers' },
+
+  // PIZZA
+  { id: 6, name: 'Margherita Pizza', price: 320, category: 'Pizza' },
+  { id: 7, name: 'Pepperoni Pizza', price: 360, category: 'Pizza' },
+  { id: 8, name: 'BBQ Chicken Pizza', price: 380, category: 'Pizza' },
+
+  // PASTA
+  { id: 9, name: 'Pulled Beef Pasta', price: 350, category: 'Pasta' },
+  { id: 10, name: 'Carbonara', price: 320, category: 'Pasta' },
+
+  // SANDWICH
+  { id: 11, name: 'Steak Sandwich', price: 340, category: 'Sandwich' },
+  { id: 12, name: 'Chicken Sandwich', price: 280, category: 'Sandwich' },
+
+  // MAINS
+  { id: 13, name: 'Fish and Chips', price: 330, category: 'Mains' },
+  { id: 14, name: 'Grilled Chicken', price: 310, category: 'Mains' },
+
+  // BAKERY
+  { id: 15, name: 'Tosca Roll', price: 120, category: 'Bakery' },
+  { id: 16, name: 'Cinnamon Roll', price: 110, category: 'Bakery' },
+  { id: 17, name: 'Chocolate Lava Cake', price: 150, category: 'Bakery' },
+
+  // DRINKS
+  { id: 18, name: 'Peach Soda', price: 95, category: 'Drinks' },
+  { id: 19, name: 'Americano', price: 90, category: 'Drinks' },
+  { id: 20, name: 'Latte', price: 110, category: 'Drinks' },
+]
+
+function formatTHB(value) {
+  return `THB ${Number(value || 0).toLocaleString()}`
 }
 
 export default function POSPage() {
-  const [sales, setSales] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [orderItems, setOrderItems] = useState([])
+  const [selectedCategory, setSelectedCategory] = useState('All')
 
-  const fetchSales = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/pos-today')
-      const data = await res.json()
-      setSales(data.data || [])
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchSales()
+  const categories = useMemo(() => {
+    return ['All', ...Array.from(new Set(MENU_ITEMS.map(i => i.category)))]
   }, [])
 
-  const revenue = useMemo(() => {
-    return sales.reduce((sum, s) => sum + Number(s.total || 0), 0)
-  }, [sales])
+  const filteredItems = useMemo(() => {
+    return MENU_ITEMS.filter(item =>
+      selectedCategory === 'All' || item.category === selectedCategory
+    )
+  }, [selectedCategory])
 
-  const avg = useMemo(() => {
-    if (!sales.length) return 0
-    return revenue / sales.length
-  }, [sales, revenue])
+  const addItem = (item) => {
+    setOrderItems(prev => {
+      const exist = prev.find(i => i.id === item.id)
+      if (exist) {
+        return prev.map(i =>
+          i.id === item.id ? { ...i, qty: i.qty + 1 } : i
+        )
+      }
+      return [...prev, { ...item, qty: 1 }]
+    })
+  }
+
+  const total = orderItems.reduce((s, i) => s + i.price * i.qty, 0)
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: THEME.bg,
-        color: THEME.text,
-        padding: '30px',
-        fontFamily: 'Arial, sans-serif',
-      }}
-    >
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        
-        {/* HEADER */}
-        <div style={{ marginBottom: '30px' }}>
-          <div style={{ color: THEME.orange, fontWeight: 800, fontSize: 28 }}>
-            CC
-          </div>
-          <h1 style={{ margin: 0 }}>Churchill POS Dashboard</h1>
-          <p style={{ color: THEME.muted }}>
-            Today’s sales overview
-          </p>
-        </div>
+    <div style={{ padding: 30, background: THEME.bg, color: THEME.text }}>
 
-        {/* CARDS */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '20px',
-            marginBottom: '30px',
-          }}
-        >
-          <div style={cardStyle}>
-            <div style={labelStyle}>Sales</div>
-            <div style={valueStyle}>{sales.length}</div>
-          </div>
+      <h1 style={{ color: THEME.orange }}>Churchill POS</h1>
 
-          <div style={cardStyle}>
-            <div style={labelStyle}>Revenue</div>
-            <div style={valueStyle}>{formatTHB(revenue)}</div>
-          </div>
-
-          <div style={cardStyle}>
-            <div style={labelStyle}>Avg Ticket</div>
-            <div style={valueStyle}>{formatTHB(avg)}</div>
-          </div>
-        </div>
-
-        {/* ACTION */}
-        <div style={{ marginBottom: '20px' }}>
+      {/* CATEGORY FILTER */}
+      <div style={{ marginBottom: 20 }}>
+        {categories.map(cat => (
           <button
-            onClick={fetchSales}
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
             style={{
-              padding: '10px 18px',
-              borderRadius: '12px',
+              marginRight: 10,
+              padding: 10,
+              background: selectedCategory === cat ? THEME.orange : THEME.soft,
+              color: '#fff',
               border: 'none',
-              background: THEME.orange,
-              color: '#111',
-              fontWeight: 700,
-              cursor: 'pointer',
+              borderRadius: 10,
+              cursor: 'pointer'
             }}
           >
-            Refresh Sales
+            {cat}
           </button>
-        </div>
-
-        {/* RECEIPTS */}
-        <div style={sectionStyle}>
-          <div style={sectionHeader}>
-            <h2 style={{ margin: 0 }}>Today’s Receipts</h2>
-          </div>
-
-          {loading ? (
-            <div style={{ padding: 20 }}>Loading...</div>
-          ) : sales.length === 0 ? (
-            <div style={{ padding: 20, color: THEME.muted }}>
-              No sales yet today.
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: 12 }}>
-              {sales.map((sale) => (
-                <div key={sale.id} style={receiptStyle}>
-                  <div>
-                    <strong>#{sale.id}</strong>
-                  </div>
-                  <div style={{ color: THEME.muted }}>
-                    {formatTime(sale.created_at)}
-                  </div>
-                  <div style={{ fontWeight: 700, color: THEME.khaki }}>
-                    {formatTHB(sale.total)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        ))}
       </div>
+
+      {/* MENU */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+        {filteredItems.map(item => (
+          <div
+            key={item.id}
+            onClick={() => addItem(item)}
+            style={{
+              padding: 15,
+              background: THEME.panel,
+              borderRadius: 10,
+              cursor: 'pointer'
+            }}
+          >
+            <div>{item.name}</div>
+            <div style={{ color: THEME.khaki }}>
+              {formatTHB(item.price)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ORDER */}
+      <div style={{ marginTop: 30 }}>
+        <h2>Order</h2>
+
+        {orderItems.map(i => (
+          <div key={i.id}>
+            {i.name} x{i.qty} = {formatTHB(i.qty * i.price)}
+          </div>
+        ))}
+
+        <h3>Total: {formatTHB(total)}</h3>
+      </div>
+
     </div>
   )
-}
-
-/* STYLES */
-
-const cardStyle = {
-  padding: 20,
-  borderRadius: 16,
-  background: '#141414',
-  border: '1px solid #2a2a2a',
-}
-
-const labelStyle = {
-  color: '#b8aa8a',
-  fontSize: 14,
-  marginBottom: 6,
-}
-
-const valueStyle = {
-  fontSize: 22,
-  fontWeight: 800,
-}
-
-const sectionStyle = {
-  borderRadius: 16,
-  background: '#141414',
-  border: '1px solid #2a2a2a',
-}
-
-const sectionHeader = {
-  padding: 20,
-  borderBottom: '1px solid #2a2a2a',
-}
-
-const receiptStyle = {
-  padding: 14,
-  borderBottom: '1px solid #2a2a2a',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
 }

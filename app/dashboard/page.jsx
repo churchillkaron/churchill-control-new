@@ -52,27 +52,46 @@ export default function DashboardPage() {
     return [...data].sort((a, b) => a.profit - b.profit)[0];
   }, [data]);
 
-  const insights = useMemo(() => {
-    if (!data.length) return [];
+  // 🔥 CHURCHILL SCORE ENGINE
+  const ai = useMemo(() => {
+    if (!data.length) return { list: [], score: 0, status: "NO DATA" };
 
+    const totalCovers = data.reduce((sum, d) => sum + Number(d.dishes?.meta?.covers || 0), 0);
+    const totalDrinkRevenue = data.reduce((sum, d) => sum + Number(d.dishes?.meta?.drinkRevenue || 0), 0);
+
+    const revenuePerCover = totalCovers > 0 ? totalRevenue / totalCovers : 0;
+    const drinksPerCover = totalCovers > 0 ? totalDrinkRevenue / totalCovers : 0;
+
+    let score = 100;
     const list = [];
 
-    if (bestDay) {
-      list.push(`Best business day was ${bestDay.date} with profit of THB ${bestDay.profit}.`);
+    if (revenuePerCover < 400) {
+      list.push("Upselling weak — push starters and sides.");
+      score -= 25;
     }
 
-    if (worstDay) {
-      list.push(`Weakest day was ${worstDay.date} with profit of THB ${worstDay.profit}.`);
+    if (drinksPerCover < 120) {
+      list.push("Drinks-first weak — sell drinks immediately.");
+      score -= 25;
+    }
+
+    if (drinksPerCover < 80) {
+      list.push("Critical: very low drink conversion.");
+      score -= 30;
     }
 
     if (foodCostPct > 60) {
-      list.push(`Food cost is high at ${foodCostPct.toFixed(1)}%. Review portion control.`);
-    } else {
-      list.push(`Food cost is under control at ${foodCostPct.toFixed(1)}%.`);
+      list.push("Food cost too high — control portions.");
+      score -= 20;
     }
 
-    return list;
-  }, [data, bestDay, worstDay, foodCostPct]);
+    let status = "GOOD";
+    if (score < 80) status = "WARNING";
+    if (score < 60) status = "BAD";
+    if (score < 40) status = "CRITICAL";
+
+    return { list, score, status, revenuePerCover, drinksPerCover };
+  }, [data, totalRevenue, totalCost, foodCostPct]);
 
   const maxRevenue = Math.max(...data.map(d => d.revenue || 0), 1);
 
@@ -98,35 +117,22 @@ export default function DashboardPage() {
         <Card title="Food Cost %" value={`${foodCostPct.toFixed(1)}%`} />
       </div>
 
-      {/* 🔥 REVENUE CHART */}
-      <div style={{
-        background: "#131313",
-        padding: 20,
-        borderRadius: 14,
-        marginBottom: 30,
-      }}>
+      {/* 📊 CHART */}
+      <div style={{ background: "#131313", padding: 20, borderRadius: 14, marginBottom: 30 }}>
         <div style={{ color: "#aaa", marginBottom: 10 }}>Revenue Trend</div>
 
-        <div style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: 8,
-          height: 150,
-        }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 150 }}>
           {data.slice().reverse().map((d, i) => {
             const height = (d.revenue / maxRevenue) * 100;
-
             return (
-              <div key={i} style={{ textAlign: "center" }}>
+              <div key={i}>
                 <div style={{
                   width: 30,
                   height: `${height}%`,
                   background: "#f97316",
                   borderRadius: 4,
                 }} />
-                <div style={{ fontSize: 10, marginTop: 4 }}>
-                  {d.revenue}
-                </div>
+                <div style={{ fontSize: 10 }}>{d.revenue}</div>
               </div>
             );
           })}
@@ -144,18 +150,31 @@ export default function DashboardPage() {
         <Box title="Worst Day" data={worstDay} />
       </div>
 
-      {/* AI */}
+      {/* 🔥 AI MANAGER */}
       <div style={{
         background: "#131313",
         padding: 20,
         borderRadius: 14,
         marginBottom: 30,
       }}>
-        <div style={{ color: "#aaa", marginBottom: 10 }}>AI Owner Insights</div>
+        <div style={{ color: "#aaa", marginBottom: 10 }}>AI Manager</div>
 
-        {insights.map((text, i) => (
-          <div key={i}>• {text}</div>
-        ))}
+        <div style={{
+          fontSize: 18,
+          fontWeight: "bold",
+          color:
+            ai.status === "GOOD" ? "green" :
+            ai.status === "WARNING" ? "orange" :
+            "red"
+        }}>
+          {ai.status} (Score {ai.score})
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          {ai.list.map((t, i) => (
+            <div key={i}>• {t}</div>
+          ))}
+        </div>
       </div>
 
     </div>
@@ -164,11 +183,7 @@ export default function DashboardPage() {
 
 function Card({ title, value, highlight }) {
   return (
-    <div style={{
-      background: "#131313",
-      padding: 20,
-      borderRadius: 14,
-    }}>
+    <div style={{ background: "#131313", padding: 20, borderRadius: 14 }}>
       <div style={{ color: "#aaa", fontSize: 12 }}>{title}</div>
       <div style={{
         fontSize: 24,
@@ -186,11 +201,7 @@ function Box({ title, data }) {
   if (!data) return null;
 
   return (
-    <div style={{
-      background: "#131313",
-      padding: 20,
-      borderRadius: 14,
-    }}>
+    <div style={{ background: "#131313", padding: 20, borderRadius: 14 }}>
       <div style={{ color: "#aaa", fontSize: 12 }}>{title}</div>
       <div style={{ marginTop: 10 }}>
         <strong>{data.date}</strong><br />

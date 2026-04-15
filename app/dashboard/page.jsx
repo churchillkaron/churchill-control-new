@@ -66,15 +66,15 @@ export default function DashboardPage() {
     }
 
     if (foodCostPct > 60) {
-      list.push(`Food cost is high at ${foodCostPct.toFixed(1)}%. Review portion control and supplier pricing.`);
-    } else if (foodCostPct > 40) {
-      list.push(`Food cost is moderate at ${foodCostPct.toFixed(1)}%. Monitor closely.`);
+      list.push(`Food cost is high at ${foodCostPct.toFixed(1)}%. Review portion control.`);
     } else {
-      list.push(`Food cost is healthy at ${foodCostPct.toFixed(1)}%. Good control.`);
+      list.push(`Food cost is under control at ${foodCostPct.toFixed(1)}%.`);
     }
 
     return list;
   }, [data, bestDay, worstDay, foodCostPct]);
+
+  const maxRevenue = Math.max(...data.map(d => d.revenue || 0), 1);
 
   if (loading) {
     return <div style={{ padding: 20, color: "white" }}>Loading...</div>;
@@ -98,6 +98,41 @@ export default function DashboardPage() {
         <Card title="Food Cost %" value={`${foodCostPct.toFixed(1)}%`} />
       </div>
 
+      {/* 🔥 REVENUE CHART */}
+      <div style={{
+        background: "#131313",
+        padding: 20,
+        borderRadius: 14,
+        marginBottom: 30,
+      }}>
+        <div style={{ color: "#aaa", marginBottom: 10 }}>Revenue Trend</div>
+
+        <div style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 8,
+          height: 150,
+        }}>
+          {data.slice().reverse().map((d, i) => {
+            const height = (d.revenue / maxRevenue) * 100;
+
+            return (
+              <div key={i} style={{ textAlign: "center" }}>
+                <div style={{
+                  width: 30,
+                  height: `${height}%`,
+                  background: "#f97316",
+                  borderRadius: 4,
+                }} />
+                <div style={{ fontSize: 10, marginTop: 4 }}>
+                  {d.revenue}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* BEST / WORST */}
       <div style={{
         display: "grid",
@@ -109,37 +144,17 @@ export default function DashboardPage() {
         <Box title="Worst Day" data={worstDay} />
       </div>
 
-      {/* 🔥 AI INSIGHTS */}
+      {/* AI */}
       <div style={{
         background: "#131313",
         padding: 20,
         borderRadius: 14,
         marginBottom: 30,
-        border: "1px solid rgba(255,255,255,0.05)",
       }}>
         <div style={{ color: "#aaa", marginBottom: 10 }}>AI Owner Insights</div>
 
         {insights.map((text, i) => (
-          <div key={i} style={{ marginBottom: 8 }}>
-            • {text}
-          </div>
-        ))}
-      </div>
-
-      {/* HISTORY */}
-      <div style={{ display: "grid", gap: 12 }}>
-        {data.map((day, i) => (
-          <div key={i} style={{
-            background: "#131313",
-            padding: 16,
-            borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.05)",
-          }}>
-            <strong>{day.date}</strong>
-            <div style={{ marginTop: 8 }}>Revenue: THB {day.revenue}</div>
-            <div>Cost: THB {day.cost}</div>
-            <div>Profit: THB {day.profit}</div>
-          </div>
+          <div key={i}>• {text}</div>
         ))}
       </div>
 
@@ -153,7 +168,6 @@ function Card({ title, value, highlight }) {
       background: "#131313",
       padding: 20,
       borderRadius: 14,
-      border: "1px solid rgba(255,255,255,0.05)",
     }}>
       <div style={{ color: "#aaa", fontSize: 12 }}>{title}</div>
       <div style={{
@@ -176,13 +190,12 @@ function Box({ title, data }) {
       background: "#131313",
       padding: 20,
       borderRadius: 14,
-      border: "1px solid rgba(255,255,255,0.05)",
     }}>
       <div style={{ color: "#aaa", fontSize: 12 }}>{title}</div>
       <div style={{ marginTop: 10 }}>
         <strong>{data.date}</strong><br />
-        Revenue: THB {data.revenue}<br />
-        Profit: THB {data.profit}
+        Revenue: {data.revenue}<br />
+        Profit: {data.profit}
       </div>
     </div>
   );

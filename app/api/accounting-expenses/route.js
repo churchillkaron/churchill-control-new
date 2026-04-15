@@ -1,55 +1,27 @@
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server'
+import { getSupabase } from '../../../lib/supabase'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+export async function GET() {
+  try {
+    const supabase = getSupabase()
 
-// GET (with optional date filter)
-export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const start = searchParams.get('start');
+    const { data, error } = await supabase
+      .from('accounting-expenses')
+      .select('*')
+      .order('created_at', { ascending: false })
 
-  let query = supabase
-    .from('accounting-expenses')
-    .select('*')
-    .order('date', { ascending: false });
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      )
+    }
 
-  if (start) {
-    query = query.gte('date', start);
+    return NextResponse.json({ data })
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message },
+      { status: 500 }
+    )
   }
-
-  const { data, error } = await query;
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-
-  return Response.json(data);
-}
-
-// POST
-export async function POST(req) {
-  const body = await req.json();
-
-  const { date, category, description, amount, payment_method, supplier } = body;
-
-  const { data, error } = await supabase
-    .from('accounting-expenses')
-    .insert([
-      {
-        date,
-        category,
-        description,
-        amount,
-        payment_method,
-        supplier,
-      },
-    ]);
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-
-  return Response.json(data);
 }

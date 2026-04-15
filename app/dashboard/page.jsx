@@ -5,26 +5,17 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useState } from "react";
 
 export default function DashboardPage() {
-  const [data, setData] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [historyRes, summaryRes] = await Promise.all([
-          fetch("/api/history", { cache: "no-store" }),
-          fetch("/api/accounting-summary", { cache: "no-store" }),
-        ]);
-
-        const history = await historyRes.json();
-        const summaryData = await summaryRes.json();
-
-        setData(Array.isArray(history) ? history : []);
-        setSummary(summaryData || {});
+        const res = await fetch("/api/accounting-summary", { cache: "no-store" });
+        const json = await res.json();
+        setSummary(json || {});
       } catch (err) {
         console.error(err);
-        setData([]);
         setSummary({});
       } finally {
         setLoading(false);
@@ -57,7 +48,7 @@ export default function DashboardPage() {
     return { score, status };
   }, [avgTicket, drinksPerSale]);
 
-  // 🔥 SERVICE CHARGE POOL
+  // 🔥 SERVICE CHARGE (5%)
   const baseService = revenue * 0.05;
 
   const adjustedService = useMemo(() => {
@@ -67,6 +58,13 @@ export default function DashboardPage() {
     return 0;
   }, [ai, baseService]);
 
+  // 🔥 TEAM SPLIT
+  const split = {
+    foh: adjustedService * 0.5,
+    bar: adjustedService * 0.3,
+    kitchen: adjustedService * 0.2,
+  };
+
   if (loading) {
     return <div style={{ padding: 20, color: "white" }}>Loading...</div>;
   }
@@ -74,9 +72,9 @@ export default function DashboardPage() {
   return (
     <div style={{ background: "#0b0b0b", minHeight: "100vh", padding: 20, color: "white" }}>
 
-      <h1>Churchill Control</h1>
+      <h1>Service Charge Control</h1>
 
-      {/* 🔥 SERVICE CHARGE */}
+      {/* 🔥 TOTAL */}
       <div style={{ background: "#131313", padding: 20, borderRadius: 14, marginBottom: 20 }}>
         <div style={{ color: "#aaa" }}>Service Charge (5%)</div>
 
@@ -100,12 +98,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI */}
+      {/* 🔥 SPLIT */}
       <div style={{ display: "flex", gap: 16 }}>
-        <Card title="Revenue" value={`THB ${revenue}`} />
-        <Card title="Sales" value={sales} />
-        <Card title="Avg Ticket" value={`THB ${Math.round(avgTicket)}`} />
-        <Card title="Drinks" value={`THB ${drinks}`} />
+
+        <Card title="FOH (50%)" value={`THB ${Math.round(split.foh)}`} />
+        <Card title="Bar (30%)" value={`THB ${Math.round(split.bar)}`} />
+        <Card title="Kitchen (20%)" value={`THB ${Math.round(split.kitchen)}`} />
+
       </div>
 
     </div>

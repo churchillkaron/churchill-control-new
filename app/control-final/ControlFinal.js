@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 const DISHES = [
   { name: "Beef Carpaccio", category: "Starter", price: 320, cost: 110.72 },
@@ -14,27 +14,12 @@ const DISHES = [
   { name: "Beef Tenderloin", category: "Main", price: 920, cost: 265.69 },
   { name: "Pork Tenderloin", category: "Main", price: 460, cost: 76.54 },
   { name: "Salmon", category: "Main", price: 690, cost: 172.6 },
-  { name: "Churchill Sambal Half Chicken", category: "Main", price: 590, cost: 133.87 },
-  { name: "Veal Stew", category: "Main", price: 850, cost: 254.74 },
-
-  { name: "Potato Gratin", category: "Side", price: 120, cost: 30.34 },
-  { name: "Crispy Potato Wedges", category: "Side", price: 100, cost: 18.34 },
-  { name: "Cauliflower Puree", category: "Side", price: 120, cost: 27.44 },
-
-  { name: "Tom Yum Goong", category: "Soup", price: 180, cost: 94.4 },
-  { name: "Tom Kha Gai", category: "Soup", price: 170, cost: 70.1 },
 
   { name: "Pad Thai", category: "Main", price: 160, cost: 56.55 },
   { name: "Pad Ka Prow", category: "Main", price: 150, cost: 36.91 },
-  { name: "Chicken Cashew Nuts", category: "Main", price: 180, cost: 68.04 },
-  { name: "Beef with Oyster Sauce", category: "Main", price: 220, cost: 160.53 },
-  { name: "Massaman Curry", category: "Main", price: 180, cost: 90.96 },
-  { name: "Green Curry", category: "Main", price: 170, cost: 80.77 },
-  { name: "Panang Curry", category: "Main", price: 175, cost: 71.9 },
-  { name: "Pineapple Fried Rice", category: "Main", price: 160, cost: 54.36 },
 ];
 
-function formatMoney(v) {
+function money(v) {
   return Number(v || 0).toFixed(0);
 }
 
@@ -45,44 +30,41 @@ export default function ControlFinal() {
   const [search, setSearch] = useState("");
   const inputRefs = useRef([]);
 
-  const filteredDishes = DISHES.filter((d) =>
+  const filtered = DISHES.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDishChange = (i, value) => {
-    const d = DISHES.find((x) => x.name === value);
+  // 🔥 UPDATE DISH
+  const updateDish = (i, val) => {
+    const d = DISHES.find((x) => x.name === val);
+    const copy = [...rows];
 
-    const updated = [...rows];
-    updated[i] = {
-      ...updated[i],
-      dish: value,
+    copy[i] = {
+      ...copy[i],
+      dish: val,
       price: d ? d.price : 0,
       cost: d ? d.cost : 0,
     };
-    setRows(updated);
+
+    setRows(copy);
   };
 
-  const handleQtyChange = (i, value) => {
-    const updated = [...rows];
-    updated[i].qty = Number(value);
-    setRows(updated);
+  // 🔥 UPDATE QTY
+  const updateQty = (i, val) => {
+    const copy = [...rows];
+    copy[i].qty = Number(val);
+    setRows(copy);
   };
 
-  const handleKeyDown = (e, i) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
+  // 🔥 ADD ROW
+  const addRow = () => {
+    setRows([...rows, { dish: "", qty: 1, price: 0, cost: 0 }]);
+  };
 
-      if (i === rows.length - 1) {
-        setRows([...rows, { dish: "", qty: 1, price: 0, cost: 0 }]);
-        setTimeout(() => inputRefs.current[i + 1]?.focus(), 100);
-      } else {
-        inputRefs.current[i + 1]?.focus();
-      }
-    }
-
-    if (e.key === "Backspace" && rows[i].dish === "" && rows.length > 1) {
-      const updated = rows.filter((_, idx) => idx !== i);
-      setRows(updated);
+  // 🔥 REMOVE LAST ROW
+  const removeRow = () => {
+    if (rows.length > 1) {
+      setRows(rows.slice(0, -1));
     }
   };
 
@@ -102,12 +84,12 @@ export default function ControlFinal() {
       revenue,
       cost,
       profit: revenue - cost,
-      margin: revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0,
+      margin: revenue ? ((revenue - cost) / revenue) * 100 : 0,
       qty,
     };
   })();
 
-  // 🔥 ANALYTICS
+  // 🔥 ANALYTICS (NO useMemo)
   const analytics = (() => {
     const map = {};
 
@@ -127,144 +109,214 @@ export default function ControlFinal() {
       name,
       ...v,
       profit: v.revenue - v.cost,
-      foodCost: v.revenue > 0 ? (v.cost / v.revenue) * 100 : 0,
+      foodCost: v.revenue ? (v.cost / v.revenue) * 100 : 0,
     }));
 
     list.sort((a, b) => b.qty - a.qty);
 
     return {
-      list,
       top: list[0],
       bestProfit: [...list].sort((a, b) => b.profit - a.profit)[0],
       worstCost: [...list].sort((a, b) => b.foodCost - a.foodCost)[0],
     };
   })();
 
-  // 🔥 AI MANAGER (NO useMemo — ALWAYS FRESH)
+  // 🔥 AI MANAGER (STRONGER VERSION)
   const ai = (() => {
     const out = [];
 
-    if (totals.revenue === 0) {
-      out.push("⚠️ No data yet");
+    if (!totals.revenue) {
+      out.push("⚠️ No data yet — start entering sales");
       return out;
     }
 
     if (totals.margin < 50) {
-      out.push("🔴 Margin too low → increase prices or reduce cost");
+      out.push("🔴 Margin too low → increase prices or reduce cost immediately");
     }
 
     if (analytics.worstCost && analytics.worstCost.foodCost > 50) {
       out.push(
-        `🟡 ${analytics.worstCost.name} food cost too high (${analytics.worstCost.foodCost.toFixed(
+        `🟡 ${analytics.worstCost.name} has high food cost (${analytics.worstCost.foodCost.toFixed(
           1
         )}%)`
       );
     }
 
     if (analytics.bestProfit) {
-      out.push(`🟢 Push ${analytics.bestProfit.name} (best profit)`);
+      out.push(`🟢 Push ${analytics.bestProfit.name} (high profit dish)`);
     }
 
     if (analytics.top) {
-      out.push(`🔵 ${analytics.top.name} sells most`);
+      out.push(`🔵 ${analytics.top.name} sells most — consider upsell`);
     }
 
     return out;
   })();
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>Churchill Control Panel</h1>
-      <p style={{ color: "#666" }}>Live Restaurant Intelligence</p>
+    <div
+      style={{
+        padding: 40,
+        fontFamily: "Arial",
+        maxWidth: 1100,
+        margin: "0 auto",
+      }}
+    >
+      {/* HEADER */}
+      <div style={{ marginBottom: 30 }}>
+        <h1 style={{ marginBottom: 5 }}>Churchill Control Panel</h1>
+        <div style={{ color: "#777" }}>Live Restaurant Intelligence</div>
+      </div>
 
-      {/* KPI STRIP */}
-      <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
-        <div>Revenue: {formatMoney(totals.revenue)}</div>
-        <div>Profit: {formatMoney(totals.profit)}</div>
-        <div>Margin: {totals.margin.toFixed(1)}%</div>
-        <div>Dishes: {totals.qty}</div>
+      {/* KPI SECTION */}
+      <div
+        style={{
+          display: "flex",
+          gap: 30,
+          padding: 25,
+          border: "1px solid #ddd",
+          borderRadius: 10,
+          marginBottom: 30,
+          background: "#fafafa",
+        }}
+      >
+        <div>
+          <strong>Revenue</strong>
+          <div>{money(totals.revenue)} THB</div>
+        </div>
+
+        <div>
+          <strong>Profit</strong>
+          <div>{money(totals.profit)} THB</div>
+        </div>
+
+        <div>
+          <strong>Margin</strong>
+          <div>{totals.margin.toFixed(1)}%</div>
+        </div>
+
+        <div>
+          <strong>Dishes</strong>
+          <div>{totals.qty}</div>
+        </div>
       </div>
 
       {/* AI MANAGER */}
-      <div style={{ marginTop: 20 }}>
-        <h3>AI Manager</h3>
-        {ai.map((m, i) => (
-          <div key={i}>{m}</div>
-        ))}
-      </div>
-
-      {/* SEARCH */}
-      <input
-        placeholder="Search dish..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ width: "100%", marginTop: 20 }}
-      />
-
-      {/* TABLE */}
-      <table width="100%" style={{ marginTop: 10 }}>
-        <thead>
-          <tr>
-            <th align="left">Dish</th>
-            <th>Qty</th>
-            <th>Price</th>
-            <th>Cost</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td>
-                <select
-                  ref={(el) => (inputRefs.current[i] = el)}
-                  value={r.dish}
-                  onChange={(e) => handleDishChange(i, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(e, i)}
-                  style={{ width: "100%" }}
-                >
-                  <option value="">Select</option>
-                  {filteredDishes.map((d) => (
-                    <option key={d.name}>{d.name}</option>
-                  ))}
-                </select>
-              </td>
-
-              <td>
-                <input
-                  type="number"
-                  value={r.qty}
-                  onChange={(e) => handleQtyChange(i, e.target.value)}
-                />
-              </td>
-
-              <td>{formatMoney(r.price)}</td>
-              <td>{formatMoney(r.cost)}</td>
-              <td>{formatMoney(r.price * r.qty)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <button
-        style={{ marginTop: 20 }}
-        onClick={async () => {
-          await fetch("/api/save-day", {
-            method: "POST",
-            body: JSON.stringify({
-              date: new Date().toISOString(),
-              dishes: rows,
-              revenue: totals.revenue,
-              cost: totals.cost,
-              profit: totals.profit,
-            }),
-          });
-          alert("Saved");
+      <div
+        style={{
+          border: "1px solid #ddd",
+          borderRadius: 10,
+          padding: 25,
+          marginBottom: 30,
+          background: "#fff",
         }}
       >
-        Save Day
-      </button>
+        <strong style={{ fontSize: 16 }}>AI Manager</strong>
+
+        <div style={{ marginTop: 10 }}>
+          {ai.map((msg, i) => (
+            <div key={i} style={{ marginBottom: 6 }}>
+              {msg}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* INPUT PANEL */}
+      <div
+        style={{
+          border: "1px solid #ddd",
+          borderRadius: 10,
+          padding: 25,
+          background: "#fff",
+        }}
+      >
+        <input
+          placeholder="Search dish..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            width: "100%",
+            padding: 10,
+            marginBottom: 15,
+          }}
+        />
+
+        <table width="100%">
+          <thead>
+            <tr>
+              <th align="left">Dish</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Cost</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td>
+                  <select
+                    ref={(el) => (inputRefs.current[i] = el)}
+                    value={r.dish}
+                    onChange={(e) => updateDish(i, e.target.value)}
+                    style={{ width: "100%" }}
+                  >
+                    <option value="">Select</option>
+                    {filtered.map((d) => (
+                      <option key={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                </td>
+
+                <td>
+                  <input
+                    type="number"
+                    value={r.qty}
+                    onChange={(e) => updateQty(i, e.target.value)}
+                    style={{ width: 60 }}
+                  />
+                </td>
+
+                <td>{money(r.price)}</td>
+                <td>{money(r.cost)}</td>
+                <td>{money(r.price * r.qty)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* ACTIONS */}
+        <div style={{ marginTop: 20 }}>
+          <button onClick={addRow} style={{ marginRight: 10 }}>
+            Add Row
+          </button>
+
+          <button onClick={removeRow} style={{ marginRight: 10 }}>
+            Remove Row
+          </button>
+
+          <button
+            onClick={async () => {
+              await fetch("/api/save-day", {
+                method: "POST",
+                body: JSON.stringify({
+                  date: new Date().toISOString(),
+                  dishes: rows,
+                  revenue: totals.revenue,
+                  cost: totals.cost,
+                  profit: totals.profit,
+                }),
+              });
+
+              alert("Saved");
+            }}
+          >
+            Save Day
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

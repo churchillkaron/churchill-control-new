@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const emptyDish = () => ({
   name: "",
@@ -23,27 +23,8 @@ export default function ControlFinal() {
     emptyDish(),
   ]);
 
-  const [dishLibrary, setDishLibrary] = useState([]);
-
-  // 🔥 FETCH SAVED DISHES
-  useEffect(() => {
-    fetch("/api/history")
-      .then((res) => res.json())
-      .then((data) => {
-        const map = {};
-
-        data.data?.forEach((report) => {
-          report.dishes?.forEach((dish) => {
-            if (!map[dish.name]) {
-              map[dish.name] = dish.name;
-            }
-          });
-        });
-
-        setDishLibrary(Object.values(map));
-      })
-      .catch(() => {});
-  }, []);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
   const parsed = useMemo(() => {
     return dishes.map((d) => {
@@ -52,9 +33,10 @@ export default function ControlFinal() {
       const cost = Number(d.cost) || 0;
 
       const revenue = qty * price;
-      const profit = revenue - qty * cost;
+      const totalCost = qty * cost;
+      const profit = revenue - totalCost;
 
-      return { ...d, qty, price, cost, revenue, profit };
+      return { ...d, qty, price, cost, revenue, totalCost, profit };
     });
   }, [dishes]);
 
@@ -62,7 +44,7 @@ export default function ControlFinal() {
     return parsed.reduce(
       (acc, d) => {
         acc.revenue += d.revenue;
-        acc.cost += d.qty * d.cost;
+        acc.cost += d.totalCost;
         acc.profit += d.profit;
         return acc;
       },
@@ -84,20 +66,39 @@ export default function ControlFinal() {
     }).format(v || 0);
 
   const save = async () => {
-    const clean = parsed.filter((d) => d.name);
+    const clean = parsed.filter((d) => d.name.trim() !== "");
 
-    await fetch("/api/save-day", {
-      method: "POST",
-      body: JSON.stringify({
-        date: reportDate,
-        dishes: clean,
-        revenue: totals.revenue,
-        cost: totals.cost,
-        profit: totals.profit,
-      }),
-    });
+    if (clean.length === 0) {
+      setMessage("Add at least one dish");
+      return;
+    }
 
-    alert("Saved");
+    setSaving(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/save-day", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          date: reportDate,
+          dishes: clean,
+          revenue: totals.revenue,
+          cost: totals.cost,
+          profit: totals.profit,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Save failed");
+
+      setMessage("Saved successfully");
+    } catch (err) {
+      setMessage("Error saving");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -110,64 +111,45 @@ export default function ControlFinal() {
         onChange={(e) => setReportDate(e.target.value)}
       />
 
-      <div>
-        {parsed.map((d, i) => (
-          <div key={i} style={{ display: "flex", gap: 5 }}>
-            {/* 🔥 FIXED INPUT */}
-            <input
-              value={d.name}
-              onChange={(e) => update(i, "name", e.target.value)}
-              placeholder="Dish name"
-              autoComplete="off"
-            />
+      {parsed.map((d, i) => (
+        <div key={i} style={{ display: "flex", gap: 5, marginTop: 5 }}>
+          <input
+            placeholder="Dish name"
+            value={d.name}
+            onChange={(e) => update(i, "name", e.target.value)}
+          />
+          <input
+            type="number"
+            value={d.qty}
+            onChange={(e) => update(i, "qty", e.target.value)}
+          />
+          <input
+            type="number"
+            value={d.price}
+            onChange={(e) => update(i, "price", e.target.value)}
+          />
+          <input
+            type="number"
+            value={d.cost}
+            onChange={(e) => update(i, "cost", e.target.value)}
+          />
 
-            <input
-              value={d.qty}
-              onChange={(e) => update(i, "qty", e.target.value)}
-            />
-            <input
-              value={d.price}
-              onChange={(e) => update(i, "price", e.target.value)}
-            />
-            <input
-              value={d.cost}
-              onChange={(e) => update(i, "cost", e.target.value)}
-            />
-
-            <span>{format(d.revenue)}</span>
-            <span>{format(d.profit)}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* 🔥 CUSTOM DROPDOWN DISPLAY */}
-      {dishLibrary.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <strong>Saved dishes:</strong>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {dishLibrary.map((name, i) => (
-              <span
-                key={i}
-                style={{
-                  padding: "5px 10px",
-                  background: "#eee",
-                  borderRadius: 6,
-                }}
-              >
-                {name}
-              </span>
-            ))}
-          </div>
+          <span>{format(d.revenue)}</span>
+          <span>{format(d.profit)}</span>
         </div>
-      )}
+      ))}
 
-      <div style={{ marginTop: 10 }}>
+      <div style={{ marginTop: 20 }}>
         <p>Revenue: {format(totals.revenue)}</p>
         <p>Cost: {format(totals.cost)}</p>
         <p>Profit: {format(totals.profit)}</p>
       </div>
 
-      <button onClick={save}>Save Day</button>
+      <button onClick={save} disabled={saving}>
+        {saving ? "Saving..." : "Save Day"}
+      </button>
+
+      {message && <p>{message}</p>}
     </div>
   );
 }

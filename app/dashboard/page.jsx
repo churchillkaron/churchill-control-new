@@ -41,7 +41,36 @@ export default function DashboardPage() {
 
   const drinksPerSale = totalSales > 0 ? drinkRevenue / totalSales : 0;
 
-  // 🔥 REAL AI ENGINE
+  // 🔥 DISH ANALYSIS
+  const dishStats = useMemo(() => {
+    const map = {};
+
+    data.forEach(day => {
+      try {
+        const parsed = JSON.parse(day.dishes || "{}");
+        const rows = parsed.rows || [];
+
+        rows.forEach(d => {
+          if (!map[d.name]) {
+            map[d.name] = { sold: 0, revenue: 0 };
+          }
+
+          map[d.name].sold += Number(d.soldQty || 0);
+          map[d.name].revenue += Number(d.soldQty || 0) * Number(d.price || 0);
+        });
+
+      } catch {}
+    });
+
+    return Object.entries(map)
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [data]);
+
+  const topDish = dishStats[0];
+  const worstDish = dishStats[dishStats.length - 1];
+
+  // 🔥 AI ENGINE V7
   const ai = useMemo(() => {
     if (!summary) return { list: [], score: 0, status: "NO DATA" };
 
@@ -49,22 +78,31 @@ export default function DashboardPage() {
     const list = [];
 
     if (avgTicket < 400) {
-      list.push("Low ticket size — staff must upsell mains, sides, and extras.");
+      list.push("Low ticket size — staff must upsell mains and extras.");
       score -= 25;
     }
 
     if (drinksPerSale < 120) {
-      list.push("Drinks-first weak — staff must push drinks immediately.");
+      list.push("Drinks-first weak — push drinks immediately.");
       score -= 25;
     }
 
     if (drinksPerSale < 80) {
-      list.push("Critical: very low drink conversion.");
+      list.push("Critical: drink sales failing.");
       score -= 30;
     }
 
+    if (topDish) {
+      list.push(`Top dish: ${topDish.name} generating most revenue.`);
+    }
+
+    if (worstDish && worstDish.sold < 3) {
+      list.push(`Weak dish: ${worstDish.name} — not selling. Staff not pushing or menu issue.`);
+      score -= 10;
+    }
+
     if (avgTicket > 600 && drinksPerSale < 150) {
-      list.push("Strong food but weak drinks — push second-round drinks.");
+      list.push("Strong food but weak drinks — focus on second round drinks.");
       score -= 15;
     }
 
@@ -74,9 +112,7 @@ export default function DashboardPage() {
     if (score < 40) status = "CRITICAL";
 
     return { list, score, status };
-  }, [summary, avgTicket, drinksPerSale]);
-
-  const maxRevenue = Math.max(...data.map(d => d.revenue || 0), 1);
+  }, [summary, avgTicket, drinksPerSale, topDish, worstDish]);
 
   if (loading) {
     return <div style={{ padding: 20, color: "white" }}>Loading...</div>;
@@ -85,54 +121,21 @@ export default function DashboardPage() {
   return (
     <div style={{ background: "#0b0b0b", minHeight: "100vh", padding: 20, color: "white" }}>
 
-      <h1 style={{ marginBottom: 20 }}>Dashboard</h1>
+      <h1>Dashboard</h1>
 
       {/* KPI */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: 16,
-        marginBottom: 30,
-      }}>
-        <Card title="Revenue" value={`THB ${totalRevenue}`} highlight />
+      <div style={{ display: "flex", gap: 16, marginBottom: 30 }}>
+        <Card title="Revenue" value={`THB ${totalRevenue}`} />
         <Card title="Sales" value={totalSales} />
         <Card title="Avg Ticket" value={`THB ${Math.round(avgTicket)}`} />
-        <Card title="Drink Revenue" value={`THB ${drinkRevenue}`} />
+        <Card title="Drinks" value={`THB ${drinkRevenue}`} />
       </div>
 
-      {/* 📊 CHART */}
-      <div style={{ background: "#131313", padding: 20, borderRadius: 14, marginBottom: 30 }}>
-        <div style={{ color: "#aaa", marginBottom: 10 }}>Revenue Trend</div>
-
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 150 }}>
-          {data.slice().reverse().map((d, i) => {
-            const height = (d.revenue / maxRevenue) * 100;
-            return (
-              <div key={i}>
-                <div style={{
-                  width: 30,
-                  height: `${height}%`,
-                  background: "#f97316",
-                  borderRadius: 4,
-                }} />
-                <div style={{ fontSize: 10 }}>{d.revenue}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 🔥 AI MANAGER */}
-      <div style={{
-        background: "#131313",
-        padding: 20,
-        borderRadius: 14,
-        marginBottom: 30,
-      }}>
-        <div style={{ color: "#aaa", marginBottom: 10 }}>AI Manager</div>
+      {/* AI */}
+      <div style={{ background: "#131313", padding: 20, borderRadius: 14 }}>
+        <div style={{ marginBottom: 10 }}>AI Manager</div>
 
         <div style={{
-          fontSize: 18,
           fontWeight: "bold",
           color:
             ai.status === "GOOD" ? "green" :
@@ -149,22 +152,28 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* DISH LIST */}
+      <div style={{ marginTop: 30 }}>
+        <h3>Top Dishes</h3>
+        {dishStats.slice(0, 5).map((d, i) => (
+          <div key={i}>{d.name} — {d.sold} sold</div>
+        ))}
+
+        <h3 style={{ marginTop: 20 }}>Weakest Dishes</h3>
+        {dishStats.slice(-5).map((d, i) => (
+          <div key={i}>{d.name} — {d.sold} sold</div>
+        ))}
+      </div>
+
     </div>
   );
 }
 
-function Card({ title, value, highlight }) {
+function Card({ title, value }) {
   return (
     <div style={{ background: "#131313", padding: 20, borderRadius: 14 }}>
-      <div style={{ color: "#aaa", fontSize: 12 }}>{title}</div>
-      <div style={{
-        fontSize: 24,
-        fontWeight: "bold",
-        marginTop: 6,
-        color: highlight ? "#f97316" : "white",
-      }}>
-        {value}
-      </div>
+      <div style={{ fontSize: 12, color: "#aaa" }}>{title}</div>
+      <div style={{ fontSize: 22 }}>{value}</div>
     </div>
   );
 }

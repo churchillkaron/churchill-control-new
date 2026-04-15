@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabase } from '../../../lib/supabase'
 
 export async function POST(req) {
+  const supabase = getSupabase() {
   try {
     const supabase = getSupabase()
     const body = await req.json()

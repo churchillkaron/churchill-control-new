@@ -6,6 +6,7 @@ const supabase = createClient(
 );
 
 export async function GET() {
+  const supabase = getSupabase() {
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
 

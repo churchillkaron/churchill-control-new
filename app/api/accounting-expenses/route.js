@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabase } from '../../../lib/supabase'
 
 export async function GET() {
+  const supabase = getSupabase() {
   try {
     const supabase = getSupabase()
 

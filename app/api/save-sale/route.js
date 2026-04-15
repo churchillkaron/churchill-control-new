@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import supabase from '../../../lib/supabase'
+import { getSupabase } from '../../../lib/supabase'
 
 export async function POST(req) {
   try {
+    const supabase = getSupabase()
     const body = await req.json()
 
     const items = Array.isArray(body.items) ? body.items : []
@@ -17,13 +18,6 @@ export async function POST(req) {
     if (!items.length) {
       return NextResponse.json(
         { error: 'No items in sale.' },
-        { status: 400 }
-      )
-    }
-
-    if (total < 0) {
-      return NextResponse.json(
-        { error: 'Total cannot be negative.' },
         { status: 400 }
       )
     }
@@ -47,7 +41,7 @@ export async function POST(req) {
 
     if (error) {
       return NextResponse.json(
-        { error: error.message || 'Failed to save sale.' },
+        { error: error.message },
         { status: 500 }
       )
     }
@@ -57,9 +51,9 @@ export async function POST(req) {
       receiptId: data.id,
       createdAt: data.created_at,
     })
-  } catch (error) {
+  } catch (err) {
     return NextResponse.json(
-      { error: error.message || 'Unexpected server error.' },
+      { error: err.message },
       { status: 500 }
     )
   }

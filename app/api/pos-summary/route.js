@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
-import supabase from '../../../lib/supabase'
+import { getSupabase } from '../../../lib/supabase'
 
 export async function GET() {
   try {
+    const supabase = getSupabase()
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -24,7 +26,6 @@ export async function GET() {
     )
 
     const sales = (data || []).length
-
     const avg = sales ? revenue / sales : 0
 
     return NextResponse.json({
@@ -34,7 +35,7 @@ export async function GET() {
     })
   } catch (err) {
     return NextResponse.json(
-      { error: 'Failed to load summary' },
+      { error: err.message },
       { status: 500 }
     )
   }

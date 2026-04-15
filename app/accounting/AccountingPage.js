@@ -15,7 +15,6 @@ export default function AccountingPage() {
     supplier: '',
   });
 
-  // Load expenses (current month only)
   const loadExpenses = async () => {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), 1)
@@ -27,7 +26,6 @@ export default function AccountingPage() {
     setExpenses(data || []);
   };
 
-  // Load summary
   const loadSummary = async () => {
     const res = await fetch('/api/accounting-summary');
     const data = await res.json();
@@ -67,7 +65,6 @@ export default function AccountingPage() {
     loadSummary();
   };
 
-  // Category totals
   const categoryTotals = {};
   expenses.forEach((e) => {
     const cat = e.category || 'other';
@@ -79,7 +76,6 @@ export default function AccountingPage() {
     <div style={{ padding: 20 }}>
       <h1>Accounting</h1>
 
-      {/* SUMMARY */}
       {summary && (
         <div style={{ marginBottom: 30 }}>
           <h2>This Month</h2>
@@ -95,7 +91,6 @@ export default function AccountingPage() {
         </div>
       )}
 
-      {/* CATEGORY BREAKDOWN */}
       <div style={{ marginBottom: 30 }}>
         <h3>Expenses by Category</h3>
         {Object.entries(categoryTotals).map(([cat, val]) => (
@@ -105,7 +100,6 @@ export default function AccountingPage() {
         ))}
       </div>
 
-      {/* FORM */}
       <div style={{ marginBottom: 30 }}>
         <h2>Add Expense</h2>
 
@@ -165,7 +159,6 @@ export default function AccountingPage() {
         <button onClick={handleSubmit}>Save Expense</button>
       </div>
 
-      {/* TABLE */}
       <div>
         <h2>Expense List (This Month)</h2>
 

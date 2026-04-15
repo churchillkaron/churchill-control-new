@@ -1,71 +1,123 @@
-'use client';
+import { createClient } from '@supabase/supabase-js';
 
-export default function DashboardPage() {
-  return <Dashboard />;
-}
+export async function GET() {
+  try {
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY
+    );
 
-import { useEffect, useMemo, useState } from 'react';
+    const { data: salesData, error } = await supabase
+      .from('pos-sales')
+      .select('*');
 
-function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [summary, setSummary] = useState(null);
+    if (error) throw error;
 
-  useEffect(() => {
-    let active = true;
+    let revenue = 0;
+    let sales = 0;
+    let drinks = 0;
 
-    async function load() {
+    (salesData || []).forEach((sale) => {
+      revenue += Number(sale.total || 0);
+      sales += 1;
+
       try {
-        setLoading(true);
-        setError('');
+        const items = typeof sale.items === 'string'
+          ? JSON.parse(sale.items)
+          : sale.items;
 
-        const res = await fetch('/api/accounting-summary', {
-          method: 'GET',
-          cache: 'no-store',
+        (items || []).forEach((item) => {
+          const name = (item.name || '').toLowerCase();
+          const price = Number(item.price || 0);
+
+          if (
+            name.includes('beer') ||
+            name.includes('wine') ||
+            name.includes('cocktail') ||
+            name.includes('drink') ||
+            name.includes('cola') ||
+            name.includes('water')
+          ) {
+            drinks += price;
+          }
         });
+      } catch (e) {}
+    });
 
-        if (!res.ok) {
-          throw new Error('Failed to load dashboard data');
-        }
+    const avg = sales > 0 ? revenue / sales : 0;
+    const drinksPerSale = sales > 0 ? drinks / sales : 0;
 
-        const data = await res.json();
+    let score = 100;
+    const issues = [];
 
-        if (!active) return;
-        setSummary(data || {});
-      } catch (err) {
-        if (!active) return;
-        setError(err.message || 'Dashboard failed to load');
-      } finally {
-        if (active) setLoading(false);
-      }
+    if (avg < 400) {
+      score -= 25;
+      issues.push('Low ticket size — upsell failure');
     }
 
-    load();
+    if (drinksPerSale < 120) {
+      score -= 25;
+      issues.push('Drinks-first weak — push drinks immediately');
+    }
 
-    return () => {
-      active = false;
+    if (drinksPerSale < 80) {
+      score -= 30;
+      issues.push('Critical: drink conversion failing');
+    }
+
+    let status = 'GOOD';
+    if (score < 40) status = 'CRITICAL';
+    else if (score < 60) status = 'BAD';
+    else if (score < 80) status = 'WARNING';
+
+    const base = revenue * 0.05;
+
+    let multiplier = 1;
+    let decision = 'Full service charge approved';
+
+    if (status === 'WARNING') {
+      multiplier = 0.7;
+      decision = 'Reduced service charge';
+    }
+
+    if (status === 'BAD') {
+      multiplier = 0.4;
+      decision = 'Low service charge';
+    }
+
+    if (status === 'CRITICAL') {
+      multiplier = 0;
+      decision = 'No service charge';
+    }
+
+    const serviceCharge = base * multiplier;
+
+    const split = {
+      foh: serviceCharge * 0.5,
+      bar: serviceCharge * 0.3,
+      kitchen: serviceCharge * 0.2,
     };
-  }, []);
 
-  const dashboard = useMemo(() => summary || {}, [summary]);
-
-  if (loading) return <div style={{color:'white', padding:'40px'}}>Loading AI...</div>;
-  if (error) return <div style={{color:'red', padding:'40px'}}>{error}</div>;
-
-  const ai = dashboard.ai || {};
-
-  return (
-    <div style={{padding:'40px', color:'white'}}>
-      <h1>Churchill AI Dashboard</h1>
-
-      <h2>Status: {ai.status}</h2>
-      <p>Score: {ai.score}</p>
-
-      <h3>Issues:</h3>
-      <ul>
-        {(ai.issues || []).map((i, idx) => (
-          <li key={idx}>{i}</li>
-        ))}
-      </ul>
-
-      <
+    return new Response(
+      JSON.stringify({
+        revenue,
+        sales,
+        avg,
+        drinks,
+        ai: {
+          score,
+          status,
+          issues,
+          decision,
+          serviceCharge,
+          split,
+        },
+      }),
+      { status: 200 }
+    );
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+    });
+  }
+}

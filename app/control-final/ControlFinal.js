@@ -818,47 +818,49 @@ export default function ControlFinal() {
     setSaving(true);
     setSaveMessage("");
 
-    try {
-      const payload = {
-        date: businessDate,
-        dishes: JSON.stringify({
-          meta: {
-            covers: Number(covers || 0),
-            drinkRevenue: Number(drinkRevenue || 0),
-            avgTicketTime: Number(avgTicketTime || 0),
-            secondRoundRate: Number(secondRoundRate || 0),
-            complaints: Number(complaints || 0),
-            managerNotes,
-            ownerStatus: {
-              status: ownerStatus.status,
-              score: ownerStatus.score,
-              reasons: ownerStatus.reasons,
-            },
-          },
-          rows: enrichedRows.map((row) => ({
-            name: row.name,
-            category: row.category,
-            price: row.price,
-            cost: row.cost,
-            par: row.par,
-            openingStock: row.openingStock,
-            soldQty: row.soldQty,
-            producedQty: row.producedQty,
-            currentStock: row.currentStock,
-            toProduce: row.toProduce,
-            status: row.status,
-            revenue: Number(row.revenue.toFixed(2)),
-            cogs: Number(row.cogs.toFixed(2)),
-            profit: Number(row.profit.toFixed(2)),
-            menuClass: row.menuClass,
-          })),
-          insights: aiInsights,
-        }),
-        revenue: Number(totalRevenue.toFixed(2)),
-        cost: Number(totalFoodCost.toFixed(2)),
-        profit: Number(totalProfit.toFixed(2)),
-      };
+   const payload = {
+  date: businessDate,
+  dishes: JSON.stringify({
+    meta: {
+      covers: Number(covers || 0),
+      drinkRevenue: Number(drinkRevenue || 0),
+      avgTicketTime: Number(avgTicketTime || 0),
+      secondRoundRate: Number(secondRoundRate || 0),
+      complaints: Number(complaints || 0),
+      managerNotes,
+      ownerStatus: {
+        status: ownerStatus.status,
+        score: ownerStatus.score,
+        reasons: ownerStatus.reasons,
+      },
+    },
 
+    // 🔥 THIS IS THE CRITICAL FIX
+    rows: rows.map((row) => {
+      const revenue = (row.soldQty || 0) * (row.price || 0);
+      const cost = (row.soldQty || 0) * (row.cost || 0);
+      const profit = revenue - cost;
+
+      return {
+        name: row.name,
+        category: row.category,
+        price: row.price,
+        cost: row.cost,
+        soldQty: Number(row.soldQty || 0), // 🔥 MUST exist
+        revenue,
+        costTotal: cost,
+        profit,
+      };
+    }),
+
+    insights: aiInsights,
+  }),
+
+  revenue: Number(totalRevenue.toFixed(2)),
+  cost: Number(totalFoodCost.toFixed(2)),
+  profit: Number(totalProfit.toFixed(2)),
+};
+    try {
       const response = await fetch("/api/save-day", {
         method: "POST",
         headers: {

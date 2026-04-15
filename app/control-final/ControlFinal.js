@@ -1,180 +1,268 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from "react";
 
-const DISH_PRESETS = [
-  { name: "Ribeye Steak", price: 650, cost: 380 },
-  { name: "Pad Thai", price: 180, cost: 90 },
-  { name: "Green Curry", price: 220, cost: 110 },
-  { name: "Burger", price: 250, cost: 120 },
-];
+const emptyDish = () => ({
+  name: "",
+  qty: "1",
+  price: "",
+  cost: "",
+});
 
 export default function ControlFinal() {
+  const [reportDate, setReportDate] = useState(() => {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  });
+
   const [dishes, setDishes] = useState([
-    { name: '', qty: '', price: '', cost: '' },
+    emptyDish(),
+    emptyDish(),
+    emptyDish(),
+    emptyDish(),
   ]);
 
-  const [message, setMessage] = useState('');
-  const inputsRef = useRef([]);
+  const [dishLibrary, setDishLibrary] = useState([]);
 
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("");
+
+  const nameRefs = useRef([]);
+
+  // ✅ FETCH DISH MEMORY
   useEffect(() => {
-    inputsRef.current[0]?.focus();
+    fetchDishLibrary();
   }, []);
 
-  function sanitizeNumber(value) {
-    const num = Number(value);
-    if (isNaN(num) || num < 0) return 0;
-    return num;
-  }
+  const fetchDishLibrary = async () => {
+    try {
+      const res = await fetch("/api/history");
+      const data = await res.json();
 
-  function updateDish(index, field, value) {
-    const updated = [...dishes];
+      const map = {};
 
-    if (field === 'qty') {
-      updated[index][field] = value === '' ? '' : Math.max(0, value);
-    } else {
-      updated[index][field] = value;
+      data.data?.forEach((report) => {
+        report.dishes?.forEach((dish) => {
+          if (!map[dish.name]) {
+            map[dish.name] = {
+              name: dish.name,
+              price: dish.price,
+              cost: dish.cost,
+            };
+          }
+        });
+      });
+
+      setDishLibrary(Object.values(map));
+    } catch (err) {
+      console.error(err);
     }
+  };
 
-    setDishes(updated);
-  }
+  const parsedDishes = useMemo(() => {
+    return dishes.map((dish, index) => {
+      const qty = Number(dish.qty) || 0;
+      const price = Number(dish.price) || 0;
+      const cost = Number(dish.cost) || 0;
 
-  function selectDish(index, name) {
-    const preset = DISH_PRESETS.find(d => d.name === name);
+      const revenue = qty * price;
+      const totalCost = qty * cost;
+      const profit = revenue - totalCost;
 
-    const updated = [...dishes];
-
-    if (preset) {
-      updated[index] = {
-        ...updated[index],
-        name: preset.name,
-        price: preset.price,
-        cost: preset.cost
+      return {
+        ...dish,
+        index,
+        qtyNumber: qty,
+        priceNumber: price,
+        costNumber: cost,
+        revenue,
+        totalCost,
+        profit,
       };
+    });
+  }, [dishes]);
+
+  const activeDishes = useMemo(() => {
+    return parsedDishes.filter(
+      (d) =>
+        d.name.trim() !== "" ||
+        d.qty !== "" ||
+        d.price !== "" ||
+        d.cost !== ""
+    );
+  }, [parsedDishes]);
+
+  const totals = useMemo(() => {
+    return activeDishes.reduce(
+      (acc, d) => {
+        acc.items += d.qtyNumber;
+        acc.revenue += d.revenue;
+        acc.cost += d.totalCost;
+        acc.profit += d.profit;
+        return acc;
+      },
+      { items: 0, revenue: 0, cost: 0, profit: 0 }
+    );
+  }, [activeDishes]);
+
+  const formatMoney = (value) => {
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+    }).format(value || 0);
+  };
+
+  // ✅ UPDATED WITH AUTO-FILL
+  const updateDish = (index, field, value) => {
+    setDishes((current) =>
+      current.map((dish, i) => {
+        if (i !== index) return dish;
+
+        let updated = { ...dish, [field]: value };
+
+        if (field === "name") {
+          const match = dishLibrary.find(
+            (d) => d.name.toLowerCase() === value.toLowerCase()
+          );
+
+          if (match) {
+            updated.price = match.price;
+            updated.cost = match.cost;
+          }
+        }
+
+        return updated;
+      })
+    );
+  };
+
+  const addRow = () => {
+    setDishes((current) => [...current, emptyDish()]);
+  };
+
+  const removeRow = (index) => {
+    setDishes((current) => {
+      if (current.length === 1) return [emptyDish()];
+      return current.filter((_, i) => i !== index);
+    });
+  };
+
+  const saveDay = async () => {
+    const cleaned = activeDishes.map((d) => ({
+      name: d.name,
+      qty: d.qtyNumber,
+      price: d.priceNumber,
+      cost: d.costNumber,
+      revenue: d.revenue,
+      totalCost: d.totalCost,
+      profit: d.profit,
+    }));
+
+    if (cleaned.length === 0) {
+      setMessage("Add at least one dish.");
+      setMessageType("error");
+      return;
     }
 
-    setDishes(updated);
-  }
-
-  function addDish() {
-    setDishes([...dishes, { name: '', qty: '', price: '', cost: '' }]);
-  }
-
-  function calculateTotals() {
-    let revenue = 0;
-    let cost = 0;
-
-    dishes.forEach(d => {
-      const qty = sanitizeNumber(d.qty);
-      const price = sanitizeNumber(d.price);
-      const c = sanitizeNumber(d.cost);
-
-      revenue += qty * price;
-      cost += qty * c;
-    });
-
-    return {
-      revenue,
-      cost,
-      profit: revenue - cost
-    };
-  }
-
-  async function saveDay() {
-    const totals = calculateTotals();
+    setSaving(true);
 
     try {
-      const res = await fetch('/api/save-day', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/save-day", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          date: new Date().toISOString(),
-          dishes,
+          date: reportDate,
+          dishes: cleaned,
           revenue: totals.revenue,
           cost: totals.cost,
           profit: totals.profit,
         }),
       });
 
-      const data = await res.json();
+      if (!res.ok) throw new Error("Save failed");
 
-      setMessage(data.success ? 'Saved successfully' : 'Error saving');
-    } catch {
-      setMessage('Server error');
+      setMessage("Saved successfully");
+      setMessageType("success");
+    } catch (err) {
+      setMessage(err.message);
+      setMessageType("error");
+    } finally {
+      setSaving(false);
     }
-  }
-
-  const totals = calculateTotals();
+  };
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Control Panel</h1>
+        <h1>Control Panel</h1>
 
-        <div style={styles.card}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th>Dish</th>
-                <th>Qty</th>
-                <th>Revenue</th>
-                <th>Profit</th>
-              </tr>
-            </thead>
+        <input
+          type="date"
+          value={reportDate}
+          onChange={(e) => setReportDate(e.target.value)}
+          style={styles.date}
+        />
 
-            <tbody>
-              {dishes.map((dish, i) => {
-                const qty = sanitizeNumber(dish.qty);
-                const revenue = qty * dish.price;
-                const profit = revenue - qty * dish.cost;
+        <div style={styles.table}>
+          <div style={styles.header}>
+            <span style={{ flex: 2 }}>Dish</span>
+            <span>Qty</span>
+            <span>Price</span>
+            <span>Cost</span>
+            <span>Revenue</span>
+            <span>Profit</span>
+            <span></span>
+          </div>
 
-                return (
-                  <tr key={i}>
-                    <td>
-                      <select
-                        value={dish.name}
-                        onChange={(e) => selectDish(i, e.target.value)}
-                        style={styles.input}
-                      >
-                        <option value="">Select</option>
-                        {DISH_PRESETS.map(d => (
-                          <option key={d.name}>{d.name}</option>
-                        ))}
-                      </select>
-                    </td>
+          {parsedDishes.map((dish, i) => (
+            <div key={i} style={styles.row}>
+              <input
+                list="dish-suggestions"
+                value={dish.name}
+                onChange={(e) => updateDish(i, "name", e.target.value)}
+                style={{ flex: 2 }}
+              />
+              <input
+                value={dish.qty}
+                onChange={(e) => updateDish(i, "qty", e.target.value)}
+              />
+              <input
+                value={dish.price}
+                onChange={(e) => updateDish(i, "price", e.target.value)}
+              />
+              <input
+                value={dish.cost}
+                onChange={(e) => updateDish(i, "cost", e.target.value)}
+              />
 
-                    <td>
-                      <input
-                        type="number"
-                        value={dish.qty}
-                        onChange={(e) =>
-                          updateDish(i, 'qty', e.target.value)
-                        }
-                        style={styles.input}
-                      />
-                    </td>
+              <span>{formatMoney(dish.revenue)}</span>
+              <span>{formatMoney(dish.profit)}</span>
 
-                    <td>{revenue.toFixed(2)}</td>
-                    <td>{profit.toFixed(2)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          <button onClick={addDish} style={styles.button}>
-            + Add Dish
-          </button>
+              <button onClick={() => removeRow(i)}>x</button>
+            </div>
+          ))}
         </div>
 
-        <div style={styles.card}>
-          <h3>Total Revenue: {totals.revenue.toFixed(2)}</h3>
-          <h3>Total Cost: {totals.cost.toFixed(2)}</h3>
-          <h2>Profit: {totals.profit.toFixed(2)}</h2>
+        {/* AUTOCOMPLETE */}
+        <datalist id="dish-suggestions">
+          {dishLibrary.map((d, i) => (
+            <option key={i} value={d.name} />
+          ))}
+        </datalist>
+
+        <button onClick={addRow}>+ Add</button>
+
+        <div style={styles.totals}>
+          <p>Revenue: {formatMoney(totals.revenue)}</p>
+          <p>Cost: {formatMoney(totals.cost)}</p>
+          <p>Profit: {formatMoney(totals.profit)}</p>
         </div>
 
-        <button onClick={saveDay} style={styles.save}>
-          Save Day
+        <button onClick={saveDay} disabled={saving}>
+          {saving ? "Saving..." : "Save Day"}
         </button>
 
         {message && <p>{message}</p>}
@@ -184,37 +272,22 @@ export default function ControlFinal() {
 }
 
 const styles = {
-  page: {
-    background: '#f5f1e6',
-    minHeight: '100vh',
-    padding: 40
+  page: { padding: 20 },
+  container: { maxWidth: 900, margin: "0 auto" },
+  date: { marginBottom: 10 },
+  table: { border: "1px solid #eee" },
+  header: {
+    display: "flex",
+    fontWeight: "bold",
+    padding: 5,
   },
-  container: {
-    maxWidth: 900,
-    margin: '0 auto'
+  row: {
+    display: "flex",
+    gap: 5,
+    padding: 5,
+    borderTop: "1px solid #eee",
   },
-  title: {
-    marginBottom: 20
+  totals: {
+    marginTop: 15,
   },
-  card: {
-    background: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    marginBottom: 20
-  },
-  table: {
-    width: '100%',
-    marginBottom: 10
-  },
-  input: {
-    padding: 8,
-    width: '100%'
-  },
-  button: {
-    marginTop: 10
-  },
-  save: {
-    padding: '10px 20px',
-    fontWeight: 'bold'
-  }
 };

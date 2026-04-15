@@ -1,94 +1,132 @@
-'use client';
+import { createClient } from '@supabase/supabase-js';
 
-import { useEffect, useState } from 'react';
+export async function GET() {
+  try {
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY
+    );
 
-export default function DashboardPage() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+    // ✅ FIXED TABLE NAME
+    const { data: salesData, error } = await supabase
+      .from('pos_sales')
+      .select('*');
 
-  useEffect(() => {
-    fetch('/api/accounting-summary')
-      .then(res => res.json())
-      .then(setData)
-      .catch(() => setError('Failed to load'));
-  }, []);
+    if (error) throw error;
 
-  if (error) return <div style={{color:'red', padding:40}}>{error}</div>;
-  if (!data) return <div style={{color:'white', padding:40}}>Loading AI...</div>;
+    let revenue = 0;
+    let sales = 0;
+    let drinks = 0;
 
-  const ai = data.ai || {};
+    (salesData || []).forEach((sale) => {
+      revenue += Number(sale.total || 0);
+      sales += 1;
 
-  return (
-    <div style={styles.page}>
-      <h1 style={styles.title}>Churchill AI Control</h1>
+      try {
+        // ✅ SAFE JSON PARSE
+        const items = sale.items
+          ? (typeof sale.items === 'string'
+              ? JSON.parse(sale.items)
+              : sale.items)
+          : [];
 
-      {/* STATUS */}
-      <div style={styles.card}>
-        <h2>Status: {ai.status}</h2>
-        <p>Score: {ai.score}</p>
-        <p>{ai.decision}</p>
-      </div>
+        (items || []).forEach((item) => {
+          const name = (item.name || '').toLowerCase();
+          const price = Number(item.price || 0);
 
-      {/* ISSUES */}
-      <div style={styles.card}>
-        <h3>AI Issues</h3>
-        <ul>
-          {(ai.issues || []).map((i, idx) => (
-            <li key={idx}>{i}</li>
-          ))}
-        </ul>
-      </div>
+          // simple drink detection
+          if (
+            name.includes('beer') ||
+            name.includes('wine') ||
+            name.includes('cocktail') ||
+            name.includes('drink') ||
+            name.includes('cola') ||
+            name.includes('water')
+          ) {
+            drinks += price;
+          }
+        });
+      } catch (e) {
+        // ignore broken items
+      }
+    });
 
-      {/* SERVICE CHARGE */}
-      <div style={styles.card}>
-        <h3>Service Charge</h3>
-        <p>Total: {ai.serviceCharge}</p>
-      </div>
+    const avg = sales > 0 ? revenue / sales : 0;
+    const drinksPerSale = sales > 0 ? drinks / sales : 0;
 
-      {/* SPLIT */}
-      <div style={styles.grid}>
-        <div style={styles.smallCard}>
-          <h4>FOH (50%)</h4>
-          <p>{ai.split?.foh}</p>
-        </div>
-        <div style={styles.smallCard}>
-          <h4>Bar (30%)</h4>
-          <p>{ai.split?.bar}</p>
-        </div>
-        <div style={styles.smallCard}>
-          <h4>Kitchen (20%)</h4>
-          <p>{ai.split?.kitchen}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+    // ---- AI LOGIC ----
+    let score = 100;
+    const issues = [];
 
-const styles = {
-  page: {
-    padding: 40,
-    background: '#000',
-    color: '#fff',
-    minHeight: '100vh'
-  },
-  title: {
-    fontSize: 32,
-    marginBottom: 20
-  },
-  card: {
-    background: '#111',
-    padding: 20,
-    marginBottom: 20,
-    borderRadius: 10
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: 10
-  },
-  smallCard: {
-    background: '#111',
-    padding: 20,
-    borderRadius: 10
+    if (avg < 400) {
+      score -= 25;
+      issues.push('Low ticket size — upsell failure');
+    }
+
+    if (drinksPerSale < 120) {
+      score -= 25;
+      issues.push('Drinks-first weak — push drinks immediately');
+    }
+
+    if (drinksPerSale < 80) {
+      score -= 30;
+      issues.push('Critical: drink conversion failing');
+    }
+
+    let status = 'GOOD';
+    if (score < 40) status = 'CRITICAL';
+    else if (score < 60) status = 'BAD';
+    else if (score < 80) status = 'WARNING';
+
+    const base = revenue * 0.05;
+
+    let multiplier = 1;
+    let decision = 'Full service charge approved';
+
+    if (status === 'WARNING') {
+      multiplier = 0.7;
+      decision = 'Reduced service charge';
+    }
+
+    if (status === 'BAD') {
+      multiplier = 0.4;
+      decision = 'Low service charge';
+    }
+
+    if (status === 'CRITICAL') {
+      multiplier = 0;
+      decision = 'No service charge';
+    }
+
+    const serviceCharge = base * multiplier;
+
+    const split = {
+      foh: serviceCharge * 0.5,
+      bar: serviceCharge * 0.3,
+      kitchen: serviceCharge * 0.2,
+    };
+
+    return new Response(
+      JSON.stringify({
+        revenue,
+        sales,
+        avg,
+        drinks,
+        ai: {
+          score,
+          status,
+          issues,
+          decision,
+          serviceCharge,
+          split,
+        },
+      }),
+      { status: 200 }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500 }
+    );
   }
-};
+}

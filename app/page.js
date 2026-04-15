@@ -4,7 +4,6 @@ const colors = {
   line: "#c2b59b",
   text: "#3b3428",
   muted: "#756a57",
-  khakiDark: "#8f7d56",
   white: "#ffffff",
   orange: "#f97316",
 };
@@ -19,7 +18,7 @@ function ActionCard({ title, text, href }) {
         background: colors.panel,
         border: `1px solid ${colors.line}`,
         borderRadius: 18,
-        padding: 24,
+        padding: 22,
         display: "block",
         boxShadow: "0 10px 30px rgba(92, 77, 50, 0.08)",
       }}
@@ -44,15 +43,15 @@ export default function HomePage() {
         style={{
           maxWidth: 1400,
           margin: "0 auto",
-          padding: "48px 24px 64px",
+          padding: "28px 16px 48px",
         }}
       >
         <div
           style={{
             background: "#000000",
             borderRadius: 24,
-            padding: 40,
-            marginBottom: 28,
+            padding: "28px 22px",
+            marginBottom: 22,
             color: colors.white,
           }}
         >
@@ -62,7 +61,7 @@ export default function HomePage() {
               letterSpacing: 2,
               fontWeight: 800,
               marginBottom: 12,
-              fontSize: 13,
+              fontSize: 12,
               color: "#aaa",
             }}
           >
@@ -72,7 +71,7 @@ export default function HomePage() {
           <h1
             style={{
               margin: 0,
-              fontSize: 54,
+              fontSize: "clamp(34px, 8vw, 54px)",
               lineHeight: 1.05,
             }}
           >
@@ -84,8 +83,8 @@ export default function HomePage() {
             style={{
               maxWidth: 900,
               marginTop: 16,
-              marginBottom: 28,
-              fontSize: 18,
+              marginBottom: 24,
+              fontSize: "clamp(15px, 3.8vw, 18px)",
               lineHeight: 1.7,
               color: "#ddd",
             }}
@@ -98,7 +97,7 @@ export default function HomePage() {
           <div
             style={{
               display: "flex",
-              gap: 14,
+              gap: 12,
               flexWrap: "wrap",
             }}
           >
@@ -108,9 +107,11 @@ export default function HomePage() {
                 textDecoration: "none",
                 background: colors.orange,
                 color: "#000",
-                padding: "14px 22px",
+                padding: "14px 20px",
                 borderRadius: 14,
                 fontWeight: 800,
+                flex: "1 1 220px",
+                textAlign: "center",
               }}
             >
               Open Control Panel
@@ -122,10 +123,12 @@ export default function HomePage() {
                 textDecoration: "none",
                 background: "#111",
                 color: colors.white,
-                padding: "14px 22px",
+                padding: "14px 20px",
                 borderRadius: 14,
                 border: "1px solid #333",
                 fontWeight: 800,
+                flex: "1 1 220px",
+                textAlign: "center",
               }}
             >
               Open Dashboard
@@ -136,8 +139,8 @@ export default function HomePage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: 18,
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 16,
           }}
         >
           <ActionCard

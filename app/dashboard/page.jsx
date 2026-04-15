@@ -14,6 +14,7 @@ const COLORS = {
   good: "#5f7a52",
   bad: "#9c5f4a",
   warn: "#b0813f",
+  orange: "#f97316",
 };
 
 function money(value) {
@@ -27,7 +28,7 @@ function percent(value) {
   return `${Number(value || 0).toFixed(1)}%`;
 }
 
-function margin(revenue, profit) {
+function getMargin(revenue, profit) {
   if (!revenue) return 0;
   return (profit / revenue) * 100;
 }
@@ -39,22 +40,42 @@ function Card({ title, value, sub, tone }) {
         background: COLORS.panel,
         border: `1px solid ${COLORS.line}`,
         borderRadius: 18,
-        padding: 20,
+        padding: 18,
         boxShadow: "0 10px 30px rgba(92, 77, 50, 0.08)",
       }}
     >
-      <div style={{ color: COLORS.muted, fontSize: 12, marginBottom: 10 }}>{title}</div>
       <div
         style={{
-          fontSize: 32,
+          color: COLORS.muted,
+          fontSize: 12,
+          marginBottom: 10,
+          textTransform: "uppercase",
+          letterSpacing: 1,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          fontSize: 28,
           fontWeight: 900,
           color: tone || COLORS.text,
-          marginBottom: 8,
+          lineHeight: 1.15,
+          wordBreak: "break-word",
         }}
       >
         {value}
       </div>
-      <div style={{ color: COLORS.muted }}>{sub}</div>
+      <div
+        style={{
+          color: COLORS.muted,
+          marginTop: 8,
+          fontSize: 14,
+          lineHeight: 1.5,
+        }}
+      >
+        {sub}
+      </div>
     </div>
   );
 }
@@ -71,6 +92,7 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         setError("");
+
         const res = await fetch("/api/history", { cache: "no-store" });
         const data = await res.json();
 
@@ -89,7 +111,9 @@ export default function DashboardPage() {
           setError(err.message || "Dashboard failed.");
         }
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
@@ -101,9 +125,18 @@ export default function DashboardPage() {
   }, []);
 
   const analytics = useMemo(() => {
-    const totalRevenue = history.reduce((sum, row) => sum + Number(row.revenue || 0), 0);
-    const totalCost = history.reduce((sum, row) => sum + Number(row.cost || 0), 0);
-    const totalProfit = history.reduce((sum, row) => sum + Number(row.profit || 0), 0);
+    const totalRevenue = history.reduce(
+      (sum, row) => sum + Number(row.revenue || 0),
+      0
+    );
+    const totalCost = history.reduce(
+      (sum, row) => sum + Number(row.cost || 0),
+      0
+    );
+    const totalProfit = history.reduce(
+      (sum, row) => sum + Number(row.profit || 0),
+      0
+    );
 
     const bestDay =
       history.length > 0
@@ -120,30 +153,46 @@ export default function DashboardPage() {
         : null;
 
     const latest = history.length > 0 ? history[history.length - 1] : null;
-    const overallMargin = margin(totalRevenue, totalProfit);
+    const overallMargin = getMargin(totalRevenue, totalProfit);
 
     const insights = [];
     if (!history.length) {
-      insights.push("No saved days yet. Save a day from Control to activate owner intelligence.");
+      insights.push(
+        "No saved days yet. Save a day from Control to activate owner intelligence."
+      );
     } else {
       if (overallMargin >= 30) {
         insights.push("Overall business margin is strong.");
       } else if (overallMargin >= 20) {
-        insights.push("Overall business margin is acceptable, but price improvements are possible.");
+        insights.push(
+          "Overall business margin is acceptable, but price improvements are possible."
+        );
       } else {
-        insights.push("Overall business margin is weak. Review low-margin mains and pricing.");
+        insights.push(
+          "Overall business margin is weak. Review low-margin dishes and pricing."
+        );
       }
 
       if (bestDay) {
-        insights.push(`Best day: ${bestDay.date} with profit of ${money(bestDay.profit)}.`);
+        insights.push(
+          `Best day: ${bestDay.date} with profit of ${money(bestDay.profit)}.`
+        );
       }
 
       if (worstDay) {
-        insights.push(`Worst day: ${worstDay.date} with profit of ${money(worstDay.profit)}.`);
+        insights.push(
+          `Worst day: ${worstDay.date} with profit of ${money(
+            worstDay.profit
+          )}.`
+        );
       }
 
       if (latest) {
-        insights.push(`Latest saved day: ${latest.date} with revenue of ${money(latest.revenue)}.`);
+        insights.push(
+          `Latest saved day: ${latest.date} with revenue of ${money(
+            latest.revenue
+          )}.`
+        );
       }
     }
 
@@ -170,46 +219,54 @@ export default function DashboardPage() {
         style={{
           maxWidth: 1400,
           margin: "0 auto",
-          padding: "32px 24px 50px",
+          padding: "24px 16px 40px",
           display: "grid",
-          gap: 18,
+          gap: 16,
         }}
       >
         <div
           style={{
-            background: "linear-gradient(135deg, #efe7d6 0%, #ddd0b4 100%)",
-            border: `1px solid ${COLORS.line}`,
-            borderRadius: 24,
-            padding: 28,
+            background: "#000000",
+            borderRadius: 22,
+            padding: "28px 20px",
+            color: COLORS.white,
           }}
         >
           <div
             style={{
-              color: COLORS.khakiDark,
+              color: "#bdbdbd",
               textTransform: "uppercase",
               letterSpacing: 2,
               fontWeight: 800,
-              fontSize: 13,
+              fontSize: 12,
               marginBottom: 10,
             }}
           >
             Owner Dashboard
           </div>
 
-          <h1 style={{ margin: 0, fontSize: 46, lineHeight: 1.05 }}>
-            Churchill Dashboard
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "clamp(32px, 6vw, 50px)",
+              lineHeight: 1.05,
+            }}
+          >
+            <span style={{ color: COLORS.orange }}>CC</span> Churchill Karon
+            Dashboard
           </h1>
 
           <p
             style={{
               marginTop: 14,
-              color: COLORS.muted,
-              fontSize: 17,
+              color: "#dddddd",
+              fontSize: 16,
               maxWidth: 900,
-              lineHeight: 1.6,
+              lineHeight: 1.7,
             }}
           >
-            Revenue, profit, margin, day performance and owner-level business intelligence in khaki mode.
+            Revenue, profit, margin, day performance and owner-level business
+            intelligence in one clear view.
           </p>
         </div>
 
@@ -243,7 +300,7 @@ export default function DashboardPage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: 16,
+                gap: 14,
               }}
             >
               <Card
@@ -260,20 +317,22 @@ export default function DashboardPage() {
                 title="Total Profit"
                 value={money(analytics.totalProfit)}
                 sub="Accumulated profit"
-                tone={analytics.totalProfit >= 0 ? COLORS.good : COLORS.bad}
+                tone={
+                  analytics.totalProfit >= 0 ? COLORS.good : COLORS.bad
+                }
               />
               <Card
                 title="Overall Margin"
                 value={percent(analytics.overallMargin)}
-                sub="Profit ÷ Revenue"
+                sub="Profit divided by revenue"
               />
             </div>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 18,
+                gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                gap: 16,
               }}
             >
               <div
@@ -281,12 +340,19 @@ export default function DashboardPage() {
                   background: COLORS.panel,
                   border: `1px solid ${COLORS.line}`,
                   borderRadius: 18,
-                  padding: 20,
+                  padding: 18,
                 }}
               >
-                <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 14 }}>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 900,
+                    marginBottom: 14,
+                  }}
+                >
                   Owner Insights
                 </div>
+
                 <div style={{ display: "grid", gap: 12 }}>
                   {analytics.insights.map((insight, index) => (
                     <div
@@ -297,6 +363,7 @@ export default function DashboardPage() {
                         borderRadius: 14,
                         padding: 14,
                         lineHeight: 1.6,
+                        fontSize: 14,
                       }}
                     >
                       {insight}
@@ -310,10 +377,16 @@ export default function DashboardPage() {
                   background: COLORS.panel,
                   border: `1px solid ${COLORS.line}`,
                   borderRadius: 18,
-                  padding: 20,
+                  padding: 18,
                 }}
               >
-                <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 14 }}>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 900,
+                    marginBottom: 14,
+                  }}
+                >
                   Day Summary
                 </div>
 
@@ -326,8 +399,16 @@ export default function DashboardPage() {
                       padding: 14,
                     }}
                   >
-                    <div style={{ color: COLORS.muted, fontSize: 12 }}>Latest Day</div>
-                    <div style={{ fontSize: 22, fontWeight: 900 }}>
+                    <div style={{ color: COLORS.muted, fontSize: 12 }}>
+                      Latest Day
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 22,
+                        fontWeight: 900,
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {analytics.latest ? analytics.latest.date : "-"}
                     </div>
                   </div>
@@ -340,12 +421,22 @@ export default function DashboardPage() {
                       padding: 14,
                     }}
                   >
-                    <div style={{ color: COLORS.muted, fontSize: 12 }}>Best Day</div>
-                    <div style={{ fontSize: 20, fontWeight: 900 }}>
+                    <div style={{ color: COLORS.muted, fontSize: 12 }}>
+                      Best Day
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 900,
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {analytics.bestDay ? analytics.bestDay.date : "-"}
                     </div>
                     <div style={{ color: COLORS.good, marginTop: 6 }}>
-                      {analytics.bestDay ? money(analytics.bestDay.profit) : "-"}
+                      {analytics.bestDay
+                        ? money(analytics.bestDay.profit)
+                        : "-"}
                     </div>
                   </div>
 
@@ -357,12 +448,22 @@ export default function DashboardPage() {
                       padding: 14,
                     }}
                   >
-                    <div style={{ color: COLORS.muted, fontSize: 12 }}>Worst Day</div>
-                    <div style={{ fontSize: 20, fontWeight: 900 }}>
+                    <div style={{ color: COLORS.muted, fontSize: 12 }}>
+                      Worst Day
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 900,
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {analytics.worstDay ? analytics.worstDay.date : "-"}
                     </div>
                     <div style={{ color: COLORS.bad, marginTop: 6 }}>
-                      {analytics.worstDay ? money(analytics.worstDay.profit) : "-"}
+                      {analytics.worstDay
+                        ? money(analytics.worstDay.profit)
+                        : "-"}
                     </div>
                   </div>
                 </div>

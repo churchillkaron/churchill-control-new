@@ -1,26 +1,56 @@
 "use client";
-// ONLY CHANGE: SAFE PARSE + GUARANTEED STRUCTURE
 
-function parseDishes(value) {
-  if (!value) return { meta: {}, rows: [], insights: [] };
+export const dynamic = "force-dynamic";
 
-  if (typeof value === "object") {
-    return {
-      meta: value.meta || {},
-      rows: Array.isArray(value.rows) ? value.rows : [],
-      insights: Array.isArray(value.insights) ? value.insights : [],
-    };
+import { useEffect, useMemo, useState } from "react";
+
+export default function DashboardPage() {
+  const [data, setData] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/history");
+        const json = await res.json();
+
+        setData(Array.isArray(json) ? json : []);
+      } catch (err) {
+        console.error("Dashboard load error:", err);
+        setData([]);
+      } finally {
+        setLoaded(true);
+      }
+    }
+
+    load();
+  }, []);
+
+  if (!loaded) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h2>Dashboard</h2>
+        <p>Loading...</p>
+      </div>
+    );
   }
 
-  try {
-    const parsed = JSON.parse(value);
+  // 🔥 SAFE FALLBACKS
+  const safeData = Array.isArray(data) ? data : [];
 
-    return {
-      meta: parsed?.meta || {},
-      rows: Array.isArray(parsed?.rows) ? parsed.rows : [],
-      insights: Array.isArray(parsed?.insights) ? parsed.insights : [],
-    };
-  } catch {
-    return { meta: {}, rows: [], insights: [] };
-  }
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>Dashboard</h2>
+
+      {safeData.length === 0 ? (
+        <p>No data yet</p>
+      ) : (
+        safeData.map((day, i) => (
+          <div key={i} style={{ marginBottom: 10 }}>
+            <strong>{day.date}</strong> — Revenue: {day.revenue}
+          </div>
+        ))
+      )}
+    </div>
+  );
 }

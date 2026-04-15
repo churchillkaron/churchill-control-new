@@ -11,8 +11,6 @@ const THEME = {
   muted: '#b8aa8a',
   orange: '#d97706',
   khaki: '#c2b280',
-  red: '#7f1d1d',
-  green: '#14532d',
 }
 
 function formatTHB(v) {
@@ -28,10 +26,10 @@ function formatTime(v) {
 
 export default function POSPage() {
   const [sales, setSales] = useState([])
-  const [loadingSales, setLoadingSales] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const fetchSales = async () => {
-    setLoadingSales(true)
+    setLoading(true)
     try {
       const res = await fetch('/api/pos-today')
       const data = await res.json()
@@ -39,7 +37,7 @@ export default function POSPage() {
     } catch (e) {
       console.error(e)
     } finally {
-      setLoadingSales(false)
+      setLoading(false)
     }
   }
 
@@ -47,57 +45,151 @@ export default function POSPage() {
     fetchSales()
   }, [])
 
-  const totalRevenue = useMemo(() => {
+  const revenue = useMemo(() => {
     return sales.reduce((sum, s) => sum + Number(s.total || 0), 0)
   }, [sales])
 
-  const avgTicket = useMemo(() => {
+  const avg = useMemo(() => {
     if (!sales.length) return 0
-    return totalRevenue / sales.length
-  }, [sales, totalRevenue])
+    return revenue / sales.length
+  }, [sales, revenue])
 
   return (
-    <div style={{ padding: 20, background: THEME.bg, color: THEME.text }}>
-      
-      <h1 style={{ color: THEME.orange }}>Churchill POS Dashboard</h1>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: THEME.bg,
+        color: THEME.text,
+        padding: '30px',
+        fontFamily: 'Arial, sans-serif',
+      }}
+    >
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        
+        {/* HEADER */}
+        <div style={{ marginBottom: '30px' }}>
+          <div style={{ color: THEME.orange, fontWeight: 800, fontSize: 28 }}>
+            CC
+          </div>
+          <h1 style={{ margin: 0 }}>Churchill POS Dashboard</h1>
+          <p style={{ color: THEME.muted }}>
+            Today’s sales overview
+          </p>
+        </div>
 
-      {/* SUMMARY */}
-      <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
-        <div>Sales: {sales.length}</div>
-        <div>Revenue: {formatTHB(totalRevenue)}</div>
-        <div>Avg Ticket: {formatTHB(avgTicket)}</div>
-      </div>
+        {/* CARDS */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '20px',
+            marginBottom: '30px',
+          }}
+        >
+          <div style={cardStyle}>
+            <div style={labelStyle}>Sales</div>
+            <div style={valueStyle}>{sales.length}</div>
+          </div>
 
-      <button onClick={fetchSales} style={{ marginBottom: 20 }}>
-        Refresh
-      </button>
+          <div style={cardStyle}>
+            <div style={labelStyle}>Revenue</div>
+            <div style={valueStyle}>{formatTHB(revenue)}</div>
+          </div>
 
-      {/* RECEIPTS */}
-      <div>
-        {loadingSales ? (
-          <div>Loading...</div>
-        ) : (
-          sales.map((sale) => (
-            <div
-              key={sale.id}
-              style={{
-                padding: 12,
-                marginBottom: 10,
-                background: THEME.panel,
-                borderRadius: 10,
-                border: `1px solid ${THEME.border}`,
-              }}
-            >
-              <div>
-                <strong>Receipt #{sale.id}</strong>
-              </div>
-              <div>{formatTime(sale.created_at)}</div>
-              <div>Total: {formatTHB(sale.total)}</div>
+          <div style={cardStyle}>
+            <div style={labelStyle}>Avg Ticket</div>
+            <div style={valueStyle}>{formatTHB(avg)}</div>
+          </div>
+        </div>
+
+        {/* ACTION */}
+        <div style={{ marginBottom: '20px' }}>
+          <button
+            onClick={fetchSales}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '12px',
+              border: 'none',
+              background: THEME.orange,
+              color: '#111',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Refresh Sales
+          </button>
+        </div>
+
+        {/* RECEIPTS */}
+        <div style={sectionStyle}>
+          <div style={sectionHeader}>
+            <h2 style={{ margin: 0 }}>Today’s Receipts</h2>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: 20 }}>Loading...</div>
+          ) : sales.length === 0 ? (
+            <div style={{ padding: 20, color: THEME.muted }}>
+              No sales yet today.
             </div>
-          ))
-        )}
+          ) : (
+            <div style={{ display: 'grid', gap: 12 }}>
+              {sales.map((sale) => (
+                <div key={sale.id} style={receiptStyle}>
+                  <div>
+                    <strong>#{sale.id}</strong>
+                  </div>
+                  <div style={{ color: THEME.muted }}>
+                    {formatTime(sale.created_at)}
+                  </div>
+                  <div style={{ fontWeight: 700, color: THEME.khaki }}>
+                    {formatTHB(sale.total)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-
     </div>
   )
+}
+
+/* STYLES */
+
+const cardStyle = {
+  padding: 20,
+  borderRadius: 16,
+  background: '#141414',
+  border: '1px solid #2a2a2a',
+}
+
+const labelStyle = {
+  color: '#b8aa8a',
+  fontSize: 14,
+  marginBottom: 6,
+}
+
+const valueStyle = {
+  fontSize: 22,
+  fontWeight: 800,
+}
+
+const sectionStyle = {
+  borderRadius: 16,
+  background: '#141414',
+  border: '1px solid #2a2a2a',
+}
+
+const sectionHeader = {
+  padding: 20,
+  borderBottom: '1px solid #2a2a2a',
+}
+
+const receiptStyle = {
+  padding: 14,
+  borderBottom: '1px solid #2a2a2a',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
 }

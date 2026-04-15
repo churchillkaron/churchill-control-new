@@ -1,45 +1,37 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+import { NextResponse } from 'next/server'
+import { getSupabase } from '../../../lib/supabase'
 
 export async function GET() {
-  const supabase = getSupabase()
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  try {
+    const supabase = getSupabase()
 
-  const start = firstDay.toISOString().split('T')[0];
-  const end = today.toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('pos-sales')
+      .select('total')
 
-  // DAILY REPORTS (sales + food cost)
-  const { data: reports } = await supabase
-    .from('daily-reports')
-    .select('*')
-    .gte('date', start)
-    .lte('date', end);
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      )
+    }
 
-  // EXPENSES
-  const { data: expenses } = await supabase
-    .from('accounting-expenses')
-    .select('*')
-    .gte('date', start)
-    .lte('date', end);
+    const revenue = (data || []).reduce(
+      (sum, row) => sum + Number(row.total || 0),
+      0
+    )
 
-  const revenue = reports?.reduce((sum, r) => sum + Number(r.revenue || 0), 0) || 0;
-  const cost = reports?.reduce((sum, r) => sum + Number(r.cost || 0), 0) || 0;
-  const profit = reports?.reduce((sum, r) => sum + Number(r.profit || 0), 0) || 0;
+    const sales = (data || []).length
 
-  const extraExpenses = expenses?.reduce((sum, e) => sum + Number(e.amount || 0), 0) || 0;
+    return NextResponse.json({
+      revenue,
+      sales,
+    })
 
-  const netProfit = profit - extraExpenses;
-
-  return Response.json({
-    revenue,
-    cost,
-    grossProfit: profit,
-    expenses: extraExpenses,
-    netProfit,
-  });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message },
+      { status: 500 }
+    )
+  }
 }

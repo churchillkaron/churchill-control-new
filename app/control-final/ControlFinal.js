@@ -7,6 +7,7 @@ export default function ControlFinal() {
     { name: '', qty: '', price: '', cost: '' },
   ]);
 
+  const [message, setMessage] = useState('');
   const inputsRef = useRef([]);
 
   function sanitizeNumber(value) {
@@ -31,11 +32,6 @@ export default function ControlFinal() {
     setDishes([...dishes, { name: '', qty: '', price: '', cost: '' }]);
   }
 
-  function removeDish(index) {
-    if (dishes.length === 1) return;
-    setDishes(dishes.filter((_, i) => i !== index));
-  }
-
   function handleEnter(e, row, col) {
     if (e.key !== 'Enter') return;
 
@@ -46,14 +42,10 @@ export default function ControlFinal() {
     if (col < cols - 1) {
       inputsRef.current[row * cols + col + 1]?.focus();
     } else {
-      if (row === dishes.length - 1) {
-        addDish();
-        setTimeout(() => {
-          inputsRef.current[(row + 1) * cols]?.focus();
-        }, 0);
-      } else {
+      addDish();
+      setTimeout(() => {
         inputsRef.current[(row + 1) * cols]?.focus();
-      }
+      }, 0);
     }
   }
 
@@ -61,8 +53,7 @@ export default function ControlFinal() {
     return dishes.filter(
       (d) =>
         d.name.trim() !== '' &&
-        sanitizeNumber(d.qty) > 0 &&
-        sanitizeNumber(d.price) >= 0
+        sanitizeNumber(d.qty) > 0
     );
   }
 
@@ -88,13 +79,49 @@ export default function ControlFinal() {
     };
   }
 
+  async function saveDay() {
+    const valid = getValidDishes();
+
+    if (valid.length === 0) {
+      setMessage('Add at least one valid dish');
+      return;
+    }
+
+    const totals = calculateTotals();
+
+    try {
+      const res = await fetch('/api/save-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: new Date().toISOString(),
+          dishes: valid,
+          revenue: totals.revenue,
+          cost: totals.cost,
+          profit: totals.profit,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setMessage('Saved successfully');
+        setDishes([{ name: '', qty: '', price: '', cost: '' }]);
+      } else {
+        setMessage('Error saving');
+      }
+    } catch {
+      setMessage('Server error');
+    }
+  }
+
   const totals = calculateTotals();
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Control Panel</h1>
+    <div style={{ padding: 30, maxWidth: 1000, margin: '0 auto' }}>
+      <h1 style={{ marginBottom: 20 }}>Control Panel</h1>
 
-      <table style={{ width: '100%', marginTop: 20 }}>
+      <table style={{ width: '100%', marginBottom: 20 }}>
         <thead>
           <tr>
             <th>Dish</th>
@@ -103,7 +130,6 @@ export default function ControlFinal() {
             <th>Cost</th>
             <th>Revenue</th>
             <th>Profit</th>
-            <th></th>
           </tr>
         </thead>
 
@@ -179,27 +205,39 @@ export default function ControlFinal() {
 
                 <td>{revenue.toFixed(2)}</td>
                 <td>{profit.toFixed(2)}</td>
-
-                <td>
-                  <button onClick={() => removeDish(rowIndex)}>
-                    X
-                  </button>
-                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
 
-      <button onClick={addDish} style={{ marginTop: 10 }}>
+      <button
+        onClick={addDish}
+        style={{ marginBottom: 20 }}
+      >
         + Add Dish
       </button>
 
-      <div style={{ marginTop: 30 }}>
+      <div style={{ marginBottom: 20 }}>
         <h3>Total Revenue: {totals.revenue.toFixed(2)}</h3>
         <h3>Total Cost: {totals.cost.toFixed(2)}</h3>
         <h2>Profit: {totals.profit.toFixed(2)}</h2>
       </div>
+
+      <button
+        onClick={saveDay}
+        style={{
+          padding: '10px 20px',
+          fontSize: 16,
+          cursor: 'pointer',
+        }}
+      >
+        Save Day
+      </button>
+
+      {message && (
+        <p style={{ marginTop: 10 }}>{message}</p>
+      )}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 
 export default function AccountingPage() {
   const [expenses, setExpenses] = useState([]);
+  const [summary, setSummary] = useState(null);
+
   const [form, setForm] = useState({
     date: '',
     category: '',
@@ -20,16 +22,22 @@ export default function AccountingPage() {
     setExpenses(data || []);
   };
 
+  // Load summary
+  const loadSummary = async () => {
+    const res = await fetch('/api/accounting-summary');
+    const data = await res.json();
+    setSummary(data);
+  };
+
   useEffect(() => {
     loadExpenses();
+    loadSummary();
   }, []);
 
-  // Handle form change
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Submit expense
   const handleSubmit = async () => {
     if (!form.date || !form.amount) return;
 
@@ -51,22 +59,28 @@ export default function AccountingPage() {
     });
 
     loadExpenses();
+    loadSummary();
   };
-
-  // Calculate totals
-  const total = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
   return (
     <div style={{ padding: 20 }}>
       <h1>Accounting</h1>
 
-      {/* SUMMARY */}
-      <div style={{ marginBottom: 20 }}>
-        <h2>Total Expenses</h2>
-        <div style={{ fontSize: 24, fontWeight: 'bold' }}>
-          {total.toLocaleString()} THB
+      {/* 🔥 FINANCIAL SUMMARY */}
+      {summary && (
+        <div style={{ marginBottom: 30 }}>
+          <h2>This Month</h2>
+
+          <div>Revenue: {summary.revenue.toLocaleString()} THB</div>
+          <div>Food Cost: {summary.cost.toLocaleString()} THB</div>
+          <div>Gross Profit: {summary.grossProfit.toLocaleString()} THB</div>
+          <div>Expenses: {summary.expenses.toLocaleString()} THB</div>
+
+          <div style={{ fontSize: 22, fontWeight: 'bold', marginTop: 10 }}>
+            NET PROFIT: {summary.netProfit.toLocaleString()} THB
+          </div>
         </div>
-      </div>
+      )}
 
       {/* FORM */}
       <div style={{ marginBottom: 30 }}>

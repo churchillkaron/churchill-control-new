@@ -1,104 +1,161 @@
-export default function Home() {
-  return (
-    <div style={styles.page}>
-      <div style={styles.hero}>
-        <div style={styles.logo}>CC</div>
-
-        <h1 style={styles.title}>
-          Churchill Control System
-        </h1>
-
-        <p style={styles.subtitle}>
-          Built for operators who demand clarity.
-          Control revenue, understand cost, and run your restaurant with precision.
-        </p>
-
-        <a href="/control-final" style={styles.button}>
-          Enter System
-        </a>
-      </div>
-
-      <div style={styles.cards}>
-        <Feature title="Real-time Control">
-          Track daily revenue and cost instantly.
-        </Feature>
-
-        <Feature title="Profit Visibility">
-          Know exactly where you make money.
-        </Feature>
-
-        <Feature title="Structured Data">
-          Clean, reliable input — no spreadsheets.
-        </Feature>
-      </div>
-
-      <footer style={styles.footer}>
-        © {new Date().getFullYear()} Churchill Bar & Restaurant  
-        <br />
-        Built for precision. Designed for control.
-      </footer>
-    </div>
-  );
-}
-
-function Feature({ title, children }) {
-  return (
-    <div style={styles.card}>
-      <h3>{title}</h3>
-      <p>{children}</p>
-    </div>
-  );
-}
-
-const styles = {
-  page: {
-    textAlign: 'center'
-  },
-  hero: {
-    padding: '80px 20px'
-  },
-  logo: {
-    background: '#d97a00',
-    color: '#fff',
-    display: 'inline-block',
-    padding: '14px 18px',
-    borderRadius: 8,
-    fontWeight: 'bold',
-    marginBottom: 20
-  },
-  title: {
-    fontSize: 38,
-    marginBottom: 10
-  },
-  subtitle: {
-    maxWidth: 600,
-    margin: '0 auto 30px',
-    color: '#555'
-  },
-  button: {
-    background: '#222',
-    color: '#fff',
-    padding: '14px 28px',
-    borderRadius: 6,
-    textDecoration: 'none',
-    fontWeight: 'bold'
-  },
-  cards: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: 20,
-    marginTop: 60
-  },
-  card: {
-    background: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-  },
-  footer: {
-    marginTop: 80,
-    padding: 20,
-    fontSize: 12,
-    color: '#777'
-  }
+const colors = {
+  bg: "#f4efe3",
+  panel: "#fffaf0",
+  line: "#c2b59b",
+  text: "#3b3428",
+  muted: "#756a57",
+  khaki: "#b7a57a",
+  khakiDark: "#8f7d56",
+  white: "#ffffff",
 };
+
+function ActionCard({ title, text, href }) {
+  return (
+    <a
+      href={href}
+      style={{
+        textDecoration: "none",
+        color: colors.text,
+        background: colors.panel,
+        border: `1px solid ${colors.line}`,
+        borderRadius: 18,
+        padding: 24,
+        display: "block",
+        boxShadow: "0 10px 30px rgba(92, 77, 50, 0.08)",
+      }}
+    >
+      <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>
+        {title}
+      </div>
+      <div style={{ color: colors.muted, lineHeight: 1.6 }}>{text}</div>
+    </a>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <div
+      style={{
+        background: colors.bg,
+        minHeight: "100vh",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1400,
+          margin: "0 auto",
+          padding: "48px 24px 64px",
+        }}
+      >
+        <div
+          style={{
+            background: "linear-gradient(135deg, #efe7d6 0%, #ddd0b4 100%)",
+            border: `1px solid ${colors.line}`,
+            borderRadius: 24,
+            padding: 36,
+            marginBottom: 28,
+          }}
+        >
+          <div
+            style={{
+              color: colors.khakiDark,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+              fontWeight: 800,
+              marginBottom: 12,
+              fontSize: 13,
+            }}
+          >
+            Churchill Control System
+          </div>
+
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 54,
+              lineHeight: 1.05,
+              color: colors.text,
+            }}
+          >
+            Khaki operations system for Churchill
+          </h1>
+
+          <p
+            style={{
+              maxWidth: 900,
+              marginTop: 16,
+              marginBottom: 28,
+              color: colors.muted,
+              fontSize: 18,
+              lineHeight: 1.7,
+            }}
+          >
+            Daily control, POS performance, menu engineering, owner analytics,
+            and saved business-day history in one clean system.
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 14,
+              flexWrap: "wrap",
+            }}
+          >
+            <a
+              href="/control-final"
+              style={{
+                textDecoration: "none",
+                background: colors.khakiDark,
+                color: colors.white,
+                padding: "14px 22px",
+                borderRadius: 14,
+                fontWeight: 800,
+              }}
+            >
+              Open Control Panel
+            </a>
+
+            <a
+              href="/dashboard"
+              style={{
+                textDecoration: "none",
+                background: colors.panel,
+                color: colors.text,
+                padding: "14px 22px",
+                borderRadius: 14,
+                border: `1px solid ${colors.line}`,
+                fontWeight: 800,
+              }}
+            >
+              Open Dashboard
+            </a>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: 18,
+          }}
+        >
+          <ActionCard
+            title="Daily Control"
+            text="Run live sales, quantities, revenue, cost and profit from one control screen."
+            href="/control-final"
+          />
+          <ActionCard
+            title="Owner Dashboard"
+            text="Track revenue, profit, margin, best day, worst day and AI insight summaries."
+            href="/dashboard"
+          />
+          <ActionCard
+            title="Saved History"
+            text="Review previously saved days, business totals and dish-level snapshots."
+            href="/history"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

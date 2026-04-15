@@ -2,752 +2,374 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-function formatMoney(value) {
-  const num = Number(value || 0);
-  return `฿${num.toLocaleString()}`;
+const COLORS = {
+  bg: "#f4efe3",
+  panel: "#fffaf0",
+  line: "#c2b59b",
+  text: "#3b3428",
+  muted: "#756a57",
+  khaki: "#b7a57a",
+  khakiDark: "#8f7d56",
+  white: "#ffffff",
+  good: "#5f7a52",
+  bad: "#9c5f4a",
+  warn: "#b0813f",
+};
+
+function money(value) {
+  return `THB ${Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
-function formatPercent(value) {
-  const num = Number(value || 0);
-  return `${num.toFixed(1)}%`;
+function percent(value) {
+  return `${Number(value || 0).toFixed(1)}%`;
 }
 
-function safeNumber(value) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
-}
-
-function getMargin(revenue, profit) {
+function margin(revenue, profit) {
   if (!revenue) return 0;
   return (profit / revenue) * 100;
 }
 
-function getTrendDirection(current, previous) {
-  if (current > previous) return "up";
-  if (current < previous) return "down";
-  return "flat";
-}
-
-function getTrendLabel(direction) {
-  if (direction === "up") return "↑";
-  if (direction === "down") return "↓";
-  return "→";
-}
-
-function getLinePoints(data, key, width, height, padding) {
-  if (!data.length) return "";
-  const values = data.map((item) => safeNumber(item[key]));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-
-  return data
-    .map((item, index) => {
-      const x =
-        padding + (index * (width - padding * 2)) / Math.max(data.length - 1, 1);
-      const y =
-        height -
-        padding -
-        ((safeNumber(item[key]) - min) / range) * (height - padding * 2);
-      return `${x},${y}`;
-    })
-    .join(" ");
-}
-
-function getBarData(data, width, height, padding) {
-  if (!data.length) return [];
-  const max = Math.max(...data.map((item) => safeNumber(item.margin)), 1);
-
-  return data.map((item, index) => {
-    const chartWidth = width - padding * 2;
-    const barGap = 10;
-    const totalGap = barGap * (data.length - 1);
-    const barWidth = Math.max((chartWidth - totalGap) / data.length, 8);
-    const x = padding + index * (barWidth + barGap);
-    const barHeight = (safeNumber(item.margin) / max) * (height - padding * 2);
-    const y = height - padding - barHeight;
-
-    return {
-      x,
-      y,
-      width: barWidth,
-      height: barHeight,
-      label: item.label,
-      value: safeNumber(item.margin),
-    };
-  });
-}
-
-function MetricCard({ title, value, subvalue, accent = "#ff7a00" }) {
+function Card({ title, value, sub, tone }) {
   return (
     <div
       style={{
-        background: "#111111",
-        border: "1px solid #2b2b2b",
+        background: COLORS.panel,
+        border: `1px solid ${COLORS.line}`,
         borderRadius: 18,
         padding: 20,
-        boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+        boxShadow: "0 10px 30px rgba(92, 77, 50, 0.08)",
       }}
     >
-      <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 10 }}>{title}</div>
-      <div style={{ color: "#ffffff", fontSize: 28, fontWeight: 700 }}>{value}</div>
-      <div style={{ color: accent, fontSize: 13, marginTop: 8 }}>{subvalue}</div>
-    </div>
-  );
-}
-
-function SectionCard({ title, children, right }) {
-  return (
-    <div
-      style={{
-        background: "#111111",
-        border: "1px solid #2b2b2b",
-        borderRadius: 18,
-        padding: 20,
-        boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
-      }}
-    >
+      <div style={{ color: COLORS.muted, fontSize: 12, marginBottom: 10 }}>{title}</div>
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 18,
-          gap: 12,
-          flexWrap: "wrap",
+          fontSize: 32,
+          fontWeight: 900,
+          color: tone || COLORS.text,
+          marginBottom: 8,
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 18, color: "#ffffff" }}>{title}</h2>
-        {right}
+        {value}
       </div>
-      {children}
+      <div style={{ color: COLORS.muted }}>{sub}</div>
     </div>
-  );
-}
-
-function Sparkline({ data, keyName, stroke = "#ff7a00" }) {
-  const width = 520;
-  const height = 220;
-  const padding = 20;
-  const points = getLinePoints(data, keyName, width, height, padding);
-
-  if (!data.length) {
-    return (
-      <div style={{ color: "#9ca3af", fontSize: 14 }}>No data available.</div>
-    );
-  }
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: 220 }}>
-      <defs>
-        <linearGradient id={`fill-${keyName}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={stroke} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-
-      <polyline
-        fill="none"
-        stroke={stroke}
-        strokeWidth="3"
-        points={points}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {points.split(" ").map((point, index) => {
-        const [cx, cy] = point.split(",");
-        return (
-          <circle
-            key={`${keyName}-${index}`}
-            cx={cx}
-            cy={cy}
-            r="4"
-            fill={stroke}
-            opacity={0.9}
-          />
-        );
-      })}
-    </svg>
-  );
-}
-
-function MarginBars({ data }) {
-  const width = 520;
-  const height = 220;
-  const padding = 20;
-  const bars = getBarData(data, width, height, padding);
-
-  if (!data.length) {
-    return (
-      <div style={{ color: "#9ca3af", fontSize: 14 }}>No data available.</div>
-    );
-  }
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: 220 }}>
-      {bars.map((bar, index) => (
-        <g key={index}>
-          <rect
-            x={bar.x}
-            y={bar.y}
-            width={bar.width}
-            height={bar.height}
-            rx="8"
-            fill="#ff7a00"
-            opacity="0.9"
-          />
-          <text
-            x={bar.x + bar.width / 2}
-            y={height - 4}
-            textAnchor="middle"
-            fill="#9ca3af"
-            fontSize="10"
-          >
-            {bar.label}
-          </text>
-        </g>
-      ))}
-    </svg>
   );
 }
 
 export default function DashboardPage() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState("all");
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
 
-    async function loadHistory() {
+    async function load() {
       try {
         setLoading(true);
         setError("");
-
         const res = await fetch("/api/history", { cache: "no-store" });
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data?.error || "Failed to load dashboard data.");
+          throw new Error(data?.error || "Failed to load dashboard.");
         }
 
         if (active) {
-          const cleaned = (Array.isArray(data) ? data : []).map((item) => ({
-            date: item.date,
-            revenue: safeNumber(item.revenue),
-            cost: safeNumber(item.cost),
-            profit: safeNumber(item.profit),
-            dishes: Array.isArray(item.dishes) ? item.dishes : [],
-          }));
-          setHistory(cleaned);
+          const clean = (Array.isArray(data) ? data : []).sort(
+            (a, b) => new Date(a.date) - new Date(b.date)
+          );
+          setHistory(clean);
         }
       } catch (err) {
         if (active) {
-          setError(err.message || "Dashboard failed to load.");
+          setError(err.message || "Dashboard failed.");
         }
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
-    loadHistory();
+    load();
 
     return () => {
       active = false;
     };
   }, []);
 
-  const filteredHistory = useMemo(() => {
-    if (range === "all") return history;
-    const count = Number(range);
-    return history.slice(-count);
-  }, [history, range]);
+  const analytics = useMemo(() => {
+    const totalRevenue = history.reduce((sum, row) => sum + Number(row.revenue || 0), 0);
+    const totalCost = history.reduce((sum, row) => sum + Number(row.cost || 0), 0);
+    const totalProfit = history.reduce((sum, row) => sum + Number(row.profit || 0), 0);
 
-  const dashboardData = useMemo(() => {
-    const rows = filteredHistory.map((row) => ({
-      ...row,
-      margin: getMargin(row.revenue, row.profit),
-    }));
+    const bestDay =
+      history.length > 0
+        ? history.reduce((best, row) =>
+            Number(row.profit || 0) > Number(best.profit || 0) ? row : best
+          )
+        : null;
 
-    const totalRevenue = rows.reduce((sum, row) => sum + row.revenue, 0);
-    const totalCost = rows.reduce((sum, row) => sum + row.cost, 0);
-    const totalProfit = rows.reduce((sum, row) => sum + row.profit, 0);
-    const averageMargin = rows.length
-      ? rows.reduce((sum, row) => sum + row.margin, 0) / rows.length
-      : 0;
+    const worstDay =
+      history.length > 0
+        ? history.reduce((worst, row) =>
+            Number(row.profit || 0) < Number(worst.profit || 0) ? row : worst
+          )
+        : null;
 
-    const bestDay = rows.reduce(
-      (best, row) => (!best || row.profit > best.profit ? row : best),
-      null
-    );
+    const latest = history.length > 0 ? history[history.length - 1] : null;
+    const overallMargin = margin(totalRevenue, totalProfit);
 
-    const worstDay = rows.reduce(
-      (worst, row) => (!worst || row.profit < worst.profit ? row : worst),
-      null
-    );
-
-    const latest = rows[rows.length - 1] || null;
-    const previous = rows[rows.length - 2] || null;
-
-    const revenueTrend = latest && previous
-      ? getTrendDirection(latest.revenue, previous.revenue)
-      : "flat";
-
-    const profitTrend = latest && previous
-      ? getTrendDirection(latest.profit, previous.profit)
-      : "flat";
-
-    const marginTrend = latest && previous
-      ? getTrendDirection(latest.margin, previous.margin)
-      : "flat";
-
-    const topDishes = {};
-    rows.forEach((day) => {
-      day.dishes.forEach((dish) => {
-        const name = dish?.name || dish?.dish || "Unknown";
-        const quantity = safeNumber(dish?.quantity);
-        const revenue = safeNumber(dish?.revenue);
-        const cost = safeNumber(dish?.cost);
-        const profit = revenue - cost;
-
-        if (!topDishes[name]) {
-          topDishes[name] = {
-            name,
-            quantity: 0,
-            revenue: 0,
-            cost: 0,
-            profit: 0,
-          };
-        }
-
-        topDishes[name].quantity += quantity;
-        topDishes[name].revenue += revenue;
-        topDishes[name].cost += cost;
-        topDishes[name].profit += profit;
-      });
-    });
-
-    const bestDishList = Object.values(topDishes)
-      .sort((a, b) => b.profit - a.profit)
-      .slice(0, 5);
-
-    const worstDishList = Object.values(topDishes)
-      .sort((a, b) => a.profit - b.profit)
-      .slice(0, 5);
-
-    const recentMargins = rows.slice(-10).map((row) => ({
-      label: row.date?.slice(5) || row.date,
-      margin: row.margin,
-    }));
-
-    const aiInsights = [];
-
-    if (rows.length === 0) {
-      aiInsights.push("No saved days yet. Start saving daily reports to unlock analysis.");
+    const insights = [];
+    if (!history.length) {
+      insights.push("No saved days yet. Save a day from Control to activate owner intelligence.");
     } else {
-      if (averageMargin >= 30) {
-        aiInsights.push("Strong margin performance. Pricing and cost control are healthy.");
-      } else if (averageMargin >= 20) {
-        aiInsights.push("Margin is acceptable, but there is room to improve pricing or reduce cost leakage.");
+      if (overallMargin >= 30) {
+        insights.push("Overall business margin is strong.");
+      } else if (overallMargin >= 20) {
+        insights.push("Overall business margin is acceptable, but price improvements are possible.");
       } else {
-        aiInsights.push("Margin is weak. Focus on cost control, price corrections, and removing low performers.");
+        insights.push("Overall business margin is weak. Review low-margin mains and pricing.");
       }
 
-      if (bestDay && worstDay) {
-        aiInsights.push(
-          `Best day: ${bestDay.date} generated ${formatMoney(bestDay.profit)} profit, while worst day: ${worstDay.date} generated ${formatMoney(worstDay.profit)}.`
-        );
+      if (bestDay) {
+        insights.push(`Best day: ${bestDay.date} with profit of ${money(bestDay.profit)}.`);
       }
 
-      if (revenueTrend === "up") {
-        aiInsights.push("Revenue is improving versus the previous saved day.");
-      } else if (revenueTrend === "down") {
-        aiInsights.push("Revenue dropped versus the previous saved day. Review traffic, upselling, and offer mix.");
+      if (worstDay) {
+        insights.push(`Worst day: ${worstDay.date} with profit of ${money(worstDay.profit)}.`);
       }
 
-      if (profitTrend === "down") {
-        aiInsights.push("Profit declined faster than expected. Check food cost inflation or discount leakage.");
-      }
-
-      if (bestDishList.length > 0) {
-        aiInsights.push(
-          `Top profit driver right now: ${bestDishList[0].name} with ${formatMoney(bestDishList[0].profit)} total profit contribution.`
-        );
-      }
-
-      if (worstDishList.length > 0 && worstDishList[0].profit < 0) {
-        aiInsights.push(
-          `Warning: ${worstDishList[0].name} is currently destroying margin with ${formatMoney(worstDishList[0].profit)} total profit.`
-        );
+      if (latest) {
+        insights.push(`Latest saved day: ${latest.date} with revenue of ${money(latest.revenue)}.`);
       }
     }
 
     return {
-      rows,
       totalRevenue,
       totalCost,
       totalProfit,
-      averageMargin,
+      overallMargin,
       bestDay,
       worstDay,
       latest,
-      previous,
-      revenueTrend,
-      profitTrend,
-      marginTrend,
-      bestDishList,
-      worstDishList,
-      recentMargins,
-      aiInsights,
+      insights,
     };
-  }, [filteredHistory]);
-
-  if (loading) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#080808",
-          color: "#ffffff",
-          padding: 24,
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        <h1 style={{ fontSize: 30, marginBottom: 10 }}>Churchill Dashboard ELITE V6</h1>
-        <p style={{ color: "#9ca3af" }}>Loading dashboard...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#080808",
-          color: "#ffffff",
-          padding: 24,
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        <h1 style={{ fontSize: 30, marginBottom: 10 }}>Churchill Dashboard ELITE V6</h1>
-        <p style={{ color: "#ff6b6b" }}>{error}</p>
-      </div>
-    );
-  }
+  }, [history]);
 
   return (
     <div
       style={{
+        background: COLORS.bg,
         minHeight: "100vh",
-        background: "#080808",
-        color: "#ffffff",
-        padding: 24,
-        fontFamily: "Arial, sans-serif",
       }}
     >
       <div
         style={{
           maxWidth: 1400,
           margin: "0 auto",
+          padding: "32px 24px 50px",
           display: "grid",
-          gap: 24,
+          gap: 18,
         }}
       >
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-            flexWrap: "wrap",
+            background: "linear-gradient(135deg, #efe7d6 0%, #ddd0b4 100%)",
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: 24,
+            padding: 28,
           }}
         >
-          <div>
-            <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.1 }}>
-              Churchill Dashboard ELITE V6
-            </h1>
-            <p style={{ margin: "10px 0 0", color: "#9ca3af" }}>
-              Owner analytics, margin intelligence, trend control, and AI performance review.
-            </p>
-          </div>
-
           <div
             style={{
-              display: "flex",
-              gap: 10,
-              flexWrap: "wrap",
-              alignItems: "center",
+              color: COLORS.khakiDark,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+              fontWeight: 800,
+              fontSize: 13,
+              marginBottom: 10,
             }}
           >
-            {[
-              { label: "All", value: "all" },
-              { label: "7", value: "7" },
-              { label: "14", value: "14" },
-              { label: "30", value: "30" },
-            ].map((item) => (
-              <button
-                key={item.value}
-                onClick={() => setRange(item.value)}
-                style={{
-                  background: range === item.value ? "#ff7a00" : "#161616",
-                  color: "#ffffff",
-                  border: "1px solid #2f2f2f",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
-              >
-                {item.label === "All" ? "All Days" : `Last ${item.label}`}
-              </button>
-            ))}
+            Owner Dashboard
           </div>
+
+          <h1 style={{ margin: 0, fontSize: 46, lineHeight: 1.05 }}>
+            Churchill Dashboard
+          </h1>
+
+          <p
+            style={{
+              marginTop: 14,
+              color: COLORS.muted,
+              fontSize: 17,
+              maxWidth: 900,
+              lineHeight: 1.6,
+            }}
+          >
+            Revenue, profit, margin, day performance and owner-level business intelligence in khaki mode.
+          </p>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 16,
-          }}
-        >
-          <MetricCard
-            title="Total Revenue"
-            value={formatMoney(dashboardData.totalRevenue)}
-            subvalue={`${getTrendLabel(dashboardData.revenueTrend)} revenue trend`}
-          />
-          <MetricCard
-            title="Total Cost"
-            value={formatMoney(dashboardData.totalCost)}
-            subvalue="Tracked from saved reports"
-            accent="#f4b400"
-          />
-          <MetricCard
-            title="Total Profit"
-            value={formatMoney(dashboardData.totalProfit)}
-            subvalue={`${getTrendLabel(dashboardData.profitTrend)} profit trend`}
-            accent="#22c55e"
-          />
-          <MetricCard
-            title="Average Margin"
-            value={formatPercent(dashboardData.averageMargin)}
-            subvalue={`${getTrendLabel(dashboardData.marginTrend)} margin trend`}
-            accent="#60a5fa"
-          />
-        </div>
+        {loading ? (
+          <div
+            style={{
+              background: COLORS.panel,
+              border: `1px solid ${COLORS.line}`,
+              borderRadius: 18,
+              padding: 20,
+            }}
+          >
+            Loading dashboard...
+          </div>
+        ) : error ? (
+          <div
+            style={{
+              background: "#f8e8e1",
+              border: `1px solid ${COLORS.bad}`,
+              color: COLORS.bad,
+              borderRadius: 18,
+              padding: 20,
+              fontWeight: 800,
+            }}
+          >
+            {error}
+          </div>
+        ) : (
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 16,
+              }}
+            >
+              <Card
+                title="Total Revenue"
+                value={money(analytics.totalRevenue)}
+                sub={`${history.length} saved day(s)`}
+              />
+              <Card
+                title="Total Cost"
+                value={money(analytics.totalCost)}
+                sub="Accumulated cost"
+              />
+              <Card
+                title="Total Profit"
+                value={money(analytics.totalProfit)}
+                sub="Accumulated profit"
+                tone={analytics.totalProfit >= 0 ? COLORS.good : COLORS.bad}
+              />
+              <Card
+                title="Overall Margin"
+                value={percent(analytics.overallMargin)}
+                sub="Profit ÷ Revenue"
+              />
+            </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 20,
-          }}
-        >
-          <SectionCard title="Revenue Trend">
-            <Sparkline data={dashboardData.rows} keyName="revenue" stroke="#ff7a00" />
-          </SectionCard>
-
-          <SectionCard title="Profit Trend">
-            <Sparkline data={dashboardData.rows} keyName="profit" stroke="#22c55e" />
-          </SectionCard>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 20,
-          }}
-        >
-          <SectionCard title="Margin Trend (Recent)">
-            <MarginBars data={dashboardData.recentMargins} />
-          </SectionCard>
-
-          <SectionCard title="Best / Worst Day Snapshot">
-            <div style={{ display: "grid", gap: 14 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 18,
+              }}
+            >
               <div
                 style={{
-                  background: "#0d1b12",
-                  border: "1px solid #1f3d2a",
-                  borderRadius: 14,
-                  padding: 16,
+                  background: COLORS.panel,
+                  border: `1px solid ${COLORS.line}`,
+                  borderRadius: 18,
+                  padding: 20,
                 }}
               >
-                <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 6 }}>
-                  BEST DAY
+                <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 14 }}>
+                  Owner Insights
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700 }}>
-                  {dashboardData.bestDay?.date || "-"}
-                </div>
-                <div style={{ color: "#22c55e", marginTop: 8 }}>
-                  Profit: {dashboardData.bestDay ? formatMoney(dashboardData.bestDay.profit) : "-"}
-                </div>
-                <div style={{ color: "#9ca3af", marginTop: 4 }}>
-                  Revenue: {dashboardData.bestDay ? formatMoney(dashboardData.bestDay.revenue) : "-"}
+                <div style={{ display: "grid", gap: 12 }}>
+                  {analytics.insights.map((insight, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        background: "#f7f1e4",
+                        border: `1px solid ${COLORS.line}`,
+                        borderRadius: 14,
+                        padding: 14,
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {insight}
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div
                 style={{
-                  background: "#1a0d0d",
-                  border: "1px solid #472020",
-                  borderRadius: 14,
-                  padding: 16,
+                  background: COLORS.panel,
+                  border: `1px solid ${COLORS.line}`,
+                  borderRadius: 18,
+                  padding: 20,
                 }}
               >
-                <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 6 }}>
-                  WORST DAY
+                <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 14 }}>
+                  Day Summary
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700 }}>
-                  {dashboardData.worstDay?.date || "-"}
-                </div>
-                <div style={{ color: "#ff6b6b", marginTop: 8 }}>
-                  Profit: {dashboardData.worstDay ? formatMoney(dashboardData.worstDay.profit) : "-"}
-                </div>
-                <div style={{ color: "#9ca3af", marginTop: 4 }}>
-                  Revenue: {dashboardData.worstDay ? formatMoney(dashboardData.worstDay.revenue) : "-"}
-                </div>
-              </div>
-            </div>
-          </SectionCard>
-        </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.2fr 0.8fr",
-            gap: 20,
-          }}
-        >
-          <SectionCard title="AI Insights">
-            <div style={{ display: "grid", gap: 12 }}>
-              {dashboardData.aiInsights.map((insight, index) => (
-                <div
-                  key={index}
-                  style={{
-                    background: "#151515",
-                    border: "1px solid #2b2b2b",
-                    borderRadius: 14,
-                    padding: 14,
-                    color: "#e5e7eb",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {insight}
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Latest Day Snapshot">
-            <div style={{ display: "grid", gap: 12 }}>
-              <div style={{ color: "#9ca3af" }}>Date</div>
-              <div style={{ fontSize: 22, fontWeight: 700 }}>
-                {dashboardData.latest?.date || "-"}
-              </div>
-
-              <div style={{ color: "#9ca3af" }}>Revenue</div>
-              <div>{dashboardData.latest ? formatMoney(dashboardData.latest.revenue) : "-"}</div>
-
-              <div style={{ color: "#9ca3af" }}>Cost</div>
-              <div>{dashboardData.latest ? formatMoney(dashboardData.latest.cost) : "-"}</div>
-
-              <div style={{ color: "#9ca3af" }}>Profit</div>
-              <div>{dashboardData.latest ? formatMoney(dashboardData.latest.profit) : "-"}</div>
-
-              <div style={{ color: "#9ca3af" }}>Margin</div>
-              <div>
-                {dashboardData.latest
-                  ? formatPercent(getMargin(dashboardData.latest.revenue, dashboardData.latest.profit))
-                  : "-"}
-              </div>
-            </div>
-          </SectionCard>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 20,
-          }}
-        >
-          <SectionCard title="Top Performing Dishes">
-            <div style={{ display: "grid", gap: 10 }}>
-              {dashboardData.bestDishList.length === 0 && (
-                <div style={{ color: "#9ca3af" }}>No dish data available yet.</div>
-              )}
-
-              {dashboardData.bestDishList.map((dish, index) => (
-                <div
-                  key={index}
-                  style={{
-                    background: "#151515",
-                    border: "1px solid #2b2b2b",
-                    borderRadius: 14,
-                    padding: 14,
-                    display: "grid",
-                    gap: 6,
-                  }}
-                >
-                  <div style={{ fontWeight: 700 }}>{dish.name}</div>
-                  <div style={{ color: "#9ca3af", fontSize: 14 }}>
-                    Qty: {dish.quantity}
-                  </div>
-                  <div style={{ color: "#22c55e", fontSize: 14 }}>
-                    Profit: {formatMoney(dish.profit)}
-                  </div>
-                  <div style={{ color: "#9ca3af", fontSize: 14 }}>
-                    Revenue: {formatMoney(dish.revenue)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Weakest Dishes">
-            <div style={{ display: "grid", gap: 10 }}>
-              {dashboardData.worstDishList.length === 0 && (
-                <div style={{ color: "#9ca3af" }}>No dish data available yet.</div>
-              )}
-
-              {dashboardData.worstDishList.map((dish, index) => (
-                <div
-                  key={index}
-                  style={{
-                    background: "#151515",
-                    border: "1px solid #2b2b2b",
-                    borderRadius: 14,
-                    padding: 14,
-                    display: "grid",
-                    gap: 6,
-                  }}
-                >
-                  <div style={{ fontWeight: 700 }}>{dish.name}</div>
-                  <div style={{ color: "#9ca3af", fontSize: 14 }}>
-                    Qty: {dish.quantity}
-                  </div>
+                <div style={{ display: "grid", gap: 12 }}>
                   <div
                     style={{
-                      color: dish.profit >= 0 ? "#f4b400" : "#ff6b6b",
-                      fontSize: 14,
+                      background: "#f7f1e4",
+                      border: `1px solid ${COLORS.line}`,
+                      borderRadius: 14,
+                      padding: 14,
                     }}
                   >
-                    Profit: {formatMoney(dish.profit)}
+                    <div style={{ color: COLORS.muted, fontSize: 12 }}>Latest Day</div>
+                    <div style={{ fontSize: 22, fontWeight: 900 }}>
+                      {analytics.latest ? analytics.latest.date : "-"}
+                    </div>
                   </div>
-                  <div style={{ color: "#9ca3af", fontSize: 14 }}>
-                    Revenue: {formatMoney(dish.revenue)}
+
+                  <div
+                    style={{
+                      background: "#f7f1e4",
+                      border: `1px solid ${COLORS.line}`,
+                      borderRadius: 14,
+                      padding: 14,
+                    }}
+                  >
+                    <div style={{ color: COLORS.muted, fontSize: 12 }}>Best Day</div>
+                    <div style={{ fontSize: 20, fontWeight: 900 }}>
+                      {analytics.bestDay ? analytics.bestDay.date : "-"}
+                    </div>
+                    <div style={{ color: COLORS.good, marginTop: 6 }}>
+                      {analytics.bestDay ? money(analytics.bestDay.profit) : "-"}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: "#f7f1e4",
+                      border: `1px solid ${COLORS.line}`,
+                      borderRadius: 14,
+                      padding: 14,
+                    }}
+                  >
+                    <div style={{ color: COLORS.muted, fontSize: 12 }}>Worst Day</div>
+                    <div style={{ fontSize: 20, fontWeight: 900 }}>
+                      {analytics.worstDay ? analytics.worstDay.date : "-"}
+                    </div>
+                    <div style={{ color: COLORS.bad, marginTop: 6 }}>
+                      {analytics.worstDay ? money(analytics.worstDay.profit) : "-"}
+                    </div>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
-          </SectionCard>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

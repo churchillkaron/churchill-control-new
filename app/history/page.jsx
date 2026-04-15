@@ -2,150 +2,222 @@
 
 import { useEffect, useState } from "react";
 
+const COLORS = {
+  bg: "#f4efe3",
+  panel: "#fffaf0",
+  line: "#c2b59b",
+  text: "#3b3428",
+  muted: "#756a57",
+  khakiDark: "#8f7d56",
+  good: "#5f7a52",
+  bad: "#9c5f4a",
+};
+
+function money(value) {
+  return `THB ${Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function margin(revenue, profit) {
+  if (!revenue) return 0;
+  return (profit / revenue) * 100;
+}
+
 export default function HistoryPage() {
-  const [reports, setReports] = useState([]);
-  const [expanded, setExpanded] = useState(null);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchHistory();
+    let active = true;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await fetch("/api/history", { cache: "no-store" });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.error || "Failed to load history.");
+        }
+
+        if (active) {
+          setHistory(Array.isArray(data) ? [...data].reverse() : []);
+        }
+      } catch (err) {
+        if (active) setError(err.message || "History failed.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const fetchHistory = async () => {
-    try {
-      const res = await fetch("/api/history");
-      const data = await res.json();
-      setReports(data.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleExpand = (id) => {
-    setExpanded(expanded === id ? null : id);
-  };
-
-  const formatMoney = (value) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-    }).format(value || 0);
-  };
-
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        <h1 style={styles.title}>History</h1>
+    <div
+      style={{
+        background: COLORS.bg,
+        minHeight: "100vh",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1400,
+          margin: "0 auto",
+          padding: "32px 24px 50px",
+          display: "grid",
+          gap: 18,
+        }}
+      >
+        <div
+          style={{
+            background: "linear-gradient(135deg, #efe7d6 0%, #ddd0b4 100%)",
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: 24,
+            padding: 28,
+          }}
+        >
+          <div
+            style={{
+              color: COLORS.khakiDark,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+              fontWeight: 800,
+              fontSize: 13,
+              marginBottom: 10,
+            }}
+          >
+            Saved Days
+          </div>
 
-        {loading && <p>Loading...</p>}
+          <h1 style={{ margin: 0, fontSize: 46, lineHeight: 1.05 }}>
+            Churchill History
+          </h1>
 
-        {!loading && reports.length === 0 && (
-          <p>No data yet.</p>
-        )}
+          <p
+            style={{
+              marginTop: 14,
+              color: COLORS.muted,
+              fontSize: 17,
+              maxWidth: 900,
+              lineHeight: 1.6,
+            }}
+          >
+            Review previously saved business days, totals, and recorded performance.
+          </p>
+        </div>
 
-        {!loading &&
-          reports.map((report) => (
-            <div key={report.id} style={styles.card}>
-              <div
-                style={styles.header}
-                onClick={() => toggleExpand(report.id)}
+        {loading ? (
+          <div
+            style={{
+              background: COLORS.panel,
+              border: `1px solid ${COLORS.line}`,
+              borderRadius: 18,
+              padding: 20,
+            }}
+          >
+            Loading history...
+          </div>
+        ) : error ? (
+          <div
+            style={{
+              background: "#f8e8e1",
+              border: `1px solid ${COLORS.bad}`,
+              color: COLORS.bad,
+              borderRadius: 18,
+              padding: 20,
+              fontWeight: 800,
+            }}
+          >
+            {error}
+          </div>
+        ) : (
+          <div
+            style={{
+              background: COLORS.panel,
+              border: `1px solid ${COLORS.line}`,
+              borderRadius: 18,
+              padding: 20,
+              boxShadow: "0 10px 30px rgba(92, 77, 50, 0.08)",
+            }}
+          >
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  minWidth: 900,
+                }}
               >
-                <div>
-                  <strong>{report.date}</strong>
-                </div>
-
-                <div style={styles.summary}>
-                  <span>Revenue: {formatMoney(report.revenue)}</span>
-                  <span>Profit: {formatMoney(report.profit)}</span>
-                </div>
-              </div>
-
-              {expanded === report.id && (
-                <div style={styles.details}>
-                  <p>Revenue: {formatMoney(report.revenue)}</p>
-                  <p>Cost: {formatMoney(report.cost)}</p>
-                  <p>Profit: {formatMoney(report.profit)}</p>
-
-                  <div style={styles.table}>
-                    <div style={styles.rowHeader}>
-                      <span style={{ flex: 2 }}>Dish</span>
-                      <span>Qty</span>
-                      <span>Price</span>
-                      <span>Cost</span>
-                      <span>Profit</span>
-                    </div>
-
-                    {report.dishes?.map((dish, i) => (
-                      <div key={i} style={styles.row}>
-                        <span style={{ flex: 2 }}>{dish.name}</span>
-                        <span>{dish.qty}</span>
-                        <span>{formatMoney(dish.price)}</span>
-                        <span>{formatMoney(dish.cost)}</span>
-                        <span>{formatMoney(dish.profit)}</span>
-                      </div>
+                <thead>
+                  <tr style={{ background: "#efe7d6" }}>
+                    {["Date", "Revenue", "Cost", "Profit", "Margin"].map((head) => (
+                      <th
+                        key={head}
+                        style={{
+                          textAlign: "left",
+                          padding: 12,
+                          borderBottom: `1px solid ${COLORS.line}`,
+                          fontSize: 13,
+                        }}
+                      >
+                        {head}
+                      </th>
                     ))}
-                  </div>
-                </div>
-              )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" style={{ padding: 20, color: COLORS.muted }}>
+                        No saved business days yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    history.map((row, index) => {
+                      const rowMargin = margin(Number(row.revenue || 0), Number(row.profit || 0));
+                      return (
+                        <tr key={`${row.date}-${index}`}>
+                          <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>
+                            {row.date}
+                          </td>
+                          <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>
+                            {money(row.revenue)}
+                          </td>
+                          <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>
+                            {money(row.cost)}
+                          </td>
+                          <td
+                            style={{
+                              padding: 12,
+                              borderBottom: `1px solid ${COLORS.line}`,
+                              color: Number(row.profit || 0) >= 0 ? COLORS.good : COLORS.bad,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {money(row.profit)}
+                          </td>
+                          <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>
+                            {rowMargin.toFixed(1)}%
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
-          ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    padding: "20px",
-    background: "#f5f7fb",
-    minHeight: "100vh",
-  },
-  container: {
-    maxWidth: "900px",
-    margin: "0 auto",
-    background: "#fff",
-    padding: "20px",
-    borderRadius: "12px",
-    border: "1px solid #eee",
-  },
-  title: {
-    marginBottom: "20px",
-  },
-  card: {
-    border: "1px solid #eee",
-    borderRadius: "10px",
-    marginBottom: "12px",
-    overflow: "hidden",
-  },
-  header: {
-    padding: "12px",
-    display: "flex",
-    justifyContent: "space-between",
-    cursor: "pointer",
-    background: "#fafafa",
-  },
-  summary: {
-    display: "flex",
-    gap: "15px",
-    fontSize: "14px",
-  },
-  details: {
-    padding: "12px",
-    borderTop: "1px solid #eee",
-  },
-  table: {
-    borderTop: "1px solid #eee",
-    marginTop: "10px",
-  },
-  rowHeader: {
-    display: "flex",
-    fontWeight: "bold",
-    padding: "8px 0",
-  },
-  row: {
-    display: "flex",
-    padding: "6px 0",
-    borderTop: "1px solid #f0f0f0",
-  },
-};

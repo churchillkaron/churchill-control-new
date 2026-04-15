@@ -1,4 +1,21 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
+
 export default function RootLayout({ children }) {
+  const pathname = usePathname();
+
+  function getLinkStyle(path) {
+    return {
+      textDecoration: 'none',
+      fontWeight: 500,
+      padding: '6px 10px',
+      borderRadius: 6,
+      color: pathname === path ? '#fff' : '#333',
+      background: pathname === path ? '#d97a00' : 'transparent'
+    };
+  }
+
   return (
     <html>
       <body style={styles.body}>
@@ -10,9 +27,15 @@ export default function RootLayout({ children }) {
             </div>
 
             <div style={styles.links}>
-              <a href="/control-final" style={styles.link}>Control</a>
-              <a href="/dashboard" style={styles.link}>Dashboard</a>
-              <a href="/history" style={styles.link}>History</a>
+              <a href="/control-final" style={getLinkStyle('/control-final')}>
+                Control
+              </a>
+              <a href="/dashboard" style={getLinkStyle('/dashboard')}>
+                Dashboard
+              </a>
+              <a href="/history" style={getLinkStyle('/history')}>
+                History
+              </a>
             </div>
           </div>
         </nav>
@@ -31,9 +54,10 @@ const styles = {
     color: '#222'
   },
   nav: {
-    background: '#ffffff',
+    background: '#fff',
     borderBottom: '1px solid #e0dccf',
-    padding: '18px 0'
+    padding: '18px 0',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
   },
   navInner: {
     maxWidth: 1100,
@@ -60,12 +84,7 @@ const styles = {
   },
   links: {
     display: 'flex',
-    gap: 24
-  },
-  link: {
-    textDecoration: 'none',
-    color: '#333',
-    fontWeight: 500
+    gap: 20
   },
   main: {
     maxWidth: 1100,

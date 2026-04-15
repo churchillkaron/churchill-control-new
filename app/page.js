@@ -9,28 +9,43 @@ export default function Home() {
         </h1>
 
         <p style={styles.subtitle}>
-          Precision control for modern hospitality.
-          Track revenue, manage cost, and understand your business in real time.
+          Built for operators who demand clarity.
+          Control revenue, understand cost, and run your restaurant with precision.
         </p>
 
         <a href="/control-final" style={styles.button}>
-          Enter Control Panel
+          Enter System
         </a>
       </div>
 
-      <div style={styles.section}>
-        <h2>Built for real operations</h2>
+      <div style={styles.cards}>
+        <Feature title="Real-time Control">
+          Track daily revenue and cost instantly.
+        </Feature>
 
-        <p style={styles.text}>
-          Churchill Control is designed for restaurant owners who need clarity.
-          No spreadsheets. No guesswork. Just clean data, structured insight,
-          and full visibility over your daily performance.
-        </p>
+        <Feature title="Profit Visibility">
+          Know exactly where you make money.
+        </Feature>
+
+        <Feature title="Structured Data">
+          Clean, reliable input — no spreadsheets.
+        </Feature>
       </div>
 
       <footer style={styles.footer}>
-        © {new Date().getFullYear()} Churchill Bar & Restaurant — All rights reserved.
+        © {new Date().getFullYear()} Churchill Bar & Restaurant  
+        <br />
+        Built for precision. Designed for control.
       </footer>
+    </div>
+  );
+}
+
+function Feature({ title, children }) {
+  return (
+    <div style={styles.card}>
+      <h3>{title}</h3>
+      <p>{children}</p>
     </div>
   );
 }
@@ -52,7 +67,7 @@ const styles = {
     marginBottom: 20
   },
   title: {
-    fontSize: 36,
+    fontSize: 38,
     marginBottom: 10
   },
   subtitle: {
@@ -68,14 +83,17 @@ const styles = {
     textDecoration: 'none',
     fontWeight: 'bold'
   },
-  section: {
-    marginTop: 60,
-    padding: 20
+  cards: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: 20,
+    marginTop: 60
   },
-  text: {
-    maxWidth: 700,
-    margin: '0 auto',
-    color: '#555'
+  card: {
+    background: '#fff',
+    padding: 20,
+    borderRadius: 10,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
   },
   footer: {
     marginTop: 80,

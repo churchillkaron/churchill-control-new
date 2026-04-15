@@ -5,8 +5,8 @@ export default function Home() {
 
       <p>System is live.</p>
 
-      <a href="/control-final" style={{ fontSize: 20 }}>
-        → Open Control Panel
+      <a href="/control-final">
+        Go to Control Panel
       </a>
     </div>
   );

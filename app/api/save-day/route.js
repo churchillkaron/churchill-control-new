@@ -9,21 +9,32 @@ export async function POST(req) {
 
     const body = await req.json();
 
-    const { error } = await supabase.from("daily-reports").insert([
-      {
-        date: body.date,
-        dishes: body.dishes,
-        revenue: body.revenue,
-        cost: body.cost,
-        profit: body.profit,
-      },
-    ]);
+    console.log("Incoming data:", body);
 
-    if (error) throw error;
+    const { data, error } = await supabase
+      .from("daily-reports")
+      .insert([
+        {
+          date: body.date,
+          dishes: body.dishes,
+          revenue: body.revenue,
+          cost: body.cost,
+          profit: body.profit,
+        },
+      ])
+      .select();
 
-    return Response.json({ success: true });
+    if (error) {
+      console.error("Supabase error:", error);
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+
+    console.log("Inserted:", data);
+
+    return Response.json({ success: true, data });
 
   } catch (err) {
+    console.error("Server error:", err);
     return Response.json({ error: err.message }, { status: 500 });
   }
 }

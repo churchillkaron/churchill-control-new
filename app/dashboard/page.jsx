@@ -13,35 +13,78 @@ export default function DashboardPage() {
       .catch(() => setError('Failed to load'));
   }, []);
 
-  if (error) return <div style={{color:'red'}}>{error}</div>;
-  if (!data) return <div style={{color:'white'}}>Loading...</div>;
+  if (error) return <div style={{color:'red', padding:40}}>{error}</div>;
+  if (!data) return <div style={{padding:40}}>Loading AI...</div>;
 
   const ai = data.ai || {};
 
   return (
-    <div style={{ padding: 40, color: 'white' }}>
-      <h1>AI Dashboard</h1>
+    <div style={styles.page}>
+      <h1 style={styles.title}>Churchill AI Control</h1>
 
-      <h2>Status: {ai.status}</h2>
-      <p>Score: {ai.score}</p>
+      <div style={styles.card}>
+        <h2>Status: {ai.status}</h2>
+        <p>Score: {ai.score}</p>
+        <p>{ai.decision}</p>
+      </div>
 
-      <h3>Issues</h3>
-      <ul>
-        {(ai.issues || []).map((i, idx) => (
-          <li key={idx}>{i}</li>
-        ))}
-      </ul>
+      <div style={styles.card}>
+        <h3>Issues</h3>
+        <ul>
+          {(ai.issues || []).map((i, idx) => (
+            <li key={idx}>{i}</li>
+          ))}
+        </ul>
+      </div>
 
-      <h3>Decision</h3>
-      <p>{ai.decision}</p>
+      <div style={styles.card}>
+        <h3>Service Charge</h3>
+        <p>{ai.serviceCharge}</p>
+      </div>
 
-      <h3>Service Charge</h3>
-      <p>{ai.serviceCharge}</p>
-
-      <h3>Split</h3>
-      <p>FOH: {ai.split?.foh}</p>
-      <p>Bar: {ai.split?.bar}</p>
-      <p>Kitchen: {ai.split?.kitchen}</p>
+      <div style={styles.grid}>
+        <div style={styles.smallCard}>
+          <h4>FOH</h4>
+          <p>{ai.split?.foh}</p>
+        </div>
+        <div style={styles.smallCard}>
+          <h4>Bar</h4>
+          <p>{ai.split?.bar}</p>
+        </div>
+        <div style={styles.smallCard}>
+          <h4>Kitchen</h4>
+          <p>{ai.split?.kitchen}</p>
+        </div>
+      </div>
     </div>
   );
 }
+
+const styles = {
+  page: {
+    padding: 40,
+    background: '#f5f5f5', // FIX: light background
+    color: '#000', // FIX: dark text
+    minHeight: '100vh'
+  },
+  title: {
+    fontSize: 32,
+    marginBottom: 20
+  },
+  card: {
+    background: '#fff',
+    padding: 20,
+    marginBottom: 20,
+    borderRadius: 10
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: 10
+  },
+  smallCard: {
+    background: '#fff',
+    padding: 20,
+    borderRadius: 10
+  }
+};

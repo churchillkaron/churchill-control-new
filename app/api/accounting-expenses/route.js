@@ -5,12 +5,21 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// GET → fetch all expenses
-export async function GET() {
-  const { data, error } = await supabase
+// GET (with optional date filter)
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const start = searchParams.get('start');
+
+  let query = supabase
     .from('accounting-expenses')
     .select('*')
     .order('date', { ascending: false });
+
+  if (start) {
+    query = query.gte('date', start);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
@@ -19,7 +28,7 @@ export async function GET() {
   return Response.json(data);
 }
 
-// POST → add new expense
+// POST
 export async function POST(req) {
   const body = await req.json();
 

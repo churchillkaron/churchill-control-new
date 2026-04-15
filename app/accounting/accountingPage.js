@@ -15,9 +15,14 @@ export default function AccountingPage() {
     supplier: '',
   });
 
-  // Load expenses
+  // Load expenses (current month only)
   const loadExpenses = async () => {
-    const res = await fetch('/api/accounting-expenses');
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), 1)
+      .toISOString()
+      .split('T')[0];
+
+    const res = await fetch(`/api/accounting-expenses?start=${start}`);
     const data = await res.json();
     setExpenses(data || []);
   };
@@ -62,11 +67,19 @@ export default function AccountingPage() {
     loadSummary();
   };
 
+  // Category totals
+  const categoryTotals = {};
+  expenses.forEach((e) => {
+    const cat = e.category || 'other';
+    categoryTotals[cat] =
+      (categoryTotals[cat] || 0) + Number(e.amount || 0);
+  });
+
   return (
     <div style={{ padding: 20 }}>
       <h1>Accounting</h1>
 
-      {/* 🔥 FINANCIAL SUMMARY */}
+      {/* SUMMARY */}
       {summary && (
         <div style={{ marginBottom: 30 }}>
           <h2>This Month</h2>
@@ -82,16 +95,70 @@ export default function AccountingPage() {
         </div>
       )}
 
+      {/* CATEGORY BREAKDOWN */}
+      <div style={{ marginBottom: 30 }}>
+        <h3>Expenses by Category</h3>
+        {Object.entries(categoryTotals).map(([cat, val]) => (
+          <div key={cat}>
+            {cat}: {val.toLocaleString()} THB
+          </div>
+        ))}
+      </div>
+
       {/* FORM */}
       <div style={{ marginBottom: 30 }}>
         <h2>Add Expense</h2>
 
-        <input name="date" type="date" value={form.date} onChange={handleChange} />
-        <input name="category" placeholder="Category" value={form.category} onChange={handleChange} />
-        <input name="description" placeholder="Description" value={form.description} onChange={handleChange} />
-        <input name="amount" placeholder="Amount" value={form.amount} onChange={handleChange} />
-        <input name="payment_method" placeholder="Payment Method" value={form.payment_method} onChange={handleChange} />
-        <input name="supplier" placeholder="Supplier" value={form.supplier} onChange={handleChange} />
+        <input
+          name="date"
+          type="date"
+          value={form.date}
+          onChange={handleChange}
+        />
+
+        <select
+          name="category"
+          value={form.category}
+          onChange={handleChange}
+        >
+          <option value="">Select Category</option>
+          <option value="rent">Rent</option>
+          <option value="utilities">Utilities</option>
+          <option value="salary">Salary</option>
+          <option value="supplier">Supplier</option>
+          <option value="marketing">Marketing</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="transport">Transport</option>
+          <option value="misc">Misc</option>
+        </select>
+
+        <input
+          name="description"
+          placeholder="Description"
+          value={form.description}
+          onChange={handleChange}
+        />
+
+        <input
+          name="amount"
+          placeholder="Amount"
+          value={form.amount}
+          onChange={handleChange}
+        />
+
+        <input
+          name="payment_method"
+          placeholder="Payment Method"
+          value={form.payment_method}
+          onChange={handleChange}
+        />
+
+        <input
+          name="supplier"
+          placeholder="Supplier"
+          value={form.supplier}
+          onChange={handleChange}
+        />
 
         <br /><br />
 
@@ -100,7 +167,7 @@ export default function AccountingPage() {
 
       {/* TABLE */}
       <div>
-        <h2>Expense List</h2>
+        <h2>Expense List (This Month)</h2>
 
         <table border="1" cellPadding="5">
           <thead>

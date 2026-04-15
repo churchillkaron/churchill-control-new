@@ -1,3 +1,4 @@
+"use client";
 // ONLY CHANGE: SAFE PARSE + GUARANTEED STRUCTURE
 
 function parseDishes(value) {

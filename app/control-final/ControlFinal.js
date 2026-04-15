@@ -2,6 +2,34 @@
 
 import { useState, useRef, useEffect } from 'react';
 
+const DISH_PRESETS = [
+  "Beef Carpaccio",
+  "Chili Garlic Prawns",
+  "Signature Bruschetta",
+  "Seared Scallops",
+  "Mango Tomato Salad",
+  "Beef Short Ribs",
+  "Ribeye Steak",
+  "Beef Tenderloin",
+  "Pork Tenderloin",
+  "Salmon",
+  "Sambal Half Chicken",
+  "Veal Stew",
+  "Potato Gratin",
+  "Potato Wedges",
+  "Cauliflower Puree",
+  "Tom Yum Goong",
+  "Tom Kha Gai",
+  "Pad Thai",
+  "Pad Ka Prow",
+  "Chicken Cashew Nuts",
+  "Beef with Oyster Sauce",
+  "Massaman Curry",
+  "Green Curry",
+  "Panang Curry",
+  "Pineapple Fried Rice"
+];
+
 export default function ControlFinal() {
   const [dishes, setDishes] = useState([
     { name: '', qty: '', price: '', cost: '' },
@@ -125,10 +153,9 @@ export default function ControlFinal() {
     <div style={{ padding: 40, maxWidth: 1000, margin: '0 auto' }}>
       <h1 style={{ marginBottom: 30 }}>Control Panel</h1>
 
-      {/* TABLE */}
       <table style={{ width: '100%', marginBottom: 30 }}>
         <thead>
-          <tr style={{ textAlign: 'left' }}>
+          <tr>
             <th>Dish</th>
             <th>Qty</th>
             <th>Price</th>
@@ -150,18 +177,20 @@ export default function ControlFinal() {
             return (
               <tr key={rowIndex}>
                 <td>
-                  <input
-                    ref={(el) =>
-                      (inputsRef.current[rowIndex * 4 + 0] = el)
-                    }
+                  <select
                     value={dish.name}
                     onChange={(e) =>
                       updateDish(rowIndex, 'name', e.target.value)
                     }
-                    onKeyDown={(e) => handleEnter(e, rowIndex, 0)}
-                    placeholder="e.g. Burger"
-                    style={{ width: '100%', padding: 8 }}
-                  />
+                    style={{ width: '100%', padding: 8, marginBottom: 4 }}
+                  >
+                    <option value="">Select dish</option>
+                    {DISH_PRESETS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
                 </td>
 
                 <td>
@@ -176,7 +205,6 @@ export default function ControlFinal() {
                       updateDish(rowIndex, 'qty', e.target.value)
                     }
                     onKeyDown={(e) => handleEnter(e, rowIndex, 1)}
-                    style={{ width: 80, padding: 8 }}
                   />
                 </td>
 
@@ -192,7 +220,6 @@ export default function ControlFinal() {
                       updateDish(rowIndex, 'price', e.target.value)
                     }
                     onKeyDown={(e) => handleEnter(e, rowIndex, 2)}
-                    style={{ width: 100, padding: 8 }}
                   />
                 </td>
 
@@ -208,7 +235,6 @@ export default function ControlFinal() {
                       updateDish(rowIndex, 'cost', e.target.value)
                     }
                     onKeyDown={(e) => handleEnter(e, rowIndex, 3)}
-                    style={{ width: 100, padding: 8 }}
                   />
                 </td>
 
@@ -220,37 +246,19 @@ export default function ControlFinal() {
         </tbody>
       </table>
 
-      {/* ACTION */}
-      <button
-        onClick={addDish}
-        style={{ marginBottom: 30 }}
-      >
-        + Add Dish
-      </button>
+      <button onClick={addDish}>+ Add Dish</button>
 
-      {/* TOTALS */}
-      <div style={{ marginBottom: 30 }}>
+      <div style={{ marginTop: 20 }}>
         <h3>Total Revenue: {totals.revenue.toFixed(2)}</h3>
         <h3>Total Cost: {totals.cost.toFixed(2)}</h3>
         <h2>Profit: {totals.profit.toFixed(2)}</h2>
       </div>
 
-      {/* SAVE */}
-      <button
-        onClick={saveDay}
-        style={{
-          padding: '12px 24px',
-          fontSize: 16,
-          fontWeight: 'bold',
-          cursor: 'pointer',
-        }}
-      >
+      <button onClick={saveDay} style={{ marginTop: 20 }}>
         Save Day
       </button>
 
-      {message && (
-        <p style={{ marginTop: 10 }}>{message}</p>
-      )}
+      {message && <p>{message}</p>}
     </div>
   );
 }

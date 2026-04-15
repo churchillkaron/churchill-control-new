@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 const emptyDish = () => ({
   name: "",
-  qty: "1",
+  qty: 1,
   price: "",
   cost: "",
 });
@@ -88,12 +88,16 @@ export default function ControlFinal() {
         }),
       });
 
-      if (!res.ok) throw new Error();
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Save failed");
+        return;
+      }
 
       alert("Saved!");
-
-    } catch {
-      alert("Save failed");
+    } catch (err) {
+      alert("Network error");
     }
 
     setSaving(false);
@@ -123,17 +127,18 @@ export default function ControlFinal() {
             onChange={(e) => update(i, "qty", e.target.value)}
           />
 
+          {/* 🔥 FIXED INPUTS */}
           <input
             type="number"
             placeholder="Price"
-            value={d.price}
+            value={d.price === "" ? "" : d.price}
             onChange={(e) => update(i, "price", e.target.value)}
           />
 
           <input
             type="number"
             placeholder="Cost"
-            value={d.cost}
+            value={d.cost === "" ? "" : d.cost}
             onChange={(e) => update(i, "cost", e.target.value)}
           />
 

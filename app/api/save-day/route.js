@@ -9,8 +9,6 @@ export async function POST(req) {
 
     const body = await req.json();
 
-    console.log("Incoming data:", body);
-
     const { data, error } = await supabase
       .from("daily-reports")
       .insert([
@@ -25,16 +23,18 @@ export async function POST(req) {
       .select();
 
     if (error) {
-      console.error("Supabase error:", error);
-      return Response.json({ error: error.message }, { status: 500 });
+      return Response.json(
+        { error: error.message },
+        { status: 500 }
+      );
     }
-
-    console.log("Inserted:", data);
 
     return Response.json({ success: true, data });
 
   } catch (err) {
-    console.error("Server error:", err);
-    return Response.json({ error: err.message }, { status: 500 });
+    return Response.json(
+      { error: err.message },
+      { status: 500 }
+    );
   }
 }

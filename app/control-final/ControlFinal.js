@@ -1,324 +1,646 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const COLORS = {
-  bg: "#f4efe3",
-  panel: "#fffaf0",
-  line: "#c2b59b",
-  text: "#3b3428",
-  muted: "#756a57",
-  khaki: "#b7a57a",
-  khakiDark: "#8f7d56",
-  white: "#ffffff",
-  good: "#5f7a52",
-  bad: "#9c5f4a",
-  warn: "#b0813f",
-  orange: "#f97316",
-};
-
-const MENU = [
-  { name: "Beef Carpaccio", category: "Starter", price: 320, cost: 110.72 },
-  { name: "Chili & Garlic Prawns", category: "Starter", price: 320, cost: 74.32 },
-  { name: "Signature Bruschetta", category: "Starter", price: 280, cost: 62.38 },
-  { name: "Seared Scallops", category: "Starter", price: 520, cost: 175.72 },
-  { name: "Mango & Tomato Salad", category: "Light", price: 220, cost: 16.97 },
-  { name: "Churchill Beef Short Ribs", category: "Main", price: 890, cost: 518.36 },
-  { name: "Ribeye Steak", category: "Main", price: 890, cost: 206.36 },
-  { name: "Beef Tenderloin", category: "Main", price: 920, cost: 265.69 },
-  { name: "Pork Tenderloin", category: "Main", price: 460, cost: 76.54 },
-  { name: "Salmon", category: "Main", price: 690, cost: 172.6 },
-  { name: "Churchill Sambal Half Chicken", category: "Main", price: 590, cost: 133.87 },
-  { name: "Veal Stew", category: "Main", price: 850, cost: 254.74 },
-  { name: "Potato Gratin", category: "Side", price: 120, cost: 30.34 },
-  { name: "Crispy Potato Wedges", category: "Side", price: 100, cost: 18.34 },
-  { name: "Cauliflower Puree", category: "Side", price: 120, cost: 27.44 },
-  { name: "Tom Yum Goong", category: "Soup", price: 180, cost: 94.4 },
-  { name: "Tom Kha Gai", category: "Soup", price: 170, cost: 70.1 },
-  { name: "Pad Thai", category: "Main", price: 160, cost: 56.55 },
-  { name: "Pad Ka Prow", category: "Main", price: 150, cost: 36.905 },
-  { name: "Stir-Fried Chicken with Cashew Nuts", category: "Main", price: 180, cost: 68.04 },
-  { name: "Beef with Oyster Sauce", category: "Main", price: 220, cost: 160.525 },
-  { name: "Massaman Curry", category: "Main", price: 180, cost: 90.96 },
-  { name: "Green Curry", category: "Main", price: 170, cost: 80.77 },
-  { name: "Panang Curry", category: "Main", price: 175, cost: 71.9 },
-  { name: "Pineapple Fried Rice", category: "Main", price: 160, cost: 54.36 },
+const DISH_CATALOG = [
+  { name: "Beef Carpaccio", category: "Starter", price: 320, cost: 110.72, par: 10 },
+  { name: "Chili & Garlic Prawns", category: "Starter", price: 320, cost: 74.32, par: 10 },
+  { name: "Signature Bruschetta", category: "Starter", price: 280, cost: 62.38, par: 10 },
+  { name: "Seared Scallops", category: "Starter", price: 520, cost: 175.72, par: 10 },
+  { name: "Mango & Tomato Salad", category: "Light", price: 220, cost: 16.97, par: 10 },
+  { name: "Churchill Beef Short Ribs", category: "Main", price: 690, cost: 200.02, par: 10 },
+  { name: "Ribeye Steak", category: "Main", price: 950, cost: 356.77, par: 10 },
+  { name: "Beef Tenderloin", category: "Main", price: 950, cost: 311.16, par: 10 },
+  { name: "Pork Tenderloin", category: "Main", price: 490, cost: 162.91, par: 10 },
+  { name: "Salmon", category: "Main", price: 620, cost: 235.93, par: 10 },
+  { name: "Churchill Sambal Half Chicken", category: "Main", price: 420, cost: 128.07, par: 10 },
+  { name: "Veal Stew", category: "Main", price: 620, cost: 168.29, par: 10 },
+  { name: "Potato Gratin", category: "Side", price: 160, cost: 36.47, par: 10 },
+  { name: "Crispy Potato Wedges", category: "Side", price: 140, cost: 17.18, par: 10 },
+  { name: "Cauliflower Puree", category: "Side", price: 170, cost: 36.26, par: 10 },
+  { name: "Tom Yum Goong", category: "Soup", price: 280, cost: 83.18, par: 10 },
+  { name: "Tom Kha Gai", category: "Soup", price: 240, cost: 52.56, par: 10 },
+  { name: "Pad Thai", category: "Main", price: 260, cost: 46.63, par: 10 },
+  { name: "Pad Ka Prow", category: "Main", price: 240, cost: 47.01, par: 10 },
+  { name: "Stir-Fried Chicken with Cashew Nuts", category: "Main", price: 260, cost: 53.56, par: 10 },
+  { name: "Beef with Oyster Sauce", category: "Main", price: 320, cost: 111.05, par: 10 },
+  { name: "Massaman Curry", category: "Main", price: 320, cost: 80.08, par: 10 },
+  { name: "Green Curry", category: "Main", price: 280, cost: 52.04, par: 10 },
+  { name: "Panang Curry", category: "Main", price: 280, cost: 63.72, par: 10 },
+  { name: "Pineapple Fried Rice", category: "Main", price: 280, cost: 43.92, par: 10 },
 ];
 
-function money(value) {
-  return Number(value || 0).toLocaleString("en-US", {
-    minimumFractionDigits: 0,
+const THEME = {
+  bg: "#0b0b0b",
+  panel: "#131313",
+  panelSoft: "#171717",
+  border: "rgba(255,255,255,0.08)",
+  text: "#f5f5f5",
+  muted: "#b7b2a4",
+  accent: "#f97316",
+  accentSoft: "rgba(249,115,22,0.16)",
+  khaki: "#c8ba97",
+  green: "#22c55e",
+  red: "#ef4444",
+  yellow: "#eab308",
+};
+
+function createInitialRows() {
+  return DISH_CATALOG.map((item) => ({
+    ...item,
+    openingStock: 0,
+    soldQty: 0,
+    producedQty: 0,
+  }));
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "THB",
     maximumFractionDigits: 2,
-  });
+  }).format(Number(value || 0));
 }
 
-function percent(value) {
-  return `${Number(value || 0).toFixed(1)}%`;
+function formatNumber(value) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
 }
 
-function classifyDish(avgQty, avgProfit, qty, profit) {
-  if (qty >= avgQty && profit >= avgProfit) return "Star";
-  if (qty >= avgQty && profit < avgProfit) return "Plowhorse";
-  if (qty < avgQty && profit >= avgProfit) return "Puzzle";
+function formatPercent(value) {
+  return `${(Number(value || 0) * 100).toFixed(1)}%`;
+}
+
+function clampNumber(value) {
+  const parsed = Number(value);
+  if (Number.isNaN(parsed) || parsed < 0) return 0;
+  return parsed;
+}
+
+function getCurrentStock(row) {
+  return Math.max((row.openingStock || 0) + (row.producedQty || 0) - (row.soldQty || 0), 0);
+}
+
+function getToProduce(row) {
+  return Math.max((row.par || 0) - getCurrentStock(row), 0);
+}
+
+function getPrepStatus(row) {
+  const currentStock = getCurrentStock(row);
+  const toProduce = getToProduce(row);
+
+  if (currentStock <= 0) return "OUT";
+  if (toProduce > 0) return "SEND TO KITCHEN";
+  return "READY";
+}
+
+function getDishRevenue(row) {
+  return (row.soldQty || 0) * (row.price || 0);
+}
+
+function getDishCost(row) {
+  return (row.soldQty || 0) * (row.cost || 0);
+}
+
+function getDishProfit(row) {
+  return getDishRevenue(row) - getDishCost(row);
+}
+
+function getMenuEngineeringLabel(row, averageSold, averageProfit) {
+  const sold = row.soldQty || 0;
+  const profit = getDishProfit(row);
+
+  const highPopularity = sold >= averageSold;
+  const highProfit = profit >= averageProfit;
+
+  if (highPopularity && highProfit) return "Star";
+  if (highPopularity && !highProfit) return "Plowhorse";
+  if (!highPopularity && highProfit) return "Puzzle";
   return "Dog";
 }
 
-function scoreTone(label) {
-  if (label === "Star") return COLORS.good;
-  if (label === "Plowhorse") return COLORS.warn;
-  if (label === "Puzzle") return COLORS.khakiDark;
-  return COLORS.bad;
+function getMenuEngineeringTone(label) {
+  if (label === "Star") return { bg: "rgba(34,197,94,0.15)", color: THEME.green };
+  if (label === "Plowhorse") return { bg: "rgba(234,179,8,0.15)", color: THEME.yellow };
+  if (label === "Puzzle") return { bg: "rgba(59,130,246,0.15)", color: "#60a5fa" };
+  return { bg: "rgba(239,68,68,0.15)", color: THEME.red };
 }
 
-function Card({ title, right, children }) {
+function SectionTitle({ title, subtitle, right }) {
   return (
     <div
       style={{
-        background: COLORS.panel,
-        border: `1px solid ${COLORS.line}`,
-        borderRadius: 18,
-        padding: 18,
-        boxShadow: "0 10px 30px rgba(92, 77, 50, 0.08)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: 16,
+        marginBottom: 16,
+        flexWrap: "wrap",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 14,
-          flexWrap: "wrap",
-        }}
-      >
-        <div
+      <div>
+        <h2
           style={{
-            fontSize: 22,
-            fontWeight: 900,
-            color: COLORS.text,
+            margin: 0,
+            color: THEME.text,
+            fontSize: 20,
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
           }}
         >
           {title}
-        </div>
-        {right}
+        </h2>
+        {subtitle ? (
+          <p
+            style={{
+              margin: "6px 0 0",
+              color: THEME.muted,
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            {subtitle}
+          </p>
+        ) : null}
       </div>
-      {children}
+      {right}
     </div>
   );
 }
 
-function MetricCard({ title, value, tone }) {
+function SummaryCard({ label, value, subValue, accent }) {
   return (
     <div
       style={{
-        background: COLORS.panel,
-        border: `1px solid ${COLORS.line}`,
+        background: THEME.panel,
+        border: `1px solid ${accent ? THEME.accentSoft : THEME.border}`,
         borderRadius: 18,
-        padding: 18,
-        boxShadow: "0 10px 30px rgba(92, 77, 50, 0.08)",
+        padding: 16,
+        minHeight: 104,
       }}
     >
+      <div style={{ color: THEME.muted, fontSize: 12, marginBottom: 8 }}>{label}</div>
       <div
         style={{
-          color: COLORS.muted,
-          fontSize: 12,
-          textTransform: "uppercase",
-          letterSpacing: 1,
-          marginBottom: 8,
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          fontSize: 30,
-          fontWeight: 900,
-          color: tone || COLORS.text,
-          lineHeight: 1.1,
-          wordBreak: "break-word",
+          color: accent ? THEME.accent : THEME.text,
+          fontSize: 24,
+          fontWeight: 800,
+          letterSpacing: "-0.03em",
+          lineHeight: 1.05,
         }}
       >
         {value}
+      </div>
+      {subValue ? (
+        <div style={{ color: THEME.muted, fontSize: 12, marginTop: 8 }}>{subValue}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function InputField({ label, value, onChange, type = "text", min = 0, step = "any", placeholder }) {
+  return (
+    <label style={{ display: "grid", gap: 8 }}>
+      <span style={{ color: THEME.muted, fontSize: 12 }}>{label}</span>
+      <input
+        type={type}
+        min={min}
+        step={step}
+        value={value}
+        placeholder={placeholder}
+        onChange={onChange}
+        style={{
+          width: "100%",
+          borderRadius: 12,
+          border: `1px solid ${THEME.border}`,
+          background: "#101010",
+          color: THEME.text,
+          padding: "12px 14px",
+          outline: "none",
+          fontSize: 14,
+        }}
+      />
+    </label>
+  );
+}
+
+function MobileDishCard({ row, onRowChange, averageSold, averageProfit }) {
+  const currentStock = getCurrentStock(row);
+  const toProduce = getToProduce(row);
+  const prepStatus = getPrepStatus(row);
+  const revenue = getDishRevenue(row);
+  const cost = getDishCost(row);
+  const profit = getDishProfit(row);
+  const label = getMenuEngineeringLabel(row, averageSold, averageProfit);
+  const tone = getMenuEngineeringTone(label);
+
+  return (
+    <div
+      style={{
+        background: THEME.panel,
+        border: `1px solid ${THEME.border}`,
+        borderRadius: 18,
+        padding: 16,
+        display: "grid",
+        gap: 14,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <div style={{ color: THEME.khakि, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            {row.category}
+          </div>
+          <div style={{ color: THEME.text, fontSize: 17, fontWeight: 700, lineHeight: 1.3 }}>{row.name}</div>
+        </div>
+        <div
+          style={{
+            alignSelf: "flex-start",
+            background: tone.bg,
+            color: tone.color,
+            borderRadius: 999,
+            padding: "7px 10px",
+            fontSize: 11,
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {label}
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 10,
+        }}
+      >
+        <InputField
+          label="Sold Qty"
+          type="number"
+          min="0"
+          step="1"
+          value={row.soldQty}
+          onChange={(event) => onRowChange("soldQty", clampNumber(event.target.value))}
+        />
+        <InputField
+          label="Produced Qty"
+          type="number"
+          min="0"
+          step="1"
+          value={row.producedQty}
+          onChange={(event) => onRowChange("producedQty", clampNumber(event.target.value))}
+        />
+        <InputField
+          label="Opening Stock"
+          type="number"
+          min="0"
+          step="1"
+          value={row.openingStock}
+          onChange={(event) => onRowChange("openingStock", clampNumber(event.target.value))}
+        />
+        <InputField
+          label="Par Level"
+          type="number"
+          min="0"
+          step="1"
+          value={row.par}
+          onChange={(event) => onRowChange("par", clampNumber(event.target.value))}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 10,
+        }}
+      >
+        <div style={{ background: THEME.panelSoft, borderRadius: 14, padding: 12 }}>
+          <div style={{ color: THEME.muted, fontSize: 11 }}>Current Stock</div>
+          <div style={{ color: THEME.text, fontSize: 18, fontWeight: 700 }}>{currentStock}</div>
+        </div>
+        <div style={{ background: THEME.panelSoft, borderRadius: 14, padding: 12 }}>
+          <div style={{ color: THEME.muted, fontSize: 11 }}>To Produce</div>
+          <div style={{ color: THEME.accent, fontSize: 18, fontWeight: 700 }}>{toProduce}</div>
+        </div>
+        <div style={{ background: THEME.panelSoft, borderRadius: 14, padding: 12 }}>
+          <div style={{ color: THEME.muted, fontSize: 11 }}>Revenue</div>
+          <div style={{ color: THEME.text, fontSize: 16, fontWeight: 700 }}>{formatCurrency(revenue)}</div>
+        </div>
+        <div style={{ background: THEME.panelSoft, borderRadius: 14, padding: 12 }}>
+          <div style={{ color: THEME.muted, fontSize: 11 }}>Gross Profit</div>
+          <div style={{ color: profit >= 0 ? THEME.green : THEME.red, fontSize: 16, fontWeight: 700 }}>
+            {formatCurrency(profit)}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ color: THEME.muted, fontSize: 12 }}>
+          Price {formatCurrency(row.price)} | Recipe Cost {formatCurrency(row.cost)} | Food Cost {formatPercent(row.cost / row.price)}
+        </div>
+        <div
+          style={{
+            borderRadius: 999,
+            padding: "7px 10px",
+            fontSize: 11,
+            fontWeight: 700,
+            background:
+              prepStatus === "READY"
+                ? "rgba(34,197,94,0.14)"
+                : prepStatus === "OUT"
+                ? "rgba(239,68,68,0.14)"
+                : "rgba(249,115,22,0.14)",
+            color:
+              prepStatus === "READY"
+                ? THEME.green
+                : prepStatus === "OUT"
+                ? THEME.red
+                : THEME.accent,
+          }}
+        >
+          {prepStatus}
+        </div>
+      </div>
+
+      <div style={{ color: THEME.muted, fontSize: 12 }}>
+        Cost {formatCurrency(cost)} | Margin {revenue > 0 ? formatPercent(profit / revenue) : "0.0%"}
       </div>
     </div>
   );
 }
 
 export default function ControlFinal() {
-  const [businessDate, setBusinessDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
-  const [selectedDish, setSelectedDish] = useState(MENU[0].name);
-  const [quantity, setQuantity] = useState(1);
-  const [lines, setLines] = useState([]);
+  const [rows, setRows] = useState(createInitialRows);
+  const [businessDate, setBusinessDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [covers, setCovers] = useState(0);
+  const [drinkRevenue, setDrinkRevenue] = useState(0);
+  const [avgTicketTime, setAvgTicketTime] = useState(0);
+  const [secondRoundRate, setSecondRoundRate] = useState(0);
+  const [complaints, setComplaints] = useState(0);
+  const [managerNotes, setManagerNotes] = useState("");
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("All");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
 
-  const selectedData = useMemo(() => {
-    return MENU.find((dish) => dish.name === selectedDish) || MENU[0];
-  }, [selectedDish]);
+  const categories = useMemo(
+    () => ["All", ...Array.from(new Set(DISH_CATALOG.map((item) => item.category)))],
+    []
+  );
 
-  const totals = useMemo(() => {
-    const revenue = lines.reduce((sum, line) => sum + line.revenue, 0);
-    const cost = lines.reduce((sum, line) => sum + line.costTotal, 0);
-    const profit = revenue - cost;
-    const margin = revenue ? (profit / revenue) * 100 : 0;
-    return { revenue, cost, profit, margin };
-  }, [lines]);
-
-  const lineAnalytics = useMemo(() => {
-    const merged = {};
-
-    lines.forEach((line) => {
-      if (!merged[line.name]) {
-        merged[line.name] = {
-          name: line.name,
-          category: line.category,
-          qty: 0,
-          revenue: 0,
-          costTotal: 0,
-          profit: 0,
-          price: line.price,
-          cost: line.cost,
-        };
-      }
-
-      merged[line.name].qty += line.qty;
-      merged[line.name].revenue += line.revenue;
-      merged[line.name].costTotal += line.costTotal;
-      merged[line.name].profit += line.profit;
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      const matchCategory = categoryFilter === "All" || row.category === categoryFilter;
+      const matchSearch =
+        !search.trim() ||
+        row.name.toLowerCase().includes(search.toLowerCase()) ||
+        row.category.toLowerCase().includes(search.toLowerCase());
+      return matchCategory && matchSearch;
     });
+  }, [rows, categoryFilter, search]);
 
-    const stats = Object.values(merged);
-    const avgQty =
-      stats.length > 0
-        ? stats.reduce((sum, item) => sum + item.qty, 0) / stats.length
-        : 0;
-    const avgProfit =
-      stats.length > 0
-        ? stats.reduce((sum, item) => sum + item.profit, 0) / stats.length
-        : 0;
+  const totalFoodRevenue = useMemo(
+    () => rows.reduce((sum, row) => sum + getDishRevenue(row), 0),
+    [rows]
+  );
 
-    return stats
-      .map((item) => ({
-        ...item,
-        classification: classifyDish(avgQty, avgProfit, item.qty, item.profit),
-        recommendedPrice:
-          item.cost > 0 ? Math.ceil((item.cost / 0.3) / 5) * 5 : item.price,
-      }))
-      .sort((a, b) => b.profit - a.profit);
-  }, [lines]);
+  const totalFoodCost = useMemo(
+    () => rows.reduce((sum, row) => sum + getDishCost(row), 0),
+    [rows]
+  );
+
+  const totalRevenue = totalFoodRevenue + Number(drinkRevenue || 0);
+  const totalProfit = totalRevenue - totalFoodCost;
+  const totalSold = useMemo(() => rows.reduce((sum, row) => sum + (row.soldQty || 0), 0), [rows]);
+  const totalToProduce = useMemo(() => rows.reduce((sum, row) => sum + getToProduce(row), 0), [rows]);
+  const lowStockCount = useMemo(() => rows.filter((row) => getToProduce(row) > 0).length, [rows]);
+  const foodCostPct = totalRevenue > 0 ? totalFoodCost / totalRevenue : 0;
+  const foodOnlyCostPct = totalFoodRevenue > 0 ? totalFoodCost / totalFoodRevenue : 0;
+  const revenuePerCover = covers > 0 ? totalRevenue / covers : 0;
+  const drinksPerCover = covers > 0 ? Number(drinkRevenue || 0) / covers : 0;
+  const grossMargin = totalRevenue > 0 ? totalProfit / totalRevenue : 0;
+
+  const averageSold = useMemo(() => {
+    const active = rows.filter((row) => row.soldQty > 0);
+    if (!active.length) return 1;
+    return active.reduce((sum, row) => sum + row.soldQty, 0) / active.length;
+  }, [rows]);
+
+  const averageProfit = useMemo(() => {
+    const active = rows.filter((row) => row.soldQty > 0);
+    if (!active.length) return 1;
+    return active.reduce((sum, row) => sum + getDishProfit(row), 0) / active.length;
+  }, [rows]);
+
+  const enrichedRows = useMemo(() => {
+    return rows.map((row) => ({
+      ...row,
+      currentStock: getCurrentStock(row),
+      toProduce: getToProduce(row),
+      status: getPrepStatus(row),
+      revenue: getDishRevenue(row),
+      cogs: getDishCost(row),
+      profit: getDishProfit(row),
+      menuClass: getMenuEngineeringLabel(row, averageSold, averageProfit),
+    }));
+  }, [rows, averageProfit, averageSold]);
+
+  const sortedByRevenue = useMemo(
+    () => [...enrichedRows].sort((a, b) => b.revenue - a.revenue),
+    [enrichedRows]
+  );
 
   const aiInsights = useMemo(() => {
-    const out = [];
+    const insights = [];
 
-    if (lines.length === 0) {
-      out.push("No sales data yet. Start by adding dishes from the dropdown.");
-      return out;
-    }
+    const topSeller = [...enrichedRows].sort((a, b) => b.soldQty - a.soldQty)[0];
+    const strongestProfit = [...enrichedRows].sort((a, b) => b.profit - a.profit)[0];
+    const weakestProfit = [...enrichedRows].sort((a, b) => a.profit - b.profit)[0];
+    const dogs = enrichedRows.filter((row) => row.menuClass === "Dog" && row.soldQty > 0);
+    const puzzles = enrichedRows.filter((row) => row.menuClass === "Puzzle");
+    const urgentPrep = enrichedRows
+      .filter((row) => row.toProduce > 0)
+      .sort((a, b) => b.toProduce - a.toProduce)
+      .slice(0, 3);
 
-    if (totals.margin >= 30) {
-      out.push("Overall margin is strong. Current pricing and sales mix are healthy.");
-    } else if (totals.margin >= 20) {
-      out.push("Overall margin is acceptable, but price optimisation is still possible.");
-    } else {
-      out.push("Overall margin is weak. Review cost-heavy dishes and low-margin sellers.");
-    }
-
-    const topDish = lineAnalytics[0];
-    const weakDish = [...lineAnalytics].sort((a, b) => a.profit - b.profit)[0];
-
-    if (topDish) {
-      out.push(`Top dish today: ${topDish.name} with THB ${money(topDish.profit)} profit.`);
-    }
-
-    if (weakDish) {
-      if (weakDish.classification === "Dog") {
-        out.push(`${weakDish.name} is classed as Dog. Consider replacing, repricing, or reducing focus.`);
-      } else if (weakDish.classification === "Plowhorse") {
-        out.push(`${weakDish.name} sells well but margin is weak. Consider a controlled price increase.`);
-      } else if (weakDish.classification === "Puzzle") {
-        out.push(`${weakDish.name} has good profit potential but low quantity. Promote it more visibly.`);
-      }
-    }
-
-    const lowMargin = lineAnalytics.filter(
-      (dish) => dish.revenue > 0 && (dish.profit / dish.revenue) * 100 < 25
-    );
-
-    if (lowMargin.length > 0) {
-      out.push(
-        `Low-margin warning on ${lowMargin[0].name}. Recommended price target is THB ${money(
-          lowMargin[0].recommendedPrice
-        )}.`
+    if (topSeller && topSeller.soldQty > 0) {
+      insights.push(
+        `${topSeller.name} is leading volume with ${topSeller.soldQty} sold. Keep visibility high and protect service speed on this item.`
       );
     }
 
-    return out;
-  }, [lines, totals.margin, lineAnalytics]);
+    if (strongestProfit && strongestProfit.profit > 0) {
+      insights.push(
+        `${strongestProfit.name} is generating the strongest gross profit at ${formatCurrency(
+          strongestProfit.profit
+        )}. This is a priority item for upselling and premium positioning.`
+      );
+    }
 
-  const addDishLine = () => {
-    if (!selectedData || Number(quantity) <= 0) return;
+    if (foodOnlyCostPct > 0.35) {
+      insights.push(
+        `Food cost is elevated at ${formatPercent(
+          foodOnlyCostPct
+        )} of food revenue. Review portion control and price discipline on high-cost mains immediately.`
+      );
+    } else if (foodOnlyCostPct > 0 && foodOnlyCostPct <= 0.3) {
+      insights.push(
+        `Food cost is controlled at ${formatPercent(
+          foodOnlyCostPct
+        )}. Current pricing and recipe structure are supporting a healthy operating position.`
+      );
+    }
 
-    const qty = Number(quantity || 0);
-    const revenue = selectedData.price * qty;
-    const costTotal = selectedData.cost * qty;
-    const profit = revenue - costTotal;
+    if (avgTicketTime > 20) {
+      insights.push(
+        `Average ticket time is ${formatNumber(
+          avgTicketTime
+        )} minutes. Service flow should be reviewed before the next rush period.`
+      );
+    }
 
-    const newLine = {
-      id: `${selectedData.name}-${Date.now()}`,
-      name: selectedData.name,
-      category: selectedData.category,
-      qty,
-      price: selectedData.price,
-      cost: selectedData.cost,
-      revenue,
-      costTotal,
-      profit,
-    };
+    if (secondRoundRate > 0 && secondRoundRate < 0.45) {
+      insights.push(
+        `Second-round performance is ${formatPercent(
+          secondRoundRate
+        )}. Improve drink follow-up and dessert prompts to increase table value.`
+      );
+    }
 
-    setLines((prev) => [...prev, newLine]);
+    if (complaints > 2) {
+      insights.push(
+        `${complaints} guest complaints recorded. Manager follow-up is recommended before day close.`
+      );
+    }
+
+    if (urgentPrep.length) {
+      insights.push(
+        `Production gap detected on ${urgentPrep
+          .map((row) => `${row.name} (${row.toProduce})`)
+          .join(", ")}. Kitchen prep should be aligned with par before peak service.`
+      );
+    }
+
+    if (dogs.length) {
+      insights.push(
+        `${dogs.length} dishes are currently classed as Dog. Review menu placement, price fit, or portion logic before carrying them forward unchanged.`
+      );
+    }
+
+    if (puzzles.length) {
+      insights.push(
+        `${puzzles.length} dishes are classed as Puzzle. These are profitable but under-ordered, so they should be re-positioned by staff recommendation or menu placement.`
+      );
+    }
+
+    if (weakestProfit && weakestProfit.soldQty > 0) {
+      insights.push(
+        `${weakestProfit.name} is the weakest current return. Watch discounting, cost leakage, or low-margin volume on this item.`
+      );
+    }
+
+    return insights.slice(0, 7);
+  }, [
+    enrichedRows,
+    avgTicketTime,
+    complaints,
+    foodOnlyCostPct,
+    secondRoundRate,
+  ]);
+
+  const ownerStatus = useMemo(() => {
+    const score =
+      (avgTicketTime <= 15 ? 25 : avgTicketTime <= 20 ? 15 : 0) +
+      (secondRoundRate >= 0.6 ? 25 : secondRoundRate >= 0.45 ? 15 : 0) +
+      (foodOnlyCostPct <= 0.03 ? 25 : foodOnlyCostPct <= 0.05 ? 15 : foodOnlyCostPct <= 0.35 ? 20 : 0) +
+      (complaints === 0 ? 25 : complaints <= 2 ? 15 : 0);
+
+    if (score >= 80) return { score, status: "GOOD", color: THEME.green };
+    if (score >= 60) return { score, status: "WARNING", color: THEME.yellow };
+    return { score, status: "BAD", color: THEME.red };
+  }, [avgTicketTime, secondRoundRate, foodOnlyCostPct, complaints]);
+
+  function updateRow(index, field, value) {
+    setRows((current) =>
+      current.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function resetDay() {
+    setRows(createInitialRows());
+    setCovers(0);
+    setDrinkRevenue(0);
+    setAvgTicketTime(0);
+    setSecondRoundRate(0);
+    setComplaints(0);
+    setManagerNotes("");
     setSaveMessage("");
-  };
+  }
 
-  const removeLine = (id) => {
-    setLines((prev) => prev.filter((line) => line.id !== id));
+  async function handleSaveDay() {
+    setSaving(true);
     setSaveMessage("");
-  };
 
-  const saveDay = async () => {
     try {
-      setSaving(true);
-      setSaveMessage("");
-
       const payload = {
         date: businessDate,
-        dishes: lineAnalytics.map((dish) => ({
-          name: dish.name,
-          category: dish.category,
-          quantity: dish.qty,
-          price: dish.price,
-          cost: dish.costTotal,
-          revenue: dish.revenue,
-          profit: dish.profit,
-          menu_class: dish.classification,
-          recommended_price: dish.recommendedPrice,
-        })),
-        revenue: Number(totals.revenue.toFixed(2)),
-        cost: Number(totals.cost.toFixed(2)),
-        profit: Number(totals.profit.toFixed(2)),
+        dishes: JSON.stringify({
+          meta: {
+            covers: Number(covers || 0),
+            drinkRevenue: Number(drinkRevenue || 0),
+            avgTicketTime: Number(avgTicketTime || 0),
+            secondRoundRate: Number(secondRoundRate || 0),
+            complaints: Number(complaints || 0),
+            managerNotes,
+            ownerStatus,
+          },
+          rows: enrichedRows.map((row) => ({
+            name: row.name,
+            category: row.category,
+            price: row.price,
+            cost: row.cost,
+            par: row.par,
+            openingStock: row.openingStock,
+            soldQty: row.soldQty,
+            producedQty: row.producedQty,
+            currentStock: row.currentStock,
+            toProduce: row.toProduce,
+            status: row.status,
+            revenue: Number(row.revenue.toFixed(2)),
+            cogs: Number(row.cogs.toFixed(2)),
+            profit: Number(row.profit.toFixed(2)),
+            menuClass: row.menuClass,
+          })),
+          insights: aiInsights,
+        }),
+        revenue: Number(totalRevenue.toFixed(2)),
+        cost: Number(totalFoodCost.toFixed(2)),
+        profit: Number(totalProfit.toFixed(2)),
       };
 
-      const res = await fetch("/api/save-day", {
+      const response = await fetch("/api/save-day", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const data = await response.json().catch(() => ({}));
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to save day.");
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to save report.");
       }
 
       setSaveMessage("Day saved successfully.");
@@ -327,484 +649,692 @@ export default function ControlFinal() {
     } finally {
       setSaving(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (saveMessage) {
+        setSaveMessage("");
+      }
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [saveMessage]);
 
   return (
     <div
       style={{
-        background: COLORS.bg,
         minHeight: "100vh",
+        background: THEME.bg,
+        color: THEME.text,
       }}
     >
       <div
         style={{
-          maxWidth: 1400,
-          margin: "0 auto",
-          padding: "24px 16px 40px",
-          display: "grid",
-          gap: 16,
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          backdropFilter: "blur(14px)",
+          background: "rgba(11,11,11,0.88)",
+          borderBottom: `1px solid ${THEME.border}`,
         }}
       >
         <div
           style={{
-            background: "#000000",
-            borderRadius: 22,
-            padding: "28px 20px",
-            color: COLORS.white,
+            width: "100%",
+            maxWidth: 1480,
+            margin: "0 auto",
+            padding: "16px 16px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
           }}
         >
-          <div
-            style={{
-              color: "#bdbdbd",
-              textTransform: "uppercase",
-              letterSpacing: 2,
-              fontWeight: 800,
-              fontSize: 12,
-              marginBottom: 10,
-            }}
-          >
-            Control Panel
+          <div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  color: THEME.accent,
+                  fontWeight: 900,
+                  fontSize: 24,
+                  letterSpacing: "-0.04em",
+                }}
+              >
+                CC
+              </div>
+              <div
+                style={{
+                  color: THEME.text,
+                  fontWeight: 700,
+                  fontSize: 18,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                Churchill Karon
+              </div>
+            </div>
+            <div style={{ color: THEME.muted, fontSize: 12, marginTop: 4 }}>
+              Daily Control Center | Mobile-Optimized V6
+            </div>
           </div>
 
-          <h1
+          <div
             style={{
-              margin: 0,
-              fontSize: "clamp(32px, 6vw, 52px)",
-              lineHeight: 1.05,
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
             }}
           >
-            <span style={{ color: COLORS.orange }}>CC</span> Churchill Karon Control
-          </h1>
-
-          <p
-            style={{
-              marginTop: 14,
-              color: "#dddddd",
-              fontSize: 16,
-              maxWidth: 900,
-              lineHeight: 1.7,
-            }}
-          >
-            Daily operations, menu performance, AI decision support, and save-day control in one place.
-          </p>
+            <button
+              onClick={resetDay}
+              style={{
+                border: `1px solid ${THEME.border}`,
+                background: THEME.panel,
+                color: THEME.text,
+                padding: "11px 14px",
+                borderRadius: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Reset Day
+            </button>
+            <button
+              onClick={handleSaveDay}
+              disabled={saving}
+              style={{
+                border: "none",
+                background: THEME.accent,
+                color: "#ffffff",
+                padding: "11px 16px",
+                borderRadius: 12,
+                fontWeight: 700,
+                cursor: saving ? "not-allowed" : "pointer",
+                opacity: saving ? 0.7 : 1,
+              }}
+            >
+              {saving ? "Saving..." : "Save Day"}
+            </button>
+          </div>
         </div>
+      </div>
 
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 1480,
+          margin: "0 auto",
+          padding: "18px 16px 40px",
+          display: "grid",
+          gap: 18,
+        }}
+      >
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 14,
+            gap: 12,
           }}
         >
-          <MetricCard title="Revenue" value={`THB ${money(totals.revenue)}`} />
-          <MetricCard title="Cost" value={`THB ${money(totals.cost)}`} />
-          <MetricCard
-            title="Profit"
-            value={`THB ${money(totals.profit)}`}
-            tone={totals.profit >= 0 ? COLORS.good : COLORS.bad}
+          <SummaryCard
+            label="Total Revenue"
+            value={formatCurrency(totalRevenue)}
+            subValue={`Food ${formatCurrency(totalFoodRevenue)} | Drinks ${formatCurrency(drinkRevenue)}`}
+            accent
           />
-          <MetricCard title="Margin" value={percent(totals.margin)} />
+          <SummaryCard
+            label="Food Cost"
+            value={formatCurrency(totalFoodCost)}
+            subValue={`Food Cost ${formatPercent(foodOnlyCostPct)}`}
+          />
+          <SummaryCard
+            label="Gross Profit"
+            value={formatCurrency(totalProfit)}
+            subValue={`Margin ${formatPercent(grossMargin)}`}
+          />
+          <SummaryCard
+            label="Dishes Sold"
+            value={formatNumber(totalSold)}
+            subValue={`${lowStockCount} dishes below par`}
+          />
+          <SummaryCard
+            label="Units To Produce"
+            value={formatNumber(totalToProduce)}
+            subValue={`Revenue / Cover ${formatCurrency(revenuePerCover)}`}
+          />
+          <SummaryCard
+            label="Owner Status"
+            value={ownerStatus.status}
+            subValue={`Score ${ownerStatus.score}`}
+          />
         </div>
 
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 16,
+            gridTemplateColumns: "minmax(0, 1.7fr) minmax(320px, 0.9fr)",
+            gap: 18,
           }}
         >
-          <Card
-            title="Dish Entry"
-            right={
-              <input
-                type="date"
-                value={businessDate}
-                onChange={(e) => setBusinessDate(e.target.value)}
-                style={{
-                  background: COLORS.white,
-                  border: `1px solid ${COLORS.line}`,
-                  borderRadius: 10,
-                  padding: "10px 12px",
-                  color: COLORS.text,
-                  maxWidth: "100%",
-                }}
-              />
-            }
+          <div
+            style={{
+              background: THEME.panel,
+              border: `1px solid ${THEME.border}`,
+              borderRadius: 22,
+              padding: 18,
+              minWidth: 0,
+            }}
           >
+            <SectionTitle
+              title="Shift Inputs"
+              subtitle="Control the day from one page. Mobile cards on small screens, full table on larger screens."
+            />
+
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
                 gap: 12,
-                alignItems: "end",
+                marginBottom: 14,
               }}
             >
-              <div>
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>Dish</div>
-                <select
-                  value={selectedDish}
-                  onChange={(e) => setSelectedDish(e.target.value)}
-                  style={{
-                    width: "100%",
-                    background: COLORS.white,
-                    border: `1px solid ${COLORS.line}`,
-                    borderRadius: 12,
-                    padding: "12px 14px",
-                    color: COLORS.text,
-                    fontSize: 15,
-                  }}
-                >
-                  {MENU.map((dish) => (
-                    <option key={dish.name} value={dish.name}>
-                      {dish.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <InputField
+                label="Business Date"
+                type="date"
+                value={businessDate}
+                onChange={(event) => setBusinessDate(event.target.value)}
+              />
+              <InputField
+                label="Covers"
+                type="number"
+                min="0"
+                step="1"
+                value={covers}
+                onChange={(event) => setCovers(clampNumber(event.target.value))}
+              />
+              <InputField
+                label="Drink Revenue"
+                type="number"
+                min="0"
+                step="0.01"
+                value={drinkRevenue}
+                onChange={(event) => setDrinkRevenue(clampNumber(event.target.value))}
+              />
+              <InputField
+                label="Avg Ticket Time (min)"
+                type="number"
+                min="0"
+                step="0.1"
+                value={avgTicketTime}
+                onChange={(event) => setAvgTicketTime(clampNumber(event.target.value))}
+              />
+              <InputField
+                label="Second Round Rate"
+                type="number"
+                min="0"
+                step="0.01"
+                value={secondRoundRate}
+                onChange={(event) => setSecondRoundRate(clampNumber(event.target.value))}
+                placeholder="0.00 to 1.00"
+              />
+              <InputField
+                label="Complaints"
+                type="number"
+                min="0"
+                step="1"
+                value={complaints}
+                onChange={(event) => setComplaints(clampNumber(event.target.value))}
+              />
+            </div>
 
-              <div>
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>Qty</div>
+            <label style={{ display: "grid", gap: 8 }}>
+              <span style={{ color: THEME.muted, fontSize: 12 }}>Manager Notes</span>
+              <textarea
+                value={managerNotes}
+                onChange={(event) => setManagerNotes(event.target.value)}
+                rows={4}
+                style={{
+                  width: "100%",
+                  borderRadius: 14,
+                  border: `1px solid ${THEME.border}`,
+                  background: "#101010",
+                  color: THEME.text,
+                  padding: "14px 14px",
+                  outline: "none",
+                  fontSize: 14,
+                  resize: "vertical",
+                }}
+                placeholder="Write operational notes, service observations, or follow-up actions."
+              />
+            </label>
+          </div>
+
+          <div
+            style={{
+              background: THEME.panel,
+              border: `1px solid ${THEME.border}`,
+              borderRadius: 22,
+              padding: 18,
+              minWidth: 0,
+            }}
+          >
+            <SectionTitle
+              title="Owner Control"
+              subtitle="High-level metrics for cost discipline, service speed, and revenue quality."
+            />
+
+            <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ background: THEME.panelSoft, borderRadius: 16, padding: 14 }}>
+                <div style={{ color: THEME.muted, fontSize: 12 }}>Food Revenue</div>
+                <div style={{ color: THEME.text, fontSize: 20, fontWeight: 800 }}>{formatCurrency(totalFoodRevenue)}</div>
+              </div>
+              <div style={{ background: THEME.panelSoft, borderRadius: 16, padding: 14 }}>
+                <div style={{ color: THEME.muted, fontSize: 12 }}>Revenue / Cover</div>
+                <div style={{ color: THEME.text, fontSize: 20, fontWeight: 800 }}>{formatCurrency(revenuePerCover)}</div>
+              </div>
+              <div style={{ background: THEME.panelSoft, borderRadius: 16, padding: 14 }}>
+                <div style={{ color: THEME.muted, fontSize: 12 }}>Drinks / Cover</div>
+                <div style={{ color: THEME.text, fontSize: 20, fontWeight: 800 }}>{formatCurrency(drinksPerCover)}</div>
+              </div>
+              <div style={{ background: THEME.panelSoft, borderRadius: 16, padding: 14 }}>
+                <div style={{ color: THEME.muted, fontSize: 12 }}>Food Cost %</div>
+                <div style={{ color: ownerStatus.color, fontSize: 20, fontWeight: 800 }}>{formatPercent(foodOnlyCostPct)}</div>
+              </div>
+            </div>
+
+            {saveMessage ? (
+              <div
+                style={{
+                  marginTop: 14,
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  background: saveMessage.toLowerCase().includes("success")
+                    ? "rgba(34,197,94,0.14)"
+                    : "rgba(239,68,68,0.14)",
+                  color: saveMessage.toLowerCase().includes("success") ? THEME.green : THEME.red,
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                {saveMessage}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: THEME.panel,
+            border: `1px solid ${THEME.border}`,
+            borderRadius: 22,
+            padding: 18,
+            minWidth: 0,
+          }}
+        >
+          <SectionTitle
+            title="Service Control Table"
+            subtitle="Full logic preserved: quantity input, production planning, price and cost, revenue, gross profit, and menu engineering."
+            right={
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <input
-                  type="number"
-                  min="1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search dish or category"
                   style={{
-                    width: "100%",
-                    background: COLORS.white,
-                    border: `1px solid ${COLORS.line}`,
                     borderRadius: 12,
-                    padding: "12px 14px",
-                    color: COLORS.text,
-                    fontSize: 15,
+                    border: `1px solid ${THEME.border}`,
+                    background: "#101010",
+                    color: THEME.text,
+                    padding: "10px 12px",
+                    minWidth: 180,
+                    outline: "none",
                   }}
                 />
               </div>
+            }
+          />
 
-              <button
-                onClick={addDishLine}
-                style={{
-                  background: COLORS.khakiDark,
-                  color: COLORS.white,
-                  border: "none",
-                  borderRadius: 12,
-                  padding: "13px 18px",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  minHeight: 48,
-                }}
-              >
-                Add Dish
-              </button>
-            </div>
-
-            <div
-              style={{
-                marginTop: 18,
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  background: "#f7f1e4",
-                  border: `1px solid ${COLORS.line}`,
-                  borderRadius: 14,
-                  padding: 14,
-                }}
-              >
-                <div style={{ color: COLORS.muted, fontSize: 12 }}>Category</div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>{selectedData.category}</div>
-              </div>
-
-              <div
-                style={{
-                  background: "#f7f1e4",
-                  border: `1px solid ${COLORS.line}`,
-                  borderRadius: 14,
-                  padding: 14,
-                }}
-              >
-                <div style={{ color: COLORS.muted, fontSize: 12 }}>Selling Price</div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>THB {money(selectedData.price)}</div>
-              </div>
-
-              <div
-                style={{
-                  background: "#f7f1e4",
-                  border: `1px solid ${COLORS.line}`,
-                  borderRadius: 14,
-                  padding: 14,
-                }}
-              >
-                <div style={{ color: COLORS.muted, fontSize: 12 }}>Recipe Cost</div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>THB {money(selectedData.cost)}</div>
-              </div>
-
-              <div
-                style={{
-                  background: "#f7f1e4",
-                  border: `1px solid ${COLORS.line}`,
-                  borderRadius: 14,
-                  padding: 14,
-                }}
-              >
-                <div style={{ color: COLORS.muted, fontSize: 12 }}>Target Price</div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>
-                  THB {money(Math.ceil((selectedData.cost / 0.3) / 5) * 5)}
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <Card title="AI Manager">
-            <div style={{ display: "grid", gap: 12 }}>
-              {aiInsights.map((insight, index) => (
-                <div
-                  key={index}
-                  style={{
-                    background: "#f7f1e4",
-                    border: `1px solid ${COLORS.line}`,
-                    borderRadius: 14,
-                    padding: 14,
-                    lineHeight: 1.6,
-                    fontSize: 14,
-                  }}
-                >
-                  {insight}
-                </div>
-              ))}
-            </div>
-
-            <div style={{ marginTop: 18 }}>
-              <button
-                onClick={saveDay}
-                disabled={saving || lines.length === 0}
-                style={{
-                  background: saving || lines.length === 0 ? "#bfb39a" : COLORS.good,
-                  color: COLORS.white,
-                  border: "none",
-                  borderRadius: 12,
-                  padding: "14px 18px",
-                  fontWeight: 800,
-                  cursor: saving || lines.length === 0 ? "not-allowed" : "pointer",
-                  width: "100%",
-                }}
-              >
-                {saving ? "Saving..." : "Save Day"}
-              </button>
-
-              {saveMessage ? (
-                <div
-                  style={{
-                    marginTop: 12,
-                    color: saveMessage.toLowerCase().includes("success")
-                      ? COLORS.good
-                      : COLORS.bad,
-                    fontWeight: 700,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {saveMessage}
-                </div>
-              ) : null}
-            </div>
-          </Card>
-        </div>
-
-        <Card title="Live Sales Lines">
           <div
             style={{
+              display: "flex",
+              gap: 8,
               overflowX: "auto",
-              WebkitOverflowScrolling: "touch",
-            }}
-          >
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                minWidth: 860,
-              }}
-            >
-              <thead>
-                <tr style={{ background: "#efe7d6" }}>
-                  {["Dish", "Category", "Qty", "Price", "Cost", "Revenue", "Profit", "Action"].map((head) => (
-                    <th
-                      key={head}
-                      style={{
-                        textAlign: "left",
-                        padding: 12,
-                        borderBottom: `1px solid ${COLORS.line}`,
-                        fontSize: 13,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {head}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {lines.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" style={{ padding: 20, color: COLORS.muted }}>
-                      No dishes added yet.
-                    </td>
-                  </tr>
-                ) : (
-                  lines.map((line) => (
-                    <tr key={line.id}>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>{line.name}</td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>{line.category}</td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>{line.qty}</td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}`, whiteSpace: "nowrap" }}>
-                        THB {money(line.price)}
-                      </td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}`, whiteSpace: "nowrap" }}>
-                        THB {money(line.costTotal)}
-                      </td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}`, whiteSpace: "nowrap" }}>
-                        THB {money(line.revenue)}
-                      </td>
-                      <td
-                        style={{
-                          padding: 12,
-                          borderBottom: `1px solid ${COLORS.line}`,
-                          color: line.profit >= 0 ? COLORS.good : COLORS.bad,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        THB {money(line.profit)}
-                      </td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>
-                        <button
-                          onClick={() => removeLine(line.id)}
-                          style={{
-                            background: COLORS.bad,
-                            color: COLORS.white,
-                            border: "none",
-                            borderRadius: 10,
-                            padding: "8px 12px",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        <Card title="Menu Engineering">
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 12,
+              paddingBottom: 6,
               marginBottom: 16,
             }}
           >
-            {["Star", "Plowhorse", "Puzzle", "Dog"].map((label) => {
-              const count = lineAnalytics.filter((dish) => dish.classification === label).length;
-              return (
-                <div
-                  key={label}
-                  style={{
-                    background: "#f7f1e4",
-                    border: `1px solid ${COLORS.line}`,
-                    borderRadius: 14,
-                    padding: 14,
-                  }}
-                >
-                  <div style={{ color: COLORS.muted, fontSize: 12 }}>{label}</div>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: scoreTone(label) }}>
-                    {count}
-                  </div>
-                </div>
-              );
-            })}
+            {categories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setCategoryFilter(category)}
+                style={{
+                  border: categoryFilter === category ? "none" : `1px solid ${THEME.border}`,
+                  background: categoryFilter === category ? THEME.accent : THEME.panelSoft,
+                  color: "#fff",
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                {category}
+              </button>
+            ))}
           </div>
 
-          <div
-            style={{
-              overflowX: "auto",
-              WebkitOverflowScrolling: "touch",
-            }}
-          >
+          <div className="desktop-table-wrap" style={{ overflowX: "auto", display: "none" }}>
             <table
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                minWidth: 920,
+                minWidth: 1180,
               }}
             >
               <thead>
-                <tr style={{ background: "#efe7d6" }}>
-                  {["Dish", "Qty", "Revenue", "Profit", "Menu Class", "Current Price", "Recommended Price"].map((head) => (
+                <tr>
+                  {[
+                    "Category",
+                    "Dish",
+                    "Sold",
+                    "Produced",
+                    "Open",
+                    "Current",
+                    "Par",
+                    "To Produce",
+                    "Status",
+                    "Price",
+                    "Cost",
+                    "Revenue",
+                    "Gross Profit",
+                    "Menu",
+                  ].map((heading) => (
                     <th
-                      key={head}
+                      key={heading}
                       style={{
                         textAlign: "left",
-                        padding: 12,
-                        borderBottom: `1px solid ${COLORS.line}`,
-                        fontSize: 13,
+                        color: THEME.muted,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        padding: "12px 10px",
+                        borderBottom: `1px solid ${THEME.border}`,
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {head}
+                      {heading}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {lineAnalytics.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" style={{ padding: 20, color: COLORS.muted }}>
-                      Add dish sales to activate menu engineering.
-                    </td>
-                  </tr>
-                ) : (
-                  lineAnalytics.map((dish) => (
-                    <tr key={dish.name}>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>{dish.name}</td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}` }}>{dish.qty}</td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}`, whiteSpace: "nowrap" }}>
-                        THB {money(dish.revenue)}
+                {filteredRows.map((row) => {
+                  const index = rows.findIndex((item) => item.name === row.name);
+                  const currentStock = getCurrentStock(row);
+                  const toProduce = getToProduce(row);
+                  const status = getPrepStatus(row);
+                  const revenue = getDishRevenue(row);
+                  const profit = getDishProfit(row);
+                  const label = getMenuEngineeringLabel(row, averageSold, averageProfit);
+                  const tone = getMenuEngineeringTone(label);
+
+                  return (
+                    <tr key={row.name}>
+                      <td style={cellStyle}>{row.category}</td>
+                      <td style={{ ...cellStyle, fontWeight: 700, color: THEME.text }}>{row.name}</td>
+                      <td style={cellStyle}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={row.soldQty}
+                          onChange={(event) => updateRow(index, "soldQty", clampNumber(event.target.value))}
+                          style={smallInputStyle}
+                        />
                       </td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}`, whiteSpace: "nowrap" }}>
-                        THB {money(dish.profit)}
+                      <td style={cellStyle}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={row.producedQty}
+                          onChange={(event) => updateRow(index, "producedQty", clampNumber(event.target.value))}
+                          style={smallInputStyle}
+                        />
                       </td>
-                      <td
-                        style={{
-                          padding: 12,
-                          borderBottom: `1px solid ${COLORS.line}`,
-                          fontWeight: 800,
-                          color: scoreTone(dish.classification),
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {dish.classification}
+                      <td style={cellStyle}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={row.openingStock}
+                          onChange={(event) => updateRow(index, "openingStock", clampNumber(event.target.value))}
+                          style={smallInputStyle}
+                        />
                       </td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}`, whiteSpace: "nowrap" }}>
-                        THB {money(dish.price)}
+                      <td style={cellStyle}>{currentStock}</td>
+                      <td style={cellStyle}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={row.par}
+                          onChange={(event) => updateRow(index, "par", clampNumber(event.target.value))}
+                          style={smallInputStyle}
+                        />
                       </td>
-                      <td style={{ padding: 12, borderBottom: `1px solid ${COLORS.line}`, whiteSpace: "nowrap" }}>
-                        THB {money(dish.recommendedPrice)}
+                      <td style={cellStyle}>{toProduce}</td>
+                      <td style={cellStyle}>{status}</td>
+                      <td style={cellStyle}>{formatCurrency(row.price)}</td>
+                      <td style={cellStyle}>{formatCurrency(row.cost)}</td>
+                      <td style={cellStyle}>{formatCurrency(revenue)}</td>
+                      <td style={{ ...cellStyle, color: profit >= 0 ? THEME.green : THEME.red }}>
+                        {formatCurrency(profit)}
+                      </td>
+                      <td style={cellStyle}>
+                        <span
+                          style={{
+                            background: tone.bg,
+                            color: tone.color,
+                            borderRadius: 999,
+                            padding: "6px 9px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {label}
+                        </span>
                       </td>
                     </tr>
-                  ))
-                )}
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        </Card>
+
+          <div className="mobile-cards" style={{ display: "grid", gap: 14 }}>
+            {filteredRows.map((row) => {
+              const index = rows.findIndex((item) => item.name === row.name);
+              return (
+                <MobileDishCard
+                  key={row.name}
+                  row={row}
+                  averageSold={averageSold}
+                  averageProfit={averageProfit}
+                  onRowChange={(field, value) => updateRow(index, field, value)}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)",
+            gap: 18,
+          }}
+        >
+          <div
+            style={{
+              background: THEME.panel,
+              border: `1px solid ${THEME.border}`,
+              borderRadius: 22,
+              padding: 18,
+              minWidth: 0,
+            }}
+          >
+            <SectionTitle
+              title="AI Manager Insights"
+              subtitle="Operational reading based on cost, speed, sales pattern, and menu performance."
+            />
+
+            <div style={{ display: "grid", gap: 12 }}>
+              {aiInsights.length ? (
+                aiInsights.map((insight, index) => (
+                  <div
+                    key={`${index}-${insight}`}
+                    style={{
+                      background: THEME.panelSoft,
+                      borderRadius: 16,
+                      padding: 14,
+                      color: THEME.text,
+                      fontSize: 14,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {insight}
+                  </div>
+                ))
+              ) : (
+                <div
+                  style={{
+                    background: THEME.panelSoft,
+                    borderRadius: 16,
+                    padding: 14,
+                    color: THEME.muted,
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Enter sales and shift data to activate the AI manager insights.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: THEME.panel,
+              border: `1px solid ${THEME.border}`,
+              borderRadius: 22,
+              padding: 18,
+              minWidth: 0,
+            }}
+          >
+            <SectionTitle
+              title="Menu Engineering"
+              subtitle="Star, Plowhorse, Puzzle, and Dog classification based on actual daily volume and gross profit."
+            />
+
+            <div style={{ display: "grid", gap: 10 }}>
+              {sortedByRevenue.slice(0, 10).map((row) => {
+                const label = getMenuEngineeringLabel(row, averageSold, averageProfit);
+                const tone = getMenuEngineeringTone(label);
+
+                return (
+                  <div
+                    key={row.name}
+                    style={{
+                      background: THEME.panelSoft,
+                      borderRadius: 16,
+                      padding: 14,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 14,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: THEME.text, fontSize: 15, fontWeight: 700 }}>{row.name}</div>
+                      <div style={{ color: THEME.muted, fontSize: 12, marginTop: 4 }}>
+                        Sold {row.soldQty} | Revenue {formatCurrency(row.revenue)} | Gross Profit {formatCurrency(row.profit)}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        background: tone.bg,
+                        color: tone.color,
+                        borderRadius: 999,
+                        padding: "7px 10px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {label}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
+
+      <style jsx>{`
+        @media (min-width: 1100px) {
+          .desktop-table-wrap {
+            display: block !important;
+          }
+          .mobile-cards {
+            display: none !important;
+          }
+        }
+
+        @media (max-width: 1099px) {
+          .desktop-table-wrap {
+            display: none !important;
+          }
+          .mobile-cards {
+            display: grid !important;
+          }
+        }
+
+        @media (max-width: 980px) {
+          div[style*="grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr)"],
+          div[style*="grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr)"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
+
+const cellStyle = {
+  padding: "10px 10px",
+  borderBottom: `1px solid ${THEME.border}`,
+  color: THEME.muted,
+  fontSize: 13,
+  verticalAlign: "middle",
+};
+
+const smallInputStyle = {
+  width: 72,
+  borderRadius: 10,
+  border: `1px solid ${THEME.border}`,
+  background: "#101010",
+  color: THEME.text,
+  padding: "8px 9px",
+  outline: "none",
+  fontSize: 13,
+};

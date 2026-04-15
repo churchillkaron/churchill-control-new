@@ -54,65 +54,43 @@ export default function ControlFinal() {
     };
   })();
 
-  // ANALYTICS (FIXED)
   const dishStats = (() => {
     const map = {};
-
     rows.forEach((r) => {
       if (!r.dish) return;
-
-      if (!map[r.dish]) {
-        map[r.dish] = { name: r.dish, qty: 0 };
-      }
-
+      if (!map[r.dish]) map[r.dish] = { name: r.dish, qty: 0 };
       map[r.dish].qty += r.qty;
     });
-
     return Object.values(map);
   })();
 
   const maxQty = Math.max(...dishStats.map((d) => d.qty), 1);
 
-  // AI MANAGER (RESTORED)
-  const ai = (() => {
-    if (!totals.revenue) return ["⚠️ No sales data yet"];
-
-    const out = [];
-
-    if (totals.margin < 50) {
-      out.push("🔴 Margin too low — increase prices");
-    } else {
-      out.push("🟢 Margin healthy");
-    }
-
-    if (dishStats.length > 0) {
-      out.push(`🔵 Top dish: ${dishStats[0].name}`);
-    }
-
-    return out;
-  })();
-
   return (
     <div style={{ padding: 40, maxWidth: 1000, margin: "0 auto" }}>
       <h1>Churchill Control Panel</h1>
 
-      <div style={{ marginTop: 10 }}>
+      <div>
         Revenue: {money(totals.revenue)} | Profit: {money(totals.profit)} |
         Margin: {totals.margin.toFixed(1)}%
       </div>
 
-      <div style={{ marginTop: 20 }}>
-        <h3>AI Manager</h3>
-        {ai.map((x, i) => (
-          <div key={i}>{x}</div>
-        ))}
-      </div>
+      <h3 style={{ marginTop: 20 }}>AI Manager</h3>
+      {totals.revenue === 0 ? (
+        <div>⚠️ No sales data yet</div>
+      ) : (
+        <div>
+          {totals.margin < 50
+            ? "🔴 Increase prices"
+            : "🟢 Margin healthy"}
+        </div>
+      )}
 
       <div style={{ marginTop: 20 }}>
         <table width="100%">
           <thead>
             <tr>
-              <th align="left">Dish</th>
+              <th>Dish</th>
               <th>Qty</th>
               <th>Price</th>
               <th>Cost</th>
@@ -152,40 +130,10 @@ export default function ControlFinal() {
         </table>
       </div>
 
-      {/* ANALYTICS */}
       <div style={{ marginTop: 30 }}>
         <h2>Analytics</h2>
 
-        <h4>Revenue vs Cost vs Profit</h4>
-
-        <div style={{ marginBottom: 10 }}>
-          <div>Revenue</div>
-          <div style={{ height: 10, background: "#666", width: "100%" }} />
-        </div>
-
-        <div style={{ marginBottom: 10 }}>
-          <div>Cost</div>
-          <div
-            style={{
-              height: 10,
-              background: "#999",
-              width: `${totals.revenue ? (totals.cost / totals.revenue) * 100 : 0}%`,
-            }}
-          />
-        </div>
-
-        <div>
-          <div>Profit</div>
-          <div
-            style={{
-              height: 10,
-              background: "#333",
-              width: `${totals.revenue ? (totals.profit / totals.revenue) * 100 : 0}%`,
-            }}
-          />
-        </div>
-
-        <h4 style={{ marginTop: 20 }}>Top Dishes</h4>
+        <div style={{ height: 10, background: "#666", width: "100%" }} />
 
         {dishStats.map((d) => (
           <div key={d.name}>
@@ -194,7 +142,7 @@ export default function ControlFinal() {
               style={{
                 height: 8,
                 width: `${(d.qty / maxQty) * 100}%`,
-                background: "#666",
+                background: "#444",
               }}
             />
           </div>

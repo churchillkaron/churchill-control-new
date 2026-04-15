@@ -4,18 +4,15 @@ export default function RootLayout({ children }) {
       <body style={styles.body}>
         <nav style={styles.nav}>
           <div style={styles.navInner}>
-            <span style={styles.logo}>Churchill Control</span>
+            <div style={styles.logoWrap}>
+              <div style={styles.logoMark}>CC</div>
+              <span style={styles.logoText}>Churchill Control</span>
+            </div>
 
             <div style={styles.links}>
-              <a href="/control-final" style={styles.link}>
-                Control
-              </a>
-              <a href="/dashboard" style={styles.link}>
-                Dashboard
-              </a>
-              <a href="/history" style={styles.link}>
-                History
-              </a>
+              <a href="/control-final" style={styles.link}>Control</a>
+              <a href="/dashboard" style={styles.link}>Dashboard</a>
+              <a href="/history" style={styles.link}>History</a>
             </div>
           </div>
         </nav>
@@ -29,14 +26,14 @@ export default function RootLayout({ children }) {
 const styles = {
   body: {
     margin: 0,
-    fontFamily: 'Arial, sans-serif',
-    background: '#f5f1e6'
+    fontFamily: 'Segoe UI, sans-serif',
+    background: '#f5f1e6',
+    color: '#222'
   },
   nav: {
     background: '#ffffff',
-    borderBottom: '1px solid #ddd',
-    padding: '15px 0',
-    marginBottom: 30
+    borderBottom: '1px solid #e0dccf',
+    padding: '18px 0'
   },
   navInner: {
     maxWidth: 1100,
@@ -45,13 +42,25 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center'
   },
-  logo: {
+  logoWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10
+  },
+  logoMark: {
+    background: '#d97a00',
+    color: '#fff',
     fontWeight: 'bold',
-    fontSize: 18
+    padding: '6px 10px',
+    borderRadius: 6
+  },
+  logoText: {
+    fontWeight: 600,
+    fontSize: 16
   },
   links: {
     display: 'flex',
-    gap: 20
+    gap: 24
   },
   link: {
     textDecoration: 'none',
@@ -60,6 +69,7 @@ const styles = {
   },
   main: {
     maxWidth: 1100,
-    margin: '0 auto'
+    margin: '0 auto',
+    padding: 20
   }
 };

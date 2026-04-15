@@ -52,6 +52,30 @@ export default function DashboardPage() {
     return [...data].sort((a, b) => a.profit - b.profit)[0];
   }, [data]);
 
+  const insights = useMemo(() => {
+    if (!data.length) return [];
+
+    const list = [];
+
+    if (bestDay) {
+      list.push(`Best business day was ${bestDay.date} with profit of THB ${bestDay.profit}.`);
+    }
+
+    if (worstDay) {
+      list.push(`Weakest day was ${worstDay.date} with profit of THB ${worstDay.profit}.`);
+    }
+
+    if (foodCostPct > 60) {
+      list.push(`Food cost is high at ${foodCostPct.toFixed(1)}%. Review portion control and supplier pricing.`);
+    } else if (foodCostPct > 40) {
+      list.push(`Food cost is moderate at ${foodCostPct.toFixed(1)}%. Monitor closely.`);
+    } else {
+      list.push(`Food cost is healthy at ${foodCostPct.toFixed(1)}%. Good control.`);
+    }
+
+    return list;
+  }, [data, bestDay, worstDay, foodCostPct]);
+
   if (loading) {
     return <div style={{ padding: 20, color: "white" }}>Loading...</div>;
   }
@@ -74,7 +98,7 @@ export default function DashboardPage() {
         <Card title="Food Cost %" value={`${foodCostPct.toFixed(1)}%`} />
       </div>
 
-      {/* 🔥 BEST / WORST */}
+      {/* BEST / WORST */}
       <div style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
@@ -83,6 +107,23 @@ export default function DashboardPage() {
       }}>
         <Box title="Best Day" data={bestDay} />
         <Box title="Worst Day" data={worstDay} />
+      </div>
+
+      {/* 🔥 AI INSIGHTS */}
+      <div style={{
+        background: "#131313",
+        padding: 20,
+        borderRadius: 14,
+        marginBottom: 30,
+        border: "1px solid rgba(255,255,255,0.05)",
+      }}>
+        <div style={{ color: "#aaa", marginBottom: 10 }}>AI Owner Insights</div>
+
+        {insights.map((text, i) => (
+          <div key={i} style={{ marginBottom: 8 }}>
+            • {text}
+          </div>
+        ))}
       </div>
 
       {/* HISTORY */}

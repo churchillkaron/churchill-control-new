@@ -46,9 +46,50 @@ function parseDishes(value) {
   }
 }
 
+function normalizeBusinessDate(value) {
+  if (!value) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+
+  return parsed.toISOString().slice(0, 10);
+}
+
+function formatBusinessDate(value) {
+  const normalized = normalizeBusinessDate(value);
+  if (!normalized || !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return String(value || "-");
+
+  const [year, month, day] = normalized.split("-");
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 function getMargin(revenue, profit) {
   if (!revenue) return 0;
   return Number(profit || 0) / Number(revenue || 0);
+}
+
+function inferStatus(row) {
+  const savedStatus = row.dishes?.meta?.ownerStatus?.status;
+  if (savedStatus === "GOOD" || savedStatus === "WARNING" || savedStatus === "BAD") {
+    return savedStatus;
+  }
+
+  const margin = getMargin(row.revenue, row.profit);
+
+  if (row.profit <= 0) return "BAD";
+  if (margin >= 0.5) return "GOOD";
+  if (margin >= 0.3) return "WARNING";
+  return "BAD";
 }
 
 function getStatusTone(status) {
@@ -66,16 +107,9 @@ function getStatusTone(status) {
     };
   }
 
-  if (status === "BAD") {
-    return {
-      bg: "rgba(239,68,68,0.14)",
-      color: THEME.red,
-    };
-  }
-
   return {
-    bg: "rgba(255,255,255,0.06)",
-    color: THEME.muted,
+    bg: "rgba(239,68,68,0.14)",
+    color: THEME.red,
   };
 }
 
@@ -155,7 +189,8 @@ function MobileHistoryCard({ row, onToggle, expanded }) {
   const meta = row.dishes?.meta || {};
   const items = Array.isArray(row.dishes?.rows) ? row.dishes.rows : [];
   const insights = Array.isArray(row.dishes?.insights) ? row.dishes.insights : [];
-  const tone = getStatusTone(meta.ownerStatus?.status);
+  const resolvedStatus = inferStatus(row);
+  const tone = getStatusTone(resolvedStatus);
 
   const topDish = [...items].sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0))[0];
 
@@ -183,7 +218,14 @@ function MobileHistoryCard({ row, onToggle, expanded }) {
           <div style={{ color: THEME.khaki, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
             Saved Day
           </div>
-          <div style={{ color: THEME.text, fontSize: 18, fontWeight: 700 }}>{row.date}</div>
+          <div style={{ color: THEME.text, fontSize: 18, fontWeight: 700 }}>
+            {formatBusinessDate(row.date)}
+          </div>
+          {row.duplicateCount > 1 ? (
+            <div style={{ color: THEME.muted, fontSize: 12, marginTop: 4 }}>
+              Consolidated from {row.duplicateCount} saves on this day
+            </div>
+          ) : null}
         </div>
 
         <div
@@ -196,7 +238,7 @@ function MobileHistoryCard({ row, onToggle, expanded }) {
             fontWeight: 700,
           }}
         >
-          {meta.ownerStatus?.status || "N/A"}
+          {resolvedStatus}
         </div>
       </div>
 
@@ -376,7 +418,7 @@ export default function HistoryPage() {
         const normalized = Array.isArray(data)
           ? data.map((item) => ({
               id: item.id,
-              date: item.date,
+              date: normalizeBusinessDate(item.date),
               revenue: Number(item.revenue || 0),
               cost: Number(item.cost || 0),
               profit: Number(item.profit || 0),
@@ -385,7 +427,7 @@ export default function HistoryPage() {
             }))
           : [];
 
-        normalized.sort((a, b) => new Date(b.date) - new Date(a.date));
+        normalized.sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
         setHistoryRows(normalized);
       } catch (error) {
         if (!active) return;
@@ -402,8 +444,44 @@ export default function HistoryPage() {
     };
   }, []);
 
+  const groupedRows = useMemo(() => {
+    const map = new Map();
+
+    historyRows.forEach((row) => {
+      const key = normalizeBusinessDate(row.date);
+      const existing = map.get(key);
+
+      if (!existing) {
+        map.set(key, {
+          ...row,
+          duplicateCount: 1,
+        });
+        return;
+      }
+
+      const currentStamp = new Date(row.created_at || row.date).getTime();
+      const existingStamp = new Date(existing.created_at || existing.date).getTime();
+
+      if (currentStamp > existingStamp) {
+        map.set(key, {
+          ...row,
+          duplicateCount: existing.duplicateCount + 1,
+        });
+      } else {
+        map.set(key, {
+          ...existing,
+          duplicateCount: existing.duplicateCount + 1,
+        });
+      }
+    });
+
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }, [historyRows]);
+
   const filteredRows = useMemo(() => {
-    let rows = [...historyRows];
+    let rows = [...groupedRows];
 
     if (periodFilter === "7d") {
       const now = new Date();
@@ -439,7 +517,7 @@ export default function HistoryPage() {
     }
 
     return rows;
-  }, [historyRows, periodFilter, search]);
+  }, [groupedRows, periodFilter, search]);
 
   const totals = useMemo(() => {
     return filteredRows.reduce(
@@ -582,7 +660,7 @@ export default function HistoryPage() {
           <SummaryCard
             label="Saved Days"
             value={formatNumber(filteredRows.length)}
-            subValue="Archive entries in current filter"
+            subValue="One visible result per business day"
             accent
           />
           <SummaryCard
@@ -602,12 +680,12 @@ export default function HistoryPage() {
           />
           <SummaryCard
             label="Best Day"
-            value={bestDay ? bestDay.date : "-"}
+            value={bestDay ? formatBusinessDate(bestDay.date) : "-"}
             subValue={bestDay ? formatCurrency(bestDay.profit) : "No data"}
           />
           <SummaryCard
-            label="Worst Day"
-            value={worstDay ? worstDay.date : "-"}
+            label="Lowest Profit Day"
+            value={worstDay ? formatBusinessDate(worstDay.date) : "-"}
             subValue={worstDay ? formatCurrency(worstDay.profit) : "No data"}
           />
         </div>
@@ -623,7 +701,7 @@ export default function HistoryPage() {
         >
           <SectionTitle
             title="Saved Day Archive"
-            subtitle="Fast review of all completed days with mobile cards on smaller screens and a full table on desktop."
+            subtitle="Fast review of completed days with duplicate saves consolidated by business date."
             right={
               <input
                 value={search}
@@ -677,7 +755,7 @@ export default function HistoryPage() {
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
-                    minWidth: 1040,
+                    minWidth: 1120,
                   }}
                 >
                   <thead>
@@ -694,6 +772,7 @@ export default function HistoryPage() {
                         "2nd Round",
                         "Complaints",
                         "Status",
+                        "Saves",
                       ].map((heading) => (
                         <th key={heading} style={tableHeadStyle}>
                           {heading}
@@ -705,11 +784,12 @@ export default function HistoryPage() {
                     {filteredRows.length ? (
                       filteredRows.map((row) => {
                         const meta = row.dishes?.meta || {};
-                        const tone = getStatusTone(meta.ownerStatus?.status);
+                        const resolvedStatus = inferStatus(row);
+                        const tone = getStatusTone(resolvedStatus);
 
                         return (
                           <tr key={row.id || row.date}>
-                            <td style={tableCellStrongStyle}>{row.date}</td>
+                            <td style={tableCellStrongStyle}>{formatBusinessDate(row.date)}</td>
                             <td style={tableCellStyle}>{formatCurrency(row.revenue)}</td>
                             <td style={tableCellStyle}>{formatCurrency(row.cost)}</td>
                             <td
@@ -747,15 +827,16 @@ export default function HistoryPage() {
                                   fontWeight: 700,
                                 }}
                               >
-                                {meta.ownerStatus?.status || "N/A"}
+                                {resolvedStatus}
                               </span>
                             </td>
+                            <td style={tableCellStyle}>{formatNumber(row.duplicateCount || 1)}</td>
                           </tr>
                         );
                       })
                     ) : (
                       <tr>
-                        <td colSpan={11} style={emptyCellStyle}>
+                        <td colSpan={12} style={emptyCellStyle}>
                           No saved reports available in the selected filter.
                         </td>
                       </tr>

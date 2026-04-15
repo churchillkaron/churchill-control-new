@@ -1,80 +1,19 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from 'next/server'
+import { getSupabase } from '../../../lib/supabase'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
-
-function normalizeBusinessDate(value) {
-  if (!value) {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  return parsed.toISOString().slice(0, 10);
-}
-
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
+    const supabase = getSupabase()
+    const body = await req.json()
 
-    const date = normalizeBusinessDate(body?.date);
-    const dishes =
-      typeof body?.dishes === "string"
-        ? body.dishes
-        : JSON.stringify(body?.dishes || {});
-    const revenue = Number(body?.revenue || 0);
-    const cost = Number(body?.cost || 0);
-    const profit = Number(body?.profit || 0);
-
-    const { data: existingRow, error: existingError } = await supabase
-      .from("daily-reports")
-      .select("id")
-      .eq("date", date)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (existingError) {
-      throw existingError;
-    }
-
-    if (existingRow?.id) {
-      const { data, error } = await supabase
-        .from("daily-reports")
-        .update({
-          date,
-          dishes,
-          revenue,
-          cost,
-          profit,
-        })
-        .eq("id", existingRow.id)
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      return NextResponse.json({
-        success: true,
-        mode: "updated",
-        data,
-      });
-    }
+    const date = body.date || new Date().toISOString().split('T')[0]
+    const dishes = body.dishes || ''
+    const revenue = Number(body.revenue || 0)
+    const cost = Number(body.cost || 0)
+    const profit = Number(body.profit || 0)
 
     const { data, error } = await supabase
-      .from("daily-reports")
+      .from('daily-reports')
       .insert([
         {
           date,
@@ -85,23 +24,24 @@ export async function POST(request) {
         },
       ])
       .select()
-      .single();
+      .single()
 
     if (error) {
-      throw error;
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({
       success: true,
-      mode: "inserted",
       data,
-    });
-  } catch (error) {
+    })
+
+  } catch (err) {
     return NextResponse.json(
-      {
-        error: error?.message || "Failed to save day.",
-      },
+      { error: err.message },
       { status: 500 }
-    );
+    )
   }
 }

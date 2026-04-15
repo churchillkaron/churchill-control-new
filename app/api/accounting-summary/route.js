@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
 import { getSupabase } from '../../../lib/supabase'
@@ -7,48 +8,61 @@ export async function GET() {
   try {
     const supabase = getSupabase()
 
-    const today = new Date().toISOString().slice(0, 10)
-
-    // 🔹 DAILY REPORT (REVENUE / COST / PROFIT)
-    const { data: reports, error: reportsError } = await supabase
-      .from('daily-reports')
-      .select('revenue, cost, profit')
-      .eq('date', today)
-
-    if (reportsError) {
-      return NextResponse.json({ error: reportsError.message }, { status: 500 })
+    if (!supabase) {
+      return NextResponse.json({
+        revenue: 0,
+        sales: 0,
+        avg: 0,
+      })
     }
 
-    // 🔹 EXPENSES
-    const { data: expensesData, error: expensesError } = await supabase
-      .from('accounting-expenses')
-      .select('amount')
-      .eq('date', today)
+    const { data, error } = await supabase
+      .from('pos-sales')
+      .select('*')
 
-    if (expensesError) {
-      return NextResponse.json({ error: expensesError.message }, { status: 500 })
+    if (error) {
+      console.error(error)
+      return NextResponse.json({ revenue: 0, sales: 0, avg: 0 })
     }
 
-    const revenue = (reports || []).reduce((sum, r) => sum + Number(r.revenue || 0), 0)
-    const cost = (reports || []).reduce((sum, r) => sum + Number(r.cost || 0), 0)
-    const profit = (reports || []).reduce((sum, r) => sum + Number(r.profit || 0), 0)
+    let revenue = 0
+    let drinks = 0
+    let itemsSold = 0
 
-    const expenses = (expensesData || []).reduce(
-      (sum, e) => sum + Number(e.amount || 0),
-      0
-    )
+    data.forEach((sale) => {
+      revenue += Number(sale.total || 0)
 
-    const netProfit = profit - expenses
+      if (Array.isArray(sale.items)) {
+        sale.items.forEach((item) => {
+          itemsSold += Number(item.qty || 1)
+
+          // 🔥 detect drinks
+          if (item.category === "drink") {
+            drinks += Number(item.price || 0) * Number(item.qty || 1)
+          }
+        })
+      }
+    })
+
+    const sales = data.length
+    const avg = sales ? revenue / sales : 0
 
     return NextResponse.json({
       revenue,
-      cost,
-      profit,
-      expenses,
-      netProfit,
+      sales,
+      avg,
+      drinks,
+      itemsSold,
     })
 
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error(err)
+    return NextResponse.json({
+      revenue: 0,
+      sales: 0,
+      avg: 0,
+      drinks: 0,
+      itemsSold: 0,
+    })
   }
 }

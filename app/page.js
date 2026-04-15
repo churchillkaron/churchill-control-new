@@ -4,9 +4,9 @@ const colors = {
   line: "#c2b59b",
   text: "#3b3428",
   muted: "#756a57",
-  khaki: "#b7a57a",
   khakiDark: "#8f7d56",
   white: "#ffffff",
+  orange: "#f97316",
 };
 
 function ActionCard({ title, text, href }) {
@@ -49,21 +49,21 @@ export default function HomePage() {
       >
         <div
           style={{
-            background: "linear-gradient(135deg, #efe7d6 0%, #ddd0b4 100%)",
-            border: `1px solid ${colors.line}`,
+            background: "#000000",
             borderRadius: 24,
-            padding: 36,
+            padding: 40,
             marginBottom: 28,
+            color: colors.white,
           }}
         >
           <div
             style={{
-              color: colors.khakiDark,
               textTransform: "uppercase",
               letterSpacing: 2,
               fontWeight: 800,
               marginBottom: 12,
               fontSize: 13,
+              color: "#aaa",
             }}
           >
             Churchill Control System
@@ -74,10 +74,10 @@ export default function HomePage() {
               margin: 0,
               fontSize: 54,
               lineHeight: 1.05,
-              color: colors.text,
             }}
           >
-            Khaki operations system for Churchill
+            <span style={{ color: colors.orange }}>CC</span>{" "}
+            Churchill Karon Control
           </h1>
 
           <p
@@ -85,13 +85,14 @@ export default function HomePage() {
               maxWidth: 900,
               marginTop: 16,
               marginBottom: 28,
-              color: colors.muted,
               fontSize: 18,
               lineHeight: 1.7,
+              color: "#ddd",
             }}
           >
-            Daily control, POS performance, menu engineering, owner analytics,
-            and saved business-day history in one clean system.
+            A centralized control system for managing daily restaurant operations,
+            monitoring financial performance, and optimizing menu profitability
+            through real-time data and intelligent insights.
           </p>
 
           <div
@@ -105,8 +106,8 @@ export default function HomePage() {
               href="/control-final"
               style={{
                 textDecoration: "none",
-                background: colors.khakiDark,
-                color: colors.white,
+                background: colors.orange,
+                color: "#000",
                 padding: "14px 22px",
                 borderRadius: 14,
                 fontWeight: 800,
@@ -119,11 +120,11 @@ export default function HomePage() {
               href="/dashboard"
               style={{
                 textDecoration: "none",
-                background: colors.panel,
-                color: colors.text,
+                background: "#111",
+                color: colors.white,
                 padding: "14px 22px",
                 borderRadius: 14,
-                border: `1px solid ${colors.line}`,
+                border: "1px solid #333",
                 fontWeight: 800,
               }}
             >
@@ -141,17 +142,17 @@ export default function HomePage() {
         >
           <ActionCard
             title="Daily Control"
-            text="Run live sales, quantities, revenue, cost and profit from one control screen."
+            text="Manage live sales, dish performance, revenue and profit in real time."
             href="/control-final"
           />
           <ActionCard
             title="Owner Dashboard"
-            text="Track revenue, profit, margin, best day, worst day and AI insight summaries."
+            text="Track financial performance, margins and business trends."
             href="/dashboard"
           />
           <ActionCard
             title="Saved History"
-            text="Review previously saved days, business totals and dish-level snapshots."
+            text="Review past business days and performance data."
             href="/history"
           />
         </div>

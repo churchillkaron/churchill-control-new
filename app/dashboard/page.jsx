@@ -41,7 +41,7 @@ export default function DashboardPage() {
 
   const drinksPerSale = totalSales > 0 ? drinkRevenue / totalSales : 0;
 
-  // 🔥 DISH ANALYSIS
+  // 🔥 DISH INTELLIGENCE
   const dishStats = useMemo(() => {
     const map = {};
 
@@ -70,40 +70,29 @@ export default function DashboardPage() {
   const topDish = dishStats[0];
   const worstDish = dishStats[dishStats.length - 1];
 
-  // 🔥 AI ENGINE V7
+  // 🔥 AI SCORE
   const ai = useMemo(() => {
-    if (!summary) return { list: [], score: 0, status: "NO DATA" };
-
     let score = 100;
-    const list = [];
+    const issues = [];
 
     if (avgTicket < 400) {
-      list.push("Low ticket size — staff must upsell mains and extras.");
+      issues.push("Upsell failure");
       score -= 25;
     }
 
     if (drinksPerSale < 120) {
-      list.push("Drinks-first weak — push drinks immediately.");
+      issues.push("Drinks-first failure");
       score -= 25;
     }
 
     if (drinksPerSale < 80) {
-      list.push("Critical: drink sales failing.");
+      issues.push("Critical drink failure");
       score -= 30;
     }
 
-    if (topDish) {
-      list.push(`Top dish: ${topDish.name} generating most revenue.`);
-    }
-
     if (worstDish && worstDish.sold < 3) {
-      list.push(`Weak dish: ${worstDish.name} — not selling. Staff not pushing or menu issue.`);
+      issues.push("Weak dish not selling");
       score -= 10;
-    }
-
-    if (avgTicket > 600 && drinksPerSale < 150) {
-      list.push("Strong food but weak drinks — focus on second round drinks.");
-      score -= 15;
     }
 
     let status = "GOOD";
@@ -111,8 +100,37 @@ export default function DashboardPage() {
     if (score < 60) status = "BAD";
     if (score < 40) status = "CRITICAL";
 
-    return { list, score, status };
-  }, [summary, avgTicket, drinksPerSale, topDish, worstDish]);
+    return { score, status, issues };
+  }, [avgTicket, drinksPerSale, worstDish]);
+
+  // 🔥 SERVICE CHARGE ENGINE
+  const service = useMemo(() => {
+    if (ai.status === "GOOD") {
+      return {
+        color: "green",
+        text: "Full service charge approved",
+      };
+    }
+
+    if (ai.status === "WARNING") {
+      return {
+        color: "orange",
+        text: "Reduced service charge — improve upselling and drinks",
+      };
+    }
+
+    if (ai.status === "BAD") {
+      return {
+        color: "red",
+        text: "Low service charge — staff underperforming",
+      };
+    }
+
+    return {
+      color: "red",
+      text: "No service charge — system failure",
+    };
+  }, [ai]);
 
   if (loading) {
     return <div style={{ padding: 20, color: "white" }}>Loading...</div>;
@@ -121,10 +139,29 @@ export default function DashboardPage() {
   return (
     <div style={{ background: "#0b0b0b", minHeight: "100vh", padding: 20, color: "white" }}>
 
-      <h1>Dashboard</h1>
+      <h1>Churchill Control</h1>
+
+      {/* 🔥 SERVICE CHARGE */}
+      <div style={{
+        background: "#131313",
+        padding: 20,
+        borderRadius: 14,
+        marginBottom: 20,
+      }}>
+        <div style={{ fontSize: 14, color: "#aaa" }}>Service Charge Decision</div>
+
+        <div style={{
+          fontSize: 22,
+          fontWeight: "bold",
+          color: service.color,
+          marginTop: 10
+        }}>
+          {service.text}
+        </div>
+      </div>
 
       {/* KPI */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 30 }}>
+      <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
         <Card title="Revenue" value={`THB ${totalRevenue}`} />
         <Card title="Sales" value={totalSales} />
         <Card title="Avg Ticket" value={`THB ${Math.round(avgTicket)}`} />
@@ -133,36 +170,23 @@ export default function DashboardPage() {
 
       {/* AI */}
       <div style={{ background: "#131313", padding: 20, borderRadius: 14 }}>
-        <div style={{ marginBottom: 10 }}>AI Manager</div>
+        <div>AI Manager</div>
 
-        <div style={{
-          fontWeight: "bold",
-          color:
-            ai.status === "GOOD" ? "green" :
-            ai.status === "WARNING" ? "orange" :
-            "red"
-        }}>
-          {ai.status} (Score {ai.score})
+        <div style={{ marginTop: 10 }}>
+          Status: {ai.status} ({ai.score})
         </div>
 
         <div style={{ marginTop: 10 }}>
-          {ai.list.map((t, i) => (
+          {ai.issues.map((t, i) => (
             <div key={i}>• {t}</div>
           ))}
         </div>
-      </div>
 
-      {/* DISH LIST */}
-      <div style={{ marginTop: 30 }}>
-        <h3>Top Dishes</h3>
-        {dishStats.slice(0, 5).map((d, i) => (
-          <div key={i}>{d.name} — {d.sold} sold</div>
-        ))}
-
-        <h3 style={{ marginTop: 20 }}>Weakest Dishes</h3>
-        {dishStats.slice(-5).map((d, i) => (
-          <div key={i}>{d.name} — {d.sold} sold</div>
-        ))}
+        {topDish && (
+          <div style={{ marginTop: 10 }}>
+            Top Dish: {topDish.name}
+          </div>
+        )}
       </div>
 
     </div>
@@ -173,7 +197,7 @@ function Card({ title, value }) {
   return (
     <div style={{ background: "#131313", padding: 20, borderRadius: 14 }}>
       <div style={{ fontSize: 12, color: "#aaa" }}>{title}</div>
-      <div style={{ fontSize: 22 }}>{value}</div>
+      <div style={{ fontSize: 20 }}>{value}</div>
     </div>
   );
 }

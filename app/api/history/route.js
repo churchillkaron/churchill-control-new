@@ -1,23 +1,23 @@
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 export async function GET() {
   try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_ANON_KEY
-    );
-
     const { data, error } = await supabase
       .from("daily-reports")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select("date, revenue, cost, profit, dishes")
+      .order("date", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
 
-    return Response.json({ data }); // 🔥 FIX HERE
-
+    return NextResponse.json(data || []);
   } catch (err) {
-    return Response.json(
+    return NextResponse.json(
       { error: err.message },
       { status: 500 }
     );

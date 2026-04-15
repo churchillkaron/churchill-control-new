@@ -1,7 +1,3 @@
-"use client";
-
-import ControlFinal from "./ControlFinal";
-
 export default function Page() {
-  return <ControlFinal />;
+  return <h1>NEW CONTROL FINAL WORKING</h1>;
 }

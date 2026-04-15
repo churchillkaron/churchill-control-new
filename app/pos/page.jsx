@@ -34,6 +34,22 @@ function formatTHB(value) {
   return `THB ${Number(value || 0).toLocaleString()}`
 }
 
+function formatReceiptTime(value) {
+  if (!value) return '-'
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export default function POSPage() {
   const [orderItems, setOrderItems] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
@@ -42,6 +58,9 @@ export default function POSPage() {
   const [discount, setDiscount] = useState(0)
   const [cashReceived, setCashReceived] = useState('')
   const [orderNote, setOrderNote] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [lastReceipt, setLastReceipt] = useState(null)
 
   const categories = useMemo(() => {
     return ['All', ...Array.from(new Set(MENU_ITEMS.map((item) => item.category)))]
@@ -59,6 +78,7 @@ export default function POSPage() {
   const addItem = (menuItem) => {
     setOrderItems((prev) => {
       const existing = prev.find((item) => item.id === menuItem.id)
+
       if (existing) {
         return prev.map((item) =>
           item.id === menuItem.id
@@ -129,6 +149,70 @@ export default function POSPage() {
     setDiscount(0)
     setCashReceived('')
     setOrderNote('')
+    setSaveError('')
+  }
+
+  const completeSale = async () => {
+    setSaveError('')
+    setLastReceipt(null)
+
+    if (!orderItems.length) {
+      setSaveError('Add at least one item before completing the sale.')
+      return
+    }
+
+    if (total < 0) {
+      setSaveError('Total cannot be negative.')
+      return
+    }
+
+    if (Number(cashReceived || 0) < total) {
+      setSaveError('Cash received is lower than total.')
+      return
+    }
+
+    try {
+      setIsSaving(true)
+
+      const response = await fetch('/api/save-sale', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: orderItems,
+          subtotal,
+          service: Number(serviceCharge || 0),
+          discount: Number(discount || 0),
+          total,
+          cash: Number(cashReceived || 0),
+          change,
+          note: orderNote,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to save sale.')
+      }
+
+      setLastReceipt({
+        id: result.receiptId,
+        createdAt: result.createdAt,
+        total,
+      })
+
+      setOrderItems([])
+      setServiceCharge(0)
+      setDiscount(0)
+      setCashReceived('')
+      setOrderNote('')
+    } catch (error) {
+      setSaveError(error.message || 'Failed to save sale.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -192,7 +276,7 @@ export default function POSPage() {
                   fontSize: '14px',
                 }}
               >
-                Cashier sales input — standalone POS starter
+                Cashier sales input with saved receipt tracking
               </div>
             </div>
 
@@ -210,6 +294,53 @@ export default function POSPage() {
             </div>
           </div>
         </div>
+
+        {lastReceipt && (
+          <div
+            style={{
+              marginBottom: '20px',
+              border: `1px solid ${THEME.green}`,
+              background: '#0f1f15',
+              borderRadius: '18px',
+              padding: '16px',
+            }}
+          >
+            <div
+              style={{
+                color: THEME.khaki,
+                fontWeight: 800,
+                marginBottom: '8px',
+              }}
+            >
+              Sale saved successfully
+            </div>
+            <div style={{ marginBottom: '4px' }}>
+              Receipt ID: <strong>{lastReceipt.id}</strong>
+            </div>
+            <div style={{ marginBottom: '4px' }}>
+              Saved at: <strong>{formatReceiptTime(lastReceipt.createdAt)}</strong>
+            </div>
+            <div>
+              Sale total: <strong>{formatTHB(lastReceipt.total)}</strong>
+            </div>
+          </div>
+        )}
+
+        {saveError && (
+          <div
+            style={{
+              marginBottom: '20px',
+              border: `1px solid ${THEME.red}`,
+              background: '#2a1111',
+              borderRadius: '18px',
+              padding: '16px',
+              color: '#f5d0d0',
+              fontWeight: 700,
+            }}
+          >
+            {saveError}
+          </div>
+        )}
 
         <div
           style={{
@@ -652,6 +783,7 @@ export default function POSPage() {
             >
               <button
                 onClick={resetSale}
+                disabled={isSaving}
                 style={{
                   padding: '14px',
                   borderRadius: '14px',
@@ -659,13 +791,16 @@ export default function POSPage() {
                   background: THEME.soft,
                   color: THEME.text,
                   fontWeight: 700,
-                  cursor: 'pointer',
+                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  opacity: isSaving ? 0.6 : 1,
                 }}
               >
                 Reset Sale
               </button>
 
               <button
+                onClick={completeSale}
+                disabled={isSaving}
                 style={{
                   padding: '14px',
                   borderRadius: '14px',
@@ -673,10 +808,11 @@ export default function POSPage() {
                   background: THEME.orange,
                   color: '#111111',
                   fontWeight: 800,
-                  cursor: 'pointer',
+                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  opacity: isSaving ? 0.7 : 1,
                 }}
               >
-                Complete Sale
+                {isSaving ? 'Saving Sale...' : 'Complete Sale'}
               </button>
             </div>
           </div>

@@ -1,36 +1,29 @@
-import { NextResponse } from 'next/server';
-import supabase from '../../../lib/supabase';
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
-
-    const { date, dishes, revenue, cost, profit } = body;
-
-    const { error } = await supabase
-      .from('daily-reports')
-      .insert([
-        {
-          date,
-          dishes,
-          revenue,
-          cost,
-          profit,
-        },
-      ]);
-
-    if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    return NextResponse.json(
-      { error: 'Server error' },
-      { status: 500 }
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY
     );
+
+    const body = await req.json();
+
+    const { error } = await supabase.from("daily-reports").insert([
+      {
+        date: body.date,
+        dishes: body.dishes,
+        revenue: body.revenue,
+        cost: body.cost,
+        profit: body.profit,
+      },
+    ]);
+
+    if (error) throw error;
+
+    return Response.json({ success: true });
+
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 });
   }
 }

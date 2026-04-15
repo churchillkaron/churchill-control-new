@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 const emptyDish = () => ({
   name: "",
@@ -11,9 +11,8 @@ const emptyDish = () => ({
 
 export default function ControlFinal() {
   const [reportDate, setReportDate] = useState(() => {
-    const now = new Date();
-    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-    return local.toISOString().slice(0, 10);
+    const d = new Date();
+    return d.toISOString().split("T")[0];
   });
 
   const [dishes, setDishes] = useState([
@@ -24,7 +23,6 @@ export default function ControlFinal() {
   ]);
 
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
 
   const parsed = useMemo(() => {
     return dishes.map((d) => {
@@ -69,12 +67,11 @@ export default function ControlFinal() {
     const clean = parsed.filter((d) => d.name.trim() !== "");
 
     if (clean.length === 0) {
-      setMessage("Add at least one dish");
+      alert("Add at least one dish");
       return;
     }
 
     setSaving(true);
-    setMessage("");
 
     try {
       const res = await fetch("/api/save-day", {
@@ -91,18 +88,19 @@ export default function ControlFinal() {
         }),
       });
 
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) throw new Error();
 
-      setMessage("Saved successfully");
-    } catch (err) {
-      setMessage("Error saving");
-    } finally {
-      setSaving(false);
+      alert("Saved!");
+
+    } catch {
+      alert("Save failed");
     }
+
+    setSaving(false);
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 30 }}>
       <h1>Control Panel</h1>
 
       <input
@@ -112,24 +110,29 @@ export default function ControlFinal() {
       />
 
       {parsed.map((d, i) => (
-        <div key={i} style={{ display: "flex", gap: 5, marginTop: 5 }}>
+        <div key={i} style={{ display: "flex", gap: 10, marginTop: 10 }}>
           <input
-            placeholder="Dish name"
+            placeholder="Dish"
             value={d.name}
             onChange={(e) => update(i, "name", e.target.value)}
           />
+
           <input
             type="number"
             value={d.qty}
             onChange={(e) => update(i, "qty", e.target.value)}
           />
+
           <input
             type="number"
+            placeholder="Price"
             value={d.price}
             onChange={(e) => update(i, "price", e.target.value)}
           />
+
           <input
             type="number"
+            placeholder="Cost"
             value={d.cost}
             onChange={(e) => update(i, "cost", e.target.value)}
           />
@@ -148,8 +151,6 @@ export default function ControlFinal() {
       <button onClick={save} disabled={saving}>
         {saving ? "Saving..." : "Save Day"}
       </button>
-
-      {message && <p>{message}</p>}
     </div>
   );
 }

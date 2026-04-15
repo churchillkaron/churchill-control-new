@@ -34,15 +34,17 @@ const THEME = {
   bg: "#0b0b0b",
   panel: "#131313",
   panelSoft: "#171717",
+  panelSoft2: "#101010",
   border: "rgba(255,255,255,0.08)",
   text: "#f5f5f5",
   muted: "#b7b2a4",
   accent: "#f97316",
-  accentSoft: "rgba(249,115,22,0.16)",
+  accentSoft: "rgba(249,115,22,0.14)",
   khaki: "#c8ba97",
   green: "#22c55e",
   red: "#ef4444",
   yellow: "#eab308",
+  blue: "#60a5fa",
 };
 
 function createInitialRows() {
@@ -52,6 +54,12 @@ function createInitialRows() {
     soldQty: 0,
     producedQty: 0,
   }));
+}
+
+function clampNumber(value) {
+  const parsed = Number(value);
+  if (Number.isNaN(parsed) || parsed < 0) return 0;
+  return parsed;
 }
 
 function formatCurrency(value) {
@@ -72,12 +80,6 @@ function formatPercent(value) {
   return `${(Number(value || 0) * 100).toFixed(1)}%`;
 }
 
-function clampNumber(value) {
-  const parsed = Number(value);
-  if (Number.isNaN(parsed) || parsed < 0) return 0;
-  return parsed;
-}
-
 function getCurrentStock(row) {
   return Math.max((row.openingStock || 0) + (row.producedQty || 0) - (row.soldQty || 0), 0);
 }
@@ -91,7 +93,7 @@ function getPrepStatus(row) {
   const toProduce = getToProduce(row);
 
   if (currentStock <= 0) return "OUT";
-  if (toProduce > 0) return "SEND TO KITCHEN";
+  if (toProduce > 0) return "PREP";
   return "READY";
 }
 
@@ -111,6 +113,8 @@ function getMenuEngineeringLabel(row, averageSold, averageProfit) {
   const sold = row.soldQty || 0;
   const profit = getDishProfit(row);
 
+  if (sold === 0) return "NO DATA";
+
   const highPopularity = sold >= averageSold;
   const highProfit = profit >= averageProfit;
 
@@ -120,11 +124,18 @@ function getMenuEngineeringLabel(row, averageSold, averageProfit) {
   return "Dog";
 }
 
-function getMenuEngineeringTone(label) {
-  if (label === "Star") return { bg: "rgba(34,197,94,0.15)", color: THEME.green };
-  if (label === "Plowhorse") return { bg: "rgba(234,179,8,0.15)", color: THEME.yellow };
-  if (label === "Puzzle") return { bg: "rgba(59,130,246,0.15)", color: "#60a5fa" };
-  return { bg: "rgba(239,68,68,0.15)", color: THEME.red };
+function getMenuTone(label) {
+  if (label === "Star") return { bg: "rgba(34,197,94,0.14)", color: THEME.green };
+  if (label === "Plowhorse") return { bg: "rgba(234,179,8,0.14)", color: THEME.yellow };
+  if (label === "Puzzle") return { bg: "rgba(96,165,250,0.14)", color: THEME.blue };
+  if (label === "Dog") return { bg: "rgba(239,68,68,0.14)", color: THEME.red };
+  return { bg: "rgba(255,255,255,0.08)", color: THEME.muted };
+}
+
+function getStatusTone(status) {
+  if (status === "READY") return { bg: "rgba(34,197,94,0.14)", color: THEME.green };
+  if (status === "PREP") return { bg: "rgba(249,115,22,0.14)", color: THEME.accent };
+  return { bg: "rgba(239,68,68,0.14)", color: THEME.red };
 }
 
 function SectionTitle({ title, subtitle, right }) {
@@ -135,8 +146,8 @@ function SectionTitle({ title, subtitle, right }) {
         justifyContent: "space-between",
         alignItems: "flex-start",
         gap: 16,
-        marginBottom: 16,
         flexWrap: "wrap",
+        marginBottom: 16,
       }}
     >
       <div>
@@ -157,7 +168,7 @@ function SectionTitle({ title, subtitle, right }) {
               margin: "6px 0 0",
               color: THEME.muted,
               fontSize: 13,
-              lineHeight: 1.5,
+              lineHeight: 1.55,
             }}
           >
             {subtitle}
@@ -193,7 +204,7 @@ function SummaryCard({ label, value, subValue, accent }) {
         {value}
       </div>
       {subValue ? (
-        <div style={{ color: THEME.muted, fontSize: 12, marginTop: 8 }}>{subValue}</div>
+        <div style={{ color: THEME.muted, fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>{subValue}</div>
       ) : null}
     </div>
   );
@@ -214,7 +225,7 @@ function InputField({ label, value, onChange, type = "text", min = 0, step = "an
           width: "100%",
           borderRadius: 12,
           border: `1px solid ${THEME.border}`,
-          background: "#101010",
+          background: THEME.panelSoft2,
           color: THEME.text,
           padding: "12px 14px",
           outline: "none",
@@ -225,7 +236,31 @@ function InputField({ label, value, onChange, type = "text", min = 0, step = "an
   );
 }
 
-function MobileDishCard({ row, onRowChange, averageSold, averageProfit }) {
+function StatMiniCard({ label, value, valueColor }) {
+  return (
+    <div
+      style={{
+        background: THEME.panelSoft,
+        borderRadius: 14,
+        padding: 12,
+      }}
+    >
+      <div style={{ color: THEME.muted, fontSize: 11 }}>{label}</div>
+      <div
+        style={{
+          color: valueColor || THEME.text,
+          fontSize: 17,
+          fontWeight: 700,
+          marginTop: 6,
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function DishCard({ row, onChange, averageSold, averageProfit }) {
   const currentStock = getCurrentStock(row);
   const toProduce = getToProduce(row);
   const prepStatus = getPrepStatus(row);
@@ -233,7 +268,8 @@ function MobileDishCard({ row, onRowChange, averageSold, averageProfit }) {
   const cost = getDishCost(row);
   const profit = getDishProfit(row);
   const label = getMenuEngineeringLabel(row, averageSold, averageProfit);
-  const tone = getMenuEngineeringTone(label);
+  const labelTone = getMenuTone(label);
+  const statusTone = getStatusTone(prepStatus);
 
   return (
     <div
@@ -246,26 +282,71 @@ function MobileDishCard({ row, onRowChange, averageSold, averageProfit }) {
         gap: 14,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          alignItems: "flex-start",
+        }}
+      >
         <div>
-          <div style={{ color: THEME.khakि, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          <div
+            style={{
+              color: THEME.khaki,
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
             {row.category}
           </div>
-          <div style={{ color: THEME.text, fontSize: 17, fontWeight: 700, lineHeight: 1.3 }}>{row.name}</div>
+          <div
+            style={{
+              color: THEME.text,
+              fontSize: 18,
+              fontWeight: 700,
+              lineHeight: 1.25,
+              marginTop: 4,
+            }}
+          >
+            {row.name}
+          </div>
         </div>
+
         <div
           style={{
-            alignSelf: "flex-start",
-            background: tone.bg,
-            color: tone.color,
-            borderRadius: 999,
-            padding: "7px 10px",
-            fontSize: 11,
-            fontWeight: 700,
-            whiteSpace: "nowrap",
+            display: "grid",
+            gap: 8,
+            justifyItems: "end",
           }}
         >
-          {label}
+          <span
+            style={{
+              background: labelTone.bg,
+              color: labelTone.color,
+              borderRadius: 999,
+              padding: "7px 10px",
+              fontSize: 11,
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label}
+          </span>
+          <span
+            style={{
+              background: statusTone.bg,
+              color: statusTone.color,
+              borderRadius: 999,
+              padding: "7px 10px",
+              fontSize: 11,
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {prepStatus}
+          </span>
         </div>
       </div>
 
@@ -282,7 +363,7 @@ function MobileDishCard({ row, onRowChange, averageSold, averageProfit }) {
           min="0"
           step="1"
           value={row.soldQty}
-          onChange={(event) => onRowChange("soldQty", clampNumber(event.target.value))}
+          onChange={(event) => onChange("soldQty", clampNumber(event.target.value))}
         />
         <InputField
           label="Produced Qty"
@@ -290,7 +371,7 @@ function MobileDishCard({ row, onRowChange, averageSold, averageProfit }) {
           min="0"
           step="1"
           value={row.producedQty}
-          onChange={(event) => onRowChange("producedQty", clampNumber(event.target.value))}
+          onChange={(event) => onChange("producedQty", clampNumber(event.target.value))}
         />
         <InputField
           label="Opening Stock"
@@ -298,7 +379,7 @@ function MobileDishCard({ row, onRowChange, averageSold, averageProfit }) {
           min="0"
           step="1"
           value={row.openingStock}
-          onChange={(event) => onRowChange("openingStock", clampNumber(event.target.value))}
+          onChange={(event) => onChange("openingStock", clampNumber(event.target.value))}
         />
         <InputField
           label="Par Level"
@@ -306,7 +387,7 @@ function MobileDishCard({ row, onRowChange, averageSold, averageProfit }) {
           min="0"
           step="1"
           value={row.par}
-          onChange={(event) => onRowChange("par", clampNumber(event.target.value))}
+          onChange={(event) => onChange("par", clampNumber(event.target.value))}
         />
       </div>
 
@@ -317,64 +398,28 @@ function MobileDishCard({ row, onRowChange, averageSold, averageProfit }) {
           gap: 10,
         }}
       >
-        <div style={{ background: THEME.panelSoft, borderRadius: 14, padding: 12 }}>
-          <div style={{ color: THEME.muted, fontSize: 11 }}>Current Stock</div>
-          <div style={{ color: THEME.text, fontSize: 18, fontWeight: 700 }}>{currentStock}</div>
-        </div>
-        <div style={{ background: THEME.panelSoft, borderRadius: 14, padding: 12 }}>
-          <div style={{ color: THEME.muted, fontSize: 11 }}>To Produce</div>
-          <div style={{ color: THEME.accent, fontSize: 18, fontWeight: 700 }}>{toProduce}</div>
-        </div>
-        <div style={{ background: THEME.panelSoft, borderRadius: 14, padding: 12 }}>
-          <div style={{ color: THEME.muted, fontSize: 11 }}>Revenue</div>
-          <div style={{ color: THEME.text, fontSize: 16, fontWeight: 700 }}>{formatCurrency(revenue)}</div>
-        </div>
-        <div style={{ background: THEME.panelSoft, borderRadius: 14, padding: 12 }}>
-          <div style={{ color: THEME.muted, fontSize: 11 }}>Gross Profit</div>
-          <div style={{ color: profit >= 0 ? THEME.green : THEME.red, fontSize: 16, fontWeight: 700 }}>
-            {formatCurrency(profit)}
-          </div>
-        </div>
+        <StatMiniCard label="Current Stock" value={formatNumber(currentStock)} />
+        <StatMiniCard label="To Produce" value={formatNumber(toProduce)} valueColor={THEME.accent} />
+        <StatMiniCard label="Revenue" value={formatCurrency(revenue)} />
+        <StatMiniCard
+          label="Gross Profit"
+          value={formatCurrency(profit)}
+          valueColor={profit >= 0 ? THEME.green : THEME.red}
+        />
       </div>
 
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-          alignItems: "center",
+          background: THEME.panelSoft,
+          borderRadius: 14,
+          padding: 12,
+          color: THEME.muted,
+          fontSize: 12,
+          lineHeight: 1.6,
         }}
       >
-        <div style={{ color: THEME.muted, fontSize: 12 }}>
-          Price {formatCurrency(row.price)} | Recipe Cost {formatCurrency(row.cost)} | Food Cost {formatPercent(row.cost / row.price)}
-        </div>
-        <div
-          style={{
-            borderRadius: 999,
-            padding: "7px 10px",
-            fontSize: 11,
-            fontWeight: 700,
-            background:
-              prepStatus === "READY"
-                ? "rgba(34,197,94,0.14)"
-                : prepStatus === "OUT"
-                ? "rgba(239,68,68,0.14)"
-                : "rgba(249,115,22,0.14)",
-            color:
-              prepStatus === "READY"
-                ? THEME.green
-                : prepStatus === "OUT"
-                ? THEME.red
-                : THEME.accent,
-          }}
-        >
-          {prepStatus}
-        </div>
-      </div>
-
-      <div style={{ color: THEME.muted, fontSize: 12 }}>
-        Cost {formatCurrency(cost)} | Margin {revenue > 0 ? formatPercent(profit / revenue) : "0.0%"}
+        Price {formatCurrency(row.price)} | Recipe Cost {formatCurrency(row.cost)} | Food Cost{" "}
+        {row.price > 0 ? formatPercent(row.cost / row.price) : "0.0%"}
       </div>
     </div>
   );
@@ -391,8 +436,8 @@ export default function ControlFinal() {
   const [managerNotes, setManagerNotes] = useState("");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const categories = useMemo(
     () => ["All", ...Array.from(new Set(DISH_CATALOG.map((item) => item.category)))],
@@ -401,12 +446,13 @@ export default function ControlFinal() {
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
-      const matchCategory = categoryFilter === "All" || row.category === categoryFilter;
-      const matchSearch =
+      const categoryMatch = categoryFilter === "All" || row.category === categoryFilter;
+      const searchMatch =
         !search.trim() ||
         row.name.toLowerCase().includes(search.toLowerCase()) ||
         row.category.toLowerCase().includes(search.toLowerCase());
-      return matchCategory && matchSearch;
+
+      return categoryMatch && searchMatch;
     });
   }, [rows, categoryFilter, search]);
 
@@ -425,22 +471,29 @@ export default function ControlFinal() {
   const totalSold = useMemo(() => rows.reduce((sum, row) => sum + (row.soldQty || 0), 0), [rows]);
   const totalToProduce = useMemo(() => rows.reduce((sum, row) => sum + getToProduce(row), 0), [rows]);
   const lowStockCount = useMemo(() => rows.filter((row) => getToProduce(row) > 0).length, [rows]);
-  const foodCostPct = totalRevenue > 0 ? totalFoodCost / totalRevenue : 0;
-  const foodOnlyCostPct = totalFoodRevenue > 0 ? totalFoodCost / totalFoodRevenue : 0;
+
+  const foodCostPct = totalFoodRevenue > 0 ? totalFoodCost / totalFoodRevenue : 0;
+  const grossMargin = totalRevenue > 0 ? totalProfit / totalRevenue : 0;
   const revenuePerCover = covers > 0 ? totalRevenue / covers : 0;
   const drinksPerCover = covers > 0 ? Number(drinkRevenue || 0) / covers : 0;
-  const grossMargin = totalRevenue > 0 ? totalProfit / totalRevenue : 0;
+
+  const hasOperationalData =
+    totalRevenue > 0 ||
+    totalSold > 0 ||
+    Number(drinkRevenue || 0) > 0 ||
+    Number(covers || 0) > 0 ||
+    rows.some((row) => row.openingStock > 0 || row.producedQty > 0);
 
   const averageSold = useMemo(() => {
-    const active = rows.filter((row) => row.soldQty > 0);
-    if (!active.length) return 1;
-    return active.reduce((sum, row) => sum + row.soldQty, 0) / active.length;
+    const activeRows = rows.filter((row) => row.soldQty > 0);
+    if (!activeRows.length) return 1;
+    return activeRows.reduce((sum, row) => sum + row.soldQty, 0) / activeRows.length;
   }, [rows]);
 
   const averageProfit = useMemo(() => {
-    const active = rows.filter((row) => row.soldQty > 0);
-    if (!active.length) return 1;
-    return active.reduce((sum, row) => sum + getDishProfit(row), 0) / active.length;
+    const activeRows = rows.filter((row) => row.soldQty > 0);
+    if (!activeRows.length) return 1;
+    return activeRows.reduce((sum, row) => sum + getDishProfit(row), 0) / activeRows.length;
   }, [rows]);
 
   const enrichedRows = useMemo(() => {
@@ -454,51 +507,163 @@ export default function ControlFinal() {
       profit: getDishProfit(row),
       menuClass: getMenuEngineeringLabel(row, averageSold, averageProfit),
     }));
-  }, [rows, averageProfit, averageSold]);
+  }, [rows, averageSold, averageProfit]);
 
-  const sortedByRevenue = useMemo(
-    () => [...enrichedRows].sort((a, b) => b.revenue - a.revenue),
-    [enrichedRows]
-  );
+  const ownerStatus = useMemo(() => {
+    let score = 0;
+    const reasons = [];
+
+    if (!hasOperationalData) {
+      return {
+        score: 0,
+        status: "WAITING",
+        reasons: ["Waiting for service data", "Enter sales or shift data to activate owner scoring"],
+        color: THEME.muted,
+      };
+    }
+
+    if (foodCostPct <= 0.3) {
+      score += 30;
+    } else if (foodCostPct <= 0.35) {
+      score += 18;
+      reasons.push("Food cost slightly above target");
+    } else {
+      reasons.push("Food cost above target");
+    }
+
+    if (grossMargin >= 0.55) {
+      score += 25;
+    } else if (grossMargin >= 0.4) {
+      score += 15;
+    } else {
+      reasons.push("Margin below target");
+    }
+
+    if (secondRoundRate >= 0.6) {
+      score += 15;
+    } else if (secondRoundRate >= 0.45) {
+      score += 8;
+    } else if (secondRoundRate > 0) {
+      reasons.push("Low second-round rate");
+    }
+
+    if (avgTicketTime > 0 && avgTicketTime <= 15) {
+      score += 15;
+    } else if (avgTicketTime > 0 && avgTicketTime <= 20) {
+      score += 8;
+    } else if (avgTicketTime > 20) {
+      reasons.push("Ticket time above target");
+    }
+
+    if (complaints === 0) {
+      score += 15;
+    } else if (complaints <= 2) {
+      score += 7;
+      reasons.push("Minor guest complaints recorded");
+    } else {
+      reasons.push("Guest complaints require follow-up");
+    }
+
+    if (totalSold === 0) {
+      reasons.push("No sales volume recorded yet");
+    }
+
+    if (reasons.length === 0) {
+      reasons.push("Operating performance is on target");
+      reasons.push("Current service metrics are stable");
+    }
+
+    if (score >= 75) {
+      return {
+        score,
+        status: "GOOD",
+        reasons,
+        color: THEME.green,
+      };
+    }
+
+    if (score >= 45) {
+      return {
+        score,
+        status: "WARNING",
+        reasons,
+        color: THEME.yellow,
+      };
+    }
+
+    return {
+      score,
+      status: "BAD",
+      reasons,
+      color: THEME.red,
+    };
+  }, [avgTicketTime, complaints, foodCostPct, grossMargin, hasOperationalData, secondRoundRate, totalSold]);
 
   const aiInsights = useMemo(() => {
     const insights = [];
-
-    const topSeller = [...enrichedRows].sort((a, b) => b.soldQty - a.soldQty)[0];
-    const strongestProfit = [...enrichedRows].sort((a, b) => b.profit - a.profit)[0];
-    const weakestProfit = [...enrichedRows].sort((a, b) => a.profit - b.profit)[0];
-    const dogs = enrichedRows.filter((row) => row.menuClass === "Dog" && row.soldQty > 0);
-    const puzzles = enrichedRows.filter((row) => row.menuClass === "Puzzle");
     const urgentPrep = enrichedRows
       .filter((row) => row.toProduce > 0)
       .sort((a, b) => b.toProduce - a.toProduce)
+      .slice(0, 4);
+
+    const expensiveRows = enrichedRows
+      .filter((row) => row.price > 0 && row.cost / row.price > 0.4)
+      .sort((a, b) => b.cost / b.price - a.cost / a.price)
       .slice(0, 3);
+
+    const topSeller = [...enrichedRows].sort((a, b) => b.soldQty - a.soldQty)[0];
+    const topProfit = [...enrichedRows].sort((a, b) => b.profit - a.profit)[0];
+    const weakProfit = [...enrichedRows]
+      .filter((row) => row.soldQty > 0)
+      .sort((a, b) => a.profit - b.profit)[0];
+
+    if (!hasOperationalData) {
+      insights.push("Waiting for service data. Enter sold quantities, production, or shift inputs to activate performance insights.");
+      insights.push("Kitchen prep can be staged from the production gap view before peak hours begin.");
+      return insights;
+    }
+
+    if (urgentPrep.length) {
+      insights.push(
+        `${urgentPrep.length} dishes are below par: ${urgentPrep
+          .map((row) => `${row.name} (${row.toProduce})`)
+          .join(", ")}. Prepare these before the next peak period.`
+      );
+    }
 
     if (topSeller && topSeller.soldQty > 0) {
       insights.push(
-        `${topSeller.name} is leading volume with ${topSeller.soldQty} sold. Keep visibility high and protect service speed on this item.`
+        `${topSeller.name} is currently leading volume with ${topSeller.soldQty} sold. Maintain visibility and service speed on this item.`
       );
     }
 
-    if (strongestProfit && strongestProfit.profit > 0) {
+    if (topProfit && topProfit.profit > 0) {
       insights.push(
-        `${strongestProfit.name} is generating the strongest gross profit at ${formatCurrency(
-          strongestProfit.profit
-        )}. This is a priority item for upselling and premium positioning.`
+        `${topProfit.name} is the strongest gross-profit performer at ${formatCurrency(
+          topProfit.profit
+        )}. This item should stay central in upselling and menu focus.`
       );
     }
 
-    if (foodOnlyCostPct > 0.35) {
+    if (weakProfit && weakProfit.profit >= 0) {
+      insights.push(
+        `${weakProfit.name} is the weakest active profit item at ${formatCurrency(
+          weakProfit.profit
+        )}. Review price discipline, portion size, or selling mix.`
+      );
+    }
+
+    if (expensiveRows.length) {
+      insights.push(
+        `High-cost dishes need portion control attention: ${expensiveRows.map((row) => row.name).join(", ")}.`
+      );
+    }
+
+    if (foodCostPct > 0.35) {
       insights.push(
         `Food cost is elevated at ${formatPercent(
-          foodOnlyCostPct
-        )} of food revenue. Review portion control and price discipline on high-cost mains immediately.`
-      );
-    } else if (foodOnlyCostPct > 0 && foodOnlyCostPct <= 0.3) {
-      insights.push(
-        `Food cost is controlled at ${formatPercent(
-          foodOnlyCostPct
-        )}. Current pricing and recipe structure are supporting a healthy operating position.`
+          foodCostPct
+        )}. Focus on recipe control and price integrity before close.`
       );
     }
 
@@ -506,70 +671,24 @@ export default function ControlFinal() {
       insights.push(
         `Average ticket time is ${formatNumber(
           avgTicketTime
-        )} minutes. Service flow should be reviewed before the next rush period.`
+        )} minutes. Review kitchen flow and station coordination.`
       );
     }
 
     if (secondRoundRate > 0 && secondRoundRate < 0.45) {
       insights.push(
-        `Second-round performance is ${formatPercent(
+        `Second-round rate is ${formatPercent(
           secondRoundRate
-        )}. Improve drink follow-up and dessert prompts to increase table value.`
+        )}. Improve follow-up selling for drinks and desserts.`
       );
     }
 
-    if (complaints > 2) {
-      insights.push(
-        `${complaints} guest complaints recorded. Manager follow-up is recommended before day close.`
-      );
-    }
+    return insights.slice(0, 6);
+  }, [avgTicketTime, enrichedRows, foodCostPct, hasOperationalData, secondRoundRate]);
 
-    if (urgentPrep.length) {
-      insights.push(
-        `Production gap detected on ${urgentPrep
-          .map((row) => `${row.name} (${row.toProduce})`)
-          .join(", ")}. Kitchen prep should be aligned with par before peak service.`
-      );
-    }
-
-    if (dogs.length) {
-      insights.push(
-        `${dogs.length} dishes are currently classed as Dog. Review menu placement, price fit, or portion logic before carrying them forward unchanged.`
-      );
-    }
-
-    if (puzzles.length) {
-      insights.push(
-        `${puzzles.length} dishes are classed as Puzzle. These are profitable but under-ordered, so they should be re-positioned by staff recommendation or menu placement.`
-      );
-    }
-
-    if (weakestProfit && weakestProfit.soldQty > 0) {
-      insights.push(
-        `${weakestProfit.name} is the weakest current return. Watch discounting, cost leakage, or low-margin volume on this item.`
-      );
-    }
-
-    return insights.slice(0, 7);
-  }, [
-    enrichedRows,
-    avgTicketTime,
-    complaints,
-    foodOnlyCostPct,
-    secondRoundRate,
-  ]);
-
-  const ownerStatus = useMemo(() => {
-    const score =
-      (avgTicketTime <= 15 ? 25 : avgTicketTime <= 20 ? 15 : 0) +
-      (secondRoundRate >= 0.6 ? 25 : secondRoundRate >= 0.45 ? 15 : 0) +
-      (foodOnlyCostPct <= 0.03 ? 25 : foodOnlyCostPct <= 0.05 ? 15 : foodOnlyCostPct <= 0.35 ? 20 : 0) +
-      (complaints === 0 ? 25 : complaints <= 2 ? 15 : 0);
-
-    if (score >= 80) return { score, status: "GOOD", color: THEME.green };
-    if (score >= 60) return { score, status: "WARNING", color: THEME.yellow };
-    return { score, status: "BAD", color: THEME.red };
-  }, [avgTicketTime, secondRoundRate, foodOnlyCostPct, complaints]);
+  const menuRows = useMemo(() => {
+    return [...enrichedRows].sort((a, b) => b.revenue - a.revenue);
+  }, [enrichedRows]);
 
   function updateRow(index, field, value) {
     setRows((current) =>
@@ -579,6 +698,7 @@ export default function ControlFinal() {
 
   function resetDay() {
     setRows(createInitialRows());
+    setBusinessDate(new Date().toISOString().slice(0, 10));
     setCovers(0);
     setDrinkRevenue(0);
     setAvgTicketTime(0);
@@ -603,7 +723,11 @@ export default function ControlFinal() {
             secondRoundRate: Number(secondRoundRate || 0),
             complaints: Number(complaints || 0),
             managerNotes,
-            ownerStatus,
+            ownerStatus: {
+              status: ownerStatus.status,
+              score: ownerStatus.score,
+              reasons: ownerStatus.reasons,
+            },
           },
           rows: enrichedRows.map((row) => ({
             name: row.name,
@@ -643,7 +767,7 @@ export default function ControlFinal() {
         throw new Error(data?.error || "Failed to save report.");
       }
 
-      setSaveMessage("Day saved successfully.");
+      setSaveMessage(data?.mode === "updated" ? "Day updated successfully." : "Day saved successfully.");
     } catch (error) {
       setSaveMessage(error.message || "Save failed.");
     } finally {
@@ -652,10 +776,10 @@ export default function ControlFinal() {
   }
 
   useEffect(() => {
+    if (!saveMessage) return;
+
     const timer = setTimeout(() => {
-      if (saveMessage) {
-        setSaveMessage("");
-      }
+      setSaveMessage("");
     }, 4000);
 
     return () => clearTimeout(timer);
@@ -684,7 +808,7 @@ export default function ControlFinal() {
             width: "100%",
             maxWidth: 1480,
             margin: "0 auto",
-            padding: "16px 16px",
+            padding: "16px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -693,13 +817,7 @@ export default function ControlFinal() {
           }}
         >
           <div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div
                 style={{
                   color: THEME.accent,
@@ -726,13 +844,7 @@ export default function ControlFinal() {
             </div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
               onClick={resetDay}
               style={{
@@ -741,7 +853,7 @@ export default function ControlFinal() {
                 color: THEME.text,
                 padding: "11px 14px",
                 borderRadius: 12,
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: "pointer",
               }}
             >
@@ -786,18 +898,22 @@ export default function ControlFinal() {
         >
           <SummaryCard
             label="Total Revenue"
-            value={formatCurrency(totalRevenue)}
-            subValue={`Food ${formatCurrency(totalFoodRevenue)} | Drinks ${formatCurrency(drinkRevenue)}`}
+            value={hasOperationalData ? formatCurrency(totalRevenue) : "Waiting"}
+            subValue={
+              hasOperationalData
+                ? `Food ${formatCurrency(totalFoodRevenue)} | Drinks ${formatCurrency(drinkRevenue)}`
+                : "Waiting for service data"
+            }
             accent
           />
           <SummaryCard
             label="Food Cost"
-            value={formatCurrency(totalFoodCost)}
-            subValue={`Food Cost ${formatPercent(foodOnlyCostPct)}`}
+            value={hasOperationalData ? formatCurrency(totalFoodCost) : formatCurrency(0)}
+            subValue={`Food Cost ${formatPercent(foodCostPct)}`}
           />
           <SummaryCard
             label="Gross Profit"
-            value={formatCurrency(totalProfit)}
+            value={hasOperationalData ? formatCurrency(totalProfit) : formatCurrency(0)}
             subValue={`Margin ${formatPercent(grossMargin)}`}
           />
           <SummaryCard
@@ -820,7 +936,7 @@ export default function ControlFinal() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1.7fr) minmax(320px, 0.9fr)",
+            gridTemplateColumns: "minmax(0, 1.55fr) minmax(320px, 0.85fr)",
             gap: 18,
           }}
         >
@@ -841,7 +957,7 @@ export default function ControlFinal() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                 gap: 12,
                 marginBottom: 14,
               }}
@@ -900,14 +1016,14 @@ export default function ControlFinal() {
               <textarea
                 value={managerNotes}
                 onChange={(event) => setManagerNotes(event.target.value)}
-                rows={4}
+                rows={5}
                 style={{
                   width: "100%",
                   borderRadius: 14,
                   border: `1px solid ${THEME.border}`,
-                  background: "#101010",
+                  background: THEME.panelSoft2,
                   color: THEME.text,
-                  padding: "14px 14px",
+                  padding: "14px",
                   outline: "none",
                   fontSize: 14,
                   resize: "vertical",
@@ -932,21 +1048,55 @@ export default function ControlFinal() {
             />
 
             <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ background: THEME.panelSoft, borderRadius: 16, padding: 14 }}>
-                <div style={{ color: THEME.muted, fontSize: 12 }}>Food Revenue</div>
-                <div style={{ color: THEME.text, fontSize: 20, fontWeight: 800 }}>{formatCurrency(totalFoodRevenue)}</div>
+              <StatMiniCard label="Food Revenue" value={formatCurrency(totalFoodRevenue)} />
+              <StatMiniCard label="Revenue / Cover" value={formatCurrency(revenuePerCover)} />
+              <StatMiniCard label="Drinks / Cover" value={formatCurrency(drinksPerCover)} />
+              <StatMiniCard
+                label="Food Cost %"
+                value={formatPercent(foodCostPct)}
+                valueColor={foodCostPct > 0.35 ? THEME.red : foodCostPct > 0.3 ? THEME.yellow : THEME.green}
+              />
+            </div>
+
+            <div
+              style={{
+                marginTop: 14,
+                background: THEME.panelSoft,
+                borderRadius: 16,
+                padding: 14,
+              }}
+            >
+              <div style={{ color: THEME.muted, fontSize: 12 }}>Current Owner Status</div>
+              <div
+                style={{
+                  color: ownerStatus.color,
+                  fontSize: 24,
+                  fontWeight: 800,
+                  marginTop: 6,
+                }}
+              >
+                {ownerStatus.status}
               </div>
-              <div style={{ background: THEME.panelSoft, borderRadius: 16, padding: 14 }}>
-                <div style={{ color: THEME.muted, fontSize: 12 }}>Revenue / Cover</div>
-                <div style={{ color: THEME.text, fontSize: 20, fontWeight: 800 }}>{formatCurrency(revenuePerCover)}</div>
+              <div style={{ color: THEME.muted, fontSize: 12, marginTop: 6 }}>
+                Score {ownerStatus.score}
               </div>
-              <div style={{ background: THEME.panelSoft, borderRadius: 16, padding: 14 }}>
-                <div style={{ color: THEME.muted, fontSize: 12 }}>Drinks / Cover</div>
-                <div style={{ color: THEME.text, fontSize: 20, fontWeight: 800 }}>{formatCurrency(drinksPerCover)}</div>
-              </div>
-              <div style={{ background: THEME.panelSoft, borderRadius: 16, padding: 14 }}>
-                <div style={{ color: THEME.muted, fontSize: 12 }}>Food Cost %</div>
-                <div style={{ color: ownerStatus.color, fontSize: 20, fontWeight: 800 }}>{formatPercent(foodOnlyCostPct)}</div>
+
+              <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                {ownerStatus.reasons.slice(0, 2).map((reason, index) => (
+                  <div
+                    key={`${index}-${reason}`}
+                    style={{
+                      background: THEME.panelSoft2,
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      color: THEME.muted,
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {reason}
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -961,7 +1111,7 @@ export default function ControlFinal() {
                     : "rgba(239,68,68,0.14)",
                   color: saveMessage.toLowerCase().includes("success") ? THEME.green : THEME.red,
                   fontSize: 13,
-                  fontWeight: 600,
+                  fontWeight: 700,
                 }}
               >
                 {saveMessage}
@@ -983,22 +1133,20 @@ export default function ControlFinal() {
             title="Service Control Table"
             subtitle="Full logic preserved: quantity input, production planning, price and cost, revenue, gross profit, and menu engineering."
             right={
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search dish or category"
-                  style={{
-                    borderRadius: 12,
-                    border: `1px solid ${THEME.border}`,
-                    background: "#101010",
-                    color: THEME.text,
-                    padding: "10px 12px",
-                    minWidth: 180,
-                    outline: "none",
-                  }}
-                />
-              </div>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search dish or category"
+                style={{
+                  borderRadius: 12,
+                  border: `1px solid ${THEME.border}`,
+                  background: THEME.panelSoft2,
+                  color: THEME.text,
+                  padding: "10px 12px",
+                  minWidth: 200,
+                  outline: "none",
+                }}
+              />
             }
           />
 
@@ -1018,7 +1166,7 @@ export default function ControlFinal() {
                 style={{
                   border: categoryFilter === category ? "none" : `1px solid ${THEME.border}`,
                   background: categoryFilter === category ? THEME.accent : THEME.panelSoft,
-                  color: "#fff",
+                  color: "#ffffff",
                   borderRadius: 999,
                   padding: "10px 14px",
                   fontSize: 12,
@@ -1037,7 +1185,7 @@ export default function ControlFinal() {
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                minWidth: 1180,
+                minWidth: 1280,
               }}
             >
               <thead>
@@ -1058,18 +1206,7 @@ export default function ControlFinal() {
                     "Gross Profit",
                     "Menu",
                   ].map((heading) => (
-                    <th
-                      key={heading}
-                      style={{
-                        textAlign: "left",
-                        color: THEME.muted,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        padding: "12px 10px",
-                        borderBottom: `1px solid ${THEME.border}`,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
+                    <th key={heading} style={tableHeadStyle}>
                       {heading}
                     </th>
                   ))}
@@ -1084,13 +1221,14 @@ export default function ControlFinal() {
                   const revenue = getDishRevenue(row);
                   const profit = getDishProfit(row);
                   const label = getMenuEngineeringLabel(row, averageSold, averageProfit);
-                  const tone = getMenuEngineeringTone(label);
+                  const labelTone = getMenuTone(label);
+                  const statusTone = getStatusTone(status);
 
                   return (
                     <tr key={row.name}>
-                      <td style={cellStyle}>{row.category}</td>
-                      <td style={{ ...cellStyle, fontWeight: 700, color: THEME.text }}>{row.name}</td>
-                      <td style={cellStyle}>
+                      <td style={tableCellStyle}>{row.category}</td>
+                      <td style={tableCellStrongStyle}>{row.name}</td>
+                      <td style={tableCellStyle}>
                         <input
                           type="number"
                           min="0"
@@ -1100,7 +1238,7 @@ export default function ControlFinal() {
                           style={smallInputStyle}
                         />
                       </td>
-                      <td style={cellStyle}>
+                      <td style={tableCellStyle}>
                         <input
                           type="number"
                           min="0"
@@ -1110,7 +1248,7 @@ export default function ControlFinal() {
                           style={smallInputStyle}
                         />
                       </td>
-                      <td style={cellStyle}>
+                      <td style={tableCellStyle}>
                         <input
                           type="number"
                           min="0"
@@ -1120,8 +1258,8 @@ export default function ControlFinal() {
                           style={smallInputStyle}
                         />
                       </td>
-                      <td style={cellStyle}>{currentStock}</td>
-                      <td style={cellStyle}>
+                      <td style={tableCellStyle}>{formatNumber(currentStock)}</td>
+                      <td style={tableCellStyle}>
                         <input
                           type="number"
                           min="0"
@@ -1131,19 +1269,37 @@ export default function ControlFinal() {
                           style={smallInputStyle}
                         />
                       </td>
-                      <td style={cellStyle}>{toProduce}</td>
-                      <td style={cellStyle}>{status}</td>
-                      <td style={cellStyle}>{formatCurrency(row.price)}</td>
-                      <td style={cellStyle}>{formatCurrency(row.cost)}</td>
-                      <td style={cellStyle}>{formatCurrency(revenue)}</td>
-                      <td style={{ ...cellStyle, color: profit >= 0 ? THEME.green : THEME.red }}>
-                        {formatCurrency(profit)}
-                      </td>
-                      <td style={cellStyle}>
+                      <td style={tableCellStyle}>{formatNumber(toProduce)}</td>
+                      <td style={tableCellStyle}>
                         <span
                           style={{
-                            background: tone.bg,
-                            color: tone.color,
+                            background: statusTone.bg,
+                            color: statusTone.color,
+                            borderRadius: 999,
+                            padding: "6px 9px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {status}
+                        </span>
+                      </td>
+                      <td style={tableCellStyle}>{formatCurrency(row.price)}</td>
+                      <td style={tableCellStyle}>{formatCurrency(row.cost)}</td>
+                      <td style={tableCellStyle}>{formatCurrency(revenue)}</td>
+                      <td
+                        style={{
+                          ...tableCellStyle,
+                          color: profit >= 0 ? THEME.green : THEME.red,
+                        }}
+                      >
+                        {formatCurrency(profit)}
+                      </td>
+                      <td style={tableCellStyle}>
+                        <span
+                          style={{
+                            background: labelTone.bg,
+                            color: labelTone.color,
                             borderRadius: 999,
                             padding: "6px 9px",
                             fontSize: 11,
@@ -1163,13 +1319,14 @@ export default function ControlFinal() {
           <div className="mobile-cards" style={{ display: "grid", gap: 14 }}>
             {filteredRows.map((row) => {
               const index = rows.findIndex((item) => item.name === row.name);
+
               return (
-                <MobileDishCard
+                <DishCard
                   key={row.name}
                   row={row}
                   averageSold={averageSold}
                   averageProfit={averageProfit}
-                  onRowChange={(field, value) => updateRow(index, field, value)}
+                  onChange={(field, value) => updateRow(index, field, value)}
                 />
               );
             })}
@@ -1179,7 +1336,7 @@ export default function ControlFinal() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)",
+            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
             gap: 18,
           }}
         >
@@ -1198,36 +1355,21 @@ export default function ControlFinal() {
             />
 
             <div style={{ display: "grid", gap: 12 }}>
-              {aiInsights.length ? (
-                aiInsights.map((insight, index) => (
-                  <div
-                    key={`${index}-${insight}`}
-                    style={{
-                      background: THEME.panelSoft,
-                      borderRadius: 16,
-                      padding: 14,
-                      color: THEME.text,
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {insight}
-                  </div>
-                ))
-              ) : (
+              {aiInsights.map((insight, index) => (
                 <div
+                  key={`${index}-${insight}`}
                   style={{
                     background: THEME.panelSoft,
                     borderRadius: 16,
                     padding: 14,
-                    color: THEME.muted,
+                    color: THEME.text,
                     fontSize: 14,
                     lineHeight: 1.6,
                   }}
                 >
-                  Enter sales and shift data to activate the AI manager insights.
+                  {insight}
                 </div>
-              )}
+              ))}
             </div>
           </div>
 
@@ -1242,13 +1384,12 @@ export default function ControlFinal() {
           >
             <SectionTitle
               title="Menu Engineering"
-              subtitle="Star, Plowhorse, Puzzle, and Dog classification based on actual daily volume and gross profit."
+              subtitle="Star, Plowhorse, Puzzle, Dog, and No Data classification based on actual daily volume and gross profit."
             />
 
             <div style={{ display: "grid", gap: 10 }}>
-              {sortedByRevenue.slice(0, 10).map((row) => {
-                const label = getMenuEngineeringLabel(row, averageSold, averageProfit);
-                const tone = getMenuEngineeringTone(label);
+              {menuRows.slice(0, 8).map((row) => {
+                const tone = getMenuTone(row.menuClass);
 
                 return (
                   <div
@@ -1266,21 +1407,23 @@ export default function ControlFinal() {
                   >
                     <div>
                       <div style={{ color: THEME.text, fontSize: 15, fontWeight: 700 }}>{row.name}</div>
-                      <div style={{ color: THEME.muted, fontSize: 12, marginTop: 4 }}>
-                        Sold {row.soldQty} | Revenue {formatCurrency(row.revenue)} | Gross Profit {formatCurrency(row.profit)}
+                      <div style={{ color: THEME.muted, fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
+                        Sold {formatNumber(row.soldQty)} | Revenue {formatCurrency(row.revenue)} | Gross Profit{" "}
+                        {formatCurrency(row.profit)}
                       </div>
                     </div>
+
                     <div
                       style={{
                         background: tone.bg,
                         color: tone.color,
                         borderRadius: 999,
-                        padding: "7px 10px",
+                        padding: "8px 11px",
                         fontSize: 11,
                         fontWeight: 700,
                       }}
                     >
-                      {label}
+                      {row.menuClass}
                     </div>
                   </div>
                 );
@@ -1295,6 +1438,7 @@ export default function ControlFinal() {
           .desktop-table-wrap {
             display: block !important;
           }
+
           .mobile-cards {
             display: none !important;
           }
@@ -1304,14 +1448,15 @@ export default function ControlFinal() {
           .desktop-table-wrap {
             display: none !important;
           }
+
           .mobile-cards {
             display: grid !important;
           }
         }
 
         @media (max-width: 980px) {
-          div[style*="grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr)"],
-          div[style*="grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr)"] {
+          div[style*="grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr)"],
+          div[style*="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)"] {
             grid-template-columns: 1fr !important;
           }
         }
@@ -1320,7 +1465,17 @@ export default function ControlFinal() {
   );
 }
 
-const cellStyle = {
+const tableHeadStyle = {
+  textAlign: "left",
+  color: THEME.muted,
+  fontSize: 12,
+  fontWeight: 600,
+  padding: "12px 10px",
+  borderBottom: `1px solid ${THEME.border}`,
+  whiteSpace: "nowrap",
+};
+
+const tableCellStyle = {
   padding: "10px 10px",
   borderBottom: `1px solid ${THEME.border}`,
   color: THEME.muted,
@@ -1328,11 +1483,17 @@ const cellStyle = {
   verticalAlign: "middle",
 };
 
+const tableCellStrongStyle = {
+  ...tableCellStyle,
+  color: THEME.text,
+  fontWeight: 700,
+};
+
 const smallInputStyle = {
-  width: 72,
+  width: 84,
   borderRadius: 10,
   border: `1px solid ${THEME.border}`,
-  background: "#101010",
+  background: THEME.panelSoft2,
   color: THEME.text,
   padding: "8px 9px",
   outline: "none",

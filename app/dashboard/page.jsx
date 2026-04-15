@@ -34,87 +34,103 @@ export default function Dashboard() {
       });
     });
 
-    return Object.keys(map).map(name => {
+    const result = Object.keys(map).map(name => {
       const d = map[name];
-      const profit = d.revenue - d.cost;
-      const margin = d.revenue > 0 ? profit / d.revenue : 0;
-
       return {
         name,
         qty: d.qty,
         revenue: d.revenue,
-        profit,
-        margin
+        profit: d.revenue - d.cost,
+        margin: d.revenue > 0 ? (d.revenue - d.cost) / d.revenue : 0
       };
     });
+
+    return result;
   }
 
-  function generateRecommendations(dishes) {
-    const recs = [];
+  function getStats() {
+    let totalProfit = 0;
 
-    dishes.forEach(d => {
-      // 🔥 PRICE INCREASE
-      if (d.qty > 20 && d.margin > 0.6) {
-        recs.push({
-          type: 'increase',
-          text: `Increase price for ${d.name} (high demand & strong margin)`
-        });
-      }
-
-      // ⚠️ LOW MARGIN
-      if (d.margin < 0.4) {
-        recs.push({
-          type: 'warning',
-          text: `${d.name} has low margin (${(d.margin * 100).toFixed(1)}%)`
-        });
-      }
-
-      // 🚀 PROMOTE
-      if (d.profit > 5000) {
-        recs.push({
-          type: 'promote',
-          text: `Promote ${d.name} (high profit generator)`
-        });
-      }
+    data.forEach(d => {
+      totalProfit += d.profit || 0;
     });
 
-    return recs.slice(0, 6);
+    return {
+      avgProfit: data.length ? totalProfit / data.length : 0
+    };
   }
 
   const dishes = analyzeDishes();
-  const recommendations = generateRecommendations(dishes);
+
+  const topSelling = [...dishes]
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 5);
+
+  const mostProfitable = [...dishes]
+    .sort((a, b) => b.profit - a.profit)
+    .slice(0, 5);
+
+  const lowMargin = dishes
+    .filter(d => d.margin < 0.4)
+    .sort((a, b) => a.margin - b.margin)
+    .slice(0, 5);
+
+  const stats = getStats();
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Smart Dashboard</h1>
+        <h1 style={styles.title}>Performance Dashboard</h1>
 
-        {/* RECOMMENDATIONS */}
-        <div style={styles.section}>
-          <h2>Smart Recommendations</h2>
-
-          {recommendations.length === 0 && (
-            <p>No insights yet — add more data</p>
-          )}
-
-          {recommendations.map((r, i) => (
-            <div
-              key={i}
-              style={{
-                ...styles.recommendation,
-                background:
-                  r.type === 'increase'
-                    ? '#e3f2fd'
-                    : r.type === 'warning'
-                    ? '#fdecea'
-                    : '#e8f5e9'
-              }}
-            >
-              {r.text}
-            </div>
-          ))}
+        {/* AVG PROFIT */}
+        <div style={styles.card}>
+          <h3>Average Profit / Day</h3>
+          <h2>{stats.avgProfit.toFixed(2)}</h2>
         </div>
+
+        {/* TOP SELLING */}
+        <Section title="Top Selling Dishes">
+          {topSelling.map(d => (
+            <Row key={d.name} label={d.name} value={d.qty} />
+          ))}
+        </Section>
+
+        {/* MOST PROFITABLE */}
+        <Section title="Most Profitable Dishes">
+          {mostProfitable.map(d => (
+            <Row key={d.name} label={d.name} value={d.profit.toFixed(2)} />
+          ))}
+        </Section>
+
+        {/* LOW MARGIN */}
+        <Section title="Low Margin (Fix These)">
+          {lowMargin.map(d => (
+            <Row
+              key={d.name}
+              label={d.name}
+              value={(d.margin * 100).toFixed(1) + '%'}
+            />
+          ))}
+        </Section>
       </div>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={styles.section}>
+      <h2>{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+function Row({ label, value }) {
+  return (
+    <div style={styles.row}>
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
@@ -132,14 +148,22 @@ const styles = {
   title: {
     marginBottom: 30
   },
+  card: {
+    background: '#fff',
+    padding: 20,
+    borderRadius: 10,
+    marginBottom: 30
+  },
   section: {
     background: '#fff',
     padding: 20,
-    borderRadius: 10
+    borderRadius: 10,
+    marginBottom: 20
   },
-  recommendation: {
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 10
+  row: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '8px 0',
+    borderBottom: '1px solid #eee'
   }
 };

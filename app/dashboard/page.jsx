@@ -4,15 +4,11 @@ import { useEffect, useState } from 'react';
 
 export default function Dashboard() {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/history')
       .then(res => res.json())
-      .then(res => {
-        setData(res || []);
-        setLoading(false);
-      });
+      .then(res => setData(res || []));
   }, []);
 
   function calculateTotals() {
@@ -31,39 +27,39 @@ export default function Dashboard() {
     };
   }
 
+  function prepareChartData() {
+    const sorted = [...data].sort(
+      (a, b) => new Date(a.date) - new Date(b.date)
+    );
+
+    return sorted.map(d => ({
+      date: new Date(d.date).toLocaleDateString(),
+      revenue: d.revenue || 0,
+      profit: d.profit || 0
+    }));
+  }
+
   const totals = calculateTotals();
+  const chartData = prepareChartData();
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
         <h1 style={styles.title}>Dashboard</h1>
 
-        {loading ? (
-          <p>Loading...</p>
-        ) : (
-          <>
-            {/* SUMMARY */}
-            <div style={styles.grid}>
-              <Card title="Total Revenue" value={totals.revenue} />
-              <Card title="Total Cost" value={totals.cost} />
-              <Card title="Profit" value={totals.profit} />
-              <Card title="Days Recorded" value={data.length} />
-            </div>
+        {/* SUMMARY */}
+        <div style={styles.grid}>
+          <Card title="Revenue" value={totals.revenue} />
+          <Card title="Cost" value={totals.cost} />
+          <Card title="Profit" value={totals.profit} />
+          <Card title="Days" value={data.length} />
+        </div>
 
-            {/* RECENT DAYS */}
-            <div style={styles.section}>
-              <h2>Recent Days</h2>
-
-              {data.slice(0, 5).map((d, i) => (
-                <div key={i} style={styles.row}>
-                  <span>{new Date(d.date).toLocaleDateString()}</span>
-                  <span>Revenue: {d.revenue}</span>
-                  <span>Profit: {d.profit}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+        {/* CHART */}
+        <div style={styles.chartCard}>
+          <h2>Performance</h2>
+          <LineChart data={chartData} />
+        </div>
       </div>
     </div>
   );
@@ -72,17 +68,65 @@ export default function Dashboard() {
 function Card({ title, value }) {
   return (
     <div style={styles.card}>
-      <p style={styles.cardTitle}>{title}</p>
-      <h2 style={styles.cardValue}>
-        {typeof value === 'number' ? value.toFixed(2) : value}
+      <p>{title}</p>
+      <h2>
+        {typeof value === 'number'
+          ? value.toFixed(2)
+          : value}
       </h2>
     </div>
   );
 }
 
+function LineChart({ data }) {
+  if (!data.length) return <p>No data yet</p>;
+
+  const width = 800;
+  const height = 300;
+  const padding = 40;
+
+  const maxValue = Math.max(
+    ...data.map(d => Math.max(d.revenue, d.profit))
+  );
+
+  const stepX = (width - padding * 2) / (data.length - 1);
+
+  function getY(value) {
+    return height - padding - (value / maxValue) * (height - padding * 2);
+  }
+
+  const revenuePoints = data
+    .map((d, i) => `${padding + i * stepX},${getY(d.revenue)}`)
+    .join(' ');
+
+  const profitPoints = data
+    .map((d, i) => `${padding + i * stepX},${getY(d.profit)}`)
+    .join(' ');
+
+  return (
+    <svg width="100%" height={height}>
+      {/* Revenue line */}
+      <polyline
+        fill="none"
+        stroke="#ff8c00"
+        strokeWidth="3"
+        points={revenuePoints}
+      />
+
+      {/* Profit line */}
+      <polyline
+        fill="none"
+        stroke="#2e7d32"
+        strokeWidth="3"
+        points={profitPoints}
+      />
+    </svg>
+  );
+}
+
 const styles = {
   page: {
-    background: '#f5f1e6', // khaki
+    background: '#f5f1e6',
     minHeight: '100vh',
     padding: 40
   },
@@ -100,27 +144,13 @@ const styles = {
     marginBottom: 40
   },
   card: {
-    background: '#ffffff',
-    padding: 20,
-    borderRadius: 10,
-    boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
-  },
-  cardTitle: {
-    marginBottom: 10,
-    color: '#666'
-  },
-  cardValue: {
-    margin: 0
-  },
-  section: {
     background: '#fff',
     padding: 20,
     borderRadius: 10
   },
-  row: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '10px 0',
-    borderBottom: '1px solid #eee'
+  chartCard: {
+    background: '#fff',
+    padding: 20,
+    borderRadius: 10
   }
 };

@@ -1,15 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 export default function ControlFinal() {
   const [dishes, setDishes] = useState([
     { name: '', qty: '', price: '', cost: '' },
   ]);
 
+  const inputsRef = useRef([]);
+
+  function sanitizeNumber(value) {
+    const num = Number(value);
+    if (isNaN(num) || num < 0) return 0;
+    return num;
+  }
+
   function updateDish(index, field, value) {
     const updated = [...dishes];
-    updated[index][field] = value;
+
+    if (field === 'qty' || field === 'price' || field === 'cost') {
+      updated[index][field] = value === '' ? '' : Math.max(0, value);
+    } else {
+      updated[index][field] = value;
+    }
+
     setDishes(updated);
   }
 
@@ -22,14 +36,46 @@ export default function ControlFinal() {
     setDishes(dishes.filter((_, i) => i !== index));
   }
 
+  function handleEnter(e, row, col) {
+    if (e.key !== 'Enter') return;
+
+    e.preventDefault();
+
+    const cols = 4;
+
+    if (col < cols - 1) {
+      inputsRef.current[row * cols + col + 1]?.focus();
+    } else {
+      if (row === dishes.length - 1) {
+        addDish();
+        setTimeout(() => {
+          inputsRef.current[(row + 1) * cols]?.focus();
+        }, 0);
+      } else {
+        inputsRef.current[(row + 1) * cols]?.focus();
+      }
+    }
+  }
+
+  function getValidDishes() {
+    return dishes.filter(
+      (d) =>
+        d.name.trim() !== '' &&
+        sanitizeNumber(d.qty) > 0 &&
+        sanitizeNumber(d.price) >= 0
+    );
+  }
+
   function calculateTotals() {
+    const valid = getValidDishes();
+
     let revenue = 0;
     let cost = 0;
 
-    dishes.forEach((d) => {
-      const qty = Number(d.qty) || 0;
-      const price = Number(d.price) || 0;
-      const c = Number(d.cost) || 0;
+    valid.forEach((d) => {
+      const qty = sanitizeNumber(d.qty);
+      const price = sanitizeNumber(d.price);
+      const c = sanitizeNumber(d.cost);
 
       revenue += qty * price;
       cost += qty * c;
@@ -62,52 +108,72 @@ export default function ControlFinal() {
         </thead>
 
         <tbody>
-          {dishes.map((dish, i) => {
-            const qty = Number(dish.qty) || 0;
-            const price = Number(dish.price) || 0;
-            const cost = Number(dish.cost) || 0;
+          {dishes.map((dish, rowIndex) => {
+            const qty = sanitizeNumber(dish.qty);
+            const price = sanitizeNumber(dish.price);
+            const cost = sanitizeNumber(dish.cost);
 
             const revenue = qty * price;
             const profit = revenue - qty * cost;
 
             return (
-              <tr key={i}>
+              <tr key={rowIndex}>
                 <td>
                   <input
+                    ref={(el) =>
+                      (inputsRef.current[rowIndex * 4 + 0] = el)
+                    }
                     value={dish.name}
                     onChange={(e) =>
-                      updateDish(i, 'name', e.target.value)
+                      updateDish(rowIndex, 'name', e.target.value)
                     }
+                    onKeyDown={(e) => handleEnter(e, rowIndex, 0)}
+                    placeholder="Dish name"
                   />
                 </td>
 
                 <td>
                   <input
                     type="number"
+                    min="0"
+                    ref={(el) =>
+                      (inputsRef.current[rowIndex * 4 + 1] = el)
+                    }
                     value={dish.qty}
                     onChange={(e) =>
-                      updateDish(i, 'qty', e.target.value)
+                      updateDish(rowIndex, 'qty', e.target.value)
                     }
+                    onKeyDown={(e) => handleEnter(e, rowIndex, 1)}
                   />
                 </td>
 
                 <td>
                   <input
                     type="number"
+                    min="0"
+                    ref={(el) =>
+                      (inputsRef.current[rowIndex * 4 + 2] = el)
+                    }
                     value={dish.price}
                     onChange={(e) =>
-                      updateDish(i, 'price', e.target.value)
+                      updateDish(rowIndex, 'price', e.target.value)
                     }
+                    onKeyDown={(e) => handleEnter(e, rowIndex, 2)}
                   />
                 </td>
 
                 <td>
                   <input
                     type="number"
+                    min="0"
+                    ref={(el) =>
+                      (inputsRef.current[rowIndex * 4 + 3] = el)
+                    }
                     value={dish.cost}
                     onChange={(e) =>
-                      updateDish(i, 'cost', e.target.value)
+                      updateDish(rowIndex, 'cost', e.target.value)
                     }
+                    onKeyDown={(e) => handleEnter(e, rowIndex, 3)}
                   />
                 </td>
 
@@ -115,7 +181,9 @@ export default function ControlFinal() {
                 <td>{profit.toFixed(2)}</td>
 
                 <td>
-                  <button onClick={() => removeDish(i)}>X</button>
+                  <button onClick={() => removeDish(rowIndex)}>
+                    X
+                  </button>
                 </td>
               </tr>
             );
@@ -132,10 +200,6 @@ export default function ControlFinal() {
         <h3>Total Cost: {totals.cost.toFixed(2)}</h3>
         <h2>Profit: {totals.profit.toFixed(2)}</h2>
       </div>
-
-      <button style={{ marginTop: 20 }}>
-        Save Day (next step)
-      </button>
     </div>
   );
 }

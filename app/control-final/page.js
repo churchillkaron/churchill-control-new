@@ -1,4 +1,39 @@
 export default function ControlFinal() {
+  // 🔥 SIMPLE LOGIC ENGINE
+
+  const revenue = 128450;
+  const barPerformance = "weak"; // strong / weak
+  const kitchenLoad = "high"; // low / medium / high
+
+  let decisions = [];
+
+  // Revenue logic
+  if (revenue > 120000) {
+    decisions.push({
+      type: "Revenue",
+      message: "High revenue detected — increase top dish price by 3–5%",
+      color: "#ffb36b",
+    });
+  }
+
+  // Bar logic
+  if (barPerformance === "weak") {
+    decisions.push({
+      type: "Staff",
+      message: "Bar underperforming — push drink upselling immediately",
+      color: "red",
+    });
+  }
+
+  // Kitchen logic
+  if (kitchenLoad === "high") {
+    decisions.push({
+      type: "Operations",
+      message: "Kitchen overloaded — expect slower service",
+      color: "#ccc",
+    });
+  }
+
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
 
@@ -19,7 +54,7 @@ export default function ControlFinal() {
           <div>
             <h1 className="text-2xl font-semibold">Control Final</h1>
             <p className="text-white/60 text-sm">
-              Real-time decision engine for your venue
+              Real-time decision engine
             </p>
           </div>
 
@@ -29,7 +64,7 @@ export default function ControlFinal() {
             <div className="grid md:grid-cols-3 gap-6">
               <div className="bg-black/40 rounded-xl p-6 border border-white/10">
                 <p className="text-white/50 text-sm">Revenue</p>
-                <h2 className="text-2xl mt-2">THB 128,450</h2>
+                <h2 className="text-2xl mt-2">THB {revenue}</h2>
               </div>
               <div className="bg-black/40 rounded-xl p-6 border border-white/10">
                 <p className="text-white/50 text-sm">Orders</p>
@@ -42,61 +77,24 @@ export default function ControlFinal() {
             </div>
           </div>
 
-          {/* STAFF PERFORMANCE */}
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Staff Performance</h2>
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="bg-black/40 rounded-xl p-6 border border-white/10">
-                <p className="text-white/50 text-sm">FOH</p>
-                <h3 className="mt-2">Strong</h3>
-              </div>
-              <div className="bg-black/40 rounded-xl p-6 border border-white/10">
-                <p className="text-white/50 text-sm">Bar</p>
-                <h3 className="mt-2">Weak</h3>
-              </div>
-              <div className="bg-black/40 rounded-xl p-6 border border-white/10">
-                <p className="text-white/50 text-sm">Kitchen</p>
-                <h3 className="mt-2">Stable</h3>
-              </div>
-            </div>
-          </div>
-
-          {/* 🔥 AI DECISION LAYER */}
+          {/* 🔥 AI DECISION LAYER (DYNAMIC) */}
           <div>
             <h2 className="text-xl font-semibold mb-4">AI Decisions</h2>
 
             <div className="space-y-4">
 
-              <div className="bg-black/40 rounded-xl p-6 border border-white/10">
-                <p className="text-white/50 text-sm">Revenue Optimization</p>
-                <p className="mt-2 text-[#ffb36b]">
-                  Increase Pad Thai price by 5% — high demand detected
-                </p>
-              </div>
+              {decisions.map((d, i) => (
+                <div
+                  key={i}
+                  className="bg-black/40 rounded-xl p-6 border border-white/10"
+                >
+                  <p className="text-white/50 text-sm">{d.type}</p>
+                  <p className="mt-2" style={{ color: d.color }}>
+                    {d.message}
+                  </p>
+                </div>
+              ))}
 
-              <div className="bg-black/40 rounded-xl p-6 border border-white/10">
-                <p className="text-white/50 text-sm">Staff Action</p>
-                <p className="mt-2 text-red-400">
-                  Bar performance low — push drink upselling
-                </p>
-              </div>
-
-              <div className="bg-black/40 rounded-xl p-6 border border-white/10">
-                <p className="text-white/50 text-sm">Operational Adjustment</p>
-                <p className="mt-2 text-white/70">
-                  Kitchen load high — expect slower service
-                </p>
-              </div>
-
-            </div>
-          </div>
-
-          {/* SYSTEM STATUS */}
-          <div>
-            <h2 className="text-xl font-semibold mb-4">System Status</h2>
-            <div className="bg-black/40 rounded-xl p-6 border border-white/10 flex justify-between">
-              <h2 className="text-2xl text-[#ffb36b]">GOOD</h2>
-              <p className="text-white/60">System performing within target</p>
             </div>
           </div>
 

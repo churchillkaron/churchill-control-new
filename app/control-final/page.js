@@ -1,131 +1,95 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getControlData } from "../../lib/controlLogic";
+import { useEffect, useMemo, useState } from "react";
 
 export default function ControlFinal() {
   const [user, setUser] = useState("");
   const [role, setRole] = useState("");
-  const [shift, setShift] = useState(null);
+  const [system, setSystem] = useState(null);
   const [error, setError] = useState("");
-  const [locationStatus, setLocationStatus] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const TARGET_LAT = 7.8804;
-  const TARGET_LNG = 98.3923;
-  const MAX_DISTANCE = 0.001;
+  const loadSystem = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/staff-system", { cache: "no-store" });
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(json.error || "Failed to load staff system");
+        setSystem(null);
+      } else {
+        setSystem(json);
+        setError("");
+      }
+    } catch {
+      setError("Failed to load staff system");
+      setSystem(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     setUser(localStorage.getItem("staffName") || "");
     setRole(localStorage.getItem("staffRole") || "");
-
-    const savedShift = localStorage.getItem("shift");
-    if (savedShift) {
-      setShift(JSON.parse(savedShift));
-    }
+    loadSystem();
   }, []);
 
-  const checkLocation = async () => {
-    return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-
-          const distance =
-            Math.abs(lat - TARGET_LAT) + Math.abs(lng - TARGET_LNG);
-
-          if (distance < MAX_DISTANCE) {
-            setLocationStatus("Inside work zone");
-            resolve(true);
-          } else {
-            setLocationStatus("Outside work zone");
-            resolve(false);
-          }
-        },
-        () => {
-          setLocationStatus("Location blocked");
-          reject(false);
-        }
-      );
-    });
-  };
+  const currentStaff = useMemo(() => {
+    if (!system?.staffWithPayout) return null;
+    return system.staffWithPayout.find((s) => s.name === user) || null;
+  }, [system, user]);
 
   const handleClockIn = async () => {
-    if (shift && !shift.end) {
-      setError("Already clocked in");
-      return;
+    try {
+      const res = await fetch("/api/staff-system", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "clock_in",
+          staffName: user,
+          staffRole: role,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(json.error || "Clock in failed");
+        return;
+      }
+
+      await loadSystem();
+    } catch {
+      setError("Clock in failed");
     }
+  };
 
-    const valid = await checkLocation();
+  const handleClockOut = async () => {
+    try {
+      const res = await fetch("/api/staff-system", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "clock_out",
+          staffName: user,
+          staffRole: role,
+        }),
+      });
 
-    if (!valid) {
-      setError("You must be at the venue to clock in");
-      return;
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(json.error || "Clock out failed");
+        return;
+      }
+
+      await loadSystem();
+    } catch {
+      setError("Clock out failed");
     }
-
-    const newShift = {
-      start: new Date().toISOString(),
-      end: null,
-      valid: true,
-    };
-
-    localStorage.setItem("shift", JSON.stringify(newShift));
-    setShift(newShift);
-    setError("");
   };
-
-  const handleClockOut = () => {
-    if (!shift || shift.end) {
-      setError("Not clocked in");
-      return;
-    }
-
-    const updated = {
-      ...shift,
-      end: new Date().toISOString(),
-    };
-
-    localStorage.setItem("shift", JSON.stringify(updated));
-    setShift(updated);
-    setError("");
-  };
-
-  const getShiftMinutes = () => {
-    if (!shift?.start) return 0;
-
-    const start = new Date(shift.start);
-    const end = shift.end ? new Date(shift.end) : new Date();
-
-    return Math.max(0, Math.floor((end - start) / 60000));
-  };
-
-  const getDuration = () => {
-    const diff = getShiftMinutes();
-    const hours = Math.floor(diff / 60);
-    const minutes = diff % 60;
-    return `${hours}h ${minutes}m`;
-  };
-
-  const {
-    data,
-    profit,
-    payoutStatus,
-    payoutLevel,
-    staffWithPayout,
-  } = getControlData();
-
-  const currentStaff = staffWithPayout.find((s) => s.name === user);
-
-  const shiftMinutes = getShiftMinutes();
-  const validShift = !!shift?.valid && shiftMinutes > 0;
-
-  let payrollAmount = 0;
-
-  if (currentStaff && validShift) {
-    const fullShiftMinutes = 8 * 60;
-    const workedRatio = Math.min(shiftMinutes / fullShiftMinutes, 1);
-    payrollAmount = Math.round(currentStaff.payout * workedRatio);
-  }
 
   return (
     <div className="relative min-h-screen text-white">
@@ -144,90 +108,107 @@ export default function ControlFinal() {
 
           <h1 className="text-2xl">Control Final</h1>
 
-          {/* SHIFT + GPS */}
-          <div className="bg-black/40 p-6 rounded-xl space-y-4">
-            <h2 className="text-lg">Shift Control (GPS Protected)</h2>
+          {loading && <p className="text-white/60">Loading system...</p>}
+          {error && <p className="text-red-400">{error}</p>}
 
-            <p className="text-sm text-white/60">
-              Location: {locationStatus || "Not checked"}
-            </p>
+          {!loading && system && (
+            <>
+              <div className="grid md:grid-cols-4 gap-6">
+                <div className="bg-black/40 p-6 rounded-xl">
+                  <p className="text-white/50 text-sm">Revenue</p>
+                  <h2 className="text-2xl mt-2">THB {system.revenue}</h2>
+                </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleClockIn}
-                className="px-4 py-2 bg-green-600 rounded-xl"
-              >
-                Clock In
-              </button>
+                <div className="bg-black/40 p-6 rounded-xl">
+                  <p className="text-white/50 text-sm">Service Pool</p>
+                  <h2 className="text-2xl mt-2">THB {system.servicePool}</h2>
+                </div>
 
-              <button
-                onClick={handleClockOut}
-                className="px-4 py-2 bg-red-600 rounded-xl"
-              >
-                Clock Out
-              </button>
-            </div>
+                <div className="bg-black/40 p-6 rounded-xl">
+                  <p className="text-white/50 text-sm">Payout Status</p>
+                  <h2 className="text-2xl mt-2">{system.payoutStatus}</h2>
+                </div>
 
-            {shift?.start && (
-              <p className="text-sm text-white/70">
-                Start: {new Date(shift.start).toLocaleTimeString()}
-              </p>
-            )}
-
-            {shift?.end && (
-              <p className="text-sm text-white/70">
-                End: {new Date(shift.end).toLocaleTimeString()}
-              </p>
-            )}
-
-            {shift?.start && (
-              <p className="text-sm text-[#ffb36b]">
-                Duration: {getDuration()}
-              </p>
-            )}
-
-            {error && <p className="text-red-400 text-sm">{error}</p>}
-          </div>
-
-          {/* OWNER VIEW */}
-          {role === "Owner" && (
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="bg-black/40 p-6 rounded-xl">
-                <p>Revenue</p>
-                <h2>{data.revenue}</h2>
+                <div className="bg-black/40 p-6 rounded-xl">
+                  <p className="text-white/50 text-sm">Team Average</p>
+                  <h2 className="text-2xl mt-2">{system.averageScore}/100</h2>
+                </div>
               </div>
 
-              <div className="bg-black/40 p-6 rounded-xl">
-                <p>Profit</p>
-                <h2>{profit}</h2>
+              <div className="bg-black/40 p-6 rounded-xl space-y-4">
+                <h2 className="text-lg">Shift Control</h2>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleClockIn}
+                    className="px-4 py-2 bg-green-600 rounded-xl"
+                  >
+                    Clock In
+                  </button>
+
+                  <button
+                    onClick={handleClockOut}
+                    className="px-4 py-2 bg-red-600 rounded-xl"
+                  >
+                    Clock Out
+                  </button>
+                </div>
+
+                {currentStaff && (
+                  <>
+                    <p className="text-sm text-white/60">
+                      Shift Minutes: {currentStaff.shiftMinutes}
+                    </p>
+                    <p className="text-sm text-white/60">
+                      Valid Shift: {currentStaff.validShift ? "Yes" : "No"}
+                    </p>
+                  </>
+                )}
               </div>
 
-              <div className="bg-black/40 p-6 rounded-xl">
-                <p>Status</p>
-                <h2>
-                  {payoutStatus} ({payoutLevel}%)
-                </h2>
-              </div>
-            </div>
-          )}
+              {role === "Owner" && (
+                <div>
+                  <h2 className="text-xl mb-4">Full Staff Overview</h2>
 
-          {/* STAFF VIEW */}
-          {role !== "Owner" && currentStaff && (
-            <div className="space-y-6">
-              <div className="bg-black/40 p-6 rounded-xl">
-                <p>Your Performance</p>
-                <p className="mt-2">Score: {currentStaff.score}</p>
-                <p className="text-[#ffb36b]">Full Payout Share: THB {currentStaff.payout}</p>
-              </div>
+                  <div className="space-y-3">
+                    {system.staffWithPayout.map((s) => (
+                      <div
+                        key={s.name}
+                        className="bg-black/40 p-4 rounded-xl flex justify-between"
+                      >
+                        <div>
+                          <p>{s.name}</p>
+                          <p className="text-sm text-white/50">{s.role}</p>
+                        </div>
 
-              <div className="bg-black/40 p-6 rounded-xl">
-                <p className="text-white/60 text-sm">Shift Payroll</p>
-                <h2 className="text-2xl mt-2 text-[#ffb36b]">THB {payrollAmount}</h2>
-                <p className="text-sm text-white/60 mt-2">
-                  Based on valid shift duration and your payout share.
-                </p>
-              </div>
-            </div>
+                        <div className="text-right">
+                          <p>Score: {s.score}</p>
+                          <p className="text-white/60 text-sm">
+                            Shift: {s.shiftMinutes} min
+                          </p>
+                          <p className="text-[#ffb36b]">
+                            THB {s.payrollAmount}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {role !== "Owner" && currentStaff && (
+                <div className="bg-black/40 p-6 rounded-xl">
+                  <p>Your Performance</p>
+                  <p className="mt-2">Score: {currentStaff.score}</p>
+                  <p className="mt-2 text-white/60">
+                    Shift: {currentStaff.shiftMinutes} min
+                  </p>
+                  <p className="text-[#ffb36b] mt-2">
+                    Payroll: THB {currentStaff.payrollAmount}
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -1,18 +1,24 @@
-export default function ControlFinal() {
-  // 🔥 SIMULATED LIVE DATA (will become real later)
+import { supabase } from "../../lib/supabase";
 
-  const data = {
+export default async function ControlFinal() {
+  // 🔥 FETCH REAL DATA
+  const { data, error } = await supabase
+    .from("pos-sales")
+    .select("*")
+    .limit(1);
+
+  const live = data?.[0] || {
     revenue: 128450,
     orders: 186,
-    barPerformance: "weak",
-    kitchenLoad: "high",
+    bar_performance: "weak",
+    kitchen_load: "high",
   };
 
-  // 🔥 LOGIC ENGINE
+  // 🔥 DECISION ENGINE
 
   let decisions = [];
 
-  if (data.revenue > 120000) {
+  if (live.revenue > 120000) {
     decisions.push({
       type: "Revenue",
       message: "Increase top dish price by 3–5%",
@@ -20,7 +26,7 @@ export default function ControlFinal() {
     });
   }
 
-  if (data.barPerformance === "weak") {
+  if (live.bar_performance === "weak") {
     decisions.push({
       type: "Staff",
       message: "Bar underperforming — push upselling",
@@ -28,7 +34,7 @@ export default function ControlFinal() {
     });
   }
 
-  if (data.kitchenLoad === "high") {
+  if (live.kitchen_load === "high") {
     decisions.push({
       type: "Operations",
       message: "Kitchen overloaded — expect delays",
@@ -56,7 +62,7 @@ export default function ControlFinal() {
           <div>
             <h1 className="text-2xl font-semibold">Control Final</h1>
             <p className="text-white/60 text-sm">
-              Decision engine (live logic)
+              Live data decision engine
             </p>
           </div>
 
@@ -64,23 +70,23 @@ export default function ControlFinal() {
           <div className="grid md:grid-cols-3 gap-6">
             <div className="bg-black/40 p-6 rounded-xl border border-white/10">
               <p className="text-white/50 text-sm">Revenue</p>
-              <h2 className="text-2xl mt-2">THB {data.revenue}</h2>
+              <h2 className="text-2xl mt-2">THB {live.revenue}</h2>
             </div>
 
             <div className="bg-black/40 p-6 rounded-xl border border-white/10">
               <p className="text-white/50 text-sm">Orders</p>
-              <h2 className="text-2xl mt-2">{data.orders}</h2>
+              <h2 className="text-2xl mt-2">{live.orders}</h2>
             </div>
 
             <div className="bg-black/40 p-6 rounded-xl border border-white/10">
               <p className="text-white/50 text-sm">Kitchen Load</p>
               <h2 className="text-2xl mt-2 text-[#ffb36b]">
-                {data.kitchenLoad}
+                {live.kitchen_load}
               </h2>
             </div>
           </div>
 
-          {/* 🔥 AI DECISIONS */}
+          {/* AI DECISIONS */}
           <div>
             <h2 className="text-xl font-semibold mb-4">AI Decisions</h2>
 
@@ -97,6 +103,7 @@ export default function ControlFinal() {
                 </div>
               ))}
             </div>
+
           </div>
 
         </div>

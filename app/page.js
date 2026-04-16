@@ -1,45 +1,85 @@
-import "./globals.css";
-
-export const metadata = {
-  title: "Churchill Control System",
-  description:
-    "Real-time control of revenue, performance, and operations for premium hospitality venues.",
-  openGraph: {
-    title: "Churchill Control System",
-    description: "Command your venue with real-time operational control.",
-    url: "https://app.churchillkaron.com",
-    siteName: "Churchill",
-    images: [
-      {
-        url: "/preview.jpg",
-        width: 1200,
-        height: 630,
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-};
-
-export default function RootLayout({ children }) {
+export default function Home() {
   return (
-    <html lang="en">
-      <body className="bg-black text-white">
-        <div className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-[rgba(20,15,10,0.30)] border-b border-[rgba(255,200,120,0.25)]">
-          <div className="max-w-7xl mx-auto px-6 h-20 flex items-center">
-            <div className="flex items-center gap-4">
-              <span className="text-[#ff7a00] font-semibold text-2xl tracking-wider">
-                CC
-              </span>
-              <span className="text-white text-xl tracking-wide font-light">
-                Churchill
-              </span>
-            </div>
+    <div className="relative min-h-screen text-white overflow-hidden">
+
+      {/* BACKGROUND */}
+      <div className="fixed inset-0 -z-30">
+        <img
+          src="/bg-hero-control.jpg"
+          alt="hero"
+          className="w-full h-full object-cover"
+          style={{ animation: "heroZoom 20s linear infinite" }}
+        />
+      </div>
+
+      {/* OVERLAY */}
+      <div className="fixed inset-0 -z-20 bg-[linear-gradient(to_right,rgba(0,0,0,0.76),rgba(0,0,0,0.28))]" />
+
+      {/* GLOW */}
+      <div
+        className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_22%_35%,rgba(255,140,0,0.24),transparent_60%)]"
+        style={{ animation: "glowPulse 6s ease-in-out infinite" }}
+      />
+
+      {/* CONTENT */}
+      <div className="relative z-10 flex items-center min-h-screen max-w-7xl mx-auto px-6">
+
+        <div className="max-w-2xl space-y-8">
+
+          {/* LOGO (ANIMATED) */}
+          <div
+            className="flex items-center gap-4 opacity-0"
+            style={{ animation: "fadeUp 1s ease-out forwards" }}
+          >
+            <span className="text-[#ff7a00] font-semibold text-3xl tracking-wider">
+              CC
+            </span>
+            <span className="text-white text-2xl tracking-wide font-light">
+              Churchill
+            </span>
           </div>
+
+          {/* TITLE */}
+          <h1
+            className="text-4xl md:text-5xl font-semibold leading-tight opacity-0"
+            style={{ animation: "fadeUp 1s ease-out 0.2s forwards" }}
+          >
+            Control System
+          </h1>
+
+          {/* HEADLINE */}
+          <h2
+            className="text-3xl md:text-4xl font-semibold text-[#ff7a00] opacity-0"
+            style={{ animation: "fadeUp 1s ease-out 0.4s forwards" }}
+          >
+            Command Your Venue
+          </h2>
+
+          {/* TEXT */}
+          <p
+            className="text-white/80 text-lg leading-relaxed opacity-0"
+            style={{ animation: "fadeUp 1s ease-out 0.6s forwards" }}
+          >
+            Real-time control of revenue, performance, and operations for premium hospitality venues.
+          </p>
+
+          {/* CTA */}
+          <div
+            className="opacity-0"
+            style={{ animation: "fadeUp 1s ease-out 0.8s forwards" }}
+          >
+            <a
+              href="/control-final"
+              className="inline-block px-10 py-5 rounded-2xl bg-gradient-to-r from-[#ff7a00] to-[#ffb36b] text-white text-xl font-medium shadow-[0_0_40px_rgba(255,122,0,0.9)] hover:scale-[1.08] hover:shadow-[0_0_60px_rgba(255,122,0,1)] transition"
+            >
+              Get Connected →
+            </a>
+          </div>
+
         </div>
 
-        <main className="pt-20">{children}</main>
-      </body>
-    </html>
+      </div>
+
+    </div>
   );
 }

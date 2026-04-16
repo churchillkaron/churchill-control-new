@@ -3,48 +3,49 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+const navItems = [
+  { name: "Home", href: "/" },
+  { name: "Control", href: "/control-final" },
+  { name: "Dashboard", href: "/dashboard" },
+  { name: "POS", href: "/pos-control" },
+  { name: "History", href: "/history" },
+  { name: "Accounting", href: "/accounting" },
+  { name: "Payout", href: "/payout" },
+];
+
 export default function NavBar() {
   const pathname = usePathname();
 
-  const linkClass = (path) =>
-    `px-4 py-2 rounded-lg text-white ${
-      pathname === path ? "bg-white/20" : "bg-transparent"
-    }`;
-
   return (
     <div className="w-full bg-black border-b border-white/10">
-      <div className="flex items-center gap-4 px-6 py-4">
-        <div className="text-white font-semibold text-lg">
+      <div className="flex items-center gap-6 px-6 py-4">
+        {/* Logo / Title */}
+        <div className="text-white font-semibold text-xl">
           Churchill Control System
         </div>
 
-        <Link href="/" className={linkClass("/")}>
-          Home
-        </Link>
+        {/* Navigation */}
+        <div className="flex gap-4">
+          {navItems.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/" && pathname.startsWith(item.href));
 
-        <Link href="/control-final" className={linkClass("/control-final")}>
-          Control
-        </Link>
-
-        <Link href="/dashboard" className={linkClass("/dashboard")}>
-          Dashboard
-        </Link>
-
-        <Link href="/pos-control" className={linkClass("/pos-control")}>
-          POS
-        </Link>
-
-        <Link href="/history" className={linkClass("/history")}>
-          History
-        </Link>
-
-        <Link href="/accounting" className={linkClass("/accounting")}>
-          Accounting
-        </Link>
-
-        <Link href="/payout" className={linkClass("/payout")}>
-          Payout
-        </Link>
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`px-5 py-3 rounded-lg text-white text-xl transition ${
+                  isActive
+                    ? "bg-white/20"
+                    : "bg-transparent hover:bg-white/10"
+                }`}
+              >
+                {item.name}
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

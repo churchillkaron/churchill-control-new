@@ -14,61 +14,99 @@ export default function Dashboard() {
 
   if (!data) return <div style={{ padding: 20 }}>Loading...</div>
 
-  const revenue = data.revenue || 0
-  const sales = data.sales || 0
-  const avg = data.avg || 0
-  const drinks = data.drinks || 0
-
   const ai = data.ai || {}
-
-  const score = ai.score || 0
-  const status = ai.status || 'UNKNOWN'
-  const issues = ai.issues || []
-  const decision = ai.decision || ''
-  const serviceCharge = ai.serviceCharge || 0
-  const split = ai.split || {}
+  const staff = data.staff || []
 
   const statusColor =
-    status === 'GOOD'
+    ai.status === 'GOOD'
       ? 'green'
-      : status === 'WARNING'
+      : ai.status === 'WARNING'
       ? 'orange'
-      : status === 'BAD'
+      : ai.status === 'BAD'
       ? 'red'
       : 'black'
 
   return (
     <div style={{ padding: 20 }}>
 
-      {/* KPI BAR */}
+      {/* KPIs */}
       <h2>KPIs</h2>
-      <div>Revenue: {revenue}</div>
-      <div>Sales: {sales}</div>
-      <div>Avg Ticket: {avg}</div>
-      <div>Drinks per Sale: {drinks}</div>
+      <div>Revenue: {data.revenue}</div>
+      <div>Sales: {data.sales}</div>
+      <div>Avg Ticket: {data.avg}</div>
+      <div>Drinks per Sale: {data.drinks}</div>
 
       {/* AI STATUS */}
       <h2 style={{ marginTop: 20 }}>AI Status</h2>
-      <div style={{ fontSize: 32, color: statusColor }}>
-        {status} ({score})
+      <div style={{ fontSize: 28, color: statusColor }}>
+        {ai.status} ({ai.score})
       </div>
 
       {/* ISSUES */}
       <h3>Issues</h3>
-      {issues.map((issue, i) => (
+      {(ai.issues || []).map((issue, i) => (
         <div key={i}>- {issue}</div>
       ))}
 
-      {/* DECISION */}
-      <h3 style={{ marginTop: 20 }}>Decision</h3>
-      <div>{decision}</div>
+      {/* COMMANDS */}
+      <h3 style={{ marginTop: 20 }}>Commands</h3>
+      {(ai.commands || []).map((cmd, i) => (
+        <div key={i}>⚡ {cmd}</div>
+      ))}
 
       {/* SERVICE CHARGE */}
       <h3 style={{ marginTop: 20 }}>Service Charge</h3>
-      <div>Total: {serviceCharge}</div>
-      <div>FOH: {split.foh || 0}</div>
-      <div>Bar: {split.bar || 0}</div>
-      <div>Kitchen: {split.kitchen || 0}</div>
+      <div>Total: {ai.serviceCharge}</div>
+      <div>FOH: {ai.split?.foh || 0}</div>
+      <div>Bar: {ai.split?.bar || 0}</div>
+      <div>Kitchen: {ai.split?.kitchen || 0}</div>
+
+      {/* ========================= */}
+      {/* STAFF CONTROL (NEW CORE) */}
+      {/* ========================= */}
+
+      <h2 style={{ marginTop: 30 }}>Staff Control</h2>
+
+      {staff.length === 0 && <div>No staff data</div>}
+
+      {staff.map((s, i) => {
+        const color =
+          s.status === 'GOOD'
+            ? 'green'
+            : s.status === 'WARNING'
+            ? 'orange'
+            : s.status === 'BAD'
+            ? 'red'
+            : 'black'
+
+        return (
+          <div
+            key={i}
+            style={{
+              border: '1px solid #ccc',
+              padding: 10,
+              marginTop: 10
+            }}
+          >
+            <strong>{s.name}</strong>
+
+            <div>Revenue: {s.revenue}</div>
+            <div>Sales: {s.sales}</div>
+            <div>Drinks: {s.drinks}</div>
+            <div>Avg Ticket: {s.avgTicket}</div>
+
+            <div style={{ color, fontWeight: 'bold' }}>
+              {s.status} ({s.score})
+            </div>
+
+            <div style={{ marginTop: 5 }}>
+              {s.commands.map((c, j) => (
+                <div key={j}>⚡ {c}</div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
 
     </div>
   )

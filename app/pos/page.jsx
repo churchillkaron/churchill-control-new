@@ -19,9 +19,9 @@ export default function POS() {
   }, []);
 
   const orders = [
-    { table: "T12", items: 4, total: "2,450", status: "Active" },
-    { table: "T08", items: 2, total: "1,120", status: "Preparing" },
-    { table: "Bar", items: 6, total: "3,860", status: "Open" },
+    { table: "T12", items: 4, total: "2,450", status: "Active", staff: staffName },
+    { table: "T08", items: 2, total: "1,120", status: "Preparing", staff: staffName },
+    { table: "Bar", items: 6, total: "3,860", status: "Open", staff: staffName },
   ];
 
   return (
@@ -113,6 +113,11 @@ export default function POS() {
                 <div>
                   <p className="text-sm text-white/50">Total</p>
                   <p className="text-lg">THB {order.total}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-white/50">Staff</p>
+                  <p className="text-white">{order.staff}</p>
                 </div>
 
                 <div className="text-right">

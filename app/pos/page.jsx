@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 export default function POS() {
   const [staffName, setStaffName] = useState("");
   const [staffRole, setStaffRole] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const name = localStorage.getItem("staffName");
@@ -19,10 +20,44 @@ export default function POS() {
   }, []);
 
   const orders = [
-    { table: "T12", items: 4, total: "2,450", status: "Active", staff: staffName },
-    { table: "T08", items: 2, total: "1,120", status: "Preparing", staff: staffName },
-    { table: "Bar", items: 6, total: "3,860", status: "Open", staff: staffName },
+    { table: "T12", items: 4, total: 2450, status: "Active", staff: staffName },
+    { table: "T08", items: 2, total: 1120, status: "Preparing", staff: staffName },
+    { table: "Bar", items: 6, total: 3860, status: "Open", staff: staffName },
   ];
+
+  const handleSendToSystem = async () => {
+    try {
+      setSaving(true);
+
+      const revenue = orders.reduce((sum, o) => sum + o.total, 0);
+
+      const res = await fetch("/api/save-day", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          date: new Date().toISOString().split("T")[0],
+          dishes: orders,
+          revenue,
+          cost: 0,
+          profit: revenue,
+        }),
+      });
+
+      if (!res.ok) {
+        alert("Failed to send data");
+        return;
+      }
+
+      alert("Orders sent to system");
+
+    } catch (err) {
+      alert("Error sending data");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
@@ -58,30 +93,25 @@ export default function POS() {
           <h1 className="text-3xl md:text-5xl font-semibold mt-2">
             Live Orders
           </h1>
-          <p className="text-white/60 mt-2 max-w-xl">
-            Real-time overview of all active tables, orders, and transaction flow.
-          </p>
         </div>
 
         {/* HERO */}
         <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 md:p-8 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="flex justify-between items-center">
 
             <div>
-              <p className="text-white/50 text-sm">Active Tables</p>
-              <h2 className="text-3xl mt-2">18</h2>
+              <p className="text-white/50 text-sm">Orders Ready</p>
+              <h2 className="text-3xl mt-2">{orders.length}</h2>
             </div>
 
-            <div>
-              <p className="text-white/50 text-sm">Open Orders</p>
-              <h2 className="text-3xl mt-2">42</h2>
-            </div>
-
-            <div>
-              <p className="text-white/50 text-sm">Current Flow</p>
-              <h2 className="text-3xl mt-2 text-[#ffb36b]">High</h2>
-            </div>
+            <button
+              onClick={handleSendToSystem}
+              disabled={saving}
+              className="px-6 py-3 rounded-xl bg-[#ff7a00] text-black font-semibold hover:bg-[#ff9a2f] transition"
+            >
+              {saving ? "Sending..." : "Send to System"}
+            </button>
 
           </div>
         </div>
@@ -89,41 +119,17 @@ export default function POS() {
         {/* ORDER LIST */}
         <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 md:p-8">
 
-          <div className="flex justify-between mb-4">
-            <h3 className="text-xl font-semibold">Active Orders</h3>
-            <p className="text-white/50 text-sm">Live updates</p>
-          </div>
-
           <div className="space-y-4">
             {orders.map((order, i) => (
               <div
                 key={i}
                 className="flex justify-between items-center p-4 rounded-xl bg-black/30 border border-white/10"
               >
-                <div>
-                  <p className="text-sm text-white/50">Table</p>
-                  <p className="text-lg font-medium">{order.table}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-white/50">Items</p>
-                  <p className="text-lg">{order.items}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-white/50">Total</p>
-                  <p className="text-lg">THB {order.total}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-white/50">Staff</p>
-                  <p className="text-white">{order.staff}</p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-sm text-white/50">Status</p>
-                  <p className="text-[#ffb36b]">{order.status}</p>
-                </div>
+                <div>{order.table}</div>
+                <div>{order.items}</div>
+                <div>THB {order.total}</div>
+                <div>{order.staff}</div>
+                <div className="text-[#ffb36b]">{order.status}</div>
               </div>
             ))}
           </div>

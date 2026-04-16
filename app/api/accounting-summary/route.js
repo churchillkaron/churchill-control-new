@@ -1,18 +1,18 @@
-import { createClient } from '../../../lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET() {
-  const supabase = createClient()
+
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  )
 
   // =========================
   // POS DATA
   // =========================
-  const { data: salesData, error: salesError } = await supabase
+  const { data: salesData } = await supabase
     .from('pos-sales')
     .select('*')
-
-  if (salesError) {
-    console.error('POS fetch error:', salesError)
-  }
 
   const revenue = (salesData || []).reduce(
     (sum, s) => sum + Number(s.total || 0),
@@ -34,13 +34,9 @@ export async function GET() {
   // =========================
   // EXPENSE DATA
   // =========================
-  const { data: expenseData, error: expenseError } = await supabase
+  const { data: expenseData } = await supabase
     .from('accounting-expenses')
     .select('*')
-
-  if (expenseError) {
-    console.error('Expense fetch error:', expenseError)
-  }
 
   const cost = (expenseData || []).reduce(
     (sum, e) => sum + Number(e.amount || 0),
@@ -53,7 +49,7 @@ export async function GET() {
     revenue > 0 ? Math.round((profit / revenue) * 100) : 0
 
   // =========================
-  // AI ENGINE (STABLE BASE)
+  // AI ENGINE
   // =========================
   let score = 100
   const issues = []
@@ -90,7 +86,7 @@ export async function GET() {
   }
 
   // =========================
-  // SERVICE CHARGE ENGINE
+  // SERVICE CHARGE
   // =========================
   const baseServiceCharge = revenue * 0.05
 
@@ -112,9 +108,6 @@ export async function GET() {
       ? 'BLOCKED'
       : 'REDUCED'
 
-  // =========================
-  // FINAL RESPONSE
-  // =========================
   return Response.json({
     revenue,
     sales,

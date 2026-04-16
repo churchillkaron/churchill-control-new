@@ -1,9 +1,40 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* V6 SYSTEM BASE */
-body {
-  background-color: #000;
-  color: white;
+/* RESET */
+* {
+  box-sizing: border-box;
 }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+/* REMOVE ALL OLD MOBILE HACKS */
+/* No zoom, no transform, no forced scaling */
+
+/* SCROLLBAR (optional clean look) */
+::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* TABLE FIX (important for desktop) */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* INPUT CLEAN */
+input, textarea, select {
+  font-family: inherit;
+}
+
+/* NO GLOBAL FONT SIZES OR FORCED COLORS */

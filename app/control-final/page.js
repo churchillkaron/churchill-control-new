@@ -8,13 +8,16 @@ export default function ControlFinal() {
   const [role, setRole] = useState("");
   const [shift, setShift] = useState(null);
   const [error, setError] = useState("");
+  const [locationStatus, setLocationStatus] = useState("");
+
+  // 📍 TARGET LOCATION (your venue)
+  const TARGET_LAT = 7.8804;
+  const TARGET_LNG = 98.3923;
+  const MAX_DISTANCE = 0.001; // approx ~100m
 
   useEffect(() => {
-    const name = localStorage.getItem("staffName") || "";
-    const role = localStorage.getItem("staffRole") || "";
-
-    setUser(name);
-    setRole(role);
+    setUser(localStorage.getItem("staffName") || "");
+    setRole(localStorage.getItem("staffRole") || "");
 
     const savedShift = localStorage.getItem("shift");
     if (savedShift) {
@@ -22,9 +25,43 @@ export default function ControlFinal() {
     }
   }, []);
 
-  const handleClockIn = () => {
+  // 📍 GET LOCATION
+  const checkLocation = async () => {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+
+          const distance =
+            Math.abs(lat - TARGET_LAT) + Math.abs(lng - TARGET_LNG);
+
+          if (distance < MAX_DISTANCE) {
+            setLocationStatus("Inside work zone");
+            resolve(true);
+          } else {
+            setLocationStatus("Outside work zone");
+            resolve(false);
+          }
+        },
+        () => {
+          setLocationStatus("Location blocked");
+          reject(false);
+        }
+      );
+    });
+  };
+
+  const handleClockIn = async () => {
     if (shift && !shift.end) {
       setError("Already clocked in");
+      return;
+    }
+
+    const valid = await checkLocation();
+
+    if (!valid) {
+      setError("You must be at the venue to clock in");
       return;
     }
 
@@ -40,7 +77,7 @@ export default function ControlFinal() {
 
   const handleClockOut = () => {
     if (!shift || shift.end) {
-      setError("You are not clocked in");
+      setError("Not clocked in");
       return;
     }
 
@@ -60,7 +97,7 @@ export default function ControlFinal() {
     const start = new Date(shift.start);
     const end = shift.end ? new Date(shift.end) : new Date();
 
-    const diff = Math.floor((end - start) / 60000); // minutes
+    const diff = Math.floor((end - start) / 60000);
     const hours = Math.floor(diff / 60);
     const minutes = diff % 60;
 
@@ -78,7 +115,6 @@ export default function ControlFinal() {
   return (
     <div className="relative min-h-screen text-white">
 
-      {/* BG */}
       <div className="absolute inset-0 -z-30">
         <img src="/bg-hero-control.jpg" className="w-full h-full object-cover" />
       </div>
@@ -97,54 +133,44 @@ export default function ControlFinal() {
 
           <h1 className="text-2xl">Control Final</h1>
 
-          {/* 🔥 SHIFT SYSTEM */}
+          {/* 📍 SHIFT + GPS */}
           <div className="bg-black/40 p-6 rounded-xl space-y-4">
 
-            <h2 className="text-lg">Shift Control</h2>
+            <h2>Shift Control (GPS Protected)</h2>
 
-            {!shift?.start && (
-              <button
-                onClick={handleClockIn}
-                className="px-4 py-2 bg-green-600 rounded-xl"
-              >
-                Clock In
-              </button>
-            )}
+            <p className="text-sm text-white/60">
+              Location: {locationStatus || "Not checked"}
+            </p>
 
-            {shift?.start && !shift?.end && (
-              <button
-                onClick={handleClockOut}
-                className="px-4 py-2 bg-red-600 rounded-xl"
-              >
-                Clock Out
-              </button>
-            )}
+            <button
+              onClick={handleClockIn}
+              className="px-4 py-2 bg-green-600 rounded-xl"
+            >
+              Clock In
+            </button>
+
+            <button
+              onClick={handleClockOut}
+              className="px-4 py-2 bg-red-600 rounded-xl"
+            >
+              Clock Out
+            </button>
 
             {shift?.start && (
-              <p className="text-sm text-white/60">
-                Start: {new Date(shift.start).toLocaleTimeString()}
-              </p>
+              <p>Start: {new Date(shift.start).toLocaleTimeString()}</p>
             )}
 
             {shift?.end && (
-              <p className="text-sm text-white/60">
-                End: {new Date(shift.end).toLocaleTimeString()}
-              </p>
+              <p>End: {new Date(shift.end).toLocaleTimeString()}</p>
             )}
 
-            {shift?.start && (
-              <p className="text-sm text-[#ffb36b]">
-                Duration: {getDuration()}
-              </p>
-            )}
+            {shift?.start && <p>Duration: {getDuration()}</p>}
 
-            {error && (
-              <p className="text-red-400 text-sm">{error}</p>
-            )}
+            {error && <p className="text-red-400">{error}</p>}
 
           </div>
 
-          {/* OWNER VIEW */}
+          {/* OWNER */}
           {role === "Owner" && (
             <div className="grid md:grid-cols-3 gap-6">
               <div className="bg-black/40 p-6 rounded-xl">
@@ -164,7 +190,7 @@ export default function ControlFinal() {
             </div>
           )}
 
-          {/* STAFF VIEW */}
+          {/* STAFF */}
           {role !== "Owner" && (
             <div className="bg-black/40 p-6 rounded-xl">
               <p>Your Performance</p>

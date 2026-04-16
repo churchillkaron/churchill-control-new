@@ -39,14 +39,21 @@ export default function Payout() {
 
   return (
     <div className="relative min-h-screen text-white">
+      {/* BG */}
       <div className="absolute inset-0 -z-30">
-        <img src="/bg-hero-control.jpg" className="w-full h-full object-cover" />
+        <img
+          src="/bg-hero-control.jpg"
+          className="w-full h-full object-cover"
+        />
       </div>
 
       <div className="absolute inset-0 -z-20 bg-black/70" />
 
+      {/* CONTENT */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 pb-16 space-y-10">
         <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 space-y-10">
+
+          {/* HEADER */}
           <div className="flex justify-between text-sm text-white/60">
             <div>{user}</div>
             <div>{role}</div>
@@ -58,6 +65,7 @@ export default function Payout() {
 
           {system && (
             <>
+              {/* STATUS */}
               <div className="grid md:grid-cols-3 gap-6">
                 <div className="bg-black/40 p-6 rounded-xl">
                   <p>Status</p>
@@ -75,21 +83,26 @@ export default function Payout() {
                 </div>
               </div>
 
+              {/* STAFF VIEW */}
               {role !== "Owner" && currentStaff && (
                 <div className="bg-black/40 p-6 rounded-xl space-y-3">
                   <p className="text-white/60 text-sm">Your Payroll</p>
+
                   <h2 className="text-3xl text-[#ffb36b]">
                     THB {currentStaff.payrollAmount}
                   </h2>
+
                   <p className="text-sm text-white/60">
                     Shift Minutes: {currentStaff.shiftMinutes}
                   </p>
+
                   <p className="text-sm text-white/60">
                     Full Share: THB {currentStaff.fullPayoutShare}
                   </p>
                 </div>
               )}
 
+              {/* OWNER VIEW */}
               {role === "Owner" && (
                 <div>
                   <h2 className="text-xl mb-4">Full Staff Payroll</h2>
@@ -121,8 +134,9 @@ export default function Payout() {
               )}
             </>
           )}
+
         </div>
       </div>
     </div>
   );
-}}
+}

@@ -7,6 +7,7 @@ export default function ControlFinal() {
   const [user, setUser] = useState("");
   const [role, setRole] = useState("");
   const [shift, setShift] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const name = localStorage.getItem("staffName") || "";
@@ -22,6 +23,11 @@ export default function ControlFinal() {
   }, []);
 
   const handleClockIn = () => {
+    if (shift && !shift.end) {
+      setError("Already clocked in");
+      return;
+    }
+
     const newShift = {
       start: new Date().toISOString(),
       end: null,
@@ -29,10 +35,14 @@ export default function ControlFinal() {
 
     localStorage.setItem("shift", JSON.stringify(newShift));
     setShift(newShift);
+    setError("");
   };
 
   const handleClockOut = () => {
-    if (!shift) return;
+    if (!shift || shift.end) {
+      setError("You are not clocked in");
+      return;
+    }
 
     const updated = {
       ...shift,
@@ -41,6 +51,20 @@ export default function ControlFinal() {
 
     localStorage.setItem("shift", JSON.stringify(updated));
     setShift(updated);
+    setError("");
+  };
+
+  const getDuration = () => {
+    if (!shift?.start) return null;
+
+    const start = new Date(shift.start);
+    const end = shift.end ? new Date(shift.end) : new Date();
+
+    const diff = Math.floor((end - start) / 60000); // minutes
+    const hours = Math.floor(diff / 60);
+    const minutes = diff % 60;
+
+    return `${hours}h ${minutes}m`;
   };
 
   const {
@@ -73,10 +97,10 @@ export default function ControlFinal() {
 
           <h1 className="text-2xl">Control Final</h1>
 
-          {/* 🔥 SHIFT TRACKING */}
+          {/* 🔥 SHIFT SYSTEM */}
           <div className="bg-black/40 p-6 rounded-xl space-y-4">
 
-            <h2 className="text-lg">Shift</h2>
+            <h2 className="text-lg">Shift Control</h2>
 
             {!shift?.start && (
               <button
@@ -106,6 +130,16 @@ export default function ControlFinal() {
               <p className="text-sm text-white/60">
                 End: {new Date(shift.end).toLocaleTimeString()}
               </p>
+            )}
+
+            {shift?.start && (
+              <p className="text-sm text-[#ffb36b]">
+                Duration: {getDuration()}
+              </p>
+            )}
+
+            {error && (
+              <p className="text-red-400 text-sm">{error}</p>
             )}
 
           </div>

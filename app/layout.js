@@ -1,3 +1,5 @@
+import NavBar from './components/NavBar'
+
 export const metadata = {
   title: 'Churchill Control System',
   description: 'Restaurant Operating System V6',
@@ -17,6 +19,7 @@ export default function RootLayout({ children }) {
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
       >
+        <NavBar />
         {children}
       </body>
     </html>

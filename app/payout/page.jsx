@@ -1,116 +1,117 @@
 export default function Payout() {
-  const staff = [
-    { name: "FOH Team", role: "Front of House", share: "50%", amount: "6,420" },
-    { name: "Bar Team", role: "Bar", share: "30%", amount: "3,852" },
-    { name: "Kitchen", role: "Kitchen", share: "20%", amount: "2,568" },
-  ];
+  // SAME CORE DATA (must match Control)
+  const data = {
+    revenue: 128450,
+    foodCost: 38000,
+    staffCost: 42000,
+    otherCost: 12000,
+  };
+
+  // PROFIT CALCULATION
+  const totalCost = data.foodCost + data.staffCost + data.otherCost;
+  const profit = data.revenue - totalCost;
+  const margin = Math.round((profit / data.revenue) * 100);
+
+  // PAYOUT LOGIC (IDENTICAL TO CONTROL)
+  let payoutStatus = "GOOD";
+  let payoutLevel = 100;
+
+  if (margin < 30) {
+    payoutStatus = "WARNING";
+    payoutLevel = 70;
+  }
+
+  if (margin < 20) {
+    payoutStatus = "BAD";
+    payoutLevel = 40;
+  }
+
+  if (margin < 10) {
+    payoutStatus = "CRITICAL";
+    payoutLevel = 0;
+  }
+
+  const servicePool = Math.round(data.revenue * 0.05);
+  const payoutPool = Math.round((servicePool * payoutLevel) / 100);
+
+  const fohShare = Math.round(payoutPool * 0.5);
+  const barShare = Math.round(payoutPool * 0.3);
+  const kitchenShare = Math.round(payoutPool * 0.2);
 
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
 
       {/* BACKGROUND */}
       <div className="absolute inset-0 -z-30">
-        <img
-          src="/bg-hero-control.jpg"
-          alt="Payout background"
-          className="w-full h-full object-cover"
-        />
+        <img src="/bg-hero-control.jpg" className="w-full h-full object-cover" />
       </div>
 
       {/* OVERLAY */}
-      <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(8,8,8,0.75),rgba(18,12,8,0.85))]" />
+      <div className="absolute inset-0 -z-20 bg-black/70" />
 
-      {/* GLOW */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_20%,rgba(255,140,0,0.18),transparent_40%)]" />
+      {/* CONTENT */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 pb-16 space-y-10">
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-28 pb-14 space-y-8">
+        <div className="bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-8 space-y-10">
 
-        {/* HEADER */}
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-            Payout System
-          </p>
-          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
-            Service Distribution
-          </h1>
-          <p className="text-white/60 mt-2 max-w-xl">
-            Real-time calculation of service charge and staff payout allocation.
-          </p>
-        </div>
+          {/* HEADER */}
+          <div>
+            <h1 className="text-2xl font-semibold">Payout System</h1>
+            <p className="text-white/60 text-sm">
+              Service charge and team distribution
+            </p>
+          </div>
 
-        {/* HERO */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 md:p-8 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-            <div>
-              <p className="text-white/50 text-sm">Total Revenue</p>
-              <h2 className="text-3xl mt-2">THB 128,450</h2>
-            </div>
-
-            <div>
-              <p className="text-white/50 text-sm">Service Pool (5%)</p>
-              <h2 className="text-3xl mt-2">THB 6,422</h2>
-            </div>
-
-            <div>
+          {/* STATUS */}
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-black/40 p-6 rounded-xl border border-white/10">
               <p className="text-white/50 text-sm">Status</p>
-              <h2 className="text-3xl mt-2 text-[#ffb36b]">GOOD</h2>
+              <h2 className="text-2xl mt-2 text-[#ffb36b]">{payoutStatus}</h2>
             </div>
 
+            <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+              <p className="text-white/50 text-sm">Payout Level</p>
+              <h2 className="text-2xl mt-2">{payoutLevel}%</h2>
+            </div>
+
+            <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+              <p className="text-white/50 text-sm">Margin</p>
+              <h2 className="text-2xl mt-2">{margin}%</h2>
+            </div>
           </div>
-        </div>
 
-        {/* DISTRIBUTION */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 md:p-8">
+          {/* POOL */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Service Pool</h2>
 
-          <div className="flex justify-between mb-4">
-            <h3 className="text-xl font-semibold">Team Distribution</h3>
-            <p className="text-white/50 text-sm">Auto split</p>
+            <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+              <p className="text-white/50 text-sm">Total Distribution</p>
+              <h2 className="text-3xl mt-2">THB {payoutPool}</h2>
+            </div>
           </div>
 
-          <div className="space-y-4">
-            {staff.map((member, i) => (
-              <div
-                key={i}
-                className="flex justify-between items-center p-4 rounded-xl bg-black/30 border border-white/10"
-              >
-                <div>
-                  <p className="text-sm text-white/50">Team</p>
-                  <p className="text-lg font-medium">{member.name}</p>
-                </div>
+          {/* DISTRIBUTION */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Team Distribution</h2>
 
-                <div>
-                  <p className="text-sm text-white/50">Share</p>
-                  <p className="text-lg">{member.share}</p>
-                </div>
+            <div className="grid md:grid-cols-3 gap-6">
 
-                <div>
-                  <p className="text-sm text-white/50">Amount</p>
-                  <p className="text-lg">THB {member.amount}</p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-sm text-white/50">Role</p>
-                  <p className="text-[#ffb36b]">{member.role}</p>
-                </div>
+              <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+                <p className="text-white/50 text-sm">FOH (50%)</p>
+                <h2 className="text-2xl mt-2">THB {fohShare}</h2>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* LOGIC BOX */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 md:p-8">
+              <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+                <p className="text-white/50 text-sm">Bar (30%)</p>
+                <h2 className="text-2xl mt-2">THB {barShare}</h2>
+              </div>
 
-          <h3 className="text-xl font-semibold mb-4">System Logic</h3>
+              <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+                <p className="text-white/50 text-sm">Kitchen (20%)</p>
+                <h2 className="text-2xl mt-2">THB {kitchenShare}</h2>
+              </div>
 
-          <div className="space-y-3 text-white/70">
-            <p>• Service charge = 5% of total revenue</p>
-            <p>• Status determines payout level (GOOD / WARNING / BAD)</p>
-            <p>• Distribution:</p>
-            <p className="ml-4">- FOH: 50%</p>
-            <p className="ml-4">- Bar: 30%</p>
-            <p className="ml-4">- Kitchen: 20%</p>
+            </div>
           </div>
 
         </div>

@@ -2,11 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-/* FADE UP */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* Landing animations */
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(25px);
+    transform: translateY(28px);
   }
   to {
     opacity: 1;
@@ -14,25 +20,23 @@
   }
 }
 
-/* SLOW ZOOM BACKGROUND */
-@keyframes zoom {
+@keyframes heroZoom {
   from {
-    transform: scale(1.05);
+    transform: scale(1.04);
   }
   to {
-    transform: scale(1.15);
+    transform: scale(1.12);
   }
 }
 
-/* SOFT GLOW */
-@keyframes pulseGlow {
+@keyframes glowPulse {
   0% {
-    opacity: 0.2;
+    opacity: 0.18;
   }
   50% {
-    opacity: 0.35;
+    opacity: 0.34;
   }
   100% {
-    opacity: 0.2;
+    opacity: 0.18;
   }
 }

@@ -53,7 +53,7 @@ export default function Dashboard() {
       <svg viewBox="0 0 100 100" className="w-full h-24">
         <polyline
           fill="none"
-          stroke="var(--accent)"
+          stroke="#ff7a00"
           strokeWidth="2"
           points={points.join(" ")}
         />
@@ -62,27 +62,26 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-[#d9cfb5] min-h-screen">
 
-      {/* ===== TITLE ===== */}
-      <h1 className="text-2xl font-semibold mb-6">
+      <h1 className="text-2xl font-semibold mb-6 text-[#2f2a24]">
         Dashboard
       </h1>
 
-      {/* ===== KPI ROW ===== */}
+      {/* KPI */}
       {latest && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 
-          <div className="p-4 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
-            <div className="text-sm text-[var(--text-secondary)]">Revenue</div>
-            <div className="text-xl font-bold">
+          <div className="p-4 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+            <div className="text-sm text-[#6b6458]">Revenue</div>
+            <div className="text-xl font-bold text-[#2f2a24]">
               THB {latest.revenue.toFixed(0)}
             </div>
           </div>
 
-          <div className="p-4 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
-            <div className="text-sm text-[var(--text-secondary)]">Profit</div>
-            <div className="text-xl font-bold">
+          <div className="p-4 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+            <div className="text-sm text-[#6b6458]">Profit</div>
+            <div className="text-xl font-bold text-[#2f2a24]">
               THB {latest.profit.toFixed(0)}
             </div>
           </div>
@@ -90,25 +89,31 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ===== TREND ROW ===== */}
+      {/* TRENDS */}
       <div className="grid md:grid-cols-2 gap-4 mb-6">
 
-        <div className="p-4 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
-          <div className="mb-3 font-medium">Revenue Trend</div>
+        <div className="p-4 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+          <div className="mb-3 font-medium text-[#2f2a24]">
+            Revenue Trend
+          </div>
+
           {renderLine(data.map(d => d.revenue))}
 
-          <div className="flex justify-between text-xs text-[var(--text-secondary)] mt-2">
+          <div className="flex justify-between text-xs text-[#6b6458] mt-2">
             {data.map((d, i) => (
               <span key={i}>{d.date}</span>
             ))}
           </div>
         </div>
 
-        <div className="p-4 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
-          <div className="mb-3 font-medium">Profit Trend</div>
+        <div className="p-4 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+          <div className="mb-3 font-medium text-[#2f2a24]">
+            Profit Trend
+          </div>
+
           {renderLine(data.map(d => d.profit))}
 
-          <div className="flex justify-between text-xs text-[var(--text-secondary)] mt-2">
+          <div className="flex justify-between text-xs text-[#6b6458] mt-2">
             {data.map((d, i) => (
               <span key={i}>{d.date}</span>
             ))}
@@ -117,13 +122,15 @@ export default function Dashboard() {
 
       </div>
 
-      {/* ===== INSIGHT ===== */}
-      <div className="p-5 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
-        <div className="font-medium mb-2">System Insight</div>
+      {/* INSIGHT */}
+      <div className="p-5 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+        <div className="font-medium mb-2 text-[#2f2a24]">
+          System Insight
+        </div>
 
-        <div className="text-[var(--text-secondary)]">
+        <div className="text-[#6b6458]">
           {data.length > 1
-            ? "System tracking revenue and profit trends. Add more operating days for stronger insights."
+            ? "System tracking revenue and profit trends."
             : "Start saving days to activate analytics."}
         </div>
       </div>

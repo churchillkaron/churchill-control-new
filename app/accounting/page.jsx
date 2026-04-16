@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 export default function AccountingPage() {
+
   const [expenses, setExpenses] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
   const [form, setForm] = useState({
-    staff: '',
+    staff: 'John',
     amount: '',
-    category: '',
-    department: '',
+    category: 'General',
+    department: 'General',
     note: '',
     file: null
   })
@@ -17,12 +21,16 @@ export default function AccountingPage() {
     fetchExpenses()
   }, [])
 
-  const fetchExpenses = async () => {
+  async function fetchExpenses() {
     try {
-      const res = await fetch('/api/accounting-expenses')
+      setLoading(true)
+
+      const res = await fetch('/api/accounting-expenses', {
+        cache: 'no-store'
+      })
+
       const data = await res.json()
 
-      // HANDLE BOTH FORMATS
       if (Array.isArray(data)) {
         setExpenses(data)
       } else if (Array.isArray(data.data)) {
@@ -30,141 +38,259 @@ export default function AccountingPage() {
       } else {
         setExpenses([])
       }
-    } catch (err) {
-      console.error('Fetch error:', err)
+
+    } catch (error) {
+      console.error('Fetch error:', error)
       setExpenses([])
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault()
 
     try {
-      const formData = new FormData()
-      Object.entries(form).forEach(([key, value]) => {
-        if (value) formData.append(key, value)
-      })
+      setSaving(true)
 
-      await fetch('/api/accounting-expenses', {
+      const formData = new FormData()
+      formData.append('staff', form.staff)
+      formData.append('amount', form.amount)
+      formData.append('category', form.category)
+      formData.append('department', form.department)
+      formData.append('note', form.note)
+
+      if (form.file) {
+        formData.append('file', form.file)
+      }
+
+      const res = await fetch('/api/accounting-expenses', {
         method: 'POST',
         body: formData
       })
 
+      if (!res.ok) {
+        throw new Error('Save failed')
+      }
+
       setForm({
-        staff: '',
+        staff: 'John',
         amount: '',
-        category: '',
-        department: '',
+        category: 'General',
+        department: 'General',
         note: '',
         file: null
       })
 
-      fetchExpenses()
+      await fetchExpenses()
+
     } catch (err) {
-      console.error('Submit error:', err)
+      console.error(err)
+      alert('Failed to save expense')
+    } finally {
+      setSaving(false)
     }
   }
 
-  // SAFE CALCULATIONS
-  const total = expenses.reduce(
-    (sum, e) => sum + Number(e?.amount || 0),
-    0
-  )
+  // =========================
+  // CALCULATIONS
+  // =========================
+
+  const totalExpenses = useMemo(() => {
+    return expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  }, [expenses])
+
+  const todayExpenses = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+
+    return expenses.reduce((sum, item) => {
+      const d = String(item.date || item.created_at || '').slice(0, 10)
+      return d === today ? sum + Number(item.amount || 0) : sum
+    }, 0)
+  }, [expenses])
+
+  const categoryBreakdown = useMemo(() => {
+    const map = {}
+
+    expenses.forEach(item => {
+      const key = item.category || 'Other'
+      map[key] = (map[key] || 0) + Number(item.amount || 0)
+    })
+
+    return Object.entries(map)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+  }, [expenses])
+
+  function getReceipt(item) {
+    return item.image_url || item.image || item.file || item.receipt_url || ''
+  }
+
+  // =========================
+  // UI
+  // =========================
 
   return (
     <div className="p-6 text-white space-y-6">
 
-      {/* SUMMARY */}
-      <div className="bg-[#111] p-6 rounded-2xl">
-        <h2 className="text-lg text-gray-400 mb-4">SUMMARY</h2>
-        <p className="text-2xl font-bold">THB {total}</p>
+      {/* HEADER */}
+      <div>
+        <h1 className="text-2xl font-bold">Churchill Accounting</h1>
+        <p className="text-gray-400 text-sm">Owner control system</p>
       </div>
 
-      {/* LIST */}
-      <div className="bg-[#111] p-6 rounded-2xl">
-        <h2 className="text-lg text-gray-400 mb-4">EXPENSES</h2>
+      {/* SUMMARY */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-        {expenses.length === 0 && (
-          <p className="text-gray-500 text-sm">No expenses yet</p>
+        <div className="bg-[#111] p-5 rounded-2xl border border-[#222]">
+          <p className="text-gray-400 text-sm">Total Expenses</p>
+          <p className="text-2xl font-bold">THB {totalExpenses}</p>
+        </div>
+
+        <div className="bg-[#111] p-5 rounded-2xl border border-[#222]">
+          <p className="text-gray-400 text-sm">Today</p>
+          <p className="text-2xl font-bold">THB {todayExpenses}</p>
+        </div>
+
+        <div className="bg-[#111] p-5 rounded-2xl border border-[#222]">
+          <p className="text-gray-400 text-sm">Entries</p>
+          <p className="text-2xl font-bold">{expenses.length}</p>
+        </div>
+
+      </div>
+
+      {/* CATEGORY */}
+      <div className="bg-[#111] p-6 rounded-2xl border border-[#222]">
+
+        <h2 className="mb-3">Category Breakdown</h2>
+
+        {categoryBreakdown.length === 0 ? (
+          <p className="text-gray-500 text-sm">No data</p>
+        ) : (
+          <div className="space-y-2">
+            {categoryBreakdown.map(([cat, val]) => (
+              <div key={cat} className="flex justify-between">
+                <span>{cat}</span>
+                <span>THB {val}</span>
+              </div>
+            ))}
+          </div>
         )}
 
-        <div className="space-y-3">
-          {expenses.map((e, i) => (
-            <div key={i} className="bg-[#1a1a1a] p-4 rounded-xl text-sm">
-              <div className="flex justify-between">
-                <span>{e?.category || 'Unknown'}</span>
-                <span>THB {e?.amount || 0}</span>
-              </div>
-
-              <div className="text-gray-400 text-xs">
-                {e?.staff || '-'} • {e?.department || '-'}
-              </div>
-
-              {e?.note && (
-                <div className="text-gray-500 text-xs mt-1">
-                  {e.note}
-                </div>
-              )}
-
-              {(e?.image_url || e?.image || e?.file) && (
-                <a
-                  href={e.image_url || e.image || e.file}
-                  target="_blank"
-                  className="text-blue-400 text-xs underline block mt-1"
-                >
-                  View Receipt
-                </a>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* FORM */}
-      <div className="bg-[#111] p-6 rounded-2xl">
-        <h2 className="text-lg text-gray-400 mb-4">ADD EXPENSE</h2>
+      <div className="bg-[#111] p-6 rounded-2xl border border-[#222]">
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <h2 className="mb-4">Add Expense</h2>
 
-          <input
-            placeholder="Amount"
-            value={form.amount}
-            onChange={e => setForm({ ...form, amount: e.target.value })}
-            className="w-full p-3 bg-[#1a1a1a] rounded"
-          />
+        <form onSubmit={handleSubmit} className="space-y-4">
 
-          <input
-            placeholder="Category"
-            value={form.category}
-            onChange={e => setForm({ ...form, category: e.target.value })}
-            className="w-full p-3 bg-[#1a1a1a] rounded"
-          />
+          <div className="grid grid-cols-2 gap-4">
 
-          <input
-            placeholder="Department"
-            value={form.department}
-            onChange={e => setForm({ ...form, department: e.target.value })}
-            className="w-full p-3 bg-[#1a1a1a] rounded"
-          />
+            <input
+              value={form.staff}
+              onChange={e => setForm({ ...form, staff: e.target.value })}
+              placeholder="Staff"
+              className="bg-[#1a1a1a] p-3 rounded-xl"
+            />
+
+            <input
+              type="number"
+              value={form.amount}
+              onChange={e => setForm({ ...form, amount: e.target.value })}
+              placeholder="Amount"
+              className="bg-[#1a1a1a] p-3 rounded-xl"
+            />
+
+            <input
+              value={form.category}
+              onChange={e => setForm({ ...form, category: e.target.value })}
+              placeholder="Category"
+              className="bg-[#1a1a1a] p-3 rounded-xl"
+            />
+
+            <input
+              value={form.department}
+              onChange={e => setForm({ ...form, department: e.target.value })}
+              placeholder="Department"
+              className="bg-[#1a1a1a] p-3 rounded-xl"
+            />
+
+          </div>
 
           <textarea
-            placeholder="Note"
             value={form.note}
             onChange={e => setForm({ ...form, note: e.target.value })}
-            className="w-full p-3 bg-[#1a1a1a] rounded"
+            placeholder="Note"
+            className="w-full bg-[#1a1a1a] p-3 rounded-xl"
           />
 
           <input
             type="file"
-            onChange={e =>
-              setForm({ ...form, file: e.target.files[0] })
-            }
+            onChange={e => setForm({ ...form, file: e.target.files[0] })}
           />
 
-          <button className="bg-orange-500 w-full py-3 rounded-xl font-bold">
-            Save Expense
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-orange-500 text-black px-6 py-3 rounded-xl font-bold"
+          >
+            {saving ? 'Saving...' : 'Save Expense'}
           </button>
+
         </form>
+
+      </div>
+
+      {/* LIST */}
+      <div className="bg-[#111] p-6 rounded-2xl border border-[#222]">
+
+        <h2 className="mb-4">Expense Log</h2>
+
+        {loading ? (
+          <p className="text-gray-500">Loading...</p>
+        ) : expenses.length === 0 ? (
+          <p className="text-gray-500">No expenses yet</p>
+        ) : (
+          <div className="space-y-3">
+
+            {expenses.map((item, i) => {
+              const receipt = getReceipt(item)
+
+              return (
+                <div key={i} className="bg-[#1a1a1a] p-4 rounded-xl">
+
+                  <div className="flex justify-between">
+                    <span>{item.category}</span>
+                    <span>THB {item.amount}</span>
+                  </div>
+
+                  <p className="text-sm text-gray-400">
+                    {item.staff} • {item.department}
+                  </p>
+
+                  <p className="text-sm text-gray-500">
+                    {item.note}
+                  </p>
+
+                  {receipt && (
+                    <a
+                      href={receipt}
+                      target="_blank"
+                      className="text-orange-400 text-sm"
+                    >
+                      View Receipt
+                    </a>
+                  )}
+
+                </div>
+              )
+            })}
+
+          </div>
+        )}
+
       </div>
 
     </div>

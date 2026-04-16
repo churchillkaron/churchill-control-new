@@ -7,10 +7,7 @@ export default function ControlFinal() {
     margin,
     payoutStatus,
     payoutLevel,
-    decisions,
-    fohScore,
-    barScore,
-    kitchenScore,
+    staffWithPayout,
     averageScore,
   } = getControlData();
 
@@ -47,33 +44,10 @@ export default function ControlFinal() {
             </div>
           </div>
 
-          {/* 🔥 STAFF SCORES */}
-          <div>
-            <h2 className="text-xl mb-4">Staff Performance</h2>
-
-            <div className="grid md:grid-cols-4 gap-6">
-
-              <div className="bg-black/40 p-6 rounded-xl">
-                <p>FOH</p>
-                <h2>{fohScore}/100</h2>
-              </div>
-
-              <div className="bg-black/40 p-6 rounded-xl">
-                <p>Bar</p>
-                <h2>{barScore}/100</h2>
-              </div>
-
-              <div className="bg-black/40 p-6 rounded-xl">
-                <p>Kitchen</p>
-                <h2>{kitchenScore}/100</h2>
-              </div>
-
-              <div className="bg-black/40 p-6 rounded-xl">
-                <p>Team Avg</p>
-                <h2>{averageScore}/100</h2>
-              </div>
-
-            </div>
+          {/* TEAM SCORE */}
+          <div className="bg-black/40 p-6 rounded-xl">
+            <p>Team Performance</p>
+            <h2>{averageScore}/100</h2>
           </div>
 
           {/* STATUS */}
@@ -82,13 +56,33 @@ export default function ControlFinal() {
             <h2>{payoutStatus} ({payoutLevel}%)</h2>
           </div>
 
-          {/* DECISIONS */}
-          <div className="space-y-4">
-            {decisions.map((d, i) => (
-              <div key={i} className="bg-black/40 p-4 rounded-xl">
-                {d.message}
-              </div>
-            ))}
+          {/* 🔥 INDIVIDUAL STAFF */}
+          <div>
+            <h2 className="text-xl mb-4">Staff Performance</h2>
+
+            <div className="space-y-3">
+              {staffWithPayout.map((s, i) => (
+                <div
+                  key={i}
+                  className="bg-black/40 p-4 rounded-xl flex justify-between"
+                >
+                  <div>
+                    <p className="text-sm text-white/50">{s.role}</p>
+                    <p>{s.name}</p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-sm text-white/50">
+                      Score: {s.score}
+                    </p>
+                    <p className="text-[#ffb36b]">
+                      THB {s.payout}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
           </div>
 
         </div>

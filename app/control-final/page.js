@@ -6,16 +6,46 @@ import { getControlData } from "../../lib/controlLogic";
 export default function ControlFinal() {
   const [user, setUser] = useState("");
   const [role, setRole] = useState("");
+  const [shift, setShift] = useState(null);
 
   useEffect(() => {
-    setUser(localStorage.getItem("staffName") || "");
-    setRole(localStorage.getItem("staffRole") || "");
+    const name = localStorage.getItem("staffName") || "";
+    const role = localStorage.getItem("staffRole") || "";
+
+    setUser(name);
+    setRole(role);
+
+    const savedShift = localStorage.getItem("shift");
+    if (savedShift) {
+      setShift(JSON.parse(savedShift));
+    }
   }, []);
+
+  const handleClockIn = () => {
+    const newShift = {
+      start: new Date().toISOString(),
+      end: null,
+    };
+
+    localStorage.setItem("shift", JSON.stringify(newShift));
+    setShift(newShift);
+  };
+
+  const handleClockOut = () => {
+    if (!shift) return;
+
+    const updated = {
+      ...shift,
+      end: new Date().toISOString(),
+    };
+
+    localStorage.setItem("shift", JSON.stringify(updated));
+    setShift(updated);
+  };
 
   const {
     data,
     profit,
-    margin,
     payoutStatus,
     payoutLevel,
     staffWithPayout,
@@ -43,6 +73,43 @@ export default function ControlFinal() {
 
           <h1 className="text-2xl">Control Final</h1>
 
+          {/* 🔥 SHIFT TRACKING */}
+          <div className="bg-black/40 p-6 rounded-xl space-y-4">
+
+            <h2 className="text-lg">Shift</h2>
+
+            {!shift?.start && (
+              <button
+                onClick={handleClockIn}
+                className="px-4 py-2 bg-green-600 rounded-xl"
+              >
+                Clock In
+              </button>
+            )}
+
+            {shift?.start && !shift?.end && (
+              <button
+                onClick={handleClockOut}
+                className="px-4 py-2 bg-red-600 rounded-xl"
+              >
+                Clock Out
+              </button>
+            )}
+
+            {shift?.start && (
+              <p className="text-sm text-white/60">
+                Start: {new Date(shift.start).toLocaleTimeString()}
+              </p>
+            )}
+
+            {shift?.end && (
+              <p className="text-sm text-white/60">
+                End: {new Date(shift.end).toLocaleTimeString()}
+              </p>
+            )}
+
+          </div>
+
           {/* OWNER VIEW */}
           {role === "Owner" && (
             <div className="grid md:grid-cols-3 gap-6">
@@ -66,42 +133,16 @@ export default function ControlFinal() {
           {/* STAFF VIEW */}
           {role !== "Owner" && (
             <div className="bg-black/40 p-6 rounded-xl">
-              <p className="text-white/50">Your Performance</p>
+              <p>Your Performance</p>
 
               {staffWithPayout
                 .filter(s => s.name === user)
                 .map((s, i) => (
                   <div key={i}>
-                    <p className="mt-2">Score: {s.score}</p>
-                    <p className="text-[#ffb36b]">Payout: THB {s.payout}</p>
+                    <p>Score: {s.score}</p>
+                    <p className="text-[#ffb36b]">THB {s.payout}</p>
                   </div>
                 ))}
-            </div>
-          )}
-
-          {/* TEAM (OWNER ONLY) */}
-          {role === "Owner" && (
-            <div>
-              <h2 className="text-xl mb-4">Full Staff Overview</h2>
-
-              <div className="space-y-3">
-                {staffWithPayout.map((s, i) => (
-                  <div
-                    key={i}
-                    className="bg-black/40 p-4 rounded-xl flex justify-between"
-                  >
-                    <div>
-                      <p>{s.name}</p>
-                      <p className="text-sm text-white/50">{s.role}</p>
-                    </div>
-
-                    <div className="text-right">
-                      <p>Score: {s.score}</p>
-                      <p className="text-[#ffb36b]">THB {s.payout}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 

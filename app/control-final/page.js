@@ -1,6 +1,5 @@
 export default function ControlFinal() {
-  // 🔥 CORE DATA (simulate real system)
-
+  // CORE DATA
   const data = {
     revenue: 128450,
     foodCost: 38000,
@@ -8,14 +7,38 @@ export default function ControlFinal() {
     otherCost: 12000,
   };
 
-  // 🔥 PROFIT CALCULATION
-
+  // PROFIT CALCULATION
   const totalCost = data.foodCost + data.staffCost + data.otherCost;
   const profit = data.revenue - totalCost;
   const margin = Math.round((profit / data.revenue) * 100);
 
-  // 🔥 DECISION ENGINE
+  // PAYOUT LOGIC
+  let payoutStatus = "GOOD";
+  let payoutLevel = 100;
 
+  if (margin < 30) {
+    payoutStatus = "WARNING";
+    payoutLevel = 70;
+  }
+
+  if (margin < 20) {
+    payoutStatus = "BAD";
+    payoutLevel = 40;
+  }
+
+  if (margin < 10) {
+    payoutStatus = "CRITICAL";
+    payoutLevel = 0;
+  }
+
+  const servicePool = Math.round(data.revenue * 0.05);
+  const payoutPool = Math.round((servicePool * payoutLevel) / 100);
+
+  const fohShare = Math.round(payoutPool * 0.5);
+  const barShare = Math.round(payoutPool * 0.3);
+  const kitchenShare = Math.round(payoutPool * 0.2);
+
+  // DECISION ENGINE
   let decisions = [];
 
   if (margin > 30) {
@@ -29,7 +52,7 @@ export default function ControlFinal() {
   if (margin < 20) {
     decisions.push({
       type: "Warning",
-      message: "Margin dropping — reduce costs or increase pricing",
+      message: "Margin dropping — payout reduced to protect business",
       color: "red",
     });
   }
@@ -44,7 +67,6 @@ export default function ControlFinal() {
 
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
-
       {/* BACKGROUND */}
       <div className="absolute inset-0 -z-30">
         <img src="/bg-hero-control.jpg" className="w-full h-full object-cover" />
@@ -55,23 +77,20 @@ export default function ControlFinal() {
 
       {/* CONTENT */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 pb-16 space-y-10">
-
         <div className="bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-8 space-y-10">
-
           {/* HEADER */}
           <div>
             <h1 className="text-2xl font-semibold">Control Final</h1>
             <p className="text-white/60 text-sm">
-              Profit-based decision engine
+              Profit and payout decision engine
             </p>
           </div>
 
-          {/* 🔥 PROFIT CORE */}
+          {/* FINANCIAL CORE */}
           <div>
             <h2 className="text-xl font-semibold mb-4">Financial Core</h2>
 
             <div className="grid md:grid-cols-4 gap-6">
-
               <div className="bg-black/40 p-6 rounded-xl border border-white/10">
                 <p className="text-white/50 text-sm">Revenue</p>
                 <h2 className="text-2xl mt-2">THB {data.revenue}</h2>
@@ -84,44 +103,61 @@ export default function ControlFinal() {
 
               <div className="bg-black/40 p-6 rounded-xl border border-white/10">
                 <p className="text-white/50 text-sm">Profit</p>
-                <h2 className="text-2xl mt-2 text-[#ffb36b]">
-                  THB {profit}
-                </h2>
+                <h2 className="text-2xl mt-2 text-[#ffb36b]">THB {profit}</h2>
               </div>
 
               <div className="bg-black/40 p-6 rounded-xl border border-white/10">
                 <p className="text-white/50 text-sm">Margin</p>
                 <h2 className="text-2xl mt-2">{margin}%</h2>
               </div>
-
             </div>
           </div>
 
-          {/* 🔥 COST BREAKDOWN */}
+          {/* PAYOUT STATUS */}
           <div>
-            <h2 className="text-xl font-semibold mb-4">Cost Breakdown</h2>
+            <h2 className="text-xl font-semibold mb-4">Payout Status</h2>
 
             <div className="grid md:grid-cols-3 gap-6">
-
               <div className="bg-black/40 p-6 rounded-xl border border-white/10">
-                <p className="text-white/50 text-sm">Food Cost</p>
-                <h2 className="text-xl mt-2">THB {data.foodCost}</h2>
+                <p className="text-white/50 text-sm">Status</p>
+                <h2 className="text-2xl mt-2 text-[#ffb36b]">{payoutStatus}</h2>
               </div>
 
               <div className="bg-black/40 p-6 rounded-xl border border-white/10">
-                <p className="text-white/50 text-sm">Staff Cost</p>
-                <h2 className="text-xl mt-2">THB {data.staffCost}</h2>
+                <p className="text-white/50 text-sm">Payout Level</p>
+                <h2 className="text-2xl mt-2">{payoutLevel}%</h2>
               </div>
 
               <div className="bg-black/40 p-6 rounded-xl border border-white/10">
-                <p className="text-white/50 text-sm">Other Cost</p>
-                <h2 className="text-xl mt-2">THB {data.otherCost}</h2>
+                <p className="text-white/50 text-sm">Service Pool</p>
+                <h2 className="text-2xl mt-2">THB {payoutPool}</h2>
               </div>
-
             </div>
           </div>
 
-          {/* 🔥 AI DECISIONS (PROFIT BASED) */}
+          {/* TEAM DISTRIBUTION */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Team Distribution</h2>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+                <p className="text-white/50 text-sm">FOH (50%)</p>
+                <h2 className="text-2xl mt-2">THB {fohShare}</h2>
+              </div>
+
+              <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+                <p className="text-white/50 text-sm">Bar (30%)</p>
+                <h2 className="text-2xl mt-2">THB {barShare}</h2>
+              </div>
+
+              <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+                <p className="text-white/50 text-sm">Kitchen (20%)</p>
+                <h2 className="text-2xl mt-2">THB {kitchenShare}</h2>
+              </div>
+            </div>
+          </div>
+
+          {/* AI DECISIONS */}
           <div>
             <h2 className="text-xl font-semibold mb-4">AI Decisions</h2>
 
@@ -138,11 +174,8 @@ export default function ControlFinal() {
                 </div>
               ))}
             </div>
-
           </div>
-
         </div>
-
       </div>
     </div>
   );

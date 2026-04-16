@@ -20,7 +20,6 @@ export default function POS() {
     }
   }, []);
 
-  // 🍽 MENU
   const menu = [
     { name: "Pad Thai", price: 160 },
     { name: "Green Curry", price: 170 },
@@ -29,9 +28,8 @@ export default function POS() {
     { name: "Tom Yum Goong", price: 180 },
   ];
 
-  // ➕ ADD DISH (SMART MERGE)
   const addDish = (dish) => {
-    if (!table) return;
+    if (!table || staffRole !== "FOH") return;
 
     setOrders((prev) => {
       const existing = prev.find(
@@ -64,8 +62,9 @@ export default function POS() {
     });
   };
 
-  // 🔄 STATUS FLOW
   const updateStatus = (index) => {
+    if (staffRole !== "Kitchen" && staffRole !== "Manager") return;
+
     setOrders((prev) =>
       prev.map((order, i) => {
         if (i !== index) return order;
@@ -85,15 +84,19 @@ export default function POS() {
 
   const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
 
+  const filteredOrders = orders.filter((order) => {
+    if (staffRole === "Kitchen") return order.status !== "Served";
+    if (staffRole === "FOH") return true;
+    if (staffRole === "Manager") return true;
+    return true;
+  });
+
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
 
       {/* BACKGROUND */}
       <div className="absolute inset-0 -z-30">
-        <img
-          src="/bg-hero-control.jpg"
-          className="w-full h-full object-cover"
-        />
+        <img src="/bg-hero-control.jpg" className="w-full h-full object-cover" />
       </div>
 
       {/* OVERLAY */}
@@ -120,29 +123,33 @@ export default function POS() {
           </h1>
         </div>
 
-        {/* TABLE INPUT */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6">
-          <input
-            value={table}
-            onChange={(e) => setTable(e.target.value)}
-            placeholder="Table number"
-            className="bg-black/40 px-4 py-2 rounded-xl border border-white/10 w-full"
-          />
-        </div>
+        {/* TABLE INPUT (ONLY FOH) */}
+        {staffRole === "FOH" && (
+          <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6">
+            <input
+              value={table}
+              onChange={(e) => setTable(e.target.value)}
+              placeholder="Table number"
+              className="bg-black/40 px-4 py-2 rounded-xl border border-white/10 w-full"
+            />
+          </div>
+        )}
 
-        {/* MENU */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {menu.map((dish, i) => (
-            <button
-              key={i}
-              onClick={() => addDish(dish)}
-              className="p-4 rounded-2xl bg-black/40 border border-white/10 hover:bg-black/60 transition"
-            >
-              <p className="font-medium">{dish.name}</p>
-              <p className="text-sm text-white/50">THB {dish.price}</p>
-            </button>
-          ))}
-        </div>
+        {/* MENU (ONLY FOH) */}
+        {staffRole === "FOH" && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {menu.map((dish, i) => (
+              <button
+                key={i}
+                onClick={() => addDish(dish)}
+                className="p-4 rounded-2xl bg-black/40 border border-white/10 hover:bg-black/60 transition"
+              >
+                <p className="font-medium">{dish.name}</p>
+                <p className="text-sm text-white/50">THB {dish.price}</p>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* SUMMARY */}
         <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6">
@@ -153,7 +160,7 @@ export default function POS() {
         {/* ORDERS */}
         <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 space-y-4">
 
-          {orders.map((order, i) => (
+          {filteredOrders.map((order, i) => (
             <div
               key={i}
               className="flex justify-between items-center p-4 rounded-xl bg-black/30 border border-white/10"

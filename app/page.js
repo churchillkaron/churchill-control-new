@@ -1,165 +1,147 @@
-const colors = {
-  bg: "#f4efe3",
-  panel: "#fffaf0",
-  line: "#c2b59b",
-  text: "#3b3428",
-  muted: "#756a57",
-  white: "#ffffff",
-  orange: "#f97316",
-};
+'use client'
 
-function ActionCard({ title, text, href }) {
-  return (
-    <a
-      href={href}
-      style={{
-        textDecoration: "none",
-        color: colors.text,
-        background: colors.panel,
-        border: `1px solid ${colors.line}`,
-        borderRadius: 18,
-        padding: 22,
-        display: "block",
-        boxShadow: "0 10px 30px rgba(92, 77, 50, 0.08)",
-      }}
-    >
-      <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>
-        {title}
-      </div>
-      <div style={{ color: colors.muted, lineHeight: 1.6 }}>{text}</div>
-    </a>
-  );
+import Link from 'next/link'
+
+const THEME = {
+  bg: '#0b0b0b',
+  panel: '#131313',
+  border: 'rgba(255,255,255,0.08)',
+  text: '#f5f5f5',
+  muted: '#b7b2a4',
+  accent: '#f97316',
 }
 
-export default function HomePage() {
+const MODULES = [
+  {
+    title: 'Control Panel',
+    desc: 'Run the full service: sales, production, stock, and daily save.',
+    href: '/control-final',
+  },
+  {
+    title: 'Dashboard',
+    desc: 'Owner view: KPIs, AI manager, performance insights.',
+    href: '/dashboard',
+  },
+  {
+    title: 'History',
+    desc: 'All saved days, analytics, and performance tracking.',
+    href: '/history',
+  },
+  {
+    title: 'Accounting',
+    desc: 'Track expenses, costs, and financial overview.',
+    href: '/accounting',
+  },
+  {
+    title: 'Payout',
+    desc: 'Service charge split and staff payout control.',
+    href: '/payout',
+  },
+]
+
+export default function Home() {
   return (
     <div
       style={{
-        background: colors.bg,
-        minHeight: "100vh",
+        minHeight: '100vh',
+        background: THEME.bg,
+        color: THEME.text,
+        padding: 24,
       }}
     >
       <div
         style={{
-          maxWidth: 1400,
-          margin: "0 auto",
-          padding: "28px 16px 48px",
+          maxWidth: 1200,
+          margin: '0 auto',
+          display: 'grid',
+          gap: 24,
         }}
       >
-        <div
-          style={{
-            background: "#000000",
-            borderRadius: 24,
-            padding: "28px 22px",
-            marginBottom: 22,
-            color: colors.white,
-          }}
-        >
-          <div
-            style={{
-              textTransform: "uppercase",
-              letterSpacing: 2,
-              fontWeight: 800,
-              marginBottom: 12,
-              fontSize: 12,
-              color: "#aaa",
-            }}
-          >
-            Churchill Control System
+        {/* HEADER */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                color: THEME.accent,
+                fontWeight: 900,
+                fontSize: 28,
+              }}
+            >
+              CC
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>
+              Churchill Control System
+            </div>
           </div>
 
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "clamp(34px, 8vw, 54px)",
-              lineHeight: 1.05,
-            }}
-          >
-            <span style={{ color: colors.orange }}>CC</span>{" "}
-            Churchill Karon Control
-          </h1>
-
-          <p
-            style={{
-              maxWidth: 900,
-              marginTop: 16,
-              marginBottom: 24,
-              fontSize: "clamp(15px, 3.8vw, 18px)",
-              lineHeight: 1.7,
-              color: "#ddd",
-            }}
-          >
-            A centralized control system for managing daily restaurant operations,
-            monitoring financial performance, and optimizing menu profitability
-            through real-time data and intelligent insights.
-          </p>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
-          >
-            <a
-              href="/control-final"
-              style={{
-                textDecoration: "none",
-                background: colors.orange,
-                color: "#000",
-                padding: "14px 20px",
-                borderRadius: 14,
-                fontWeight: 800,
-                flex: "1 1 220px",
-                textAlign: "center",
-              }}
-            >
-              Open Control Panel
-            </a>
-
-            <a
-              href="/dashboard"
-              style={{
-                textDecoration: "none",
-                background: "#111",
-                color: colors.white,
-                padding: "14px 20px",
-                borderRadius: 14,
-                border: "1px solid #333",
-                fontWeight: 800,
-                flex: "1 1 220px",
-                textAlign: "center",
-              }}
-            >
-              Open Dashboard
-            </a>
+          <div style={{ color: THEME.muted, marginTop: 6 }}>
+            Restaurant Operating System — V6 Master
           </div>
         </div>
 
+        {/* GRID */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
             gap: 16,
           }}
         >
-          <ActionCard
-            title="Daily Control"
-            text="Manage live sales, dish performance, revenue and profit in real time."
-            href="/control-final"
-          />
-          <ActionCard
-            title="Owner Dashboard"
-            text="Track financial performance, margins and business trends."
-            href="/dashboard"
-          />
-          <ActionCard
-            title="Saved History"
-            text="Review past business days and performance data."
-            href="/history"
-          />
+          {MODULES.map((mod) => (
+            <Link
+              key={mod.href}
+              href={mod.href}
+              style={{
+                textDecoration: 'none',
+              }}
+            >
+              <div
+                style={{
+                  background: THEME.panel,
+                  border: `1px solid ${THEME.border}`,
+                  borderRadius: 18,
+                  padding: 20,
+                  height: '100%',
+                  display: 'grid',
+                  gap: 10,
+                  cursor: 'pointer',
+                  transition: '0.2s',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                  }}
+                >
+                  {mod.title}
+                </div>
+
+                <div
+                  style={{
+                    color: THEME.muted,
+                    fontSize: 14,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {mod.desc}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* FOOTER */}
+        <div
+          style={{
+            marginTop: 20,
+            color: THEME.muted,
+            fontSize: 12,
+          }}
+        >
+          System Status: V6 MASTER ACTIVE
         </div>
       </div>
     </div>
-  );
+  )
 }

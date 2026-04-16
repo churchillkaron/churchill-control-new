@@ -5,17 +5,17 @@ export default function Home() {
       {/* BACKGROUND */}
       <div className="fixed inset-0 -z-30">
         <img
-          src="/preview.jpg"
+          src="/bg-hero-control.jpg"
           alt="hero"
           className="w-full h-full object-cover scale-105 animate-[slowZoom_20s_linear_infinite]"
         />
       </div>
 
-      {/* OVERLAY */}
-      <div className="fixed inset-0 -z-20 bg-[linear-gradient(to_right,rgba(0,0,0,0.75),rgba(0,0,0,0.3))]" />
+      {/* DARK OVERLAY (LEFT FOCUS) */}
+      <div className="fixed inset-0 -z-20 bg-[linear-gradient(to_right,rgba(0,0,0,0.75),rgba(0,0,0,0.25))]" />
 
-      {/* GLOW */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_30%,rgba(255,140,0,0.25),transparent_60%)] animate-pulse" />
+      {/* LIGHT GLOW */}
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_25%_35%,rgba(255,140,0,0.25),transparent_60%)] animate-pulse" />
 
       {/* CONTENT */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-32">
@@ -32,7 +32,7 @@ export default function Home() {
             Command Your Venue
           </h2>
 
-          {/* TEXT */}
+          {/* SUBTEXT */}
           <p className="text-white/80 text-lg leading-relaxed opacity-0 animate-[fadeUp_1s_ease-out_0.4s_forwards]">
             Real-time control of revenue, performance, and operations
             for premium hospitality venues.
@@ -52,7 +52,7 @@ export default function Home() {
 
       </div>
 
-      {/* STYLE DEFINITIONS */}
+      {/* ANIMATIONS */}
       <style jsx global>{`
         @keyframes fadeUp {
           from {

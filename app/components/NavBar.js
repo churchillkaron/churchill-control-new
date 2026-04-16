@@ -3,52 +3,48 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems = [
-  { label: "Home", href: "/" },
-  { label: "Control", href: "/control-final" },
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "POS", href: "/pos-control" },
-  { label: "History", href: "/history" },
-  { label: "Accounting", href: "/accounting" },
-  { label: "Payout", href: "/payout" },
-];
-
 export default function NavBar() {
   const pathname = usePathname();
 
+  const linkClass = (path) =>
+    `px-4 py-2 rounded-lg text-white ${
+      pathname === path ? "bg-white/20" : "bg-transparent"
+    }`;
+
   return (
-    <div className="w-full border-b border-white/10 bg-black">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-6 py-5">
-        <div className="mr-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black font-bold">
-            ▲
-          </div>
-          <div className="text-2xl font-semibold text-white">
-            Churchill Control System
-          </div>
+    <div className="w-full bg-black border-b border-white/10">
+      <div className="flex items-center gap-4 px-6 py-4">
+        <div className="text-white font-semibold text-lg">
+          Churchill Control System
         </div>
 
-        <div className="flex flex-wrap gap-4">
-          {navItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/" && pathname?.startsWith(item.href));
+        <Link href="/" className={linkClass("/")}>
+          Home
+        </Link>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`rounded-2xl border px-7 py-4 text-2xl font-semibold transition ${
-                  isActive
-                    ? "border-white/20 bg-white/10 text-white"
-                    : "border-white/10 bg-[#0b0b0b] text-white hover:border-white/20 hover:bg-white/5"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
+        <Link href="/control-final" className={linkClass("/control-final")}>
+          Control
+        </Link>
+
+        <Link href="/dashboard" className={linkClass("/dashboard")}>
+          Dashboard
+        </Link>
+
+        <Link href="/pos-control" className={linkClass("/pos-control")}>
+          POS
+        </Link>
+
+        <Link href="/history" className={linkClass("/history")}>
+          History
+        </Link>
+
+        <Link href="/accounting" className={linkClass("/accounting")}>
+          Accounting
+        </Link>
+
+        <Link href="/payout" className={linkClass("/payout")}>
+          Payout
+        </Link>
       </div>
     </div>
   );

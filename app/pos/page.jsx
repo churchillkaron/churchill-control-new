@@ -8,7 +8,6 @@ export default function POS() {
   const [orders, setOrders] = useState([]);
   const [table, setTable] = useState("");
 
-  // LOAD STAFF + ORDERS
   useEffect(() => {
     const name = localStorage.getItem("staffName");
     const role = localStorage.getItem("staffRole");
@@ -20,15 +19,14 @@ export default function POS() {
       setStaffRole(role);
     }
 
-    const savedOrders = localStorage.getItem("posOrders");
+    const savedOrders = localStorage.getItem("systemOrders");
     if (savedOrders) {
       setOrders(JSON.parse(savedOrders));
     }
   }, []);
 
-  // SAVE ORDERS (AUTO)
   useEffect(() => {
-    localStorage.setItem("posOrders", JSON.stringify(orders));
+    localStorage.setItem("systemOrders", JSON.stringify(orders));
   }, [orders]);
 
   const menu = [
@@ -68,6 +66,7 @@ export default function POS() {
           name: dish.name,
           staff: staffName,
           status: "Open",
+          time: new Date().toISOString(),
         },
       ];
     });
@@ -93,11 +92,6 @@ export default function POS() {
     );
   };
 
-  const clearOrders = () => {
-    setOrders([]);
-    localStorage.removeItem("posOrders");
-  };
-
   const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
 
   const filteredOrders = orders.filter((order) => {
@@ -121,13 +115,11 @@ export default function POS() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-28 pb-14 space-y-8">
 
-        {/* STAFF */}
         <div className="flex justify-between text-sm text-white/60">
           <div>{staffName}</div>
           <div>{staffRole}</div>
         </div>
 
-        {/* HEADER */}
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-white/40">
             Point of Sale
@@ -137,7 +129,6 @@ export default function POS() {
           </h1>
         </div>
 
-        {/* TABLE INPUT */}
         {staffRole === "FOH" && (
           <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6">
             <input
@@ -149,7 +140,6 @@ export default function POS() {
           </div>
         )}
 
-        {/* MENU */}
         {staffRole === "FOH" && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {menu.map((dish, i) => (
@@ -165,24 +155,11 @@ export default function POS() {
           </div>
         )}
 
-        {/* SUMMARY */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 flex justify-between items-center">
-          <div>
-            <p className="text-white/50 text-sm">Total Revenue</p>
-            <h2 className="text-3xl mt-2">THB {totalRevenue}</h2>
-          </div>
-
-          {staffRole === "Manager" && (
-            <button
-              onClick={clearOrders}
-              className="px-4 py-2 bg-red-500 rounded-xl text-white"
-            >
-              Clear
-            </button>
-          )}
+        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6">
+          <p className="text-white/50 text-sm">Total Revenue</p>
+          <h2 className="text-3xl mt-2">THB {totalRevenue}</h2>
         </div>
 
-        {/* ORDERS */}
         <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 space-y-4">
 
           {filteredOrders.map((order, i) => (
@@ -194,6 +171,9 @@ export default function POS() {
               <div>{order.name} x{order.items}</div>
               <div>THB {order.total}</div>
               <div>{order.staff}</div>
+              <div className="text-xs text-white/40">
+                {new Date(order.time).toLocaleTimeString()}
+              </div>
 
               <button
                 onClick={() => updateStatus(i)}

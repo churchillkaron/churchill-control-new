@@ -1,41 +1,57 @@
 export default function Dashboard() {
   return (
-    <div className="space-y-10">
+    <div className="px-2 md:px-4 space-y-16">
 
       {/* HEADER */}
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1 className="text-4xl font-semibold tracking-tight text-[#2b2b2b]">
           Dashboard
         </h1>
-        <p className="text-[#6b6458] mt-1 text-sm">
-          Real-time performance overview
+        <p className="text-[#7a7468] mt-2">
+          Financial overview & performance
         </p>
       </div>
 
-      {/* HERO CARD (FOCUS) */}
+      {/* HERO — THIS IS WHERE LUXURY STARTS */}
       <div className="
         relative
-        rounded-3xl
-        p-8
-        bg-gradient-to-br from-[#f8efdb] via-[#e8dcc0] to-[#d6c8a6]
-        shadow-[0_20px_60px_rgba(0,0,0,0.12)]
+        rounded-[32px]
+        p-10
+        bg-gradient-to-br from-[#f9f1dc] via-[#e9dcc0] to-[#d3c29f]
+        shadow-[0_30px_80px_rgba(0,0,0,0.15)]
         overflow-hidden
       ">
 
-        {/* subtle glow */}
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-orange-300/20 rounded-full blur-3xl"></div>
+        {/* LIGHT EFFECT */}
+        <div className="
+          absolute -top-32 -right-32
+          w-[400px] h-[400px]
+          bg-orange-300/30
+          blur-[120px]
+          rounded-full
+        "></div>
 
         <div className="relative z-10">
-          <div className="text-sm text-[#6b6458]">Total Revenue</div>
-          <div className="text-4xl font-bold text-[#2f2a24] mt-2">
+
+          <div className="text-sm text-[#7a7468]">
+            Total Revenue
+          </div>
+
+          <div className="text-5xl font-bold text-[#1f1f1f] mt-3">
             THB 0
           </div>
-        </div>
 
+          <div className="mt-6 text-sm text-[#7a7468]">
+            Last update: Today
+          </div>
+
+        </div>
       </div>
 
-      {/* KPI GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* KPI STRIP (NOT BOX GRID ANYMORE) */}
+      <div className="
+        flex flex-col md:flex-row gap-6
+      ">
 
         {[
           { label: "Profit", value: "THB 0" },
@@ -45,19 +61,17 @@ export default function Dashboard() {
           <div
             key={i}
             className="
+              flex-1
               rounded-2xl
-              p-6
-              bg-[#efe4cd]
-              border border-[#a89f84]
-              shadow-[0_8px_25px_rgba(0,0,0,0.08)]
-              hover:shadow-[0_12px_35px_rgba(0,0,0,0.12)]
-              transition
+              px-6 py-5
+              bg-[#f1e6cf]
+              shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_10px_25px_rgba(0,0,0,0.08)]
             "
           >
-            <div className="text-[#6b6458] text-sm mb-1">
+            <div className="text-xs text-[#7a7468] mb-1">
               {item.label}
             </div>
-            <div className="text-xl font-semibold text-[#2f2a24]">
+            <div className="text-xl font-semibold text-[#2b2b2b]">
               {item.value}
             </div>
           </div>
@@ -65,56 +79,50 @@ export default function Dashboard() {
 
       </div>
 
-      {/* CHART AREA */}
-      <div className="
-        rounded-3xl
-        p-8
-        bg-[#efe4cd]
-        border border-[#a89f84]
-        shadow-[0_12px_40px_rgba(0,0,0,0.1)]
-      ">
+      {/* TREND SECTION (LESS BOXES, MORE SPACE) */}
+      <div className="space-y-8">
 
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="font-semibold text-[#2f2a24]">
+        <div>
+          <h2 className="text-lg font-semibold text-[#2b2b2b]">
             Revenue Trend
           </h2>
-          <span className="text-xs text-[#6b6458]">
-            Last 7 days
-          </span>
         </div>
 
-        {/* fake smooth bars (better spacing) */}
-        <div className="h-40 flex items-end gap-3">
-          {[10, 25, 15, 35, 22, 30, 45].map((v, i) => (
-            <div
-              key={i}
-              className="
-                flex-1
-                rounded-lg
-                bg-gradient-to-t from-orange-400 to-orange-200
-                shadow-inner
-              "
-              style={{ height: `${v}%` }}
-            />
-          ))}
+        <div className="
+          relative
+          rounded-[28px]
+          p-8
+          bg-[#efe4cd]
+          shadow-[0_20px_50px_rgba(0,0,0,0.12)]
+        ">
+
+          {/* subtle highlight */}
+          <div className="absolute inset-0 rounded-[28px] bg-white/20 pointer-events-none"></div>
+
+          <div className="relative h-40 flex items-end gap-4">
+
+            {[10, 30, 20, 40, 25, 35, 50].map((v, i) => (
+              <div
+                key={i}
+                className="
+                  flex-1
+                  rounded-full
+                  bg-gradient-to-t from-orange-500 to-orange-200
+                  shadow-[0_4px_10px_rgba(0,0,0,0.15)]
+                "
+                style={{ height: `${v}%` }}
+              />
+            ))}
+
+          </div>
+
         </div>
 
       </div>
 
-      {/* INSIGHT */}
-      <div className="
-        rounded-2xl
-        p-6
-        bg-[#efe4cd]
-        border border-[#a89f84]
-        shadow-[0_6px_20px_rgba(0,0,0,0.08)]
-      ">
-        <div className="font-semibold text-[#2f2a24] mb-1">
-          System Insight
-        </div>
-        <div className="text-sm text-[#6b6458]">
-          Revenue stability improving. Monitor profit margin closely.
-        </div>
+      {/* INSIGHT — MINIMAL, NOT BOX HEAVY */}
+      <div className="text-[#6f6a5f] text-sm max-w-xl">
+        Revenue stability improving. Focus on increasing average ticket size to optimize margins.
       </div>
 
     </div>

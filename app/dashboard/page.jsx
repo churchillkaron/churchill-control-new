@@ -62,8 +62,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 bg-[#d9cfb5] min-h-screen">
+    <div className="min-h-screen bg-[#e6dcc7] p-6">
 
+      {/* TITLE */}
       <h1 className="text-2xl font-semibold mb-6 text-[#2f2a24]">
         Dashboard
       </h1>
@@ -72,14 +73,14 @@ export default function Dashboard() {
       {latest && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 
-          <div className="p-4 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+          <div className="p-4 rounded-xl border bg-[#d2c6a8] border-[#9f9478] shadow-sm">
             <div className="text-sm text-[#6b6458]">Revenue</div>
             <div className="text-xl font-bold text-[#2f2a24]">
               THB {latest.revenue.toFixed(0)}
             </div>
           </div>
 
-          <div className="p-4 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+          <div className="p-4 rounded-xl border bg-[#d2c6a8] border-[#9f9478] shadow-sm">
             <div className="text-sm text-[#6b6458]">Profit</div>
             <div className="text-xl font-bold text-[#2f2a24]">
               THB {latest.profit.toFixed(0)}
@@ -92,7 +93,7 @@ export default function Dashboard() {
       {/* TRENDS */}
       <div className="grid md:grid-cols-2 gap-4 mb-6">
 
-        <div className="p-4 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+        <div className="p-4 rounded-xl border bg-[#d2c6a8] border-[#9f9478] shadow-sm">
           <div className="mb-3 font-medium text-[#2f2a24]">
             Revenue Trend
           </div>
@@ -106,7 +107,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="p-4 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+        <div className="p-4 rounded-xl border bg-[#d2c6a8] border-[#9f9478] shadow-sm">
           <div className="mb-3 font-medium text-[#2f2a24]">
             Profit Trend
           </div>
@@ -123,7 +124,7 @@ export default function Dashboard() {
       </div>
 
       {/* INSIGHT */}
-      <div className="p-5 rounded-xl border bg-[#cbbfa3] border-[#a89c80]">
+      <div className="p-5 rounded-xl border bg-[#d2c6a8] border-[#9f9478] shadow-sm">
         <div className="font-medium mb-2 text-[#2f2a24]">
           System Insight
         </div>

@@ -11,14 +11,11 @@ export default function Navbar() {
   const navItems = [
     { name: "Control", href: "/control-final" },
     { name: "Dashboard", href: "/dashboard" },
-    { name: "POS", href: "/pos" },
     { name: "History", href: "/history" },
-    { name: "Accounting", href: "/accounting" },
-    { name: "Payout", href: "/payout" },
   ];
 
   return (
-    <div className="fixed top-0 left-0 w-full z-[9999] pointer-events-auto backdrop-blur-xl bg-[rgba(20,15,10,0.30)] border-b border-[rgba(255,200,120,0.25)]">
+    <div className="fixed top-0 left-0 w-full z-[9999] backdrop-blur-xl bg-[rgba(20,15,10,0.30)] border-b border-[rgba(255,200,120,0.25)]">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
 
         {/* LOGO */}

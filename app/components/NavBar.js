@@ -17,21 +17,27 @@ export default function NavBar() {
   const pathname = usePathname();
 
   return (
-    <div className="sticky top-0 z-50 w-full h-[70px] border-b border-[#a89c80] bg-[#b6a98a]">
-      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
+    <div className="sticky top-0 z-50 w-full border-b border-[#a89c80]/40 bg-[#b6a98a]/90 backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
 
-        {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="text-orange-500 text-lg font-bold">
+        {/* ===== BRAND ===== */}
+        <div className="flex items-center gap-3">
+
+          {/* CC (dominant) */}
+          <div className="text-orange-500 text-2xl font-extrabold tracking-tight">
             CC
           </div>
-          <div className="text-[#2f2a24] text-base font-semibold">
+
+          {/* Churchill (secondary but bigger than before) */}
+          <div className="text-[#2f2a24] text-lg font-semibold tracking-wide">
             Churchill
           </div>
+
         </div>
 
-        {/* Navigation */}
+        {/* ===== NAV ===== */}
         <div className="flex gap-2 overflow-x-auto">
+
           {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -41,18 +47,18 @@ export default function NavBar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
                   isActive
                     ? "border-[#a89c80] bg-[#cbbfa3] text-[#2f2a24]"
-                    : "border-[#a89c80] bg-[#b6a98a] text-[#2f2a24] hover:bg-[#cbbfa3]"
+                    : "border-[#a89c80]/60 bg-transparent text-[#2f2a24] hover:bg-[#cbbfa3]/70"
                 }`}
               >
                 {item.label}
               </Link>
             );
           })}
-        </div>
 
+        </div>
       </div>
     </div>
   );

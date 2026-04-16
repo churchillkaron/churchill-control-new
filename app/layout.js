@@ -2,7 +2,7 @@ export const metadata = {
   title: "Churchill Control",
   description: "Churchill restaurant control system",
 };
-
+console.log("force deploy")
 const shell = {
   bg: "#f4efe3",
   panel: "#fffaf0",

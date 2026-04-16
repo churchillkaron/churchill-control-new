@@ -1,14 +1,18 @@
-import { createClient } from '@/lib/supabase'
+import { createClient } from '../../../lib/supabase'
 
 export async function GET() {
   const supabase = createClient()
 
   // =========================
-  // GET POS DATA
+  // POS DATA
   // =========================
-  const { data: salesData } = await supabase
+  const { data: salesData, error: salesError } = await supabase
     .from('pos-sales')
     .select('*')
+
+  if (salesError) {
+    console.error('POS fetch error:', salesError)
+  }
 
   const revenue = (salesData || []).reduce(
     (sum, s) => sum + Number(s.total || 0),
@@ -25,14 +29,18 @@ export async function GET() {
   )
 
   const drinksPerSale =
-    sales > 0 ? (drinksTotal / sales).toFixed(2) : 0
+    sales > 0 ? Number((drinksTotal / sales).toFixed(2)) : 0
 
   // =========================
-  // GET EXPENSE DATA
+  // EXPENSE DATA
   // =========================
-  const { data: expenseData } = await supabase
+  const { data: expenseData, error: expenseError } = await supabase
     .from('accounting-expenses')
     .select('*')
+
+  if (expenseError) {
+    console.error('Expense fetch error:', expenseError)
+  }
 
   const cost = (expenseData || []).reduce(
     (sum, e) => sum + Number(e.amount || 0),
@@ -40,11 +48,12 @@ export async function GET() {
   )
 
   const profit = revenue - cost
+
   const margin =
     revenue > 0 ? Math.round((profit / revenue) * 100) : 0
 
   // =========================
-  // AI MANAGER (KEEP SIMPLE BUT CLEAN)
+  // AI ENGINE (STABLE BASE)
   // =========================
   let score = 100
   const issues = []

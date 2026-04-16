@@ -30,28 +30,28 @@ export default function RootLayout({ children }) {
         {/* NAVBAR */}
         <div className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-[rgba(20,15,10,0.30)] border-b border-[rgba(255,200,120,0.25)]">
 
-          <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
 
-            {/* LOGO (UPGRADED) */}
-            <div className="flex items-center gap-3">
+            {/* LOGO (UPGRADED SIZE) */}
+            <div className="flex items-center gap-4">
 
-              <span className="text-[#ff7a00] font-semibold text-xl tracking-wide">
+              <span className="text-[#ff7a00] font-semibold text-2xl tracking-wider">
                 CC
               </span>
 
-              <span className="text-white/90 text-lg tracking-wide font-light">
+              <span className="text-white text-xl tracking-wide font-light">
                 Churchill
               </span>
 
             </div>
 
             {/* NAV */}
-            <div className="hidden md:flex gap-2 text-sm">
+            <div className="hidden md:flex gap-3 text-sm">
 
               {["Home","Control","Dashboard","POS","History","Accounting","Payout"].map((item) => (
                 <button
                   key={item}
-                  className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition"
+                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
                 >
                   {item}
                 </button>
@@ -63,7 +63,7 @@ export default function RootLayout({ children }) {
         </div>
 
         {/* PAGE */}
-        <main className="pt-16">{children}</main>
+        <main className="pt-20">{children}</main>
 
       </body>
     </html>

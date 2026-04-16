@@ -16,45 +16,45 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-          <Link href="/control-final" className="block">
+          <Link href="/control-final" className="block !text-white no-underline">
             <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
-              <h2 className="text-white text-lg font-semibold mb-2">Control Panel</h2>
+              <h2 className="!text-white text-lg font-semibold mb-2">Control Panel</h2>
               <p className="text-white/60 text-sm">
                 Run the full service: sales, production, stock, and daily save.
               </p>
             </div>
           </Link>
 
-          <Link href="/dashboard" className="block">
+          <Link href="/dashboard" className="block !text-white no-underline">
             <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
-              <h2 className="text-white text-lg font-semibold mb-2">Dashboard</h2>
+              <h2 className="!text-white text-lg font-semibold mb-2">Dashboard</h2>
               <p className="text-white/60 text-sm">
                 Owner view: KPIs, AI manager, performance insights.
               </p>
             </div>
           </Link>
 
-          <Link href="/history" className="block">
+          <Link href="/history" className="block !text-white no-underline">
             <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
-              <h2 className="text-white text-lg font-semibold mb-2">History</h2>
+              <h2 className="!text-white text-lg font-semibold mb-2">History</h2>
               <p className="text-white/60 text-sm">
                 All saved days, analytics, and performance tracking.
               </p>
             </div>
           </Link>
 
-          <Link href="/accounting" className="block">
+          <Link href="/accounting" className="block !text-white no-underline">
             <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
-              <h2 className="text-white text-lg font-semibold mb-2">Accounting</h2>
+              <h2 className="!text-white text-lg font-semibold mb-2">Accounting</h2>
               <p className="text-white/60 text-sm">
                 Track expenses, costs, and financial overview.
               </p>
             </div>
           </Link>
 
-          <Link href="/payout" className="block">
+          <Link href="/payout" className="block !text-white no-underline">
             <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
-              <h2 className="text-white text-lg font-semibold mb-2">Payout</h2>
+              <h2 className="!text-white text-lg font-semibold mb-2">Payout</h2>
               <p className="text-white/60 text-sm">
                 Service charge split and staff payout control.
               </p>

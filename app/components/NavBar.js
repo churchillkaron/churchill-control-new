@@ -41,7 +41,7 @@ export default function NavBar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-2xl border px-7 py-4 text-xl font-semibold transition ${
+                className={`rounded-2xl border px-7 py-4 text-2xl font-semibold transition ${
                   isActive
                     ? "border-[#5a5247] bg-[#3a342d] text-[#f5f1e8]"
                     : "border-[#4a443b] bg-[#2f2a24] text-[#d2c6b2] hover:bg-[#3a342d] hover:text-[#f5f1e8]"

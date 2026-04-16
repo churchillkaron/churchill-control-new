@@ -1,67 +1,49 @@
-import { createClient } from '@supabase/supabase-js'
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
+import { NextResponse } from 'next/server'
+import { getSupabase } from '../../../lib/supabase'
 
 export async function GET() {
+  try {
+    const supabase = getSupabase()
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  )
-
-  // =========================
-  // GET SALES DATA
-  // =========================
-  const { data: salesData } = await supabase
-    .from('pos-sales')
-    .select('*')
-
-  const roles = {
-    FOH: [],
-    BAR: [],
-    KITCHEN: []
-  }
-
-  let revenue = 0
-
-  ;(salesData || []).forEach(sale => {
-
-    revenue += Number(sale.total || 0)
-
-    const name = sale.staff || 'Unknown'
-    const role = sale.role || 'FOH'
-
-    if (!roles[role]) roles[role] = []
-
-    if (!roles[role].includes(name)) {
-      roles[role].push(name)
+    if (!supabase) {
+      return NextResponse.json({
+        FOH: [],
+        BAR: [],
+        KITCHEN: [],
+      })
     }
-  })
 
-  // =========================
-  // SERVICE CHARGE CALCULATION
-  // =========================
-  const baseServiceCharge = revenue * 0.05
+    const { data, error } = await supabase
+      .from('daily-reports')
+      .select('*')
+      .order('date', { ascending: false })
+      .limit(1)
 
-  const fohTotal = baseServiceCharge * 0.5
-  const barTotal = baseServiceCharge * 0.3
-  const kitchenTotal = baseServiceCharge * 0.2
+    if (error) {
+      console.error('Payout error:', error.message)
+      return NextResponse.json({
+        FOH: [],
+        BAR: [],
+        KITCHEN: [],
+      })
+    }
 
-  const split = (total, people) => {
-    if (!people.length) return []
+    // placeholder logic (safe)
+    return NextResponse.json({
+      FOH: [],
+      BAR: [],
+      KITCHEN: [],
+    })
 
-    const share = Math.round(total / people.length)
-
-    return people.map(name => ({
-      name,
-      payout: share
-    }))
+  } catch (err) {
+    console.error('Payout crash:', err.message)
+    return NextResponse.json({
+      FOH: [],
+      BAR: [],
+      KITCHEN: [],
+    })
   }
-
-  // =========================
-  // RESPONSE
-  // =========================
-  return Response.json({
-    FOH: split(fohTotal, roles.FOH),
-    BAR: split(barTotal, roles.BAR),
-    KITCHEN: split(kitchenTotal, roles.KITCHEN)
-  })
 }

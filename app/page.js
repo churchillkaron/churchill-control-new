@@ -1,46 +1,52 @@
-import Link from "next/link";
-
 export default function Home() {
   return (
-    <div>
+    <div className="relative min-h-screen text-white">
 
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold">
-          <span className="text-orange-500">CC</span> Churchill Control System
-        </h1>
-        <p className="text-[#6b6458] mt-2">
-          Restaurant Operating System — V6 Master
-        </p>
+      {/* BACKGROUND IMAGE */}
+      <div className="fixed inset-0 -z-30">
+        <img
+          src="/preview.jpg"
+          alt="hero"
+          className="w-full h-full object-cover"
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* DARK OVERLAY */}
+      <div className="fixed inset-0 -z-20 bg-[linear-gradient(to_right,rgba(0,0,0,0.75),rgba(0,0,0,0.3))]" />
 
-        {[
-          { title: "Control Panel", href: "/control-final", desc: "Run the full service: sales, production, stock, and daily save." },
-          { title: "Dashboard", href: "/dashboard", desc: "Owner view: KPIs, AI manager, performance insights." },
-          { title: "History", href: "/history", desc: "All saved days, analytics, and performance tracking." },
-          { title: "Accounting", href: "/accounting", desc: "Track expenses, costs, and financial overview." },
-          { title: "Payout", href: "/payout", desc: "Service charge split and staff payout control." },
-        ].map((item) => (
-          <Link key={item.href} href={item.href}>
-            <div className="rounded-2xl border border-[#a89f84] bg-[#f3ead7] p-6 shadow-sm hover:shadow-md transition cursor-pointer">
+      {/* CONTENT */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-32">
 
-              <h2 className="text-[#2f2a24] text-lg font-semibold mb-2">
-                {item.title}
-              </h2>
+        <div className="max-w-2xl space-y-6">
 
-              <p className="text-[#6b6458] text-sm">
-                {item.desc}
-              </p>
+          {/* TITLE */}
+          <h1 className="text-4xl md:text-5xl font-semibold leading-tight">
+            Churchill Control System
+          </h1>
 
-            </div>
-          </Link>
-        ))}
+          {/* HEADLINE */}
+          <h2 className="text-3xl md:text-4xl font-semibold text-[#ff7a00]">
+            Command Your Venue
+          </h2>
 
-      </div>
+          {/* SUBTEXT */}
+          <p className="text-white/80 text-lg leading-relaxed">
+            Real-time control of revenue, performance, and operations
+            for premium hospitality venues.
+          </p>
 
-      <div className="mt-10 text-sm text-[#6b6458]">
-        System Status: V6 MASTER ACTIVE
+          {/* BUTTON */}
+          <div>
+            <a
+              href="/control-final"
+              className="inline-block px-8 py-4 rounded-xl bg-gradient-to-r from-[#ff7a00] to-[#ffb36b] text-white text-lg font-medium shadow-[0_0_25px_rgba(255,122,0,0.7)] hover:scale-[1.05] transition"
+            >
+              Enter Control →
+            </a>
+          </div>
+
+        </div>
+
       </div>
 
     </div>

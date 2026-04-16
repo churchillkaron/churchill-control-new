@@ -1,128 +1,109 @@
-export default function Dashboard() {
+export default function DashboardPage() {
   return (
-    <div className="px-2 md:px-4 space-y-16">
+    <div className="space-y-16">
 
       {/* HEADER */}
       <div>
-        <h1 className="text-4xl font-semibold tracking-tight text-[#2b2b2b]">
+        <h1 className="text-3xl font-semibold text-[#2b2b2b]">
           Dashboard
         </h1>
-        <p className="text-[#7a7468] mt-2">
-          Financial overview & performance
+        <p className="text-[#7a7468] mt-1">
+          Operational overview and financial control
         </p>
       </div>
 
-      {/* HERO — THIS IS WHERE LUXURY STARTS */}
-      <div className="
-        relative
-        rounded-[32px]
-        p-10
-        bg-gradient-to-br from-[#f9f1dc] via-[#e9dcc0] to-[#d3c29f]
-        shadow-[0_30px_80px_rgba(0,0,0,0.15)]
-        overflow-hidden
-      ">
+      {/* HERO - REVENUE */}
+      <div className="relative rounded-2xl p-10 bg-gradient-to-b from-[#f9f1dc] to-[#d3c29f] shadow-[0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden">
 
-        {/* LIGHT EFFECT */}
-        <div className="
-          absolute -top-32 -right-32
-          w-[400px] h-[400px]
-          bg-orange-300/30
-          blur-[120px]
-          rounded-full
-        "></div>
+        {/* subtle glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,122,0,0.15),transparent_60%)]" />
 
-        <div className="relative z-10">
+        <div className="relative">
+          <p className="text-sm text-[#7a7468]">Today Revenue</p>
 
-          <div className="text-sm text-[#7a7468]">
-            Total Revenue
-          </div>
+          <h2 className="text-5xl font-semibold text-[#2b2b2b] mt-2">
+            THB 128,450
+          </h2>
 
-          <div className="text-5xl font-bold text-[#1f1f1f] mt-3">
-            THB 0
-          </div>
-
-          <div className="mt-6 text-sm text-[#7a7468]">
-            Last update: Today
-          </div>
-
+          <p className="mt-3 text-sm text-[#7a7468]">
+            <span className="text-[#ff7a00] font-medium">+12%</span> vs yesterday
+          </p>
         </div>
       </div>
 
-      {/* KPI STRIP (NOT BOX GRID ANYMORE) */}
-      <div className="
-        flex flex-col md:flex-row gap-6
-      ">
-
-        {[
-          { label: "Profit", value: "THB 0" },
-          { label: "Covers", value: "0" },
-          { label: "Avg Ticket", value: "THB 0" },
-        ].map((item, i) => (
-          <div
-            key={i}
-            className="
-              flex-1
-              rounded-2xl
-              px-6 py-5
-              bg-[#f1e6cf]
-              shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_10px_25px_rgba(0,0,0,0.08)]
-            "
-          >
-            <div className="text-xs text-[#7a7468] mb-1">
-              {item.label}
-            </div>
-            <div className="text-xl font-semibold text-[#2b2b2b]">
-              {item.value}
-            </div>
-          </div>
-        ))}
-
-      </div>
-
-      {/* TREND SECTION (LESS BOXES, MORE SPACE) */}
-      <div className="space-y-8">
+      {/* KPI STRIP */}
+      <div className="rounded-2xl px-8 py-6 bg-[#efe4cd] shadow-[inset_0_2px_6px_rgba(0,0,0,0.04)] flex justify-between">
 
         <div>
-          <h2 className="text-lg font-semibold text-[#2b2b2b]">
-            Revenue Trend
-          </h2>
+          <p className="text-sm text-[#7a7468]">Profit</p>
+          <p className="text-xl font-semibold text-[#2b2b2b] mt-1">
+            THB 42,300
+          </p>
         </div>
 
-        <div className="
-          relative
-          rounded-[28px]
-          p-8
-          bg-[#efe4cd]
-          shadow-[0_20px_50px_rgba(0,0,0,0.12)]
-        ">
+        <div className="w-px bg-[#d6cbb0]" />
 
-          {/* subtle highlight */}
-          <div className="absolute inset-0 rounded-[28px] bg-white/20 pointer-events-none"></div>
+        <div>
+          <p className="text-sm text-[#7a7468]">Covers</p>
+          <p className="text-xl font-semibold text-[#2b2b2b] mt-1">
+            186
+          </p>
+        </div>
 
-          <div className="relative h-40 flex items-end gap-4">
+        <div className="w-px bg-[#d6cbb0]" />
 
-            {[10, 30, 20, 40, 25, 35, 50].map((v, i) => (
-              <div
-                key={i}
-                className="
-                  flex-1
-                  rounded-full
-                  bg-gradient-to-t from-orange-500 to-orange-200
-                  shadow-[0_4px_10px_rgba(0,0,0,0.15)]
-                "
-                style={{ height: `${v}%` }}
-              />
-            ))}
-
-          </div>
-
+        <div>
+          <p className="text-sm text-[#7a7468]">Avg Ticket</p>
+          <p className="text-xl font-semibold text-[#2b2b2b] mt-1">
+            THB 690
+          </p>
         </div>
 
       </div>
 
-      {/* INSIGHT — MINIMAL, NOT BOX HEAVY */}
-      <div className="text-[#6f6a5f] text-sm max-w-xl">
-        Revenue stability improving. Focus on increasing average ticket size to optimize margins.
+      {/* TREND SECTION */}
+      <div className="space-y-4">
+
+        {/* TITLE ROW */}
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-[#2b2b2b]">
+            7 Day Revenue Movement
+          </h3>
+          <p className="text-sm text-[#7a7468]">
+            Trend: <span className="text-[#ff7a00]">Stable ↑</span>
+          </p>
+        </div>
+
+        {/* TREND CARD */}
+        <div className="relative rounded-2xl p-8 bg-[#efe4cd] shadow-[0_12px_30px_rgba(0,0,0,0.08)] overflow-hidden">
+
+          {/* top highlight */}
+          <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-b from-white/40 to-transparent" />
+
+          <div className="relative">
+
+            {/* BARS */}
+            <div className="flex items-end justify-between h-40 mt-4">
+
+              {[40, 60, 55, 70, 65, 75, 90].map((h, i) => (
+                <div
+                  key={i}
+                  className="w-10 rounded-xl bg-gradient-to-t from-[#ff7a00] to-[#ffb36b] shadow-[0_6px_12px_rgba(255,122,0,0.35)]"
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+
+            </div>
+
+            {/* FOOTER INSIGHT */}
+            <div className="flex justify-between items-center mt-6 text-sm text-[#7a7468]">
+              <p>
+                Revenue stabilizing. Focus: increase average ticket to improve margin.
+              </p>
+            </div>
+
+          </div>
+        </div>
       </div>
 
     </div>

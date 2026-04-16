@@ -3,13 +3,15 @@ import { getControlData } from "../../lib/controlLogic";
 export default function ControlFinal() {
   const {
     data,
-    totalCost,
     profit,
     margin,
     payoutStatus,
     payoutLevel,
-    payoutPool,
     decisions,
+    fohScore,
+    barScore,
+    kitchenScore,
+    averageScore,
   } = getControlData();
 
   return (
@@ -23,35 +25,59 @@ export default function ControlFinal() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 pb-16 space-y-10">
 
-        <div className="bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-8 space-y-10">
+        <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 space-y-10">
 
-          <h1 className="text-2xl font-semibold">Control Final</h1>
+          <h1 className="text-2xl">Control Final</h1>
 
-          {/* FINANCIAL */}
-          <div className="grid md:grid-cols-4 gap-6">
-            <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+          {/* PROFIT */}
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-black/40 p-6 rounded-xl">
               <p>Revenue</p>
-              <h2>THB {data.revenue}</h2>
+              <h2>{data.revenue}</h2>
             </div>
 
-            <div className="bg-black/40 p-6 rounded-xl border border-white/10">
-              <p>Cost</p>
-              <h2>THB {totalCost}</h2>
-            </div>
-
-            <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+            <div className="bg-black/40 p-6 rounded-xl">
               <p>Profit</p>
-              <h2>THB {profit}</h2>
+              <h2>{profit}</h2>
             </div>
 
-            <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+            <div className="bg-black/40 p-6 rounded-xl">
               <p>Margin</p>
               <h2>{margin}%</h2>
             </div>
           </div>
 
+          {/* 🔥 STAFF SCORES */}
+          <div>
+            <h2 className="text-xl mb-4">Staff Performance</h2>
+
+            <div className="grid md:grid-cols-4 gap-6">
+
+              <div className="bg-black/40 p-6 rounded-xl">
+                <p>FOH</p>
+                <h2>{fohScore}/100</h2>
+              </div>
+
+              <div className="bg-black/40 p-6 rounded-xl">
+                <p>Bar</p>
+                <h2>{barScore}/100</h2>
+              </div>
+
+              <div className="bg-black/40 p-6 rounded-xl">
+                <p>Kitchen</p>
+                <h2>{kitchenScore}/100</h2>
+              </div>
+
+              <div className="bg-black/40 p-6 rounded-xl">
+                <p>Team Avg</p>
+                <h2>{averageScore}/100</h2>
+              </div>
+
+            </div>
+          </div>
+
           {/* STATUS */}
-          <div className="bg-black/40 p-6 rounded-xl border border-white/10">
+          <div className="bg-black/40 p-6 rounded-xl">
             <p>Status</p>
             <h2>{payoutStatus} ({payoutLevel}%)</h2>
           </div>

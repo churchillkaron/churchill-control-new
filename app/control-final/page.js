@@ -10,10 +10,9 @@ export default function ControlFinal() {
   const [error, setError] = useState("");
   const [locationStatus, setLocationStatus] = useState("");
 
-  // 📍 TARGET LOCATION (your venue)
   const TARGET_LAT = 7.8804;
   const TARGET_LNG = 98.3923;
-  const MAX_DISTANCE = 0.001; // approx ~100m
+  const MAX_DISTANCE = 0.001;
 
   useEffect(() => {
     setUser(localStorage.getItem("staffName") || "");
@@ -25,7 +24,6 @@ export default function ControlFinal() {
     }
   }, []);
 
-  // 📍 GET LOCATION
   const checkLocation = async () => {
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
@@ -68,6 +66,7 @@ export default function ControlFinal() {
     const newShift = {
       start: new Date().toISOString(),
       end: null,
+      valid: true,
     };
 
     localStorage.setItem("shift", JSON.stringify(newShift));
@@ -91,16 +90,19 @@ export default function ControlFinal() {
     setError("");
   };
 
-  const getDuration = () => {
-    if (!shift?.start) return null;
+  const getShiftMinutes = () => {
+    if (!shift?.start) return 0;
 
     const start = new Date(shift.start);
     const end = shift.end ? new Date(shift.end) : new Date();
 
-    const diff = Math.floor((end - start) / 60000);
+    return Math.max(0, Math.floor((end - start) / 60000));
+  };
+
+  const getDuration = () => {
+    const diff = getShiftMinutes();
     const hours = Math.floor(diff / 60);
     const minutes = diff % 60;
-
     return `${hours}h ${minutes}m`;
   };
 
@@ -112,9 +114,21 @@ export default function ControlFinal() {
     staffWithPayout,
   } = getControlData();
 
+  const currentStaff = staffWithPayout.find((s) => s.name === user);
+
+  const shiftMinutes = getShiftMinutes();
+  const validShift = !!shift?.valid && shiftMinutes > 0;
+
+  let payrollAmount = 0;
+
+  if (currentStaff && validShift) {
+    const fullShiftMinutes = 8 * 60;
+    const workedRatio = Math.min(shiftMinutes / fullShiftMinutes, 1);
+    payrollAmount = Math.round(currentStaff.payout * workedRatio);
+  }
+
   return (
     <div className="relative min-h-screen text-white">
-
       <div className="absolute inset-0 -z-30">
         <img src="/bg-hero-control.jpg" className="w-full h-full object-cover" />
       </div>
@@ -122,10 +136,7 @@ export default function ControlFinal() {
       <div className="absolute inset-0 -z-20 bg-black/70" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 pb-16 space-y-10">
-
         <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 space-y-10">
-
-          {/* USER */}
           <div className="flex justify-between text-sm text-white/60">
             <div>{user}</div>
             <div>{role}</div>
@@ -133,44 +144,52 @@ export default function ControlFinal() {
 
           <h1 className="text-2xl">Control Final</h1>
 
-          {/* 📍 SHIFT + GPS */}
+          {/* SHIFT + GPS */}
           <div className="bg-black/40 p-6 rounded-xl space-y-4">
-
-            <h2>Shift Control (GPS Protected)</h2>
+            <h2 className="text-lg">Shift Control (GPS Protected)</h2>
 
             <p className="text-sm text-white/60">
               Location: {locationStatus || "Not checked"}
             </p>
 
-            <button
-              onClick={handleClockIn}
-              className="px-4 py-2 bg-green-600 rounded-xl"
-            >
-              Clock In
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleClockIn}
+                className="px-4 py-2 bg-green-600 rounded-xl"
+              >
+                Clock In
+              </button>
 
-            <button
-              onClick={handleClockOut}
-              className="px-4 py-2 bg-red-600 rounded-xl"
-            >
-              Clock Out
-            </button>
+              <button
+                onClick={handleClockOut}
+                className="px-4 py-2 bg-red-600 rounded-xl"
+              >
+                Clock Out
+              </button>
+            </div>
 
             {shift?.start && (
-              <p>Start: {new Date(shift.start).toLocaleTimeString()}</p>
+              <p className="text-sm text-white/70">
+                Start: {new Date(shift.start).toLocaleTimeString()}
+              </p>
             )}
 
             {shift?.end && (
-              <p>End: {new Date(shift.end).toLocaleTimeString()}</p>
+              <p className="text-sm text-white/70">
+                End: {new Date(shift.end).toLocaleTimeString()}
+              </p>
             )}
 
-            {shift?.start && <p>Duration: {getDuration()}</p>}
+            {shift?.start && (
+              <p className="text-sm text-[#ffb36b]">
+                Duration: {getDuration()}
+              </p>
+            )}
 
-            {error && <p className="text-red-400">{error}</p>}
-
+            {error && <p className="text-red-400 text-sm">{error}</p>}
           </div>
 
-          {/* OWNER */}
+          {/* OWNER VIEW */}
           {role === "Owner" && (
             <div className="grid md:grid-cols-3 gap-6">
               <div className="bg-black/40 p-6 rounded-xl">
@@ -185,27 +204,31 @@ export default function ControlFinal() {
 
               <div className="bg-black/40 p-6 rounded-xl">
                 <p>Status</p>
-                <h2>{payoutStatus} ({payoutLevel}%)</h2>
+                <h2>
+                  {payoutStatus} ({payoutLevel}%)
+                </h2>
               </div>
             </div>
           )}
 
-          {/* STAFF */}
-          {role !== "Owner" && (
-            <div className="bg-black/40 p-6 rounded-xl">
-              <p>Your Performance</p>
+          {/* STAFF VIEW */}
+          {role !== "Owner" && currentStaff && (
+            <div className="space-y-6">
+              <div className="bg-black/40 p-6 rounded-xl">
+                <p>Your Performance</p>
+                <p className="mt-2">Score: {currentStaff.score}</p>
+                <p className="text-[#ffb36b]">Full Payout Share: THB {currentStaff.payout}</p>
+              </div>
 
-              {staffWithPayout
-                .filter(s => s.name === user)
-                .map((s, i) => (
-                  <div key={i}>
-                    <p>Score: {s.score}</p>
-                    <p className="text-[#ffb36b]">THB {s.payout}</p>
-                  </div>
-                ))}
+              <div className="bg-black/40 p-6 rounded-xl">
+                <p className="text-white/60 text-sm">Shift Payroll</p>
+                <h2 className="text-2xl mt-2 text-[#ffb36b]">THB {payrollAmount}</h2>
+                <p className="text-sm text-white/60 mt-2">
+                  Based on valid shift duration and your payout share.
+                </p>
+              </div>
             </div>
           )}
-
         </div>
       </div>
     </div>

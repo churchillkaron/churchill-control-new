@@ -14,42 +14,46 @@ export default function Dashboard() {
         const mapped = json.slice(0, 7).map((day) => {
           const rows = day.dishes?.rows || [];
 
-          const revenue = rows.reduce((sum, d) => {
-            return sum + (d.revenue || 0);
-          }, 0);
+          let revenue = 0;
+          let cost = 0;
+
+          rows.forEach((d) => {
+            revenue += d.revenue || 0;
+            cost += d.cogs || 0;
+          });
 
           return {
             date: new Date(day.date).toLocaleDateString(),
             revenue,
+            profit: revenue - cost,
           };
         });
 
         setData(mapped.reverse());
-      } catch (e) {
-        console.log("Trend load error", e);
-      }
+      } catch {}
     }
 
     load();
   }, []);
 
-  // SVG line chart
-  function renderChart() {
-    if (!data.length) return null;
+  const latest = data[data.length - 1];
 
-    const max = Math.max(...data.map((d) => d.revenue), 1);
+  function renderLine(values) {
+    if (!values.length) return null;
 
-    const points = data.map((d, i) => {
-      const x = (i / (data.length - 1)) * 100;
-      const y = 100 - (d.revenue / max) * 100;
+    const max = Math.max(...values, 1);
+
+    const points = values.map((v, i) => {
+      const x = (i / (values.length - 1)) * 100;
+      const y = 100 - (v / max) * 100;
       return `${x},${y}`;
     });
 
     return (
-      <svg viewBox="0 0 100 100" className="w-full h-40">
+      <svg viewBox="0 0 100 100" className="w-full h-24">
         <polyline
           fill="none"
-          stroke="#ff7a00"
+          stroke="var(--accent)"
           strokeWidth="2"
           points={points.join(" ")}
         />
@@ -58,28 +62,72 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen p-6">
-      <h1 className="text-2xl mb-6">Dashboard</h1>
+    <div className="p-6">
 
-      {/* TREND CARD */}
-      <div className="rounded-2xl border border-[#d6ccb5] bg-[#f5f1e8] p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-2 text-[#2f2a24]">
-          Revenue Trend (Last 7 Days)
-        </h2>
+      {/* ===== TITLE ===== */}
+      <h1 className="text-2xl font-semibold mb-6">
+        Dashboard
+      </h1>
 
-        {renderChart()}
+      {/* ===== KPI ROW ===== */}
+      {latest && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 
-        <div className="flex justify-between text-xs text-[#6b6458] mt-2">
-          {data.map((d, i) => (
-            <span key={i}>{d.date}</span>
-          ))}
+          <div className="p-4 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
+            <div className="text-sm text-[var(--text-secondary)]">Revenue</div>
+            <div className="text-xl font-bold">
+              THB {latest.revenue.toFixed(0)}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
+            <div className="text-sm text-[var(--text-secondary)]">Profit</div>
+            <div className="text-xl font-bold">
+              THB {latest.profit.toFixed(0)}
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* ===== TREND ROW ===== */}
+      <div className="grid md:grid-cols-2 gap-4 mb-6">
+
+        <div className="p-4 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
+          <div className="mb-3 font-medium">Revenue Trend</div>
+          {renderLine(data.map(d => d.revenue))}
+
+          <div className="flex justify-between text-xs text-[var(--text-secondary)] mt-2">
+            {data.map((d, i) => (
+              <span key={i}>{d.date}</span>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
+          <div className="mb-3 font-medium">Profit Trend</div>
+          {renderLine(data.map(d => d.profit))}
+
+          <div className="flex justify-between text-xs text-[var(--text-secondary)] mt-2">
+            {data.map((d, i) => (
+              <span key={i}>{d.date}</span>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      {/* ===== INSIGHT ===== */}
+      <div className="p-5 rounded-xl border bg-[var(--bg-card)] border-[var(--border)]">
+        <div className="font-medium mb-2">System Insight</div>
+
+        <div className="text-[var(--text-secondary)]">
+          {data.length > 1
+            ? "System tracking revenue and profit trends. Add more operating days for stronger insights."
+            : "Start saving days to activate analytics."}
         </div>
       </div>
 
-      {/* EXISTING DASHBOARD BELOW */}
-      <div className="text-[#2f2a24]">
-        (Your existing KPI cards stay here)
-      </div>
     </div>
   );
 }

@@ -1,4 +1,23 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 export default function POS() {
+  const [staffName, setStaffName] = useState("");
+  const [staffRole, setStaffRole] = useState("");
+
+  useEffect(() => {
+    const name = localStorage.getItem("staffName");
+    const role = localStorage.getItem("staffRole");
+
+    if (!name || !role) {
+      window.location.href = "/control-final";
+    } else {
+      setStaffName(name);
+      setStaffRole(role);
+    }
+  }, []);
+
   const orders = [
     { table: "T12", items: 4, total: "2,450", status: "Active" },
     { table: "T08", items: 2, total: "1,120", status: "Preparing" },
@@ -24,6 +43,12 @@ export default function POS() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(255,140,0,0.15),transparent_40%)]" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-28 pb-14 space-y-8">
+
+        {/* STAFF INFO */}
+        <div className="flex justify-between text-sm text-white/60">
+          <div>{staffName}</div>
+          <div>{staffRole}</div>
+        </div>
 
         {/* HEADER */}
         <div>

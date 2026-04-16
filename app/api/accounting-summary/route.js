@@ -7,9 +7,9 @@ export async function GET() {
       process.env.SUPABASE_ANON_KEY
     );
 
-    // ✅ FIXED TABLE NAME
+    // ✅ CORRECT TABLE NAME (WITH DASH)
     const { data: salesData, error } = await supabase
-      .from('pos_sales')
+      .from('pos-sales')
       .select('*');
 
     if (error) throw error;
@@ -23,18 +23,16 @@ export async function GET() {
       sales += 1;
 
       try {
-        // ✅ SAFE JSON PARSE
         const items = sale.items
           ? (typeof sale.items === 'string'
               ? JSON.parse(sale.items)
               : sale.items)
           : [];
 
-        (items || []).forEach((item) => {
+        items.forEach((item) => {
           const name = (item.name || '').toLowerCase();
           const price = Number(item.price || 0);
 
-          // simple drink detection
           if (
             name.includes('beer') ||
             name.includes('wine') ||
@@ -46,15 +44,12 @@ export async function GET() {
             drinks += price;
           }
         });
-      } catch (e) {
-        // ignore broken items
-      }
+      } catch (e) {}
     });
 
     const avg = sales > 0 ? revenue / sales : 0;
     const drinksPerSale = sales > 0 ? drinks / sales : 0;
 
-    // ---- AI LOGIC ----
     let score = 100;
     const issues = [];
 

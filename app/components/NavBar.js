@@ -4,44 +4,47 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { name: "Home", href: "/" },
-  { name: "Control", href: "/control-final" },
-  { name: "Dashboard", href: "/dashboard" },
-  { name: "POS", href: "/pos-control" },
-  { name: "History", href: "/history" },
-  { name: "Accounting", href: "/accounting" },
-  { name: "Payout", href: "/payout" },
+  { label: "Home", href: "/" },
+  { label: "Control", href: "/control-final" },
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "POS", href: "/pos-control" },
+  { label: "History", href: "/history" },
+  { label: "Accounting", href: "/accounting" },
+  { label: "Payout", href: "/payout" },
 ];
 
 export default function NavBar() {
   const pathname = usePathname();
 
   return (
-    <div className="w-full bg-black border-b border-white/10">
-      <div className="flex items-center gap-6 px-6 py-4">
-        {/* Logo / Title */}
-        <div className="text-white font-semibold text-xl">
-          Churchill Control System
+    <div className="w-full border-b border-white/10 bg-black">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-5 px-6 py-5">
+        <div className="mr-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black text-lg font-bold">
+            ▲
+          </div>
+          <div className="text-white text-2xl font-semibold">
+            Churchill Control System
+          </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
-              (item.href !== "/" && pathname.startsWith(item.href));
+              (item.href !== "/" && pathname?.startsWith(item.href));
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-5 py-3 rounded-lg text-white text-xl transition ${
+                className={`rounded-2xl border px-7 py-4 text-2xl font-semibold transition ${
                   isActive
-                    ? "bg-white/20"
-                    : "bg-transparent hover:bg-white/10"
+                    ? "border-white/20 bg-white/10 text-white"
+                    : "border-white/10 bg-[#0b0b0b] text-white hover:border-white/20 hover:bg-white/5"
                 }`}
               >
-                {item.name}
+                {item.label}
               </Link>
             );
           })}

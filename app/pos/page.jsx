@@ -299,12 +299,7 @@ export default function POSPage() {
         fontFamily: 'Arial, sans-serif',
       }}
     >
-      <div
-        style={{
-          maxWidth: '1500px',
-          margin: '0 auto',
-        }}
-      >
+      <div style={{ maxWidth: '1500px', margin: '0 auto' }}>
         <div
           style={{
             border: `1px solid ${THEME.border}`,
@@ -424,12 +419,7 @@ export default function POSPage() {
             alignItems: 'start',
           }}
         >
-          <div
-            style={{
-              display: 'grid',
-              gap: '20px',
-            }}
-          >
+          <div style={{ display: 'grid', gap: '20px' }}>
             <div
               style={{
                 border: `1px solid ${THEME.border}`,

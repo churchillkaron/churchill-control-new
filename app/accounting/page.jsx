@@ -33,6 +33,10 @@ function formatNumber(value) {
   }).format(Number(value || 0))
 }
 
+function formatPercent(value) {
+  return (Number(value || 0) * 100).toFixed(1) + '%'
+}
+
 function normalizeBusinessDate(value) {
   if (!value) return ''
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value

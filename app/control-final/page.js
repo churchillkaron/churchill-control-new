@@ -1,6 +1,16 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { getControlData } from "../../lib/controlLogic";
 
 export default function ControlFinal() {
+  const [user, setUser] = useState("");
+
+  useEffect(() => {
+    const name = localStorage.getItem("staffName");
+    if (name) setUser(name);
+  }, []);
+
   const {
     data,
     profit,
@@ -8,7 +18,6 @@ export default function ControlFinal() {
     payoutStatus,
     payoutLevel,
     staffWithPayout,
-    averageScore,
   } = getControlData();
 
   return (
@@ -24,9 +33,14 @@ export default function ControlFinal() {
 
         <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 space-y-10">
 
+          {/* USER */}
+          <div className="text-right text-white/60">
+            Logged in as: {user || "Guest"}
+          </div>
+
           <h1 className="text-2xl">Control Final</h1>
 
-          {/* PROFIT */}
+          {/* BASIC DATA */}
           <div className="grid md:grid-cols-3 gap-6">
             <div className="bg-black/40 p-6 rounded-xl">
               <p>Revenue</p>
@@ -39,26 +53,14 @@ export default function ControlFinal() {
             </div>
 
             <div className="bg-black/40 p-6 rounded-xl">
-              <p>Margin</p>
-              <h2>{margin}%</h2>
+              <p>Status</p>
+              <h2>{payoutStatus} ({payoutLevel}%)</h2>
             </div>
           </div>
 
-          {/* TEAM SCORE */}
-          <div className="bg-black/40 p-6 rounded-xl">
-            <p>Team Performance</p>
-            <h2>{averageScore}/100</h2>
-          </div>
-
-          {/* STATUS */}
-          <div className="bg-black/40 p-6 rounded-xl">
-            <p>Status</p>
-            <h2>{payoutStatus} ({payoutLevel}%)</h2>
-          </div>
-
-          {/* 🔥 INDIVIDUAL STAFF */}
+          {/* STAFF */}
           <div>
-            <h2 className="text-xl mb-4">Staff Performance</h2>
+            <h2 className="text-xl mb-4">Staff</h2>
 
             <div className="space-y-3">
               {staffWithPayout.map((s, i) => (
@@ -67,17 +69,13 @@ export default function ControlFinal() {
                   className="bg-black/40 p-4 rounded-xl flex justify-between"
                 >
                   <div>
-                    <p className="text-sm text-white/50">{s.role}</p>
                     <p>{s.name}</p>
+                    <p className="text-sm text-white/50">{s.role}</p>
                   </div>
 
                   <div className="text-right">
-                    <p className="text-sm text-white/50">
-                      Score: {s.score}
-                    </p>
-                    <p className="text-[#ffb36b]">
-                      THB {s.payout}
-                    </p>
+                    <p>Score: {s.score}</p>
+                    <p className="text-[#ffb36b]">THB {s.payout}</p>
                   </div>
                 </div>
               ))}

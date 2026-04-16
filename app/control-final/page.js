@@ -5,10 +5,11 @@ import { getControlData } from "../../lib/controlLogic";
 
 export default function ControlFinal() {
   const [user, setUser] = useState("");
+  const [role, setRole] = useState("");
 
   useEffect(() => {
-    const name = localStorage.getItem("staffName");
-    if (name) setUser(name);
+    setUser(localStorage.getItem("staffName") || "");
+    setRole(localStorage.getItem("staffRole") || "");
   }, []);
 
   const {
@@ -23,6 +24,7 @@ export default function ControlFinal() {
   return (
     <div className="relative min-h-screen text-white">
 
+      {/* BG */}
       <div className="absolute inset-0 -z-30">
         <img src="/bg-hero-control.jpg" className="w-full h-full object-cover" />
       </div>
@@ -34,54 +36,74 @@ export default function ControlFinal() {
         <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 space-y-10">
 
           {/* USER */}
-          <div className="text-right text-white/60">
-            Logged in as: {user || "Guest"}
+          <div className="flex justify-between text-sm text-white/60">
+            <div>{user}</div>
+            <div>{role}</div>
           </div>
 
           <h1 className="text-2xl">Control Final</h1>
 
-          {/* BASIC DATA */}
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-black/40 p-6 rounded-xl">
-              <p>Revenue</p>
-              <h2>{data.revenue}</h2>
+          {/* OWNER VIEW */}
+          {role === "Owner" && (
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="bg-black/40 p-6 rounded-xl">
+                <p>Revenue</p>
+                <h2>{data.revenue}</h2>
+              </div>
+
+              <div className="bg-black/40 p-6 rounded-xl">
+                <p>Profit</p>
+                <h2>{profit}</h2>
+              </div>
+
+              <div className="bg-black/40 p-6 rounded-xl">
+                <p>Status</p>
+                <h2>{payoutStatus} ({payoutLevel}%)</h2>
+              </div>
             </div>
+          )}
 
+          {/* STAFF VIEW */}
+          {role !== "Owner" && (
             <div className="bg-black/40 p-6 rounded-xl">
-              <p>Profit</p>
-              <h2>{profit}</h2>
-            </div>
+              <p className="text-white/50">Your Performance</p>
 
-            <div className="bg-black/40 p-6 rounded-xl">
-              <p>Status</p>
-              <h2>{payoutStatus} ({payoutLevel}%)</h2>
-            </div>
-          </div>
-
-          {/* STAFF */}
-          <div>
-            <h2 className="text-xl mb-4">Staff</h2>
-
-            <div className="space-y-3">
-              {staffWithPayout.map((s, i) => (
-                <div
-                  key={i}
-                  className="bg-black/40 p-4 rounded-xl flex justify-between"
-                >
-                  <div>
-                    <p>{s.name}</p>
-                    <p className="text-sm text-white/50">{s.role}</p>
+              {staffWithPayout
+                .filter(s => s.name === user)
+                .map((s, i) => (
+                  <div key={i}>
+                    <p className="mt-2">Score: {s.score}</p>
+                    <p className="text-[#ffb36b]">Payout: THB {s.payout}</p>
                   </div>
-
-                  <div className="text-right">
-                    <p>Score: {s.score}</p>
-                    <p className="text-[#ffb36b]">THB {s.payout}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
+          )}
 
-          </div>
+          {/* TEAM (OWNER ONLY) */}
+          {role === "Owner" && (
+            <div>
+              <h2 className="text-xl mb-4">Full Staff Overview</h2>
+
+              <div className="space-y-3">
+                {staffWithPayout.map((s, i) => (
+                  <div
+                    key={i}
+                    className="bg-black/40 p-4 rounded-xl flex justify-between"
+                  >
+                    <div>
+                      <p>{s.name}</p>
+                      <p className="text-sm text-white/50">{s.role}</p>
+                    </div>
+
+                    <div className="text-right">
+                      <p>Score: {s.score}</p>
+                      <p className="text-[#ffb36b]">THB {s.payout}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

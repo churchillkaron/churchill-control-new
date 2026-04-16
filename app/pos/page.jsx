@@ -8,6 +8,7 @@ export default function POS() {
   const [orders, setOrders] = useState([]);
   const [table, setTable] = useState("");
 
+  // LOAD STAFF + ORDERS
   useEffect(() => {
     const name = localStorage.getItem("staffName");
     const role = localStorage.getItem("staffRole");
@@ -18,7 +19,17 @@ export default function POS() {
       setStaffName(name);
       setStaffRole(role);
     }
+
+    const savedOrders = localStorage.getItem("posOrders");
+    if (savedOrders) {
+      setOrders(JSON.parse(savedOrders));
+    }
   }, []);
+
+  // SAVE ORDERS (AUTO)
+  useEffect(() => {
+    localStorage.setItem("posOrders", JSON.stringify(orders));
+  }, [orders]);
 
   const menu = [
     { name: "Pad Thai", price: 160 },
@@ -82,12 +93,15 @@ export default function POS() {
     );
   };
 
+  const clearOrders = () => {
+    setOrders([]);
+    localStorage.removeItem("posOrders");
+  };
+
   const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
 
   const filteredOrders = orders.filter((order) => {
     if (staffRole === "Kitchen") return order.status !== "Served";
-    if (staffRole === "FOH") return true;
-    if (staffRole === "Manager") return true;
     return true;
   });
 
@@ -123,7 +137,7 @@ export default function POS() {
           </h1>
         </div>
 
-        {/* TABLE INPUT (ONLY FOH) */}
+        {/* TABLE INPUT */}
         {staffRole === "FOH" && (
           <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6">
             <input
@@ -135,7 +149,7 @@ export default function POS() {
           </div>
         )}
 
-        {/* MENU (ONLY FOH) */}
+        {/* MENU */}
         {staffRole === "FOH" && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {menu.map((dish, i) => (
@@ -152,9 +166,20 @@ export default function POS() {
         )}
 
         {/* SUMMARY */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6">
-          <p className="text-white/50 text-sm">Total Revenue</p>
-          <h2 className="text-3xl mt-2">THB {totalRevenue}</h2>
+        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 flex justify-between items-center">
+          <div>
+            <p className="text-white/50 text-sm">Total Revenue</p>
+            <h2 className="text-3xl mt-2">THB {totalRevenue}</h2>
+          </div>
+
+          {staffRole === "Manager" && (
+            <button
+              onClick={clearOrders}
+              className="px-4 py-2 bg-red-500 rounded-xl text-white"
+            >
+              Clear
+            </button>
+          )}
         </div>
 
         {/* ORDERS */}

@@ -17,21 +17,22 @@ export default function NavBar() {
   const pathname = usePathname();
 
   return (
-    <div className="w-full border-b border-[#4a443b] bg-[#2f2a24]">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-5 px-6 py-5">
-        
+    <div className="fixed top-0 left-0 w-full z-50 border-b border-[#4a443b] bg-[#2f2a24]">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+
         {/* Logo */}
-        <div className="mr-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f5f1e8] text-[#2f2a24] text-lg font-bold">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f5f1e8] text-[#2f2a24] text-sm font-bold">
             ▲
           </div>
-          <div className="text-[#f5f1e8] text-2xl font-semibold">
-            Churchill Control System
+          <div className="text-[#f5f1e8] text-base font-semibold">
+            Churchill
           </div>
         </div>
 
         {/* Navigation */}
-        <div className="flex flex-wrap gap-4">
+        <div className="flex gap-2 overflow-x-auto">
+
           {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -41,7 +42,7 @@ export default function NavBar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-2xl border px-7 py-4 text-2xl font-semibold transition ${
+                className={`whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition ${
                   isActive
                     ? "border-[#5a5247] bg-[#3a342d] text-[#f5f1e8]"
                     : "border-[#4a443b] bg-[#2f2a24] text-[#d2c6b2] hover:bg-[#3a342d] hover:text-[#f5f1e8]"
@@ -51,6 +52,7 @@ export default function NavBar() {
               </Link>
             );
           })}
+
         </div>
       </div>
     </div>

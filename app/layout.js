@@ -32,10 +32,17 @@ export default function RootLayout({ children }) {
 
           <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
 
-            {/* LOGO */}
-            <div className="flex items-center gap-2">
-              <span className="text-[#ff7a00] font-bold text-xl">CC</span>
-              <span className="text-white/90 font-medium">Churchill</span>
+            {/* LOGO (UPGRADED) */}
+            <div className="flex items-center gap-3">
+
+              <span className="text-[#ff7a00] font-semibold text-xl tracking-wide">
+                CC
+              </span>
+
+              <span className="text-white/90 text-lg tracking-wide font-light">
+                Churchill
+              </span>
+
             </div>
 
             {/* NAV */}

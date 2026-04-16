@@ -1,392 +1,163 @@
 'use client'
 
-import { useState } from 'react'
-
-const THEME = {
-  bg: '#0b0b0b',
-  panel: '#141414',
-  border: '#2a2a2a',
-  soft: '#1b1b1b',
-  text: '#f5f0e6',
-  muted: '#b8aa8a',
-  orange: '#d97706',
-  khaki: '#c2b280',
-  red: '#7f1d1d',
-  green: '#14532d',
-}
-
-const STAFF_OPTIONS = ['John', 'Anna', 'Mike']
-
-const EXPENSE_CATEGORIES = [
-  'Beverage Purchase',
-  'Food Purchase',
-  'Ice',
-  'Gas',
-  'Cleaning',
-  'Office / Small Supplies',
-  'Emergency Purchase',
-  'Maintenance',
-  'Other',
-]
-
-const EXPENSE_DEPARTMENTS = [
-  'Bar',
-  'Kitchen',
-  'Floor / Service',
-  'Admin',
-  'Cleaning',
-  'Maintenance',
-  'General',
-]
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
+import { useEffect, useState } from 'react'
 
 export default function AccountingPage() {
-  const [expenseStaff, setExpenseStaff] = useState(STAFF_OPTIONS[0])
-  const [expenseAmount, setExpenseAmount] = useState('')
-  const [expenseCategory, setExpenseCategory] = useState(EXPENSE_CATEGORIES[0])
-  const [expenseDepartment, setExpenseDepartment] = useState('General')
-  const [expenseNote, setExpenseNote] = useState('')
-  const [expenseFile, setExpenseFile] = useState(null)
-  const [expensePreview, setExpensePreview] = useState('')
-  const [expenseSaving, setExpenseSaving] = useState(false)
-  const [expenseError, setExpenseError] = useState('')
-  const [expenseSuccess, setExpenseSuccess] = useState('')
+  const [expenses, setExpenses] = useState([])
+  const [form, setForm] = useState({
+    staff: 'John',
+    amount: '',
+    category: 'General',
+    department: 'General',
+    note: '',
+    file: null
+  })
 
-  const resetExpense = () => {
-    setExpenseStaff(STAFF_OPTIONS[0])
-    setExpenseAmount('')
-    setExpenseCategory(EXPENSE_CATEGORIES[0])
-    setExpenseDepartment('General')
-    setExpenseNote('')
-    setExpenseFile(null)
-    setExpensePreview('')
-    setExpenseError('')
-    setExpenseSuccess('')
+  useEffect(() => {
+    fetchExpenses()
+  }, [])
+
+  const fetchExpenses = async () => {
+    const res = await fetch('/api/accounting-expenses')
+    const data = await res.json()
+    setExpenses(data || [])
   }
 
-  const saveExpense = async () => {
-    setExpenseError('')
-    setExpenseSuccess('')
+  const handleSubmit = async (e) => {
+    e.preventDefault()
 
-    if (!expenseFile) {
-      setExpenseError('Upload a receipt photo first.')
-      return
-    }
+    const formData = new FormData()
+    Object.keys(form).forEach(key => {
+      formData.append(key, form[key])
+    })
 
-    if (Number(expenseAmount || 0) <= 0) {
-      setExpenseError('Amount must be greater than 0.')
-      return
-    }
+    await fetch('/api/accounting-expenses', {
+      method: 'POST',
+      body: formData
+    })
 
-    try {
-      setExpenseSaving(true)
+    setForm({
+      staff: 'John',
+      amount: '',
+      category: 'General',
+      department: 'General',
+      note: '',
+      file: null
+    })
 
-      const imageDataUrl = await fileToDataUrl(expenseFile)
-
-      const response = await fetch('/api/accounting-expenses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: Number(expenseAmount || 0),
-          category: expenseCategory,
-          department: expenseDepartment,
-          note: expenseNote,
-          staff: expenseStaff,
-          receipt_image: imageDataUrl,
-          receipt_name: expenseFile.name,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to save expense.')
-      }
-
-      setExpenseSuccess('Expense saved successfully.')
-      resetExpense()
-    } catch (error) {
-      setExpenseError(error.message || 'Failed to save expense.')
-    } finally {
-      setExpenseSaving(false)
-    }
+    fetchExpenses()
   }
+
+  // SUMMARY CALCULATION
+  const total = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0)
+
+  const byCategory = {}
+  expenses.forEach(e => {
+    const cat = e.category || 'Other'
+    byCategory[cat] = (byCategory[cat] || 0) + Number(e.amount || 0)
+  })
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: THEME.bg,
-        color: THEME.text,
-        padding: '24px',
-        fontFamily: 'Arial, sans-serif',
-      }}
-    >
-      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <div
-          style={{
-            border: `1px solid ${THEME.border}`,
-            background: THEME.panel,
-            borderRadius: '18px',
-            padding: '20px',
-            marginBottom: '20px',
-          }}
-        >
-          <div>
-            <div
-              style={{
-                color: THEME.orange,
-                fontWeight: 800,
-                fontSize: '28px',
-                letterSpacing: '1px',
-              }}
-            >
-              CC
-            </div>
-            <div
-              style={{
-                color: THEME.text,
-                fontSize: '24px',
-                fontWeight: 700,
-              }}
-            >
-              Churchill Karon Accounting
-            </div>
-            <div
-              style={{
-                color: THEME.muted,
-                marginTop: '6px',
-                fontSize: '14px',
-              }}
-            >
-              Expense upload with receipt proof
-            </div>
-          </div>
+    <div className="p-6 text-white space-y-6">
+
+      {/* SUMMARY */}
+      <div className="bg-[#111] p-6 rounded-2xl">
+        <h2 className="text-lg text-gray-400 mb-4">ACCOUNTING SUMMARY</h2>
+
+        <div className="text-2xl font-bold mb-4">
+          Total: THB {total}
         </div>
 
-        {expenseError && (
-          <div
-            style={{
-              marginBottom: '14px',
-              border: `1px solid ${THEME.red}`,
-              background: '#2a1111',
-              borderRadius: '14px',
-              padding: '12px',
-              color: '#f5d0d0',
-              fontWeight: 700,
-            }}
-          >
-            {expenseError}
-          </div>
-        )}
-
-        {expenseSuccess && (
-          <div
-            style={{
-              marginBottom: '14px',
-              border: `1px solid ${THEME.green}`,
-              background: '#0f1f15',
-              borderRadius: '14px',
-              padding: '12px',
-              color: THEME.khaki,
-              fontWeight: 700,
-            }}
-          >
-            {expenseSuccess}
-          </div>
-        )}
-
-        <div
-          style={{
-            border: `1px solid ${THEME.border}`,
-            background: THEME.panel,
-            borderRadius: '18px',
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '20px',
-              fontWeight: 700,
-              marginBottom: '16px',
-            }}
-          >
-            Expense Upload
-          </div>
-
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <select
-              value={expenseStaff}
-              onChange={(e) => setExpenseStaff(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '12px',
-                border: `1px solid ${THEME.border}`,
-                background: THEME.soft,
-                color: THEME.text,
-                outline: 'none',
-              }}
-            >
-              {STAFF_OPTIONS.map((staffName) => (
-                <option key={staffName} value={staffName}>
-                  Staff: {staffName}
-                </option>
-              ))}
-            </select>
-
-            <input
-              type="number"
-              placeholder="Amount"
-              value={expenseAmount}
-              onChange={(e) => setExpenseAmount(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '12px',
-                border: `1px solid ${THEME.border}`,
-                background: THEME.soft,
-                color: THEME.text,
-                outline: 'none',
-              }}
-            />
-
-            <select
-              value={expenseCategory}
-              onChange={(e) => setExpenseCategory(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '12px',
-                border: `1px solid ${THEME.border}`,
-                background: THEME.soft,
-                color: THEME.text,
-                outline: 'none',
-              }}
-            >
-              {EXPENSE_CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  Category: {category}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={expenseDepartment}
-              onChange={(e) => setExpenseDepartment(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '12px',
-                border: `1px solid ${THEME.border}`,
-                background: THEME.soft,
-                color: THEME.text,
-                outline: 'none',
-              }}
-            >
-              {EXPENSE_DEPARTMENTS.map((department) => (
-                <option key={department} value={department}>
-                  Department: {department}
-                </option>
-              ))}
-            </select>
-
-            <textarea
-              placeholder="Expense note..."
-              value={expenseNote}
-              onChange={(e) => setExpenseNote(e.target.value)}
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '12px',
-                border: `1px solid ${THEME.border}`,
-                background: THEME.soft,
-                color: THEME.text,
-                outline: 'none',
-                resize: 'vertical',
-              }}
-            />
-
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files && e.target.files[0] ? e.target.files[0] : null
-                setExpenseFile(file)
-                setExpenseSuccess('')
-                setExpenseError('')
-
-                if (file) {
-                  const previewUrl = URL.createObjectURL(file)
-                  setExpensePreview(previewUrl)
-                } else {
-                  setExpensePreview('')
-                }
-              }}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '12px',
-                border: `1px solid ${THEME.border}`,
-                background: THEME.soft,
-                color: THEME.text,
-                outline: 'none',
-              }}
-            />
-
-            {expensePreview && (
-              <div
-                style={{
-                  border: `1px solid ${THEME.border}`,
-                  borderRadius: '14px',
-                  overflow: 'hidden',
-                  background: THEME.soft,
-                  padding: '10px',
-                }}
-              >
-                <img
-                  src={expensePreview}
-                  alt="Expense receipt preview"
-                  style={{
-                    width: '100%',
-                    maxHeight: '420px',
-                    objectFit: 'contain',
-                    borderRadius: '10px',
-                  }}
-                />
-              </div>
-            )}
-
-            <button
-              onClick={saveExpense}
-              disabled={expenseSaving}
-              style={{
-                padding: '14px',
-                borderRadius: '14px',
-                border: 'none',
-                background: THEME.orange,
-                color: '#111111',
-                fontWeight: 800,
-                cursor: expenseSaving ? 'not-allowed' : 'pointer',
-                opacity: expenseSaving ? 0.7 : 1,
-              }}
-            >
-              {expenseSaving ? 'Saving Expense...' : 'Save Expense'}
-            </button>
-          </div>
+        <div className="space-y-1 text-sm text-gray-300">
+          {Object.entries(byCategory).map(([cat, value]) => (
+            <div key={cat}>
+              {cat}: THB {value}
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* EXPENSE LIST */}
+      <div className="bg-[#111] p-6 rounded-2xl">
+        <h2 className="text-lg text-gray-400 mb-4">EXPENSES</h2>
+
+        <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          {expenses.map((e, i) => (
+            <div key={i} className="bg-[#1a1a1a] p-4 rounded-xl text-sm">
+              <div className="flex justify-between">
+                <span>{e.category}</span>
+                <span>THB {e.amount}</span>
+              </div>
+
+              <div className="text-gray-400 text-xs">
+                {e.staff} • {e.department}
+              </div>
+
+              {e.note && (
+                <div className="text-gray-500 text-xs mt-1">
+                  {e.note}
+                </div>
+              )}
+
+              {e.image_url && (
+                <a
+                  href={e.image_url}
+                  target="_blank"
+                  className="text-blue-400 text-xs underline mt-1 block"
+                >
+                  View Receipt
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* UPLOAD FORM */}
+      <div className="bg-[#111] p-6 rounded-2xl">
+        <h2 className="text-lg text-gray-400 mb-4">UPLOAD EXPENSE</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+
+          <input
+            placeholder="Amount"
+            value={form.amount}
+            onChange={e => setForm({ ...form, amount: e.target.value })}
+            className="w-full p-3 bg-[#1a1a1a] rounded"
+          />
+
+          <input
+            placeholder="Category"
+            value={form.category}
+            onChange={e => setForm({ ...form, category: e.target.value })}
+            className="w-full p-3 bg-[#1a1a1a] rounded"
+          />
+
+          <input
+            placeholder="Department"
+            value={form.department}
+            onChange={e => setForm({ ...form, department: e.target.value })}
+            className="w-full p-3 bg-[#1a1a1a] rounded"
+          />
+
+          <textarea
+            placeholder="Note"
+            value={form.note}
+            onChange={e => setForm({ ...form, note: e.target.value })}
+            className="w-full p-3 bg-[#1a1a1a] rounded"
+          />
+
+          <input
+            type="file"
+            onChange={e => setForm({ ...form, file: e.target.files[0] })}
+          />
+
+          <button className="bg-orange-500 w-full py-3 rounded-xl font-bold">
+            Save Expense
+          </button>
+        </form>
+      </div>
+
     </div>
   )
 }

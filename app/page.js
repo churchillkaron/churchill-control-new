@@ -1,147 +1,72 @@
-'use client'
-
-import Link from 'next/link'
-
-const THEME = {
-  bg: '#0b0b0b',
-  panel: '#131313',
-  border: 'rgba(255,255,255,0.08)',
-  text: '#f5f5f5',
-  muted: '#b7b2a4',
-  accent: '#f97316',
-}
-
-const MODULES = [
-  {
-    title: 'Control Panel',
-    desc: 'Run the full service: sales, production, stock, and daily save.',
-    href: '/control-final',
-  },
-  {
-    title: 'Dashboard',
-    desc: 'Owner view: KPIs, AI manager, performance insights.',
-    href: '/dashboard',
-  },
-  {
-    title: 'History',
-    desc: 'All saved days, analytics, and performance tracking.',
-    href: '/history',
-  },
-  {
-    title: 'Accounting',
-    desc: 'Track expenses, costs, and financial overview.',
-    href: '/accounting',
-  },
-  {
-    title: 'Payout',
-    desc: 'Service charge split and staff payout control.',
-    href: '/payout',
-  },
-]
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: THEME.bg,
-        color: THEME.text,
-        padding: 24,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: '0 auto',
-          display: 'grid',
-          gap: 24,
-        }}
-      >
-        {/* HEADER */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div
-              style={{
-                color: THEME.accent,
-                fontWeight: 900,
-                fontSize: 28,
-              }}
-            >
-              CC
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>
-              Churchill Control System
-            </div>
-          </div>
-
-          <div style={{ color: THEME.muted, marginTop: 6 }}>
+    <div className="min-h-screen bg-black text-white px-6 py-10">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-10">
+          <h1 className="text-3xl font-bold">
+            <span className="text-orange-500">CC</span>{" "}
+            Churchill Control System
+          </h1>
+          <p className="text-white/60 mt-2">
             Restaurant Operating System — V6 Master
-          </div>
+          </p>
         </div>
 
-        {/* GRID */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: 16,
-          }}
-        >
-          {MODULES.map((mod) => (
-            <Link
-              key={mod.href}
-              href={mod.href}
-              style={{
-                textDecoration: 'none',
-              }}
-            >
-              <div
-                style={{
-                  background: THEME.panel,
-                  border: `1px solid ${THEME.border}`,
-                  borderRadius: 18,
-                  padding: 20,
-                  height: '100%',
-                  display: 'grid',
-                  gap: 10,
-                  cursor: 'pointer',
-                  transition: '0.2s',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                  }}
-                >
-                  {mod.title}
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                <div
-                  style={{
-                    color: THEME.muted,
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {mod.desc}
-                </div>
-              </div>
-            </Link>
-          ))}
+          <Link href="/control-final" className="block">
+            <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
+              <h2 className="text-white text-lg font-semibold mb-2">Control Panel</h2>
+              <p className="text-white/60 text-sm">
+                Run the full service: sales, production, stock, and daily save.
+              </p>
+            </div>
+          </Link>
+
+          <Link href="/dashboard" className="block">
+            <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
+              <h2 className="text-white text-lg font-semibold mb-2">Dashboard</h2>
+              <p className="text-white/60 text-sm">
+                Owner view: KPIs, AI manager, performance insights.
+              </p>
+            </div>
+          </Link>
+
+          <Link href="/history" className="block">
+            <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
+              <h2 className="text-white text-lg font-semibold mb-2">History</h2>
+              <p className="text-white/60 text-sm">
+                All saved days, analytics, and performance tracking.
+              </p>
+            </div>
+          </Link>
+
+          <Link href="/accounting" className="block">
+            <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
+              <h2 className="text-white text-lg font-semibold mb-2">Accounting</h2>
+              <p className="text-white/60 text-sm">
+                Track expenses, costs, and financial overview.
+              </p>
+            </div>
+          </Link>
+
+          <Link href="/payout" className="block">
+            <div className="rounded-2xl border border-white/10 p-6 bg-[#0b0b0b] hover:bg-white/5 transition cursor-pointer">
+              <h2 className="text-white text-lg font-semibold mb-2">Payout</h2>
+              <p className="text-white/60 text-sm">
+                Service charge split and staff payout control.
+              </p>
+            </div>
+          </Link>
+
         </div>
 
-        {/* FOOTER */}
-        <div
-          style={{
-            marginTop: 20,
-            color: THEME.muted,
-            fontSize: 12,
-          }}
-        >
+        <div className="mt-10 text-sm text-white/40">
           System Status: V6 MASTER ACTIVE
         </div>
       </div>
     </div>
-  )
+  );
 }

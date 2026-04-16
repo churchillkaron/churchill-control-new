@@ -17,22 +17,21 @@ export default function NavBar() {
   const pathname = usePathname();
 
   return (
-    <div className="fixed top-0 left-0 w-full z-50 border-b border-[#4a443b] bg-[#2f2a24]">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+    <div className="sticky top-0 z-50 w-full h-[70px] border-b border-[#a89c80] bg-[#b6a98a]">
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
 
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f5f1e8] text-[#2f2a24] text-sm font-bold">
-            ▲
+          <div className="text-orange-500 text-lg font-bold">
+            CC
           </div>
-          <div className="text-[#f5f1e8] text-base font-semibold">
+          <div className="text-[#2f2a24] text-base font-semibold">
             Churchill
           </div>
         </div>
 
         {/* Navigation */}
         <div className="flex gap-2 overflow-x-auto">
-
           {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -44,16 +43,16 @@ export default function NavBar() {
                 href={item.href}
                 className={`whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition ${
                   isActive
-                    ? "border-[#5a5247] bg-[#3a342d] text-[#f5f1e8]"
-                    : "border-[#4a443b] bg-[#2f2a24] text-[#d2c6b2] hover:bg-[#3a342d] hover:text-[#f5f1e8]"
+                    ? "border-[#a89c80] bg-[#cbbfa3] text-[#2f2a24]"
+                    : "border-[#a89c80] bg-[#b6a98a] text-[#2f2a24] hover:bg-[#cbbfa3]"
                 }`}
               >
                 {item.label}
               </Link>
             );
           })}
-
         </div>
+
       </div>
     </div>
   );

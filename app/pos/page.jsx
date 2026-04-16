@@ -20,7 +20,7 @@ export default function POS() {
     }
   }, []);
 
-  // 🍽 MENU (you can expand later)
+  // 🍽 MENU
   const menu = [
     { name: "Pad Thai", price: 160 },
     { name: "Green Curry", price: 170 },
@@ -29,19 +29,58 @@ export default function POS() {
     { name: "Tom Yum Goong", price: 180 },
   ];
 
+  // ➕ ADD DISH (SMART MERGE)
   const addDish = (dish) => {
     if (!table) return;
 
-    const newOrder = {
-      table,
-      items: 1,
-      total: dish.price,
-      name: dish.name,
-      staff: staffName,
-      status: "Open",
-    };
+    setOrders((prev) => {
+      const existing = prev.find(
+        (o) => o.table === table && o.name === dish.name
+      );
 
-    setOrders((prev) => [...prev, newOrder]);
+      if (existing) {
+        return prev.map((o) =>
+          o.table === table && o.name === dish.name
+            ? {
+                ...o,
+                items: o.items + 1,
+                total: o.total + dish.price,
+              }
+            : o
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          table,
+          items: 1,
+          total: dish.price,
+          name: dish.name,
+          staff: staffName,
+          status: "Open",
+        },
+      ];
+    });
+  };
+
+  // 🔄 STATUS FLOW
+  const updateStatus = (index) => {
+    setOrders((prev) =>
+      prev.map((order, i) => {
+        if (i !== index) return order;
+
+        if (order.status === "Open") {
+          return { ...order, status: "Preparing" };
+        }
+
+        if (order.status === "Preparing") {
+          return { ...order, status: "Served" };
+        }
+
+        return order;
+      })
+    );
   };
 
   const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
@@ -82,20 +121,17 @@ export default function POS() {
         </div>
 
         {/* TABLE INPUT */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 flex gap-4">
-
+        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6">
           <input
             value={table}
             onChange={(e) => setTable(e.target.value)}
             placeholder="Table number"
             className="bg-black/40 px-4 py-2 rounded-xl border border-white/10 w-full"
           />
-
         </div>
 
-        {/* 🍽 MENU GRID */}
+        {/* MENU */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-
           {menu.map((dish, i) => (
             <button
               key={i}
@@ -106,7 +142,6 @@ export default function POS() {
               <p className="text-sm text-white/50">THB {dish.price}</p>
             </button>
           ))}
-
         </div>
 
         {/* SUMMARY */}
@@ -115,7 +150,7 @@ export default function POS() {
           <h2 className="text-3xl mt-2">THB {totalRevenue}</h2>
         </div>
 
-        {/* ORDER LIST */}
+        {/* ORDERS */}
         <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 space-y-4">
 
           {orders.map((order, i) => (
@@ -124,10 +159,16 @@ export default function POS() {
               className="flex justify-between items-center p-4 rounded-xl bg-black/30 border border-white/10"
             >
               <div>{order.table}</div>
-              <div>{order.name}</div>
+              <div>{order.name} x{order.items}</div>
               <div>THB {order.total}</div>
               <div>{order.staff}</div>
-              <div className="text-[#ffb36b]">{order.status}</div>
+
+              <button
+                onClick={() => updateStatus(i)}
+                className="text-[#ffb36b]"
+              >
+                {order.status}
+              </button>
             </div>
           ))}
 

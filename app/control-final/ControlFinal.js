@@ -7,24 +7,24 @@ export default function ControlFinal() {
         <img
           src="/bg-beach.jpg"
           alt="bg"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover blur-[2px] scale-105"
         />
       </div>
 
-      {/* WARM OVERLAY (lighter now so background shows) */}
-      <div className="fixed inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(20,10,0,0.4),rgba(30,15,5,0.65))]" />
+      {/* WARM OVERLAY */}
+      <div className="fixed inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(20,10,0,0.25),rgba(30,15,5,0.45))]" />
 
-      {/* TOP LIGHT GLOW */}
+      {/* LIGHT GLOW */}
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,140,0,0.25),transparent_60%)]" />
 
       {/* MAIN */}
       <div className="pt-24 px-6 max-w-7xl mx-auto">
 
-        {/* GLASS CONTAINER */}
-        <div className="relative rounded-2xl backdrop-blur-xl bg-[rgba(30,20,10,0.35)] border border-[rgba(255,180,80,0.25)] shadow-[0_30px_80px_rgba(0,0,0,0.6)] p-6 space-y-6 overflow-hidden">
+        {/* MAIN GLASS CONTAINER */}
+        <div className="relative rounded-2xl backdrop-blur-xl bg-[rgba(30,20,10,0.30)] border border-[rgba(255,180,80,0.25)] shadow-[0_30px_80px_rgba(0,0,0,0.6)] p-6 space-y-6 overflow-hidden">
 
-          {/* LIGHT EDGE (glass effect) */}
-          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/10 to-transparent" />
+          {/* GLASS LIGHT EDGE */}
+          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/20 via-white/5 to-transparent" />
 
           {/* HEADER */}
           <div className="flex justify-between items-center relative">
@@ -37,7 +37,7 @@ export default function ControlFinal() {
               </p>
             </div>
 
-            <button className="px-5 py-2 rounded-lg bg-[#ff7a00] text-white font-medium shadow-[0_0_20px_rgba(255,122,0,0.7)] hover:opacity-90 transition">
+            <button className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#ff7a00] to-[#ffb36b] text-white font-medium shadow-[0_0_20px_rgba(255,122,0,0.7)] hover:opacity-90 transition">
               Save Set
             </button>
           </div>
@@ -46,7 +46,7 @@ export default function ControlFinal() {
           <div className="grid grid-cols-3 gap-6 relative">
 
             {/* LEFT PANEL */}
-            <div className="col-span-1 rounded-xl backdrop-blur-md bg-[rgba(20,15,10,0.45)] border border-white/10 p-4 space-y-4">
+            <div className="col-span-1 rounded-xl backdrop-blur-md bg-[rgba(20,15,10,0.30)] border border-white/10 p-4 space-y-4 transition hover:scale-[1.01]">
 
               <h3 className="font-medium">
                 Today’s Performance
@@ -93,7 +93,7 @@ export default function ControlFinal() {
             </div>
 
             {/* RIGHT PANEL */}
-            <div className="col-span-2 rounded-xl backdrop-blur-md bg-[rgba(40,25,10,0.45)] border border-[rgba(255,180,80,0.2)] p-6 space-y-4">
+            <div className="col-span-2 rounded-xl backdrop-blur-md bg-[rgba(40,25,10,0.30)] border border-[rgba(255,180,80,0.2)] p-6 space-y-4 transition hover:scale-[1.005]">
 
               {/* HEADER */}
               <div className="flex justify-between items-center">

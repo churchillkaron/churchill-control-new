@@ -7,7 +7,7 @@ export default function Home() {
         <img
           src="/bg-hero-control.jpg"
           alt="hero"
-          className="w-full h-full object-cover scale-105 animate-[zoom_20s_linear_infinite]"
+          className="w-full h-full object-cover animate-[zoom_20s_linear_infinite]"
         />
       </div>
 
@@ -18,7 +18,7 @@ export default function Home() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_25%_35%,rgba(255,140,0,0.25),transparent_60%)] animate-[pulseGlow_6s_ease-in-out_infinite]" />
 
       {/* CONTENT */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-32">
+      <div className="relative z-10 flex items-center min-h-screen max-w-7xl mx-auto px-6">
 
         <div className="max-w-2xl space-y-6">
 
@@ -35,12 +35,13 @@ export default function Home() {
             for premium hospitality venues.
           </p>
 
+          {/* MAIN CTA */}
           <div className="opacity-0 animate-[fadeUp_1s_ease-out_0.6s_forwards]">
             <a
               href="/control-final"
-              className="inline-block px-8 py-4 rounded-xl bg-gradient-to-r from-[#ff7a00] to-[#ffb36b] text-white text-lg font-medium shadow-[0_0_25px_rgba(255,122,0,0.7)] hover:scale-[1.08] hover:shadow-[0_0_40px_rgba(255,122,0,1)] transition"
+              className="inline-block px-10 py-5 rounded-2xl bg-gradient-to-r from-[#ff7a00] to-[#ffb36b] text-white text-xl font-medium shadow-[0_0_40px_rgba(255,122,0,0.9)] hover:scale-[1.1] hover:shadow-[0_0_60px_rgba(255,122,0,1)] transition"
             >
-              Enter Control →
+              Get Connected →
             </a>
           </div>
 

@@ -3,11 +3,11 @@ import "./globals.css";
 export const metadata = {
   title: "Churchill Control System",
   description:
-    "Luxury hospitality control system for restaurants, beach clubs and premium venues.",
+    "Real-time control of revenue, performance, and operations for premium hospitality venues.",
   openGraph: {
     title: "Churchill Control System",
     description:
-      "Luxury hospitality control system for restaurants, beach clubs and premium venues.",
+      "Command your venue with real-time operational control.",
     url: "https://app.churchillkaron.com",
     siteName: "Churchill",
     images: [
@@ -32,22 +32,18 @@ export default function RootLayout({ children }) {
 
           <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
 
-            {/* LOGO (UPGRADED SIZE) */}
+            {/* LOGO */}
             <div className="flex items-center gap-4">
-
               <span className="text-[#ff7a00] font-semibold text-2xl tracking-wider">
                 CC
               </span>
-
               <span className="text-white text-xl tracking-wide font-light">
                 Churchill
               </span>
-
             </div>
 
             {/* NAV */}
             <div className="hidden md:flex gap-3 text-sm">
-
               {["Home","Control","Dashboard","POS","History","Accounting","Payout"].map((item) => (
                 <button
                   key={item}
@@ -56,14 +52,15 @@ export default function RootLayout({ children }) {
                   {item}
                 </button>
               ))}
-
             </div>
 
           </div>
         </div>
 
-        {/* PAGE */}
-        <main className="pt-20">{children}</main>
+        {/* CONTENT */}
+        <main className="pt-20">
+          {children}
+        </main>
 
       </body>
     </html>

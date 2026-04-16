@@ -2,29 +2,29 @@ export default function ControlFinal() {
   return (
     <div className="relative min-h-screen text-white">
 
-      {/* BACKGROUND IMAGE */}
+      {/* BACKGROUND */}
       <div className="fixed inset-0 -z-30">
         <img
           src="/bg-beach.jpg"
           alt="bg"
-          className="w-full h-full object-cover blur-[2px] scale-105"
+          className="w-full h-full object-cover blur-[3px] scale-105"
         />
       </div>
 
-      {/* WARM OVERLAY */}
-      <div className="fixed inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(20,10,0,0.25),rgba(30,15,5,0.45))]" />
+      {/* BALANCED OVERLAY */}
+      <div className="fixed inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(15,8,0,0.35),rgba(25,12,3,0.55))]" />
 
-      {/* LIGHT GLOW */}
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,140,0,0.25),transparent_60%)]" />
+      {/* FOCUS LIGHT */}
+      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_70%_30%,rgba(255,140,0,0.25),transparent_60%)]" />
 
       {/* MAIN */}
       <div className="pt-24 px-6 max-w-7xl mx-auto">
 
-        {/* MAIN GLASS CONTAINER */}
-        <div className="relative rounded-2xl backdrop-blur-xl bg-[rgba(30,20,10,0.30)] border border-[rgba(255,180,80,0.25)] shadow-[0_30px_80px_rgba(0,0,0,0.6)] p-6 space-y-6 overflow-hidden">
+        {/* MAIN GLASS */}
+        <div className="relative rounded-2xl backdrop-blur-xl bg-[rgba(20,15,10,0.25)] border border-[rgba(255,200,120,0.35)] shadow-[0_40px_100px_rgba(0,0,0,0.7)] p-6 space-y-6 overflow-hidden">
 
-          {/* GLASS LIGHT EDGE */}
-          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/20 via-white/5 to-transparent" />
+          {/* GLASS EDGE */}
+          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/25 via-white/5 to-transparent" />
 
           {/* HEADER */}
           <div className="flex justify-between items-center relative">
@@ -37,7 +37,7 @@ export default function ControlFinal() {
               </p>
             </div>
 
-            <button className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#ff7a00] to-[#ffb36b] text-white font-medium shadow-[0_0_20px_rgba(255,122,0,0.7)] hover:opacity-90 transition">
+            <button className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#ff7a00] to-[#ffb36b] text-white font-medium shadow-[0_0_25px_rgba(255,122,0,0.8)] hover:scale-[1.03] transition">
               Save Set
             </button>
           </div>
@@ -45,8 +45,8 @@ export default function ControlFinal() {
           {/* GRID */}
           <div className="grid grid-cols-3 gap-6 relative">
 
-            {/* LEFT PANEL */}
-            <div className="col-span-1 rounded-xl backdrop-blur-md bg-[rgba(20,15,10,0.30)] border border-white/10 p-4 space-y-4 transition hover:scale-[1.01]">
+            {/* LEFT PANEL (darker) */}
+            <div className="col-span-1 rounded-xl backdrop-blur-md bg-[rgba(15,10,5,0.35)] border border-white/10 p-4 space-y-4">
 
               <h3 className="font-medium">
                 Today’s Performance
@@ -66,7 +66,7 @@ export default function ControlFinal() {
                 {[30, 50, 45, 60, 55, 65, 70].map((h, i) => (
                   <div
                     key={i}
-                    className="flex-1 rounded-md bg-gradient-to-t from-[#ff7a00] to-[#ffb36b] shadow-[0_4px_12px_rgba(255,122,0,0.5)]"
+                    className="flex-1 rounded-md bg-gradient-to-t from-[#ff7a00] to-[#ffb36b] shadow-[0_6px_14px_rgba(255,122,0,0.6)]"
                     style={{ height: `${h}%` }}
                   />
                 ))}
@@ -92,10 +92,9 @@ export default function ControlFinal() {
 
             </div>
 
-            {/* RIGHT PANEL */}
-            <div className="col-span-2 rounded-xl backdrop-blur-md bg-[rgba(40,25,10,0.30)] border border-[rgba(255,180,80,0.2)] p-6 space-y-4 transition hover:scale-[1.005]">
+            {/* RIGHT PANEL (lighter focus) */}
+            <div className="col-span-2 rounded-xl backdrop-blur-md bg-[rgba(40,25,10,0.20)] border border-[rgba(255,200,120,0.25)] p-6 space-y-4">
 
-              {/* HEADER */}
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold">
                   Dish Control
@@ -107,14 +106,12 @@ export default function ControlFinal() {
                 />
               </div>
 
-              {/* TABLE HEAD */}
               <div className="grid grid-cols-3 text-sm text-white/50 border-b border-white/10 pb-2">
                 <div>Dish</div>
                 <div className="text-center">Sold</div>
                 <div className="text-right">Revenue</div>
               </div>
 
-              {/* ROWS */}
               {[
                 { name: "Pad Thai", sold: 85, revenue: "42,500" },
                 { name: "Tuna Tartare", sold: 54, revenue: "21,600" },
@@ -132,9 +129,7 @@ export default function ControlFinal() {
                 </div>
               ))}
 
-              {/* FOOTER */}
               <div className="flex justify-between items-center pt-4">
-
                 <p className="text-green-400">
                   ✓ Logic Validated
                 </p>
@@ -142,7 +137,6 @@ export default function ControlFinal() {
                 <button className="px-4 py-2 rounded-lg bg-white/10 border border-white/10 hover:bg-white/20 transition">
                   Save Set
                 </button>
-
               </div>
 
               <div className="flex justify-between text-sm pt-2">

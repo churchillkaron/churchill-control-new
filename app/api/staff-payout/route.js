@@ -1,21 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
 export async function GET() {
+
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_ANON_KEY
   )
 
-  // =========================
   // GET SALES
-  // =========================
   const { data: salesData } = await supabase
     .from('pos-sales')
     .select('*')
 
-  // =========================
   // GROUP STAFF BY ROLE
-  // =========================
   const roles = {
     FOH: [],
     BAR: [],
@@ -24,7 +21,7 @@ export async function GET() {
 
   ;(salesData || []).forEach(sale => {
     const name = sale.staff || 'Unknown'
-    const role = sale.role || 'FOH' // fallback
+    const role = sale.role || 'FOH'
 
     if (!roles[role]) roles[role] = []
 
@@ -33,20 +30,18 @@ export async function GET() {
     }
   })
 
-  // =========================
-  // GET SERVICE CHARGE
-  // =========================
-  const { data: summary } = await fetch(
-    process.env.NEXT_PUBLIC_BASE_URL + '/api/accounting-summary'
-  ).then(res => res.json())
+  // GET SERVICE CHARGE DIRECTLY (NO API CALL INSIDE API)
+  const revenue = (salesData || []).reduce(
+    (sum, s) => sum + Number(s.total || 0),
+    0
+  )
 
-  const fohTotal = summary.foh || 0
-  const barTotal = summary.bar || 0
-  const kitchenTotal = summary.kitchen || 0
+  const base = revenue * 0.05
 
-  // =========================
-  // SPLIT LOGIC
-  // =========================
+  const fohTotal = base * 0.5
+  const barTotal = base * 0.3
+  const kitchenTotal = base * 0.2
+
   const split = (total, people) => {
     if (!people.length) return []
     const share = Math.round(total / people.length)

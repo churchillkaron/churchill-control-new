@@ -1,3 +1,4 @@
+import './globals.css'
 import NavBar from './components/NavBar'
 
 export const metadata = {
@@ -8,29 +9,17 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        style={{
-          margin: 0,
-          padding: 0,
-          background: '#e6dcc7',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-        }}
-      >
+      <body className="bg-[#e6dcc7] text-[#2f2a24] font-sans">
+
         <NavBar />
 
-        <main>
+        {/* MAIN CONTENT */}
+        <main className="pt-20 px-6 max-w-7xl mx-auto">
           {children}
         </main>
 
-        {/* ===== FOOTER ===== */}
-        <div style={{
-          marginTop: "40px",
-          padding: "20px",
-          textAlign: "center",
-          fontSize: "12px",
-          color: "#6b6458",
-          borderTop: "1px solid #9f9478"
-        }}>
+        {/* FOOTER */}
+        <div className="mt-16 border-t border-[#9f9478] py-6 text-center text-sm text-[#6b6458]">
           © {new Date().getFullYear()} Churchill Control System — Built for precision, performance, and profit.
         </div>
 

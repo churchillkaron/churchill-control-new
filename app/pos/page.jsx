@@ -15,19 +15,45 @@ const THEME = {
   green: '#14532d',
 }
 
+const CATEGORY_ORDER = [
+  'All',
+  'Starter',
+  'Main Course',
+  'Dessert',
+  'Beer',
+  'Wine',
+  'Soft Drink',
+  'Champagne',
+]
+
+const STAFF_OPTIONS = ['John', 'Anna', 'Mike']
+
 const MENU_ITEMS = [
-  { id: 1, name: 'English Breakfast', price: 290, category: 'Breakfast' },
-  { id: 2, name: 'Chicken Caesar Salad', price: 260, category: 'Salad' },
-  { id: 3, name: 'Margherita Pizza', price: 320, category: 'Pizza' },
-  { id: 4, name: 'Pepperoni Pizza', price: 360, category: 'Pizza' },
-  { id: 5, name: 'Cheeseburger', price: 280, category: 'Burger' },
-  { id: 6, name: 'Steak Sandwich', price: 340, category: 'Sandwich' },
-  { id: 7, name: 'Pulled Beef Pasta', price: 350, category: 'Pasta' },
-  { id: 8, name: 'Fish and Chips', price: 330, category: 'Main' },
-  { id: 9, name: 'Tosca Roll', price: 120, category: 'Bakery' },
-  { id: 10, name: 'Cinnamon Roll', price: 110, category: 'Bakery' },
-  { id: 11, name: 'Peach Soda', price: 95, category: 'Drinks' },
-  { id: 12, name: 'Americano', price: 90, category: 'Drinks' },
+  { id: 1, name: 'Beef Carpaccio', price: 320, category: 'Starter' },
+  { id: 2, name: 'Chili & Garlic Prawns', price: 320, category: 'Starter' },
+  { id: 3, name: 'Signature Bruschetta', price: 280, category: 'Starter' },
+  { id: 4, name: 'Seared Scallops', price: 520, category: 'Starter' },
+  { id: 5, name: 'Mango & Tomato Salad', price: 220, category: 'Starter' },
+  { id: 6, name: 'Tom Yum Goong', price: 180, category: 'Starter' },
+  { id: 7, name: 'Tom Kha Gai', price: 170, category: 'Starter' },
+  { id: 8, name: 'Churchill Beef Short Ribs', price: 890, category: 'Main Course' },
+  { id: 9, name: 'Ribeye Steak', price: 890, category: 'Main Course' },
+  { id: 10, name: 'Beef Tenderloin', price: 920, category: 'Main Course' },
+  { id: 11, name: 'Pork Tenderloin', price: 460, category: 'Main Course' },
+  { id: 12, name: 'Salmon', price: 690, category: 'Main Course' },
+  { id: 13, name: 'Churchill Sambal Half Chicken', price: 590, category: 'Main Course' },
+  { id: 14, name: 'Veal Stew', price: 850, category: 'Main Course' },
+  { id: 15, name: 'Pad Thai', price: 160, category: 'Main Course' },
+  { id: 16, name: 'Pad Ka Prow', price: 150, category: 'Main Course' },
+  { id: 17, name: 'Stir-Fried Chicken with Cashew Nuts', price: 180, category: 'Main Course' },
+  { id: 18, name: 'Beef with Oyster Sauce', price: 220, category: 'Main Course' },
+  { id: 19, name: 'Massaman Curry', price: 180, category: 'Main Course' },
+  { id: 20, name: 'Green Curry', price: 170, category: 'Main Course' },
+  { id: 21, name: 'Panang Curry', price: 175, category: 'Main Course' },
+  { id: 22, name: 'Pineapple Fried Rice', price: 160, category: 'Main Course' },
+  { id: 23, name: 'Potato Gratin', price: 120, category: 'Main Course' },
+  { id: 24, name: 'Crispy Potato Wedges', price: 100, category: 'Main Course' },
+  { id: 25, name: 'Cauliflower Puree', price: 120, category: 'Main Course' },
 ]
 
 function formatTHB(value) {
@@ -58,6 +84,8 @@ export default function POSPage() {
   const [discount, setDiscount] = useState(0)
   const [cashReceived, setCashReceived] = useState('')
   const [orderNote, setOrderNote] = useState('')
+  const [customers, setCustomers] = useState(1)
+  const [defaultStaff, setDefaultStaff] = useState(STAFF_OPTIONS[0])
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [lastReceipt, setLastReceipt] = useState(null)
@@ -65,7 +93,8 @@ export default function POSPage() {
   const [loadingSales, setLoadingSales] = useState(false)
 
   const categories = useMemo(() => {
-    return ['All', ...Array.from(new Set(MENU_ITEMS.map((item) => item.category)))]
+    const menuCategories = Array.from(new Set(MENU_ITEMS.map((item) => item.category)))
+    return CATEGORY_ORDER.filter((cat) => cat === 'All' || menuCategories.includes(cat))
   }, [])
 
   const filteredItems = useMemo(() => {
@@ -117,56 +146,55 @@ export default function POSPage() {
   }, [])
 
   const addItem = (menuItem) => {
-    setOrderItems((prev) => {
-      const existing = prev.find((item) => item.id === menuItem.id)
-
-      if (existing) {
-        return prev.map((item) =>
-          item.id === menuItem.id
-            ? { ...item, qty: item.qty + 1 }
-            : item
-        )
-      }
-
-      return [
-        ...prev,
-        {
-          id: menuItem.id,
-          name: menuItem.name,
-          price: menuItem.price,
-          qty: 1,
-          note: '',
-        },
-      ]
-    })
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        lineId: `${menuItem.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: menuItem.id,
+        name: menuItem.name,
+        price: menuItem.price,
+        qty: 1,
+        note: '',
+        category: menuItem.category,
+        staff: defaultStaff,
+      },
+    ])
   }
 
-  const increaseQty = (id) => {
+  const increaseQty = (lineId) => {
     setOrderItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, qty: item.qty + 1 } : item
+        item.lineId === lineId ? { ...item, qty: item.qty + 1 } : item
       )
     )
   }
 
-  const decreaseQty = (id) => {
+  const decreaseQty = (lineId) => {
     setOrderItems((prev) =>
       prev
         .map((item) =>
-          item.id === id ? { ...item, qty: item.qty - 1 } : item
+          item.lineId === lineId ? { ...item, qty: item.qty - 1 } : item
         )
         .filter((item) => item.qty > 0)
     )
   }
 
-  const removeItem = (id) => {
-    setOrderItems((prev) => prev.filter((item) => item.id !== id))
+  const removeItem = (lineId) => {
+    setOrderItems((prev) => prev.filter((item) => item.lineId !== lineId))
   }
 
-  const updateItemNote = (id, value) => {
+  const updateItemNote = (lineId, value) => {
     setOrderItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, note: value } : item
+        item.lineId === lineId ? { ...item, note: value } : item
+      )
+    )
+  }
+
+  const updateItemStaff = (lineId, value) => {
+    setOrderItems((prev) =>
+      prev.map((item) =>
+        item.lineId === lineId ? { ...item, staff: value } : item
       )
     )
   }
@@ -177,6 +205,7 @@ export default function POSPage() {
     setDiscount(0)
     setCashReceived('')
     setOrderNote('')
+    setCustomers(1)
     setSaveError('')
   }
 
@@ -186,6 +215,16 @@ export default function POSPage() {
 
     if (!orderItems.length) {
       setSaveError('Add at least one item before completing the sale.')
+      return
+    }
+
+    if (Number(customers || 0) < 1) {
+      setSaveError('Customers must be at least 1.')
+      return
+    }
+
+    if (orderItems.some((item) => !item.staff)) {
+      setSaveError('Every item must have a staff member assigned.')
       return
     }
 
@@ -208,7 +247,16 @@ export default function POSPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          items: orderItems,
+          items: orderItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            qty: item.qty,
+            quantity: item.qty,
+            note: item.note,
+            category: item.category,
+            staff: item.staff,
+          })),
           subtotal,
           service: Number(serviceCharge || 0),
           discount: Number(discount || 0),
@@ -216,6 +264,7 @@ export default function POSPage() {
           cash: Number(cashReceived || 0),
           change,
           note: orderNote,
+          customers: Number(customers || 1),
         }),
       })
 
@@ -231,12 +280,7 @@ export default function POSPage() {
         total,
       })
 
-      setOrderItems([])
-      setServiceCharge(0)
-      setDiscount(0)
-      setCashReceived('')
-      setOrderNote('')
-
+      resetSale()
       fetchSales()
     } catch (error) {
       setSaveError(error.message || 'Failed to save sale.')
@@ -673,6 +717,7 @@ export default function POSPage() {
                   background: THEME.soft,
                   border: `1px solid ${THEME.border}`,
                   color: THEME.muted,
+                  marginBottom: '18px',
                 }}
               >
                 No items added yet.
@@ -688,7 +733,7 @@ export default function POSPage() {
               >
                 {orderItems.map((item) => (
                   <div
-                    key={item.id}
+                    key={item.lineId}
                     style={{
                       border: `1px solid ${THEME.border}`,
                       background: THEME.soft,
@@ -713,7 +758,7 @@ export default function POSPage() {
                       </div>
 
                       <button
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => removeItem(item.lineId)}
                         style={{
                           background: THEME.red,
                           color: '#fff',
@@ -738,7 +783,7 @@ export default function POSPage() {
                       }}
                     >
                       <button
-                        onClick={() => decreaseQty(item.id)}
+                        onClick={() => decreaseQty(item.lineId)}
                         style={{
                           width: '36px',
                           height: '36px',
@@ -764,7 +809,7 @@ export default function POSPage() {
                       </div>
 
                       <button
-                        onClick={() => increaseQty(item.id)}
+                        onClick={() => increaseQty(item.lineId)}
                         style={{
                           width: '36px',
                           height: '36px',
@@ -778,6 +823,26 @@ export default function POSPage() {
                       >
                         +
                       </button>
+
+                      <select
+                        value={item.staff}
+                        onChange={(e) => updateItemStaff(item.lineId, e.target.value)}
+                        style={{
+                          marginLeft: '8px',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          border: `1px solid ${THEME.border}`,
+                          background: THEME.panel,
+                          color: THEME.text,
+                          outline: 'none',
+                        }}
+                      >
+                        {STAFF_OPTIONS.map((staffName) => (
+                          <option key={staffName} value={staffName}>
+                            {staffName}
+                          </option>
+                        ))}
+                      </select>
 
                       <div
                         style={{
@@ -794,7 +859,7 @@ export default function POSPage() {
                       type="text"
                       placeholder="Item note..."
                       value={item.note}
-                      onChange={(e) => updateItemNote(item.id, e.target.value)}
+                      onChange={(e) => updateItemNote(item.lineId, e.target.value)}
                       style={{
                         width: '100%',
                         padding: '10px 12px',
@@ -817,6 +882,43 @@ export default function POSPage() {
                 marginBottom: '18px',
               }}
             >
+              <select
+                value={defaultStaff}
+                onChange={(e) => setDefaultStaff(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  border: `1px solid ${THEME.border}`,
+                  background: THEME.soft,
+                  color: THEME.text,
+                  outline: 'none',
+                }}
+              >
+                {STAFF_OPTIONS.map((staffName) => (
+                  <option key={staffName} value={staffName}>
+                    Default Staff: {staffName}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="number"
+                min="1"
+                placeholder="Customers"
+                value={customers}
+                onChange={(e) => setCustomers(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  border: `1px solid ${THEME.border}`,
+                  background: THEME.soft,
+                  color: THEME.text,
+                  outline: 'none',
+                }}
+              />
+
               <textarea
                 placeholder="Order note..."
                 value={orderNote}
@@ -894,34 +996,24 @@ export default function POSPage() {
                 marginBottom: '16px',
               }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                }}
-              >
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: THEME.muted }}>Subtotal</span>
                 <strong>{formatTHB(subtotal)}</strong>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                }}
-              >
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: THEME.muted }}>Service</span>
                 <strong>{formatTHB(serviceCharge)}</strong>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                }}
-              >
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: THEME.muted }}>Discount</span>
                 <strong>- {formatTHB(discount)}</strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: THEME.muted }}>Customers</span>
+                <strong>{customers || 1}</strong>
               </div>
 
               <div
@@ -937,12 +1029,7 @@ export default function POSPage() {
                 <strong style={{ color: THEME.orange }}>{formatTHB(total)}</strong>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                }}
-              >
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: THEME.muted }}>Change</span>
                 <strong
                   style={{

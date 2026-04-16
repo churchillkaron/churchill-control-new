@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react'
 export default function AccountingPage() {
   const [expenses, setExpenses] = useState([])
   const [form, setForm] = useState({
-    staff: 'John',
+    staff: '',
     amount: '',
-    category: 'General',
-    department: 'General',
+    category: '',
+    department: '',
     note: '',
     file: null
   })
@@ -18,92 +18,99 @@ export default function AccountingPage() {
   }, [])
 
   const fetchExpenses = async () => {
-    const res = await fetch('/api/accounting-expenses')
-    const data = await res.json()
-    setExpenses(data || [])
+    try {
+      const res = await fetch('/api/accounting-expenses')
+      const data = await res.json()
+
+      // HANDLE BOTH FORMATS
+      if (Array.isArray(data)) {
+        setExpenses(data)
+      } else if (Array.isArray(data.data)) {
+        setExpenses(data.data)
+      } else {
+        setExpenses([])
+      }
+    } catch (err) {
+      console.error('Fetch error:', err)
+      setExpenses([])
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    const formData = new FormData()
-    Object.keys(form).forEach(key => {
-      formData.append(key, form[key])
-    })
+    try {
+      const formData = new FormData()
+      Object.entries(form).forEach(([key, value]) => {
+        if (value) formData.append(key, value)
+      })
 
-    await fetch('/api/accounting-expenses', {
-      method: 'POST',
-      body: formData
-    })
+      await fetch('/api/accounting-expenses', {
+        method: 'POST',
+        body: formData
+      })
 
-    setForm({
-      staff: 'John',
-      amount: '',
-      category: 'General',
-      department: 'General',
-      note: '',
-      file: null
-    })
+      setForm({
+        staff: '',
+        amount: '',
+        category: '',
+        department: '',
+        note: '',
+        file: null
+      })
 
-    fetchExpenses()
+      fetchExpenses()
+    } catch (err) {
+      console.error('Submit error:', err)
+    }
   }
 
-  // SUMMARY CALCULATION
-  const total = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0)
-
-  const byCategory = {}
-  expenses.forEach(e => {
-    const cat = e.category || 'Other'
-    byCategory[cat] = (byCategory[cat] || 0) + Number(e.amount || 0)
-  })
+  // SAFE CALCULATIONS
+  const total = expenses.reduce(
+    (sum, e) => sum + Number(e?.amount || 0),
+    0
+  )
 
   return (
     <div className="p-6 text-white space-y-6">
 
       {/* SUMMARY */}
       <div className="bg-[#111] p-6 rounded-2xl">
-        <h2 className="text-lg text-gray-400 mb-4">ACCOUNTING SUMMARY</h2>
-
-        <div className="text-2xl font-bold mb-4">
-          Total: THB {total}
-        </div>
-
-        <div className="space-y-1 text-sm text-gray-300">
-          {Object.entries(byCategory).map(([cat, value]) => (
-            <div key={cat}>
-              {cat}: THB {value}
-            </div>
-          ))}
-        </div>
+        <h2 className="text-lg text-gray-400 mb-4">SUMMARY</h2>
+        <p className="text-2xl font-bold">THB {total}</p>
       </div>
 
-      {/* EXPENSE LIST */}
+      {/* LIST */}
       <div className="bg-[#111] p-6 rounded-2xl">
         <h2 className="text-lg text-gray-400 mb-4">EXPENSES</h2>
 
-        <div className="space-y-3 max-h-[400px] overflow-y-auto">
+        {expenses.length === 0 && (
+          <p className="text-gray-500 text-sm">No expenses yet</p>
+        )}
+
+        <div className="space-y-3">
           {expenses.map((e, i) => (
             <div key={i} className="bg-[#1a1a1a] p-4 rounded-xl text-sm">
               <div className="flex justify-between">
-                <span>{e.category}</span>
-                <span>THB {e.amount}</span>
+                <span>{e?.category || 'Unknown'}</span>
+                <span>THB {e?.amount || 0}</span>
               </div>
 
               <div className="text-gray-400 text-xs">
-                {e.staff} • {e.department}
+                {e?.staff || '-'} • {e?.department || '-'}
               </div>
 
-              {e.note && (
+              {e?.note && (
                 <div className="text-gray-500 text-xs mt-1">
                   {e.note}
                 </div>
               )}
 
-              {e.image_url && (
+              {(e?.image_url || e?.image || e?.file) && (
                 <a
-                  href={e.image_url}
+                  href={e.image_url || e.image || e.file}
                   target="_blank"
-                  className="text-blue-400 text-xs underline mt-1 block"
+                  className="text-blue-400 text-xs underline block mt-1"
                 >
                   View Receipt
                 </a>
@@ -113,9 +120,9 @@ export default function AccountingPage() {
         </div>
       </div>
 
-      {/* UPLOAD FORM */}
+      {/* FORM */}
       <div className="bg-[#111] p-6 rounded-2xl">
-        <h2 className="text-lg text-gray-400 mb-4">UPLOAD EXPENSE</h2>
+        <h2 className="text-lg text-gray-400 mb-4">ADD EXPENSE</h2>
 
         <form onSubmit={handleSubmit} className="space-y-3">
 
@@ -149,7 +156,9 @@ export default function AccountingPage() {
 
           <input
             type="file"
-            onChange={e => setForm({ ...form, file: e.target.files[0] })}
+            onChange={e =>
+              setForm({ ...form, file: e.target.files[0] })
+            }
           />
 
           <button className="bg-orange-500 w-full py-3 rounded-xl font-bold">

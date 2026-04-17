@@ -8,20 +8,66 @@ export default function Dashboard() {
   const [staffActions, setStaffActions] = useState({});
 
   useEffect(() => {
-    const payroll =
-      JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
-
     const attendance =
       JSON.parse(localStorage.getItem("attendance")) || [];
 
     const actions =
       JSON.parse(localStorage.getItem("staffActions")) || {};
 
-    setMonthlyPayroll(payroll);
     setAttendanceData(attendance);
 
+    // ✅ RUN SYSTEM
     runSystem(attendance, actions);
+
+    // ✅ AUTO PAYROLL (THIS WAS MISSING)
+    const payroll = generatePayroll();
+    setMonthlyPayroll(payroll);
   }, []);
+
+  // =========================
+  // AUTO PAYROLL GENERATION
+  // =========================
+  const generatePayroll = () => {
+    const history =
+      JSON.parse(localStorage.getItem("history")) || [];
+
+    if (history.length === 0) return null;
+
+    const staffMap = {};
+
+    history.forEach((day) => {
+      day.staff?.forEach((s) => {
+        if (!staffMap[s.name]) {
+          staffMap[s.name] = {
+            name: s.name,
+            salary: 0,
+            bonus: 0,
+            total: 0,
+            staffConfirmed: false,
+            managerApproved: false,
+            paymentConfirmed: false,
+          };
+        }
+
+        // 👉 service charge payout = bonus
+        staffMap[s.name].bonus += Number(s.payout || 0);
+      });
+    });
+
+    const staffArray = Object.values(staffMap).map((s) => ({
+      ...s,
+      total: s.salary + s.bonus,
+    }));
+
+    const result = {
+      createdAt: new Date().toISOString(),
+      staff: staffArray,
+    };
+
+    localStorage.setItem("monthlyPayroll", JSON.stringify(result));
+
+    return result;
+  };
 
   // =========================
   // MAIN SYSTEM ENGINE
@@ -140,9 +186,6 @@ export default function Dashboard() {
     return updated;
   };
 
-  // =========================
-  // UI COLOR
-  // =========================
   const getActionColor = (action) => {
     if (action === "Final Warning") return "text-red-500";
     if (action === "Under Review") return "text-yellow-400";

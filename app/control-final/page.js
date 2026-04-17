@@ -27,7 +27,6 @@ export default function ControlFinal() {
     setTotalRevenue(revenue);
   };
 
-  // 🔥 FIXED SAVE DAY (USES REAL INPUTS)
   const saveDay = () => {
     const orders = JSON.parse(localStorage.getItem("orders")) || [];
 
@@ -39,64 +38,45 @@ export default function ControlFinal() {
     const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
     const serviceCharge = revenue * 0.05;
 
-    // 🔥 LOAD REAL INPUTS FROM PAYOUT PAGE
     const barWaste = Number(localStorage.getItem("barWaste")) || 0;
     const kitchenCost = Number(localStorage.getItem("kitchenCost")) || 30;
 
-    // FOH
-    let fohLevel = 0;
-    let fohStatus = "CRITICAL";
+    // FOH LEVEL
+    let fohLevel = revenue >= 50000 ? 100 : revenue >= 30000 ? 70 : revenue >= 15000 ? 40 : 0;
 
-    if (revenue >= 50000) {
-      fohLevel = 100;
-      fohStatus = "GOOD";
-    } else if (revenue >= 30000) {
-      fohLevel = 70;
-      fohStatus = "WARNING";
-    } else if (revenue >= 15000) {
-      fohLevel = 40;
-      fohStatus = "BAD";
-    }
+    // BAR LEVEL
+    let barLevel = barWaste < 1000 ? 100 : barWaste < 2000 ? 70 : barWaste < 4000 ? 40 : 0;
 
-    // BAR
-    let barLevel = 0;
-    let barStatus = "CRITICAL";
+    // KITCHEN LEVEL
+    let kitchenLevel = kitchenCost <= 30 ? 100 : kitchenCost <= 35 ? 70 : kitchenCost <= 40 ? 40 : 0;
 
-    if (barWaste < 1000) {
-      barLevel = 100;
-      barStatus = "GOOD";
-    } else if (barWaste < 2000) {
-      barLevel = 70;
-      barStatus = "WARNING";
-    } else if (barWaste < 4000) {
-      barLevel = 40;
-      barStatus = "BAD";
-    }
+    // POOLS
+    const fohPool = serviceCharge * 0.5 * (fohLevel / 100);
+    const barPool = serviceCharge * 0.3 * (barLevel / 100);
+    const kitchenPool = serviceCharge * 0.2 * (kitchenLevel / 100);
 
-    // KITCHEN
-    let kitchenLevel = 0;
-    let kitchenStatus = "CRITICAL";
+    // 🔥 STAFF SPLIT (THIS IS WHAT YOU WERE MISSING)
+    const staffMap = {};
 
-    if (kitchenCost <= 30) {
-      kitchenLevel = 100;
-      kitchenStatus = "GOOD";
-    } else if (kitchenCost <= 35) {
-      kitchenLevel = 70;
-      kitchenStatus = "WARNING";
-    } else if (kitchenCost <= 40) {
-      kitchenLevel = 40;
-      kitchenStatus = "BAD";
-    }
+    orders.forEach((order) => {
+      if (!staffMap[order.staff]) {
+        staffMap[order.staff] = 0;
+      }
+      staffMap[order.staff] += Number(order.total);
+    });
 
-    // Pools
-    const fohPool = serviceCharge * 0.5;
-    const barPool = serviceCharge * 0.3;
-    const kitchenPool = serviceCharge * 0.2;
+    const totalFOHRevenue = Object.values(staffMap).reduce((a, b) => a + b, 0);
 
-    // Final payouts
-    const fohPayout = fohPool * (fohLevel / 100);
-    const barPayout = barPool * (barLevel / 100);
-    const kitchenPayout = kitchenPool * (kitchenLevel / 100);
+    const staffBreakdown = Object.entries(staffMap).map(([name, value]) => {
+      const share = totalFOHRevenue > 0 ? value / totalFOHRevenue : 0;
+      const payout = fohPool * share;
+
+      return {
+        name,
+        revenue: value,
+        payout,
+      };
+    });
 
     const today = new Date().toLocaleDateString("en-GB");
 
@@ -107,20 +87,12 @@ export default function ControlFinal() {
       date: today,
       revenue,
       serviceCharge,
-      inputs: {
-        barWaste,
-        kitchenCost,
-      },
-      status: {
-        foh: fohStatus,
-        bar: barStatus,
-        kitchen: kitchenStatus,
-      },
       payouts: {
-        foh: fohPayout,
-        bar: barPayout,
-        kitchen: kitchenPayout,
+        foh: fohPool,
+        bar: barPool,
+        kitchen: kitchenPool,
       },
+      staff: staffBreakdown, // 🔥 THIS LINE IS CRITICAL
       orders,
     };
 
@@ -128,41 +100,29 @@ export default function ControlFinal() {
 
     localStorage.setItem("history", JSON.stringify(updatedHistory));
 
-    // RESET
     localStorage.removeItem("orders");
 
-    alert("Day closed with REAL data");
+    alert("Day saved with staff payouts");
 
     window.location.reload();
   };
 
   return (
-    <div className="relative min-h-screen text-white">
+    <div className="min-h-screen text-white p-10">
 
-      <div className="max-w-7xl mx-auto px-6 pt-28 space-y-8">
+      <h1 className="text-3xl">Control Final</h1>
 
-        <div className="flex justify-between text-sm text-white/60">
-          <div>{staffName}</div>
-          <div>{staffRole}</div>
-        </div>
+      <button
+        onClick={saveDay}
+        className="bg-orange-500 px-4 py-2 mt-4"
+      >
+        Close Day & Save
+      </button>
 
-        <h1 className="text-3xl md:text-5xl font-semibold">
-          Control Final
-        </h1>
-
-        <button
-          onClick={saveDay}
-          className="bg-[#ff7a00] px-6 py-3 rounded-xl"
-        >
-          Close Day & Save
-        </button>
-
-        <div>
-          <p>Total Revenue</p>
-          <h2>THB {totalRevenue.toLocaleString()}</h2>
-        </div>
-
+      <div className="mt-6">
+        Revenue: THB {totalRevenue.toLocaleString()}
       </div>
+
     </div>
   );
 }

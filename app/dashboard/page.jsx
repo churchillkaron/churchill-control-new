@@ -24,7 +24,7 @@ export default function Dashboard() {
   }, []);
 
   // =========================
-  // SYSTEM ENGINE (UNCHANGED CORE)
+  // SYSTEM ENGINE
   // =========================
   const runSystem = (attendance, actions) => {
     let updated = { ...actions };
@@ -51,7 +51,7 @@ export default function Dashboard() {
   };
 
   // =========================
-  // BUILD REAL STAFF DATA
+  // BUILD STAFF DATA
   // =========================
   const buildStaffData = (history, attendance, actions) => {
     const map = {};
@@ -77,15 +77,18 @@ export default function Dashboard() {
           ? s.levels.reduce((a, b) => a + b, 0) / s.levels.length
           : 0;
 
+      const last3 = s.levels.slice(-3);
+      const trend =
+        last3.length === 3
+          ? last3[2] - last3[0]
+          : 0;
+
       const late = attendance.filter(
         (e) => e.name === s.name && e.late && !e.approved
       ).length;
 
       const action = actions[s.name] || "Normal";
 
-      // =========================
-      // REAL SCORE (YOUR SYSTEM)
-      // =========================
       const score =
         perf * 100 - late * 5 - (action !== "Normal" ? 20 : 0);
 
@@ -96,6 +99,7 @@ export default function Dashboard() {
         late,
         action,
         score,
+        trend,
       };
     });
   };
@@ -110,31 +114,52 @@ export default function Dashboard() {
     return "text-red-500";
   };
 
+  const getTrendSymbol = (trend) => {
+    if (trend > 0.1) return "↑";
+    if (trend < -0.1) return "↓";
+    return "→";
+  };
+
   // =========================
-  // SORT (CORE LOGIC)
+  // SORT
   // =========================
   const ranked = [...staffData].sort((a, b) => {
-    // 1. PERFORMANCE
-    if (b.performance !== a.performance) {
-      return b.performance - a.performance;
-    }
-
-    // 2. BEHAVIOR (less late wins)
-    if (a.late !== b.late) {
-      return a.late - b.late;
-    }
-
-    // 3. MONEY (tie breaker)
+    if (b.performance !== a.performance) return b.performance - a.performance;
+    if (a.late !== b.late) return a.late - b.late;
     return b.payout - a.payout;
   });
 
   const top = ranked.slice(0, 3);
   const worst = ranked.slice(-3).reverse();
 
+  const critical = ranked.filter((s) => s.action === "Final Warning");
+  const review = ranked.filter((s) => s.action === "Under Review");
+
   return (
     <div className="min-h-screen text-white p-10 space-y-8">
 
       <h1 className="text-3xl">Control Dashboard</h1>
+
+      {/* ALERTS */}
+      <div className="bg-white/10 p-6 rounded-xl space-y-2">
+        <h2>Alerts</h2>
+
+        {critical.length > 0 && (
+          <div className="text-red-400">
+            🚨 Final Warning: {critical.map(s => s.name).join(", ")}
+          </div>
+        )}
+
+        {review.length > 0 && (
+          <div className="text-yellow-400">
+            ⚠️ Under Review: {review.map(s => s.name).join(", ")}
+          </div>
+        )}
+
+        {critical.length === 0 && review.length === 0 && (
+          <div className="text-green-400">All staff stable</div>
+        )}
+      </div>
 
       {/* STAFF LIST */}
       <div className="space-y-4">
@@ -150,6 +175,10 @@ export default function Dashboard() {
               Performance: {(s.performance * 100).toFixed(0)}%
             </div>
 
+            <div>
+              Trend: {getTrendSymbol(s.trend)}
+            </div>
+
             <div>Late: {s.late}</div>
             <div>Status: {s.action}</div>
 
@@ -159,20 +188,20 @@ export default function Dashboard() {
 
       {/* TOP */}
       <div className="bg-white/10 p-6 rounded-xl">
-        <h2 className="mb-2">Top Performers</h2>
+        <h2>Top Performers</h2>
         {top.map((s) => (
           <div key={s.name}>
-            {s.name} → {(s.performance * 100).toFixed(0)}% | THB {Math.round(s.payout)}
+            {s.name} → {(s.performance * 100).toFixed(0)}% ↑
           </div>
         ))}
       </div>
 
       {/* WORST */}
       <div className="bg-white/10 p-6 rounded-xl">
-        <h2 className="mb-2">Needs Attention</h2>
+        <h2>Needs Attention</h2>
         {worst.map((s) => (
           <div key={s.name}>
-            {s.name} → {(s.performance * 100).toFixed(0)}% | Late: {s.late}
+            {s.name} → {(s.performance * 100).toFixed(0)}% ↓
           </div>
         ))}
       </div>

@@ -20,23 +20,17 @@ export default function Navbar() {
 
   return (
     <div className="fixed top-0 left-0 w-full z-50">
-      
-      {/* Glass background */}
       <div className="absolute inset-0 bg-black/25 backdrop-blur-xl border-b border-white/5" />
 
-      <div className="relative max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
-
-        {/* LOGO */}
-        <div className="flex items-center gap-2">
-          <span className="text-[#ff7a00] font-semibold text-lg">CC</span>
-          <span className="text-white/90 text-sm tracking-wide font-medium">
+      <div className="relative mx-auto flex h-16 max-w-[1400px] items-center justify-between px-6">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[#ff7a00] text-lg font-semibold">CC</span>
+          <span className="text-white/90 text-sm font-medium tracking-wide">
             CHURCHILL
           </span>
         </div>
 
-        {/* NAV ITEMS */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-
+        <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap">
           {navItems.map((item) => {
             const active = pathname === item.href;
 
@@ -44,22 +38,18 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap transition
-                  ${
-                    active
-                      ? "bg-[#ff7a00] text-black shadow-[0_5px_20px_rgba(0,0,0,0.5)]"
-                      : "text-white/60 hover:text-white hover:bg-white/5"
-                  }
-                `}
+                className={
+                  active
+                    ? "rounded-lg bg-[#ff7a00] px-3 py-2 text-sm text-black shadow-[0_5px_20px_rgba(0,0,0,0.5)]"
+                    : "rounded-lg px-3 py-2 text-sm text-white/65 transition hover:bg-white/5 hover:text-white"
+                }
               >
                 {item.name}
               </Link>
             );
           })}
-
         </div>
-
       </div>
     </div>
   );
-} s
+}

@@ -8,10 +8,14 @@ export default function Dashboard() {
   const [lockedRate, setLockedRate] = useState(null);
   const [avgScore, setAvgScore] = useState(0);
   const [currentMonth, setCurrentMonth] = useState("");
+  const [attendanceData, setAttendanceData] = useState([]);
 
   useEffect(() => {
     const payroll =
       JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
+
+    const attendance =
+      JSON.parse(localStorage.getItem("attendance")) || [];
 
     const today = new Date();
     const monthKey = `${today.getFullYear()}-${String(
@@ -26,6 +30,7 @@ export default function Dashboard() {
     setLockedRate(serviceData[monthKey] || null);
 
     setMonthlyPayroll(payroll);
+    setAttendanceData(attendance);
 
     calculateServiceRate();
   }, []);
@@ -69,7 +74,7 @@ export default function Dashboard() {
   };
 
   // =========================
-  // LOCK MONTHLY RATE
+  // LOCK SERVICE RATE
   // =========================
   const lockServiceRate = () => {
     const serviceData =
@@ -90,6 +95,27 @@ export default function Dashboard() {
     setLockedRate(recommendedRate);
 
     alert(`Service Charge locked at ${recommendedRate}% for ${currentMonth}`);
+  };
+
+  // =========================
+  // ATTENDANCE PENALTY (MONTHLY)
+  // =========================
+  const getAttendancePenalty = (name) => {
+    const staffEntries = attendanceData.filter(
+      (a) => a.name === name
+    );
+
+    if (staffEntries.length === 0) return 1.0;
+
+    let penalty = 1.0;
+
+    staffEntries.forEach((entry) => {
+      if (entry.late && entry.approved !== true) {
+        penalty *= 0.5;
+      }
+    });
+
+    return penalty;
   };
 
   // =========================
@@ -122,11 +148,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen text-white p-10">
 
-      {/* =========================
-          SERVICE CONTROL
-      ========================= */}
+      {/* SERVICE CONTROL */}
       <div className="mb-8 p-6 bg-white/10 rounded-xl">
-
         <h2 className="text-2xl mb-3">Monthly Performance</h2>
 
         <div>Month: {currentMonth}</div>
@@ -159,61 +182,66 @@ export default function Dashboard() {
             ? "Already Locked"
             : "Lock for This Month"}
         </button>
-
       </div>
 
-      {/* =========================
-          PAYROLL
-      ========================= */}
+      {/* PAYROLL */}
       <h1 className="text-3xl mb-6">Manager Approval</h1>
 
-      {monthlyPayroll.staff.map((s, i) => (
-        <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
+      {monthlyPayroll.staff.map((s, i) => {
+        const penalty = getAttendancePenalty(s.name);
+        const adjustedTotal = s.total * penalty;
 
-          <strong>{s.name}</strong>
+        return (
+          <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
 
-          <br />
-          Salary: THB {s.salary}
-          <br />
-          Bonus: THB {Math.round(s.bonus)}
+            <strong>{s.name}</strong>
 
-          <br />
+            <br />
+            Base Salary: THB {s.salary}
+            <br />
+            Bonus: THB {Math.round(s.bonus)}
 
-          <span className="text-orange-400">
-            Total: THB {Math.round(s.total)}
-          </span>
+            <br />
+            Penalty Multiplier: {penalty}
 
-          <br /><br />
+            <br />
 
-          Staff Confirmed:{" "}
-          {s.staffConfirmed ? "✅ Yes" : "❌ No"}
+            <span className="text-orange-400">
+              Adjusted Total: THB {Math.round(adjustedTotal)}
+            </span>
 
-          <br />
-          Manager Approved:{" "}
-          {s.managerApproved ? "✅ Yes" : "❌ No"}
+            <br /><br />
 
-          <br /><br />
+            Staff Confirmed:{" "}
+            {s.staffConfirmed ? "✅ Yes" : "❌ No"}
 
-          {s.staffConfirmed && !s.managerApproved && (
-            <button
-              onClick={() => approveSalary(i)}
-              className="bg-green-500 px-3 py-1 rounded mr-2"
-            >
-              Approve Salary
-            </button>
-          )}
+            <br />
+            Manager Approved:{" "}
+            {s.managerApproved ? "✅ Yes" : "❌ No"}
 
-          {s.managerApproved && (
-            <button
-              onClick={() => revokeApproval(i)}
-              className="bg-red-500 px-3 py-1 rounded"
-            >
-              Revoke
-            </button>
-          )}
+            <br /><br />
 
-        </div>
-      ))}
+            {s.staffConfirmed && !s.managerApproved && (
+              <button
+                onClick={() => approveSalary(i)}
+                className="bg-green-500 px-3 py-1 rounded mr-2"
+              >
+                Approve Salary
+              </button>
+            )}
+
+            {s.managerApproved && (
+              <button
+                onClick={() => revokeApproval(i)}
+                className="bg-red-500 px-3 py-1 rounded"
+              >
+                Revoke
+              </button>
+            )}
+
+          </div>
+        );
+      })}
 
     </div>
   );

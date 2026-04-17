@@ -4,13 +4,19 @@ import { useEffect, useState } from "react";
 
 export default function Dashboard() {
   const [monthlyPayroll, setMonthlyPayroll] = useState(null);
-  const [serviceRate, setServiceRate] = useState(5);
+  const [recommendedRate, setRecommendedRate] = useState(5);
+  const [lockedRate, setLockedRate] = useState(5);
   const [avgScore, setAvgScore] = useState(0);
 
   useEffect(() => {
     const payroll =
       JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
+
+    const savedRate =
+      Number(localStorage.getItem("serviceChargeRate")) || 5;
+
     setMonthlyPayroll(payroll);
+    setLockedRate(savedRate);
 
     calculateServiceRate();
   }, []);
@@ -24,14 +30,14 @@ export default function Dashboard() {
   };
 
   // =========================
-  // CALCULATE PERFORMANCE
+  // CALCULATE RECOMMENDED RATE
   // =========================
   const calculateServiceRate = () => {
     const history =
       JSON.parse(localStorage.getItem("history")) || [];
 
     if (history.length === 0) {
-      setServiceRate(5);
+      setRecommendedRate(5);
       return;
     }
 
@@ -48,17 +54,19 @@ export default function Dashboard() {
 
     setAvgScore(Math.round(avg));
 
-    if (avg >= 85) setServiceRate(7);
-    else if (avg >= 70) setServiceRate(6);
-    else setServiceRate(5);
+    if (avg >= 85) setRecommendedRate(7);
+    else if (avg >= 70) setRecommendedRate(6);
+    else setRecommendedRate(5);
   };
 
   // =========================
-  // SAVE SERVICE RATE
+  // LOCK SERVICE RATE
   // =========================
-  const saveServiceRate = () => {
-    localStorage.setItem("serviceChargeRate", serviceRate);
-    alert(`Service Charge locked at ${serviceRate}%`);
+  const lockServiceRate = () => {
+    localStorage.setItem("serviceChargeRate", recommendedRate);
+    setLockedRate(recommendedRate);
+
+    alert(`Service Charge locked at ${recommendedRate}%`);
   };
 
   // =========================
@@ -100,21 +108,31 @@ export default function Dashboard() {
 
         <div>Average FOH Score: {avgScore}</div>
 
-        <div className="mt-2 text-xl text-orange-400">
-          Service Charge Level: {serviceRate}%
+        <div className="mt-3">
+          Recommended:{" "}
+          <span className="text-green-400">
+            {recommendedRate}%
+          </span>
+        </div>
+
+        <div>
+          Locked:{" "}
+          <span className="text-orange-400">
+            {lockedRate}%
+          </span>
         </div>
 
         <div className="mt-2 text-sm text-white/60">
-          {serviceRate === 7 && "Elite Performance"}
-          {serviceRate === 6 && "Good Performance"}
-          {serviceRate === 5 && "Standard Level"}
+          {recommendedRate === 7 && "Elite Performance"}
+          {recommendedRate === 6 && "Good Performance"}
+          {recommendedRate === 5 && "Standard Level"}
         </div>
 
         <button
-          onClick={saveServiceRate}
+          onClick={lockServiceRate}
           className="mt-4 bg-orange-500 px-4 py-2 rounded"
         >
-          Lock Service Charge
+          Lock Recommended Rate
         </button>
 
       </div>

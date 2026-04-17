@@ -56,7 +56,7 @@ export default function History() {
               className="p-6 rounded-2xl bg-black/30 border border-white/10 space-y-4"
             >
 
-              {/* DATE */}
+              {/* DATE + REVENUE */}
               <div className="flex justify-between items-center">
                 <div className="text-lg">{day.date}</div>
                 <div className="text-[#ffb36b]">
@@ -64,36 +64,53 @@ export default function History() {
                 </div>
               </div>
 
-              {/* SERVICE CHARGE */}
+              {/* SERVICE */}
               <div className="text-sm text-white/60">
                 Service Charge: THB {day.serviceCharge?.toLocaleString() || 0}
               </div>
 
-              {/* PAYOUT BREAKDOWN */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* DEPARTMENT */}
+              <div className="grid grid-cols-3 gap-4">
 
-                <div className="p-4 rounded-xl bg-black/40 border border-white/10">
-                  <p className="text-xs text-white/50">FOH</p>
-                  <p className="text-[#ffb36b]">
-                    THB {day.payouts?.foh?.toLocaleString() || 0}
-                  </p>
+                <div className="p-3 bg-black/40 rounded">
+                  FOH<br />
+                  THB {day.payouts?.foh?.toLocaleString() || 0}
                 </div>
 
-                <div className="p-4 rounded-xl bg-black/40 border border-white/10">
-                  <p className="text-xs text-white/50">BAR</p>
-                  <p className="text-[#ffb36b]">
-                    THB {day.payouts?.bar?.toLocaleString() || 0}
-                  </p>
+                <div className="p-3 bg-black/40 rounded">
+                  BAR<br />
+                  THB {day.payouts?.bar?.toLocaleString() || 0}
                 </div>
 
-                <div className="p-4 rounded-xl bg-black/40 border border-white/10">
-                  <p className="text-xs text-white/50">KITCHEN</p>
-                  <p className="text-[#ffb36b]">
-                    THB {day.payouts?.kitchen?.toLocaleString() || 0}
-                  </p>
+                <div className="p-3 bg-black/40 rounded">
+                  KITCHEN<br />
+                  THB {day.payouts?.kitchen?.toLocaleString() || 0}
                 </div>
 
               </div>
+
+              {/* 🔥 NEW: STAFF BREAKDOWN */}
+              {day.staff && day.staff.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm text-white/50 mb-2">
+                    FOH Staff Breakdown
+                  </p>
+
+                  <div className="space-y-2">
+                    {day.staff.map((s, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between p-2 bg-black/40 rounded"
+                      >
+                        <span>{s.name}</span>
+                        <span className="text-[#ffb36b]">
+                          THB {Number(s.payout).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </div>
           ))}

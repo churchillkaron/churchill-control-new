@@ -2,55 +2,71 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 export async function POST(req) {
   try {
-    const formData = await req.formData();
-    const file = formData.get("file");
+    const { image } = await req.json();
 
-    if (!file) {
-      return Response.json({ error: "No file uploaded" }, { status: 400 });
+    if (!image) {
+      return Response.json({ error: "No image provided" }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const base64 = Buffer.from(bytes).toString("base64");
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an OCR assistant. Extract all readable text from invoices. Focus on vendor, total amount, and items.",
-        },
+    const response = await openai.responses.create({
+      model: "gpt-4.1",
+      temperature: 0,
+      input: [
         {
           role: "user",
           content: [
             {
-              type: "text",
-              text: "Extract all text from this invoice image.",
+              type: "input_text",
+              text: `
+You are an OCR system.
+
+Extract:
+- vendor
+- total_amount
+- date
+
+Return ONLY JSON:
+{
+  "vendor": "",
+  "total_amount": "",
+  "date": ""
+}
+              `,
             },
             {
-              type: "image_url",
-              image_url: {
-                url: `data:image/png;base64,${base64}`,
-              },
+              type: "input_image",
+              image_url: image,
             },
           ],
         },
       ],
-      max_tokens: 1000,
     });
 
-    const text = response.choices[0].message.content;
+    const text =
+      response.output_text ||
+      response.output?.[0]?.content?.[0]?.text ||
+      "";
 
-    return Response.json({
-      success: true,
-      text,
-    });
+    if (!text) {
+      return Response.json({ error: "No OCR text returned" });
+    }
+
+    let parsed;
+
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return Response.json({ error: "JSON parse failed", raw: text });
+    }
+
+    return Response.json({ data: parsed });
+
   } catch (error) {
     console.error("OCR ERROR:", error);
     return Response.json(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AppShell from "../AppShell";
 
 export default function History() {
   const [history, setHistory] = useState([]);
@@ -22,119 +23,141 @@ export default function History() {
   };
 
   return (
-    <div className="relative min-h-screen text-white overflow-hidden">
+    <AppShell>
+      <div className="space-y-14">
 
-      {/* BACKGROUND */}
-      <div className="absolute inset-0 -z-30">
-        <img
-          src="/bg-hero-control.jpg"
-          alt="History background"
-          className="w-full h-full object-cover"
-        />
-      </div>
+        {/* HEADER */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-medium text-white/90">
+            History
+          </h1>
+          <p className="text-white/50 text-sm">
+            Saved operating days, performance, and payout history
+          </p>
+        </div>
 
-      {/* OVERLAY */}
-      <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(8,8,8,0.75),rgba(18,12,8,0.85))]" />
-
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 pb-14 space-y-8">
-
-        <h1 className="text-4xl font-semibold">Saved Days</h1>
-
+        {/* EMPTY STATE */}
         {history.length === 0 && (
-          <div className="text-red-400">No saved history</div>
+          <div className="relative">
+            <div className="absolute -inset-2 bg-white/5 blur-xl rounded-xl" />
+            <div className="relative text-red-400 p-6 rounded-xl border border-white/10 bg-white/[0.04]">
+              No saved history
+            </div>
+          </div>
         )}
 
-        <div className="space-y-6">
+        {/* HISTORY LIST */}
+        <div className="space-y-8">
+
           {history.map((day, i) => (
-            <div
-              key={i}
-              className="p-6 rounded-2xl bg-black/30 border border-white/10"
-            >
+            <div key={i} className="relative">
 
-              {/* HEADER */}
-              <div className="flex justify-between mb-2">
-                <div>{day.date}</div>
-                <div className="text-[#ffb36b]">
-                  THB {Number(day.revenue || 0).toLocaleString()}
-                </div>
-              </div>
+              <div className="absolute -inset-4 bg-white/5 blur-2xl rounded-3xl" />
 
-              <div className="text-sm text-white/50 mb-4">
-                Service Charge: THB {Number(day.serviceCharge || 0).toLocaleString()}
-              </div>
+              <div className="relative p-6 md:p-8 rounded-3xl bg-white/[0.06] border border-white/10 backdrop-blur-xl
+                shadow-[0_30px_90px_rgba(0,0,0,0.7)]"
+              >
 
-              {/* FOH PERFORMANCE */}
-              {day.levels && (
-                <div className="mb-4">
-                  <div className={`font-semibold ${getColor(day.levels.foh)}`}>
-                    FOH → {day.levels.foh}
-                    {day.scores?.foh && (
-                      <span className="ml-2 text-white/60 text-sm">
-                        (Score: {day.scores.foh})
-                      </span>
-                    )}
+                {/* HEADER */}
+                <div className="flex justify-between items-center mb-4">
+                  <div className="text-lg font-medium">
+                    {day.date}
                   </div>
 
-                  <div className="text-sm text-white/50 mt-1">
-                    Orders: {day.totalOrders || 0} | Avg: THB {Math.round(day.avgOrderValue || 0)}
+                  <div className="text-[#ff7a00] font-semibold text-lg">
+                    THB {Number(day.revenue || 0).toLocaleString()}
                   </div>
                 </div>
-              )}
 
-              {/* OTHER DEPARTMENTS */}
-              {day.levels && (
-                <div className="flex gap-6 mb-4 text-sm">
-                  <div className={getColor(day.levels.bar)}>
-                    BAR → {day.levels.bar}
-                  </div>
-                  <div className={getColor(day.levels.kitchen)}>
-                    KITCHEN → {day.levels.kitchen}
-                  </div>
+                <div className="text-sm text-white/50 mb-6">
+                  Service Charge: THB {Number(day.serviceCharge || 0).toLocaleString()}
                 </div>
-              )}
 
-              {/* POOLS */}
-              {day.payouts && (
-                <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
-                  <div>
-                    FOH<br />
-                    THB {Number(day.payouts.foh || 0).toFixed(2)}
-                  </div>
-                  <div>
-                    BAR<br />
-                    THB {Number(day.payouts.bar || 0).toFixed(2)}
-                  </div>
-                  <div>
-                    KITCHEN<br />
-                    THB {Number(day.payouts.kitchen || 0).toFixed(2)}
-                  </div>
-                </div>
-              )}
+                {/* FOH PERFORMANCE */}
+                {day.levels && (
+                  <div className="mb-6">
 
-              {/* STAFF BREAKDOWN */}
-              {day.staff && day.staff.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm text-white/50 mb-2">
-                    FOH Staff Breakdown
-                  </p>
+                    <div className={`text-lg font-medium ${getColor(day.levels.foh)}`}>
+                      FOH → {day.levels.foh}
 
-                  {day.staff.map((s, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between border-b border-white/10 py-1"
-                    >
-                      <div>{s.name}</div>
-                      <div>THB {Number(s.payout || 0).toFixed(2)}</div>
+                      {day.scores?.foh && (
+                        <span className="ml-3 text-white/60 text-sm">
+                          (Score: {day.scores.foh})
+                        </span>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
 
+                    <div className="text-sm text-white/50 mt-1">
+                      Orders: {day.totalOrders || 0} | Avg: THB {Math.round(day.avgOrderValue || 0)}
+                    </div>
+
+                  </div>
+                )}
+
+                {/* OTHER DEPARTMENTS */}
+                {day.levels && (
+                  <div className="flex gap-6 mb-6 text-sm">
+                    <div className={getColor(day.levels.bar)}>
+                      BAR → {day.levels.bar}
+                    </div>
+                    <div className={getColor(day.levels.kitchen)}>
+                      KITCHEN → {day.levels.kitchen}
+                    </div>
+                  </div>
+                )}
+
+                {/* POOLS */}
+                {day.payouts && (
+                  <div className="grid grid-cols-3 gap-4 mb-6 text-sm">
+
+                    <div className="bg-black/30 p-3 rounded-xl border border-white/10">
+                      FOH<br />
+                      THB {Number(day.payouts.foh || 0).toFixed(2)}
+                    </div>
+
+                    <div className="bg-black/30 p-3 rounded-xl border border-white/10">
+                      BAR<br />
+                      THB {Number(day.payouts.bar || 0).toFixed(2)}
+                    </div>
+
+                    <div className="bg-black/30 p-3 rounded-xl border border-white/10">
+                      KITCHEN<br />
+                      THB {Number(day.payouts.kitchen || 0).toFixed(2)}
+                    </div>
+
+                  </div>
+                )}
+
+                {/* STAFF BREAKDOWN */}
+                {day.staff && day.staff.length > 0 && (
+                  <div>
+
+                    <p className="text-sm text-white/50 mb-3">
+                      FOH Staff Breakdown
+                    </p>
+
+                    <div className="space-y-2">
+                      {day.staff.map((s, idx) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between px-2 py-1 border-b border-white/10"
+                        >
+                          <div>{s.name}</div>
+                          <div>THB {Number(s.payout || 0).toFixed(2)}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                  </div>
+                )}
+
+              </div>
             </div>
           ))}
+
         </div>
 
       </div>
-    </div>
+    </AppShell>
   );
 }

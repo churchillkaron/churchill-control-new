@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AppShell from "../AppShell";
 
 export default function StaffPage() {
   const [staffName, setStaffName] = useState("");
@@ -105,106 +106,136 @@ export default function StaffPage() {
   );
 
   return (
-    <div className="min-h-screen text-white p-10">
-      <h1 className="text-3xl mb-6">Staff Portal</h1>
+    <AppShell>
+      <div className="space-y-14">
 
-      <div className="bg-white/10 p-6 rounded-xl mb-8">
-        <div><strong>{staffName}</strong></div>
-        <div>Role: {staffRole}</div>
-
-        <br />
-
-        <div>
-          Shift Status:{" "}
-          {checkedIn ? (
-            <span className="text-green-400">✅ Checked In</span>
-          ) : (
-            <span className="text-yellow-400">Not Checked In</span>
-          )}
+        {/* HEADER */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-medium text-white/90">
+            Staff Portal
+          </h1>
+          <p className="text-white/50 text-sm">
+            Shift tracking, attendance, and payroll confirmation
+          </p>
         </div>
 
-        <br />
+        {/* STAFF INFO CARD */}
+        <div className="relative">
+          <div className="absolute -inset-4 bg-[#ff7a00]/10 blur-2xl rounded-3xl" />
 
-        {!checkedIn && (
-          <button
-            onClick={handleStartShift}
-            className="bg-orange-500 px-4 py-2 rounded"
-          >
-            Start Shift
-          </button>
+          <div className="relative bg-white/[0.06] backdrop-blur-xl border border-white/10 p-6 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+
+            <div className="flex justify-between text-sm text-white/60">
+              <div>{staffName}</div>
+              <div>{staffRole}</div>
+            </div>
+
+            <div className="mt-4">
+              Shift Status:{" "}
+              {checkedIn ? (
+                <span className="text-green-400">✅ Checked In</span>
+              ) : (
+                <span className="text-yellow-400">Not Checked In</span>
+              )}
+            </div>
+
+            {!checkedIn && (
+              <button
+                onClick={handleStartShift}
+                className="mt-6 bg-[#ff7a00] px-5 py-2 rounded-xl text-black font-medium shadow-lg"
+              >
+                Start Shift
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* PAYROLL */}
+        {!staffData ? (
+          <div className="relative">
+            <div className="absolute -inset-2 bg-white/5 blur-xl rounded-xl" />
+
+            <div className="relative bg-white/[0.05] border border-white/10 p-6 rounded-xl">
+              No payroll data available
+            </div>
+          </div>
+        ) : (
+          <div className="relative">
+            <div className="absolute -inset-4 bg-white/5 blur-2xl rounded-3xl" />
+
+            <div className="relative bg-white/[0.06] border border-white/10 p-6 rounded-2xl shadow-[0_25px_70px_rgba(0,0,0,0.6)]">
+
+              <h2 className="text-xl mb-4 text-white/80">
+                Salary Overview
+              </h2>
+
+              <div>Salary: THB {staffData.salary}</div>
+              <div>Bonus: THB {Math.round(staffData.bonus)}</div>
+
+              <div className="mt-3 text-[#ff7a00] font-medium">
+                Total: THB {Math.round(staffData.total)}
+              </div>
+
+              <div className="mt-4 space-y-1 text-sm">
+                <div>
+                  Staff Confirmed:{" "}
+                  {staffData.staffConfirmed ? "✅ Yes" : "❌ No"}
+                </div>
+                <div>
+                  Manager Approved:{" "}
+                  {staffData.managerApproved ? "✅ Yes" : "❌ No"}
+                </div>
+                <div>
+                  Payment Confirmed:{" "}
+                  {staffData.paymentConfirmed ? "✅ Paid" : "❌ Not Paid"}
+                </div>
+              </div>
+
+              {!staffData.staffConfirmed && (
+                <button
+                  onClick={confirmSalary}
+                  className="mt-6 bg-green-500 px-5 py-2 rounded-xl"
+                >
+                  Confirm My Salary
+                </button>
+              )}
+
+            </div>
+          </div>
         )}
+
+        {/* LATE POPUP */}
+        {showLatePopup && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
+            <div className="bg-white/[0.08] backdrop-blur-xl p-8 rounded-3xl w-full max-w-md space-y-4 border border-white/10">
+
+              <h2 className="text-xl text-red-400">
+                You are late
+              </h2>
+
+              <p className="text-white/70 text-sm">
+                Please enter your reason before checking in.
+              </p>
+
+              <input
+                type="text"
+                value={lateReason}
+                onChange={(e) => setLateReason(e.target.value)}
+                className="w-full p-3 rounded-xl bg-black/40 border border-white/10"
+              />
+
+              <button
+                onClick={handleLateSubmit}
+                className="w-full p-3 bg-[#ff7a00] text-black rounded-xl font-medium"
+              >
+                Submit & Start Shift
+              </button>
+
+            </div>
+          </div>
+        )}
+
       </div>
-
-      {!staffData ? (
-        <div className="bg-white/10 p-6 rounded-xl">
-          No payroll data available
-        </div>
-      ) : (
-        <div className="bg-white/10 p-6 rounded-xl">
-          <h2 className="text-2xl mb-4">Salary Overview</h2>
-
-          <div>Salary: THB {staffData.salary}</div>
-          <div>Bonus: THB {Math.round(staffData.bonus)}</div>
-
-          <br />
-
-          <div className="text-orange-400">
-            Total: THB {Math.round(staffData.total)}
-          </div>
-
-          <br />
-
-          <div>
-            Staff Confirmed:{" "}
-            {staffData.staffConfirmed ? "✅ Yes" : "❌ No"}
-          </div>
-          <div>
-            Manager Approved:{" "}
-            {staffData.managerApproved ? "✅ Yes" : "❌ No"}
-          </div>
-          <div>
-            Payment Confirmed:{" "}
-            {staffData.paymentConfirmed ? "✅ Paid" : "❌ Not Paid"}
-          </div>
-
-          <br />
-
-          {!staffData.staffConfirmed && (
-            <button
-              onClick={confirmSalary}
-              className="bg-green-500 px-4 py-2 rounded"
-            >
-              Confirm My Salary
-            </button>
-          )}
-        </div>
-      )}
-
-      {showLatePopup && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/80">
-          <div className="bg-white/10 backdrop-blur-xl p-8 rounded-3xl w-full max-w-md space-y-4">
-            <h2 className="text-xl text-red-400">You are late</h2>
-
-            <p className="text-white/70">
-              Please enter your reason before checking in.
-            </p>
-
-            <input
-              type="text"
-              value={lateReason}
-              onChange={(e) => setLateReason(e.target.value)}
-              className="w-full p-3 rounded-xl bg-black/40 border border-white/10"
-            />
-
-            <button
-              onClick={handleLateSubmit}
-              className="w-full p-3 bg-orange-500 rounded-xl"
-            >
-              Submit & Start Shift
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </AppShell>
   );
 }

@@ -6,17 +6,50 @@ import AppShell from "../AppShell";
 export default function ControlFinal() {
   const [revenue, setRevenue] = useState(0);
   const [paidOrders, setPaidOrders] = useState([]);
+  const [serviceLevel, setServiceLevel] = useState(5);
 
   const loadData = () => {
     const data = JSON.parse(localStorage.getItem("history_day") || "{}");
+    const history = JSON.parse(localStorage.getItem("history") || "[]");
+
     setRevenue(data.revenue || 0);
     setPaidOrders(data.paidOrders || []);
+
+    // 🔥 SAME LOGIC AS DASHBOARD (LOCKED SYSTEM)
+    const last30Days = history.slice(-30);
+
+    if (last30Days.length === 0) {
+      setServiceLevel(5);
+      return;
+    }
+
+    const avgRevenue =
+      last30Days.reduce((sum, d) => sum + (d.revenue || 0), 0) /
+      last30Days.length;
+
+    const avgOrders =
+      last30Days.reduce(
+        (sum, d) => sum + (d.paidOrders?.length || 0),
+        0
+      ) / last30Days.length;
+
+    const avgOrderValue =
+      avgRevenue / (avgOrders || 1);
+
+    let level = 5;
+
+    if (avgOrderValue > 500 && avgOrders > 80) {
+      level = 7;
+    } else if (avgOrderValue > 350 && avgOrders > 40) {
+      level = 6;
+    }
+
+    setServiceLevel(level);
   };
 
   useEffect(() => {
     loadData();
 
-    // 🔥 REAL-TIME SYNC (no polling)
     const handleStorageChange = () => {
       loadData();
     };
@@ -30,6 +63,7 @@ export default function ControlFinal() {
 
   const closeDay = () => {
     const todayData = JSON.parse(localStorage.getItem("history_day") || "{}");
+    const history = JSON.parse(localStorage.getItem("history") || "[]");
 
     if (!todayData.revenue || todayData.revenue === 0) {
       alert("No data to close");
@@ -40,8 +74,6 @@ export default function ControlFinal() {
       alert("No paid orders");
       return;
     }
-
-    const history = JSON.parse(localStorage.getItem("history") || "[]");
 
     const todayKey = new Date().toDateString();
 
@@ -54,10 +86,15 @@ export default function ControlFinal() {
       return;
     }
 
+    const serviceChargeValue = Math.round(
+      todayData.revenue * (serviceLevel / 100)
+    );
+
     const closedDay = {
       date: new Date().toISOString(),
       revenue: todayData.revenue,
-      serviceCharge: Math.round(todayData.revenue * 0.05),
+      serviceCharge: serviceChargeValue,
+      serviceLevel: serviceLevel, // 🔥 IMPORTANT (store level)
       paidOrders: todayData.paidOrders || [],
     };
 
@@ -65,17 +102,17 @@ export default function ControlFinal() {
 
     localStorage.setItem("history", JSON.stringify(updatedHistory));
 
-    // 🔥 HARD RESET SYSTEM STATE
+    // 🔥 RESET SYSTEM
     localStorage.removeItem("history_day");
     localStorage.removeItem("orders");
 
     setRevenue(0);
     setPaidOrders([]);
 
-    alert("Day closed successfully");
+    alert(`Day closed with ${serviceLevel}% service charge`);
   };
 
-  const serviceCharge = Math.round(revenue * 0.05);
+  const serviceCharge = Math.round(revenue * (serviceLevel / 100));
 
   return (
     <AppShell>
@@ -90,7 +127,7 @@ export default function ControlFinal() {
           </h1>
         </div>
 
-        {/* 🔥 MAIN REVENUE CARD */}
+        {/* 🔥 MAIN CARD */}
         <div className="relative">
           <div className="absolute -inset-4 bg-[#ff7a00]/10 blur-2xl rounded-3xl" />
 
@@ -106,7 +143,7 @@ export default function ControlFinal() {
               </div>
 
               <p className="text-white/50 mt-3">
-                Service Charge (5%): THB {serviceCharge.toLocaleString()}
+                Service Charge ({serviceLevel}%): THB {serviceCharge.toLocaleString()}
               </p>
 
               <p className="text-white/30 text-xs mt-2">
@@ -124,7 +161,7 @@ export default function ControlFinal() {
           </div>
         </div>
 
-        {/* 🔥 PAID ORDERS LIST (CONTROL VISIBILITY) */}
+        {/* 🔥 PAID ORDERS */}
         <div className="space-y-4">
           <h2 className="text-xl text-white/60">Paid Orders</h2>
 

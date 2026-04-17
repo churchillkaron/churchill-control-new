@@ -15,7 +15,6 @@ export default function Payout() {
   const [barPayout, setBarPayout] = useState(0);
   const [kitchenPayout, setKitchenPayout] = useState(0);
 
-  // 🔥 Manual inputs (for now)
   const [barWaste, setBarWaste] = useState(0);
   const [kitchenCost, setKitchenCost] = useState(30);
 
@@ -28,7 +27,7 @@ export default function Payout() {
     const service = total * 0.05;
     setServiceCharge(service);
 
-    // 🔥 FOH LOGIC (based on revenue)
+    // FOH
     let fohLevel = 0;
     let fohStatusText = "CRITICAL";
 
@@ -45,46 +44,50 @@ export default function Payout() {
 
     setFohStatus(fohStatusText);
 
-    // 🔥 BAR LOGIC (based on waste)
+    // BAR
+    let safeBarWaste = Math.max(0, barWaste); // 🔥 prevent negative
+
     let barLevel = 0;
     let barStatusText = "CRITICAL";
 
-    if (barWaste < 1000) {
+    if (safeBarWaste < 1000) {
       barLevel = 100;
       barStatusText = "GOOD";
-    } else if (barWaste < 2000) {
+    } else if (safeBarWaste < 2000) {
       barLevel = 70;
       barStatusText = "WARNING";
-    } else if (barWaste < 4000) {
+    } else if (safeBarWaste < 4000) {
       barLevel = 40;
       barStatusText = "BAD";
     }
 
     setBarStatus(barStatusText);
 
-    // 🔥 KITCHEN LOGIC (based on cost %)
+    // KITCHEN
+    let safeKitchenCost = Math.max(0, kitchenCost);
+
     let kitchenLevel = 0;
     let kitchenStatusText = "CRITICAL";
 
-    if (kitchenCost <= 30) {
+    if (safeKitchenCost <= 30) {
       kitchenLevel = 100;
       kitchenStatusText = "GOOD";
-    } else if (kitchenCost <= 35) {
+    } else if (safeKitchenCost <= 35) {
       kitchenLevel = 70;
       kitchenStatusText = "WARNING";
-    } else if (kitchenCost <= 40) {
+    } else if (safeKitchenCost <= 40) {
       kitchenLevel = 40;
       kitchenStatusText = "BAD";
     }
 
     setKitchenStatus(kitchenStatusText);
 
-    // 🔥 SPLIT (base allocation)
+    // Pools
     const fohPool = service * 0.5;
     const barPool = service * 0.3;
     const kitchenPool = service * 0.2;
 
-    // 🔥 FINAL PAYOUT
+    // Final payouts
     setFohPayout(fohPool * (fohLevel / 100));
     setBarPayout(barPool * (barLevel / 100));
     setKitchenPayout(kitchenPool * (kitchenLevel / 100));
@@ -94,7 +97,6 @@ export default function Payout() {
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
 
-      {/* BACKGROUND */}
       <div className="absolute inset-0 -z-30">
         <img
           src="/bg-hero-control.jpg"
@@ -103,7 +105,6 @@ export default function Payout() {
         />
       </div>
 
-      {/* OVERLAY */}
       <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(8,8,8,0.75),rgba(18,12,8,0.85))]" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 space-y-8">
@@ -112,13 +113,11 @@ export default function Payout() {
           Payout System
         </h1>
 
-        {/* REVENUE */}
         <div className="p-6 rounded-xl bg-black/30 border border-white/10">
           <p>Total Revenue</p>
           <h2>THB {revenue.toLocaleString()}</h2>
         </div>
 
-        {/* SERVICE CHARGE */}
         <div className="p-6 rounded-xl bg-black/30 border border-white/10">
           <p>Service Charge (5%)</p>
           <h2>THB {serviceCharge.toLocaleString()}</h2>
@@ -131,6 +130,7 @@ export default function Payout() {
             <p>Bar Waste (THB)</p>
             <input
               type="number"
+              min="0"
               value={barWaste}
               onChange={(e) => setBarWaste(Number(e.target.value))}
               className="mt-2 p-2 text-black rounded"
@@ -141,6 +141,7 @@ export default function Payout() {
             <p>Kitchen Cost (%)</p>
             <input
               type="number"
+              min="0"
               value={kitchenCost}
               onChange={(e) => setKitchenCost(Number(e.target.value))}
               className="mt-2 p-2 text-black rounded"

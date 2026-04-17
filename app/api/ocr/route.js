@@ -13,60 +13,26 @@ export async function POST(req) {
     }
 
     const response = await client.chat.completions.create({
-      model: "gpt-4o", // 🔥 UPGRADED MODEL
-      temperature: 0,  // 🔥 no randomness
+      model: "gpt-4o",
+      temperature: 0,
       messages: [
         {
           role: "system",
           content: `
-You are an expert accountant reading receipts.
+You are an OCR reader.
 
-You MUST extract correct financial data.
-You NEVER guess based on titles or filenames.
-You ONLY use actual receipt content.
+ONLY extract ALL text from the receipt.
+DO NOT structure.
+DO NOT summarize.
+DO NOT interpret.
+
+Return raw text exactly as seen.
           `,
         },
         {
           role: "user",
           content: [
-            {
-              type: "text",
-              text: `
-Extract data from this receipt.
-
-VERY STRICT RULES:
-
-1. Vendor:
-- Must be real business name printed on receipt
-- NOT file name
-- NOT large title if not a company
-
-2. Amount:
-- Must be FINAL TOTAL
-- Look for:
-  - TOTAL
-  - GRAND TOTAL
-  - NET TOTAL
-- Choose the LARGEST relevant amount
-
-3. Date:
-- Extract if visible
-
-4. IGNORE:
-- "invoice eden final"
-- logos
-- headers
-- filenames
-
-Return ONLY JSON:
-
-{
-  "vendor": "...",
-  "amount": "...",
-  "date": "..."
-}
-              `,
-            },
+            { type: "text", text: "Read this receipt" },
             {
               type: "image_url",
               image_url: {
@@ -78,9 +44,9 @@ Return ONLY JSON:
       ],
     });
 
-    const text = response.choices[0].message.content;
+    const rawText = response.choices[0].message.content;
 
-    return Response.json({ result: text });
+    return Response.json({ text: rawText });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }

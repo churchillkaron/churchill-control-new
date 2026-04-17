@@ -55,7 +55,38 @@ export default function Accounting() {
   };
 
   // =========================
-  // OCR FUNCTION
+  // PARSER LOGIC
+  // =========================
+  const extractData = (text) => {
+    let amount = "";
+    let vendor = "";
+
+    const lines = text.split("\n");
+
+    let maxNumber = 0;
+
+    lines.forEach((line) => {
+      const numbers = line.match(/\d+[.,]?\d*/g);
+
+      if (numbers) {
+        numbers.forEach((n) => {
+          const value = parseFloat(n.replace(",", ""));
+          if (value > maxNumber) {
+            maxNumber = value;
+            amount = value;
+          }
+        });
+      }
+    });
+
+    vendor =
+      lines.find((l) => l.length > 3 && !l.match(/\d/)) || "";
+
+    return { amount, vendor };
+  };
+
+  // =========================
+  // OCR
   // =========================
   const runOCR = async () => {
     if (!form.image) return;
@@ -67,17 +98,15 @@ export default function Accounting() {
 
     const data = await res.json();
 
-    try {
-      const parsed = JSON.parse(data.result);
+    if (!data.text) return;
 
-      setForm({
-        ...form,
-        name: parsed.vendor || "",
-        amount: parsed.amount || "",
-      });
-    } catch (e) {
-      console.log("OCR parse error", data.result);
-    }
+    const parsed = extractData(data.text);
+
+    setForm({
+      ...form,
+      name: parsed.vendor || "",
+      amount: parsed.amount || "",
+    });
   };
 
   // =========================
@@ -163,10 +192,8 @@ export default function Accounting() {
             }
           />
 
-          {/* IMAGE INPUT */}
           <input type="file" onChange={handleImageUpload} />
 
-          {/* PREVIEW */}
           {form.image && (
             <div>
               <img

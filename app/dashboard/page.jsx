@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 export default function Dashboard() {
   const [leaderboard, setLeaderboard] = useState([]);
+  const [serviceLevel, setServiceLevel] = useState(5);
 
   useEffect(() => {
     const history = JSON.parse(localStorage.getItem("history")) || [];
@@ -26,33 +27,40 @@ export default function Dashboard() {
       });
     });
 
-    const result = Object.entries(staffMap).map(([name, data]) => {
-      let status = "CRITICAL";
+    let result = Object.entries(staffMap).map(([name, data]) => ({
+      name,
+      revenue: data.revenue,
+      payout: data.payout,
+    }));
 
-      if (data.revenue >= 50000) status = "GOOD";
-      else if (data.revenue >= 30000) status = "WARNING";
-      else if (data.revenue >= 15000) status = "BAD";
+    // SORT
+    result.sort((a, b) => b.revenue - a.revenue);
+
+    // 🔥 BONUS SYSTEM
+    result = result.map((s, i) => {
+      let bonus = 0;
+
+      if (i === 0) bonus = 0.1; // +10%
+      else if (i === 1) bonus = 0.05; // +5%
 
       return {
-        name,
-        revenue: data.revenue,
-        payout: data.payout,
-        status,
+        ...s,
+        bonus,
+        finalPayout: s.payout + s.payout * bonus,
       };
     });
 
-    // 🔥 SORT BY REVENUE (BEST FIRST)
-    result.sort((a, b) => b.revenue - a.revenue);
+    // 🔥 SERVICE LEVEL UNLOCK
+    const totalRevenue = result.reduce((sum, s) => sum + s.revenue, 0);
 
+    let level = 5;
+
+    if (totalRevenue >= 100000) level = 7;
+    else if (totalRevenue >= 50000) level = 6;
+
+    setServiceLevel(level);
     setLeaderboard(result);
   }, []);
-
-  const getColor = (status) => {
-    if (status === "GOOD") return "text-green-400";
-    if (status === "WARNING") return "text-orange-400";
-    if (status === "BAD") return "text-red-400";
-    return "text-red-700";
-  };
 
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
@@ -67,9 +75,18 @@ export default function Dashboard() {
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 space-y-8">
 
         <h1 className="text-3xl md:text-5xl font-semibold">
-          Staff Performance
+          Performance & Bonus System
         </h1>
 
+        {/* 🔥 SERVICE LEVEL */}
+        <div className="p-6 rounded-xl bg-black/30 border border-white/10">
+          <p className="text-white/50">Unlocked Service Charge</p>
+          <h2 className="text-3xl text-[#ffb36b] mt-2">
+            {serviceLevel}%
+          </h2>
+        </div>
+
+        {/* LEADERBOARD */}
         <div className="space-y-4">
 
           {leaderboard.map((s, i) => (
@@ -86,11 +103,15 @@ export default function Dashboard() {
               </div>
 
               <div>
-                Earned: THB {s.payout.toLocaleString()}
+                Base: THB {s.payout.toLocaleString()}
               </div>
 
-              <div className={getColor(s.status)}>
-                {s.status}
+              <div className="text-green-400">
+                +{Math.round(s.bonus * 100)}%
+              </div>
+
+              <div className="text-[#ffb36b]">
+                Final: THB {Math.round(s.finalPayout).toLocaleString()}
               </div>
             </div>
           ))}

@@ -10,6 +10,9 @@ export default function Navbar() {
     { name: "Dashboard", href: "/dashboard" },
     { name: "Control", href: "/control-final" },
     { name: "POS", href: "/pos" },
+    { name: "POS Control", href: "/pos-control" },
+    { name: "Staff", href: "/staff" },
+    { name: "Staff Control", href: "/staff-control" },
     { name: "History", href: "/history" },
     { name: "Accounting", href: "/accounting" },
     { name: "Payout", href: "/payout" },
@@ -19,9 +22,9 @@ export default function Navbar() {
     <div className="fixed top-0 left-0 w-full z-50">
 
       {/* Glass background */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-xl border-b border-white/10" />
+      <div className="absolute inset-0 bg-black/25 backdrop-blur-2xl border-b border-white/5" />
 
-      <div className="relative max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
+      <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
 
         {/* LOGO */}
         <div className="flex items-center gap-2">
@@ -31,8 +34,8 @@ export default function Navbar() {
           </span>
         </div>
 
-        {/* DESKTOP NAV */}
-        <div className="hidden md:flex items-center gap-2">
+        {/* NAV */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
 
           {navItems.map((item, i) => {
             const active = pathname === item.href;
@@ -41,7 +44,7 @@ export default function Navbar() {
               <Link
                 key={i}
                 href={item.href}
-                className={`px-4 py-2 rounded-lg text-sm transition
+                className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap transition
                   ${
                     active
                       ? "bg-[#ff7a00] text-black shadow-[0_5px_20px_rgba(0,0,0,0.5)]"
@@ -54,13 +57,6 @@ export default function Navbar() {
             );
           })}
 
-        </div>
-
-        {/* MOBILE MENU BUTTON */}
-        <div className="md:hidden">
-          <button className="px-3 py-2 rounded-lg bg-white/10 backdrop-blur text-white">
-            Menu
-          </button>
         </div>
 
       </div>

@@ -22,10 +22,37 @@ export async function POST(req) {
             {
               type: "input_text",
               text: `
-You are an OCR system.
+You are an accounting OCR system.
 
-Extract all visible text from this document.
-Return plain text only.
+RULES:
+
+1. This is an invoice or receipt.
+
+2. Vendor = the company issuing the document:
+- Usually at the TOP
+- Contains company name, address, tax ID, logo
+- NEVER the customer name
+
+3. IGNORE:
+- "Invoice To"
+- Customer names (like Amit)
+- Event or booking details
+
+4. Amount:
+- If "Remaining Balance" exists → use it
+- Otherwise use "Total"
+- Never use deposit
+
+5. Date:
+- Use invoice date or transaction date
+
+RETURN ONLY JSON:
+
+{
+  "vendor": "",
+  "total_amount": "",
+  "date": ""
+}
               `,
             },
             {
@@ -37,17 +64,20 @@ Return plain text only.
       ],
     });
 
-    // ✅ SAFE extraction (this is the fix)
-    const rawText =
+    const output =
       response.output_text ||
       response.output?.[0]?.content?.[0]?.text ||
       "";
 
-    if (!rawText || rawText.trim() === "") {
-      return Response.json({ error: "No readable text found" }, { status: 200 });
+    let parsed;
+
+    try {
+      parsed = JSON.parse(output);
+    } catch {
+      return Response.json({ error: "Parsing failed", raw: output });
     }
 
-    return Response.json({ text: rawText });
+    return Response.json({ data: parsed });
 
   } catch (err) {
     console.error(err);

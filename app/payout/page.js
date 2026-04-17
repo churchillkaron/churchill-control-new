@@ -3,39 +3,93 @@
 import { useEffect, useState } from "react";
 
 export default function Payout() {
-  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [revenue, setRevenue] = useState(0);
+
   const [serviceCharge, setServiceCharge] = useState(0);
-  const [status, setStatus] = useState("CRITICAL");
-  const [payoutLevel, setPayoutLevel] = useState(0);
+
+  const [fohStatus, setFohStatus] = useState("");
+  const [barStatus, setBarStatus] = useState("");
+  const [kitchenStatus, setKitchenStatus] = useState("");
+
+  const [fohPayout, setFohPayout] = useState(0);
+  const [barPayout, setBarPayout] = useState(0);
+  const [kitchenPayout, setKitchenPayout] = useState(0);
+
+  // 🔥 Manual inputs (for now)
+  const [barWaste, setBarWaste] = useState(0);
+  const [kitchenCost, setKitchenCost] = useState(30);
 
   useEffect(() => {
     const orders = JSON.parse(localStorage.getItem("orders")) || [];
 
-    const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
-    setTotalRevenue(revenue);
+    const total = orders.reduce((sum, o) => sum + Number(o.total), 0);
+    setRevenue(total);
 
-    const service = revenue * 0.05;
+    const service = total * 0.05;
     setServiceCharge(service);
 
-    // 🔥 STATUS LOGIC (CORE SYSTEM)
-    if (revenue >= 50000) {
-      setStatus("GOOD");
-      setPayoutLevel(100);
-    } else if (revenue >= 30000) {
-      setStatus("WARNING");
-      setPayoutLevel(70);
-    } else if (revenue >= 15000) {
-      setStatus("BAD");
-      setPayoutLevel(40);
-    } else {
-      setStatus("CRITICAL");
-      setPayoutLevel(0);
-    }
-  }, []);
+    // 🔥 FOH LOGIC (based on revenue)
+    let fohLevel = 0;
+    let fohStatusText = "CRITICAL";
 
-  const foh = serviceCharge * 0.5 * (payoutLevel / 100);
-  const bar = serviceCharge * 0.3 * (payoutLevel / 100);
-  const kitchen = serviceCharge * 0.2 * (payoutLevel / 100);
+    if (total >= 50000) {
+      fohLevel = 100;
+      fohStatusText = "GOOD";
+    } else if (total >= 30000) {
+      fohLevel = 70;
+      fohStatusText = "WARNING";
+    } else if (total >= 15000) {
+      fohLevel = 40;
+      fohStatusText = "BAD";
+    }
+
+    setFohStatus(fohStatusText);
+
+    // 🔥 BAR LOGIC (based on waste)
+    let barLevel = 0;
+    let barStatusText = "CRITICAL";
+
+    if (barWaste < 1000) {
+      barLevel = 100;
+      barStatusText = "GOOD";
+    } else if (barWaste < 2000) {
+      barLevel = 70;
+      barStatusText = "WARNING";
+    } else if (barWaste < 4000) {
+      barLevel = 40;
+      barStatusText = "BAD";
+    }
+
+    setBarStatus(barStatusText);
+
+    // 🔥 KITCHEN LOGIC (based on cost %)
+    let kitchenLevel = 0;
+    let kitchenStatusText = "CRITICAL";
+
+    if (kitchenCost <= 30) {
+      kitchenLevel = 100;
+      kitchenStatusText = "GOOD";
+    } else if (kitchenCost <= 35) {
+      kitchenLevel = 70;
+      kitchenStatusText = "WARNING";
+    } else if (kitchenCost <= 40) {
+      kitchenLevel = 40;
+      kitchenStatusText = "BAD";
+    }
+
+    setKitchenStatus(kitchenStatusText);
+
+    // 🔥 SPLIT (base allocation)
+    const fohPool = service * 0.5;
+    const barPool = service * 0.3;
+    const kitchenPool = service * 0.2;
+
+    // 🔥 FINAL PAYOUT
+    setFohPayout(fohPool * (fohLevel / 100));
+    setBarPayout(barPool * (barLevel / 100));
+    setKitchenPayout(kitchenPool * (kitchenLevel / 100));
+
+  }, [barWaste, kitchenCost]);
 
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
@@ -52,23 +106,16 @@ export default function Payout() {
       {/* OVERLAY */}
       <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(8,8,8,0.75),rgba(18,12,8,0.85))]" />
 
-      {/* CONTENT */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 space-y-8">
 
         <h1 className="text-3xl md:text-5xl font-semibold">
           Payout System
         </h1>
 
-        {/* STATUS */}
-        <div className="p-6 rounded-xl bg-black/30 border border-white/10">
-          <p>Status</p>
-          <h2 className="text-2xl text-[#ffb36b]">{status}</h2>
-        </div>
-
         {/* REVENUE */}
         <div className="p-6 rounded-xl bg-black/30 border border-white/10">
           <p>Total Revenue</p>
-          <h2>THB {totalRevenue.toLocaleString()}</h2>
+          <h2>THB {revenue.toLocaleString()}</h2>
         </div>
 
         {/* SERVICE CHARGE */}
@@ -77,25 +124,44 @@ export default function Payout() {
           <h2>THB {serviceCharge.toLocaleString()}</h2>
         </div>
 
-        {/* PAYOUT LEVEL */}
-        <div className="p-6 rounded-xl bg-black/30 border border-white/10">
-          <p>Payout Level</p>
-          <h2>{payoutLevel}%</h2>
-        </div>
-
-        {/* SPLIT */}
+        {/* INPUTS */}
         <div className="space-y-4">
 
           <div className="p-4 rounded-xl bg-black/30 border border-white/10">
-            FOH (50%) → THB {foh.toLocaleString()}
+            <p>Bar Waste (THB)</p>
+            <input
+              type="number"
+              value={barWaste}
+              onChange={(e) => setBarWaste(Number(e.target.value))}
+              className="mt-2 p-2 text-black rounded"
+            />
           </div>
 
           <div className="p-4 rounded-xl bg-black/30 border border-white/10">
-            BAR (30%) → THB {bar.toLocaleString()}
+            <p>Kitchen Cost (%)</p>
+            <input
+              type="number"
+              value={kitchenCost}
+              onChange={(e) => setKitchenCost(Number(e.target.value))}
+              className="mt-2 p-2 text-black rounded"
+            />
+          </div>
+
+        </div>
+
+        {/* RESULTS */}
+        <div className="space-y-4">
+
+          <div className="p-4 rounded-xl bg-black/30 border border-white/10">
+            FOH → {fohStatus} → THB {fohPayout.toLocaleString()}
           </div>
 
           <div className="p-4 rounded-xl bg-black/30 border border-white/10">
-            KITCHEN (20%) → THB {kitchen.toLocaleString()}
+            BAR → {barStatus} → THB {barPayout.toLocaleString()}
+          </div>
+
+          <div className="p-4 rounded-xl bg-black/30 border border-white/10">
+            KITCHEN → {kitchenStatus} → THB {kitchenPayout.toLocaleString()}
           </div>
 
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AppShell from "../AppShell";
 
 export default function Accounting() {
   const [expenses, setExpenses] = useState([]);
@@ -57,7 +58,6 @@ export default function Accounting() {
     reader.readAsDataURL(file);
   };
 
-  // ✅ FIXED OCR FUNCTION (MATCHES BACKEND)
   const runOCR = async () => {
     if (!form.image) {
       alert("Please upload an image first");
@@ -78,15 +78,8 @@ export default function Accounting() {
 
       const data = await res.json();
 
-      console.log("OCR RESPONSE:", data);
-
-      if (!res.ok) {
-        setOcrStatus(`OCR failed: ${data.error || "Unknown error"}`);
-        return;
-      }
-
-      if (!data.data) {
-        setOcrStatus("OCR returned no structured data");
+      if (!res.ok || !data.data) {
+        setOcrStatus("OCR failed");
         return;
       }
 
@@ -149,113 +142,161 @@ export default function Accounting() {
   };
 
   return (
-    <div className="relative min-h-screen text-white overflow-hidden">
-      <div className="absolute inset-0 -z-30">
-        <img
-          src="/bg-hero-control.jpg"
-          alt="Accounting background"
-          className="w-full h-full object-cover"
-        />
-      </div>
+    <AppShell>
+      <div className="space-y-14">
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-16 space-y-8">
-        <div>
-          <h1 className="text-3xl md:text-5xl font-semibold">Accounting</h1>
-          <p className="text-white/60 mt-2">
-            Expenses: THB {totalExpenses.toLocaleString()} | Revenue: THB{" "}
-            {totalRevenue.toLocaleString()} | Profit: THB{" "}
-            {netProfit.toLocaleString()}
+        {/* HEADER */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-medium text-white/90">
+            Accounting
+          </h1>
+          <p className="text-white/50 text-sm">
+            Expense tracking, OCR receipts, and profit overview
           </p>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-black/30 p-6 space-y-4">
-          <div className="grid md:grid-cols-3 gap-4">
-            <input
-              placeholder="Vendor"
-              value={form.name}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, name: e.target.value }))
-              }
-              className="p-3 rounded-xl bg-black/30 border border-white/10"
-            />
+        {/* FINANCIAL HERO */}
+        <div className="relative">
+          <div className="absolute -inset-6 bg-[#ff7a00]/10 blur-3xl rounded-[32px]" />
 
-            <input
-              placeholder="Amount"
-              value={form.amount}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, amount: e.target.value }))
-              }
-              className="p-3 rounded-xl bg-black/30 border border-white/10"
-            />
+          <div className="relative rounded-[28px] border border-white/10 bg-white/[0.06] backdrop-blur-xl p-8 shadow-[0_30px_80px_rgba(0,0,0,0.6)]">
 
-            <input
-              placeholder="Category"
-              value={form.category}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, category: e.target.value }))
-              }
-              className="p-3 rounded-xl bg-black/30 border border-white/10"
-            />
+            <div className="grid md:grid-cols-3 gap-6 text-sm">
+
+              <div>
+                <div className="text-white/40">Expenses</div>
+                <div className="text-lg">
+                  THB {totalExpenses.toLocaleString()}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-white/40">Revenue</div>
+                <div className="text-lg">
+                  THB {totalRevenue.toLocaleString()}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-white/40">Profit</div>
+                <div className="text-lg text-[#ff7a00] font-medium">
+                  THB {netProfit.toLocaleString()}
+                </div>
+              </div>
+
+            </div>
+
           </div>
+        </div>
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-          />
+        {/* EXPENSE FORM */}
+        <div className="relative">
+          <div className="absolute -inset-4 bg-white/5 blur-2xl rounded-3xl" />
 
-          {form.image && (
-            <div className="space-y-3">
-              <img
-                src={form.image}
-                alt="Uploaded receipt"
-                className="w-48 rounded-xl border border-white/10"
+          <div className="relative rounded-3xl border border-white/10 bg-white/[0.05] p-6 space-y-4">
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <input
+                placeholder="Vendor"
+                value={form.name}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+                className="p-3 rounded-xl bg-black/30 border border-white/10"
               />
 
-              <div className="flex gap-3">
-                <button
-                  onClick={runOCR}
-                  className="bg-blue-500 px-4 py-2 rounded-xl"
-                >
-                  Auto Read Receipt
-                </button>
+              <input
+                placeholder="Amount"
+                value={form.amount}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, amount: e.target.value }))
+                }
+                className="p-3 rounded-xl bg-black/30 border border-white/10"
+              />
 
-                <button
-                  onClick={addExpense}
-                  className="bg-orange-500 px-4 py-2 rounded-xl"
-                >
-                  Add Expense
-                </button>
-              </div>
+              <input
+                placeholder="Category"
+                value={form.category}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, category: e.target.value }))
+                }
+                className="p-3 rounded-xl bg-black/30 border border-white/10"
+              />
             </div>
-          )}
 
-          {ocrStatus && (
-            <div className="text-sm text-white/70">{ocrStatus}</div>
-          )}
+            <input type="file" accept="image/*" onChange={handleImageUpload} />
 
-          {(parsedPreview.name || parsedPreview.amount) && (
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div>Name: {parsedPreview.name || "-"}</div>
-              <div>Amount: {parsedPreview.amount || "-"}</div>
-            </div>
-          )}
-        </div>
+            {form.image && (
+              <div className="space-y-3">
+                <img
+                  src={form.image}
+                  alt="receipt"
+                  className="w-40 rounded-xl border border-white/10"
+                />
 
-        <div className="rounded-3xl border border-white/10 bg-black/30 p-6">
-          <h2 className="text-xl font-semibold mb-4">Expenses</h2>
+                <div className="flex gap-3">
+                  <button
+                    onClick={runOCR}
+                    className="bg-blue-500 px-4 py-2 rounded-xl"
+                  >
+                    OCR
+                  </button>
 
-          <div className="space-y-3">
-            {expenses.map((item, i) => (
-              <div key={i} className="p-4 border border-white/10 rounded-xl">
-                <div>{item.name}</div>
-                <div>THB {Number(item.amount).toLocaleString()}</div>
-                <div>{item.category || "-"}</div>
+                  <button
+                    onClick={addExpense}
+                    className="bg-[#ff7a00] text-black px-4 py-2 rounded-xl"
+                  >
+                    Add Expense
+                  </button>
+                </div>
               </div>
-            ))}
+            )}
+
+            {ocrStatus && (
+              <div className="text-sm text-white/60">{ocrStatus}</div>
+            )}
+
+            {(parsedPreview.name || parsedPreview.amount) && (
+              <div className="bg-black/30 p-4 rounded-xl border border-white/10">
+                <div>Name: {parsedPreview.name || "-"}</div>
+                <div>Amount: {parsedPreview.amount || "-"}</div>
+              </div>
+            )}
+
           </div>
         </div>
+
+        {/* EXPENSE LIST */}
+        <div className="relative">
+          <div className="absolute -inset-4 bg-white/5 blur-2xl rounded-3xl" />
+
+          <div className="relative rounded-3xl border border-white/10 bg-white/[0.05] p-6">
+            <h2 className="text-xl mb-4 text-white/80">Expenses</h2>
+
+            <div className="space-y-3">
+              {expenses.map((item, i) => (
+                <div
+                  key={i}
+                  className="p-4 rounded-xl border border-white/10 bg-black/30 flex justify-between"
+                >
+                  <div>
+                    <div>{item.name}</div>
+                    <div className="text-white/40 text-sm">
+                      {item.category || "-"}
+                    </div>
+                  </div>
+
+                  <div>
+                    THB {Number(item.amount).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+        </div>
+
       </div>
-    </div>
+    </AppShell>
   );
 }

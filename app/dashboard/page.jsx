@@ -4,140 +4,151 @@ import { useEffect, useState } from "react";
 
 export default function Dashboard() {
   const [contracts, setContracts] = useState({});
-  const [name, setName] = useState("");
-  const [salary, setSalary] = useState("");
-
-  const [staffActions, setStaffActions] = useState({});
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [monthlyPayroll, setMonthlyPayroll] = useState(null);
 
   useEffect(() => {
     const savedContracts =
       JSON.parse(localStorage.getItem("contracts")) || {};
     setContracts(savedContracts);
 
-    const actions =
-      JSON.parse(localStorage.getItem("staffActions")) || {};
-    setStaffActions(actions);
+    const h = JSON.parse(localStorage.getItem("history")) || [];
+    setHistory(h);
 
-    const history = JSON.parse(localStorage.getItem("history")) || [];
+    const payroll =
+      JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
+    setMonthlyPayroll(payroll);
+  }, []);
+
+  // =========================
+  // GENERATE MONTHLY PAYROLL
+  // =========================
+  const generatePayroll = () => {
+    if (history.length === 0) return;
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
 
     const staffMap = {};
 
     history.forEach((day) => {
       if (!day.staff) return;
 
+      const dayMonth = new Date(
+        day.date.split("/").reverse().join("-")
+      )
+        .toISOString()
+        .slice(0, 7);
+
+      if (dayMonth !== currentMonth) return;
+
       day.staff.forEach((s) => {
         if (!staffMap[s.name]) {
           staffMap[s.name] = {
-            payout: 0,
+            bonus: 0,
           };
         }
 
-        staffMap[s.name].payout += Number(s.payout || 0);
+        staffMap[s.name].bonus += Number(s.payout || 0);
       });
     });
 
-    const result = Object.entries(staffMap).map(([name, data]) => ({
-      name,
-      payout: data.payout,
-    }));
+    const staffPayroll = Object.entries(staffMap).map(([name, data]) => {
+      const salary = contracts[name]?.salary || 0;
 
-    setLeaderboard(result);
-  }, []);
+      return {
+        name,
+        salary,
+        bonus: data.bonus,
+        total: salary + data.bonus,
+        staffConfirmed: false,
+        managerApproved: false,
+        paid: false,
+      };
+    });
 
-  // =========================
-  // SAVE CONTRACT
-  // =========================
-  const saveContract = () => {
-    if (!name || !salary) return;
-
-    const updated = {
-      ...contracts,
-      [name]: {
-        salary: Number(salary),
-      },
+    const payrollData = {
+      month: currentMonth,
+      staff: staffPayroll,
     };
 
-    localStorage.setItem("contracts", JSON.stringify(updated));
-    setContracts(updated);
-
-    setName("");
-    setSalary("");
+    localStorage.setItem("monthlyPayroll", JSON.stringify(payrollData));
+    setMonthlyPayroll(payrollData);
   };
 
   // =========================
-  // CALCULATE FINAL PAY
+  // LIFETIME CALCULATION
   // =========================
-  const getFinalPay = (staffName, payout) => {
-    const contract = contracts[staffName];
-    const action = staffActions[staffName];
+  const getLifetimeEarnings = (name) => {
+    let total = 0;
 
-    let bonusMultiplier = 1;
+    history.forEach((day) => {
+      if (!day.staff) return;
 
-    if (action === "Final Warning") bonusMultiplier = 0;
-    else if (action === "Under Review") bonusMultiplier = 0.5;
+      day.staff.forEach((s) => {
+        if (s.name === name) {
+          total += Number(s.payout || 0);
+        }
+      });
+    });
 
-    const finalBonus = payout * bonusMultiplier;
-    const baseSalary = contract?.salary || 0;
+    const salary = contracts[name]?.salary || 0;
 
-    return baseSalary + finalBonus;
+    return total + salary;
   };
 
   return (
     <div className="min-h-screen text-white p-10">
 
-      {/* CONTRACT INPUT */}
-      <h1 className="text-3xl mb-6">Staff Contracts</h1>
+      {/* GENERATE */}
+      <h1 className="text-3xl mb-6">Monthly Payroll</h1>
 
-      <div className="mb-6 space-x-2">
-        <input
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="p-2 bg-black/40 border border-white/10 rounded"
-        />
+      <button
+        onClick={generatePayroll}
+        className="bg-orange-500 px-4 py-2 rounded mb-6"
+      >
+        Generate Payroll
+      </button>
 
-        <input
-          placeholder="Salary"
-          value={salary}
-          onChange={(e) => setSalary(e.target.value)}
-          className="p-2 bg-black/40 border border-white/10 rounded"
-        />
+      {/* PAYROLL VIEW */}
+      {monthlyPayroll && (
+        <div>
+          <h2 className="text-xl mb-4">
+            Month: {monthlyPayroll.month}
+          </h2>
 
-        <button
-          onClick={saveContract}
-          className="bg-orange-500 px-4 py-2 rounded"
-        >
-          Save
-        </button>
-      </div>
+          {monthlyPayroll.staff.map((s, i) => (
+            <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
 
-      {/* CONTRACT LIST */}
-      {Object.entries(contracts).map(([name, c], i) => (
-        <div key={i} className="mb-2">
-          {name} → Salary: THB {c.salary}
+              <strong>{s.name}</strong>
+
+              <br />
+
+              Salary: THB {s.salary}
+              <br />
+              Bonus: THB {Math.round(s.bonus)}
+              <br />
+
+              <span className="text-orange-400">
+                Total: THB {Math.round(s.total)}
+              </span>
+
+              <br />
+
+              Lifetime Earned: THB{" "}
+              {Math.round(getLifetimeEarnings(s.name))}
+
+              <br />
+
+              Staff Confirmed: {s.staffConfirmed ? "Yes" : "No"}
+              <br />
+              Manager Approved: {s.managerApproved ? "Yes" : "No"}
+              <br />
+              Paid: {s.paid ? "Yes" : "No"}
+
+            </div>
+          ))}
         </div>
-      ))}
-
-      {/* FINAL PAY */}
-      <h1 className="text-3xl mt-10 mb-6">Final Payroll</h1>
-
-      {leaderboard.map((s, i) => (
-        <div key={i} className="mb-3">
-          <strong>{s.name}</strong>
-
-          <br />
-
-          Service Bonus: THB {Math.round(s.payout)}
-
-          <br />
-
-          Total Pay:{" "}
-          <span className="text-orange-400">
-            THB {Math.round(getFinalPay(s.name, s.payout))}
-          </span>
-        </div>
-      ))}
+      )}
 
     </div>
   );

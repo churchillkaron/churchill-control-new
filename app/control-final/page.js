@@ -8,10 +8,13 @@ export default function ControlFinal() {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
   const [avgOrderValue, setAvgOrderValue] = useState(0);
+  const [serviceChargePercent, setServiceChargePercent] = useState(5);
 
   useEffect(() => {
     const name = localStorage.getItem("staffName");
     const role = localStorage.getItem("staffRole");
+    const lockedRate =
+      Number(localStorage.getItem("serviceChargeRate")) || 5;
 
     if (!name || !role) {
       window.location.href = "/";
@@ -20,6 +23,7 @@ export default function ControlFinal() {
       setStaffRole(role);
     }
 
+    setServiceChargePercent(lockedRate);
     loadRevenue();
   }, []);
 
@@ -32,13 +36,6 @@ export default function ControlFinal() {
     setTotalRevenue(revenue);
     setTotalOrders(count);
     setAvgOrderValue(avg);
-  };
-
-  // =========================
-  // LOCKED SERVICE CHARGE
-  // =========================
-  const getServiceChargePercent = () => {
-    return Number(localStorage.getItem("serviceChargeRate")) || 5;
   };
 
   // =========================
@@ -134,7 +131,7 @@ export default function ControlFinal() {
     const ordersCount = orders.length;
     const avgValue = ordersCount > 0 ? revenue / ordersCount : 0;
 
-    const percent = getServiceChargePercent();
+    const percent = serviceChargePercent;
     const serviceCharge = revenue * (percent / 100);
 
     const barWaste = Number(localStorage.getItem("barWaste")) || 0;
@@ -142,7 +139,6 @@ export default function ControlFinal() {
 
     const fohResult = getFohStatus(revenue, ordersCount, avgValue);
 
-    // BAR
     let barLevel = 20;
     let barStatus = "CRITICAL";
 
@@ -157,7 +153,6 @@ export default function ControlFinal() {
       barStatus = "BAD";
     }
 
-    // KITCHEN
     let kitchenLevel = 20;
     let kitchenStatus = "CRITICAL";
 
@@ -259,7 +254,7 @@ export default function ControlFinal() {
           Average Order Value: THB {Math.round(avgOrderValue).toLocaleString()}
         </div>
         <div>
-          Locked Service Charge: {getServiceChargePercent()}%
+          Locked Service Charge: {serviceChargePercent}%
         </div>
       </div>
     </div>

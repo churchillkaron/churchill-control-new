@@ -18,65 +18,86 @@ export default function Dashboard() {
           staffMap[s.name] = {
             revenue: 0,
             payout: 0,
-            days: 0,
           };
         }
 
         staffMap[s.name].revenue += Number(s.revenue);
         staffMap[s.name].payout += Number(s.payout);
-        staffMap[s.name].days += 1;
       });
     });
 
     const result = Object.entries(staffMap).map(([name, data]) => {
-      const score = data.revenue / Math.max(data.days, 1);
+      let status = "CRITICAL";
+
+      if (data.revenue >= 50000) status = "GOOD";
+      else if (data.revenue >= 30000) status = "WARNING";
+      else if (data.revenue >= 15000) status = "BAD";
 
       return {
         name,
         revenue: data.revenue,
         payout: data.payout,
-        score,
+        status,
       };
     });
 
-    // 🔥 SORT BY PERFORMANCE
-    result.sort((a, b) => b.score - a.score);
+    // 🔥 SORT BY REVENUE (BEST FIRST)
+    result.sort((a, b) => b.revenue - a.revenue);
 
     setLeaderboard(result);
   }, []);
 
+  const getColor = (status) => {
+    if (status === "GOOD") return "text-green-400";
+    if (status === "WARNING") return "text-orange-400";
+    if (status === "BAD") return "text-red-400";
+    return "text-red-700";
+  };
+
   return (
-    <div className="min-h-screen text-white p-10">
+    <div className="relative min-h-screen text-white overflow-hidden">
 
-      <h1 className="text-3xl mb-6">Staff Leaderboard</h1>
-
-      <div className="space-y-3">
-
-        {leaderboard.map((s, i) => (
-          <div
-            key={i}
-            className="p-4 bg-black/30 rounded flex justify-between"
-          >
-            <div>
-              #{i + 1} {s.name}
-            </div>
-
-            <div>
-              THB {s.revenue.toLocaleString()}
-            </div>
-
-            <div>
-              Earned: THB {s.payout.toLocaleString()}
-            </div>
-
-            <div>
-              Score: {Math.round(s.score)}
-            </div>
-          </div>
-        ))}
-
+      {/* BACKGROUND */}
+      <div className="absolute inset-0 -z-30">
+        <img src="/bg-hero-control.jpg" className="w-full h-full object-cover" />
       </div>
 
+      <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(8,8,8,0.75),rgba(18,12,8,0.85))]" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 space-y-8">
+
+        <h1 className="text-3xl md:text-5xl font-semibold">
+          Staff Performance
+        </h1>
+
+        <div className="space-y-4">
+
+          {leaderboard.map((s, i) => (
+            <div
+              key={i}
+              className="p-4 rounded-xl bg-black/30 border border-white/10 flex justify-between items-center"
+            >
+              <div>
+                #{i + 1} {s.name}
+              </div>
+
+              <div>
+                THB {s.revenue.toLocaleString()}
+              </div>
+
+              <div>
+                Earned: THB {s.payout.toLocaleString()}
+              </div>
+
+              <div className={getColor(s.status)}>
+                {s.status}
+              </div>
+            </div>
+          ))}
+
+        </div>
+
+      </div>
     </div>
   );
 }

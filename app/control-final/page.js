@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import AppShell from "../AppShell";
 
 export default function ControlFinalPage() {

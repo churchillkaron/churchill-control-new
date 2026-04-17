@@ -23,21 +23,6 @@ export default function Accounting() {
     setHistory(storedHistory);
   }, []);
 
-  const totalExpenses = expenses.reduce(
-    (sum, e) => sum + Number(e.amount || 0),
-    0
-  );
-
-  const totalRevenue = history.reduce(
-    (sum, d) => sum + Number(d.revenue || 0),
-    0
-  );
-
-  const netProfit = totalRevenue - totalExpenses;
-
-  // =========================
-  // IMAGE UPLOAD
-  // =========================
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -55,7 +40,7 @@ export default function Accounting() {
   };
 
   // =========================
-  // PARSER
+  // 🔥 SMART PARSER (UPGRADED)
   // =========================
   const extractData = (text) => {
     const lines = text.split("\n");
@@ -63,23 +48,28 @@ export default function Accounting() {
     let amount = "";
     let vendor = "";
 
-    // find TOTAL
+    // 🔥 STEP 1: Look for key financial labels
+    const keywords = [
+      "total",
+      "grand total",
+      "net total",
+      "balance",
+      "amount",
+      "fee",
+    ];
+
     for (let line of lines) {
       const lower = line.toLowerCase();
 
-      if (
-        lower.includes("total") ||
-        lower.includes("grand total")
-      ) {
+      if (keywords.some((k) => lower.includes(k))) {
         const match = line.match(/\d+[.,]?\d*/g);
         if (match) {
           amount = match[match.length - 1];
-          break;
         }
       }
     }
 
-    // fallback biggest number
+    // 🔥 STEP 2: fallback = biggest number
     if (!amount) {
       let max = 0;
 
@@ -97,20 +87,19 @@ export default function Accounting() {
       });
     }
 
+    // 🔥 STEP 3: vendor detection
     vendor =
       lines.find(
         (l) =>
           l.length > 4 &&
           !l.match(/\d/) &&
-          !l.toLowerCase().includes("invoice")
+          !l.toLowerCase().includes("invoice") &&
+          !l.toLowerCase().includes("tax")
       ) || "";
 
     return { amount, vendor };
   };
 
-  // =========================
-  // OCR
-  // =========================
   const runOCR = async () => {
     if (!form.image) return;
 
@@ -132,9 +121,6 @@ export default function Accounting() {
     }));
   };
 
-  // =========================
-  // ADD EXPENSE (FIXED)
-  // =========================
   const addExpense = () => {
     if (!form.name || !form.amount) {
       alert("Missing name or amount");
@@ -152,7 +138,6 @@ export default function Accounting() {
     localStorage.setItem("expenses", JSON.stringify(updated));
     setExpenses(updated);
 
-    // reset form
     setForm({
       name: "",
       amount: "",
@@ -162,79 +147,58 @@ export default function Accounting() {
   };
 
   return (
-    <div className="relative min-h-screen text-white overflow-hidden">
+    <div className="min-h-screen text-white p-10">
 
-      <div className="relative z-10 max-w-5xl mx-auto pt-20 space-y-6">
+      <h1 className="text-3xl mb-4">Accounting</h1>
 
-        <h1 className="text-3xl">Accounting</h1>
+      <input
+        placeholder="Vendor"
+        value={form.name}
+        onChange={(e) =>
+          setForm((prev) => ({ ...prev, name: e.target.value }))
+        }
+      />
 
+      <input
+        placeholder="Amount"
+        value={form.amount}
+        onChange={(e) =>
+          setForm((prev) => ({ ...prev, amount: e.target.value }))
+        }
+      />
+
+      <input
+        placeholder="Category"
+        value={form.category}
+        onChange={(e) =>
+          setForm((prev) => ({ ...prev, category: e.target.value }))
+        }
+      />
+
+      <input type="file" onChange={handleImageUpload} />
+
+      {form.image && (
         <div>
-          Expenses: {totalExpenses} | Revenue: {totalRevenue} | Profit: {netProfit}
-        </div>
+          <img src={form.image} className="w-40 mt-2" />
 
-        {/* FORM */}
-        <div className="space-y-3">
-
-          <input
-            placeholder="Vendor"
-            value={form.name}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                name: e.target.value,
-              }))
-            }
-          />
-
-          <input
-            placeholder="Amount"
-            value={form.amount}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                amount: e.target.value,
-              }))
-            }
-          />
-
-          <input
-            placeholder="Category"
-            value={form.category}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                category: e.target.value,
-              }))
-            }
-          />
-
-          <input type="file" onChange={handleImageUpload} />
-
-          {form.image && (
-            <div>
-              <img src={form.image} className="w-32" />
-              <button onClick={runOCR}>
-                Auto Read Receipt
-              </button>
-            </div>
-          )}
-
-          <button onClick={addExpense}>
-            Add Expense
+          <button onClick={runOCR}>
+            Auto Read Receipt
           </button>
-
         </div>
+      )}
 
-        {/* LIST */}
-        <div>
-          {expenses.map((item, i) => (
-            <div key={i}>
-              {item.name} - {item.amount}
-            </div>
-          ))}
-        </div>
+      <button onClick={addExpense}>
+        Add Expense
+      </button>
 
+      <div className="mt-6">
+        {expenses.map((e, i) => (
+          <div key={i}>
+            {e.name} - {e.amount}
+          </div>
+        ))}
       </div>
+
     </div>
   );
 }

@@ -55,18 +55,17 @@ export default function History() {
               <div className="flex justify-between mb-2">
                 <div>{day.date}</div>
                 <div className="text-[#ffb36b]">
-                  THB {day.revenue?.toLocaleString() || 0}
+                  THB {Number(day.revenue || 0).toLocaleString()}
                 </div>
               </div>
 
               <div className="text-sm text-white/50 mb-4">
-                Service Charge: THB {day.serviceCharge?.toLocaleString() || 0}
+                Service Charge: THB {Number(day.serviceCharge || 0).toLocaleString()}
               </div>
 
-              {/* 🔥 FOH PERFORMANCE BLOCK */}
+              {/* FOH PERFORMANCE */}
               {day.levels && (
                 <div className="mb-4">
-
                   <div className={`font-semibold ${getColor(day.levels.foh)}`}>
                     FOH → {day.levels.foh}
                     {day.scores?.foh && (
@@ -76,13 +75,9 @@ export default function History() {
                     )}
                   </div>
 
-                  {/* EXTRA DATA */}
-                  {day.totalOrders && (
-                    <div className="text-sm text-white/50 mt-1">
-                      Orders: {day.totalOrders} | Avg: THB {Math.round(day.avgOrderValue || 0)}
-                    </div>
-                  )}
-
+                  <div className="text-sm text-white/50 mt-1">
+                    Orders: {day.totalOrders || 0} | Avg: THB {Math.round(day.avgOrderValue || 0)}
+                  </div>
                 </div>
               )}
 
@@ -98,14 +93,25 @@ export default function History() {
                 </div>
               )}
 
-              {/* PAYOUTS */}
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div>FOH<br />THB {day.payouts?.foh?.toFixed(2) || 0}</div>
-                <div>BAR<br />THB {day.payouts?.bar?.toFixed(2) || 0}</div>
-                <div>KITCHEN<br />THB {day.payouts?.kitchen?.toFixed(2) || 0}</div>
-              </div>
+              {/* POOLS */}
+              {day.payouts && (
+                <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
+                  <div>
+                    FOH<br />
+                    THB {Number(day.payouts.foh || 0).toFixed(2)}
+                  </div>
+                  <div>
+                    BAR<br />
+                    THB {Number(day.payouts.bar || 0).toFixed(2)}
+                  </div>
+                  <div>
+                    KITCHEN<br />
+                    THB {Number(day.payouts.kitchen || 0).toFixed(2)}
+                  </div>
+                </div>
+              )}
 
-              {/* STAFF */}
+              {/* STAFF BREAKDOWN */}
               {day.staff && day.staff.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm text-white/50 mb-2">
@@ -118,7 +124,7 @@ export default function History() {
                       className="flex justify-between border-b border-white/10 py-1"
                     >
                       <div>{s.name}</div>
-                      <div>THB {s.payout?.toFixed(2) || 0}</div>
+                      <div>THB {Number(s.payout || 0).toFixed(2)}</div>
                     </div>
                   ))}
                 </div>

@@ -41,21 +41,67 @@ export default function ControlFinal() {
     const barWaste = Number(localStorage.getItem("barWaste")) || 0;
     const kitchenCost = Number(localStorage.getItem("kitchenCost")) || 30;
 
-    // FOH LEVEL
-    let fohLevel = revenue >= 50000 ? 100 : revenue >= 30000 ? 70 : revenue >= 15000 ? 40 : 0;
+    // =========================
+    // LEVEL SYSTEM (WITH TEXT)
+    // =========================
 
-    // BAR LEVEL
-    let barLevel = barWaste < 1000 ? 100 : barWaste < 2000 ? 70 : barWaste < 4000 ? 40 : 0;
+    // FOH
+    let fohLevel = 0;
+    let fohStatus = "CRITICAL";
 
-    // KITCHEN LEVEL
-    let kitchenLevel = kitchenCost <= 30 ? 100 : kitchenCost <= 35 ? 70 : kitchenCost <= 40 ? 40 : 0;
+    if (revenue >= 50000) {
+      fohLevel = 100;
+      fohStatus = "GOOD";
+    } else if (revenue >= 30000) {
+      fohLevel = 70;
+      fohStatus = "WARNING";
+    } else if (revenue >= 15000) {
+      fohLevel = 40;
+      fohStatus = "BAD";
+    }
 
+    // BAR
+    let barLevel = 0;
+    let barStatus = "CRITICAL";
+
+    if (barWaste < 1000) {
+      barLevel = 100;
+      barStatus = "GOOD";
+    } else if (barWaste < 2000) {
+      barLevel = 70;
+      barStatus = "WARNING";
+    } else if (barWaste < 4000) {
+      barLevel = 40;
+      barStatus = "BAD";
+    }
+
+    // KITCHEN
+    let kitchenLevel = 0;
+    let kitchenStatus = "CRITICAL";
+
+    if (kitchenCost <= 30) {
+      kitchenLevel = 100;
+      kitchenStatus = "GOOD";
+    } else if (kitchenCost <= 35) {
+      kitchenLevel = 70;
+      kitchenStatus = "WARNING";
+    } else if (kitchenCost <= 40) {
+      kitchenLevel = 40;
+      kitchenStatus = "BAD";
+    }
+
+    // =========================
     // POOLS
+    // =========================
+
     const fohPool = serviceCharge * 0.5 * (fohLevel / 100);
     const barPool = serviceCharge * 0.3 * (barLevel / 100);
     const kitchenPool = serviceCharge * 0.2 * (kitchenLevel / 100);
 
-    // 🔥 STAFF SPLIT (THIS IS WHAT YOU WERE MISSING)
+    // =========================
+    // STAFF SPLIT
+    // =========================
+
     const staffMap = {};
 
     orders.forEach((order) => {
@@ -78,6 +124,10 @@ export default function ControlFinal() {
       };
     });
 
+    // =========================
+    // SAVE HISTORY (UPDATED)
+    // =========================
+
     const today = new Date().toLocaleDateString("en-GB");
 
     const existingHistory =
@@ -87,12 +137,21 @@ export default function ControlFinal() {
       date: today,
       revenue,
       serviceCharge,
+
+      // 🔥 SAVE LEVELS HERE (NEW)
+      levels: {
+        foh: fohStatus,
+        bar: barStatus,
+        kitchen: kitchenStatus,
+      },
+
       payouts: {
         foh: fohPool,
         bar: barPool,
         kitchen: kitchenPool,
       },
-      staff: staffBreakdown, // 🔥 THIS LINE IS CRITICAL
+
+      staff: staffBreakdown,
       orders,
     };
 
@@ -102,7 +161,7 @@ export default function ControlFinal() {
 
     localStorage.removeItem("orders");
 
-    alert("Day saved with staff payouts");
+    alert("Day saved with full system data");
 
     window.location.reload();
   };

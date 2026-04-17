@@ -11,6 +11,7 @@ export default function Dashboard() {
   });
   const [attendance, setAttendance] = useState([]);
   const [staffFlags, setStaffFlags] = useState([]);
+  const [staffActions, setStaffActions] = useState({});
 
   useEffect(() => {
     const history = JSON.parse(localStorage.getItem("history")) || [];
@@ -62,33 +63,24 @@ export default function Dashboard() {
       });
     });
 
-    const result = Object.entries(staffMap).map(([name, data]) => {
-      let level = 5;
-
-      if (data.revenue >= 100000) level = 7;
-      else if (data.revenue >= 50000) level = 6;
-
-      return {
-        name,
-        revenue: data.revenue,
-        payout: data.payout,
-        level,
-      };
-    });
+    const result = Object.entries(staffMap).map(([name, data]) => ({
+      name,
+      revenue: data.revenue,
+      payout: data.payout,
+    }));
 
     result.sort((a, b) => b.revenue - a.revenue);
     setLeaderboard(result);
 
     // =========================
-    // ATTENDANCE LOAD
+    // ATTENDANCE
     // =========================
     const attendanceData =
       JSON.parse(localStorage.getItem("attendance")) || [];
-
     setAttendance(attendanceData);
 
     // =========================
-    // STAFF WARNING / REVIEW FLAGS
+    // FLAGS
     // =========================
     const flagMap = {};
 
@@ -97,10 +89,7 @@ export default function Dashboard() {
 
       day.staff.forEach((staff) => {
         if (!flagMap[staff.name]) {
-          flagMap[staff.name] = {
-            badDays: 0,
-            totalDays: 0,
-          };
+          flagMap[staff.name] = { badDays: 0, totalDays: 0 };
         }
 
         flagMap[staff.name].totalDays += 1;
@@ -115,23 +104,22 @@ export default function Dashboard() {
       .map(([name, data]) => {
         let status = "Stable";
 
-        if (data.badDays >= 5) {
-          status = "Review Required";
-        } else if (data.badDays >= 3) {
-          status = "Warning";
-        }
+        if (data.badDays >= 5) status = "Review Required";
+        else if (data.badDays >= 3) status = "Warning";
 
-        return {
-          name,
-          badDays: data.badDays,
-          totalDays: data.totalDays,
-          status,
-        };
+        return { name, ...data, status };
       })
-      .filter((staff) => staff.badDays >= 3)
+      .filter((s) => s.badDays >= 3)
       .sort((a, b) => b.badDays - a.badDays);
 
     setStaffFlags(flags);
+
+    // =========================
+    // LOAD ACTIONS
+    // =========================
+    const actions =
+      JSON.parse(localStorage.getItem("staffActions")) || {};
+    setStaffActions(actions);
   }, []);
 
   // =========================
@@ -145,11 +133,20 @@ export default function Dashboard() {
     setAttendance(updated);
   };
 
+  // =========================
+  // ACTION UPDATE
+  // =========================
+  const updateAction = (name, action) => {
+    const updated = { ...staffActions, [name]: action };
+    localStorage.setItem("staffActions", JSON.stringify(updated));
+    setStaffActions(updated);
+  };
+
   return (
     <div className="min-h-screen text-white p-10">
+
       {/* MONTHLY */}
       <h1 className="text-3xl mb-6">Monthly System Performance</h1>
-
       <div className="bg-white/10 p-6 rounded-xl mb-10">
         <p>Days: {monthlyData.days}</p>
         <p>Avg Score: {monthlyData.avgScore}</p>
@@ -161,87 +158,66 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* STAFF FLAGS */}
-      <h1 className="text-3xl mb-6">Manager Review Flags</h1>
+      {/* FLAGS + ACTIONS */}
+      <h1 className="text-3xl mb-6">Manager Actions</h1>
 
-      {staffFlags.length === 0 ? (
-        <div className="mb-10 p-4 bg-white/10 rounded-xl">
-          No staff currently flagged.
-        </div>
-      ) : (
-        staffFlags.map((staff, i) => (
-          <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
-            <div>
-              <strong>{staff.name}</strong>
-            </div>
-            <div>Bad Days: {staff.badDays}</div>
-            <div>Total Days Tracked: {staff.totalDays}</div>
-            <div className="mt-2">
-              Status:{" "}
-              <span
-                className={
-                  staff.status === "Review Required"
-                    ? "text-red-400"
-                    : "text-yellow-400"
-                }
-              >
-                {staff.status}
-              </span>
-            </div>
-          </div>
-        ))
-      )}
-
-      {/* ATTENDANCE */}
-      <h1 className="text-3xl mb-6 mt-10">Late Staff Review</h1>
-
-      {attendance.filter((a) => a.late).map((a, i) => (
+      {staffFlags.map((staff, i) => (
         <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
-          <div>
-            <strong>{a.name}</strong> ({a.role})
-          </div>
-          <div>Time: {a.time}</div>
-          <div>Reason: {a.reason}</div>
+          <div><strong>{staff.name}</strong></div>
+          <div>Bad Days: {staff.badDays}</div>
 
           <div className="mt-2">
-            Status:{" "}
-            {a.approved === true
-              ? "✅ Approved"
-              : a.approved === false
-              ? "❌ Rejected"
-              : "Pending"}
+            System Status: {staff.status}
+          </div>
+
+          <div className="mt-2">
+            Action:{" "}
+            <span className="text-orange-400">
+              {staffActions[staff.name] || "None"}
+            </span>
           </div>
 
           <div className="mt-3 space-x-2">
-            <button
-              onClick={() => updateApproval(i, true)}
-              className="px-3 py-1 bg-green-500 rounded"
-            >
-              Approve
+            <button onClick={() => updateAction(staff.name, "Warning Issued")} className="bg-yellow-500 px-2 py-1 rounded">
+              Warning
             </button>
-
-            <button
-              onClick={() => updateApproval(i, false)}
-              className="px-3 py-1 bg-red-500 rounded"
-            >
-              Reject
+            <button onClick={() => updateAction(staff.name, "Under Review")} className="bg-orange-500 px-2 py-1 rounded">
+              Review
+            </button>
+            <button onClick={() => updateAction(staff.name, "Final Warning")} className="bg-red-500 px-2 py-1 rounded">
+              Final
+            </button>
+            <button onClick={() => updateAction(staff.name, "Cleared")} className="bg-green-500 px-2 py-1 rounded">
+              Clear
             </button>
           </div>
         </div>
       ))}
 
+      {/* ATTENDANCE */}
+      <h1 className="text-3xl mb-6 mt-10">Late Staff Review</h1>
+
+      {attendance.filter(a => a.late).map((a, i) => (
+        <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
+          <div><strong>{a.name}</strong></div>
+          <div>Reason: {a.reason}</div>
+
+          <div className="mt-2">
+            {a.approved === true ? "Approved" :
+             a.approved === false ? "Rejected" : "Pending"}
+          </div>
+
+          <button onClick={() => updateApproval(i, true)} className="bg-green-500 px-2 py-1 mr-2 rounded">Approve</button>
+          <button onClick={() => updateApproval(i, false)} className="bg-red-500 px-2 py-1 rounded">Reject</button>
+        </div>
+      ))}
+
       {/* LEADERBOARD */}
-      <h1 className="text-3xl mb-6 mt-10">Individual Performance</h1>
+      <h1 className="text-3xl mb-6 mt-10">Performance</h1>
 
       {leaderboard.map((s, i) => (
-        <div key={i} className="mb-3">
-          #{i + 1} {s.name}
-          <br />
-          Revenue: THB {s.revenue.toLocaleString()}
-          <br />
-          Payout: THB {Math.round(s.payout).toLocaleString()}
-          <br />
-          Level: {s.level}%
+        <div key={i}>
+          #{i + 1} {s.name} - THB {s.revenue.toLocaleString()}
         </div>
       ))}
     </div>

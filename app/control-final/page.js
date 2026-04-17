@@ -34,7 +34,9 @@ export default function ControlFinal() {
     setAvgOrderValue(avg);
   };
 
-  // 🔥 NEW: MONTHLY SERVICE CHARGE LOGIC
+  // =========================
+  // MONTHLY SERVICE CHARGE
+  // =========================
   const getServiceChargePercent = () => {
     const history = JSON.parse(localStorage.getItem("history")) || [];
 
@@ -56,6 +58,9 @@ export default function ControlFinal() {
     return 5;
   };
 
+  // =========================
+  // FOH TEAM STATUS
+  // =========================
   const getFohStatus = (revenue, ordersCount, avgValue) => {
     let revenueScore = 0;
     let orderScore = 0;
@@ -92,6 +97,16 @@ export default function ControlFinal() {
     }
   };
 
+  // =========================
+  // 🔥 NEW: INDIVIDUAL LEVEL
+  // =========================
+  const getIndividualLevel = (revenue) => {
+    if (revenue >= 50000) return 1.0;
+    if (revenue >= 30000) return 0.7;
+    if (revenue >= 15000) return 0.4;
+    return 0.2;
+  };
+
   const saveDay = () => {
     const orders = JSON.parse(localStorage.getItem("orders")) || [];
 
@@ -104,7 +119,6 @@ export default function ControlFinal() {
     const ordersCount = orders.length;
     const avgValue = ordersCount > 0 ? revenue / ordersCount : 0;
 
-    // 🔥 REPLACED: dynamic service charge
     const percent = getServiceChargePercent();
     const serviceCharge = revenue * (percent / 100);
 
@@ -167,12 +181,17 @@ export default function ControlFinal() {
 
     const staffBreakdown = Object.entries(staffMap).map(([name, value]) => {
       const share = totalFOHRevenue > 0 ? value / totalFOHRevenue : 0;
-      const payout = fohPool * share;
+
+      // 🔥 APPLY INDIVIDUAL LEVEL
+      const level = getIndividualLevel(value);
+
+      const payout = fohPool * share * level;
 
       return {
         name,
         revenue: value,
         payout,
+        level: level,
       };
     });
 

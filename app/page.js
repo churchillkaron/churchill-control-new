@@ -13,12 +13,25 @@ export default function Home() {
   const handleLogin = () => {
     if (!name) return;
 
-    // ✅ ONLY LOGIN — NO ATTENDANCE HERE
+    // ✅ Save session
     localStorage.setItem("staffName", name);
     localStorage.setItem("staffRole", role);
 
-    // ROLE ROUTING
-    if (role === "Owner") {
+    // ✅ Save to staff list (for payouts)
+    const existing =
+      JSON.parse(localStorage.getItem("staffList")) || [];
+
+    const alreadyExists = existing.find(
+      (s) => s.name === name
+    );
+
+    if (!alreadyExists) {
+      const updated = [...existing, { name, role }];
+      localStorage.setItem("staffList", JSON.stringify(updated));
+    }
+
+    // ✅ Role routing
+    if (role === "OWNER") {
       router.push("/dashboard");
     } else {
       router.push("/staff");
@@ -71,10 +84,10 @@ export default function Home() {
               value={role}
               onChange={(e) => setRole(e.target.value)}
             >
-              <option>FOH</option>
-              <option>Bar</option>
-              <option>Kitchen</option>
-              <option>Owner</option>
+              <option value="FOH">FOH</option>
+              <option value="BAR">BAR</option>
+              <option value="KITCHEN">KITCHEN</option>
+              <option value="OWNER">OWNER</option>
             </select>
 
             <button

@@ -19,13 +19,25 @@ export default function Dashboard() {
 
     setMonthlyPayroll(payroll);
     setAttendanceData(attendance);
-    setStaffActions(actions);
 
-    autoDetectIssues(attendance, actions);
+    runSystem(attendance, actions);
   }, []);
 
   // =========================
-  // AUTO DETECTION
+  // MAIN SYSTEM ENGINE
+  // =========================
+  const runSystem = (attendance, actions) => {
+    let updated = { ...actions };
+
+    updated = autoDetectIssues(attendance, updated);
+    updated = applyRecovery(updated);
+
+    localStorage.setItem("staffActions", JSON.stringify(updated));
+    setStaffActions(updated);
+  };
+
+  // =========================
+  // DETECTION
   // =========================
   const autoDetectIssues = (attendance, actions) => {
     const updated = { ...actions };
@@ -44,7 +56,6 @@ export default function Dashboard() {
         (e) => e.late && e.approved !== true
       ).length;
 
-      // only assign if no existing action
       if (!updated[name]) {
         if (lateCount >= 5) {
           updated[name] = "Final Warning";
@@ -54,12 +65,37 @@ export default function Dashboard() {
       }
     });
 
-    localStorage.setItem("staffActions", JSON.stringify(updated));
-    setStaffActions(updated);
+    return updated;
   };
 
   // =========================
-  // DISPLAY ACTION
+  // RECOVERY SYSTEM
+  // =========================
+  const applyRecovery = (actions) => {
+    const history =
+      JSON.parse(localStorage.getItem("history")) || [];
+
+    if (history.length < 3) return actions;
+
+    const last3 = history.slice(0, 3);
+
+    const allGood = last3.every(
+      (day) => day.levels?.foh === "GOOD"
+    );
+
+    if (!allGood) return actions;
+
+    const updated = { ...actions };
+
+    Object.keys(updated).forEach((name) => {
+      delete updated[name];
+    });
+
+    return updated;
+  };
+
+  // =========================
+  // UI COLOR
   // =========================
   const getActionColor = (action) => {
     if (action === "Final Warning") return "text-red-500";

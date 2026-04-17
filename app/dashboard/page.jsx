@@ -18,22 +18,25 @@ export default function Dashboard() {
   }, []);
 
   // =========================
-  // APPROVE / REJECT ATTENDANCE
+  // UPDATE ATTENDANCE
   // =========================
-  const updateAttendance = (index, value) => {
+  const updateAttendance = (originalIndex, value) => {
     const updated = [...attendanceData];
-    updated[index].approved = value;
+    updated[originalIndex].approved = value;
 
     localStorage.setItem("attendance", JSON.stringify(updated));
     setAttendanceData(updated);
   };
 
   // =========================
-  // FILTER LATE ENTRIES
+  // SAFE FILTER WITH INDEX
   // =========================
-  const pendingLate = attendanceData.filter(
-    (a) => a.late && a.approved === false
-  );
+  const pendingLate = attendanceData
+    .map((entry, index) => ({
+      ...entry,
+      originalIndex: index,
+    }))
+    .filter((a) => a.late && a.approved === false);
 
   if (!monthlyPayroll) {
     return <div className="text-white p-10">No payroll yet</div>;
@@ -42,9 +45,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen text-white p-10">
 
-      {/* =========================
-          ATTENDANCE REVIEW
-      ========================= */}
+      {/* ATTENDANCE REVIEW */}
       <div className="mb-10 p-6 bg-white/10 rounded-xl">
 
         <h2 className="text-2xl mb-4">Attendance Review</h2>
@@ -53,8 +54,11 @@ export default function Dashboard() {
           <div>No pending late entries</div>
         )}
 
-        {pendingLate.map((entry, index) => (
-          <div key={index} className="mb-4 p-3 bg-white/5 rounded">
+        {pendingLate.map((entry) => (
+          <div
+            key={entry.originalIndex}
+            className="mb-4 p-3 bg-white/5 rounded"
+          >
 
             <strong>{entry.name}</strong>
 
@@ -68,14 +72,14 @@ export default function Dashboard() {
             <br /><br />
 
             <button
-              onClick={() => updateAttendance(index, true)}
+              onClick={() => updateAttendance(entry.originalIndex, true)}
               className="bg-green-500 px-3 py-1 mr-2 rounded"
             >
               Approve
             </button>
 
             <button
-              onClick={() => updateAttendance(index, false)}
+              onClick={() => updateAttendance(entry.originalIndex, false)}
               className="bg-red-500 px-3 py-1 rounded"
             >
               Reject
@@ -86,7 +90,7 @@ export default function Dashboard() {
 
       </div>
 
-      {/* EXISTING PAYROLL UI BELOW */}
+      {/* KEEP YOUR EXISTING PAYROLL BELOW */}
 
     </div>
   );

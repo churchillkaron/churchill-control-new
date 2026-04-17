@@ -13,19 +13,35 @@ export default function ControlFinal() {
   useEffect(() => {
     const name = localStorage.getItem("staffName");
     const role = localStorage.getItem("staffRole");
-    const lockedRate =
-      Number(localStorage.getItem("serviceChargeRate")) || 5;
 
     if (!name || !role) {
       window.location.href = "/";
-    } else {
-      setStaffName(name);
-      setStaffRole(role);
+      return;
     }
 
-    setServiceChargePercent(lockedRate);
+    setStaffName(name);
+    setStaffRole(role);
+
     loadRevenue();
+    loadServiceCharge();
   }, []);
+
+  // =========================
+  // LOAD MONTHLY SERVICE CHARGE
+  // =========================
+  const loadServiceCharge = () => {
+    const today = new Date();
+    const monthKey = `${today.getFullYear()}-${String(
+      today.getMonth() + 1
+    ).padStart(2, "0")}`;
+
+    const serviceData =
+      JSON.parse(localStorage.getItem("serviceCharge")) || {};
+
+    const rate = serviceData[monthKey] || 5;
+
+    setServiceChargePercent(rate);
+  };
 
   const loadRevenue = () => {
     const orders = JSON.parse(localStorage.getItem("orders")) || [];
@@ -254,7 +270,7 @@ export default function ControlFinal() {
           Average Order Value: THB {Math.round(avgOrderValue).toLocaleString()}
         </div>
         <div>
-          Locked Service Charge: {serviceChargePercent}%
+          Monthly Service Charge: {serviceChargePercent}%
         </div>
       </div>
     </div>

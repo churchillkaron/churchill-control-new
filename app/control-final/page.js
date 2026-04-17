@@ -96,6 +96,9 @@ export default function ControlFinal() {
     }
   };
 
+  // =========================
+  // INDIVIDUAL PERFORMANCE
+  // =========================
   const getIndividualLevel = (revenue) => {
     if (revenue >= 50000) return 1.0;
     if (revenue >= 30000) return 0.7;
@@ -103,6 +106,9 @@ export default function ControlFinal() {
     return 0.2;
   };
 
+  // =========================
+  // ATTENDANCE PENALTY
+  // =========================
   const getAttendancePenalty = (name) => {
     const attendance =
       JSON.parse(localStorage.getItem("attendance")) || [];
@@ -115,6 +121,21 @@ export default function ControlFinal() {
     if (entry.approved === true) return 1.0;
 
     return 0.5;
+  };
+
+  // =========================
+  // MANAGER ACTION PENALTY
+  // =========================
+  const getManagerPenalty = (name) => {
+    const actions =
+      JSON.parse(localStorage.getItem("staffActions")) || {};
+
+    const action = actions[name];
+
+    if (action === "Under Review") return 0.8;
+    if (action === "Final Warning") return 0.5;
+
+    return 1.0;
   };
 
   const saveDay = () => {
@@ -141,17 +162,31 @@ export default function ControlFinal() {
     let barLevel = 20;
     let barStatus = "CRITICAL";
 
-    if (barWaste < 1000) { barLevel = 100; barStatus = "GOOD"; }
-    else if (barWaste < 2000) { barLevel = 70; barStatus = "WARNING"; }
-    else if (barWaste < 4000) { barLevel = 40; barStatus = "BAD"; }
+    if (barWaste < 1000) {
+      barLevel = 100;
+      barStatus = "GOOD";
+    } else if (barWaste < 2000) {
+      barLevel = 70;
+      barStatus = "WARNING";
+    } else if (barWaste < 4000) {
+      barLevel = 40;
+      barStatus = "BAD";
+    }
 
     // KITCHEN
     let kitchenLevel = 20;
     let kitchenStatus = "CRITICAL";
 
-    if (kitchenCost <= 30) { kitchenLevel = 100; kitchenStatus = "GOOD"; }
-    else if (kitchenCost <= 35) { kitchenLevel = 70; kitchenStatus = "WARNING"; }
-    else if (kitchenCost <= 40) { kitchenLevel = 40; kitchenStatus = "BAD"; }
+    if (kitchenCost <= 30) {
+      kitchenLevel = 100;
+      kitchenStatus = "GOOD";
+    } else if (kitchenCost <= 35) {
+      kitchenLevel = 70;
+      kitchenStatus = "WARNING";
+    } else if (kitchenCost <= 40) {
+      kitchenLevel = 40;
+      kitchenStatus = "BAD";
+    }
 
     const fohPool = serviceCharge * 0.5 * (fohResult.level / 100);
     const barPool = serviceCharge * 0.3 * (barLevel / 100);
@@ -171,16 +206,19 @@ export default function ControlFinal() {
     const staffBreakdown = Object.entries(staffMap).map(([name, value]) => {
       const share = totalFOHRevenue > 0 ? value / totalFOHRevenue : 0;
       const level = getIndividualLevel(value);
-      const penalty = getAttendancePenalty(name);
+      const attendancePenalty = getAttendancePenalty(name);
+      const managerPenalty = getManagerPenalty(name);
 
-      const payout = fohPool * share * level * penalty;
+      const payout =
+        fohPool * share * level * attendancePenalty * managerPenalty;
 
       return {
         name,
         revenue: value,
         payout,
         level,
-        penalty,
+        attendancePenalty,
+        managerPenalty,
       };
     });
 

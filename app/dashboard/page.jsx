@@ -10,6 +10,8 @@ export default function Dashboard() {
   const [currentMonth, setCurrentMonth] = useState("");
   const [attendanceData, setAttendanceData] = useState([]);
 
+  const [selectedStaff, setSelectedStaff] = useState(null);
+
   useEffect(() => {
     const payroll =
       JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
@@ -35,17 +37,11 @@ export default function Dashboard() {
     calculateServiceRate();
   }, []);
 
-  // =========================
-  // SAFE DATE PARSER
-  // =========================
   const parseDate = (dateStr) => {
     const [day, month, year] = dateStr.split("/");
     return new Date(`${year}-${month}-${day}`);
   };
 
-  // =========================
-  // CALCULATE RECOMMENDED RATE
-  // =========================
   const calculateServiceRate = () => {
     const history =
       JSON.parse(localStorage.getItem("history")) || [];
@@ -73,43 +69,34 @@ export default function Dashboard() {
     else setRecommendedRate(5);
   };
 
-  // =========================
-  // LOCK SERVICE RATE
-  // =========================
   const lockServiceRate = () => {
     const serviceData =
       JSON.parse(localStorage.getItem("serviceCharge")) || {};
 
     if (serviceData[currentMonth]) {
-      alert("Service charge already locked for this month");
+      alert("Already locked");
       return;
     }
 
     serviceData[currentMonth] = recommendedRate;
 
-    localStorage.setItem(
-      "serviceCharge",
-      JSON.stringify(serviceData)
-    );
-
+    localStorage.setItem("serviceCharge", JSON.stringify(serviceData));
     setLockedRate(recommendedRate);
 
-    alert(`Service Charge locked at ${recommendedRate}% for ${currentMonth}`);
+    alert(`Locked at ${recommendedRate}%`);
   };
 
   // =========================
-  // ATTENDANCE PENALTY (MONTHLY)
+  // ATTENDANCE DATA
   // =========================
-  const getAttendancePenalty = (name) => {
-    const staffEntries = attendanceData.filter(
-      (a) => a.name === name
-    );
+  const getStaffAttendance = (name) => {
+    return attendanceData.filter((a) => a.name === name);
+  };
 
-    if (staffEntries.length === 0) return 1.0;
-
+  const getAttendancePenalty = (entries) => {
     let penalty = 1.0;
 
-    staffEntries.forEach((entry) => {
+    entries.forEach((entry) => {
       if (entry.late && entry.approved !== true) {
         penalty *= 0.5;
       }
@@ -119,22 +106,16 @@ export default function Dashboard() {
   };
 
   // =========================
-  // APPROVE SALARY
+  // APPROVE
   // =========================
-  const approveSalary = (index) => {
+  const confirmApproval = () => {
     const updated = { ...monthlyPayroll };
-    updated.staff[index].managerApproved = true;
+    updated.staff[selectedStaff.index].managerApproved = true;
 
     localStorage.setItem("monthlyPayroll", JSON.stringify(updated));
     setMonthlyPayroll(updated);
-  };
 
-  const revokeApproval = (index) => {
-    const updated = { ...monthlyPayroll };
-    updated.staff[index].managerApproved = false;
-
-    localStorage.setItem("monthlyPayroll", JSON.stringify(updated));
-    setMonthlyPayroll(updated);
+    setSelectedStaff(null);
   };
 
   if (!monthlyPayroll) {
@@ -151,36 +132,17 @@ export default function Dashboard() {
       {/* SERVICE CONTROL */}
       <div className="mb-8 p-6 bg-white/10 rounded-xl">
         <h2 className="text-2xl mb-3">Monthly Performance</h2>
-
         <div>Month: {currentMonth}</div>
-        <div>Average FOH Score: {avgScore}</div>
-
-        <div className="mt-3">
-          Recommended:{" "}
-          <span className="text-green-400">
-            {recommendedRate}%
-          </span>
-        </div>
-
-        <div>
-          Locked:{" "}
-          <span className="text-orange-400">
-            {lockedRate ? `${lockedRate}%` : "Not locked"}
-          </span>
-        </div>
+        <div>Avg Score: {avgScore}</div>
+        <div>Recommended: {recommendedRate}%</div>
+        <div>Locked: {lockedRate || "Not locked"}%</div>
 
         <button
           onClick={lockServiceRate}
           disabled={lockedRate !== null}
-          className={`mt-4 px-4 py-2 rounded ${
-            lockedRate !== null
-              ? "bg-gray-500"
-              : "bg-orange-500"
-          }`}
+          className="mt-4 bg-orange-500 px-4 py-2 rounded"
         >
-          {lockedRate !== null
-            ? "Already Locked"
-            : "Lock for This Month"}
+          Lock
         </button>
       </div>
 
@@ -188,60 +150,86 @@ export default function Dashboard() {
       <h1 className="text-3xl mb-6">Manager Approval</h1>
 
       {monthlyPayroll.staff.map((s, i) => {
-        const penalty = getAttendancePenalty(s.name);
+        const entries = getStaffAttendance(s.name);
+        const penalty = getAttendancePenalty(entries);
         const adjustedTotal = s.total * penalty;
 
         return (
           <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
-
             <strong>{s.name}</strong>
-
             <br />
-            Base Salary: THB {s.salary}
-            <br />
-            Bonus: THB {Math.round(s.bonus)}
-
-            <br />
-            Penalty Multiplier: {penalty}
-
-            <br />
-
-            <span className="text-orange-400">
-              Adjusted Total: THB {Math.round(adjustedTotal)}
-            </span>
-
-            <br /><br />
-
-            Staff Confirmed:{" "}
-            {s.staffConfirmed ? "✅ Yes" : "❌ No"}
-
-            <br />
-            Manager Approved:{" "}
-            {s.managerApproved ? "✅ Yes" : "❌ No"}
+            Total: THB {Math.round(adjustedTotal)}
 
             <br /><br />
 
             {s.staffConfirmed && !s.managerApproved && (
               <button
-                onClick={() => approveSalary(i)}
-                className="bg-green-500 px-3 py-1 rounded mr-2"
+                onClick={() =>
+                  setSelectedStaff({
+                    ...s,
+                    index: i,
+                    penalty,
+                    entries,
+                    adjustedTotal,
+                  })
+                }
+                className="bg-green-500 px-3 py-1 rounded"
               >
-                Approve Salary
+                Review & Approve
               </button>
             )}
-
-            {s.managerApproved && (
-              <button
-                onClick={() => revokeApproval(i)}
-                className="bg-red-500 px-3 py-1 rounded"
-              >
-                Revoke
-              </button>
-            )}
-
           </div>
         );
       })}
+
+      {/* =========================
+          MODAL
+      ========================= */}
+      {selectedStaff && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+
+          <div className="bg-white text-black p-6 rounded-xl w-[400px]">
+
+            <h2 className="text-xl mb-3">
+              {selectedStaff.name}
+            </h2>
+
+            <div>Penalty: {selectedStaff.penalty}</div>
+
+            <div className="mt-3">
+              Late Records:
+              {selectedStaff.entries.length === 0 && <div>None</div>}
+              {selectedStaff.entries.map((e, idx) => (
+                <div key={idx}>
+                  {e.date} — {e.late ? "Late" : "On time"} —{" "}
+                  {e.approved ? "Approved" : "Not Approved"}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3">
+              Final Salary: THB {Math.round(selectedStaff.adjustedTotal)}
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={confirmApproval}
+                className="bg-green-500 px-3 py-1 rounded"
+              >
+                Confirm
+              </button>
+
+              <button
+                onClick={() => setSelectedStaff(null)}
+                className="bg-gray-400 px-3 py-1 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

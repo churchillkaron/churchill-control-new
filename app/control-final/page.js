@@ -1,10 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ControlFinal() {
   const [revenue, setRevenue] = useState(0);
 
+  // ✅ LOAD REVENUE FROM POS
+  useEffect(() => {
+    const posRevenue = localStorage.getItem("posRevenue");
+    if (posRevenue) {
+      setRevenue(Number(posRevenue));
+    }
+  }, []);
+
+  // ✅ SAVE DAY TO HISTORY
   const handleSaveDay = () => {
     const existing = JSON.parse(localStorage.getItem("history")) || [];
 
@@ -50,19 +59,16 @@ export default function ControlFinal() {
           </h1>
         </div>
 
-        {/* REVENUE INPUT */}
+        {/* AUTO REVENUE DISPLAY */}
         <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 md:p-8 space-y-4">
 
-          <label className="text-sm text-white/50">
-            Enter Revenue (THB)
-          </label>
+          <p className="text-sm text-white/50">
+            Live Revenue from POS
+          </p>
 
-          <input
-            type="number"
-            value={revenue}
-            onChange={(e) => setRevenue(Number(e.target.value))}
-            className="w-full p-3 rounded-xl bg-black/40 border border-white/10"
-          />
+          <h2 className="text-4xl font-semibold text-[#ffb36b]">
+            THB {revenue.toLocaleString()}
+          </h2>
 
           <button
             onClick={handleSaveDay}

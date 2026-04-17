@@ -80,7 +80,13 @@ export default function Dashboard() {
     setAttendance(attendanceData);
 
     // =========================
-    // FLAGS
+    // LOAD ACTIONS
+    // =========================
+    const actions =
+      JSON.parse(localStorage.getItem("staffActions")) || {};
+
+    // =========================
+    // FLAGS + RECOVERY
     // =========================
     const flagMap = {};
 
@@ -89,37 +95,61 @@ export default function Dashboard() {
 
       day.staff.forEach((staff) => {
         if (!flagMap[staff.name]) {
-          flagMap[staff.name] = { badDays: 0, totalDays: 0 };
+          flagMap[staff.name] = {
+            badDays: 0,
+            totalDays: 0,
+            recentLevels: [],
+          };
         }
 
         flagMap[staff.name].totalDays += 1;
 
-        if (Number(staff.level) < 1) {
+        const level = Number(staff.level);
+
+        if (level < 1) {
           flagMap[staff.name].badDays += 1;
         }
+
+        flagMap[staff.name].recentLevels.push(level);
       });
     });
 
+    const updatedActions = { ...actions };
+
     const flags = Object.entries(flagMap)
       .map(([name, data]) => {
+        const last3 = data.recentLevels.slice(-3);
+
+        // 🔥 RECOVERY LOGIC
+        if (last3.length === 3 && last3.every(l => l === 1)) {
+          updatedActions[name] = "Cleared";
+
+          return {
+            name,
+            badDays: 0,
+            totalDays: data.totalDays,
+            status: "Recovered",
+          };
+        }
+
         let status = "Stable";
 
         if (data.badDays >= 5) status = "Review Required";
         else if (data.badDays >= 3) status = "Warning";
 
-        return { name, ...data, status };
+        return {
+          name,
+          badDays: data.badDays,
+          totalDays: data.totalDays,
+          status,
+        };
       })
-      .filter((s) => s.badDays >= 3)
+      .filter((s) => s.badDays >= 3 || s.status === "Recovered")
       .sort((a, b) => b.badDays - a.badDays);
 
+    localStorage.setItem("staffActions", JSON.stringify(updatedActions));
+    setStaffActions(updatedActions);
     setStaffFlags(flags);
-
-    // =========================
-    // LOAD ACTIONS
-    // =========================
-    const actions =
-      JSON.parse(localStorage.getItem("staffActions")) || {};
-    setStaffActions(actions);
   }, []);
 
   // =========================
@@ -145,8 +175,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen text-white p-10">
 
-      {/* MONTHLY */}
       <h1 className="text-3xl mb-6">Monthly System Performance</h1>
+
       <div className="bg-white/10 p-6 rounded-xl mb-10">
         <p>Days: {monthlyData.days}</p>
         <p>Avg Score: {monthlyData.avgScore}</p>
@@ -167,7 +197,14 @@ export default function Dashboard() {
           <div>Bad Days: {staff.badDays}</div>
 
           <div className="mt-2">
-            System Status: {staff.status}
+            Status:{" "}
+            <span className={
+              staff.status === "Review Required" ? "text-red-400" :
+              staff.status === "Recovered" ? "text-green-400" :
+              "text-yellow-400"
+            }>
+              {staff.status}
+            </span>
           </div>
 
           <div className="mt-2">
@@ -202,11 +239,6 @@ export default function Dashboard() {
           <div><strong>{a.name}</strong></div>
           <div>Reason: {a.reason}</div>
 
-          <div className="mt-2">
-            {a.approved === true ? "Approved" :
-             a.approved === false ? "Rejected" : "Pending"}
-          </div>
-
           <button onClick={() => updateApproval(i, true)} className="bg-green-500 px-2 py-1 mr-2 rounded">Approve</button>
           <button onClick={() => updateApproval(i, false)} className="bg-red-500 px-2 py-1 rounded">Reject</button>
         </div>
@@ -220,6 +252,7 @@ export default function Dashboard() {
           #{i + 1} {s.name} - THB {s.revenue.toLocaleString()}
         </div>
       ))}
+
     </div>
   );
 }

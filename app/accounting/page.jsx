@@ -35,6 +35,9 @@ export default function Accounting() {
 
   const netProfit = totalRevenue - totalExpenses;
 
+  // =========================
+  // IMAGE UPLOAD
+  // =========================
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -42,14 +45,17 @@ export default function Accounting() {
     const reader = new FileReader();
 
     reader.onloadend = () => {
-      setForm({ ...form, image: reader.result });
+      setForm((prev) => ({
+        ...prev,
+        image: reader.result,
+      }));
     };
 
     reader.readAsDataURL(file);
   };
 
   // =========================
-  // 🔥 SMART PARSER
+  // PARSER
   // =========================
   const extractData = (text) => {
     const lines = text.split("\n");
@@ -57,14 +63,13 @@ export default function Accounting() {
     let amount = "";
     let vendor = "";
 
-    // 🔥 STEP 1: Find TOTAL line
+    // find TOTAL
     for (let line of lines) {
       const lower = line.toLowerCase();
 
       if (
         lower.includes("total") ||
-        lower.includes("grand total") ||
-        lower.includes("net total")
+        lower.includes("grand total")
       ) {
         const match = line.match(/\d+[.,]?\d*/g);
         if (match) {
@@ -74,7 +79,7 @@ export default function Accounting() {
       }
     }
 
-    // 🔥 STEP 2: fallback = biggest number
+    // fallback biggest number
     if (!amount) {
       let max = 0;
 
@@ -92,19 +97,20 @@ export default function Accounting() {
       });
     }
 
-    // 🔥 STEP 3: vendor detection (better)
     vendor =
       lines.find(
         (l) =>
           l.length > 4 &&
           !l.match(/\d/) &&
-          !l.toLowerCase().includes("invoice") &&
-          !l.toLowerCase().includes("tax")
+          !l.toLowerCase().includes("invoice")
       ) || "";
 
     return { amount, vendor };
   };
 
+  // =========================
+  // OCR
+  // =========================
   const runOCR = async () => {
     if (!form.image) return;
 
@@ -119,15 +125,21 @@ export default function Accounting() {
 
     const parsed = extractData(data.text);
 
-    setForm({
-      ...form,
+    setForm((prev) => ({
+      ...prev,
       name: parsed.vendor || "",
       amount: parsed.amount || "",
-    });
+    }));
   };
 
+  // =========================
+  // ADD EXPENSE (FIXED)
+  // =========================
   const addExpense = () => {
-    if (!form.name || !form.amount) return;
+    if (!form.name || !form.amount) {
+      alert("Missing name or amount");
+      return;
+    }
 
     const newExpense = {
       ...form,
@@ -140,42 +152,37 @@ export default function Accounting() {
     localStorage.setItem("expenses", JSON.stringify(updated));
     setExpenses(updated);
 
-    setForm({ name: "", amount: "", category: "", image: null });
+    // reset form
+    setForm({
+      name: "",
+      amount: "",
+      category: "",
+      image: null,
+    });
   };
 
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
 
-      <div className="absolute inset-0 -z-30">
-        <img
-          src="/bg-hero-control.jpg"
-          alt="Accounting background"
-          className="w-full h-full object-cover"
-        />
-      </div>
+      <div className="relative z-10 max-w-5xl mx-auto pt-20 space-y-6">
 
-      <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(8,8,8,0.75),rgba(18,12,8,0.85))]" />
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_70%_20%,rgba(255,140,0,0.15),transparent_40%)]" />
+        <h1 className="text-3xl">Accounting</h1>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-28 pb-14 space-y-8">
-
-        <h1 className="text-3xl md:text-5xl font-semibold">
-          Accounting
-        </h1>
-
-        <div className="grid md:grid-cols-3 gap-6">
-          <div>Expenses: THB {totalExpenses}</div>
-          <div>Revenue: THB {totalRevenue}</div>
-          <div>Profit: THB {netProfit}</div>
+        <div>
+          Expenses: {totalExpenses} | Revenue: {totalRevenue} | Profit: {netProfit}
         </div>
 
-        <div className="space-y-4">
+        {/* FORM */}
+        <div className="space-y-3">
 
           <input
-            placeholder="Vendor / Name"
+            placeholder="Vendor"
             value={form.name}
             onChange={(e) =>
-              setForm({ ...form, name: e.target.value })
+              setForm((prev) => ({
+                ...prev,
+                name: e.target.value,
+              }))
             }
           />
 
@@ -183,7 +190,10 @@ export default function Accounting() {
             placeholder="Amount"
             value={form.amount}
             onChange={(e) =>
-              setForm({ ...form, amount: e.target.value })
+              setForm((prev) => ({
+                ...prev,
+                amount: e.target.value,
+              }))
             }
           />
 
@@ -191,7 +201,10 @@ export default function Accounting() {
             placeholder="Category"
             value={form.category}
             onChange={(e) =>
-              setForm({ ...form, category: e.target.value })
+              setForm((prev) => ({
+                ...prev,
+                category: e.target.value,
+              }))
             }
           />
 
@@ -199,37 +212,24 @@ export default function Accounting() {
 
           {form.image && (
             <div>
-              <img src={form.image} className="w-40 mt-2" />
-
-              <button
-                onClick={runOCR}
-                className="bg-blue-500 px-4 py-2 mt-2"
-              >
+              <img src={form.image} className="w-32" />
+              <button onClick={runOCR}>
                 Auto Read Receipt
               </button>
             </div>
           )}
 
-          <button
-            onClick={addExpense}
-            className="bg-orange-500 px-4 py-2"
-          >
+          <button onClick={addExpense}>
             Add Expense
           </button>
 
         </div>
 
+        {/* LIST */}
         <div>
           {expenses.map((item, i) => (
-            <div key={i} className="border p-4 mt-2">
-
-              <div>{item.name}</div>
-              <div>THB {item.amount}</div>
-
-              {item.image && (
-                <img src={item.image} className="w-32 mt-2" />
-              )}
-
+            <div key={i}>
+              {item.name} - {item.amount}
             </div>
           ))}
         </div>

@@ -10,13 +10,17 @@ export default function ControlFinal() {
   const [totalOrders, setTotalOrders] = useState(0);
   const [avgOrderValue, setAvgOrderValue] = useState(0);
 
-  const [serviceCharge, setServiceCharge] = useState(0);
-
   const [fohLevel, setFohLevel] = useState("GOOD");
   const [barLevel, setBarLevel] = useState("GOOD");
   const [kitchenLevel, setKitchenLevel] = useState("GOOD");
 
-  const [payouts, setPayouts] = useState([]);
+  const [payouts, setPayouts] = useState({
+    foh: 0,
+    bar: 0,
+    kitchen: 0,
+  });
+
+  const [staffPayouts, setStaffPayouts] = useState([]);
 
   useEffect(() => {
     const storedOrders =
@@ -38,9 +42,6 @@ export default function ControlFinal() {
     setRevenue(total);
     setTotalOrders(count);
     setAvgOrderValue(count > 0 ? total / count : 0);
-
-    const service = total * 0.05;
-    setServiceCharge(service);
   }, []);
 
   const levelMultiplier = {
@@ -55,43 +56,65 @@ export default function ControlFinal() {
 
     const fohPool = service * 0.5 * levelMultiplier[fohLevel];
     const barPool = service * 0.3 * levelMultiplier[barLevel];
-    const kitchenPool = service * 0.2 * levelMultiplier[kitchenLevel];
+    const kitchenPool =
+      service * 0.2 * levelMultiplier[kitchenLevel];
+
+    setPayouts({
+      foh: fohPool,
+      bar: barPool,
+      kitchen: kitchenPool,
+    });
 
     const fohStaff = staff.filter((s) => s.role === "FOH");
-    const barStaff = staff.filter((s) => s.role === "BAR");
-    const kitchenStaff = staff.filter((s) => s.role === "KITCHEN");
 
-    const split = (pool, group) =>
-      group.length > 0
-        ? group.map((s) => ({
-            ...s,
-            payout: pool / group.length,
-          }))
-        : [];
+    const perStaff =
+      fohStaff.length > 0 ? fohPool / fohStaff.length : 0;
 
-    const result = [
-      ...split(fohPool, fohStaff),
-      ...split(barPool, barStaff),
-      ...split(kitchenPool, kitchenStaff),
-    ];
+    // ✅ FULL FIX: include level
+    const staffBreakdown = fohStaff.map((s) => ({
+      ...s,
+      payout: perStaff,
+      level: levelMultiplier[fohLevel],
+    }));
 
-    setPayouts(result);
+    setStaffPayouts(staffBreakdown);
+  };
+
+  const calculateFOHScore = () => {
+    let score = 100;
+
+    if (avgOrderValue < 300) score -= 30;
+    if (totalOrders < 20) score -= 20;
+
+    return score;
   };
 
   const closeDay = () => {
     const history =
       JSON.parse(localStorage.getItem("history")) || [];
 
+    const serviceCharge = revenue * 0.05;
+
     const newDay = {
       date: new Date().toLocaleDateString("en-GB"),
       revenue,
       serviceCharge,
+
       totalOrders,
       avgOrderValue,
-      fohLevel,
-      barLevel,
-      kitchenLevel,
+
+      levels: {
+        foh: fohLevel,
+        bar: barLevel,
+        kitchen: kitchenLevel,
+      },
+
+      scores: {
+        foh: calculateFOHScore(),
+      },
+
       payouts,
+      staff: staffPayouts,
     };
 
     const updated = [newDay, ...history];
@@ -120,11 +143,9 @@ export default function ControlFinal() {
         <div className="rounded-3xl border border-white/10 bg-black/30 p-6 space-y-2">
           <div>Revenue: THB {revenue.toLocaleString()}</div>
           <div>Orders: {totalOrders}</div>
+          <div>Avg Order: THB {Math.round(avgOrderValue)}</div>
           <div>
-            Avg Order: THB {avgOrderValue.toLocaleString()}
-          </div>
-          <div>
-            Service Charge: THB {serviceCharge.toLocaleString()}
+            Service Charge: THB {(revenue * 0.05).toLocaleString()}
           </div>
         </div>
 
@@ -137,13 +158,13 @@ export default function ControlFinal() {
           ].map(([name, value, setter]) => (
             <div
               key={name}
-              className="rounded-2xl border border-white/10 bg-black/30 p-4"
+              className="p-4 bg-black/30 rounded-xl"
             >
-              <div className="mb-2">{name}</div>
+              <div>{name}</div>
               <select
                 value={value}
                 onChange={(e) => setter(e.target.value)}
-                className="bg-black/40 p-2 rounded-lg"
+                className="bg-black/40 p-2 rounded"
               >
                 <option>GOOD</option>
                 <option>WARNING</option>
@@ -171,19 +192,17 @@ export default function ControlFinal() {
           </button>
         </div>
 
-        {/* PAYOUTS */}
-        <div className="rounded-3xl border border-white/10 bg-black/30 p-6">
-          <h2 className="text-xl mb-4">Payouts</h2>
+        {/* STAFF PAYOUT */}
+        <div className="p-6 bg-black/30 rounded-2xl">
+          <h2 className="mb-3">FOH Staff</h2>
 
-          {payouts.map((p, i) => (
+          {staffPayouts.map((s, i) => (
             <div
               key={i}
-              className="flex justify-between border-b border-white/10 py-2"
+              className="flex justify-between"
             >
-              <div>{p.name}</div>
-              <div>
-                THB {Number(p.payout || 0).toLocaleString()}
-              </div>
+              <div>{s.name}</div>
+              <div>THB {s.payout?.toFixed(2)}</div>
             </div>
           ))}
         </div>

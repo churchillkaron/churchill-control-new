@@ -34,6 +34,28 @@ export default function ControlFinal() {
     setAvgOrderValue(avg);
   };
 
+  // 🔥 NEW: MONTHLY SERVICE CHARGE LOGIC
+  const getServiceChargePercent = () => {
+    const history = JSON.parse(localStorage.getItem("history")) || [];
+
+    const sorted = [...history].sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    );
+
+    const last30 = sorted.slice(0, 30);
+
+    if (last30.length === 0) return 5;
+
+    const scores = last30.map((day) => day.scores?.foh || 0);
+
+    const avgScore =
+      scores.reduce((sum, val) => sum + val, 0) / scores.length;
+
+    if (avgScore >= 85) return 7;
+    if (avgScore >= 70) return 6;
+    return 5;
+  };
+
   const getFohStatus = (revenue, ordersCount, avgValue) => {
     let revenueScore = 0;
     let orderScore = 0;
@@ -82,7 +104,9 @@ export default function ControlFinal() {
     const ordersCount = orders.length;
     const avgValue = ordersCount > 0 ? revenue / ordersCount : 0;
 
-    const serviceCharge = revenue * 0.05;
+    // 🔥 REPLACED: dynamic service charge
+    const percent = getServiceChargePercent();
+    const serviceCharge = revenue * (percent / 100);
 
     const barWaste = Number(localStorage.getItem("barWaste")) || 0;
     const kitchenCost = Number(localStorage.getItem("kitchenCost")) || 30;
@@ -183,7 +207,7 @@ export default function ControlFinal() {
     localStorage.setItem("history", JSON.stringify(updatedHistory));
     localStorage.removeItem("orders");
 
-    alert("Day saved with advanced FOH scoring");
+    alert(`Day saved with ${percent}% service charge`);
     window.location.reload();
   };
 
@@ -201,7 +225,10 @@ export default function ControlFinal() {
       <div className="mt-6 space-y-2">
         <div>Revenue: THB {totalRevenue.toLocaleString()}</div>
         <div>Total Orders: {totalOrders}</div>
-        <div>Average Order Value: THB {Math.round(avgOrderValue).toLocaleString()}</div>
+        <div>
+          Average Order Value: THB{" "}
+          {Math.round(avgOrderValue).toLocaleString()}
+        </div>
       </div>
     </div>
   );

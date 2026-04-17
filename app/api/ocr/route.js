@@ -22,31 +22,22 @@ export async function POST(req) {
             {
               type: "input_text",
               text: `
-You are an accounting OCR system.
+You are an OCR + accounting system.
 
-RULES:
+STRICT RULES:
 
-1. This is an invoice or receipt.
+1. Vendor = company issuing invoice (TOP of document)
+   - NEVER customer name
+   - IGNORE "Invoice To"
 
-2. Vendor = the company issuing the document:
-- Usually at the TOP
-- Contains company name, address, tax ID, logo
-- NEVER the customer name
+2. Amount:
+   - Use "Remaining Balance" if exists
+   - Else use "Total"
+   - NEVER use deposit
 
-3. IGNORE:
-- "Invoice To"
-- Customer names (like Amit)
-- Event or booking details
+3. Date = invoice or transaction date
 
-4. Amount:
-- If "Remaining Balance" exists → use it
-- Otherwise use "Total"
-- Never use deposit
-
-5. Date:
-- Use invoice date or transaction date
-
-RETURN ONLY JSON:
+RETURN ONLY VALID JSON:
 
 {
   "vendor": "",
@@ -64,17 +55,39 @@ RETURN ONLY JSON:
       ],
     });
 
-    const output =
-      response.output_text ||
-      response.output?.[0]?.content?.[0]?.text ||
-      "";
+    // 🔥 SAFE EXTRACTION (no more empty errors)
+    let outputText = "";
+
+    if (response.output_text) {
+      outputText = response.output_text;
+    } else if (response.output && response.output.length > 0) {
+      for (const item of response.output) {
+        if (item.content) {
+          for (const c of item.content) {
+            if (c.text) {
+              outputText += c.text;
+            }
+          }
+        }
+      }
+    }
+
+    if (!outputText) {
+      return Response.json({
+        error: "OCR failed: empty response",
+        debug: response,
+      });
+    }
 
     let parsed;
 
     try {
-      parsed = JSON.parse(output);
-    } catch {
-      return Response.json({ error: "Parsing failed", raw: output });
+      parsed = JSON.parse(outputText);
+    } catch (e) {
+      return Response.json({
+        error: "JSON parse failed",
+        raw: outputText,
+      });
     }
 
     return Response.json({ data: parsed });

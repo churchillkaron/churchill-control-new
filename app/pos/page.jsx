@@ -11,21 +11,25 @@ export default function POS() {
     const name = localStorage.getItem("staffName");
     const role = localStorage.getItem("staffRole");
 
+    // ✅ Correct redirect
     if (!name || !role) {
-      window.location.href = "/control-final";
-    } else {
-      setStaffName(name);
-      setStaffRole(role);
+      window.location.href = "/"; // back to login
+      return;
     }
 
-    // Load orders
-    const savedOrders = JSON.parse(localStorage.getItem("orders")) || [];
+    setStaffName(name);
+    setStaffRole(role);
+
+    const savedOrders =
+      JSON.parse(localStorage.getItem("orders")) || [];
+
     setOrders(savedOrders);
   }, []);
 
-  // ➕ CREATE ORDER (simulate new order)
+  // ➕ CREATE ORDER
   const createOrder = () => {
     const newOrder = {
+      id: Date.now(),
       table: "T" + Math.floor(Math.random() * 20),
       items: Math.floor(Math.random() * 5) + 1,
       total: Math.floor(Math.random() * 2000) + 500,
@@ -38,12 +42,6 @@ export default function POS() {
 
     setOrders(updated);
     localStorage.setItem("orders", JSON.stringify(updated));
-
-    // 🔥 ALSO UPDATE TOTAL REVENUE
-    const revenue =
-      updated.reduce((sum, o) => sum + Number(o.total), 0);
-
-    localStorage.setItem("totalRevenue", revenue);
   };
 
   return (
@@ -82,7 +80,7 @@ export default function POS() {
           </h1>
         </div>
 
-        {/* CREATE ORDER BUTTON */}
+        {/* CREATE ORDER */}
         <button
           onClick={createOrder}
           className="bg-[#ff7a00] px-6 py-3 rounded-xl"
@@ -93,10 +91,16 @@ export default function POS() {
         {/* ORDER LIST */}
         <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 md:p-8">
 
+          {orders.length === 0 && (
+            <div className="text-white/40">
+              No orders yet
+            </div>
+          )}
+
           <div className="space-y-4">
-            {orders.map((order, i) => (
+            {orders.map((order) => (
               <div
-                key={i}
+                key={order.id}
                 className="flex justify-between items-center p-4 rounded-xl bg-black/30 border border-white/10"
               >
                 <div>{order.table}</div>

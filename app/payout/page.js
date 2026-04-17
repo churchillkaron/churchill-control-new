@@ -39,69 +39,55 @@ export default function Payout() {
 
   const calculate = (orders, total, service, barWasteValue, kitchenCostValue) => {
 
-    // FOH PERFORMANCE
-    let fohLevel = 0;
+    // 🔥 NEW LEVELS
+    const levels = {
+      GOOD: 1,
+      WARNING: 0.7,
+      BAD: 0.4,
+      CRITICAL: 0.2,
+    };
+
+    // FOH
     let fohStatusText = "CRITICAL";
 
-    if (total >= 50000) {
-      fohLevel = 100;
-      fohStatusText = "GOOD";
-    } else if (total >= 30000) {
-      fohLevel = 70;
-      fohStatusText = "WARNING";
-    } else if (total >= 15000) {
-      fohLevel = 40;
-      fohStatusText = "BAD";
-    }
+    if (total >= 50000) fohStatusText = "GOOD";
+    else if (total >= 30000) fohStatusText = "WARNING";
+    else if (total >= 15000) fohStatusText = "BAD";
 
     setFohStatus(fohStatusText);
 
     // BAR
-    let barLevel = 0;
     let barStatusText = "CRITICAL";
 
-    if (barWasteValue < 1000) {
-      barLevel = 100;
-      barStatusText = "GOOD";
-    } else if (barWasteValue < 2000) {
-      barLevel = 70;
-      barStatusText = "WARNING";
-    } else if (barWasteValue < 4000) {
-      barLevel = 40;
-      barStatusText = "BAD";
-    }
+    if (barWasteValue < 1000) barStatusText = "GOOD";
+    else if (barWasteValue < 2000) barStatusText = "WARNING";
+    else if (barWasteValue < 4000) barStatusText = "BAD";
 
     setBarStatus(barStatusText);
 
     // KITCHEN
-    let kitchenLevel = 0;
     let kitchenStatusText = "CRITICAL";
 
-    if (kitchenCostValue <= 30) {
-      kitchenLevel = 100;
-      kitchenStatusText = "GOOD";
-    } else if (kitchenCostValue <= 35) {
-      kitchenLevel = 70;
-      kitchenStatusText = "WARNING";
-    } else if (kitchenCostValue <= 40) {
-      kitchenLevel = 40;
-      kitchenStatusText = "BAD";
-    }
+    if (kitchenCostValue <= 30) kitchenStatusText = "GOOD";
+    else if (kitchenCostValue <= 35) kitchenStatusText = "WARNING";
+    else if (kitchenCostValue <= 40) kitchenStatusText = "BAD";
 
     setKitchenStatus(kitchenStatusText);
 
     // POOLS
-    const fohBasePool = service * 0.5;
-    const barPool = service * 0.3;
-    const kitchenPool = service * 0.2;
+    const fohBase = service * 0.5;
+    const barBase = service * 0.3;
+    const kitchenBase = service * 0.2;
 
-    const fohFinalPool = fohBasePool * (fohLevel / 100);
+    const fohFinal = fohBase * levels[fohStatusText];
+    const barFinal = barBase * levels[barStatusText];
+    const kitchenFinal = kitchenBase * levels[kitchenStatusText];
 
-    setFohPool(fohFinalPool);
-    setBarPayout(barPool * (barLevel / 100));
-    setKitchenPayout(kitchenPool * (kitchenLevel / 100));
+    setFohPool(fohFinal);
+    setBarPayout(barFinal);
+    setKitchenPayout(kitchenFinal);
 
-    // 🔥 STAFF SPLIT
+    // STAFF SPLIT
     const staffMap = {};
 
     orders.forEach((order) => {
@@ -115,13 +101,12 @@ export default function Payout() {
 
     const breakdown = Object.entries(staffMap).map(([name, value]) => {
       const share = totalFOHRevenue > 0 ? value / totalFOHRevenue : 0;
-      const payout = fohFinalPool * share;
+      const payout = fohFinal * share;
 
       return {
         name,
         revenue: value,
-        share: (share * 100).toFixed(1),
-        payout: payout,
+        payout,
       };
     });
 
@@ -129,31 +114,35 @@ export default function Payout() {
   };
 
   return (
-    <div className="relative min-h-screen text-white">
+    <div className="min-h-screen text-white p-10">
 
-      <div className="max-w-7xl mx-auto px-6 pt-28 space-y-6">
+      <h1 className="text-3xl mb-6">Payout System</h1>
 
-        <h1 className="text-3xl font-semibold">Payout System</h1>
+      <div>Revenue: THB {revenue.toLocaleString()}</div>
+      <div>Service Charge: THB {serviceCharge.toLocaleString()}</div>
 
-        <div>Revenue: THB {revenue.toLocaleString()}</div>
-        <div>Service Charge: THB {serviceCharge.toLocaleString()}</div>
-
-        <div>FOH Pool: THB {fohPool.toLocaleString()}</div>
-        <div>BAR: THB {barPayout.toLocaleString()}</div>
-        <div>KITCHEN: THB {kitchenPayout.toLocaleString()}</div>
-
-        {/* STAFF BREAKDOWN */}
-        <div className="mt-6 space-y-3">
-          <h2 className="text-xl">FOH Staff Split</h2>
-
-          {staffBreakdown.map((s, i) => (
-            <div key={i} className="p-3 bg-black/30 rounded">
-              {s.name} → {s.share}% → THB {s.payout.toLocaleString()}
-            </div>
-          ))}
-        </div>
-
+      <div className="mt-4">
+        FOH → {fohStatus} → THB {fohPool.toLocaleString()}
       </div>
+
+      <div>
+        BAR → {barStatus} → THB {barPayout.toLocaleString()}
+      </div>
+
+      <div>
+        KITCHEN → {kitchenStatus} → THB {kitchenPayout.toLocaleString()}
+      </div>
+
+      <div className="mt-6">
+        <h2>FOH Staff Breakdown</h2>
+
+        {staffBreakdown.map((s, i) => (
+          <div key={i}>
+            {s.name} → THB {s.payout.toLocaleString()}
+          </div>
+        ))}
+      </div>
+
     </div>
   );
 }

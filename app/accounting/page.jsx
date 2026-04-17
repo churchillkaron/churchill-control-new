@@ -17,14 +17,17 @@ export default function Accounting() {
     amount: "",
   });
 
+  // ✅ LOAD FROM LOCAL STORAGE (SAFE)
   useEffect(() => {
-    const storedExpenses =
-      JSON.parse(localStorage.getItem("expenses")) || [];
-    const storedHistory =
-      JSON.parse(localStorage.getItem("history")) || [];
+    try {
+      const storedExpenses = JSON.parse(localStorage.getItem("expenses")) || [];
+      const storedHistory = JSON.parse(localStorage.getItem("history")) || [];
 
-    setExpenses(storedExpenses);
-    setHistory(storedHistory);
+      setExpenses(storedExpenses);
+      setHistory(storedHistory);
+    } catch (e) {
+      console.log("Storage load error:", e);
+    }
   }, []);
 
   const totalExpenses = expenses.reduce(
@@ -57,7 +60,6 @@ export default function Accounting() {
     reader.readAsDataURL(file);
   };
 
-  // ✅ FIXED OCR FUNCTION (MATCHES BACKEND)
   const runOCR = async () => {
     if (!form.image) {
       alert("Please upload an image first");
@@ -78,15 +80,8 @@ export default function Accounting() {
 
       const data = await res.json();
 
-      console.log("OCR RESPONSE:", data);
-
-      if (!res.ok) {
-        setOcrStatus(`OCR failed: ${data.error || "Unknown error"}`);
-        return;
-      }
-
-      if (!data.data) {
-        setOcrStatus("OCR returned no structured data");
+      if (!res.ok || !data.data) {
+        setOcrStatus("OCR failed");
         return;
       }
 
@@ -121,6 +116,7 @@ export default function Accounting() {
     return cleaned.replace(/,/g, "");
   };
 
+  // ✅ FIXED SAVE (NO OVERWRITE, PRODUCTION SAFE)
   const addExpense = () => {
     if (!form.name || !form.amount) {
       alert("Missing name or amount");
@@ -133,10 +129,17 @@ export default function Accounting() {
       date: new Date().toLocaleDateString("en-GB"),
     };
 
-    const updated = [newExpense, ...expenses];
+    setExpenses((prevExpenses) => {
+      const updated = [newExpense, ...prevExpenses];
 
-    localStorage.setItem("expenses", JSON.stringify(updated));
-    setExpenses(updated);
+      try {
+        localStorage.setItem("expenses", JSON.stringify(updated));
+      } catch (e) {
+        console.log("Storage save error:", e);
+      }
+
+      return updated;
+    });
 
     setForm({
       name: "",
@@ -198,11 +201,7 @@ export default function Accounting() {
             />
           </div>
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-          />
+          <input type="file" accept="image/*" onChange={handleImageUpload} />
 
           {form.image && (
             <div className="space-y-3">

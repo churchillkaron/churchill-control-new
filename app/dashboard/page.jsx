@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 export default function Dashboard() {
   const [monthlyPayroll, setMonthlyPayroll] = useState(null);
   const [attendanceData, setAttendanceData] = useState([]);
+  const [selectedStaff, setSelectedStaff] = useState(null);
 
   useEffect(() => {
     const payroll =
@@ -36,7 +37,29 @@ export default function Dashboard() {
       ...entry,
       originalIndex: index,
     }))
-    .filter((a) => a.late && a.approved === false);
+    .filter((a) => a.late && a.approved !== true);
+
+  // =========================
+  // CHECK UNRESOLVED PER STAFF
+  // =========================
+  const hasUnresolvedAttendance = (name) => {
+    return attendanceData.some(
+      (a) => a.name === name && a.late && a.approved !== true
+    );
+  };
+
+  // =========================
+  // APPROVE SALARY
+  // =========================
+  const confirmApproval = () => {
+    const updated = { ...monthlyPayroll };
+    updated.staff[selectedStaff.index].managerApproved = true;
+
+    localStorage.setItem("monthlyPayroll", JSON.stringify(updated));
+    setMonthlyPayroll(updated);
+
+    setSelectedStaff(null);
+  };
 
   if (!monthlyPayroll) {
     return <div className="text-white p-10">No payroll yet</div>;
@@ -45,7 +68,9 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen text-white p-10">
 
-      {/* ATTENDANCE REVIEW */}
+      {/* =========================
+          ATTENDANCE REVIEW
+      ========================= */}
       <div className="mb-10 p-6 bg-white/10 rounded-xl">
 
         <h2 className="text-2xl mb-4">Attendance Review</h2>
@@ -90,7 +115,90 @@ export default function Dashboard() {
 
       </div>
 
-      {/* KEEP YOUR EXISTING PAYROLL BELOW */}
+      {/* =========================
+          PAYROLL
+      ========================= */}
+      <h1 className="text-3xl mb-6">Manager Approval</h1>
+
+      {monthlyPayroll.staff.map((s, i) => {
+        const blocked = hasUnresolvedAttendance(s.name);
+
+        return (
+          <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
+
+            <strong>{s.name}</strong>
+
+            <br />
+            Total: THB {Math.round(s.total)}
+
+            <br /><br />
+
+            {blocked && (
+              <div className="text-red-400 mb-2">
+                ⚠️ Pending attendance review required
+              </div>
+            )}
+
+            {s.staffConfirmed && !s.managerApproved && !blocked && (
+              <button
+                onClick={() =>
+                  setSelectedStaff({
+                    ...s,
+                    index: i,
+                  })
+                }
+                className="bg-green-500 px-3 py-1 rounded"
+              >
+                Approve Salary
+              </button>
+            )}
+
+            {blocked && (
+              <button
+                disabled
+                className="bg-gray-500 px-3 py-1 rounded"
+              >
+                Approval Blocked
+              </button>
+            )}
+
+          </div>
+        );
+      })}
+
+      {/* =========================
+          MODAL
+      ========================= */}
+      {selectedStaff && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+
+          <div className="bg-white text-black p-6 rounded-xl w-[400px]">
+
+            <h2 className="text-xl mb-3">
+              Confirm Approval
+            </h2>
+
+            <div>{selectedStaff.name}</div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={confirmApproval}
+                className="bg-green-500 px-3 py-1 rounded"
+              >
+                Confirm
+              </button>
+
+              <button
+                onClick={() => setSelectedStaff(null)}
+                className="bg-gray-400 px-3 py-1 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

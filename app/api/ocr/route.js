@@ -12,6 +12,8 @@ export async function POST(req) {
       return Response.json({ error: "No image provided" }, { status: 400 });
     }
 
+    console.log("IMAGE LENGTH:", image.length); // DEBUG
+
     const response = await client.responses.create({
       model: "gpt-4.1",
       temperature: 0,
@@ -22,11 +24,12 @@ export async function POST(req) {
             {
               type: "input_text",
               text: `
-You are an OCR + accounting system.
+You are an accounting OCR system.
 
-STRICT RULES:
+RULES:
 
-1. Vendor = company issuing invoice (TOP of document)
+1. Vendor = company issuing document (TOP area)
+   - Must include company name / address / tax id
    - NEVER customer name
    - IGNORE "Invoice To"
 
@@ -55,12 +58,11 @@ RETURN ONLY VALID JSON:
       ],
     });
 
-    // 🔥 SAFE EXTRACTION (no more empty errors)
     let outputText = "";
 
     if (response.output_text) {
       outputText = response.output_text;
-    } else if (response.output && response.output.length > 0) {
+    } else if (response.output) {
       for (const item of response.output) {
         if (item.content) {
           for (const c of item.content) {
@@ -83,7 +85,7 @@ RETURN ONLY VALID JSON:
 
     try {
       parsed = JSON.parse(outputText);
-    } catch (e) {
+    } catch {
       return Response.json({
         error: "JSON parse failed",
         raw: outputText,

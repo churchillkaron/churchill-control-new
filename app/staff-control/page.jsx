@@ -9,19 +9,16 @@ export default function StaffControl() {
 
   useEffect(() => {
     try {
-      const history =
-        JSON.parse(localStorage.getItem("history")) || [];
-
-      const attendance =
-        JSON.parse(localStorage.getItem("attendance")) || [];
-
-      const actions =
-        JSON.parse(localStorage.getItem("staffActions")) || {};
+      const history = JSON.parse(localStorage.getItem("history")) || [];
+      const attendance = JSON.parse(localStorage.getItem("attendance")) || [];
+      const actions = JSON.parse(localStorage.getItem("staffActions")) || {};
 
       const map = {};
 
-      history.forEach((day) => {
-        (day.staff || []).forEach((s) => {
+      for (const day of history) {
+        const staffList = day.staff || [];
+
+        for (const s of staffList) {
           if (!map[s.name]) {
             map[s.name] = {
               name: s.name,
@@ -32,34 +29,36 @@ export default function StaffControl() {
 
           map[s.name].levels.push(s.level || 0);
           map[s.name].payout += Number(s.payout || 0);
-        });
-      });
+        }
+      }
 
-      const result = Object.values(map).map((s) => {
-        const perf =
+      const result = [];
+
+      for (const name in map) {
+        const s = map[name];
+
+        const performance =
           s.levels.length > 0
             ? s.levels.reduce((a, b) => a + b, 0) / s.levels.length
             : 0;
 
         const late = attendance.filter(
-          (e) => e.name === s.name && e.late && !e.approved
+          (e) => e.name === name && e.late && !e.approved
         ).length;
 
-        const action = actions[s.name] || "Normal";
+        const action = actions[name] || "Normal";
 
-        return {
-          name: s.name,
-          performance: perf,
+        result.push({
+          name,
+          performance,
           payout: s.payout,
           late,
           action,
-        };
-      });
+        });
+      }
 
-      // SORT AFTER BUILD (safe)
       result.sort((a, b) => {
-        if (b.performance !== a.performance)
-          return b.performance - a.performance;
+        if (b.performance !== a.performance) return b.performance - a.performance;
         if (a.late !== b.late) return a.late - b.late;
         return b.payout - a.payout;
       });

@@ -3,48 +3,24 @@
 import { useEffect, useState } from "react";
 
 export default function Dashboard() {
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [monthlyData, setMonthlyData] = useState({
-    avgScore: 0,
-    days: 0,
-    serviceCharge: 5,
-  });
-  const [attendance, setAttendance] = useState([]);
-  const [staffFlags, setStaffFlags] = useState([]);
+  const [contracts, setContracts] = useState({});
+  const [name, setName] = useState("");
+  const [salary, setSalary] = useState("");
+
   const [staffActions, setStaffActions] = useState({});
+  const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
+    const savedContracts =
+      JSON.parse(localStorage.getItem("contracts")) || {};
+    setContracts(savedContracts);
+
+    const actions =
+      JSON.parse(localStorage.getItem("staffActions")) || {};
+    setStaffActions(actions);
+
     const history = JSON.parse(localStorage.getItem("history")) || [];
 
-    // =========================
-    // MONTHLY SYSTEM
-    // =========================
-    const sorted = [...history].sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    );
-
-    const last30 = sorted.slice(0, 30);
-
-    if (last30.length > 0) {
-      const scores = last30.map((day) => day.scores?.foh || 0);
-
-      const avgScore =
-        scores.reduce((sum, val) => sum + val, 0) / scores.length;
-
-      let serviceCharge = 5;
-      if (avgScore >= 70 && avgScore < 85) serviceCharge = 6;
-      else if (avgScore >= 85) serviceCharge = 7;
-
-      setMonthlyData({
-        avgScore: avgScore.toFixed(1),
-        days: last30.length,
-        serviceCharge,
-      });
-    }
-
-    // =========================
-    // LEADERBOARD
-    // =========================
     const staffMap = {};
 
     history.forEach((day) => {
@@ -53,203 +29,113 @@ export default function Dashboard() {
       day.staff.forEach((s) => {
         if (!staffMap[s.name]) {
           staffMap[s.name] = {
-            revenue: 0,
             payout: 0,
           };
         }
 
-        staffMap[s.name].revenue += Number(s.revenue || 0);
         staffMap[s.name].payout += Number(s.payout || 0);
       });
     });
 
     const result = Object.entries(staffMap).map(([name, data]) => ({
       name,
-      revenue: data.revenue,
       payout: data.payout,
     }));
 
-    result.sort((a, b) => b.revenue - a.revenue);
     setLeaderboard(result);
-
-    // =========================
-    // ATTENDANCE
-    // =========================
-    const attendanceData =
-      JSON.parse(localStorage.getItem("attendance")) || [];
-    setAttendance(attendanceData);
-
-    // =========================
-    // LOAD ACTIONS
-    // =========================
-    const actions =
-      JSON.parse(localStorage.getItem("staffActions")) || {};
-
-    // =========================
-    // FLAGS + RECOVERY
-    // =========================
-    const flagMap = {};
-
-    history.forEach((day) => {
-      if (!day.staff) return;
-
-      day.staff.forEach((staff) => {
-        if (!flagMap[staff.name]) {
-          flagMap[staff.name] = {
-            badDays: 0,
-            totalDays: 0,
-            recentLevels: [],
-          };
-        }
-
-        flagMap[staff.name].totalDays += 1;
-
-        const level = Number(staff.level);
-
-        if (level < 1) {
-          flagMap[staff.name].badDays += 1;
-        }
-
-        flagMap[staff.name].recentLevels.push(level);
-      });
-    });
-
-    const updatedActions = { ...actions };
-
-    const flags = Object.entries(flagMap)
-      .map(([name, data]) => {
-        const last3 = data.recentLevels.slice(-3);
-
-        // 🔥 RECOVERY LOGIC
-        if (last3.length === 3 && last3.every(l => l === 1)) {
-          updatedActions[name] = "Cleared";
-
-          return {
-            name,
-            badDays: 0,
-            totalDays: data.totalDays,
-            status: "Recovered",
-          };
-        }
-
-        let status = "Stable";
-
-        if (data.badDays >= 5) status = "Review Required";
-        else if (data.badDays >= 3) status = "Warning";
-
-        return {
-          name,
-          badDays: data.badDays,
-          totalDays: data.totalDays,
-          status,
-        };
-      })
-      .filter((s) => s.badDays >= 3 || s.status === "Recovered")
-      .sort((a, b) => b.badDays - a.badDays);
-
-    localStorage.setItem("staffActions", JSON.stringify(updatedActions));
-    setStaffActions(updatedActions);
-    setStaffFlags(flags);
   }, []);
 
   // =========================
-  // APPROVE / REJECT
+  // SAVE CONTRACT
   // =========================
-  const updateApproval = (index, value) => {
-    const updated = [...attendance];
-    updated[index].approved = value;
+  const saveContract = () => {
+    if (!name || !salary) return;
 
-    localStorage.setItem("attendance", JSON.stringify(updated));
-    setAttendance(updated);
+    const updated = {
+      ...contracts,
+      [name]: {
+        salary: Number(salary),
+      },
+    };
+
+    localStorage.setItem("contracts", JSON.stringify(updated));
+    setContracts(updated);
+
+    setName("");
+    setSalary("");
   };
 
   // =========================
-  // ACTION UPDATE
+  // CALCULATE FINAL PAY
   // =========================
-  const updateAction = (name, action) => {
-    const updated = { ...staffActions, [name]: action };
-    localStorage.setItem("staffActions", JSON.stringify(updated));
-    setStaffActions(updated);
+  const getFinalPay = (staffName, payout) => {
+    const contract = contracts[staffName];
+    const action = staffActions[staffName];
+
+    let bonusMultiplier = 1;
+
+    if (action === "Final Warning") bonusMultiplier = 0;
+    else if (action === "Under Review") bonusMultiplier = 0.5;
+
+    const finalBonus = payout * bonusMultiplier;
+    const baseSalary = contract?.salary || 0;
+
+    return baseSalary + finalBonus;
   };
 
   return (
     <div className="min-h-screen text-white p-10">
 
-      <h1 className="text-3xl mb-6">Monthly System Performance</h1>
+      {/* CONTRACT INPUT */}
+      <h1 className="text-3xl mb-6">Staff Contracts</h1>
 
-      <div className="bg-white/10 p-6 rounded-xl mb-10">
-        <p>Days: {monthlyData.days}</p>
-        <p>Avg Score: {monthlyData.avgScore}</p>
-        <p>
-          Service Charge:{" "}
-          <span className="text-orange-400">
-            {monthlyData.serviceCharge}%
-          </span>
-        </p>
+      <div className="mb-6 space-x-2">
+        <input
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="p-2 bg-black/40 border border-white/10 rounded"
+        />
+
+        <input
+          placeholder="Salary"
+          value={salary}
+          onChange={(e) => setSalary(e.target.value)}
+          className="p-2 bg-black/40 border border-white/10 rounded"
+        />
+
+        <button
+          onClick={saveContract}
+          className="bg-orange-500 px-4 py-2 rounded"
+        >
+          Save
+        </button>
       </div>
 
-      {/* FLAGS + ACTIONS */}
-      <h1 className="text-3xl mb-6">Manager Actions</h1>
-
-      {staffFlags.map((staff, i) => (
-        <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
-          <div><strong>{staff.name}</strong></div>
-          <div>Bad Days: {staff.badDays}</div>
-
-          <div className="mt-2">
-            Status:{" "}
-            <span className={
-              staff.status === "Review Required" ? "text-red-400" :
-              staff.status === "Recovered" ? "text-green-400" :
-              "text-yellow-400"
-            }>
-              {staff.status}
-            </span>
-          </div>
-
-          <div className="mt-2">
-            Action:{" "}
-            <span className="text-orange-400">
-              {staffActions[staff.name] || "None"}
-            </span>
-          </div>
-
-          <div className="mt-3 space-x-2">
-            <button onClick={() => updateAction(staff.name, "Warning Issued")} className="bg-yellow-500 px-2 py-1 rounded">
-              Warning
-            </button>
-            <button onClick={() => updateAction(staff.name, "Under Review")} className="bg-orange-500 px-2 py-1 rounded">
-              Review
-            </button>
-            <button onClick={() => updateAction(staff.name, "Final Warning")} className="bg-red-500 px-2 py-1 rounded">
-              Final
-            </button>
-            <button onClick={() => updateAction(staff.name, "Cleared")} className="bg-green-500 px-2 py-1 rounded">
-              Clear
-            </button>
-          </div>
+      {/* CONTRACT LIST */}
+      {Object.entries(contracts).map(([name, c], i) => (
+        <div key={i} className="mb-2">
+          {name} → Salary: THB {c.salary}
         </div>
       ))}
 
-      {/* ATTENDANCE */}
-      <h1 className="text-3xl mb-6 mt-10">Late Staff Review</h1>
-
-      {attendance.filter(a => a.late).map((a, i) => (
-        <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
-          <div><strong>{a.name}</strong></div>
-          <div>Reason: {a.reason}</div>
-
-          <button onClick={() => updateApproval(i, true)} className="bg-green-500 px-2 py-1 mr-2 rounded">Approve</button>
-          <button onClick={() => updateApproval(i, false)} className="bg-red-500 px-2 py-1 rounded">Reject</button>
-        </div>
-      ))}
-
-      {/* LEADERBOARD */}
-      <h1 className="text-3xl mb-6 mt-10">Performance</h1>
+      {/* FINAL PAY */}
+      <h1 className="text-3xl mt-10 mb-6">Final Payroll</h1>
 
       {leaderboard.map((s, i) => (
-        <div key={i}>
-          #{i + 1} {s.name} - THB {s.revenue.toLocaleString()}
+        <div key={i} className="mb-3">
+          <strong>{s.name}</strong>
+
+          <br />
+
+          Service Bonus: THB {Math.round(s.payout)}
+
+          <br />
+
+          Total Pay:{" "}
+          <span className="text-orange-400">
+            THB {Math.round(getFinalPay(s.name, s.payout))}
+          </span>
         </div>
       ))}
 

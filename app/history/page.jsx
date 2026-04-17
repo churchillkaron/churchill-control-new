@@ -7,10 +7,9 @@ export default function History() {
 
   useEffect(() => {
     try {
-      const localData = JSON.parse(localStorage.getItem("history")) || [];
-      setHistory(localData);
-    } catch (err) {
-      console.error("History load error:", err);
+      const stored = JSON.parse(localStorage.getItem("history")) || [];
+      setHistory(stored);
+    } catch {
       setHistory([]);
     }
   }, []);
@@ -35,7 +34,6 @@ export default function History() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-28 pb-14 space-y-8">
 
-        {/* HEADER */}
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-white/40">
             History
@@ -43,35 +41,28 @@ export default function History() {
           <h1 className="text-3xl md:text-5xl font-semibold mt-2">
             Saved Days
           </h1>
-          <p className="text-white/60 mt-2 max-w-xl">
-            Local archive of saved business days.
-          </p>
         </div>
 
-        {/* CONTENT */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 md:p-8">
+        {/* EMPTY STATE */}
+        {history.length === 0 && (
+          <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6 text-red-400">
+            No saved history yet
+          </div>
+        )}
 
-          {history.length === 0 ? (
-            <div className="text-white/50 text-sm">
-              No saved history yet.
+        {/* DATA */}
+        <div className="space-y-4">
+          {history.map((day, i) => (
+            <div
+              key={i}
+              className="p-4 rounded-xl bg-black/30 border border-white/10 flex justify-between"
+            >
+              <div>{day.date}</div>
+              <div className="text-[#ffb36b]">
+                THB {day.revenue.toLocaleString()}
+              </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {history.map((day, i) => (
-                <div
-                  key={i}
-                  className="p-4 rounded-xl bg-black/30 border border-white/10"
-                >
-                  <p className="text-sm text-white/50">Date</p>
-                  <p className="text-lg font-medium">{day.date || "Unknown"}</p>
-
-                  <p className="text-sm text-white/50 mt-2">Revenue</p>
-                  <p className="text-lg">THB {day.revenue || 0}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
+          ))}
         </div>
 
       </div>

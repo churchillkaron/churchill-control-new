@@ -12,42 +12,31 @@ export async function POST(req) {
       return Response.json({ error: "No image provided" }, { status: 400 });
     }
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content: `
-You are an OCR reader.
-
-ONLY extract ALL text from the receipt.
-DO NOT structure.
-DO NOT summarize.
-DO NOT interpret.
-
-Return raw text exactly as seen.
-          `,
-        },
+    const response = await client.responses.create({
+      model: "gpt-4.1",
+      input: [
         {
           role: "user",
           content: [
-            { type: "text", text: "Read this receipt" },
             {
-              type: "image_url",
-              image_url: {
-                url: image,
-              },
+              type: "input_text",
+              text: "Extract all visible text from this receipt. Return plain text only.",
+            },
+            {
+              type: "input_image",
+              image_url: image,
             },
           ],
         },
       ],
     });
 
-    const rawText = response.choices[0].message.content;
+    const rawText = response.output[0].content[0].text;
 
     return Response.json({ text: rawText });
+
   } catch (err) {
+    console.error(err);
     return Response.json({ error: err.message }, { status: 500 });
   }
 }

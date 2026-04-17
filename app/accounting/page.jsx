@@ -23,9 +23,6 @@ export default function Accounting() {
     setHistory(storedHistory);
   }, []);
 
-  // =========================
-  // CALCULATIONS
-  // =========================
   const totalExpenses = expenses.reduce(
     (sum, e) => sum + Number(e.amount || 0),
     0
@@ -38,9 +35,6 @@ export default function Accounting() {
 
   const netProfit = totalRevenue - totalExpenses;
 
-  // =========================
-  // IMAGE UPLOAD
-  // =========================
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -55,39 +49,62 @@ export default function Accounting() {
   };
 
   // =========================
-  // PARSER LOGIC
+  // 🔥 SMART PARSER
   // =========================
   const extractData = (text) => {
+    const lines = text.split("\n");
+
     let amount = "";
     let vendor = "";
 
-    const lines = text.split("\n");
+    // 🔥 STEP 1: Find TOTAL line
+    for (let line of lines) {
+      const lower = line.toLowerCase();
 
-    let maxNumber = 0;
-
-    lines.forEach((line) => {
-      const numbers = line.match(/\d+[.,]?\d*/g);
-
-      if (numbers) {
-        numbers.forEach((n) => {
-          const value = parseFloat(n.replace(",", ""));
-          if (value > maxNumber) {
-            maxNumber = value;
-            amount = value;
-          }
-        });
+      if (
+        lower.includes("total") ||
+        lower.includes("grand total") ||
+        lower.includes("net total")
+      ) {
+        const match = line.match(/\d+[.,]?\d*/g);
+        if (match) {
+          amount = match[match.length - 1];
+          break;
+        }
       }
-    });
+    }
 
+    // 🔥 STEP 2: fallback = biggest number
+    if (!amount) {
+      let max = 0;
+
+      lines.forEach((line) => {
+        const nums = line.match(/\d+[.,]?\d*/g);
+        if (nums) {
+          nums.forEach((n) => {
+            const val = parseFloat(n.replace(",", ""));
+            if (val > max) {
+              max = val;
+              amount = val;
+            }
+          });
+        }
+      });
+    }
+
+    // 🔥 STEP 3: vendor detection (better)
     vendor =
-      lines.find((l) => l.length > 3 && !l.match(/\d/)) || "";
+      lines.find(
+        (l) =>
+          l.length > 4 &&
+          !l.match(/\d/) &&
+          !l.toLowerCase().includes("invoice") &&
+          !l.toLowerCase().includes("tax")
+      ) || "";
 
     return { amount, vendor };
   };
 
-  // =========================
-  // OCR
-  // =========================
   const runOCR = async () => {
     if (!form.image) return;
 
@@ -109,9 +126,6 @@ export default function Accounting() {
     });
   };
 
-  // =========================
-  // ADD EXPENSE
-  // =========================
   const addExpense = () => {
     if (!form.name || !form.amount) return;
 
@@ -132,7 +146,6 @@ export default function Accounting() {
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
 
-      {/* BACKGROUND */}
       <div className="absolute inset-0 -z-30">
         <img
           src="/bg-hero-control.jpg"
@@ -146,25 +159,16 @@ export default function Accounting() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-28 pb-14 space-y-8">
 
-        {/* HEADER */}
         <h1 className="text-3xl md:text-5xl font-semibold">
           Accounting
         </h1>
 
-        {/* HERO */}
         <div className="grid md:grid-cols-3 gap-6">
-          <div>
-            Expenses: THB {totalExpenses.toLocaleString()}
-          </div>
-          <div>
-            Revenue: THB {totalRevenue.toLocaleString()}
-          </div>
-          <div>
-            Profit: THB {netProfit.toLocaleString()}
-          </div>
+          <div>Expenses: THB {totalExpenses}</div>
+          <div>Revenue: THB {totalRevenue}</div>
+          <div>Profit: THB {netProfit}</div>
         </div>
 
-        {/* ADD EXPENSE */}
         <div className="space-y-4">
 
           <input
@@ -177,7 +181,6 @@ export default function Accounting() {
 
           <input
             placeholder="Amount"
-            type="number"
             value={form.amount}
             onChange={(e) =>
               setForm({ ...form, amount: e.target.value })
@@ -196,14 +199,11 @@ export default function Accounting() {
 
           {form.image && (
             <div>
-              <img
-                src={form.image}
-                className="w-40 mt-2 rounded"
-              />
+              <img src={form.image} className="w-40 mt-2" />
 
               <button
                 onClick={runOCR}
-                className="bg-blue-500 px-4 py-2 mt-2 rounded"
+                className="bg-blue-500 px-4 py-2 mt-2"
               >
                 Auto Read Receipt
               </button>
@@ -212,29 +212,22 @@ export default function Accounting() {
 
           <button
             onClick={addExpense}
-            className="bg-orange-500 px-4 py-2 rounded"
+            className="bg-orange-500 px-4 py-2"
           >
             Add Expense
           </button>
 
         </div>
 
-        {/* LIST */}
         <div>
           {expenses.map((item, i) => (
-            <div key={i} className="border p-4 mt-2 rounded">
+            <div key={i} className="border p-4 mt-2">
 
-              <div className="font-semibold">{item.name}</div>
+              <div>{item.name}</div>
               <div>THB {item.amount}</div>
-              <div className="text-sm text-white/50">
-                {item.category}
-              </div>
 
               {item.image && (
-                <img
-                  src={item.image}
-                  className="w-32 mt-2 rounded"
-                />
+                <img src={item.image} className="w-32 mt-2" />
               )}
 
             </div>

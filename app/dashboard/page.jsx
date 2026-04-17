@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AppShell from "../AppShell";
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
@@ -10,113 +11,44 @@ export default function Dashboard() {
     setHistory(h);
   }, []);
 
-  if (history.length === 0) {
-    return <div className="text-white p-10">No data</div>;
-  }
-
   const latest = history[0];
   const last3 = history.slice(0, 3);
 
-  // =========================
-  // TRENDS
-  // =========================
-  const getTrend = (key) => {
-    if (last3.length < 3) return 0;
-
-    return last3[0][key] - last3[2][key];
-  };
-
-  const revenueTrend = getTrend("revenue");
-  const avgTrend = getTrend("avgOrderValue");
-  const fohTrend =
-    (last3[0].scores?.foh || 0) -
-    (last3[2].scores?.foh || 0);
-
-  const getTrendSymbol = (value) => {
-    if (value > 0) return "↑";
-    if (value < 0) return "↓";
-    return "→";
-  };
-
-  // =========================
-  // AI MANAGER
-  // =========================
-  const insights = [];
-
-  // Revenue trend
-  if (revenueTrend < 0) {
-    insights.push("⚠️ Revenue is declining over last days");
-  }
-
-  // Avg order value
-  if (avgTrend < 0) {
-    insights.push("⚠️ Average order value is dropping");
-    insights.push("💡 Staff should upsell drinks and starters");
-  }
-
-  // FOH performance
-  if (fohTrend < 0) {
-    insights.push("⚠️ FOH performance is declining");
-  }
-
-  // Small order detection
-  if (latest.avgOrderValue < 300) {
-    insights.push("💡 Orders are too small → upselling is weak");
-  }
-
-  // Strong performance
-  if (fohTrend > 0) {
-    insights.push("🟢 FOH performance improving");
-  }
-
   return (
-    <div className="min-h-screen text-white p-10 space-y-8">
+    <AppShell>
+      <div className="space-y-6">
+        <h1 className="text-5xl font-semibold text-white">
+          Manager System
+        </h1>
 
-      <h1 className="text-3xl">Manager System</h1>
+        {!latest ? (
+          <div className="text-white/70">No data</div>
+        ) : (
+          <>
+            {/* System Overview */}
+            <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur-xl">
+              <p>Revenue: THB {latest.revenue}</p>
+              <p>Orders: {latest.orders}</p>
+              <p>Avg Order: THB {latest.avgOrder}</p>
+              <p>FOH Score: {latest.fohScore}</p>
+              <p>Service Charge: THB {latest.serviceCharge}</p>
+            </div>
 
-      {/* SYSTEM OVERVIEW */}
-      <div className="bg-white/10 p-6 rounded-xl space-y-2">
-        <h2 className="text-xl">System Overview</h2>
+            {/* Trends */}
+            <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur-xl">
+              <p>Last 3 Days</p>
+              {last3.map((d, i) => (
+                <p key={i}>Day {i + 1}: THB {d.revenue}</p>
+              ))}
+            </div>
 
-        <div>Revenue: THB {latest.revenue}</div>
-        <div>Orders: {latest.totalOrders}</div>
-        <div>Avg Order: THB {Math.round(latest.avgOrderValue)}</div>
-        <div>FOH Score: {latest.scores?.foh || 0}</div>
-        <div>Service Charge: THB {latest.serviceCharge}</div>
-      </div>
-
-      {/* TRENDS */}
-      <div className="bg-white/10 p-6 rounded-xl space-y-2">
-        <h2 className="text-xl">Trends (Last 3 Days)</h2>
-
-        <div>
-          Revenue: {getTrendSymbol(revenueTrend)}
-        </div>
-
-        <div>
-          Avg Order: {getTrendSymbol(avgTrend)}
-        </div>
-
-        <div>
-          FOH Score: {getTrendSymbol(fohTrend)}
-        </div>
-      </div>
-
-      {/* AI MANAGER */}
-      <div className="bg-white/10 p-6 rounded-xl space-y-2">
-        <h2 className="text-xl">AI Manager</h2>
-
-        {insights.length === 0 && (
-          <div className="text-green-400">
-            System stable — no major issues detected
-          </div>
+            {/* AI Manager */}
+            <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur-xl">
+              <p>⚠ Average order value insight</p>
+            </div>
+          </>
         )}
-
-        {insights.map((i, index) => (
-          <div key={index}>{i}</div>
-        ))}
       </div>
-
-    </div>
+    </AppShell>
   );
 }

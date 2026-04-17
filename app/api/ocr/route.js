@@ -13,33 +13,57 @@ export async function POST(req) {
     }
 
     const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o", // 🔥 UPGRADED MODEL
+      temperature: 0,  // 🔥 no randomness
       messages: [
+        {
+          role: "system",
+          content: `
+You are an expert accountant reading receipts.
+
+You MUST extract correct financial data.
+You NEVER guess based on titles or filenames.
+You ONLY use actual receipt content.
+          `,
+        },
         {
           role: "user",
           content: [
             {
               type: "text",
               text: `
-You are reading a receipt or invoice.
+Extract data from this receipt.
 
-Extract:
-- vendor (real business name, NOT filename or title)
-- total amount paid (look for TOTAL, GRAND TOTAL)
-- date
+VERY STRICT RULES:
 
-Rules:
-- Ignore filenames like "invoice eden final"
-- Ignore logos and titles
-- Focus on final total amount
-- Return numbers only (no currency symbols)
+1. Vendor:
+- Must be real business name printed on receipt
+- NOT file name
+- NOT large title if not a company
+
+2. Amount:
+- Must be FINAL TOTAL
+- Look for:
+  - TOTAL
+  - GRAND TOTAL
+  - NET TOTAL
+- Choose the LARGEST relevant amount
+
+3. Date:
+- Extract if visible
+
+4. IGNORE:
+- "invoice eden final"
+- logos
+- headers
+- filenames
 
 Return ONLY JSON:
 
 {
-  "vendor": "",
-  "amount": "",
-  "date": ""
+  "vendor": "...",
+  "amount": "...",
+  "date": "..."
 }
               `,
             },

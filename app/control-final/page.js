@@ -35,26 +35,10 @@ export default function ControlFinal() {
   };
 
   // =========================
-  // MONTHLY SERVICE CHARGE
+  // LOCKED SERVICE CHARGE
   // =========================
   const getServiceChargePercent = () => {
-    const history = JSON.parse(localStorage.getItem("history")) || [];
-    const sorted = [...history].sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    );
-
-    const last30 = sorted.slice(0, 30);
-
-    if (last30.length === 0) return 5;
-
-    const scores = last30.map((day) => day.scores?.foh || 0);
-
-    const avgScore =
-      scores.reduce((sum, val) => sum + val, 0) / scores.length;
-
-    if (avgScore >= 85) return 7;
-    if (avgScore >= 70) return 6;
-    return 5;
+    return Number(localStorage.getItem("serviceChargeRate")) || 5;
   };
 
   // =========================
@@ -273,6 +257,9 @@ export default function ControlFinal() {
         <div>Total Orders: {totalOrders}</div>
         <div>
           Average Order Value: THB {Math.round(avgOrderValue).toLocaleString()}
+        </div>
+        <div>
+          Locked Service Charge: {getServiceChargePercent()}%
         </div>
       </div>
     </div>

@@ -1,134 +1,113 @@
 "use client";
 
-import { useState } from "react";
-
-export default function Home() {
-  const [showLogin, setShowLogin] = useState(false);
-
+export default function LandingPage() {
   return (
-    <main className="relative min-h-screen flex items-center px-6">
+    <div className="relative min-h-screen overflow-hidden bg-[#0d0a07] text-white">
 
-      {/* Background */}
-      <div className="absolute inset-0 -z-10">
-        <img
-          src="/bg-hero-control.jpg"
-          alt="Luxury beach"
-          className="w-full h-full object-cover"
+      {/* FIXED BACKGROUND */}
+      <div className="fixed inset-0 z-0">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-[1.05]"
+          style={{ backgroundImage: "url('/bg-hero-control.jpg')" }}
         />
-        <div className="absolute inset-0 bg-black/60" />
+
+        {/* depth gradients */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(255,122,0,0.18),transparent_35%),linear-gradient(180deg,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.65)_60%,rgba(0,0,0,0.85)_100%)]" />
+
+        {/* vignette */}
+        <div className="absolute inset-0 shadow-[inset_0_0_200px_rgba(0,0,0,0.7)]" />
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto w-full grid md:grid-cols-2 gap-10 items-center">
+      {/* SCROLL LAYER */}
+      <div className="relative z-10 min-h-screen flex items-center">
+        <div className="max-w-7xl mx-auto px-6 md:px-10 w-full">
 
-        {/* LEFT SIDE */}
-        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
-          <p className="text-sm tracking-[0.2em] text-white/60">
-            CHURCHILL CONTROL SYSTEM
-          </p>
+            {/* LEFT SIDE */}
+            <div className="space-y-6">
 
-          <h1 className="text-5xl md:text-6xl font-semibold text-white leading-tight">
-            Total Control <br />
-            <span className="text-[#ff7a00]">Over Your Venue</span>
-          </h1>
+              <span className="text-xs tracking-[0.25em] text-white/40">
+                CHURCHILL CONTROL SYSTEM
+              </span>
 
-          <p className="text-white/70 text-lg max-w-xl">
-            Real-time control of revenue, staff performance, payroll, and daily operations —
-            built for owners who demand clarity, accountability, and profit.
-          </p>
+              <h1 className="text-5xl md:text-6xl font-semibold leading-tight">
+                Total Control
+                <br />
+                <span className="text-[#ff7a00]">Over Your Venue</span>
+              </h1>
 
-          <div className="flex items-center gap-4 pt-4">
-            <button
-              onClick={() => setShowLogin(true)}
-              className="bg-[#ff7a00] hover:opacity-90 text-white px-6 py-3 rounded-xl text-lg font-medium shadow-lg"
-            >
-              Access Control System
-            </button>
+              <p className="text-white/60 max-w-lg">
+                Real-time control of revenue, staff performance, payroll, and daily operations — built for owners who demand clarity, accountability, and profit.
+              </p>
 
-            <div className="text-white/50 text-sm">
-              For restaurants, bars, and venue groups
+              {/* CTA */}
+              <div className="relative inline-block">
+                <div className="absolute -inset-2 bg-[#ff7a00]/20 blur-xl rounded-xl" />
+
+                <button className="relative px-7 py-3 rounded-xl bg-[#ff7a00] text-black font-medium shadow-[0_10px_30px_rgba(0,0,0,0.5)] hover:scale-[1.02] transition">
+                  Access Control System
+                </button>
+              </div>
+
+              <p className="text-white/30 text-sm">
+                For restaurants, bars, and venue groups
+              </p>
             </div>
+
+            {/* RIGHT SIDE (FLOATING SYSTEM PANEL) */}
+            <div className="relative">
+
+              {/* glow behind */}
+              <div className="absolute -inset-10 bg-white/5 blur-3xl rounded-[40px]" />
+
+              <div className="relative rounded-[32px] border border-white/10 bg-white/[0.06] backdrop-blur-xl p-8
+                shadow-[0_40px_120px_rgba(0,0,0,0.7),0_10px_40px_rgba(0,0,0,0.5)]
+              ">
+
+                {/* top light line */}
+                <div className="absolute inset-x-0 top-0 h-px bg-white/30 rounded-t-[32px]" />
+
+                <h3 className="text-lg mb-6 text-white/80">
+                  One system. Full control.
+                </h3>
+
+                <div className="grid grid-cols-2 gap-4">
+
+                  {[
+                    ["Revenue", "Know exactly where money goes"],
+                    ["Staff", "Track performance & behavior"],
+                    ["Payroll", "Automated accountability"],
+                    ["Operations", "Zero guesswork decisions"],
+                  ].map(([title, desc], i) => (
+                    <div
+                      key={i}
+                      className="relative rounded-[18px] border border-white/10 bg-white/[0.05] p-4
+                        shadow-[0_15px_40px_rgba(0,0,0,0.4)]
+                      "
+                    >
+                      <div className="text-white/70 text-xs mb-1">
+                        {title}
+                      </div>
+                      <div className="text-white/90 text-sm">
+                        {desc}
+                      </div>
+                    </div>
+                  ))}
+
+                </div>
+
+                <p className="text-white/40 text-sm mt-6">
+                  Replace spreadsheets, guesswork, and disconnected tools with one unified control system.
+                </p>
+
+              </div>
+            </div>
+
           </div>
-        </div>
 
-        {/* RIGHT SIDE (GLASS CARD) */}
-        <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.5)]">
-
-          <h2 className="text-white text-xl mb-4">
-            One system. Full control.
-          </h2>
-
-          <div className="grid grid-cols-2 gap-4">
-
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-white/50 text-sm">Revenue</p>
-              <p className="text-white font-medium">
-                Know exactly where money goes
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-white/50 text-sm">Staff</p>
-              <p className="text-white font-medium">
-                Track performance & behavior
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-white/50 text-sm">Payroll</p>
-              <p className="text-white font-medium">
-                Automated accountability
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-white/50 text-sm">Operations</p>
-              <p className="text-white font-medium">
-                Zero guesswork decisions
-              </p>
-            </div>
-
-          </div>
-
-          <div className="mt-6 text-white/60 text-sm">
-            Replace spreadsheets, guesswork, and disconnected tools with one unified control system.
-          </div>
         </div>
       </div>
-
-      {/* LOGIN MODAL */}
-      {showLogin && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] p-8 rounded-2xl w-full max-w-md space-y-4 border border-white/10">
-
-            <h2 className="text-white text-xl">Login</h2>
-
-            <input
-              placeholder="Email"
-              className="w-full p-3 rounded-lg bg-black/40 text-white border border-white/10"
-            />
-
-            <input
-              placeholder="Password"
-              type="password"
-              className="w-full p-3 rounded-lg bg-black/40 text-white border border-white/10"
-            />
-
-            <button className="w-full bg-[#ff7a00] p-3 rounded-lg text-white">
-              Enter
-            </button>
-
-            <button
-              onClick={() => setShowLogin(false)}
-              className="text-white/50 text-sm w-full"
-            >
-              Cancel
-            </button>
-
-          </div>
-        </div>
-      )}
-    </main>
+    </div>
   );
 }

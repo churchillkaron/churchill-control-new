@@ -5,18 +5,27 @@ import { useEffect, useState } from "react";
 export default function Dashboard() {
   const [monthlyPayroll, setMonthlyPayroll] = useState(null);
   const [recommendedRate, setRecommendedRate] = useState(5);
-  const [lockedRate, setLockedRate] = useState(5);
+  const [lockedRate, setLockedRate] = useState(null);
   const [avgScore, setAvgScore] = useState(0);
+  const [currentMonth, setCurrentMonth] = useState("");
 
   useEffect(() => {
     const payroll =
       JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
 
-    const savedRate =
-      Number(localStorage.getItem("serviceChargeRate")) || 5;
+    const today = new Date();
+    const monthKey = `${today.getFullYear()}-${String(
+      today.getMonth() + 1
+    ).padStart(2, "0")}`;
+
+    setCurrentMonth(monthKey);
+
+    const serviceData =
+      JSON.parse(localStorage.getItem("serviceCharge")) || {};
+
+    setLockedRate(serviceData[monthKey] || null);
 
     setMonthlyPayroll(payroll);
-    setLockedRate(savedRate);
 
     calculateServiceRate();
   }, []);
@@ -60,13 +69,27 @@ export default function Dashboard() {
   };
 
   // =========================
-  // LOCK SERVICE RATE
+  // LOCK MONTHLY RATE
   // =========================
   const lockServiceRate = () => {
-    localStorage.setItem("serviceChargeRate", recommendedRate);
+    const serviceData =
+      JSON.parse(localStorage.getItem("serviceCharge")) || {};
+
+    if (serviceData[currentMonth]) {
+      alert("Service charge already locked for this month");
+      return;
+    }
+
+    serviceData[currentMonth] = recommendedRate;
+
+    localStorage.setItem(
+      "serviceCharge",
+      JSON.stringify(serviceData)
+    );
+
     setLockedRate(recommendedRate);
 
-    alert(`Service Charge locked at ${recommendedRate}%`);
+    alert(`Service Charge locked at ${recommendedRate}% for ${currentMonth}`);
   };
 
   // =========================
@@ -106,6 +129,7 @@ export default function Dashboard() {
 
         <h2 className="text-2xl mb-3">Monthly Performance</h2>
 
+        <div>Month: {currentMonth}</div>
         <div>Average FOH Score: {avgScore}</div>
 
         <div className="mt-3">
@@ -118,21 +142,22 @@ export default function Dashboard() {
         <div>
           Locked:{" "}
           <span className="text-orange-400">
-            {lockedRate}%
+            {lockedRate ? `${lockedRate}%` : "Not locked"}
           </span>
-        </div>
-
-        <div className="mt-2 text-sm text-white/60">
-          {recommendedRate === 7 && "Elite Performance"}
-          {recommendedRate === 6 && "Good Performance"}
-          {recommendedRate === 5 && "Standard Level"}
         </div>
 
         <button
           onClick={lockServiceRate}
-          className="mt-4 bg-orange-500 px-4 py-2 rounded"
+          disabled={lockedRate !== null}
+          className={`mt-4 px-4 py-2 rounded ${
+            lockedRate !== null
+              ? "bg-gray-500"
+              : "bg-orange-500"
+          }`}
         >
-          Lock Recommended Rate
+          {lockedRate !== null
+            ? "Already Locked"
+            : "Lock for This Month"}
         </button>
 
       </div>

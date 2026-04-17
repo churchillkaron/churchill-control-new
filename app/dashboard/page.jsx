@@ -1,111 +1,78 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
 export default function DashboardPage() {
-  const [history, setHistory] = useState([]);
-
-  useEffect(() => {
-    const h = JSON.parse(localStorage.getItem("history")) || [];
-    setHistory(h);
-  }, []);
-
-  const latest = history[0];
-  const last3 = history.slice(0, 3);
-
   return (
     <AppShell>
-      <div className="space-y-12">
-
+      <div className="space-y-10">
+        
         {/* HEADER */}
         <div>
-          <h1 className="text-5xl font-semibold text-white">
-            Manager System
-          </h1>
-          <p className="text-white/50 mt-2">
-            Real-time performance & control overview
+          <h1 className="text-2xl text-white/80">Dashboard</h1>
+        </div>
+
+        {/* HERO KPI (DOMINANT) */}
+        <div className="relative">
+          {/* Glow behind */}
+          <div className="absolute -inset-4 rounded-[28px] bg-[#ff7a00]/10 blur-2xl" />
+
+          <div className="relative rounded-[28px] border border-white/10 bg-white/[0.06] backdrop-blur-xl shadow-[0_25px_70px_rgba(0,0,0,0.45)] p-8 md:p-10">
+            
+            <div className="flex flex-col gap-4">
+              <span className="text-white/60 text-sm">Today Revenue</span>
+
+              <h2 className="text-6xl font-semibold tracking-tight">
+                ฿128,400
+              </h2>
+
+              <span className="text-white/50 text-sm">
+                +12% vs yesterday
+              </span>
+            </div>
+
+          </div>
+        </div>
+
+        {/* KPI STRIP */}
+        <div className="grid grid-cols-3 gap-6">
+          
+          {[
+            { label: "Orders", value: "342" },
+            { label: "Avg Order", value: "฿375" },
+            { label: "FOH Score", value: "GOOD" },
+          ].map((item, i) => (
+            <div
+              key={i}
+              className="relative rounded-[22px] border border-white/10 bg-white/[0.05] backdrop-blur-lg p-6 shadow-[0_15px_40px_rgba(0,0,0,0.35)]"
+            >
+              <div className="flex flex-col gap-2">
+                <span className="text-white/60 text-sm">{item.label}</span>
+                <span className="text-2xl font-semibold">
+                  {item.value}
+                </span>
+              </div>
+            </div>
+          ))}
+
+        </div>
+
+        {/* TRENDS (LOW PRIORITY) */}
+        <div className="relative rounded-[26px] border border-white/10 bg-white/[0.04] backdrop-blur-md p-6 shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
+          <div className="text-white/70 text-sm mb-4">Last 3 Days</div>
+
+          <div className="h-32 flex items-center justify-center text-white/30 text-sm">
+            Trend chart placeholder
+          </div>
+        </div>
+
+        {/* AI INSIGHT (SUBTLE) */}
+        <div className="relative rounded-[22px] border border-[#ff7a00]/20 bg-[#ff7a00]/5 backdrop-blur-md p-5 shadow-[0_10px_25px_rgba(0,0,0,0.25)]">
+          <p className="text-sm text-[#ff7a00]/80">
+            Slight drop in average order value detected. Monitor upselling.
           </p>
         </div>
 
-        {!latest ? (
-          <div className="text-white/70">No data</div>
-        ) : (
-          <>
-            {/* 🔥 HERO KPI (DOMINANT) */}
-            <div className="relative overflow-hidden rounded-3xl p-10 bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.6)]">
-              
-              <p className="text-white/50 text-sm mb-3">
-                Today’s Revenue
-              </p>
-
-              <h2 className="text-6xl font-semibold tracking-tight text-white">
-                THB {latest.revenue}
-              </h2>
-
-              <div className="absolute inset-0 bg-orange-500/5 pointer-events-none" />
-            </div>
-
-            {/* KPI STRIP */}
-            <div className="grid grid-cols-3 gap-6">
-
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-5 backdrop-blur-xl">
-                <p className="text-white/40 text-xs uppercase tracking-wide">
-                  Orders
-                </p>
-                <p className="text-white text-2xl mt-1">
-                  {latest.orders}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-5 backdrop-blur-xl">
-                <p className="text-white/40 text-xs uppercase tracking-wide">
-                  Avg Order
-                </p>
-                <p className="text-white text-2xl mt-1">
-                  THB {Math.round(latest.avgOrderValue)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-5 backdrop-blur-xl">
-                <p className="text-white/40 text-xs uppercase tracking-wide">
-                  FOH Score
-                </p>
-                <p className="text-white text-2xl mt-1">
-                  {latest.fohScore}
-                </p>
-              </div>
-
-            </div>
-
-            {/* TRENDS (LESS IMPORTANT) */}
-            <div className="rounded-3xl bg-white/5 border border-white/10 p-6 backdrop-blur-xl">
-              <p className="text-white/60 mb-4 text-sm uppercase tracking-wide">
-                Last 3 Days
-              </p>
-
-              <div className="space-y-2">
-                {last3.map((d, i) => (
-                  <div
-                    key={i}
-                    className="flex justify-between text-white/70 text-sm"
-                  >
-                    <span>Day {i + 1}</span>
-                    <span>THB {d.revenue}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* AI INSIGHT (SUBTLE, NOT LOUD) */}
-            <div className="rounded-2xl bg-yellow-500/5 border border-yellow-500/20 p-5 backdrop-blur-xl">
-              <p className="text-yellow-400 text-sm">
-                ⚠ Avg order value is decreasing — consider upsell focus
-              </p>
-            </div>
-
-          </>
-        )}
       </div>
     </AppShell>
   );

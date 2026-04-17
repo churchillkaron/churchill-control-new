@@ -1,8 +1,7 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useEffect, useState } from "react";
+import AppShell from "../AppShell";
 
 export default function StaffControl() {
   const [staffData, setStaffData] = useState([]);
@@ -71,30 +70,91 @@ export default function StaffControl() {
   }, []);
 
   return (
-    <div className="min-h-screen text-white p-10 space-y-6">
-      <h1 className="text-3xl">Staff Control</h1>
+    <AppShell>
+      <div className="space-y-14">
 
-      {staffData.length === 0 && (
-        <div>No staff data available</div>
-      )}
+        {/* HEADER */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-medium text-white/90">
+            Staff Control
+          </h1>
+          <p className="text-white/50 text-sm">
+            Performance ranking, attendance penalties, and payout overview
+          </p>
+        </div>
 
-      {staffData.map((s, i) => (
-        <div key={i} className="bg-white/10 p-4 rounded-xl">
-
-          <div className="flex justify-between">
-            <strong>{s.name}</strong>
-            <div>THB {Math.round(s.payout)}</div>
+        {/* EMPTY STATE */}
+        {staffData.length === 0 && (
+          <div className="relative">
+            <div className="absolute -inset-2 bg-white/5 blur-xl rounded-xl" />
+            <div className="relative text-white/40 p-6 rounded-xl border border-white/10 bg-white/[0.04]">
+              No staff data available
+            </div>
           </div>
+        )}
 
-          <div>
-            Performance: {(s.performance * 100).toFixed(0)}%
-          </div>
+        {/* STAFF LIST */}
+        <div className="space-y-6">
 
-          <div>Late: {s.late}</div>
-          <div>Status: {s.action}</div>
+          {staffData.map((s, i) => (
+            <div key={i} className="relative">
+
+              <div className="absolute -inset-3 bg-white/5 blur-2xl rounded-2xl" />
+
+              <div className="relative bg-white/[0.06] backdrop-blur-xl border border-white/10 p-6 rounded-2xl
+                shadow-[0_25px_70px_rgba(0,0,0,0.6)]"
+              >
+
+                {/* TOP ROW */}
+                <div className="flex justify-between items-center mb-4">
+                  <div className="text-lg font-medium">
+                    {s.name}
+                  </div>
+
+                  <div className="text-[#ff7a00] font-medium">
+                    THB {Math.round(s.payout)}
+                  </div>
+                </div>
+
+                {/* PERFORMANCE */}
+                <div className="mb-2 text-sm text-white/60">
+                  Performance:{" "}
+                  <span className="text-white/90">
+                    {(s.performance * 100).toFixed(0)}%
+                  </span>
+                </div>
+
+                {/* LATE */}
+                <div className="mb-2 text-sm text-white/60">
+                  Late (unapproved):{" "}
+                  <span className="text-yellow-400">
+                    {s.late}
+                  </span>
+                </div>
+
+                {/* STATUS */}
+                <div className="text-sm text-white/60">
+                  Status:{" "}
+                  <span
+                    className={
+                      s.action === "Critical"
+                        ? "text-red-400"
+                        : s.action === "Warning"
+                        ? "text-yellow-400"
+                        : "text-green-400"
+                    }
+                  >
+                    {s.action}
+                  </span>
+                </div>
+
+              </div>
+            </div>
+          ))}
 
         </div>
-      ))}
-    </div>
+
+      </div>
+    </AppShell>
   );
 }

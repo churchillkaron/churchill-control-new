@@ -27,7 +27,7 @@ export default function ControlFinal() {
     setTotalRevenue(revenue);
   };
 
-  // 🔥 NEW: SAVE DAY WITH FULL LOCKED DATA
+  // 🔥 FIXED SAVE DAY (USES REAL INPUTS)
   const saveDay = () => {
     const orders = JSON.parse(localStorage.getItem("orders")) || [];
 
@@ -39,27 +39,54 @@ export default function ControlFinal() {
     const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
     const serviceCharge = revenue * 0.05;
 
-    // 🔥 DEFAULT VALUES (same as payout page)
-    const barWaste = 0;
-    const kitchenCost = 30;
+    // 🔥 LOAD REAL INPUTS FROM PAYOUT PAGE
+    const barWaste = Number(localStorage.getItem("barWaste")) || 0;
+    const kitchenCost = Number(localStorage.getItem("kitchenCost")) || 30;
 
     // FOH
     let fohLevel = 0;
-    if (revenue >= 50000) fohLevel = 100;
-    else if (revenue >= 30000) fohLevel = 70;
-    else if (revenue >= 15000) fohLevel = 40;
+    let fohStatus = "CRITICAL";
+
+    if (revenue >= 50000) {
+      fohLevel = 100;
+      fohStatus = "GOOD";
+    } else if (revenue >= 30000) {
+      fohLevel = 70;
+      fohStatus = "WARNING";
+    } else if (revenue >= 15000) {
+      fohLevel = 40;
+      fohStatus = "BAD";
+    }
 
     // BAR
     let barLevel = 0;
-    if (barWaste < 1000) barLevel = 100;
-    else if (barWaste < 2000) barLevel = 70;
-    else if (barWaste < 4000) barLevel = 40;
+    let barStatus = "CRITICAL";
+
+    if (barWaste < 1000) {
+      barLevel = 100;
+      barStatus = "GOOD";
+    } else if (barWaste < 2000) {
+      barLevel = 70;
+      barStatus = "WARNING";
+    } else if (barWaste < 4000) {
+      barLevel = 40;
+      barStatus = "BAD";
+    }
 
     // KITCHEN
     let kitchenLevel = 0;
-    if (kitchenCost <= 30) kitchenLevel = 100;
-    else if (kitchenCost <= 35) kitchenLevel = 70;
-    else if (kitchenCost <= 40) kitchenLevel = 40;
+    let kitchenStatus = "CRITICAL";
+
+    if (kitchenCost <= 30) {
+      kitchenLevel = 100;
+      kitchenStatus = "GOOD";
+    } else if (kitchenCost <= 35) {
+      kitchenLevel = 70;
+      kitchenStatus = "WARNING";
+    } else if (kitchenCost <= 40) {
+      kitchenLevel = 40;
+      kitchenStatus = "BAD";
+    }
 
     // Pools
     const fohPool = serviceCharge * 0.5;
@@ -80,6 +107,15 @@ export default function ControlFinal() {
       date: today,
       revenue,
       serviceCharge,
+      inputs: {
+        barWaste,
+        kitchenCost,
+      },
+      status: {
+        foh: fohStatus,
+        bar: barStatus,
+        kitchen: kitchenStatus,
+      },
       payouts: {
         foh: fohPayout,
         bar: barPayout,
@@ -92,10 +128,10 @@ export default function ControlFinal() {
 
     localStorage.setItem("history", JSON.stringify(updatedHistory));
 
-    // 🔥 RESET DAY
+    // RESET
     localStorage.removeItem("orders");
 
-    alert("Day closed and saved");
+    alert("Day closed with REAL data");
 
     window.location.reload();
   };
@@ -114,7 +150,6 @@ export default function ControlFinal() {
           Control Final
         </h1>
 
-        {/* SAVE DAY */}
         <button
           onClick={saveDay}
           className="bg-[#ff7a00] px-6 py-3 rounded-xl"
@@ -122,7 +157,6 @@ export default function ControlFinal() {
           Close Day & Save
         </button>
 
-        {/* REVENUE */}
         <div>
           <p>Total Revenue</p>
           <h2>THB {totalRevenue.toLocaleString()}</h2>

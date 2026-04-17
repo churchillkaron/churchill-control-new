@@ -9,6 +9,7 @@ export default function POSControl() {
   const [orders, setOrders] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
 
+  // LOAD + SYNC ORDERS
   useEffect(() => {
     const loadOrders = () => {
       const saved = JSON.parse(localStorage.getItem("orders")) || [];
@@ -17,8 +18,16 @@ export default function POSControl() {
 
     loadOrders();
 
-    const interval = setInterval(loadOrders, 1000);
-    return () => clearInterval(interval);
+    // 🔥 REAL-TIME SYNC (no polling)
+    const handleStorageChange = () => {
+      loadOrders();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, []);
 
   const saveOrders = (updatedOrders) => {
@@ -26,7 +35,28 @@ export default function POSControl() {
     setOrders(updatedOrders);
   };
 
+  const savePaidOrderToHistoryDay = (paidOrder) => {
+    const raw = localStorage.getItem("history_day");
+    const existing = raw ? JSON.parse(raw) : { revenue: 0, paidOrders: [] };
+
+    const alreadyExists = existing.paidOrders.some(
+      (o) => o.id === paidOrder.id
+    );
+
+    if (alreadyExists) return;
+
+    const updated = {
+      revenue: (existing.revenue || 0) + paidOrder.total,
+      paidOrders: [...existing.paidOrders, paidOrder],
+      lastUpdated: new Date().toISOString(),
+    };
+
+    localStorage.setItem("history_day", JSON.stringify(updated));
+  };
+
   const advanceStatus = (orderId) => {
+    let paidOrder = null;
+
     const updatedOrders = orders.map((order) => {
       if (order.id !== orderId) return order;
 
@@ -39,13 +69,26 @@ export default function POSControl() {
       const nextStatus =
         currentIndex === -1 ? "Active" : STATUS_FLOW[nextIndex];
 
-      return {
+      const updatedOrder = {
         ...order,
         status: nextStatus,
       };
+
+      if (nextStatus === "Paid") {
+        paidOrder = {
+          ...updatedOrder,
+          paidAt: new Date().toISOString(),
+        };
+      }
+
+      return updatedOrder;
     });
 
     saveOrders(updatedOrders);
+
+    if (paidOrder) {
+      savePaidOrderToHistoryDay(paidOrder);
+    }
   };
 
   const toggleExpanded = (orderId) => {
@@ -53,17 +96,23 @@ export default function POSControl() {
   };
 
   const getNextStatusLabel = (status) => {
-    const currentIndex = STATUS_FLOW.indexOf(status);
-
-    if (currentIndex === -1) return "Move to Active";
-    if (currentIndex >= STATUS_FLOW.length - 1) return "Completed";
-
-    return `Move to ${STATUS_FLOW[currentIndex + 1]}`;
+    const index = STATUS_FLOW.indexOf(status);
+    if (index === -1) return "Move to Active";
+    if (index >= STATUS_FLOW.length - 1) return "Completed";
+    return `Move to ${STATUS_FLOW[index + 1]}`;
   };
+
+  // 🔥 SORT: newest first
+  const sortedOrders = [...orders].sort((a, b) => b.id - a.id);
+
+  // 🔥 SPLIT ACTIVE / PAID
+  const activeOrders = sortedOrders.filter((o) => o.status !== "Paid");
+  const paidOrders = sortedOrders.filter((o) => o.status === "Paid");
 
   return (
     <AppShell>
       <div className="space-y-10">
+
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-white/40">
             POS Control
@@ -73,84 +122,76 @@ export default function POSControl() {
           </h1>
         </div>
 
-        <div className="relative">
-          <div className="absolute -inset-4 bg-[#ff7a00]/10 blur-2xl rounded-3xl" />
+        {/* 🔥 ACTIVE ORDERS */}
+        <div className="space-y-4">
+          {activeOrders.map((order) => {
+            const isExpanded = expandedId === order.id;
 
-          <div className="relative rounded-3xl border border-white/10 bg-white/[0.05] backdrop-blur-2xl p-6 md:p-8 shadow-[0_25px_80px_rgba(0,0,0,0.6)]">
-            {orders.length === 0 && (
-              <div className="text-white/40">No orders yet</div>
-            )}
+            return (
+              <div
+                key={order.id}
+                className="rounded-2xl border border-white/10 bg-black/30 overflow-hidden"
+              >
+                <div className="flex justify-between p-4 items-center">
 
-            <div className="space-y-4">
-              {orders.map((order) => {
-                const isExpanded = expandedId === order.id;
-                const isPaid = order.status === "Paid";
-
-                return (
-                  <div
-                    key={order.id}
-                    className="rounded-2xl border border-white/10 bg-black/30 overflow-hidden"
-                  >
-                    <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(order.id)}
-                        className="text-left"
-                      >
-                        <div className="font-semibold">
-                          Table {order.table}
-                        </div>
-                        <div className="text-white/50 text-sm">
-                          {order.items.length} items
-                        </div>
-                      </button>
-
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <div className="font-semibold">THB {order.total}</div>
-
-                        <div className="text-[#ffb36b] min-w-[80px] text-center">
-                          {order.status}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => advanceStatus(order.id)}
-                          disabled={isPaid}
-                          className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                            isPaid
-                              ? "bg-white/10 text-white/35 cursor-not-allowed"
-                              : "bg-[#ff7a00] text-black hover:scale-[1.02]"
-                          }`}
-                        >
-                          {getNextStatusLabel(order.status)}
-                        </button>
-                      </div>
+                  <button onClick={() => toggleExpanded(order.id)}>
+                    <div className="font-semibold">Table {order.table}</div>
+                    <div className="text-white/50 text-sm">
+                      {order.items.length} items
                     </div>
+                  </button>
 
-                    {isExpanded && (
-                      <div className="border-t border-white/10 px-4 py-4 space-y-3 bg-white/[0.03]">
-                        {order.items.map((item, index) => (
-                          <div
-                            key={`${order.id}-${index}`}
-                            className="flex items-center justify-between rounded-xl bg-black/30 px-4 py-3"
-                          >
-                            <div>{item.name}</div>
-                            <div className="text-white/70">THB {item.price}</div>
-                          </div>
-                        ))}
+                  <div className="flex items-center gap-4">
+                    <div>THB {order.total}</div>
 
-                        <div className="flex items-center justify-between pt-2 text-sm text-white/50">
-                          <div>{new Date(order.time).toLocaleString()}</div>
-                          <div>Total: THB {order.total}</div>
-                        </div>
-                      </div>
-                    )}
+                    <div className="text-[#ffb36b]">{order.status}</div>
+
+                    <button
+                      onClick={() => advanceStatus(order.id)}
+                      className="bg-[#ff7a00] px-4 py-2 rounded-xl text-black"
+                    >
+                      {getNextStatusLabel(order.status)}
+                    </button>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+
+                </div>
+
+                {isExpanded && (
+                  <div className="p-4 space-y-2">
+                    {order.items.map((item, i) => (
+                      <div key={i} className="flex justify-between">
+                        <span>
+                          {item.name} x{item.qty || 1}
+                        </span>
+                        <span>THB {item.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
+
+        {/* 🔥 PAID SECTION */}
+        {paidOrders.length > 0 && (
+          <div className="pt-10 space-y-4">
+            <h2 className="text-xl text-white/60">Completed / Paid</h2>
+
+            {paidOrders.map((order) => (
+              <div
+                key={order.id}
+                className="rounded-2xl border border-white/5 bg-black/20 p-4 flex justify-between opacity-60"
+              >
+                <div>
+                  Table {order.table} — {order.items.length} items
+                </div>
+                <div>THB {order.total}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
       </div>
     </AppShell>
   );

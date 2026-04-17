@@ -1,134 +1,171 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
-const MENU = [
-  { name: "Pad Thai", price: 160 },
-  { name: "Green Curry", price: 170 },
-  { name: "Massaman Curry", price: 180 },
-  { name: "Tom Yum Goong", price: 180 },
-  { name: "Beef Carpaccio", price: 320 },
-];
-
 export default function POS() {
-  const [table, setTable] = useState("");
-  const [order, setOrder] = useState([]);
+  const [staffName, setStaffName] = useState("");
+  const [staffRole, setStaffRole] = useState("");
 
-  const addItem = (item) => {
-    setOrder([...order, item]);
-  };
+  const [cart, setCart] = useState([]);
+  const [orders, setOrders] = useState([]);
 
-  const removeItem = (index) => {
-    const updated = [...order];
-    updated.splice(index, 1);
-    setOrder(updated);
-  };
+  const menu = [
+    { name: "Pad Thai", price: 160 },
+    { name: "Massaman Curry", price: 180 },
+    { name: "Green Curry", price: 170 },
+    { name: "Tom Yum Goong", price: 180 },
+    { name: "Beer", price: 120 },
+  ];
 
-  const total = order.reduce((sum, item) => sum + item.price, 0);
+  useEffect(() => {
+    const name = localStorage.getItem("staffName");
+    const role = localStorage.getItem("staffRole");
 
-  const sendOrder = () => {
-    if (!table) {
-      alert("Enter table number");
+    if (!name || !role) {
+      window.location.href = "/";
       return;
     }
 
-    if (order.length === 0) {
-      alert("Add items first");
-      return;
-    }
+    setStaffName(name);
+    setStaffRole(role);
 
-    const existingOrders =
+    const savedOrders =
       JSON.parse(localStorage.getItem("orders")) || [];
+
+    setOrders(savedOrders);
+  }, []);
+
+  // ADD ITEM TO CART
+  const addToCart = (item) => {
+    setCart((prev) => {
+      const existing = prev.find((i) => i.name === item.name);
+
+      if (existing) {
+        return prev.map((i) =>
+          i.name === item.name
+            ? { ...i, qty: i.qty + 1 }
+            : i
+        );
+      }
+
+      return [...prev, { ...item, qty: 1 }];
+    });
+  };
+
+  // REMOVE ITEM
+  const removeFromCart = (name) => {
+    setCart((prev) =>
+      prev
+        .map((i) =>
+          i.name === name
+            ? { ...i, qty: i.qty - 1 }
+            : i
+        )
+        .filter((i) => i.qty > 0)
+    );
+  };
+
+  // CALCULATE TOTAL
+  const total = cart.reduce(
+    (sum, i) => sum + i.price * i.qty,
+    0
+  );
+
+  // CREATE ORDER
+  const createOrder = () => {
+    if (cart.length === 0) return;
 
     const newOrder = {
       id: Date.now(),
-      table,
-      items: order,
+      table: "T" + Math.floor(Math.random() * 20),
+      items: cart,
       total,
       status: "Active",
+      staff: staffName,
+      role: staffRole,
       time: new Date().toISOString(),
     };
 
-    const updatedOrders = [...existingOrders, newOrder];
+    const updated = [...orders, newOrder];
 
-    localStorage.setItem("orders", JSON.stringify(updatedOrders));
+    setOrders(updated);
+    localStorage.setItem("orders", JSON.stringify(updated));
 
-    setOrder([]);
-    setTable("");
-
-    alert("Order sent");
+    setCart([]); // reset cart
   };
 
   return (
     <AppShell>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+      <div className="space-y-10">
 
-        {/* LEFT SIDE */}
-        <div className="space-y-6">
-
-          <input
-            placeholder="Table number"
-            value={table}
-            onChange={(e) => setTable(e.target.value)}
-            className="w-full p-4 rounded-xl bg-black/50 border border-white/10 backdrop-blur-xl"
-          />
-
-          <div className="rounded-2xl bg-white/[0.05] border border-white/10 backdrop-blur-xl p-5 space-y-3 min-h-[200px]">
-
-            {order.length === 0 && (
-              <div className="text-white/40">No items yet</div>
-            )}
-
-            {order.map((item, index) => (
-              <div
-                key={index}
-                className="flex justify-between items-center p-3 rounded-lg bg-black/40"
-              >
-                <span>{item.name}</span>
-                <div className="flex items-center gap-3">
-                  <span>THB {item.price}</span>
-                  <button
-                    onClick={() => removeItem(index)}
-                    className="text-red-400"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))}
-
-          </div>
-
-          <div className="text-2xl font-semibold">
-            Total: THB {total}
-          </div>
-
-          <button
-            onClick={sendOrder}
-            className="w-full bg-[#ff7a00] p-4 rounded-xl text-black font-semibold hover:scale-[1.02] transition"
-          >
-            Send Order
-          </button>
-
+        {/* HEADER */}
+        <div className="flex justify-between text-sm text-white/60">
+          <div>{staffName}</div>
+          <div>{staffRole}</div>
         </div>
 
-        {/* RIGHT SIDE */}
-        <div className="grid grid-cols-2 gap-5">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
+            Point of Sale
+          </p>
+          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
+            Order System
+          </h1>
+        </div>
 
-          {MENU.map((item, i) => (
+        {/* MENU */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {menu.map((item) => (
             <button
-              key={i}
-              onClick={() => addItem(item)}
-              className="p-6 rounded-xl bg-white/[0.08] border border-white/10 backdrop-blur-xl hover:bg-[#ff7a00]/20 transition text-left"
+              key={item.name}
+              onClick={() => addToCart(item)}
+              className="bg-white/10 hover:bg-white/20 p-4 rounded-xl text-left"
             >
-              <div className="font-semibold text-lg">{item.name}</div>
+              <div className="font-medium">{item.name}</div>
               <div className="text-sm text-white/60">
                 THB {item.price}
               </div>
             </button>
           ))}
+        </div>
 
+        {/* CART */}
+        <div className="bg-white/5 p-6 rounded-xl space-y-4">
+          <h2 className="text-xl font-semibold">Cart</h2>
+
+          {cart.length === 0 && (
+            <p className="text-white/40">No items</p>
+          )}
+
+          {cart.map((item) => (
+            <div
+              key={item.name}
+              className="flex justify-between items-center"
+            >
+              <div>
+                {item.name} x{item.qty}
+              </div>
+              <button
+                onClick={() => removeFromCart(item.name)}
+                className="text-red-400 text-sm"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <div className="pt-4 border-t border-white/10 flex justify-between">
+            <div>Total</div>
+            <div>THB {total}</div>
+          </div>
+
+          <button
+            onClick={createOrder}
+            className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-medium"
+          >
+            Send Order
+          </button>
         </div>
 
       </div>

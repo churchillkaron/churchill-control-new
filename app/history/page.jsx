@@ -14,6 +14,13 @@ export default function History() {
     }
   }, []);
 
+  const getColor = (level) => {
+    if (level === "GOOD") return "text-green-400";
+    if (level === "WARNING") return "text-yellow-400";
+    if (level === "BAD") return "text-orange-400";
+    return "text-red-500";
+  };
+
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
 
@@ -29,88 +36,70 @@ export default function History() {
       {/* OVERLAY */}
       <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_bottom,rgba(8,8,8,0.75),rgba(18,12,8,0.85))]" />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 space-y-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 pb-14 space-y-8">
 
-        {/* HEADER */}
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-            History
-          </p>
-          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
-            Saved Days
-          </h1>
-        </div>
+        <h1 className="text-4xl font-semibold">Saved Days</h1>
 
-        {/* EMPTY */}
         {history.length === 0 && (
-          <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6 text-red-400">
-            No saved history yet
-          </div>
+          <div className="text-red-400">No saved history</div>
         )}
 
-        {/* DATA */}
         <div className="space-y-6">
           {history.map((day, i) => (
             <div
               key={i}
-              className="p-6 rounded-2xl bg-black/30 border border-white/10 space-y-4"
+              className="p-6 rounded-2xl bg-black/30 border border-white/10"
             >
-
-              {/* DATE + REVENUE */}
-              <div className="flex justify-between items-center">
-                <div className="text-lg">{day.date}</div>
+              {/* HEADER */}
+              <div className="flex justify-between mb-2">
+                <div>{day.date}</div>
                 <div className="text-[#ffb36b]">
                   THB {day.revenue.toLocaleString()}
                 </div>
               </div>
 
-              {/* SERVICE */}
-              <div className="text-sm text-white/60">
-                Service Charge: THB {day.serviceCharge?.toLocaleString() || 0}
+              <div className="text-sm text-white/50 mb-4">
+                Service Charge: THB {day.serviceCharge.toLocaleString()}
               </div>
 
-              {/* DEPARTMENT */}
-              <div className="grid grid-cols-3 gap-4">
-
-                <div className="p-3 bg-black/40 rounded">
-                  FOH<br />
-                  THB {day.payouts?.foh?.toLocaleString() || 0}
-                </div>
-
-                <div className="p-3 bg-black/40 rounded">
-                  BAR<br />
-                  THB {day.payouts?.bar?.toLocaleString() || 0}
-                </div>
-
-                <div className="p-3 bg-black/40 rounded">
-                  KITCHEN<br />
-                  THB {day.payouts?.kitchen?.toLocaleString() || 0}
-                </div>
-
-              </div>
-
-              {/* 🔥 NEW: STAFF BREAKDOWN */}
-              {day.staff && day.staff.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm text-white/50 mb-2">
-                    FOH Staff Breakdown
-                  </p>
-
-                  <div className="space-y-2">
-                    {day.staff.map((s, idx) => (
-                      <div
-                        key={idx}
-                        className="flex justify-between p-2 bg-black/40 rounded"
-                      >
-                        <span>{s.name}</span>
-                        <span className="text-[#ffb36b]">
-                          THB {Number(s.payout).toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
+              {/* 🔥 LEVELS (NEW) */}
+              {day.levels && (
+                <div className="flex gap-6 mb-4 text-sm">
+                  <div className={getColor(day.levels.foh)}>
+                    FOH → {day.levels.foh}
+                  </div>
+                  <div className={getColor(day.levels.bar)}>
+                    BAR → {day.levels.bar}
+                  </div>
+                  <div className={getColor(day.levels.kitchen)}>
+                    KITCHEN → {day.levels.kitchen}
                   </div>
                 </div>
               )}
+
+              {/* PAYOUTS */}
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>FOH<br />THB {day.payouts.foh.toFixed(2)}</div>
+                <div>BAR<br />THB {day.payouts.bar.toFixed(2)}</div>
+                <div>KITCHEN<br />THB {day.payouts.kitchen.toFixed(2)}</div>
+              </div>
+
+              {/* STAFF */}
+              <div className="mt-4">
+                <p className="text-sm text-white/50 mb-2">
+                  FOH Staff Breakdown
+                </p>
+
+                {day.staff.map((s, idx) => (
+                  <div
+                    key={idx}
+                    className="flex justify-between border-b border-white/10 py-1"
+                  >
+                    <div>{s.name}</div>
+                    <div>THB {s.payout.toFixed(2)}</div>
+                  </div>
+                ))}
+              </div>
 
             </div>
           ))}

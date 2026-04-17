@@ -34,12 +34,8 @@ export default function ControlFinal() {
     setAvgOrderValue(avg);
   };
 
-  // =========================
-  // MONTHLY SERVICE CHARGE
-  // =========================
   const getServiceChargePercent = () => {
     const history = JSON.parse(localStorage.getItem("history")) || [];
-
     const sorted = [...history].sort(
       (a, b) => new Date(b.date) - new Date(a.date)
     );
@@ -58,9 +54,6 @@ export default function ControlFinal() {
     return 5;
   };
 
-  // =========================
-  // FOH TEAM STATUS
-  // =========================
   const getFohStatus = (revenue, ordersCount, avgValue) => {
     let revenueScore = 0;
     let orderScore = 0;
@@ -97,14 +90,28 @@ export default function ControlFinal() {
     }
   };
 
-  // =========================
-  // 🔥 NEW: INDIVIDUAL LEVEL
-  // =========================
   const getIndividualLevel = (revenue) => {
     if (revenue >= 50000) return 1.0;
     if (revenue >= 30000) return 0.7;
     if (revenue >= 15000) return 0.4;
     return 0.2;
+  };
+
+  // 🔥 NEW: ATTENDANCE PENALTY
+  const getAttendancePenalty = (name) => {
+    const attendance =
+      JSON.parse(localStorage.getItem("attendance")) || [];
+
+    const today = new Date().toLocaleDateString("en-GB");
+
+    const entry = attendance.find(
+      (a) => a.name === name && a.late
+    );
+
+    if (!entry) return 1.0;
+    if (entry.approved === true) return 1.0;
+
+    return 0.5; // rejected → penalty
   };
 
   const saveDay = () => {
@@ -127,46 +134,8 @@ export default function ControlFinal() {
 
     const fohResult = getFohStatus(revenue, ordersCount, avgValue);
     const fohLevel = fohResult.level;
-    const fohStatus = fohResult.status;
-    const fohScore = fohResult.score;
-
-    let barLevel = 0;
-    let barStatus = "CRITICAL";
-
-    if (barWaste < 1000) {
-      barLevel = 100;
-      barStatus = "GOOD";
-    } else if (barWaste < 2000) {
-      barLevel = 70;
-      barStatus = "WARNING";
-    } else if (barWaste < 4000) {
-      barLevel = 40;
-      barStatus = "BAD";
-    } else {
-      barLevel = 20;
-      barStatus = "CRITICAL";
-    }
-
-    let kitchenLevel = 0;
-    let kitchenStatus = "CRITICAL";
-
-    if (kitchenCost <= 30) {
-      kitchenLevel = 100;
-      kitchenStatus = "GOOD";
-    } else if (kitchenCost <= 35) {
-      kitchenLevel = 70;
-      kitchenStatus = "WARNING";
-    } else if (kitchenCost <= 40) {
-      kitchenLevel = 40;
-      kitchenStatus = "BAD";
-    } else {
-      kitchenLevel = 20;
-      kitchenStatus = "CRITICAL";
-    }
 
     const fohPool = serviceCharge * 0.5 * (fohLevel / 100);
-    const barPool = serviceCharge * 0.3 * (barLevel / 100);
-    const kitchenPool = serviceCharge * 0.2 * (kitchenLevel / 100);
 
     const staffMap = {};
 
@@ -182,16 +151,17 @@ export default function ControlFinal() {
     const staffBreakdown = Object.entries(staffMap).map(([name, value]) => {
       const share = totalFOHRevenue > 0 ? value / totalFOHRevenue : 0;
 
-      // 🔥 APPLY INDIVIDUAL LEVEL
       const level = getIndividualLevel(value);
+      const penalty = getAttendancePenalty(name);
 
-      const payout = fohPool * share * level;
+      const payout = fohPool * share * level * penalty;
 
       return {
         name,
         revenue: value,
         payout,
-        level: level,
+        level,
+        penalty,
       };
     });
 
@@ -201,24 +171,8 @@ export default function ControlFinal() {
     const newDay = {
       date: today,
       revenue,
-      totalOrders: ordersCount,
-      avgOrderValue: avgValue,
       serviceCharge,
-      levels: {
-        foh: fohStatus,
-        bar: barStatus,
-        kitchen: kitchenStatus,
-      },
-      scores: {
-        foh: Math.round(fohScore),
-      },
-      payouts: {
-        foh: fohPool,
-        bar: barPool,
-        kitchen: kitchenPool,
-      },
       staff: staffBreakdown,
-      orders,
     };
 
     const updatedHistory = [newDay, ...existingHistory];

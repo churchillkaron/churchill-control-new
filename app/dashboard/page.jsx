@@ -3,152 +3,163 @@
 import { useEffect, useState } from "react";
 
 export default function Dashboard() {
-  const [contracts, setContracts] = useState({});
-  const [history, setHistory] = useState([]);
   const [monthlyPayroll, setMonthlyPayroll] = useState(null);
+  const [serviceRate, setServiceRate] = useState(5);
+  const [avgScore, setAvgScore] = useState(0);
 
   useEffect(() => {
-    const savedContracts =
-      JSON.parse(localStorage.getItem("contracts")) || {};
-    setContracts(savedContracts);
-
-    const h = JSON.parse(localStorage.getItem("history")) || [];
-    setHistory(h);
-
     const payroll =
       JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
     setMonthlyPayroll(payroll);
+
+    calculateServiceRate();
   }, []);
 
   // =========================
-  // GENERATE MONTHLY PAYROLL
+  // SAFE DATE PARSER (FIX)
   // =========================
-  const generatePayroll = () => {
-    if (history.length === 0) return;
-
-    const currentMonth = new Date().toISOString().slice(0, 7);
-
-    const staffMap = {};
-
-    history.forEach((day) => {
-      if (!day.staff) return;
-
-      const dayMonth = new Date(
-        day.date.split("/").reverse().join("-")
-      )
-        .toISOString()
-        .slice(0, 7);
-
-      if (dayMonth !== currentMonth) return;
-
-      day.staff.forEach((s) => {
-        if (!staffMap[s.name]) {
-          staffMap[s.name] = {
-            bonus: 0,
-          };
-        }
-
-        staffMap[s.name].bonus += Number(s.payout || 0);
-      });
-    });
-
-    const staffPayroll = Object.entries(staffMap).map(([name, data]) => {
-      const salary = contracts[name]?.salary || 0;
-
-      return {
-        name,
-        salary,
-        bonus: data.bonus,
-        total: salary + data.bonus,
-        staffConfirmed: false,
-        managerApproved: false,
-        paid: false,
-      };
-    });
-
-    const payrollData = {
-      month: currentMonth,
-      staff: staffPayroll,
-    };
-
-    localStorage.setItem("monthlyPayroll", JSON.stringify(payrollData));
-    setMonthlyPayroll(payrollData);
+  const parseDate = (dateStr) => {
+    const [day, month, year] = dateStr.split("/");
+    return new Date(`${year}-${month}-${day}`);
   };
 
   // =========================
-  // LIFETIME CALCULATION
+  // MONTHLY PERFORMANCE
   // =========================
-  const getLifetimeEarnings = (name) => {
-    let total = 0;
+  const calculateServiceRate = () => {
+    const history =
+      JSON.parse(localStorage.getItem("history")) || [];
 
-    history.forEach((day) => {
-      if (!day.staff) return;
+    if (history.length === 0) {
+      setServiceRate(5);
+      return;
+    }
 
-      day.staff.forEach((s) => {
-        if (s.name === name) {
-          total += Number(s.payout || 0);
-        }
-      });
-    });
+    // sort safely
+    const sorted = [...history].sort(
+      (a, b) => parseDate(b.date) - parseDate(a.date)
+    );
 
-    const salary = contracts[name]?.salary || 0;
+    const last30 = sorted.slice(0, 30);
 
-    return total + salary;
+    const scores = last30.map((day) => day.scores?.foh || 0);
+
+    const avg =
+      scores.reduce((sum, val) => sum + val, 0) / scores.length;
+
+    setAvgScore(Math.round(avg));
+
+    if (avg >= 85) setServiceRate(7);
+    else if (avg >= 70) setServiceRate(6);
+    else setServiceRate(5);
   };
+
+  // =========================
+  // APPROVE SALARY (MANAGER)
+  // =========================
+  const approveSalary = (index) => {
+    const updated = { ...monthlyPayroll };
+    updated.staff[index].managerApproved = true;
+
+    localStorage.setItem("monthlyPayroll", JSON.stringify(updated));
+    setMonthlyPayroll(updated);
+  };
+
+  // =========================
+  // REMOVE APPROVAL
+  // =========================
+  const revokeApproval = (index) => {
+    const updated = { ...monthlyPayroll };
+    updated.staff[index].managerApproved = false;
+
+    localStorage.setItem("monthlyPayroll", JSON.stringify(updated));
+    setMonthlyPayroll(updated);
+  };
+
+  if (!monthlyPayroll) {
+    return (
+      <div className="min-h-screen text-white p-10">
+        No payroll generated yet
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen text-white p-10">
 
-      {/* GENERATE */}
-      <h1 className="text-3xl mb-6">Monthly Payroll</h1>
+      {/* =========================
+          SERVICE CHARGE BLOCK
+      ========================= */}
+      <div className="mb-8 p-6 bg-white/10 rounded-xl">
 
-      <button
-        onClick={generatePayroll}
-        className="bg-orange-500 px-4 py-2 rounded mb-6"
-      >
-        Generate Payroll
-      </button>
+        <h2 className="text-2xl mb-3">Monthly Performance</h2>
 
-      {/* PAYROLL VIEW */}
-      {monthlyPayroll && (
-        <div>
-          <h2 className="text-xl mb-4">
-            Month: {monthlyPayroll.month}
-          </h2>
+        <div>Average FOH Score: {avgScore}</div>
 
-          {monthlyPayroll.staff.map((s, i) => (
-            <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
-
-              <strong>{s.name}</strong>
-
-              <br />
-
-              Salary: THB {s.salary}
-              <br />
-              Bonus: THB {Math.round(s.bonus)}
-              <br />
-
-              <span className="text-orange-400">
-                Total: THB {Math.round(s.total)}
-              </span>
-
-              <br />
-
-              Lifetime Earned: THB{" "}
-              {Math.round(getLifetimeEarnings(s.name))}
-
-              <br />
-
-              Staff Confirmed: {s.staffConfirmed ? "Yes" : "No"}
-              <br />
-              Manager Approved: {s.managerApproved ? "Yes" : "No"}
-              <br />
-              Paid: {s.paid ? "Yes" : "No"}
-
-            </div>
-          ))}
+        <div className="mt-2 text-xl text-orange-400">
+          Service Charge Level: {serviceRate}%
         </div>
-      )}
+
+        <div className="mt-2 text-sm text-white/60">
+          {serviceRate === 7 && "Elite Performance"}
+          {serviceRate === 6 && "Good Performance"}
+          {serviceRate === 5 && "Standard Level"}
+        </div>
+
+      </div>
+
+      {/* =========================
+          PAYROLL SECTION
+      ========================= */}
+      <h1 className="text-3xl mb-6">Manager Approval</h1>
+
+      {monthlyPayroll.staff.map((s, i) => (
+        <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
+
+          <strong>{s.name}</strong>
+
+          <br />
+          Salary: THB {s.salary}
+          <br />
+          Bonus: THB {Math.round(s.bonus)}
+
+          <br />
+
+          <span className="text-orange-400">
+            Total: THB {Math.round(s.total)}
+          </span>
+
+          <br /><br />
+
+          Staff Confirmed:{" "}
+          {s.staffConfirmed ? "✅ Yes" : "❌ No"}
+
+          <br />
+          Manager Approved:{" "}
+          {s.managerApproved ? "✅ Yes" : "❌ No"}
+
+          <br /><br />
+
+          {s.staffConfirmed && !s.managerApproved && (
+            <button
+              onClick={() => approveSalary(i)}
+              className="bg-green-500 px-3 py-1 rounded mr-2"
+            >
+              Approve Salary
+            </button>
+          )}
+
+          {s.managerApproved && (
+            <button
+              onClick={() => revokeApproval(i)}
+              className="bg-red-500 px-3 py-1 rounded"
+            >
+              Revoke
+            </button>
+          )}
+
+        </div>
+      ))}
 
     </div>
   );

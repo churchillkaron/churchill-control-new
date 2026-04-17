@@ -6,6 +6,8 @@ export default function ControlFinal() {
   const [staffName, setStaffName] = useState("");
   const [staffRole, setStaffRole] = useState("");
   const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [avgOrderValue, setAvgOrderValue] = useState(0);
 
   useEffect(() => {
     const name = localStorage.getItem("staffName");
@@ -24,7 +26,48 @@ export default function ControlFinal() {
   const loadRevenue = () => {
     const orders = JSON.parse(localStorage.getItem("orders")) || [];
     const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
+    const count = orders.length;
+    const avg = count > 0 ? revenue / count : 0;
+
     setTotalRevenue(revenue);
+    setTotalOrders(count);
+    setAvgOrderValue(avg);
+  };
+
+  const getFohStatus = (revenue, ordersCount, avgValue) => {
+    let revenueScore = 0;
+    let orderScore = 0;
+    let avgScore = 0;
+
+    if (revenue >= 50000) revenueScore = 100;
+    else if (revenue >= 30000) revenueScore = 70;
+    else if (revenue >= 15000) revenueScore = 40;
+    else revenueScore = 20;
+
+    if (ordersCount >= 40) orderScore = 100;
+    else if (ordersCount >= 25) orderScore = 70;
+    else if (ordersCount >= 10) orderScore = 40;
+    else orderScore = 20;
+
+    if (avgValue >= 1500) avgScore = 100;
+    else if (avgValue >= 1000) avgScore = 70;
+    else if (avgValue >= 700) avgScore = 40;
+    else avgScore = 20;
+
+    const finalScore =
+      revenueScore * 0.5 +
+      orderScore * 0.3 +
+      avgScore * 0.2;
+
+    if (finalScore >= 85) {
+      return { status: "GOOD", level: 100, score: finalScore };
+    } else if (finalScore >= 60) {
+      return { status: "WARNING", level: 70, score: finalScore };
+    } else if (finalScore >= 35) {
+      return { status: "BAD", level: 40, score: finalScore };
+    } else {
+      return { status: "CRITICAL", level: 20, score: finalScore };
+    }
   };
 
   const saveDay = () => {
@@ -36,31 +79,19 @@ export default function ControlFinal() {
     }
 
     const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
+    const ordersCount = orders.length;
+    const avgValue = ordersCount > 0 ? revenue / ordersCount : 0;
+
     const serviceCharge = revenue * 0.05;
 
     const barWaste = Number(localStorage.getItem("barWaste")) || 0;
     const kitchenCost = Number(localStorage.getItem("kitchenCost")) || 30;
 
-    // =========================
-    // LEVEL SYSTEM (WITH TEXT)
-    // =========================
+    const fohResult = getFohStatus(revenue, ordersCount, avgValue);
+    const fohLevel = fohResult.level;
+    const fohStatus = fohResult.status;
+    const fohScore = fohResult.score;
 
-    // FOH
-    let fohLevel = 0;
-    let fohStatus = "CRITICAL";
-
-    if (revenue >= 50000) {
-      fohLevel = 100;
-      fohStatus = "GOOD";
-    } else if (revenue >= 30000) {
-      fohLevel = 70;
-      fohStatus = "WARNING";
-    } else if (revenue >= 15000) {
-      fohLevel = 40;
-      fohStatus = "BAD";
-    }
-
-    // BAR
     let barLevel = 0;
     let barStatus = "CRITICAL";
 
@@ -73,9 +104,11 @@ export default function ControlFinal() {
     } else if (barWaste < 4000) {
       barLevel = 40;
       barStatus = "BAD";
+    } else {
+      barLevel = 20;
+      barStatus = "CRITICAL";
     }
 
-    // KITCHEN
     let kitchenLevel = 0;
     let kitchenStatus = "CRITICAL";
 
@@ -88,19 +121,14 @@ export default function ControlFinal() {
     } else if (kitchenCost <= 40) {
       kitchenLevel = 40;
       kitchenStatus = "BAD";
+    } else {
+      kitchenLevel = 20;
+      kitchenStatus = "CRITICAL";
     }
-
-    // =========================
-    // POOLS
-    // =========================
 
     const fohPool = serviceCharge * 0.5 * (fohLevel / 100);
     const barPool = serviceCharge * 0.3 * (barLevel / 100);
     const kitchenPool = serviceCharge * 0.2 * (kitchenLevel / 100);
-
-    // =========================
-    // STAFF SPLIT
-    // =========================
 
     const staffMap = {};
 
@@ -124,33 +152,28 @@ export default function ControlFinal() {
       };
     });
 
-    // =========================
-    // SAVE HISTORY (UPDATED)
-    // =========================
-
     const today = new Date().toLocaleDateString("en-GB");
-
-    const existingHistory =
-      JSON.parse(localStorage.getItem("history")) || [];
+    const existingHistory = JSON.parse(localStorage.getItem("history")) || [];
 
     const newDay = {
       date: today,
       revenue,
+      totalOrders: ordersCount,
+      avgOrderValue: avgValue,
       serviceCharge,
-
-      // 🔥 SAVE LEVELS HERE (NEW)
       levels: {
         foh: fohStatus,
         bar: barStatus,
         kitchen: kitchenStatus,
       },
-
+      scores: {
+        foh: Math.round(fohScore),
+      },
       payouts: {
         foh: fohPool,
         bar: barPool,
         kitchen: kitchenPool,
       },
-
       staff: staffBreakdown,
       orders,
     };
@@ -158,17 +181,14 @@ export default function ControlFinal() {
     const updatedHistory = [newDay, ...existingHistory];
 
     localStorage.setItem("history", JSON.stringify(updatedHistory));
-
     localStorage.removeItem("orders");
 
-    alert("Day saved with full system data");
-
+    alert("Day saved with advanced FOH scoring");
     window.location.reload();
   };
 
   return (
     <div className="min-h-screen text-white p-10">
-
       <h1 className="text-3xl">Control Final</h1>
 
       <button
@@ -178,10 +198,11 @@ export default function ControlFinal() {
         Close Day & Save
       </button>
 
-      <div className="mt-6">
-        Revenue: THB {totalRevenue.toLocaleString()}
+      <div className="mt-6 space-y-2">
+        <div>Revenue: THB {totalRevenue.toLocaleString()}</div>
+        <div>Total Orders: {totalOrders}</div>
+        <div>Average Order Value: THB {Math.round(avgOrderValue).toLocaleString()}</div>
       </div>
-
     </div>
   );
 }

@@ -55,6 +55,32 @@ export default function Accounting() {
   };
 
   // =========================
+  // OCR FUNCTION
+  // =========================
+  const runOCR = async () => {
+    if (!form.image) return;
+
+    const res = await fetch("/api/ocr", {
+      method: "POST",
+      body: JSON.stringify({ image: form.image }),
+    });
+
+    const data = await res.json();
+
+    try {
+      const parsed = JSON.parse(data.result);
+
+      setForm({
+        ...form,
+        name: parsed.vendor || "",
+        amount: parsed.amount || "",
+      });
+    } catch (e) {
+      console.log("OCR parse error", data.result);
+    }
+  };
+
+  // =========================
   // ADD EXPENSE
   // =========================
   const addExpense = () => {
@@ -113,7 +139,7 @@ export default function Accounting() {
         <div className="space-y-4">
 
           <input
-            placeholder="Name"
+            placeholder="Vendor / Name"
             value={form.name}
             onChange={(e) =>
               setForm({ ...form, name: e.target.value })
@@ -142,13 +168,25 @@ export default function Accounting() {
 
           {/* PREVIEW */}
           {form.image && (
-            <img
-              src={form.image}
-              className="w-32 mt-2 rounded"
-            />
+            <div>
+              <img
+                src={form.image}
+                className="w-40 mt-2 rounded"
+              />
+
+              <button
+                onClick={runOCR}
+                className="bg-blue-500 px-4 py-2 mt-2 rounded"
+              >
+                Auto Read Receipt
+              </button>
+            </div>
           )}
 
-          <button onClick={addExpense}>
+          <button
+            onClick={addExpense}
+            className="bg-orange-500 px-4 py-2 rounded"
+          >
             Add Expense
           </button>
 
@@ -157,11 +195,13 @@ export default function Accounting() {
         {/* LIST */}
         <div>
           {expenses.map((item, i) => (
-            <div key={i} className="border p-4 mt-2">
+            <div key={i} className="border p-4 mt-2 rounded">
 
-              <div>{item.name}</div>
+              <div className="font-semibold">{item.name}</div>
               <div>THB {item.amount}</div>
-              <div>{item.category}</div>
+              <div className="text-sm text-white/50">
+                {item.category}
+              </div>
 
               {item.image && (
                 <img

@@ -7,11 +7,54 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [name, setName] = useState("");
   const [role, setRole] = useState("FOH");
+  const [showLatePopup, setShowLatePopup] = useState(false);
+  const [lateReason, setLateReason] = useState("");
 
   const router = useRouter();
 
+  // 🔥 SHIFT START TIME (CHANGE LATER IF NEEDED)
+  const SHIFT_START_HOUR = 10;
+
+  const isLate = () => {
+    const now = new Date();
+    return now.getHours() >= SHIFT_START_HOUR;
+  };
+
+  const saveAttendance = (late, reason = "") => {
+    const existing = JSON.parse(localStorage.getItem("attendance")) || [];
+
+    const entry = {
+      name,
+      role,
+      time: new Date().toLocaleTimeString(),
+      late,
+      reason,
+      approved: false,
+    };
+
+    localStorage.setItem("attendance", JSON.stringify([entry, ...existing]));
+  };
+
   const handleLogin = () => {
     if (!name) return;
+
+    // 🔥 CHECK LATE
+    if (isLate()) {
+      setShowLatePopup(true);
+      return;
+    }
+
+    // NOT LATE → NORMAL FLOW
+    saveAttendance(false);
+
+    localStorage.setItem("staffName", name);
+    localStorage.setItem("staffRole", role);
+
+    router.push("/control-final");
+  };
+
+  const handleLateSubmit = () => {
+    saveAttendance(true, lateReason);
 
     localStorage.setItem("staffName", name);
     localStorage.setItem("staffRole", role);
@@ -22,7 +65,7 @@ export default function Home() {
   return (
     <div className="relative min-h-screen text-white flex items-center justify-center overflow-hidden">
 
-      {/* 🔥 BACKGROUND (CINEMATIC) */}
+      {/* BACKGROUND */}
       <div className="absolute inset-0 -z-30 animate-[zoom_20s_ease-in-out_infinite]">
         <img
           src="/bg-hero-control.jpg"
@@ -30,12 +73,10 @@ export default function Home() {
         />
       </div>
 
-      {/* OVERLAY */}
       <div className="absolute inset-0 -z-20 bg-black/60 backdrop-blur-[2px]" />
 
       {/* HERO */}
       <div className="text-center space-y-6 animate-fadeIn">
-
         <h1 className="text-5xl font-semibold tracking-wide">
           Churchill Control
         </h1>
@@ -44,7 +85,6 @@ export default function Home() {
           Real-time restaurant intelligence system
         </p>
 
-        {/* 🔥 BUTTON */}
         <button
           onClick={() => setShowLogin(true)}
           className="px-8 py-4 bg-orange-500 rounded-xl text-lg 
@@ -53,13 +93,11 @@ export default function Home() {
         >
           Get Connected
         </button>
-
       </div>
 
-      {/* 🔥 LOGIN MODAL */}
+      {/* LOGIN MODAL */}
       {showLogin && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/70 animate-fadeIn">
-
           <div className="bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/10 w-full max-w-md space-y-4 animate-slideUp">
 
             <h2 className="text-xl">Access System</h2>
@@ -96,12 +134,39 @@ export default function Home() {
             >
               Cancel
             </button>
-
           </div>
         </div>
       )}
 
-      {/* 🔥 ANIMATIONS */}
+      {/* 🔥 LATE POPUP */}
+      {showLatePopup && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <div className="bg-white/10 backdrop-blur-xl p-8 rounded-3xl w-full max-w-md space-y-4">
+
+            <h2 className="text-xl text-red-400">You are late</h2>
+
+            <p className="text-white/70">
+              Please enter reason:
+            </p>
+
+            <input
+              type="text"
+              value={lateReason}
+              onChange={(e) => setLateReason(e.target.value)}
+              className="w-full p-3 rounded-xl bg-black/40 border border-white/10"
+            />
+
+            <button
+              onClick={handleLateSubmit}
+              className="w-full p-3 bg-orange-500 rounded-xl"
+            >
+              Submit & Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ANIMATIONS */}
       <style jsx global>{`
         @keyframes zoom {
           0%, 100% { transform: scale(1.05); }

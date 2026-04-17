@@ -1,38 +1,55 @@
-"use client";
-
 import "./globals.css";
-import Navbar from "./Navbar";
-import { usePathname } from "next/navigation";
+
+export const metadata = {
+  title: "Churchill Control System",
+  description: "Premium Restaurant Operating System",
+};
 
 export default function RootLayout({ children }) {
-  const pathname = usePathname();
-  const isLanding = pathname === "/";
-
   return (
     <html lang="en">
-      <body className="text-white">
+      <body className="relative text-white">
 
-        {/* ✅ GLOBAL BACKGROUND */}
-        <div
-          className="fixed inset-0 bg-cover bg-center bg-no-repeat -z-20"
-          style={{
-            backgroundImage: isLanding
-              ? "url('/bg-beach.jpg')"        // LANDING
-              : "url('/bg-hero-control.jpg')" // APP
-          }}
-        />
+        {/* 🌅 BACKGROUND SYSTEM */}
+        <Background />
 
-        {/* ✅ DARK OVERLAY (luxury depth) */}
-        <div className="fixed inset-0 bg-black/50 -z-10" />
-
-        {/* ✅ NAVBAR ONLY IN APP */}
-        {!isLanding && <Navbar />}
-
-        <main className={!isLanding ? "pt-20" : ""}>
+        {/* CONTENT */}
+        <div className="relative z-10">
           {children}
-        </main>
+        </div>
 
       </body>
     </html>
+  );
+}
+
+
+// 🔥 GLOBAL BACKGROUND CONTROLLER
+function Background() {
+  const pathname =
+    typeof window !== "undefined" ? window.location.pathname : "/";
+
+  const isLanding = pathname === "/";
+
+  return (
+    <div className="fixed inset-0 -z-10">
+
+      {/* IMAGE */}
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-all duration-700"
+        style={{
+          backgroundImage: isLanding
+            ? "url('/bg-hero-control.jpg')" // LANDING
+            : "url('/bg-beach.jpg')"       // APP
+        }}
+      />
+
+      {/* 🎯 GLOBAL OVERLAY (KEY TO PREMIUM LOOK) */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90" />
+
+      {/* 🌟 SUBTLE GLOW (luxury depth) */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,122,0,0.12),transparent_40%)]" />
+
+    </div>
   );
 }

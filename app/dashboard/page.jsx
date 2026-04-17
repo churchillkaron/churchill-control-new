@@ -16,7 +16,7 @@ export default function Dashboard() {
   }, []);
 
   // =========================
-  // SAFE DATE PARSER (FIX)
+  // SAFE DATE PARSER
   // =========================
   const parseDate = (dateStr) => {
     const [day, month, year] = dateStr.split("/");
@@ -24,7 +24,7 @@ export default function Dashboard() {
   };
 
   // =========================
-  // MONTHLY PERFORMANCE
+  // CALCULATE PERFORMANCE
   // =========================
   const calculateServiceRate = () => {
     const history =
@@ -35,7 +35,6 @@ export default function Dashboard() {
       return;
     }
 
-    // sort safely
     const sorted = [...history].sort(
       (a, b) => parseDate(b.date) - parseDate(a.date)
     );
@@ -55,7 +54,15 @@ export default function Dashboard() {
   };
 
   // =========================
-  // APPROVE SALARY (MANAGER)
+  // SAVE SERVICE RATE
+  // =========================
+  const saveServiceRate = () => {
+    localStorage.setItem("serviceChargeRate", serviceRate);
+    alert(`Service Charge locked at ${serviceRate}%`);
+  };
+
+  // =========================
+  // APPROVE SALARY
   // =========================
   const approveSalary = (index) => {
     const updated = { ...monthlyPayroll };
@@ -65,9 +72,6 @@ export default function Dashboard() {
     setMonthlyPayroll(updated);
   };
 
-  // =========================
-  // REMOVE APPROVAL
-  // =========================
   const revokeApproval = (index) => {
     const updated = { ...monthlyPayroll };
     updated.staff[index].managerApproved = false;
@@ -88,7 +92,7 @@ export default function Dashboard() {
     <div className="min-h-screen text-white p-10">
 
       {/* =========================
-          SERVICE CHARGE BLOCK
+          SERVICE CONTROL
       ========================= */}
       <div className="mb-8 p-6 bg-white/10 rounded-xl">
 
@@ -106,10 +110,17 @@ export default function Dashboard() {
           {serviceRate === 5 && "Standard Level"}
         </div>
 
+        <button
+          onClick={saveServiceRate}
+          className="mt-4 bg-orange-500 px-4 py-2 rounded"
+        >
+          Lock Service Charge
+        </button>
+
       </div>
 
       {/* =========================
-          PAYROLL SECTION
+          PAYROLL
       ========================= */}
       <h1 className="text-3xl mb-6">Manager Approval</h1>
 

@@ -29,7 +29,8 @@ export default function Dashboard() {
   const runSystem = (attendance, actions) => {
     let updated = { ...actions };
 
-    updated = autoDetectIssues(attendance, updated);
+    updated = detectAttendanceIssues(attendance, updated);
+    updated = detectPerformanceIssues(updated);
     updated = applyRecovery(updated);
 
     localStorage.setItem("staffActions", JSON.stringify(updated));
@@ -37,9 +38,9 @@ export default function Dashboard() {
   };
 
   // =========================
-  // DETECTION (UNCHANGED)
+  // ATTENDANCE DETECTION
   // =========================
-  const autoDetectIssues = (attendance, actions) => {
+  const detectAttendanceIssues = (attendance, actions) => {
     const updated = { ...actions };
 
     const staffMap = {};
@@ -60,6 +61,43 @@ export default function Dashboard() {
         if (lateCount >= 5) {
           updated[name] = "Final Warning";
         } else if (lateCount >= 3) {
+          updated[name] = "Under Review";
+        }
+      }
+    });
+
+    return updated;
+  };
+
+  // =========================
+  // PERFORMANCE DETECTION
+  // =========================
+  const detectPerformanceIssues = (actions) => {
+    const history =
+      JSON.parse(localStorage.getItem("history")) || [];
+
+    if (history.length === 0) return actions;
+
+    const updated = { ...actions };
+
+    const staffPerformance = {};
+
+    history.forEach((day) => {
+      day.staff?.forEach((s) => {
+        if (!staffPerformance[s.name]) {
+          staffPerformance[s.name] = [];
+        }
+        staffPerformance[s.name].push(s.level);
+      });
+    });
+
+    Object.entries(staffPerformance).forEach(([name, levels]) => {
+      const badCount = levels.filter((l) => l <= 0.4).length;
+
+      if (!updated[name]) {
+        if (badCount >= 5) {
+          updated[name] = "Final Warning";
+        } else if (badCount >= 3) {
           updated[name] = "Under Review";
         }
       }
@@ -94,7 +132,6 @@ export default function Dashboard() {
         }
       });
 
-      // clear only if THIS staff had 3 good days
       if (goodDays === 3) {
         delete updated[name];
       }

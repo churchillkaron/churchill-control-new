@@ -1,213 +1,171 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import AppShell from "../AppShell";
 
-export default function ControlFinal() {
-  const [orders, setOrders] = useState([]);
-  const [staff, setStaff] = useState([]);
-
-  const [revenue, setRevenue] = useState(0);
-  const [totalOrders, setTotalOrders] = useState(0);
-  const [avgOrderValue, setAvgOrderValue] = useState(0);
-
-  const [fohLevel, setFohLevel] = useState("GOOD");
-  const [barLevel, setBarLevel] = useState("GOOD");
-  const [kitchenLevel, setKitchenLevel] = useState("GOOD");
-
-  const [payouts, setPayouts] = useState({
-    foh: 0,
-    bar: 0,
-    kitchen: 0,
-  });
-
-  const [staffPayouts, setStaffPayouts] = useState([]);
-
-  useEffect(() => {
-    const storedOrders =
-      JSON.parse(localStorage.getItem("orders")) || [];
-
-    const storedStaff =
-      JSON.parse(localStorage.getItem("staffList")) || [];
-
-    setOrders(storedOrders);
-    setStaff(storedStaff);
-
-    const total = storedOrders.reduce(
-      (sum, o) => sum + Number(o.total || 0),
-      0
-    );
-
-    const count = storedOrders.length;
-
-    setRevenue(total);
-    setTotalOrders(count);
-    setAvgOrderValue(count > 0 ? total / count : 0);
-  }, []);
-
-  const levelMultiplier = {
-    GOOD: 1,
-    WARNING: 0.7,
-    BAD: 0.4,
-    CRITICAL: 0.2,
-  };
-
-  const calculatePayouts = () => {
-    const service = revenue * 0.05;
-
-    const fohPool = service * 0.5 * levelMultiplier[fohLevel];
-    const barPool = service * 0.3 * levelMultiplier[barLevel];
-    const kitchenPool =
-      service * 0.2 * levelMultiplier[kitchenLevel];
-
-    setPayouts({
-      foh: fohPool,
-      bar: barPool,
-      kitchen: kitchenPool,
-    });
-
-    const fohStaff = staff.filter((s) => s.role === "FOH");
-
-    const perStaff =
-      fohStaff.length > 0 ? fohPool / fohStaff.length : 0;
-
-    // ✅ FULL FIX: include level
-    const staffBreakdown = fohStaff.map((s) => ({
-      ...s,
-      payout: perStaff,
-      level: levelMultiplier[fohLevel],
-    }));
-
-    setStaffPayouts(staffBreakdown);
-  };
-
-  const calculateFOHScore = () => {
-    let score = 100;
-
-    if (avgOrderValue < 300) score -= 30;
-    if (totalOrders < 20) score -= 20;
-
-    return score;
-  };
-
-  const closeDay = () => {
-    const history =
-      JSON.parse(localStorage.getItem("history")) || [];
-
-    const serviceCharge = revenue * 0.05;
-
-    const newDay = {
-      date: new Date().toLocaleDateString("en-GB"),
-      revenue,
-      serviceCharge,
-
-      totalOrders,
-      avgOrderValue,
-
-      levels: {
-        foh: fohLevel,
-        bar: barLevel,
-        kitchen: kitchenLevel,
-      },
-
-      scores: {
-        foh: calculateFOHScore(),
-      },
-
-      payouts,
-      staff: staffPayouts,
-    };
-
-    const updated = [newDay, ...history];
-
-    localStorage.setItem("history", JSON.stringify(updated));
-
-    alert("Day closed and saved to history");
-  };
-
+export default function ControlFinalPage() {
   return (
-    <div className="relative min-h-screen text-white overflow-hidden">
-      <div className="absolute inset-0 -z-30">
-        <img
-          src="/bg-hero-control.jpg"
-          className="w-full h-full object-cover"
-        />
-      </div>
+    <AppShell>
+      <div className="space-y-14">
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-16 space-y-8">
+        {/* HEADER */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-medium text-white/90">
+            Control Final
+          </h1>
+          <p className="text-white/50 text-sm">
+            End-of-day control & payout decision system
+          </p>
+        </div>
 
-        <h1 className="text-3xl md:text-5xl font-semibold">
-          Control Final
-        </h1>
+        {/* HERO CONTROL BLOCK */}
+        <div className="relative">
 
-        {/* SUMMARY */}
-        <div className="rounded-3xl border border-white/10 bg-black/30 p-6 space-y-2">
-          <div>Revenue: THB {revenue.toLocaleString()}</div>
-          <div>Orders: {totalOrders}</div>
-          <div>Avg Order: THB {Math.round(avgOrderValue)}</div>
-          <div>
-            Service Charge: THB {(revenue * 0.05).toLocaleString()}
+          {/* glow */}
+          <div className="absolute -inset-6 rounded-[36px] bg-[#ff7a00]/12 blur-3xl" />
+
+          <div className="relative rounded-[32px] border border-white/10 bg-white/[0.07] backdrop-blur-xl px-10 py-12
+            shadow-[0_50px_140px_rgba(0,0,0,0.7),0_15px_50px_rgba(0,0,0,0.5)]
+          ">
+
+            {/* light edge */}
+            <div className="absolute inset-x-0 top-0 h-px bg-white/30 rounded-t-[32px]" />
+
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+
+              {/* LEFT */}
+              <div className="space-y-4">
+                <span className="text-white/50 text-sm">
+                  Today Revenue
+                </span>
+
+                <h2 className="text-6xl font-semibold tracking-tight">
+                  THB 128,400
+                </h2>
+
+                <span className="text-white/40 text-sm">
+                  Service Charge Pool: THB 6,420
+                </span>
+              </div>
+
+              {/* ACTION */}
+              <div className="relative">
+                <div className="absolute -inset-2 bg-[#ff7a00]/20 blur-xl rounded-xl" />
+
+                <button className="relative px-8 py-4 rounded-xl bg-[#ff7a00] text-black font-medium text-lg
+                  shadow-[0_15px_40px_rgba(0,0,0,0.6)] hover:scale-[1.02] transition
+                ">
+                  Close Day
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
 
-        {/* LEVELS */}
-        <div className="grid md:grid-cols-3 gap-4">
+        {/* KPI STRIP */}
+        <div className="grid grid-cols-3 gap-8">
+
           {[
-            ["FOH", fohLevel, setFohLevel],
-            ["BAR", barLevel, setBarLevel],
-            ["KITCHEN", kitchenLevel, setKitchenLevel],
-          ].map(([name, value, setter]) => (
-            <div
-              key={name}
-              className="p-4 bg-black/30 rounded-xl"
-            >
-              <div>{name}</div>
-              <select
-                value={value}
-                onChange={(e) => setter(e.target.value)}
-                className="bg-black/40 p-2 rounded"
-              >
-                <option>GOOD</option>
-                <option>WARNING</option>
-                <option>BAD</option>
-                <option>CRITICAL</option>
-              </select>
+            { label: "Total Orders", value: "342" },
+            { label: "Avg Order Value", value: "THB 375" },
+            { label: "FOH Performance", value: "GOOD" },
+          ].map((item, i) => (
+            <div key={i} className="relative">
+
+              <div className="absolute -inset-2 bg-white/5 blur-xl rounded-[24px]" />
+
+              <div className="relative rounded-[24px] border border-white/10 bg-white/[0.05] backdrop-blur-lg p-6
+                shadow-[0_20px_50px_rgba(0,0,0,0.45)]
+              ">
+                <div className="absolute inset-x-0 top-0 h-px bg-white/20" />
+
+                <div className="space-y-2">
+                  <span className="text-white/50 text-xs tracking-wide">
+                    {item.label}
+                  </span>
+                  <span className="text-2xl font-medium">
+                    {item.value}
+                  </span>
+                </div>
+              </div>
             </div>
           ))}
+
         </div>
 
-        {/* ACTIONS */}
-        <div className="flex gap-4">
-          <button
-            onClick={calculatePayouts}
-            className="bg-blue-500 px-4 py-2 rounded-xl"
-          >
-            Calculate Payouts
-          </button>
+        {/* DEPARTMENT PERFORMANCE */}
+        <div className="relative">
 
-          <button
-            onClick={closeDay}
-            className="bg-orange-500 px-4 py-2 rounded-xl"
-          >
-            Close Day
-          </button>
-        </div>
+          <div className="absolute -inset-4 bg-white/[0.04] blur-2xl rounded-[28px]" />
 
-        {/* STAFF PAYOUT */}
-        <div className="p-6 bg-black/30 rounded-2xl">
-          <h2 className="mb-3">FOH Staff</h2>
+          <div className="relative rounded-[28px] border border-white/10 bg-white/[0.045] backdrop-blur-md p-8
+            shadow-[0_25px_70px_rgba(0,0,0,0.5)]
+          ">
 
-          {staffPayouts.map((s, i) => (
-            <div
-              key={i}
-              className="flex justify-between"
-            >
-              <div>{s.name}</div>
-              <div>THB {s.payout?.toFixed(2)}</div>
+            <div className="text-white/70 text-sm mb-6">
+              Department Performance
             </div>
-          ))}
+
+            <div className="grid grid-cols-3 gap-6">
+
+              {[
+                { name: "FOH", value: "GOOD" },
+                { name: "BAR", value: "WARNING" },
+                { name: "KITCHEN", value: "GOOD" },
+              ].map((dep, i) => (
+                <div key={i} className="rounded-[20px] border border-white/10 bg-white/[0.05] p-6 text-center
+                  shadow-[0_15px_40px_rgba(0,0,0,0.4)]
+                ">
+                  <div className="text-white/50 text-xs mb-2">
+                    {dep.name}
+                  </div>
+                  <div className="text-lg font-medium">
+                    {dep.value}
+                  </div>
+                </div>
+              ))}
+
+            </div>
+
+          </div>
+        </div>
+
+        {/* PAYOUT PREVIEW */}
+        <div className="relative">
+
+          <div className="absolute -inset-4 bg-[#ff7a00]/5 blur-2xl rounded-[28px]" />
+
+          <div className="relative rounded-[28px] border border-white/10 bg-white/[0.045] backdrop-blur-md p-8
+            shadow-[0_25px_70px_rgba(0,0,0,0.5)]
+          ">
+
+            <div className="text-white/70 text-sm mb-6">
+              Payout Distribution Preview
+            </div>
+
+            <div className="space-y-4 text-sm text-white/60">
+
+              <div className="flex justify-between">
+                <span>FOH Pool</span>
+                <span>THB 3,210</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>BAR Pool</span>
+                <span>THB 1,926</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>KITCHEN Pool</span>
+                <span>THB 1,284</span>
+              </div>
+
+            </div>
+
+          </div>
         </div>
 
       </div>
-    </div>
+    </AppShell>
   );
 }

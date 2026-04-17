@@ -22,46 +22,10 @@ export async function POST(req) {
             {
               type: "input_text",
               text: `
-You are an accounting OCR system.
+You are an OCR system.
 
-STEP 1: Detect document type:
-- If it contains "INVOICE" → type = invoice
-- Otherwise → type = receipt
-
-STEP 2: Extract data based on type
-
-IF INVOICE:
-- vendor = company issuing invoice (top section with address / tax id / logo)
-- total_amount = ONLY the final payable amount:
-  Priority:
-  1. "Remaining Balance"
-  2. "Total"
-  3. Largest amount if unclear
-- date = invoice date
-
-IGNORE:
-- customer name (Invoice To)
-- deposits
-- event details
-
-IF RECEIPT:
-- vendor = store/shop name (top)
-- total_amount = final total paid
-- date = transaction date
-
-STEP 3: Category detection:
-- If vendor contains food supplier → "Food"
-- If vendor contains alcohol/bar → "Alcohol"
-- Otherwise → "Supplies"
-
-RETURN ONLY JSON:
-{
-  "type": "",
-  "vendor": "",
-  "total_amount": "",
-  "date": "",
-  "category": ""
-}
+Extract all visible text from this document.
+Return plain text only.
               `,
             },
             {
@@ -73,16 +37,17 @@ RETURN ONLY JSON:
       ],
     });
 
-    const text = response.output[0].content[0].text;
+    // ✅ SAFE extraction (this is the fix)
+    const rawText =
+      response.output_text ||
+      response.output?.[0]?.content?.[0]?.text ||
+      "";
 
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = { raw: text };
+    if (!rawText || rawText.trim() === "") {
+      return Response.json({ error: "No readable text found" }, { status: 200 });
     }
 
-    return Response.json({ data: parsed });
+    return Response.json({ text: rawText });
 
   } catch (err) {
     console.error(err);

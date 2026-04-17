@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 
 export default function Dashboard() {
   const [leaderboard, setLeaderboard] = useState([]);
-  const [serviceLevel, setServiceLevel] = useState(5);
 
   useEffect(() => {
     const history = JSON.parse(localStorage.getItem("history")) || [];
@@ -27,53 +26,48 @@ export default function Dashboard() {
       });
     });
 
-    let result = Object.entries(staffMap).map(([name, data]) => ({
-      name,
-      revenue: data.revenue,
-      payout: data.payout,
-    }));
+    let result = Object.entries(staffMap).map(([name, data]) => {
+      let level = 5;
 
-    result.sort((a, b) => b.revenue - a.revenue);
-
-    result = result.map((s, i) => {
-      let bonus = 0;
-
-      if (i === 0) bonus = 0.1;
-      else if (i === 1) bonus = 0.05;
+      // 🔥 INDIVIDUAL UNLOCK
+      if (data.revenue >= 100000) level = 7;
+      else if (data.revenue >= 50000) level = 6;
 
       return {
-        ...s,
-        bonus,
-        finalPayout: s.payout + s.payout * bonus,
+        name,
+        revenue: data.revenue,
+        payout: data.payout,
+        level,
       };
     });
 
-    const totalRevenue = result.reduce((sum, s) => sum + s.revenue, 0);
+    // SORT
+    result.sort((a, b) => b.revenue - a.revenue);
 
-    let level = 5;
-
-    if (totalRevenue >= 100000) level = 7;
-    else if (totalRevenue >= 50000) level = 6;
-
-    // 🔥 SAVE LEVEL (CRITICAL)
-    localStorage.setItem("serviceLevel", level);
-
-    setServiceLevel(level);
     setLeaderboard(result);
   }, []);
 
   return (
     <div className="min-h-screen text-white p-10">
 
-      <h1 className="text-3xl mb-6">Performance & Bonus System</h1>
-
-      <div className="mb-6">
-        Service Level Unlocked: {serviceLevel}%
-      </div>
+      <h1 className="text-3xl mb-6">Individual Performance Levels</h1>
 
       {leaderboard.map((s, i) => (
-        <div key={i} className="mb-2">
-          #{i + 1} {s.name} → THB {s.revenue.toLocaleString()} → Final: THB {Math.round(s.finalPayout).toLocaleString()}
+        <div key={i} className="mb-3">
+
+          #{i + 1} {s.name}
+
+          <br />
+
+          Revenue: THB {s.revenue.toLocaleString()}
+
+          <br />
+
+          Level: 
+          <span className="text-[#ffb36b] ml-2">
+            {s.level}%
+          </span>
+
         </div>
       ))}
 

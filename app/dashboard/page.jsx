@@ -10,6 +10,7 @@ export default function Dashboard() {
     serviceCharge: 5,
   });
   const [attendance, setAttendance] = useState([]);
+  const [staffFlags, setStaffFlags] = useState([]);
 
   useEffect(() => {
     const history = JSON.parse(localStorage.getItem("history")) || [];
@@ -56,12 +57,12 @@ export default function Dashboard() {
           };
         }
 
-        staffMap[s.name].revenue += Number(s.revenue);
-        staffMap[s.name].payout += Number(s.payout);
+        staffMap[s.name].revenue += Number(s.revenue || 0);
+        staffMap[s.name].payout += Number(s.payout || 0);
       });
     });
 
-    let result = Object.entries(staffMap).map(([name, data]) => {
+    const result = Object.entries(staffMap).map(([name, data]) => {
       let level = 5;
 
       if (data.revenue >= 100000) level = 7;
@@ -85,6 +86,52 @@ export default function Dashboard() {
       JSON.parse(localStorage.getItem("attendance")) || [];
 
     setAttendance(attendanceData);
+
+    // =========================
+    // STAFF WARNING / REVIEW FLAGS
+    // =========================
+    const flagMap = {};
+
+    history.forEach((day) => {
+      if (!day.staff) return;
+
+      day.staff.forEach((staff) => {
+        if (!flagMap[staff.name]) {
+          flagMap[staff.name] = {
+            badDays: 0,
+            totalDays: 0,
+          };
+        }
+
+        flagMap[staff.name].totalDays += 1;
+
+        if (Number(staff.level) < 1) {
+          flagMap[staff.name].badDays += 1;
+        }
+      });
+    });
+
+    const flags = Object.entries(flagMap)
+      .map(([name, data]) => {
+        let status = "Stable";
+
+        if (data.badDays >= 5) {
+          status = "Review Required";
+        } else if (data.badDays >= 3) {
+          status = "Warning";
+        }
+
+        return {
+          name,
+          badDays: data.badDays,
+          totalDays: data.totalDays,
+          status,
+        };
+      })
+      .filter((staff) => staff.badDays >= 3)
+      .sort((a, b) => b.badDays - a.badDays);
+
+    setStaffFlags(flags);
   }, []);
 
   // =========================
@@ -100,7 +147,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen text-white p-10">
-
       {/* MONTHLY */}
       <h1 className="text-3xl mb-6">Monthly System Performance</h1>
 
@@ -115,13 +161,45 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {/* STAFF FLAGS */}
+      <h1 className="text-3xl mb-6">Manager Review Flags</h1>
+
+      {staffFlags.length === 0 ? (
+        <div className="mb-10 p-4 bg-white/10 rounded-xl">
+          No staff currently flagged.
+        </div>
+      ) : (
+        staffFlags.map((staff, i) => (
+          <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
+            <div>
+              <strong>{staff.name}</strong>
+            </div>
+            <div>Bad Days: {staff.badDays}</div>
+            <div>Total Days Tracked: {staff.totalDays}</div>
+            <div className="mt-2">
+              Status:{" "}
+              <span
+                className={
+                  staff.status === "Review Required"
+                    ? "text-red-400"
+                    : "text-yellow-400"
+                }
+              >
+                {staff.status}
+              </span>
+            </div>
+          </div>
+        ))
+      )}
+
       {/* ATTENDANCE */}
-      <h1 className="text-3xl mb-6">Late Staff Review</h1>
+      <h1 className="text-3xl mb-6 mt-10">Late Staff Review</h1>
 
-      {attendance.filter(a => a.late).map((a, i) => (
+      {attendance.filter((a) => a.late).map((a, i) => (
         <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
-
-          <div><strong>{a.name}</strong> ({a.role})</div>
+          <div>
+            <strong>{a.name}</strong> ({a.role})
+          </div>
           <div>Time: {a.time}</div>
           <div>Reason: {a.reason}</div>
 
@@ -149,7 +227,6 @@ export default function Dashboard() {
               Reject
             </button>
           </div>
-
         </div>
       ))}
 
@@ -161,9 +238,12 @@ export default function Dashboard() {
           #{i + 1} {s.name}
           <br />
           Revenue: THB {s.revenue.toLocaleString()}
+          <br />
+          Payout: THB {Math.round(s.payout).toLocaleString()}
+          <br />
+          Level: {s.level}%
         </div>
       ))}
-
     </div>
   );
 }

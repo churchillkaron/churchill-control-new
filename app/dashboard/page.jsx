@@ -37,7 +37,7 @@ export default function Dashboard() {
   };
 
   // =========================
-  // DETECTION
+  // DETECTION (UNCHANGED)
   // =========================
   const autoDetectIssues = (attendance, actions) => {
     const updated = { ...actions };
@@ -69,7 +69,7 @@ export default function Dashboard() {
   };
 
   // =========================
-  // RECOVERY SYSTEM
+  // PER-STAFF RECOVERY
   // =========================
   const applyRecovery = (actions) => {
     const history =
@@ -79,16 +79,25 @@ export default function Dashboard() {
 
     const last3 = history.slice(0, 3);
 
-    const allGood = last3.every(
-      (day) => day.levels?.foh === "GOOD"
-    );
-
-    if (!allGood) return actions;
-
     const updated = { ...actions };
 
     Object.keys(updated).forEach((name) => {
-      delete updated[name];
+      let goodDays = 0;
+
+      last3.forEach((day) => {
+        const staffEntry = day.staff?.find(
+          (s) => s.name === name
+        );
+
+        if (staffEntry && staffEntry.level >= 0.7) {
+          goodDays++;
+        }
+      });
+
+      // clear only if THIS staff had 3 good days
+      if (goodDays === 3) {
+        delete updated[name];
+      }
     });
 
     return updated;

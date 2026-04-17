@@ -9,6 +9,7 @@ export default function Accounting() {
     name: "",
     amount: "",
     category: "",
+    image: null,
   });
 
   useEffect(() => {
@@ -38,6 +39,22 @@ export default function Accounting() {
   const netProfit = totalRevenue - totalExpenses;
 
   // =========================
+  // IMAGE UPLOAD
+  // =========================
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      setForm({ ...form, image: reader.result });
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  // =========================
   // ADD EXPENSE
   // =========================
   const addExpense = () => {
@@ -54,7 +71,7 @@ export default function Accounting() {
     localStorage.setItem("expenses", JSON.stringify(updated));
     setExpenses(updated);
 
-    setForm({ name: "", amount: "", category: "" });
+    setForm({ name: "", amount: "", category: "", image: null });
   };
 
   return (
@@ -75,121 +92,86 @@ export default function Accounting() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-28 pb-14 space-y-8">
 
         {/* HEADER */}
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-            Accounting
-          </p>
-          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
-            Cost Control
-          </h1>
-        </div>
+        <h1 className="text-3xl md:text-5xl font-semibold">
+          Accounting
+        </h1>
 
         {/* HERO */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6 md:p-8">
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-            <div>
-              <p className="text-white/50 text-sm">Total Expenses</p>
-              <h2 className="text-3xl mt-2">
-                THB {totalExpenses.toLocaleString()}
-              </h2>
-            </div>
-
-            <div>
-              <p className="text-white/50 text-sm">Revenue</p>
-              <h2 className="text-3xl mt-2">
-                THB {totalRevenue.toLocaleString()}
-              </h2>
-            </div>
-
-            <div>
-              <p className="text-white/50 text-sm">Net Profit</p>
-              <h2 className="text-3xl mt-2 text-[#ffb36b]">
-                THB {netProfit.toLocaleString()}
-              </h2>
-            </div>
-
+        <div className="grid md:grid-cols-3 gap-6">
+          <div>
+            Expenses: THB {totalExpenses.toLocaleString()}
+          </div>
+          <div>
+            Revenue: THB {totalRevenue.toLocaleString()}
+          </div>
+          <div>
+            Profit: THB {netProfit.toLocaleString()}
           </div>
         </div>
 
         {/* ADD EXPENSE */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] p-6">
+        <div className="space-y-4">
 
-          <h3 className="text-xl mb-4">Add Expense</h3>
+          <input
+            placeholder="Name"
+            value={form.name}
+            onChange={(e) =>
+              setForm({ ...form, name: e.target.value })
+            }
+          />
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <input
+            placeholder="Amount"
+            type="number"
+            value={form.amount}
+            onChange={(e) =>
+              setForm({ ...form, amount: e.target.value })
+            }
+          />
 
-            <input
-              placeholder="Name"
-              value={form.name}
-              onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
-              }
-              className="p-3 rounded bg-black/30 border border-white/10"
+          <input
+            placeholder="Category"
+            value={form.category}
+            onChange={(e) =>
+              setForm({ ...form, category: e.target.value })
+            }
+          />
+
+          {/* IMAGE INPUT */}
+          <input type="file" onChange={handleImageUpload} />
+
+          {/* PREVIEW */}
+          {form.image && (
+            <img
+              src={form.image}
+              className="w-32 mt-2 rounded"
             />
+          )}
 
-            <input
-              placeholder="Amount"
-              type="number"
-              value={form.amount}
-              onChange={(e) =>
-                setForm({ ...form, amount: e.target.value })
-              }
-              className="p-3 rounded bg-black/30 border border-white/10"
-            />
-
-            <input
-              placeholder="Category"
-              value={form.category}
-              onChange={(e) =>
-                setForm({ ...form, category: e.target.value })
-              }
-              className="p-3 rounded bg-black/30 border border-white/10"
-            />
-
-          </div>
-
-          <button
-            onClick={addExpense}
-            className="mt-4 bg-orange-500 px-4 py-2 rounded"
-          >
+          <button onClick={addExpense}>
             Add Expense
           </button>
 
         </div>
 
-        {/* EXPENSE LIST */}
-        <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] p-6">
+        {/* LIST */}
+        <div>
+          {expenses.map((item, i) => (
+            <div key={i} className="border p-4 mt-2">
 
-          <h3 className="text-xl mb-4">Expenses</h3>
+              <div>{item.name}</div>
+              <div>THB {item.amount}</div>
+              <div>{item.category}</div>
 
-          <div className="space-y-3">
+              {item.image && (
+                <img
+                  src={item.image}
+                  className="w-32 mt-2 rounded"
+                />
+              )}
 
-            {expenses.map((item, i) => (
-              <div
-                key={i}
-                className="flex justify-between p-4 bg-black/30 rounded-xl border border-white/10"
-              >
-                <div>
-                  <p className="text-sm text-white/50">
-                    {item.date}
-                  </p>
-                  <p>{item.name}</p>
-                </div>
-
-                <div>
-                  THB {Number(item.amount).toLocaleString()}
-                </div>
-
-                <div className="text-white/50">
-                  {item.category || "-"}
-                </div>
-              </div>
-            ))}
-
-          </div>
-
+            </div>
+          ))}
         </div>
 
       </div>

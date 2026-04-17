@@ -1,38 +1,43 @@
 "use client";
 
-import Navbar from "./Navbar";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-export default function AppShell({ children }) {
+export default function Navbar() {
+  const pathname = usePathname();
+
+  const navItems = [
+    { name: "Dashboard", href: "/dashboard" },
+    { name: "Control", href: "/control-final" },
+    { name: "POS", href: "/pos" },
+    { name: "History", href: "/history" },
+    { name: "Accounting", href: "/accounting" },
+    { name: "Payout", href: "/payout" },
+  ];
+
   return (
-    <div className="relative min-h-screen bg-[#0d0a07] text-white">
+    <div className="fixed top-0 left-0 w-full z-50 bg-black/30 backdrop-blur-lg">
+      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
 
-      {/* BACKGROUND (fixed) */}
-      <div className="fixed inset-0 z-0">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-[1.05]"
-          style={{ backgroundImage: "url('/bg-beach.jpg')" }}
-        />
+        <div className="text-[#ff7a00] font-semibold">
+          CC CHURCHILL
+        </div>
 
-        {/* light + depth */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,122,0,0.18),transparent_35%),linear-gradient(180deg,rgba(10,7,5,0.35)_0%,rgba(10,7,5,0.75)_55%,rgba(10,7,5,0.9)_100%)]" />
+        <div className="flex gap-4">
+          {navItems.map((item) => {
+            const active = pathname === item.href;
 
-        {/* vignette */}
-        <div className="absolute inset-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.75)]" />
-      </div>
-
-      {/* NAVBAR */}
-      <div className="relative z-20">
-        <Navbar />
-      </div>
-
-      {/* SCROLLABLE CONTENT */}
-      <div className="relative z-10">
-
-        <main className="max-w-[1200px] mx-auto px-6 pt-28 pb-20">
-          <div className="space-y-14">
-            {children}
-          </div>
-        </main>
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={active ? "text-black bg-[#ff7a00] px-3 py-1 rounded" : "text-white/60"}
+              >
+                {item.name}
+              </Link>
+            );
+          })}
+        </div>
 
       </div>
     </div>

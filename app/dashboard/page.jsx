@@ -16,65 +16,94 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="space-y-10">
+      <div className="space-y-12">
 
         {/* HEADER */}
-        <h1 className="text-5xl font-semibold text-white">
-          Manager System
-        </h1>
+        <div>
+          <h1 className="text-5xl font-semibold text-white">
+            Manager System
+          </h1>
+          <p className="text-white/50 mt-2">
+            Real-time performance & control overview
+          </p>
+        </div>
 
         {!latest ? (
           <div className="text-white/70">No data</div>
         ) : (
           <>
-            {/* HERO KPI */}
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur-xl">
-              <p className="text-white/60 text-sm mb-2">
+            {/* 🔥 HERO KPI (DOMINANT) */}
+            <div className="relative overflow-hidden rounded-3xl p-10 bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.6)]">
+              
+              <p className="text-white/50 text-sm mb-3">
                 Today’s Revenue
               </p>
-              <h2 className="text-5xl font-semibold text-white">
+
+              <h2 className="text-6xl font-semibold tracking-tight text-white">
                 THB {latest.revenue}
               </h2>
+
+              <div className="absolute inset-0 bg-orange-500/5 pointer-events-none" />
             </div>
 
             {/* KPI STRIP */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-6">
 
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                <p className="text-white/50 text-sm">Orders</p>
-                <p className="text-white text-xl">{latest.orders}</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                <p className="text-white/50 text-sm">Avg Order</p>
-                <p className="text-white text-xl">
-                  THB {latest.avgOrderValue}
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-5 backdrop-blur-xl">
+                <p className="text-white/40 text-xs uppercase tracking-wide">
+                  Orders
+                </p>
+                <p className="text-white text-2xl mt-1">
+                  {latest.orders}
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                <p className="text-white/50 text-sm">FOH Score</p>
-                <p className="text-white text-xl">{latest.fohScore}</p>
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-5 backdrop-blur-xl">
+                <p className="text-white/40 text-xs uppercase tracking-wide">
+                  Avg Order
+                </p>
+                <p className="text-white text-2xl mt-1">
+                  THB {Math.round(latest.avgOrderValue)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-5 backdrop-blur-xl">
+                <p className="text-white/40 text-xs uppercase tracking-wide">
+                  FOH Score
+                </p>
+                <p className="text-white text-2xl mt-1">
+                  {latest.fohScore}
+                </p>
               </div>
 
             </div>
 
-            {/* TRENDS */}
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur-xl">
-              <p className="text-white mb-4">Last 3 Days</p>
-              {last3.map((d, i) => (
-                <p key={i} className="text-white/70">
-                  Day {i + 1}: THB {d.revenue}
-                </p>
-              ))}
+            {/* TRENDS (LESS IMPORTANT) */}
+            <div className="rounded-3xl bg-white/5 border border-white/10 p-6 backdrop-blur-xl">
+              <p className="text-white/60 mb-4 text-sm uppercase tracking-wide">
+                Last 3 Days
+              </p>
+
+              <div className="space-y-2">
+                {last3.map((d, i) => (
+                  <div
+                    key={i}
+                    className="flex justify-between text-white/70 text-sm"
+                  >
+                    <span>Day {i + 1}</span>
+                    <span>THB {d.revenue}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* AI INSIGHT */}
-            <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/10 p-6 backdrop-blur-xl">
-              <p className="text-yellow-400">
-                ⚠ Average order value is dropping
+            {/* AI INSIGHT (SUBTLE, NOT LOUD) */}
+            <div className="rounded-2xl bg-yellow-500/5 border border-yellow-500/20 p-5 backdrop-blur-xl">
+              <p className="text-yellow-400 text-sm">
+                ⚠ Avg order value is decreasing — consider upsell focus
               </p>
             </div>
+
           </>
         )}
       </div>

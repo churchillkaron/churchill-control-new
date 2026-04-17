@@ -7,42 +7,70 @@ export default function DashboardPage() {
   const [revenue, setRevenue] = useState(0);
   const [orders, setOrders] = useState([]);
   const [fohScore, setFohScore] = useState("—");
+  const [serviceLevel, setServiceLevel] = useState(5);
 
   const loadData = () => {
     const ordersData = JSON.parse(localStorage.getItem("orders") || "[]");
     const historyDay = JSON.parse(localStorage.getItem("history_day") || "{}");
+    const history = JSON.parse(localStorage.getItem("history") || "[]");
 
     setOrders(ordersData);
     setRevenue(historyDay.revenue || 0);
 
-    // 🔥 FOH PERFORMANCE CALC
+    // 🔥 TODAY FOH PERFORMANCE
     if (ordersData.length === 0) {
       setFohScore("—");
+    } else {
+      const totalRevenue = ordersData.reduce((sum, o) => sum + o.total, 0);
+      const totalOrders = ordersData.length;
+      const avgOrder = totalRevenue / totalOrders;
+
+      let score =
+        50 + 30 + (avgOrder / 1000) * 20; // simplified today logic
+
+      let level = "GOOD";
+
+      if (score < 40) level = "CRITICAL";
+      else if (score < 60) level = "BAD";
+      else if (score < 80) level = "WARNING";
+
+      setFohScore(level);
+    }
+
+    // 🔥 30 DAY PERFORMANCE (REAL SYSTEM)
+    const last30Days = history.slice(-30);
+
+    if (last30Days.length === 0) {
+      setServiceLevel(5);
       return;
     }
 
-    const totalRevenue = ordersData.reduce((sum, o) => sum + o.total, 0);
-    const totalOrders = ordersData.length;
-    const avgOrder = totalRevenue / totalOrders;
+    const avgRevenue =
+      last30Days.reduce((sum, d) => sum + (d.revenue || 0), 0) /
+      last30Days.length;
 
-    let score =
-      (totalRevenue / (totalRevenue || 1)) * 50 +
-      (totalOrders / (totalOrders || 1)) * 30 +
-      (avgOrder / 1000) * 20;
+    const avgOrders =
+      last30Days.reduce((sum, d) => sum + (d.paidOrders?.length || 0), 0) /
+      last30Days.length;
 
-    let level = "GOOD";
+    const avgOrderValue =
+      avgRevenue / (avgOrders || 1);
 
-    if (score < 40) level = "CRITICAL";
-    else if (score < 60) level = "BAD";
-    else if (score < 80) level = "WARNING";
+    // 🔥 LEVEL LOGIC
+    let level = 5;
 
-    setFohScore(level);
+    if (avgOrderValue > 500 && avgOrders > 80) {
+      level = 7;
+    } else if (avgOrderValue > 350 && avgOrders > 40) {
+      level = 6;
+    }
+
+    setServiceLevel(level);
   };
 
   useEffect(() => {
     loadData();
 
-    // 🔥 REAL-TIME SYNC
     const handleStorageChange = () => {
       loadData();
     };
@@ -56,11 +84,9 @@ export default function DashboardPage() {
 
   const totalOrders = orders.length;
   const avgOrder =
-    totalOrders > 0
-      ? Math.round(revenue / totalOrders)
-      : 0;
+    totalOrders > 0 ? Math.round(revenue / totalOrders) : 0;
 
-  const serviceCharge = Math.round(revenue * 0.05);
+  const serviceCharge = Math.round(revenue * (serviceLevel / 100));
 
   return (
     <AppShell>
@@ -76,7 +102,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* 🔥 HERO REVENUE CARD */}
+        {/* HERO */}
         <div className="relative">
           <div className="absolute -inset-6 rounded-[32px] bg-[#ff7a00]/10 blur-3xl" />
 
@@ -91,47 +117,39 @@ export default function DashboardPage() {
             </div>
 
             <div className="mt-3 text-sm text-white/40">
-              Service Charge: THB {serviceCharge.toLocaleString()}
+              Service Charge ({serviceLevel}%): THB {serviceCharge.toLocaleString()}
             </div>
 
           </div>
         </div>
 
-        {/* 🔥 KPI STRIP */}
+        {/* KPI */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
 
           <Card label="Orders" value={totalOrders} />
           <Card label="Avg Order" value={`THB ${avgOrder}`} />
           <Card label="FOH Score" value={fohScore} />
-          <Card label="Service Charge" value={`THB ${serviceCharge}`} />
+          <Card label="Service Level" value={`${serviceLevel}%`} />
 
         </div>
 
-        {/* 🔥 ALERTS (CONTROL LAYER) */}
+        {/* ALERTS */}
         <div className="space-y-4">
 
           <h2 className="text-white/60 text-sm uppercase tracking-wider">
             Alerts
           </h2>
 
-          {totalOrders === 0 && (
-            <Alert text="No orders yet today" />
+          {serviceLevel === 5 && (
+            <Alert text="Service charge locked at 5% (low performance)" />
           )}
 
-          {avgOrder < 300 && totalOrders > 5 && (
-            <Alert text="Low average order value" />
+          {serviceLevel === 6 && (
+            <Alert text="Service charge unlocked to 6%" positive />
           )}
 
-          {fohScore === "CRITICAL" && (
-            <Alert text="FOH performance critical" />
-          )}
-
-          {fohScore === "BAD" && (
-            <Alert text="FOH performance needs attention" />
-          )}
-
-          {revenue > 0 && totalOrders > 0 && avgOrder >= 300 && fohScore === "GOOD" && (
-            <Alert text="System running well" positive />
+          {serviceLevel === 7 && (
+            <Alert text="Max performance — 7% active" positive />
           )}
 
         </div>
@@ -141,7 +159,7 @@ export default function DashboardPage() {
   );
 }
 
-/* 🔥 COMPONENTS */
+/* COMPONENTS */
 
 function Card({ label, value }) {
   return (

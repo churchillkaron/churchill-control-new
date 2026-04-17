@@ -5,23 +5,39 @@ import AppShell from "../AppShell";
 
 export default function ControlFinal() {
   const [revenue, setRevenue] = useState(0);
+  const [paidOrders, setPaidOrders] = useState([]);
 
   const loadData = () => {
     const data = JSON.parse(localStorage.getItem("history_day") || "{}");
     setRevenue(data.revenue || 0);
+    setPaidOrders(data.paidOrders || []);
   };
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 500);
-    return () => clearInterval(interval);
+
+    // 🔥 REAL-TIME SYNC (no polling)
+    const handleStorageChange = () => {
+      loadData();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, []);
 
   const closeDay = () => {
     const todayData = JSON.parse(localStorage.getItem("history_day") || "{}");
 
-    if (!todayData.revenue) {
+    if (!todayData.revenue || todayData.revenue === 0) {
       alert("No data to close");
+      return;
+    }
+
+    if (!todayData.paidOrders || todayData.paidOrders.length === 0) {
+      alert("No paid orders");
       return;
     }
 
@@ -29,7 +45,6 @@ export default function ControlFinal() {
 
     const todayKey = new Date().toDateString();
 
-    // 🔥 prevent duplicate same day
     const alreadyClosed = history.some(
       (day) => new Date(day.date).toDateString() === todayKey
     );
@@ -50,10 +65,12 @@ export default function ControlFinal() {
 
     localStorage.setItem("history", JSON.stringify(updatedHistory));
 
+    // 🔥 HARD RESET SYSTEM STATE
     localStorage.removeItem("history_day");
     localStorage.removeItem("orders");
 
     setRevenue(0);
+    setPaidOrders([]);
 
     alert("Day closed successfully");
   };
@@ -73,6 +90,7 @@ export default function ControlFinal() {
           </h1>
         </div>
 
+        {/* 🔥 MAIN REVENUE CARD */}
         <div className="relative">
           <div className="absolute -inset-4 bg-[#ff7a00]/10 blur-2xl rounded-3xl" />
 
@@ -90,6 +108,10 @@ export default function ControlFinal() {
               <p className="text-white/50 mt-3">
                 Service Charge (5%): THB {serviceCharge.toLocaleString()}
               </p>
+
+              <p className="text-white/30 text-xs mt-2">
+                Paid Orders: {paidOrders.length}
+              </p>
             </div>
 
             <button
@@ -100,7 +122,27 @@ export default function ControlFinal() {
             </button>
 
           </div>
+        </div>
 
+        {/* 🔥 PAID ORDERS LIST (CONTROL VISIBILITY) */}
+        <div className="space-y-4">
+          <h2 className="text-xl text-white/60">Paid Orders</h2>
+
+          {paidOrders.length === 0 && (
+            <p className="text-white/30">No completed orders yet</p>
+          )}
+
+          {paidOrders.map((order) => (
+            <div
+              key={order.id}
+              className="flex justify-between items-center bg-white/5 p-4 rounded-xl"
+            >
+              <div>
+                Table {order.table} — {order.items.length} items
+              </div>
+              <div>THB {order.total}</div>
+            </div>
+          ))}
         </div>
 
       </div>

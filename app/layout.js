@@ -1,47 +1,38 @@
 "use client";
 
 import "./globals.css";
-import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
+import { usePathname } from "next/navigation";
 
 export default function RootLayout({ children }) {
-  return (
-    <html lang="en">
-      <body className="text-white">
-        <AppWrapper>{children}</AppWrapper>
-      </body>
-    </html>
-  );
-}
-
-function AppWrapper({ children }) {
   const pathname = usePathname();
   const isLanding = pathname === "/";
 
   return (
-    <div className="relative min-h-screen">
+    <html lang="en">
+      <body className="text-white">
 
-      {/* BACKGROUND IMAGE (ALL PAGES) */}
-      <div
-        className="fixed inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/bg-hero-control.jpg')" }}
-      />
+        {/* ✅ GLOBAL BACKGROUND */}
+        <div
+          className="fixed inset-0 bg-cover bg-center bg-no-repeat -z-20"
+          style={{
+            backgroundImage: isLanding
+              ? "url('/bg-beach.jpg')"        // LANDING
+              : "url('/bg-hero-control.jpg')" // APP
+          }}
+        />
 
-      {/* DARK OVERLAY ONLY FOR APP PAGES */}
-      {!isLanding && (
-        <div className="fixed inset-0 bg-black/50" />
-      )}
+        {/* ✅ DARK OVERLAY (luxury depth) */}
+        <div className="fixed inset-0 bg-black/50 -z-10" />
 
-      {/* CONTENT */}
-      <div className="relative z-10">
+        {/* ✅ NAVBAR ONLY IN APP */}
+        {!isLanding && <Navbar />}
 
-        <Navbar />
-
-        <main className="pt-24 px-6 max-w-7xl mx-auto">
+        <main className={!isLanding ? "pt-20" : ""}>
           {children}
         </main>
 
-      </div>
-    </div>
+      </body>
+    </html>
   );
 }

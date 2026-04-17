@@ -3,275 +3,80 @@
 import { useEffect, useState } from "react";
 
 export default function ControlFinal() {
-  const [staffName, setStaffName] = useState("");
-  const [staffRole, setStaffRole] = useState("");
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [totalOrders, setTotalOrders] = useState(0);
-  const [avgOrderValue, setAvgOrderValue] = useState(0);
-  const [serviceChargePercent, setServiceChargePercent] = useState(5);
+  const [revenue, setRevenue] = useState(0);
+  const [serviceCharge, setServiceCharge] = useState(0);
+  const [fohPool, setFohPool] = useState(0);
+  const [staff, setStaff] = useState([]);
 
   useEffect(() => {
-    const name = localStorage.getItem("staffName");
-    const role = localStorage.getItem("staffRole");
+    const storedHistory =
+      JSON.parse(localStorage.getItem("history")) || [];
 
-    if (!name || !role) {
-      window.location.href = "/";
-      return;
+    if (storedHistory.length > 0) {
+      const lastDay = storedHistory[0];
+
+      const revenueValue = Number(lastDay.revenue || 0);
+      const service = revenueValue * 0.05;
+      const foh = service * 0.5;
+
+      setRevenue(revenueValue);
+      setServiceCharge(service);
+      setFohPool(foh);
     }
 
-    setStaffName(name);
-    setStaffRole(role);
+    const storedStaff =
+      JSON.parse(localStorage.getItem("staffList")) || [];
 
-    loadRevenue();
-    loadServiceCharge();
+    setStaff(storedStaff);
   }, []);
 
-  // =========================
-  // LOAD MONTHLY SERVICE CHARGE
-  // =========================
-  const loadServiceCharge = () => {
-    const today = new Date();
-    const monthKey = `${today.getFullYear()}-${String(
-      today.getMonth() + 1
-    ).padStart(2, "0")}`;
-
-    const serviceData =
-      JSON.parse(localStorage.getItem("serviceCharge")) || {};
-
-    const rate = serviceData[monthKey] || 5;
-
-    setServiceChargePercent(rate);
-  };
-
-  const loadRevenue = () => {
-    const orders = JSON.parse(localStorage.getItem("orders")) || [];
-    const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
-    const count = orders.length;
-    const avg = count > 0 ? revenue / count : 0;
-
-    setTotalRevenue(revenue);
-    setTotalOrders(count);
-    setAvgOrderValue(avg);
-  };
-
-  // =========================
-  // FOH STATUS
-  // =========================
-  const getFohStatus = (revenue, ordersCount, avgValue) => {
-    let revenueScore = 0;
-    let orderScore = 0;
-    let avgScore = 0;
-
-    if (revenue >= 50000) revenueScore = 100;
-    else if (revenue >= 30000) revenueScore = 70;
-    else if (revenue >= 15000) revenueScore = 40;
-    else revenueScore = 20;
-
-    if (ordersCount >= 40) orderScore = 100;
-    else if (ordersCount >= 25) orderScore = 70;
-    else if (ordersCount >= 10) orderScore = 40;
-    else orderScore = 20;
-
-    if (avgValue >= 1500) avgScore = 100;
-    else if (avgValue >= 1000) avgScore = 70;
-    else if (avgValue >= 700) avgScore = 40;
-    else avgScore = 20;
-
-    const finalScore =
-      revenueScore * 0.5 +
-      orderScore * 0.3 +
-      avgScore * 0.2;
-
-    if (finalScore >= 85) {
-      return { status: "GOOD", level: 100, score: finalScore };
-    } else if (finalScore >= 60) {
-      return { status: "WARNING", level: 70, score: finalScore };
-    } else if (finalScore >= 35) {
-      return { status: "BAD", level: 40, score: finalScore };
-    } else {
-      return { status: "CRITICAL", level: 20, score: finalScore };
-    }
-  };
-
-  // =========================
-  // INDIVIDUAL PERFORMANCE
-  // =========================
-  const getIndividualLevel = (revenue) => {
-    if (revenue >= 50000) return 1.0;
-    if (revenue >= 30000) return 0.7;
-    if (revenue >= 15000) return 0.4;
-    return 0.2;
-  };
-
-  // =========================
-  // ATTENDANCE PENALTY
-  // =========================
-  const getAttendancePenalty = (name) => {
-    const attendance =
-      JSON.parse(localStorage.getItem("attendance")) || [];
-
-    const entry = attendance.find(
-      (a) => a.name === name && a.late
-    );
-
-    if (!entry) return 1.0;
-    if (entry.approved === true) return 1.0;
-
-    return 0.5;
-  };
-
-  // =========================
-  // MANAGER ACTION PENALTY
-  // =========================
-  const getManagerPenalty = (name) => {
-    const actions =
-      JSON.parse(localStorage.getItem("staffActions")) || {};
-
-    const action = actions[name];
-
-    if (action === "Under Review") return 0.8;
-    if (action === "Final Warning") return 0.5;
-
-    return 1.0;
-  };
-
-  const saveDay = () => {
-    const orders = JSON.parse(localStorage.getItem("orders")) || [];
-
-    if (orders.length === 0) {
-      alert("No data to save");
-      return;
-    }
-
-    const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
-    const ordersCount = orders.length;
-    const avgValue = ordersCount > 0 ? revenue / ordersCount : 0;
-
-    const percent = serviceChargePercent;
-    const serviceCharge = revenue * (percent / 100);
-
-    const barWaste = Number(localStorage.getItem("barWaste")) || 0;
-    const kitchenCost = Number(localStorage.getItem("kitchenCost")) || 30;
-
-    const fohResult = getFohStatus(revenue, ordersCount, avgValue);
-
-    let barLevel = 20;
-    let barStatus = "CRITICAL";
-
-    if (barWaste < 1000) {
-      barLevel = 100;
-      barStatus = "GOOD";
-    } else if (barWaste < 2000) {
-      barLevel = 70;
-      barStatus = "WARNING";
-    } else if (barWaste < 4000) {
-      barLevel = 40;
-      barStatus = "BAD";
-    }
-
-    let kitchenLevel = 20;
-    let kitchenStatus = "CRITICAL";
-
-    if (kitchenCost <= 30) {
-      kitchenLevel = 100;
-      kitchenStatus = "GOOD";
-    } else if (kitchenCost <= 35) {
-      kitchenLevel = 70;
-      kitchenStatus = "WARNING";
-    } else if (kitchenCost <= 40) {
-      kitchenLevel = 40;
-      kitchenStatus = "BAD";
-    }
-
-    const fohPool = serviceCharge * 0.5 * (fohResult.level / 100);
-    const barPool = serviceCharge * 0.3 * (barLevel / 100);
-    const kitchenPool = serviceCharge * 0.2 * (kitchenLevel / 100);
-
-    const staffMap = {};
-
-    orders.forEach((order) => {
-      if (!staffMap[order.staff]) {
-        staffMap[order.staff] = 0;
-      }
-      staffMap[order.staff] += Number(order.total);
-    });
-
-    const totalFOHRevenue = Object.values(staffMap).reduce((a, b) => a + b, 0);
-
-    const staffBreakdown = Object.entries(staffMap).map(([name, value]) => {
-      const share = totalFOHRevenue > 0 ? value / totalFOHRevenue : 0;
-      const level = getIndividualLevel(value);
-      const attendancePenalty = getAttendancePenalty(name);
-      const managerPenalty = getManagerPenalty(name);
-
-      const payout =
-        fohPool * share * level * attendancePenalty * managerPenalty;
-
-      return {
-        name,
-        revenue: value,
-        payout,
-        level,
-        attendancePenalty,
-        managerPenalty,
-      };
-    });
-
-    const today = new Date().toLocaleDateString("en-GB");
-    const existingHistory = JSON.parse(localStorage.getItem("history")) || [];
-
-    const newDay = {
-      date: today,
-      revenue,
-      totalOrders: ordersCount,
-      avgOrderValue: avgValue,
-      serviceCharge,
-      levels: {
-        foh: fohResult.status,
-        bar: barStatus,
-        kitchen: kitchenStatus,
-      },
-      scores: {
-        foh: Math.round(fohResult.score),
-      },
-      payouts: {
-        foh: fohPool,
-        bar: barPool,
-        kitchen: kitchenPool,
-      },
-      staff: staffBreakdown,
-      orders,
-    };
-
-    const updatedHistory = [newDay, ...existingHistory];
-
-    localStorage.setItem("history", JSON.stringify(updatedHistory));
-    localStorage.removeItem("orders");
-
-    alert(`Day saved with ${percent}% service charge`);
-    window.location.reload();
-  };
-
   return (
-    <div className="min-h-screen text-white p-10">
-      <h1 className="text-3xl">Control Final</h1>
+    <div className="relative min-h-screen text-white overflow-hidden">
 
-      <button
-        onClick={saveDay}
-        className="bg-orange-500 px-4 py-2 mt-4"
-      >
-        Close Day & Save
-      </button>
+      {/* BACKGROUND */}
+      <div className="absolute inset-0 -z-30">
+        <img
+          src="/bg-hero-control.jpg"
+          className="w-full h-full object-cover"
+        />
+      </div>
 
-      <div className="mt-6 space-y-2">
-        <div>Revenue: THB {totalRevenue.toLocaleString()}</div>
-        <div>Total Orders: {totalOrders}</div>
-        <div>
-          Average Order Value: THB {Math.round(avgOrderValue).toLocaleString()}
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-16 space-y-8">
+
+        <h1 className="text-3xl md:text-5xl font-semibold">
+          Advanced Payout System
+        </h1>
+
+        {/* SUMMARY */}
+        <div className="rounded-3xl border border-white/10 bg-black/30 p-6 space-y-3">
+          <div>Revenue: THB {revenue.toLocaleString()}</div>
+          <div>Service Charge: THB {serviceCharge.toLocaleString()}</div>
+          <div>FOH Pool: THB {fohPool.toLocaleString()}</div>
         </div>
-        <div>
-          Monthly Service Charge: {serviceChargePercent}%
+
+        {/* FOH STAFF */}
+        <div className="rounded-3xl border border-white/10 bg-black/30 p-6 space-y-4">
+          <h2 className="text-xl font-semibold">
+            FOH Staff (Level-Based)
+          </h2>
+
+          {staff.length === 0 && (
+            <div className="text-white/60">
+              No staff data available
+            </div>
+          )}
+
+          {staff.map((s, i) => (
+            <div
+              key={i}
+              className="p-4 border border-white/10 rounded-xl flex justify-between"
+            >
+              <div>{s.name}</div>
+              <div>{s.role}</div>
+            </div>
+          ))}
         </div>
+
       </div>
     </div>
   );

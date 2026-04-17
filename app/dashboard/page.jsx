@@ -3,34 +3,28 @@
 import { useEffect, useState } from "react";
 
 export default function Dashboard() {
-  const [monthlyPayroll, setMonthlyPayroll] = useState(null);
-  const [attendanceData, setAttendanceData] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [attendance, setAttendance] = useState([]);
   const [staffActions, setStaffActions] = useState({});
+  const [payroll, setPayroll] = useState(null);
 
   useEffect(() => {
-    const attendance =
-      JSON.parse(localStorage.getItem("attendance")) || [];
+    const h = JSON.parse(localStorage.getItem("history")) || [];
+    const a = JSON.parse(localStorage.getItem("attendance")) || [];
+    const actions = JSON.parse(localStorage.getItem("staffActions")) || {};
 
-    const actions =
-      JSON.parse(localStorage.getItem("staffActions")) || {};
+    setHistory(h);
+    setAttendance(a);
 
-    setAttendanceData(attendance);
-
-    // ✅ RUN SYSTEM
-    runSystem(attendance, actions);
-
-    // ✅ AUTO PAYROLL (THIS WAS MISSING)
-    const payroll = generatePayroll();
-    setMonthlyPayroll(payroll);
+    runSystem(a, actions);
+    const p = generatePayroll(h);
+    setPayroll(p);
   }, []);
 
   // =========================
-  // AUTO PAYROLL GENERATION
+  // PAYROLL
   // =========================
-  const generatePayroll = () => {
-    const history =
-      JSON.parse(localStorage.getItem("history")) || [];
-
+  const generatePayroll = (history) => {
     if (history.length === 0) return null;
 
     const staffMap = {};
@@ -40,112 +34,78 @@ export default function Dashboard() {
         if (!staffMap[s.name]) {
           staffMap[s.name] = {
             name: s.name,
-            salary: 0,
-            bonus: 0,
             total: 0,
-            staffConfirmed: false,
-            managerApproved: false,
-            paymentConfirmed: false,
+            bonus: 0,
           };
         }
 
-        // 👉 service charge payout = bonus
         staffMap[s.name].bonus += Number(s.payout || 0);
       });
     });
 
     const staffArray = Object.values(staffMap).map((s) => ({
       ...s,
-      total: s.salary + s.bonus,
+      total: s.bonus,
     }));
 
-    const result = {
-      createdAt: new Date().toISOString(),
-      staff: staffArray,
-    };
-
-    localStorage.setItem("monthlyPayroll", JSON.stringify(result));
-
-    return result;
+    return { staff: staffArray };
   };
 
   // =========================
-  // MAIN SYSTEM ENGINE
+  // SYSTEM ENGINE
   // =========================
   const runSystem = (attendance, actions) => {
     let updated = { ...actions };
 
     updated = detectAttendanceIssues(attendance, updated);
     updated = detectPerformanceIssues(updated);
-    updated = applyRecovery(updated);
 
     localStorage.setItem("staffActions", JSON.stringify(updated));
     setStaffActions(updated);
   };
 
-  // =========================
-  // ATTENDANCE DETECTION
-  // =========================
   const detectAttendanceIssues = (attendance, actions) => {
     const updated = { ...actions };
 
-    const staffMap = {};
+    const map = {};
 
-    attendance.forEach((entry) => {
-      if (!staffMap[entry.name]) {
-        staffMap[entry.name] = [];
-      }
-      staffMap[entry.name].push(entry);
+    attendance.forEach((e) => {
+      if (!map[e.name]) map[e.name] = [];
+      map[e.name].push(e);
     });
 
-    Object.entries(staffMap).forEach(([name, entries]) => {
+    Object.entries(map).forEach(([name, entries]) => {
       const lateCount = entries.filter(
         (e) => e.late && e.approved !== true
       ).length;
 
       if (!updated[name]) {
-        if (lateCount >= 5) {
-          updated[name] = "Final Warning";
-        } else if (lateCount >= 3) {
-          updated[name] = "Under Review";
-        }
+        if (lateCount >= 5) updated[name] = "Final Warning";
+        else if (lateCount >= 3) updated[name] = "Under Review";
       }
     });
 
     return updated;
   };
 
-  // =========================
-  // PERFORMANCE DETECTION
-  // =========================
   const detectPerformanceIssues = (actions) => {
-    const history =
-      JSON.parse(localStorage.getItem("history")) || [];
-
-    if (history.length === 0) return actions;
-
     const updated = { ...actions };
 
-    const staffPerformance = {};
+    const performance = {};
 
     history.forEach((day) => {
       day.staff?.forEach((s) => {
-        if (!staffPerformance[s.name]) {
-          staffPerformance[s.name] = [];
-        }
-        staffPerformance[s.name].push(s.level);
+        if (!performance[s.name]) performance[s.name] = [];
+        performance[s.name].push(s.level);
       });
     });
 
-    Object.entries(staffPerformance).forEach(([name, levels]) => {
-      const badCount = levels.filter((l) => l <= 0.4).length;
+    Object.entries(performance).forEach(([name, levels]) => {
+      const bad = levels.filter((l) => l <= 0.4).length;
 
       if (!updated[name]) {
-        if (badCount >= 5) {
-          updated[name] = "Final Warning";
-        } else if (badCount >= 3) {
-          updated[name] = "Under Review";
-        }
+        if (bad >= 5) updated[name] = "Final Warning";
+        else if (bad >= 3) updated[name] = "Under Review";
       }
     });
 
@@ -153,74 +113,118 @@ export default function Dashboard() {
   };
 
   // =========================
-  // PER-STAFF RECOVERY
+  // HELPERS
   // =========================
-  const applyRecovery = (actions) => {
-    const history =
-      JSON.parse(localStorage.getItem("history")) || [];
+  const getLatestDay = () => history[0] || {};
 
-    if (history.length < 3) return actions;
+  const getStaffPerformance = (name) => {
+    let scores = [];
 
-    const last3 = history.slice(0, 3);
-
-    const updated = { ...actions };
-
-    Object.keys(updated).forEach((name) => {
-      let goodDays = 0;
-
-      last3.forEach((day) => {
-        const staffEntry = day.staff?.find(
-          (s) => s.name === name
-        );
-
-        if (staffEntry && staffEntry.level >= 0.7) {
-          goodDays++;
-        }
-      });
-
-      if (goodDays === 3) {
-        delete updated[name];
-      }
+    history.forEach((day) => {
+      const s = day.staff?.find((x) => x.name === name);
+      if (s) scores.push(s.level);
     });
 
-    return updated;
+    if (scores.length === 0) return 0;
+
+    return (
+      scores.reduce((a, b) => a + b, 0) / scores.length
+    );
   };
 
-  const getActionColor = (action) => {
-    if (action === "Final Warning") return "text-red-500";
-    if (action === "Under Review") return "text-yellow-400";
-    return "text-green-400";
+  const getLateCount = (name) => {
+    return attendance.filter(
+      (e) => e.name === name && e.late && !e.approved
+    ).length;
   };
 
-  if (!monthlyPayroll) {
-    return <div className="text-white p-10">No payroll yet</div>;
+  const getColor = (value) => {
+    if (value >= 0.9) return "text-green-400";
+    if (value >= 0.7) return "text-yellow-400";
+    if (value >= 0.4) return "text-orange-400";
+    return "text-red-500";
+  };
+
+  if (!payroll) {
+    return <div className="text-white p-10">No data</div>;
   }
 
+  const latest = getLatestDay();
+
+  // =========================
+  // RANKING
+  // =========================
+  const ranked = [...payroll.staff].sort(
+    (a, b) => b.total - a.total
+  );
+
+  const top = ranked.slice(0, 3);
+  const worst = ranked.slice(-3);
+
   return (
-    <div className="min-h-screen text-white p-10">
+    <div className="min-h-screen text-white p-10 space-y-8">
 
-      <h1 className="text-3xl mb-6">Manager Dashboard</h1>
+      <h1 className="text-3xl">Control Dashboard</h1>
 
-      {monthlyPayroll.staff.map((s, i) => {
-        const action = staffActions[s.name] || "Normal";
+      {/* TOP */}
+      <div className="bg-white/10 p-6 rounded-xl">
+        <div>Revenue: THB {latest.revenue || 0}</div>
+        <div>Orders: {latest.totalOrders || 0}</div>
+        <div>Avg: THB {Math.round(latest.avgOrderValue || 0)}</div>
+        <div>FOH Score: {latest.scores?.foh || 0}</div>
+        <div>Service Charge: THB {latest.serviceCharge || 0}</div>
+      </div>
 
-        return (
-          <div key={i} className="mb-4 p-4 bg-white/10 rounded-xl">
+      {/* ALERTS */}
+      <div className="bg-white/10 p-6 rounded-xl">
+        <h2 className="mb-2">Alerts</h2>
 
-            <strong>{s.name}</strong>
-
-            <br />
-
-            <span className={getActionColor(action)}>
-              Status: {action}
-            </span>
-
-            <br />
-            Total: THB {Math.round(s.total)}
-
+        {Object.entries(staffActions).map(([name, status]) => (
+          <div key={name}>
+            {name} → {status}
           </div>
-        );
-      })}
+        ))}
+      </div>
+
+      {/* STAFF */}
+      <div className="space-y-4">
+        {payroll.staff.map((s, i) => {
+          const perf = getStaffPerformance(s.name);
+          const late = getLateCount(s.name);
+          const status = staffActions[s.name] || "Normal";
+
+          return (
+            <div key={i} className="bg-white/10 p-4 rounded-xl">
+
+              <div className="flex justify-between">
+                <strong>{s.name}</strong>
+                <div>THB {Math.round(s.total)}</div>
+              </div>
+
+              <div className={getColor(perf)}>
+                Performance: {(perf * 100).toFixed(0)}%
+              </div>
+
+              <div>Late: {late}</div>
+              <div>Status: {status}</div>
+
+            </div>
+          );
+        })}
+      </div>
+
+      {/* RANKING */}
+      <div className="bg-white/10 p-6 rounded-xl">
+        <h2>Top Performers</h2>
+        {top.map((s) => (
+          <div key={s.name}>{s.name} - THB {Math.round(s.total)}</div>
+        ))}
+
+        <h2 className="mt-4">Worst Performers</h2>
+        {worst.map((s) => (
+          <div key={s.name}>{s.name} - THB {Math.round(s.total)}</div>
+        ))}
+      </div>
 
     </div>
   );

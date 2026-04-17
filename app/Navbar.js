@@ -1,63 +1,38 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Navbar from "./Navbar";
 
-export default function Navbar() {
-  const pathname = usePathname();
-
-  const navItems = [
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "Control", href: "/control-final" },
-    { name: "POS", href: "/pos" },
-    { name: "POS Control", href: "/pos-control" },
-    { name: "Staff", href: "/staff" },
-    { name: "Staff Control", href: "/staff-control" },
-    { name: "History", href: "/history" },
-    { name: "Accounting", href: "/accounting" },
-    { name: "Payout", href: "/payout" },
-  ];
-
+export default function AppShell({ children }) {
   return (
-    <div className="fixed top-0 left-0 w-full z-50">
+    <div className="relative min-h-screen bg-[#0d0a07] text-white">
 
-      {/* Glass background */}
-      <div className="absolute inset-0 bg-black/25 backdrop-blur-2xl border-b border-white/5" />
+      {/* BACKGROUND (fixed) */}
+      <div className="fixed inset-0 z-0">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-[1.05]"
+          style={{ backgroundImage: "url('/bg-beach.jpg')" }}
+        />
 
-      <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
+        {/* light + depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,122,0,0.18),transparent_35%),linear-gradient(180deg,rgba(10,7,5,0.35)_0%,rgba(10,7,5,0.75)_55%,rgba(10,7,5,0.9)_100%)]" />
 
-        {/* LOGO */}
-        <div className="flex items-center gap-2">
-          <span className="text-[#ff7a00] font-semibold">CC</span>
-          <span className="text-white/80 text-sm tracking-wide">
-            CHURCHILL
-          </span>
-        </div>
+        {/* vignette */}
+        <div className="absolute inset-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.75)]" />
+      </div>
 
-        {/* NAV */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+      {/* NAVBAR */}
+      <div className="relative z-20">
+        <Navbar />
+      </div>
 
-          {navItems.map((item, i) => {
-            const active = pathname === item.href;
+      {/* SCROLLABLE CONTENT */}
+      <div className="relative z-10">
 
-            return (
-              <Link
-                key={i}
-                href={item.href}
-                className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap transition
-                  ${
-                    active
-                      ? "bg-[#ff7a00] text-black shadow-[0_5px_20px_rgba(0,0,0,0.5)]"
-                      : "text-white/60 hover:text-white hover:bg-white/5"
-                  }
-                `}
-              >
-                {item.name}
-              </Link>
-            );
-          })}
-
-        </div>
+        <main className="max-w-[1200px] mx-auto px-6 pt-28 pb-20">
+          <div className="space-y-14">
+            {children}
+          </div>
+        </main>
 
       </div>
     </div>

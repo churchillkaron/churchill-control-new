@@ -10,6 +10,7 @@ export default function StaffPage() {
   const [checkedIn, setCheckedIn] = useState(false);
   const [showLatePopup, setShowLatePopup] = useState(false);
   const [lateReason, setLateReason] = useState("");
+  const [lateCount, setLateCount] = useState(0);
 
   const SHIFT_START_HOUR = 10;
 
@@ -42,6 +43,15 @@ export default function StaffPage() {
     );
 
     setCheckedIn(alreadyCheckedIn);
+
+    // 🔥 COUNT LATES THIS MONTH
+    const lates = attendance.filter(
+      (entry) =>
+        entry.name === name &&
+        entry.late === true
+    );
+
+    setLateCount(lates.length);
   }, []);
 
   const isLate = () => {
@@ -65,6 +75,47 @@ export default function StaffPage() {
 
     localStorage.setItem("attendance", JSON.stringify([entry, ...existing]));
     setCheckedIn(true);
+
+    // 🔥 APPLY PENALTY IF LATE
+    if (late) {
+      applyLatePenalty();
+    }
+  };
+
+  // 🔥 PENALTY SYSTEM
+  const applyLatePenalty = () => {
+    const data =
+      JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
+
+    if (!data) return;
+
+    const index = data.staff.findIndex(
+      (s) => s.name === staffName
+    );
+
+    if (index === -1) return;
+
+    // 🔥 RULES
+    // 1st late = warning
+    // 2nd late = -5%
+    // 3rd late = -10%
+
+    const newLateCount = lateCount + 1;
+
+    let penalty = 0;
+
+    if (newLateCount === 2) penalty = 0.05;
+    if (newLateCount >= 3) penalty = 0.1;
+
+    if (penalty > 0) {
+      data.staff[index].penalty = penalty;
+      data.staff[index].total =
+        data.staff[index].total * (1 - penalty);
+    }
+
+    localStorage.setItem("monthlyPayroll", JSON.stringify(data));
+    setPayroll(data);
+    setLateCount(newLateCount);
   };
 
   const handleStartShift = () => {
@@ -115,15 +166,15 @@ export default function StaffPage() {
             Staff Portal
           </h1>
           <p className="text-white/50 text-sm">
-            Shift tracking, attendance, and payroll confirmation
+            Shift tracking, attendance, and payroll control
           </p>
         </div>
 
-        {/* STAFF INFO CARD */}
+        {/* STATUS CARD */}
         <div className="relative">
           <div className="absolute -inset-4 bg-[#ff7a00]/10 blur-2xl rounded-3xl" />
 
-          <div className="relative bg-white/[0.06] backdrop-blur-xl border border-white/10 p-6 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+          <div className="relative bg-white/[0.06] backdrop-blur-xl border border-white/10 p-6 rounded-2xl">
 
             <div className="flex justify-between text-sm text-white/60">
               <div>{staffName}</div>
@@ -139,10 +190,14 @@ export default function StaffPage() {
               )}
             </div>
 
+            <div className="mt-2 text-sm text-white/50">
+              Late Count: {lateCount}
+            </div>
+
             {!checkedIn && (
               <button
                 onClick={handleStartShift}
-                className="mt-6 bg-[#ff7a00] px-5 py-2 rounded-xl text-black font-medium shadow-lg"
+                className="mt-6 bg-[#ff7a00] px-5 py-2 rounded-xl text-black font-medium"
               >
                 Start Shift
               </button>
@@ -152,55 +207,53 @@ export default function StaffPage() {
 
         {/* PAYROLL */}
         {!staffData ? (
-          <div className="relative">
-            <div className="absolute -inset-2 bg-white/5 blur-xl rounded-xl" />
-
-            <div className="relative bg-white/[0.05] border border-white/10 p-6 rounded-xl">
-              No payroll data available
-            </div>
+          <div className="bg-white/[0.05] border border-white/10 p-6 rounded-xl">
+            No payroll data available
           </div>
         ) : (
-          <div className="relative">
-            <div className="absolute -inset-4 bg-white/5 blur-2xl rounded-3xl" />
+          <div className="bg-white/[0.06] border border-white/10 p-6 rounded-2xl">
 
-            <div className="relative bg-white/[0.06] border border-white/10 p-6 rounded-2xl shadow-[0_25px_70px_rgba(0,0,0,0.6)]">
+            <h2 className="text-xl mb-4 text-white/80">
+              Salary Overview
+            </h2>
 
-              <h2 className="text-xl mb-4 text-white/80">
-                Salary Overview
-              </h2>
+            <div>Salary: THB {staffData.salary}</div>
+            <div>Bonus: THB {Math.round(staffData.bonus)}</div>
 
-              <div>Salary: THB {staffData.salary}</div>
-              <div>Bonus: THB {Math.round(staffData.bonus)}</div>
-
-              <div className="mt-3 text-[#ff7a00] font-medium">
-                Total: THB {Math.round(staffData.total)}
+            {staffData.penalty && (
+              <div className="text-red-400 mt-2">
+                Penalty Applied: {staffData.penalty * 100}%
               </div>
+            )}
 
-              <div className="mt-4 space-y-1 text-sm">
-                <div>
-                  Staff Confirmed:{" "}
-                  {staffData.staffConfirmed ? "✅ Yes" : "❌ No"}
-                </div>
-                <div>
-                  Manager Approved:{" "}
-                  {staffData.managerApproved ? "✅ Yes" : "❌ No"}
-                </div>
-                <div>
-                  Payment Confirmed:{" "}
-                  {staffData.paymentConfirmed ? "✅ Paid" : "❌ Not Paid"}
-                </div>
-              </div>
-
-              {!staffData.staffConfirmed && (
-                <button
-                  onClick={confirmSalary}
-                  className="mt-6 bg-green-500 px-5 py-2 rounded-xl"
-                >
-                  Confirm My Salary
-                </button>
-              )}
-
+            <div className="mt-3 text-[#ff7a00] font-medium">
+              Total: THB {Math.round(staffData.total)}
             </div>
+
+            <div className="mt-4 text-sm space-y-1">
+              <div>
+                Staff Confirmed:{" "}
+                {staffData.staffConfirmed ? "✅" : "❌"}
+              </div>
+              <div>
+                Manager Approved:{" "}
+                {staffData.managerApproved ? "✅" : "❌"}
+              </div>
+              <div>
+                Payment:{" "}
+                {staffData.paymentConfirmed ? "✅ Paid" : "❌"}
+              </div>
+            </div>
+
+            {!staffData.staffConfirmed && (
+              <button
+                onClick={confirmSalary}
+                className="mt-6 bg-green-500 px-5 py-2 rounded-xl"
+              >
+                Confirm My Salary
+              </button>
+            )}
+
           </div>
         )}
 
@@ -214,7 +267,7 @@ export default function StaffPage() {
               </h2>
 
               <p className="text-white/70 text-sm">
-                Please enter your reason before checking in.
+                Provide a reason for manager review
               </p>
 
               <input

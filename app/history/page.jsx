@@ -9,9 +9,10 @@ export default function History() {
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("history") || "[]");
-    setHistory(data.reverse());
+    setHistory([...data].reverse());
   }, []);
 
+  // 🔥 DEPARTMENT SPLIT
   const calculateDepartmentPayout = (day) => {
     const sc = day.serviceCharge || 0;
 
@@ -22,40 +23,78 @@ export default function History() {
     };
   };
 
-  // 🔥 NEW: staff distribution
-  const calculateStaffPayout = (day) => {
+  // 🔥 STAFF PERFORMANCE + PAYOUT
+  const calculateStaffData = (day) => {
     const dept = calculateDepartmentPayout(day);
 
-    const staffMap = {
-      FOH: new Set(),
-      BAR: new Set(),
-      KITCHEN: new Set(),
-    };
+    const staffStats = {};
 
-    // collect staff from orders
     day.paidOrders.forEach((order) => {
       if (!order.staff) return;
 
-      // simple logic: all current staff = FOH for now
-      staffMap.FOH.add(order.staff);
+      if (!staffStats[order.staff]) {
+        staffStats[order.staff] = {
+          revenue: 0,
+          orders: 0,
+        };
+      }
+
+      staffStats[order.staff].revenue += order.total;
+      staffStats[order.staff].orders += 1;
     });
 
-    const result = {};
+    const totalRevenue = day.revenue || 1;
 
-    Object.keys(staffMap).forEach((deptKey) => {
-      const staffList = Array.from(staffMap[deptKey]);
+    const staffList = Object.entries(staffStats).map(([name, data]) => {
+      const avgOrder = data.revenue / data.orders;
 
-      if (staffList.length === 0) return;
+      // 🔥 PERFORMANCE SCORE (V6 LOGIC)
+      const score =
+        (data.revenue / totalRevenue) * 50 +
+        (data.orders / day.paidOrders.length) * 30 +
+        (avgOrder / 1000) * 20;
 
-      const share = Math.round(dept[deptKey] / staffList.length);
+      let level = "GOOD";
+      let multiplier = 1;
 
-      result[deptKey] = staffList.map((name) => ({
+      if (score < 40) {
+        level = "CRITICAL";
+        multiplier = 0.2;
+      } else if (score < 60) {
+        level = "BAD";
+        multiplier = 0.4;
+      } else if (score < 80) {
+        level = "WARNING";
+        multiplier = 0.7;
+      }
+
+      return {
         name,
-        amount: share,
-      }));
+        revenue: data.revenue,
+        orders: data.orders,
+        avgOrder: Math.round(avgOrder),
+        score: Math.round(score),
+        level,
+        multiplier,
+      };
     });
 
-    return result;
+    // 🔥 SORT BEST FIRST
+    staffList.sort((a, b) => b.score - a.score);
+
+    // 🔥 APPLY PAYOUT (FOH only for now)
+    const fohPool = dept.FOH;
+
+    const totalWeight = staffList.reduce(
+      (sum, s) => sum + s.multiplier,
+      0
+    );
+
+    staffList.forEach((s) => {
+      s.payout = Math.round((s.multiplier / totalWeight) * fohPool);
+    });
+
+    return staffList;
   };
 
   return (
@@ -71,6 +110,7 @@ export default function History() {
           </h1>
         </div>
 
+        {/* 🔥 LIST VIEW */}
         {!selectedDay && (
           <div className="space-y-4">
             {history.map((day, index) => (
@@ -89,7 +129,7 @@ export default function History() {
                   </div>
 
                   <div className="text-white/50 text-sm mt-1">
-                    Service Charge: THB {day.serviceCharge.toLocaleString()}
+                    SC: THB {day.serviceCharge.toLocaleString()}
                   </div>
                 </div>
 
@@ -101,6 +141,7 @@ export default function History() {
           </div>
         )}
 
+        {/* 🔥 DETAIL VIEW */}
         {selectedDay && (
           <div className="space-y-6">
 
@@ -111,6 +152,7 @@ export default function History() {
               ← Back
             </button>
 
+            {/* SUMMARY */}
             <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-6">
               <div className="text-white/60 text-sm">
                 {new Date(selectedDay.date).toLocaleDateString()}
@@ -125,54 +167,39 @@ export default function History() {
               </div>
             </div>
 
-            {/* DEPARTMENT SPLIT */}
+            {/* 🔥 PERFORMANCE SYSTEM */}
             <div className="rounded-2xl border border-white/10 bg-black/30 p-6">
-              <div className="text-white/60 mb-4">Department Split</div>
+              <div className="text-white/60 mb-4">
+                FOH Performance & Payout
+              </div>
 
               {(() => {
-                const payout = calculateDepartmentPayout(selectedDay);
-                return (
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>FOH</span>
-                      <span>THB {payout.FOH}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>BAR</span>
-                      <span>THB {payout.BAR}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>KITCHEN</span>
-                      <span>THB {payout.KITCHEN}</span>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+                const staff = calculateStaffData(selectedDay);
 
-            {/* 🔥 STAFF PAYOUT */}
-            <div className="rounded-2xl border border-white/10 bg-black/30 p-6">
-              <div className="text-white/60 mb-4">Staff Payout</div>
-
-              {(() => {
-                const staffData = calculateStaffPayout(selectedDay);
-
-                return Object.entries(staffData).map(([dept, staff]) => (
-                  <div key={dept} className="mb-4">
-                    <div className="text-[#ffb36b] mb-2">{dept}</div>
-
-                    {staff.map((s, i) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <span>{s.name}</span>
-                        <span>THB {s.amount}</span>
+                return staff.map((s, i) => (
+                  <div
+                    key={i}
+                    className="flex justify-between py-2 border-b border-white/5"
+                  >
+                    <div>
+                      <div>{s.name}</div>
+                      <div className="text-xs text-white/40">
+                        {s.orders} orders • Avg {s.avgOrder}
                       </div>
-                    ))}
+                    </div>
+
+                    <div className="text-right">
+                      <div>THB {s.payout}</div>
+                      <div className="text-xs text-[#ffb36b]">
+                        {s.level} ({s.score})
+                      </div>
+                    </div>
                   </div>
                 ));
               })()}
             </div>
 
-            {/* ORDERS */}
+            {/* 🔥 ORDERS */}
             <div className="space-y-4">
               {selectedDay.paidOrders.map((order, i) => (
                 <div
@@ -180,14 +207,18 @@ export default function History() {
                   className="rounded-xl border border-white/10 bg-black/30 p-4"
                 >
                   <div className="flex justify-between">
-                    <div>Table {order.table}</div>
+                    <div>
+                      Table {order.table} — {order.staff}
+                    </div>
                     <div>THB {order.total}</div>
                   </div>
 
                   <div className="mt-2 space-y-1 text-sm text-white/70">
                     {order.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between">
-                        <span>{item.name}</span>
+                        <span>
+                          {item.name} x{item.qty || 1}
+                        </span>
                         <span>THB {item.price}</span>
                       </div>
                     ))}

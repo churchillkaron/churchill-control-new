@@ -19,14 +19,15 @@ export default function ControlFinal() {
       setStaffRole(role);
     }
 
-    // 🔥 LOAD ORDERS
+    loadData();
+  }, []);
+
+  const loadData = () => {
     const orders = JSON.parse(localStorage.getItem("orders")) || [];
 
-    // 🔥 TOTAL REVENUE
     const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
     setTotalRevenue(revenue);
 
-    // 🔥 STAFF PERFORMANCE CALC
     const stats = {};
 
     orders.forEach((order) => {
@@ -48,7 +49,42 @@ export default function ControlFinal() {
     }));
 
     setStaffStats(formatted);
-  }, []);
+  };
+
+  // 🔥 SAVE DAY (CORE SYSTEM FUNCTION)
+  const saveDay = () => {
+    const orders = JSON.parse(localStorage.getItem("orders")) || [];
+
+    if (orders.length === 0) {
+      alert("No data to save");
+      return;
+    }
+
+    const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
+
+    const today = new Date().toLocaleDateString("en-GB");
+
+    const existingHistory =
+      JSON.parse(localStorage.getItem("history")) || [];
+
+    const newDay = {
+      date: today,
+      revenue,
+      orders,
+    };
+
+    const updatedHistory = [newDay, ...existingHistory];
+
+    localStorage.setItem("history", JSON.stringify(updatedHistory));
+
+    // 🔥 RESET CURRENT DAY
+    localStorage.removeItem("orders");
+
+    alert("Day saved successfully");
+
+    // Reload to reflect reset
+    window.location.reload();
+  };
 
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
@@ -70,19 +106,28 @@ export default function ControlFinal() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-28 pb-14 space-y-8">
 
-        {/* HEADER */}
+        {/* STAFF INFO */}
         <div className="flex justify-between text-sm text-white/60">
           <div>{staffName}</div>
           <div>{staffRole}</div>
         </div>
 
+        {/* HEADER */}
         <div>
           <h1 className="text-3xl md:text-5xl font-semibold">
             Control Final
           </h1>
+
+          {/* 🔥 SAVE DAY BUTTON */}
+          <button
+            onClick={saveDay}
+            className="bg-[#ff7a00] px-6 py-3 rounded-xl mt-4"
+          >
+            Save Day
+          </button>
         </div>
 
-        {/* MAIN KPI */}
+        {/* TOTAL REVENUE */}
         <div className="rounded-3xl border border-white/10 bg-[rgba(20,15,10,0.45)] backdrop-blur-2xl p-6">
           <p className="text-white/50">Total Revenue</p>
           <h2 className="text-3xl mt-2 text-[#ffb36b]">

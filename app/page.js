@@ -1,12 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 
 export default function LandingPage() {
+  const [showLogin, setShowLogin] = useState(false);
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("staff");
+
+  const handleLogin = () => {
+    if (!name || !role) return;
+
+    localStorage.setItem("staffName", name);
+    localStorage.setItem("staffRole", role);
+
+    if (role === "staff") window.location.href = "/pos";
+    if (role === "accounting") window.location.href = "/accounting";
+    if (role === "manager") window.location.href = "/dashboard";
+    if (role === "owner") window.location.href = "/control-final";
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0d0a07] text-white">
 
-      {/* FIXED BACKGROUND */}
+      {/* BACKGROUND */}
       <motion.div
         initial={{ scale: 1.05 }}
         animate={{ scale: 1.08 }}
@@ -14,14 +31,10 @@ export default function LandingPage() {
         className="fixed inset-0 z-0"
       >
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/bg-hero-control.jpg')" }}
         />
-
-        {/* depth gradients */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(255,122,0,0.18),transparent_35%),linear-gradient(180deg,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.65)_60%,rgba(0,0,0,0.85)_100%)]" />
-
-        {/* vignette */}
         <div className="absolute inset-0 shadow-[inset_0_0_200px_rgba(0,0,0,0.7)]" />
       </motion.div>
 
@@ -31,116 +44,90 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
-            {/* LEFT SIDE */}
+            {/* LEFT */}
             <div className="space-y-6">
 
-              <motion.span
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="text-xs tracking-[0.25em] text-white/40"
-              >
+              <span className="text-xs tracking-[0.25em] text-white/40">
                 CHURCHILL CONTROL SYSTEM
-              </motion.span>
+              </span>
 
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.1 }}
-                className="text-5xl md:text-6xl font-semibold leading-tight"
-              >
+              <h1 className="text-5xl md:text-6xl font-semibold leading-tight">
                 Total Control
                 <br />
                 <span className="text-[#ff7a00]">Over Your Venue</span>
-              </motion.h1>
+              </h1>
 
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.2 }}
-                className="text-white/60 max-w-lg"
-              >
-                Real-time control of revenue, staff performance, payroll, and daily operations — built for owners who demand clarity, accountability, and profit.
-              </motion.p>
+              <p className="text-white/60 max-w-lg">
+                Real-time control of revenue, staff performance, payroll, and daily operations.
+              </p>
 
-              {/* CTA */}
-              <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="relative inline-block"
-              >
+              {/* BUTTON */}
+              <div className="relative inline-block">
                 <div className="absolute -inset-2 bg-[#ff7a00]/20 blur-xl rounded-xl" />
 
-                <button className="relative px-7 py-3 rounded-xl bg-[#ff7a00] text-black font-medium shadow-[0_10px_30px_rgba(0,0,0,0.5)] hover:scale-[1.02] transition">
+                <button
+                  onClick={() => setShowLogin(true)}
+                  className="relative px-7 py-3 rounded-xl bg-[#ff7a00] text-black font-medium hover:scale-[1.02] transition"
+                >
                   Access Control System
                 </button>
-              </motion.div>
-
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 1, delay: 0.5 }}
-                className="text-white/30 text-sm"
-              >
-                For restaurants, bars, and venue groups
-              </motion.p>
+              </div>
             </div>
 
-            {/* RIGHT SIDE PANEL */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-              className="relative"
-            >
-
-              {/* glow */}
-              <div className="absolute -inset-10 bg-white/5 blur-3xl rounded-[40px]" />
-
-              <div className="relative rounded-[32px] border border-white/10 bg-white/[0.06] backdrop-blur-xl p-8
-                shadow-[0_40px_120px_rgba(0,0,0,0.7),0_10px_40px_rgba(0,0,0,0.5)]
-              ">
-
-                <div className="absolute inset-x-0 top-0 h-px bg-white/30 rounded-t-[32px]" />
-
-                <h3 className="text-lg mb-6 text-white/80">
-                  One system. Full control.
-                </h3>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    ["Revenue", "Know exactly where money goes"],
-                    ["Staff", "Track performance & behavior"],
-                    ["Payroll", "Automated accountability"],
-                    ["Operations", "Zero guesswork decisions"],
-                  ].map(([title, desc], i) => (
-                    <div
-                      key={i}
-                      className="rounded-[18px] border border-white/10 bg-white/[0.05] p-4
-                        shadow-[0_15px_40px_rgba(0,0,0,0.4)]
-                      "
-                    >
-                      <div className="text-white/70 text-xs mb-1">
-                        {title}
-                      </div>
-                      <div className="text-white/90 text-sm">
-                        {desc}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="text-white/40 text-sm mt-6">
-                  Replace spreadsheets, guesswork, and disconnected tools with one unified control system.
-                </p>
-
-              </div>
-            </motion.div>
+            {/* RIGHT PANEL */}
+            <div className="relative rounded-[32px] border border-white/10 bg-white/[0.06] backdrop-blur-xl p-8">
+              <h3 className="text-lg mb-6 text-white/80">
+                One system. Full control.
+              </h3>
+            </div>
 
           </div>
         </div>
       </div>
+
+      {/* LOGIN MODAL */}
+      {showLogin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#1a140f] p-8 rounded-2xl w-full max-w-md border border-white/10">
+
+            <h2 className="text-xl mb-6">Login</h2>
+
+            <input
+              type="text"
+              placeholder="Your Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full mb-4 px-4 py-2 rounded bg-black/40 border border-white/10"
+            />
+
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full mb-6 px-4 py-2 rounded bg-black/40 border border-white/10"
+            >
+              <option value="staff">Staff</option>
+              <option value="accounting">Accounting</option>
+              <option value="manager">Manager</option>
+              <option value="owner">Owner</option>
+            </select>
+
+            <button
+              onClick={handleLogin}
+              className="w-full py-2 rounded bg-[#ff7a00] text-black font-medium"
+            >
+              Enter System
+            </button>
+
+            <button
+              onClick={() => setShowLogin(false)}
+              className="w-full mt-3 text-white/40 text-sm"
+            >
+              Cancel
+            </button>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

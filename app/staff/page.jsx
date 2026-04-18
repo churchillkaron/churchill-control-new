@@ -16,6 +16,8 @@ export default function StaffPage() {
   const [reviewStatus, setReviewStatus] = useState("");
   const [reviewResult, setReviewResult] = useState(null);
 
+  const [reviews, setReviews] = useState([]);
+
   useEffect(() => {
     const storedName = localStorage.getItem("staff_name");
     if (storedName) {
@@ -26,6 +28,7 @@ export default function StaffPage() {
     setAttendance(JSON.parse(localStorage.getItem("staff_attendance") || "[]"));
     setHistory(JSON.parse(localStorage.getItem("history") || "[]"));
     setMessages(JSON.parse(localStorage.getItem("staff_messages") || "[]"));
+    setReviews(JSON.parse(localStorage.getItem("reviews") || "[]"));
   }, []);
 
   const selectUser = (n) => {
@@ -126,6 +129,7 @@ export default function StaffPage() {
         rating: data.rating,
         text: data.text,
         platform: data.platform || "Unknown",
+        image,
         date: today,
       };
 
@@ -134,12 +138,30 @@ export default function StaffPage() {
         JSON.stringify([review, ...existing])
       );
 
+      setReviews([review, ...existing]);
       setReviewResult(review);
       setReviewStatus("Review saved");
     } catch {
       setReviewStatus("AI error");
     }
   };
+
+  // 🔥 REVIEW SYSTEM
+  const myReviewsToday = reviews.filter(
+    (r) => r.staff === name && r.date === today
+  );
+
+  const reviewScore =
+    myReviewsToday.reduce((sum, r) => sum + r.rating, 0) /
+    (myReviewsToday.length || 1);
+
+  const targetMet = myReviewsToday.length >= 2;
+
+  let reviewMultiplier = 1;
+  if (reviewScore >= 4.5) reviewMultiplier = 1.1;
+  if (reviewScore < 4.0) reviewMultiplier = 0.9;
+
+  const adjustedPayout = Math.round(todayPayout * reviewMultiplier);
 
   return (
     <AppShell>
@@ -173,6 +195,14 @@ export default function StaffPage() {
               <p>Status: {todayAttendance ? (todayAttendance.late ? "Late" : "On Time") : "Not Checked In"}</p>
               <p>Penalty: THB {todayAttendance?.penalty || 0}</p>
               <p>Payout Today: THB {todayPayout}</p>
+              <p className="text-orange-400">Adjusted: THB {adjustedPayout}</p>
+            </div>
+
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2 className="mb-3 text-white">Review Performance</h2>
+              <p>Score: {reviewScore.toFixed(2)}</p>
+              <p>Reviews Today: {myReviewsToday.length}</p>
+              <p>Target: {myReviewsToday.length}/2 {targetMet ? "✅" : "❌"}</p>
             </div>
 
             <div className="bg-white/5 p-6 rounded-2xl">

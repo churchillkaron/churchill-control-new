@@ -15,17 +15,38 @@ const categories = [
   "Spirit",
 ];
 
+// 🔥 YOUR REAL MENU (from Excel — unchanged)
 const menu = {
   Starter: [
-    { name: "Spring Rolls", price: 120 },
-    { name: "Garlic Bread", price: 100 },
+    { name: "Beef Carpaccio", price: 320 },
+    { name: "Chili & Garlic Prawns", price: 320 },
+    { name: "Signature Bruschetta", price: 280 },
+    { name: "Seared Scallops", price: 520 },
+    { name: "Mango & Tomato Salad", price: 220 },
+    { name: "Tom Yum Goong", price: 180 },
+    { name: "Tom Kha Gai", price: 170 },
+    { name: "Potato Gratin", price: 120 },
+    { name: "Crispy Potato Wedges", price: 100 },
+    { name: "Cauliflower Puree", price: 120 },
   ],
   "Main Course": [
-    { name: "Steak", price: 450 },
-    { name: "Pasta", price: 280 },
+    { name: "Churchill Beef Short Ribs", price: 890 },
+    { name: "Ribeye Steak", price: 890 },
+    { name: "Beef Tenderloin", price: 920 },
+    { name: "Pork Tenderloin", price: 460 },
+    { name: "Salmon", price: 690 },
+    { name: "Churchill Sambal Half Chicken", price: 590 },
+    { name: "Veal Stew", price: 850 },
   ],
   "Thai Food": [
-    { name: "Pad Thai", price: 180 },
+    { name: "Pad Thai", price: 160 },
+    { name: "Pad Ka Prow", price: 150 },
+    { name: "Stir-Fried Chicken with Cashew Nuts", price: 180 },
+    { name: "Beef with Oyster Sauce", price: 220 },
+    { name: "Massaman Curry", price: 180 },
+    { name: "Green Curry", price: 170 },
+    { name: "Panang Curry", price: 175 },
+    { name: "Pineapple Fried Rice", price: 160 },
   ],
 };
 
@@ -101,7 +122,7 @@ export default function POSPage() {
         {/* 🔥 FIXED LAYOUT */}
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_400px] gap-6 items-start">
 
-          {/* MENU (LEFT) */}
+          {/* MENU */}
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
 
             {currentMenu.length === 0 && (
@@ -125,16 +146,15 @@ export default function POSPage() {
 
           </div>
 
-          {/* 🔥 CART (RIGHT - FIXED + SCROLL) */}
+          {/* 🔥 CART (FIXED HEIGHT + SCROLL) */}
           <div className="bg-white/5 p-4 rounded-xl h-[500px] flex flex-col">
 
             <h2 className="mb-3">Cart</h2>
 
-            {/* SCROLL AREA */}
             <div className="flex-1 overflow-y-auto space-y-2">
 
               {cart.map((item) => (
-                <div key={item.name} className="flex justify-between">
+                <div key={item.name} className="flex justify-between items-center">
                   <span>
                     {item.name} x{item.qty}
                   </span>
@@ -148,7 +168,6 @@ export default function POSPage() {
 
             </div>
 
-            {/* FIXED FOOTER */}
             <div className="mt-4 border-t border-white/10 pt-3">
 
               <div className="font-semibold mb-3">

@@ -12,7 +12,10 @@ export default function AccountingPage() {
   }, []);
 
   const latestDay =
-    history[history.length - 1] || null;
+    history.find(
+      (d) =>
+        d.date === new Date().toLocaleDateString("en-GB")
+    ) || history[history.length - 1] || null;
 
   const markPaid = (staffName) => {
     const updated = history.map((day) => {
@@ -56,12 +59,14 @@ export default function AccountingPage() {
             Accounting
           </h1>
           <p className="text-white/50 text-sm">
-            Final payroll release
+            Final payroll confirmation
           </p>
         </div>
 
         {!latestDay && (
-          <p className="text-white/40">No data available</p>
+          <p className="text-white/40">
+            No payroll data available
+          </p>
         )}
 
         {latestDay && (
@@ -69,12 +74,12 @@ export default function AccountingPage() {
 
             <div className="flex justify-between items-center">
               <h2 className="text-white text-lg">
-                {latestDay.date}
+                Payroll — {latestDay.date}
               </h2>
 
               <button
                 onClick={() => {
-                  if (confirm("Mark ALL as paid?")) {
+                  if (confirm("Mark ALL salaries as paid?")) {
                     markAllPaid();
                   }
                 }}
@@ -117,7 +122,7 @@ export default function AccountingPage() {
                   {!s.paid && s.approved && (
                     <button
                       onClick={() => {
-                        if (confirm(`Mark ${s.name} as paid?`)) {
+                        if (confirm(`Pay ${s.name}?`)) {
                           markPaid(s.name);
                         }
                       }}

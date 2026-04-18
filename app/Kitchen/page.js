@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../../lib/supabase";
+import AppShell from "../AppShell";
 
 export default function Kitchen() {
   const [orders, setOrders] = useState([]);
@@ -32,10 +33,7 @@ export default function Kitchen() {
   useEffect(() => {
     const staffRole = localStorage.getItem("staffRole");
 
-    if (!staffRole) {
-      window.location.href = "/";
-      return;
-    }
+    if (!staffRole) return; // ❗ no redirect anymore (AppShell handles layout)
 
     setRole(staffRole);
 
@@ -46,14 +44,13 @@ export default function Kitchen() {
       .on(
         "postgres_changes",
         {
-          event: "INSERT", // 🔥 ONLY NEW ORDERS TRIGGER SOUND
+          event: "INSERT",
           schema: "public",
           table: "orders",
         },
         () => {
           fetchOrders();
 
-          // 🔊 PLAY SOUND
           if (audioRef.current) {
             audioRef.current.play().catch(() => {});
           }
@@ -89,54 +86,55 @@ export default function Kitchen() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 space-y-6">
+    <AppShell>
+      <div className="space-y-6">
 
-      {/* 🔊 AUDIO ELEMENT */}
-      <audio ref={audioRef} src="/alert.mp3" preload="auto" />
+        <audio ref={audioRef} src="/alert.mp3" preload="auto" />
 
-      <h1 className="text-3xl font-semibold">
-        {role === "BAR" ? "Bar Screen" : "Kitchen Screen"}
-      </h1>
+        <h1 className="text-3xl font-semibold">
+          {role === "BAR" ? "Bar Screen" : "Kitchen Screen"}
+        </h1>
 
-      <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
 
-        {orders.map((order) => {
-          const filtered = filterItemsByRole(order.items || []);
+          {orders.map((order) => {
+            const filtered = filterItemsByRole(order.items || []);
 
-          if (filtered.length === 0) return null;
+            if (filtered.length === 0) return null;
 
-          return (
-            <div
-              key={order.id}
-              className="bg-white/10 p-4 rounded-xl"
-            >
-
-              <div className="flex justify-between mb-2">
-                <div>Table {order.table_name}</div>
-                <div className="text-[#ff7a00]">{order.status}</div>
-              </div>
-
-              <div className="space-y-1 text-sm mb-3">
-                {filtered.map((item, i) => (
-                  <div key={i}>
-                    {item.name} x{item.qty || 1}
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={() => updateStatus(order)}
-                className="w-full bg-[#ff7a00] py-2 rounded-xl text-black"
+            return (
+              <div
+                key={order.id}
+                className="bg-white/10 p-4 rounded-xl backdrop-blur-xl border border-white/10"
               >
-                Next Step
-              </button>
 
-            </div>
-          );
-        })}
+                <div className="flex justify-between mb-2">
+                  <div>Table {order.table_name}</div>
+                  <div className="text-[#ff7a00]">{order.status}</div>
+                </div>
+
+                <div className="space-y-1 text-sm mb-3">
+                  {filtered.map((item, i) => (
+                    <div key={i}>
+                      {item.name} x{item.qty || 1}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => updateStatus(order)}
+                  className="w-full bg-[#ff7a00] py-2 rounded-xl text-black"
+                >
+                  Next Step
+                </button>
+
+              </div>
+            );
+          })}
+
+        </div>
 
       </div>
-
-    </div>
+    </AppShell>
   );
 }

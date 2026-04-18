@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function POS() {
   const [staffName, setStaffName] = useState("");
   const [staffRole, setStaffRole] = useState("");
 
   const [cart, setCart] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
 
   const tables = Array.from({ length: 12 }, (_, i) => `T${i + 1}`);
@@ -31,20 +31,7 @@ export default function POS() {
 
     setStaffName(name);
     setStaffRole(role);
-
-    const savedOrders =
-      JSON.parse(localStorage.getItem("orders")) || [];
-
-    setOrders(savedOrders);
   }, []);
-
-  // 🔥 TABLE STATUS
-  const getTableStatus = (table) => {
-    const active = orders.find(
-      (o) => o.table === table && o.status !== "Paid"
-    );
-    return active ? "active" : "free";
-  };
 
   // 🔥 CART
   const addToCart = (item) => {
@@ -68,7 +55,8 @@ export default function POS() {
     0
   );
 
-  const createOrder = () => {
+  // 🔥 CREATE ORDER (NOW SUPABASE)
+  const createOrder = async () => {
     if (!selectedTable) {
       alert("Select table");
       return;
@@ -78,19 +66,23 @@ export default function POS() {
 
     const newOrder = {
       id: Date.now(),
-      table: selectedTable,
+      table_name: selectedTable,
       items: cart,
-      total,
+      total: total,
       status: "Active",
       staff: staffName,
       role: staffRole,
-      time: new Date().toISOString(),
     };
 
-    const updated = [...orders, newOrder];
+    const { error } = await supabase
+      .from("orders")
+      .insert([newOrder]);
 
-    setOrders(updated);
-    localStorage.setItem("orders", JSON.stringify(updated));
+    if (error) {
+      console.error(error);
+      alert("Error saving order");
+      return;
+    }
 
     setCart([]);
     setSelectedTable(null);
@@ -110,36 +102,28 @@ export default function POS() {
           POS System
         </h1>
 
-        {/* 🔥 TABLES */}
+        {/* TABLES */}
         <div>
           <h2 className="text-white/60 mb-3">Tables</h2>
 
           <div className="grid grid-cols-4 gap-3">
-            {tables.map((t) => {
-              const status = getTableStatus(t);
-
-              return (
-                <button
-                  key={t}
-                  onClick={() => setSelectedTable(t)}
-                  className={`p-4 rounded-xl ${
-                    status === "active"
-                      ? "bg-red-500/30"
-                      : "bg-green-500/20"
-                  } ${
-                    selectedTable === t
-                      ? "ring-2 ring-[#ff7a00]"
-                      : ""
-                  }`}
-                >
-                  {t}
-                </button>
-              );
-            })}
+            {tables.map((t) => (
+              <button
+                key={t}
+                onClick={() => setSelectedTable(t)}
+                className={`p-4 rounded-xl bg-white/10 ${
+                  selectedTable === t
+                    ? "ring-2 ring-[#ff7a00]"
+                    : ""
+                }`}
+              >
+                {t}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* 🔥 MENU */}
+        {/* MENU */}
         <div className="grid grid-cols-2 gap-4">
           {menu.map((item) => (
             <button
@@ -152,7 +136,7 @@ export default function POS() {
           ))}
         </div>
 
-        {/* 🔥 CART */}
+        {/* CART */}
         <div className="bg-white/5 p-6 rounded-xl space-y-3">
           <h2>Cart</h2>
 

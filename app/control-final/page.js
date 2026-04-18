@@ -49,7 +49,7 @@ export default function ControlFinal() {
     });
   }, [orders]);
 
-  // 🔥 PREPARE CLOSE (NO SAVE YET)
+  // 🔥 PREPARE CLOSE (WITH PENALTIES)
   const prepareClose = () => {
     const paidOrders = orders.filter((o) => o.status === "PAID");
 
@@ -73,11 +73,49 @@ export default function ControlFinal() {
 
     const adjustedFoh = fohPool * fohLevel;
 
+    // 🔥 LOAD ATTENDANCE
+    const attendance =
+      JSON.parse(localStorage.getItem("staff_attendance") || "[]");
+
+    const today = new Date().toLocaleDateString("en-GB");
+
+    const getPenalty = (name) => {
+      const entry = attendance.find(
+        (a) => a.name === name && a.date === today
+      );
+      return entry ? entry.penalty || 0 : 0;
+    };
+
+    // 🔥 STAFF PAYOUT WITH PENALTIES
     const staff = [
-      { name: "FOH 1", payout: Math.round(adjustedFoh / 2) },
-      { name: "FOH 2", payout: Math.round(adjustedFoh / 2) },
-      { name: "BAR", payout: Math.round(barPool) },
-      { name: "KITCHEN", payout: Math.round(kitchenPool) },
+      {
+        name: "FOH 1",
+        payout: Math.max(
+          0,
+          Math.round(adjustedFoh / 2) - getPenalty("FOH 1")
+        ),
+      },
+      {
+        name: "FOH 2",
+        payout: Math.max(
+          0,
+          Math.round(adjustedFoh / 2) - getPenalty("FOH 2")
+        ),
+      },
+      {
+        name: "BAR",
+        payout: Math.max(
+          0,
+          Math.round(barPool) - getPenalty("BAR")
+        ),
+      },
+      {
+        name: "KITCHEN",
+        payout: Math.max(
+          0,
+          Math.round(kitchenPool) - getPenalty("KITCHEN")
+        ),
+      },
     ];
 
     const newDay = {
@@ -102,7 +140,7 @@ export default function ControlFinal() {
     setShowApproval(true);
   };
 
-  // 🔥 APPROVE & SAVE
+  // 🔥 APPROVE
   const approveClose = () => {
     const history =
       JSON.parse(localStorage.getItem("history") || "[]");
@@ -166,7 +204,7 @@ export default function ControlFinal() {
           </button>
         </div>
 
-        {/* 🔥 APPROVAL POPUP */}
+        {/* APPROVAL POPUP */}
         {showApproval && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
             <div className="bg-black p-6 rounded-xl w-[400px] space-y-4">

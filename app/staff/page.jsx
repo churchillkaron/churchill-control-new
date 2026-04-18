@@ -9,15 +9,19 @@ export default function StaffPage() {
 
   const [attendance, setAttendance] = useState([]);
   const [history, setHistory] = useState([]);
-  const [confirmed, setConfirmed] = useState(false);
 
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedOut, setCheckedOut] = useState(false);
   const [late, setLate] = useState(false);
 
+  const [checkInTime, setCheckInTime] = useState(null);
+  const [checkOutTime, setCheckOutTime] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [reviewResult, setReviewResult] = useState(null);
   const [preview, setPreview] = useState(null);
+
+  const today = new Date().toLocaleDateString("en-GB");
 
   useEffect(() => {
     const storedName = localStorage.getItem("staff_name");
@@ -29,13 +33,21 @@ export default function StaffPage() {
     const att = JSON.parse(localStorage.getItem("staff_attendance") || "[]");
     setAttendance(att);
 
-    const today = new Date().toLocaleDateString("en-GB");
     const existing = att.find((a) => a.name === storedName && a.date === today);
 
     if (existing) {
       setCheckedIn(true);
       setCheckedOut(!!existing.checkOut);
       setLate(existing.late);
+      setCheckInTime(existing.checkIn);
+      setCheckOutTime(existing.checkOut);
+    } else {
+      // 🔥 FIX: reset state if no record today
+      setCheckedIn(false);
+      setCheckedOut(false);
+      setLate(false);
+      setCheckInTime(null);
+      setCheckOutTime(null);
     }
 
     setHistory(JSON.parse(localStorage.getItem("history") || "[]"));
@@ -46,8 +58,6 @@ export default function StaffPage() {
     setName(n);
     setSelected(true);
   };
-
-  const today = new Date().toLocaleDateString("en-GB");
 
   const checkIn = () => {
     const now = new Date();
@@ -84,6 +94,7 @@ export default function StaffPage() {
     );
 
     setCheckedIn(true);
+    setCheckInTime(record.checkIn);
     setLate(isLate);
   };
 
@@ -99,10 +110,11 @@ export default function StaffPage() {
 
     localStorage.setItem("staff_attendance", JSON.stringify(updated));
     setAttendance(updated);
+
     setCheckedOut(true);
+    setCheckOutTime(now);
   };
 
-  // AI Upload
   const handleUpload = async (file) => {
     if (!file) return;
 
@@ -138,31 +150,6 @@ export default function StaffPage() {
 
   const todayStaff =
     todayData?.staff?.find((s) => s.name === name) || {};
-
-  const todaySalary = todayStaff?.payout || 0;
-  const serviceCharge = todayData?.serviceCharge || 0;
-
-  const totalSalary = history.reduce((sum, d) => {
-    const s = d.staff?.find((x) => x.name === name);
-    return sum + (s?.payout || 0);
-  }, 0);
-
-  const confirmSalary = () => {
-    const record = {
-      name,
-      date: today,
-      confirmed: true,
-    };
-
-    const existing = JSON.parse(localStorage.getItem("salary_confirmations") || "[]");
-
-    localStorage.setItem(
-      "salary_confirmations",
-      JSON.stringify([record, ...existing])
-    );
-
-    setConfirmed(true);
-  };
 
   const score = todayStaff?.score || 0;
 
@@ -204,19 +191,54 @@ export default function StaffPage() {
               </div>
             </div>
 
-            {/* SALARY */}
-            <div className="bg-white/5 p-6 rounded-2xl">
-              <h2 className="text-white mb-2">Salary</h2>
-              <p>Today: THB {todaySalary}</p>
-              <p>Service Charge: THB {serviceCharge}</p>
-              <p>Total: THB {totalSalary}</p>
+            {/* ATTENDANCE */}
+            <div className="bg-white/5 p-6 rounded-2xl space-y-3">
+              <h2 className="text-white mb-2">Attendance</h2>
 
-              {!confirmed ? (
-                <button onClick={confirmSalary} className="bg-green-500 px-4 py-2 rounded mt-2">
-                  Confirm Salary
+              {!checkedIn && (
+                <button
+                  onClick={() => {
+                    if (confirm("Confirm Check In?")) checkIn();
+                  }}
+                  className="bg-green-500 px-4 py-2 rounded w-full"
+                >
+                  Check In
                 </button>
-              ) : (
-                <p className="text-green-400 mt-2">Confirmed</p>
+              )}
+
+              {checkedIn && !checkedOut && (
+                <button
+                  onClick={() => {
+                    if (confirm("Confirm Check Out?")) checkOut();
+                  }}
+                  className="bg-blue-500 px-4 py-2 rounded w-full"
+                >
+                  Check Out
+                </button>
+              )}
+
+              {checkedIn && (
+                <p className="text-white/70">
+                  {checkedOut ? "✅ Shift Completed" : "🕒 On Shift"}
+                </p>
+              )}
+
+              {checkInTime && (
+                <p className="text-xs text-white/40">
+                  In: {new Date(checkInTime).toLocaleTimeString()}
+                </p>
+              )}
+
+              {checkOutTime && (
+                <p className="text-xs text-white/40">
+                  Out: {new Date(checkOutTime).toLocaleTimeString()}
+                </p>
+              )}
+
+              {late && (
+                <p className="text-yellow-400 text-sm">
+                  Late (Pending Manager Approval)
+                </p>
               )}
             </div>
 
@@ -239,29 +261,6 @@ export default function StaffPage() {
                   ⭐ {reviewResult.rating} | {reviewResult.platform}
                 </div>
               )}
-
-              {reviewResult?.error && (
-                <p className="text-red-400">{reviewResult.error}</p>
-              )}
-            </div>
-
-            {/* ATTENDANCE */}
-            <div className="bg-white/5 p-6 rounded-2xl">
-              <h2 className="text-white mb-2">Attendance</h2>
-
-              {!checkedIn ? (
-                <button onClick={checkIn} className="bg-green-500 px-4 py-2 rounded">
-                  Check In
-                </button>
-              ) : !checkedOut ? (
-                <button onClick={checkOut} className="bg-blue-500 px-4 py-2 rounded">
-                  Check Out
-                </button>
-              ) : (
-                <p>✅ Shift Completed</p>
-              )}
-
-              {late && <p className="text-yellow-400 mt-2">Late (Pending approval)</p>}
             </div>
 
           </>

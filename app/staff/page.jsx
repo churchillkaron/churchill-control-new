@@ -9,6 +9,7 @@ export default function StaffPage() {
 
   const [attendance, setAttendance] = useState([]);
   const [history, setHistory] = useState([]);
+  const [confirmed, setConfirmed] = useState(false);
 
   const [checkedIn, setCheckedIn] = useState(false);
   const [late, setLate] = useState(false);
@@ -81,7 +82,50 @@ export default function StaffPage() {
     setLate(isLate);
   };
 
-  // 🔥 UPLOAD → AI
+  const todayData =
+    history.find((d) => d.date === today) ||
+    history[history.length - 1] ||
+    null;
+
+  const todayStaff =
+    todayData?.staff?.find((s) => s.name === name) || {};
+
+  const totalSalary = history.reduce((sum, d) => {
+    const s = d.staff?.find((x) => x.name === name);
+    return sum + (s?.payout || 0);
+  }, 0);
+
+  const confirmSalary = () => {
+    const record = {
+      name,
+      date: today,
+      confirmed: true,
+    };
+
+    const existing = JSON.parse(localStorage.getItem("salary_confirmations") || "[]");
+
+    localStorage.setItem(
+      "salary_confirmations",
+      JSON.stringify([record, ...existing])
+    );
+
+    setConfirmed(true);
+  };
+
+  // SCORE
+  const score = todayStaff?.score || 0;
+
+  const getStars = (score) => {
+    if (score >= 90) return 5;
+    if (score >= 75) return 4;
+    if (score >= 60) return 3;
+    if (score >= 40) return 2;
+    return 1;
+  };
+
+  const stars = getStars(score);
+
+  // 🔥 AI UPLOAD
   const handleUpload = async (file) => {
     setLoading(true);
 
@@ -124,6 +168,15 @@ export default function StaffPage() {
           <>
             <h1 className="text-3xl text-white">{name}</h1>
 
+            {/* PERFORMANCE */}
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2 className="text-white mb-2">Performance</h2>
+              <p>Score: {score}</p>
+              <div className="text-yellow-400 text-xl">
+                {"★".repeat(stars)}{"☆".repeat(5 - stars)}
+              </div>
+            </div>
+
             {/* 🔥 AI REVIEW UPLOAD */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="text-white mb-4">Upload Review</h2>
@@ -135,16 +188,11 @@ export default function StaffPage() {
                 className="mb-4"
               />
 
-              {loading && (
-                <p className="text-white/50">Analyzing review...</p>
-              )}
+              {loading && <p className="text-white/50">Analyzing...</p>}
 
               {reviewResult && !reviewResult.error && (
-                <div className="text-white/80 space-y-2">
-                  <p>⭐ Rating: {reviewResult.rating}</p>
-                  <p>Platform: {reviewResult.platform}</p>
-                  <p>Confidence: {reviewResult.confidence}</p>
-                  <p className="text-sm">{reviewResult.text}</p>
+                <div className="text-white/80 text-sm">
+                  ⭐ {reviewResult.rating} | {reviewResult.platform}
                 </div>
               )}
 
@@ -168,6 +216,30 @@ export default function StaffPage() {
               )}
             </div>
 
+            {/* SALARY */}
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2 className="text-white mb-2">Salary</h2>
+              <p>Today: THB {todayStaff.payout || 0}</p>
+              <p>Total: THB {totalSalary}</p>
+
+              {!confirmed ? (
+                <button onClick={confirmSalary} className="bg-green-500 px-4 py-2 rounded mt-2">
+                  Confirm Salary
+                </button>
+              ) : (
+                <p className="text-green-400 mt-2">Confirmed</p>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                localStorage.removeItem("staff_name");
+                location.reload();
+              }}
+              className="text-xs text-white/40"
+            >
+              Switch User
+            </button>
           </>
         )}
 

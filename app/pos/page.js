@@ -175,90 +175,38 @@ export default function POSPage() {
     const staffName = localStorage.getItem("staffName") || "Unknown";
     const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    const groupedByStation = {};
+    const newOrder = {
+      id: Date.now(),
+      table,
+      staff: staffName,
+      status: "ACTIVE",
+      total,
+      created_at: new Date().toISOString(),
 
-    cart.forEach((item) => {
-      const station = item.station || "WESTERN";
-
-      if (!groupedByStation[station]) {
-        groupedByStation[station] = [];
-      }
-
-      groupedByStation[station].push({
+      items: cart.map((item, index) => ({
+        id: Date.now() + index,
         name: item.name,
+        price: item.price,
         qty: item.qty,
-        station,
+        station: item.station,
         modifier: item.modifier || "",
         side: item.side || "",
         sauce: item.sauce || "",
-      });
-    });
+        status: "NEW",
+      })),
+    };
 
-    const newOrders = Object.keys(groupedByStation).map((station) => ({
-      id: Date.now() + Math.random(),
-      table,
-      table_name: table,
-      staff: staffName,
-      station,
-      status: "NEW",
-      created_at: new Date().toISOString(),
-      items: groupedByStation[station],
-    }));
+    localStorage.setItem(
+      "orders",
+      JSON.stringify([...existingOrders, newOrder])
+    );
 
-    localStorage.setItem("orders", JSON.stringify([...existingOrders, ...newOrders]));
     setCart([]);
     alert("Order sent");
   };
 
   const payOrder = () => {
-    if (!table.trim() || cart.length === 0) {
-      alert("Select table and add items");
-      return;
-    }
-
-    const staffName = localStorage.getItem("staffName") || "Unknown";
-    const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const groupedByStation = {};
-
-    cart.forEach((item) => {
-      const station = item.station || "WESTERN";
-
-      if (!groupedByStation[station]) {
-        groupedByStation[station] = [];
-      }
-
-      groupedByStation[station].push({
-        name: item.name,
-        qty: item.qty,
-        station,
-        modifier: item.modifier || "",
-        side: item.side || "",
-        sauce: item.sauce || "",
-      });
-    });
-
-    const paidOrders = Object.keys(groupedByStation).map((station) => ({
-      id: Date.now() + Math.random(),
-      table,
-      table_name: table,
-      staff: staffName,
-      station,
-      status: "Paid",
-      created_at: new Date().toISOString(),
-      items: groupedByStation[station],
-      total: groupedByStation[station].reduce((sum, item) => {
-        const found =
-          Object.values(menu)
-            .flat()
-            .find((m) => m.name === item.name)?.price || 0;
-        return sum + found * item.qty;
-      }, 0),
-    }));
-
-    localStorage.setItem("orders", JSON.stringify([...existingOrders, ...paidOrders]));
-    setCart([]);
-    alert("Payment completed");
+    alert("Use Orders page to complete payment");
   };
 
   return (

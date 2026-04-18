@@ -15,43 +15,32 @@ const categories = [
   "Spirit",
 ];
 
+// 🔥 IMPORTANT: EVERY ITEM HAS STATION
 const menu = {
   Starter: [
-    { name: "Beef Carpaccio", price: 320 },
-    { name: "Chili & Garlic Prawns", price: 320 },
-    { name: "Signature Bruschetta", price: 280 },
-    { name: "Seared Scallops", price: 520 },
-    { name: "Mango & Tomato Salad", price: 220 },
-    { name: "Tom Yum Goong", price: 180 },
-    { name: "Tom Kha Gai", price: 170 },
-    { name: "Potato Gratin", price: 120 },
-    { name: "Crispy Potato Wedges", price: 100 },
-    { name: "Cauliflower Puree", price: 120 },
+    { name: "Beef Carpaccio", price: 320, station: "WESTERN" },
+    { name: "Tom Yum Goong", price: 180, station: "THAI" },
   ],
+
   "Main Course": [
-    { name: "Churchill Beef Short Ribs", price: 890 },
-    { name: "Ribeye Steak", price: 890, needsModifiers: true },
-    { name: "Beef Tenderloin", price: 920, needsModifiers: true },
-    { name: "Pork Tenderloin", price: 460 },
-    { name: "Salmon", price: 690 },
-    { name: "Churchill Sambal Half Chicken", price: 590 },
-    { name: "Veal Stew", price: 850 },
+    { name: "Ribeye Steak", price: 890, station: "WESTERN", needsModifiers: true },
+    { name: "Beef Tenderloin", price: 920, station: "WESTERN", needsModifiers: true },
+    { name: "Salmon", price: 690, station: "WESTERN" },
   ],
+
   "Thai Food": [
-    { name: "Pad Thai", price: 160 },
-    { name: "Pad Ka Prow", price: 150 },
-    { name: "Stir-Fried Chicken with Cashew Nuts", price: 180 },
-    { name: "Beef with Oyster Sauce", price: 220 },
-    { name: "Massaman Curry", price: 180 },
-    { name: "Green Curry", price: 170 },
-    { name: "Panang Curry", price: 175 },
-    { name: "Pineapple Fried Rice", price: 160 },
+    { name: "Pad Thai", price: 160, station: "THAI" },
+    { name: "Green Curry", price: 170, station: "THAI" },
+  ],
+
+  Beer: [
+    { name: "Chang Beer", price: 90, station: "BAR" },
   ],
 };
 
 const donenessOptions = ["Rare", "Medium Rare", "Medium", "Well Done"];
 const sideOptions = ["Fries", "Salad", "Mashed Potato"];
-const sauceOptions = ["Pepper", "Mushroom", "BBQ", "Red Wine"];
+const sauceOptions = ["Pepper", "Mushroom", "BBQ"];
 
 export default function POSPage() {
   const [activeCategory, setActiveCategory] = useState("Starter");
@@ -65,330 +54,189 @@ export default function POSPage() {
 
   const currentMenu = menu[activeCategory] || [];
 
-  const addDirectToCart = (item) => {
+  // 🔥 ADD SIMPLE ITEM
+  const addSimpleItem = (item) => {
     setCart((prev) => [...prev, { ...item, qty: 1 }]);
   };
 
-  const addConfiguredItemToCart = () => {
-    if (!selectedItem) return;
-
-    const configuredItem = {
+  // 🔥 ADD MODIFIED ITEM
+  const addConfiguredItem = () => {
+    const newItem = {
       name: selectedItem.name,
       price: selectedItem.price,
+      station: selectedItem.station,
       qty: 1,
       modifier: selectedModifier,
       side: selectedSide,
       sauce: selectedSauce,
     };
 
-    setCart((prev) => [...prev, configuredItem]);
+    setCart((prev) => [...prev, newItem]);
+
     setSelectedItem(null);
     setSelectedModifier("");
     setSelectedSide("");
     setSelectedSauce("");
   };
 
-  const handleMenuClick = (item) => {
+  // 🔥 CLICK MENU ITEM
+  const handleClick = (item) => {
     if (item.needsModifiers) {
       setSelectedItem(item);
-      setSelectedModifier("");
-      setSelectedSide("");
-      setSelectedSauce("");
-      return;
+    } else {
+      addSimpleItem(item);
     }
-
-    addDirectToCart(item);
-  };
-
-  const increaseQty = (index) => {
-    setCart((prev) =>
-      prev.map((item, i) =>
-        i === index ? { ...item, qty: item.qty + 1 } : item
-      )
-    );
-  };
-
-  const decreaseQty = (index) => {
-    setCart((prev) =>
-      prev
-        .map((item, i) =>
-          i === index ? { ...item, qty: item.qty - 1 } : item
-        )
-        .filter((item) => item.qty > 0)
-    );
   };
 
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
+  // 🔥 SEND ORDER (FIXED)
   const sendOrder = () => {
-    if (!table.trim() || cart.length === 0) {
+    if (!table || cart.length === 0) {
       alert("Select table and add items");
       return;
     }
 
-    const staffName = localStorage.getItem("staffName") || "Unknown";
-    const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
+    const staff = localStorage.getItem("staffName") || "Unknown";
+    const existing = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const newOrder = {
       id: Date.now(),
       table,
-      table_name: table,
-      staff: staffName,
-      items: cart,
-      total,
-      status: "Active",
+      staff,
       created_at: new Date().toISOString(),
+      status: "NEW",
+      items: cart.map((item) => ({
+        name: item.name,
+        qty: item.qty,
+        station: item.station, // 🔥 CRITICAL
+        modifier: item.modifier || "",
+        side: item.side || "",
+        sauce: item.sauce || "",
+      })),
     };
 
-    localStorage.setItem("orders", JSON.stringify([...existingOrders, newOrder]));
+    localStorage.setItem("orders", JSON.stringify([...existing, newOrder]));
+
     setCart([]);
     alert("Order sent");
-  };
-
-  const payOrder = () => {
-    if (!table.trim() || cart.length === 0) {
-      alert("Select table and add items");
-      return;
-    }
-
-    const staffName = localStorage.getItem("staffName") || "Unknown";
-    const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const paidOrder = {
-      id: Date.now(),
-      table,
-      table_name: table,
-      staff: staffName,
-      items: cart,
-      total,
-      status: "Paid",
-      created_at: new Date().toISOString(),
-    };
-
-    localStorage.setItem("orders", JSON.stringify([...existingOrders, paidOrder]));
-    setCart([]);
-    alert("Payment completed");
   };
 
   return (
     <AppShell>
       <div className="space-y-6">
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-            POS
-          </p>
-          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
-            Order System
-          </h1>
-        </div>
 
+        <h1 className="text-3xl font-semibold">POS System</h1>
+
+        {/* TABLE */}
         <input
-          placeholder="Table (e.g. T1)"
+          placeholder="Table (T1)"
           value={table}
           onChange={(e) => setTable(e.target.value)}
-          className="px-4 py-3 rounded-xl bg-white/10 border border-white/10 w-full max-w-xs"
+          className="px-4 py-2 bg-white/10 rounded"
         />
 
+        {/* CATEGORIES */}
         <div className="flex gap-2 flex-wrap">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-xl ${
-                activeCategory === cat
-                  ? "bg-[#ff7a00] text-black"
-                  : "bg-white/10 text-white"
-              }`}
+              className="px-3 py-2 bg-white/10 rounded"
             >
               {cat}
             </button>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[2fr_400px] gap-6 items-start">
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {currentMenu.length === 0 && (
-              <div className="text-white/40 rounded-xl bg-white/5 p-4">
-                No items yet
-              </div>
-            )}
+        {/* LAYOUT */}
+        <div className="grid grid-cols-[2fr_400px] gap-6">
 
+          {/* MENU */}
+          <div className="grid grid-cols-2 gap-4">
             {currentMenu.map((item) => (
               <button
                 key={item.name}
-                onClick={() => handleMenuClick(item)}
-                className="p-4 rounded-2xl bg-white/10 border border-white/10 text-left hover:bg-white/15 transition"
+                onClick={() => handleClick(item)}
+                className="p-4 bg-white/10 rounded text-left"
               >
-                <div className="font-medium">{item.name}</div>
-                <div className="text-white/60 text-sm mt-1">
-                  THB {item.price}
-                </div>
+                {item.name}
+                <div className="text-sm text-white/60">{item.price} THB</div>
               </button>
             ))}
           </div>
 
-          <div className="bg-white/5 border border-white/10 p-5 rounded-2xl h-[560px] flex flex-col">
-            <h2 className="text-xl font-semibold">Cart</h2>
+          {/* CART */}
+          <div className="bg-white/5 p-4 rounded h-[500px] flex flex-col">
 
-            <div className="flex-1 overflow-y-auto space-y-3 mt-4">
-              {cart.length === 0 && (
-                <div className="text-white/40">No items added</div>
-              )}
-
-              {cart.map((item, index) => (
-                <div
-                  key={`${item.name}-${index}`}
-                  className="border-b border-white/10 pb-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div>{item.name}</div>
-
-                      {(item.modifier || item.side || item.sauce) && (
-                        <div className="text-white/50 text-sm mt-1">
-                          {item.modifier ? `• ${item.modifier} ` : ""}
-                          {item.side ? `• ${item.side} ` : ""}
-                          {item.sauce ? `• ${item.sauce}` : ""}
-                        </div>
-                      )}
-
-                      <div className="text-white/50 text-sm mt-1">
-                        THB {item.price} x {item.qty}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => decreaseQty(index)}
-                        className="w-8 h-8 rounded-lg bg-white/10"
-                      >
-                        -
-                      </button>
-                      <div className="w-8 text-center">{item.qty}</div>
-                      <button
-                        onClick={() => increaseQty(index)}
-                        className="w-8 h-8 rounded-lg bg-white/10"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
+            <div className="flex-1 overflow-y-auto">
+              {cart.map((item, i) => (
+                <div key={i} className="border-b pb-2">
+                  {item.qty}x {item.name}
+                  {item.modifier && ` (${item.modifier})`}
+                  {item.side && ` + ${item.side}`}
+                  {item.sauce && ` + ${item.sauce}`}
                 </div>
               ))}
             </div>
 
-            <div className="pt-4 border-t border-white/10 text-lg font-semibold">
-              Total: THB {total}
-            </div>
+            <div className="pt-3 border-t">
+              <div>Total: {total} THB</div>
 
-            <div className="grid gap-3 mt-4">
               <button
                 onClick={sendOrder}
-                className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-semibold"
+                className="w-full bg-orange-500 mt-2 py-2 rounded"
               >
                 Send Order
               </button>
-
-              <button
-                onClick={payOrder}
-                className="w-full bg-white/10 py-3 rounded-xl text-white font-semibold"
-              >
-                Payment
-              </button>
             </div>
+
           </div>
+
         </div>
 
+        {/* MODAL */}
         {selectedItem && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#161616] border border-white/10 rounded-2xl p-6 w-full max-w-md space-y-5">
-              <div>
-                <h2 className="text-xl font-semibold">{selectedItem.name}</h2>
-                <p className="text-white/50 text-sm mt-1">
-                  THB {selectedItem.price}
-                </p>
-              </div>
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
 
-              <div>
-                <div className="text-sm text-white/60 mb-2">Doneness</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {donenessOptions.map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => setSelectedModifier(option)}
-                      className={`p-2 rounded-xl ${
-                        selectedModifier === option
-                          ? "bg-[#ff7a00] text-black"
-                          : "bg-white/10"
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="bg-black p-6 rounded space-y-3 w-[300px]">
 
-              <div>
-                <div className="text-sm text-white/60 mb-2">Side</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {sideOptions.map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => setSelectedSide(option)}
-                      className={`p-2 rounded-xl ${
-                        selectedSide === option
-                          ? "bg-[#ff7a00] text-black"
-                          : "bg-white/10"
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <h2>{selectedItem.name}</h2>
 
-              <div>
-                <div className="text-sm text-white/60 mb-2">Sauce</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {sauceOptions.map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => setSelectedSauce(option)}
-                      className={`p-2 rounded-xl ${
-                        selectedSauce === option
-                          ? "bg-[#ff7a00] text-black"
-                          : "bg-white/10"
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-3 pt-2">
-                <button
-                  onClick={addConfiguredItemToCart}
-                  className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-semibold"
-                >
-                  Add to Cart
+              {donenessOptions.map((m) => (
+                <button key={m} onClick={() => setSelectedModifier(m)}>
+                  {m}
                 </button>
+              ))}
 
-                <button
-                  onClick={() => {
-                    setSelectedItem(null);
-                    setSelectedModifier("");
-                    setSelectedSide("");
-                    setSelectedSauce("");
-                  }}
-                  className="w-full bg-white/10 py-3 rounded-xl text-white"
-                >
-                  Cancel
+              {sideOptions.map((s) => (
+                <button key={s} onClick={() => setSelectedSide(s)}>
+                  {s}
                 </button>
-              </div>
+              ))}
+
+              {sauceOptions.map((s) => (
+                <button key={s} onClick={() => setSelectedSauce(s)}>
+                  {s}
+                </button>
+              ))}
+
+              <button
+                onClick={addConfiguredItem}
+                className="bg-orange-500 w-full py-2"
+              >
+                Add
+              </button>
+
+              <button onClick={() => setSelectedItem(null)}>
+                Cancel
+              </button>
+
             </div>
+
           </div>
         )}
+
       </div>
     </AppShell>
   );

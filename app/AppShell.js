@@ -2,6 +2,7 @@
 
 import AppShell from "../AppShell";
 
+
 export default function Kitchen() {
   return (
     <AppShell>

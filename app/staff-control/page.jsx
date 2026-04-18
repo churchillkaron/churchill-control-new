@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
+;
 
 export default function StaffControl() {
   const [staffData, setStaffData] = useState([]);

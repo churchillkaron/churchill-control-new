@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
+
 import { supabase } from "../../lib/supabase";
 
 export default function Tables() {

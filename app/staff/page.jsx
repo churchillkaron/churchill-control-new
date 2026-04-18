@@ -46,21 +46,27 @@ export default function StaffPage() {
   const checkIn = () => {
     const now = new Date();
     const hour = now.getHours();
+    const minutes = now.getMinutes();
 
     let isLate = false;
     let penalty = 0;
+    let minutesLate = 0;
 
-    // 🔥 SIMPLE RULE: after 17:00 = late
+    // 🔥 AFTER 17:00 = late (calculate minutes)
     if (hour >= 17) {
       isLate = true;
-      penalty = 100;
+      minutesLate = (hour - 17) * 60 + minutes;
+      penalty = Math.floor(minutesLate / 5) * 20; // 20 THB per 5 min
     }
 
     const record = {
+      id: Date.now(),
       name,
       date: today,
       late: isLate,
+      minutesLate,
       penalty,
+      status: isLate ? "pending" : "approved"
     };
 
     const existing = JSON.parse(localStorage.getItem("staff_attendance") || "[]");
@@ -136,7 +142,7 @@ export default function StaffPage() {
                 </button>
               ) : (
                 <p>
-                  {late ? "❌ Late (Penalty applied)" : "✅ On Time"}
+                  {late ? "⏳ Late (Pending approval)" : "✅ On Time"}
                 </p>
               )}
             </div>

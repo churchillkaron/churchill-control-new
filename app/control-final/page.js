@@ -8,7 +8,6 @@ export default function ControlFinalPage() {
   const loadOrders = () => {
     const data = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    // only fully served orders
     const served = data.filter((order) =>
       order.items.every((i) => i.status === "SERVED")
     );
@@ -30,8 +29,18 @@ export default function ControlFinalPage() {
 
     data.forEach((order) => {
       if (order.id === orderId) {
+        const serviceCharge = order.total * 0.05;
+
+        const departmentSplit = {
+          FOH: serviceCharge * 0.5,
+          BAR: serviceCharge * 0.3,
+          KITCHEN: serviceCharge * 0.2,
+        };
+
         history.push({
           ...order,
+          serviceCharge,
+          departmentSplit,
           closed_at: new Date().toISOString(),
         });
       } else {
@@ -46,6 +55,7 @@ export default function ControlFinalPage() {
   };
 
   const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+  const totalService = totalRevenue * 0.05;
 
   return (
     <div className="p-6 space-y-6">
@@ -56,26 +66,34 @@ export default function ControlFinalPage() {
         Revenue Ready: {totalRevenue} THB
       </div>
 
-      {orders.map((order) => (
-        <div key={order.id} className="bg-white/10 p-4 rounded-xl space-y-2">
+      <div className="text-lg">
+        Service Charge (5%): {totalService} THB
+      </div>
 
-          <div className="flex justify-between">
-            <div>Table: {order.table}</div>
-            <div>{order.total} THB</div>
+      {orders.map((order) => {
+        const serviceCharge = order.total * 0.05;
+
+        return (
+          <div key={order.id} className="bg-white/10 p-4 rounded-xl space-y-2">
+
+            <div className="flex justify-between">
+              <div>Table: {order.table}</div>
+              <div>{order.total} THB</div>
+            </div>
+
+            <div className="text-sm">
+              SC: {serviceCharge} THB
+            </div>
+
+            <button
+              onClick={() => closeOrder(order.id)}
+              className="w-full bg-green-600 p-2 rounded"
+            >
+              Close Order
+            </button>
           </div>
-
-          <div className="text-sm opacity-70">
-            {order.items.length} items
-          </div>
-
-          <button
-            onClick={() => closeOrder(order.id)}
-            className="w-full bg-green-600 p-2 rounded"
-          >
-            Close Order
-          </button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

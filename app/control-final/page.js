@@ -46,7 +46,15 @@ export default function ControlFinal() {
     });
   }, [orders]);
 
-  // 🔥 CLOSE DAY (UPGRADED STRUCTURE)
+  // 🔥 STAFF (MANUAL SAFE VERSION)
+  const staffList = [
+    { name: "FOH 1" },
+    { name: "FOH 2" },
+    { name: "BAR" },
+    { name: "KITCHEN" },
+  ];
+
+  // 🔥 CLOSE DAY WITH PAYOUT
   const closeDay = () => {
     const paidOrders = orders.filter((o) => o.status === "PAID");
 
@@ -62,15 +70,46 @@ export default function ControlFinal() {
 
     const serviceCharge = Math.round(revenue * 0.05);
 
-    // 🔥 SIMPLE PERFORMANCE PLACEHOLDER (SAFE)
+    // 🔥 SPLIT SYSTEM
+    const fohPool = serviceCharge * 0.5;
+    const barPool = serviceCharge * 0.3;
+    const kitchenPool = serviceCharge * 0.2;
+
+    // 🔥 SIMPLE LEVEL REDUCTION (SAFE BASE)
+    const fohLevel = avgOrderValue > 400 ? 1 : 0.7;
+    const barLevel = 1;
+    const kitchenLevel = 1;
+
+    const adjustedFoh = fohPool * fohLevel;
+    const adjustedBar = barPool * barLevel;
+    const adjustedKitchen = kitchenPool * kitchenLevel;
+
+    // 🔥 STAFF SPLIT
+    const staff = [
+      {
+        name: "FOH 1",
+        payout: Math.round(adjustedFoh / 2),
+      },
+      {
+        name: "FOH 2",
+        payout: Math.round(adjustedFoh / 2),
+      },
+      {
+        name: "BAR",
+        payout: Math.round(adjustedBar),
+      },
+      {
+        name: "KITCHEN",
+        payout: Math.round(adjustedKitchen),
+      },
+    ];
+
     const fohScore =
-      totalOrders > 0
-        ? avgOrderValue > 500
-          ? "GOOD"
-          : avgOrderValue > 300
-          ? "WARNING"
-          : "BAD"
-        : "—";
+      avgOrderValue > 500
+        ? "GOOD"
+        : avgOrderValue > 300
+        ? "WARNING"
+        : "BAD";
 
     const newDay = {
       date: new Date().toLocaleDateString("en-GB"),
@@ -84,10 +123,10 @@ export default function ControlFinal() {
       avgOrderValue,
 
       fohScore,
-      kitchenLevel: "-",
-      barLevel: "-",
+      kitchenLevel: kitchenLevel === 1 ? "GOOD" : "LOW",
+      barLevel: barLevel === 1 ? "GOOD" : "LOW",
 
-      staff: [], // keep safe, no break
+      staff,
     };
 
     const history =
@@ -99,7 +138,7 @@ export default function ControlFinal() {
 
     localStorage.removeItem("orders");
 
-    alert("Day closed and saved");
+    alert("Day closed with payouts");
     window.location.reload();
   };
 
@@ -107,7 +146,6 @@ export default function ControlFinal() {
     <AppShell>
       <div className="space-y-10">
 
-        {/* HEADER */}
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-white/40">
             Control Final
@@ -117,7 +155,6 @@ export default function ControlFinal() {
           </h1>
         </div>
 
-        {/* KPI */}
         <div className="grid md:grid-cols-3 gap-6">
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
@@ -143,17 +180,15 @@ export default function ControlFinal() {
 
         </div>
 
-        {/* CLOSE DAY */}
         <div>
           <button
             onClick={closeDay}
             className="bg-[#ff7a00] px-6 py-3 rounded-xl text-white"
           >
-            Close Day
+            Close Day + Payout
           </button>
         </div>
 
-        {/* ORDERS */}
         <div className="space-y-4">
           {orders
             .filter((o) => o.status === "PAID")

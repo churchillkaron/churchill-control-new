@@ -11,16 +11,19 @@ export default function Navbar() {
     { name: "Control", href: "/control-final" },
     { name: "POS", href: "/pos" },
     { name: "Orders", href: "/pos-control" },
+    { name: "Kitchen", href: "/kitchen" },
     { name: "Staff", href: "/staff" },
     { name: "History", href: "/history" },
     { name: "Accounting", href: "/accounting" },
     { name: "Payout", href: "/payout" },
-    { name: "Kitchen", href: "/kitchen" }
   ];
 
-  const logout = () => {
+  const switchUser = () => {
+    // 🔥 CLEAR SESSION
     localStorage.removeItem("staffName");
     localStorage.removeItem("staffRole");
+
+    // 🔥 REDIRECT TO LOGIN
     window.location.href = "/";
   };
 
@@ -37,7 +40,7 @@ export default function Navbar() {
         </div>
 
         {/* NAV */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto">
 
           {navItems.map((item) => {
             const active = pathname === item.href;
@@ -48,8 +51,8 @@ export default function Navbar() {
                 href={item.href}
                 className={
                   active
-                    ? "bg-[#ff7a00] text-black px-3 py-2 rounded-lg"
-                    : "text-white/60 px-3 py-2 hover:text-white"
+                    ? "bg-[#ff7a00] text-black px-3 py-2 rounded-lg whitespace-nowrap"
+                    : "text-white/60 px-3 py-2 hover:text-white whitespace-nowrap"
                 }
               >
                 {item.name}
@@ -57,12 +60,12 @@ export default function Navbar() {
             );
           })}
 
-          {/* 🔥 LOGOUT */}
+          {/* 🔥 SWITCH USER BUTTON */}
           <button
-            onClick={logout}
-            className="ml-4 text-red-400 text-sm"
+            onClick={switchUser}
+            className="ml-4 text-sm text-red-400 hover:text-red-300"
           >
-            Logout
+            Switch User
           </button>
 
         </div>

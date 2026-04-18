@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard" },
@@ -21,7 +22,7 @@ export default function Navbar() {
 
   const switchUser = () => {
     localStorage.clear();
-    window.location.href = "/";
+    router.push("/");
   };
 
   return (

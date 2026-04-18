@@ -10,16 +10,15 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="text-white bg-[#0d0a07]">
 
-        {/* 🌅 GLOBAL BACKGROUND */}
+        {/* GLOBAL APP BACKGROUND (NOT landing) */}
         <div
-          className="fixed inset-0 z-0 bg-cover bg-center"
+          id="app-bg"
+          className="fixed inset-0 z-0 bg-cover bg-center opacity-0 transition-opacity duration-500"
           style={{ backgroundImage: "url('/bg-beach.jpg')" }}
         />
 
-        {/* DARK OVERLAY */}
         <div className="fixed inset-0 z-0 bg-black/70 backdrop-blur-[2px]" />
 
-        {/* CONTENT */}
         <div className="relative z-10">
           {children}
         </div>

@@ -7,7 +7,6 @@ import AppShell from "../AppShell";
 export default function Kitchen() {
   const [orders, setOrders] = useState([]);
   const [role, setRole] = useState("");
-
   const audioRef = useRef(null);
 
   const drinkItems = ["Beer", "Water"];
@@ -33,10 +32,12 @@ export default function Kitchen() {
   useEffect(() => {
     const staffRole = localStorage.getItem("staffRole");
 
-    if (!staffRole) return; // ❗ no redirect anymore (AppShell handles layout)
+    if (!staffRole) {
+      window.location.href = "/";
+      return;
+    }
 
     setRole(staffRole);
-
     fetchOrders();
 
     const channel = supabase
@@ -50,7 +51,6 @@ export default function Kitchen() {
         },
         () => {
           fetchOrders();
-
           if (audioRef.current) {
             audioRef.current.play().catch(() => {});
           }
@@ -103,10 +103,7 @@ export default function Kitchen() {
             if (filtered.length === 0) return null;
 
             return (
-              <div
-                key={order.id}
-                className="bg-white/10 p-4 rounded-xl backdrop-blur-xl border border-white/10"
-              >
+              <div key={order.id} className="bg-white/10 p-4 rounded-xl">
 
                 <div className="flex justify-between mb-2">
                   <div>Table {order.table_name}</div>

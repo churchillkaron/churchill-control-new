@@ -12,6 +12,11 @@ export default function StaffPage() {
   const [messages, setMessages] = useState([]);
   const [confirmed, setConfirmed] = useState(false);
 
+  // 🔥 REVIEW STATE
+  const [image, setImage] = useState(null);
+  const [reviewStatus, setReviewStatus] = useState("");
+  const [reviewResult, setReviewResult] = useState(null);
+
   useEffect(() => {
     const storedName = localStorage.getItem("staff_name");
     if (storedName) {
@@ -19,17 +24,9 @@ export default function StaffPage() {
       setSelected(true);
     }
 
-    setAttendance(
-      JSON.parse(localStorage.getItem("staff_attendance") || "[]")
-    );
-
-    setHistory(
-      JSON.parse(localStorage.getItem("history") || "[]")
-    );
-
-    setMessages(
-      JSON.parse(localStorage.getItem("staff_messages") || "[]")
-    );
+    setAttendance(JSON.parse(localStorage.getItem("staff_attendance") || "[]"));
+    setHistory(JSON.parse(localStorage.getItem("history") || "[]"));
+    setMessages(JSON.parse(localStorage.getItem("staff_messages") || "[]"));
   }, []);
 
   const selectUser = (n) => {
@@ -63,17 +60,65 @@ export default function StaffPage() {
       confirmed: true,
     };
 
-    const existing =
-      JSON.parse(localStorage.getItem("salary_confirmations") || "[]");
-
-    const updated = [record, ...existing];
+    const existing = JSON.parse(localStorage.getItem("salary_confirmations") || "[]");
 
     localStorage.setItem(
       "salary_confirmations",
-      JSON.stringify(updated)
+      JSON.stringify([record, ...existing])
     );
 
     setConfirmed(true);
+  };
+
+  // 🔥 REVIEW UPLOAD
+  const handleUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      setImage(reader.result);
+      setReviewResult(null);
+      setReviewStatus("");
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const runReviewAI = async () => {
+    if (!image) return alert("Upload screenshot first");
+
+    try {
+      setReviewStatus("Analyzing review...");
+
+      const res = await fetch("/api/review-ai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ image }),
+      });
+
+      const data = await res.json();
+
+      const review = {
+        staff: name,
+        rating: data.rating,
+        text: data.text || "",
+        platform: data.platform || "Unknown",
+        date: today,
+      };
+
+      const existing = JSON.parse(localStorage.getItem("reviews") || "[]");
+
+      localStorage.setItem("reviews", JSON.stringify([review, ...existing]));
+
+      setReviewResult(review);
+      setReviewStatus("Review saved");
+    } catch {
+      setReviewStatus("AI error");
+    }
   };
 
   return (
@@ -101,46 +146,54 @@ export default function StaffPage() {
             {/* HEADER */}
             <div>
               <h1 className="text-3xl text-white">{name}</h1>
-              <p className="text-white/50 text-sm">
-                Personal Dashboard
-              </p>
+              <p className="text-white/50 text-sm">Personal Dashboard</p>
             </div>
 
             {/* TODAY */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Today</h2>
-
-              <p>
-                Status:{" "}
-                {todayAttendance
-                  ? todayAttendance.late
-                    ? "Late"
-                    : "On Time"
-                  : "Not Checked In"}
-              </p>
-
+              <p>Status: {todayAttendance ? (todayAttendance.late ? "Late" : "On Time") : "Not Checked In"}</p>
               <p>Penalty: THB {todayAttendance?.penalty || 0}</p>
-
               <p>Payout Today: THB {todayPayout}</p>
             </div>
 
             {/* SALARY */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Salary</h2>
-
               <p>Total Earned: THB {totalSalary}</p>
 
               {!confirmed ? (
-                <button
-                  onClick={confirmSalary}
-                  className="bg-green-500 px-4 py-2 rounded mt-3"
-                >
+                <button onClick={confirmSalary} className="bg-green-500 px-4 py-2 rounded mt-3">
                   Confirm Salary
                 </button>
               ) : (
-                <p className="text-green-400 mt-2">
-                  Salary Confirmed
-                </p>
+                <p className="text-green-400 mt-2">Salary Confirmed</p>
+              )}
+            </div>
+
+            {/* REVIEW UPLOAD */}
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2 className="mb-3 text-white">Upload Customer Review</h2>
+
+              <input type="file" onChange={handleUpload} />
+
+              {image && <img src={image} className="w-40 mt-2 rounded" />}
+
+              <button
+                onClick={runReviewAI}
+                className="bg-[#ff7a00] px-4 py-2 rounded mt-3"
+              >
+                Analyze Review
+              </button>
+
+              {reviewStatus && (
+                <p className="text-white/50 text-sm mt-2">{reviewStatus}</p>
+              )}
+
+              {reviewResult && (
+                <div className="mt-3 text-sm">
+                  ⭐ {reviewResult.rating} — {reviewResult.text}
+                </div>
               )}
             </div>
 
@@ -149,36 +202,28 @@ export default function StaffPage() {
               <h2 className="mb-3 text-white">Messages</h2>
 
               {myMessages.length === 0 && (
-                <p className="text-white/40">
-                  No messages
-                </p>
+                <p className="text-white/40">No messages</p>
               )}
 
               {myMessages.map((m, i) => (
-                <div
-                  key={i}
-                  className="border-b border-white/10 py-2 text-sm"
-                >
+                <div key={i} className="border-b border-white/10 py-2 text-sm">
                   {m.text}
                 </div>
               ))}
             </div>
 
             {/* SWITCH USER */}
-            <div>
-              <button
-                onClick={() => {
-                  localStorage.removeItem("staff_name");
-                  location.reload();
-                }}
-                className="text-xs text-white/40"
-              >
-                Switch User
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                localStorage.removeItem("staff_name");
+                location.reload();
+              }}
+              className="text-xs text-white/40"
+            >
+              Switch User
+            </button>
           </>
         )}
-
       </div>
     </AppShell>
   );

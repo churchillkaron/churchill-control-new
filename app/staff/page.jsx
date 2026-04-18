@@ -39,11 +39,10 @@ export default function StaffPage() {
 
   const today = new Date().toLocaleDateString("en-GB");
 
-  const todayAttendance = attendance.find(
-    (a) => a.name === name && a.date === today
-  );
-
-  const todayData = history[history.length - 1];
+  const todayData =
+    history.find((d) => d.date === today) ||
+    history[history.length - 1] ||
+    null;
 
   const todayStaffData =
     todayData?.staff?.find((s) => s.name === name) || null;
@@ -170,6 +169,15 @@ export default function StaffPage() {
 
   const adjustedPayout = Math.round(todayPayout * reviewMultiplier);
 
+  // 🔥 NEXT LEVEL TARGET
+  let nextTarget = "Max level reached";
+
+  if (servicePercent === 0.05) {
+    nextTarget = "Reach 15+ score → unlock 6%";
+  } else if (servicePercent === 0.06) {
+    nextTarget = "Reach 25+ score → unlock 7%";
+  }
+
   return (
     <AppShell>
       <div className="space-y-10">
@@ -177,14 +185,9 @@ export default function StaffPage() {
         {!selected ? (
           <>
             <h1 className="text-2xl text-white">Select Your Name</h1>
-
             <div className="flex gap-4 flex-wrap">
               {["FOH 1", "FOH 2", "BAR", "KITCHEN"].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => selectUser(n)}
-                  className="bg-[#ff7a00] px-4 py-2 rounded"
-                >
+                <button key={n} onClick={() => selectUser(n)} className="bg-[#ff7a00] px-4 py-2 rounded">
                   {n}
                 </button>
               ))}
@@ -199,10 +202,10 @@ export default function StaffPage() {
 
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Today</h2>
-              <p>Status: {todayAttendance ? (todayAttendance.late ? "Late" : "On Time") : "Not Checked In"}</p>
               <p>Service Level: {(servicePercent * 100).toFixed(0)}%</p>
               <p>Payout Today: THB {todayPayout}</p>
               <p className="text-orange-400">Adjusted: THB {adjustedPayout}</p>
+              <p className="text-xs text-white/50 mt-2">{nextTarget}</p>
             </div>
 
             <div className="bg-white/5 p-6 rounded-2xl">
@@ -215,8 +218,7 @@ export default function StaffPage() {
 
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Salary</h2>
-              <p>Service Pool Today: THB {todayServiceCharge}</p>
-              <p>My Service Today: THB {todayPayout}</p>
+              <p>Service Pool: THB {todayServiceCharge}</p>
               <p>Total Earned: THB {totalSalary}</p>
 
               {!confirmed ? (

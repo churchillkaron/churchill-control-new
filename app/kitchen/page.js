@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
   const [now, setNow] = useState(Date.now());
-  const alertedRef = useRef({}); // track alerted orders
+  const alertedRef = useRef({});
 
   const loadOrders = () => {
     const data = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -16,12 +16,37 @@ export default function KitchenPage() {
     loadOrders();
 
     const interval = setInterval(() => {
-      loadOrders();
+      processOrders();
       setNow(Date.now());
     }, 2000);
 
     return () => clearInterval(interval);
   }, []);
+
+  const processOrders = () => {
+    let data = JSON.parse(localStorage.getItem("orders") || "[]");
+    let history = JSON.parse(localStorage.getItem("history") || "[]");
+
+    const active = [];
+
+    data.forEach((order) => {
+      const allReady = order.items.every((i) => i.status === "READY");
+
+      if (allReady) {
+        history.push({
+          ...order,
+          completed_at: new Date().toISOString(),
+        });
+      } else {
+        active.push(order);
+      }
+    });
+
+    localStorage.setItem("orders", JSON.stringify(active));
+    localStorage.setItem("history", JSON.stringify(history));
+
+    setOrders(active.reverse());
+  };
 
   const updateStatus = (orderId, itemId, newStatus) => {
     const data = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -38,7 +63,6 @@ export default function KitchenPage() {
     });
 
     localStorage.setItem("orders", JSON.stringify(updated));
-    loadOrders();
   };
 
   const getTimer = (created_at) => {
@@ -52,9 +76,8 @@ export default function KitchenPage() {
     return "bg-red-600";
   };
 
-  // 🔥 SOUND ALERT
   const playAlert = () => {
-    const audio = new Audio("/alert.mp3"); // put file in /public
+    const audio = new Audio("/alert.mp3");
     audio.play();
   };
 
@@ -65,7 +88,6 @@ export default function KitchenPage() {
 
       const minutes = getTimer(order.created_at);
 
-      // 🔥 trigger sound once when RED
       if (minutes >= 10 && !alertedRef.current[order.id]) {
         playAlert();
         alertedRef.current[order.id] = true;

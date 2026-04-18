@@ -1,162 +1,106 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import AppShell from "../AppShell";
-import { supabase } from "../../lib/supabase";
+import { useState, useEffect } from "react";
 
-export default function POS() {
-  const [staffName, setStaffName] = useState("");
-  const [staffRole, setStaffRole] = useState("");
+export default function Home() {
+  const [showLogin, setShowLogin] = useState(false);
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
 
-  const [cart, setCart] = useState([]);
-  const [selectedTable, setSelectedTable] = useState(null);
-
-  const tables = Array.from({ length: 12 }, (_, i) => `T${i + 1}`);
-
-  const menu = [
-    { name: "Pad Thai", price: 160 },
-    { name: "Massaman Curry", price: 180 },
-    { name: "Beer", price: 120 },
-    { name: "Water", price: 40 },
+  const roles = [
+    "FOH",
+    "BAR",
+    "KITCHEN",
+    "MANAGER",
+    "ACCOUNTING",
+    "OWNER",
   ];
 
+  // 🔥 AUTO SHOW LOGIN IF NOT LOGGED IN
   useEffect(() => {
     const name = localStorage.getItem("staffName");
     const role = localStorage.getItem("staffRole");
 
     if (!name || !role) {
-      window.location.href = "/";
-      return;
+      setShowLogin(true);
     }
-
-    setStaffName(name);
-    setStaffRole(role);
   }, []);
 
-  // 🔥 CART
-  const addToCart = (item) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.name === item.name);
-
-      if (existing) {
-        return prev.map((i) =>
-          i.name === item.name
-            ? { ...i, qty: i.qty + 1 }
-            : i
-        );
-      }
-
-      return [...prev, { ...item, qty: 1 }];
-    });
-  };
-
-  const total = cart.reduce(
-    (sum, i) => sum + i.price * i.qty,
-    0
-  );
-
-  // 🔥 CREATE ORDER (SUPABASE)
-  const createOrder = async () => {
-    if (!selectedTable) {
-      alert("Select table");
+  const handleLogin = () => {
+    if (!name || !role) {
+      alert("Enter name and role");
       return;
     }
 
-    if (cart.length === 0) return;
+    localStorage.setItem("staffName", name);
+    localStorage.setItem("staffRole", role);
 
-    const newOrder = {
-      id: Date.now(),
-      table_name: selectedTable,
-      items: cart,
-      total: total,
-      status: "Active",
-      staff: staffName,
-      role: staffRole,
-    };
-
-    const { error } = await supabase
-      .from("orders")
-      .insert([newOrder]);
-
-    if (error) {
-      console.error(error);
-      alert("Error saving order");
-      return;
-    }
-
-    setCart([]);
-    setSelectedTable(null);
+    // 🔥 REDIRECT
+    if (role === "FOH") window.location.href = "/pos";
+    else if (role === "BAR") window.location.href = "/kitchen";
+    else if (role === "KITCHEN") window.location.href = "/kitchen";
+    else if (role === "MANAGER") window.location.href = "/dashboard";
+    else if (role === "ACCOUNTING") window.location.href = "/accounting";
+    else if (role === "OWNER") window.location.href = "/dashboard";
   };
 
   return (
-    <AppShell>
-      <div className="space-y-10">
+    <div className="relative min-h-screen flex items-center justify-center text-white bg-black">
 
-        {/* HEADER */}
-        <div className="flex justify-between text-sm text-white/60">
-          <div>{staffName}</div>
-          <div>{staffRole}</div>
-        </div>
-
-        <h1 className="text-3xl font-semibold">
-          POS System
+      {/* HERO */}
+      <div className="text-center space-y-6">
+        <h1 className="text-5xl font-semibold">
+          Churchill Control System
         </h1>
 
-        {/* TABLES */}
-        <div>
-          <h2 className="text-white/60 mb-3">Tables</h2>
-
-          <div className="grid grid-cols-4 gap-3">
-            {tables.map((t) => (
-              <button
-                key={t}
-                onClick={() => setSelectedTable(t)}
-                className={`p-4 rounded-xl bg-white/10 ${
-                  selectedTable === t
-                    ? "ring-2 ring-[#ff7a00]"
-                    : ""
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* MENU */}
-        <div className="grid grid-cols-2 gap-4">
-          {menu.map((item) => (
-            <button
-              key={item.name}
-              onClick={() => addToCart(item)}
-              className="bg-white/10 p-4 rounded-xl"
-            >
-              {item.name} — THB {item.price}
-            </button>
-          ))}
-        </div>
-
-        {/* CART */}
-        <div className="bg-white/5 p-6 rounded-xl space-y-3">
-          <h2>Cart</h2>
-
-          {cart.map((item) => (
-            <div key={item.name}>
-              {item.name} x{item.qty}
-            </div>
-          ))}
-
-          <div>Total: THB {total}</div>
-
-          <button
-            onClick={createOrder}
-            className="w-full bg-[#ff7a00] py-3 rounded-xl text-black"
-          >
-            Send Order
-          </button>
-        </div>
-
+        <button
+          onClick={() => setShowLogin(true)}
+          className="bg-[#ff7a00] px-8 py-3 rounded-xl text-black"
+        >
+          Access System
+        </button>
       </div>
-    </AppShell>
+
+      {/* 🔥 LOGIN MODAL */}
+      {showLogin && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80">
+
+          <div className="bg-white/10 p-8 rounded-2xl w-[320px] space-y-4">
+
+            <h2 className="text-lg">Login</h2>
+
+            <input
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full p-2 bg-black/50 rounded"
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              {roles.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRole(r)}
+                  className={`p-2 rounded ${
+                    role === r ? "bg-[#ff7a00] text-black" : "bg-white/10"
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleLogin}
+              className="w-full bg-[#ff7a00] py-2 rounded text-black"
+            >
+              Enter
+            </button>
+
+          </div>
+
+        </div>
+      )}
+    </div>
   );
 }

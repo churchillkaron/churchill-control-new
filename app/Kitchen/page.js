@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 
 export default function Kitchen() {
   const [orders, setOrders] = useState([]);
   const [role, setRole] = useState("");
+
+  const audioRef = useRef(null);
 
   const drinkItems = ["Beer", "Water"];
 
@@ -43,8 +45,30 @@ export default function Kitchen() {
       .channel("orders-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => fetchOrders()
+        {
+          event: "INSERT", // 🔥 ONLY NEW ORDERS TRIGGER SOUND
+          schema: "public",
+          table: "orders",
+        },
+        () => {
+          fetchOrders();
+
+          // 🔊 PLAY SOUND
+          if (audioRef.current) {
+            audioRef.current.play().catch(() => {});
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        () => {
+          fetchOrders();
+        }
       )
       .subscribe();
 
@@ -66,6 +90,9 @@ export default function Kitchen() {
 
   return (
     <div className="min-h-screen bg-black text-white p-6 space-y-6">
+
+      {/* 🔊 AUDIO ELEMENT */}
+      <audio ref={audioRef} src="/alert.mp3" preload="auto" />
 
       <h1 className="text-3xl font-semibold">
         {role === "BAR" ? "Bar Screen" : "Kitchen Screen"}

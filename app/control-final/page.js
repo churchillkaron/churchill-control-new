@@ -5,40 +5,45 @@ import AppShell from "../AppShell";
 
 export default function ControlFinal() {
   const [orders, setOrders] = useState([]);
-  const [revenue, setRevenue] = useState(0);
+  const [summary, setSummary] = useState({
+    revenue: 0,
+    totalOrders: 0,
+    avgOrderValue: 0,
+  });
+
+  // loadOrders → get orders
+  const loadOrders = () => {
+    const data = JSON.parse(localStorage.getItem("orders") || "[]");
+    setOrders(data);
+  };
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+    loadOrders();
 
-    const paid = stored.filter((o) => o.status === "Paid");
-
-    setOrders(paid);
-
-    const total = paid.reduce((sum, o) => sum + o.total, 0);
-    setRevenue(total);
+    const interval = setInterval(loadOrders, 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  const serviceCharge = Math.round(revenue * 0.05);
+  // calculateSummary → calculates revenue + KPIs
+  useEffect(() => {
+    const paidOrders = orders.filter((o) => o.status === "PAID");
 
-  const closeDay = () => {
-    const history = JSON.parse(localStorage.getItem("history") || "[]");
+    const revenue = paidOrders.reduce(
+      (sum, order) => sum + (order.total || 0),
+      0
+    );
 
-    const dayData = {
-      date: new Date().toISOString(),
+    const totalOrders = paidOrders.length;
+
+    const avgOrderValue =
+      totalOrders > 0 ? Math.round(revenue / totalOrders) : 0;
+
+    setSummary({
       revenue,
-      serviceCharge,
-      paidOrders: orders,
-    };
-
-    history.push(dayData);
-
-    localStorage.setItem("history", JSON.stringify(history));
-
-    // clear orders for next day
-    localStorage.removeItem("orders");
-
-    alert("Day closed and saved to history");
-  };
+      totalOrders,
+      avgOrderValue,
+    });
+  }, [orders]);
 
   return (
     <AppShell>
@@ -49,33 +54,50 @@ export default function ControlFinal() {
             Control Final
           </p>
           <h1 className="text-3xl md:text-5xl font-semibold mt-2">
-            End-of-Day Control
+            Daily Overview
           </h1>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.05] p-8 flex justify-between items-center">
+        <div className="grid md:grid-cols-3 gap-6">
 
-          <div>
-            <p className="text-white/50 text-sm">
-              Today Revenue
-            </p>
-
-            <div className="text-4xl md:text-6xl font-semibold mt-2">
-              THB {revenue.toLocaleString()}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="text-white/50 text-sm">Revenue</div>
+            <div className="text-3xl font-semibold mt-2">
+              THB {summary.revenue}
             </div>
-
-            <p className="text-white/50 mt-3">
-              Service Charge (5%): THB {serviceCharge.toLocaleString()}
-            </p>
           </div>
 
-          <button
-            onClick={closeDay}
-            className="bg-[#ff7a00] px-6 py-3 rounded-xl text-black font-semibold"
-          >
-            Close Day
-          </button>
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="text-white/50 text-sm">Orders</div>
+            <div className="text-3xl font-semibold mt-2">
+              {summary.totalOrders}
+            </div>
+          </div>
 
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="text-white/50 text-sm">Avg Order</div>
+            <div className="text-3xl font-semibold mt-2">
+              THB {summary.avgOrderValue}
+            </div>
+          </div>
+
+        </div>
+
+        {/* PAID ORDERS LIST */}
+        <div className="space-y-4">
+          {orders
+            .filter((o) => o.status === "PAID")
+            .map((order) => (
+              <div
+                key={order.id}
+                className="bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between"
+              >
+                <div>
+                  Table {order.table} — {order.items.length} items
+                </div>
+                <div>THB {order.total}</div>
+              </div>
+            ))}
         </div>
 
       </div>

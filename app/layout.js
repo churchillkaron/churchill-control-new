@@ -8,17 +8,18 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="text-white bg-[#0d0a07]">
+      <body className="text-white">
 
-        {/* GLOBAL APP BACKGROUND (NOT landing) */}
+        {/* 🌅 GLOBAL BACKGROUND */}
         <div
-          id="app-bg"
-          className="fixed inset-0 z-0 bg-cover bg-center opacity-0 transition-opacity duration-500"
+          className="fixed inset-0 z-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/bg-beach.jpg')" }}
         />
 
-        <div className="fixed inset-0 z-0 bg-black/70 backdrop-blur-[2px]" />
+        {/* DARK OVERLAY */}
+        <div className="fixed inset-0 z-0 bg-black/60" />
 
+        {/* CONTENT */}
         <div className="relative z-10">
           {children}
         </div>

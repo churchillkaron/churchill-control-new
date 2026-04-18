@@ -6,14 +6,20 @@ import AppShell from "../AppShell";
 export default function DashboardPage() {
   const [history, setHistory] = useState([]);
   const [staffTotals, setStaffTotals] = useState({});
+  const [reviews, setReviews] = useState([]);
+  const [reviewStats, setReviewStats] = useState([]);
 
   useEffect(() => {
     const data =
       JSON.parse(localStorage.getItem("history") || "[]");
 
-    setHistory(data);
+    const reviewData =
+      JSON.parse(localStorage.getItem("reviews") || "[]");
 
-    // 🔥 CALCULATE STAFF TOTALS (MONTH)
+    setHistory(data);
+    setReviews(reviewData);
+
+    // 🔥 STAFF PAYOUT TOTALS
     const totals = {};
 
     data.forEach((day) => {
@@ -24,6 +30,25 @@ export default function DashboardPage() {
     });
 
     setStaffTotals(totals);
+
+    // 🔥 REVIEW PERFORMANCE
+    const staffNames = ["FOH 1", "FOH 2", "BAR", "KITCHEN"];
+
+    const stats = staffNames.map((name) => {
+      const r = reviewData.filter((x) => x.staff === name);
+
+      const avg =
+        r.reduce((sum, x) => sum + x.rating, 0) /
+        (r.length || 1);
+
+      return {
+        name,
+        avg,
+        count: r.length,
+      };
+    });
+
+    setReviewStats(stats);
   }, []);
 
   // 🔥 TOTALS
@@ -59,6 +84,25 @@ export default function DashboardPage() {
           <Card label="Revenue" value={`THB ${totalRevenue}`} />
           <Card label="Service Pool" value={`THB ${totalService}`} />
           <Card label="Days Closed" value={totalDays} />
+
+        </div>
+
+        {/* 🔥 REVIEW PERFORMANCE */}
+        <div className="bg-white/5 p-6 rounded-2xl">
+
+          <h2 className="mb-4 text-white">Review Performance</h2>
+
+          {reviewStats.map((s) => (
+            <div
+              key={s.name}
+              className="flex justify-between border-b border-white/10 py-2"
+            >
+              <span>{s.name}</span>
+              <span>
+                ⭐ {s.avg.toFixed(2)} ({s.count})
+              </span>
+            </div>
+          ))}
 
         </div>
 

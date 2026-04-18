@@ -114,6 +114,12 @@ export default function StaffPage() {
 
       const data = await res.json();
 
+      // 🔥 HARD BLOCK FROM BACKEND
+      if (data.error) {
+        setReviewStatus("Rejected: Not a valid review");
+        return;
+      }
+
       if (!data.rating || data.rating < 1 || data.rating > 5) {
         setReviewStatus("Invalid rating");
         return;
@@ -146,7 +152,6 @@ export default function StaffPage() {
     }
   };
 
-  // 🔥 REVIEW SYSTEM
   const myReviewsToday = reviews.filter(
     (r) => r.staff === name && r.date === today
   );
@@ -233,7 +238,7 @@ export default function StaffPage() {
               </button>
 
               {reviewStatus && (
-                <p className="text-white/50 text-sm mt-2">{reviewStatus}</p>
+                <p className="text-red-400 text-sm mt-2">{reviewStatus}</p>
               )}
 
               {reviewResult && (

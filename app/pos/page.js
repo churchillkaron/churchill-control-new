@@ -86,7 +86,7 @@ export default function POSPage() {
   const sendOrder = () => {
     const orders = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    orders.push({
+    const newOrder = {
       id: Date.now(),
       table,
       total,
@@ -96,7 +96,18 @@ export default function POSPage() {
         ...i,
         status: "NEW",
       })),
-    });
+    };
+
+    // 🔥 SPLIT BY STATION
+    const western = newOrder.items.filter(i => i.station === "WESTERN");
+    const thai = newOrder.items.filter(i => i.station === "THAI");
+
+    newOrder.kitchen = {
+      WESTERN: western,
+      THAI: thai,
+    };
+
+    orders.push(newOrder);
 
     localStorage.setItem("orders", JSON.stringify(orders));
     setCart([]);

@@ -13,24 +13,36 @@ export default function Kitchen() {
 
   const isDrink = (name) => drinkItems.includes(name);
 
+  const safeItems = (items) => {
+    try {
+      if (!items) return [];
+
+      // if stored as string → parse
+      if (typeof items === "string") {
+        return JSON.parse(items);
+      }
+
+      return Array.isArray(items) ? items : [];
+    } catch {
+      return [];
+    }
+  };
+
   const filterItemsByRole = (items) => {
-    if (role === "BAR") return items.filter((i) => isDrink(i.name));
-    if (role === "KITCHEN") return items.filter((i) => !isDrink(i.name));
-    return items;
+    const safe = safeItems(items);
+
+    if (role === "BAR") return safe.filter((i) => isDrink(i.name));
+    if (role === "KITCHEN") return safe.filter((i) => !isDrink(i.name));
+    return safe;
   };
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("orders")
         .select("*")
         .neq("status", "Paid")
         .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Supabase error:", error);
-        return;
-      }
 
       setOrders(data || []);
     } catch (err) {
@@ -49,44 +61,25 @@ export default function Kitchen() {
     setRole(staffRole);
     fetchOrders();
 
-    let channel;
-
-    try {
-      channel = supabase
-        .channel("orders-realtime")
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "orders",
-          },
-          () => {
-            fetchOrders();
-            if (audioRef.current) {
-              audioRef.current.play().catch(() => {});
-            }
+    const channel = supabase
+      .channel("orders-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        () => {
+          fetchOrders();
+          if (audioRef.current) {
+            audioRef.current.play().catch(() => {});
           }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "orders",
-          },
-          () => {
-            fetchOrders();
-          }
-        )
-        .subscribe();
-    } catch (err) {
-      console.error("Realtime failed:", err);
-    }
+        }
+      )
+      .subscribe();
 
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
   }, []);
 
   const updateStatus = async (order) => {
@@ -119,9 +112,9 @@ export default function Kitchen() {
         <div className="grid md:grid-cols-3 gap-6">
 
           {orders.map((order) => {
-            const filtered = filterItemsByRole(order.items || []);
+            const filtered = filterItemsByRole(order.items);
 
-            if (filtered.length === 0) return null;
+            if (!filtered.length) return null;
 
             return (
               <div key={order.id} className="bg-white/10 p-4 rounded-xl">
@@ -134,7 +127,7 @@ export default function Kitchen() {
                 <div className="space-y-1 text-sm mb-3">
                   {filtered.map((item, i) => (
                     <div key={i}>
-                      {item.name} x{item.qty || 1}
+                      {item?.name || "Unknown"} x{item?.qty || 1}
                     </div>
                   ))}
                 </div>

@@ -18,15 +18,31 @@ export default function KitchenPage() {
     else setStation("WESTERN");
   }, []);
 
-  // getCourse → course type
+  // getCourse → defines grouping
   const getCourse = (item) => {
-    if (["Beer", "Soft Drink", "Wine", "Cocktails", "Spirit"].includes(item.category)) return "DRINK";
-    if (item.category === "Starter") return "STARTER";
+    if (["Beer", "Soft Drink", "Wine", "Cocktails", "Spirit"].includes(item.category)) return "DRINKS";
+    if (item.category === "Starter") return "STARTERS";
     if (item.category === "Dessert") return "DESSERT";
-    return "MAIN";
+    return "MAINS";
   };
 
-  // loadOrders → filtering + HOLD + fire + priority
+  // groupItems → group by course
+  const groupItems = (items) => {
+    const grouped = {
+      STARTERS: [],
+      MAINS: [],
+      DESSERT: [],
+      DRINKS: [],
+    };
+
+    items.forEach((item) => {
+      const course = getCourse(item);
+      if (grouped[course]) grouped[course].push(item);
+    });
+
+    return grouped;
+  };
+
   const loadOrders = () => {
     try {
       const data = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -35,25 +51,24 @@ export default function KitchenPage() {
         .map((order) => {
           const fireNext = order.fireNext || false;
 
+          const items = order.items.filter((item) => {
+            if (item.station !== station) return false;
+            if (item.status === "READY") return false;
+
+            if (item.hold && !fireNext) return false;
+
+            return true;
+          });
+
           return {
             ...order,
-            items: order.items
-              .filter((item) => {
-                if (item.station !== station) return false;
-                if (item.status === "READY") return false;
-
-                // 🔥 HOLD logic
-                if (item.hold && !fireNext) return false;
-
-                return true;
-              })
-              .sort((a, b) => {
-                const priority = { NEW: 0, PREPARING: 1 };
-                return priority[a.status] - priority[b.status];
-              }),
+            groupedItems: groupItems(items),
           };
         })
-        .filter((order) => order.items.length > 0)
+        .filter(
+          (order) =>
+            Object.values(order.groupedItems).flat().length > 0
+        )
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
       if (filtered.length > prevOrderCount.current) {
@@ -72,20 +87,27 @@ export default function KitchenPage() {
     if (!station) return;
 
     loadOrders();
-
     const interval = setInterval(loadOrders, 1000);
     return () => clearInterval(interval);
   }, [station]);
 
   // updateStatus → item status
-  const updateStatus = (orderId, itemIndex, currentStatus) => {
+  const updateStatus = (orderId, itemIndex, currentStatus, courseKey) => {
     const all = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const updated = all.map((order) => {
       if (order.id !== orderId) return order;
 
-      const updatedItems = order.items.map((item, i) => {
-        if (i !== itemIndex) return item;
+      let counter = -1;
+
+      const updatedItems = order.items.map((item) => {
+        if (item.station !== station || item.status === "READY") return item;
+
+        if (item.hold && !order.fireNext) return item;
+
+        counter++;
+
+        if (counter !== itemIndex) return item;
 
         if (currentStatus === "NEW") {
           return { ...item, status: "PREPARING" };
@@ -105,14 +127,12 @@ export default function KitchenPage() {
     loadOrders();
   };
 
-  // fireNextCourse → unlock HOLD items
+  // fireNextCourse → unlock held items
   const fireNextCourse = (orderId) => {
     const all = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const updated = all.map((order) =>
-      order.id === orderId
-        ? { ...order, fireNext: true }
-        : order
+      order.id === orderId ? { ...order, fireNext: true } : order
     );
 
     localStorage.setItem("orders", JSON.stringify(updated));
@@ -141,12 +161,6 @@ export default function KitchenPage() {
         </div>
 
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {orders.length === 0 && (
-            <div className="text-white/40">
-              No active orders
-            </div>
-          )}
-
           {orders.map((order) => (
             <div
               key={order.id}
@@ -156,7 +170,6 @@ export default function KitchenPage() {
                 <div className="text-lg font-semibold">
                   Table {order.table}
                 </div>
-
                 <div className="text-sm text-white/50">
                   {new Date(order.created_at).toLocaleTimeString()}
                 </div>
@@ -169,33 +182,46 @@ export default function KitchenPage() {
                 Fire Held Items
               </button>
 
-              <div className="space-y-3">
-                {order.items.map((item, index) => (
-                  <div
-                    key={index}
-                    className="border-b border-white/10 pb-2"
-                  >
-                    <div className="flex justify-between">
-                      <div>
-                        {item.qty}x {item.name}
-                      </div>
-                      <div className="text-xs text-white/50">
-                        {item.status}
-                      </div>
+              {/* 🔥 GROUPED COURSES */}
+              {Object.entries(order.groupedItems).map(([course, items]) => {
+                if (items.length === 0) return null;
+
+                return (
+                  <div key={course}>
+                    <div className="text-xs text-white/40 mb-2">
+                      {course}
                     </div>
 
-                    <button
-                      onClick={() =>
-                        updateStatus(order.id, index, item.status)
-                      }
-                      className="w-full mt-2 bg-[#ff7a00] py-2 rounded-xl text-black"
-                    >
-                      {item.status === "NEW" && "Start"}
-                      {item.status === "PREPARING" && "Ready"}
-                    </button>
+                    <div className="space-y-2">
+                      {items.map((item, index) => (
+                        <div
+                          key={index}
+                          className="border-b border-white/10 pb-2"
+                        >
+                          <div className="flex justify-between">
+                            <div>
+                              {item.qty}x {item.name}
+                            </div>
+                            <div className="text-xs text-white/50">
+                              {item.status}
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() =>
+                              updateStatus(order.id, index, item.status, course)
+                            }
+                            className="w-full mt-2 bg-[#ff7a00] py-2 rounded-xl text-black"
+                          >
+                            {item.status === "NEW" && "Start"}
+                            {item.status === "PREPARING" && "Ready"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           ))}
         </div>

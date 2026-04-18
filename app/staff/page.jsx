@@ -14,6 +14,9 @@ export default function StaffPage() {
   const [checkedIn, setCheckedIn] = useState(false);
   const [late, setLate] = useState(false);
 
+  const [googleReviews, setGoogleReviews] = useState(0);
+  const [tripReviews, setTripReviews] = useState(0);
+
   useEffect(() => {
     const storedName = localStorage.getItem("staff_name");
     if (storedName) {
@@ -33,6 +36,10 @@ export default function StaffPage() {
     }
 
     setHistory(JSON.parse(localStorage.getItem("history") || "[]"));
+
+    const reviews = JSON.parse(localStorage.getItem("reviews") || "{}");
+    setGoogleReviews(reviews.google || 0);
+    setTripReviews(reviews.tripadvisor || 0);
   }, []);
 
   const selectUser = (n) => {
@@ -109,7 +116,7 @@ export default function StaffPage() {
     setConfirmed(true);
   };
 
-  // 🔥 SCORE SYSTEM
+  // SCORE
   const score = todayStaff?.score || 0;
 
   const getStars = (score) => {
@@ -121,6 +128,16 @@ export default function StaffPage() {
   };
 
   const stars = getStars(score);
+
+  // REVIEWS SAVE
+  const saveReviews = () => {
+    const data = {
+      google: googleReviews,
+      tripadvisor: tripReviews
+    };
+
+    localStorage.setItem("reviews", JSON.stringify(data));
+  };
 
   return (
     <AppShell>
@@ -141,16 +158,46 @@ export default function StaffPage() {
           <>
             <h1 className="text-3xl text-white">{name}</h1>
 
-            {/* 🔥 SCORE DISPLAY */}
+            {/* SCORE */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="text-white mb-2">Performance</h2>
-              <p className="text-white/80">Score: {score}</p>
+              <p>Score: {score}</p>
               <div className="text-yellow-400 text-xl">
                 {"★".repeat(stars)}{"☆".repeat(5 - stars)}
               </div>
             </div>
 
-            {/* 🔥 CHECK-IN */}
+            {/* REVIEWS */}
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2 className="text-white mb-2">Reviews</h2>
+
+              <div className="flex gap-4">
+                <input
+                  type="number"
+                  value={googleReviews}
+                  onChange={(e) => setGoogleReviews(Number(e.target.value))}
+                  placeholder="Google Reviews"
+                  className="bg-black/30 p-2 rounded w-full"
+                />
+
+                <input
+                  type="number"
+                  value={tripReviews}
+                  onChange={(e) => setTripReviews(Number(e.target.value))}
+                  placeholder="TripAdvisor"
+                  className="bg-black/30 p-2 rounded w-full"
+                />
+              </div>
+
+              <button
+                onClick={saveReviews}
+                className="bg-[#ff7a00] px-4 py-2 rounded mt-3"
+              >
+                Save Reviews
+              </button>
+            </div>
+
+            {/* CHECK-IN */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="text-white mb-2">Attendance</h2>
 

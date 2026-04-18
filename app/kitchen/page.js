@@ -18,24 +18,44 @@ export default function KitchenPage() {
     else setStation("WESTERN");
   }, []);
 
+  // getCourse → defines course type
+  const getCourse = (item) => {
+    if (["Beer", "Soft Drink", "Wine", "Cocktails", "Spirit"].includes(item.category)) return "DRINK";
+    if (item.category === "Starter") return "STARTER";
+    if (item.category === "Dessert") return "DESSERT";
+    return "MAIN";
+  };
+
   const loadOrders = () => {
     try {
       const data = JSON.parse(localStorage.getItem("orders") || "[]");
 
       const filtered = data
-        .map((order) => ({
-          ...order,
-          items: order.items
-            .filter(
-              (item) =>
-                item.station === station &&
-                item.status !== "READY"
-            )
-            .sort((a, b) => {
-              const priority = { NEW: 0, PREPARING: 1 };
-              return priority[a.status] - priority[b.status];
-            }),
-        }))
+        .map((order) => {
+          const startersReady = order.items
+            .filter((i) => getCourse(i) === "STARTER")
+            .every((i) => i.status === "READY");
+
+          return {
+            ...order,
+            items: order.items
+              .filter((item) => {
+                if (item.station !== station) return false;
+                if (item.status === "READY") return false;
+
+                const course = getCourse(item);
+
+                // 🔥 COURSE FLOW LOGIC
+                if (course === "MAIN" && !startersReady) return false;
+
+                return true;
+              })
+              .sort((a, b) => {
+                const priority = { NEW: 0, PREPARING: 1 };
+                return priority[a.status] - priority[b.status];
+              }),
+          };
+        })
         .filter((order) => order.items.length > 0)
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
@@ -60,6 +80,7 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, [station]);
 
+  // updateStatus → item status control
   const updateStatus = (orderId, itemIndex, currentStatus) => {
     const all = JSON.parse(localStorage.getItem("orders") || "[]");
 

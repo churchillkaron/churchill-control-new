@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
@@ -10,6 +12,8 @@ export default function DashboardPage() {
   const [reviewStats, setReviewStats] = useState([]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const data =
       JSON.parse(localStorage.getItem("history") || "[]");
 
@@ -19,7 +23,7 @@ export default function DashboardPage() {
     setHistory(data);
     setReviews(reviewData);
 
-    // 🔥 STAFF PAYOUT TOTALS
+    // STAFF PAYOUT TOTALS
     const totals = {};
 
     data.forEach((day) => {
@@ -31,7 +35,7 @@ export default function DashboardPage() {
 
     setStaffTotals(totals);
 
-    // 🔥 REVIEW PERFORMANCE
+    // REVIEW PERFORMANCE
     const staffNames = ["FOH 1", "FOH 2", "BAR", "KITCHEN"];
 
     const stats = staffNames.map((name) => {
@@ -51,7 +55,6 @@ export default function DashboardPage() {
     setReviewStats(stats);
   }, []);
 
-  // 🔥 TOTALS
   const totalRevenue = history.reduce(
     (sum, d) => sum + (d.revenue || 0),
     0
@@ -68,7 +71,6 @@ export default function DashboardPage() {
     <AppShell>
       <div className="space-y-10">
 
-        {/* HEADER */}
         <div>
           <h1 className="text-3xl text-white/90">
             Manager Dashboard
@@ -78,18 +80,13 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* TOTAL KPI */}
         <div className="grid md:grid-cols-3 gap-6">
-
           <Card label="Revenue" value={`THB ${totalRevenue}`} />
           <Card label="Service Pool" value={`THB ${totalService}`} />
           <Card label="Days Closed" value={totalDays} />
-
         </div>
 
-        {/* 🔥 REVIEW PERFORMANCE */}
         <div className="bg-white/5 p-6 rounded-2xl">
-
           <h2 className="mb-4 text-white">Review Performance</h2>
 
           {reviewStats.map((s) => (
@@ -103,12 +100,9 @@ export default function DashboardPage() {
               </span>
             </div>
           ))}
-
         </div>
 
-        {/* STAFF PAYROLL */}
         <div className="bg-white/5 p-6 rounded-2xl">
-
           <h2 className="mb-4 text-white">Staff Monthly Payout</h2>
 
           {Object.keys(staffTotals).length === 0 && (
@@ -124,7 +118,6 @@ export default function DashboardPage() {
               <span>THB {Math.round(total)}</span>
             </div>
           ))}
-
         </div>
 
       </div>

@@ -1,14 +1,19 @@
 "use client";
 
-import AppShell from "../AppShell";
+import Navbar from "./Navbar";
 
-
-export default function Kitchen() {
+export default function AppShell({ children }) {
   return (
-    <AppShell>
-      <div className="text-white p-10">
-        Kitchen OK with shell
-      </div>
-    </AppShell>
+    <div className="min-h-screen">
+
+      {/* NAVBAR */}
+      <Navbar />
+
+      {/* CONTENT */}
+      <main className="pt-24 px-6 max-w-7xl mx-auto">
+        {children}
+      </main>
+
+    </div>
   );
 }

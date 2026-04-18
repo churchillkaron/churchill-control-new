@@ -39,7 +39,7 @@ export default function StaffPage() {
     setHistory(historyData);
   }, []);
 
-  // 🔥 FIXED ATTENDANCE LOGIC (runs AFTER name is set)
+  // ATTENDANCE STATE
   useEffect(() => {
     if (!name) return;
 
@@ -121,6 +121,7 @@ export default function StaffPage() {
     setCheckOutTime(now);
   };
 
+  // REVIEW UPLOAD
   const handleUpload = async (file) => {
     if (!file) return;
 
@@ -149,6 +150,7 @@ export default function StaffPage() {
     reader.readAsDataURL(file);
   };
 
+  // 🔥 SALARY DATA
   const todayData =
     history.find((d) => d.date === today) ||
     history[history.length - 1] ||
@@ -157,6 +159,15 @@ export default function StaffPage() {
   const todayStaff =
     todayData?.staff?.find((s) => s.name === name) || {};
 
+  const todaySalary = todayStaff?.payout || 0;
+  const serviceCharge = todayData?.serviceCharge || 0;
+
+  const totalSalary = history.reduce((sum, d) => {
+    const s = d.staff?.find((x) => x.name === name);
+    return sum + (s?.payout || 0);
+  }, 0);
+
+  // PERFORMANCE
   const score = todayStaff?.score || 0;
 
   const getStars = (score) => {
@@ -190,16 +201,23 @@ export default function StaffPage() {
 
             {/* PERFORMANCE */}
             <div className="bg-white/5 p-6 rounded-2xl">
-              <h2 className="text-white mb-2">Performance</h2>
+              <h2>Performance</h2>
               <p>Score: {score}</p>
-              <div className="text-yellow-400 text-xl">
-                {"★".repeat(stars)}{"☆".repeat(5 - stars)}
-              </div>
+              <div>{"★".repeat(stars)}{"☆".repeat(5 - stars)}</div>
+            </div>
+
+            {/* 🔥 SALARY */}
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2>Salary</h2>
+              <p>Today: THB {todaySalary}</p>
+              <p>Service Pool: THB {serviceCharge}</p>
+              <p>Total Earned: THB {totalSalary}</p>
+              <p className="text-yellow-400 text-sm">Status: Pending</p>
             </div>
 
             {/* ATTENDANCE */}
-            <div className="bg-white/5 p-6 rounded-2xl space-y-3">
-              <h2 className="text-white mb-2">Attendance</h2>
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2>Attendance</h2>
 
               {!checkedIn && (
                 <button onClick={() => confirm("Check In?") && checkIn()} className="bg-green-500 px-4 py-2 rounded w-full">
@@ -216,18 +234,13 @@ export default function StaffPage() {
               {checkedIn && (
                 <p>{checkedOut ? "✅ Shift Completed" : "🕒 On Shift"}</p>
               )}
-
-              {checkInTime && <p className="text-xs">In: {new Date(checkInTime).toLocaleTimeString()}</p>}
-              {checkOutTime && <p className="text-xs">Out: {new Date(checkOutTime).toLocaleTimeString()}</p>}
             </div>
 
             {/* REVIEW */}
-            <div className="bg-white/5 p-6 rounded-2xl space-y-4">
-              <h2 className="text-white">Upload Review</h2>
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2>Upload Review</h2>
               <input type="file" accept="image/*" onChange={(e) => handleUpload(e.target.files[0])} />
-
-              {preview && <img src={preview} className="rounded-xl max-h-60" />}
-              {loading && <p>Analyzing...</p>}
+              {preview && <img src={preview} className="max-h-40" />}
               {reviewResult && <p>⭐ {reviewResult.rating}</p>}
             </div>
 

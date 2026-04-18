@@ -1,39 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Navbar from "./Navbar";
+import AppShell from "../AppShell";
 
-export default function AppShell({ children }) {
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const name = localStorage.getItem("staffName");
-    const role = localStorage.getItem("staffRole");
-
-    // ❌ ONLY redirect if REALLY missing
-    if (!name || !role) {
-      window.location.href = "/";
-      return;
-    }
-
-    // ✅ allow render AFTER check
-    setReady(true);
-  }, []);
-
-  // 🧠 WAIT before rendering anything
-  if (!ready) {
-    return null;
-  }
-
+export default function Kitchen() {
   return (
-    <div className="min-h-screen">
-
-      <Navbar />
-
-      <main className="pt-24 px-6 max-w-7xl mx-auto">
-        {children}
-      </main>
-
-    </div>
+    <AppShell>
+      <div className="text-white p-10">
+        Kitchen OK with shell
+      </div>
+    </AppShell>
   );
 }

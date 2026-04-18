@@ -3,291 +3,90 @@
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
-
 export default function StaffPage() {
-  const [staffName, setStaffName] = useState("");
-  const [staffRole, setStaffRole] = useState("");
-  const [payroll, setPayroll] = useState(null);
-  const [checkedIn, setCheckedIn] = useState(false);
-  const [showLatePopup, setShowLatePopup] = useState(false);
-  const [lateReason, setLateReason] = useState("");
-  const [lateCount, setLateCount] = useState(0);
-
-  const SHIFT_START_HOUR = 10;
+  const [staff, setStaff] = useState([]);
 
   useEffect(() => {
-    const name = localStorage.getItem("staffName");
-    const role = localStorage.getItem("staffRole");
-
-    if (!name || !role) {
-      window.location.href = "/";
-      return;
-    }
-
-    setStaffName(name);
-    setStaffRole(role);
-
-    const data =
-      JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
-    setPayroll(data);
-
-    const attendance =
-      JSON.parse(localStorage.getItem("attendance")) || [];
-
-    const today = new Date().toLocaleDateString("en-GB");
-
-    const alreadyCheckedIn = attendance.some(
-      (entry) =>
-        entry.name === name &&
-        entry.role === role &&
-        entry.date === today
-    );
-
-    setCheckedIn(alreadyCheckedIn);
-
-    // 🔥 COUNT LATES THIS MONTH
-    const lates = attendance.filter(
-      (entry) =>
-        entry.name === name &&
-        entry.late === true
-    );
-
-    setLateCount(lates.length);
+    const stored =
+      JSON.parse(localStorage.getItem("staff_attendance") || "[]");
+    setStaff(stored);
   }, []);
 
-  const isLate = () => {
+  const checkIn = (name) => {
     const now = new Date();
-    return now.getHours() >= SHIFT_START_HOUR;
-  };
+    const hour = now.getHours();
+    const minute = now.getMinutes();
 
-  const saveAttendance = (late, reason = "") => {
-    const existing =
-      JSON.parse(localStorage.getItem("attendance")) || [];
+    // 🔥 LATE RULE (after 17:00 = late)
+    const isLate = hour > 17 || (hour === 17 && minute > 0);
 
-    const entry = {
-      name: staffName,
-      role: staffRole,
-      date: new Date().toLocaleDateString("en-GB"),
-      time: new Date().toLocaleTimeString(),
-      late,
-      reason,
-      approved: false,
+    const newEntry = {
+      name,
+      time: now.toLocaleTimeString(),
+      date: now.toLocaleDateString("en-GB"),
+      late: isLate,
+      penalty: isLate ? 200 : 0,
     };
 
-    localStorage.setItem("attendance", JSON.stringify([entry, ...existing]));
-    setCheckedIn(true);
+    const updated = [newEntry, ...staff];
 
-    // 🔥 APPLY PENALTY IF LATE
-    if (late) {
-      applyLatePenalty();
-    }
-  };
-
-  // 🔥 PENALTY SYSTEM
-  const applyLatePenalty = () => {
-    const data =
-      JSON.parse(localStorage.getItem("monthlyPayroll")) || null;
-
-    if (!data) return;
-
-    const index = data.staff.findIndex(
-      (s) => s.name === staffName
+    localStorage.setItem(
+      "staff_attendance",
+      JSON.stringify(updated)
     );
 
-    if (index === -1) return;
-
-    // 🔥 RULES
-    // 1st late = warning
-    // 2nd late = -5%
-    // 3rd late = -10%
-
-    const newLateCount = lateCount + 1;
-
-    let penalty = 0;
-
-    if (newLateCount === 2) penalty = 0.05;
-    if (newLateCount >= 3) penalty = 0.1;
-
-    if (penalty > 0) {
-      data.staff[index].penalty = penalty;
-      data.staff[index].total =
-        data.staff[index].total * (1 - penalty);
-    }
-
-    localStorage.setItem("monthlyPayroll", JSON.stringify(data));
-    setPayroll(data);
-    setLateCount(newLateCount);
+    setStaff(updated);
   };
-
-  const handleStartShift = () => {
-    if (checkedIn) return;
-
-    if (isLate()) {
-      setShowLatePopup(true);
-      return;
-    }
-
-    saveAttendance(false, "");
-  };
-
-  const handleLateSubmit = () => {
-    saveAttendance(true, lateReason);
-    setShowLatePopup(false);
-    setLateReason("");
-  };
-
-  const confirmSalary = () => {
-    if (!payroll) return;
-
-    const updated = { ...payroll };
-
-    const index = updated.staff.findIndex(
-      (s) => s.name === staffName
-    );
-
-    if (index === -1) return;
-
-    updated.staff[index].staffConfirmed = true;
-
-    localStorage.setItem("monthlyPayroll", JSON.stringify(updated));
-    setPayroll(updated);
-  };
-
-  const staffData = payroll?.staff.find(
-    (s) => s.name === staffName
-  );
 
   return (
     <AppShell>
-      <div className="space-y-14">
+      <div className="space-y-10">
 
-        {/* HEADER */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-medium text-white/90">
-            Staff Portal
-          </h1>
+        <div>
+          <h1 className="text-3xl text-white/90">Staff Attendance</h1>
           <p className="text-white/50 text-sm">
-            Shift tracking, attendance, and payroll control
+            Check-in and lateness control
           </p>
         </div>
 
-        {/* STATUS CARD */}
-        <div className="relative">
-          <div className="absolute -inset-4 bg-[#ff7a00]/10 blur-2xl rounded-3xl" />
-
-          <div className="relative bg-white/[0.06] backdrop-blur-xl border border-white/10 p-6 rounded-2xl">
-
-            <div className="flex justify-between text-sm text-white/60">
-              <div>{staffName}</div>
-              <div>{staffRole}</div>
-            </div>
-
-            <div className="mt-4">
-              Shift Status:{" "}
-              {checkedIn ? (
-                <span className="text-green-400">✅ Checked In</span>
-              ) : (
-                <span className="text-yellow-400">Not Checked In</span>
-              )}
-            </div>
-
-            <div className="mt-2 text-sm text-white/50">
-              Late Count: {lateCount}
-            </div>
-
-            {!checkedIn && (
-              <button
-                onClick={handleStartShift}
-                className="mt-6 bg-[#ff7a00] px-5 py-2 rounded-xl text-black font-medium"
-              >
-                Start Shift
-              </button>
-            )}
-          </div>
+        {/* CHECK-IN BUTTONS */}
+        <div className="flex gap-4 flex-wrap">
+          <button onClick={() => checkIn("FOH 1")} className="btn">
+            FOH 1 Check In
+          </button>
+          <button onClick={() => checkIn("FOH 2")} className="btn">
+            FOH 2 Check In
+          </button>
+          <button onClick={() => checkIn("BAR")} className="btn">
+            BAR Check In
+          </button>
+          <button onClick={() => checkIn("KITCHEN")} className="btn">
+            KITCHEN Check In
+          </button>
         </div>
 
-        {/* PAYROLL */}
-        {!staffData ? (
-          <div className="bg-white/[0.05] border border-white/10 p-6 rounded-xl">
-            No payroll data available
-          </div>
-        ) : (
-          <div className="bg-white/[0.06] border border-white/10 p-6 rounded-2xl">
-
-            <h2 className="text-xl mb-4 text-white/80">
-              Salary Overview
-            </h2>
-
-            <div>Salary: THB {staffData.salary}</div>
-            <div>Bonus: THB {Math.round(staffData.bonus)}</div>
-
-            {staffData.penalty && (
-              <div className="text-red-400 mt-2">
-                Penalty Applied: {staffData.penalty * 100}%
-              </div>
-            )}
-
-            <div className="mt-3 text-[#ff7a00] font-medium">
-              Total: THB {Math.round(staffData.total)}
-            </div>
-
-            <div className="mt-4 text-sm space-y-1">
+        {/* LIST */}
+        <div className="space-y-4">
+          {staff.map((s, i) => (
+            <div
+              key={i}
+              className="bg-white/5 border border-white/10 rounded-xl p-4 flex justify-between"
+            >
               <div>
-                Staff Confirmed:{" "}
-                {staffData.staffConfirmed ? "✅" : "❌"}
+                {s.name} — {s.time}
+                <div className="text-xs text-white/50">{s.date}</div>
               </div>
-              <div>
-                Manager Approved:{" "}
-                {staffData.managerApproved ? "✅" : "❌"}
-              </div>
-              <div>
-                Payment:{" "}
-                {staffData.paymentConfirmed ? "✅ Paid" : "❌"}
+
+              <div className="text-right">
+                {s.late && (
+                  <div className="text-red-400">
+                    Late (-{s.penalty} THB)
+                  </div>
+                )}
               </div>
             </div>
-
-            {!staffData.staffConfirmed && (
-              <button
-                onClick={confirmSalary}
-                className="mt-6 bg-green-500 px-5 py-2 rounded-xl"
-              >
-                Confirm My Salary
-              </button>
-            )}
-
-          </div>
-        )}
-
-        {/* LATE POPUP */}
-        {showLatePopup && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
-            <div className="bg-white/[0.08] backdrop-blur-xl p-8 rounded-3xl w-full max-w-md space-y-4 border border-white/10">
-
-              <h2 className="text-xl text-red-400">
-                You are late
-              </h2>
-
-              <p className="text-white/70 text-sm">
-                Provide a reason for manager review
-              </p>
-
-              <input
-                type="text"
-                value={lateReason}
-                onChange={(e) => setLateReason(e.target.value)}
-                className="w-full p-3 rounded-xl bg-black/40 border border-white/10"
-              />
-
-              <button
-                onClick={handleLateSubmit}
-                className="w-full p-3 bg-[#ff7a00] text-black rounded-xl font-medium"
-              >
-                Submit & Start Shift
-              </button>
-
-            </div>
-          </div>
-        )}
+          ))}
+        </div>
 
       </div>
     </AppShell>

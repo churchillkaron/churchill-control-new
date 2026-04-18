@@ -184,10 +184,11 @@ export default function POSPage() {
           </button>
         </div>
 
-        {/* FIXED POPUP */}
+        {/* POPUP FIXED */}
         {popupItem && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
-            <div className="bg-[#161616] p-6 rounded-2xl w-96 space-y-4">
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
+
+            <div className="bg-[#161616] border border-white/10 rounded-2xl p-6 w-96 space-y-5 relative z-50">
 
               <h2 className="text-xl">{popupItem.name}</h2>
 
@@ -200,7 +201,7 @@ export default function POSPage() {
                       onClick={() =>
                         setSelected((p) => ({ ...p, doneness: o }))
                       }
-                      className="bg-white/10 p-2 rounded-xl"
+                      className="bg-white/10 hover:bg-white/20 p-2 rounded-xl cursor-pointer"
                     >
                       {o}
                     </button>
@@ -217,7 +218,7 @@ export default function POSPage() {
                       onClick={() =>
                         setSelected((p) => ({ ...p, side: o }))
                       }
-                      className="bg-white/10 p-2 rounded-xl"
+                      className="bg-white/10 hover:bg-white/20 p-2 rounded-xl cursor-pointer"
                     >
                       {o}
                     </button>
@@ -234,7 +235,7 @@ export default function POSPage() {
                       onClick={() =>
                         setSelected((p) => ({ ...p, sauce: o }))
                       }
-                      className="bg-white/10 p-2 rounded-xl"
+                      className="bg-white/10 hover:bg-white/20 p-2 rounded-xl cursor-pointer"
                     >
                       {o}
                     </button>
@@ -257,6 +258,7 @@ export default function POSPage() {
               </button>
 
             </div>
+
           </div>
         )}
 

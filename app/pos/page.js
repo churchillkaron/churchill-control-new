@@ -17,14 +17,20 @@ const categories = [
 
 const menu = {
   "Main Course": [
-    { name: "Ribeye Steak", price: 890, modifiers: ["Rare", "Medium Rare", "Medium", "Well Done"] },
-    { name: "Beef Tenderloin", price: 920, modifiers: ["Rare", "Medium Rare", "Medium", "Well Done"] },
-  ],
-  Starter: [
-    { name: "Beef Carpaccio", price: 320 },
-  ],
-  "Thai Food": [
-    { name: "Pad Thai", price: 160 },
+    {
+      name: "Ribeye Steak",
+      price: 890,
+      modifiers: ["Rare", "Medium Rare", "Medium", "Well Done"],
+      sides: ["Fries", "Salad", "Mashed Potato"],
+      sauces: ["Pepper", "Mushroom", "BBQ"],
+    },
+    {
+      name: "Beef Tenderloin",
+      price: 920,
+      modifiers: ["Rare", "Medium Rare", "Medium", "Well Done"],
+      sides: ["Fries", "Salad"],
+      sauces: ["Pepper", "Red Wine"],
+    },
   ],
 };
 
@@ -35,11 +41,15 @@ export default function POSPage() {
 
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedModifier, setSelectedModifier] = useState("");
+  const [selectedSide, setSelectedSide] = useState("");
+  const [selectedSauce, setSelectedSauce] = useState("");
 
   const addToCart = () => {
     const item = {
       ...selectedItem,
       modifier: selectedModifier,
+      side: selectedSide,
+      sauce: selectedSauce,
       qty: 1,
     };
 
@@ -47,12 +57,11 @@ export default function POSPage() {
 
     setSelectedItem(null);
     setSelectedModifier("");
+    setSelectedSide("");
+    setSelectedSauce("");
   };
 
-  const total = cart.reduce(
-    (sum, item) => sum + item.price * item.qty,
-    0
-  );
+  const total = cart.reduce((sum, item) => sum + item.price, 0);
 
   const sendOrder = () => {
     if (!table || cart.length === 0) {
@@ -73,7 +82,7 @@ export default function POSPage() {
     localStorage.setItem("orders", JSON.stringify([...existing, newOrder]));
 
     setCart([]);
-    alert("Order sent to kitchen");
+    alert("Order sent");
   };
 
   const currentMenu = menu[activeCategory] || [];
@@ -88,7 +97,7 @@ export default function POSPage() {
           placeholder="Table"
           value={table}
           onChange={(e) => setTable(e.target.value)}
-          className="px-4 py-2 bg-white/10 rounded"
+          className="px-4 py-2 bg-black/40 rounded border border-white/10"
         />
 
         {/* Categories */}
@@ -104,7 +113,8 @@ export default function POSPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-[2fr_400px] gap-6">
+        {/* 🔥 FIXED LAYOUT */}
+        <div className="grid grid-cols-[2fr_400px] gap-6 items-start">
 
           {/* MENU */}
           <div className="grid grid-cols-2 gap-4">
@@ -112,33 +122,34 @@ export default function POSPage() {
               <button
                 key={item.name}
                 onClick={() => setSelectedItem(item)}
-                className="p-4 bg-white/10 rounded"
+                className="p-6 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl hover:bg-black/60"
               >
-                {item.name} - {item.price}
+                <div className="text-lg">{item.name}</div>
+                <div className="text-white/60">{item.price} THB</div>
               </button>
             ))}
           </div>
 
-          {/* CART */}
-          <div className="bg-white/5 p-4 rounded h-[500px] flex flex-col">
+          {/* CART (LOCKED HEIGHT) */}
+          <div className="bg-black/50 border border-white/10 rounded-2xl p-4 h-[500px] flex flex-col backdrop-blur-xl">
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto space-y-2">
               {cart.map((item, i) => (
-                <div key={i} className="flex justify-between">
-                  <span>
-                    {item.name}
-                    {item.modifier && ` (${item.modifier})`}
-                  </span>
-                  <span>{item.price}</span>
+                <div key={i} className="text-sm border-b border-white/10 pb-2">
+                  {item.name}
+                  {item.modifier && ` (${item.modifier})`}
+                  {item.side && ` + ${item.side}`}
+                  {item.sauce && ` + ${item.sauce}`}
                 </div>
               ))}
             </div>
 
-            <div className="border-t pt-3">
-              Total: {total}
+            <div className="border-t border-white/10 pt-3">
+              <div>Total: {total} THB</div>
+
               <button
                 onClick={sendOrder}
-                className="w-full bg-orange-500 mt-2 py-2 rounded"
+                className="w-full bg-[#ff7a00] mt-3 py-2 rounded-xl text-black"
               >
                 Send Order
               </button>
@@ -148,36 +159,84 @@ export default function POSPage() {
 
         </div>
 
-        {/* 🔥 MODIFIER POPUP */}
+        {/* 🔥 MODAL */}
         {selectedItem && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
 
-            <div className="bg-black p-6 rounded space-y-4">
+            <div className="bg-black p-6 rounded-2xl space-y-4 w-[300px]">
 
-              <h2>{selectedItem.name}</h2>
+              <h2 className="text-lg">{selectedItem.name}</h2>
 
-              {selectedItem.modifiers?.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setSelectedModifier(m)}
-                  className={`block w-full ${
-                    selectedModifier === m ? "bg-orange-500" : "bg-white/10"
-                  } p-2 rounded`}
-                >
-                  {m}
-                </button>
-              ))}
+              {/* DONENESS */}
+              {selectedItem.modifiers && (
+                <>
+                  <div className="text-sm text-white/60">Doneness</div>
+                  {selectedItem.modifiers.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setSelectedModifier(m)}
+                      className={`w-full p-2 rounded ${
+                        selectedModifier === m
+                          ? "bg-[#ff7a00] text-black"
+                          : "bg-white/10"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {/* SIDES */}
+              {selectedItem.sides && (
+                <>
+                  <div className="text-sm text-white/60 mt-2">Side</div>
+                  {selectedItem.sides.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSelectedSide(s)}
+                      className={`w-full p-2 rounded ${
+                        selectedSide === s
+                          ? "bg-[#ff7a00] text-black"
+                          : "bg-white/10"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {/* SAUCE */}
+              {selectedItem.sauces && (
+                <>
+                  <div className="text-sm text-white/60 mt-2">Sauce</div>
+                  {selectedItem.sauces.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSelectedSauce(s)}
+                      className={`w-full p-2 rounded ${
+                        selectedSauce === s
+                          ? "bg-[#ff7a00] text-black"
+                          : "bg-white/10"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </>
+              )}
 
               <button
                 onClick={addToCart}
-                className="bg-orange-500 w-full py-2 rounded"
+                className="bg-[#ff7a00] w-full py-2 rounded-xl text-black mt-4"
               >
                 Add to Cart
               </button>
 
               <button
                 onClick={() => setSelectedItem(null)}
-                className="text-white/50"
+                className="text-white/40 w-full"
               >
                 Cancel
               </button>

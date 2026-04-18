@@ -1,106 +1,81 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../AppShell";
 
-export default function ControlFinal() {
+export default function ControlFinalPage() {
   const [orders, setOrders] = useState([]);
-  const [summary, setSummary] = useState({
-    revenue: 0,
-    totalOrders: 0,
-    avgOrderValue: 0,
-  });
 
-  // loadOrders → get orders
   const loadOrders = () => {
     const data = JSON.parse(localStorage.getItem("orders") || "[]");
-    setOrders(data);
+
+    // only fully served orders
+    const served = data.filter((order) =>
+      order.items.every((i) => i.status === "SERVED")
+    );
+
+    setOrders(served);
   };
 
   useEffect(() => {
     loadOrders();
-
-    const interval = setInterval(loadOrders, 1000);
+    const interval = setInterval(loadOrders, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  // calculateSummary → calculates revenue + KPIs
-  useEffect(() => {
-    const paidOrders = orders.filter((o) => o.status === "PAID");
+  const closeOrder = (orderId) => {
+    let data = JSON.parse(localStorage.getItem("orders") || "[]");
+    let history = JSON.parse(localStorage.getItem("history") || "[]");
 
-    const revenue = paidOrders.reduce(
-      (sum, order) => sum + (order.total || 0),
-      0
-    );
+    const remaining = [];
 
-    const totalOrders = paidOrders.length;
-
-    const avgOrderValue =
-      totalOrders > 0 ? Math.round(revenue / totalOrders) : 0;
-
-    setSummary({
-      revenue,
-      totalOrders,
-      avgOrderValue,
+    data.forEach((order) => {
+      if (order.id === orderId) {
+        history.push({
+          ...order,
+          closed_at: new Date().toISOString(),
+        });
+      } else {
+        remaining.push(order);
+      }
     });
-  }, [orders]);
+
+    localStorage.setItem("orders", JSON.stringify(remaining));
+    localStorage.setItem("history", JSON.stringify(history));
+
+    loadOrders();
+  };
+
+  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
 
   return (
-    <AppShell>
-      <div className="space-y-10">
+    <div className="p-6 space-y-6">
 
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-            Control Final
-          </p>
-          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
-            Daily Overview
-          </h1>
-        </div>
+      <div className="text-2xl">Control Final</div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="text-white/50 text-sm">Revenue</div>
-            <div className="text-3xl font-semibold mt-2">
-              THB {summary.revenue}
-            </div>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="text-white/50 text-sm">Orders</div>
-            <div className="text-3xl font-semibold mt-2">
-              {summary.totalOrders}
-            </div>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="text-white/50 text-sm">Avg Order</div>
-            <div className="text-3xl font-semibold mt-2">
-              THB {summary.avgOrderValue}
-            </div>
-          </div>
-
-        </div>
-
-        {/* PAID ORDERS LIST */}
-        <div className="space-y-4">
-          {orders
-            .filter((o) => o.status === "PAID")
-            .map((order) => (
-              <div
-                key={order.id}
-                className="bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between"
-              >
-                <div>
-                  Table {order.table} — {order.items.length} items
-                </div>
-                <div>THB {order.total}</div>
-              </div>
-            ))}
-        </div>
-
+      <div className="text-xl">
+        Revenue Ready: {totalRevenue} THB
       </div>
-    </AppShell>
+
+      {orders.map((order) => (
+        <div key={order.id} className="bg-white/10 p-4 rounded-xl space-y-2">
+
+          <div className="flex justify-between">
+            <div>Table: {order.table}</div>
+            <div>{order.total} THB</div>
+          </div>
+
+          <div className="text-sm opacity-70">
+            {order.items.length} items
+          </div>
+
+          <button
+            onClick={() => closeOrder(order.id)}
+            className="w-full bg-green-600 p-2 rounded"
+          >
+            Close Order
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }

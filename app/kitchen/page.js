@@ -18,7 +18,7 @@ export default function KitchenPage() {
     else setStation("WESTERN");
   }, []);
 
-  // getCourse → defines course type
+  // getCourse → course type
   const getCourse = (item) => {
     if (["Beer", "Soft Drink", "Wine", "Cocktails", "Spirit"].includes(item.category)) return "DRINK";
     if (item.category === "Starter") return "STARTER";
@@ -26,12 +26,15 @@ export default function KitchenPage() {
     return "MAIN";
   };
 
+  // loadOrders → filtering + fire logic + priority
   const loadOrders = () => {
     try {
       const data = JSON.parse(localStorage.getItem("orders") || "[]");
 
       const filtered = data
         .map((order) => {
+          const fireNext = order.fireNext || false;
+
           const startersReady = order.items
             .filter((i) => getCourse(i) === "STARTER")
             .every((i) => i.status === "READY");
@@ -45,7 +48,10 @@ export default function KitchenPage() {
 
                 const course = getCourse(item);
 
-                // 🔥 COURSE FLOW LOGIC
+                // 🔥 manual fire override
+                if (fireNext) return true;
+
+                // normal flow
                 if (course === "MAIN" && !startersReady) return false;
 
                 return true;
@@ -80,7 +86,7 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, [station]);
 
-  // updateStatus → item status control
+  // updateStatus → item status
   const updateStatus = (orderId, itemIndex, currentStatus) => {
     const all = JSON.parse(localStorage.getItem("orders") || "[]");
 
@@ -103,6 +109,20 @@ export default function KitchenPage() {
 
       return { ...order, items: updatedItems };
     });
+
+    localStorage.setItem("orders", JSON.stringify(updated));
+    loadOrders();
+  };
+
+  // fireNextCourse → unlock next course manually
+  const fireNextCourse = (orderId) => {
+    const all = JSON.parse(localStorage.getItem("orders") || "[]");
+
+    const updated = all.map((order) =>
+      order.id === orderId
+        ? { ...order, fireNext: true }
+        : order
+    );
 
     localStorage.setItem("orders", JSON.stringify(updated));
     loadOrders();
@@ -154,6 +174,14 @@ export default function KitchenPage() {
                   Staff: {order.staff}
                 </div>
               </div>
+
+              {/* 🔥 FIRE NEXT COURSE BUTTON */}
+              <button
+                onClick={() => fireNextCourse(order.id)}
+                className="w-full bg-white/10 py-2 rounded-xl text-white text-sm"
+              >
+                Fire Next Course
+              </button>
 
               <div className="space-y-3">
                 {order.items.map((item, index) => (

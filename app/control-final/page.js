@@ -84,7 +84,6 @@ export default function ControlFinal() {
 
     // 🔥 SERVICE CHARGE UNLOCK
     let servicePercent = 0.05;
-
     if (finalScore >= 25) servicePercent = 0.07;
     else if (finalScore >= 15) servicePercent = 0.06;
 
@@ -96,24 +95,25 @@ export default function ControlFinal() {
 
     // 🔥 FOH LEVEL
     let fohScore = "GOOD";
+    if (finalScore < 20) fohScore = "WARNING";
+    if (finalScore < 10) fohScore = "BAD";
 
-    if (finalScore >= 20) fohScore = "GOOD";
-    else if (finalScore >= 10) fohScore = "WARNING";
-    else fohScore = "BAD";
+    let fohMultiplier = 1;
+    if (fohScore === "WARNING") fohMultiplier = 0.7;
+    if (fohScore === "BAD") fohMultiplier = 0.4;
 
-    let fohLevelMultiplier = 1;
-    if (fohScore === "WARNING") fohLevelMultiplier = 0.8;
-    if (fohScore === "BAD") fohLevelMultiplier = 0.6;
+    const adjustedFoh = fohPool * fohMultiplier;
 
-    const adjustedFoh = fohPool * fohLevelMultiplier;
-
-    // 🔥 ATTENDANCE
+    // 🔥 ONLY APPROVED PENALTIES
     const attendance =
       JSON.parse(localStorage.getItem("staff_attendance") || "[]");
 
     const getPenalty = (name) => {
       const entry = attendance.find(
-        (a) => a.name === name && a.date === today
+        (a) =>
+          a.name === name &&
+          a.date === today &&
+          a.status === "approved"
       );
       return entry ? entry.penalty || 0 : 0;
     };
@@ -186,70 +186,43 @@ export default function ControlFinal() {
     <AppShell>
       <div className="space-y-10">
 
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-            Control Final
-          </p>
-          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
-            Daily Overview
-          </h1>
-        </div>
+        <h1 className="text-4xl text-white">Control Final</h1>
 
-        <div className="grid md:grid-cols-3 gap-6">
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="text-white/50 text-sm">Revenue</div>
-            <div className="text-3xl font-semibold mt-2">
-              THB {summary.revenue}
-            </div>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="text-white/50 text-sm">Orders</div>
-            <div className="text-3xl font-semibold mt-2">
-              {summary.totalOrders}
-            </div>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="text-white/50 text-sm">Avg Order</div>
-            <div className="text-3xl font-semibold mt-2">
-              THB {summary.avgOrderValue}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-3 gap-6">
+          <div>Revenue: THB {summary.revenue}</div>
+          <div>Orders: {summary.totalOrders}</div>
+          <div>Avg: THB {summary.avgOrderValue}</div>
         </div>
 
         <button
           onClick={prepareClose}
-          className="bg-[#ff7a00] px-6 py-3 rounded-xl text-white"
+          className="bg-[#ff7a00] px-6 py-3 rounded-xl"
         >
-          Close Day (Manager Approval)
+          Close Day
         </button>
 
         {showApproval && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-            <div className="bg-black p-6 rounded-xl w-[400px] space-y-4">
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+            <div className="bg-black p-6 rounded-xl space-y-4">
 
-              <h2 className="text-lg font-semibold">Approve Day</h2>
+              <h2>Approve Day</h2>
 
-              <p>Revenue: THB {pendingData?.revenue}</p>
-              <p>Service %: {(pendingData?.servicePercent * 100).toFixed(0)}%</p>
-              <p>Service: THB {pendingData?.serviceCharge}</p>
-              <p>Final Score: {pendingData?.finalScore?.toFixed(1)}</p>
+              <p>Revenue: {pendingData.revenue}</p>
+              <p>Service %: {(pendingData.servicePercent * 100)}%</p>
+              <p>Final Score: {pendingData.finalScore.toFixed(1)}</p>
 
-              {pendingData?.staff.map((s, i) => (
-                <div key={i} className="flex justify-between text-sm">
+              {pendingData.staff.map((s, i) => (
+                <div key={i} className="flex justify-between">
                   <span>{s.name}</span>
-                  <span>THB {s.payout}</span>
+                  <span>{s.payout}</span>
                 </div>
               ))}
 
               <button
                 onClick={approveClose}
-                className="w-full bg-[#ff7a00] py-2 rounded"
+                className="bg-[#ff7a00] w-full py-2"
               >
-                Approve & Save
+                Approve
               </button>
 
             </div>

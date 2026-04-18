@@ -25,8 +25,7 @@ export default function DashboardPage() {
       const totalOrders = ordersData.length;
       const avgOrder = totalRevenue / totalOrders;
 
-      let score =
-        50 + 30 + (avgOrder / 1000) * 20; // simplified today logic
+      let score = 50 + 30 + (avgOrder / 1000) * 20;
 
       let level = "GOOD";
 
@@ -37,7 +36,7 @@ export default function DashboardPage() {
       setFohScore(level);
     }
 
-    // 🔥 30 DAY PERFORMANCE (REAL SYSTEM)
+    // 🔥 REAL 30-DAY SYSTEM (UPDATED)
     const last30Days = history.slice(-30);
 
     if (last30Days.length === 0) {
@@ -50,18 +49,19 @@ export default function DashboardPage() {
       last30Days.length;
 
     const avgOrders =
-      last30Days.reduce((sum, d) => sum + (d.paidOrders?.length || 0), 0) /
-      last30Days.length;
+      last30Days.reduce(
+        (sum, d) => sum + (d.paidOrders?.length || 0),
+        0
+      ) / last30Days.length;
 
-    const avgOrderValue =
-      avgRevenue / (avgOrders || 1);
+    const avgOrderValue = avgRevenue / (avgOrders || 1);
 
-    // 🔥 LEVEL LOGIC
+    // 🔥 STRONGER LOGIC
     let level = 5;
 
-    if (avgOrderValue > 500 && avgOrders > 80) {
+    if (avgOrderValue > 600 && avgOrders > 100) {
       level = 7;
-    } else if (avgOrderValue > 350 && avgOrders > 40) {
+    } else if (avgOrderValue > 400 && avgOrders > 60) {
       level = 6;
     }
 
@@ -71,10 +71,7 @@ export default function DashboardPage() {
   useEffect(() => {
     loadData();
 
-    const handleStorageChange = () => {
-      loadData();
-    };
-
+    const handleStorageChange = () => loadData();
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
@@ -92,7 +89,6 @@ export default function DashboardPage() {
     <AppShell>
       <div className="space-y-10">
 
-        {/* HEADER */}
         <div className="space-y-2">
           <h1 className="text-3xl font-medium text-white/90">
             Dashboard
@@ -141,15 +137,15 @@ export default function DashboardPage() {
           </h2>
 
           {serviceLevel === 5 && (
-            <Alert text="Service charge locked at 5% (low performance)" />
+            <Alert text="Service locked at 5% (low performance)" />
           )}
 
           {serviceLevel === 6 && (
-            <Alert text="Service charge unlocked to 6%" positive />
+            <Alert text="Service unlocked to 6%" positive />
           )}
 
           {serviceLevel === 7 && (
-            <Alert text="Max performance — 7% active" positive />
+            <Alert text="Max performance — 7%" positive />
           )}
 
         </div>
@@ -158,8 +154,6 @@ export default function DashboardPage() {
     </AppShell>
   );
 }
-
-/* COMPONENTS */
 
 function Card({ label, value }) {
   return (

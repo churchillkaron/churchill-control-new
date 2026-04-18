@@ -25,13 +25,29 @@ export default function DashboardPage() {
   const today = new Date().toLocaleDateString("en-GB");
 
   const todayLate = attendance.filter(
-    (a) => a.date === today && a.late
+    (a) => a.date === today && a.late && a.status !== "approved" && a.status !== "rejected"
   );
 
-  const approvePenalty = (name) => {
+  const approvePenalty = (id) => {
     const updated = attendance.map((a) => {
-      if (a.name === name && a.date === today) {
-        return { ...a, penalty: 0, late: false };
+      if (a.id === id) {
+        return { ...a, status: "approved" };
+      }
+      return a;
+    });
+
+    localStorage.setItem(
+      "staff_attendance",
+      JSON.stringify(updated)
+    );
+
+    setAttendance(updated);
+  };
+
+  const rejectPenalty = (id) => {
+    const updated = attendance.map((a) => {
+      if (a.id === id) {
+        return { ...a, status: "rejected" };
       }
       return a;
     });
@@ -57,29 +73,38 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* 🔥 ATTENDANCE CONTROL */}
+        {/* 🔥 LATE PENALTY APPROVAL SYSTEM */}
         <div className="bg-white/5 p-6 rounded-2xl">
-          <h2 className="text-white mb-4">Late Staff (Today)</h2>
+          <h2 className="text-white mb-4">Late Penalty Approvals</h2>
 
           {todayLate.length === 0 && (
-            <p className="text-white/40">No late staff</p>
+            <p className="text-white/40">No pending penalties</p>
           )}
 
-          {todayLate.map((a, i) => (
+          {todayLate.map((a) => (
             <div
-              key={i}
-              className="flex justify-between items-center border-b border-white/10 py-2"
+              key={a.id}
+              className="flex justify-between items-center border-b border-white/10 py-3"
             >
-              <div>
-                {a.name} — Penalty THB {a.penalty}
+              <div className="text-white/80">
+                {a.name} — {a.minutesLate || 0} min late — THB {a.penalty}
               </div>
 
-              <button
-                onClick={() => approvePenalty(a.name)}
-                className="bg-green-500 px-3 py-1 rounded text-sm"
-              >
-                Approve
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => approvePenalty(a.id)}
+                  className="bg-green-500 px-3 py-1 rounded text-sm"
+                >
+                  Approve
+                </button>
+
+                <button
+                  onClick={() => rejectPenalty(a.id)}
+                  className="bg-red-500 px-3 py-1 rounded text-sm"
+                >
+                  Reject
+                </button>
+              </div>
             </div>
           ))}
         </div>

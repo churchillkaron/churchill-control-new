@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import AppShell from "../AppShell";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
@@ -142,18 +143,20 @@ export default function KitchenPage() {
   };
 
   return (
-    <div className="p-6 grid grid-cols-2 gap-6">
+    <AppShell>
+      <div className="p-6 grid grid-cols-2 gap-6">
 
-      <div className="space-y-4">
-        <div className="text-xl">WESTERN</div>
-        {renderStation("WESTERN")}
+        <div className="space-y-4">
+          <div className="text-xl">WESTERN</div>
+          {renderStation("WESTERN")}
+        </div>
+
+        <div className="space-y-4">
+          <div className="text-xl">THAI</div>
+          {renderStation("THAI")}
+        </div>
+
       </div>
-
-      <div className="space-y-4">
-        <div className="text-xl">THAI</div>
-        {renderStation("THAI")}
-      </div>
-
-    </div>
+    </AppShell>
   );
 }

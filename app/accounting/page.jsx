@@ -42,19 +42,18 @@ export default function Accounting() {
     setHistory(storedHistory);
   };
 
-  // 🔥 FINANCIAL CALCULATIONS (FIXED ONLY THIS PART)
   const totalExpenses = expenses.reduce(
     (sum, e) => sum + Number(e.amount || 0),
     0
   );
 
   const totalRevenue = history.reduce(
-    (sum, d) => sum + Number(d.total || 0), // ✅ FIXED
+    (sum, d) => sum + Number(d.total || 0),
     0
   );
 
   const totalServiceCharge = history.reduce(
-    (sum, d) => sum + Number(d.serviceCharge || 0), // ✅ SAFE ADD
+    (sum, d) => sum + Number(d.serviceCharge || 0),
     0
   );
 
@@ -65,7 +64,6 @@ export default function Accounting() {
       ? Math.round((netProfit / totalRevenue) * 100)
       : 0;
 
-  // 🔥 CATEGORY BREAKDOWN (UNCHANGED)
   const categoryMap = {};
   expenses.forEach((e) => {
     const key = e.category || "Other";
@@ -73,7 +71,7 @@ export default function Accounting() {
     categoryMap[key] += Number(e.amount || 0);
   });
 
-  // 🔥 OCR (UNTOUCHED)
+  // OCR (UNCHANGED)
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -190,13 +188,103 @@ export default function Accounting() {
 
         {/* HERO */}
         <div className="grid md:grid-cols-5 gap-6">
-
           <Card label="Revenue" value={`THB ${totalRevenue.toLocaleString()}`} />
           <Card label="Expenses" value={`THB ${totalExpenses.toLocaleString()}`} />
           <Card label="Profit" value={`THB ${netProfit.toLocaleString()}`} highlight />
           <Card label="Margin" value={`${profitMargin}%`} />
           <Card label="Service" value={`THB ${totalServiceCharge.toLocaleString()}`} />
-
         </div>
 
-        {/* rest unchanged */}
+        {/* CATEGORY BREAKDOWN */}
+        <div className="bg-white/5 p-6 rounded-2xl backdrop-blur">
+          <h2 className="text-white mb-4">Expense Breakdown</h2>
+          {Object.keys(categoryMap).length === 0 && (
+            <p className="text-white/40">No data</p>
+          )}
+          {Object.entries(categoryMap).map(([cat, val]) => (
+            <div key={cat} className="flex justify-between text-white/80">
+              <span>{cat}</span>
+              <span>THB {val}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* FORM */}
+        <div className="bg-white/5 p-6 rounded-2xl backdrop-blur">
+          <div className="grid md:grid-cols-3 gap-4 mb-4">
+            <input
+              placeholder="Vendor"
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
+              className="bg-black/30 p-3 rounded"
+            />
+            <input
+              placeholder="Amount"
+              value={form.amount}
+              onChange={(e) =>
+                setForm({ ...form, amount: e.target.value })
+              }
+              className="bg-black/30 p-3 rounded"
+            />
+            <input
+              placeholder="Category"
+              value={form.category}
+              onChange={(e) =>
+                setForm({ ...form, category: e.target.value })
+              }
+              className="bg-black/30 p-3 rounded"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <input type="file" onChange={handleImageUpload} />
+            <button onClick={runOCR} className="bg-blue-500 px-4 py-2 rounded">
+              OCR
+            </button>
+            <button onClick={addExpense} className="bg-orange-500 px-4 py-2 rounded">
+              Add Expense
+            </button>
+          </div>
+
+          {ocrStatus && (
+            <p className="text-sm text-white/60 mt-2">{ocrStatus}</p>
+          )}
+        </div>
+
+        {/* EXPENSE LIST */}
+        <div className="bg-white/5 p-6 rounded-2xl backdrop-blur">
+          <h2 className="text-white mb-4">Expenses</h2>
+
+          {expenses.length === 0 && (
+            <p className="text-white/40">No expenses yet</p>
+          )}
+
+          {expenses.map((e, i) => (
+            <div key={i} className="flex justify-between py-2 border-b border-white/10">
+              <div>
+                <p>{e.name}</p>
+                <p className="text-sm text-white/50">{e.category}</p>
+              </div>
+              <div className="flex gap-4">
+                <span>THB {e.amount}</span>
+                <button onClick={() => deleteExpense(i)}>X</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </AppShell>
+  );
+}
+
+function Card({ label, value, highlight }) {
+  return (
+    <div className={`p-5 rounded-2xl backdrop-blur bg-white/5 border border-white/10 ${highlight ? "text-orange-400" : "text-white"}`}>
+      <p className="text-sm opacity-60">{label}</p>
+      <p className="text-xl mt-1">{value}</p>
+    </div>
+  );
+}

@@ -1,99 +1,112 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AppShell from "../AppShell";
 
-export default function ControlFinalPage() {
+export default function ControlFinal() {
   const [orders, setOrders] = useState([]);
+  const [summary, setSummary] = useState({
+    revenue: 0,
+    totalOrders: 0,
+    avgOrderValue: 0,
+  });
 
+  // loadOrders → get all orders
   const loadOrders = () => {
-    const data = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const served = data.filter((order) =>
-      order.items.every((i) => i.status === "SERVED")
-    );
-
-    setOrders(served);
+    try {
+      const data = JSON.parse(localStorage.getItem("orders") || "[]");
+      setOrders(data);
+    } catch (e) {
+      console.error("Error loading orders", e);
+    }
   };
 
   useEffect(() => {
     loadOrders();
-    const interval = setInterval(loadOrders, 2000);
+
+    const interval = setInterval(loadOrders, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const closeOrder = (orderId) => {
-    let data = JSON.parse(localStorage.getItem("orders") || "[]");
-    let history = JSON.parse(localStorage.getItem("history") || "[]");
+  // calculate summary from PAID orders only
+  useEffect(() => {
+    const paidOrders = orders.filter((o) => o.status === "PAID");
 
-    const remaining = [];
+    const revenue = paidOrders.reduce(
+      (sum, order) => sum + (order.total || 0),
+      0
+    );
 
-    data.forEach((order) => {
-      if (order.id === orderId) {
-        const serviceCharge = order.total * 0.05;
+    const totalOrders = paidOrders.length;
 
-        const departmentSplit = {
-          FOH: serviceCharge * 0.5,
-          BAR: serviceCharge * 0.3,
-          KITCHEN: serviceCharge * 0.2,
-        };
+    const avgOrderValue =
+      totalOrders > 0 ? Math.round(revenue / totalOrders) : 0;
 
-        history.push({
-          ...order,
-          serviceCharge,
-          departmentSplit,
-          closed_at: new Date().toISOString(),
-        });
-      } else {
-        remaining.push(order);
-      }
+    setSummary({
+      revenue,
+      totalOrders,
+      avgOrderValue,
     });
-
-    localStorage.setItem("orders", JSON.stringify(remaining));
-    localStorage.setItem("history", JSON.stringify(history));
-
-    loadOrders();
-  };
-
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-  const totalService = totalRevenue * 0.05;
+  }, [orders]);
 
   return (
-    <div className="p-6 space-y-6">
+    <AppShell>
+      <div className="space-y-10">
 
-      <div className="text-2xl">Control Final</div>
+        {/* HEADER */}
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
+            Control Final
+          </p>
+          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
+            Daily Overview
+          </h1>
+        </div>
 
-      <div className="text-xl">
-        Revenue Ready: {totalRevenue} THB
-      </div>
+        {/* KPI CARDS */}
+        <div className="grid md:grid-cols-3 gap-6">
 
-      <div className="text-lg">
-        Service Charge (5%): {totalService} THB
-      </div>
-
-      {orders.map((order) => {
-        const serviceCharge = order.total * 0.05;
-
-        return (
-          <div key={order.id} className="bg-white/10 p-4 rounded-xl space-y-2">
-
-            <div className="flex justify-between">
-              <div>Table: {order.table}</div>
-              <div>{order.total} THB</div>
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="text-white/50 text-sm">Revenue</div>
+            <div className="text-3xl font-semibold mt-2">
+              THB {summary.revenue}
             </div>
-
-            <div className="text-sm">
-              SC: {serviceCharge} THB
-            </div>
-
-            <button
-              onClick={() => closeOrder(order.id)}
-              className="w-full bg-green-600 p-2 rounded"
-            >
-              Close Order
-            </button>
           </div>
-        );
-      })}
-    </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="text-white/50 text-sm">Orders</div>
+            <div className="text-3xl font-semibold mt-2">
+              {summary.totalOrders}
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="text-white/50 text-sm">Avg Order</div>
+            <div className="text-3xl font-semibold mt-2">
+              THB {summary.avgOrderValue}
+            </div>
+          </div>
+
+        </div>
+
+        {/* PAID ORDERS LIST */}
+        <div className="space-y-4">
+          {orders
+            .filter((o) => o.status === "PAID")
+            .map((order) => (
+              <div
+                key={order.id}
+                className="bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between"
+              >
+                <div>
+                  Table {order.table} — {order.items?.length || 0} items
+                </div>
+                <div>THB {order.total}</div>
+              </div>
+            ))}
+        </div>
+
+      </div>
+    </AppShell>
   );
 }

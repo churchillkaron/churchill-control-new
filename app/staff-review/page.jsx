@@ -1,104 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
-export default function StaffReview() {
-  const [image, setImage] = useState(null);
-  const [status, setStatus] = useState("");
-  const [result, setResult] = useState(null);
+export default function StaffReviewPage() {
+  const [mounted, setMounted] = useState(false);
 
-  const staffName = localStorage.getItem("staff_name") || "Unknown";
+  const [reviews, setReviews] = useState([]);
 
-  const handleUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  useEffect(() => {
+    setMounted(true);
 
-    const reader = new FileReader();
+    const stored = JSON.parse(localStorage.getItem("reviews") || "[]");
+    setReviews(stored);
+  }, []);
 
-    reader.onloadend = () => {
-      setImage(reader.result);
-      setResult(null);
-      setStatus("");
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  const runAI = async () => {
-    if (!image) return alert("Upload screenshot first");
-
-    try {
-      setStatus("Reading review...");
-
-      const res = await fetch("/api/review-ai", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ image }),
-      });
-
-      const data = await res.json();
-
-      if (!data?.rating) {
-        setStatus("Failed to detect review");
-        return;
-      }
-
-      const review = {
-        staff: staffName,
-        rating: data.rating,
-        text: data.text || "",
-        platform: data.platform || "Unknown",
-        date: new Date().toLocaleDateString("en-GB"),
-      };
-
-      const existing =
-        JSON.parse(localStorage.getItem("reviews") || "[]");
-
-      const updated = [review, ...existing];
-
-      localStorage.setItem("reviews", JSON.stringify(updated));
-
-      setResult(review);
-      setStatus("Review saved");
-    } catch {
-      setStatus("AI error");
-    }
-  };
+  if (!mounted) return null;
 
   return (
     <AppShell>
       <div className="space-y-10">
 
-        <h1 className="text-3xl text-white">
-          Upload Customer Review
-        </h1>
+        <div>
+          <h1 className="text-3xl text-white">
+            Review Overview
+          </h1>
+          <p className="text-white/50 text-sm">
+            All uploaded reviews
+          </p>
+        </div>
 
-        <input type="file" onChange={handleUpload} />
+        <div className="bg-white/5 p-6 rounded-2xl">
 
-        {image && (
-          <img src={image} className="w-64 rounded" />
-        )}
+          {reviews.length === 0 && (
+            <p className="text-white/40">No reviews yet</p>
+          )}
 
-        <button
-          onClick={runAI}
-          className="bg-[#ff7a00] px-6 py-2 rounded"
-        >
-          Analyze Review
-        </button>
+          {reviews.map((r, i) => (
+            <div
+              key={i}
+              className="border-b border-white/10 py-3 space-y-2"
+            >
+              <div className="text-sm text-white/60">
+                {r.staff} • {r.platform} • {r.date}
+              </div>
 
-        {status && <p className="text-white/50">{status}</p>}
+              <div className="text-white">
+                ⭐ {r.rating} — {r.text}
+              </div>
 
-        {result && (
-          <div className="bg-white/5 p-4 rounded">
-            <p>⭐ Rating: {result.rating}</p>
-            <p className="text-sm text-white/50">
-              {result.text}
-            </p>
-          </div>
-        )}
+              {r.image && (
+                <img
+                  src={r.image}
+                  className="w-32 rounded mt-2"
+                />
+              )}
+            </div>
+          ))}
+
+        </div>
 
       </div>
     </AppShell>

@@ -1,188 +1,113 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import AppShell from "../AppShell";
+import { useState } from "react";
 
-export default function ControlFinal() {
-  const [revenue, setRevenue] = useState(0);
-  const [paidOrders, setPaidOrders] = useState([]);
-  const [serviceLevel, setServiceLevel] = useState(5);
+export default function Home() {
+  const [showLogin, setShowLogin] = useState(false);
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
 
-  const loadData = () => {
-    const data = JSON.parse(localStorage.getItem("history_day") || "{}");
-    const history = JSON.parse(localStorage.getItem("history") || "[]");
+  const roles = [
+    "FOH",
+    "BAR",
+    "KITCHEN",
+    "MANAGER",
+    "ACCOUNTING",
+    "OWNER",
+  ];
 
-    setRevenue(data.revenue || 0);
-    setPaidOrders(data.paidOrders || []);
-
-    // 🔥 SAME LOGIC AS DASHBOARD (LOCKED SYSTEM)
-    const last30Days = history.slice(-30);
-
-    if (last30Days.length === 0) {
-      setServiceLevel(5);
+  const handleLogin = () => {
+    if (!name || !role) {
+      alert("Enter name and select role");
       return;
     }
 
-    const avgRevenue =
-      last30Days.reduce((sum, d) => sum + (d.revenue || 0), 0) /
-      last30Days.length;
+    localStorage.setItem("staffName", name);
+    localStorage.setItem("staffRole", role);
 
-    const avgOrders =
-      last30Days.reduce(
-        (sum, d) => sum + (d.paidOrders?.length || 0),
-        0
-      ) / last30Days.length;
-
-    const avgOrderValue =
-      avgRevenue / (avgOrders || 1);
-
-    let level = 5;
-
-    if (avgOrderValue > 500 && avgOrders > 80) {
-      level = 7;
-    } else if (avgOrderValue > 350 && avgOrders > 40) {
-      level = 6;
-    }
-
-    setServiceLevel(level);
+    // 🔥 ROLE ROUTING
+    if (role === "FOH") window.location.href = "/pos";
+    else if (role === "BAR") window.location.href = "/pos-control";
+    else if (role === "KITCHEN") window.location.href = "/pos-control";
+    else if (role === "MANAGER") window.location.href = "/dashboard";
+    else if (role === "ACCOUNTING") window.location.href = "/accounting";
+    else if (role === "OWNER") window.location.href = "/dashboard";
   };
-
-  useEffect(() => {
-    loadData();
-
-    const handleStorageChange = () => {
-      loadData();
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-    };
-  }, []);
-
-  const closeDay = () => {
-    const todayData = JSON.parse(localStorage.getItem("history_day") || "{}");
-    const history = JSON.parse(localStorage.getItem("history") || "[]");
-
-    if (!todayData.revenue || todayData.revenue === 0) {
-      alert("No data to close");
-      return;
-    }
-
-    if (!todayData.paidOrders || todayData.paidOrders.length === 0) {
-      alert("No paid orders");
-      return;
-    }
-
-    const todayKey = new Date().toDateString();
-
-    const alreadyClosed = history.some(
-      (day) => new Date(day.date).toDateString() === todayKey
-    );
-
-    if (alreadyClosed) {
-      alert("Day already closed");
-      return;
-    }
-
-    const serviceChargeValue = Math.round(
-      todayData.revenue * (serviceLevel / 100)
-    );
-
-    const closedDay = {
-      date: new Date().toISOString(),
-      revenue: todayData.revenue,
-      serviceCharge: serviceChargeValue,
-      serviceLevel: serviceLevel, // 🔥 IMPORTANT (store level)
-      paidOrders: todayData.paidOrders || [],
-    };
-
-    const updatedHistory = [...history, closedDay];
-
-    localStorage.setItem("history", JSON.stringify(updatedHistory));
-
-    // 🔥 RESET SYSTEM
-    localStorage.removeItem("history_day");
-    localStorage.removeItem("orders");
-
-    setRevenue(0);
-    setPaidOrders([]);
-
-    alert(`Day closed with ${serviceLevel}% service charge`);
-  };
-
-  const serviceCharge = Math.round(revenue * (serviceLevel / 100));
 
   return (
-    <AppShell>
-      <div className="space-y-10">
+    <div className="relative min-h-screen flex items-center justify-center text-white">
 
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-            Control Final
-          </p>
-          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
-            End-of-Day Control
-          </h1>
-        </div>
+      {/* 🔥 YOUR EXISTING LANDING (KEEP DESIGN) */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
-        {/* 🔥 MAIN CARD */}
-        <div className="relative">
-          <div className="absolute -inset-4 bg-[#ff7a00]/10 blur-2xl rounded-3xl" />
+      <div className="relative z-10 text-center space-y-6">
 
-          <div className="relative rounded-3xl border border-white/10 bg-white/[0.05] backdrop-blur-2xl p-6 md:p-8 flex justify-between items-center">
+        <h1 className="text-5xl font-semibold">
+          Total Control
+          <br />
+          <span className="text-[#ff7a00]">Over Your Venue</span>
+        </h1>
 
-            <div>
-              <p className="text-white/50 text-sm">
-                Today Revenue
-              </p>
+        <button
+          onClick={() => setShowLogin(true)}
+          className="bg-[#ff7a00] px-8 py-3 rounded-xl text-black font-medium"
+        >
+          Access Control System
+        </button>
 
-              <div className="text-4xl md:text-6xl font-semibold mt-2">
-                THB {revenue.toLocaleString()}
-              </div>
+      </div>
 
-              <p className="text-white/50 mt-3">
-                Service Charge ({serviceLevel}%): THB {serviceCharge.toLocaleString()}
-              </p>
+      {/* 🔥 LOGIN MODAL */}
+      {showLogin && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
 
-              <p className="text-white/30 text-xs mt-2">
-                Paid Orders: {paidOrders.length}
-              </p>
+          <div className="bg-white/[0.08] backdrop-blur-xl p-8 rounded-3xl w-full max-w-md space-y-6 border border-white/10">
+
+            <h2 className="text-xl text-white/90">
+              Staff Login
+            </h2>
+
+            <input
+              placeholder="Your Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full p-3 rounded-xl bg-black/40 border border-white/10"
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              {roles.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRole(r)}
+                  className={`p-3 rounded-xl text-sm ${
+                    role === r
+                      ? "bg-[#ff7a00] text-black"
+                      : "bg-white/10"
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
             </div>
 
             <button
-              onClick={closeDay}
-              className="bg-[#ff7a00] px-6 py-3 rounded-xl text-black font-semibold"
+              onClick={handleLogin}
+              className="w-full p-3 bg-[#ff7a00] text-black rounded-xl font-medium"
             >
-              Close Day
+              Enter System
+            </button>
+
+            <button
+              onClick={() => setShowLogin(false)}
+              className="w-full text-white/40 text-sm"
+            >
+              Cancel
             </button>
 
           </div>
         </div>
+      )}
 
-        {/* 🔥 PAID ORDERS */}
-        <div className="space-y-4">
-          <h2 className="text-xl text-white/60">Paid Orders</h2>
-
-          {paidOrders.length === 0 && (
-            <p className="text-white/30">No completed orders yet</p>
-          )}
-
-          {paidOrders.map((order) => (
-            <div
-              key={order.id}
-              className="flex justify-between items-center bg-white/5 p-4 rounded-xl"
-            >
-              <div>
-                Table {order.table} — {order.items.length} items
-              </div>
-              <div>THB {order.total}</div>
-            </div>
-          ))}
-        </div>
-
-      </div>
-    </AppShell>
+    </div>
   );
 }

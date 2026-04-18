@@ -23,8 +23,10 @@ export default function StaffPage() {
 
   const today = new Date().toLocaleDateString("en-GB");
 
+  // LOAD BASE DATA
   useEffect(() => {
     const storedName = localStorage.getItem("staff_name");
+
     if (storedName) {
       setName(storedName);
       setSelected(true);
@@ -33,7 +35,17 @@ export default function StaffPage() {
     const att = JSON.parse(localStorage.getItem("staff_attendance") || "[]");
     setAttendance(att);
 
-    const existing = att.find((a) => a.name === storedName && a.date === today);
+    const historyData = JSON.parse(localStorage.getItem("history") || "[]");
+    setHistory(historyData);
+  }, []);
+
+  // 🔥 FIXED ATTENDANCE LOGIC (runs AFTER name is set)
+  useEffect(() => {
+    if (!name) return;
+
+    const att = JSON.parse(localStorage.getItem("staff_attendance") || "[]");
+
+    const existing = att.find((a) => a.name === name && a.date === today);
 
     if (existing) {
       setCheckedIn(true);
@@ -42,16 +54,13 @@ export default function StaffPage() {
       setCheckInTime(existing.checkIn);
       setCheckOutTime(existing.checkOut);
     } else {
-      // 🔥 FIX: reset state if no record today
       setCheckedIn(false);
       setCheckedOut(false);
       setLate(false);
       setCheckInTime(null);
       setCheckOutTime(null);
     }
-
-    setHistory(JSON.parse(localStorage.getItem("history") || "[]"));
-  }, []);
+  }, [name]);
 
   const selectUser = (n) => {
     localStorage.setItem("staff_name", n);
@@ -88,10 +97,7 @@ export default function StaffPage() {
 
     const existing = JSON.parse(localStorage.getItem("staff_attendance") || "[]");
 
-    localStorage.setItem(
-      "staff_attendance",
-      JSON.stringify([record, ...existing])
-    );
+    localStorage.setItem("staff_attendance", JSON.stringify([record, ...existing]));
 
     setCheckedIn(true);
     setCheckInTime(record.checkIn);
@@ -196,71 +202,33 @@ export default function StaffPage() {
               <h2 className="text-white mb-2">Attendance</h2>
 
               {!checkedIn && (
-                <button
-                  onClick={() => {
-                    if (confirm("Confirm Check In?")) checkIn();
-                  }}
-                  className="bg-green-500 px-4 py-2 rounded w-full"
-                >
+                <button onClick={() => confirm("Check In?") && checkIn()} className="bg-green-500 px-4 py-2 rounded w-full">
                   Check In
                 </button>
               )}
 
               {checkedIn && !checkedOut && (
-                <button
-                  onClick={() => {
-                    if (confirm("Confirm Check Out?")) checkOut();
-                  }}
-                  className="bg-blue-500 px-4 py-2 rounded w-full"
-                >
+                <button onClick={() => confirm("Check Out?") && checkOut()} className="bg-blue-500 px-4 py-2 rounded w-full">
                   Check Out
                 </button>
               )}
 
               {checkedIn && (
-                <p className="text-white/70">
-                  {checkedOut ? "✅ Shift Completed" : "🕒 On Shift"}
-                </p>
+                <p>{checkedOut ? "✅ Shift Completed" : "🕒 On Shift"}</p>
               )}
 
-              {checkInTime && (
-                <p className="text-xs text-white/40">
-                  In: {new Date(checkInTime).toLocaleTimeString()}
-                </p>
-              )}
-
-              {checkOutTime && (
-                <p className="text-xs text-white/40">
-                  Out: {new Date(checkOutTime).toLocaleTimeString()}
-                </p>
-              )}
-
-              {late && (
-                <p className="text-yellow-400 text-sm">
-                  Late (Pending Manager Approval)
-                </p>
-              )}
+              {checkInTime && <p className="text-xs">In: {new Date(checkInTime).toLocaleTimeString()}</p>}
+              {checkOutTime && <p className="text-xs">Out: {new Date(checkOutTime).toLocaleTimeString()}</p>}
             </div>
 
             {/* REVIEW */}
             <div className="bg-white/5 p-6 rounded-2xl space-y-4">
               <h2 className="text-white">Upload Review</h2>
-
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleUpload(e.target.files[0])}
-              />
+              <input type="file" accept="image/*" onChange={(e) => handleUpload(e.target.files[0])} />
 
               {preview && <img src={preview} className="rounded-xl max-h-60" />}
-
-              {loading && <p className="text-white/50">Analyzing...</p>}
-
-              {reviewResult && !reviewResult.error && (
-                <div className="text-white">
-                  ⭐ {reviewResult.rating} | {reviewResult.platform}
-                </div>
-              )}
+              {loading && <p>Analyzing...</p>}
+              {reviewResult && <p>⭐ {reviewResult.rating}</p>}
             </div>
 
           </>

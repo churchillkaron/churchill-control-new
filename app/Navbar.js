@@ -15,6 +15,7 @@ export default function Navbar() {
     { name: "History", href: "/history" },
     { name: "Accounting", href: "/accounting" },
     { name: "Payout", href: "/payout" },
+    { name: "Kitchen", href: "/kitchen" }
   ];
 
   const logout = () => {

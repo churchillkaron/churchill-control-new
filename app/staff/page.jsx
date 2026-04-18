@@ -52,11 +52,10 @@ export default function StaffPage() {
     let penalty = 0;
     let minutesLate = 0;
 
-    // 🔥 AFTER 17:00 = late (calculate minutes)
     if (hour >= 17) {
       isLate = true;
       minutesLate = (hour - 17) * 60 + minutes;
-      penalty = Math.floor(minutesLate / 5) * 20; // 20 THB per 5 min
+      penalty = Math.floor(minutesLate / 5) * 20;
     }
 
     const record = {
@@ -110,6 +109,19 @@ export default function StaffPage() {
     setConfirmed(true);
   };
 
+  // 🔥 SCORE SYSTEM
+  const score = todayStaff?.score || 0;
+
+  const getStars = (score) => {
+    if (score >= 90) return 5;
+    if (score >= 75) return 4;
+    if (score >= 60) return 3;
+    if (score >= 40) return 2;
+    return 1;
+  };
+
+  const stars = getStars(score);
+
   return (
     <AppShell>
       <div className="space-y-10">
@@ -128,6 +140,15 @@ export default function StaffPage() {
         ) : (
           <>
             <h1 className="text-3xl text-white">{name}</h1>
+
+            {/* 🔥 SCORE DISPLAY */}
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2 className="text-white mb-2">Performance</h2>
+              <p className="text-white/80">Score: {score}</p>
+              <div className="text-yellow-400 text-xl">
+                {"★".repeat(stars)}{"☆".repeat(5 - stars)}
+              </div>
+            </div>
 
             {/* 🔥 CHECK-IN */}
             <div className="bg-white/5 p-6 rounded-2xl">

@@ -49,7 +49,6 @@ export default function ControlFinal() {
     });
   }, [orders]);
 
-  // 🔥 PREPARE CLOSE (FAIR REVIEW SYSTEM)
   const prepareClose = () => {
     const paidOrders = orders.filter((o) => o.status === "PAID");
 
@@ -62,12 +61,6 @@ export default function ControlFinal() {
 
     const avgOrderValue =
       totalOrders > 0 ? Math.round(revenue / totalOrders) : 0;
-
-    const serviceCharge = Math.round(revenue * 0.05);
-
-    const fohPool = serviceCharge * 0.5;
-    const barPool = serviceCharge * 0.3;
-    const kitchenPool = serviceCharge * 0.2;
 
     // 🔥 REVIEWS
     const reviews =
@@ -89,21 +82,32 @@ export default function ControlFinal() {
     const finalScore =
       efficiency * 0.7 + (avgRating / 5) * 30;
 
-    // 🔥 FOH SCORE BASED ON FAIR SYSTEM
+    // 🔥 SERVICE CHARGE UNLOCK
+    let servicePercent = 0.05;
+
+    if (finalScore >= 25) servicePercent = 0.07;
+    else if (finalScore >= 15) servicePercent = 0.06;
+
+    const serviceCharge = Math.round(revenue * servicePercent);
+
+    const fohPool = serviceCharge * 0.5;
+    const barPool = serviceCharge * 0.3;
+    const kitchenPool = serviceCharge * 0.2;
+
+    // 🔥 FOH LEVEL
     let fohScore = "GOOD";
 
     if (finalScore >= 20) fohScore = "GOOD";
     else if (finalScore >= 10) fohScore = "WARNING";
     else fohScore = "BAD";
 
-    // 🔥 LEVEL IMPACT
     let fohLevelMultiplier = 1;
     if (fohScore === "WARNING") fohLevelMultiplier = 0.8;
     if (fohScore === "BAD") fohLevelMultiplier = 0.6;
 
     const adjustedFoh = fohPool * fohLevelMultiplier;
 
-    // 🔥 ATTENDANCE PENALTIES
+    // 🔥 ATTENDANCE
     const attendance =
       JSON.parse(localStorage.getItem("staff_attendance") || "[]");
 
@@ -114,7 +118,6 @@ export default function ControlFinal() {
       return entry ? entry.penalty || 0 : 0;
     };
 
-    // 🔥 STAFF PAYOUT
     const staff = [
       {
         name: "FOH 1",
@@ -150,15 +153,13 @@ export default function ControlFinal() {
       date: today,
       revenue,
       serviceCharge,
-      paidOrders,
-      totalOrders,
-      avgOrderValue,
-      fohScore,
+      servicePercent,
       finalScore,
       efficiency,
       avgRating,
-      kitchenLevel: "GOOD",
-      barLevel: "GOOD",
+      totalOrders,
+      avgOrderValue,
+      fohScore,
       staff,
     };
 
@@ -173,7 +174,6 @@ export default function ControlFinal() {
     const updatedHistory = [...history, pendingData];
 
     localStorage.setItem("history", JSON.stringify(updatedHistory));
-
     localStorage.removeItem("orders");
 
     setShowApproval(false);
@@ -220,14 +220,12 @@ export default function ControlFinal() {
 
         </div>
 
-        <div>
-          <button
-            onClick={prepareClose}
-            className="bg-[#ff7a00] px-6 py-3 rounded-xl text-white"
-          >
-            Close Day (Manager Approval)
-          </button>
-        </div>
+        <button
+          onClick={prepareClose}
+          className="bg-[#ff7a00] px-6 py-3 rounded-xl text-white"
+        >
+          Close Day (Manager Approval)
+        </button>
 
         {showApproval && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -236,18 +234,16 @@ export default function ControlFinal() {
               <h2 className="text-lg font-semibold">Approve Day</h2>
 
               <p>Revenue: THB {pendingData?.revenue}</p>
+              <p>Service %: {(pendingData?.servicePercent * 100).toFixed(0)}%</p>
               <p>Service: THB {pendingData?.serviceCharge}</p>
-              <p>FOH Score: {pendingData?.fohScore}</p>
               <p>Final Score: {pendingData?.finalScore?.toFixed(1)}</p>
 
-              <div className="space-y-2">
-                {pendingData?.staff.map((s, i) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span>{s.name}</span>
-                    <span>THB {s.payout}</span>
-                  </div>
-                ))}
-              </div>
+              {pendingData?.staff.map((s, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span>{s.name}</span>
+                  <span>THB {s.payout}</span>
+                </div>
+              ))}
 
               <button
                 onClick={approveClose}

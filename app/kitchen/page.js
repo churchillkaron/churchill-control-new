@@ -23,8 +23,15 @@ export default function KitchenPage() {
       const data = JSON.parse(localStorage.getItem("orders") || "[]");
 
       const filtered = data
-        .filter((order) => order.station === station)
-        .filter((order) => order.status === "NEW" || order.status === "PREPARING")
+        .map((order) => ({
+          ...order,
+          items: order.items.filter(
+            (item) =>
+              item.station === station &&
+              item.status !== "READY"
+          ),
+        }))
+        .filter((order) => order.items.length > 0)
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       if (filtered.length > prevOrderCount.current) {
@@ -48,21 +55,27 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, [station]);
 
-  const updateStatus = (id, currentStatus) => {
+  const updateStatus = (orderId, itemIndex, currentStatus) => {
     const all = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const updated = all.map((order) => {
-      if (order.id !== id) return order;
+      if (order.id !== orderId) return order;
 
-      if (currentStatus === "NEW") {
-        return { ...order, status: "PREPARING" };
-      }
+      const updatedItems = order.items.map((item, i) => {
+        if (i !== itemIndex) return item;
 
-      if (currentStatus === "PREPARING") {
-        return { ...order, status: "SERVED" };
-      }
+        if (currentStatus === "NEW") {
+          return { ...item, status: "PREPARING" };
+        }
 
-      return order;
+        if (currentStatus === "PREPARING") {
+          return { ...item, status: "READY" };
+        }
+
+        return item;
+      });
+
+      return { ...order, items: updatedItems };
     });
 
     localStorage.setItem("orders", JSON.stringify(updated));
@@ -130,17 +143,19 @@ export default function KitchenPage() {
                       {item.side && <div>• {item.side}</div>}
                       {item.sauce && <div>• {item.sauce}</div>}
                     </div>
+
+                    <button
+                      onClick={() =>
+                        updateStatus(order.id, index, item.status)
+                      }
+                      className="w-full mt-3 bg-[#ff7a00] py-2 rounded-xl text-black font-semibold"
+                    >
+                      {item.status === "NEW" && "Start Cooking"}
+                      {item.status === "PREPARING" && "Mark Ready"}
+                    </button>
                   </div>
                 ))}
               </div>
-
-              <button
-                onClick={() => updateStatus(order.id, order.status)}
-                className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-semibold text-lg"
-              >
-                {order.status === "NEW" && "Start Cooking"}
-                {order.status === "PREPARING" && "Mark Done"}
-              </button>
             </div>
           ))}
         </div>

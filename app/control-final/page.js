@@ -46,7 +46,7 @@ export default function ControlFinal() {
     });
   }, [orders]);
 
-  // 🔥 SAVE DAY (NEW — DOES NOT TOUCH EXISTING LOGIC)
+  // 🔥 CLOSE DAY (UPGRADED STRUCTURE)
   const closeDay = () => {
     const paidOrders = orders.filter((o) => o.status === "PAID");
 
@@ -55,13 +55,39 @@ export default function ControlFinal() {
       0
     );
 
+    const totalOrders = paidOrders.length;
+
+    const avgOrderValue =
+      totalOrders > 0 ? Math.round(revenue / totalOrders) : 0;
+
     const serviceCharge = Math.round(revenue * 0.05);
+
+    // 🔥 SIMPLE PERFORMANCE PLACEHOLDER (SAFE)
+    const fohScore =
+      totalOrders > 0
+        ? avgOrderValue > 500
+          ? "GOOD"
+          : avgOrderValue > 300
+          ? "WARNING"
+          : "BAD"
+        : "—";
 
     const newDay = {
       date: new Date().toLocaleDateString("en-GB"),
+
       revenue,
       serviceCharge,
+
       paidOrders,
+
+      totalOrders,
+      avgOrderValue,
+
+      fohScore,
+      kitchenLevel: "-",
+      barLevel: "-",
+
+      staff: [], // keep safe, no break
     };
 
     const history =
@@ -71,7 +97,6 @@ export default function ControlFinal() {
 
     localStorage.setItem("history", JSON.stringify(updatedHistory));
 
-    // reset orders after closing day
     localStorage.removeItem("orders");
 
     alert("Day closed and saved");
@@ -92,7 +117,7 @@ export default function ControlFinal() {
           </h1>
         </div>
 
-        {/* KPI CARDS */}
+        {/* KPI */}
         <div className="grid md:grid-cols-3 gap-6">
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
@@ -118,7 +143,7 @@ export default function ControlFinal() {
 
         </div>
 
-        {/* CLOSE DAY BUTTON */}
+        {/* CLOSE DAY */}
         <div>
           <button
             onClick={closeDay}
@@ -128,7 +153,7 @@ export default function ControlFinal() {
           </button>
         </div>
 
-        {/* PAID ORDERS LIST */}
+        {/* ORDERS */}
         <div className="space-y-4">
           {orders
             .filter((o) => o.status === "PAID")

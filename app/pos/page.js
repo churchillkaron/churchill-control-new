@@ -15,29 +15,81 @@ const categories = [
   "Spirit",
 ];
 
-// 🔥 KEEP YOUR REAL MENU HERE (unchanged structure)
 const menu = {
   Starter: [
     { name: "Beef Carpaccio", price: 320, station: "WESTERN" },
     { name: "Chili & Garlic Prawns", price: 320, station: "WESTERN" },
+    { name: "Signature Bruschetta", price: 280, station: "WESTERN" },
+    { name: "Seared Scallops", price: 520, station: "WESTERN" },
+    { name: "Mango & Tomato Salad", price: 220, station: "WESTERN" },
+    { name: "Tom Yum Goong", price: 180, station: "THAI" },
+    { name: "Tom Kha Gai", price: 170, station: "THAI" },
+    { name: "Potato Gratin", price: 120, station: "WESTERN" },
+    { name: "Crispy Potato Wedges", price: 100, station: "WESTERN" },
+    { name: "Cauliflower Puree", price: 120, station: "WESTERN" },
   ],
   "Main Course": [
-    { name: "Ribeye Steak", price: 890, station: "WESTERN", needsModifiers: true },
-    { name: "Beef Tenderloin", price: 920, station: "WESTERN", needsModifiers: true },
-    { name: "Salmon", price: 690, station: "WESTERN" },
+    { name: "Churchill Beef Short Ribs", price: 890, station: "WESTERN" },
+    {
+      name: "Ribeye Steak",
+      price: 890,
+      station: "WESTERN",
+      needsPopup: true,
+      needsDoneness: true,
+      needsSide: true,
+      needsSauce: true,
+    },
+    {
+      name: "Beef Tenderloin",
+      price: 920,
+      station: "WESTERN",
+      needsPopup: true,
+      needsDoneness: true,
+      needsSide: true,
+      needsSauce: true,
+    },
+    {
+      name: "Pork Tenderloin",
+      price: 460,
+      station: "WESTERN",
+      needsPopup: true,
+      needsDoneness: false,
+      needsSide: true,
+      needsSauce: true,
+    },
+    {
+      name: "Salmon",
+      price: 690,
+      station: "WESTERN",
+      needsPopup: true,
+      needsDoneness: false,
+      needsSide: true,
+      needsSauce: true,
+    },
+    { name: "Churchill Sambal Half Chicken", price: 590, station: "WESTERN" },
+    { name: "Veal Stew", price: 850, station: "WESTERN" },
   ],
   "Thai Food": [
     { name: "Pad Thai", price: 160, station: "THAI" },
+    { name: "Pad Ka Prow", price: 150, station: "THAI" },
+    { name: "Stir-Fried Chicken with Cashew Nuts", price: 180, station: "THAI" },
+    { name: "Beef with Oyster Sauce", price: 220, station: "THAI" },
+    { name: "Massaman Curry", price: 180, station: "THAI" },
     { name: "Green Curry", price: 170, station: "THAI" },
+    { name: "Panang Curry", price: 175, station: "THAI" },
+    { name: "Pineapple Fried Rice", price: 160, station: "THAI" },
   ],
-  Beer: [
-    { name: "Chang Beer", price: 90, station: "BAR" },
-  ],
+  Dessert: [],
+  Beer: [],
+  "Soft Drink": [],
+  Wine: [],
+  Cocktails: [],
+  Spirit: [],
 };
 
 const donenessOptions = ["Rare", "Medium Rare", "Medium", "Well Done"];
 const sideOptions = ["Fries", "Salad", "Mashed Potato"];
-const sauceOptions = ["Pepper", "Mushroom", "BBQ"];
+const sauceOptions = ["Pepper", "Mushroom", "BBQ", "Red Wine"];
 
 export default function POSPage() {
   const [activeCategory, setActiveCategory] = useState("Starter");
@@ -51,13 +103,32 @@ export default function POSPage() {
 
   const currentMenu = menu[activeCategory] || [];
 
-  // 🔥 ADD SIMPLE ITEM
-  const addSimpleItem = (item) => {
-    setCart((prev) => [...prev, { ...item, qty: 1 }]);
+  const handleMenuClick = (item) => {
+    if (item.needsPopup) {
+      setSelectedItem(item);
+      setSelectedModifier("");
+      setSelectedSide("");
+      setSelectedSauce("");
+      return;
+    }
+
+    setCart((prev) => [
+      ...prev,
+      {
+        name: item.name,
+        price: item.price,
+        station: item.station,
+        qty: 1,
+        modifier: "",
+        side: "",
+        sauce: "",
+      },
+    ]);
   };
 
-  // 🔥 ADD MODIFIED ITEM
-  const addConfiguredItem = () => {
+  const addConfiguredItemToCart = () => {
+    if (!selectedItem) return;
+
     const newItem = {
       name: selectedItem.name,
       price: selectedItem.price,
@@ -69,19 +140,10 @@ export default function POSPage() {
     };
 
     setCart((prev) => [...prev, newItem]);
-
     setSelectedItem(null);
     setSelectedModifier("");
     setSelectedSide("");
     setSelectedSauce("");
-  };
-
-  const handleClick = (item) => {
-    if (item.needsModifiers) {
-      setSelectedItem(item);
-    } else {
-      addSimpleItem(item);
-    }
   };
 
   const increaseQty = (index) => {
@@ -104,26 +166,25 @@ export default function POSPage() {
 
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-  // 🔥 FIXED SEND ORDER (SPLIT BY STATION)
   const sendOrder = () => {
-    if (!table || cart.length === 0) {
+    if (!table.trim() || cart.length === 0) {
       alert("Select table and add items");
       return;
     }
 
-    const staff = localStorage.getItem("staffName") || "Unknown";
-    const existing = JSON.parse(localStorage.getItem("orders") || "[]");
+    const staffName = localStorage.getItem("staffName") || "Unknown";
+    const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    const grouped = {};
+    const groupedByStation = {};
 
     cart.forEach((item) => {
       const station = item.station || "WESTERN";
 
-      if (!grouped[station]) {
-        grouped[station] = [];
+      if (!groupedByStation[station]) {
+        groupedByStation[station] = [];
       }
 
-      grouped[station].push({
+      groupedByStation[station].push({
         name: item.name,
         qty: item.qty,
         station,
@@ -133,39 +194,92 @@ export default function POSPage() {
       });
     });
 
-    const newOrders = Object.keys(grouped).map((station) => ({
+    const newOrders = Object.keys(groupedByStation).map((station) => ({
       id: Date.now() + Math.random(),
       table,
-      staff,
+      table_name: table,
+      staff: staffName,
       station,
       status: "NEW",
       created_at: new Date().toISOString(),
-      items: grouped[station],
+      items: groupedByStation[station],
     }));
 
-    localStorage.setItem("orders", JSON.stringify([...existing, ...newOrders]));
-
+    localStorage.setItem("orders", JSON.stringify([...existingOrders, ...newOrders]));
     setCart([]);
     alert("Order sent");
+  };
+
+  const payOrder = () => {
+    if (!table.trim() || cart.length === 0) {
+      alert("Select table and add items");
+      return;
+    }
+
+    const staffName = localStorage.getItem("staffName") || "Unknown";
+    const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
+
+    const groupedByStation = {};
+
+    cart.forEach((item) => {
+      const station = item.station || "WESTERN";
+
+      if (!groupedByStation[station]) {
+        groupedByStation[station] = [];
+      }
+
+      groupedByStation[station].push({
+        name: item.name,
+        qty: item.qty,
+        station,
+        modifier: item.modifier || "",
+        side: item.side || "",
+        sauce: item.sauce || "",
+      });
+    });
+
+    const paidOrders = Object.keys(groupedByStation).map((station) => ({
+      id: Date.now() + Math.random(),
+      table,
+      table_name: table,
+      staff: staffName,
+      station,
+      status: "Paid",
+      created_at: new Date().toISOString(),
+      items: groupedByStation[station],
+      total: groupedByStation[station].reduce((sum, item) => {
+        const found =
+          Object.values(menu)
+            .flat()
+            .find((m) => m.name === item.name)?.price || 0;
+        return sum + found * item.qty;
+      }, 0),
+    }));
+
+    localStorage.setItem("orders", JSON.stringify([...existingOrders, ...paidOrders]));
+    setCart([]);
+    alert("Payment completed");
   };
 
   return (
     <AppShell>
       <div className="space-y-6">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
+            POS
+          </p>
+          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
+            Order System
+          </h1>
+        </div>
 
-        <h1 className="text-3xl md:text-5xl font-semibold">
-          POS System
-        </h1>
-
-        {/* TABLE */}
         <input
-          placeholder="Table (T1)"
+          placeholder="Table (e.g. T1)"
           value={table}
           onChange={(e) => setTable(e.target.value)}
           className="px-4 py-3 rounded-xl bg-white/10 border border-white/10 w-full max-w-xs"
         />
 
-        {/* CATEGORIES */}
         <div className="flex gap-2 flex-wrap">
           {categories.map((cat) => (
             <button
@@ -182,16 +296,19 @@ export default function POSPage() {
           ))}
         </div>
 
-        {/* LAYOUT */}
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_400px] gap-6 items-start">
-
-          {/* MENU */}
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {currentMenu.length === 0 && (
+              <div className="text-white/40 rounded-xl bg-white/5 p-4">
+                No items yet
+              </div>
+            )}
+
             {currentMenu.map((item) => (
               <button
                 key={item.name}
-                onClick={() => handleClick(item)}
-                className="p-4 rounded-2xl bg-white/10 border border-white/10 text-left hover:bg-white/15"
+                onClick={() => handleMenuClick(item)}
+                className="p-4 rounded-2xl bg-white/10 border border-white/10 text-left hover:bg-white/15 transition"
               >
                 <div className="font-medium">{item.name}</div>
                 <div className="text-white/60 text-sm mt-1">
@@ -201,85 +318,174 @@ export default function POSPage() {
             ))}
           </div>
 
-          {/* CART */}
           <div className="bg-white/5 border border-white/10 p-5 rounded-2xl h-[560px] flex flex-col">
+            <h2 className="text-xl font-semibold">Cart</h2>
 
-            <div className="flex-1 overflow-y-auto space-y-3">
+            <div className="flex-1 overflow-y-auto space-y-3 mt-4">
+              {cart.length === 0 && (
+                <div className="text-white/40">No items added</div>
+              )}
+
               {cart.map((item, index) => (
-                <div key={index} className="border-b border-white/10 pb-2">
+                <div
+                  key={`${item.name}-${index}`}
+                  className="border-b border-white/10 pb-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div>{item.name}</div>
 
-                  <div>{item.name}</div>
+                      {(item.modifier || item.side || item.sauce) && (
+                        <div className="text-white/50 text-sm mt-1">
+                          {item.modifier ? `• ${item.modifier} ` : ""}
+                          {item.side ? `• ${item.side} ` : ""}
+                          {item.sauce ? `• ${item.sauce}` : ""}
+                        </div>
+                      )}
 
-                  <div className="text-sm text-white/50">
-                    {item.modifier && `• ${item.modifier} `}
-                    {item.side && `• ${item.side} `}
-                    {item.sauce && `• ${item.sauce}`}
+                      <div className="text-white/50 text-sm mt-1">
+                        THB {item.price} x {item.qty}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => decreaseQty(index)}
+                        className="w-8 h-8 rounded-lg bg-white/10"
+                      >
+                        -
+                      </button>
+                      <div className="w-8 text-center">{item.qty}</div>
+                      <button
+                        onClick={() => increaseQty(index)}
+                        className="w-8 h-8 rounded-lg bg-white/10"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="flex gap-2 mt-1">
-                    <button onClick={() => decreaseQty(index)}>-</button>
-                    <span>{item.qty}</span>
-                    <button onClick={() => increaseQty(index)}>+</button>
-                  </div>
-
                 </div>
               ))}
             </div>
 
-            <div className="pt-4 border-t border-white/10">
+            <div className="pt-4 border-t border-white/10 text-lg font-semibold">
               Total: THB {total}
+            </div>
 
+            <div className="grid gap-3 mt-4">
               <button
                 onClick={sendOrder}
-                className="w-full bg-[#ff7a00] mt-3 py-3 rounded-xl text-black font-semibold"
+                className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-semibold"
               >
                 Send Order
               </button>
+
+              <button
+                onClick={payOrder}
+                className="w-full bg-white/10 py-3 rounded-xl text-white font-semibold"
+              >
+                Payment
+              </button>
             </div>
-
           </div>
-
         </div>
 
-        {/* MODAL */}
         {selectedItem && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#161616] border border-white/10 rounded-2xl p-6 w-full max-w-md space-y-5">
+              <div>
+                <h2 className="text-xl font-semibold">{selectedItem.name}</h2>
+                <p className="text-white/50 text-sm mt-1">
+                  THB {selectedItem.price}
+                </p>
+              </div>
 
-            <div className="bg-black p-6 rounded-2xl space-y-4 w-[300px]">
+              {selectedItem.needsDoneness && (
+                <div>
+                  <div className="text-sm text-white/60 mb-2">Doneness</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {donenessOptions.map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => setSelectedModifier(option)}
+                        className={`p-2 rounded-xl ${
+                          selectedModifier === option
+                            ? "bg-[#ff7a00] text-black"
+                            : "bg-white/10"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              <h2>{selectedItem.name}</h2>
+              {selectedItem.needsSide && (
+                <div>
+                  <div className="text-sm text-white/60 mb-2">Side</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {sideOptions.map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => setSelectedSide(option)}
+                        className={`p-2 rounded-xl ${
+                          selectedSide === option
+                            ? "bg-[#ff7a00] text-black"
+                            : "bg-white/10"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {donenessOptions.map((d) => (
-                <button key={d} onClick={() => setSelectedModifier(d)}>
-                  {d}
+              {selectedItem.needsSauce && (
+                <div>
+                  <div className="text-sm text-white/60 mb-2">Sauce</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {sauceOptions.map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => setSelectedSauce(option)}
+                        className={`p-2 rounded-xl ${
+                          selectedSauce === option
+                            ? "bg-[#ff7a00] text-black"
+                            : "bg-white/10"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-3 pt-2">
+                <button
+                  onClick={addConfiguredItemToCart}
+                  className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-semibold"
+                >
+                  Add to Cart
                 </button>
-              ))}
 
-              {sideOptions.map((s) => (
-                <button key={s} onClick={() => setSelectedSide(s)}>
-                  {s}
+                <button
+                  onClick={() => {
+                    setSelectedItem(null);
+                    setSelectedModifier("");
+                    setSelectedSide("");
+                    setSelectedSauce("");
+                  }}
+                  className="w-full bg-white/10 py-3 rounded-xl text-white"
+                >
+                  Cancel
                 </button>
-              ))}
-
-              {sauceOptions.map((s) => (
-                <button key={s} onClick={() => setSelectedSauce(s)}>
-                  {s}
-                </button>
-              ))}
-
-              <button onClick={addConfiguredItem} className="bg-orange-500 w-full py-2">
-                Add
-              </button>
-
-              <button onClick={() => setSelectedItem(null)}>
-                Cancel
-              </button>
-
+              </div>
             </div>
-
           </div>
         )}
-
       </div>
     </AppShell>
   );

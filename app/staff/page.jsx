@@ -12,6 +12,7 @@ export default function StaffPage() {
   const [confirmed, setConfirmed] = useState(false);
 
   const [checkedIn, setCheckedIn] = useState(false);
+  const [checkedOut, setCheckedOut] = useState(false);
   const [late, setLate] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -33,6 +34,7 @@ export default function StaffPage() {
 
     if (existing) {
       setCheckedIn(true);
+      setCheckedOut(!!existing.checkOut);
       setLate(existing.late);
     }
 
@@ -66,6 +68,8 @@ export default function StaffPage() {
       id: Date.now(),
       name,
       date: today,
+      checkIn: now.toISOString(),
+      checkOut: null,
       late: isLate,
       minutesLate,
       penalty,
@@ -83,7 +87,22 @@ export default function StaffPage() {
     setLate(isLate);
   };
 
-  // 🔥 AI UPLOAD
+  const checkOut = () => {
+    const now = new Date().toISOString();
+
+    const updated = attendance.map((a) => {
+      if (a.name === name && a.date === today && !a.checkOut) {
+        return { ...a, checkOut: now };
+      }
+      return a;
+    });
+
+    localStorage.setItem("staff_attendance", JSON.stringify(updated));
+    setAttendance(updated);
+    setCheckedOut(true);
+  };
+
+  // AI Upload
   const handleUpload = async (file) => {
     if (!file) return;
 
@@ -120,7 +139,6 @@ export default function StaffPage() {
   const todayStaff =
     todayData?.staff?.find((s) => s.name === name) || {};
 
-  // 🔥 SERVICE CHARGE + SALARY
   const todaySalary = todayStaff?.payout || 0;
   const serviceCharge = todayData?.serviceCharge || 0;
 
@@ -146,7 +164,6 @@ export default function StaffPage() {
     setConfirmed(true);
   };
 
-  // SCORE
   const score = todayStaff?.score || 0;
 
   const getStars = (score) => {
@@ -187,15 +204,15 @@ export default function StaffPage() {
               </div>
             </div>
 
-            {/* 🔥 SALARY + SERVICE CHARGE */}
+            {/* SALARY */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="text-white mb-2">Salary</h2>
-              <p>Today Salary: THB {todaySalary}</p>
-              <p>Service Charge Pool: THB {serviceCharge}</p>
-              <p>Total Earned: THB {totalSalary}</p>
+              <p>Today: THB {todaySalary}</p>
+              <p>Service Charge: THB {serviceCharge}</p>
+              <p>Total: THB {totalSalary}</p>
 
               {!confirmed ? (
-                <button onClick={confirmSalary} className="bg-green-500 px-4 py-2 rounded mt-3">
+                <button onClick={confirmSalary} className="bg-green-500 px-4 py-2 rounded mt-2">
                   Confirm Salary
                 </button>
               ) : (
@@ -203,7 +220,7 @@ export default function StaffPage() {
               )}
             </div>
 
-            {/* AI REVIEW */}
+            {/* REVIEW */}
             <div className="bg-white/5 p-6 rounded-2xl space-y-4">
               <h2 className="text-white">Upload Review</h2>
 
@@ -213,9 +230,7 @@ export default function StaffPage() {
                 onChange={(e) => handleUpload(e.target.files[0])}
               />
 
-              {preview && (
-                <img src={preview} className="rounded-xl max-h-60" />
-              )}
+              {preview && <img src={preview} className="rounded-xl max-h-60" />}
 
               {loading && <p className="text-white/50">Analyzing...</p>}
 
@@ -238,11 +253,15 @@ export default function StaffPage() {
                 <button onClick={checkIn} className="bg-green-500 px-4 py-2 rounded">
                   Check In
                 </button>
+              ) : !checkedOut ? (
+                <button onClick={checkOut} className="bg-blue-500 px-4 py-2 rounded">
+                  Check Out
+                </button>
               ) : (
-                <p>
-                  {late ? "⏳ Late (Pending approval)" : "✅ On Time"}
-                </p>
+                <p>✅ Shift Completed</p>
               )}
+
+              {late && <p className="text-yellow-400 mt-2">Late (Pending approval)</p>}
             </div>
 
           </>

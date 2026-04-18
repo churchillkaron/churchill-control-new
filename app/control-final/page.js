@@ -11,7 +11,6 @@ export default function ControlFinal() {
     avgOrderValue: 0,
   });
 
-  // loadOrders → get all orders
   const loadOrders = () => {
     try {
       const data = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -23,12 +22,10 @@ export default function ControlFinal() {
 
   useEffect(() => {
     loadOrders();
-
     const interval = setInterval(loadOrders, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // calculate summary from PAID orders only
   useEffect(() => {
     const paidOrders = orders.filter((o) => o.status === "PAID");
 
@@ -48,6 +45,38 @@ export default function ControlFinal() {
       avgOrderValue,
     });
   }, [orders]);
+
+  // 🔥 SAVE DAY (NEW — DOES NOT TOUCH EXISTING LOGIC)
+  const closeDay = () => {
+    const paidOrders = orders.filter((o) => o.status === "PAID");
+
+    const revenue = paidOrders.reduce(
+      (sum, order) => sum + (order.total || 0),
+      0
+    );
+
+    const serviceCharge = Math.round(revenue * 0.05);
+
+    const newDay = {
+      date: new Date().toLocaleDateString("en-GB"),
+      revenue,
+      serviceCharge,
+      paidOrders,
+    };
+
+    const history =
+      JSON.parse(localStorage.getItem("history") || "[]");
+
+    const updatedHistory = [...history, newDay];
+
+    localStorage.setItem("history", JSON.stringify(updatedHistory));
+
+    // reset orders after closing day
+    localStorage.removeItem("orders");
+
+    alert("Day closed and saved");
+    window.location.reload();
+  };
 
   return (
     <AppShell>
@@ -87,6 +116,16 @@ export default function ControlFinal() {
             </div>
           </div>
 
+        </div>
+
+        {/* CLOSE DAY BUTTON */}
+        <div>
+          <button
+            onClick={closeDay}
+            className="bg-[#ff7a00] px-6 py-3 rounded-xl text-white"
+          >
+            Close Day
+          </button>
         </div>
 
         {/* PAID ORDERS LIST */}

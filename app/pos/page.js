@@ -166,6 +166,37 @@ export default function POSPage() {
 
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
+  // 🔥 mergeWithExistingTable → merges items if table already exists
+  const mergeWithExistingTable = (existingOrders, newOrder) => {
+    const existingIndex = existingOrders.findIndex(
+      (o) => o.table === newOrder.table && o.status !== "PAID"
+    );
+
+    if (existingIndex === -1) {
+      return [...existingOrders, newOrder];
+    }
+
+    const existingOrder = existingOrders[existingIndex];
+
+    const mergedItems = [...existingOrder.items, ...newOrder.items];
+
+    const updatedOrder = {
+      ...existingOrder,
+      items: mergedItems,
+      total:
+        (existingOrder.total || 0) +
+        newOrder.items.reduce(
+          (sum, item) => sum + item.price * item.qty,
+          0
+        ),
+    };
+
+    const updatedOrders = [...existingOrders];
+    updatedOrders[existingIndex] = updatedOrder;
+
+    return updatedOrders;
+  };
+
   const sendOrder = () => {
     if (!table.trim() || cart.length === 0) {
       alert("Select table and add items");
@@ -196,10 +227,9 @@ export default function POSPage() {
       })),
     };
 
-    localStorage.setItem(
-      "orders",
-      JSON.stringify([...existingOrders, newOrder])
-    );
+    const mergedOrders = mergeWithExistingTable(existingOrders, newOrder);
+
+    localStorage.setItem("orders", JSON.stringify(mergedOrders));
 
     setCart([]);
     alert("Order sent");
@@ -246,12 +276,6 @@ export default function POSPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_400px] gap-6 items-start">
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {currentMenu.length === 0 && (
-              <div className="text-white/40 rounded-xl bg-white/5 p-4">
-                No items yet
-              </div>
-            )}
-
             {currentMenu.map((item) => (
               <button
                 key={item.name}
@@ -270,10 +294,6 @@ export default function POSPage() {
             <h2 className="text-xl font-semibold">Cart</h2>
 
             <div className="flex-1 overflow-y-auto space-y-3 mt-4">
-              {cart.length === 0 && (
-                <div className="text-white/40">No items added</div>
-              )}
-
               {cart.map((item, index) => (
                 <div
                   key={`${item.name}-${index}`}
@@ -347,69 +367,6 @@ export default function POSPage() {
                   THB {selectedItem.price}
                 </p>
               </div>
-
-              {selectedItem.needsDoneness && (
-                <div>
-                  <div className="text-sm text-white/60 mb-2">Doneness</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {donenessOptions.map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => setSelectedModifier(option)}
-                        className={`p-2 rounded-xl ${
-                          selectedModifier === option
-                            ? "bg-[#ff7a00] text-black"
-                            : "bg-white/10"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedItem.needsSide && (
-                <div>
-                  <div className="text-sm text-white/60 mb-2">Side</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {sideOptions.map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => setSelectedSide(option)}
-                        className={`p-2 rounded-xl ${
-                          selectedSide === option
-                            ? "bg-[#ff7a00] text-black"
-                            : "bg-white/10"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedItem.needsSauce && (
-                <div>
-                  <div className="text-sm text-white/60 mb-2">Sauce</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {sauceOptions.map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => setSelectedSauce(option)}
-                        className={`p-2 rounded-xl ${
-                          selectedSauce === option
-                            ? "bg-[#ff7a00] text-black"
-                            : "bg-white/10"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <div className="grid gap-3 pt-2">
                 <button

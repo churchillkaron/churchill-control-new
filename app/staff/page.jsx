@@ -9,6 +9,8 @@ export default function StaffPage() {
 
   const [attendance, setAttendance] = useState([]);
   const [history, setHistory] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
     const storedName = localStorage.getItem("staff_name");
@@ -24,6 +26,10 @@ export default function StaffPage() {
     setHistory(
       JSON.parse(localStorage.getItem("history") || "[]")
     );
+
+    setMessages(
+      JSON.parse(localStorage.getItem("staff_messages") || "[]")
+    );
   }, []);
 
   const selectUser = (n) => {
@@ -32,7 +38,6 @@ export default function StaffPage() {
     setSelected(true);
   };
 
-  // 🔥 TODAY DATA
   const today = new Date().toLocaleDateString("en-GB");
 
   const todayAttendance = attendance.find(
@@ -44,11 +49,32 @@ export default function StaffPage() {
       (s) => s.name === name
     )?.payout || 0;
 
-  // 🔥 MONTH TOTAL
   const totalSalary = history.reduce((sum, d) => {
     const s = d.staff?.find((x) => x.name === name);
     return sum + (s?.payout || 0);
   }, 0);
+
+  const myMessages = messages.filter((m) => m.name === name);
+
+  const confirmSalary = () => {
+    const record = {
+      name,
+      date: today,
+      confirmed: true,
+    };
+
+    const existing =
+      JSON.parse(localStorage.getItem("salary_confirmations") || "[]");
+
+    const updated = [record, ...existing];
+
+    localStorage.setItem(
+      "salary_confirmations",
+      JSON.stringify(updated)
+    );
+
+    setConfirmed(true);
+  };
 
   return (
     <AppShell>
@@ -80,7 +106,7 @@ export default function StaffPage() {
               </p>
             </div>
 
-            {/* TODAY STATUS */}
+            {/* TODAY */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Today</h2>
 
@@ -103,16 +129,42 @@ export default function StaffPage() {
               <h2 className="mb-3 text-white">Salary</h2>
 
               <p>Total Earned: THB {totalSalary}</p>
+
+              {!confirmed ? (
+                <button
+                  onClick={confirmSalary}
+                  className="bg-green-500 px-4 py-2 rounded mt-3"
+                >
+                  Confirm Salary
+                </button>
+              ) : (
+                <p className="text-green-400 mt-2">
+                  Salary Confirmed
+                </p>
+              )}
             </div>
 
-            {/* ACTION */}
-            <div>
-              <button className="bg-green-500 px-6 py-2 rounded">
-                Confirm Salary
-              </button>
+            {/* MESSAGES */}
+            <div className="bg-white/5 p-6 rounded-2xl">
+              <h2 className="mb-3 text-white">Messages</h2>
+
+              {myMessages.length === 0 && (
+                <p className="text-white/40">
+                  No messages
+                </p>
+              )}
+
+              {myMessages.map((m, i) => (
+                <div
+                  key={i}
+                  className="border-b border-white/10 py-2 text-sm"
+                >
+                  {m.text}
+                </div>
+              ))}
             </div>
 
-            {/* RESET (DEV ONLY) */}
+            {/* SWITCH USER */}
             <div>
               <button
                 onClick={() => {

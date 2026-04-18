@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
   const [now, setNow] = useState(Date.now());
+  const alertedRef = useRef({}); // track alerted orders
 
   const loadOrders = () => {
     const data = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -16,7 +17,7 @@ export default function KitchenPage() {
 
     const interval = setInterval(() => {
       loadOrders();
-      setNow(Date.now()); // 🔥 live timer update
+      setNow(Date.now());
     }, 2000);
 
     return () => clearInterval(interval);
@@ -40,11 +41,9 @@ export default function KitchenPage() {
     loadOrders();
   };
 
-  // 🔥 TIME + COLOR LOGIC
   const getTimer = (created_at) => {
     const diff = Math.floor((now - new Date(created_at)) / 1000);
-    const minutes = Math.floor(diff / 60);
-    return minutes;
+    return Math.floor(diff / 60);
   };
 
   const getColor = (minutes) => {
@@ -53,13 +52,24 @@ export default function KitchenPage() {
     return "bg-red-600";
   };
 
+  // 🔥 SOUND ALERT
+  const playAlert = () => {
+    const audio = new Audio("/alert.mp3"); // put file in /public
+    audio.play();
+  };
+
   const renderStation = (station) => {
     return orders.map((order) => {
       const items = order.items.filter((i) => i.station === station);
-
       if (items.length === 0) return null;
 
       const minutes = getTimer(order.created_at);
+
+      // 🔥 trigger sound once when RED
+      if (minutes >= 10 && !alertedRef.current[order.id]) {
+        playAlert();
+        alertedRef.current[order.id] = true;
+      }
 
       return (
         <div key={order.id} className="bg-white/10 p-4 rounded-xl space-y-2">

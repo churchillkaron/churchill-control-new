@@ -35,7 +35,7 @@ export default function DashboardPage() {
 
     setStaffTotals(totals);
 
-    // REVIEW PERFORMANCE
+    // REVIEW PERFORMANCE + SORT (LEADERBOARD)
     const staffNames = ["FOH 1", "FOH 2", "BAR", "KITCHEN"];
 
     const stats = staffNames.map((name) => {
@@ -51,6 +51,9 @@ export default function DashboardPage() {
         count: r.length,
       };
     });
+
+    // 🔥 SORT BEST FIRST
+    stats.sort((a, b) => b.avg - a.avg);
 
     setReviewStats(stats);
   }, []);
@@ -86,15 +89,18 @@ export default function DashboardPage() {
           <Card label="Days Closed" value={totalDays} />
         </div>
 
+        {/* 🔥 LEADERBOARD */}
         <div className="bg-white/5 p-6 rounded-2xl">
-          <h2 className="mb-4 text-white">Review Performance</h2>
+          <h2 className="mb-4 text-white">Leaderboard</h2>
 
-          {reviewStats.map((s) => (
+          {reviewStats.map((s, i) => (
             <div
               key={s.name}
               className="flex justify-between border-b border-white/10 py-2"
             >
-              <span>{s.name}</span>
+              <span>
+                #{i + 1} {s.name}
+              </span>
               <span>
                 ⭐ {s.avg.toFixed(2)} ({s.count})
               </span>

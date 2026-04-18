@@ -17,144 +17,109 @@ const categories = [
 
 const menu = {
   Starter: [
-    { name: "Beef Carpaccio", price: 320, station: "WESTERN", category: "Starter" },
-    { name: "Chili & Garlic Prawns", price: 320, station: "WESTERN", category: "Starter" },
-    { name: "Tom Yum Goong", price: 180, station: "THAI", category: "Starter" },
+    { name: "Beef Carpaccio", price: 320, station: "WESTERN" },
+    { name: "Chili & Garlic Prawns", price: 320, station: "WESTERN" },
+    { name: "Signature Bruschetta", price: 280, station: "WESTERN" },
+    { name: "Seared Scallops", price: 520, station: "WESTERN" },
+    { name: "Mango & Tomato Salad", price: 220, station: "WESTERN" },
+    { name: "Tom Yum Goong", price: 180, station: "THAI" },
+    { name: "Tom Kha Gai", price: 170, station: "THAI" },
+    { name: "Potato Gratin", price: 120, station: "WESTERN" },
+    { name: "Crispy Potato Wedges", price: 100, station: "WESTERN" },
+    { name: "Cauliflower Puree", price: 120, station: "WESTERN" },
   ],
+
   "Main Course": [
-    {
-      name: "Ribeye Steak",
-      price: 890,
-      station: "WESTERN",
-      category: "Main",
-      needsPopup: true,
-    },
-    {
-      name: "Beef Tenderloin",
-      price: 920,
-      station: "WESTERN",
-      category: "Main",
-      needsPopup: true,
-    },
+    { name: "Ribeye Steak", price: 890, station: "WESTERN", popup: true },
+    { name: "Beef Tenderloin", price: 920, station: "WESTERN", popup: true },
+    { name: "Salmon", price: 690, station: "WESTERN", popup: true },
+    { name: "Churchill Beef Short Ribs", price: 890, station: "WESTERN" },
+    { name: "Pork Tenderloin", price: 460, station: "WESTERN", popup: true },
+    { name: "Churchill Sambal Half Chicken", price: 590, station: "WESTERN" },
+    { name: "Veal Stew", price: 850, station: "WESTERN" },
   ],
+
   "Thai Food": [
-    { name: "Pad Thai", price: 160, station: "THAI", category: "Main" },
+    { name: "Pad Thai", price: 160, station: "THAI" },
+    { name: "Pad Ka Prow", price: 150, station: "THAI" },
+    { name: "Massaman Curry", price: 180, station: "THAI" },
+    { name: "Green Curry", price: 170, station: "THAI" },
+    { name: "Panang Curry", price: 175, station: "THAI" },
   ],
+
   Dessert: [],
+  Beer: [],
+  "Soft Drink": [],
+  Wine: [],
+  Cocktails: [],
+  Spirit: [],
 };
 
-const donenessOptions = ["Rare", "Medium Rare", "Medium", "Well Done"];
-const sideOptions = ["Fries", "Salad", "Mashed Potato"];
-const sauceOptions = ["Pepper", "Mushroom", "BBQ", "Red Wine"];
+const doneness = ["Rare", "Medium Rare", "Medium", "Well Done"];
+const sides = ["Fries", "Salad", "Mashed Potato"];
+const sauces = ["Pepper", "Mushroom", "BBQ", "Red Wine"];
 
 export default function POSPage() {
   const [activeCategory, setActiveCategory] = useState("Starter");
   const [cart, setCart] = useState([]);
   const [table, setTable] = useState("");
 
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [selectedDoneness, setSelectedDoneness] = useState("");
-  const [selectedSide, setSelectedSide] = useState("");
-  const [selectedSauce, setSelectedSauce] = useState("");
+  const [popupItem, setPopupItem] = useState(null);
+  const [selected, setSelected] = useState({
+    doneness: "",
+    side: "",
+    sauce: "",
+  });
 
-  const currentMenu = menu[activeCategory] || [];
+  const addToCart = (item) => {
+    setCart((prev) => [...prev, { ...item, qty: 1 }]);
+  };
 
-  // add item (with popup if needed)
-  const handleMenuClick = (item) => {
-    if (item.needsPopup) {
-      setSelectedItem(item);
-      setSelectedDoneness("");
-      setSelectedSide("");
-      setSelectedSauce("");
+  const handleClick = (item) => {
+    if (item.popup) {
+      setPopupItem(item);
+      setSelected({ doneness: "", side: "", sauce: "" });
       return;
     }
-
-    addToCart(item, "", "", "");
+    addToCart(item);
   };
 
-  const addToCart = (item, doneness, side, sauce) => {
-    setCart((prev) => [
-      ...prev,
-      {
-        name: item.name,
-        price: item.price,
-        station: item.station,
-        category: item.category,
-        qty: 1,
-        doneness,
-        side,
-        sauce,
-        hold: item.category !== "Starter",
-      },
-    ]);
-  };
-
-  // confirm popup item
   const confirmPopup = () => {
-    if (!selectedItem) return;
+    if (!popupItem) return;
 
-    addToCart(
-      selectedItem,
-      selectedDoneness,
-      selectedSide,
-      selectedSauce
-    );
+    addToCart({
+      ...popupItem,
+      modifier: selected.doneness,
+      side: selected.side,
+      sauce: selected.sauce,
+    });
 
-    setSelectedItem(null);
+    setPopupItem(null);
   };
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
-  // FIXED sendOrder
   const sendOrder = () => {
-    if (!table.trim()) {
-      alert("Add table");
-      return;
-    }
+    if (!table || cart.length === 0) return alert("Missing data");
 
-    if (cart.length === 0) {
-      alert("Add items");
-      return;
-    }
+    const orders = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    try {
-      const existing = JSON.parse(localStorage.getItem("orders") || "[]");
+    orders.push({
+      id: Date.now(),
+      table,
+      total,
+      created_at: new Date().toISOString(),
+      status: "ACTIVE",
+      items: cart.map((i, idx) => ({
+        id: Date.now() + idx,
+        ...i,
+        status: "NEW",
+      })),
+    });
 
-      const newOrder = {
-        id: Date.now(),
-        table,
-        status: "ACTIVE",
-        total,
-        created_at: new Date().toISOString(),
-
-        items: cart.map((item, i) => ({
-          id: Date.now() + i,
-          name: item.name,
-          price: item.price,
-          qty: item.qty,
-          station: item.station,
-          category: item.category,
-          hold: item.hold,
-          status: "NEW",
-          modifier: item.doneness,
-          side: item.side,
-          sauce: item.sauce,
-        })),
-      };
-
-      localStorage.setItem(
-        "orders",
-        JSON.stringify([...existing, newOrder])
-      );
-
-      setCart([]);
-      setTable("");
-
-      alert("Order sent ✅");
-    } catch (e) {
-      console.error(e);
-      alert("Error sending order");
-    }
+    localStorage.setItem("orders", JSON.stringify(orders));
+    setCart([]);
+    setTable("");
   };
 
   return (
@@ -169,25 +134,29 @@ export default function POSPage() {
         />
 
         <div className="flex gap-2 flex-wrap">
-          {categories.map((cat) => (
+          {categories.map((c) => (
             <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className="px-3 py-2 bg-white/10 rounded-xl"
+              key={c}
+              onClick={() => setActiveCategory(c)}
+              className={`px-4 py-2 rounded-xl ${
+                activeCategory === c
+                  ? "bg-[#ff7a00] text-black"
+                  : "bg-white/10"
+              }`}
             >
-              {cat}
+              {c}
             </button>
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          {currentMenu.map((item) => (
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {menu[activeCategory]?.map((item) => (
             <button
               key={item.name}
-              onClick={() => handleMenuClick(item)}
-              className="p-4 bg-white/10 rounded-xl text-left"
+              onClick={() => handleClick(item)}
+              className="p-4 rounded-2xl bg-white/10 border border-white/10 text-left"
             >
-              {item.name}
+              <div>{item.name}</div>
               <div className="text-sm text-white/50">
                 {item.price} THB
               </div>
@@ -195,63 +164,97 @@ export default function POSPage() {
           ))}
         </div>
 
-        {/* CART */}
-        <div className="bg-white/5 p-4 rounded-xl space-y-2">
-          {cart.map((item, i) => (
-            <div key={i} className="text-sm">
-              {item.name} x{item.qty}
-              {item.doneness && <div>• {item.doneness}</div>}
-              {item.side && <div>• {item.side}</div>}
-              {item.sauce && <div>• {item.sauce}</div>}
+        <div className="bg-white/5 p-5 rounded-2xl">
+          {cart.map((i, idx) => (
+            <div key={idx}>
+              {i.name}
+              {i.modifier && <div>• {i.modifier}</div>}
+              {i.side && <div>• {i.side}</div>}
+              {i.sauce && <div>• {i.sauce}</div>}
             </div>
           ))}
 
-          <div className="font-semibold">Total: {total}</div>
+          <div className="mt-3">Total: {total}</div>
 
           <button
             onClick={sendOrder}
-            className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-semibold"
+            className="w-full mt-4 bg-[#ff7a00] py-3 rounded-xl text-black"
           >
             Send Order
           </button>
         </div>
 
-        {/* POPUP */}
-        {selectedItem && (
+        {/* FIXED POPUP */}
+        {popupItem && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
-            <div className="bg-black p-6 rounded-xl space-y-4 w-80">
+            <div className="bg-[#161616] p-6 rounded-2xl w-96 space-y-4">
 
-              <h2>{selectedItem.name}</h2>
+              <h2 className="text-xl">{popupItem.name}</h2>
 
               <div>
-                <div>Doneness</div>
-                {donenessOptions.map((o) => (
-                  <button key={o} onClick={() => setSelectedDoneness(o)}>
-                    {o}
-                  </button>
-                ))}
+                <div className="text-sm mb-2">Doneness</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {doneness.map((o) => (
+                    <button
+                      key={o}
+                      onClick={() =>
+                        setSelected((p) => ({ ...p, doneness: o }))
+                      }
+                      className="bg-white/10 p-2 rounded-xl"
+                    >
+                      {o}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
-                <div>Side</div>
-                {sideOptions.map((o) => (
-                  <button key={o} onClick={() => setSelectedSide(o)}>
-                    {o}
-                  </button>
-                ))}
+                <div className="text-sm mb-2">Side</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {sides.map((o) => (
+                    <button
+                      key={o}
+                      onClick={() =>
+                        setSelected((p) => ({ ...p, side: o }))
+                      }
+                      className="bg-white/10 p-2 rounded-xl"
+                    >
+                      {o}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
-                <div>Sauce</div>
-                {sauceOptions.map((o) => (
-                  <button key={o} onClick={() => setSelectedSauce(o)}>
-                    {o}
-                  </button>
-                ))}
+                <div className="text-sm mb-2">Sauce</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {sauces.map((o) => (
+                    <button
+                      key={o}
+                      onClick={() =>
+                        setSelected((p) => ({ ...p, sauce: o }))
+                      }
+                      className="bg-white/10 p-2 rounded-xl"
+                    >
+                      {o}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <button onClick={confirmPopup}>Add</button>
-              <button onClick={() => setSelectedItem(null)}>Cancel</button>
+              <button
+                onClick={confirmPopup}
+                className="w-full bg-[#ff7a00] py-3 rounded-xl text-black"
+              >
+                Add to Cart
+              </button>
+
+              <button
+                onClick={() => setPopupItem(null)}
+                className="w-full bg-white/10 py-3 rounded-xl"
+              >
+                Cancel
+              </button>
 
             </div>
           </div>

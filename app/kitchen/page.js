@@ -1,21 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import AppShell from "../AppShell";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
   const [station, setStation] = useState("");
+  const prevOrderCount = useRef(0);
 
   useEffect(() => {
     const role = localStorage.getItem("staffRole");
 
-    // 🔥 MAP ROLE → STATION
     if (role === "THAI") setStation("THAI");
     if (role === "WESTERN") setStation("WESTERN");
     if (role === "PIZZA") setStation("PIZZA");
     if (role === "BAR") setStation("BAR");
-
   }, []);
 
   const loadOrders = () => {
@@ -28,6 +27,14 @@ export default function KitchenPage() {
         items: order.items.filter((item) => item.station === station),
       }))
       .filter((order) => order.items.length > 0);
+
+    // 🔊 SOUND ON NEW ORDER
+    if (filtered.length > prevOrderCount.current) {
+      const audio = new Audio("/alert.mp3");
+      audio.play().catch(() => {});
+    }
+
+    prevOrderCount.current = filtered.length;
 
     setOrders(filtered);
   };
@@ -54,6 +61,15 @@ export default function KitchenPage() {
     loadOrders();
   };
 
+  // 🔥 TIME COLOR SYSTEM
+  const getDelayColor = (created_at) => {
+    const diff = (Date.now() - new Date(created_at)) / 1000;
+
+    if (diff > 600) return "bg-red-600/30";      // 10 min
+    if (diff > 300) return "bg-orange-500/30";   // 5 min
+    return "bg-white/5";
+  };
+
   return (
     <AppShell>
       <div className="space-y-6">
@@ -67,7 +83,7 @@ export default function KitchenPage() {
           {orders.map((order) => (
             <div
               key={order.id}
-              className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4"
+              className={`${getDelayColor(order.created_at)} border border-white/10 rounded-2xl p-5 space-y-4`}
             >
 
               <div>
@@ -102,10 +118,10 @@ export default function KitchenPage() {
 
               <button
                 onClick={() => updateStatus(order.id, order.status)}
-                className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-semibold"
+                className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-semibold text-lg"
               >
-                {order.status === "NEW" && "Start"}
-                {order.status === "PREPARING" && "Done"}
+                {order.status === "NEW" && "Start Cooking"}
+                {order.status === "PREPARING" && "Mark Done"}
               </button>
 
             </div>

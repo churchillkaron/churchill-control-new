@@ -5,9 +5,13 @@ const openai = new OpenAI({
 });
 
 export async function POST(req) {
-  const { image } = await req.json();
-
   try {
+    const { image } = await req.json();
+
+    if (!image) {
+      return Response.json({ error: "No image provided" });
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -41,17 +45,7 @@ Rules:
 - Reject if no visible stars or reviewer structure
 - Reject if not clearly a restaurant review
 
-Return ONLY JSON:
-{
-  "rating": number,
-  "text": string,
-  "platform": string,
-  "is_real": boolean,
-  "confidence": number,
-  "contains_food_reference": boolean,
-  "contains_service_reference": boolean,
-  "has_valid_ui": boolean
-}
+Return ONLY JSON.
 `,
         },
         {
@@ -74,7 +68,12 @@ Return ONLY JSON:
 
     const content = response.choices[0].message.content;
 
-    const parsed = JSON.parse(content);
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      return Response.json({ error: "Invalid AI response format" });
+    }
 
     // 🔒 HARD VALIDATION
     if (
@@ -93,9 +92,10 @@ Return ONLY JSON:
     }
 
     return Response.json(parsed);
+
   } catch (err) {
     return Response.json({
-      error: "AI parsing failed",
+      error: "AI processing failed",
     });
   }
 }

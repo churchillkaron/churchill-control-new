@@ -25,14 +25,19 @@ export default function KitchenPage() {
       const filtered = data
         .map((order) => ({
           ...order,
-          items: order.items.filter(
-            (item) =>
-              item.station === station &&
-              item.status !== "READY"
-          ),
+          items: order.items
+            .filter(
+              (item) =>
+                item.station === station &&
+                item.status !== "READY"
+            )
+            .sort((a, b) => {
+              const priority = { NEW: 0, PREPARING: 1 };
+              return priority[a.status] - priority[b.status];
+            }),
         }))
         .filter((order) => order.items.length > 0)
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
       if (filtered.length > prevOrderCount.current) {
         const audio = new Audio("/alert.mp3");
@@ -85,6 +90,7 @@ export default function KitchenPage() {
   const getDelayColor = (createdAt) => {
     const diff = (Date.now() - new Date(createdAt)) / 1000;
 
+    if (diff > 900) return "bg-red-700/40";
     if (diff > 600) return "bg-red-600/30";
     if (diff > 300) return "bg-orange-500/30";
     return "bg-white/5";
@@ -134,8 +140,13 @@ export default function KitchenPage() {
                     key={index}
                     className="border-b border-white/10 pb-2"
                   >
-                    <div className="font-medium">
-                      {item.qty}x {item.name}
+                    <div className="flex justify-between items-center">
+                      <div className="font-medium">
+                        {item.qty}x {item.name}
+                      </div>
+                      <div className="text-xs text-white/50">
+                        {item.status}
+                      </div>
                     </div>
 
                     <div className="text-sm text-white/60 ml-3 space-y-1">

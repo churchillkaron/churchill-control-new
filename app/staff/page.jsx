@@ -12,7 +12,6 @@ export default function StaffPage() {
   const [messages, setMessages] = useState([]);
   const [confirmed, setConfirmed] = useState(false);
 
-  // 🔥 REVIEW STATE
   const [image, setImage] = useState(null);
   const [reviewStatus, setReviewStatus] = useState("");
   const [reviewResult, setReviewResult] = useState(null);
@@ -70,7 +69,6 @@ export default function StaffPage() {
     setConfirmed(true);
   };
 
-  // 🔥 REVIEW UPLOAD
   const handleUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -89,6 +87,17 @@ export default function StaffPage() {
   const runReviewAI = async () => {
     if (!image) return alert("Upload screenshot first");
 
+    const existing = JSON.parse(localStorage.getItem("reviews") || "[]");
+
+    const todayCount = existing.filter(
+      (r) => r.staff === name && r.date === today
+    ).length;
+
+    if (todayCount >= 3) {
+      alert("Max 3 reviews per day");
+      return;
+    }
+
     try {
       setReviewStatus("Analyzing review...");
 
@@ -102,17 +111,28 @@ export default function StaffPage() {
 
       const data = await res.json();
 
+      if (!data.rating || data.rating < 1 || data.rating > 5) {
+        setReviewStatus("Invalid rating");
+        return;
+      }
+
+      if (!data.text || data.text.length < 10) {
+        setReviewStatus("Review too short");
+        return;
+      }
+
       const review = {
         staff: name,
         rating: data.rating,
-        text: data.text || "",
+        text: data.text,
         platform: data.platform || "Unknown",
         date: today,
       };
 
-      const existing = JSON.parse(localStorage.getItem("reviews") || "[]");
-
-      localStorage.setItem("reviews", JSON.stringify([review, ...existing]));
+      localStorage.setItem(
+        "reviews",
+        JSON.stringify([review, ...existing])
+      );
 
       setReviewResult(review);
       setReviewStatus("Review saved");
@@ -143,13 +163,11 @@ export default function StaffPage() {
           </>
         ) : (
           <>
-            {/* HEADER */}
             <div>
               <h1 className="text-3xl text-white">{name}</h1>
               <p className="text-white/50 text-sm">Personal Dashboard</p>
             </div>
 
-            {/* TODAY */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Today</h2>
               <p>Status: {todayAttendance ? (todayAttendance.late ? "Late" : "On Time") : "Not Checked In"}</p>
@@ -157,7 +175,6 @@ export default function StaffPage() {
               <p>Payout Today: THB {todayPayout}</p>
             </div>
 
-            {/* SALARY */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Salary</h2>
               <p>Total Earned: THB {totalSalary}</p>
@@ -171,9 +188,8 @@ export default function StaffPage() {
               )}
             </div>
 
-            {/* REVIEW UPLOAD */}
             <div className="bg-white/5 p-6 rounded-2xl">
-              <h2 className="mb-3 text-white">Upload Customer Review</h2>
+              <h2 className="mb-3 text-white">Upload Review</h2>
 
               <input type="file" onChange={handleUpload} />
 
@@ -197,7 +213,6 @@ export default function StaffPage() {
               )}
             </div>
 
-            {/* MESSAGES */}
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Messages</h2>
 
@@ -212,7 +227,6 @@ export default function StaffPage() {
               ))}
             </div>
 
-            {/* SWITCH USER */}
             <button
               onClick={() => {
                 localStorage.removeItem("staff_name");
@@ -224,6 +238,7 @@ export default function StaffPage() {
             </button>
           </>
         )}
+
       </div>
     </AppShell>
   );

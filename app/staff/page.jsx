@@ -43,10 +43,12 @@ export default function StaffPage() {
     (a) => a.name === name && a.date === today
   );
 
+  const todayData = history[history.length - 1];
+
   const todayPayout =
-    history[history.length - 1]?.staff?.find(
-      (s) => s.name === name
-    )?.payout || 0;
+    todayData?.staff?.find((s) => s.name === name)?.payout || 0;
+
+  const todayOrders = todayData?.totalOrders || 0;
 
   const totalSalary = history.reduce((sum, d) => {
     const s = d.staff?.find((x) => x.name === name);
@@ -114,19 +116,8 @@ export default function StaffPage() {
 
       const data = await res.json();
 
-      // 🔥 HARD BLOCK FROM BACKEND
       if (data.error) {
         setReviewStatus("Rejected: Not a valid review");
-        return;
-      }
-
-      if (!data.rating || data.rating < 1 || data.rating > 5) {
-        setReviewStatus("Invalid rating");
-        return;
-      }
-
-      if (!data.text || data.text.length < 10) {
-        setReviewStatus("Review too short");
         return;
       }
 
@@ -152,19 +143,28 @@ export default function StaffPage() {
     }
   };
 
+  // 🔥 FAIR SYSTEM
   const myReviewsToday = reviews.filter(
     (r) => r.staff === name && r.date === today
   );
 
-  const reviewScore =
-    myReviewsToday.reduce((sum, r) => sum + r.rating, 0) /
-    (myReviewsToday.length || 1);
+  const reviewCount = myReviewsToday.length;
 
-  const targetMet = myReviewsToday.length >= 2;
+  const avgRating =
+    myReviewsToday.reduce((sum, r) => sum + r.rating, 0) /
+    (reviewCount || 1);
+
+  const efficiency =
+    todayOrders > 0 ? (reviewCount / todayOrders) * 100 : 0;
+
+  const finalScore =
+    efficiency * 0.7 + (avgRating / 5) * 30;
+
+  const targetMet = reviewCount >= 2;
 
   let reviewMultiplier = 1;
-  if (reviewScore >= 4.5) reviewMultiplier = 1.1;
-  if (reviewScore < 4.0) reviewMultiplier = 0.9;
+  if (finalScore >= 20) reviewMultiplier = 1.1;
+  if (finalScore < 10) reviewMultiplier = 0.9;
 
   const adjustedPayout = Math.round(todayPayout * reviewMultiplier);
 
@@ -198,16 +198,16 @@ export default function StaffPage() {
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Today</h2>
               <p>Status: {todayAttendance ? (todayAttendance.late ? "Late" : "On Time") : "Not Checked In"}</p>
-              <p>Penalty: THB {todayAttendance?.penalty || 0}</p>
               <p>Payout Today: THB {todayPayout}</p>
               <p className="text-orange-400">Adjusted: THB {adjustedPayout}</p>
             </div>
 
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Review Performance</h2>
-              <p>Score: {reviewScore.toFixed(2)}</p>
-              <p>Reviews Today: {myReviewsToday.length}</p>
-              <p>Target: {myReviewsToday.length}/2 {targetMet ? "✅" : "❌"}</p>
+              <p>Efficiency: {efficiency.toFixed(1)}%</p>
+              <p>Rating: ⭐ {avgRating.toFixed(2)}</p>
+              <p>Final Score: {finalScore.toFixed(1)}</p>
+              <p>Target: {reviewCount}/2 {targetMet ? "✅" : "❌"}</p>
             </div>
 
             <div className="bg-white/5 p-6 rounded-2xl">
@@ -246,20 +246,6 @@ export default function StaffPage() {
                   ⭐ {reviewResult.rating} — {reviewResult.text}
                 </div>
               )}
-            </div>
-
-            <div className="bg-white/5 p-6 rounded-2xl">
-              <h2 className="mb-3 text-white">Messages</h2>
-
-              {myMessages.length === 0 && (
-                <p className="text-white/40">No messages</p>
-              )}
-
-              {myMessages.map((m, i) => (
-                <div key={i} className="border-b border-white/10 py-2 text-sm">
-                  {m.text}
-                </div>
-              ))}
             </div>
 
             <button

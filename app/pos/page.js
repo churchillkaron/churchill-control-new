@@ -91,11 +91,14 @@ export default function POSPage() {
     setCart([]);
   };
 
+  const isComplete =
+    selected.doneness && selected.side && selected.sauce;
+
   return (
     <AppShell>
       <div className="grid grid-cols-3 gap-6">
 
-        {/* LEFT - MENU */}
+        {/* MENU */}
         <div className="col-span-2 space-y-6">
 
           <input
@@ -133,14 +136,13 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* RIGHT - CART */}
+        {/* CART */}
         <div className="bg-white/5 p-4 rounded-xl space-y-4">
-
           <div className="text-lg">Order</div>
 
           <div className="space-y-2 max-h-[400px] overflow-auto">
             {cart.map((item, i) => (
-              <div key={i} className="text-sm">
+              <div key={i}>
                 {item.name} - {item.price}
                 {item.modifier && <div>• {item.modifier}</div>}
                 {item.side && <div>• {item.side}</div>}
@@ -166,6 +168,7 @@ export default function POSPage() {
 
               <h2>{popupItem.name}</h2>
 
+              {/* DONENESS */}
               <div>
                 <div>Doneness</div>
                 <div className="grid grid-cols-2 gap-2">
@@ -187,6 +190,7 @@ export default function POSPage() {
                 </div>
               </div>
 
+              {/* SIDE */}
               <div>
                 <div>Side</div>
                 <div className="grid grid-cols-2 gap-2">
@@ -208,6 +212,7 @@ export default function POSPage() {
                 </div>
               </div>
 
+              {/* SAUCE */}
               <div>
                 <div>Sauce</div>
                 <div className="grid grid-cols-2 gap-2">
@@ -231,7 +236,10 @@ export default function POSPage() {
 
               <button
                 onClick={confirmPopup}
-                className="w-full bg-orange-500 p-3 rounded-xl"
+                disabled={!isComplete}
+                className={`w-full p-3 rounded-xl ${
+                  isComplete ? "bg-orange-500" : "bg-gray-500 opacity-50"
+                }`}
               >
                 Add to Cart
               </button>

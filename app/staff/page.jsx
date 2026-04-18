@@ -45,10 +45,13 @@ export default function StaffPage() {
 
   const todayData = history[history.length - 1];
 
-  const todayPayout =
-    todayData?.staff?.find((s) => s.name === name)?.payout || 0;
+  const todayStaffData =
+    todayData?.staff?.find((s) => s.name === name) || null;
 
+  const todayPayout = todayStaffData?.payout || 0;
   const todayOrders = todayData?.totalOrders || 0;
+  const todayServiceCharge = todayData?.serviceCharge || 0;
+  const servicePercent = todayData?.servicePercent || 0.05;
 
   const totalSalary = history.reduce((sum, d) => {
     const s = d.staff?.find((x) => x.name === name);
@@ -143,7 +146,6 @@ export default function StaffPage() {
     }
   };
 
-  // 🔥 FAIR SYSTEM
   const myReviewsToday = reviews.filter(
     (r) => r.staff === name && r.date === today
   );
@@ -198,6 +200,7 @@ export default function StaffPage() {
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Today</h2>
               <p>Status: {todayAttendance ? (todayAttendance.late ? "Late" : "On Time") : "Not Checked In"}</p>
+              <p>Service Level: {(servicePercent * 100).toFixed(0)}%</p>
               <p>Payout Today: THB {todayPayout}</p>
               <p className="text-orange-400">Adjusted: THB {adjustedPayout}</p>
             </div>
@@ -212,6 +215,8 @@ export default function StaffPage() {
 
             <div className="bg-white/5 p-6 rounded-2xl">
               <h2 className="mb-3 text-white">Salary</h2>
+              <p>Service Pool Today: THB {todayServiceCharge}</p>
+              <p>My Service Today: THB {todayPayout}</p>
               <p>Total Earned: THB {totalSalary}</p>
 
               {!confirmed ? (
@@ -228,7 +233,7 @@ export default function StaffPage() {
 
               <input type="file" onChange={handleUpload} />
 
-              {image && <img src={image} className="w-40 mt-2 rounded" />}
+              {image && <img src={image} className="w-40 mt-2 rounded" alt="preview" />}
 
               <button
                 onClick={runReviewAI}

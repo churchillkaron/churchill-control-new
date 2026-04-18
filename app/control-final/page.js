@@ -49,7 +49,7 @@ export default function ControlFinal() {
     });
   }, [orders]);
 
-  // 🔥 PREPARE CLOSE (WITH PENALTIES)
+  // 🔥 PREPARE CLOSE (WITH REVIEWS + PENALTIES)
   const prepareClose = () => {
     const paidOrders = orders.filter((o) => o.status === "PAID");
 
@@ -69,15 +69,47 @@ export default function ControlFinal() {
     const barPool = serviceCharge * 0.3;
     const kitchenPool = serviceCharge * 0.2;
 
-    const fohLevel = avgOrderValue > 400 ? 1 : 0.7;
-
-    const adjustedFoh = fohPool * fohLevel;
-
-    // 🔥 LOAD ATTENDANCE
-    const attendance =
-      JSON.parse(localStorage.getItem("staff_attendance") || "[]");
+    // 🔥 REVIEWS
+    const reviews =
+      JSON.parse(localStorage.getItem("reviews") || "[]");
 
     const today = new Date().toLocaleDateString("en-GB");
+
+    const todayReviews = reviews.filter((r) => r.date === today);
+
+    const avgRating =
+      todayReviews.length > 0
+        ? todayReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+          todayReviews.length
+        : 0;
+
+    // 🔥 FOH SCORE (REVIEWS + SALES)
+    let fohScore = "GOOD";
+
+    if (avgRating > 0) {
+      if (avgRating >= 4.5 && avgOrderValue > 400) {
+        fohScore = "GOOD";
+      } else if (avgRating >= 4) {
+        fohScore = "WARNING";
+      } else {
+        fohScore = "BAD";
+      }
+    } else {
+      if (avgOrderValue > 500) fohScore = "GOOD";
+      else if (avgOrderValue > 300) fohScore = "WARNING";
+      else fohScore = "BAD";
+    }
+
+    // 🔥 LEVEL IMPACT ON PAYOUT
+    let fohLevelMultiplier = 1;
+    if (fohScore === "WARNING") fohLevelMultiplier = 0.8;
+    if (fohScore === "BAD") fohLevelMultiplier = 0.6;
+
+    const adjustedFoh = fohPool * fohLevelMultiplier;
+
+    // 🔥 ATTENDANCE PENALTIES
+    const attendance =
+      JSON.parse(localStorage.getItem("staff_attendance") || "[]");
 
     const getPenalty = (name) => {
       const entry = attendance.find(
@@ -86,7 +118,7 @@ export default function ControlFinal() {
       return entry ? entry.penalty || 0 : 0;
     };
 
-    // 🔥 STAFF PAYOUT WITH PENALTIES
+    // 🔥 STAFF PAYOUT
     const staff = [
       {
         name: "FOH 1",
@@ -119,18 +151,13 @@ export default function ControlFinal() {
     ];
 
     const newDay = {
-      date: new Date().toLocaleDateString("en-GB"),
+      date: today,
       revenue,
       serviceCharge,
       paidOrders,
       totalOrders,
       avgOrderValue,
-      fohScore:
-        avgOrderValue > 500
-          ? "GOOD"
-          : avgOrderValue > 300
-          ? "WARNING"
-          : "BAD",
+      fohScore,
       kitchenLevel: "GOOD",
       barLevel: "GOOD",
       staff,
@@ -140,7 +167,6 @@ export default function ControlFinal() {
     setShowApproval(true);
   };
 
-  // 🔥 APPROVE
   const approveClose = () => {
     const history =
       JSON.parse(localStorage.getItem("history") || "[]");
@@ -204,24 +230,16 @@ export default function ControlFinal() {
           </button>
         </div>
 
-        {/* APPROVAL POPUP */}
+        {/* APPROVAL */}
         {showApproval && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
             <div className="bg-black p-6 rounded-xl w-[400px] space-y-4">
 
               <h2 className="text-lg font-semibold">Approve Day</h2>
 
-              <div className="text-sm text-white/60">
-                Revenue: THB {pendingData?.revenue}
-              </div>
-
-              <div className="text-sm text-white/60">
-                Service: THB {pendingData?.serviceCharge}
-              </div>
-
-              <div className="text-sm text-white/60">
-                Orders: {pendingData?.totalOrders}
-              </div>
+              <p>Revenue: THB {pendingData?.revenue}</p>
+              <p>Service: THB {pendingData?.serviceCharge}</p>
+              <p>FOH Score: {pendingData?.fohScore}</p>
 
               <div className="space-y-2">
                 {pendingData?.staff.map((s, i) => (

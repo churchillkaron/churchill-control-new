@@ -11,6 +11,9 @@ export default function ControlFinal() {
     avgOrderValue: 0,
   });
 
+  const [showApproval, setShowApproval] = useState(false);
+  const [pendingData, setPendingData] = useState(null);
+
   const loadOrders = () => {
     try {
       const data = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -46,16 +49,8 @@ export default function ControlFinal() {
     });
   }, [orders]);
 
-  // 🔥 STAFF (MANUAL SAFE VERSION)
-  const staffList = [
-    { name: "FOH 1" },
-    { name: "FOH 2" },
-    { name: "BAR" },
-    { name: "KITCHEN" },
-  ];
-
-  // 🔥 CLOSE DAY WITH PAYOUT
-  const closeDay = () => {
+  // 🔥 PREPARE CLOSE (NO SAVE YET)
+  const prepareClose = () => {
     const paidOrders = orders.filter((o) => o.status === "PAID");
 
     const revenue = paidOrders.reduce(
@@ -70,75 +65,57 @@ export default function ControlFinal() {
 
     const serviceCharge = Math.round(revenue * 0.05);
 
-    // 🔥 SPLIT SYSTEM
     const fohPool = serviceCharge * 0.5;
     const barPool = serviceCharge * 0.3;
     const kitchenPool = serviceCharge * 0.2;
 
-    // 🔥 SIMPLE LEVEL REDUCTION (SAFE BASE)
     const fohLevel = avgOrderValue > 400 ? 1 : 0.7;
-    const barLevel = 1;
-    const kitchenLevel = 1;
 
     const adjustedFoh = fohPool * fohLevel;
-    const adjustedBar = barPool * barLevel;
-    const adjustedKitchen = kitchenPool * kitchenLevel;
 
-    // 🔥 STAFF SPLIT
     const staff = [
-      {
-        name: "FOH 1",
-        payout: Math.round(adjustedFoh / 2),
-      },
-      {
-        name: "FOH 2",
-        payout: Math.round(adjustedFoh / 2),
-      },
-      {
-        name: "BAR",
-        payout: Math.round(adjustedBar),
-      },
-      {
-        name: "KITCHEN",
-        payout: Math.round(adjustedKitchen),
-      },
+      { name: "FOH 1", payout: Math.round(adjustedFoh / 2) },
+      { name: "FOH 2", payout: Math.round(adjustedFoh / 2) },
+      { name: "BAR", payout: Math.round(barPool) },
+      { name: "KITCHEN", payout: Math.round(kitchenPool) },
     ];
-
-    const fohScore =
-      avgOrderValue > 500
-        ? "GOOD"
-        : avgOrderValue > 300
-        ? "WARNING"
-        : "BAD";
 
     const newDay = {
       date: new Date().toLocaleDateString("en-GB"),
-
       revenue,
       serviceCharge,
-
       paidOrders,
-
       totalOrders,
       avgOrderValue,
-
-      fohScore,
-      kitchenLevel: kitchenLevel === 1 ? "GOOD" : "LOW",
-      barLevel: barLevel === 1 ? "GOOD" : "LOW",
-
+      fohScore:
+        avgOrderValue > 500
+          ? "GOOD"
+          : avgOrderValue > 300
+          ? "WARNING"
+          : "BAD",
+      kitchenLevel: "GOOD",
+      barLevel: "GOOD",
       staff,
     };
 
+    setPendingData(newDay);
+    setShowApproval(true);
+  };
+
+  // 🔥 APPROVE & SAVE
+  const approveClose = () => {
     const history =
       JSON.parse(localStorage.getItem("history") || "[]");
 
-    const updatedHistory = [...history, newDay];
+    const updatedHistory = [...history, pendingData];
 
     localStorage.setItem("history", JSON.stringify(updatedHistory));
 
     localStorage.removeItem("orders");
 
-    alert("Day closed with payouts");
+    setShowApproval(false);
+    alert("Day approved and saved");
+
     window.location.reload();
   };
 
@@ -182,12 +159,51 @@ export default function ControlFinal() {
 
         <div>
           <button
-            onClick={closeDay}
+            onClick={prepareClose}
             className="bg-[#ff7a00] px-6 py-3 rounded-xl text-white"
           >
-            Close Day + Payout
+            Close Day (Manager Approval)
           </button>
         </div>
+
+        {/* 🔥 APPROVAL POPUP */}
+        {showApproval && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div className="bg-black p-6 rounded-xl w-[400px] space-y-4">
+
+              <h2 className="text-lg font-semibold">Approve Day</h2>
+
+              <div className="text-sm text-white/60">
+                Revenue: THB {pendingData?.revenue}
+              </div>
+
+              <div className="text-sm text-white/60">
+                Service: THB {pendingData?.serviceCharge}
+              </div>
+
+              <div className="text-sm text-white/60">
+                Orders: {pendingData?.totalOrders}
+              </div>
+
+              <div className="space-y-2">
+                {pendingData?.staff.map((s, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span>{s.name}</span>
+                    <span>THB {s.payout}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={approveClose}
+                className="w-full bg-[#ff7a00] py-2 rounded"
+              >
+                Approve & Save
+              </button>
+
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           {orders

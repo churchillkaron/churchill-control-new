@@ -49,7 +49,7 @@ export default function ControlFinal() {
     });
   }, [orders]);
 
-  // 🔥 PREPARE CLOSE (WITH REVIEWS + PENALTIES)
+  // 🔥 PREPARE CLOSE (FAIR REVIEW SYSTEM)
   const prepareClose = () => {
     const paidOrders = orders.filter((o) => o.status === "PAID");
 
@@ -77,30 +77,26 @@ export default function ControlFinal() {
 
     const todayReviews = reviews.filter((r) => r.date === today);
 
-    const avgRating =
-      todayReviews.length > 0
-        ? todayReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
-          todayReviews.length
-        : 0;
+    const reviewCount = todayReviews.length;
 
-    // 🔥 FOH SCORE (REVIEWS + SALES)
+    const avgRating =
+      todayReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+      (reviewCount || 1);
+
+    const efficiency =
+      totalOrders > 0 ? (reviewCount / totalOrders) * 100 : 0;
+
+    const finalScore =
+      efficiency * 0.7 + (avgRating / 5) * 30;
+
+    // 🔥 FOH SCORE BASED ON FAIR SYSTEM
     let fohScore = "GOOD";
 
-    if (avgRating > 0) {
-      if (avgRating >= 4.5 && avgOrderValue > 400) {
-        fohScore = "GOOD";
-      } else if (avgRating >= 4) {
-        fohScore = "WARNING";
-      } else {
-        fohScore = "BAD";
-      }
-    } else {
-      if (avgOrderValue > 500) fohScore = "GOOD";
-      else if (avgOrderValue > 300) fohScore = "WARNING";
-      else fohScore = "BAD";
-    }
+    if (finalScore >= 20) fohScore = "GOOD";
+    else if (finalScore >= 10) fohScore = "WARNING";
+    else fohScore = "BAD";
 
-    // 🔥 LEVEL IMPACT ON PAYOUT
+    // 🔥 LEVEL IMPACT
     let fohLevelMultiplier = 1;
     if (fohScore === "WARNING") fohLevelMultiplier = 0.8;
     if (fohScore === "BAD") fohLevelMultiplier = 0.6;
@@ -158,6 +154,9 @@ export default function ControlFinal() {
       totalOrders,
       avgOrderValue,
       fohScore,
+      finalScore,
+      efficiency,
+      avgRating,
       kitchenLevel: "GOOD",
       barLevel: "GOOD",
       staff,
@@ -230,7 +229,6 @@ export default function ControlFinal() {
           </button>
         </div>
 
-        {/* APPROVAL */}
         {showApproval && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
             <div className="bg-black p-6 rounded-xl w-[400px] space-y-4">
@@ -240,6 +238,7 @@ export default function ControlFinal() {
               <p>Revenue: THB {pendingData?.revenue}</p>
               <p>Service: THB {pendingData?.serviceCharge}</p>
               <p>FOH Score: {pendingData?.fohScore}</p>
+              <p>Final Score: {pendingData?.finalScore?.toFixed(1)}</p>
 
               <div className="space-y-2">
                 {pendingData?.staff.map((s, i) => (
@@ -260,22 +259,6 @@ export default function ControlFinal() {
             </div>
           </div>
         )}
-
-        <div className="space-y-4">
-          {orders
-            .filter((o) => o.status === "PAID")
-            .map((order) => (
-              <div
-                key={order.id}
-                className="bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between"
-              >
-                <div>
-                  Table {order.table} — {order.items?.length || 0} items
-                </div>
-                <div>THB {order.total}</div>
-              </div>
-            ))}
-        </div>
 
       </div>
     </AppShell>

@@ -26,7 +26,7 @@ export default function KitchenPage() {
     return "MAIN";
   };
 
-  // loadOrders → filtering + fire logic + priority
+  // loadOrders → filtering + HOLD + fire + priority
   const loadOrders = () => {
     try {
       const data = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -35,10 +35,6 @@ export default function KitchenPage() {
         .map((order) => {
           const fireNext = order.fireNext || false;
 
-          const startersReady = order.items
-            .filter((i) => getCourse(i) === "STARTER")
-            .every((i) => i.status === "READY");
-
           return {
             ...order,
             items: order.items
@@ -46,13 +42,8 @@ export default function KitchenPage() {
                 if (item.station !== station) return false;
                 if (item.status === "READY") return false;
 
-                const course = getCourse(item);
-
-                // 🔥 manual fire override
-                if (fireNext) return true;
-
-                // normal flow
-                if (course === "MAIN" && !startersReady) return false;
+                // 🔥 HOLD logic
+                if (item.hold && !fireNext) return false;
 
                 return true;
               })
@@ -114,7 +105,7 @@ export default function KitchenPage() {
     loadOrders();
   };
 
-  // fireNextCourse → unlock next course manually
+  // fireNextCourse → unlock HOLD items
   const fireNextCourse = (orderId) => {
     const all = JSON.parse(localStorage.getItem("orders") || "[]");
 
@@ -169,18 +160,13 @@ export default function KitchenPage() {
                 <div className="text-sm text-white/50">
                   {new Date(order.created_at).toLocaleTimeString()}
                 </div>
-
-                <div className="text-sm text-white/50">
-                  Staff: {order.staff}
-                </div>
               </div>
 
-              {/* 🔥 FIRE NEXT COURSE BUTTON */}
               <button
                 onClick={() => fireNextCourse(order.id)}
                 className="w-full bg-white/10 py-2 rounded-xl text-white text-sm"
               >
-                Fire Next Course
+                Fire Held Items
               </button>
 
               <div className="space-y-3">
@@ -189,8 +175,8 @@ export default function KitchenPage() {
                     key={index}
                     className="border-b border-white/10 pb-2"
                   >
-                    <div className="flex justify-between items-center">
-                      <div className="font-medium">
+                    <div className="flex justify-between">
+                      <div>
                         {item.qty}x {item.name}
                       </div>
                       <div className="text-xs text-white/50">
@@ -198,20 +184,14 @@ export default function KitchenPage() {
                       </div>
                     </div>
 
-                    <div className="text-sm text-white/60 ml-3 space-y-1">
-                      {item.modifier && <div>• {item.modifier}</div>}
-                      {item.side && <div>• {item.side}</div>}
-                      {item.sauce && <div>• {item.sauce}</div>}
-                    </div>
-
                     <button
                       onClick={() =>
                         updateStatus(order.id, index, item.status)
                       }
-                      className="w-full mt-3 bg-[#ff7a00] py-2 rounded-xl text-black font-semibold"
+                      className="w-full mt-2 bg-[#ff7a00] py-2 rounded-xl text-black"
                     >
-                      {item.status === "NEW" && "Start Cooking"}
-                      {item.status === "PREPARING" && "Mark Ready"}
+                      {item.status === "NEW" && "Start"}
+                      {item.status === "PREPARING" && "Ready"}
                     </button>
                   </div>
                 ))}

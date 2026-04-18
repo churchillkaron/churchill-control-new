@@ -1,36 +1,65 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function Kitchen() {
   const [orders, setOrders] = useState([]);
 
-  const loadOrders = () => {
-    const data = JSON.parse(localStorage.getItem("orders")) || [];
-    setOrders(data.filter((o) => o.status !== "Paid"));
+  // 🔥 LOAD INITIAL ORDERS
+  const fetchOrders = async () => {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .neq("status", "Paid")
+      .order("created_at", { ascending: false });
+
+    if (!error) {
+      setOrders(data || []);
+    }
   };
 
   useEffect(() => {
-    loadOrders();
+    fetchOrders();
 
-    const interval = setInterval(loadOrders, 1000);
-    return () => clearInterval(interval);
+    // 🔥 REALTIME SUBSCRIPTION
+    const channel = supabase
+      .channel("orders-channel")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        () => {
+          fetchOrders(); // refresh on any change
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const updateStatus = (id) => {
-    const updated = orders.map((o) => {
-      if (o.id !== id) return o;
+  // 🔥 UPDATE STATUS IN DB
+  const updateStatus = async (order) => {
+    let next = order.status;
 
-      let next = o.status;
+    if (order.status === "Active") next = "Preparing";
+    else if (order.status === "Preparing") next = "Served";
+    else return;
 
-      if (o.status === "Active") next = "Preparing";
-      else if (o.status === "Preparing") next = "Served";
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: next })
+      .eq("id", order.id);
 
-      return { ...o, status: next };
-    });
-
-    localStorage.setItem("orders", JSON.stringify(updated));
-    setOrders(updated);
+    if (error) {
+      console.error(error);
+      alert("Error updating status");
+    }
   };
 
   return (
@@ -49,12 +78,12 @@ export default function Kitchen() {
           >
 
             <div className="flex justify-between mb-2">
-              <div>Table {order.table}</div>
+              <div>Table {order.table_name}</div>
               <div className="text-[#ff7a00]">{order.status}</div>
             </div>
 
             <div className="space-y-1 text-sm mb-3">
-              {order.items.map((item, i) => (
+              {(order.items || []).map((item, i) => (
                 <div key={i}>
                   {item.name} x{item.qty || 1}
                 </div>
@@ -62,17 +91,3 @@ export default function Kitchen() {
             </div>
 
             <button
-              onClick={() => updateStatus(order.id)}
-              className="w-full bg-[#ff7a00] py-2 rounded-xl text-black"
-            >
-              Next Step
-            </button>
-
-          </div>
-        ))}
-
-      </div>
-
-    </div>
-  );
-}

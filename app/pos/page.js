@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabase";
 
 export default function POS() {
   const [staffName, setStaffName] = useState("");
@@ -55,7 +55,7 @@ export default function POS() {
     0
   );
 
-  // 🔥 CREATE ORDER (NOW SUPABASE)
+  // 🔥 CREATE ORDER (SUPABASE)
   const createOrder = async () => {
     if (!selectedTable) {
       alert("Select table");

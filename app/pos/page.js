@@ -15,7 +15,7 @@ const categories = [
   "Spirit",
 ];
 
-// TEMP MENU (we replace with your Excel next)
+// ✅ Only these 3 have items now
 const menu = {
   Starter: [
     { name: "Spring Rolls", price: 120 },
@@ -25,26 +25,9 @@ const menu = {
     { name: "Steak", price: 450 },
     { name: "Pasta", price: 280 },
   ],
-  Dessert: [
-    { name: "Ice Cream", price: 120 },
-  ],
   "Thai Food": [
     { name: "Pad Thai", price: 180 },
-  ],
-  Beer: [
-    { name: "Chang", price: 90 },
-  ],
-  "Soft Drink": [
-    { name: "Coke", price: 50 },
-  ],
-  Wine: [
-    { name: "House Wine", price: 250 },
-  ],
-  Cocktails: [
-    { name: "Mojito", price: 180 },
-  ],
-  Spirit: [
-    { name: "Whiskey", price: 200 },
+    { name: "Green Curry", price: 220 },
   ],
 };
 
@@ -86,10 +69,10 @@ export default function POSPage() {
       total,
     });
 
-    // NEXT STEP: connect to Supabase
-
     setCart([]);
   };
+
+  const currentMenu = menu[activeCategory] || [];
 
   return (
     <AppShell>
@@ -124,7 +107,13 @@ export default function POSPage() {
 
         {/* MENU */}
         <div className="grid md:grid-cols-3 gap-4">
-          {menu[activeCategory].map((item) => (
+          {currentMenu.length === 0 && (
+            <div className="text-white/40">
+              No items yet
+            </div>
+          )}
+
+          {currentMenu.map((item) => (
             <button
               key={item.name}
               onClick={() => addToCart(item)}

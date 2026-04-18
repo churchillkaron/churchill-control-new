@@ -1,73 +1,76 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AppShell from "../AppShell";
 
 export default function HistoryPage() {
   const [history, setHistory] = useState([]);
 
   const loadHistory = () => {
-    const data = JSON.parse(localStorage.getItem("history") || "[]");
-    setHistory(data.reverse());
+    try {
+      const data = JSON.parse(localStorage.getItem("history") || "[]");
+      setHistory(data);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => {
     loadHistory();
   }, []);
 
-  const getDepartmentBreakdown = (items) => {
-    const result = {
-      WESTERN: 0,
-      THAI: 0,
-      BAR: 0,
-    };
-
-    items.forEach((i) => {
-      if (!result[i.station]) result[i.station] = 0;
-      result[i.station] += i.price;
-    });
-
-    return result;
-  };
-
   return (
-    <div className="p-6 space-y-6">
+    <AppShell>
+      <div className="space-y-10">
 
-      <div className="text-2xl">History</div>
+        {/* HEADER */}
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
+            History
+          </p>
+          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
+            Saved Orders
+          </h1>
+        </div>
 
-      {history.map((order) => {
-        const breakdown = getDepartmentBreakdown(order.items);
-
-        return (
-          <div key={order.id} className="bg-white/10 p-4 rounded-xl space-y-3">
-
-            <div className="flex justify-between">
-              <div>Table: {order.table}</div>
-              <div>{order.total} THB</div>
-            </div>
-
-            <div className="text-sm opacity-70">
-              {new Date(order.closed_at || order.completed_at).toLocaleString()}
-            </div>
-
-            {/* ITEMS */}
-            <div className="text-sm space-y-1">
-              {order.items.map((item) => (
-                <div key={item.id}>
-                  {item.name} - {item.price}
-                </div>
-              ))}
-            </div>
-
-            {/* BREAKDOWN */}
-            <div className="text-sm border-t border-white/10 pt-2 space-y-1">
-              <div>WESTERN: {breakdown.WESTERN} THB</div>
-              <div>THAI: {breakdown.THAI} THB</div>
-              <div>BAR: {breakdown.BAR} THB</div>
-            </div>
-
+        {/* EMPTY */}
+        {history.length === 0 && (
+          <div className="text-white/40">
+            No history yet
           </div>
-        );
-      })}
-    </div>
+        )}
+
+        {/* LIST */}
+        <div className="space-y-4">
+          {history
+            .slice()
+            .reverse()
+            .map((item, i) => (
+              <div
+                key={i}
+                className="bg-white/5 border border-white/10 rounded-2xl p-5"
+              >
+                <div className="flex justify-between">
+                  <div>Table {item.table}</div>
+                  <div>THB {item.revenue}</div>
+                </div>
+
+                <div className="text-sm text-white/50 mt-2">
+                  {new Date(item.completed_at).toLocaleString()}
+                </div>
+
+                <div className="mt-3 space-y-1 text-sm">
+                  {item.items?.map((it, idx) => (
+                    <div key={idx}>
+                      {it.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+        </div>
+
+      </div>
+    </AppShell>
   );
 }

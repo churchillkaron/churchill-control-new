@@ -48,16 +48,27 @@ export default function POSPage() {
     sauce: "",
   });
 
+  const [attempted, setAttempted] = useState(false);
+
   const handleClick = (item) => {
     if (item.popup) {
       setPopupItem(item);
       setSelected({ doneness: "", side: "", sauce: "" });
+      setAttempted(false);
       return;
     }
     setCart((p) => [...p, item]);
   };
 
+  const isComplete =
+    selected.doneness && selected.side && selected.sauce;
+
   const confirmPopup = () => {
+    if (!isComplete) {
+      setAttempted(true);
+      return;
+    }
+
     setCart((p) => [
       ...p,
       {
@@ -90,9 +101,6 @@ export default function POSPage() {
     localStorage.setItem("orders", JSON.stringify(orders));
     setCart([]);
   };
-
-  const isComplete =
-    selected.doneness && selected.side && selected.sauce;
 
   return (
     <AppShell>
@@ -170,7 +178,9 @@ export default function POSPage() {
 
               {/* DONENESS */}
               <div>
-                <div>Doneness</div>
+                <div className={attempted && !selected.doneness ? "text-red-400" : ""}>
+                  Doneness
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {doneness.map((d) => (
                     <div
@@ -192,7 +202,9 @@ export default function POSPage() {
 
               {/* SIDE */}
               <div>
-                <div>Side</div>
+                <div className={attempted && !selected.side ? "text-red-400" : ""}>
+                  Side
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {sides.map((s) => (
                     <div
@@ -214,7 +226,9 @@ export default function POSPage() {
 
               {/* SAUCE */}
               <div>
-                <div>Sauce</div>
+                <div className={attempted && !selected.sauce ? "text-red-400" : ""}>
+                  Sauce
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {sauces.map((s) => (
                     <div
@@ -236,10 +250,7 @@ export default function POSPage() {
 
               <button
                 onClick={confirmPopup}
-                disabled={!isComplete}
-                className={`w-full p-3 rounded-xl ${
-                  isComplete ? "bg-orange-500" : "bg-gray-500 opacity-50"
-                }`}
+                className="w-full bg-orange-500 p-3 rounded-xl"
               >
                 Add to Cart
               </button>

@@ -9,13 +9,13 @@ export default function StaffPage() {
 
   const [attendance, setAttendance] = useState([]);
   const [history, setHistory] = useState([]);
-  const [confirmed, setConfirmed] = useState(false);
 
   const [checkedIn, setCheckedIn] = useState(false);
   const [late, setLate] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [reviewResult, setReviewResult] = useState(null);
+  const [preview, setPreview] = useState(null);
 
   useEffect(() => {
     const storedName = localStorage.getItem("staff_name");
@@ -90,29 +90,6 @@ export default function StaffPage() {
   const todayStaff =
     todayData?.staff?.find((s) => s.name === name) || {};
 
-  const totalSalary = history.reduce((sum, d) => {
-    const s = d.staff?.find((x) => x.name === name);
-    return sum + (s?.payout || 0);
-  }, 0);
-
-  const confirmSalary = () => {
-    const record = {
-      name,
-      date: today,
-      confirmed: true,
-    };
-
-    const existing = JSON.parse(localStorage.getItem("salary_confirmations") || "[]");
-
-    localStorage.setItem(
-      "salary_confirmations",
-      JSON.stringify([record, ...existing])
-    );
-
-    setConfirmed(true);
-  };
-
-  // SCORE
   const score = todayStaff?.score || 0;
 
   const getStars = (score) => {
@@ -125,15 +102,18 @@ export default function StaffPage() {
 
   const stars = getStars(score);
 
-  // 🔥 AI UPLOAD
+  // 🔥 UPLOAD HANDLER
   const handleUpload = async (file) => {
+    if (!file) return;
+
     setLoading(true);
+    setReviewResult(null);
 
     const reader = new FileReader();
-    reader.readAsDataURL(file);
 
     reader.onload = async () => {
       const base64 = reader.result;
+      setPreview(base64);
 
       const res = await fetch("/api/review-ai", {
         method: "POST",
@@ -147,6 +127,8 @@ export default function StaffPage() {
       setReviewResult(data);
       setLoading(false);
     };
+
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -178,21 +160,35 @@ export default function StaffPage() {
             </div>
 
             {/* 🔥 AI REVIEW UPLOAD */}
-            <div className="bg-white/5 p-6 rounded-2xl">
-              <h2 className="text-white mb-4">Upload Review</h2>
+            <div className="bg-white/5 p-6 rounded-2xl space-y-4">
+              <h2 className="text-white">Upload Review</h2>
 
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => handleUpload(e.target.files[0])}
-                className="mb-4"
               />
 
-              {loading && <p className="text-white/50">Analyzing...</p>}
+              {preview && (
+                <img
+                  src={preview}
+                  alt="preview"
+                  className="rounded-xl max-h-60 border border-white/10"
+                />
+              )}
+
+              {loading && (
+                <p className="text-white/50">Analyzing review...</p>
+              )}
 
               {reviewResult && !reviewResult.error && (
-                <div className="text-white/80 text-sm">
-                  ⭐ {reviewResult.rating} | {reviewResult.platform}
+                <div className="bg-black/30 p-4 rounded-xl text-white space-y-2">
+                  <p>⭐ Rating: {reviewResult.rating}</p>
+                  <p>Platform: {reviewResult.platform}</p>
+                  <p>Confidence: {reviewResult.confidence}</p>
+                  <p className="text-sm text-white/70">
+                    {reviewResult.text}
+                  </p>
                 </div>
               )}
 
@@ -206,7 +202,10 @@ export default function StaffPage() {
               <h2 className="text-white mb-2">Attendance</h2>
 
               {!checkedIn ? (
-                <button onClick={checkIn} className="bg-green-500 px-4 py-2 rounded">
+                <button
+                  onClick={checkIn}
+                  className="bg-green-500 px-4 py-2 rounded"
+                >
                   Check In
                 </button>
               ) : (
@@ -216,30 +215,6 @@ export default function StaffPage() {
               )}
             </div>
 
-            {/* SALARY */}
-            <div className="bg-white/5 p-6 rounded-2xl">
-              <h2 className="text-white mb-2">Salary</h2>
-              <p>Today: THB {todayStaff.payout || 0}</p>
-              <p>Total: THB {totalSalary}</p>
-
-              {!confirmed ? (
-                <button onClick={confirmSalary} className="bg-green-500 px-4 py-2 rounded mt-2">
-                  Confirm Salary
-                </button>
-              ) : (
-                <p className="text-green-400 mt-2">Confirmed</p>
-              )}
-            </div>
-
-            <button
-              onClick={() => {
-                localStorage.removeItem("staff_name");
-                location.reload();
-              }}
-              className="text-xs text-white/40"
-            >
-              Switch User
-            </button>
           </>
         )}
 

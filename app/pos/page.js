@@ -29,6 +29,11 @@ const menu = {
   "Main Course": [
     { name: "Ribeye Steak", price: 890, station: "WESTERN", popup: true },
     { name: "Beef Tenderloin", price: 920, station: "WESTERN", popup: true },
+    { name: "Salmon", price: 690, station: "WESTERN" },
+    { name: "Pork Tenderloin", price: 460, station: "WESTERN" },
+    { name: "Veal Stew", price: 850, station: "WESTERN" },
+    { name: "Churchill Beef Short Ribs", price: 890, station: "WESTERN" },
+    { name: "Churchill Sambal Half Chicken", price: 590, station: "WESTERN" },
   ],
 
   "Thai Food": [{ name: "Pad Thai", price: 160, station: "THAI" }],
@@ -104,6 +109,7 @@ export default function POSPage() {
           className="px-4 py-3 rounded-xl bg-white/10"
         />
 
+        {/* CATEGORY */}
         <div className="flex gap-2 flex-wrap">
           {categories.map((c) => (
             <button
@@ -118,6 +124,7 @@ export default function POSPage() {
           ))}
         </div>
 
+        {/* MENU */}
         <div className="grid grid-cols-2 gap-4">
           {(menu[activeCategory] || []).map((item, i) => (
             <div
@@ -160,7 +167,7 @@ export default function POSPage() {
                 </div>
               </div>
 
-              {/* SIDES */}
+              {/* SIDE */}
               <div>
                 <div>Side</div>
                 <div className="grid grid-cols-2 gap-2">

@@ -9,13 +9,15 @@ export default function POS() {
 
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [selectedTable, setSelectedTable] = useState(null);
+
+  const tables = Array.from({ length: 12 }, (_, i) => `T${i + 1}`);
 
   const menu = [
     { name: "Pad Thai", price: 160 },
     { name: "Massaman Curry", price: 180 },
-    { name: "Green Curry", price: 170 },
-    { name: "Tom Yum Goong", price: 180 },
     { name: "Beer", price: 120 },
+    { name: "Water", price: 40 },
   ];
 
   useEffect(() => {
@@ -36,7 +38,15 @@ export default function POS() {
     setOrders(savedOrders);
   }, []);
 
-  // ADD ITEM TO CART
+  // 🔥 TABLE STATUS
+  const getTableStatus = (table) => {
+    const active = orders.find(
+      (o) => o.table === table && o.status !== "Paid"
+    );
+    return active ? "active" : "free";
+  };
+
+  // 🔥 CART
   const addToCart = (item) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.name === item.name);
@@ -53,32 +63,22 @@ export default function POS() {
     });
   };
 
-  // REMOVE ITEM
-  const removeFromCart = (name) => {
-    setCart((prev) =>
-      prev
-        .map((i) =>
-          i.name === name
-            ? { ...i, qty: i.qty - 1 }
-            : i
-        )
-        .filter((i) => i.qty > 0)
-    );
-  };
-
-  // CALCULATE TOTAL
   const total = cart.reduce(
     (sum, i) => sum + i.price * i.qty,
     0
   );
 
-  // CREATE ORDER
   const createOrder = () => {
+    if (!selectedTable) {
+      alert("Select table");
+      return;
+    }
+
     if (cart.length === 0) return;
 
     const newOrder = {
       id: Date.now(),
-      table: "T" + Math.floor(Math.random() * 20),
+      table: selectedTable,
       items: cart,
       total,
       status: "Active",
@@ -92,7 +92,8 @@ export default function POS() {
     setOrders(updated);
     localStorage.setItem("orders", JSON.stringify(updated));
 
-    setCart([]); // reset cart
+    setCart([]);
+    setSelectedTable(null);
   };
 
   return (
@@ -105,64 +106,67 @@ export default function POS() {
           <div>{staffRole}</div>
         </div>
 
+        <h1 className="text-3xl font-semibold">
+          POS System
+        </h1>
+
+        {/* 🔥 TABLES */}
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-            Point of Sale
-          </p>
-          <h1 className="text-3xl md:text-5xl font-semibold mt-2">
-            Order System
-          </h1>
+          <h2 className="text-white/60 mb-3">Tables</h2>
+
+          <div className="grid grid-cols-4 gap-3">
+            {tables.map((t) => {
+              const status = getTableStatus(t);
+
+              return (
+                <button
+                  key={t}
+                  onClick={() => setSelectedTable(t)}
+                  className={`p-4 rounded-xl ${
+                    status === "active"
+                      ? "bg-red-500/30"
+                      : "bg-green-500/20"
+                  } ${
+                    selectedTable === t
+                      ? "ring-2 ring-[#ff7a00]"
+                      : ""
+                  }`}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* MENU */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {/* 🔥 MENU */}
+        <div className="grid grid-cols-2 gap-4">
           {menu.map((item) => (
             <button
               key={item.name}
               onClick={() => addToCart(item)}
-              className="bg-white/10 hover:bg-white/20 p-4 rounded-xl text-left"
+              className="bg-white/10 p-4 rounded-xl"
             >
-              <div className="font-medium">{item.name}</div>
-              <div className="text-sm text-white/60">
-                THB {item.price}
-              </div>
+              {item.name} — THB {item.price}
             </button>
           ))}
         </div>
 
-        {/* CART */}
-        <div className="bg-white/5 p-6 rounded-xl space-y-4">
-          <h2 className="text-xl font-semibold">Cart</h2>
-
-          {cart.length === 0 && (
-            <p className="text-white/40">No items</p>
-          )}
+        {/* 🔥 CART */}
+        <div className="bg-white/5 p-6 rounded-xl space-y-3">
+          <h2>Cart</h2>
 
           {cart.map((item) => (
-            <div
-              key={item.name}
-              className="flex justify-between items-center"
-            >
-              <div>
-                {item.name} x{item.qty}
-              </div>
-              <button
-                onClick={() => removeFromCart(item.name)}
-                className="text-red-400 text-sm"
-              >
-                Remove
-              </button>
+            <div key={item.name}>
+              {item.name} x{item.qty}
             </div>
           ))}
 
-          <div className="pt-4 border-t border-white/10 flex justify-between">
-            <div>Total</div>
-            <div>THB {total}</div>
-          </div>
+          <div>Total: THB {total}</div>
 
           <button
             onClick={createOrder}
-            className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-medium"
+            className="w-full bg-[#ff7a00] py-3 rounded-xl text-black"
           >
             Send Order
           </button>

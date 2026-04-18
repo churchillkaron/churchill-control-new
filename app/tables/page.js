@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "./AppShell";
+import AppShell from "../AppShell";
 
 import { supabase } from "../../lib/supabase";
 

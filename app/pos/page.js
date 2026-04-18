@@ -19,89 +19,153 @@ const menu = {
   Starter: [
     { name: "Beef Carpaccio", price: 320, station: "WESTERN", category: "Starter" },
     { name: "Chili & Garlic Prawns", price: 320, station: "WESTERN", category: "Starter" },
-    { name: "Signature Bruschetta", price: 280, station: "WESTERN", category: "Starter" },
-    { name: "Seared Scallops", price: 520, station: "WESTERN", category: "Starter" },
-    { name: "Mango & Tomato Salad", price: 220, station: "WESTERN", category: "Starter" },
     { name: "Tom Yum Goong", price: 180, station: "THAI", category: "Starter" },
-    { name: "Tom Kha Gai", price: 170, station: "THAI", category: "Starter" },
   ],
   "Main Course": [
-    { name: "Churchill Beef Short Ribs", price: 890, station: "WESTERN", category: "Main" },
-    { name: "Ribeye Steak", price: 890, station: "WESTERN", category: "Main" },
-    { name: "Beef Tenderloin", price: 920, station: "WESTERN", category: "Main" },
-    { name: "Pork Tenderloin", price: 460, station: "WESTERN", category: "Main" },
-    { name: "Salmon", price: 690, station: "WESTERN", category: "Main" },
+    {
+      name: "Ribeye Steak",
+      price: 890,
+      station: "WESTERN",
+      category: "Main",
+      needsPopup: true,
+    },
+    {
+      name: "Beef Tenderloin",
+      price: 920,
+      station: "WESTERN",
+      category: "Main",
+      needsPopup: true,
+    },
   ],
   "Thai Food": [
     { name: "Pad Thai", price: 160, station: "THAI", category: "Main" },
-    { name: "Pad Ka Prow", price: 150, station: "THAI", category: "Main" },
   ],
-  Dessert: [
-    { name: "Chocolate Lava Cake", price: 220, station: "DESSERT", category: "Dessert" },
-  ],
+  Dessert: [],
 };
+
+const donenessOptions = ["Rare", "Medium Rare", "Medium", "Well Done"];
+const sideOptions = ["Fries", "Salad", "Mashed Potato"];
+const sauceOptions = ["Pepper", "Mushroom", "BBQ", "Red Wine"];
 
 export default function POSPage() {
   const [activeCategory, setActiveCategory] = useState("Starter");
   const [cart, setCart] = useState([]);
   const [table, setTable] = useState("");
 
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedDoneness, setSelectedDoneness] = useState("");
+  const [selectedSide, setSelectedSide] = useState("");
+  const [selectedSauce, setSelectedSauce] = useState("");
+
   const currentMenu = menu[activeCategory] || [];
 
-  // addItem → add to cart with HOLD logic
-  const addItem = (item) => {
+  // add item (with popup if needed)
+  const handleMenuClick = (item) => {
+    if (item.needsPopup) {
+      setSelectedItem(item);
+      setSelectedDoneness("");
+      setSelectedSide("");
+      setSelectedSauce("");
+      return;
+    }
+
+    addToCart(item, "", "", "");
+  };
+
+  const addToCart = (item, doneness, side, sauce) => {
     setCart((prev) => [
       ...prev,
       {
-        ...item,
+        name: item.name,
+        price: item.price,
+        station: item.station,
+        category: item.category,
         qty: 1,
-        hold: item.category !== "Starter", // 🔥 HOLD mains/dessert
+        doneness,
+        side,
+        sauce,
+        hold: item.category !== "Starter",
       },
     ]);
   };
 
+  // confirm popup item
+  const confirmPopup = () => {
+    if (!selectedItem) return;
+
+    addToCart(
+      selectedItem,
+      selectedDoneness,
+      selectedSide,
+      selectedSauce
+    );
+
+    setSelectedItem(null);
+  };
+
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-  // sendOrder → sends order with HOLD info
+  // FIXED sendOrder
   const sendOrder = () => {
-    if (!table || cart.length === 0) return;
+    if (!table.trim()) {
+      alert("Add table");
+      return;
+    }
 
-    const existing = JSON.parse(localStorage.getItem("orders") || "[]");
+    if (cart.length === 0) {
+      alert("Add items");
+      return;
+    }
 
-    const newOrder = {
-      id: Date.now(),
-      table,
-      status: "ACTIVE",
-      total,
-      created_at: new Date().toISOString(),
+    try {
+      const existing = JSON.parse(localStorage.getItem("orders") || "[]");
 
-      items: cart.map((item, i) => ({
-        id: Date.now() + i,
-        name: item.name,
-        price: item.price,
-        qty: item.qty,
-        station: item.station,
-        category: item.category,
-        hold: item.hold, // 🔥 IMPORTANT
-        status: "NEW",
-      })),
-    };
+      const newOrder = {
+        id: Date.now(),
+        table,
+        status: "ACTIVE",
+        total,
+        created_at: new Date().toISOString(),
 
-    localStorage.setItem("orders", JSON.stringify([...existing, newOrder]));
-    setCart([]);
+        items: cart.map((item, i) => ({
+          id: Date.now() + i,
+          name: item.name,
+          price: item.price,
+          qty: item.qty,
+          station: item.station,
+          category: item.category,
+          hold: item.hold,
+          status: "NEW",
+          modifier: item.doneness,
+          side: item.side,
+          sauce: item.sauce,
+        })),
+      };
+
+      localStorage.setItem(
+        "orders",
+        JSON.stringify([...existing, newOrder])
+      );
+
+      setCart([]);
+      setTable("");
+
+      alert("Order sent ✅");
+    } catch (e) {
+      console.error(e);
+      alert("Error sending order");
+    }
   };
 
   return (
     <AppShell>
       <div className="space-y-6">
 
-        <h1 className="text-3xl font-semibold">POS</h1>
-
         <input
           placeholder="Table"
           value={table}
           onChange={(e) => setTable(e.target.value)}
-          className="px-4 py-2 bg-white/10 rounded-xl"
+          className="px-4 py-3 rounded-xl bg-white/10 border border-white/10"
         />
 
         <div className="flex gap-2 flex-wrap">
@@ -109,7 +173,7 @@ export default function POSPage() {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className="px-3 py-1 bg-white/10 rounded-xl"
+              className="px-3 py-2 bg-white/10 rounded-xl"
             >
               {cat}
             </button>
@@ -120,36 +184,78 @@ export default function POSPage() {
           {currentMenu.map((item) => (
             <button
               key={item.name}
-              onClick={() => addItem(item)}
-              className="p-4 bg-white/10 rounded-xl"
+              onClick={() => handleMenuClick(item)}
+              className="p-4 bg-white/10 rounded-xl text-left"
             >
-              {item.name} - {item.price}
+              {item.name}
+              <div className="text-sm text-white/50">
+                {item.price} THB
+              </div>
             </button>
           ))}
         </div>
 
-        <div className="bg-white/5 p-4 rounded-xl">
-          <h2>Cart</h2>
-
+        {/* CART */}
+        <div className="bg-white/5 p-4 rounded-xl space-y-2">
           {cart.map((item, i) => (
-            <div key={i} className="flex justify-between text-sm">
-              <span>
-                {item.name} x{item.qty}
-                {item.hold && <span className="ml-2 text-orange-400">(HOLD)</span>}
-              </span>
-              <span>{item.price}</span>
+            <div key={i} className="text-sm">
+              {item.name} x{item.qty}
+              {item.doneness && <div>• {item.doneness}</div>}
+              {item.side && <div>• {item.side}</div>}
+              {item.sauce && <div>• {item.sauce}</div>}
             </div>
           ))}
 
-          <div className="mt-3 font-semibold">Total: {total}</div>
+          <div className="font-semibold">Total: {total}</div>
 
           <button
             onClick={sendOrder}
-            className="mt-3 w-full bg-[#ff7a00] py-2 rounded-xl text-black"
+            className="w-full bg-[#ff7a00] py-3 rounded-xl text-black font-semibold"
           >
             Send Order
           </button>
         </div>
+
+        {/* POPUP */}
+        {selectedItem && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
+            <div className="bg-black p-6 rounded-xl space-y-4 w-80">
+
+              <h2>{selectedItem.name}</h2>
+
+              <div>
+                <div>Doneness</div>
+                {donenessOptions.map((o) => (
+                  <button key={o} onClick={() => setSelectedDoneness(o)}>
+                    {o}
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <div>Side</div>
+                {sideOptions.map((o) => (
+                  <button key={o} onClick={() => setSelectedSide(o)}>
+                    {o}
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <div>Sauce</div>
+                {sauceOptions.map((o) => (
+                  <button key={o} onClick={() => setSelectedSauce(o)}>
+                    {o}
+                  </button>
+                ))}
+              </div>
+
+              <button onClick={confirmPopup}>Add</button>
+              <button onClick={() => setSelectedItem(null)}>Cancel</button>
+
+            </div>
+          </div>
+        )}
 
       </div>
     </AppShell>

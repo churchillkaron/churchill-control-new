@@ -10,13 +10,76 @@ export default function InvoiceAI() {
   const [account, setAccount] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const accounts = [
-    "Food Cost",
-    "Beverage Cost",
-    "Supplies",
-    "Equipment",
-    "Other Expense",
-  ];
+  // 🔥 YOUR REAL STRUCTURE
+  const accounts = {
+    "COGS": {
+      "Kitchen": [
+        "Food Main Kitchen",
+        "Food Thai Kitchen",
+        "Pizza Kitchen",
+      ],
+      "Bar": [
+        "Alcohol",
+        "Soft Drinks",
+      ],
+      "Breakfast": [
+        "Breakfast Food",
+      ],
+    },
+    "Operating Expense": {
+      "Entertainment": [
+        "DJ",
+        "Band",
+        "Acoustic",
+        "Events",
+      ],
+      "Staff Welfare": [
+        "Staff Food",
+        "Staff Drinks",
+        "Staff Rewards",
+        "Staff Tax",
+        "SSO",
+      ],
+      "Operations": [
+        "Cleaning",
+        "Decoration",
+        "Maintenance",
+        "Restaurant Supplies",
+        "Transportation",
+        "Kitchen Supplies",
+        "Bar Supplies",
+        "Bar Equipment",
+      ],
+      "Admin": [
+        "Rent",
+        "Accounting Fees",
+        "Software",
+        "Depreciation",
+        "Salaries",
+        "Overtime",
+        "Service Charge",
+        "Postage",
+      ],
+      "Utilities": [
+        "Electricity",
+        "Gas",
+      ],
+      "Marketing": [
+        "Ads",
+        "Social Media",
+        "Promotions",
+        "Content Creation",
+      ],
+      "Other": [
+        "Miscellaneous",
+        "Police / Irregular",
+      ],
+    },
+    "Owner / Non-Operating": [
+      "Owner Funding",
+      "Owner Withdrawal",
+    ],
+  };
 
   const handleFile = (e) => {
     const f = e.target.files[0];
@@ -70,7 +133,7 @@ export default function InvoiceAI() {
       JSON.stringify([newExpense, ...existing])
     );
 
-    alert("Saved to accounting ✅");
+    alert("Saved ✅");
 
     setResult(null);
     setAccount("");
@@ -106,18 +169,12 @@ export default function InvoiceAI() {
 
             <h2 className="text-xl">AI Result</h2>
 
-            <div>
-              Vendor: {result.vendor}
-            </div>
-            <div>
-              Date: {result.date}
-            </div>
-            <div>
-              Total: {result.total} THB
-            </div>
+            <div>Vendor: {result.vendor}</div>
+            <div>Date: {result.date}</div>
+            <div>Total: {result.total} THB</div>
 
-            {/* 🔥 ACCOUNT SELECT */}
-            <div className="space-y-2">
+            {/* 🔥 STRUCTURED ACCOUNT PICKER */}
+            <div className="space-y-3">
               <div className="text-white/60">Select Account</div>
 
               <select
@@ -125,10 +182,26 @@ export default function InvoiceAI() {
                 onChange={(e) => setAccount(e.target.value)}
                 className="w-full p-3 bg-black/40 rounded-xl"
               >
-                <option value="">-- Select --</option>
-                {accounts.map((a) => (
-                  <option key={a}>{a}</option>
-                ))}
+                <option value="">-- Select Account --</option>
+
+                {Object.entries(accounts).map(([type, groups]) => {
+                  if (Array.isArray(groups)) {
+                    return groups.map((acc) => (
+                      <option key={acc} value={acc}>
+                        {type} → {acc}
+                      </option>
+                    ));
+                  }
+
+                  return Object.entries(groups).flatMap(
+                    ([dept, items]) =>
+                      items.map((item) => (
+                        <option key={item} value={item}>
+                          {type} → {dept} → {item}
+                        </option>
+                      ))
+                  );
+                })}
               </select>
             </div>
 
@@ -145,7 +218,6 @@ export default function InvoiceAI() {
               ))}
             </div>
 
-            {/* SAVE */}
             <button
               onClick={handleSave}
               className="bg-green-600 px-6 py-3 rounded-xl"

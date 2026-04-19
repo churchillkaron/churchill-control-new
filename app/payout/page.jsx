@@ -8,36 +8,60 @@ export default function PayoutPage() {
   const [pool, setPool] = useState(0);
 
   useEffect(() => {
-    // 🔹 Get last saved day from History
+    // 🔹 Get history
     const history = JSON.parse(localStorage.getItem("historyDays")) || [];
-
     if (history.length === 0) return;
 
     const lastDay = history[history.length - 1];
-
     const revenue = lastDay.revenue || 0;
     const serviceCharge = revenue * 0.05;
-
     setPool(serviceCharge);
 
-    // 🔹 TEMP staff (next step we connect real staff system)
-    const users = [
-      { name: "Anton", role: "gm", score: 100 },
-      { name: "Poupee", role: "manager", score: 90 },
-      { name: "Dar Dar", role: "accounting", score: 80 },
-      { name: "Sara", role: "kitchen", score: 70 },
-    ];
+    // 🔹 Get performance + attendance
+    const performance =
+      JSON.parse(localStorage.getItem("staffPerformance")) || [];
 
-    // 🔹 Calculate total score
-    const totalScore = users.reduce((sum, u) => sum + u.score, 0);
+    const attendance =
+      JSON.parse(localStorage.getItem("staffAttendance")) || [];
 
-    // 🔹 Calculate payout
-    const result = users.map((u) => {
-      const payout =
-        totalScore > 0 ? (u.score / totalScore) * serviceCharge : 0;
+    // 🔹 Merge staff data
+    const combined = performance.map((p) => {
+      const att = attendance.find((a) => a.name === p.name) || {
+        late: 0,
+        shifts: 1,
+      };
+
+      // Attendance score
+      const attendanceScore =
+        att.shifts > 0
+          ? Math.max(40, 100 - (att.late / att.shifts) * 100)
+          : 40;
+
+      // Performance score (already calculated in your system)
+      const performanceScore = p.score || 50;
+
+      // Final score
+      const finalScore = Math.round(
+        performanceScore * 0.7 + attendanceScore * 0.3
+      );
 
       return {
-        ...u,
+        name: p.name,
+        role: p.role,
+        score: finalScore,
+      };
+    });
+
+    // 🔹 Total score
+    const totalScore = combined.reduce((sum, s) => sum + s.score, 0);
+
+    // 🔹 Final payout
+    const result = combined.map((s) => {
+      const payout =
+        totalScore > 0 ? (s.score / totalScore) * serviceCharge : 0;
+
+      return {
+        ...s,
         payout,
       };
     });
@@ -68,8 +92,13 @@ export default function PayoutPage() {
                   <div className="text-white/50 text-sm">{s.role}</div>
                 </div>
 
-                <div className="text-orange-400 font-semibold">
-                  ฿ {s.payout.toFixed(0)}
+                <div className="text-right">
+                  <div className="text-orange-400 font-semibold">
+                    ฿ {s.payout.toFixed(0)}
+                  </div>
+                  <div className="text-xs text-white/50">
+                    Score: {s.score}
+                  </div>
                 </div>
               </div>
             ))}

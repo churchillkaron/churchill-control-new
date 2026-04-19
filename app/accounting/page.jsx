@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
-import { getHistoryDays } from "../../../lib/storage/localStorage"; // ✅ CORRECT RELATIVE PATH
-import { calculateAccountingOverview } from "../../../lib/accounting/calcOverview";
+import AppShell from "../../AppShell"; // ✅ FIX
+import { getHistoryDays } from "../../lib/storage/localStorage"; // ✅ FIX
+import { calculateAccountingOverview } from "../../lib/accounting/calcOverview"; // ✅ FIX
 
-export default function AccountingOverviewPage() {
+export default function AccountingPage() {
   const [history, setHistory] = useState([]);
   const [totals, setTotals] = useState(null);
 

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { NextResponse } from "next/server";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -6,10 +7,14 @@ const openai = new OpenAI({
 
 export async function POST(req) {
   try {
-    const { image } = await req.json();
+    const body = await req.json();
+    const image = body?.image;
 
     if (!image) {
-      return Response.json({ error: "No image provided" });
+      return NextResponse.json(
+        { error: "No image provided" },
+        { status: 400 }
+      );
     }
 
     const response = await openai.chat.completions.create({
@@ -31,13 +36,13 @@ Check for:
 Extract and validate:
 
 1. rating (1–5)
-2. review text (translated to English)
+2. text (translated to English)
 3. platform (Google or TripAdvisor)
 4. is_real (true only if UI and content clearly match real review platforms)
 5. confidence (0 to 1)
 6. contains_food_reference (true/false)
 7. contains_service_reference (true/false)
-8. has_valid_ui (true/false)
+7. has_valid_ui (true/false)
 
 Rules:
 - Reject if UI does not match Google or TripAdvisor
@@ -66,13 +71,23 @@ Return ONLY JSON.
       ],
     });
 
-    const content = response.choices[0].message.content;
+    const content = response.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return NextResponse.json(
+        { error: "Empty AI response" },
+        { status: 500 }
+      );
+    }
 
     let parsed;
     try {
       parsed = JSON.parse(content);
-    } catch {
-      return Response.json({ error: "Invalid AI response format" });
+    } catch (err) {
+      return NextResponse.json(
+        { error: "Invalid AI response format" },
+        { status: 500 }
+      );
     }
 
     // 🔒 HARD VALIDATION
@@ -82,20 +97,24 @@ Return ONLY JSON.
       parsed.rating > 5 ||
       !parsed.text ||
       parsed.text.length < 10 ||
-      !parsed.is_real ||
+      parsed.is_real !== true ||
       parsed.confidence < 0.75 ||
-      !parsed.has_valid_ui
+      parsed.has_valid_ui !== true
     ) {
-      return Response.json({
-        error: "Invalid or fake review",
-      });
+      return NextResponse.json(
+        { error: "Invalid or fake review" },
+        { status: 400 }
+      );
     }
 
-    return Response.json(parsed);
+    return NextResponse.json(parsed, { status: 200 });
 
   } catch (err) {
-    return Response.json({
-      error: "AI processing failed",
-    });
+    console.error("AI Review Error:", err);
+
+    return NextResponse.json(
+      { error: "AI processing failed" },
+      { status: 500 }
+    );
   }
 }

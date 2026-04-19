@@ -12,76 +12,34 @@ export default function StaffPortal() {
 
         <div className="grid md:grid-cols-2 gap-6">
 
-          {/* PERFORMANCE */}
+          {/* PERFORMANCE → HISTORY */}
           <Link href="/history">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition cursor-pointer">
-              <div className="text-lg flex items-center gap-2">
-                ⭐ Performance
-              </div>
-              <div className="text-white/50 text-sm">
-                Your score and daily performance
-              </div>
-            </div>
+            <div className="card">⭐ Performance</div>
           </Link>
 
-          {/* EARNINGS */}
+          {/* EARNINGS → PAYOUT */}
           <Link href="/payout">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition cursor-pointer">
-              <div className="text-lg flex items-center gap-2">
-                💰 Earnings
-              </div>
-              <div className="text-white/50 text-sm">
-                Salary and service charge
-              </div>
-            </div>
+            <div className="card">💰 Earnings</div>
           </Link>
 
-          {/* ATTENDANCE */}
-          <Link href="/staff">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition cursor-pointer">
-              <div className="text-lg flex items-center gap-2">
-                ⏱ Attendance
-              </div>
-              <div className="text-white/50 text-sm">
-                Check-in and lateness
-              </div>
-            </div>
+          {/* ATTENDANCE → STAFF PAGE (we fix next) */}
+          <Link href="/staff/attendance">
+            <div className="card">⏱ Attendance</div>
           </Link>
 
           {/* AI INVOICE */}
           <Link href="/staff/invoice">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition cursor-pointer">
-              <div className="text-lg flex items-center gap-2">
-                🤖 AI Invoice
-              </div>
-              <div className="text-white/50 text-sm">
-                Upload invoices for accounting
-              </div>
-            </div>
+            <div className="card">🤖 AI Invoice</div>
           </Link>
 
           {/* GOOGLE REVIEWS */}
           <Link href="/staff/reviews">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition cursor-pointer">
-              <div className="text-lg flex items-center gap-2">
-                ⭐📍 Google Reviews
-              </div>
-              <div className="text-white/50 text-sm">
-                Upload customer reviews
-              </div>
-            </div>
+            <div className="card">⭐📍 Google Reviews</div>
           </Link>
 
           {/* MESSAGES */}
           <Link href="/staff/messages">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition cursor-pointer">
-              <div className="text-lg flex items-center gap-2">
-                💬 Messages
-              </div>
-              <div className="text-white/50 text-sm">
-                Contact management
-              </div>
-            </div>
+            <div className="card">💬 Messages</div>
           </Link>
 
         </div>

@@ -4,11 +4,14 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
+import { calculateAccountingOverview } from "../../lib/accounting/calcOverview";
 
 export default function DashboardPage() {
   const [history, setHistory] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [messages, setMessages] = useState([]);
+
+  const [totals, setTotals] = useState(null);
 
   const [newMessage, setNewMessage] = useState("");
   const [target, setTarget] = useState("ALL");
@@ -21,6 +24,12 @@ export default function DashboardPage() {
     setHistory(data);
     setAttendance(att);
     setMessages(msg);
+
+    // 🔥 NEW: calculate overview
+    if (data.length) {
+      const overview = calculateAccountingOverview(data);
+      setTotals(overview);
+    }
   }, []);
 
   const today = new Date().toLocaleDateString("en-GB");
@@ -91,6 +100,18 @@ export default function DashboardPage() {
 
         <h1 className="text-3xl text-white">Manager Dashboard</h1>
 
+        {/* 🔥 KPI STRIP */}
+        {totals && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+            <KPI label="Revenue" value={totals.revenue} />
+            <KPI label="Profit" value={totals.profit} />
+            <KPI label="Staff Cost" value={totals.payouts} />
+            <KPI label="Days" value={totals.days} />
+
+          </div>
+        )}
+
         {/* 🔥 MESSAGING */}
         <div className="bg-white/5 p-6 rounded-2xl space-y-4">
           <h2 className="text-white text-lg">Send Message</h2>
@@ -122,7 +143,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* 🔥 LATEST MESSAGES */}
+        {/* 🔥 RECENT MESSAGES */}
         <div className="bg-white/5 p-6 rounded-2xl space-y-3">
           <h2 className="text-white text-lg">Recent Messages</h2>
 
@@ -178,4 +199,18 @@ export default function DashboardPage() {
       </div>
     </AppShell>
   );
+}
+
+function KPI({ label, value }) {
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+      <p className="text-xs text-white/40">{label}</p>
+      <p className="text-xl mt-2">
+        {typeof value === "number"
+          ? "THB " + value.toLocaleString()
+          : value}
+      </p>
+    </div>
+  );
+}
 }

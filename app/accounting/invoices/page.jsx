@@ -34,19 +34,25 @@ export default function InvoicesPage() {
     setImage("");
   };
 
-  // 🔥 NEW: summary calculation
+  const handleDelete = (index) => {
+    const updated = saved.filter((_, i) => i !== index);
+    setSaved(updated);
+    localStorage.setItem("invoices", JSON.stringify(updated));
+  };
+
+  const handleReset = () => {
+    setSaved([]);
+    localStorage.removeItem("invoices");
+  };
+
   const summary = saved.reduce(
     (acc, inv) => {
       inv.items.forEach((item) => {
         acc.total += item.amount;
-
         if (item.account_type === "COGS") acc.cogs += item.amount;
-        if (item.account_type === "Operating Expense")
-          acc.opex += item.amount;
-        if (item.account_type === "Owner / Non-Operating")
-          acc.owner += item.amount;
+        if (item.account_type === "Operating Expense") acc.opex += item.amount;
+        if (item.account_type === "Owner / Non-Operating") acc.owner += item.amount;
       });
-
       return acc;
     },
     { total: 0, cogs: 0, opex: 0, owner: 0 }
@@ -73,18 +79,28 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {/* 🔥 NEW: SUMMARY BLOCK */}
       <div style={{ marginTop: 40 }}>
         <h2>Summary</h2>
-        <p>Total Spend: {summary.total} THB</p>
-        <p>COGS: {summary.cogs} THB</p>
-        <p>Operating Expense: {summary.opex} THB</p>
-        <p>Owner: {summary.owner} THB</p>
+        <p>Total: {summary.total} THB</p>
+        <p>COGS: {summary.cogs}</p>
+        <p>OPEX: {summary.opex}</p>
+        <p>Owner: {summary.owner}</p>
       </div>
 
       <div style={{ marginTop: 40 }}>
         <h2>Saved Invoices</h2>
-        <pre>{JSON.stringify(saved, null, 2)}</pre>
+
+        <button onClick={handleReset} style={{ marginBottom: 10 }}>
+          Reset All
+        </button>
+
+        {saved.map((inv, index) => (
+          <div key={index} style={{ marginBottom: 20, border: "1px solid #ccc", padding: 10 }}>
+            <strong>{inv.vendor}</strong> — {inv.total} THB
+            <br />
+            <button onClick={() => handleDelete(index)}>Delete</button>
+          </div>
+        ))}
       </div>
     </div>
   );

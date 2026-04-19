@@ -1,163 +1,51 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
+import AppShell from "../AppShell";
 
-export default function StaffInvoices() {
-  const [preview, setPreview] = useState(null);
-  const [note, setNote] = useState("");
-  const [staffName, setStaffName] = useState("Unknown");
-
-  const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
+export default function PayoutPage() {
+  const [staff, setStaff] = useState([]);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("current_user"));
-    if (user?.name) setStaffName(user.name);
+    const users = [
+      { name: "Patric", role: "owner" },
+      { name: "Anton", role: "gm" },
+      { name: "Poupee", role: "manager" },
+      { name: "Dar Dar", role: "accounting" },
+      { name: "Sara", role: "kitchen" },
+    ];
+
+    const filtered = users.filter((u) => u.role !== "owner");
+    setStaff(filtered);
   }, []);
-
-  const handleFile = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result);
-      setResult(null);
-      setError(null);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // 🔥 REAL AI CALL
-  const analyzeInvoice = async () => {
-    if (!preview) return;
-
-    setAnalyzing(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/invoice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ image: preview }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "AI failed");
-        setAnalyzing(false);
-        return;
-      }
-
-      setResult(data);
-    } catch (err) {
-      setError("Connection error");
-    }
-
-    setAnalyzing(false);
-  };
-
-  const handleSubmit = () => {
-    if (!preview) return;
-
-    const existing =
-      JSON.parse(localStorage.getItem("pending_invoices") || "[]");
-
-    const newInvoice = {
-      id: Date.now(),
-      staff: staffName,
-      note,
-      image: preview,
-      ai: result,
-      status: "pending",
-      created_at: new Date().toISOString(),
-    };
-
-    const updated = [newInvoice, ...existing];
-
-    localStorage.setItem("pending_invoices", JSON.stringify(updated));
-
-    setPreview(null);
-    setNote("");
-    setResult(null);
-
-    alert("Invoice sent to accounting ✅");
-  };
 
   return (
     <AppShell>
       <div className="space-y-10 text-white">
 
-        <h1 className="text-3xl">Submit Invoice</h1>
+        <h1 className="text-3xl">Payout</h1>
 
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
 
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFile}
-          />
+          <div className="text-lg">Staff Payout Overview</div>
 
-          {preview && (
-            <img src={preview} className="rounded-xl max-h-64" />
-          )}
+          <div className="space-y-3">
+            {staff.map((s, i) => (
+              <div
+                key={i}
+                className="bg-white/5 border border-white/10 rounded-xl p-4 flex justify-between"
+              >
+                <div>
+                  <div>{s.name}</div>
+                  <div className="text-white/50 text-sm">{s.role}</div>
+                </div>
 
-          {preview && !result && (
-            <button
-              onClick={analyzeInvoice}
-              className="bg-blue-500 px-4 py-2 rounded w-full"
-            >
-              {analyzing ? "Analyzing..." : "Analyze Invoice"}
-            </button>
-          )}
-
-          {error && (
-            <div className="text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* 🔥 FULL AI OUTPUT */}
-          {result && (
-            <div className="bg-black/40 p-4 rounded-xl text-sm space-y-2">
-
-              <div>🏪 {result.vendor}</div>
-              <div>📅 {result.invoice_date || "No date"}</div>
-              <div>💰 {result.total} {result.currency}</div>
-
-              <div className="pt-2 border-t border-white/10">
-                {result.items.map((item, i) => (
-                  <div key={i} className="text-white/70">
-                    • {item.name} — {item.amount} THB  
-                    <div className="text-white/40 text-xs">
-                      {item.account_type} / {item.department} / {item.natural_account}
-                    </div>
-                  </div>
-                ))}
+                <div className="text-white/60">
+                  — THB
+                </div>
               </div>
-
-            </div>
-          )}
-
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="What is this expense for?"
-            className="w-full px-4 py-2 bg-black/40 rounded"
-          />
-
-          <button
-            onClick={handleSubmit}
-            className="bg-[#ff7a00] px-4 py-2 rounded w-full"
-          >
-            Submit
-          </button>
+            ))}
+          </div>
 
         </div>
 

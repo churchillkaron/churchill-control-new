@@ -4,13 +4,17 @@ import { useEffect, useState } from "react";
 import AppShell from "../../AppShell";
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState([]);
+  const [manualExpenses, setManualExpenses] = useState([]);
+  const [invoiceFeed, setInvoiceFeed] = useState([]);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("expenses") || "[]");
-    setExpenses(data);
+    const manual = JSON.parse(localStorage.getItem("expenses") || "[]");
+    const feed = JSON.parse(localStorage.getItem("accounting_feed") || "[]");
+
+    setManualExpenses(manual);
+    setInvoiceFeed(feed);
   }, []);
 
   const addExpense = () => {
@@ -21,16 +25,35 @@ export default function ExpensesPage() {
       amount: Number(amount),
       note,
       date: new Date().toLocaleDateString("en-GB"),
+      type: "manual",
     };
 
-    const updated = [newItem, ...expenses];
+    const updated = [newItem, ...manualExpenses];
 
     localStorage.setItem("expenses", JSON.stringify(updated));
-    setExpenses(updated);
+    setManualExpenses(updated);
 
     setAmount("");
     setNote("");
   };
+
+  // 🔥 Merge both systems
+  const combined = [
+    ...manualExpenses.map((e) => ({
+      ...e,
+      label: e.note || "Manual Expense",
+    })),
+    ...invoiceFeed.map((i, index) => ({
+      id: "inv-" + index,
+      amount: i.amount,
+      label: `${i.vendor} (${i.natural_account})`,
+      date: i.date || "-",
+      type: "invoice",
+    })),
+  ];
+
+  // 🔥 Sort newest first
+  combined.sort((a, b) => b.id - a.id);
 
   return (
     <AppShell>
@@ -67,23 +90,25 @@ export default function ExpensesPage() {
         {/* LIST */}
         <div className="space-y-3">
 
-          {expenses.map((e) => (
+          {combined.map((e) => (
             <div
               key={e.id}
               className="bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between"
             >
               <div>
-                <div>{e.note || "Expense"}</div>
-                <div className="text-xs text-white/40">{e.date}</div>
+                <div>{e.label}</div>
+                <div className="text-xs text-white/40">
+                  {e.date} • {e.type === "invoice" ? "AI Invoice" : "Manual"}
+                </div>
               </div>
 
               <div className="text-red-400">
-                THB {e.amount.toLocaleString()}
+                THB {Number(e.amount).toLocaleString()}
               </div>
             </div>
           ))}
 
-          {expenses.length === 0 && (
+          {combined.length === 0 && (
             <div className="text-white/40">No expenses yet</div>
           )}
 

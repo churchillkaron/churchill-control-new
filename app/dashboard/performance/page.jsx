@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import AppShell from "../../AppShell";
-import { getHistoryDays } from "../../../lib/storage/localStorage";
+
 
 export default function PerformancePage() {
   const [history, setHistory] = useState([]);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "../../lib/integrations/supabase";
+import { supabase } from "../../../lib/integrations/supabase";
 
 export async function POST(req) {
   try {
@@ -25,7 +25,7 @@ export async function POST(req) {
     }
 
     const { error } = await supabase.from("history_days").insert({
-      date,
+      day_date: date,
       revenue,
       service_pool: servicePool,
       payout_pool: payoutPool,
@@ -44,7 +44,6 @@ export async function POST(req) {
     }
 
     return NextResponse.json({ success: true });
-
   } catch (err) {
     return NextResponse.json(
       { error: "Failed to save history" },

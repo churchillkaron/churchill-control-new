@@ -25,7 +25,6 @@ export default function DashboardPage() {
     setAttendance(att);
     setMessages(msg);
 
-    // 🔥 NEW: calculate overview
     if (data.length) {
       const overview = calculateAccountingOverview(data);
       setTotals(overview);
@@ -39,7 +38,6 @@ export default function DashboardPage() {
     history[history.length - 1] ||
     null;
 
-  // 🔥 SEND MESSAGE
   const sendMessage = () => {
     if (!newMessage) return;
 
@@ -58,7 +56,6 @@ export default function DashboardPage() {
     setNewMessage("");
   };
 
-  // 🔥 PENALTY APPROVAL
   const approvePenalty = (id) => {
     const updated = attendance.map((a) =>
       a.id === id ? { ...a, status: "approved" } : a
@@ -77,10 +74,9 @@ export default function DashboardPage() {
     setAttendance(updated);
   };
 
-  // 🔥 SALARY APPROVAL
   const approveSalary = (staffName) => {
     const updatedHistory = history.map((day) => {
-      if (day.date !== latestDay.date) return day;
+      if (!latestDay || day.date !== latestDay.date) return day;
 
       return {
         ...day,
@@ -100,7 +96,6 @@ export default function DashboardPage() {
 
         <h1 className="text-3xl text-white">Manager Dashboard</h1>
 
-        {/* 🔥 KPI STRIP */}
         {totals && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
@@ -112,7 +107,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 🔥 MESSAGING */}
         <div className="bg-white/5 p-6 rounded-2xl space-y-4">
           <h2 className="text-white text-lg">Send Message</h2>
 
@@ -143,7 +137,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* 🔥 RECENT MESSAGES */}
         <div className="bg-white/5 p-6 rounded-2xl space-y-3">
           <h2 className="text-white text-lg">Recent Messages</h2>
 
@@ -154,7 +147,6 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* 🔥 PENALTIES */}
         <div className="bg-white/5 p-6 rounded-2xl">
           <h2 className="text-white mb-4">Late Approvals</h2>
 
@@ -172,7 +164,6 @@ export default function DashboardPage() {
             ))}
         </div>
 
-        {/* 🔥 SALARY */}
         <div className="bg-white/5 p-6 rounded-2xl">
           <h2 className="text-white mb-4">Salary Approval</h2>
 
@@ -212,5 +203,4 @@ function KPI({ label, value }) {
       </p>
     </div>
   );
-}
 }

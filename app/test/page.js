@@ -1,57 +1,49 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-
-export default function LoginPage() {
-  const router = useRouter();
-  const [user, setUser] = useState("");
-
-  const users = [
-    { name: "Patric", role: "owner", salary: 0 },
-    { name: "Anton", role: "gm", salary: 35000 },
-    { name: "Poupee", role: "manager", salary: 25000 },
-    { name: "Dar Dar", role: "accounting", salary: 0 },
-    { name: "Sara", role: "kitchen", salary: 0 },
-  ];
-
-  const handleLogin = () => {
-    const selected = users.find((u) => u.name === user);
-    if (!selected) return;
-
-    localStorage.setItem("current_user", JSON.stringify(selected));
-
-    // 🔥 ROLE ROUTING
-    if (selected.role === "owner") router.push("/dashboard");
-    else if (selected.role === "accounting") router.push("/accounting");
-    else router.push("/staff");
-  };
-
+export default function LandingPage() {
   return (
-    <div className="h-screen flex items-center justify-center bg-black text-white">
-      <div className="space-y-6 w-[300px]">
+    <div className="relative h-screen w-full text-white overflow-hidden">
 
-        <h1 className="text-2xl text-center">Churchill Login</h1>
+      {/* Background */}
+      <div className="absolute inset-0">
+        <img
+          src="/bg-hero-control.jpg"
+          alt="background"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      </div>
 
-        <select
-          value={user}
-          onChange={(e) => setUser(e.target.value)}
-          className="w-full p-2 bg-white/10 rounded"
-        >
-          <option value="">Select User</option>
-          {users.map((u) => (
-            <option key={u.name} value={u.name}>
-              {u.name} ({u.role})
-            </option>
-          ))}
-        </select>
+      {/* Content */}
+      <div className="relative z-10 h-full flex flex-col items-center justify-center px-6 text-center">
 
-        <button
-          onClick={handleLogin}
-          className="w-full bg-[#ff7a00] p-2 rounded"
-        >
-          Enter System
-        </button>
+        {/* Label */}
+        <div className="text-xs tracking-[0.3em] text-white/40 mb-4">
+          AI MANAGEMENT ENGINE
+        </div>
+
+        {/* Title */}
+        <h1 className="text-5xl md:text-7xl font-semibold mb-6 leading-tight bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent drop-shadow-[0_10px_40px_rgba(255,122,0,0.15)]">
+          Restaurant Operating System
+        </h1>
+
+        {/* Subtext */}
+        <p className="max-w-2xl text-white/70 text-lg md:text-xl mb-10">
+          Intelligent,{" "}
+          <span className="text-[#ff7a00]">AI-driven</span> control of operations, performance, financials, and customer behavior.
+        </p>
+
+        {/* CTA */}
+        <div className="flex gap-4">
+          <a
+            href="/login"
+            className="bg-[#ff7a00] px-8 py-3 rounded-xl text-white shadow-[0_10px_40px_rgba(255,122,0,0.25)] hover:brightness-110 transition"
+          >
+            Enter System
+          </a>
+
+          <button className="border border-white/20 px-8 py-3 rounded-xl hover:bg-white/10 transition">
+            Request Demo
+          </button>
+        </div>
 
       </div>
     </div>

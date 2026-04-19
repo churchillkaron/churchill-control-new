@@ -7,6 +7,8 @@ export default function AttendancePage() {
   const [staff, setStaff] = useState([]);
   const [name, setName] = useState("");
 
+  const SHIFT_START = 9; // 🔥 change to your real start time (9 = 09:00)
+
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("attendance") || "[]");
     setStaff(data);
@@ -60,28 +62,55 @@ export default function AttendancePage() {
     save(updated);
   };
 
-  // 🔥 CALCULATE SCORES
+  // 🔥 CALCULATE STATS + PENALTIES
   const getStats = (logs) => {
     let totalHours = 0;
+    let lateCount = 0;
 
     logs.forEach((l) => {
       if (l.in && l.out) {
+        const inDate = new Date(l.in);
+        const start = new Date(l.in);
+        start.setHours(SHIFT_START, 0, 0, 0);
+
+        if (inDate > start) {
+          lateCount++;
+        }
+
         totalHours += (l.out - l.in) / (1000 * 60 * 60);
       }
     });
 
-    // base = 8h per shift
     const attendance = totalHours > 0 ? 1 : 0.5;
+
     const overtime = totalHours > 8 ? totalHours / 8 : 1;
+
+    // 🔥 PENALTY SYSTEM
+    let penalty = 1;
+    let level = "GOOD";
+
+    if (lateCount >= 5) {
+      penalty = 0.5;
+      level = "CRITICAL";
+    } else if (lateCount >= 3) {
+      penalty = 0.7;
+      level = "BAD";
+    } else if (lateCount >= 1) {
+      penalty = 0.9;
+      level = "WARNING";
+    }
 
     return {
       hours: totalHours.toFixed(1),
       attendance: Number(attendance.toFixed(2)),
       overtime: Number(overtime.toFixed(2)),
+      lateCount,
+      penalty,
+      level,
     };
   };
 
-  // 🔥 SAVE TO PAYOUT SYSTEM
+  // 🔥 PUSH INTO PAYOUT SYSTEM
   useEffect(() => {
     const modifiers = {};
 
@@ -89,7 +118,7 @@ export default function AttendancePage() {
       const stats = getStats(s.logs);
 
       modifiers[s.name] = {
-        attendance: stats.attendance,
+        attendance: stats.attendance * stats.penalty,
         overtime: stats.overtime,
       };
     });
@@ -101,7 +130,7 @@ export default function AttendancePage() {
     <AppShell>
       <div className="space-y-10 text-white">
 
-        <h1 className="text-3xl">Attendance System</h1>
+        <h1 className="text-3xl">Attendance & Control</h1>
 
         {/* ADD STAFF */}
         <div className="bg-white/5 p-6 rounded-2xl space-y-3">
@@ -137,7 +166,19 @@ export default function AttendancePage() {
                 </div>
 
                 <div className="text-sm text-white/60">
-                  Attendance: {stats.attendance} | Overtime: {stats.overtime}
+                  Late: {stats.lateCount} | Attendance: {stats.attendance} | OT: {stats.overtime}
+                </div>
+
+                <div className={`text-sm ${
+                  stats.level === "CRITICAL"
+                    ? "text-red-500"
+                    : stats.level === "BAD"
+                    ? "text-orange-500"
+                    : stats.level === "WARNING"
+                    ? "text-yellow-400"
+                    : "text-green-400"
+                }`}>
+                  {stats.level}
                 </div>
 
                 <div className="flex gap-2">

@@ -29,9 +29,13 @@ export default function AccountingOverview() {
       acc.natural[item.natural_account] =
         (acc.natural[item.natural_account] || 0) + item.amount;
 
-      // 🔥 NEW: DAILY TRACK
+      // DAILY
       const day = item.date || "Unknown";
       acc.daily[day] = (acc.daily[day] || 0) + item.amount;
+
+      // 🔥 NEW: MONTHLY
+      const month = day ? day.slice(3, 10) : "Unknown"; // DD/MM/YYYY → MM/YYYY
+      acc.monthly[month] = (acc.monthly[month] || 0) + item.amount;
 
       return acc;
     },
@@ -43,6 +47,7 @@ export default function AccountingOverview() {
       departments: {},
       natural: {},
       daily: {},
+      monthly: {},
     }
   );
 
@@ -53,9 +58,13 @@ export default function AccountingOverview() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // 🔥 Sort daily newest first
   const daily = Object.entries(expenseSummary.daily).sort(
     (a, b) => new Date(b[0]) - new Date(a[0])
+  );
+
+  // 🔥 NEW: Monthly sorted
+  const monthly = Object.entries(expenseSummary.monthly).sort(
+    (a, b) => b[0].localeCompare(a[0])
   );
 
   return (
@@ -85,7 +94,23 @@ export default function AccountingOverview() {
           </div>
         </div>
 
-        {/* DAILY TRACKING */}
+        {/* 🔥 MONTHLY PERFORMANCE */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-2">
+          <h2 className="text-xl">Monthly Expenses</h2>
+
+          {monthly.map(([month, amount]) => (
+            <div key={month} className="flex justify-between">
+              <span>{month}</span>
+              <span>THB {amount.toLocaleString()}</span>
+            </div>
+          ))}
+
+          {monthly.length === 0 && (
+            <div className="text-white/40">No data yet</div>
+          )}
+        </div>
+
+        {/* DAILY */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-2">
           <h2 className="text-xl">Daily Expenses</h2>
 
@@ -95,10 +120,6 @@ export default function AccountingOverview() {
               <span>THB {amount.toLocaleString()}</span>
             </div>
           ))}
-
-          {daily.length === 0 && (
-            <div className="text-white/40">No data yet</div>
-          )}
         </div>
 
         {/* TOP COSTS */}
@@ -111,10 +132,6 @@ export default function AccountingOverview() {
               <span>THB {amount.toLocaleString()}</span>
             </div>
           ))}
-
-          {topCosts.length === 0 && (
-            <div className="text-white/40">No data yet</div>
-          )}
         </div>
 
       </div>

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
-import { getHistoryDays } from "../../../lib/storage";
-import { calculateAccountingOverview } from "../../../lib/accounting/calcOverview";
+import { getHistoryDays } from "@/lib/storage/localStorage"; // ✅ FIXED PATH
+import { calculateAccountingOverview } from "@/lib/accounting/calcOverview"; // ✅ KEEP
 
 export default function AccountingPage() {
   const [history, setHistory] = useState([]);

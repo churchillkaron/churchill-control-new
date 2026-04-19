@@ -1,3 +1,4 @@
+import vision from "@google-cloud/vision";
 import OpenAI from "openai";
 
 export async function POST(req) {
@@ -10,47 +11,42 @@ export async function POST(req) {
     }
 
     const bytes = await file.arrayBuffer();
-    const base64 = Buffer.from(bytes).toString("base64");
+    const buffer = Buffer.from(bytes);
 
+    // 🔥 GOOGLE OCR
+    const client = new vision.ImageAnnotatorClient();
+
+    const [result] = await client.textDetection({
+      image: { content: buffer },
+    });
+
+    const extractedText = result.textAnnotations[0]?.description || "";
+
+    if (!extractedText) {
+      return Response.json({ error: "No text detected" });
+    }
+
+    // 🔥 OPENAI STRUCTURE
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const response = await openai.responses.create({
+    const ai = await openai.responses.create({
       model: "gpt-4o",
+      temperature: 0,
       input: [
         {
           role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `
-Analyze this invoice.
+          content: `
+You are an accounting AI.
 
-1. Extract:
-- vendor
-- date
-- total
-- all items
+Convert this OCR text into structured invoice data.
 
-2. CLASSIFY into ONE of these accounts:
-
-Food Main Kitchen  
-Food Thai Kitchen  
-Pizza Kitchen  
-Alcohol  
-Soft Drinks  
-Breakfast Food  
-Cleaning  
-Maintenance  
-Restaurant Supplies  
-Kitchen Supplies  
-Bar Supplies  
-Rent  
-Electricity  
-Gas  
-Ads  
-Other Expense  
+IMPORTANT:
+- This is a Thai supermarket receipt
+- Extract ALL items (not just a few)
+- Extract real total
+- Translate Thai to English
 
 Return JSON ONLY:
 
@@ -58,35 +54,34 @@ Return JSON ONLY:
   "vendor": "",
   "date": "",
   "total": 0,
-  "account": "",
   "items": [
     { "name": "", "price": 0 }
   ]
 }
+
+OCR TEXT:
+${extractedText}
 `,
-            },
-            {
-              type: "input_image",
-              image_url: `data:image/jpeg;base64,${base64}`,
-            },
-          ],
         },
       ],
     });
 
-    const text = response.output_text;
+    const text = ai.output_text;
 
     let data;
     try {
       data = JSON.parse(text);
     } catch {
-      return Response.json({ error: "AI parse fail", raw: text });
+      return Response.json({
+        error: "AI parse failed",
+        raw: text,
+      });
     }
 
     return Response.json(data);
 
   } catch (err) {
     console.error(err);
-    return Response.json({ error: "AI failed" }, { status: 500 });
+    return Response.json({ error: "System failed" }, { status: 500 });
   }
 }

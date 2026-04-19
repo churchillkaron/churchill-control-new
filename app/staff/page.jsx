@@ -5,17 +5,15 @@ import Link from "next/link";
 import AppShell from "../AppShell";
 
 export default function StaffPage() {
-  const [name, setName] = useState("");
+  const [user, setUser] = useState(null);
   const [selected, setSelected] = useState(false);
 
   useEffect(() => {
-    const storedName = localStorage.getItem("staff_name");
+  const stored = JSON.parse(localStorage.getItem("current_user"));
+  if (!stored) return;
 
-    if (storedName) {
-      setName(storedName);
-      setSelected(true);
-    }
-  }, []);
+  setUser(stored);
+}, []);
 
   const selectUser = (staffName) => {
     localStorage.setItem("staff_name", staffName);

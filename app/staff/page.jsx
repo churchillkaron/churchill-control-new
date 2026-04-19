@@ -4,7 +4,6 @@ import Link from "next/link";
 import AppShell from "../AppShell";
 
 export default function StaffPortal() {
-
   const Card = ({ href, title, desc }) => (
     <Link
       href={href}
@@ -18,55 +17,45 @@ export default function StaffPortal() {
   return (
     <AppShell>
       <div className="space-y-10 text-white">
-
         <h1 className="text-3xl">Staff Portal</h1>
 
         <div className="grid md:grid-cols-2 gap-6">
-
-          {/* PERFORMANCE */}
-          <Card 
-            href="/dashboard" 
-            title="⭐ Performance" 
-            desc="View performance and scores" 
+          <Card
+            href="/staff/performance"
+            title="⭐ Performance"
+            desc="Personal performance and score"
           />
 
-          {/* EARNINGS */}
-          <Card 
-            href="/payout" 
-            title="💰 Earnings" 
-            desc="Service charge and payouts" 
+          <Card
+            href="/staff/earnings"
+            title="💰 Earnings"
+            desc="Your earnings and service charge"
           />
 
-          {/* ATTENDANCE */}
-          <Card 
-            href="/staff" 
-            title="⏱ Attendance" 
-            desc="Clock in and track time" 
+          <Card
+            href="/staff/attendance"
+            title="⏱ Attendance"
+            desc="Clock in and track attendance"
           />
 
-          {/* AI INVOICE */}
-          <Card 
-            href="/accounting" 
-            title="🤖 AI Invoice" 
-            desc="Upload and scan invoices" 
+          <Card
+            href="/staff/invoice"
+            title="🤖 AI Invoice"
+            desc="Upload invoice to send to accounting"
           />
 
-          {/* GOOGLE REVIEWS */}
-          <Card 
-            href="/dashboard" 
-            title="⭐📍 Google Reviews" 
-            desc="Monitor customer feedback" 
+          <Card
+            href="/staff/reviews"
+            title="⭐📍 Google Reviews"
+            desc="View customer reviews"
           />
 
-          {/* MESSAGES */}
-          <Card 
-            href="/dashboard" 
-            title="💬 Messages" 
-            desc="Internal communication" 
+          <Card
+            href="/staff/messages"
+            title="💬 Messages"
+            desc="Team communication"
           />
-
         </div>
-
       </div>
     </AppShell>
   );

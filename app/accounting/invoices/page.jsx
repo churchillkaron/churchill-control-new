@@ -7,79 +7,7 @@ export default function InvoiceAI() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
-  const [account, setAccount] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // 🔥 YOUR REAL STRUCTURE
-  const accounts = {
-    "COGS": {
-      "Kitchen": [
-        "Food Main Kitchen",
-        "Food Thai Kitchen",
-        "Pizza Kitchen",
-      ],
-      "Bar": [
-        "Alcohol",
-        "Soft Drinks",
-      ],
-      "Breakfast": [
-        "Breakfast Food",
-      ],
-    },
-    "Operating Expense": {
-      "Entertainment": [
-        "DJ",
-        "Band",
-        "Acoustic",
-        "Events",
-      ],
-      "Staff Welfare": [
-        "Staff Food",
-        "Staff Drinks",
-        "Staff Rewards",
-        "Staff Tax",
-        "SSO",
-      ],
-      "Operations": [
-        "Cleaning",
-        "Decoration",
-        "Maintenance",
-        "Restaurant Supplies",
-        "Transportation",
-        "Kitchen Supplies",
-        "Bar Supplies",
-        "Bar Equipment",
-      ],
-      "Admin": [
-        "Rent",
-        "Accounting Fees",
-        "Software",
-        "Depreciation",
-        "Salaries",
-        "Overtime",
-        "Service Charge",
-        "Postage",
-      ],
-      "Utilities": [
-        "Electricity",
-        "Gas",
-      ],
-      "Marketing": [
-        "Ads",
-        "Social Media",
-        "Promotions",
-        "Content Creation",
-      ],
-      "Other": [
-        "Miscellaneous",
-        "Police / Irregular",
-      ],
-    },
-    "Owner / Non-Operating": [
-      "Owner Funding",
-      "Owner Withdrawal",
-    ],
-  };
 
   const handleFile = (e) => {
     const f = e.target.files[0];
@@ -88,57 +16,55 @@ export default function InvoiceAI() {
     setFile(f);
 
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result);
-    };
+    reader.onloadend = () => setPreview(reader.result);
     reader.readAsDataURL(f);
   };
 
-  const handleAnalyze = async () => {
+  const analyzeInvoice = async () => {
     if (!file) return;
 
     setLoading(true);
-    setResult(null);
 
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch("/api/invoice-ai", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const res = await fetch("/api/invoice-ai", {
+        method: "POST",
+        body: formData,
+      });
 
-    const data = await res.json();
-    setResult(data);
+      const data = await res.json();
+      setResult(data);
+    } catch (err) {
+      console.error(err);
+      alert("AI failed");
+    }
+
     setLoading(false);
   };
 
-  const handleSave = () => {
-    if (!account) {
-      alert("Select account");
-      return;
-    }
+  const saveToAccounting = () => {
+    if (!result?.items) return;
 
     const existing =
       JSON.parse(localStorage.getItem("expenses") || "[]");
 
-    const newExpense = {
-      ...result,
-      account,
+    const newEntries = result.items.map((item) => ({
+      vendor: result.vendor,
+      date: result.date,
+      total: item.price,
+      account: item.account || "Uncategorized",
+      name: item.name,
       created_at: new Date().toISOString(),
-    };
+    }));
 
     localStorage.setItem(
       "expenses",
-      JSON.stringify([newExpense, ...existing])
+      JSON.stringify([...newEntries, ...existing])
     );
 
-    alert("Saved ✅");
-
-    setResult(null);
-    setAccount("");
-    setFile(null);
-    setPreview(null);
+    alert("Saved to accounting ✅");
   };
 
   return (
@@ -147,6 +73,7 @@ export default function InvoiceAI() {
 
         <h1 className="text-3xl">Invoice AI</h1>
 
+        {/* UPLOAD */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
 
           <input type="file" onChange={handleFile} />
@@ -156,16 +83,17 @@ export default function InvoiceAI() {
           )}
 
           <button
-            onClick={handleAnalyze}
-            className="bg-[#ff7a00] px-6 py-3 rounded-xl"
+            onClick={analyzeInvoice}
+            className="bg-[#ff7a00] px-6 py-2 rounded"
           >
             {loading ? "Analyzing..." : "Analyze Invoice"}
           </button>
 
         </div>
 
+        {/* RESULT */}
         {result && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
 
             <h2 className="text-xl">AI Result</h2>
 
@@ -173,54 +101,63 @@ export default function InvoiceAI() {
             <div>Date: {result.date}</div>
             <div>Total: {result.total} THB</div>
 
-            {/* 🔥 STRUCTURED ACCOUNT PICKER */}
-            <div className="space-y-3">
-              <div className="text-white/60">Select Account</div>
-
-              <select
-                value={account}
-                onChange={(e) => setAccount(e.target.value)}
-                className="w-full p-3 bg-black/40 rounded-xl"
-              >
-                <option value="">-- Select Account --</option>
-
-                {Object.entries(accounts).map(([type, groups]) => {
-                  if (Array.isArray(groups)) {
-                    return groups.map((acc) => (
-                      <option key={acc} value={acc}>
-                        {type} → {acc}
-                      </option>
-                    ));
-                  }
-
-                  return Object.entries(groups).flatMap(
-                    ([dept, items]) =>
-                      items.map((item) => (
-                        <option key={item} value={item}>
-                          {type} → {dept} → {item}
-                        </option>
-                      ))
-                  );
-                })}
-              </select>
-            </div>
-
             {/* ITEMS */}
-            <div className="space-y-2">
+            <div className="space-y-3 mt-4">
+
               {result.items?.map((item, i) => (
                 <div
                   key={i}
-                  className="flex justify-between bg-white/5 p-3 rounded"
+                  className="bg-white/5 p-4 rounded space-y-2"
                 >
-                  <span>{item.name}</span>
-                  <span>{item.price} THB</span>
+                  <div className="flex justify-between">
+                    <span>{item.name}</span>
+                    <span>{item.price} THB</span>
+                  </div>
+
+                  {/* ACCOUNT SELECT */}
+                  <select
+                    value={item.account || ""}
+                    onChange={(e) => {
+                      const updated = [...result.items];
+                      updated[i].account = e.target.value;
+                      setResult({ ...result, items: updated });
+                    }}
+                    className="w-full p-2 bg-black/40 rounded"
+                  >
+                    <option value="">-- Select Account --</option>
+
+                    <option>Food Main Kitchen</option>
+                    <option>Food Thai Kitchen</option>
+                    <option>Pizza Kitchen</option>
+
+                    <option>Alcohol</option>
+                    <option>Soft Drinks</option>
+
+                    <option>Breakfast Food</option>
+
+                    <option>Kitchen Supplies</option>
+                    <option>Bar Supplies</option>
+                    <option>Cleaning</option>
+                    <option>Maintenance</option>
+
+                    <option>Rent</option>
+                    <option>Electricity</option>
+                    <option>Gas</option>
+
+                    <option>Ads</option>
+
+                    <option>Other Expense</option>
+                  </select>
+
                 </div>
               ))}
+
             </div>
 
+            {/* SAVE */}
             <button
-              onClick={handleSave}
-              className="bg-green-600 px-6 py-3 rounded-xl"
+              onClick={saveToAccounting}
+              className="bg-green-600 px-6 py-2 rounded mt-4"
             >
               Save to Accounting
             </button>

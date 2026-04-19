@@ -1,149 +1,52 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
-// 🔽 NEW IMPORTS (SAFE ADD)
-import { createDayRecord } from "../../lib/data/daySchema.js";
-import { saveHistoryDay } from "../../lib/storage/localStorage.js";
-
 export default function ControlFinal() {
-  const [orders, setOrders] = useState([]);
-  const [summary, setSummary] = useState({
-    revenue: 0,
-    totalOrders: 0,
-    avgOrderValue: 0,
-  });
-
-  const [preview, setPreview] = useState(null);
-  const [showApproval, setShowApproval] = useState(false);
-
-  useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("orders") || "[]");
-    setOrders(data);
-  }, []);
-
-  useEffect(() => {
-    const paid = orders.filter(o => o.status === "PAID");
-
-    const revenue = paid.reduce((sum, o) => sum + (o.total || 0), 0);
-    const totalOrders = paid.length;
-    const avgOrderValue = totalOrders ? Math.round(revenue / totalOrders) : 0;
-
-    setSummary({ revenue, totalOrders, avgOrderValue });
-  }, [orders]);
-
-  const prepareClose = () => {
-    const today = new Date().toLocaleDateString("en-GB");
-
-    const reviews = JSON.parse(localStorage.getItem("reviews") || "[]");
-    const attendance = JSON.parse(localStorage.getItem("staff_attendance") || "[]");
-
-    const todayReviews = reviews.filter(r => r.date === today);
-    const paid = orders.filter(o => o.status === "PAID");
-
-    const revenue = paid.reduce((sum, o) => sum + (o.total || 0), 0);
-    const reviewCount = todayReviews.length;
-
-    const avgRating =
-      todayReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
-      (reviewCount || 1);
-
-    const efficiency = paid.length ? (reviewCount / paid.length) * 100 : 0;
-    const finalScore = efficiency * 0.7 + (avgRating / 5) * 30;
-
-    let percent = 0.05;
-    if (finalScore >= 25) percent = 0.07;
-    else if (finalScore >= 15) percent = 0.06;
-
-    const service = Math.round(revenue * percent);
-
-    setPreview({
-      revenue,
-      reviewCount,
-      avgRating,
-      finalScore,
-      percent,
-      service
-    });
-
-    setShowApproval(true);
-  };
-
-  // 🔥 NEW FUNCTION (SAFE ADD ONLY)
-  const confirmCloseDay = () => {
-    if (!preview) return;
-
-    try {
-      const structuredDay = createDayRecord({
-        date: new Date().toISOString(),
-
-        revenue: preview.revenue,
-        totalOrders: summary.totalOrders,
-        avgOrderValue: summary.avgOrderValue,
-        serviceCharge: preview.service,
-
-        staff: [], // safe default for now
-        payouts: {}, // safe default
-
-        departmentLevels: {
-          FOH: "GOOD",
-          BAR: "GOOD",
-          KITCHEN: "GOOD"
-        }
-      });
-
-      saveHistoryDay(structuredDay);
-
-      console.log("✅ Day saved to structured history");
-
-    } catch (err) {
-      console.error("❌ Failed to save structured day:", err);
-    }
-
-    // 🔽 DO NOT change your system flow
-    setShowApproval(false);
-    setPreview(null);
-  };
-
   return (
     <AppShell>
-      <div className="space-y-10">
+      <div className="space-y-10 text-white">
 
-        <h1 className="text-4xl text-white">Control Final</h1>
+        {/* Title */}
+        <h1 className="text-3xl">Control Final</h1>
 
-        <div className="grid grid-cols-3 gap-6">
-          <div>Revenue: THB {summary.revenue}</div>
-          <div>Orders: {summary.totalOrders}</div>
-          <div>Avg: THB {summary.avgOrderValue}</div>
-        </div>
+        {/* Main Card */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6">
 
-        <button
-          onClick={prepareClose}
-          className="bg-orange-500 px-6 py-3 rounded"
-        >
-          Close Day
-        </button>
+          <div className="text-lg text-white">
+            End of Day Control
+          </div>
 
-        {showApproval && preview && (
-          <div className="bg-black/80 p-6 rounded-xl space-y-4">
+          <div className="text-white/50 text-sm">
+            Review performance, finalize service charge, and close the day.
+          </div>
 
-            <p>Reviews: {preview.reviewCount}</p>
-            <p>Rating: {preview.avgRating.toFixed(1)}</p>
-            <p>Score: {preview.finalScore.toFixed(1)}</p>
-            <p>Service %: {(preview.percent * 100).toFixed(0)}%</p>
-            <p>Service THB: {preview.service}</p>
+          {/* Placeholder metrics */}
+          <div className="grid md:grid-cols-3 gap-4">
 
-            {/* 🔥 SAFE ADD BUTTON */}
-            <button
-              onClick={confirmCloseDay}
-              className="bg-green-500 px-6 py-3 rounded mt-4"
-            >
-              Confirm & Save Day
-            </button>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="text-sm text-white/50">Revenue</div>
+              <div className="text-xl mt-1">—</div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="text-sm text-white/50">Service Charge</div>
+              <div className="text-xl mt-1">—</div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="text-sm text-white/50">Staff Performance</div>
+              <div className="text-xl mt-1">—</div>
+            </div>
 
           </div>
-        )}
+
+          {/* Action */}
+          <button className="bg-[#ff7a00] px-6 py-3 rounded-xl text-white hover:brightness-110 transition">
+            Close Day
+          </button>
+
+        </div>
 
       </div>
     </AppShell>

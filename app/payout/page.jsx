@@ -5,18 +5,44 @@ import AppShell from "../AppShell";
 
 export default function PayoutPage() {
   const [staff, setStaff] = useState([]);
+  const [pool, setPool] = useState(0);
 
   useEffect(() => {
+    // 🔹 Get last saved day from History
+    const history = JSON.parse(localStorage.getItem("historyDays")) || [];
+
+    if (history.length === 0) return;
+
+    const lastDay = history[history.length - 1];
+
+    const revenue = lastDay.revenue || 0;
+    const serviceCharge = revenue * 0.05;
+
+    setPool(serviceCharge);
+
+    // 🔹 TEMP staff (next step we connect real staff system)
     const users = [
-      { name: "Patric", role: "owner" },
-      { name: "Anton", role: "gm" },
-      { name: "Poupee", role: "manager" },
-      { name: "Dar Dar", role: "accounting" },
-      { name: "Sara", role: "kitchen" },
+      { name: "Anton", role: "gm", score: 100 },
+      { name: "Poupee", role: "manager", score: 90 },
+      { name: "Dar Dar", role: "accounting", score: 80 },
+      { name: "Sara", role: "kitchen", score: 70 },
     ];
 
-    const filtered = users.filter((u) => u.role !== "owner");
-    setStaff(filtered);
+    // 🔹 Calculate total score
+    const totalScore = users.reduce((sum, u) => sum + u.score, 0);
+
+    // 🔹 Calculate payout
+    const result = users.map((u) => {
+      const payout =
+        totalScore > 0 ? (u.score / totalScore) * serviceCharge : 0;
+
+      return {
+        ...u,
+        payout,
+      };
+    });
+
+    setStaff(result);
   }, []);
 
   return (
@@ -27,7 +53,9 @@ export default function PayoutPage() {
 
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
 
-          <div className="text-lg">Staff Payout Overview</div>
+          <div className="text-lg">
+            Service Charge Pool: ฿ {pool.toFixed(0)}
+          </div>
 
           <div className="space-y-3">
             {staff.map((s, i) => (
@@ -40,8 +68,8 @@ export default function PayoutPage() {
                   <div className="text-white/50 text-sm">{s.role}</div>
                 </div>
 
-                <div className="text-white/60">
-                  — THB
+                <div className="text-orange-400 font-semibold">
+                  ฿ {s.payout.toFixed(0)}
                 </div>
               </div>
             ))}

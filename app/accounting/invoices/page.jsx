@@ -34,6 +34,24 @@ export default function InvoicesPage() {
     setImage("");
   };
 
+  // 🔥 NEW: summary calculation
+  const summary = saved.reduce(
+    (acc, inv) => {
+      inv.items.forEach((item) => {
+        acc.total += item.amount;
+
+        if (item.account_type === "COGS") acc.cogs += item.amount;
+        if (item.account_type === "Operating Expense")
+          acc.opex += item.amount;
+        if (item.account_type === "Owner / Non-Operating")
+          acc.owner += item.amount;
+      });
+
+      return acc;
+    },
+    { total: 0, cogs: 0, opex: 0, owner: 0 }
+  );
+
   return (
     <div style={{ padding: 20 }}>
       <h1>Invoice AI</h1>
@@ -54,6 +72,15 @@ export default function InvoicesPage() {
           <button onClick={handleApprove}>Approve & Save</button>
         </div>
       )}
+
+      {/* 🔥 NEW: SUMMARY BLOCK */}
+      <div style={{ marginTop: 40 }}>
+        <h2>Summary</h2>
+        <p>Total Spend: {summary.total} THB</p>
+        <p>COGS: {summary.cogs} THB</p>
+        <p>Operating Expense: {summary.opex} THB</p>
+        <p>Owner: {summary.owner} THB</p>
+      </div>
 
       <div style={{ marginTop: 40 }}>
         <h2>Saved Invoices</h2>

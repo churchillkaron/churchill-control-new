@@ -1,39 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import AppShell from "../../AppShell";
 
 export default function InvoicesPage() {
-  const [image, setImage] = useState("");
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
-  const [saved, setSaved] = useState([]);
-  const [accountingFeed, setAccountingFeed] = useState([]);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("invoices");
-    if (stored) setSaved(JSON.parse(stored));
-  }, []);
+  const handleFile = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
 
-  // 🔥 BUILD ACCOUNTING FEED
-  useEffect(() => {
-    const feed = saved.flatMap((inv) =>
-      inv.items.map((item) => ({
-        vendor: inv.vendor,
-        date: inv.invoice_date,
-        amount: item.amount,
-        account_type: item.account_type,
-        department: item.department,
-        natural_account: item.natural_account,
-      }))
-    );
+    setFile(f);
 
-    setAccountingFeed(feed);
-    localStorage.setItem("accounting_feed", JSON.stringify(feed));
-  }, [saved]);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreview(reader.result);
+    };
+    reader.readAsDataURL(f);
+  };
 
   const handleAnalyze = async () => {
+    if (!preview) return;
+
     const res = await fetch("/api/invoice", {
       method: "POST",
-      body: JSON.stringify({ image }),
+      body: JSON.stringify({ image: preview }),
       headers: { "Content-Type": "application/json" },
     });
 
@@ -41,71 +34,51 @@ export default function InvoicesPage() {
     setResult(data);
   };
 
-  const handleApprove = () => {
-    if (!result) return;
-
-    const updated = [...saved, result];
-    setSaved(updated);
-    localStorage.setItem("invoices", JSON.stringify(updated));
-
-    setResult(null);
-    setImage("");
-  };
-
-  const handleDelete = (index) => {
-    const updated = saved.filter((_, i) => i !== index);
-    setSaved(updated);
-    localStorage.setItem("invoices", JSON.stringify(updated));
-  };
-
-  const handleReset = () => {
-    setSaved([]);
-    localStorage.removeItem("invoices");
-    localStorage.removeItem("accounting_feed");
-  };
-
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Invoice AI</h1>
+    <AppShell>
+      <div className="space-y-10 text-white">
 
-      <input
-        placeholder="Paste image URL or base64"
-        value={image}
-        onChange={(e) => setImage(e.target.value)}
-        style={{ width: "100%", marginBottom: 10 }}
-      />
+        <h1 className="text-3xl">Invoice AI</h1>
 
-      <button onClick={handleAnalyze}>Analyze</button>
+        {/* UPLOAD */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
 
-      {result && (
-        <div style={{ marginTop: 20 }}>
-          <h3>AI Result</h3>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
-          <button onClick={handleApprove}>Approve & Save</button>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFile}
+            className="w-full"
+          />
+
+          {preview && (
+            <img
+              src={preview}
+              alt="preview"
+              className="rounded-xl max-h-64"
+            />
+          )}
+
+          <button
+            onClick={handleAnalyze}
+            className="bg-[#ff7a00] px-4 py-2 rounded"
+          >
+            Analyze Invoice
+          </button>
+
         </div>
-      )}
 
-      <div style={{ marginTop: 40 }}>
-        <h2>Saved Invoices</h2>
-
-        <button onClick={handleReset} style={{ marginBottom: 10 }}>
-          Reset All
-        </button>
-
-        {saved.map((inv, index) => (
-          <div key={index} style={{ marginBottom: 20, border: "1px solid #ccc", padding: 10 }}>
-            <strong>{inv.vendor}</strong> — {inv.total} THB
-            <br />
-            <button onClick={() => handleDelete(index)}>Delete</button>
+        {/* RESULT */}
+        {result && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <h3 className="mb-2">AI Result</h3>
+            <pre className="text-xs overflow-auto">
+              {JSON.stringify(result, null, 2)}
+            </pre>
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* 🔥 NEW: ACCOUNTING FEED VIEW */}
-      <div style={{ marginTop: 40 }}>
-        <h2>Accounting Feed (Structured)</h2>
-        <pre>{JSON.stringify(accountingFeed, null, 2)}</pre>
       </div>
-    </div>
+    </AppShell>
   );
 }

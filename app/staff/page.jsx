@@ -1,9 +1,20 @@
 "use client";
 
-import AppShell from "../AppShell";
 import Link from "next/link";
+import AppShell from "../AppShell";
 
 export default function StaffPortal() {
+
+  const Card = ({ href, title, desc }) => (
+    <Link
+      href={href}
+      className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
+    >
+      <div className="text-xl text-white">{title}</div>
+      <div className="text-white/50 text-sm mt-2">{desc}</div>
+    </Link>
+  );
+
   return (
     <AppShell>
       <div className="space-y-10 text-white">
@@ -12,35 +23,47 @@ export default function StaffPortal() {
 
         <div className="grid md:grid-cols-2 gap-6">
 
-          {/* PERFORMANCE → HISTORY */}
-          <Link href="/history">
-            <div className="card">⭐ Performance</div>
-          </Link>
+          {/* PERFORMANCE */}
+          <Card 
+            href="/dashboard" 
+            title="⭐ Performance" 
+            desc="View performance and scores" 
+          />
 
-          {/* EARNINGS → PAYOUT */}
-          <Link href="/payout">
-            <div className="card">💰 Earnings</div>
-          </Link>
+          {/* EARNINGS */}
+          <Card 
+            href="/payout" 
+            title="💰 Earnings" 
+            desc="Service charge and payouts" 
+          />
 
-          {/* ATTENDANCE → STAFF PAGE (we fix next) */}
-          <Link href="/staff/attendance">
-            <div className="card">⏱ Attendance</div>
-          </Link>
+          {/* ATTENDANCE */}
+          <Card 
+            href="/staff" 
+            title="⏱ Attendance" 
+            desc="Clock in and track time" 
+          />
 
           {/* AI INVOICE */}
-          <Link href="/staff/invoice">
-            <div className="card">🤖 AI Invoice</div>
-          </Link>
+          <Card 
+            href="/accounting" 
+            title="🤖 AI Invoice" 
+            desc="Upload and scan invoices" 
+          />
 
           {/* GOOGLE REVIEWS */}
-          <Link href="/staff/reviews">
-            <div className="card">⭐📍 Google Reviews</div>
-          </Link>
+          <Card 
+            href="/dashboard" 
+            title="⭐📍 Google Reviews" 
+            desc="Monitor customer feedback" 
+          />
 
           {/* MESSAGES */}
-          <Link href="/staff/messages">
-            <div className="card">💬 Messages</div>
-          </Link>
+          <Card 
+            href="/dashboard" 
+            title="💬 Messages" 
+            desc="Internal communication" 
+          />
 
         </div>
 

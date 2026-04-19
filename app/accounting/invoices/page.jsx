@@ -6,11 +6,29 @@ export default function InvoicesPage() {
   const [image, setImage] = useState("");
   const [result, setResult] = useState(null);
   const [saved, setSaved] = useState([]);
+  const [accountingFeed, setAccountingFeed] = useState([]);
 
   useEffect(() => {
     const stored = localStorage.getItem("invoices");
     if (stored) setSaved(JSON.parse(stored));
   }, []);
+
+  // 🔥 BUILD ACCOUNTING FEED
+  useEffect(() => {
+    const feed = saved.flatMap((inv) =>
+      inv.items.map((item) => ({
+        vendor: inv.vendor,
+        date: inv.invoice_date,
+        amount: item.amount,
+        account_type: item.account_type,
+        department: item.department,
+        natural_account: item.natural_account,
+      }))
+    );
+
+    setAccountingFeed(feed);
+    localStorage.setItem("accounting_feed", JSON.stringify(feed));
+  }, [saved]);
 
   const handleAnalyze = async () => {
     const res = await fetch("/api/invoice", {
@@ -43,27 +61,8 @@ export default function InvoicesPage() {
   const handleReset = () => {
     setSaved([]);
     localStorage.removeItem("invoices");
+    localStorage.removeItem("accounting_feed");
   };
-
-  // 🔥 SUMMARY
-  const summary = saved.reduce(
-    (acc, inv) => {
-      inv.items.forEach((item) => {
-        acc.total += item.amount;
-
-        if (item.account_type === "COGS") acc.cogs += item.amount;
-        if (item.account_type === "Operating Expense") acc.opex += item.amount;
-        if (item.account_type === "Owner / Non-Operating") acc.owner += item.amount;
-
-        // 🔥 NEW: department breakdown
-        acc.departments[item.department] =
-          (acc.departments[item.department] || 0) + item.amount;
-      });
-
-      return acc;
-    },
-    { total: 0, cogs: 0, opex: 0, owner: 0, departments: {} }
-  );
 
   return (
     <div style={{ padding: 20 }}>
@@ -87,24 +86,6 @@ export default function InvoicesPage() {
       )}
 
       <div style={{ marginTop: 40 }}>
-        <h2>Summary</h2>
-        <p>Total: {summary.total} THB</p>
-        <p>COGS: {summary.cogs}</p>
-        <p>OPEX: {summary.opex}</p>
-        <p>Owner: {summary.owner}</p>
-      </div>
-
-      {/* 🔥 NEW: DEPARTMENT VIEW */}
-      <div style={{ marginTop: 40 }}>
-        <h2>Department Breakdown</h2>
-        {Object.entries(summary.departments).map(([dept, amount]) => (
-          <div key={dept}>
-            {dept}: {amount} THB
-          </div>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 40 }}>
         <h2>Saved Invoices</h2>
 
         <button onClick={handleReset} style={{ marginBottom: 10 }}>
@@ -118,6 +99,12 @@ export default function InvoicesPage() {
             <button onClick={() => handleDelete(index)}>Delete</button>
           </div>
         ))}
+      </div>
+
+      {/* 🔥 NEW: ACCOUNTING FEED VIEW */}
+      <div style={{ marginTop: 40 }}>
+        <h2>Accounting Feed (Structured)</h2>
+        <pre>{JSON.stringify(accountingFeed, null, 2)}</pre>
       </div>
     </div>
   );

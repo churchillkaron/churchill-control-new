@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function InvoicesPage() {
   const [image, setImage] = useState("");
   const [result, setResult] = useState(null);
+  const [saved, setSaved] = useState([]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("invoices");
+    if (stored) setSaved(JSON.parse(stored));
+  }, []);
 
   const handleAnalyze = async () => {
     const res = await fetch("/api/invoice", {
@@ -15,6 +21,17 @@ export default function InvoicesPage() {
 
     const data = await res.json();
     setResult(data);
+  };
+
+  const handleApprove = () => {
+    if (!result) return;
+
+    const updated = [...saved, result];
+    setSaved(updated);
+    localStorage.setItem("invoices", JSON.stringify(updated));
+
+    setResult(null);
+    setImage("");
   };
 
   return (
@@ -30,7 +47,18 @@ export default function InvoicesPage() {
 
       <button onClick={handleAnalyze}>Analyze</button>
 
-      <pre>{JSON.stringify(result, null, 2)}</pre>
+      {result && (
+        <div style={{ marginTop: 20 }}>
+          <h3>AI Result</h3>
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+          <button onClick={handleApprove}>Approve & Save</button>
+        </div>
+      )}
+
+      <div style={{ marginTop: 40 }}>
+        <h2>Saved Invoices</h2>
+        <pre>{JSON.stringify(saved, null, 2)}</pre>
+      </div>
     </div>
   );
 }

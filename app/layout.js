@@ -8,19 +8,22 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="text-white">
+      <body className="text-white bg-black">
 
-        {/* BACKGROUND */}
+        {/* BACKGROUND IMAGE */}
         <div
-          className="fixed inset-0 z-0 bg-cover bg-center pointer-events-none"
+          className="fixed inset-0 z-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/bg-beach.jpg')" }}
         />
 
-        {/* DARK OVERLAY */}
-        <div className="fixed inset-0 z-0 bg-black/60 pointer-events-none" />
+        {/* DARK BASE LAYER */}
+        <div className="fixed inset-0 z-10 bg-black/70" />
 
-        {/* CONTENT */}
-        <div className="relative z-10">
+        {/* DEPTH GRADIENT (important for separation) */}
+        <div className="fixed inset-0 z-10 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+
+        {/* CONTENT LAYER */}
+        <div className="relative z-20">
           {children}
         </div>
 

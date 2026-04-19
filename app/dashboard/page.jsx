@@ -3,75 +3,50 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
-import { getHistoryDays } from "../../../lib/storage/localStorage";
+import AppShell from "../AppShell"; // ✅ CORRECT
+import { calculateAccountingOverview } from "../../lib/accounting/calcOverview"; // ✅ CORRECT
 
-export default function PerformancePage() {
+export default function DashboardPage() {
   const [history, setHistory] = useState([]);
+  const [totals, setTotals] = useState(null);
 
   useEffect(() => {
-    const data = getHistoryDays() || [];
+    const data = JSON.parse(localStorage.getItem("history") || "[]");
     setHistory(data);
+
+    if (data.length) {
+      const overview = calculateAccountingOverview(data);
+      setTotals(overview);
+    }
   }, []);
 
   return (
     <AppShell>
       <div className="space-y-10 text-white">
 
-        <h1 className="text-3xl">Performance</h1>
+        <h1 className="text-3xl">Dashboard</h1>
 
-        <div className="space-y-4">
-
-          {history.map((day) => (
-            <DayPerformance key={day.id} day={day} />
-          ))}
-
-          {history.length === 0 && (
-            <div className="text-white/40">No performance data</div>
-          )}
-
-        </div>
+        {totals && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card title="Revenue" value={totals.revenue} />
+            <Card title="Profit" value={totals.profit} />
+            <Card title="Staff Cost" value={totals.payouts} />
+            <Card title="Days" value={totals.days} />
+          </div>
+        )}
 
       </div>
     </AppShell>
   );
 }
 
-function DayPerformance({ day }) {
+function Card({ title, value }) {
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-
-      <div className="flex justify-between mb-4">
-        <span>{day.date}</span>
-        <span className="text-white/60">Score</span>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 text-sm">
-
-        <Metric label="FOH" value={day.departmentLevels?.FOH} />
-        <Metric label="BAR" value={day.departmentLevels?.BAR} />
-        <Metric label="KITCHEN" value={day.departmentLevels?.KITCHEN} />
-
-      </div>
-
-    </div>
-  );
-}
-
-function Metric({ label, value }) {
-  const color =
-    value === "GOOD"
-      ? "text-green-400"
-      : value === "WARNING"
-      ? "text-yellow-400"
-      : value === "BAD"
-      ? "text-red-400"
-      : "text-white/40";
-
-  return (
-    <div>
-      <p className="text-xs text-white/40">{label}</p>
-      <p className={color}>{value || "N/A"}</p>
+      <p className="text-xs text-white/40">{title}</p>
+      <p className="text-xl mt-2">
+        THB {(value || 0).toLocaleString()}
+      </p>
     </div>
   );
 }

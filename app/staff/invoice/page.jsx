@@ -1,14 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AppShell from "../../AppShell";
 
 export default function StaffInvoices() {
   const [preview, setPreview] = useState(null);
   const [note, setNote] = useState("");
+  const [staffName, setStaffName] = useState("Unknown");
 
-  const user = JSON.parse(localStorage.getItem("current_user"));
-  const staffName = user?.name || "Unknown";
+  // ✅ SAFE localStorage access
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("current_user"));
+    if (user?.name) {
+      setStaffName(user.name);
+    }
+  }, []);
 
   const handleFile = (e) => {
     const file = e.target.files[0];

@@ -98,7 +98,6 @@ export default function POSPage() {
       })),
     };
 
-    // 🔥 SPLIT BY STATION
     const western = newOrder.items.filter(i => i.station === "WESTERN");
     const thai = newOrder.items.filter(i => i.station === "THAI");
 
@@ -115,17 +114,19 @@ export default function POSPage() {
 
   return (
     <AppShell>
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white">
 
         {/* MENU */}
-        <div className="col-span-2 space-y-6">
+        <div className="md:col-span-2 space-y-6">
 
-          <input
-            placeholder="Table"
-            value={table}
-            onChange={(e) => setTable(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-white/10 w-full"
-          />
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            <input
+              placeholder="Table"
+              value={table}
+              onChange={(e) => setTable(e.target.value)}
+              className="px-4 py-3 rounded-xl bg-white/10 w-full"
+            />
+          </div>
 
           <div className="flex gap-2 flex-wrap">
             {categories.map((c) => (
@@ -133,7 +134,7 @@ export default function POSPage() {
                 key={c}
                 onClick={() => setActiveCategory(c)}
                 className={`px-4 py-2 rounded-xl ${
-                  activeCategory === c ? "bg-orange-500" : "bg-white/10"
+                  activeCategory === c ? "bg-[#ff7a00]" : "bg-white/10"
                 }`}
               >
                 {c}
@@ -146,20 +147,23 @@ export default function POSPage() {
               <div
                 key={i}
                 onClick={() => handleClick(item)}
-                className="p-4 rounded-xl bg-white/10 cursor-pointer"
+                className="p-4 rounded-xl bg-white/10 hover:bg-white/20 transition cursor-pointer"
               >
                 <div>{item.name}</div>
-                <div>{item.price} THB</div>
+                <div className="text-white/60 text-sm mt-1">
+                  {item.price} THB
+                </div>
               </div>
             ))}
           </div>
         </div>
 
         {/* CART */}
-        <div className="bg-white/5 p-4 rounded-xl space-y-4">
+        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-4">
+
           <div className="text-lg">Order</div>
 
-          <div className="space-y-2 max-h-[400px] overflow-auto">
+          <div className="space-y-2 max-h-[400px] overflow-auto text-sm">
             {cart.map((item, i) => (
               <div key={i}>
                 {item.name} - {item.price}
@@ -174,7 +178,7 @@ export default function POSPage() {
 
           <button
             onClick={sendOrder}
-            className="w-full bg-orange-500 p-3 rounded-xl"
+            className="w-full bg-[#ff7a00] p-3 rounded-xl hover:brightness-110 transition"
           >
             Send Order
           </button>
@@ -182,12 +186,12 @@ export default function POSPage() {
 
         {/* POPUP */}
         {popupItem && (
-          <div className="fixed inset-0 flex items-center justify-center z-50">
-            <div className="bg-black/80 p-6 rounded-2xl w-[400px] space-y-4">
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/70">
 
-              <h2>{popupItem.name}</h2>
+            <div className="bg-black border border-white/10 p-6 rounded-2xl w-[400px] space-y-4">
 
-              {/* DONENESS */}
+              <h2 className="text-lg">{popupItem.name}</h2>
+
               <div>
                 <div className={attempted && !selected.doneness ? "text-red-400" : ""}>
                   Doneness
@@ -201,7 +205,7 @@ export default function POSPage() {
                       }
                       className={`cursor-pointer p-2 rounded ${
                         selected.doneness === d
-                          ? "bg-orange-500"
+                          ? "bg-[#ff7a00]"
                           : "bg-white/10"
                       }`}
                     >
@@ -211,7 +215,6 @@ export default function POSPage() {
                 </div>
               </div>
 
-              {/* SIDE */}
               <div>
                 <div className={attempted && !selected.side ? "text-red-400" : ""}>
                   Side
@@ -225,7 +228,7 @@ export default function POSPage() {
                       }
                       className={`cursor-pointer p-2 rounded ${
                         selected.side === s
-                          ? "bg-orange-500"
+                          ? "bg-[#ff7a00]"
                           : "bg-white/10"
                       }`}
                     >
@@ -235,7 +238,6 @@ export default function POSPage() {
                 </div>
               </div>
 
-              {/* SAUCE */}
               <div>
                 <div className={attempted && !selected.sauce ? "text-red-400" : ""}>
                   Sauce
@@ -249,7 +251,7 @@ export default function POSPage() {
                       }
                       className={`cursor-pointer p-2 rounded ${
                         selected.sauce === s
-                          ? "bg-orange-500"
+                          ? "bg-[#ff7a00]"
                           : "bg-white/10"
                       }`}
                     >
@@ -261,7 +263,7 @@ export default function POSPage() {
 
               <button
                 onClick={confirmPopup}
-                className="w-full bg-orange-500 p-3 rounded-xl"
+                className="w-full bg-[#ff7a00] p-3 rounded-xl"
               >
                 Add to Cart
               </button>
@@ -272,6 +274,7 @@ export default function POSPage() {
               >
                 Cancel
               </button>
+
             </div>
           </div>
         )}

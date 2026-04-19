@@ -1,18 +1,33 @@
 "use client";
 
-import Navbar from "./Navbar";
+import Link from "next/link";
 
 export default function AppShell({ children }) {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-black text-white">
 
-      {/* NAVBAR */}
-      <Navbar />
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
 
-      {/* CONTENT */}
-      <main className="pt-24 px-6 max-w-7xl mx-auto">
+        {/* Back to Dashboard */}
+        <Link
+          href="/dashboard"
+          className="text-sm text-white/70 hover:text-white transition"
+        >
+          ← Dashboard
+        </Link>
+
+        {/* Optional title placeholder */}
+        <div className="text-sm text-white/40">
+          Churchill Control
+        </div>
+
+      </div>
+
+      {/* Page Content */}
+      <div className="p-6">
         {children}
-      </main>
+      </div>
 
     </div>
   );

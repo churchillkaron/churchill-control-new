@@ -23,17 +23,33 @@ export default function AccountingOverview() {
       if (item.account_type === "Operating Expense") acc.opex += item.amount;
       if (item.account_type === "Owner / Non-Operating") acc.owner += item.amount;
 
-      // 🔥 department breakdown
+      // Department
       acc.departments[item.department] =
         (acc.departments[item.department] || 0) + item.amount;
 
+      // 🔥 NEW: Natural account (cost drivers)
+      acc.natural[item.natural_account] =
+        (acc.natural[item.natural_account] || 0) + item.amount;
+
       return acc;
     },
-    { total: 0, cogs: 0, opex: 0, owner: 0, departments: {} }
+    {
+      total: 0,
+      cogs: 0,
+      opex: 0,
+      owner: 0,
+      departments: {},
+      natural: {},
+    }
   );
 
   const totalRevenue = revenue.reduce((sum, r) => sum + r.amount, 0);
   const profit = totalRevenue - expenseSummary.total;
+
+  // 🔥 Top 5 cost drivers
+  const topCosts = Object.entries(expenseSummary.natural)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
 
   return (
     <AppShell>
@@ -52,17 +68,9 @@ export default function AccountingOverview() {
             Expenses: THB {expenseSummary.total.toLocaleString()}
           </div>
 
-          <div>
-            COGS: THB {expenseSummary.cogs.toLocaleString()}
-          </div>
-
-          <div>
-            OPEX: THB {expenseSummary.opex.toLocaleString()}
-          </div>
-
-          <div>
-            Owner: THB {expenseSummary.owner.toLocaleString()}
-          </div>
+          <div>COGS: THB {expenseSummary.cogs.toLocaleString()}</div>
+          <div>OPEX: THB {expenseSummary.opex.toLocaleString()}</div>
+          <div>Owner: THB {expenseSummary.owner.toLocaleString()}</div>
 
           <hr className="border-white/10 my-3" />
 
@@ -72,9 +80,8 @@ export default function AccountingOverview() {
 
         </div>
 
-        {/* 🔥 NEW: DEPARTMENT CONTROL */}
+        {/* DEPARTMENTS */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-2">
-
           <h2 className="text-xl">Department Spend</h2>
 
           {Object.entries(expenseSummary.departments).map(([dept, amount]) => (
@@ -87,7 +94,22 @@ export default function AccountingOverview() {
           {Object.keys(expenseSummary.departments).length === 0 && (
             <div className="text-white/40">No data yet</div>
           )}
+        </div>
 
+        {/* 🔥 TOP COST DRIVERS */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-2">
+          <h2 className="text-xl">Top Cost Drivers</h2>
+
+          {topCosts.map(([name, amount]) => (
+            <div key={name} className="flex justify-between">
+              <span>{name}</span>
+              <span>THB {amount.toLocaleString()}</span>
+            </div>
+          ))}
+
+          {topCosts.length === 0 && (
+            <div className="text-white/40">No data yet</div>
+          )}
         </div>
 
       </div>

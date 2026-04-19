@@ -12,63 +12,78 @@ export async function POST(req) {
     const bytes = await file.arrayBuffer();
     const base64 = Buffer.from(bytes).toString("base64");
 
-    const client = new OpenAI({
+    const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const response = await client.chat.completions.create({
+    const response = await openai.responses.create({
       model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `
-You are an AI that reads invoices.
-
-Extract:
-- vendor
-- date
-- total
-- items (name + price)
-
-Return JSON ONLY:
-{
-  "vendor": "",
-  "date": "",
-  "total": number,
-  "items": [
-    { "name": "", "price": number }
-  ]
-}
-`,
-        },
+      input: [
         {
           role: "user",
           content: [
             {
-              type: "text",
-              text: "Analyze this invoice",
+              type: "input_text",
+              text: `
+Analyze this invoice.
+
+1. Extract:
+- vendor
+- date
+- total
+- all items
+
+2. CLASSIFY into ONE of these accounts:
+
+Food Main Kitchen  
+Food Thai Kitchen  
+Pizza Kitchen  
+Alcohol  
+Soft Drinks  
+Breakfast Food  
+Cleaning  
+Maintenance  
+Restaurant Supplies  
+Kitchen Supplies  
+Bar Supplies  
+Rent  
+Electricity  
+Gas  
+Ads  
+Other Expense  
+
+Return JSON ONLY:
+
+{
+  "vendor": "",
+  "date": "",
+  "total": 0,
+  "account": "",
+  "items": [
+    { "name": "", "price": 0 }
+  ]
+}
+`,
             },
             {
-              type: "image_url",
-              image_url: {
-                url: `data:image/jpeg;base64,${base64}`,
-              },
+              type: "input_image",
+              image_url: `data:image/jpeg;base64,${base64}`,
             },
           ],
         },
       ],
     });
 
-    const text = response.choices[0].message.content;
+    const text = response.output_text;
 
-    let parsed;
+    let data;
     try {
-      parsed = JSON.parse(text);
+      data = JSON.parse(text);
     } catch {
-      return Response.json({ error: "AI parse failed", raw: text });
+      return Response.json({ error: "AI parse fail", raw: text });
     }
 
-    return Response.json(parsed);
+    return Response.json(data);
 
   } catch (err) {
     console.error(err);

@@ -1,34 +1,62 @@
 "use client";
 
 import Link from "next/link";
+import AppShell from "../AppShell";
 
 export default function Dashboard() {
   return (
-    <div className="p-10 text-white space-y-10">
+    <AppShell>
+      <div className="space-y-10 text-white">
 
-      <h1 className="text-3xl">Owner Dashboard</h1>
+        <h1 className="text-3xl">Owner Dashboard</h1>
 
-      <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-6">
 
-        <Link href="/pos" className="card">POS</Link>
+          <Link href="/pos" className="card">
+            <div className="text-xl">POS</div>
+            <div className="text-white/40 text-sm mt-2">
+              Orders and sales
+            </div>
+          </Link>
 
-        <Link href="/accounting" className="card">Accounting</Link>
+          <Link href="/accounting" className="card">
+            <div className="text-xl">Accounting</div>
+            <div className="text-white/40 text-sm mt-2">
+              Revenue, expenses, invoices
+            </div>
+          </Link>
 
-        <Link href="/payout" className="card">Payout</Link>
+          <Link href="/payout" className="card">
+            <div className="text-xl">Payout</div>
+            <div className="text-white/40 text-sm mt-2">
+              Service charge distribution
+            </div>
+          </Link>
 
-        <Link href="/history" className="card">History</Link>
+          <Link href="/history" className="card">
+            <div className="text-xl">History</div>
+            <div className="text-white/40 text-sm mt-2">
+              Saved financial days
+            </div>
+          </Link>
 
-        <Link href="/staff-control" className="card">Staff Control</Link>
+          <Link href="/staff" className="card">
+            <div className="text-xl">Staff Portal</div>
+            <div className="text-white/40 text-sm mt-2">
+              Test staff experience
+            </div>
+          </Link>
 
-        <Link href="/control-final" className="card">Control Final</Link>
+          <Link href="/control-final" className="card">
+            <div className="text-xl">Control Final</div>
+            <div className="text-white/40 text-sm mt-2">
+              Close day and payouts
+            </div>
+          </Link>
 
-        {/* 🔥 THIS IS THE FIX */}
-        <Link href="/staff" className="card">
-          Staff Portal (Test)
-        </Link>
+        </div>
 
       </div>
-
-    </div>
+    </AppShell>
   );
 }

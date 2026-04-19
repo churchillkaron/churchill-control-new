@@ -1,70 +1,89 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import AppShell from "../AppShell";
+import AppShell from "../../AppShell";
 
-export default function StaffPage() {
-  const [user, setUser] = useState(null);
+export default function StaffInvoices() {
+  const [preview, setPreview] = useState(null);
+  const [note, setNote] = useState("");
+  const [staffName, setStaffName] = useState("Unknown");
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("current_user"));
-    if (stored) setUser(stored);
+    const user = JSON.parse(localStorage.getItem("current_user"));
+    if (user?.name) setStaffName(user.name);
   }, []);
 
-  if (!user) {
-    return <div className="text-white p-10">No user logged in</div>;
-  }
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAnalyze = () => {
+    if (!preview) {
+      alert("Upload image first");
+      return;
+    }
+
+    const existing = JSON.parse(localStorage.getItem("pending_invoices") || "[]");
+
+    const newInvoice = {
+      id: Date.now(),
+      staff: staffName,
+      note,
+      image: preview,
+      status: "pending",
+      created_at: new Date().toISOString(),
+    };
+
+    localStorage.setItem(
+      "pending_invoices",
+      JSON.stringify([newInvoice, ...existing])
+    );
+
+    alert("Invoice sent to accounting ✅");
+
+    setPreview(null);
+    setNote("");
+  };
 
   return (
     <AppShell>
       <div className="space-y-10 text-white">
 
-        <h1 className="text-3xl">Staff Dashboard</h1>
+        <h1 className="text-3xl">Invoice AI</h1>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="card space-y-4">
 
-          <Link href="/staff/invoices" className="card">
-            <div className="text-xl">AI Invoice</div>
-            <div className="text-white/50 text-sm mt-2">
-              Upload bill to accounting
-            </div>
-          </Link>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFile}
+          />
 
-          <Link href="/management/attendance" className="card">
-            <div className="text-xl">Attendance</div>
-            <div className="text-white/50 text-sm mt-2">
-              Check in / check out
-            </div>
-          </Link>
+          {preview && (
+            <img src={preview} className="rounded-xl max-h-64" />
+          )}
 
-          <Link href="/pos" className="card">
-            <div className="text-xl">POS</div>
-            <div className="text-white/50 text-sm mt-2">
-              Take orders
-            </div>
-          </Link>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="What is this for?"
+            className="w-full p-2 bg-black/40 rounded"
+          />
 
-          <Link href="/staff/reviews" className="card">
-            <div className="text-xl">Google Reviews</div>
-            <div className="text-white/50 text-sm mt-2">
-              Upload review screenshot
-            </div>
-          </Link>
-
-          <Link href="/staff/performance" className="card">
-            <div className="text-xl">Performance</div>
-            <div className="text-white/50 text-sm mt-2">
-              View score
-            </div>
-          </Link>
-
-          <Link href="/staff/payroll" className="card">
-            <div className="text-xl">Payroll</div>
-            <div className="text-white/50 text-sm mt-2">
-              Salary & payout
-            </div>
-          </Link>
+          <button
+            onClick={handleAnalyze}
+            className="bg-[#ff7a00] px-4 py-2 rounded"
+          >
+            Analyze Invoice
+          </button>
 
         </div>
 

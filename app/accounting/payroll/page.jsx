@@ -13,12 +13,28 @@ export default function PayrollPage() {
   useEffect(() => {
     const history = getHistoryDays() || [];
 
-    // 🔹 Define salaries (for now manual)
+    // 🔹 Salaries
     const salaries = {
       Anton: 38000,
       Poupee: 30000,
       "Dar Dar": 25000,
       Sara: 20000,
+    };
+
+    // 🔹 Late data (temporary manual — later connect attendance page)
+    const lateness = {
+      Anton: 1,
+      Poupee: 0,
+      "Dar Dar": 2,
+      Sara: 0,
+    };
+
+    // 🔹 Manager adjustments (can be + or -)
+    const adjustments = {
+      Anton: 2000,
+      Poupee: 0,
+      "Dar Dar": -1000,
+      Sara: 0,
     };
 
     const map = {};
@@ -31,6 +47,8 @@ export default function PayrollPage() {
             name: s.name,
             service: 0,
             salary: salaries[s.name] || 0,
+            late: lateness[s.name] || 0,
+            adjust: adjustments[s.name] || 0,
           };
         }
 
@@ -39,11 +57,14 @@ export default function PayrollPage() {
     });
 
     const result = Object.values(map).map((s) => {
-      const totalPay = s.service + s.salary;
+      const latePenalty = s.late * 500;
+      const totalPay = s.salary + s.service - latePenalty + s.adjust;
+
       total += totalPay;
 
       return {
         ...s,
+        latePenalty,
         total: totalPay,
       };
     });
@@ -86,6 +107,14 @@ export default function PayrollPage() {
                 <div className="text-white/50 text-sm">
                   Service: THB {s.service.toLocaleString()}
                 </div>
+
+                <div className="text-red-400 text-sm">
+                  Late Penalty: -THB {s.latePenalty.toLocaleString()}
+                </div>
+
+                <div className="text-blue-300 text-sm">
+                  Adjustment: THB {s.adjust.toLocaleString()}
+                </div>
               </div>
 
               <div className="text-right">
@@ -93,7 +122,7 @@ export default function PayrollPage() {
                   THB {s.total.toLocaleString()}
                 </div>
                 <div className="text-white/40 text-xs">
-                  Total Pay
+                  Final Pay
                 </div>
               </div>
             </div>

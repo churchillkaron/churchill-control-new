@@ -18,40 +18,31 @@ export default function AttendancePage() {
   }, []);
 
   const handleAction = async (action) => {
-    if (!name || !role) {
-      setStatus("Missing user");
-      return;
-    }
-
     setLoading(true);
     setStatus("");
 
-    try {
-      const res = await fetch("/api/staff", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action,
-          staffName: name,
-          staffRole: role,
-        }),
-      });
+    const res = await fetch("/api/staff", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action, staffName: name, staffRole: role }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) {
-        setStatus(data.error || "Error");
-      } else {
+    if (!res.ok) {
+      setStatus(data.error);
+    } else {
+      if (action === "clock_in") {
         setStatus(
-          action === "clock_in"
-            ? "Clocked in successfully"
-            : "Clocked out successfully"
+          data.late
+            ? "Clocked in (Late ⚠️)"
+            : "Clocked in (On time ✅)"
         );
+      } else {
+        setStatus("Clocked out");
       }
-    } catch {
-      setStatus("Request failed");
     }
 
     setLoading(false);
@@ -63,18 +54,16 @@ export default function AttendancePage() {
 
         <h1 className="text-3xl">Attendance</h1>
 
-        {/* USER INFO */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-2">
-          <div>Name: {name || "—"}</div>
-          <div>Role: {role || "—"}</div>
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div>Name: {name}</div>
+          <div>Role: {role}</div>
         </div>
 
-        {/* ACTIONS */}
         <div className="flex gap-4">
           <button
             onClick={() => handleAction("clock_in")}
             disabled={loading}
-            className="bg-green-500 px-6 py-3 rounded-xl hover:brightness-110 transition disabled:opacity-50"
+            className="bg-green-500 px-6 py-3 rounded-xl"
           >
             Clock In
           </button>
@@ -82,15 +71,14 @@ export default function AttendancePage() {
           <button
             onClick={() => handleAction("clock_out")}
             disabled={loading}
-            className="bg-red-500 px-6 py-3 rounded-xl hover:brightness-110 transition disabled:opacity-50"
+            className="bg-red-500 px-6 py-3 rounded-xl"
           >
             Clock Out
           </button>
         </div>
 
-        {/* STATUS */}
         {status && (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+          <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
             {status}
           </div>
         )}

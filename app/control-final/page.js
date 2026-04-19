@@ -5,14 +5,18 @@ import AppShell from "../AppShell";
 
 export default function ControlFinal() {
   const [data, setData] = useState(null);
+  const [monthly, setMonthly] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/staff")
-      .then((res) => res.json())
-      .then((res) => {
-        setData(res);
+    Promise.all([
+      fetch("/api/staff").then((res) => res.json()),
+      fetch("/api/monthly").then((res) => res.json()),
+    ])
+      .then(([staffData, monthlyData]) => {
+        setData(staffData);
+        setMonthly(monthlyData);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -39,13 +43,14 @@ export default function ControlFinal() {
           barScore: data.barScore,
           kitchenScore: data.kitchenScore,
           staff: data.staffWithPayout,
+          serviceLevel: monthly?.level || 5,
         }),
       });
 
       if (!res.ok) {
         alert("Failed to save day");
       } else {
-        alert("Day locked and saved to history");
+        alert("Day locked and saved");
       }
     } catch (err) {
       alert("Error saving day");
@@ -62,7 +67,7 @@ export default function ControlFinal() {
 
         {/* HERO */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-          <div className="text-sm text-white/50">Total Revenue</div>
+          <div className="text-sm text-white/50">Revenue</div>
           <div className="text-4xl mt-2">
             {loading ? "..." : `${data?.revenue || 0} THB`}
           </div>
@@ -70,6 +75,7 @@ export default function ControlFinal() {
 
         {/* KPI */}
         <div className="grid md:grid-cols-3 gap-4">
+
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
             <div className="text-sm text-white/50">Service Pool</div>
             <div className="text-xl mt-1">
@@ -89,6 +95,18 @@ export default function ControlFinal() {
             <div className="text-xl mt-1">
               {loading ? "..." : data?.payoutStatus}
             </div>
+          </div>
+
+        </div>
+
+        {/* MONTHLY SYSTEM */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div className="text-sm text-white/50">Monthly Service Level</div>
+          <div className="text-2xl mt-2">
+            {monthly ? `${monthly.level}%` : "..."}
+          </div>
+          <div className="text-white/50 text-sm">
+            Avg Score: {monthly?.avgScore || "..."}
           </div>
         </div>
 

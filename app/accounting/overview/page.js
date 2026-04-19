@@ -1,88 +1,54 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
-import { getHistoryDays } from "@/lib/storage/localStorage";
+import AppShell from "../AppShell";
+import { getHistoryDays } from "../../lib/storage/localStorage"; // ✅ RELATIVE PATH
+import { calculateAccountingOverview } from "../../lib/accounting/calcOverview"; // ✅ RELATIVE PATH
 
-export default function AccountingOverview() {
-  const [days, setDays] = useState([]);
+export default function AccountingPage() {
+  const [history, setHistory] = useState([]);
+  const [totals, setTotals] = useState(null);
 
   useEffect(() => {
-    const data = getHistoryDays();
-    setDays(data);
+    const data = getHistoryDays() || [];
+    setHistory(data);
   }, []);
 
-  // 🔽 CALCULATIONS
-  const totalRevenue = days.reduce((sum, d) => sum + (d.revenue || 0), 0);
-
-  const totalServiceCharge = days.reduce(
-    (sum, d) => sum + (d.serviceCharge || 0),
-    0
-  );
-
-  const totalPayouts = days.reduce((sum, d) => {
-    if (!d.payouts) return sum;
-    return (
-      sum +
-      Object.values(d.payouts).reduce((a, b) => a + (b || 0), 0)
-    );
-  }, 0);
-
-  const totalExpenses = days.reduce(
-    (sum, d) => sum + (d.expenses || 0),
-    0
-  );
-
-  const netProfit =
-    totalRevenue - totalServiceCharge - totalPayouts - totalExpenses;
+  useEffect(() => {
+    if (!history.length) return;
+    const result = calculateAccountingOverview(history);
+    setTotals(result);
+  }, [history]);
 
   return (
     <AppShell>
-      <div className="space-y-10">
+      <div className="p-6 text-white space-y-6">
 
-        <h1 className="text-4xl text-white">Accounting Overview</h1>
+        <h1 className="text-3xl">Accounting Overview</h1>
 
-        {/* 🔥 MAIN KPI GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {totals && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
 
-          <Card title="Total Revenue" value={totalRevenue} highlight />
+            <Card title="Revenue" value={totals.revenue} />
+            <Card title="Service Charge" value={totals.service} />
+            <Card title="Staff Cost" value={totals.payouts} />
+            <Card title="Expenses" value={totals.expenses} />
+            <Card title="Net Profit" value={totals.profit} />
+            <Card title="Days" value={totals.days} />
 
-          <Card title="Service Charge" value={totalServiceCharge} />
-
-          <Card title="Staff Cost" value={totalPayouts} />
-
-          <Card title="Expenses" value={totalExpenses} />
-
-          <Card title="Net Profit" value={netProfit} profit />
-
-          <Card title="Days Tracked" value={days.length} />
-
-        </div>
+          </div>
+        )}
 
       </div>
     </AppShell>
   );
 }
 
-// 🔽 CARD COMPONENT (MATCHES CONTROL STYLE)
-function Card({ title, value, highlight, profit }) {
+function Card({ title, value }) {
   return (
-    <div className={`
-      p-6 rounded-2xl
-      bg-black/40 backdrop-blur
-      border border-white/10
-      shadow-lg
-    `}>
-      <p className="text-sm text-gray-400">{title}</p>
-
-      <p
-        className={`
-          text-2xl font-semibold mt-2
-          ${highlight ? "text-orange-400" : ""}
-          ${profit && value < 0 ? "text-red-400" : ""}
-          ${profit && value >= 0 ? "text-green-400" : ""}
-        `}
-      >
+    <div className="bg-black/40 p-4 rounded-xl border border-white/10">
+      <p className="text-gray-400 text-sm">{title}</p>
+      <p className="text-xl mt-2">
         {typeof value === "number"
           ? "THB " + value.toLocaleString()
           : value}

@@ -1,89 +1,67 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import AppShell from "../AppShell";
 
-export default function StaffInvoices() {
-  const [preview, setPreview] = useState(null);
-  const [note, setNote] = useState("");
-  const [staffName, setStaffName] = useState("Unknown");
+export default function StaffPage() {
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("current_user"));
-    if (user?.name) setStaffName(user.name);
+    const stored = JSON.parse(localStorage.getItem("current_user"));
+    if (stored) setUser(stored);
   }, []);
 
-  const handleFile = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleAnalyze = () => {
-    if (!preview) {
-      alert("Upload image first");
-      return;
-    }
-
-    const existing = JSON.parse(localStorage.getItem("pending_invoices") || "[]");
-
-    const newInvoice = {
-      id: Date.now(),
-      staff: staffName,
-      note,
-      image: preview,
-      status: "pending",
-      created_at: new Date().toISOString(),
-    };
-
-    localStorage.setItem(
-      "pending_invoices",
-      JSON.stringify([newInvoice, ...existing])
+  if (!user) {
+    return (
+      <div className="h-screen flex items-center justify-center text-white">
+        No user logged in
+      </div>
     );
-
-    alert("Invoice sent to accounting ✅");
-
-    setPreview(null);
-    setNote("");
-  };
+  }
 
   return (
     <AppShell>
       <div className="space-y-10 text-white">
 
-        <h1 className="text-3xl">Invoice AI</h1>
+        <h1 className="text-3xl">Staff Dashboard</h1>
 
-        <div className="card space-y-4">
+        <div className="grid md:grid-cols-2 gap-6">
 
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFile}
-          />
-
-          {preview && (
-            <img src={preview} className="rounded-xl max-h-64" />
-          )}
-
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="What is this for?"
-            className="w-full p-2 bg-black/40 rounded"
-          />
-
-          <button
-            onClick={handleAnalyze}
-            className="bg-[#ff7a00] px-4 py-2 rounded"
+          <Link
+            href="/staff/invoices"
+            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
           >
-            Analyze Invoice
-          </button>
+            <div className="text-xl text-white">AI Invoice</div>
+          </Link>
+
+          <Link
+            href="/management/attendance"
+            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
+          >
+            <div className="text-xl text-white">Attendance</div>
+          </Link>
+
+          <Link
+            href="/pos"
+            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
+          >
+            <div className="text-xl text-white">POS</div>
+          </Link>
+
+          <Link
+            href="/staff/performance"
+            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
+          >
+            <div className="text-xl text-white">Performance</div>
+          </Link>
+
+          <Link
+            href="/staff/payroll"
+            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
+          >
+            <div className="text-xl text-white">Payroll</div>
+          </Link>
 
         </div>
 

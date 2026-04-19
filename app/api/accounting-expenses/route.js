@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { getSupabase } from '../../../lib/supabase'
+import { getSupabase } from '../../../lib/integrations/supabase'
 
 export async function GET() {
   try {

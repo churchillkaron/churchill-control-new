@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "../../../lib/integrations/supabase";
 
 const BASE_REVENUE = 128450;
 

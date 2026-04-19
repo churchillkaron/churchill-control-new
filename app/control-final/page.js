@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
+// 🔽 NEW IMPORTS (SAFE ADD)
+import { createDayRecord } from "../../lib/data/daySchema.js";
+import { saveHistoryDay } from "../../lib/storage/localStorage.js";
+
 export default function ControlFinal() {
   const [orders, setOrders] = useState([]);
   const [summary, setSummary] = useState({
@@ -66,6 +70,42 @@ export default function ControlFinal() {
     setShowApproval(true);
   };
 
+  // 🔥 NEW FUNCTION (SAFE ADD ONLY)
+  const confirmCloseDay = () => {
+    if (!preview) return;
+
+    try {
+      const structuredDay = createDayRecord({
+        date: new Date().toISOString(),
+
+        revenue: preview.revenue,
+        totalOrders: summary.totalOrders,
+        avgOrderValue: summary.avgOrderValue,
+        serviceCharge: preview.service,
+
+        staff: [], // safe default for now
+        payouts: {}, // safe default
+
+        departmentLevels: {
+          FOH: "GOOD",
+          BAR: "GOOD",
+          KITCHEN: "GOOD"
+        }
+      });
+
+      saveHistoryDay(structuredDay);
+
+      console.log("✅ Day saved to structured history");
+
+    } catch (err) {
+      console.error("❌ Failed to save structured day:", err);
+    }
+
+    // 🔽 DO NOT change your system flow
+    setShowApproval(false);
+    setPreview(null);
+  };
+
   return (
     <AppShell>
       <div className="space-y-10">
@@ -78,18 +118,29 @@ export default function ControlFinal() {
           <div>Avg: THB {summary.avgOrderValue}</div>
         </div>
 
-        <button onClick={prepareClose} className="bg-orange-500 px-6 py-3 rounded">
+        <button
+          onClick={prepareClose}
+          className="bg-orange-500 px-6 py-3 rounded"
+        >
           Close Day
         </button>
 
         {showApproval && preview && (
-          <div className="bg-black/80 p-6 rounded-xl">
+          <div className="bg-black/80 p-6 rounded-xl space-y-4">
 
             <p>Reviews: {preview.reviewCount}</p>
             <p>Rating: {preview.avgRating.toFixed(1)}</p>
             <p>Score: {preview.finalScore.toFixed(1)}</p>
             <p>Service %: {(preview.percent * 100).toFixed(0)}%</p>
             <p>Service THB: {preview.service}</p>
+
+            {/* 🔥 SAFE ADD BUTTON */}
+            <button
+              onClick={confirmCloseDay}
+              className="bg-green-500 px-6 py-3 rounded mt-4"
+            >
+              Confirm & Save Day
+            </button>
 
           </div>
         )}

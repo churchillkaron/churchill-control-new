@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../lib/integrations/supabase";
 
 export default function Tables() {
   const [orders, setOrders] = useState([]);

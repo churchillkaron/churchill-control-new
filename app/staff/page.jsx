@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
+import AppShell from "../AppShell";
 
 export default function StaffInvoices() {
   const [preview, setPreview] = useState(null);

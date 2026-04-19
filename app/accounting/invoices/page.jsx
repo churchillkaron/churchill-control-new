@@ -9,6 +9,25 @@ export default function InvoiceAI() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const accounts = [
+    "Food Main Kitchen",
+    "Food Thai Kitchen",
+    "Pizza Kitchen",
+    "Alcohol",
+    "Soft Drinks",
+    "Breakfast Food",
+    "Cleaning",
+    "Maintenance",
+    "Restaurant Supplies",
+    "Kitchen Supplies",
+    "Bar Supplies",
+    "Rent",
+    "Electricity",
+    "Gas",
+    "Ads",
+    "Other Expense",
+  ];
+
   const handleFile = (e) => {
     const f = e.target.files[0];
     if (!f) return;
@@ -37,7 +56,6 @@ export default function InvoiceAI() {
       const data = await res.json();
       setResult(data);
     } catch (err) {
-      console.error(err);
       alert("AI failed");
     }
 
@@ -54,7 +72,7 @@ export default function InvoiceAI() {
       vendor: result.vendor,
       date: result.date,
       total: item.price,
-      account: item.account || "Uncategorized",
+      account: item.account || "Unassigned",
       name: item.name,
       created_at: new Date().toISOString(),
     }));
@@ -64,7 +82,7 @@ export default function InvoiceAI() {
       JSON.stringify([...newEntries, ...existing])
     );
 
-    alert("Saved to accounting ✅");
+    alert("Saved ✅");
   };
 
   return (
@@ -73,7 +91,6 @@ export default function InvoiceAI() {
 
         <h1 className="text-3xl">Invoice AI</h1>
 
-        {/* UPLOAD */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
 
           <input type="file" onChange={handleFile} />
@@ -91,75 +108,44 @@ export default function InvoiceAI() {
 
         </div>
 
-        {/* RESULT */}
         {result && (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
 
-            <h2 className="text-xl">AI Result</h2>
+            <div>Vendor: {result.vendor || "-"}</div>
+            <div>Date: {result.date || "-"}</div>
+            <div>Total: {result.total || 0} THB</div>
 
-            <div>Vendor: {result.vendor}</div>
-            <div>Date: {result.date}</div>
-            <div>Total: {result.total} THB</div>
+            {result.items?.map((item, i) => (
+              <div key={i} className="bg-white/5 p-4 rounded space-y-2">
 
-            {/* ITEMS */}
-            <div className="space-y-3 mt-4">
-
-              {result.items?.map((item, i) => (
-                <div
-                  key={i}
-                  className="bg-white/5 p-4 rounded space-y-2"
-                >
-                  <div className="flex justify-between">
-                    <span>{item.name}</span>
-                    <span>{item.price} THB</span>
-                  </div>
-
-                  {/* ACCOUNT SELECT */}
-                  <select
-                    value={item.account || ""}
-                    onChange={(e) => {
-                      const updated = [...result.items];
-                      updated[i].account = e.target.value;
-                      setResult({ ...result, items: updated });
-                    }}
-                    className="w-full p-2 bg-black/40 rounded"
-                  >
-                    <option value="">-- Select Account --</option>
-
-                    <option>Food Main Kitchen</option>
-                    <option>Food Thai Kitchen</option>
-                    <option>Pizza Kitchen</option>
-
-                    <option>Alcohol</option>
-                    <option>Soft Drinks</option>
-
-                    <option>Breakfast Food</option>
-
-                    <option>Kitchen Supplies</option>
-                    <option>Bar Supplies</option>
-                    <option>Cleaning</option>
-                    <option>Maintenance</option>
-
-                    <option>Rent</option>
-                    <option>Electricity</option>
-                    <option>Gas</option>
-
-                    <option>Ads</option>
-
-                    <option>Other Expense</option>
-                  </select>
-
+                <div className="flex justify-between">
+                  <span>{item.name}</span>
+                  <span>{item.price} THB</span>
                 </div>
-              ))}
 
-            </div>
+                <select
+                  value={item.account || ""}
+                  onChange={(e) => {
+                    const updated = [...result.items];
+                    updated[i].account = e.target.value;
+                    setResult({ ...result, items: updated });
+                  }}
+                  className="w-full p-2 bg-black/40 rounded"
+                >
+                  <option value="">-- Select Account --</option>
+                  {accounts.map((a) => (
+                    <option key={a}>{a}</option>
+                  ))}
+                </select>
 
-            {/* SAVE */}
+              </div>
+            ))}
+
             <button
               onClick={saveToAccounting}
-              className="bg-green-600 px-6 py-2 rounded mt-4"
+              className="bg-green-600 px-6 py-2 rounded"
             >
-              Save to Accounting
+              Save
             </button>
 
           </div>

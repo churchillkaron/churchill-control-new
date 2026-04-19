@@ -1,67 +1,75 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
 import AppShell from "../AppShell";
 
-export default function StaffPage() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("current_user"));
-    if (stored) setUser(stored);
-  }, []);
-
-  if (!user) {
-    return (
-      <div className="h-screen flex items-center justify-center text-white">
-        No user logged in
-      </div>
-    );
-  }
-
+export default function StaffPortal() {
   return (
     <AppShell>
       <div className="space-y-10 text-white">
 
-        <h1 className="text-3xl">Staff Dashboard</h1>
+        <h1 className="text-3xl">Staff Portal</h1>
 
         <div className="grid md:grid-cols-2 gap-6">
 
-          <Link
-            href="/staff/invoices"
-            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
-          >
-            <div className="text-xl text-white">AI Invoice</div>
-          </Link>
+          {/* PERFORMANCE */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition">
+            <div className="text-lg flex items-center gap-2">
+              ⭐ Performance
+            </div>
+            <div className="text-white/50 text-sm">
+              Your score, level, and ranking today
+            </div>
+          </div>
 
-          <Link
-            href="/management/attendance"
-            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
-          >
-            <div className="text-xl text-white">Attendance</div>
-          </Link>
+          {/* EARNINGS */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition">
+            <div className="text-lg flex items-center gap-2">
+              💰 Earnings
+            </div>
+            <div className="text-white/50 text-sm">
+              Salary, service charge, and payouts
+            </div>
+          </div>
 
-          <Link
-            href="/pos"
-            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
-          >
-            <div className="text-xl text-white">POS</div>
-          </Link>
+          {/* ATTENDANCE */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition">
+            <div className="text-lg flex items-center gap-2">
+              ⏱ Attendance
+            </div>
+            <div className="text-white/50 text-sm">
+              Check-in status and lateness tracking
+            </div>
+          </div>
 
-          <Link
-            href="/staff/performance"
-            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
-          >
-            <div className="text-xl text-white">Performance</div>
-          </Link>
+          {/* AI INVOICE */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition">
+            <div className="text-lg flex items-center gap-2">
+              🤖 AI Invoice
+            </div>
+            <div className="text-white/50 text-sm">
+              Upload receipts and invoices
+            </div>
+          </div>
 
-          <Link
-            href="/staff/payroll"
-            className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
-          >
-            <div className="text-xl text-white">Payroll</div>
-          </Link>
+          {/* GOOGLE REVIEWS */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition">
+            <div className="text-lg flex items-center gap-2">
+              ⭐📍 Google Reviews
+            </div>
+            <div className="text-white/50 text-sm">
+              Upload customer reviews and feedback
+            </div>
+          </div>
+
+          {/* MESSAGES */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 hover:bg-white/10 transition">
+            <div className="text-lg flex items-center gap-2">
+              💬 Messages
+            </div>
+            <div className="text-white/50 text-sm">
+              Communication with management
+            </div>
+          </div>
 
         </div>
 

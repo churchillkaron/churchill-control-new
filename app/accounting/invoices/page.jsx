@@ -45,17 +45,24 @@ export default function InvoicesPage() {
     localStorage.removeItem("invoices");
   };
 
+  // 🔥 SUMMARY
   const summary = saved.reduce(
     (acc, inv) => {
       inv.items.forEach((item) => {
         acc.total += item.amount;
+
         if (item.account_type === "COGS") acc.cogs += item.amount;
         if (item.account_type === "Operating Expense") acc.opex += item.amount;
         if (item.account_type === "Owner / Non-Operating") acc.owner += item.amount;
+
+        // 🔥 NEW: department breakdown
+        acc.departments[item.department] =
+          (acc.departments[item.department] || 0) + item.amount;
       });
+
       return acc;
     },
-    { total: 0, cogs: 0, opex: 0, owner: 0 }
+    { total: 0, cogs: 0, opex: 0, owner: 0, departments: {} }
   );
 
   return (
@@ -85,6 +92,16 @@ export default function InvoicesPage() {
         <p>COGS: {summary.cogs}</p>
         <p>OPEX: {summary.opex}</p>
         <p>Owner: {summary.owner}</p>
+      </div>
+
+      {/* 🔥 NEW: DEPARTMENT VIEW */}
+      <div style={{ marginTop: 40 }}>
+        <h2>Department Breakdown</h2>
+        {Object.entries(summary.departments).map(([dept, amount]) => (
+          <div key={dept}>
+            {dept}: {amount} THB
+          </div>
+        ))}
       </div>
 
       <div style={{ marginTop: 40 }}>

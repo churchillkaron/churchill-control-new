@@ -9,13 +9,19 @@ export default function POSPage() {
   const [table, setTable] = useState("T1");
   const [activeCategory, setActiveCategory] = useState("starter");
 
-  // 🔥 NEW
   const [adjustments, setAdjustments] = useState([]);
   const [showAdjust, setShowAdjust] = useState(false);
   const [adjustType, setAdjustType] = useState("discount");
   const [adjustMode, setAdjustMode] = useState("percent");
   const [adjustValue, setAdjustValue] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
+
+  // 🔥 NEW CONTROL
+  const [showApproval, setShowApproval] = useState(false);
+  const [managerPin, setManagerPin] = useState("");
+  const [pendingAdjustment, setPendingAdjustment] = useState(null);
+
+  const MANAGER_PIN = "1234"; // change later
 
   const tables = ["T1", "T2", "T3", "T4", "T5", "T6"];
 
@@ -67,7 +73,7 @@ export default function POSPage() {
       id: Date.now(),
       table,
       items: orderItems,
-      adjustments, // 🔥 SAVE ADJUSTMENTS
+      adjustments,
       total: orderItems.reduce((s, i) => s + i.price, 0),
       status: mode === "fire" ? "kitchen" : "hold",
       created_at: new Date().toISOString(),
@@ -96,7 +102,7 @@ export default function POSPage() {
     localStorage.setItem("orders", JSON.stringify(updated));
   };
 
-  // 🔥 CALCULATION
+  // 🔥 CALC
   const subtotal =
     existingItems.reduce((s, i) => s + i.price, 0) +
     orderItems.reduce((s, i) => s + i.price, 0);
@@ -116,25 +122,35 @@ export default function POSPage() {
 
   const total = subtotal - discountTotal;
 
-  // 🔥 ADD ADJUSTMENT
-  const addAdjustment = () => {
+  // 🔥 REQUEST ADJUSTMENT (NO DIRECT APPLY)
+  const requestAdjustment = () => {
     if (!adjustValue) return;
 
-    setAdjustments((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        type: adjustType,
-        mode: adjustMode,
-        value: Number(adjustValue),
-        reason: adjustReason,
-        created_at: new Date().toISOString(),
-      },
-    ]);
+    setPendingAdjustment({
+      id: Date.now(),
+      type: adjustType,
+      mode: adjustMode,
+      value: Number(adjustValue),
+      reason: adjustReason,
+      created_at: new Date().toISOString(),
+    });
 
-    setAdjustValue("");
-    setAdjustReason("");
     setShowAdjust(false);
+    setShowApproval(true);
+  };
+
+  // 🔥 APPROVAL
+  const approveAdjustment = () => {
+    if (managerPin !== MANAGER_PIN) {
+      alert("Wrong PIN");
+      return;
+    }
+
+    setAdjustments((prev) => [...prev, pendingAdjustment]);
+
+    setManagerPin("");
+    setPendingAdjustment(null);
+    setShowApproval(false);
   };
 
   return (
@@ -204,7 +220,6 @@ export default function POSPage() {
             </div>
           ))}
 
-          {/* 🔥 ADJUSTMENTS DISPLAY */}
           {adjustments.map((a) => (
             <div key={a.id} className="text-red-400 text-sm">
               {a.type.toUpperCase()} - {a.mode === "percent" ? `${a.value}%` : a.value} ({a.reason})
@@ -215,7 +230,6 @@ export default function POSPage() {
           <div>Discount: -{discountTotal}</div>
           <div className="text-xl">Total: {total}</div>
 
-          {/* 🔥 ADJUST BUTTON */}
           <button
             onClick={() => setShowAdjust(true)}
             className="w-full bg-purple-500 py-2 rounded"
@@ -250,10 +264,31 @@ export default function POSPage() {
               />
 
               <button
-                onClick={addAdjustment}
+                onClick={requestAdjustment}
+                className="w-full bg-yellow-500 py-1"
+              >
+                REQUEST
+              </button>
+            </div>
+          )}
+
+          {showApproval && (
+            <div className="space-y-2 bg-red-900/60 p-3 rounded">
+              <div>Manager Approval Required</div>
+
+              <input
+                type="password"
+                placeholder="Enter PIN"
+                value={managerPin}
+                onChange={(e) => setManagerPin(e.target.value)}
+                className="w-full text-black px-2"
+              />
+
+              <button
+                onClick={approveAdjustment}
                 className="w-full bg-green-500 py-1"
               >
-                APPLY
+                APPROVE
               </button>
             </div>
           )}

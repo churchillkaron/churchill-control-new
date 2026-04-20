@@ -4,29 +4,35 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
-function getSeverity(text) {
-  const t = text.toLowerCase();
+function parseAI(text) {
+  const lines = text.split("\n").filter(Boolean);
 
-  if (t.includes("critical") || t.includes("overload") || t.includes("danger")) {
-    return "CRITICAL";
-  }
+  return lines.map((line) => {
+    const lower = line.toLowerCase();
 
-  if (t.includes("warning") || t.includes("low") || t.includes("drop")) {
-    return "WARNING";
-  }
+    let severity = "INFO";
+    if (lower.includes("critical") || lower.includes("overload")) {
+      severity = "CRITICAL";
+    } else if (lower.includes("low") || lower.includes("warning") || lower.includes("drop")) {
+      severity = "WARNING";
+    }
 
-  return "INFO";
+    return {
+      action: line,
+      reason: line,   // simple for now (same line)
+      impact: line,   // upgrade later
+      severity,
+    };
+  });
 }
 
 function getStyle(severity) {
   if (severity === "CRITICAL") {
     return "border-red-500 bg-red-500/10 text-red-300";
   }
-
   if (severity === "WARNING") {
     return "border-yellow-500 bg-yellow-500/10 text-yellow-300";
   }
-
   return "border-white/10 bg-white/5 text-white";
 }
 
@@ -48,7 +54,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const load = () => {
       const logs = JSON.parse(localStorage.getItem("ai_logs") || "[]");
-      setAiLogs(logs.slice(-5).reverse());
+      setAiLogs(logs.slice(-3).reverse());
     };
 
     load();
@@ -60,33 +66,47 @@ export default function DashboardPage() {
     <AppShell showNav={false}>
       <div className="space-y-10 text-white">
 
-        {/* 🔥 AI PANEL */}
+        {/* 🔥 AI OWNER PANEL */}
         <div className="space-y-4">
-          <h2 className="text-lg">AI Control Signals</h2>
+          <h2 className="text-lg">AI Owner Decisions</h2>
 
           {aiLogs.length === 0 && (
             <div className="text-white/40">No AI activity yet</div>
           )}
 
           {aiLogs.map((log) => {
-            const severity = getSeverity(log.result);
-            const style = getStyle(severity);
+            const decisions = parseAI(log.result);
 
-            return (
+            return decisions.map((d, i) => (
               <div
-                key={log.id}
-                className={`p-4 rounded-xl border ${style}`}
+                key={log.id + "_" + i}
+                className={`p-4 rounded-xl border ${getStyle(d.severity)}`}
               >
                 <div className="flex justify-between text-xs mb-2 opacity-70">
-                  <span>{severity}</span>
+                  <span>{d.severity}</span>
                   <span>{new Date(log.created_at).toLocaleTimeString()}</span>
                 </div>
 
-                <div className="text-sm whitespace-pre-line">
-                  {log.result}
+                <div className="text-sm space-y-2">
+
+                  <div>
+                    <span className="opacity-50">Action:</span><br />
+                    {d.action}
+                  </div>
+
+                  <div>
+                    <span className="opacity-50">Reason:</span><br />
+                    {d.reason}
+                  </div>
+
+                  <div>
+                    <span className="opacity-50">Impact:</span><br />
+                    {d.impact}
+                  </div>
+
                 </div>
               </div>
-            );
+            ));
           })}
         </div>
 

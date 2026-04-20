@@ -1,2 +1,2 @@
 import { NextResponse } from "next/server";
-import { orders } from "../../../lib/store/orders";
+import { orders } from "../orders/store";

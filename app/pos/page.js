@@ -9,6 +9,14 @@ export default function POSPage() {
   const [table, setTable] = useState("T1");
   const [activeCategory, setActiveCategory] = useState("starter");
 
+  // 🔥 NEW
+  const [adjustments, setAdjustments] = useState([]);
+  const [showAdjust, setShowAdjust] = useState(false);
+  const [adjustType, setAdjustType] = useState("discount");
+  const [adjustMode, setAdjustMode] = useState("percent");
+  const [adjustValue, setAdjustValue] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
+
   const tables = ["T1", "T2", "T3", "T4", "T5", "T6"];
 
   const menu = {
@@ -26,16 +34,11 @@ export default function POSPage() {
     ],
   };
 
-  // 🔥 LIVE SYNC (handles cancel automatically)
   useEffect(() => {
     const load = () => {
       const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
       const tableOrders = stored.filter((o) => o.table === table);
-
-      // flatten items → reflects cancel instantly
       const items = tableOrders.flatMap((o) => o.items || []);
-
       setExistingItems(items);
     };
 
@@ -64,6 +67,7 @@ export default function POSPage() {
       id: Date.now(),
       table,
       items: orderItems,
+      adjustments, // 🔥 SAVE ADJUSTMENTS
       total: orderItems.reduce((s, i) => s + i.price, 0),
       status: mode === "fire" ? "kitchen" : "hold",
       created_at: new Date().toISOString(),
@@ -73,6 +77,7 @@ export default function POSPage() {
     localStorage.setItem("orders", JSON.stringify(stored));
 
     setOrderItems([]);
+    setAdjustments([]);
   };
 
   const fireHeld = () => {
@@ -91,9 +96,46 @@ export default function POSPage() {
     localStorage.setItem("orders", JSON.stringify(updated));
   };
 
-  const total =
+  // 🔥 CALCULATION
+  const subtotal =
     existingItems.reduce((s, i) => s + i.price, 0) +
     orderItems.reduce((s, i) => s + i.price, 0);
+
+  const discountTotal = adjustments.reduce((sum, adj) => {
+    if (adj.type === "discount") {
+      if (adj.mode === "percent") {
+        return sum + (subtotal * adj.value) / 100;
+      }
+      return sum + adj.value;
+    }
+    if (adj.type === "comp") {
+      return sum + adj.value;
+    }
+    return sum;
+  }, 0);
+
+  const total = subtotal - discountTotal;
+
+  // 🔥 ADD ADJUSTMENT
+  const addAdjustment = () => {
+    if (!adjustValue) return;
+
+    setAdjustments((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        type: adjustType,
+        mode: adjustMode,
+        value: Number(adjustValue),
+        reason: adjustReason,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    setAdjustValue("");
+    setAdjustReason("");
+    setShowAdjust(false);
+  };
 
   return (
     <AppShell showNav={true}>
@@ -103,7 +145,6 @@ export default function POSPage() {
         <div className="space-y-6">
           <h1>POS</h1>
 
-          {/* TABLES */}
           <div className="grid grid-cols-3 gap-2">
             {tables.map((t) => (
               <button
@@ -118,7 +159,6 @@ export default function POSPage() {
             ))}
           </div>
 
-          {/* CATEGORY */}
           <div className="flex gap-2">
             {Object.keys(menu).map((cat) => (
               <button
@@ -133,7 +173,6 @@ export default function POSPage() {
             ))}
           </div>
 
-          {/* MENU */}
           {menu[activeCategory].map((item, i) => (
             <div
               key={i}
@@ -153,21 +192,71 @@ export default function POSPage() {
 
           <h2>Table {table}</h2>
 
-          {/* 🔥 EXISTING (live sync incl. cancel) */}
           {existingItems.map((i) => (
             <div key={i.id} className="text-sm text-white/60">
               {i.name}
             </div>
           ))}
 
-          {/* NEW */}
           {orderItems.map((i) => (
             <div key={i.id}>
               {i.name}
             </div>
           ))}
 
-          <div>Total: {total}</div>
+          {/* 🔥 ADJUSTMENTS DISPLAY */}
+          {adjustments.map((a) => (
+            <div key={a.id} className="text-red-400 text-sm">
+              {a.type.toUpperCase()} - {a.mode === "percent" ? `${a.value}%` : a.value} ({a.reason})
+            </div>
+          ))}
+
+          <div>Subtotal: {subtotal}</div>
+          <div>Discount: -{discountTotal}</div>
+          <div className="text-xl">Total: {total}</div>
+
+          {/* 🔥 ADJUST BUTTON */}
+          <button
+            onClick={() => setShowAdjust(true)}
+            className="w-full bg-purple-500 py-2 rounded"
+          >
+            ADJUST
+          </button>
+
+          {showAdjust && (
+            <div className="space-y-2 bg-black/40 p-3 rounded">
+              <select onChange={(e) => setAdjustType(e.target.value)}>
+                <option value="discount">Discount</option>
+                <option value="comp">Comp</option>
+              </select>
+
+              <select onChange={(e) => setAdjustMode(e.target.value)}>
+                <option value="percent">%</option>
+                <option value="fixed">THB</option>
+              </select>
+
+              <input
+                placeholder="Value"
+                value={adjustValue}
+                onChange={(e) => setAdjustValue(e.target.value)}
+                className="w-full text-black px-2"
+              />
+
+              <input
+                placeholder="Reason"
+                value={adjustReason}
+                onChange={(e) => setAdjustReason(e.target.value)}
+                className="w-full text-black px-2"
+              />
+
+              <button
+                onClick={addAdjustment}
+                className="w-full bg-green-500 py-1"
+              >
+                APPLY
+              </button>
+            </div>
+          )}
 
           <div className="flex gap-2">
             <button

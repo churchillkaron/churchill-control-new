@@ -138,7 +138,8 @@ export default function KitchenPage() {
                       Table {table}
                     </div>
 
-                    {orders.map((order) => {
+                    {/* 🔥 EACH ORDER = ONE TICKET */}
+                    {orders.map((order, index) => {
                       const minutes = getWaitingTime(order.created_at);
                       const urgencyStyle = getUrgencyStyle(minutes);
 
@@ -146,7 +147,7 @@ export default function KitchenPage() {
                         (i) => i.status === "DONE"
                       );
 
-                      // 🔥 MERGE ITEMS
+                      // merge items inside ticket
                       const merged = {};
 
                       order.stationItems.forEach((item) => {
@@ -156,7 +157,6 @@ export default function KitchenPage() {
                           merged[key] = {
                             name: item.name,
                             ids: [],
-                            status: item.status,
                           };
                         }
 
@@ -166,16 +166,17 @@ export default function KitchenPage() {
                       return (
                         <div
                           key={order.id}
-                          className={`p-3 rounded-xl ${urgencyStyle}`}
+                          className={`p-3 rounded-xl space-y-2 ${urgencyStyle}`}
                         >
-                          <div className="text-xs text-white/50 mb-2">
-                            {minutes} min
+                          {/* 🔥 COURSE LABEL */}
+                          <div className="text-xs text-white/40">
+                            Ticket {index + 1} • {minutes} min
                           </div>
 
                           {Object.values(merged).map((item) => (
                             <div
                               key={item.name}
-                              className="bg-black/30 p-2 rounded mb-2"
+                              className="bg-black/30 p-2 rounded"
                             >
                               <div>
                                 {item.ids.length}x {item.name}
@@ -208,7 +209,7 @@ export default function KitchenPage() {
                               onClick={() => serveOrder(order.id)}
                               className="w-full bg-blue-500 py-1 rounded text-black text-sm"
                             >
-                              Serve
+                              Serve Ticket
                             </button>
                           )}
                         </div>

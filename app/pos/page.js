@@ -1,6 +1,7 @@
 "use client";
 
 import { runAIActions } from "../../lib/aiActions";
+import { updateMenuStats } from "../../lib/menuMemory";
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
@@ -11,8 +12,6 @@ export default function POSPage() {
   const [activeCategory, setActiveCategory] = useState("starter");
 
   const [promoActive, setPromoActive] = useState(false);
-
-  const tables = ["T1", "T2", "T3", "T4", "T5", "T6"];
 
   const menu = {
     starter: [
@@ -36,7 +35,6 @@ export default function POSPage() {
       const items = tableOrders.flatMap((o) => o.items || []);
       setExistingItems(items);
 
-      // 🔥 READ AI PROMO STATE
       setPromoActive(localStorage.getItem("ai_promo_active") === "true");
     };
 
@@ -46,21 +44,16 @@ export default function POSPage() {
   }, [table]);
 
   const getPrice = (price) => {
-    if (promoActive) {
-      return Math.round(price * 0.9); // 🔥 10% discount
-    }
+    if (promoActive) return Math.round(price * 0.9);
     return price;
   };
 
   const addItem = (item) => {
-    const finalPrice = getPrice(item.price);
-
     setOrderItems((prev) => [
       ...prev,
       {
         ...item,
-        price: finalPrice,
-        originalPrice: item.price,
+        price: getPrice(item.price),
         id: Date.now() + Math.random(),
       },
     ]);
@@ -68,6 +61,9 @@ export default function POSPage() {
 
   const sendOrder = async (mode) => {
     if (orderItems.length === 0) return;
+
+    // 🔥 SAVE MENU PERFORMANCE
+    updateMenuStats(orderItems);
 
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
@@ -96,80 +92,33 @@ export default function POSPage() {
     <AppShell showNav={true}>
       <div className="grid md:grid-cols-2 gap-10 text-white">
 
-        {/* LEFT */}
         <div className="space-y-6">
           <h1>POS</h1>
 
-          {promoActive && (
-            <div className="text-green-400 text-sm">
-              🔥 Promotion Active (AI)
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            {Object.keys(menu).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1 ${
-                  activeCategory === cat ? "bg-orange-500" : "bg-white/10"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+          {Object.keys(menu).map((cat) => (
+            <button key={cat} onClick={() => setActiveCategory(cat)}>
+              {cat}
+            </button>
+          ))}
 
           {menu[activeCategory].map((item, i) => (
-            <div
-              key={i}
-              onClick={() => addItem(item)}
-              className="p-3 bg-white/5 rounded cursor-pointer"
-            >
+            <div key={i} onClick={() => addItem(item)}>
               {item.name} - {getPrice(item.price)}
-              {promoActive && (
-                <span className="text-xs text-green-400 ml-2">
-                  (promo)
-                </span>
-              )}
             </div>
           ))}
         </div>
 
-        {/* RIGHT */}
-        <div className="bg-white/5 p-6 rounded space-y-4">
-
+        <div>
           <h2>Table {table}</h2>
 
           {orderItems.map((i) => (
-            <div key={i.id}>
-              {i.name} - {i.price}
-              {i.originalPrice && i.originalPrice !== i.price && (
-                <span className="text-xs text-green-400 ml-2">
-                  (discounted)
-                </span>
-              )}
-            </div>
+            <div key={i.id}>{i.name}</div>
           ))}
 
-          <div className="text-xl">Total: {total}</div>
+          <div>Total: {total}</div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => sendOrder("hold")}
-              className="w-full bg-yellow-500 py-2 rounded text-black"
-            >
-              HOLD
-            </button>
-
-            <button
-              onClick={() => sendOrder("fire")}
-              className="w-full bg-green-500 py-2 rounded text-black"
-            >
-              FIRE
-            </button>
-          </div>
-
+          <button onClick={() => sendOrder("hold")}>HOLD</button>
+          <button onClick={() => sendOrder("fire")}>FIRE</button>
         </div>
 
       </div>

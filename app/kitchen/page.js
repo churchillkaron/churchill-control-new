@@ -9,7 +9,7 @@ export default function KitchenPage() {
   const loadOrders = () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    // 🔥 ONLY ACTIVE KITCHEN ORDERS (NOT CLOSED / SERVED)
+    // 🔥 ONLY ACTIVE KITCHEN ORDERS (AUTO REMOVE SERVED)
     const kitchenOrders = stored.filter(
       (o) => o.status === "kitchen"
     );
@@ -29,10 +29,7 @@ export default function KitchenPage() {
     const updated = stored.map((order) => {
       if (order.id !== orderId) return order;
 
-      // 🔥 BLOCK CLOSED / SERVED
-      if (order.status === "closed" || order.status === "served") {
-        return order;
-      }
+      if (order.status !== "kitchen") return order;
 
       return {
         ...order,
@@ -54,9 +51,6 @@ export default function KitchenPage() {
     const updated = stored.map((order) => {
       if (order.id !== orderId) return order;
 
-      // 🔥 BLOCK IF CLOSED
-      if (order.status === "closed") return order;
-
       return {
         ...order,
         status: "served",
@@ -65,6 +59,8 @@ export default function KitchenPage() {
     });
 
     localStorage.setItem("orders", JSON.stringify(updated));
+
+    // 🔥 Immediately remove from kitchen view
     loadOrders();
   };
 

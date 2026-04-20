@@ -40,7 +40,7 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const updateItemStatus = (orderId, itemId, newStatus) => {
+  const updateItemStatus = (orderId, itemIds, newStatus) => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const updated = stored.map((order) => {
@@ -50,7 +50,7 @@ export default function KitchenPage() {
       return {
         ...order,
         items: order.items.map((item) =>
-          item.id === itemId
+          itemIds.includes(item.id)
             ? { ...item, status: newStatus }
             : item
         ),
@@ -97,7 +97,6 @@ export default function KitchenPage() {
 
         <div className="grid md:grid-cols-3 gap-6">
           {stations.map((station) => {
-            // 🔥 GROUP BY TABLE
             const grouped = {};
 
             orders.forEach((order) => {
@@ -147,6 +146,23 @@ export default function KitchenPage() {
                         (i) => i.status === "DONE"
                       );
 
+                      // 🔥 MERGE ITEMS
+                      const merged = {};
+
+                      order.stationItems.forEach((item) => {
+                        const key = item.name;
+
+                        if (!merged[key]) {
+                          merged[key] = {
+                            name: item.name,
+                            ids: [],
+                            status: item.status,
+                          };
+                        }
+
+                        merged[key].ids.push(item.id);
+                      });
+
                       return (
                         <div
                           key={order.id}
@@ -156,17 +172,19 @@ export default function KitchenPage() {
                             {minutes} min
                           </div>
 
-                          {order.stationItems.map((item) => (
+                          {Object.values(merged).map((item) => (
                             <div
-                              key={item.id}
+                              key={item.name}
                               className="bg-black/30 p-2 rounded mb-2"
                             >
-                              <div>{item.name}</div>
+                              <div>
+                                {item.ids.length}x {item.name}
+                              </div>
 
                               <div className="flex gap-2 mt-1">
                                 <button
                                   onClick={() =>
-                                    updateItemStatus(order.id, item.id, "COOKING")
+                                    updateItemStatus(order.id, item.ids, "COOKING")
                                   }
                                   className="px-2 py-1 bg-yellow-500 text-black text-xs rounded"
                                 >
@@ -175,7 +193,7 @@ export default function KitchenPage() {
 
                                 <button
                                   onClick={() =>
-                                    updateItemStatus(order.id, item.id, "DONE")
+                                    updateItemStatus(order.id, item.ids, "DONE")
                                   }
                                   className="px-2 py-1 bg-green-500 text-black text-xs rounded"
                                 >

@@ -11,24 +11,26 @@ export default function POSPage() {
 
   const tables = ["T1", "T2", "T3", "T4", "T5", "T6"];
 
+  // 🔥 COURSE = CATEGORY
   const menu = {
     starter: [
-      { name: "Beef Carpaccio", price: 320, station: "WESTERN" },
-      { name: "Tom Yum Goong", price: 180, station: "THAI" },
+      { name: "Beef Carpaccio", price: 320, station: "WESTERN", course: "starter" },
+      { name: "Tom Yum Goong", price: 180, station: "THAI", course: "starter" },
     ],
     main: [
-      { name: "Chili Prawns", price: 320, station: "THAI" },
-      { name: "Scallops", price: 520, station: "WESTERN" },
+      { name: "Chili Prawns", price: 320, station: "THAI", course: "main" },
+      { name: "Scallops", price: 520, station: "WESTERN", course: "main" },
+    ],
+    dessert: [
+      { name: "Mango Sticky Rice", price: 180, station: "THAI", course: "dessert" },
+      { name: "Chocolate Cake", price: 220, station: "WESTERN", course: "dessert" },
     ],
   };
 
-  // LOAD TABLE
   useEffect(() => {
     const load = () => {
       const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
       const tableOrders = stored.filter((o) => o.table === table);
-
       const allItems = tableOrders.flatMap((o) => o.items || []);
       setExistingItems(allItems);
     };
@@ -69,7 +71,6 @@ export default function POSPage() {
     setOrderItems([]);
   };
 
-  // 🔥 FIRE HELD ORDERS
   const fireHeld = () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
@@ -98,6 +99,7 @@ export default function POSPage() {
         <div className="space-y-6">
           <h1>POS</h1>
 
+          {/* TABLES */}
           <div className="grid grid-cols-3 gap-2">
             {tables.map((t) => (
               <button
@@ -112,6 +114,7 @@ export default function POSPage() {
             ))}
           </div>
 
+          {/* CATEGORY */}
           <div className="flex gap-2">
             {Object.keys(menu).map((cat) => (
               <button
@@ -126,6 +129,7 @@ export default function POSPage() {
             ))}
           </div>
 
+          {/* MENU */}
           {menu[activeCategory].map((item, i) => (
             <div
               key={i}
@@ -133,6 +137,9 @@ export default function POSPage() {
               className="p-3 bg-white/5 rounded cursor-pointer"
             >
               {item.name} - {item.price}
+              <div className="text-xs text-white/40">
+                {item.course.toUpperCase()}
+              </div>
             </div>
           ))}
         </div>
@@ -142,14 +149,18 @@ export default function POSPage() {
 
           <h2>Table {table}</h2>
 
+          {/* EXISTING */}
           {existingItems.map((i) => (
             <div key={i.id} className="text-sm text-white/60">
-              {i.name}
+              {i.name} ({i.course})
             </div>
           ))}
 
+          {/* NEW */}
           {orderItems.map((i) => (
-            <div key={i.id}>{i.name}</div>
+            <div key={i.id}>
+              {i.name} ({i.course})
+            </div>
           ))}
 
           <div>Total: {total}</div>
@@ -174,7 +185,7 @@ export default function POSPage() {
             onClick={fireHeld}
             className="w-full bg-blue-500 py-2 rounded text-black"
           >
-            FIRE HELD ORDERS
+            FIRE HELD
           </button>
 
         </div>

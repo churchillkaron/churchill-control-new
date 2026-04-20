@@ -5,14 +5,21 @@ import AppShell from "../AppShell";
 
 export default function ControlFinalPage() {
   const [orders, setOrders] = useState([]);
+  const [staff, setStaff] = useState([]);
 
   useEffect(() => {
     loadOrders();
+    loadStaff();
   }, []);
 
   const loadOrders = () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
     setOrders(stored);
+  };
+
+  const loadStaff = () => {
+    const stored = JSON.parse(localStorage.getItem("staff") || "[]");
+    setStaff(stored);
   };
 
   const saveOrders = (updatedOrders) => {
@@ -50,10 +57,7 @@ export default function ControlFinalPage() {
         ...o,
         adjustmentRequests: (o.adjustmentRequests || []).map((a) =>
           a.id === adjId
-            ? {
-                ...a,
-                status: "rejected",
-              }
+            ? { ...a, status: "rejected" }
             : a
         ),
       };
@@ -94,11 +98,33 @@ export default function ControlFinalPage() {
 
   const finalRevenue = subtotal - discountTotal;
 
-  // ✅ SERVICE POOL
   const servicePool = finalRevenue * 0.05;
+
+  // 🔥 REAL STAFF PAYOUT (based on score)
+  const calculateStaff = () => {
+    if (!staff || staff.length === 0) return [];
+
+    const totalScore = staff.reduce((sum, s) => sum + (s.score || 0), 0);
+
+    if (totalScore === 0) return [];
+
+    return staff.map((s) => {
+      const share = ((s.score || 0) / totalScore) * servicePool;
+
+      return {
+        id: s.id,
+        name: s.name,
+        role: s.role,
+        score: s.score || 0,
+        payrollAmount: Math.round(share),
+      };
+    });
+  };
 
   const saveDay = () => {
     const history = JSON.parse(localStorage.getItem("history") || "[]");
+
+    const calculatedStaff = calculateStaff();
 
     const newDay = {
       id: Date.now(),
@@ -111,7 +137,8 @@ export default function ControlFinalPage() {
       discountTotal,
       finalRevenue,
 
-      servicePool, // ✅ REQUIRED FOR PAYOUT
+      servicePool,
+      staff: calculatedStaff, // ✅ REAL STAFF
 
       created_at: new Date().toISOString(),
     };
@@ -134,10 +161,20 @@ export default function ControlFinalPage() {
         <h1>Control Final</h1>
 
         <div className="bg-white/5 p-4 rounded space-y-2">
-          <div>Subtotal: {subtotal}</div>
-          <div>Discounts: -{discountTotal}</div>
           <div>Revenue: {finalRevenue}</div>
           <div>Service Pool: {servicePool}</div>
+        </div>
+
+        {/* STAFF PREVIEW */}
+        <div className="bg-white/5 p-4 rounded space-y-2">
+          <div className="text-sm text-white/50">Staff Preview</div>
+
+          {calculateStaff().map((s) => (
+            <div key={s.id} className="flex justify-between text-sm">
+              <div>{s.name}</div>
+              <div>{s.payrollAmount} THB</div>
+            </div>
+          ))}
         </div>
 
         <div className="space-y-3">

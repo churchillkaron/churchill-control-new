@@ -4,94 +4,108 @@ import { useEffect, useState } from "react";
 import AppShell from "../../AppShell";
 
 export default function RevenuePage() {
-  const [revenue, setRevenue] = useState([]);
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
+  const [history, setHistory] = useState([]);
+  const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("revenue") || "[]");
-    setRevenue(data);
+    const savedHistory = JSON.parse(localStorage.getItem("history") || "[]");
+    const posOrders = JSON.parse(localStorage.getItem("orders") || "[]");
+
+    setHistory(savedHistory);
+    setOrders(posOrders);
   }, []);
 
-  const addRevenue = () => {
-    if (!amount) return;
+  // latest closed day
+  const latestDay = history[history.length - 1] || {};
 
-    const newItem = {
-      id: Date.now(),
-      amount: Number(amount),
-      note,
-      date: new Date().toLocaleDateString("en-GB"),
-    };
+  const totalRevenue = latestDay?.revenue || 0;
+  const totalOrders = latestDay?.totalOrders || orders.length || 0;
+  const avgOrder =
+    totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
 
-    const updated = [newItem, ...revenue];
-
-    localStorage.setItem("revenue", JSON.stringify(updated));
-    setRevenue(updated);
-
-    setAmount("");
-    setNote("");
-  };
-
-  const totalRevenue = revenue.reduce((sum, r) => sum + r.amount, 0);
+  // today live revenue (from POS if open)
+  const liveRevenue = orders.reduce(
+    (sum, o) => sum + Number(o.total || 0),
+    0
+  );
 
   return (
     <AppShell>
-      <div className="space-y-10 text-white">
+      <div className="min-h-screen text-white p-6 max-w-5xl mx-auto space-y-10">
 
-        <h1 className="text-3xl">Revenue</h1>
+        {/* HEADER */}
+        <div>
+          <h1 className="text-3xl font-semibold">Revenue</h1>
+          <p className="text-white/40 text-sm">
+            Sales performance + control
+          </p>
+        </div>
 
-        {/* ADD */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+        {/* CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-          <input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Amount (THB)"
-            className="w-full px-4 py-2 rounded bg-black/40 text-white"
-          />
+          <div className="bg-white/5 p-6 rounded-2xl">
+            <p className="text-white/40 text-sm">Latest Closed Day</p>
+            <h2 className="text-2xl mt-2 text-green-400">
+              {totalRevenue.toLocaleString()} THB
+            </h2>
+          </div>
 
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Note"
-            className="w-full px-4 py-2 rounded bg-black/40 text-white"
-          />
+          <div className="bg-white/5 p-6 rounded-2xl">
+            <p className="text-white/40 text-sm">Orders</p>
+            <h2 className="text-2xl mt-2">
+              {totalOrders.toLocaleString()}
+            </h2>
+          </div>
 
-          <button
-            onClick={addRevenue}
-            className="bg-[#ff7a00] px-4 py-2 rounded"
-          >
-            Add Revenue
-          </button>
+          <div className="bg-white/5 p-6 rounded-2xl">
+            <p className="text-white/40 text-sm">Avg Order</p>
+            <h2 className="text-2xl mt-2">
+              {avgOrder.toLocaleString()} THB
+            </h2>
+          </div>
 
         </div>
 
-        {/* SUMMARY */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-          Total Revenue: THB {totalRevenue.toLocaleString()}
+        {/* LIVE */}
+        <div className="bg-white/5 p-6 rounded-2xl">
+
+          <p className="text-white/40 text-sm">Live (POS)</p>
+
+          <h2 className="text-2xl mt-2 text-orange-400">
+            {liveRevenue.toLocaleString()} THB
+          </h2>
+
         </div>
 
-        {/* LIST */}
+        {/* HISTORY LIST */}
         <div className="space-y-3">
 
-          {revenue.map((r) => (
-            <div
-              key={r.id}
-              className="bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between"
-            >
-              <div>
-                <div>{r.note || "Revenue"}</div>
-                <div className="text-xs text-white/40">{r.date}</div>
-              </div>
+          <h2 className="text-xl">History</h2>
 
-              <div className="text-green-400">
-                THB {r.amount.toLocaleString()}
-              </div>
-            </div>
-          ))}
+          {history
+            .slice()
+            .reverse()
+            .map((day, i) => (
+              <div
+                key={i}
+                className="bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between"
+              >
+                <div>
+                  <div>{day.date || "No date"}</div>
+                  <div className="text-xs text-white/40">
+                    Orders: {day.totalOrders || 0}
+                  </div>
+                </div>
 
-          {revenue.length === 0 && (
-            <div className="text-white/40">No revenue yet</div>
+                <div className="text-green-400">
+                  {Number(day.revenue || 0).toLocaleString()} THB
+                </div>
+              </div>
+            ))}
+
+          {history.length === 0 && (
+            <div className="text-white/40">No revenue data</div>
           )}
 
         </div>

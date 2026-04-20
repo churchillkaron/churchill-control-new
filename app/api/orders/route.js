@@ -1,22 +1,37 @@
 import { NextResponse } from "next/server";
-import { orders } from "../store";
+import { orders } from "./store";
+
+export async function GET() {
+  return NextResponse.json(orders);
+}
 
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { id } = body;
 
-    const order = orders.find((o) => o.id === id);
-
-    if (!order) {
+    if (!body.items || body.items.length === 0) {
       return NextResponse.json(
-        { error: "Order not found" },
-        { status: 404 }
+        { error: "No items in order" },
+        { status: 400 }
       );
     }
 
-    // 🔥 FORCE PAID STATUS
-    order.status = "paid";
+    const total = body.items.reduce(
+      (sum, i) => sum + (i.price || 0),
+      0
+    );
+
+    const order = {
+      id: Date.now(),
+      table: body.table || "T1",
+      staff: body.staff || "FOH",
+      items: body.items,
+      total,
+      status: "new",
+      createdAt: new Date().toISOString(),
+    };
+
+    orders.push(order);
 
     return NextResponse.json({
       success: true,

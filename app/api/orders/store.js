@@ -1,5 +1,4 @@
-// 🔥 GLOBAL STORE (persists across requests in dev)
-
+// persistent in dev
 if (!global.ordersStore) {
   global.ordersStore = [];
 }

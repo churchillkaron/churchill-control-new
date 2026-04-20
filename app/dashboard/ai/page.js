@@ -7,7 +7,6 @@ import {
   getPerformanceLevel,
 } from "../../../lib/performance";
 
-// 🔥 MEMORY FUNCTIONS (inline to avoid extra files for now)
 function saveInsight(insight) {
   const memory = JSON.parse(localStorage.getItem("ai_memory") || "[]");
 
@@ -43,7 +42,17 @@ export default function AIOwner() {
       }
     }, 2000);
 
-    return () => clearInterval(interval);
+    // 🔥 AUTO AI LOOP (every 30 sec)
+    const aiInterval = setInterval(() => {
+      if (typeof window !== "undefined") {
+        runAI();
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(aiInterval);
+    };
   }, []);
 
   const loadAll = () => {
@@ -89,35 +98,38 @@ export default function AIOwner() {
     setActions(newActions);
   }, [foh.revenue, foh.avg, performance.level, avgPastRevenue]);
 
-  // 🔥 REAL AI CALL
+  // 🔥 REAL AI (AUTO)
   const runAI = async () => {
-    const res = await fetch("/api/ai", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        revenue: foh.revenue,
-        orders: foh.orderCount,
-        avg: foh.avg,
-        performance: performance.level,
-      }),
-    });
+    try {
+      const res = await fetch("/api/ai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          revenue: foh.revenue,
+          orders: foh.orderCount,
+          avg: foh.avg,
+          performance: performance.level,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    setAiResult(data.result);
+      setAiResult(data.result);
 
-    // 🔥 SAVE MEMORY
-    saveInsight(data.result);
-    setInsights(getInsights());
+      saveInsight(data.result);
+      setInsights(getInsights());
+    } catch (err) {
+      console.error("AI error:", err);
+    }
   };
 
   return (
     <AppShell>
       <div className="text-white space-y-6">
 
-        <h1 className="text-3xl">AI Owner</h1>
+        <h1 className="text-3xl">AI Owner (Auto)</h1>
 
         {/* LIVE */}
         <div className="bg-white/5 p-6 rounded-xl space-y-2">
@@ -148,22 +160,14 @@ export default function AIOwner() {
           ))}
         </div>
 
-        {/* 🔥 AI BUTTON */}
-        <button
-          onClick={runAI}
-          className="bg-orange-500 px-4 py-2 rounded text-black"
-        >
-          Run AI Analysis
-        </button>
-
-        {/* 🔥 AI RESULT */}
+        {/* AI OUTPUT */}
         {aiResult && (
           <div className="bg-white/5 p-4 rounded whitespace-pre-line">
             {aiResult}
           </div>
         )}
 
-        {/* 🔥 AI MEMORY */}
+        {/* MEMORY */}
         {insights.length > 0 && (
           <div className="bg-white/5 p-4 rounded space-y-2">
             <div className="text-sm text-white/50">AI Memory</div>

@@ -4,71 +4,63 @@ import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
 export default function ControlFinal() {
-  const [data, setData] = useState(null);
+  const [revenueData, setRevenueData] = useState(null);
   const [monthly, setMonthly] = useState(null);
+  const [staff, setStaff] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/staff").then((res) => res.json()),
+      fetch("/api/revenue").then((res) => res.json()),
       fetch("/api/monthly").then((res) => res.json()),
+      fetch("/api/staff").then((res) => res.json()),
     ])
-      .then(([staffData, monthlyData]) => {
-        setData(staffData);
+      .then(([rev, monthlyData, staffData]) => {
+        setRevenueData(rev);
         setMonthly(monthlyData);
+        setStaff(staffData);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
-  // 🔥 PERFORMANCE ENGINE (AUTO)
+  // 🔥 PERFORMANCE ENGINE
   const calculatePerformance = () => {
-    if (!data) return { level: "LOADING", score: 0 };
+    if (!staff) return { level: "LOADING", score: 0 };
 
-    const foh = data.fohScore || 0;
-    const bar = data.barScore || 0;
-    const kitchen = data.kitchenScore || 0;
+    const foh = staff.fohScore || 0;
+    const bar = staff.barScore || 0;
+    const kitchen = staff.kitchenScore || 0;
 
-    const avgScore = Math.round((foh + bar + kitchen) / 3);
+    const avg = Math.round((foh + bar + kitchen) / 3);
 
     let level = "GOOD";
-    if (avgScore < 40) level = "CRITICAL";
-    else if (avgScore < 70) level = "WARNING";
-    else if (avgScore >= 100) level = "EXCELLENT";
+    if (avg < 40) level = "CRITICAL";
+    else if (avg < 70) level = "WARNING";
 
-    return { level, score: avgScore };
-  };
-
-  // 🔥 SERVICE ENGINE (AUTO)
-  const calculateServicePool = () => {
-    if (!data) return 0;
-    const rate = (monthly?.level || 5) / 100;
-    return Math.round((data.revenue || 0) * rate);
-  };
-
-  // 🔥 PAYOUT ENGINE (AUTO)
-  const calculatePayoutPool = (servicePool) => {
-    if (!data) return 0;
-
-    const performance = calculatePerformance();
-
-    let multiplier = 1;
-    if (performance.level === "CRITICAL") multiplier = 0.2;
-    if (performance.level === "WARNING") multiplier = 0.7;
-    if (performance.level === "GOOD") multiplier = 1;
-
-    return Math.round(servicePool * multiplier);
+    return { level, score: avg };
   };
 
   const performance = calculatePerformance();
-  const servicePool = calculateServicePool();
-  const payoutPool = calculatePayoutPool(servicePool);
 
-  // 🔥 LOCK DAY (CORE SYSTEM FUNCTION)
+  // 🔥 SERVICE ENGINE
+  const servicePool = Math.round(
+    (revenueData?.revenue || 0) * ((monthly?.level || 5) / 100)
+  );
+
+  // 🔥 PAYOUT ENGINE
+  const payoutMultiplier =
+    performance.level === "CRITICAL"
+      ? 0.2
+      : performance.level === "WARNING"
+      ? 0.7
+      : 1;
+
+  const payoutPool = Math.round(servicePool * payoutMultiplier);
+
+  // 🔥 LOCK DAY (REAL DATA NOW)
   const lockDay = async () => {
-    if (!data) return;
-
     setSaving(true);
 
     try {
@@ -80,22 +72,22 @@ export default function ControlFinal() {
         body: JSON.stringify({
           date: new Date().toISOString(),
 
-          // CORE FINANCIALS
-          revenue: data.revenue,
+          revenue: revenueData?.revenue || 0,
+          orderCount: revenueData?.orderCount || 0,
+          avgOrderValue: revenueData?.avgOrderValue || 0,
+
           servicePool,
           payoutPool,
 
-          // PERFORMANCE
           performanceLevel: performance.level,
           performanceScore: performance.score,
-          fohScore: data.fohScore,
-          barScore: data.barScore,
-          kitchenScore: data.kitchenScore,
 
-          // STAFF SNAPSHOT
-          staff: data.staffWithPayout,
+          fohScore: staff?.fohScore,
+          barScore: staff?.barScore,
+          kitchenScore: staff?.kitchenScore,
 
-          // MONTHLY SYSTEM
+          staff: staff?.staffWithPayout || [],
+
           serviceLevel: monthly?.level || 5,
         }),
       });
@@ -103,7 +95,7 @@ export default function ControlFinal() {
       if (!res.ok) {
         alert("Failed to save day");
       } else {
-        alert("Day locked and saved");
+        alert("Day locked (REAL DATA)");
       }
     } catch (err) {
       alert("Error saving day");
@@ -118,11 +110,15 @@ export default function ControlFinal() {
 
         <h1 className="text-3xl">Control Final</h1>
 
-        {/* HERO */}
+        {/* REVENUE */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-          <div className="text-sm text-white/50">Revenue</div>
+          <div className="text-sm text-white/50">Revenue (REAL)</div>
           <div className="text-4xl mt-2">
-            {loading ? "..." : `${data?.revenue || 0} THB`}
+            {loading ? "..." : `${revenueData?.revenue || 0} THB`}
+          </div>
+          <div className="text-xs text-white/50 mt-2">
+            Orders: {revenueData?.orderCount || 0} | Avg:{" "}
+            {revenueData?.avgOrderValue || 0}
           </div>
         </div>
 
@@ -131,61 +127,26 @@ export default function ControlFinal() {
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
             <div className="text-sm text-white/50">Service Pool</div>
-            <div className="text-xl mt-1">
-              {loading ? "..." : `${servicePool} THB`}
-            </div>
+            <div className="text-xl mt-1">{servicePool} THB</div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
             <div className="text-sm text-white/50">Payout Pool</div>
-            <div className="text-xl mt-1">
-              {loading ? "..." : `${payoutPool} THB`}
-            </div>
+            <div className="text-xl mt-1">{payoutPool} THB</div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
             <div className="text-sm text-white/50">Performance</div>
-            <div className="text-xl mt-1">
-              {loading ? "..." : performance.level}
-            </div>
+            <div className="text-xl mt-1">{performance.level}</div>
           </div>
 
-        </div>
-
-        {/* MONTHLY SYSTEM */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-          <div className="text-sm text-white/50">Monthly Service Level</div>
-          <div className="text-2xl mt-2">
-            {monthly ? `${monthly.level}%` : "..."}
-          </div>
-          <div className="text-white/50 text-sm">
-            Avg Score: {monthly?.avgScore || "..."}
-          </div>
-        </div>
-
-        {/* STAFF */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-          <div className="text-lg">Staff Payout</div>
-
-          {loading && <div className="text-white/50">Loading...</div>}
-
-          {!loading &&
-            data?.staffWithPayout?.map((s, i) => (
-              <div
-                key={i}
-                className="flex justify-between border-b border-white/10 pb-2"
-              >
-                <div>{s.name}</div>
-                <div>{s.payrollAmount} THB</div>
-              </div>
-            ))}
         </div>
 
         {/* ACTION */}
         <button
           onClick={lockDay}
           disabled={saving}
-          className="bg-[#ff7a00] px-6 py-3 rounded-xl text-white hover:brightness-110 transition disabled:opacity-50"
+          className="bg-[#ff7a00] px-6 py-3 rounded-xl text-white"
         >
           {saving ? "Locking..." : "Lock Day"}
         </button>

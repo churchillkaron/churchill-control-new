@@ -6,7 +6,6 @@ import AppShell from "../AppShell";
 export default function ControlFinalPage() {
   const [orders, setOrders] = useState([]);
 
-  // 🔥 LOAD
   useEffect(() => {
     loadOrders();
   }, []);
@@ -16,7 +15,6 @@ export default function ControlFinalPage() {
     setOrders(stored);
   };
 
-  // 🔥 SAVE BACK TO STORAGE
   const saveOrders = (updatedOrders) => {
     localStorage.setItem("orders", JSON.stringify(updatedOrders));
     setOrders(updatedOrders);
@@ -66,7 +64,7 @@ export default function ControlFinalPage() {
     saveOrders(updated);
   };
 
-  // 🔥 FLATTEN REQUESTS
+  // 🔥 FLATTEN
   const adjustments = orders.flatMap((o) =>
     (o.adjustmentRequests || []).map((a) => ({
       ...a,
@@ -75,7 +73,7 @@ export default function ControlFinalPage() {
     }))
   );
 
-  // 🔥 CALCULATE
+  // 🔥 CALCULATIONS
   const subtotal = orders.reduce(
     (sum, o) => sum + o.items.reduce((s, i) => s + i.price, 0),
     0
@@ -100,20 +98,50 @@ export default function ControlFinalPage() {
 
   const finalRevenue = subtotal - discountTotal;
 
+  // 🔥 SAVE DAY
+  const saveDay = () => {
+    const history = JSON.parse(localStorage.getItem("history") || "[]");
+
+    const newDay = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+
+      orders,
+      adjustments,
+
+      subtotal,
+      discountTotal,
+      finalRevenue,
+
+      created_at: new Date().toISOString(),
+    };
+
+    history.push(newDay);
+
+    localStorage.setItem("history", JSON.stringify(history));
+
+    // 🔥 RESET ORDERS AFTER CLOSE
+    localStorage.removeItem("orders");
+
+    alert("Day Closed & Saved");
+
+    setOrders([]);
+  };
+
   return (
     <AppShell showNav={true}>
       <div className="text-white space-y-6">
 
         <h1>Control Final</h1>
 
-        {/* 🔥 REVENUE */}
+        {/* REVENUE */}
         <div className="bg-white/5 p-4 rounded space-y-2">
           <div>Subtotal: {subtotal}</div>
           <div>Discounts: -{discountTotal}</div>
           <div className="text-xl">Final Revenue: {finalRevenue}</div>
         </div>
 
-        {/* 🔥 REQUESTS */}
+        {/* REQUESTS */}
         <div className="space-y-3">
           <h2>Adjustment Requests</h2>
 
@@ -151,6 +179,14 @@ export default function ControlFinalPage() {
             </div>
           ))}
         </div>
+
+        {/* 🔥 CLOSE DAY */}
+        <button
+          onClick={saveDay}
+          className="w-full bg-orange-500 py-3 rounded text-black text-lg"
+        >
+          CLOSE DAY
+        </button>
 
       </div>
     </AppShell>

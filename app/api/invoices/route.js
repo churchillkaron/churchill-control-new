@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { invoices } from "../route";
 
-// 🔥 UPDATE INVOICE STATUS (APPROVE / REJECT)
+// ⚠️ TEMP: simple in-memory store duplication
+// (real fix later = database)
+let invoices = [];
+
 export async function POST(req) {
   try {
     const body = await req.json();
     const { id, status } = body;
 
-    // VALIDATION
     if (!id || !status) {
       return NextResponse.json(
         { error: "Missing id or status" },
@@ -24,10 +25,8 @@ export async function POST(req) {
       );
     }
 
-    // 🔥 UPDATE STATUS
     invoice.status = status;
 
-    // 🔥 META TRACKING
     if (status === "approved") {
       invoice.approvedAt = new Date().toISOString();
       invoice.rejectedAt = null;

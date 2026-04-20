@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { orders } from "./store";
+import { orders } from "@/lib/store/orders";
 
 export async function GET() {
   return NextResponse.json(orders);
@@ -23,8 +23,7 @@ export async function POST(req) {
       staff,
       items,
       total,
-
-      status: "new", // new → cooking → done → paid
+      status: "new",
       createdAt: new Date().toISOString(),
       paidAt: null,
     };

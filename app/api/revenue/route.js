@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { orders } from "../orders/store";
+import { orders } from "@/lib/store/orders";
 
-// 🔥 REAL REVENUE ENGINE
 export async function GET() {
   const paidOrders = orders.filter((o) => o.status === "paid");
 

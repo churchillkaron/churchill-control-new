@@ -11,6 +11,8 @@ export default function PayrollPage() {
 
   useEffect(() => {
     const history = getHistoryDays() || [];
+    const savedAdjustments = JSON.parse(localStorage.getItem("payroll_adjustments") || "{}");
+
     const map = {};
 
     history.forEach((day) => {
@@ -29,13 +31,38 @@ export default function PayrollPage() {
       });
     });
 
+    // merge saved adjustments
+    Object.keys(map).forEach((name) => {
+      if (savedAdjustments[name]) {
+        map[name] = {
+          ...map[name],
+          ...savedAdjustments[name],
+        };
+      }
+    });
+
     setStaffTotals(Object.values(map));
   }, []);
+
+  const saveAdjustments = (data) => {
+    const obj = {};
+    data.forEach((s) => {
+      obj[s.name] = {
+        salary: s.salary,
+        late: s.late,
+        adjust: s.adjust,
+      };
+    });
+
+    localStorage.setItem("payroll_adjustments", JSON.stringify(obj));
+  };
 
   const updateField = (index, field, value) => {
     const updated = [...staffTotals];
     updated[index][field] = Number(value);
+
     setStaffTotals(updated);
+    saveAdjustments(updated);
   };
 
   const calculateTotal = (s) => {
@@ -50,10 +77,17 @@ export default function PayrollPage() {
 
   return (
     <AppShell>
-      <div className="space-y-10 text-white">
+      <div className="min-h-screen text-white p-6 max-w-5xl mx-auto space-y-10">
 
-        <h1 className="text-3xl">Payroll</h1>
+        {/* HEADER */}
+        <div>
+          <h1 className="text-3xl font-semibold">Payroll</h1>
+          <p className="text-white/40 text-sm">
+            Staff salary + service + penalties
+          </p>
+        </div>
 
+        {/* TOTAL */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <div className="text-sm text-white/50">Total Staff Cost</div>
           <div className="text-3xl mt-2 text-orange-400">
@@ -61,10 +95,12 @@ export default function PayrollPage() {
           </div>
         </div>
 
+        {/* LIST */}
         <div className="space-y-4">
 
           {staffTotals.map((s, i) => {
             const total = calculateTotal(s);
+            const latePenalty = s.late * 500;
 
             return (
               <div
@@ -87,7 +123,7 @@ export default function PayrollPage() {
 
                   <input
                     type="number"
-                    placeholder="Late"
+                    placeholder="Late (x500)"
                     value={s.late}
                     onChange={(e) =>
                       updateField(i, "late", e.target.value)
@@ -97,7 +133,7 @@ export default function PayrollPage() {
 
                   <input
                     type="number"
-                    placeholder="Adjust"
+                    placeholder="Adjust +/-"
                     value={s.adjust}
                     onChange={(e) =>
                       updateField(i, "adjust", e.target.value)
@@ -111,6 +147,10 @@ export default function PayrollPage() {
                   Service: THB {s.service.toLocaleString()}
                 </div>
 
+                <div className="text-white/40 text-xs">
+                  Late Penalty: THB {latePenalty.toLocaleString()}
+                </div>
+
                 <div className="text-orange-400 font-semibold">
                   Total: THB {total.toLocaleString()}
                 </div>
@@ -118,6 +158,10 @@ export default function PayrollPage() {
               </div>
             );
           })}
+
+          {staffTotals.length === 0 && (
+            <div className="text-white/40">No payroll data</div>
+          )}
 
         </div>
 

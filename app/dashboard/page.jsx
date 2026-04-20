@@ -1,15 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
 export default function DashboardPage() {
-  const [menuStats, setMenuStats] = useState({});
+  const [best, setBest] = useState(null);
+  const [weak, setWeak] = useState(null);
 
   useEffect(() => {
     const load = () => {
-      setMenuStats(JSON.parse(localStorage.getItem("menu_stats") || "{}"));
+      setBest(localStorage.getItem("ai_best_item"));
+      setWeak(localStorage.getItem("ai_weak_item"));
     };
 
     load();
@@ -19,18 +20,17 @@ export default function DashboardPage() {
 
   return (
     <AppShell showNav={false}>
-      <div className="space-y-10 text-white">
+      <div className="space-y-6 text-white">
 
-        <h2>Menu Intelligence</h2>
+        <h2>Menu Optimization</h2>
 
-        {Object.entries(menuStats).map(([name, data]) => (
-          <div key={name} className="p-4 border border-white/10 rounded">
-            <div>{name}</div>
-            <div className="text-xs opacity-60">
-              Orders: {data.count} | Revenue: {data.revenue}
-            </div>
-          </div>
-        ))}
+        <div className="p-4 border border-green-500 bg-green-500/10 rounded">
+          Best Item: {best || "N/A"}
+        </div>
+
+        <div className="p-4 border border-red-500 bg-red-500/10 rounded">
+          Weak Item: {weak || "N/A"}
+        </div>
 
       </div>
     </AppShell>

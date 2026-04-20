@@ -7,7 +7,7 @@ import {
   getPerformanceLevel,
 } from "../../../lib/performance";
 
-export default function AIManager() {
+export default function AIOwner() {
   const [orders, setOrders] = useState([]);
   const [history, setHistory] = useState([]);
 
@@ -36,7 +36,7 @@ export default function AIManager() {
   const foh = calculateFOH(orders);
   const performance = getPerformanceLevel(foh.score);
 
-  // 🔥 PREDICTION ENGINE
+  // 🔥 BASELINE
   const avgPastRevenue =
     history.length > 0
       ? history.reduce((sum, d) => sum + d.finalRevenue, 0) / history.length
@@ -47,32 +47,42 @@ export default function AIManager() {
       ? Math.round((avgPastRevenue + foh.revenue) / 2)
       : foh.revenue;
 
-  // 🔥 DECISIONS
-  const decisions = [];
+  // 🔥 OWNER DECISIONS
+  const actions = [];
 
   if (foh.revenue < avgPastRevenue * 0.7) {
-    decisions.push("⚠️ Revenue below normal — take action now");
+    actions.push({
+      type: "CRITICAL",
+      action: "Launch promotion immediately",
+    });
   }
 
   if (foh.avg < 300) {
-    decisions.push("📈 Increase average order value (upsell strategy)");
+    actions.push({
+      type: "STRATEGY",
+      action: "Increase pricing or upsell items",
+    });
   }
 
   if (performance.level === "BAD" || performance.level === "CRITICAL") {
-    decisions.push("👥 Staff performance risk — supervise team");
+    actions.push({
+      type: "STAFF",
+      action: "Reduce payout impact / review staff",
+    });
   }
 
-  if (projectedRevenue < avgPastRevenue) {
-    decisions.push("🔮 Today likely underperforming vs average");
-  } else {
-    decisions.push("✅ On track or exceeding normal performance");
+  if (projectedRevenue > avgPastRevenue * 1.2) {
+    actions.push({
+      type: "OPTIMIZE",
+      action: "Increase staff efficiency / maximize profit",
+    });
   }
 
   return (
     <AppShell>
       <div className="text-white space-y-6">
 
-        <h1 className="text-3xl">AI Manager</h1>
+        <h1 className="text-3xl">AI Owner</h1>
 
         {/* LIVE */}
         <div className="bg-white/5 p-6 rounded-xl space-y-2">
@@ -86,17 +96,21 @@ export default function AIManager() {
         {/* PREDICTION */}
         <div className="bg-white/5 p-6 rounded-xl space-y-2">
           <div className="text-sm text-white/50">Prediction</div>
-          <div>Average Past Revenue: {Math.round(avgPastRevenue)}</div>
-          <div>Projected Today: {projectedRevenue}</div>
+          <div>Average: {Math.round(avgPastRevenue)}</div>
+          <div>Projected: {projectedRevenue}</div>
         </div>
 
-        {/* DECISIONS */}
-        <div className="bg-white/5 p-6 rounded-xl space-y-2">
-          <div className="text-sm text-white/50">AI Decisions</div>
+        {/* OWNER ACTIONS */}
+        <div className="bg-white/5 p-6 rounded-xl space-y-3">
+          <div className="text-sm text-white/50">Owner Decisions</div>
 
-          {decisions.map((d, i) => (
-            <div key={i} className="text-green-400">
-              • {d}
+          {actions.length === 0 && (
+            <div className="text-green-400">System stable</div>
+          )}
+
+          {actions.map((a, i) => (
+            <div key={i} className="text-red-400">
+              [{a.type}] {a.action}
             </div>
           ))}
         </div>

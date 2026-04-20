@@ -6,6 +6,7 @@ import AppShell from "../AppShell";
 export default function POSPage() {
   const [orderItems, setOrderItems] = useState([]);
   const [existingItems, setExistingItems] = useState([]);
+  const [isClosed, setIsClosed] = useState(false);
   const [sending, setSending] = useState(false);
   const [activeCategory, setActiveCategory] = useState("starter");
   const [table, setTable] = useState("T1");
@@ -25,16 +26,21 @@ export default function POSPage() {
     ],
   };
 
-  // 🔥 LOAD EXISTING TABLE DATA
+  // 🔥 LOAD TABLE STATE
   useEffect(() => {
     const load = () => {
       const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
-      const tableOrder = stored.find(
-        (o) => o.table === table && o.status !== "closed"
-      );
+      const tableOrder = stored.find((o) => o.table === table);
 
-      setExistingItems(tableOrder ? tableOrder.items : []);
+      if (!tableOrder) {
+        setExistingItems([]);
+        setIsClosed(false);
+        return;
+      }
+
+      setExistingItems(tableOrder.items || []);
+      setIsClosed(tableOrder.status === "closed");
     };
 
     load();
@@ -43,6 +49,8 @@ export default function POSPage() {
   }, [table]);
 
   const addItem = (item) => {
+    if (isClosed) return;
+
     setOrderItems((prev) => [
       ...prev,
       {
@@ -58,17 +66,17 @@ export default function POSPage() {
   const total = newTotal + existingTotal;
 
   const sendOrder = () => {
-    if (orderItems.length === 0) return;
+    if (orderItems.length === 0 || isClosed) return;
 
     setSending(true);
 
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    let tableOrder = stored.find(
-      (o) => o.table === table && o.status !== "closed"
-    );
+    let tableOrder = stored.find((o) => o.table === table);
 
     if (tableOrder) {
+      if (tableOrder.status === "closed") return;
+
       tableOrder.items = [...tableOrder.items, ...orderItems];
       tableOrder.total += newTotal;
     } else {
@@ -136,7 +144,11 @@ export default function POSPage() {
             <div
               key={i}
               onClick={() => addItem(item)}
-              className="bg-white/5 border border-white/10 p-4 rounded-xl cursor-pointer"
+              className={`bg-white/5 border border-white/10 p-4 rounded-xl ${
+                isClosed
+                  ? "opacity-40 cursor-not-allowed"
+                  : "cursor-pointer"
+              }`}
             >
               <div>{item.name}</div>
               <div className="text-sm text-white/50">{item.price} THB</div>
@@ -147,9 +159,11 @@ export default function POSPage() {
         {/* RIGHT */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
 
-          <h2 className="text-xl">Table {table}</h2>
+          <h2 className="text-xl">
+            Table {table} {isClosed && "(Closed)"}
+          </h2>
 
-          {/* 🔥 EXISTING ITEMS */}
+          {/* EXISTING */}
           {existingItems.map((item) => (
             <div key={item.id} className="flex justify-between text-sm text-white/60">
               <span>{item.name}</span>
@@ -157,7 +171,7 @@ export default function POSPage() {
             </div>
           ))}
 
-          {/* 🔥 NEW ITEMS */}
+          {/* NEW */}
           {orderItems.map((item) => (
             <div key={item.id} className="flex justify-between text-sm">
               <span>{item.name}</span>
@@ -176,10 +190,10 @@ export default function POSPage() {
 
           <button
             onClick={sendOrder}
-            disabled={sending}
-            className="w-full bg-[#ff7a00] py-3 rounded-xl"
+            disabled={sending || isClosed}
+            className="w-full bg-[#ff7a00] py-3 rounded-xl disabled:opacity-50"
           >
-            {sending ? "Sending..." : "Send Order"}
+            {isClosed ? "Table Closed" : sending ? "Sending..." : "Send Order"}
           </button>
 
         </div>

@@ -5,46 +5,75 @@ import AppShell from "../AppShell";
 
 export default function ControlFinalPage() {
   const [orders, setOrders] = useState([]);
-  const [adjustments, setAdjustments] = useState([]);
 
-  // 🔥 LOAD DATA
+  // 🔥 LOAD
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-    setOrders(stored);
-
-    // collect all requests
-    const requests = stored.flatMap((o) =>
-      (o.adjustmentRequests || []).map((r) => ({
-        ...r,
-        orderId: o.id,
-        table: o.table,
-      }))
-    );
-
-    setAdjustments(requests);
+    loadOrders();
   }, []);
 
+  const loadOrders = () => {
+    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+    setOrders(stored);
+  };
+
+  // 🔥 SAVE BACK TO STORAGE
+  const saveOrders = (updatedOrders) => {
+    localStorage.setItem("orders", JSON.stringify(updatedOrders));
+    setOrders(updatedOrders);
+  };
+
   // 🔥 APPROVE
-  const approve = (id) => {
-    setAdjustments((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? { ...a, status: "approved", approvedBy: "manager" }
-          : a
-      )
-    );
+  const approve = (orderId, adjId) => {
+    const updated = orders.map((o) => {
+      if (o.id !== orderId) return o;
+
+      return {
+        ...o,
+        adjustmentRequests: (o.adjustmentRequests || []).map((a) =>
+          a.id === adjId
+            ? {
+                ...a,
+                status: "approved",
+                approvedBy: "manager",
+                approved_at: new Date().toISOString(),
+              }
+            : a
+        ),
+      };
+    });
+
+    saveOrders(updated);
   };
 
   // 🔥 REJECT
-  const reject = (id) => {
-    setAdjustments((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? { ...a, status: "rejected" }
-          : a
-      )
-    );
+  const reject = (orderId, adjId) => {
+    const updated = orders.map((o) => {
+      if (o.id !== orderId) return o;
+
+      return {
+        ...o,
+        adjustmentRequests: (o.adjustmentRequests || []).map((a) =>
+          a.id === adjId
+            ? {
+                ...a,
+                status: "rejected",
+              }
+            : a
+        ),
+      };
+    });
+
+    saveOrders(updated);
   };
+
+  // 🔥 FLATTEN REQUESTS
+  const adjustments = orders.flatMap((o) =>
+    (o.adjustmentRequests || []).map((a) => ({
+      ...a,
+      orderId: o.id,
+      table: o.table,
+    }))
+  );
 
   // 🔥 CALCULATE
   const subtotal = orders.reduce(
@@ -104,14 +133,14 @@ export default function ControlFinalPage() {
               {a.status === "pending" && (
                 <div className="flex gap-2">
                   <button
-                    onClick={() => approve(a.id)}
+                    onClick={() => approve(a.orderId, a.id)}
                     className="bg-green-500 px-2 py-1 rounded text-black"
                   >
                     APPROVE
                   </button>
 
                   <button
-                    onClick={() => reject(a.id)}
+                    onClick={() => reject(a.orderId, a.id)}
                     className="bg-red-500 px-2 py-1 rounded"
                   >
                     REJECT

@@ -7,6 +7,7 @@ export default function ControlFinal() {
   const [orders, setOrders] = useState([]);
   const [saving, setSaving] = useState(false);
 
+  // 🔥 LOAD ORDERS (LIVE)
   useEffect(() => {
     const loadOrders = () => {
       const stored = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -19,22 +20,27 @@ export default function ControlFinal() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🔥 ONLY DONE ITEMS COUNT
-  const doneItems = orders.flatMap((order) =>
-    order.items.filter((item) => item.status === "DONE")
+  // 🔥 ONLY SERVED ORDERS COUNT
+  const servedOrders = orders.filter((o) => o.status === "served");
+
+  const revenue = servedOrders.reduce(
+    (sum, order) => sum + (order.total || 0),
+    0
   );
 
-  const revenue = doneItems.reduce((sum, item) => sum + (item.price || 0), 0);
-  const orderCount = orders.length;
-  const avgOrderValue = orderCount > 0 ? Math.round(revenue / orderCount) : 0;
+  const orderCount = servedOrders.length;
 
-  // 🔥 SIMPLE PERFORMANCE (placeholder for now)
+  const avgOrderValue =
+    orderCount > 0 ? Math.round(revenue / orderCount) : 0;
+
+  // 🔥 PERFORMANCE (simple for now)
   const performance = {
-    level: revenue > 5000 ? "GOOD" : revenue > 2000 ? "WARNING" : "CRITICAL",
+    level:
+      revenue > 5000 ? "GOOD" : revenue > 2000 ? "WARNING" : "CRITICAL",
     score: revenue,
   };
 
-  // 🔥 SERVICE (fixed 5% for now)
+  // 🔥 SERVICE (5%)
   const servicePool = Math.round(revenue * 0.05);
 
   const payoutMultiplier =
@@ -61,12 +67,12 @@ export default function ControlFinal() {
       payoutPool,
       performanceLevel: performance.level,
       performanceScore: performance.score,
-      orders,
+      servedOrders,
     };
 
     localStorage.setItem("history", JSON.stringify([...history, newDay]));
 
-    // 🔥 CLEAR CURRENT ORDERS AFTER LOCK
+    // 🔥 CLEAR SYSTEM AFTER LOCK
     localStorage.removeItem("orders");
 
     alert("Day locked ✅");
@@ -82,7 +88,7 @@ export default function ControlFinal() {
 
         {/* REVENUE */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-          <div className="text-sm text-white/50">Revenue (LIVE)</div>
+          <div className="text-sm text-white/50">Revenue (SERVED)</div>
           <div className="text-4xl mt-2">{revenue} THB</div>
           <div className="text-xs text-white/50 mt-2">
             Orders: {orderCount} | Avg: {avgOrderValue}
@@ -107,6 +113,25 @@ export default function ControlFinal() {
             <div className="text-xl mt-1">{performance.level}</div>
           </div>
 
+        </div>
+
+        {/* SERVED ORDERS LIST (IMPORTANT VISIBILITY) */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+          <h2 className="text-lg">Served Orders</h2>
+
+          {servedOrders.length === 0 && (
+            <div className="text-white/40 text-sm">No served orders yet</div>
+          )}
+
+          {servedOrders.map((order) => (
+            <div
+              key={order.id}
+              className="flex justify-between text-sm border-b border-white/10 pb-2"
+            >
+              <span>Table {order.table}</span>
+              <span>{order.total} THB</span>
+            </div>
+          ))}
         </div>
 
         {/* ACTION */}

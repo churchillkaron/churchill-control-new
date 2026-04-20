@@ -8,12 +8,7 @@ export default function KitchenPage() {
 
   const loadOrders = () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    // 🔥 ONLY ACTIVE KITCHEN ORDERS (AUTO REMOVE SERVED)
-    const kitchenOrders = stored.filter(
-      (o) => o.status === "kitchen"
-    );
-
+    const kitchenOrders = stored.filter((o) => o.status === "kitchen");
     setOrders(kitchenOrders);
   };
 
@@ -23,12 +18,24 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const getWaitingTime = (created_at) => {
+    const created = new Date(created_at).getTime();
+    const now = Date.now();
+    const minutes = Math.floor((now - created) / 60000);
+    return minutes;
+  };
+
+  const getUrgencyStyle = (minutes) => {
+    if (minutes >= 20) return "border-red-500 bg-red-500/10";
+    if (minutes >= 10) return "border-yellow-500 bg-yellow-500/10";
+    return "border-white/10 bg-white/5";
+  };
+
   const updateItemStatus = (orderId, itemId, newStatus) => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const updated = stored.map((order) => {
       if (order.id !== orderId) return order;
-
       if (order.status !== "kitchen") return order;
 
       return {
@@ -59,8 +66,6 @@ export default function KitchenPage() {
     });
 
     localStorage.setItem("orders", JSON.stringify(updated));
-
-    // 🔥 Immediately remove from kitchen view
     loadOrders();
   };
 
@@ -100,20 +105,23 @@ export default function KitchenPage() {
                     (item) => item.status === "DONE"
                   );
 
+                  const minutes = getWaitingTime(order.created_at);
+                  const urgencyStyle = getUrgencyStyle(minutes);
+
                   return (
                     <div
                       key={order.id}
-                      className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3"
+                      className={`border rounded-xl p-4 space-y-3 ${urgencyStyle}`}
                     >
                       <div className="flex justify-between">
                         <div>Table: {order.table}</div>
                         <div className="text-xs text-white/50">
-                          {new Date(order.created_at).toLocaleTimeString()}
+                          {minutes} min
                         </div>
                       </div>
 
                       {order.stationItems.map((item) => (
-                        <div key={item.id} className="bg-white/5 p-3 rounded-xl">
+                        <div key={item.id} className="bg-black/30 p-3 rounded-xl">
                           <div>{item.name}</div>
 
                           <div className="flex gap-2 mt-2">

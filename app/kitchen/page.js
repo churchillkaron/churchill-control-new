@@ -45,7 +45,6 @@ export default function KitchenPage() {
 
     const updated = stored.map((order) => {
       if (order.id !== orderId) return order;
-      if (order.status !== "kitchen") return order;
 
       return {
         ...order,
@@ -70,7 +69,6 @@ export default function KitchenPage() {
       return {
         ...order,
         status: "served",
-        served_at: new Date().toISOString(),
       };
     });
 
@@ -100,9 +98,20 @@ export default function KitchenPage() {
             const grouped = {};
 
             orders.forEach((order) => {
-              const items = order.items.filter(
-                (i) => i.station === station
-              );
+              // 🔥 CHECK IF MAIN DONE
+              const mainDone = order.items
+                .filter((i) => i.course === "main")
+                .every((i) => i.status === "DONE");
+
+              // 🔥 FILTER ITEMS BY COURSE LOGIC
+              const items = order.items.filter((item) => {
+                if (item.station !== station) return false;
+
+                // hide dessert until main done
+                if (item.course === "dessert" && !mainDone) return false;
+
+                return true;
+              });
 
               if (items.length === 0) return;
 
@@ -124,9 +133,7 @@ export default function KitchenPage() {
                 <div className="text-lg">{station}</div>
 
                 {Object.keys(grouped).length === 0 && (
-                  <div className="text-white/40 text-sm">
-                    No orders
-                  </div>
+                  <div className="text-white/40 text-sm">No orders</div>
                 )}
 
                 {Object.entries(grouped).map(([table, orders]) => (
@@ -138,7 +145,6 @@ export default function KitchenPage() {
                       Table {table}
                     </div>
 
-                    {/* 🔥 EACH ORDER = ONE TICKET */}
                     {orders.map((order, index) => {
                       const minutes = getWaitingTime(order.created_at);
                       const urgencyStyle = getUrgencyStyle(minutes);
@@ -147,7 +153,6 @@ export default function KitchenPage() {
                         (i) => i.status === "DONE"
                       );
 
-                      // merge items inside ticket
                       const merged = {};
 
                       order.stationItems.forEach((item) => {
@@ -166,17 +171,16 @@ export default function KitchenPage() {
                       return (
                         <div
                           key={order.id}
-                          className={`p-3 rounded-xl space-y-2 ${urgencyStyle}`}
+                          className={`p-3 rounded-xl ${urgencyStyle}`}
                         >
-                          {/* 🔥 COURSE LABEL */}
-                          <div className="text-xs text-white/40">
+                          <div className="text-xs text-white/40 mb-2">
                             Ticket {index + 1} • {minutes} min
                           </div>
 
                           {Object.values(merged).map((item) => (
                             <div
                               key={item.name}
-                              className="bg-black/30 p-2 rounded"
+                              className="bg-black/30 p-2 rounded mb-2"
                             >
                               <div>
                                 {item.ids.length}x {item.name}
@@ -209,7 +213,7 @@ export default function KitchenPage() {
                               onClick={() => serveOrder(order.id)}
                               className="w-full bg-blue-500 py-1 rounded text-black text-sm"
                             >
-                              Serve Ticket
+                              Serve
                             </button>
                           )}
                         </div>

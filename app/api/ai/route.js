@@ -7,18 +7,39 @@ const openai = new OpenAI({
 export async function POST(req) {
   const body = await req.json();
 
-  const { revenue, orders, avg, performance } = body;
+  const {
+    revenue,
+    orders,
+    avg,
+    trend = {}
+  } = body;
 
   const prompt = `
 You are a restaurant owner AI.
 
-Current data:
+Current performance:
 - Revenue: ${revenue}
 - Orders: ${orders}
-- Avg order: ${avg}
-- Performance: ${performance}
+- Avg order value: ${avg}
 
-Give 3 short business actions to improve profit.
+Trend (vs previous period):
+- Revenue change: ${trend?.revenueTrend || 0}
+- Orders change: ${trend?.orderTrend || 0}
+- Avg change: ${trend?.avgTrend || 0}
+
+Your job:
+Make 3 SHORT business decisions.
+
+Format EXACTLY like this:
+
+Action: ...
+Reason: ...
+Impact: ...
+
+Rules:
+- Think like an owner
+- Be direct
+- Focus on profit, efficiency, or risk
 `;
 
   const response = await openai.chat.completions.create({

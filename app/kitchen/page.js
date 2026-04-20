@@ -9,7 +9,7 @@ export default function KitchenPage() {
   const loadOrders = () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    // 🔥 Only kitchen + not fully served
+    // 🔥 ONLY ACTIVE KITCHEN ORDERS (NOT CLOSED / SERVED)
     const kitchenOrders = stored.filter(
       (o) => o.status === "kitchen"
     );
@@ -29,23 +29,33 @@ export default function KitchenPage() {
     const updated = stored.map((order) => {
       if (order.id !== orderId) return order;
 
-      const updatedItems = order.items.map((item) =>
-        item.id === itemId ? { ...item, status: newStatus } : item
-      );
+      // 🔥 BLOCK CLOSED / SERVED
+      if (order.status === "closed" || order.status === "served") {
+        return order;
+      }
 
-      return { ...order, items: updatedItems };
+      return {
+        ...order,
+        items: order.items.map((item) =>
+          item.id === itemId
+            ? { ...item, status: newStatus }
+            : item
+        ),
+      };
     });
 
     localStorage.setItem("orders", JSON.stringify(updated));
     loadOrders();
   };
 
-  // 🔥 SERVE ORDER (ALL ITEMS DONE → SERVED)
   const serveOrder = (orderId) => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const updated = stored.map((order) => {
       if (order.id !== orderId) return order;
+
+      // 🔥 BLOCK IF CLOSED
+      if (order.status === "closed") return order;
 
       return {
         ...order,
@@ -61,7 +71,7 @@ export default function KitchenPage() {
   const stations = ["THAI", "WESTERN", "PIZZA"];
 
   return (
-    <AppShell>
+    <AppShell showNav={false}>
       <div className="space-y-10 text-white">
         <h1 className="text-3xl">Kitchen</h1>
 
@@ -84,7 +94,9 @@ export default function KitchenPage() {
                 <div className="text-lg">{station}</div>
 
                 {stationOrders.length === 0 && (
-                  <div className="text-white/40 text-sm">No orders</div>
+                  <div className="text-white/40 text-sm">
+                    No orders
+                  </div>
                 )}
 
                 {stationOrders.map((order) => {
@@ -129,12 +141,11 @@ export default function KitchenPage() {
                           </div>
 
                           <div className="text-xs text-white/50 mt-1">
-                            Status: {item.status}
+                            {item.status}
                           </div>
                         </div>
                       ))}
 
-                      {/* 🔥 SERVE BUTTON */}
                       {allDone && (
                         <button
                           onClick={() => serveOrder(order.id)}

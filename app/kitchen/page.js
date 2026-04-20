@@ -17,7 +17,6 @@ export default function KitchenPage() {
 
     let kitchenOrders = stored.filter((o) => o.status === "kitchen");
 
-    // 🔥 SORT BY OLDEST FIRST
     kitchenOrders = kitchenOrders.sort(
       (a, b) => new Date(a.created_at) - new Date(b.created_at)
     );
@@ -80,8 +79,7 @@ export default function KitchenPage() {
   };
 
   const getWaitingTime = (created_at) => {
-    const created = new Date(created_at).getTime();
-    return Math.floor((Date.now() - created) / 60000);
+    return Math.floor((Date.now() - new Date(created_at)) / 60000);
   };
 
   const getUrgencyStyle = (minutes) => {
@@ -99,14 +97,25 @@ export default function KitchenPage() {
 
         <div className="grid md:grid-cols-3 gap-6">
           {stations.map((station) => {
-            const stationOrders = orders
-              .map((order) => ({
+            // 🔥 GROUP BY TABLE
+            const grouped = {};
+
+            orders.forEach((order) => {
+              const items = order.items.filter(
+                (i) => i.station === station
+              );
+
+              if (items.length === 0) return;
+
+              if (!grouped[order.table]) {
+                grouped[order.table] = [];
+              }
+
+              grouped[order.table].push({
                 ...order,
-                stationItems: order.items.filter(
-                  (item) => item.station === station
-                ),
-              }))
-              .filter((order) => order.stationItems.length > 0);
+                stationItems: items,
+              });
+            });
 
             return (
               <div
@@ -115,73 +124,80 @@ export default function KitchenPage() {
               >
                 <div className="text-lg">{station}</div>
 
-                {stationOrders.length === 0 && (
+                {Object.keys(grouped).length === 0 && (
                   <div className="text-white/40 text-sm">
                     No orders
                   </div>
                 )}
 
-                {stationOrders.map((order) => {
-                  const allDone = order.items.every(
-                    (item) => item.status === "DONE"
-                  );
-
-                  const minutes = getWaitingTime(order.created_at);
-                  const urgencyStyle = getUrgencyStyle(minutes);
-
-                  return (
-                    <div
-                      key={order.id}
-                      className={`border rounded-xl p-4 space-y-3 ${urgencyStyle}`}
-                    >
-                      <div className="flex justify-between">
-                        <div>Table: {order.table}</div>
-                        <div className="text-xs text-white/50">
-                          {minutes} min
-                        </div>
-                      </div>
-
-                      {order.stationItems.map((item) => (
-                        <div key={item.id} className="bg-black/30 p-3 rounded-xl">
-                          <div>{item.name}</div>
-
-                          <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={() =>
-                                updateItemStatus(order.id, item.id, "COOKING")
-                              }
-                              className="px-3 py-1 bg-yellow-500 text-black rounded"
-                            >
-                              Cooking
-                            </button>
-
-                            <button
-                              onClick={() =>
-                                updateItemStatus(order.id, item.id, "DONE")
-                              }
-                              className="px-3 py-1 bg-green-500 text-black rounded"
-                            >
-                              Done
-                            </button>
-                          </div>
-
-                          <div className="text-xs text-white/50 mt-1">
-                            {item.status}
-                          </div>
-                        </div>
-                      ))}
-
-                      {allDone && (
-                        <button
-                          onClick={() => serveOrder(order.id)}
-                          className="w-full bg-blue-500 py-2 rounded-xl text-black"
-                        >
-                          Serve Order
-                        </button>
-                      )}
+                {Object.entries(grouped).map(([table, orders]) => (
+                  <div
+                    key={table}
+                    className="border border-white/10 rounded-xl p-4 space-y-4"
+                  >
+                    <div className="text-sm text-white/50">
+                      Table {table}
                     </div>
-                  );
-                })}
+
+                    {orders.map((order) => {
+                      const minutes = getWaitingTime(order.created_at);
+                      const urgencyStyle = getUrgencyStyle(minutes);
+
+                      const allDone = order.items.every(
+                        (i) => i.status === "DONE"
+                      );
+
+                      return (
+                        <div
+                          key={order.id}
+                          className={`p-3 rounded-xl ${urgencyStyle}`}
+                        >
+                          <div className="text-xs text-white/50 mb-2">
+                            {minutes} min
+                          </div>
+
+                          {order.stationItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="bg-black/30 p-2 rounded mb-2"
+                            >
+                              <div>{item.name}</div>
+
+                              <div className="flex gap-2 mt-1">
+                                <button
+                                  onClick={() =>
+                                    updateItemStatus(order.id, item.id, "COOKING")
+                                  }
+                                  className="px-2 py-1 bg-yellow-500 text-black text-xs rounded"
+                                >
+                                  Cooking
+                                </button>
+
+                                <button
+                                  onClick={() =>
+                                    updateItemStatus(order.id, item.id, "DONE")
+                                  }
+                                  className="px-2 py-1 bg-green-500 text-black text-xs rounded"
+                                >
+                                  Done
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+
+                          {allDone && (
+                            <button
+                              onClick={() => serveOrder(order.id)}
+                              className="w-full bg-blue-500 py-1 rounded text-black text-sm"
+                            >
+                              Serve
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             );
           })}

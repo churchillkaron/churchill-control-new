@@ -7,8 +7,8 @@ export default function POSPage() {
   const [orderItems, setOrderItems] = useState([]);
   const [sending, setSending] = useState(false);
   const [activeCategory, setActiveCategory] = useState("starter");
+  const [success, setSuccess] = useState(false); // ✅ feedback
 
-  // 🔥 MENU WITH STATIONS (IMPORTANT FOR KITCHEN)
   const menu = {
     starter: [
       { name: "Beef Carpaccio", price: 320, station: "WESTERN" },
@@ -25,21 +25,16 @@ export default function POSPage() {
   const addItem = (item) => {
     const newItem = {
       ...item,
-      id: Date.now() + Math.random(), // unique item id
+      id: Date.now() + Math.random(),
       status: "NEW",
     };
-
     setOrderItems((prev) => [...prev, newItem]);
   };
 
   const total = orderItems.reduce((sum, i) => sum + i.price, 0);
 
-  // 🔥 SEND ORDER → SAVE TO LOCALSTORAGE (SOURCE OF TRUTH)
   const sendOrder = async () => {
-    if (orderItems.length === 0) {
-      alert("No items selected");
-      return;
-    }
+    if (orderItems.length === 0) return;
 
     setSending(true);
 
@@ -52,15 +47,17 @@ export default function POSPage() {
         staff: "FOH",
         items: orderItems,
         total,
-        status: "kitchen", // 🔥 DIRECT TO KITCHEN
+        status: "kitchen",
         created_at: new Date().toISOString(),
       };
 
       const updatedOrders = [...existingOrders, newOrder];
-
       localStorage.setItem("orders", JSON.stringify(updatedOrders));
 
-      alert("Order sent to kitchen ✅");
+      // ✅ SUCCESS FEEDBACK
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+
       setOrderItems([]);
     } catch (err) {
       alert("Error sending order");
@@ -73,11 +70,10 @@ export default function POSPage() {
     <AppShell>
       <div className="grid md:grid-cols-2 gap-10 text-white">
 
-        {/* LEFT: MENU */}
+        {/* LEFT */}
         <div className="space-y-6">
           <h1 className="text-2xl">POS</h1>
 
-          {/* CATEGORY SELECTOR */}
           <div className="flex gap-2">
             {Object.keys(menu).map((cat) => (
               <button
@@ -94,7 +90,6 @@ export default function POSPage() {
             ))}
           </div>
 
-          {/* MENU ITEMS */}
           {menu[activeCategory].map((item, i) => (
             <div
               key={i}
@@ -109,11 +104,11 @@ export default function POSPage() {
           ))}
         </div>
 
-        {/* RIGHT: ORDER */}
+        {/* RIGHT */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
           <h2 className="text-xl">Order</h2>
 
-          {orderItems.map((item, i) => (
+          {orderItems.map((item) => (
             <div key={item.id} className="flex justify-between text-sm">
               <span>{item.name}</span>
               <span>{item.price} THB</span>
@@ -136,6 +131,13 @@ export default function POSPage() {
           >
             {sending ? "Sending..." : "Send Order"}
           </button>
+
+          {/* ✅ SUCCESS POPUP */}
+          {success && (
+            <div className="text-green-400 text-center text-sm">
+              Order sent to kitchen ✅
+            </div>
+          )}
         </div>
 
       </div>

@@ -9,36 +9,22 @@ export default function PayoutPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/history")
-      .then((res) => res.json())
-      .then((history) => {
-        if (!history || history.length === 0) {
-          setLoading(false);
-          return;
-        }
+    const history = JSON.parse(localStorage.getItem("history") || "[]");
 
-        const lastDay = history[history.length - 1];
+    if (!history || history.length === 0) {
+      setLoading(false);
+      return;
+    }
 
-        // ✅ Get pool from Control Final (already calculated)
-        const serviceCharge = lastDay.servicePool || 0;
-        setPool(serviceCharge);
+    const lastDay = history[history.length - 1];
 
-        // ✅ Get staff payout from saved day
-        const staffData = lastDay.staff || [];
+    // ✅ READ SERVICE POOL
+    setPool(lastDay.servicePool || 0);
 
-        const formatted = staffData.map((s) => ({
-          name: s.name,
-          role: s.role,
-          payout: s.payrollAmount || 0,
-          score: s.score || 0,
-        }));
+    // ❌ NO STAFF YET → EMPTY FOR NOW
+    setStaff([]);
 
-        setStaff(formatted);
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
+    setLoading(false);
   }, []);
 
   return (
@@ -66,33 +52,9 @@ export default function PayoutPage() {
 
           {!loading && staff.length === 0 && (
             <div className="text-white/50">
-              No payout data found. Lock a day in Control Final first.
+              No payout data yet. Next step: build staff system.
             </div>
           )}
-
-          {!loading &&
-            staff.map((s, i) => (
-              <div
-                key={i}
-                className="bg-white/5 border border-white/10 rounded-xl p-4 flex justify-between items-center"
-              >
-                <div>
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-white/50 text-sm">
-                    {s.role}
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-orange-400 font-semibold text-lg">
-                    {s.payout} THB
-                  </div>
-                  <div className="text-white/40 text-xs">
-                    Score: {s.score}
-                  </div>
-                </div>
-              </div>
-            ))}
 
         </div>
 

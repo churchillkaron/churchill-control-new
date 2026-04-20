@@ -107,7 +107,7 @@ export default function ControlFinalPage() {
 
   const servicePool = finalRevenue * 0.05;
 
-  // 🔥 COMBINED SCORE (performance + hours)
+  // 🔥 PENALTY APPLIED
   const calculateStaff = () => {
     if (!staff || staff.length === 0) return [];
 
@@ -120,14 +120,19 @@ export default function ControlFinalPage() {
 
       const hours = att.hours || 0;
       const score = s.score || 0;
+      const penalty = att.penalty || 0;
 
-      const weight = score * hours; // 🔥 CORE LOGIC
+      let weight = score * hours;
+
+      // 🔥 APPLY PENALTY
+      weight = weight * (1 - penalty / 100);
 
       return {
         ...s,
         weight,
         hours,
         score,
+        penalty,
       };
     });
 
@@ -144,6 +149,7 @@ export default function ControlFinalPage() {
         role: s.role,
         score: s.score,
         hours: s.hours,
+        penalty: s.penalty || 0,
         payrollAmount: Math.round(payout),
       };
     });
@@ -200,43 +206,9 @@ export default function ControlFinalPage() {
           {calculateStaff().map((s) => (
             <div key={s.id} className="flex justify-between text-sm">
               <div>
-                {s.name} ({s.hours}h)
+                {s.name} ({s.hours}h / -{s.penalty}%)
               </div>
               <div>{s.payrollAmount} THB</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-3">
-          <h2>Adjustment Requests</h2>
-
-          {adjustments.map((a) => (
-            <div key={a.id} className="bg-white/5 p-3 rounded">
-
-              <div>
-                Table {a.table} | {a.type} {a.value}
-              </div>
-
-              <div>Status: {a.status}</div>
-
-              {a.status === "pending" && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => approve(a.orderId, a.id)}
-                    className="bg-green-500 px-2 py-1 rounded text-black"
-                  >
-                    APPROVE
-                  </button>
-
-                  <button
-                    onClick={() => reject(a.orderId, a.id)}
-                    className="bg-red-500 px-2 py-1 rounded"
-                  >
-                    REJECT
-                  </button>
-                </div>
-              )}
-
             </div>
           ))}
         </div>

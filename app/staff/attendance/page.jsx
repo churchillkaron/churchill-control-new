@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../AppShell";
+import AppShell from "../../AppShell";
 
 export default function AttendancePage() {
   const [staff, setStaff] = useState([]);
@@ -20,7 +20,6 @@ export default function AttendancePage() {
     setAttendance(updated);
   };
 
-  // 🔥 TOGGLE PRESENT
   const togglePresent = (id) => {
     const updated = {
       ...attendance,
@@ -33,13 +32,25 @@ export default function AttendancePage() {
     saveAttendance(updated);
   };
 
-  // 🔥 SET HOURS
   const setHours = (id, value) => {
     const updated = {
       ...attendance,
       [id]: {
         ...(attendance[id] || {}),
         hours: Number(value),
+      },
+    };
+
+    saveAttendance(updated);
+  };
+
+  // 🔥 PENALTY SYSTEM
+  const setPenalty = (id, value) => {
+    const updated = {
+      ...attendance,
+      [id]: {
+        ...(attendance[id] || {}),
+        penalty: Number(value),
       },
     };
 
@@ -77,15 +88,27 @@ export default function AttendancePage() {
               </div>
 
               {data.present && (
-                <div className="flex items-center gap-2">
-                  <div className="text-sm text-white/50">Hours</div>
-                  <input
-                    type="number"
-                    value={data.hours || ""}
-                    onChange={(e) => setHours(s.id, e.target.value)}
-                    className="w-20 text-black px-2 py-1"
-                  />
-                </div>
+                <>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm text-white/50">Hours</div>
+                    <input
+                      type="number"
+                      value={data.hours || ""}
+                      onChange={(e) => setHours(s.id, e.target.value)}
+                      className="w-20 text-black px-2 py-1"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm text-white/50">Penalty (%)</div>
+                    <input
+                      type="number"
+                      value={data.penalty || 0}
+                      onChange={(e) => setPenalty(s.id, e.target.value)}
+                      className="w-20 text-black px-2 py-1"
+                    />
+                  </div>
+                </>
               )}
 
             </div>

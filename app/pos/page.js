@@ -11,7 +11,6 @@ export default function POSPage() {
 
   const tables = ["T1", "T2", "T3", "T4", "T5", "T6"];
 
-  // 🔥 COURSE = CATEGORY
   const menu = {
     starter: [
       { name: "Beef Carpaccio", price: 320, station: "WESTERN", course: "starter" },
@@ -27,12 +26,17 @@ export default function POSPage() {
     ],
   };
 
+  // 🔥 LIVE SYNC (handles cancel automatically)
   useEffect(() => {
     const load = () => {
       const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+
       const tableOrders = stored.filter((o) => o.table === table);
-      const allItems = tableOrders.flatMap((o) => o.items || []);
-      setExistingItems(allItems);
+
+      // flatten items → reflects cancel instantly
+      const items = tableOrders.flatMap((o) => o.items || []);
+
+      setExistingItems(items);
     };
 
     load();
@@ -138,7 +142,7 @@ export default function POSPage() {
             >
               {item.name} - {item.price}
               <div className="text-xs text-white/40">
-                {item.course.toUpperCase()}
+                {item.course}
               </div>
             </div>
           ))}
@@ -149,17 +153,17 @@ export default function POSPage() {
 
           <h2>Table {table}</h2>
 
-          {/* EXISTING */}
+          {/* 🔥 EXISTING (live sync incl. cancel) */}
           {existingItems.map((i) => (
             <div key={i.id} className="text-sm text-white/60">
-              {i.name} ({i.course})
+              {i.name}
             </div>
           ))}
 
           {/* NEW */}
           {orderItems.map((i) => (
             <div key={i.id}>
-              {i.name} ({i.course})
+              {i.name}
             </div>
           ))}
 

@@ -1,14 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppShell from "../AppShell";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
+  const prevOrderIds = useRef([]);
+
+  const playSound = () => {
+    const audio = new Audio("/notification.mp3"); // 🔥 place file in /public
+    audio.play().catch(() => {});
+  };
 
   const loadOrders = () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
     const kitchenOrders = stored.filter((o) => o.status === "kitchen");
+
+    const newIds = kitchenOrders.map((o) => o.id);
+
+    // 🔥 detect new orders
+    if (prevOrderIds.current.length > 0) {
+      const hasNew = newIds.some(
+        (id) => !prevOrderIds.current.includes(id)
+      );
+      if (hasNew) playSound();
+    }
+
+    prevOrderIds.current = newIds;
     setOrders(kitchenOrders);
   };
 
@@ -17,19 +35,6 @@ export default function KitchenPage() {
     const interval = setInterval(loadOrders, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const getWaitingTime = (created_at) => {
-    const created = new Date(created_at).getTime();
-    const now = Date.now();
-    const minutes = Math.floor((now - created) / 60000);
-    return minutes;
-  };
-
-  const getUrgencyStyle = (minutes) => {
-    if (minutes >= 20) return "border-red-500 bg-red-500/10";
-    if (minutes >= 10) return "border-yellow-500 bg-yellow-500/10";
-    return "border-white/10 bg-white/5";
-  };
 
   const updateItemStatus = (orderId, itemId, newStatus) => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -67,6 +72,17 @@ export default function KitchenPage() {
 
     localStorage.setItem("orders", JSON.stringify(updated));
     loadOrders();
+  };
+
+  const getWaitingTime = (created_at) => {
+    const created = new Date(created_at).getTime();
+    return Math.floor((Date.now() - created) / 60000);
+  };
+
+  const getUrgencyStyle = (minutes) => {
+    if (minutes >= 20) return "border-red-500 bg-red-500/10";
+    if (minutes >= 10) return "border-yellow-500 bg-yellow-500/10";
+    return "border-white/10 bg-white/5";
   };
 
   const stations = ["THAI", "WESTERN", "PIZZA"];

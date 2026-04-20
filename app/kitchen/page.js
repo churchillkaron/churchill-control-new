@@ -40,6 +40,23 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // 🔥 MANUAL FIRE DESSERT
+  const fireDessert = (orderId) => {
+    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+
+    const updated = stored.map((order) => {
+      if (order.id !== orderId) return order;
+
+      return {
+        ...order,
+        dessertFired: true,
+      };
+    });
+
+    localStorage.setItem("orders", JSON.stringify(updated));
+    loadOrders();
+  };
+
   const updateItemStatus = (orderId, itemIds, newStatus) => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
@@ -98,17 +115,20 @@ export default function KitchenPage() {
             const grouped = {};
 
             orders.forEach((order) => {
-              // 🔥 CHECK IF MAIN DONE
               const mainDone = order.items
                 .filter((i) => i.course === "main")
                 .every((i) => i.status === "DONE");
 
-              // 🔥 FILTER ITEMS BY COURSE LOGIC
               const items = order.items.filter((item) => {
                 if (item.station !== station) return false;
 
-                // hide dessert until main done
-                if (item.course === "dessert" && !mainDone) return false;
+                // 🔥 SHOW DESSERT IF AUTO OR MANUAL FIRE
+                if (
+                  item.course === "dessert" &&
+                  !mainDone &&
+                  !order.dessertFired
+                )
+                  return false;
 
                 return true;
               });
@@ -132,10 +152,6 @@ export default function KitchenPage() {
               >
                 <div className="text-lg">{station}</div>
 
-                {Object.keys(grouped).length === 0 && (
-                  <div className="text-white/40 text-sm">No orders</div>
-                )}
-
                 {Object.entries(grouped).map(([table, orders]) => (
                   <div
                     key={table}
@@ -152,6 +168,10 @@ export default function KitchenPage() {
                       const allDone = order.items.every(
                         (i) => i.status === "DONE"
                       );
+
+                      const mainDone = order.items
+                        .filter((i) => i.course === "main")
+                        .every((i) => i.status === "DONE");
 
                       const merged = {};
 
@@ -176,6 +196,16 @@ export default function KitchenPage() {
                           <div className="text-xs text-white/40 mb-2">
                             Ticket {index + 1} • {minutes} min
                           </div>
+
+                          {/* 🔥 MANUAL FIRE BUTTON */}
+                          {!mainDone && (
+                            <button
+                              onClick={() => fireDessert(order.id)}
+                              className="mb-2 w-full bg-purple-500 py-1 rounded text-black text-xs"
+                            >
+                              FIRE DESSERT
+                            </button>
+                          )}
 
                           {Object.values(merged).map((item) => (
                             <div

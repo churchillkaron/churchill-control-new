@@ -1,8 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function AppShell({ children }) {
+  const pathname = usePathname();
+
+  const navItems = [
+    { name: "POS", href: "/pos" },
+    { name: "Kitchen", href: "/kitchen" },
+    { name: "Tables", href: "/tables" },
+    { name: "Control", href: "/control-final" },
+  ];
+
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
 
@@ -16,28 +26,30 @@ export default function AppShell({ children }) {
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       </div>
 
-      {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
 
-        {/* Top Bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-
-          <Link
-            href="/dashboard"
-            className="text-sm text-white/70 hover:text-white transition"
-          >
-            ← Dashboard
-          </Link>
-
-          <div className="text-sm text-white/40">
-            Churchill Control
-          </div>
-
+        {/* CONTENT */}
+        <div className="p-6 flex-1 pb-24">
+          {children}
         </div>
 
-        {/* Page Content */}
-        <div className="p-6 flex-1">
-          {children}
+        {/* 🔥 FORCE VISIBLE NAV (for debugging) */}
+        <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 flex justify-around py-4">
+
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`text-sm ${
+                pathname === item.href
+                  ? "text-[#ff7a00]"
+                  : "text-white/60"
+              }`}
+            >
+              {item.name}
+            </Link>
+          ))}
+
         </div>
 
       </div>

@@ -6,25 +6,36 @@ import AppShell from "../AppShell";
 export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
 
-  useEffect(() => {
+  const loadOrders = () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-    setOrders(stored);
+    const kitchenOrders = stored.filter((o) => o.status === "kitchen");
+    setOrders(kitchenOrders);
+  };
+
+  useEffect(() => {
+    loadOrders();
+    const interval = setInterval(loadOrders, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const updateStatus = (orderId, itemId, newStatus) => {
-    const updated = orders.map((order) => {
+    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+
+    const updated = stored.map((order) => {
       if (order.id !== orderId) return order;
 
-      const updatedItems = order.items.map((item) => {
-        if (item.id !== itemId) return item;
-        return { ...item, status: newStatus };
-      });
-
-      return { ...order, items: updatedItems };
+      return {
+        ...order,
+        items: order.items.map((item) =>
+          item.id === itemId
+            ? { ...item, status: newStatus }
+            : item
+        ),
+      };
     });
 
-    setOrders(updated);
     localStorage.setItem("orders", JSON.stringify(updated));
+    loadOrders(); // 🔥 FORCE UI REFRESH
   };
 
   const stations = ["THAI", "WESTERN", "PIZZA"];
@@ -39,7 +50,9 @@ export default function KitchenPage() {
             const stationOrders = orders
               .map((order) => ({
                 ...order,
-                stationItems: order.items.filter((item) => item.station === station),
+                stationItems: order.items.filter(
+                  (item) => item.station === station
+                ),
               }))
               .filter((order) => order.stationItems.length > 0);
 
@@ -59,44 +72,39 @@ export default function KitchenPage() {
                     key={order.id}
                     className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3"
                   >
-                    <div className="flex justify-between items-center">
-                      <div>Table: {order.table || "-"}</div>
-                      <div className="text-white/50 text-xs">
+                    <div className="flex justify-between">
+                      <div>Table: {order.table}</div>
+                      <div className="text-xs text-white/50">
                         {new Date(order.created_at).toLocaleTimeString()}
                       </div>
                     </div>
 
                     {order.stationItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-white/5 rounded-xl p-3 space-y-2"
-                      >
+                      <div key={item.id} className="bg-white/5 p-3 rounded-xl">
                         <div>{item.name}</div>
 
-                        {item.modifier && (
-                          <div className="text-white/50 text-sm">• {item.modifier}</div>
-                        )}
-                        {item.side && (
-                          <div className="text-white/50 text-sm">• {item.side}</div>
-                        )}
-                        {item.sauce && (
-                          <div className="text-white/50 text-sm">• {item.sauce}</div>
-                        )}
-
-                        <div className="flex gap-2 pt-1">
+                        <div className="flex gap-2 mt-2">
                           <button
-                            onClick={() => updateStatus(order.id, item.id, "COOKING")}
-                            className="px-3 py-1 rounded-lg bg-yellow-500 text-black text-sm"
+                            onClick={() =>
+                              updateStatus(order.id, item.id, "COOKING")
+                            }
+                            className="px-3 py-1 bg-yellow-500 text-black rounded"
                           >
                             Cooking
                           </button>
 
                           <button
-                            onClick={() => updateStatus(order.id, item.id, "DONE")}
-                            className="px-3 py-1 rounded-lg bg-green-500 text-black text-sm"
+                            onClick={() =>
+                              updateStatus(order.id, item.id, "DONE")
+                            }
+                            className="px-3 py-1 bg-green-500 text-black rounded"
                           >
                             Done
                           </button>
+                        </div>
+
+                        <div className="text-xs text-white/50 mt-1">
+                          Status: {item.status}
                         </div>
                       </div>
                     ))}

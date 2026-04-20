@@ -1,6 +1,7 @@
 "use client";
 
 import { runAIActions } from "../../lib/aiActions";
+import { getControlFlag } from "../../lib/aiControl";
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
@@ -9,6 +10,8 @@ export default function POSPage() {
   const [existingItems, setExistingItems] = useState([]);
   const [table, setTable] = useState("T1");
   const [activeCategory, setActiveCategory] = useState("starter");
+
+  const [blockFire, setBlockFire] = useState(false);
 
   const [adjustRequests, setAdjustRequests] = useState([]);
   const [showAdjust, setShowAdjust] = useState(false);
@@ -34,16 +37,15 @@ export default function POSPage() {
     ],
   };
 
-  const getCurrentUser = () => {
-    return localStorage.getItem("currentUser") || "unknown";
-  };
-
   useEffect(() => {
     const load = () => {
       const stored = JSON.parse(localStorage.getItem("orders") || "[]");
       const tableOrders = stored.filter((o) => o.table === table);
       const items = tableOrders.flatMap((o) => o.items || []);
       setExistingItems(items);
+
+      // 🔥 READ AI CONTROL
+      setBlockFire(getControlFlag("block_fire"));
     };
 
     load();
@@ -65,6 +67,12 @@ export default function POSPage() {
   const sendOrder = async (mode) => {
     if (orderItems.length === 0) return;
 
+    // 🔥 BLOCK FIRE IF AI SAYS SO
+    if (mode === "fire" && blockFire) {
+      alert("Kitchen overloaded. AI blocked FIRE.");
+      return;
+    }
+
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const newOrder = {
@@ -80,7 +88,6 @@ export default function POSPage() {
     stored.push(newOrder);
     localStorage.setItem("orders", JSON.stringify(stored));
 
-    // 🔥 AI TRIGGER
     await runAIActions();
 
     setOrderItems([]);
@@ -88,6 +95,11 @@ export default function POSPage() {
   };
 
   const fireHeld = async () => {
+    if (blockFire) {
+      alert("Kitchen overloaded. AI blocked FIRE.");
+      return;
+    }
+
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const updated = stored.map((o) => {
@@ -102,35 +114,12 @@ export default function POSPage() {
 
     localStorage.setItem("orders", JSON.stringify(updated));
 
-    // 🔥 AI TRIGGER
     await runAIActions();
   };
 
   const total =
     existingItems.reduce((s, i) => s + i.price, 0) +
     orderItems.reduce((s, i) => s + i.price, 0);
-
-  const requestAdjustment = () => {
-    if (!adjustValue) return;
-
-    setAdjustRequests((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        type: adjustType,
-        mode: adjustMode,
-        value: Number(adjustValue),
-        reason: adjustReason,
-        requestedBy: getCurrentUser(),
-        status: "pending",
-        created_at: new Date().toISOString(),
-      },
-    ]);
-
-    setAdjustValue("");
-    setAdjustReason("");
-    setShowAdjust(false);
-  };
 
   return (
     <AppShell showNav={true}>
@@ -139,132 +128,32 @@ export default function POSPage() {
         <div className="space-y-6">
           <h1>POS</h1>
 
-          <div className="grid grid-cols-3 gap-2">
-            {tables.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTable(t)}
-                className={`py-2 rounded ${
-                  table === t ? "bg-orange-500" : "bg-white/10"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
-            {Object.keys(menu).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1 ${
-                  activeCategory === cat ? "bg-orange-500" : "bg-white/10"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
           {menu[activeCategory].map((item, i) => (
-            <div
-              key={i}
-              onClick={() => addItem(item)}
-              className="p-3 bg-white/5 rounded cursor-pointer"
-            >
+            <div key={i} onClick={() => addItem(item)}>
               {item.name} - {item.price}
             </div>
           ))}
         </div>
 
-        <div className="bg-white/5 p-6 rounded space-y-4">
-
+        <div>
           <h2>Table {table}</h2>
-
-          {existingItems.map((i) => (
-            <div key={i.id} className="text-sm text-white/60">
-              {i.name}
-            </div>
-          ))}
 
           {orderItems.map((i) => (
             <div key={i.id}>{i.name}</div>
           ))}
 
-          {adjustRequests.map((a) => (
-            <div key={a.id} className="text-yellow-400 text-sm">
-              REQUEST: {a.type} {a.value} ({a.reason})
-            </div>
-          ))}
+          <div>Total: {total}</div>
 
-          <div className="text-xl">Total: {total}</div>
+          <button onClick={() => sendOrder("hold")}>HOLD</button>
 
           <button
-            onClick={() => setShowAdjust(true)}
-            className="w-full bg-purple-500 py-2 rounded"
+            onClick={() => sendOrder("fire")}
+            style={{ opacity: blockFire ? 0.5 : 1 }}
           >
-            REQUEST ADJUSTMENT
+            FIRE {blockFire && "(BLOCKED)"}
           </button>
 
-          {showAdjust && (
-            <div className="space-y-2 bg-black/40 p-3 rounded">
-              <select onChange={(e) => setAdjustType(e.target.value)}>
-                <option value="discount">Discount</option>
-                <option value="comp">Comp</option>
-              </select>
-
-              <select onChange={(e) => setAdjustMode(e.target.value)}>
-                <option value="percent">%</option>
-                <option value="fixed">THB</option>
-              </select>
-
-              <input
-                placeholder="Value"
-                value={adjustValue}
-                onChange={(e) => setAdjustValue(e.target.value)}
-                className="w-full text-black px-2"
-              />
-
-              <input
-                placeholder="Reason"
-                value={adjustReason}
-                onChange={(e) => setAdjustReason(e.target.value)}
-                className="w-full text-black px-2"
-              />
-
-              <button
-                onClick={requestAdjustment}
-                className="w-full bg-yellow-500 py-1"
-              >
-                SEND REQUEST
-              </button>
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => sendOrder("hold")}
-              className="w-full bg-yellow-500 py-2 rounded text-black"
-            >
-              HOLD
-            </button>
-
-            <button
-              onClick={() => sendOrder("fire")}
-              className="w-full bg-green-500 py-2 rounded text-black"
-            >
-              FIRE
-            </button>
-          </div>
-
-          <button
-            onClick={fireHeld}
-            className="w-full bg-blue-500 py-2 rounded text-black"
-          >
-            FIRE HELD
-          </button>
-
+          <button onClick={fireHeld}>FIRE HELD</button>
         </div>
 
       </div>

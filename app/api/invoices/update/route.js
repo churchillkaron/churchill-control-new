@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-
-// TEMP in-memory store (same as main route for now)
-let invoices = [];
+import { invoices } from "../store";
 
 export async function POST(req) {
   try {

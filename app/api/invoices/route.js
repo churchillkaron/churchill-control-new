@@ -1,41 +1,49 @@
 import { NextResponse } from "next/server";
+import { NATURAL_ACCOUNTS } from "../../../lib/accounting/accountingConfig";
+import { invoices } from "./store";
 
-// ⚠️ TEMP: simple in-memory store duplication
-// (real fix later = database)
-let invoices = [];
+export async function GET() {
+  return NextResponse.json(invoices);
+}
 
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { id, status } = body;
 
-    if (!id || !status) {
+    const {
+      vendor = "Unknown",
+      amount = 0,
+      description = "",
+    } = body;
+
+    if (!amount) {
       return NextResponse.json(
-        { error: "Missing id or status" },
+        { error: "Missing amount" },
         { status: 400 }
       );
     }
 
-    const invoice = invoices.find((i) => i.id === id);
+    const classification = classifyInvoice(description);
 
-    if (!invoice) {
-      return NextResponse.json(
-        { error: "Invoice not found" },
-        { status: 404 }
-      );
-    }
+    const invoice = {
+      id: Date.now(),
+      vendor,
+      amount,
+      description,
 
-    invoice.status = status;
+      category: classification.category,
+      department: classification.department,
+      type: classification.type,
+      confidence: classification.confidence,
 
-    if (status === "approved") {
-      invoice.approvedAt = new Date().toISOString();
-      invoice.rejectedAt = null;
-    }
+      status: "pending_approval",
 
-    if (status === "rejected") {
-      invoice.rejectedAt = new Date().toISOString();
-      invoice.approvedAt = null;
-    }
+      createdAt: new Date().toISOString(),
+      approvedAt: null,
+      rejectedAt: null,
+    };
+
+    invoices.push(invoice);
 
     return NextResponse.json({
       success: true,
@@ -43,8 +51,38 @@ export async function POST(req) {
     });
   } catch (err) {
     return NextResponse.json(
-      { error: "Failed to update invoice" },
+      { error: "Failed to create invoice" },
       { status: 500 }
     );
   }
+}
+
+function classifyInvoice(description) {
+  const text = description.toLowerCase();
+
+  for (const type in NATURAL_ACCOUNTS) {
+    const departments = NATURAL_ACCOUNTS[type];
+
+    for (const dept in departments) {
+      const accounts = departments[dept];
+
+      for (const account of accounts) {
+        if (text.includes(account.toLowerCase())) {
+          return {
+            type,
+            department: dept,
+            category: account,
+            confidence: 0.9,
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    type: "Operating Expense",
+    department: "Operations",
+    category: "Miscellaneous",
+    confidence: 0.3,
+  };
 }

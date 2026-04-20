@@ -4,117 +4,59 @@ import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
 export default function HistoryPage() {
-  const [days, setDays] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState([]);
 
+  // 🔥 LOAD HISTORY
   useEffect(() => {
-    fetch("/api/history")
-      .then((res) => res.json())
-      .then((data) => {
-        setDays(data || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const stored = JSON.parse(localStorage.getItem("history") || "[]");
+    setHistory(stored.reverse()); // latest first
   }, []);
 
   return (
-    <AppShell>
-      <div className="space-y-10 text-white">
+    <AppShell showNav={true}>
+      <div className="text-white space-y-6">
 
-        <h1 className="text-3xl">History</h1>
+        <h1>History</h1>
 
-        {/* LIST */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-          <div className="text-lg">Saved Days</div>
+        {history.length === 0 && (
+          <div className="text-white/50">No saved days yet</div>
+        )}
 
-          {loading && <div className="text-white/50">Loading...</div>}
+        {history.map((day) => (
+          <div key={day.id} className="bg-white/5 p-4 rounded space-y-3">
 
-          {!loading && days.length === 0 && (
-            <div className="text-white/50">No data yet</div>
-          )}
-
-          {!loading &&
-            days.map((d, i) => (
-              <div
-                key={i}
-                onClick={() => setSelected(d)}
-                className={`cursor-pointer p-4 rounded-xl border ${
-                  selected?.id === d.id
-                    ? "border-[#ff7a00] bg-[#ff7a00]/10"
-                    : "border-white/10 bg-white/5"
-                } hover:opacity-80 transition`}
-              >
-                <div className="flex justify-between">
-                  <div>
-                    {new Date(d.day_date).toLocaleDateString()}
-                  </div>
-                  <div className="text-white/70">
-                    {d.revenue} THB
-                  </div>
-                </div>
+            {/* 🔥 HEADER */}
+            <div className="flex justify-between">
+              <div>
+                {new Date(day.date).toLocaleDateString()}
               </div>
-            ))}
-        </div>
-
-        {/* DETAIL */}
-        {selected && (
-          <div className="space-y-6">
-
-            {/* HERO */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-              <div className="text-sm text-white/50">Revenue</div>
-              <div className="text-3xl mt-2">
-                {selected.revenue} THB
+              <div className="text-white/50 text-sm">
+                {day.orders.length} orders
               </div>
             </div>
 
-            {/* KPI */}
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                <div className="text-sm text-white/50">Service Pool</div>
-                <div className="text-xl mt-1">
-                  {selected.service_pool} THB
-                </div>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                <div className="text-sm text-white/50">Payout Pool</div>
-                <div className="text-xl mt-1">
-                  {selected.payout_pool} THB
-                </div>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                <div className="text-sm text-white/50">Status</div>
-                <div className="text-xl mt-1">
-                  {selected.payout_status}
-                </div>
-              </div>
+            {/* 🔥 FINANCIALS */}
+            <div className="space-y-1 text-sm">
+              <div>Subtotal: {day.subtotal}</div>
+              <div>Discounts: -{day.discountTotal}</div>
+              <div className="text-lg">Revenue: {day.finalRevenue}</div>
             </div>
 
-            {/* STAFF */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-              <div className="text-lg">Staff Breakdown</div>
+            {/* 🔥 ADJUSTMENTS */}
+            {day.adjustments.length > 0 && (
+              <div className="space-y-1 text-xs text-white/60">
+                <div className="text-white">Adjustments:</div>
 
-              {selected.staff_data?.map((s, i) => (
-                <div
-                  key={i}
-                  className="flex justify-between border-b border-white/10 pb-2"
-                >
-                  <div>
-                    <div>{s.name}</div>
-                    <div className="text-white/40 text-xs">
-                      {s.role}
-                    </div>
+                {day.adjustments.map((a) => (
+                  <div key={a.id}>
+                    Table {a.table} | {a.type} {a.value} | {a.status}
                   </div>
-                  <div>{s.payrollAmount} THB</div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
           </div>
-        )}
+        ))}
 
       </div>
     </AppShell>

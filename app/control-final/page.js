@@ -6,7 +6,7 @@ import {
   calculateFOH,
   getPerformanceLevel,
   getServiceLevel,
-} from "@/lib/performance";
+} from "../../lib/performance";
 
 export default function ControlFinalPage() {
   const [orders, setOrders] = useState([]);
@@ -117,7 +117,6 @@ export default function ControlFinalPage() {
 
   const servicePool = finalRevenue * servicePercent;
 
-  // 🔥 STAFF PAYOUT (WITH PERFORMANCE)
   const calculateStaff = () => {
     if (!staff || staff.length === 0) return [];
 
@@ -134,7 +133,6 @@ export default function ControlFinalPage() {
 
       let weight = score * hours;
 
-      // penalty
       weight = weight * (1 - penalty / 100);
 
       // 🔥 PERFORMANCE MULTIPLIER
@@ -211,7 +209,7 @@ export default function ControlFinalPage() {
 
         <h1>Control Final</h1>
 
-        {/* 🔥 PERFORMANCE PANEL */}
+        {/* PERFORMANCE */}
         <div className="bg-white/5 p-4 rounded space-y-2">
           <div>Revenue: {finalRevenue}</div>
           <div>Score: {foh.score}</div>
@@ -219,7 +217,7 @@ export default function ControlFinalPage() {
           <div>Service %: {servicePercent * 100}%</div>
         </div>
 
-        {/* STAFF PREVIEW */}
+        {/* STAFF */}
         <div className="bg-white/5 p-4 rounded space-y-2">
           <div className="text-sm text-white/50">Staff Preview</div>
 

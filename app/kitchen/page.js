@@ -8,17 +8,22 @@ export default function KitchenPage() {
   const prevOrderIds = useRef([]);
 
   const playSound = () => {
-    const audio = new Audio("/notification.mp3"); // 🔥 place file in /public
+    const audio = new Audio("/notification.mp3");
     audio.play().catch(() => {});
   };
 
   const loadOrders = () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-    const kitchenOrders = stored.filter((o) => o.status === "kitchen");
+
+    let kitchenOrders = stored.filter((o) => o.status === "kitchen");
+
+    // 🔥 SORT BY OLDEST FIRST
+    kitchenOrders = kitchenOrders.sort(
+      (a, b) => new Date(a.created_at) - new Date(b.created_at)
+    );
 
     const newIds = kitchenOrders.map((o) => o.id);
 
-    // 🔥 detect new orders
     if (prevOrderIds.current.length > 0) {
       const hasNew = newIds.some(
         (id) => !prevOrderIds.current.includes(id)

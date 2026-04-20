@@ -4,52 +4,39 @@ import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
 export default function ControlFinal() {
-  const [revenueData, setRevenueData] = useState(null);
-  const [monthly, setMonthly] = useState(null);
-  const [staff, setStaff] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/revenue").then((res) => res.json()),
-      fetch("/api/monthly").then((res) => res.json()),
-      fetch("/api/staff").then((res) => res.json()),
-    ])
-      .then(([rev, monthlyData, staffData]) => {
-        setRevenueData(rev);
-        setMonthly(monthlyData);
-        setStaff(staffData);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const loadOrders = () => {
+      const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+      setOrders(stored);
+    };
+
+    loadOrders();
+
+    const interval = setInterval(loadOrders, 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  // 🔥 PERFORMANCE ENGINE
-  const calculatePerformance = () => {
-    if (!staff) return { level: "LOADING", score: 0 };
-
-    const foh = staff.fohScore || 0;
-    const bar = staff.barScore || 0;
-    const kitchen = staff.kitchenScore || 0;
-
-    const avg = Math.round((foh + bar + kitchen) / 3);
-
-    let level = "GOOD";
-    if (avg < 40) level = "CRITICAL";
-    else if (avg < 70) level = "WARNING";
-
-    return { level, score: avg };
-  };
-
-  const performance = calculatePerformance();
-
-  // 🔥 SERVICE ENGINE
-  const servicePool = Math.round(
-    (revenueData?.revenue || 0) * ((monthly?.level || 5) / 100)
+  // 🔥 ONLY DONE ITEMS COUNT
+  const doneItems = orders.flatMap((order) =>
+    order.items.filter((item) => item.status === "DONE")
   );
 
-  // 🔥 PAYOUT ENGINE
+  const revenue = doneItems.reduce((sum, item) => sum + (item.price || 0), 0);
+  const orderCount = orders.length;
+  const avgOrderValue = orderCount > 0 ? Math.round(revenue / orderCount) : 0;
+
+  // 🔥 SIMPLE PERFORMANCE (placeholder for now)
+  const performance = {
+    level: revenue > 5000 ? "GOOD" : revenue > 2000 ? "WARNING" : "CRITICAL",
+    score: revenue,
+  };
+
+  // 🔥 SERVICE (fixed 5% for now)
+  const servicePool = Math.round(revenue * 0.05);
+
   const payoutMultiplier =
     performance.level === "CRITICAL"
       ? 0.2
@@ -59,47 +46,30 @@ export default function ControlFinal() {
 
   const payoutPool = Math.round(servicePool * payoutMultiplier);
 
-  // 🔥 LOCK DAY (REAL DATA NOW)
-  const lockDay = async () => {
+  // 🔥 LOCK DAY
+  const lockDay = () => {
     setSaving(true);
 
-    try {
-      const res = await fetch("/api/history", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          date: new Date().toISOString(),
+    const history = JSON.parse(localStorage.getItem("history") || "[]");
 
-          revenue: revenueData?.revenue || 0,
-          orderCount: revenueData?.orderCount || 0,
-          avgOrderValue: revenueData?.avgOrderValue || 0,
+    const newDay = {
+      date: new Date().toISOString(),
+      revenue,
+      orderCount,
+      avgOrderValue,
+      servicePool,
+      payoutPool,
+      performanceLevel: performance.level,
+      performanceScore: performance.score,
+      orders,
+    };
 
-          servicePool,
-          payoutPool,
+    localStorage.setItem("history", JSON.stringify([...history, newDay]));
 
-          performanceLevel: performance.level,
-          performanceScore: performance.score,
+    // 🔥 CLEAR CURRENT ORDERS AFTER LOCK
+    localStorage.removeItem("orders");
 
-          fohScore: staff?.fohScore,
-          barScore: staff?.barScore,
-          kitchenScore: staff?.kitchenScore,
-
-          staff: staff?.staffWithPayout || [],
-
-          serviceLevel: monthly?.level || 5,
-        }),
-      });
-
-      if (!res.ok) {
-        alert("Failed to save day");
-      } else {
-        alert("Day locked (REAL DATA)");
-      }
-    } catch (err) {
-      alert("Error saving day");
-    }
+    alert("Day locked ✅");
 
     setSaving(false);
   };
@@ -112,13 +82,10 @@ export default function ControlFinal() {
 
         {/* REVENUE */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-          <div className="text-sm text-white/50">Revenue (REAL)</div>
-          <div className="text-4xl mt-2">
-            {loading ? "..." : `${revenueData?.revenue || 0} THB`}
-          </div>
+          <div className="text-sm text-white/50">Revenue (LIVE)</div>
+          <div className="text-4xl mt-2">{revenue} THB</div>
           <div className="text-xs text-white/50 mt-2">
-            Orders: {revenueData?.orderCount || 0} | Avg:{" "}
-            {revenueData?.avgOrderValue || 0}
+            Orders: {orderCount} | Avg: {avgOrderValue}
           </div>
         </div>
 

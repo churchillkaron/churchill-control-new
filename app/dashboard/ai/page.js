@@ -10,6 +10,7 @@ import {
 export default function AIOwner() {
   const [orders, setOrders] = useState([]);
   const [history, setHistory] = useState([]);
+  const [actions, setActions] = useState([]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -36,7 +37,6 @@ export default function AIOwner() {
   const foh = calculateFOH(orders);
   const performance = getPerformanceLevel(foh.score);
 
-  // 🔥 BASELINE
   const avgPastRevenue =
     history.length > 0
       ? history.reduce((sum, d) => sum + d.finalRevenue, 0) / history.length
@@ -47,46 +47,48 @@ export default function AIOwner() {
       ? Math.round((avgPastRevenue + foh.revenue) / 2)
       : foh.revenue;
 
-  // 🔥 OWNER DECISIONS
-  const actions = [];
+  // 🔥 AUTO ACTION ENGINE
+  useEffect(() => {
+    const newActions = [];
 
-  if (foh.revenue < avgPastRevenue * 0.7) {
-    actions.push({
-      type: "CRITICAL",
-      action: "Launch promotion immediately",
-    });
-  }
+    if (foh.revenue < avgPastRevenue * 0.7) {
+      newActions.push({
+        type: "PROMOTION",
+        message: "Auto: Promotion triggered",
+      });
 
-  if (foh.avg < 300) {
-    actions.push({
-      type: "STRATEGY",
-      action: "Increase pricing or upsell items",
-    });
-  }
+      localStorage.setItem("auto_promo", "active");
+    }
 
-  if (performance.level === "BAD" || performance.level === "CRITICAL") {
-    actions.push({
-      type: "STAFF",
-      action: "Reduce payout impact / review staff",
-    });
-  }
+    if (performance.level === "CRITICAL") {
+      newActions.push({
+        type: "STAFF",
+        message: "Auto: Staff penalty mode activated",
+      });
 
-  if (projectedRevenue > avgPastRevenue * 1.2) {
-    actions.push({
-      type: "OPTIMIZE",
-      action: "Increase staff efficiency / maximize profit",
-    });
-  }
+      localStorage.setItem("auto_staff_mode", "strict");
+    }
+
+    if (foh.avg < 300) {
+      newActions.push({
+        type: "PRICING",
+        message: "Auto: Upsell mode activated",
+      });
+
+      localStorage.setItem("auto_upsell", "active");
+    }
+
+    setActions(newActions);
+  }, [foh.revenue, foh.avg, performance.level]);
 
   return (
     <AppShell>
       <div className="text-white space-y-6">
 
-        <h1 className="text-3xl">AI Owner</h1>
+        <h1 className="text-3xl">AI Owner (Auto Mode)</h1>
 
         {/* LIVE */}
         <div className="bg-white/5 p-6 rounded-xl space-y-2">
-          <div className="text-sm text-white/50">Live</div>
           <div>Revenue: {foh.revenue}</div>
           <div>Orders: {foh.orderCount}</div>
           <div>Avg: {foh.avg}</div>
@@ -95,22 +97,21 @@ export default function AIOwner() {
 
         {/* PREDICTION */}
         <div className="bg-white/5 p-6 rounded-xl space-y-2">
-          <div className="text-sm text-white/50">Prediction</div>
           <div>Average: {Math.round(avgPastRevenue)}</div>
           <div>Projected: {projectedRevenue}</div>
         </div>
 
-        {/* OWNER ACTIONS */}
+        {/* AUTO ACTIONS */}
         <div className="bg-white/5 p-6 rounded-xl space-y-3">
-          <div className="text-sm text-white/50">Owner Decisions</div>
+          <div className="text-sm text-white/50">Auto Actions</div>
 
           {actions.length === 0 && (
-            <div className="text-green-400">System stable</div>
+            <div className="text-green-400">No intervention needed</div>
           )}
 
           {actions.map((a, i) => (
             <div key={i} className="text-red-400">
-              [{a.type}] {a.action}
+              {a.message}
             </div>
           ))}
         </div>

@@ -1,87 +1,86 @@
-import vision from "@google-cloud/vision";
-import OpenAI from "openai";
+import { NextResponse } from "next/server";
+import { NATURAL_ACCOUNTS } from "@/lib/accounting/accountingConfig";
+
+// 🔥 In-memory DB (replace later with real DB)
+let invoices = [];
+
+export async function GET() {
+  return NextResponse.json(invoices);
+}
 
 export async function POST(req) {
   try {
-    const formData = await req.formData();
-    const file = formData.get("file");
+    const body = await req.json();
 
-    if (!file) {
-      return Response.json({ error: "No file" }, { status: 400 });
-    }
+    const {
+      vendor = "Unknown",
+      amount = 0,
+      description = "",
+    } = body;
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // 🔥 AUTO CLASSIFICATION
+    const classification = classifyInvoice(description);
 
-    // 🔥 GOOGLE OCR
-    const client = new vision.ImageAnnotatorClient();
+    const invoice = {
+      id: Date.now(),
 
-    const [result] = await client.textDetection({
-      image: { content: buffer },
+      vendor,
+      amount,
+      description,
+
+      // AI result
+      category: classification.category,
+      department: classification.department,
+      type: classification.type,
+      confidence: classification.confidence,
+
+      status: "pending_approval",
+
+      createdAt: new Date().toISOString(),
+    };
+
+    invoices.push(invoice);
+
+    return NextResponse.json({
+      success: true,
+      invoice,
     });
-
-    const extractedText = result.textAnnotations[0]?.description || "";
-
-    if (!extractedText) {
-      return Response.json({ error: "No text detected" });
-    }
-
-    // 🔥 OPENAI STRUCTURE
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const ai = await openai.responses.create({
-      model: "gpt-4o",
-      temperature: 0,
-      input: [
-        {
-          role: "user",
-          content: `
-You are an accounting AI.
-
-Convert this OCR text into structured invoice data.
-
-IMPORTANT:
-- This is a Thai supermarket receipt
-- Extract ALL items (not just a few)
-- Extract real total
-- Translate Thai to English
-
-Return JSON ONLY:
-
-{
-  "vendor": "",
-  "date": "",
-  "total": 0,
-  "items": [
-    { "name": "", "price": 0 }
-  ]
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Failed to create invoice" },
+      { status: 500 }
+    );
+  }
 }
 
-OCR TEXT:
-${extractedText}
-`,
-        },
-      ],
-    });
+// 🔥 SIMPLE AI CLASSIFIER (upgrade later)
+function classifyInvoice(description) {
+  const text = description.toLowerCase();
 
-    const text = ai.output_text;
+  for (const type in NATURAL_ACCOUNTS) {
+    const departments = NATURAL_ACCOUNTS[type];
 
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return Response.json({
-        error: "AI parse failed",
-        raw: text,
-      });
+    for (const dept in departments) {
+      const accounts = departments[dept];
+
+      for (const account of accounts) {
+        if (text.includes(account.toLowerCase())) {
+          return {
+            type,
+            department: dept,
+            category: account,
+            confidence: 0.9,
+          };
+        }
+      }
     }
-
-    return Response.json(data);
-
-  } catch (err) {
-    console.error(err);
-    return Response.json({ error: "System failed" }, { status: 500 });
   }
+
+  // fallback
+  return {
+    type: "Operating Expense",
+    department: "Operations",
+    category: "Miscellaneous",
+    confidence: 0.3,
+  };
 }

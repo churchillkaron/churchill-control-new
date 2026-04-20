@@ -1,24 +1,54 @@
 "use client";
 
-import Link from "next/link";
-import AppShell from "../AppShell";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  calculateFOH,
+  getPerformanceLevel,
+  getServiceLevel,
+} from "../../lib/performance";
+import {
+  calculateFOH,
+  getPerformanceLevel,
+} from "@/lib/performance";
 
 export default function Dashboard() {
   const [role, setRole] = useState("");
+  const [orders, setOrders] = useState([]);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("current_user"));
     if (user) setRole(user.role);
+
+    loadOrders();
+    const interval = setInterval(loadOrders, 2000);
+    return () => clearInterval(interval);
   }, []);
 
-  const Card = ({ href, title, desc }) => (
+  const loadOrders = () => {
+    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+    setOrders(stored);
+  };
+
+  const foh = calculateFOH(orders);
+  const performance = getPerformanceLevel(foh.score);
+
+  const alerts = [];
+
+  if (performance.level === "BAD" || performance.level === "CRITICAL") {
+    alerts.push("⚠️ Performance dropping");
+  }
+
+  if (foh.orderCount < 3) {
+    alerts.push("⚠️ Low order volume");
+  }
+
+  const Card = ({ href, title }) => (
     <Link
       href={href}
-      className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
+      className="bg-white/5 border border-white/10 rounded-2xl p-6 text-white text-center text-lg hover:bg-white/10"
     >
-      <div className="text-xl text-white">{title}</div>
-      <div className="text-white/50 text-sm mt-2">{desc}</div>
+      {title}
     </Link>
   );
 
@@ -26,52 +56,98 @@ export default function Dashboard() {
     <AppShell>
       <div className="space-y-10 text-white">
 
-        <h1 className="text-3xl">Dashboard</h1>
+        <h1 className="text-3xl">Control Hub</h1>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        {/* 🔥 PERFORMANCE */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3">
+          <div className="text-sm text-white/50">Live Performance</div>
 
-          {/* OWNER */}
+          <div className="text-3xl">
+            {foh.revenue} THB
+          </div>
+
+          <div className="text-sm text-white/50">
+            Orders: {foh.orderCount} | Avg: {foh.avg}
+          </div>
+
+          <div>
+            Level:{" "}
+            <span
+              className={
+                performance.level === "GOOD"
+                  ? "text-green-400"
+                  : performance.level === "WARNING"
+                  ? "text-yellow-400"
+                  : performance.level === "BAD"
+                  ? "text-orange-400"
+                  : "text-red-500"
+              }
+            >
+              {performance.level}
+            </span>
+          </div>
+        </div>
+
+        {/* 🔥 ALERTS */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-2">
+          <div className="text-sm text-white/50">Alerts</div>
+
+          {alerts.length === 0 && (
+            <div className="text-white/40">No alerts</div>
+          )}
+
+          {alerts.map((a, i) => (
+            <div key={i} className="text-yellow-400 text-sm">
+              {a}
+            </div>
+          ))}
+        </div>
+
+        {/* 🔥 NAVIGATION */}
+        <div className="grid grid-cols-2 gap-4">
+
           {role === "owner" && (
             <>
-              <Card href="/pos" title="POS" desc="Orders and live sales" />
-              <Card href="/orders" title="Orders" desc="Live order management" />
-              <Card href="/kitchen" title="Kitchen" desc="Kitchen workflow" />
-              <Card href="/accounting" title="Accounting" desc="Finance system" />
-              <Card href="/payout" title="Payout" desc="Service distribution" />
-              <Card href="/history" title="History" desc="Financial records" />
-              <Card href="/staff" title="Staff Portal" desc="Staff tools" />
-              <Card href="/staff-control" title="Staff Control" desc="Performance & penalties" />
-              <Card href="/control-final" title="Control Final" desc="Close day" />
+              <Card href="/pos" title="POS" />
+              <Card href="/kitchen" title="Kitchen" />
+              <Card href="/tables" title="Tables" />
+
+              <Card href="/control-final" title="Control" />
+              <Card href="/attendance" title="Attendance" />
+              <Card href="/dashboard/performance" title="Performance" />
+
+              <Card href="/history" title="History" />
+              <Card href="/accounting" title="Accounting" />
+              <Card href="/payout" title="Payout" />
             </>
           )}
 
-          {/* MANAGER */}
-          {role === "gm" || role === "manager" ? (
+          {(role === "gm" || role === "manager") && (
             <>
-              <Card href="/pos" title="POS" desc="Orders and live sales" />
-              <Card href="/orders" title="Orders" desc="Live order management" />
-              <Card href="/kitchen" title="Kitchen" desc="Kitchen workflow" />
-              <Card href="/staff" title="Staff Portal" desc="Staff tools" />
-              <Card href="/staff-control" title="Staff Control" desc="Performance & penalties" />
-              <Card href="/history" title="History" desc="Operational history" />
-            </>
-          ) : null}
+              <Card href="/pos" title="POS" />
+              <Card href="/kitchen" title="Kitchen" />
+              <Card href="/tables" title="Tables" />
 
-          {/* ACCOUNTING */}
+              <Card href="/control-final" title="Control" />
+              <Card href="/attendance" title="Attendance" />
+              <Card href="/dashboard/performance" title="Performance" />
+
+              <Card href="/history" title="History" />
+            </>
+          )}
+
           {role === "accounting" && (
             <>
-              <Card href="/accounting" title="Accounting" desc="Finance system" />
-              <Card href="/history" title="History" desc="Financial records" />
-              <Card href="/payout" title="Payout" desc="Service distribution" />
+              <Card href="/accounting" title="Accounting" />
+              <Card href="/history" title="History" />
+              <Card href="/payout" title="Payout" />
             </>
           )}
 
-          {/* STAFF */}
           {(role === "kitchen" || role === "staff") && (
             <>
-              <Card href="/pos" title="POS" desc="Orders and live sales" />
-              <Card href="/orders" title="Orders" desc="Live orders" />
-              <Card href="/kitchen" title="Kitchen" desc="Kitchen workflow" />
+              <Card href="/pos" title="POS" />
+              <Card href="/kitchen" title="Kitchen" />
             </>
           )}
 

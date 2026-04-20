@@ -6,10 +6,12 @@ import AppShell from "../AppShell";
 export default function ControlFinalPage() {
   const [orders, setOrders] = useState([]);
   const [staff, setStaff] = useState([]);
+  const [attendance, setAttendance] = useState({});
 
   useEffect(() => {
     loadOrders();
     loadStaff();
+    loadAttendance();
   }, []);
 
   const loadOrders = () => {
@@ -20,6 +22,11 @@ export default function ControlFinalPage() {
   const loadStaff = () => {
     const stored = JSON.parse(localStorage.getItem("staff") || "[]");
     setStaff(stored);
+  };
+
+  const loadAttendance = () => {
+    const stored = JSON.parse(localStorage.getItem("attendance") || "{}");
+    setAttendance(stored);
   };
 
   const saveOrders = (updatedOrders) => {
@@ -100,23 +107,44 @@ export default function ControlFinalPage() {
 
   const servicePool = finalRevenue * 0.05;
 
-  // 🔥 REAL STAFF PAYOUT (based on score)
+  // 🔥 COMBINED SCORE (performance + hours)
   const calculateStaff = () => {
     if (!staff || staff.length === 0) return [];
 
-    const totalScore = staff.reduce((sum, s) => sum + (s.score || 0), 0);
+    const enriched = staff.map((s) => {
+      const att = attendance[s.id] || {};
 
-    if (totalScore === 0) return [];
+      if (!att.present) {
+        return { ...s, weight: 0 };
+      }
 
-    return staff.map((s) => {
-      const share = ((s.score || 0) / totalScore) * servicePool;
+      const hours = att.hours || 0;
+      const score = s.score || 0;
+
+      const weight = score * hours; // 🔥 CORE LOGIC
+
+      return {
+        ...s,
+        weight,
+        hours,
+        score,
+      };
+    });
+
+    const totalWeight = enriched.reduce((sum, s) => sum + s.weight, 0);
+
+    if (totalWeight === 0) return [];
+
+    return enriched.map((s) => {
+      const payout = (s.weight / totalWeight) * servicePool;
 
       return {
         id: s.id,
         name: s.name,
         role: s.role,
-        score: s.score || 0,
-        payrollAmount: Math.round(share),
+        score: s.score,
+        hours: s.hours,
+        payrollAmount: Math.round(payout),
       };
     });
   };
@@ -138,7 +166,7 @@ export default function ControlFinalPage() {
       finalRevenue,
 
       servicePool,
-      staff: calculatedStaff, // ✅ REAL STAFF
+      staff: calculatedStaff,
 
       created_at: new Date().toISOString(),
     };
@@ -171,7 +199,9 @@ export default function ControlFinalPage() {
 
           {calculateStaff().map((s) => (
             <div key={s.id} className="flex justify-between text-sm">
-              <div>{s.name}</div>
+              <div>
+                {s.name} ({s.hours}h)
+              </div>
               <div>{s.payrollAmount} THB</div>
             </div>
           ))}

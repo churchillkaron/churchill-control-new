@@ -7,15 +7,34 @@ import {
   getPerformanceLevel,
 } from "../../../lib/performance";
 
+// 🔥 MEMORY FUNCTIONS (inline to avoid extra files for now)
+function saveInsight(insight) {
+  const memory = JSON.parse(localStorage.getItem("ai_memory") || "[]");
+
+  memory.push({
+    id: Date.now(),
+    insight,
+    created_at: new Date().toISOString(),
+  });
+
+  localStorage.setItem("ai_memory", JSON.stringify(memory));
+}
+
+function getInsights() {
+  return JSON.parse(localStorage.getItem("ai_memory") || "[]");
+}
+
 export default function AIOwner() {
   const [orders, setOrders] = useState([]);
   const [history, setHistory] = useState([]);
   const [actions, setActions] = useState([]);
   const [aiResult, setAiResult] = useState("");
+  const [insights, setInsights] = useState([]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       loadAll();
+      setInsights(getInsights());
     }
 
     const interval = setInterval(() => {
@@ -68,7 +87,7 @@ export default function AIOwner() {
     }
 
     setActions(newActions);
-  }, [foh.revenue, foh.avg, performance.level]);
+  }, [foh.revenue, foh.avg, performance.level, avgPastRevenue]);
 
   // 🔥 REAL AI CALL
   const runAI = async () => {
@@ -86,7 +105,12 @@ export default function AIOwner() {
     });
 
     const data = await res.json();
+
     setAiResult(data.result);
+
+    // 🔥 SAVE MEMORY
+    saveInsight(data.result);
+    setInsights(getInsights());
   };
 
   return (
@@ -104,4 +128,55 @@ export default function AIOwner() {
         </div>
 
         {/* PREDICTION */}
-        <div className="bg
+        <div className="bg-white/5 p-6 rounded-xl space-y-2">
+          <div>Average: {Math.round(avgPastRevenue)}</div>
+          <div>Projected: {projectedRevenue}</div>
+        </div>
+
+        {/* AUTO ACTIONS */}
+        <div className="bg-white/5 p-6 rounded-xl space-y-3">
+          <div className="text-sm text-white/50">Auto Actions</div>
+
+          {actions.length === 0 && (
+            <div className="text-green-400">No intervention needed</div>
+          )}
+
+          {actions.map((a, i) => (
+            <div key={i} className="text-red-400">
+              {a}
+            </div>
+          ))}
+        </div>
+
+        {/* 🔥 AI BUTTON */}
+        <button
+          onClick={runAI}
+          className="bg-orange-500 px-4 py-2 rounded text-black"
+        >
+          Run AI Analysis
+        </button>
+
+        {/* 🔥 AI RESULT */}
+        {aiResult && (
+          <div className="bg-white/5 p-4 rounded whitespace-pre-line">
+            {aiResult}
+          </div>
+        )}
+
+        {/* 🔥 AI MEMORY */}
+        {insights.length > 0 && (
+          <div className="bg-white/5 p-4 rounded space-y-2">
+            <div className="text-sm text-white/50">AI Memory</div>
+
+            {insights.slice().reverse().map((i) => (
+              <div key={i.id} className="text-white/70 text-sm">
+                {i.insight}
+              </div>
+            ))}
+          </div>
+        )}
+
+      </div>
+    </AppShell>
+  );
+}

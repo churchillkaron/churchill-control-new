@@ -1,87 +1,96 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
+import AppShell from "../AppShell";
 
 export default function AttendancePage() {
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [staff, setStaff] = useState([]);
+  const [attendance, setAttendance] = useState({});
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("current_user"));
-    if (user) {
-      setName(user.name);
-      setRole(user.role);
-    }
+    const storedStaff = JSON.parse(localStorage.getItem("staff") || "[]");
+    const storedAttendance = JSON.parse(localStorage.getItem("attendance") || "{}");
+
+    setStaff(storedStaff);
+    setAttendance(storedAttendance);
   }, []);
 
-  const handleAction = async (action) => {
-    setLoading(true);
-    setStatus("");
+  const saveAttendance = (updated) => {
+    localStorage.setItem("attendance", JSON.stringify(updated));
+    setAttendance(updated);
+  };
 
-    const res = await fetch("/api/staff", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+  // 🔥 TOGGLE PRESENT
+  const togglePresent = (id) => {
+    const updated = {
+      ...attendance,
+      [id]: {
+        ...(attendance[id] || {}),
+        present: !attendance[id]?.present,
       },
-      body: JSON.stringify({ action, staffName: name, staffRole: role }),
-    });
+    };
 
-    const data = await res.json();
+    saveAttendance(updated);
+  };
 
-    if (!res.ok) {
-      setStatus(data.error);
-    } else {
-      if (action === "clock_in") {
-        setStatus(
-          data.late
-            ? "Clocked in (Late ⚠️)"
-            : "Clocked in (On time ✅)"
-        );
-      } else {
-        setStatus("Clocked out");
-      }
-    }
+  // 🔥 SET HOURS
+  const setHours = (id, value) => {
+    const updated = {
+      ...attendance,
+      [id]: {
+        ...(attendance[id] || {}),
+        hours: Number(value),
+      },
+    };
 
-    setLoading(false);
+    saveAttendance(updated);
   };
 
   return (
     <AppShell>
-      <div className="space-y-10 text-white max-w-xl">
+      <div className="text-white space-y-6">
 
-        <h1 className="text-3xl">Attendance</h1>
+        <h1 className="text-2xl">Attendance</h1>
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-          <div>Name: {name}</div>
-          <div>Role: {role}</div>
-        </div>
+        {staff.map((s) => {
+          const data = attendance[s.id] || {};
 
-        <div className="flex gap-4">
-          <button
-            onClick={() => handleAction("clock_in")}
-            disabled={loading}
-            className="bg-green-500 px-6 py-3 rounded-xl"
-          >
-            Clock In
-          </button>
+          return (
+            <div
+              key={s.id}
+              className="bg-white/5 p-4 rounded space-y-2"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <div>{s.name}</div>
+                  <div className="text-white/50 text-sm">{s.role}</div>
+                </div>
 
-          <button
-            onClick={() => handleAction("clock_out")}
-            disabled={loading}
-            className="bg-red-500 px-6 py-3 rounded-xl"
-          >
-            Clock Out
-          </button>
-        </div>
+                <button
+                  onClick={() => togglePresent(s.id)}
+                  className={`px-3 py-1 rounded ${
+                    data.present ? "bg-green-500" : "bg-white/10"
+                  }`}
+                >
+                  {data.present ? "Present" : "Absent"}
+                </button>
+              </div>
 
-        {status && (
-          <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
-            {status}
-          </div>
-        )}
+              {data.present && (
+                <div className="flex items-center gap-2">
+                  <div className="text-sm text-white/50">Hours</div>
+                  <input
+                    type="number"
+                    value={data.hours || ""}
+                    onChange={(e) => setHours(s.id, e.target.value)}
+                    className="w-20 text-black px-2 py-1"
+                  />
+                </div>
+              )}
+
+            </div>
+          );
+        })}
 
       </div>
     </AppShell>

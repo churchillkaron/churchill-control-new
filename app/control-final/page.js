@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
+import {
+  calculateFOH,
+  getPerformanceLevel,
+  getServiceLevel,
+} from "@/lib/performance";
 
 export default function ControlFinalPage() {
   const [orders, setOrders] = useState([]);
@@ -105,9 +110,14 @@ export default function ControlFinalPage() {
 
   const finalRevenue = subtotal - discountTotal;
 
-  const servicePool = finalRevenue * 0.05;
+  // 🔥 PERFORMANCE ENGINE
+  const foh = calculateFOH(orders);
+  const performance = getPerformanceLevel(foh.score);
+  const servicePercent = getServiceLevel(foh.score) / 100;
 
-  // 🔥 PENALTY APPLIED
+  const servicePool = finalRevenue * servicePercent;
+
+  // 🔥 STAFF PAYOUT (WITH PERFORMANCE)
   const calculateStaff = () => {
     if (!staff || staff.length === 0) return [];
 
@@ -124,8 +134,11 @@ export default function ControlFinalPage() {
 
       let weight = score * hours;
 
-      // 🔥 APPLY PENALTY
+      // penalty
       weight = weight * (1 - penalty / 100);
+
+      // 🔥 PERFORMANCE MULTIPLIER
+      weight = weight * performance.multiplier;
 
       return {
         ...s,
@@ -171,6 +184,12 @@ export default function ControlFinalPage() {
       discountTotal,
       finalRevenue,
 
+      performance: {
+        score: foh.score,
+        level: performance.level,
+        servicePercent: servicePercent * 100,
+      },
+
       servicePool,
       staff: calculatedStaff,
 
@@ -180,11 +199,9 @@ export default function ControlFinalPage() {
     history.push(newDay);
 
     localStorage.setItem("history", JSON.stringify(history));
-
     localStorage.removeItem("orders");
 
     alert("Day Closed & Saved");
-
     setOrders([]);
   };
 
@@ -194,9 +211,12 @@ export default function ControlFinalPage() {
 
         <h1>Control Final</h1>
 
+        {/* 🔥 PERFORMANCE PANEL */}
         <div className="bg-white/5 p-4 rounded space-y-2">
           <div>Revenue: {finalRevenue}</div>
-          <div>Service Pool: {servicePool}</div>
+          <div>Score: {foh.score}</div>
+          <div>Level: {performance.level}</div>
+          <div>Service %: {servicePercent * 100}%</div>
         </div>
 
         {/* STAFF PREVIEW */}

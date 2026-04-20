@@ -8,48 +8,57 @@ export default function AttendancePage() {
   const [attendance, setAttendance] = useState({});
 
   useEffect(() => {
-    const storedStaff = JSON.parse(localStorage.getItem("staff") || "[]");
-    const storedAttendance = JSON.parse(localStorage.getItem("attendance") || "{}");
-
-    setStaff(storedStaff);
-    setAttendance(storedAttendance);
+    loadStaff();
+    loadAttendance();
   }, []);
 
-  const saveAttendance = (updated) => {
-    localStorage.setItem("attendance", JSON.stringify(updated));
-    setAttendance(updated);
+  const loadStaff = () => {
+    const stored = JSON.parse(localStorage.getItem("staff") || "[]");
+    setStaff(stored);
   };
 
-  const togglePresent = (id) => {
+  const loadAttendance = () => {
+    const stored = JSON.parse(localStorage.getItem("attendance") || "{}");
+    setAttendance(stored);
+  };
+
+  const saveAttendance = (data) => {
+    localStorage.setItem("attendance", JSON.stringify(data));
+    setAttendance(data);
+  };
+
+  const checkIn = (id) => {
+    const now = new Date();
+
     const updated = {
       ...attendance,
       [id]: {
-        ...(attendance[id] || {}),
-        present: !attendance[id]?.present,
+        present: true,
+        checkIn: now.toISOString(),
+        hours: 0,
+        lateMinutes: 0,
+        penalty: 0,
       },
     };
 
     saveAttendance(updated);
   };
 
-  const setHours = (id, value) => {
+  const checkOut = (id) => {
+    const now = new Date();
+    const existing = attendance[id];
+
+    if (!existing || !existing.checkIn) return;
+
+    const checkInTime = new Date(existing.checkIn);
+    const hours = (now - checkInTime) / (1000 * 60 * 60);
+
     const updated = {
       ...attendance,
       [id]: {
-        ...(attendance[id] || {}),
-        hours: Number(value),
-      },
-    };
-
-    saveAttendance(updated);
-  };
-
-  const setPenalty = (id, value) => {
-    const updated = {
-      ...attendance,
-      [id]: {
-        ...(attendance[id] || {}),
-        penalty: Number(value),
+        ...existing,
+        checkOut: now.toISOString(),
+        hours: Number(hours.toFixed(2)),
       },
     };
 
@@ -60,57 +69,49 @@ export default function AttendancePage() {
     <AppShell>
       <div className="text-white space-y-6">
 
-        <h1 className="text-2xl">Attendance</h1>
+        <h1 className="text-3xl">Attendance</h1>
 
-        {staff.map((s) => {
-          const data = attendance[s.id] || {};
+        {staff.length === 0 && (
+          <div className="text-white/40 text-sm">
+            No staff found
+          </div>
+        )}
 
-          return (
-            <div key={s.id} className="bg-white/5 p-4 rounded space-y-2">
+        <div className="space-y-4">
+          {staff.map((s) => {
+            const att = attendance[s.id] || {};
 
-              <div className="flex justify-between">
+            return (
+              <div
+                key={s.id}
+                className="bg-white/5 border border-white/10 rounded-xl p-4 flex justify-between items-center"
+              >
                 <div>
                   <div>{s.name}</div>
-                  <div className="text-white/50 text-sm">{s.role}</div>
+                  <div className="text-xs text-white/50">
+                    {att.hours ? `${att.hours}h` : "Not checked out"}
+                  </div>
                 </div>
 
-                <button
-                  onClick={() => togglePresent(s.id)}
-                  className={`px-3 py-1 rounded ${
-                    data.present ? "bg-green-500" : "bg-white/10"
-                  }`}
-                >
-                  {data.present ? "Present" : "Absent"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => checkIn(s.id)}
+                    className="bg-green-500 px-3 py-1 rounded text-black"
+                  >
+                    IN
+                  </button>
+
+                  <button
+                    onClick={() => checkOut(s.id)}
+                    className="bg-red-500 px-3 py-1 rounded text-black"
+                  >
+                    OUT
+                  </button>
+                </div>
               </div>
-
-              {data.present && (
-                <>
-                  <div className="flex gap-2">
-                    <span>Hours</span>
-                    <input
-                      type="number"
-                      value={data.hours || ""}
-                      onChange={(e) => setHours(s.id, e.target.value)}
-                      className="w-20 text-black px-2"
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span>Penalty %</span>
-                    <input
-                      type="number"
-                      value={data.penalty || 0}
-                      onChange={(e) => setPenalty(s.id, e.target.value)}
-                      className="w-20 text-black px-2"
-                    />
-                  </div>
-                </>
-              )}
-
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
 
       </div>
     </AppShell>

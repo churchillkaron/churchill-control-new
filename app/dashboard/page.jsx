@@ -5,13 +5,7 @@ import Link from "next/link";
 import {
   calculateFOH,
   getPerformanceLevel,
-  getServiceLevel,
 } from "../../lib/performance";
-import {
-  calculateFOH,
-  getPerformanceLevel,
-} from "@/lib/performance";
-
 export default function Dashboard() {
   const [role, setRole] = useState("");
   const [orders, setOrders] = useState([]);

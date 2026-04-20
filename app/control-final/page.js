@@ -20,7 +20,6 @@ export default function ControlFinalPage() {
     setOrders(updatedOrders);
   };
 
-  // 🔥 APPROVE
   const approve = (orderId, adjId) => {
     const updated = orders.map((o) => {
       if (o.id !== orderId) return o;
@@ -43,7 +42,6 @@ export default function ControlFinalPage() {
     saveOrders(updated);
   };
 
-  // 🔥 REJECT
   const reject = (orderId, adjId) => {
     const updated = orders.map((o) => {
       if (o.id !== orderId) return o;
@@ -64,7 +62,6 @@ export default function ControlFinalPage() {
     saveOrders(updated);
   };
 
-  // 🔥 FLATTEN
   const adjustments = orders.flatMap((o) =>
     (o.adjustmentRequests || []).map((a) => ({
       ...a,
@@ -73,7 +70,6 @@ export default function ControlFinalPage() {
     }))
   );
 
-  // 🔥 CALCULATIONS
   const subtotal = orders.reduce(
     (sum, o) => sum + o.items.reduce((s, i) => s + i.price, 0),
     0
@@ -98,7 +94,9 @@ export default function ControlFinalPage() {
 
   const finalRevenue = subtotal - discountTotal;
 
-  // 🔥 SAVE DAY
+  // ✅ SERVICE POOL
+  const servicePool = finalRevenue * 0.05;
+
   const saveDay = () => {
     const history = JSON.parse(localStorage.getItem("history") || "[]");
 
@@ -113,6 +111,8 @@ export default function ControlFinalPage() {
       discountTotal,
       finalRevenue,
 
+      servicePool, // ✅ REQUIRED FOR PAYOUT
+
       created_at: new Date().toISOString(),
     };
 
@@ -120,7 +120,6 @@ export default function ControlFinalPage() {
 
     localStorage.setItem("history", JSON.stringify(history));
 
-    // 🔥 RESET ORDERS AFTER CLOSE
     localStorage.removeItem("orders");
 
     alert("Day Closed & Saved");
@@ -134,26 +133,21 @@ export default function ControlFinalPage() {
 
         <h1>Control Final</h1>
 
-        {/* REVENUE */}
         <div className="bg-white/5 p-4 rounded space-y-2">
           <div>Subtotal: {subtotal}</div>
           <div>Discounts: -{discountTotal}</div>
-          <div className="text-xl">Final Revenue: {finalRevenue}</div>
+          <div>Revenue: {finalRevenue}</div>
+          <div>Service Pool: {servicePool}</div>
         </div>
 
-        {/* REQUESTS */}
         <div className="space-y-3">
           <h2>Adjustment Requests</h2>
 
           {adjustments.map((a) => (
-            <div key={a.id} className="bg-white/5 p-3 rounded space-y-1">
+            <div key={a.id} className="bg-white/5 p-3 rounded">
 
               <div>
                 Table {a.table} | {a.type} {a.value}
-              </div>
-
-              <div className="text-xs text-white/50">
-                by {a.requestedBy}
               </div>
 
               <div>Status: {a.status}</div>
@@ -180,10 +174,9 @@ export default function ControlFinalPage() {
           ))}
         </div>
 
-        {/* 🔥 CLOSE DAY */}
         <button
           onClick={saveDay}
-          className="w-full bg-orange-500 py-3 rounded text-black text-lg"
+          className="w-full bg-orange-500 py-3 rounded text-black"
         >
           CLOSE DAY
         </button>

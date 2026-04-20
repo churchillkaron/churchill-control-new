@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
+import AppShell from "../AppShell";
 
 export default function AttendancePage() {
   const [staff, setStaff] = useState([]);
@@ -44,7 +44,6 @@ export default function AttendancePage() {
     saveAttendance(updated);
   };
 
-  // 🔥 PENALTY SYSTEM
   const setPenalty = (id, value) => {
     const updated = {
       ...attendance,
@@ -67,11 +66,9 @@ export default function AttendancePage() {
           const data = attendance[s.id] || {};
 
           return (
-            <div
-              key={s.id}
-              className="bg-white/5 p-4 rounded space-y-2"
-            >
-              <div className="flex justify-between items-center">
+            <div key={s.id} className="bg-white/5 p-4 rounded space-y-2">
+
+              <div className="flex justify-between">
                 <div>
                   <div>{s.name}</div>
                   <div className="text-white/50 text-sm">{s.role}</div>
@@ -89,23 +86,23 @@ export default function AttendancePage() {
 
               {data.present && (
                 <>
-                  <div className="flex items-center gap-2">
-                    <div className="text-sm text-white/50">Hours</div>
+                  <div className="flex gap-2">
+                    <span>Hours</span>
                     <input
                       type="number"
                       value={data.hours || ""}
                       onChange={(e) => setHours(s.id, e.target.value)}
-                      className="w-20 text-black px-2 py-1"
+                      className="w-20 text-black px-2"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="text-sm text-white/50">Penalty (%)</div>
+                  <div className="flex gap-2">
+                    <span>Penalty %</span>
                     <input
                       type="number"
                       value={data.penalty || 0}
                       onChange={(e) => setPenalty(s.id, e.target.value)}
-                      className="w-20 text-black px-2 py-1"
+                      className="w-20 text-black px-2"
                     />
                   </div>
                 </>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { orders } from "@/lib/store/orders";
+import { orders } from "../../../lib/store/orders";
 
 export async function GET() {
   const paidOrders = orders.filter((o) => o.status === "paid");

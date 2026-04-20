@@ -1,34 +1,25 @@
 import { NextResponse } from "next/server";
-import { orders } from "@/lib/store/orders";
-
-export async function GET() {
-  return NextResponse.json(orders);
-}
+import { orders } from "../../../../lib/store/orders";
 
 export async function POST(req) {
   try {
     const body = await req.json();
+    const { id, status } = body;
 
-    const {
-      table = "unknown",
-      items = [],
-      staff = "unknown",
-    } = body;
+    const order = orders.find((o) => o.id === id);
 
-    const total = items.reduce((sum, i) => sum + (i.price || 0), 0);
+    if (!order) {
+      return NextResponse.json(
+        { error: "Order not found" },
+        { status: 404 }
+      );
+    }
 
-    const order = {
-      id: Date.now(),
-      table,
-      staff,
-      items,
-      total,
-      status: "new",
-      createdAt: new Date().toISOString(),
-      paidAt: null,
-    };
+    order.status = status;
 
-    orders.push(order);
+    if (status === "paid") {
+      order.paidAt = new Date().toISOString();
+    }
 
     return NextResponse.json({
       success: true,
@@ -36,7 +27,7 @@ export async function POST(req) {
     });
   } catch (err) {
     return NextResponse.json(
-      { error: "Failed to create order" },
+      { error: "Failed to update order" },
       { status: 500 }
     );
   }

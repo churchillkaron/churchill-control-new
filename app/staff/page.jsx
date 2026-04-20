@@ -1,61 +1,104 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
-export default function StaffPortal() {
-  const Card = ({ href, title, desc }) => (
-    <Link
-      href={href}
-      className="bg-white/5 border border-white/10 rounded-2xl p-6 block hover:bg-white/10 transition"
-    >
-      <div className="text-xl text-white">{title}</div>
-      <div className="text-white/50 text-sm mt-2">{desc}</div>
-    </Link>
-  );
+export default function StaffPage() {
+  const [staff, setStaff] = useState([]);
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("FOH");
+
+  useEffect(() => {
+    loadStaff();
+  }, []);
+
+  const loadStaff = () => {
+    const stored = JSON.parse(localStorage.getItem("staff") || "[]");
+    setStaff(stored);
+  };
+
+  const saveStaff = (updated) => {
+    localStorage.setItem("staff", JSON.stringify(updated));
+    setStaff(updated);
+  };
+
+  const addStaff = () => {
+    if (!name) return;
+
+    const updated = [
+      ...staff,
+      {
+        id: Date.now(),
+        name,
+        role,
+        score: 100, // default performance
+      },
+    ];
+
+    saveStaff(updated);
+    setName("");
+  };
+
+  const removeStaff = (id) => {
+    const updated = staff.filter((s) => s.id !== id);
+    saveStaff(updated);
+  };
 
   return (
     <AppShell>
-      <div className="space-y-10 text-white">
-        <h1 className="text-3xl">Staff Portal</h1>
+      <div className="text-white space-y-6">
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card
-            href="/staff/performance"
-            title="⭐ Performance"
-            desc="Personal performance and score"
+        <h1 className="text-2xl">Staff System</h1>
+
+        {/* ADD STAFF */}
+        <div className="bg-white/5 p-4 rounded space-y-2">
+          <input
+            placeholder="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full text-black px-2 py-1"
           />
 
-          <Card
-            href="/staff/earnings"
-            title="💰 Earnings"
-            desc="Your earnings and service charge"
-          />
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full text-black px-2 py-1"
+          >
+            <option value="FOH">FOH</option>
+            <option value="BAR">BAR</option>
+            <option value="KITCHEN">KITCHEN</option>
+          </select>
 
-          <Card
-            href="/staff/attendance"
-            title="⏱ Attendance"
-            desc="Clock in and track attendance"
-          />
-
-          <Card
-            href="/staff/invoice"
-            title="🤖 AI Invoice"
-            desc="Upload invoice to send to accounting"
-          />
-
-          <Card
-            href="/staff/reviews"
-            title="⭐📍 Google Reviews"
-            desc="View customer reviews"
-          />
-
-          <Card
-            href="/staff/messages"
-            title="💬 Messages"
-            desc="Team communication"
-          />
+          <button
+            onClick={addStaff}
+            className="w-full bg-green-500 py-2 rounded text-black"
+          >
+            ADD STAFF
+          </button>
         </div>
+
+        {/* STAFF LIST */}
+        <div className="space-y-3">
+          {staff.map((s) => (
+            <div
+              key={s.id}
+              className="bg-white/5 p-3 rounded flex justify-between items-center"
+            >
+              <div>
+                <div>{s.name}</div>
+                <div className="text-white/50 text-sm">{s.role}</div>
+              </div>
+
+              <button
+                onClick={() => removeStaff(s.id)}
+                className="bg-red-500 px-2 py-1 rounded"
+              >
+                REMOVE
+              </button>
+            </div>
+          ))}
+        </div>
+
       </div>
     </AppShell>
   );

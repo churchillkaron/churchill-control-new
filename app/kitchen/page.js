@@ -40,23 +40,6 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🔥 MANUAL FIRE DESSERT
-  const fireDessert = (orderId) => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const updated = stored.map((order) => {
-      if (order.id !== orderId) return order;
-
-      return {
-        ...order,
-        dessertFired: true,
-      };
-    });
-
-    localStorage.setItem("orders", JSON.stringify(updated));
-    loadOrders();
-  };
-
   const updateItemStatus = (orderId, itemIds, newStatus) => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
@@ -93,6 +76,22 @@ export default function KitchenPage() {
     loadOrders();
   };
 
+  const fireDessert = (orderId) => {
+    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+
+    const updated = stored.map((order) => {
+      if (order.id !== orderId) return order;
+
+      return {
+        ...order,
+        dessertFired: true,
+      };
+    });
+
+    localStorage.setItem("orders", JSON.stringify(updated));
+    loadOrders();
+  };
+
   const getWaitingTime = (created_at) => {
     return Math.floor((Date.now() - new Date(created_at)) / 60000);
   };
@@ -122,7 +121,6 @@ export default function KitchenPage() {
               const items = order.items.filter((item) => {
                 if (item.station !== station) return false;
 
-                // 🔥 SHOW DESSERT IF AUTO OR MANUAL FIRE
                 if (
                   item.course === "dessert" &&
                   !mainDone &&
@@ -146,20 +144,12 @@ export default function KitchenPage() {
             });
 
             return (
-              <div
-                key={station}
-                className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-4"
-              >
-                <div className="text-lg">{station}</div>
+              <div key={station} className="space-y-4">
+                <h2>{station}</h2>
 
                 {Object.entries(grouped).map(([table, orders]) => (
-                  <div
-                    key={table}
-                    className="border border-white/10 rounded-xl p-4 space-y-4"
-                  >
-                    <div className="text-sm text-white/50">
-                      Table {table}
-                    </div>
+                  <div key={table} className="border p-3 space-y-3">
+                    <div>Table {table}</div>
 
                     {orders.map((order, index) => {
                       const minutes = getWaitingTime(order.created_at);
@@ -176,52 +166,36 @@ export default function KitchenPage() {
                       const merged = {};
 
                       order.stationItems.forEach((item) => {
-                        const key = item.name;
-
-                        if (!merged[key]) {
-                          merged[key] = {
+                        if (!merged[item.name]) {
+                          merged[item.name] = {
                             name: item.name,
                             ids: [],
+                            status: item.status,
                           };
                         }
 
-                        merged[key].ids.push(item.id);
+                        merged[item.name].ids.push(item.id);
                       });
 
                       return (
-                        <div
-                          key={order.id}
-                          className={`p-3 rounded-xl ${urgencyStyle}`}
-                        >
-                          <div className="text-xs text-white/40 mb-2">
-                            Ticket {index + 1} • {minutes} min
-                          </div>
+                        <div key={order.id} className={urgencyStyle}>
+                          <div>Ticket {index + 1} • {minutes} min</div>
 
-                          {/* 🔥 MANUAL FIRE BUTTON */}
                           {!mainDone && (
-                            <button
-                              onClick={() => fireDessert(order.id)}
-                              className="mb-2 w-full bg-purple-500 py-1 rounded text-black text-xs"
-                            >
+                            <button onClick={() => fireDessert(order.id)}>
                               FIRE DESSERT
                             </button>
                           )}
 
                           {Object.values(merged).map((item) => (
-                            <div
-                              key={item.name}
-                              className="bg-black/30 p-2 rounded mb-2"
-                            >
-                              <div>
-                                {item.ids.length}x {item.name}
-                              </div>
+                            <div key={item.name}>
+                              {item.ids.length}x {item.name}
 
-                              <div className="flex gap-2 mt-1">
+                              <div>
                                 <button
                                   onClick={() =>
                                     updateItemStatus(order.id, item.ids, "COOKING")
                                   }
-                                  className="px-2 py-1 bg-yellow-500 text-black text-xs rounded"
                                 >
                                   Cooking
                                 </button>
@@ -230,19 +204,25 @@ export default function KitchenPage() {
                                   onClick={() =>
                                     updateItemStatus(order.id, item.ids, "DONE")
                                   }
-                                  className="px-2 py-1 bg-green-500 text-black text-xs rounded"
                                 >
                                   Done
+                                </button>
+
+                                {/* 🔥 RECALL BUTTON */}
+                                <button
+                                  onClick={() =>
+                                    updateItemStatus(order.id, item.ids, "COOKING")
+                                  }
+                                  className="bg-red-500 ml-2"
+                                >
+                                  Recall
                                 </button>
                               </div>
                             </div>
                           ))}
 
                           {allDone && (
-                            <button
-                              onClick={() => serveOrder(order.id)}
-                              className="w-full bg-blue-500 py-1 rounded text-black text-sm"
-                            >
+                            <button onClick={() => serveOrder(order.id)}>
                               Serve
                             </button>
                           )}

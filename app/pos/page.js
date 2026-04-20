@@ -9,19 +9,13 @@ export default function POSPage() {
   const [table, setTable] = useState("T1");
   const [activeCategory, setActiveCategory] = useState("starter");
 
-  const [adjustments, setAdjustments] = useState([]);
+  // 🔥 ONLY REQUESTS NOW
+  const [adjustRequests, setAdjustRequests] = useState([]);
   const [showAdjust, setShowAdjust] = useState(false);
   const [adjustType, setAdjustType] = useState("discount");
   const [adjustMode, setAdjustMode] = useState("percent");
   const [adjustValue, setAdjustValue] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
-
-  // 🔥 NEW CONTROL
-  const [showApproval, setShowApproval] = useState(false);
-  const [managerPin, setManagerPin] = useState("");
-  const [pendingAdjustment, setPendingAdjustment] = useState(null);
-
-  const MANAGER_PIN = "1234"; // change later
 
   const tables = ["T1", "T2", "T3", "T4", "T5", "T6"];
 
@@ -38,6 +32,10 @@ export default function POSPage() {
       { name: "Mango Sticky Rice", price: 180, station: "THAI", course: "dessert" },
       { name: "Chocolate Cake", price: 220, station: "WESTERN", course: "dessert" },
     ],
+  };
+
+  const getCurrentUser = () => {
+    return localStorage.getItem("currentUser") || "unknown";
   };
 
   useEffect(() => {
@@ -73,7 +71,10 @@ export default function POSPage() {
       id: Date.now(),
       table,
       items: orderItems,
-      adjustments,
+
+      // 🔥 SEND ONLY REQUESTS
+      adjustmentRequests: adjustRequests,
+
       total: orderItems.reduce((s, i) => s + i.price, 0),
       status: mode === "fire" ? "kitchen" : "hold",
       created_at: new Date().toISOString(),
@@ -83,7 +84,7 @@ export default function POSPage() {
     localStorage.setItem("orders", JSON.stringify(stored));
 
     setOrderItems([]);
-    setAdjustments([]);
+    setAdjustRequests([]);
   };
 
   const fireHeld = () => {
@@ -102,55 +103,32 @@ export default function POSPage() {
     localStorage.setItem("orders", JSON.stringify(updated));
   };
 
-  // 🔥 CALC
-  const subtotal =
+  // 🔥 PURE DISPLAY TOTAL (NO DISCOUNTS)
+  const total =
     existingItems.reduce((s, i) => s + i.price, 0) +
     orderItems.reduce((s, i) => s + i.price, 0);
 
-  const discountTotal = adjustments.reduce((sum, adj) => {
-    if (adj.type === "discount") {
-      if (adj.mode === "percent") {
-        return sum + (subtotal * adj.value) / 100;
-      }
-      return sum + adj.value;
-    }
-    if (adj.type === "comp") {
-      return sum + adj.value;
-    }
-    return sum;
-  }, 0);
-
-  const total = subtotal - discountTotal;
-
-  // 🔥 REQUEST ADJUSTMENT (NO DIRECT APPLY)
+  // 🔥 REQUEST ONLY
   const requestAdjustment = () => {
     if (!adjustValue) return;
 
-    setPendingAdjustment({
-      id: Date.now(),
-      type: adjustType,
-      mode: adjustMode,
-      value: Number(adjustValue),
-      reason: adjustReason,
-      created_at: new Date().toISOString(),
-    });
+    setAdjustRequests((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        type: adjustType,
+        mode: adjustMode,
+        value: Number(adjustValue),
+        reason: adjustReason,
+        requestedBy: getCurrentUser(),
+        status: "pending",
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
+    setAdjustValue("");
+    setAdjustReason("");
     setShowAdjust(false);
-    setShowApproval(true);
-  };
-
-  // 🔥 APPROVAL
-  const approveAdjustment = () => {
-    if (managerPin !== MANAGER_PIN) {
-      alert("Wrong PIN");
-      return;
-    }
-
-    setAdjustments((prev) => [...prev, pendingAdjustment]);
-
-    setManagerPin("");
-    setPendingAdjustment(null);
-    setShowApproval(false);
   };
 
   return (
@@ -196,9 +174,6 @@ export default function POSPage() {
               className="p-3 bg-white/5 rounded cursor-pointer"
             >
               {item.name} - {item.price}
-              <div className="text-xs text-white/40">
-                {item.course}
-              </div>
             </div>
           ))}
         </div>
@@ -215,26 +190,23 @@ export default function POSPage() {
           ))}
 
           {orderItems.map((i) => (
-            <div key={i.id}>
-              {i.name}
+            <div key={i.id}>{i.name}</div>
+          ))}
+
+          {/* 🔥 REQUEST DISPLAY */}
+          {adjustRequests.map((a) => (
+            <div key={a.id} className="text-yellow-400 text-sm">
+              REQUEST: {a.type} {a.value} ({a.reason})
             </div>
           ))}
 
-          {adjustments.map((a) => (
-            <div key={a.id} className="text-red-400 text-sm">
-              {a.type.toUpperCase()} - {a.mode === "percent" ? `${a.value}%` : a.value} ({a.reason})
-            </div>
-          ))}
-
-          <div>Subtotal: {subtotal}</div>
-          <div>Discount: -{discountTotal}</div>
           <div className="text-xl">Total: {total}</div>
 
           <button
             onClick={() => setShowAdjust(true)}
             className="w-full bg-purple-500 py-2 rounded"
           >
-            ADJUST
+            REQUEST ADJUSTMENT
           </button>
 
           {showAdjust && (
@@ -267,28 +239,7 @@ export default function POSPage() {
                 onClick={requestAdjustment}
                 className="w-full bg-yellow-500 py-1"
               >
-                REQUEST
-              </button>
-            </div>
-          )}
-
-          {showApproval && (
-            <div className="space-y-2 bg-red-900/60 p-3 rounded">
-              <div>Manager Approval Required</div>
-
-              <input
-                type="password"
-                placeholder="Enter PIN"
-                value={managerPin}
-                onChange={(e) => setManagerPin(e.target.value)}
-                className="w-full text-black px-2"
-              />
-
-              <button
-                onClick={approveAdjustment}
-                className="w-full bg-green-500 py-1"
-              >
-                APPROVE
+                SEND REQUEST
               </button>
             </div>
           )}

@@ -1,16 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
 
 export default function POSPage() {
   const [orderItems, setOrderItems] = useState([]);
+  const [existingItems, setExistingItems] = useState([]);
   const [sending, setSending] = useState(false);
   const [activeCategory, setActiveCategory] = useState("starter");
   const [table, setTable] = useState("T1");
-  const [success, setSuccess] = useState(false);
 
-  // 🔥 TABLE LIST (EDIT THIS LATER)
   const tables = ["T1", "T2", "T3", "T4", "T5", "T6"];
 
   const menu = {
@@ -26,6 +25,23 @@ export default function POSPage() {
     ],
   };
 
+  // 🔥 LOAD EXISTING TABLE DATA
+  useEffect(() => {
+    const load = () => {
+      const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+
+      const tableOrder = stored.find(
+        (o) => o.table === table && o.status !== "closed"
+      );
+
+      setExistingItems(tableOrder ? tableOrder.items : []);
+    };
+
+    load();
+    const interval = setInterval(load, 1000);
+    return () => clearInterval(interval);
+  }, [table]);
+
   const addItem = (item) => {
     setOrderItems((prev) => [
       ...prev,
@@ -37,52 +53,51 @@ export default function POSPage() {
     ]);
   };
 
-  const total = orderItems.reduce((sum, i) => sum + i.price, 0);
+  const newTotal = orderItems.reduce((sum, i) => sum + i.price, 0);
+  const existingTotal = existingItems.reduce((sum, i) => sum + i.price, 0);
+  const total = newTotal + existingTotal;
 
   const sendOrder = () => {
     if (orderItems.length === 0) return;
 
     setSending(true);
 
-    const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
+    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    let tableOrder = existingOrders.find(
+    let tableOrder = stored.find(
       (o) => o.table === table && o.status !== "closed"
     );
 
     if (tableOrder) {
       tableOrder.items = [...tableOrder.items, ...orderItems];
-      tableOrder.total += total;
+      tableOrder.total += newTotal;
     } else {
       tableOrder = {
         id: Date.now(),
         table,
         items: orderItems,
-        total,
+        total: newTotal,
         status: "kitchen",
         created_at: new Date().toISOString(),
       };
-      existingOrders.push(tableOrder);
+      stored.push(tableOrder);
     }
 
-    localStorage.setItem("orders", JSON.stringify(existingOrders));
-
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 2000);
+    localStorage.setItem("orders", JSON.stringify(stored));
 
     setOrderItems([]);
     setSending(false);
   };
 
   return (
-    <AppShell>
+    <AppShell showNav={true}>
       <div className="grid md:grid-cols-2 gap-10 text-white">
 
         {/* LEFT */}
         <div className="space-y-6">
           <h1 className="text-2xl">POS</h1>
 
-          {/* 🔥 TABLE BUTTONS */}
+          {/* TABLES */}
           <div className="grid grid-cols-3 gap-2">
             {tables.map((t) => (
               <button
@@ -91,21 +106,13 @@ export default function POSPage() {
                 className={`py-2 rounded-xl ${
                   table === t
                     ? "bg-[#ff7a00]"
-                    : "bg-white/10 hover:bg-white/20"
+                    : "bg-white/10"
                 }`}
               >
                 {t}
               </button>
             ))}
           </div>
-
-          {/* OPTIONAL MANUAL INPUT */}
-          <input
-            value={table}
-            onChange={(e) => setTable(e.target.value)}
-            className="bg-white/10 p-2 rounded-xl w-full"
-            placeholder="Custom table"
-          />
 
           {/* CATEGORY */}
           <div className="flex gap-2">
@@ -139,16 +146,26 @@ export default function POSPage() {
 
         {/* RIGHT */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-          <h2 className="text-xl">Order ({table})</h2>
 
-          {orderItems.map((item) => (
-            <div key={item.id} className="flex justify-between text-sm">
+          <h2 className="text-xl">Table {table}</h2>
+
+          {/* 🔥 EXISTING ITEMS */}
+          {existingItems.map((item) => (
+            <div key={item.id} className="flex justify-between text-sm text-white/60">
               <span>{item.name}</span>
-              <span>{item.price} THB</span>
+              <span>{item.price}</span>
             </div>
           ))}
 
-          {orderItems.length === 0 && (
+          {/* 🔥 NEW ITEMS */}
+          {orderItems.map((item) => (
+            <div key={item.id} className="flex justify-between text-sm">
+              <span>{item.name}</span>
+              <span>{item.price}</span>
+            </div>
+          ))}
+
+          {existingItems.length === 0 && orderItems.length === 0 && (
             <div className="text-white/40 text-sm">No items</div>
           )}
 
@@ -165,11 +182,6 @@ export default function POSPage() {
             {sending ? "Sending..." : "Send Order"}
           </button>
 
-          {success && (
-            <div className="text-green-400 text-center text-sm">
-              Added to {table} ✅
-            </div>
-          )}
         </div>
 
       </div>

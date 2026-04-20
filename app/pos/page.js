@@ -3,281 +3,96 @@
 import { useState } from "react";
 import AppShell from "../AppShell";
 
-const categories = [
-  "Starter",
-  "Main Course",
-  "Dessert",
-  "Thai Food",
-  "Beer",
-  "Soft Drink",
-  "Wine",
-  "Cocktails",
-  "Spirit",
-];
-
-const menu = {
-  Starter: [
-    { name: "Beef Carpaccio", price: 320, station: "WESTERN" },
-    { name: "Chili & Garlic Prawns", price: 320, station: "WESTERN" },
-    { name: "Signature Bruschetta", price: 280, station: "WESTERN" },
-    { name: "Seared Scallops", price: 520, station: "WESTERN" },
-    { name: "Mango & Tomato Salad", price: 220, station: "WESTERN" },
-    { name: "Tom Yum Goong", price: 180, station: "THAI" },
-    { name: "Tom Kha Gai", price: 170, station: "THAI" },
-  ],
-  "Main Course": [
-    { name: "Ribeye Steak", price: 890, station: "WESTERN", popup: true },
-    { name: "Beef Tenderloin", price: 920, station: "WESTERN", popup: true },
-  ],
-  "Thai Food": [{ name: "Pad Thai", price: 160, station: "THAI" }],
-};
-
-const doneness = ["Rare", "Medium Rare", "Medium", "Well Done"];
-const sides = ["Fries", "Salad", "Mashed Potato"];
-const sauces = ["Pepper", "Mushroom", "BBQ", "Red Wine"];
-
 export default function POSPage() {
-  const [activeCategory, setActiveCategory] = useState("Starter");
-  const [cart, setCart] = useState([]);
-  const [table, setTable] = useState("");
+  const [orderItems, setOrderItems] = useState([]);
+  const [sending, setSending] = useState(false);
 
-  const [popupItem, setPopupItem] = useState(null);
-  const [selected, setSelected] = useState({
-    doneness: "",
-    side: "",
-    sauce: "",
-  });
+  const menu = [
+    { name: "Beef Carpaccio", price: 320 },
+    { name: "Chili & Garlic Prawns", price: 320 },
+    { name: "Signature Bruschetta", price: 280 },
+    { name: "Seared Scallops", price: 520 },
+    { name: "Mango & Tomato Salad", price: 220 },
+    { name: "Tom Yum Goong", price: 180 },
+  ];
 
-  const [attempted, setAttempted] = useState(false);
-
-  const handleClick = (item) => {
-    if (item.popup) {
-      setPopupItem(item);
-      setSelected({ doneness: "", side: "", sauce: "" });
-      setAttempted(false);
-      return;
-    }
-    setCart((p) => [...p, item]);
+  const addItem = (item) => {
+    setOrderItems([...orderItems, item]);
   };
 
-  const isComplete =
-    selected.doneness && selected.side && selected.sauce;
+  const total = orderItems.reduce((sum, i) => sum + i.price, 0);
 
-  const confirmPopup = () => {
-    if (!isComplete) {
-      setAttempted(true);
-      return;
-    }
+  // 🔥 SEND ORDER TO SYSTEM
+  const sendOrder = async () => {
+    if (orderItems.length === 0) return;
 
-    setCart((p) => [
-      ...p,
-      {
-        ...popupItem,
-        modifier: selected.doneness,
-        side: selected.side,
-        sauce: selected.sauce,
+    setSending(true);
+
+    await fetch("/api/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    ]);
-    setPopupItem(null);
-  };
+      body: JSON.stringify({
+        table: "T1",
+        staff: "FOH",
+        items: orderItems,
+      }),
+    });
 
-  const total = cart.reduce((s, i) => s + i.price, 0);
-
-  const sendOrder = () => {
-    const orders = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const newOrder = {
-      id: Date.now(),
-      table,
-      total,
-      created_at: new Date().toISOString(),
-      items: cart.map((i, idx) => ({
-        id: Date.now() + idx,
-        ...i,
-        status: "NEW",
-      })),
-    };
-
-    const western = newOrder.items.filter(i => i.station === "WESTERN");
-    const thai = newOrder.items.filter(i => i.station === "THAI");
-
-    newOrder.kitchen = {
-      WESTERN: western,
-      THAI: thai,
-    };
-
-    orders.push(newOrder);
-
-    localStorage.setItem("orders", JSON.stringify(orders));
-    setCart([]);
+    setOrderItems([]);
+    setSending(false);
   };
 
   return (
     <AppShell>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white">
+      <div className="grid md:grid-cols-2 gap-10 text-white">
 
         {/* MENU */}
-        <div className="md:col-span-2 space-y-6">
+        <div className="space-y-4">
+          <h1 className="text-2xl">POS</h1>
 
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-            <input
-              placeholder="Table"
-              value={table}
-              onChange={(e) => setTable(e.target.value)}
-              className="px-4 py-3 rounded-xl bg-white/10 w-full"
-            />
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            {categories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setActiveCategory(c)}
-                className={`px-4 py-2 rounded-xl ${
-                  activeCategory === c ? "bg-[#ff7a00]" : "bg-white/10"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {(menu[activeCategory] || []).map((item, i) => (
-              <div
-                key={i}
-                onClick={() => handleClick(item)}
-                className="p-4 rounded-xl bg-white/10 hover:bg-white/20 transition cursor-pointer"
-              >
-                <div>{item.name}</div>
-                <div className="text-white/60 text-sm mt-1">
-                  {item.price} THB
-                </div>
-              </div>
-            ))}
-          </div>
+          {menu.map((item, i) => (
+            <div
+              key={i}
+              onClick={() => addItem(item)}
+              className="bg-white/5 border border-white/10 p-4 rounded-xl cursor-pointer hover:bg-white/10"
+            >
+              <div>{item.name}</div>
+              <div className="text-sm text-white/50">{item.price} THB</div>
+            </div>
+          ))}
         </div>
 
-        {/* CART */}
-        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-4">
+        {/* ORDER */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+          <h2 className="text-xl">Order</h2>
 
-          <div className="text-lg">Order</div>
+          {orderItems.map((item, i) => (
+            <div key={i} className="flex justify-between text-sm">
+              <span>{item.name}</span>
+              <span>{item.price} THB</span>
+            </div>
+          ))}
 
-          <div className="space-y-2 max-h-[400px] overflow-auto text-sm">
-            {cart.map((item, i) => (
-              <div key={i}>
-                {item.name} - {item.price}
-                {item.modifier && <div>• {item.modifier}</div>}
-                {item.side && <div>• {item.side}</div>}
-                {item.sauce && <div>• {item.sauce}</div>}
-              </div>
-            ))}
+          {orderItems.length === 0 && (
+            <div className="text-white/40 text-sm">No items</div>
+          )}
+
+          <div className="border-t border-white/10 pt-4 flex justify-between">
+            <span>Total</span>
+            <span>{total} THB</span>
           </div>
-
-          <div className="text-xl">Total: {total} THB</div>
 
           <button
             onClick={sendOrder}
-            className="w-full bg-[#ff7a00] p-3 rounded-xl hover:brightness-110 transition"
+            disabled={sending}
+            className="w-full bg-[#ff7a00] py-3 rounded-xl"
           >
-            Send Order
+            {sending ? "Sending..." : "Send Order"}
           </button>
         </div>
 
-        {/* POPUP */}
-        {popupItem && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/70">
-
-            <div className="bg-black border border-white/10 p-6 rounded-2xl w-[400px] space-y-4">
-
-              <h2 className="text-lg">{popupItem.name}</h2>
-
-              <div>
-                <div className={attempted && !selected.doneness ? "text-red-400" : ""}>
-                  Doneness
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {doneness.map((d) => (
-                    <div
-                      key={d}
-                      onClick={() =>
-                        setSelected((p) => ({ ...p, doneness: d }))
-                      }
-                      className={`cursor-pointer p-2 rounded ${
-                        selected.doneness === d
-                          ? "bg-[#ff7a00]"
-                          : "bg-white/10"
-                      }`}
-                    >
-                      {d}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className={attempted && !selected.side ? "text-red-400" : ""}>
-                  Side
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {sides.map((s) => (
-                    <div
-                      key={s}
-                      onClick={() =>
-                        setSelected((p) => ({ ...p, side: s }))
-                      }
-                      className={`cursor-pointer p-2 rounded ${
-                        selected.side === s
-                          ? "bg-[#ff7a00]"
-                          : "bg-white/10"
-                      }`}
-                    >
-                      {s}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className={attempted && !selected.sauce ? "text-red-400" : ""}>
-                  Sauce
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {sauces.map((s) => (
-                    <div
-                      key={s}
-                      onClick={() =>
-                        setSelected((p) => ({ ...p, sauce: s }))
-                      }
-                      className={`cursor-pointer p-2 rounded ${
-                        selected.sauce === s
-                          ? "bg-[#ff7a00]"
-                          : "bg-white/10"
-                      }`}
-                    >
-                      {s}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                onClick={confirmPopup}
-                className="w-full bg-[#ff7a00] p-3 rounded-xl"
-              >
-                Add to Cart
-              </button>
-
-              <button
-                onClick={() => setPopupItem(null)}
-                className="w-full bg-white/10 p-3 rounded-xl"
-              >
-                Cancel
-              </button>
-
-            </div>
-          </div>
-        )}
       </div>
     </AppShell>
   );

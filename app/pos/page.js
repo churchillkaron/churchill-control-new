@@ -8,27 +8,33 @@ export default function POSPage() {
   const [sending, setSending] = useState(false);
   const [activeCategory, setActiveCategory] = useState("starter");
 
-  // 🔥 MENU WITH CATEGORIES
+  // 🔥 MENU WITH STATIONS (IMPORTANT FOR KITCHEN)
   const menu = {
     starter: [
-      { name: "Beef Carpaccio", price: 320 },
-      { name: "Signature Bruschetta", price: 280 },
-      { name: "Mango & Tomato Salad", price: 220 },
-      { name: "Tom Yum Goong", price: 180 },
+      { name: "Beef Carpaccio", price: 320, station: "WESTERN" },
+      { name: "Signature Bruschetta", price: 280, station: "WESTERN" },
+      { name: "Mango & Tomato Salad", price: 220, station: "WESTERN" },
+      { name: "Tom Yum Goong", price: 180, station: "THAI" },
     ],
     main: [
-      { name: "Chili & Garlic Prawns", price: 320 },
-      { name: "Seared Scallops", price: 520 },
+      { name: "Chili & Garlic Prawns", price: 320, station: "THAI" },
+      { name: "Seared Scallops", price: 520, station: "WESTERN" },
     ],
   };
 
   const addItem = (item) => {
-    setOrderItems((prev) => [...prev, item]);
+    const newItem = {
+      ...item,
+      id: Date.now() + Math.random(), // unique item id
+      status: "NEW",
+    };
+
+    setOrderItems((prev) => [...prev, newItem]);
   };
 
   const total = orderItems.reduce((sum, i) => sum + i.price, 0);
 
-  // 🔥 SEND ORDER (WITH FEEDBACK)
+  // 🔥 SEND ORDER → SAVE TO LOCALSTORAGE (SOURCE OF TRUTH)
   const sendOrder = async () => {
     if (orderItems.length === 0) {
       alert("No items selected");
@@ -38,26 +44,24 @@ export default function POSPage() {
     setSending(true);
 
     try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          table: "T1",
-          staff: "FOH",
-          items: orderItems,
-        }),
-      });
+      const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
 
-      const data = await res.json();
+      const newOrder = {
+        id: Date.now(),
+        table: "T1",
+        staff: "FOH",
+        items: orderItems,
+        total,
+        status: "kitchen", // 🔥 DIRECT TO KITCHEN
+        created_at: new Date().toISOString(),
+      };
 
-      if (!res.ok) {
-        alert("Failed to send order");
-      } else {
-        alert("Order sent ✅");
-        setOrderItems([]);
-      }
+      const updatedOrders = [...existingOrders, newOrder];
+
+      localStorage.setItem("orders", JSON.stringify(updatedOrders));
+
+      alert("Order sent to kitchen ✅");
+      setOrderItems([]);
     } catch (err) {
       alert("Error sending order");
     }
@@ -110,7 +114,7 @@ export default function POSPage() {
           <h2 className="text-xl">Order</h2>
 
           {orderItems.map((item, i) => (
-            <div key={i} className="flex justify-between text-sm">
+            <div key={item.id} className="flex justify-between text-sm">
               <span>{item.name}</span>
               <span>{item.price} THB</span>
             </div>

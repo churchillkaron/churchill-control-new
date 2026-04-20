@@ -1,2 +1,2 @@
-// 🔥 SINGLE SOURCE OF TRUTH (shared across APIs)
-export const invoices = [];
+// 🔥 CENTRAL ORDER STORE (SOURCE OF REVENUE)
+export const orders = [];

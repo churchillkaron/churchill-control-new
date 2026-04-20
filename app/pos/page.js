@@ -7,7 +7,8 @@ export default function POSPage() {
   const [orderItems, setOrderItems] = useState([]);
   const [sending, setSending] = useState(false);
   const [activeCategory, setActiveCategory] = useState("starter");
-  const [success, setSuccess] = useState(false); // ✅ feedback
+  const [table, setTable] = useState("T1");
+  const [success, setSuccess] = useState(false);
 
   const menu = {
     starter: [
@@ -23,46 +24,53 @@ export default function POSPage() {
   };
 
   const addItem = (item) => {
-    const newItem = {
-      ...item,
-      id: Date.now() + Math.random(),
-      status: "NEW",
-    };
-    setOrderItems((prev) => [...prev, newItem]);
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        ...item,
+        id: Date.now() + Math.random(),
+        status: "NEW",
+      },
+    ]);
   };
 
   const total = orderItems.reduce((sum, i) => sum + i.price, 0);
 
-  const sendOrder = async () => {
+  const sendOrder = () => {
     if (orderItems.length === 0) return;
 
     setSending(true);
 
-    try {
-      const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
+    const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
 
-      const newOrder = {
+    // 🔥 FIND EXISTING TABLE
+    let tableOrder = existingOrders.find(
+      (o) => o.table === table && o.status !== "closed"
+    );
+
+    if (tableOrder) {
+      // 🔥 APPEND ITEMS TO EXISTING TABLE
+      tableOrder.items = [...tableOrder.items, ...orderItems];
+      tableOrder.total += total;
+    } else {
+      // 🔥 CREATE NEW TABLE ORDER
+      tableOrder = {
         id: Date.now(),
-        table: "T1",
-        staff: "FOH",
+        table,
         items: orderItems,
         total,
         status: "kitchen",
         created_at: new Date().toISOString(),
       };
-
-      const updatedOrders = [...existingOrders, newOrder];
-      localStorage.setItem("orders", JSON.stringify(updatedOrders));
-
-      // ✅ SUCCESS FEEDBACK
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 2000);
-
-      setOrderItems([]);
-    } catch (err) {
-      alert("Error sending order");
+      existingOrders.push(tableOrder);
     }
 
+    localStorage.setItem("orders", JSON.stringify(existingOrders));
+
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 2000);
+
+    setOrderItems([]);
     setSending(false);
   };
 
@@ -73,6 +81,14 @@ export default function POSPage() {
         {/* LEFT */}
         <div className="space-y-6">
           <h1 className="text-2xl">POS</h1>
+
+          {/* 🔥 TABLE SELECTOR */}
+          <input
+            value={table}
+            onChange={(e) => setTable(e.target.value)}
+            className="bg-white/10 p-2 rounded-xl"
+            placeholder="Table (e.g. T1)"
+          />
 
           <div className="flex gap-2">
             {Object.keys(menu).map((cat) => (
@@ -94,12 +110,10 @@ export default function POSPage() {
             <div
               key={i}
               onClick={() => addItem(item)}
-              className="bg-white/5 border border-white/10 p-4 rounded-xl cursor-pointer hover:bg-white/10"
+              className="bg-white/5 border border-white/10 p-4 rounded-xl cursor-pointer"
             >
               <div>{item.name}</div>
-              <div className="text-sm text-white/50">
-                {item.price} THB
-              </div>
+              <div className="text-sm text-white/50">{item.price} THB</div>
             </div>
           ))}
         </div>
@@ -127,15 +141,14 @@ export default function POSPage() {
           <button
             onClick={sendOrder}
             disabled={sending}
-            className="w-full bg-[#ff7a00] py-3 rounded-xl disabled:opacity-50"
+            className="w-full bg-[#ff7a00] py-3 rounded-xl"
           >
             {sending ? "Sending..." : "Send Order"}
           </button>
 
-          {/* ✅ SUCCESS POPUP */}
           {success && (
             <div className="text-green-400 text-center text-sm">
-              Order sent to kitchen ✅
+              Added to table {table} ✅
             </div>
           )}
         </div>

@@ -1,45 +1,42 @@
 import { NextResponse } from "next/server";
-import { NATURAL_ACCOUNTS } from "@/lib/accounting/accountingConfig";
+import { invoices } from "../route";
 
-// 🔥 In-memory DB (replace later with real DB)
-let invoices = [];
-
-export async function GET() {
-  return NextResponse.json(invoices);
-}
-
+// 🔥 UPDATE INVOICE STATUS (APPROVE / REJECT)
 export async function POST(req) {
   try {
     const body = await req.json();
+    const { id, status } = body;
 
-    const {
-      vendor = "Unknown",
-      amount = 0,
-      description = "",
-    } = body;
+    // VALIDATION
+    if (!id || !status) {
+      return NextResponse.json(
+        { error: "Missing id or status" },
+        { status: 400 }
+      );
+    }
 
-    // 🔥 AUTO CLASSIFICATION
-    const classification = classifyInvoice(description);
+    const invoice = invoices.find((i) => i.id === id);
 
-    const invoice = {
-      id: Date.now(),
+    if (!invoice) {
+      return NextResponse.json(
+        { error: "Invoice not found" },
+        { status: 404 }
+      );
+    }
 
-      vendor,
-      amount,
-      description,
+    // 🔥 UPDATE STATUS
+    invoice.status = status;
 
-      // AI result
-      category: classification.category,
-      department: classification.department,
-      type: classification.type,
-      confidence: classification.confidence,
+    // 🔥 META TRACKING
+    if (status === "approved") {
+      invoice.approvedAt = new Date().toISOString();
+      invoice.rejectedAt = null;
+    }
 
-      status: "pending_approval",
-
-      createdAt: new Date().toISOString(),
-    };
-
-    invoices.push(invoice);
+    if (status === "rejected") {
+      invoice.rejectedAt = new Date().toISOString();
+      invoice.approvedAt = null;
+    }
 
     return NextResponse.json({
       success: true,
@@ -47,40 +44,8 @@ export async function POST(req) {
     });
   } catch (err) {
     return NextResponse.json(
-      { error: "Failed to create invoice" },
+      { error: "Failed to update invoice" },
       { status: 500 }
     );
   }
-}
-
-// 🔥 SIMPLE AI CLASSIFIER (upgrade later)
-function classifyInvoice(description) {
-  const text = description.toLowerCase();
-
-  for (const type in NATURAL_ACCOUNTS) {
-    const departments = NATURAL_ACCOUNTS[type];
-
-    for (const dept in departments) {
-      const accounts = departments[dept];
-
-      for (const account of accounts) {
-        if (text.includes(account.toLowerCase())) {
-          return {
-            type,
-            department: dept,
-            category: account,
-            confidence: 0.9,
-          };
-        }
-      }
-    }
-  }
-
-  // fallback
-  return {
-    type: "Operating Expense",
-    department: "Operations",
-    category: "Miscellaneous",
-    confidence: 0.3,
-  };
 }

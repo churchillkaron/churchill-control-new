@@ -1,241 +1,115 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
-import AppShell from "../AppShell";
+import { useEffect, useState } from "react";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
-  const prevOrderIds = useRef([]);
-
-  const playSound = () => {
-    const audio = new Audio("/notification.mp3");
-    audio.play().catch(() => {});
-  };
-
-  const loadOrders = () => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    let kitchenOrders = stored.filter((o) => o.status === "kitchen");
-
-    kitchenOrders = kitchenOrders.sort(
-      (a, b) => new Date(a.created_at) - new Date(b.created_at)
-    );
-
-    const newIds = kitchenOrders.map((o) => o.id);
-
-    if (prevOrderIds.current.length > 0) {
-      const hasNew = newIds.some(
-        (id) => !prevOrderIds.current.includes(id)
-      );
-      if (hasNew) playSound();
-    }
-
-    prevOrderIds.current = newIds;
-    setOrders(kitchenOrders);
-  };
 
   useEffect(() => {
-    loadOrders();
-    const interval = setInterval(loadOrders, 1000);
-    return () => clearInterval(interval);
+    const stored = JSON.parse(localStorage.getItem("orders")) || [];
+    setOrders(stored);
   }, []);
 
-  const updateItemStatus = (orderId, itemIds, newStatus) => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const updated = stored.map((order) => {
-      if (order.id !== orderId) return order;
-
-      return {
-        ...order,
-        items: order.items.map((item) =>
-          itemIds.includes(item.id)
-            ? { ...item, status: newStatus }
-            : item
-        ),
-      };
-    });
-
+  const updateOrders = (updated) => {
+    setOrders(updated);
     localStorage.setItem("orders", JSON.stringify(updated));
-    loadOrders();
   };
 
-  const serveOrder = (orderId) => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const updated = stored.map((order) => {
-      if (order.id !== orderId) return order;
-
-      return {
-        ...order,
-        status: "served",
-      };
-    });
-
-    localStorage.setItem("orders", JSON.stringify(updated));
-    loadOrders();
+  // 🔁 RECALL (already working)
+  const recallItem = (itemId) => {
+    const updated = orders.map((order) => ({
+      ...order,
+      items: order.items.map((item) =>
+        item.id === itemId ? { ...item, status: "COOKING" } : item
+      ),
+    }));
+    updateOrders(updated);
   };
 
-  const fireDessert = (orderId) => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const updated = stored.map((order) => {
-      if (order.id !== orderId) return order;
-
-      return {
-        ...order,
-        dessertFired: true,
-      };
-    });
-
-    localStorage.setItem("orders", JSON.stringify(updated));
-    loadOrders();
+  // ❌ CANCEL (NEW)
+  const cancelItem = (itemId) => {
+    const updated = orders.map((order) => ({
+      ...order,
+      items: order.items.map((item) =>
+        item.id === itemId
+          ? { ...item, status: "CANCELLED" }
+          : item
+      ),
+    }));
+    updateOrders(updated);
   };
 
-  const getWaitingTime = (created_at) => {
-    return Math.floor((Date.now() - new Date(created_at)) / 60000);
-  };
-
-  const getUrgencyStyle = (minutes) => {
-    if (minutes >= 20) return "border-red-500 bg-red-500/10";
-    if (minutes >= 10) return "border-yellow-500 bg-yellow-500/10";
-    return "border-white/10 bg-white/5";
+  // FILTER BY STATION
+  const getItemsByStation = (station) => {
+    return orders
+      .flatMap((order) =>
+        order.items
+          .filter(
+            (item) =>
+              item.station === station &&
+              item.status !== "CANCELLED"
+          )
+          .map((item) => ({
+            ...item,
+            table: order.table,
+            ticketTime: order.createdAt,
+          }))
+      );
   };
 
   const stations = ["THAI", "WESTERN", "PIZZA"];
 
   return (
-    <AppShell showNav={false}>
-      <div className="space-y-10 text-white">
-        <h1 className="text-3xl">Kitchen</h1>
+    <div className="p-6 text-white">
+      <h1 className="text-2xl mb-6">Kitchen</h1>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {stations.map((station) => {
-            const grouped = {};
+      <div className="grid grid-cols-3 gap-6">
+        {stations.map((station) => (
+          <div key={station}>
+            <h2 className="mb-2 text-sm opacity-70">{station}</h2>
 
-            orders.forEach((order) => {
-              const mainDone = order.items
-                .filter((i) => i.course === "main")
-                .every((i) => i.status === "DONE");
-
-              const items = order.items.filter((item) => {
-                if (item.station !== station) return false;
-
-                if (
-                  item.course === "dessert" &&
-                  !mainDone &&
-                  !order.dessertFired
-                )
-                  return false;
-
-                return true;
-              });
-
-              if (items.length === 0) return;
-
-              if (!grouped[order.table]) {
-                grouped[order.table] = [];
-              }
-
-              grouped[order.table].push({
-                ...order,
-                stationItems: items,
-              });
-            });
-
-            return (
-              <div key={station} className="space-y-4">
-                <h2>{station}</h2>
-
-                {Object.entries(grouped).map(([table, orders]) => (
-                  <div key={table} className="border p-3 space-y-3">
-                    <div>Table {table}</div>
-
-                    {orders.map((order, index) => {
-                      const minutes = getWaitingTime(order.created_at);
-                      const urgencyStyle = getUrgencyStyle(minutes);
-
-                      const allDone = order.items.every(
-                        (i) => i.status === "DONE"
-                      );
-
-                      const mainDone = order.items
-                        .filter((i) => i.course === "main")
-                        .every((i) => i.status === "DONE");
-
-                      const merged = {};
-
-                      order.stationItems.forEach((item) => {
-                        if (!merged[item.name]) {
-                          merged[item.name] = {
-                            name: item.name,
-                            ids: [],
-                            status: item.status,
-                          };
-                        }
-
-                        merged[item.name].ids.push(item.id);
-                      });
-
-                      return (
-                        <div key={order.id} className={urgencyStyle}>
-                          <div>Ticket {index + 1} • {minutes} min</div>
-
-                          {!mainDone && (
-                            <button onClick={() => fireDessert(order.id)}>
-                              FIRE DESSERT
-                            </button>
-                          )}
-
-                          {Object.values(merged).map((item) => (
-                            <div key={item.name}>
-                              {item.ids.length}x {item.name}
-
-                              <div>
-                                <button
-                                  onClick={() =>
-                                    updateItemStatus(order.id, item.ids, "COOKING")
-                                  }
-                                >
-                                  Cooking
-                                </button>
-
-                                <button
-                                  onClick={() =>
-                                    updateItemStatus(order.id, item.ids, "DONE")
-                                  }
-                                >
-                                  Done
-                                </button>
-
-                                {/* 🔥 RECALL BUTTON */}
-                                <button
-                                  onClick={() =>
-                                    updateItemStatus(order.id, item.ids, "COOKING")
-                                  }
-                                  className="bg-red-500 ml-2"
-                                >
-                                  Recall
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-
-                          {allDone && (
-                            <button onClick={() => serveOrder(order.id)}>
-                              Serve
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
+            <div className="space-y-3">
+              {getItemsByStation(station).map((item) => (
+                <div
+                  key={item.id}
+                  className="border border-white/20 p-3 rounded bg-red-900/40"
+                >
+                  <div className="text-sm">
+                    Table {item.table}
                   </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+
+                  <div className="text-xs opacity-70 mb-1">
+                    {item.name}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    <span>{item.status}</span>
+
+                    {/* RECALL */}
+                    {item.status === "DONE" && (
+                      <button
+                        onClick={() => recallItem(item.id)}
+                        className="bg-yellow-500 px-2 py-0.5 rounded text-black"
+                      >
+                        Recall
+                      </button>
+                    )}
+
+                    {/* CANCEL */}
+                    {item.status !== "CANCELLED" && (
+                      <button
+                        onClick={() => cancelItem(item.id)}
+                        className="bg-red-600 px-2 py-0.5 rounded"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-    </AppShell>
+    </div>
   );
 }

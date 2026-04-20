@@ -6,41 +6,31 @@ import AppShell from "../AppShell";
 export default function POSPage() {
   const [orderItems, setOrderItems] = useState([]);
   const [existingItems, setExistingItems] = useState([]);
-  const [isClosed, setIsClosed] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [activeCategory, setActiveCategory] = useState("starter");
   const [table, setTable] = useState("T1");
+  const [activeCategory, setActiveCategory] = useState("starter");
 
   const tables = ["T1", "T2", "T3", "T4", "T5", "T6"];
 
   const menu = {
     starter: [
       { name: "Beef Carpaccio", price: 320, station: "WESTERN" },
-      { name: "Signature Bruschetta", price: 280, station: "WESTERN" },
-      { name: "Mango & Tomato Salad", price: 220, station: "WESTERN" },
       { name: "Tom Yum Goong", price: 180, station: "THAI" },
     ],
     main: [
-      { name: "Chili & Garlic Prawns", price: 320, station: "THAI" },
-      { name: "Seared Scallops", price: 520, station: "WESTERN" },
+      { name: "Chili Prawns", price: 320, station: "THAI" },
+      { name: "Scallops", price: 520, station: "WESTERN" },
     ],
   };
 
-  // 🔥 LOAD TABLE STATE
+  // LOAD TABLE
   useEffect(() => {
     const load = () => {
       const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
-      const tableOrder = stored.find((o) => o.table === table);
+      const tableOrders = stored.filter((o) => o.table === table);
 
-      if (!tableOrder) {
-        setExistingItems([]);
-        setIsClosed(false);
-        return;
-      }
-
-      setExistingItems(tableOrder.items || []);
-      setIsClosed(tableOrder.status === "closed");
+      const allItems = tableOrders.flatMap((o) => o.items || []);
+      setExistingItems(allItems);
     };
 
     load();
@@ -49,8 +39,6 @@ export default function POSPage() {
   }, [table]);
 
   const addItem = (item) => {
-    if (isClosed) return;
-
     setOrderItems((prev) => [
       ...prev,
       {
@@ -61,41 +49,46 @@ export default function POSPage() {
     ]);
   };
 
-  const newTotal = orderItems.reduce((sum, i) => sum + i.price, 0);
-  const existingTotal = existingItems.reduce((sum, i) => sum + i.price, 0);
-  const total = newTotal + existingTotal;
-
-  const sendOrder = () => {
-    if (orderItems.length === 0 || isClosed) return;
-
-    setSending(true);
+  const sendOrder = (mode) => {
+    if (orderItems.length === 0) return;
 
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    let tableOrder = stored.find((o) => o.table === table);
+    const newOrder = {
+      id: Date.now(),
+      table,
+      items: orderItems,
+      total: orderItems.reduce((s, i) => s + i.price, 0),
+      status: mode === "fire" ? "kitchen" : "hold",
+      created_at: new Date().toISOString(),
+    };
 
-    if (tableOrder) {
-      if (tableOrder.status === "closed") return;
-
-      tableOrder.items = [...tableOrder.items, ...orderItems];
-      tableOrder.total += newTotal;
-    } else {
-      tableOrder = {
-        id: Date.now(),
-        table,
-        items: orderItems,
-        total: newTotal,
-        status: "kitchen",
-        created_at: new Date().toISOString(),
-      };
-      stored.push(tableOrder);
-    }
-
+    stored.push(newOrder);
     localStorage.setItem("orders", JSON.stringify(stored));
 
     setOrderItems([]);
-    setSending(false);
   };
+
+  // 🔥 FIRE HELD ORDERS
+  const fireHeld = () => {
+    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+
+    const updated = stored.map((o) => {
+      if (o.table !== table) return o;
+      if (o.status !== "hold") return o;
+
+      return {
+        ...o,
+        status: "kitchen",
+      };
+    });
+
+    localStorage.setItem("orders", JSON.stringify(updated));
+  };
+
+  const total =
+    existingItems.reduce((s, i) => s + i.price, 0) +
+    orderItems.reduce((s, i) => s + i.price, 0);
 
   return (
     <AppShell showNav={true}>
@@ -103,18 +96,15 @@ export default function POSPage() {
 
         {/* LEFT */}
         <div className="space-y-6">
-          <h1 className="text-2xl">POS</h1>
+          <h1>POS</h1>
 
-          {/* TABLES */}
           <div className="grid grid-cols-3 gap-2">
             {tables.map((t) => (
               <button
                 key={t}
                 onClick={() => setTable(t)}
-                className={`py-2 rounded-xl ${
-                  table === t
-                    ? "bg-[#ff7a00]"
-                    : "bg-white/10"
+                className={`py-2 rounded ${
+                  table === t ? "bg-orange-500" : "bg-white/10"
                 }`}
               >
                 {t}
@@ -122,16 +112,13 @@ export default function POSPage() {
             ))}
           </div>
 
-          {/* CATEGORY */}
           <div className="flex gap-2">
             {Object.keys(menu).map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 rounded-xl ${
-                  activeCategory === cat
-                    ? "bg-[#ff7a00]"
-                    : "bg-white/10"
+                className={`px-3 py-1 ${
+                  activeCategory === cat ? "bg-orange-500" : "bg-white/10"
                 }`}
               >
                 {cat}
@@ -139,61 +126,55 @@ export default function POSPage() {
             ))}
           </div>
 
-          {/* MENU */}
           {menu[activeCategory].map((item, i) => (
             <div
               key={i}
               onClick={() => addItem(item)}
-              className={`bg-white/5 border border-white/10 p-4 rounded-xl ${
-                isClosed
-                  ? "opacity-40 cursor-not-allowed"
-                  : "cursor-pointer"
-              }`}
+              className="p-3 bg-white/5 rounded cursor-pointer"
             >
-              <div>{item.name}</div>
-              <div className="text-sm text-white/50">{item.price} THB</div>
+              {item.name} - {item.price}
             </div>
           ))}
         </div>
 
         {/* RIGHT */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+        <div className="bg-white/5 p-6 rounded space-y-4">
 
-          <h2 className="text-xl">
-            Table {table} {isClosed && "(Closed)"}
-          </h2>
+          <h2>Table {table}</h2>
 
-          {/* EXISTING */}
-          {existingItems.map((item) => (
-            <div key={item.id} className="flex justify-between text-sm text-white/60">
-              <span>{item.name}</span>
-              <span>{item.price}</span>
+          {existingItems.map((i) => (
+            <div key={i.id} className="text-sm text-white/60">
+              {i.name}
             </div>
           ))}
 
-          {/* NEW */}
-          {orderItems.map((item) => (
-            <div key={item.id} className="flex justify-between text-sm">
-              <span>{item.name}</span>
-              <span>{item.price}</span>
-            </div>
+          {orderItems.map((i) => (
+            <div key={i.id}>{i.name}</div>
           ))}
 
-          {existingItems.length === 0 && orderItems.length === 0 && (
-            <div className="text-white/40 text-sm">No items</div>
-          )}
+          <div>Total: {total}</div>
 
-          <div className="border-t border-white/10 pt-4 flex justify-between">
-            <span>Total</span>
-            <span>{total} THB</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => sendOrder("hold")}
+              className="w-full bg-yellow-500 py-2 rounded text-black"
+            >
+              HOLD
+            </button>
+
+            <button
+              onClick={() => sendOrder("fire")}
+              className="w-full bg-green-500 py-2 rounded text-black"
+            >
+              FIRE
+            </button>
           </div>
 
           <button
-            onClick={sendOrder}
-            disabled={sending || isClosed}
-            className="w-full bg-[#ff7a00] py-3 rounded-xl disabled:opacity-50"
+            onClick={fireHeld}
+            className="w-full bg-blue-500 py-2 rounded text-black"
           >
-            {isClosed ? "Table Closed" : sending ? "Sending..." : "Send Order"}
+            FIRE HELD ORDERS
           </button>
 
         </div>

@@ -11,6 +11,7 @@ export default function DashboardPage() {
     cost: false,
     kitchen: false,
     staff: false,
+    service: 5,
   });
 
   const items = [
@@ -27,14 +28,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const load = () => {
-      const data = JSON.parse(localStorage.getItem("ai_decisions") || "[]");
-      setDecisions(data.slice(-5).reverse());
+      const decisionData = JSON.parse(localStorage.getItem("ai_decisions") || "[]");
+
+      setDecisions(decisionData.slice(-5).reverse());
 
       setAiState({
         promo: localStorage.getItem("ai_promo_active") === "true",
         cost: localStorage.getItem("ai_reduce_cost_mode") === "true",
         kitchen: localStorage.getItem("ai_kitchen_alert") === "true",
         staff: localStorage.getItem("ai_staff_alert") === "true",
+        service: Number(localStorage.getItem("ai_service_level") || 5),
       });
     };
 
@@ -47,14 +50,17 @@ export default function DashboardPage() {
     <AppShell showNav={false}>
       <div className="space-y-10 text-white">
 
-        {/* 🔥 AI STATE PANEL */}
+        {/* 🔥 AI SYSTEM STATE */}
         <div className="space-y-4">
           <h2 className="text-lg">AI System State</h2>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
 
+            {/* PROMO */}
             <div className={`p-4 rounded-xl border ${
-              aiState.promo ? "border-green-500 bg-green-500/10" : "border-white/10 bg-white/5"
+              aiState.promo
+                ? "border-green-500 bg-green-500/10"
+                : "border-white/10 bg-white/5"
             }`}>
               Promotion
               <div className="text-xs opacity-60">
@@ -62,8 +68,11 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* COST */}
             <div className={`p-4 rounded-xl border ${
-              aiState.cost ? "border-yellow-500 bg-yellow-500/10" : "border-white/10 bg-white/5"
+              aiState.cost
+                ? "border-yellow-500 bg-yellow-500/10"
+                : "border-white/10 bg-white/5"
             }`}>
               Cost Control
               <div className="text-xs opacity-60">
@@ -71,8 +80,11 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* KITCHEN */}
             <div className={`p-4 rounded-xl border ${
-              aiState.kitchen ? "border-red-500 bg-red-500/10" : "border-white/10 bg-white/5"
+              aiState.kitchen
+                ? "border-red-500 bg-red-500/10"
+                : "border-white/10 bg-white/5"
             }`}>
               Kitchen Alert
               <div className="text-xs opacity-60">
@@ -80,12 +92,23 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* STAFF */}
             <div className={`p-4 rounded-xl border ${
-              aiState.staff ? "border-purple-500 bg-purple-500/10" : "border-white/10 bg-white/5"
+              aiState.staff
+                ? "border-purple-500 bg-purple-500/10"
+                : "border-white/10 bg-white/5"
             }`}>
               Staff Alert
               <div className="text-xs opacity-60">
                 {aiState.staff ? "ACTIVE" : "OFF"}
+              </div>
+            </div>
+
+            {/* SERVICE LEVEL */}
+            <div className="p-4 rounded-xl border border-blue-500 bg-blue-500/10">
+              Service Level
+              <div className="text-xs opacity-60">
+                {aiState.service}%
               </div>
             </div>
 
@@ -110,6 +133,18 @@ export default function DashboardPage() {
               </div>
 
               <div>{d.action}</div>
+
+              {d.reason && (
+                <div className="text-xs opacity-60 mt-1">
+                  Reason: {d.reason}
+                </div>
+              )}
+
+              {d.impact && (
+                <div className="text-xs opacity-60">
+                  Impact: {d.impact}
+                </div>
+              )}
             </div>
           ))}
         </div>

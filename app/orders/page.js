@@ -5,105 +5,78 @@ import AppShell from "../AppShell";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchOrders = async () => {
+    const res = await fetch("/api/orders");
+    const data = await res.json();
+    setOrders(data || []);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-    setOrders(stored);
+    fetchOrders();
   }, []);
 
-  const refresh = () => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-    setOrders(stored);
+  // 🔥 MARK ORDER AS PAID (CRITICAL FOR REVENUE)
+  const markPaid = async (id) => {
+    await fetch("/api/orders/update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id,
+        status: "paid",
+      }),
+    });
+
+    fetchOrders();
   };
 
   return (
     <AppShell>
-      <div className="space-y-10 text-white">
+      <div className="space-y-8 text-white">
 
-        {/* Title */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl">Orders</h1>
+        <h1 className="text-3xl">Orders</h1>
 
-          <button
-            onClick={refresh}
-            className="bg-white/10 px-4 py-2 rounded-xl hover:bg-white/20 transition text-sm"
-          >
-            Refresh
-          </button>
-        </div>
+        {loading && <div className="text-white/50">Loading...</div>}
 
-        {/* Orders */}
-        <div className="space-y-6">
+        {!loading && orders.length === 0 && (
+          <div className="text-white/40">No orders yet</div>
+        )}
 
-          {orders.length === 0 && (
-            <div className="text-white/50">No orders yet</div>
-          )}
-
-          {orders.map((order) => (
+        {!loading &&
+          orders.map((order) => (
             <div
               key={order.id}
-              className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4"
+              className="bg-white/5 border border-white/10 rounded-xl p-4"
             >
-
-              {/* Header */}
-              <div className="flex justify-between items-center">
-                <div className="text-lg">
-                  Table: {order.table || "-"}
-                </div>
-
-                <div className="text-white/50 text-sm">
-                  {new Date(order.created_at).toLocaleTimeString()}
-                </div>
+              <div className="flex justify-between mb-2">
+                <div>Table: {order.table}</div>
+                <div>Status: {order.status}</div>
               </div>
 
-              {/* Items */}
-              <div className="space-y-3">
-                {order.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-white/5 rounded-xl p-3 flex justify-between"
+              {order.items.map((item, i) => (
+                <div key={i} className="text-sm text-white/70">
+                  {item.name} — {item.price} THB
+                </div>
+              ))}
+
+              <div className="mt-3 flex justify-between">
+                <div>Total: {order.total} THB</div>
+
+                {order.status !== "paid" && (
+                  <button
+                    onClick={() => markPaid(order.id)}
+                    className="bg-green-600 px-3 py-1 rounded text-sm"
                   >
-
-                    <div>
-                      <div>{item.name}</div>
-
-                      {item.modifier && (
-                        <div className="text-white/50 text-sm">
-                          • {item.modifier}
-                        </div>
-                      )}
-
-                      {item.side && (
-                        <div className="text-white/50 text-sm">
-                          • {item.side}
-                        </div>
-                      )}
-
-                      {item.sauce && (
-                        <div className="text-white/50 text-sm">
-                          • {item.sauce}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Status */}
-                    <div className="text-sm text-white/60">
-                      {item.status}
-                    </div>
-
-                  </div>
-                ))}
+                    Mark Paid
+                  </button>
+                )}
               </div>
-
-              {/* Total */}
-              <div className="text-white/70 text-sm">
-                Total: {order.total} THB
-              </div>
-
             </div>
           ))}
-
-        </div>
 
       </div>
     </AppShell>

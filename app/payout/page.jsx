@@ -18,11 +18,8 @@ export default function PayoutPage() {
 
     const lastDay = history[history.length - 1];
 
-    // ✅ READ SERVICE POOL
     setPool(lastDay.servicePool || 0);
-
-    // ❌ NO STAFF YET → EMPTY FOR NOW
-    setStaff([]);
+    setStaff(lastDay.staff || []);
 
     setLoading(false);
   }, []);
@@ -52,9 +49,33 @@ export default function PayoutPage() {
 
           {!loading && staff.length === 0 && (
             <div className="text-white/50">
-              No payout data yet. Next step: build staff system.
+              No payout data found. Close a day in Control Final.
             </div>
           )}
+
+          {!loading &&
+            staff.map((s) => (
+              <div
+                key={s.id}
+                className="bg-white/5 border border-white/10 rounded-xl p-4 flex justify-between items-center"
+              >
+                <div>
+                  <div className="font-medium">{s.name}</div>
+                  <div className="text-white/50 text-sm">
+                    {s.role}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-orange-400 font-semibold text-lg">
+                    {s.payrollAmount} THB
+                  </div>
+                  <div className="text-white/40 text-xs">
+                    Score: {s.score} | Hours: {s.hours || 0}
+                  </div>
+                </div>
+              </div>
+            ))}
 
         </div>
 

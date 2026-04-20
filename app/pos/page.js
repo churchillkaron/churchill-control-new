@@ -1,4 +1,5 @@
 "use client";
+
 import { runAIActions } from "../../lib/aiActions";
 import { useEffect, useState } from "react";
 import AppShell from "../AppShell";
@@ -9,7 +10,6 @@ export default function POSPage() {
   const [table, setTable] = useState("T1");
   const [activeCategory, setActiveCategory] = useState("starter");
 
-  // 🔥 ONLY REQUESTS NOW
   const [adjustRequests, setAdjustRequests] = useState([]);
   const [showAdjust, setShowAdjust] = useState(false);
   const [adjustType, setAdjustType] = useState("discount");
@@ -62,7 +62,7 @@ export default function POSPage() {
     ]);
   };
 
-  const sendOrder = (mode) => {
+  const sendOrder = async (mode) => {
     if (orderItems.length === 0) return;
 
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -71,10 +71,7 @@ export default function POSPage() {
       id: Date.now(),
       table,
       items: orderItems,
-
-      // 🔥 SEND ONLY REQUESTS
       adjustmentRequests: adjustRequests,
-
       total: orderItems.reduce((s, i) => s + i.price, 0),
       status: mode === "fire" ? "kitchen" : "hold",
       created_at: new Date().toISOString(),
@@ -83,11 +80,14 @@ export default function POSPage() {
     stored.push(newOrder);
     localStorage.setItem("orders", JSON.stringify(stored));
 
+    // 🔥 AI TRIGGER
+    await runAIActions();
+
     setOrderItems([]);
     setAdjustRequests([]);
   };
 
-  const fireHeld = () => {
+  const fireHeld = async () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
 
     const updated = stored.map((o) => {
@@ -101,14 +101,15 @@ export default function POSPage() {
     });
 
     localStorage.setItem("orders", JSON.stringify(updated));
+
+    // 🔥 AI TRIGGER
+    await runAIActions();
   };
 
-  // 🔥 PURE DISPLAY TOTAL (NO DISCOUNTS)
   const total =
     existingItems.reduce((s, i) => s + i.price, 0) +
     orderItems.reduce((s, i) => s + i.price, 0);
 
-  // 🔥 REQUEST ONLY
   const requestAdjustment = () => {
     if (!adjustValue) return;
 
@@ -135,7 +136,6 @@ export default function POSPage() {
     <AppShell showNav={true}>
       <div className="grid md:grid-cols-2 gap-10 text-white">
 
-        {/* LEFT */}
         <div className="space-y-6">
           <h1>POS</h1>
 
@@ -178,7 +178,6 @@ export default function POSPage() {
           ))}
         </div>
 
-        {/* RIGHT */}
         <div className="bg-white/5 p-6 rounded space-y-4">
 
           <h2>Table {table}</h2>
@@ -193,7 +192,6 @@ export default function POSPage() {
             <div key={i.id}>{i.name}</div>
           ))}
 
-          {/* 🔥 REQUEST DISPLAY */}
           {adjustRequests.map((a) => (
             <div key={a.id} className="text-yellow-400 text-sm">
               REQUEST: {a.type} {a.value} ({a.reason})

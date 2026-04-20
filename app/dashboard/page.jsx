@@ -2,20 +2,31 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AppShell from "../AppShell";
 import {
   calculateFOH,
   getPerformanceLevel,
 } from "../../lib/performance";
+
 export default function Dashboard() {
   const [role, setRole] = useState("");
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("current_user"));
-    if (user) setRole(user.role);
+    // 🔥 SAFE CLIENT CHECK
+    if (typeof window !== "undefined") {
+      const user = JSON.parse(localStorage.getItem("current_user") || "{}");
+      if (user) setRole(user.role || "");
 
-    loadOrders();
-    const interval = setInterval(loadOrders, 2000);
+      loadOrders();
+    }
+
+    const interval = setInterval(() => {
+      if (typeof window !== "undefined") {
+        loadOrders();
+      }
+    }, 2000);
+
     return () => clearInterval(interval);
   }, []);
 
@@ -52,7 +63,7 @@ export default function Dashboard() {
 
         <h1 className="text-3xl">Control Hub</h1>
 
-        {/* 🔥 PERFORMANCE */}
+        {/* PERFORMANCE */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3">
           <div className="text-sm text-white/50">Live Performance</div>
 
@@ -82,7 +93,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 🔥 ALERTS */}
+        {/* ALERTS */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-2">
           <div className="text-sm text-white/50">Alerts</div>
 
@@ -97,54 +108,16 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* 🔥 NAVIGATION */}
+        {/* NAV */}
         <div className="grid grid-cols-2 gap-4">
-
-          {role === "owner" && (
-            <>
-              <Card href="/pos" title="POS" />
-              <Card href="/kitchen" title="Kitchen" />
-              <Card href="/tables" title="Tables" />
-
-              <Card href="/control-final" title="Control" />
-              <Card href="/attendance" title="Attendance" />
-              <Card href="/dashboard/performance" title="Performance" />
-
-              <Card href="/history" title="History" />
-              <Card href="/accounting" title="Accounting" />
-              <Card href="/payout" title="Payout" />
-            </>
-          )}
-
-          {(role === "gm" || role === "manager") && (
-            <>
-              <Card href="/pos" title="POS" />
-              <Card href="/kitchen" title="Kitchen" />
-              <Card href="/tables" title="Tables" />
-
-              <Card href="/control-final" title="Control" />
-              <Card href="/attendance" title="Attendance" />
-              <Card href="/dashboard/performance" title="Performance" />
-
-              <Card href="/history" title="History" />
-            </>
-          )}
-
-          {role === "accounting" && (
-            <>
-              <Card href="/accounting" title="Accounting" />
-              <Card href="/history" title="History" />
-              <Card href="/payout" title="Payout" />
-            </>
-          )}
-
-          {(role === "kitchen" || role === "staff") && (
-            <>
-              <Card href="/pos" title="POS" />
-              <Card href="/kitchen" title="Kitchen" />
-            </>
-          )}
-
+          <Card href="/pos" title="POS" />
+          <Card href="/kitchen" title="Kitchen" />
+          <Card href="/tables" title="Tables" />
+          <Card href="/control-final" title="Control" />
+          <Card href="/attendance" title="Attendance" />
+          <Card href="/history" title="History" />
+          <Card href="/accounting" title="Accounting" />
+          <Card href="/payout" title="Payout" />
         </div>
 
       </div>

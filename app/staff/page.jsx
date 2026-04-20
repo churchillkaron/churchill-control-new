@@ -31,7 +31,7 @@ export default function StaffPage() {
         id: Date.now(),
         name,
         role,
-        score: 100, // default performance
+        score: 100,
       },
     ];
 
@@ -41,6 +41,14 @@ export default function StaffPage() {
 
   const removeStaff = (id) => {
     const updated = staff.filter((s) => s.id !== id);
+    saveStaff(updated);
+  };
+
+  // 🔥 UPDATE SCORE
+  const updateScore = (id, value) => {
+    const updated = staff.map((s) =>
+      s.id === id ? { ...s, score: Number(value) } : s
+    );
     saveStaff(updated);
   };
 
@@ -82,19 +90,33 @@ export default function StaffPage() {
           {staff.map((s) => (
             <div
               key={s.id}
-              className="bg-white/5 p-3 rounded flex justify-between items-center"
+              className="bg-white/5 p-3 rounded space-y-2"
             >
-              <div>
-                <div>{s.name}</div>
-                <div className="text-white/50 text-sm">{s.role}</div>
+              <div className="flex justify-between items-center">
+                <div>
+                  <div>{s.name}</div>
+                  <div className="text-white/50 text-sm">{s.role}</div>
+                </div>
+
+                <button
+                  onClick={() => removeStaff(s.id)}
+                  className="bg-red-500 px-2 py-1 rounded"
+                >
+                  REMOVE
+                </button>
               </div>
 
-              <button
-                onClick={() => removeStaff(s.id)}
-                className="bg-red-500 px-2 py-1 rounded"
-              >
-                REMOVE
-              </button>
+              {/* 🔥 SCORE CONTROL */}
+              <div className="flex items-center gap-2">
+                <div className="text-sm text-white/50">Score</div>
+                <input
+                  type="number"
+                  value={s.score}
+                  onChange={(e) => updateScore(s.id, e.target.value)}
+                  className="w-20 text-black px-2 py-1"
+                />
+              </div>
+
             </div>
           ))}
         </div>

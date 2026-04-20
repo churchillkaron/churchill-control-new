@@ -22,6 +22,50 @@ export default function ControlFinal() {
       .catch(() => setLoading(false));
   }, []);
 
+  // 🔥 PERFORMANCE ENGINE (AUTO)
+  const calculatePerformance = () => {
+    if (!data) return { level: "LOADING", score: 0 };
+
+    const foh = data.fohScore || 0;
+    const bar = data.barScore || 0;
+    const kitchen = data.kitchenScore || 0;
+
+    const avgScore = Math.round((foh + bar + kitchen) / 3);
+
+    let level = "GOOD";
+    if (avgScore < 40) level = "CRITICAL";
+    else if (avgScore < 70) level = "WARNING";
+    else if (avgScore >= 100) level = "EXCELLENT";
+
+    return { level, score: avgScore };
+  };
+
+  // 🔥 SERVICE ENGINE (AUTO)
+  const calculateServicePool = () => {
+    if (!data) return 0;
+    const rate = (monthly?.level || 5) / 100;
+    return Math.round((data.revenue || 0) * rate);
+  };
+
+  // 🔥 PAYOUT ENGINE (AUTO)
+  const calculatePayoutPool = (servicePool) => {
+    if (!data) return 0;
+
+    const performance = calculatePerformance();
+
+    let multiplier = 1;
+    if (performance.level === "CRITICAL") multiplier = 0.2;
+    if (performance.level === "WARNING") multiplier = 0.7;
+    if (performance.level === "GOOD") multiplier = 1;
+
+    return Math.round(servicePool * multiplier);
+  };
+
+  const performance = calculatePerformance();
+  const servicePool = calculateServicePool();
+  const payoutPool = calculatePayoutPool(servicePool);
+
+  // 🔥 LOCK DAY (CORE SYSTEM FUNCTION)
   const lockDay = async () => {
     if (!data) return;
 
@@ -35,14 +79,23 @@ export default function ControlFinal() {
         },
         body: JSON.stringify({
           date: new Date().toISOString(),
+
+          // CORE FINANCIALS
           revenue: data.revenue,
-          servicePool: data.servicePool,
-          payoutPool: data.payoutPool,
-          payoutStatus: data.payoutStatus,
+          servicePool,
+          payoutPool,
+
+          // PERFORMANCE
+          performanceLevel: performance.level,
+          performanceScore: performance.score,
           fohScore: data.fohScore,
           barScore: data.barScore,
           kitchenScore: data.kitchenScore,
+
+          // STAFF SNAPSHOT
           staff: data.staffWithPayout,
+
+          // MONTHLY SYSTEM
           serviceLevel: monthly?.level || 5,
         }),
       });
@@ -79,21 +132,21 @@ export default function ControlFinal() {
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
             <div className="text-sm text-white/50">Service Pool</div>
             <div className="text-xl mt-1">
-              {loading ? "..." : `${data?.servicePool || 0} THB`}
+              {loading ? "..." : `${servicePool} THB`}
             </div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
             <div className="text-sm text-white/50">Payout Pool</div>
             <div className="text-xl mt-1">
-              {loading ? "..." : `${data?.payoutPool || 0} THB`}
+              {loading ? "..." : `${payoutPool} THB`}
             </div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
             <div className="text-sm text-white/50">Performance</div>
             <div className="text-xl mt-1">
-              {loading ? "..." : data?.payoutStatus}
+              {loading ? "..." : performance.level}
             </div>
           </div>
 

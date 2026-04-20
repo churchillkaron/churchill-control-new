@@ -10,6 +10,9 @@ export default function POSPage() {
   const [table, setTable] = useState("T1");
   const [success, setSuccess] = useState(false);
 
+  // 🔥 TABLE LIST (EDIT THIS LATER)
+  const tables = ["T1", "T2", "T3", "T4", "T5", "T6"];
+
   const menu = {
     starter: [
       { name: "Beef Carpaccio", price: 320, station: "WESTERN" },
@@ -43,17 +46,14 @@ export default function POSPage() {
 
     const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
 
-    // 🔥 FIND EXISTING TABLE
     let tableOrder = existingOrders.find(
       (o) => o.table === table && o.status !== "closed"
     );
 
     if (tableOrder) {
-      // 🔥 APPEND ITEMS TO EXISTING TABLE
       tableOrder.items = [...tableOrder.items, ...orderItems];
       tableOrder.total += total;
     } else {
-      // 🔥 CREATE NEW TABLE ORDER
       tableOrder = {
         id: Date.now(),
         table,
@@ -82,14 +82,32 @@ export default function POSPage() {
         <div className="space-y-6">
           <h1 className="text-2xl">POS</h1>
 
-          {/* 🔥 TABLE SELECTOR */}
+          {/* 🔥 TABLE BUTTONS */}
+          <div className="grid grid-cols-3 gap-2">
+            {tables.map((t) => (
+              <button
+                key={t}
+                onClick={() => setTable(t)}
+                className={`py-2 rounded-xl ${
+                  table === t
+                    ? "bg-[#ff7a00]"
+                    : "bg-white/10 hover:bg-white/20"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* OPTIONAL MANUAL INPUT */}
           <input
             value={table}
             onChange={(e) => setTable(e.target.value)}
-            className="bg-white/10 p-2 rounded-xl"
-            placeholder="Table (e.g. T1)"
+            className="bg-white/10 p-2 rounded-xl w-full"
+            placeholder="Custom table"
           />
 
+          {/* CATEGORY */}
           <div className="flex gap-2">
             {Object.keys(menu).map((cat) => (
               <button
@@ -106,6 +124,7 @@ export default function POSPage() {
             ))}
           </div>
 
+          {/* MENU */}
           {menu[activeCategory].map((item, i) => (
             <div
               key={i}
@@ -120,7 +139,7 @@ export default function POSPage() {
 
         {/* RIGHT */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-          <h2 className="text-xl">Order</h2>
+          <h2 className="text-xl">Order ({table})</h2>
 
           {orderItems.map((item) => (
             <div key={item.id} className="flex justify-between text-sm">
@@ -148,7 +167,7 @@ export default function POSPage() {
 
           {success && (
             <div className="text-green-400 text-center text-sm">
-              Added to table {table} ✅
+              Added to {table} ✅
             </div>
           )}
         </div>

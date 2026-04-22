@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { NATURAL_ACCOUNTS } from "../../../lib/accounting/accountingConfig";
+import { NATURAL_ACCOUNTS } from "lib/accounting/accountingConfig.js";
 import { invoices } from "./store";
 
 export async function GET() {

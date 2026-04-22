@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "../../../lib/integrations/supabase";
+import { supabase } from "lib/integrations/supabase.js";
 
 export async function GET() {
   const { data, error } = await supabase

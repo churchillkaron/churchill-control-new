@@ -2,13 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+/* RESET */
 html,
 body {
   margin: 0;
   padding: 0;
+  background: black;
+  color: white;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* Landing animations */
+/* GLASS SYSTEM (GLOBAL) */
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 1.5rem;
+}
+
+/* INPUT STYLE */
+.input {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  color: white;
+}
+
+/* BUTTON STYLE */
+.btn-primary {
+  background: #ff7a00;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: 0.2s;
+}
+
+.btn-primary:hover {
+  background: #ff8c1a;
+}
+
+/* TEXT DEPTH */
+.text-muted {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ANIMATIONS */
 @keyframes fadeUp {
   from {
     opacity: 0;

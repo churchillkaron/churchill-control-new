@@ -31,7 +31,7 @@ export default function AIInvoicesPage() {
       },
       body: JSON.stringify({
         id,
-        status: "approved",
+        status: "approved_manager",
       }),
     });
 

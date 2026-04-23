@@ -1,42 +1,53 @@
-import { NextResponse } from "next/server";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function POST(req) {
-  try {
-    const body = await req.json();
+  const body = await req.json();
 
-    const {
-      revenue = 0,
-      drinks = 0,
-      dinner = 0,
-      games = 0,
-      topCustomers = 0,
-    } = body || {};
+  const {
+    revenue,
+    orders,
+    avg,
+    trend = {}
+  } = body;
 
-    // 🧠 Basic analysis logic (can expand later)
-    let situation = "normal";
+  const prompt = `
+You are a restaurant owner AI.
 
-    if (revenue < 10000) situation = "low_revenue";
-    if (drinks > dinner) situation = "drink_focus";
-    if (games > 0 && games < drinks) situation = "games_opportunity";
-    if (topCustomers > 0) situation = "vip_opportunity";
+Current performance:
+- Revenue: ${revenue}
+- Orders: ${orders}
+- Avg order value: ${avg}
 
-    return NextResponse.json({
-      situation,
-      metrics: {
-        revenue,
-        drinks,
-        dinner,
-        games,
-        topCustomers,
-      },
-    });
+Trend (vs previous period):
+- Revenue change: ${trend?.revenueTrend || 0}
+- Orders change: ${trend?.orderTrend || 0}
+- Avg change: ${trend?.avgTrend || 0}
 
-  } catch (err) {
-    console.log("ANALYZE ERROR:", err);
+Your job:
+Make 3 SHORT business decisions.
 
-    return NextResponse.json(
-      { error: "Analyze failed" },
-      { status: 500 }
-    );
-  }
+Format EXACTLY like this:
+
+Action: ...
+Reason: ...
+Impact: ...
+
+Rules:
+- Think like an owner
+- Be direct
+- Focus on profit, efficiency, or risk
+`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4.1-mini",
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  return Response.json({
+    result: response.choices[0].message.content,
+  });
 }

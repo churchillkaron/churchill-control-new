@@ -110,7 +110,6 @@ export default function ControlFinalPage() {
 
   const finalRevenue = subtotal - discountTotal;
 
-  // 🔥 PERFORMANCE ENGINE
   const foh = calculateFOH(orders);
   const performance = getPerformanceLevel(foh.score);
   const servicePercent = getServiceLevel(foh.score) / 100;
@@ -132,10 +131,7 @@ export default function ControlFinalPage() {
       const penalty = att.penalty || 0;
 
       let weight = score * hours;
-
       weight = weight * (1 - penalty / 100);
-
-      // 🔥 PERFORMANCE MULTIPLIER
       weight = weight * performance.multiplier;
 
       return {
@@ -191,6 +187,9 @@ export default function ControlFinalPage() {
       servicePool,
       staff: calculatedStaff,
 
+      // 🔒 LOCK DAY
+      locked: true,
+
       created_at: new Date().toISOString(),
     };
 
@@ -199,7 +198,7 @@ export default function ControlFinalPage() {
     localStorage.setItem("history", JSON.stringify(history));
     localStorage.removeItem("orders");
 
-    alert("Day Closed & Saved");
+    alert("Day Closed & Locked");
     setOrders([]);
   };
 
@@ -209,7 +208,6 @@ export default function ControlFinalPage() {
 
         <h1>Control Final</h1>
 
-        {/* PERFORMANCE */}
         <div className="bg-white/5 p-4 rounded space-y-2">
           <div>Revenue: {finalRevenue}</div>
           <div>Score: {foh.score}</div>
@@ -217,7 +215,6 @@ export default function ControlFinalPage() {
           <div>Service %: {servicePercent * 100}%</div>
         </div>
 
-        {/* STAFF */}
         <div className="bg-white/5 p-4 rounded space-y-2">
           <div className="text-sm text-white/50">Staff Preview</div>
 

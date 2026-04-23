@@ -13,6 +13,8 @@ export default function DashboardPage() {
   const [revTrend, setRevTrend] = useState(0);
   const [orderTrend, setOrderTrend] = useState(0);
 
+  const [staff, setStaff] = useState([]);
+
   useEffect(() => {
     const history = JSON.parse(localStorage.getItem("history") || "[]");
 
@@ -23,13 +25,8 @@ export default function DashboardPage() {
     setOrders(today.totalOrders || 0);
     setAvg(today.avgOrderValue || 0);
 
-    // 🔥 TREND CALCULATION
-    const revDiff = (today.revenue || 0) - (yesterday.revenue || 0);
-    const orderDiff =
-      (today.totalOrders || 0) - (yesterday.totalOrders || 0);
-
-    setRevTrend(revDiff);
-    setOrderTrend(orderDiff);
+    setRevTrend((today.revenue || 0) - (yesterday.revenue || 0));
+    setOrderTrend((today.totalOrders || 0) - (yesterday.totalOrders || 0));
 
     fetchPerformance();
   }, []);
@@ -40,10 +37,13 @@ export default function DashboardPage() {
       const result = await res.json();
 
       if (result.success && result.data.length > 0) {
+        setStaff(result.data);
+
         const avgScore = Math.round(
           result.data.reduce((sum, d) => sum + d.score, 0) /
             result.data.length
         );
+
         setPerformance(avgScore);
       }
     } catch (err) {
@@ -64,6 +64,12 @@ export default function DashboardPage() {
   if (revenue < 5000) alerts.push("⚠ Low revenue today");
   if (performance < 70) alerts.push("⚠ Staff performance is low");
   if (avg < 300) alerts.push("⚠ Low average order value");
+
+  // 🔥 STAFF RANKING
+  const sorted = [...staff].sort((a, b) => b.score - a.score);
+
+  const topStaff = sorted.slice(0, 3);
+  const lowStaff = sorted.filter((s) => s.score < 70);
 
   const cards = [
     { name: "POS", href: "/pos" },
@@ -86,7 +92,7 @@ export default function DashboardPage() {
     <AppShell>
       <div className="min-h-screen text-white p-6 max-w-7xl mx-auto space-y-10">
 
-        {/* 🔥 HERO */}
+        {/* HERO */}
         <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl shadow-xl">
           <div className="text-white/50 text-sm">System Overview</div>
 
@@ -104,7 +110,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 🔥 TRENDS */}
+        {/* TRENDS */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
             <div className="text-white/50 text-sm">Revenue Change</div>
@@ -121,7 +127,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 🔥 ALERTS */}
+        {/* ALERTS */}
         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
           <div className="text-white/70 text-sm mb-2">Alerts</div>
 
@@ -136,7 +142,39 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* 🔥 NAVIGATION */}
+        {/* 🔥 TOP PERFORMERS */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div className="text-lg mb-3">Top Performers</div>
+
+          {topStaff.length === 0 ? (
+            <div className="text-white/40">No data</div>
+          ) : (
+            topStaff.map((s, i) => (
+              <div key={i} className="flex justify-between mb-2">
+                <div>{s.name || "Staff"}</div>
+                <div className="text-green-400">{s.score}%</div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 🔥 NEEDS ATTENTION */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div className="text-lg mb-3">Needs Attention</div>
+
+          {lowStaff.length === 0 ? (
+            <div className="text-white/50">All staff performing well</div>
+          ) : (
+            lowStaff.map((s, i) => (
+              <div key={i} className="flex justify-between mb-2">
+                <div>{s.name || "Staff"}</div>
+                <div className="text-red-400">{s.score}%</div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* NAVIGATION */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {cards.map((c, i) => (
             <Link

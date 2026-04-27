@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AppShell from "../../AppShell.js";
+import AppShell from '@/app/AppShell'
 
 export default function ReviewsPage() {
   const [image, setImage] = useState(null);

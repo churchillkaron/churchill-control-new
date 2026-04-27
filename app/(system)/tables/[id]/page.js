@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import AppShell from "../../AppShell.js";
+import AppShell from '@/app/AppShell'
 
 export default function TableDetailPage() {
   const { id } = useParams();

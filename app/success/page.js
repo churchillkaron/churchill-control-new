@@ -4,16 +4,15 @@ import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 export default function Success() {
   const params = useSearchParams();
 
   useEffect(() => {
     const session = params.get("session_id");
-
-    if (session) {
-      console.log("Session:", session);
-    }
+    console.log("Session:", session);
   }, [params]);
 
   return (

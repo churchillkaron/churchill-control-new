@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+import AppShell from "@/app/AppShell";
 import {
   calculateFOH,
   getPerformanceLevel,
   getServiceLevel,
-} from "lib/performance.js";
+} from "@/lib/performance";
 
 export default function ControlFinalPage() {
   const [orders, setOrders] = useState([]);
@@ -16,16 +16,11 @@ export default function ControlFinalPage() {
   const [payrollLocked, setPayrollLocked] = useState(false);
   const [currentMonth, setCurrentMonth] = useState("");
 
-  // 🔥 FUTURE FLAGS (do not remove)
-  const [systemReady, setSystemReady] = useState(false);
-  const [lockOwnerOverride, setLockOwnerOverride] = useState(false);
-
   useEffect(() => {
     loadOrders();
     loadStaff();
     loadAttendance();
     checkPayrollLock();
-    checkSystemReady(); // 🔥 NEW
   }, []);
 
   const getMonthKey = () => {
@@ -36,11 +31,9 @@ export default function ControlFinalPage() {
   const checkPayrollLock = () => {
     const lock = localStorage.getItem("payroll_locked") === "true";
     const month = localStorage.getItem("payroll_month");
-
     const current = getMonthKey();
 
     if (month !== current) {
-      // 🔓 new month = unlock
       localStorage.setItem("payroll_locked", "false");
       localStorage.setItem("payroll_month", current);
       setPayrollLocked(false);
@@ -51,12 +44,6 @@ export default function ControlFinalPage() {
     setCurrentMonth(current);
   };
 
-  // 🔥 CHECK READY STATE (future system integration)
-  const checkSystemReady = () => {
-    const ready = localStorage.getItem("system_ready_for_payroll") === "true";
-    setSystemReady(ready);
-  };
-
   const lockPayroll = () => {
     const ready = localStorage.getItem("system_ready_for_payroll");
 
@@ -65,33 +52,9 @@ export default function ControlFinalPage() {
       return;
     }
 
-    const now = new Date();
-    const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-
-    // 🔒 lock system
     localStorage.setItem("payroll_locked", "true");
-    localStorage.setItem("payroll_month", monthKey);
-
-    // 🔥 FIX (UI update immediately)
     setPayrollLocked(true);
-
-    // 🧹 cleanup
-    localStorage.removeItem("system_ready_for_payroll");
-    setSystemReady(false);
-
-    alert("✅ Payroll locked for this month");
-  };
-
-  // 🔥 OWNER UNLOCK (future admin feature)
-  const unlockPayroll = () => {
-    const confirmUnlock = confirm("Unlock payroll? (Owner only)");
-    if (!confirmUnlock) return;
-
-    localStorage.setItem("payroll_locked", "false");
-
-    setPayrollLocked(false);
-
-    alert("⚠ Payroll unlocked");
+    alert("Payroll locked for this month");
   };
 
   const loadOrders = () => {
@@ -112,45 +75,6 @@ export default function ControlFinalPage() {
   const saveOrders = (updatedOrders) => {
     localStorage.setItem("orders", JSON.stringify(updatedOrders));
     setOrders(updatedOrders);
-  };
-
-  const approve = (orderId, adjId) => {
-    const updated = orders.map((o) => {
-      if (o.id !== orderId) return o;
-
-      return {
-        ...o,
-        adjustmentRequests: (o.adjustmentRequests || []).map((a) =>
-          a.id === adjId
-            ? {
-                ...a,
-                status: "approved",
-                approvedBy: "manager",
-                approved_at: new Date().toISOString(),
-              }
-            : a
-        ),
-      };
-    });
-
-    saveOrders(updated);
-  };
-
-  const reject = (orderId, adjId) => {
-    const updated = orders.map((o) => {
-      if (o.id !== orderId) return o;
-
-      return {
-        ...o,
-        adjustmentRequests: (o.adjustmentRequests || []).map((a) =>
-          a.id === adjId
-            ? { ...a, status: "rejected" }
-            : a
-        ),
-      };
-    });
-
-    saveOrders(updated);
   };
 
   const adjustments = orders.flatMap((o) =>
@@ -244,31 +168,24 @@ export default function ControlFinalPage() {
     }
 
     const history = JSON.parse(localStorage.getItem("history") || "[]");
-
     const calculatedStaff = calculateStaff();
 
     const newDay = {
       id: Date.now(),
       date: new Date().toISOString(),
-
       orders,
       adjustments,
-
       subtotal,
       discountTotal,
       finalRevenue,
-
       performance: {
         score: foh.score,
         level: performance.level,
         servicePercent: servicePercent * 100,
       },
-
       servicePool,
       staff: calculatedStaff,
-
       locked: true,
-
       created_at: new Date().toISOString(),
     };
 
@@ -284,40 +201,24 @@ export default function ControlFinalPage() {
   return (
     <AppShell showNav={true}>
       <div className="text-white space-y-6">
-
         <h1>Control Final</h1>
 
-        {/* 🔥 PAYROLL CONTROL PANEL */}
-        <div className="bg-white/5 p-4 rounded flex justify-between items-center">
+        <div className="bg-white/5 p-4 rounded flex justify-between">
           <div>
             <div className="text-white/50 text-sm">Payroll Status</div>
             <div className={payrollLocked ? "text-red-400" : "text-green-400"}>
               {payrollLocked ? "LOCKED" : "OPEN"}
             </div>
-            <div className="text-white/40 text-xs mt-1">
-              Month: {currentMonth}
-            </div>
           </div>
 
-          <div className="flex gap-2">
-            {!payrollLocked && (
-              <button
-                onClick={lockPayroll}
-                className="bg-red-500 px-4 py-2 rounded text-white"
-              >
-                LOCK PAYROLL
-              </button>
-            )}
-
-            {payrollLocked && (
-              <button
-                onClick={unlockPayroll}
-                className="bg-yellow-500 px-4 py-2 rounded text-black"
-              >
-                UNLOCK
-              </button>
-            )}
-          </div>
+          {!payrollLocked && (
+            <button
+              onClick={lockPayroll}
+              className="bg-red-500 px-4 py-2 rounded"
+            >
+              Lock Month
+            </button>
+          )}
         </div>
 
         <div className="bg-white/5 p-4 rounded space-y-2">
@@ -346,7 +247,6 @@ export default function ControlFinalPage() {
         >
           CLOSE DAY
         </button>
-
       </div>
     </AppShell>
   );

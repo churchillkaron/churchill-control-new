@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
+import AppShell from "@/app/AppShell";
+
 export default function ExpensesPage() {
   const [manualExpenses, setManualExpenses] = useState([]);
   const [invoiceFeed, setInvoiceFeed] = useState([]);

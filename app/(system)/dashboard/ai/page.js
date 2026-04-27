@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+import AppShell from "@/AppShell.js";
 import {
   calculateFOH,
   getPerformanceLevel,

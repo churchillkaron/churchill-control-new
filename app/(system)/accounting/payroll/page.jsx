@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import AppShell from '@/app/AppShell'
-import { getHistoryDays } from "lib/storage/localStorage.js";
+import { getHistoryDays } from @app/lib/storage/localStorage.js";
 
 export default function PayrollPage() {
   const [staffTotals, setStaffTotals] = useState([]);

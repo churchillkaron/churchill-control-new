@@ -3,8 +3,8 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
-import { getHistoryDays } from "lib/storage/localStorage.js";
+import AppShell from '@/app/AppShell'
+import something from '@/lib/storage/localStorage'
 import { calculateAccountingOverview } from "lib/accounting/calcOverview.js";
 
 export default function ReportsPage() {

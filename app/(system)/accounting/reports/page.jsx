@@ -4,8 +4,6 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import AppShell from '@/app/AppShell'
-import something from '@/lib/storage/localStorage'
-import something from '@/lib/accounting/calcOverview'
 
 export default function ReportsPage() {
   const [history, setHistory] = useState([]);

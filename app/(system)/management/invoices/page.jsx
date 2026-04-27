@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import SearchableSelect from "@/app/components/SearchableSelect";
-
+import AppShell from '@/app/AppShell'
 // =========================
 // ACCOUNT STRUCTURE (FULL - EXACT)
 // =========================

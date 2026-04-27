@@ -1,6 +1,6 @@
 "use client";
 
-import AppShell from "../../AppShell.js";
+import AppShell from '@/app/AppShell'
 import Link from "next/link";
 
 export default function StaffEarningsPage() {

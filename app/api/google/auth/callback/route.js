@@ -1,6 +1,8 @@
+
+
 import { NextResponse } from "next/server";
 import { getOAuthClient } from "@/lib/integrations/googleAuth";
-
+export const dynamic = "force-dynamic";
 export async function GET(req) {
   try {
     // Get code from Google

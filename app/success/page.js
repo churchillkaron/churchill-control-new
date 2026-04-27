@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
 "use client";
 
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams } from "next/navigation";
-export const dynamic = "force-dynamic";
+
 export default function Success() {
   const params = useSearchParams();
   const userId = params.get("user");

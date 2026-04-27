@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+import AppShell from '@/app/AppShell'
 import { getHistoryDays } from "lib/storage/localStorage.js";
 
 export default function HistoryDaysPage() {

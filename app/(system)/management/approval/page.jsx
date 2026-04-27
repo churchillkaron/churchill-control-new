@@ -18,10 +18,12 @@ const CATEGORY = {
 };
 
 const STATUS = {
-  PENDING_APPROVAL: "pending_approval",
+  PENDING: "pending",
   APPROVED_MANAGER: "approved_manager",
-  APPROVED: "approved",
+  ACCOUNTING: "accounting",
+  FINAL_APPROVED: "final_approved",
   REJECTED: "rejected",
+
 };
 
 function safeJsonParse(value, fallback) {
@@ -286,66 +288,86 @@ export default function ApprovalPage() {
     }
   }, []);
 
-  const fetchInvoices = useCallback(async () => {
-    try {
-      setRefreshingInvoices(true);
-      setErrorMessage("");
+  // =========================
+// FETCH INVOICES (FIXED)
+// =========================
+const fetchInvoices = useCallback(async () => {
+  try {
+    setRefreshingInvoices(true);
+    setErrorMessage("");
 
-      const res = await fetch(`/api/invoices?t=${Date.now()}`, {
-        method: "GET",
-        cache: "no-store",
-      });
+    const url = `/api/invoices/list?t=${Date.now()}`;
+    console.log("FETCH INVOICES FROM:", url);
 
-      if (!res.ok) {
-        console.error("INVOICES FETCH FAILED:", res.status);
-        setInvoices([]);
-        setErrorMessage("Could not load invoices.");
-        return;
-      }
+    const res = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-      const data = await res.json();
-      setInvoices(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("INVOICES FETCH ERROR:", error);
+    if (!res.ok) {
+      console.error("INVOICES FETCH FAILED:", res.status);
       setInvoices([]);
       setErrorMessage("Could not load invoices.");
-    } finally {
-      setLoadingInvoices(false);
-      setRefreshingInvoices(false);
+      return;
     }
-  }, []);
 
-  const fetchAssets = useCallback(async () => {
-    try {
-      setRefreshingAssets(true);
-      setErrorMessage("");
+    const data = await res.json();
+    console.log("INVOICES RESPONSE:", data);
 
-      const res = await fetch(`/api/assets?t=${Date.now()}`, {
-        method: "GET",
-        cache: "no-store",
-      });
+    const nextInvoices = data?.invoices || [];
 
-      if (!res.ok) {
-        console.error("ASSETS FETCH FAILED:", res.status);
-        setAssets([]);
-        setErrorMessage("Could not load assets.");
-        return;
-      }
+    setInvoices(nextInvoices);
 
-      const data = await res.json();
-      const nextAssets = Array.isArray(data) ? data : [];
-      setAssets(nextAssets);
-      return nextAssets;
-    } catch (error) {
-      console.error("ASSETS FETCH ERROR:", error);
+  } catch (error) {
+    console.error("INVOICES FETCH ERROR:", error);
+    setInvoices([]);
+    setErrorMessage("Could not load invoices.");
+  } finally {
+    setLoadingInvoices(false);
+    setRefreshingInvoices(false);
+  }
+}, []);
+
+
+// =========================
+// FETCH ASSETS (FIXED)
+// =========================
+const fetchAssets = useCallback(async () => {
+  try {
+    setRefreshingAssets(true);
+    setErrorMessage("");
+
+    const url = `/api/assets/list?t=${Date.now()}`;
+    console.log("FETCH ASSETS FROM:", url);
+
+    const res = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      console.error("ASSETS FETCH FAILED:", res.status);
       setAssets([]);
       setErrorMessage("Could not load assets.");
-      return [];
-    } finally {
-      setLoadingAssets(false);
-      setRefreshingAssets(false);
+      return;
     }
-  }, []);
+
+    const data = await res.json();
+    console.log("ASSETS RESPONSE:", data);
+
+    const nextAssets = data?.assets || [];
+
+    setAssets(nextAssets);
+
+  } catch (error) {
+    console.error("ASSETS FETCH ERROR:", error);
+    setAssets([]);
+    setErrorMessage("Could not load assets.");
+  } finally {
+    setLoadingAssets(false);
+    setRefreshingAssets(false);
+  }
+}, []);
 
   useEffect(() => {
     loadLocalData();
@@ -387,11 +409,11 @@ export default function ApprovalPage() {
   }, [latestDay]);
 
   const pendingApiInvoices = useMemo(() => {
-    return invoices.filter((invoice) => normalizeStatus(invoice?.status) === STATUS.PENDING_APPROVAL);
+    return invoices.filter((invoice) => normalizeStatus(invoice?.status) === STATUS.PENDING);
   }, [invoices]);
 
   const apiInvoicesSentToAccounting = useMemo(() => {
-    return invoices.filter((invoice) => normalizeStatus(invoice?.status) === STATUS.APPROVED_MANAGER);
+    return invoices.filter((invoice) => normalizeStatus(invoice?.status) === STATUS.APPROVED);
   }, [invoices]);
 
   const finalApprovedApiInvoices = useMemo(() => {
@@ -406,7 +428,7 @@ export default function ApprovalPage() {
     return assets.filter(
       (asset) =>
         normalizeCategory(asset?.category) === CATEGORY.INVOICE &&
-        normalizeStatus(asset?.status) === STATUS.PENDING_APPROVAL
+        normalizeStatus(asset?.status) === STATUS.PENDING
     );
   }, [assets]);
 
@@ -414,7 +436,7 @@ export default function ApprovalPage() {
     return assets.filter(
       (asset) =>
         normalizeCategory(asset?.category) === CATEGORY.INVOICE &&
-        normalizeStatus(asset?.status) === STATUS.APPROVED_MANAGER
+        normalizeStatus(asset?.status) === STATUS.APPROVED
     );
   }, [assets]);
 
@@ -438,7 +460,7 @@ export default function ApprovalPage() {
     return assets.filter(
       (asset) =>
         normalizeCategory(asset?.category) === CATEGORY.ROUTINE &&
-        normalizeStatus(asset?.status) === STATUS.PENDING_APPROVAL
+        normalizeStatus(asset?.status) === STATUS.PENDING
     );
   }, [assets]);
 
@@ -462,7 +484,7 @@ export default function ApprovalPage() {
     return assets.filter(
       (asset) =>
         normalizeCategory(asset?.category) === CATEGORY.FOOD &&
-        normalizeStatus(asset?.status) === STATUS.PENDING_APPROVAL
+        normalizeStatus(asset?.status) === STATUS.PENDING
     );
   }, [assets]);
 
@@ -486,7 +508,7 @@ export default function ApprovalPage() {
     return assets.filter(
       (asset) =>
         normalizeCategory(asset?.category) === CATEGORY.MARKETING &&
-        normalizeStatus(asset?.status) === STATUS.PENDING_APPROVAL
+        normalizeStatus(asset?.status) === STATUS.PENDING
     );
   }, [assets]);
 
@@ -677,17 +699,19 @@ export default function ApprovalPage() {
   );
 
   const updateInvoiceStatus = useCallback(
-    async (id, status) => {
-      try {
-        setActionLoading(`invoice-${id}-${status}`);
-        setErrorMessage("");
+  async (id, status) => {
+    try {
+      console.log("SENDING STATUS TO API:", status); // 👈 ADD THIS
 
-        const res = await fetch("/api/invoices/update", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ id, status }),
+      setActionLoading(`invoice-${id}-${status}`);
+      setErrorMessage("");
+
+      const res = await fetch("/api/invoices/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id, status }),
         });
 
         if (!res.ok) {
@@ -717,9 +741,13 @@ export default function ApprovalPage() {
       setErrorMessage("");
 
       // ✅ INSTANT UI UPDATE (fixes double click)
-      setAssets((prev) =>
-        (prev || []).filter((a) => a.id !== asset.id)
-      );
+   setAssets((prev) =>
+  (prev || []).map((a) =>
+    a.id === asset.id
+      ? { ...a, status }
+      : a
+  )
+);
 
       // ✅ API CALL
       const res = await fetch("/api/assets/update", {
@@ -794,7 +822,7 @@ export default function ApprovalPage() {
     return rejections.filter((entry) => entry.penalty_mode === "team_department_quality").length;
   }, [rejections]);
 
-  return (
+   return (
     <AppShell>
       <div className="min-h-screen text-white p-6 max-w-7xl mx-auto space-y-8">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -1034,9 +1062,10 @@ export default function ApprovalPage() {
                   titleFallback="Routine photo"
                   previewLabel="Routine Preview"
                   actionLoading={actionLoading}
+                  requireRejectNote={true}
                   onPreview={openAssetPreview}
                   onApprove={() => updateAssetStatus(asset, STATUS.APPROVED)}
-                  onReject={() => updateAssetStatus(asset, STATUS.REJECTED)}
+                  onReject={(note) => updateAssetStatus(asset, STATUS.REJECTED, note)}
                 />
               ))}
             </div>
@@ -1060,9 +1089,10 @@ export default function ApprovalPage() {
                   titleFallback="Food upload"
                   previewLabel="Food Quality Preview"
                   actionLoading={actionLoading}
+                  requireRejectNote={true}
                   onPreview={openAssetPreview}
                   onApprove={() => updateAssetStatus(asset, STATUS.APPROVED)}
-                  onReject={() => updateAssetStatus(asset, STATUS.REJECTED)}
+                  onReject={(note) => updateAssetStatus(asset, STATUS.REJECTED, note)}
                 />
               ))}
             </div>
@@ -1086,6 +1116,7 @@ export default function ApprovalPage() {
                   titleFallback="Marketing asset"
                   previewLabel="Marketing Preview"
                   actionLoading={actionLoading}
+                  requireRejectNote={false}
                   onPreview={openAssetPreview}
                   onApprove={() => updateAssetStatus(asset, STATUS.APPROVED)}
                   onReject={() => updateAssetStatus(asset, STATUS.REJECTED)}
@@ -1372,7 +1403,27 @@ function AssetApprovalRow({
   onPreview,
   onApprove,
   onReject,
+  requireRejectNote = false,
 }) {
+  const [showRejectNote, setShowRejectNote] = useState(false);
+  const [rejectNote, setRejectNote] = useState("");
+
+  const handleReject = () => {
+    if (requireRejectNote && !showRejectNote) {
+      setShowRejectNote(true);
+      return;
+    }
+
+    if (requireRejectNote && !rejectNote.trim()) {
+      alert("Rejection comment is required for routine and food uploads.");
+      return;
+    }
+
+    onReject(rejectNote.trim());
+    setRejectNote("");
+    setShowRejectNote(false);
+  };
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
       <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
@@ -1422,14 +1473,32 @@ function AssetApprovalRow({
           </button>
 
           <button
-            onClick={onReject}
+            onClick={handleReject}
             disabled={actionLoading === `asset-${asset.id}-${STATUS.REJECTED}`}
             className="px-3 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-sm text-white font-medium disabled:opacity-50"
           >
-            {actionLoading === `asset-${asset.id}-${STATUS.REJECTED}` ? "Rejecting..." : "Reject"}
+            {actionLoading === `asset-${asset.id}-${STATUS.REJECTED}`
+              ? "Rejecting..."
+              : showRejectNote
+              ? "Confirm Reject"
+              : "Reject"}
           </button>
         </div>
       </div>
+
+      {showRejectNote ? (
+        <div className="mt-4">
+          <textarea
+            value={rejectNote}
+            onChange={(event) => setRejectNote(event.target.value)}
+            placeholder="Write rejection comment..."
+            className="w-full min-h-[90px] rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-red-400/50"
+          />
+          <div className="mt-2 text-xs text-white/40">
+            Required for routine and food rejections.
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

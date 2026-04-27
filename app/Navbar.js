@@ -8,17 +8,20 @@ export default function Navbar() {
   const router = useRouter();
 
   const navItems = [
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "Control", href: "/control-final" },
-    { name: "POS", href: "/pos" },
-    { name: "Orders", href: "/pos-control" },
-    { name: "Kitchen", href: "/kitchen" },
-    { name: "Staff", href: "/staff" },
-    { name: "Staff Control", href: "/staff-control" },
-    { name: "History", href: "/history" },
-    { name: "Accounting", href: "/accounting" },
-    { name: "Payout", href: "/payout" },
-  ];
+  { name: "Dashboard", href: "/dashboard" },
+  { name: "Control", href: "/control-final" },
+  { name: "POS", href: "/pos" },
+  { name: "Orders", href: "/pos-control" },
+  { name: "Kitchen", href: "/kitchen" },
+  { name: "Staff", href: "/staff" },
+  { name: "Staff Control", href: "/staff-control" },
+  { name: "History", href: "/history" },
+  { name: "Accounting", href: "/accounting" },
+  { name: "Payout", href: "/payout" },
+
+  // ADD THIS ↓
+  { name: "Settings", href: "/settings" },
+];
 
   const switchUser = () => {
     localStorage.clear();

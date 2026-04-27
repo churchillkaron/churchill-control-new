@@ -13,11 +13,86 @@ export default function ControlFinalPage() {
   const [staff, setStaff] = useState([]);
   const [attendance, setAttendance] = useState({});
 
+  const [payrollLocked, setPayrollLocked] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState("");
+
+  // 🔥 FUTURE FLAGS (do not remove)
+  const [systemReady, setSystemReady] = useState(false);
+  const [lockOwnerOverride, setLockOwnerOverride] = useState(false);
+
   useEffect(() => {
     loadOrders();
     loadStaff();
     loadAttendance();
+    checkPayrollLock();
+    checkSystemReady(); // 🔥 NEW
   }, []);
+
+  const getMonthKey = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${now.getMonth() + 1}`;
+  };
+
+  const checkPayrollLock = () => {
+    const lock = localStorage.getItem("payroll_locked") === "true";
+    const month = localStorage.getItem("payroll_month");
+
+    const current = getMonthKey();
+
+    if (month !== current) {
+      // 🔓 new month = unlock
+      localStorage.setItem("payroll_locked", "false");
+      localStorage.setItem("payroll_month", current);
+      setPayrollLocked(false);
+    } else {
+      setPayrollLocked(lock);
+    }
+
+    setCurrentMonth(current);
+  };
+
+  // 🔥 CHECK READY STATE (future system integration)
+  const checkSystemReady = () => {
+    const ready = localStorage.getItem("system_ready_for_payroll") === "true";
+    setSystemReady(ready);
+  };
+
+  const lockPayroll = () => {
+    const ready = localStorage.getItem("system_ready_for_payroll");
+
+    if (ready !== "true") {
+      alert("System not ready. Finalize approvals first.");
+      return;
+    }
+
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+
+    // 🔒 lock system
+    localStorage.setItem("payroll_locked", "true");
+    localStorage.setItem("payroll_month", monthKey);
+
+    // 🔥 FIX (UI update immediately)
+    setPayrollLocked(true);
+
+    // 🧹 cleanup
+    localStorage.removeItem("system_ready_for_payroll");
+    setSystemReady(false);
+
+    alert("✅ Payroll locked for this month");
+  };
+
+  // 🔥 OWNER UNLOCK (future admin feature)
+  const unlockPayroll = () => {
+    const confirmUnlock = confirm("Unlock payroll? (Owner only)");
+    if (!confirmUnlock) return;
+
+    localStorage.setItem("payroll_locked", "false");
+
+    setPayrollLocked(false);
+
+    alert("⚠ Payroll unlocked");
+  };
 
   const loadOrders = () => {
     const stored = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -163,6 +238,11 @@ export default function ControlFinalPage() {
   };
 
   const saveDay = () => {
+    if (payrollLocked) {
+      alert("Payroll is locked. Cannot close new days.");
+      return;
+    }
+
     const history = JSON.parse(localStorage.getItem("history") || "[]");
 
     const calculatedStaff = calculateStaff();
@@ -187,7 +267,6 @@ export default function ControlFinalPage() {
       servicePool,
       staff: calculatedStaff,
 
-      // 🔒 LOCK DAY
       locked: true,
 
       created_at: new Date().toISOString(),
@@ -207,6 +286,39 @@ export default function ControlFinalPage() {
       <div className="text-white space-y-6">
 
         <h1>Control Final</h1>
+
+        {/* 🔥 PAYROLL CONTROL PANEL */}
+        <div className="bg-white/5 p-4 rounded flex justify-between items-center">
+          <div>
+            <div className="text-white/50 text-sm">Payroll Status</div>
+            <div className={payrollLocked ? "text-red-400" : "text-green-400"}>
+              {payrollLocked ? "LOCKED" : "OPEN"}
+            </div>
+            <div className="text-white/40 text-xs mt-1">
+              Month: {currentMonth}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            {!payrollLocked && (
+              <button
+                onClick={lockPayroll}
+                className="bg-red-500 px-4 py-2 rounded text-white"
+              >
+                LOCK PAYROLL
+              </button>
+            )}
+
+            {payrollLocked && (
+              <button
+                onClick={unlockPayroll}
+                className="bg-yellow-500 px-4 py-2 rounded text-black"
+              >
+                UNLOCK
+              </button>
+            )}
+          </div>
+        </div>
 
         <div className="bg-white/5 p-4 rounded space-y-2">
           <div>Revenue: {finalRevenue}</div>

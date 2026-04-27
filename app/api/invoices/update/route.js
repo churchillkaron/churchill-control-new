@@ -1,47 +1,57 @@
 import { NextResponse } from "next/server";
-import { invoices } from "../store";
+import { createClient } from "@supabase/supabase-js";
 
+// Supabase connection
+const supabase = createClient(
+process.env.SUPABASE_URL,
+process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// =========================
+// UPDATE INVOICE STATUS
+// =========================
 export async function POST(req) {
-  try {
-    const body = await req.json();
-    const { id, status } = body;
+try {
+const body = await req.json();
+const { id, status } = body;
 
-    if (!id || !status) {
-      return NextResponse.json(
-        { error: "Missing id or status" },
-        { status: 400 }
-      );
-    }
+```
+if (!id || !status) {
+  return NextResponse.json(
+    { error: "Missing id or status" },
+    { status: 400 }
+  );
+}
 
-    const invoice = invoices.find((i) => i.id === id);
+const { data, error } = await supabase
+  .from("invoices")
+  .update({
+    status: status,
+    updated_at: new Date().toISOString(),
+  })
+  .eq("id", id)
+  .select()
+  .single();
 
-    if (!invoice) {
-      return NextResponse.json(
-        { error: "Invoice not found" },
-        { status: 404 }
-      );
-    }
+if (error) {
+  console.error("UPDATE ERROR:", error);
+  return NextResponse.json(
+    { error: error.message },
+    { status: 500 }
+  );
+}
 
-    invoice.status = status;
+return NextResponse.json({
+  success: true,
+  invoice: data,
+});
+```
 
-    if (status === "approved") {
-      invoice.approvedAt = new Date().toISOString();
-      invoice.rejectedAt = null;
-    }
-
-    if (status === "rejected") {
-      invoice.rejectedAt = new Date().toISOString();
-      invoice.approvedAt = null;
-    }
-
-    return NextResponse.json({
-      success: true,
-      invoice,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { error: "Failed to update invoice" },
-      { status: 500 }
-    );
-  }
+} catch (err) {
+console.error("SERVER ERROR:", err);
+return NextResponse.json(
+{ error: err.message },
+{ status: 500 }
+);
+}
 }

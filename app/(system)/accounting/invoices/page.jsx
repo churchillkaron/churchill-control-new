@@ -62,27 +62,35 @@ export default function InvoiceAI() {
     setLoading(false);
   };
 
-  const saveToAccounting = () => {
-    if (!result?.items) return;
+  // ✅ NEW: SAVE TO SYSTEM (NOT LOCAL STORAGE)
+  const saveToSystem = async () => {
+    if (!result) return;
 
-    const existing =
-      JSON.parse(localStorage.getItem("expenses") || "[]");
+    try {
+      await fetch("/api/invoices/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          vendor: result.vendor,
+          date: result.date,
+          total: result.total,
+          items: result.items,
+          image_url: preview,
+          status: "pending_manager", // 🔥 important
+        }),
+      });
 
-    const newEntries = result.items.map((item) => ({
-      vendor: result.vendor,
-      date: result.date,
-      total: item.price,
-      account: item.account || "Unassigned",
-      name: item.name,
-      created_at: new Date().toISOString(),
-    }));
+      alert("Saved to Manager Queue ✅");
 
-    localStorage.setItem(
-      "expenses",
-      JSON.stringify([...newEntries, ...existing])
-    );
-
-    alert("Saved ✅");
+      // reset
+      setFile(null);
+      setPreview(null);
+      setResult(null);
+    } catch (err) {
+      alert("Save failed");
+    }
   };
 
   return (
@@ -141,11 +149,12 @@ export default function InvoiceAI() {
               </div>
             ))}
 
+            {/* ✅ NEW BUTTON */}
             <button
-              onClick={saveToAccounting}
+              onClick={saveToSystem}
               className="bg-green-600 px-6 py-2 rounded"
             >
-              Save
+              Send to Manager
             </button>
 
           </div>

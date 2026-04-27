@@ -2,25 +2,50 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../../AppShell.js";
+import { supabase } from "@/lib/supabase";
 
 export default function TablesPage() {
   const [tables, setTables] = useState([]);
 
-  const loadTables = () => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+  const loadTables = async () => {
+    // 🔥 LOAD ORDERS
+    const { data: orders } = await supabase
+      .from("orders")
+      .select("*")
+      .neq("status", "closed")
+      .order("created_at", { ascending: false });
 
-    // 🔥 ONLY ACTIVE TABLES
-    const activeTables = stored.filter((o) => o.status !== "closed");
+    // 🔥 LOAD ITEMS
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("*");
 
-    setTables(activeTables);
+    // 🔥 MERGE
+    const merged = (orders || []).map((order) => ({
+      ...order,
+      items: (items || []).filter((i) => i.order_id === order.id),
+    }));
+
+    setTables(merged);
   };
 
   useEffect(() => {
     loadTables();
-
-    const interval = setInterval(loadTables, 1000);
+    const interval = setInterval(loadTables, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  // 🔥 CLOSE TABLE (PAY BILL)
+  const closeTable = async (orderId) => {
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "closed" })
+      .eq("id", orderId);
+
+    if (error) console.error("CLOSE ERROR:", error);
+
+    loadTables();
+  };
 
   return (
     <AppShell>
@@ -43,7 +68,8 @@ export default function TablesPage() {
               (i) => i.status === "DONE"
             ).length;
 
-            const allServed = totalItems > 0 && servedItems === totalItems;
+            const allServed =
+              totalItems > 0 && servedItems === totalItems;
 
             return (
               <div
@@ -51,7 +77,9 @@ export default function TablesPage() {
                 className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4"
               >
                 <div className="flex justify-between items-center">
-                  <div className="text-xl">Table {table.table}</div>
+                  <div className="text-xl">
+                    Table {table.table_number}
+                  </div>
                   <div className="text-xs text-white/50">
                     {new Date(table.created_at).toLocaleTimeString()}
                   </div>
@@ -74,13 +102,31 @@ export default function TablesPage() {
                   )}
                 </div>
 
+                {/* 🔥 ITEM LIST */}
+                <div className="text-sm space-y-1">
+                  {table.items.map((item) => (
+                    <div key={item.id}>
+                      {item.item_name} ({item.status})
+                    </div>
+                  ))}
+                </div>
+
+                {/* 🔥 CLOSE BUTTON */}
+                {allServed && (
+                  <button
+                    onClick={() => closeTable(table.id)}
+                    className="w-full bg-[#ff7a00] text-black py-2 rounded"
+                  >
+                    Close Table
+                  </button>
+                )}
               </div>
             );
           })}
 
         </div>
-
       </div>
     </AppShell>
   );
 }
+

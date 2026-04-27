@@ -1,25 +1,31 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const runtime = "nodejs";
+
 const supabase = createClient(
-  process.env.SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export async function POST(req) {
   try {
+    // ✅ THIS ROUTE USES JSON (NOT formData)
     const body = await req.json();
 
-    // 🔥 INCLUDE category + department
     const {
       url,
       note,
-      tags,
-      uploaded_by,
       category,
-      department
+      department,
+      uploaded_by,
+      uploaded_by_id,
+      source,
+      type,
+      status,
     } = body;
 
+    // ✅ VALIDATION
     if (!url) {
       return NextResponse.json(
         { success: false, error: "Missing URL" },
@@ -27,33 +33,29 @@ export async function POST(req) {
       );
     }
 
-    if (!category) {
-      return NextResponse.json(
-        { success: false, error: "Missing category" },
-        { status: 400 }
-      );
-    }
-
+    // ✅ INSERT INTO DATABASE ONLY
     const { data, error } = await supabase
       .from("assets")
       .insert([
         {
           url,
           note: note || "",
-          tags: tags || [],
-          uploaded_by: uploaded_by || "staff",
-          type: category === "invoice" ? "invoice" : "photo",
-          source: "staff",
-          category,                 // 🔥 REQUIRED
-          department: department || null, // 🔥 REQUIRED
-          status: "pending_approval",
-          created_at: new Date().toISOString()
+          category,
+          department,
+          uploaded_by,
+          uploaded_by_id,
+          source,
+          type,
+          status: status || "pending",
+          created_at: new Date().toISOString(),
         },
       ])
       .select()
       .single();
 
     if (error) {
+      console.error("DB INSERT ERROR:", error);
+
       return NextResponse.json(
         { success: false, error: error.message },
         { status: 500 }
@@ -66,6 +68,8 @@ export async function POST(req) {
     });
 
   } catch (err) {
+    console.error("SERVER ERROR:", err);
+
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }

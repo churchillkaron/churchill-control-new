@@ -1,130 +1,85 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import AppShell from "../../AppShell";
+import { useEffect, useState } from "react";
+import AppShell from "../../AppShell.js";
+import { supabase } from "@/lib/supabase";
+
+const STATIONS = ["THAI", "WESTERN", "PIZZA", "BAR", "DESSERT"];
+
+function guessStation(name = "") {
+  const text = name.toLowerCase();
+
+  if (text.includes("tom yum") || text.includes("thai")) return "THAI";
+  if (text.includes("pizza")) return "PIZZA";
+  if (text.includes("cake") || text.includes("mango")) return "DESSERT";
+  if (text.includes("beer") || text.includes("wine")) return "BAR";
+
+  return "WESTERN";
+}
+
 export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
-  const prevOrderIds = useRef([]);
 
-  const playSound = () => {
-    const audio = new Audio("/notification.mp3");
-    audio.play().catch(() => {});
-  };
+  // LOAD ORDERS
+  const loadOrders = async () => {
+    const { data: ordersData } = await supabase
+      .from("orders")
+      .select("*")
+     .in("kitchen_status", ["pending", "cooking", "approved"])
+      .order("created_at", { ascending: true });
 
-  const loadOrders = () => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+    const { data: itemsData } = await supabase
+      .from("order_items")
+      .select("*");
 
-    let kitchenOrders = stored.filter((o) => o.status === "kitchen");
+    const merged = (ordersData || []).map((order) => ({
+      ...order,
+      items: (itemsData || []).filter((i) => i.order_id === order.id),
+    }));
 
-    kitchenOrders = kitchenOrders.sort(
-      (a, b) => new Date(a.created_at) - new Date(b.created_at)
-    );
-
-    const newIds = kitchenOrders.map((o) => o.id);
-
-    if (prevOrderIds.current.length > 0) {
-      const hasNew = newIds.some(
-        (id) => !prevOrderIds.current.includes(id)
-      );
-      if (hasNew) playSound();
-    }
-
-    prevOrderIds.current = newIds;
-    setOrders(kitchenOrders);
+    setOrders(merged);
   };
 
   useEffect(() => {
     loadOrders();
-    const interval = setInterval(loadOrders, 1000);
+    const interval = setInterval(loadOrders, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  // 🔥 UPDATE STATUS
-  const updateItemStatus = (orderId, itemIds, newStatus) => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+  // 🔹 UPDATE ITEM STATUS ONLY
+  const updateItemStatus = async (ids, status) => {
+    await supabase
+      .from("order_items")
+      .update({ status })
+      .in("id", ids);
 
-    const updated = stored.map((order) => {
-      if (order.id !== orderId) return order;
-
-      return {
-        ...order,
-        items: order.items.map((item) =>
-          itemIds.includes(item.id)
-            ? { ...item, status: newStatus }
-            : item
-        ),
-      };
-    });
-
-    localStorage.setItem("orders", JSON.stringify(updated));
     loadOrders();
   };
 
-  // 🔥 CANCEL ITEM
-  const cancelItems = (orderId, itemIds) => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
+  // 🔥 CLEAN DONE HANDLER (ONLY STATUS)
+  const handleDone = async (order, item) => {
+    try {
+      // ✅ mark items done
+      await updateItemStatus(item.ids, "DONE");
 
-    const updated = stored.map((order) => {
-      if (order.id !== orderId) return order;
+      // ✅ check if entire order finished
+      const { data: remaining } = await supabase
+        .from("order_items")
+        .select("id")
+        .eq("order_id", order.id)
+        .neq("status", "DONE");
 
-      const remainingItems = order.items.filter(
-        (item) => !itemIds.includes(item.id)
-      );
+      if (!remaining || remaining.length === 0) {
+        await supabase
+          .from("orders")
+          .update({ kitchen_status: "done" })
+          .eq("id", order.id);
+      }
 
-      return {
-        ...order,
-        items: remainingItems,
-        total: remainingItems.reduce((s, i) => s + i.price, 0),
-      };
-    });
-
-    localStorage.setItem("orders", JSON.stringify(updated));
-    loadOrders();
+    } catch (err) {
+      console.error("HANDLE DONE ERROR:", err);
+    }
   };
-
-  const serveOrder = (orderId) => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const updated = stored.map((order) => {
-      if (order.id !== orderId) return order;
-
-      return {
-        ...order,
-        status: "served",
-      };
-    });
-
-    localStorage.setItem("orders", JSON.stringify(updated));
-    loadOrders();
-  };
-
-  const fireDessert = (orderId) => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-
-    const updated = stored.map((order) => {
-      if (order.id !== orderId) return order;
-
-      return {
-        ...order,
-        dessertFired: true,
-      };
-    });
-
-    localStorage.setItem("orders", JSON.stringify(updated));
-    loadOrders();
-  };
-
-  const getWaitingTime = (created_at) => {
-    return Math.floor((Date.now() - new Date(created_at)) / 60000);
-  };
-
-  const getUrgencyStyle = (minutes) => {
-    if (minutes >= 20) return "border-red-500 bg-red-500/10";
-    if (minutes >= 10) return "border-yellow-500 bg-yellow-500/10";
-    return "border-white/10 bg-white/5";
-  };
-
-  const stations = ["THAI", "WESTERN", "PIZZA"];
 
   return (
     <AppShell showNav={false}>
@@ -132,129 +87,121 @@ export default function KitchenPage() {
         <h1 className="text-3xl">Kitchen</h1>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {stations.map((station) => {
+          {STATIONS.map((station) => {
             const grouped = {};
 
             orders.forEach((order) => {
-              const mainDone = order.items
-                .filter((i) => i.course === "main")
-                .every((i) => i.status === "DONE");
+              const stationItems = (order.items || [])
+                .map((item) => ({
+                  ...item,
+                  station: item.station || guessStation(item.item_name),
+                }))
+                .filter(
+                  (item) =>
+                    item.station === station &&
+                    item.status !== "DONE"
+                );
 
-              const items = order.items.filter((item) => {
-                if (item.station !== station) return false;
+              if (stationItems.length === 0) return;
 
-                if (
-                  item.course === "dessert" &&
-                  !mainDone &&
-                  !order.dessertFired
-                )
-                  return false;
+              const table = order.table_number || "T1";
 
-                return true;
-              });
+              if (!grouped[table]) grouped[table] = [];
 
-              if (items.length === 0) return;
-
-              if (!grouped[order.table]) {
-                grouped[order.table] = [];
-              }
-
-              grouped[order.table].push({
+              grouped[table].push({
                 ...order,
-                stationItems: items,
+                stationItems,
               });
             });
 
             return (
               <div key={station} className="space-y-4">
-                <h2>{station}</h2>
+                <h2 className="text-xl font-semibold">{station}</h2>
 
-                {Object.entries(grouped).map(([table, orders]) => (
-                  <div key={table} className="border p-3 space-y-3">
-                    <div>Table {table}</div>
+                {Object.keys(grouped).length === 0 && (
+                  <div className="text-white/30 text-sm">
+                    No tickets
+                  </div>
+                )}
 
-                    {orders.map((order, index) => {
-                      const minutes = getWaitingTime(order.created_at);
-                      const urgencyStyle = getUrgencyStyle(minutes);
+                {Object.entries(grouped).map(([table, tableOrders]) => (
+                  <div
+                    key={table}
+                    className="border border-white/10 rounded-2xl p-3 space-y-3 bg-white/5"
+                  >
+                    <div className="font-semibold">Table {table}</div>
 
-                      const allDone = order.items.every(
-                        (i) => i.status === "DONE"
-                      );
-
-                      const mainDone = order.items
-                        .filter((i) => i.course === "main")
-                        .every((i) => i.status === "DONE");
-
-                      const merged = {};
+                    {tableOrders.map((order, index) => {
+                      const groupedItems = {};
 
                       order.stationItems.forEach((item) => {
-                        if (!merged[item.name]) {
-                          merged[item.name] = {
-                            name: item.name,
+                        if (!groupedItems[item.item_name]) {
+                          groupedItems[item.item_name] = {
+                            name: item.item_name,
                             ids: [],
+                            status: item.status || "PENDING",
                           };
                         }
 
-                        merged[item.name].ids.push(item.id);
+                        groupedItems[item.item_name].ids.push(item.id);
                       });
 
+                      const itemsArray = Object.values(groupedItems);
+                      if (itemsArray.length === 0) return null;
+
                       return (
-                        <div key={order.id} className={urgencyStyle}>
-                          <div>Ticket {index + 1} • {minutes} min</div>
+                        <div
+                          key={order.id}
+                          className="border rounded-xl p-3 space-y-2 bg-white/5"
+                        >
+                          <div className="text-sm">
+                            Ticket {index + 1}
+                          </div>
 
-                          {!mainDone && (
-                            <button onClick={() => fireDessert(order.id)}>
-                              FIRE DESSERT
-                            </button>
-                          )}
+                          {itemsArray.map((item) => {
+                            const isCooking =
+                              item.status === "COOKING";
 
-                          {Object.values(merged).map((item) => (
-                            <div key={item.name}>
-                              {item.ids.length}x {item.name}
+                            return (
+                              <div key={item.name} className="space-y-1">
+                                <div className="flex justify-between items-center">
+                                  <span>
+                                    {item.ids.length}x {item.name}
+                                  </span>
 
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() =>
-                                    updateItemStatus(order.id, item.ids, "COOKING")
-                                  }
-                                >
-                                  Cooking
-                                </button>
+                                  <span className="text-xs text-white/50">
+                                    {item.status}
+                                  </span>
+                                </div>
 
-                                <button
-                                  onClick={() =>
-                                    updateItemStatus(order.id, item.ids, "DONE")
-                                  }
-                                >
-                                  Done
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() =>
+                                      updateItemStatus(
+                                        item.ids,
+                                        "COOKING"
+                                      )
+                                    }
+                                    disabled={isCooking}
+                                    className={`px-2 py-1 text-xs rounded ${
+                                      isCooking
+                                        ? "bg-gray-600 cursor-not-allowed"
+                                        : "bg-yellow-500"
+                                    }`}
+                                  >
+                                    Cooking
+                                  </button>
 
-                                <button
-                                  onClick={() =>
-                                    updateItemStatus(order.id, item.ids, "COOKING")
-                                  }
-                                >
-                                  Recall
-                                </button>
-
-                                {/* 🔥 CANCEL */}
-                                <button
-                                  onClick={() =>
-                                    cancelItems(order.id, item.ids)
-                                  }
-                                  className="bg-red-600 px-2"
-                                >
-                                  Cancel
-                                </button>
+                                  <button
+                                    onClick={() => handleDone(order, item)}
+                                    className="bg-green-500 px-2 py-1 text-xs rounded"
+                                  >
+                                    Done
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
-
-                          {allDone && (
-                            <button onClick={() => serveOrder(order.id)}>
-                              Serve
-                            </button>
-                          )}
+                            );
+                          })}
                         </div>
                       );
                     })}

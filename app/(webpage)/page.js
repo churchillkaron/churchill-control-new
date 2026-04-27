@@ -1,3 +1,5 @@
+
+
 export default function Home() {
   return (
     <main className="bg-black text-white">
@@ -69,6 +71,8 @@ export default function Home() {
 
       </section>
 
-    </main>
+ 
+      </main>
+    
   );
 }

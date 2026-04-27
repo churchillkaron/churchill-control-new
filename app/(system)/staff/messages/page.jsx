@@ -1,5 +1,5 @@
 "use client";
-import AppShell from "../../AppShell.js";
+import AppShell from '@/app/AppShell'
 
 export default function MessagesPage() {
   return (

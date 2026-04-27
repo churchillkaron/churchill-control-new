@@ -1,10 +1,10 @@
 "use client";
-
+import something from '@/lib/storage/localStorage'
 export const dynamic = "force-dynamic"; // ✅ FIX
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
-import { getHistoryDays } from "lib/storage/localStorage.js";
+import AppShell from '@/app/AppShell'
+
 
 export default function CashflowPage() {
   const [history, setHistory] = useState([]);

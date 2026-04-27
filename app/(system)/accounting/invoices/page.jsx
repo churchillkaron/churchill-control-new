@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AppShell from "../../AppShell";
+import AppShell from '@/app/AppShell'
 
 export default function InvoiceAI() {
   const [file, setFile] = useState(null);

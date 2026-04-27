@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
+import AppShell from '@/app/AppShell'
 
 export default function AccountingOverview() {
   const [feed, setFeed] = useState([]);

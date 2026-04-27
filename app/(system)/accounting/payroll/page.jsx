@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
+import AppShell from '@/app/AppShell'
 import { getHistoryDays } from "lib/storage/localStorage.js";
 
 export default function PayrollPage() {

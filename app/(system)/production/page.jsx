@@ -1,115 +1,117 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../AppShell";
 import { supabase } from "@/lib/supabase";
 
 export default function ProductionPage() {
-  const [dishes, setDishes] = useState([]);
-  const tenantId = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+  const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
-  const loadDishes = async () => {
-    const { data } = await supabase.from("recipes").select("*");
-    setDishes(data || []);
+  const [lowDishes, setLowDishes] = useState([]);
+  const [loadingId, setLoadingId] = useState(null);
+
+  // 🔹 LOAD LOW DISHES
+  const loadLowDishes = async () => {
+    const { data: dishStock } = await supabase
+      .from("dish_stock")
+      .select("dish_id, quantity")
+      .eq("tenant_id", tenant_id);
+
+    const { data: dishes } = await supabase
+      .from("dishes")
+      .select("id, name")
+      .eq("tenant_id", tenant_id);
+
+    const map = {};
+    for (const d of dishes || []) {
+      map[d.id] = d.name;
+    }
+
+    const low = (dishStock || [])
+      .filter((d) => Number(d.quantity) <= 5)
+      .map((d) => {
+        const qty = Number(d.quantity || 0);
+
+        // 🔥 SMART PRODUCTION LOGIC
+        const suggested = Math.max(10 - qty, 5);
+
+        return {
+          dish_id: d.dish_id,
+          name: map[d.dish_id] || d.dish_id,
+          quantity: qty,
+          suggested,
+        };
+      });
+
+    setLowDishes(low);
   };
 
   useEffect(() => {
-    loadDishes();
+    loadLowDishes();
   }, []);
 
-  const produceDish = async (dish_id, qty) => {
-    const { data: recipe } = await supabase
-      .from("recipes")
-      .select("*")
-      .eq("dish_id", dish_id)
-      .single();
+  // 🔹 PRODUCE ACTION
+  const produce = async (dish_id, qty) => {
+    setLoadingId(dish_id);
 
-    if (!recipe) return;
-
-    const { data: recipeItems } = await supabase
-      .from("recipe_items")
-      .select("*")
-      .eq("recipe_id", recipe.id);
-
-    // 🔻 deduct ingredients
-    for (const ri of recipeItems || []) {
-      await supabase.rpc("decrement_inventory", {
-        ingredient_id_input: ri.ingredient_id,
-        qty: ri.quantity * qty,
+    try {
+      const res = await fetch("/api/production", {
+        method: "POST",
+        body: JSON.stringify({
+          dish_id,
+          quantity: qty,
+        }),
       });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        alert(result.error || "Production failed");
+      }
+
+      await loadLowDishes();
+    } catch (err) {
+      console.error(err);
     }
 
-    // 🔺 increase dish_stock
-    const { data: stock } = await supabase
-      .from("dish_stock")
-      .select("*")
-      .eq("dish_id", dish_id)
-      .single();
-
-    if (stock) {
-      await supabase
-        .from("dish_stock")
-        .update({
-          quantity: stock.quantity + qty,
-        })
-        .eq("dish_id", dish_id);
-    } else {
-      await supabase.from("dish_stock").insert({
-        dish_id,
-        quantity: qty,
-        tenant_id: tenantId,
-      });
-    }
-
-    // log
-    await supabase.from("production_logs").insert({
-      dish_id,
-      quantity: qty,
-      tenant_id: tenantId,
-    });
-
-    alert("Produced ✔");
+    setLoadingId(null);
   };
 
   return (
-    <AppShell>
-      <div className="p-6 text-white space-y-6">
-        <h1 className="text-3xl">Production</h1>
+    <div className="p-6 text-white max-w-3xl mx-auto">
+      <h1 className="text-2xl mb-6 font-semibold">Production</h1>
 
-        <div className="grid md:grid-cols-3 gap-4">
-          {dishes.map((dish) => (
-            <div
-              key={dish.id}
-              className="bg-white/5 p-4 rounded-xl border border-white/10"
-            >
-              <div className="mb-2">{dish.name || dish.dish_id}</div>
+      {lowDishes.length === 0 && (
+        <div className="text-white/50">No production needed</div>
+      )}
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => produceDish(dish.dish_id, 5)}
-                  className="bg-green-500 px-3 py-1 rounded"
-                >
-                  +5
-                </button>
+      {lowDishes.map((dish) => (
+        <div
+          key={dish.dish_id}
+          className="bg-white/5 border border-white/10 p-4 rounded-xl mb-3 flex justify-between items-center"
+        >
+          <div>
+            <div className="font-semibold">{dish.name}</div>
 
-                <button
-                  onClick={() => produceDish(dish.dish_id, 10)}
-                  className="bg-blue-500 px-3 py-1 rounded"
-                >
-                  +10
-                </button>
-
-                <button
-                  onClick={() => produceDish(dish.dish_id, 20)}
-                  className="bg-orange-500 px-3 py-1 rounded"
-                >
-                  +20
-                </button>
-              </div>
+            <div className="text-sm text-yellow-400">
+              Stock: {dish.quantity}
             </div>
-          ))}
+
+            <div className="text-sm text-green-400">
+              Suggested: {dish.suggested}
+            </div>
+          </div>
+
+          <button
+            onClick={() => produce(dish.dish_id, dish.suggested)}
+            disabled={loadingId === dish.dish_id}
+            className="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg"
+          >
+            {loadingId === dish.dish_id
+              ? "Producing..."
+              : `Produce ${dish.suggested}`}
+          </button>
         </div>
-      </div>
-    </AppShell>
+      ))}
+    </div>
   );
 }

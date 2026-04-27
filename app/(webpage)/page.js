@@ -1,7 +1,6 @@
-
 export default function Home() {
   return (
-    <main className="bg-black text-white">
+    <main>
 
       <section className="relative h-screen flex items-center justify-center text-center overflow-hidden">
 
@@ -16,29 +15,24 @@ export default function Home() {
         </div>
 
         {/* Content */}
-        <div className="relative z-10 px-6 max-w-3xl">
+        <div className="relative z-10 px-6 max-w-3xl text-white">
 
-          {/* Label */}
           <p className="text-xs tracking-[0.35em] text-gray-400 mb-4">
             BAR & RESTAURANT · PHUKET
           </p>
 
-          {/* Title */}
           <h1 className="text-6xl md:text-7xl font-semibold mb-6">
             Churchill
           </h1>
 
-          {/* Main slogan */}
           <p className="text-xl md:text-2xl text-gray-300 mb-4">
             Refined dining. Vibrant nights.
           </p>
 
-          {/* Supporting line (NEW) */}
           <p className="text-md md:text-lg text-gray-400 mb-10">
             Live music, crafted drinks, and games that bring people together.
           </p>
 
-          {/* Experience row (key addition) */}
           <div className="flex justify-center gap-6 text-gray-300 text-sm mb-12 tracking-wide">
             <span>Dining</span>
             <span>+</span>
@@ -47,7 +41,6 @@ export default function Home() {
             <span>Games</span>
           </div>
 
-          {/* Buttons */}
           <div className="flex gap-4 justify-center">
 
             <a
@@ -70,9 +63,6 @@ export default function Home() {
 
       </section>
 
- 
-      </main>
-    
+    </main>
   );
 }
-

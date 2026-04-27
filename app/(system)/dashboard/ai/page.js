@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "@/AppShell.js";
+import AppShell from "@/app(system)/appAppShell.js";
 import {
   calculateFOH,
   getPerformanceLevel,
-} from "lib/performance.js";
+} from "@lib/performance.js";
 
 function saveInsight(insight) {
   const memory = JSON.parse(localStorage.getItem("ai_memory") || "[]");

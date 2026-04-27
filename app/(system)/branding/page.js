@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { setBranding } from "@/lib/branding";
-
+import something from "@lib/branding"
 export default function BrandPage() {
   const [name, setName] = useState("");
   const [logo, setLogo] = useState("");

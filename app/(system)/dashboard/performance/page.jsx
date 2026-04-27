@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+import AppShell from "@AppShell.js";
 
 
 export default function PerformancePage() {

@@ -1,6 +1,6 @@
 "use client";
 
-import AppShell from "../../AppShell.js";
+import AppShell from "@AppShell.js";
 
 export default function AlertsPage() {
   return (

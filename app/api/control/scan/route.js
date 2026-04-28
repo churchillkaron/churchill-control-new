@@ -1,16 +1,23 @@
-const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+export const dynamic = "force-dynamic";
+
+const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+
+// ✅ ENV SAFE LOAD
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !serviceKey) {
+  throw new Error("Missing Supabase environment variables");
+}
+
+const supabase = createClient(supabaseUrl, serviceKey);
 
 export async function POST() {
   try {
     const alerts = [];
 
-    // 🔹 FIXED: PREVENT DUPLICATE TASKS
     const createTaskIfNotExists = async (message, type) => {
       const { data: existing } = await supabase
         .from("tasks")
@@ -30,7 +37,6 @@ export async function POST() {
       });
     };
 
-    // 🔹 1. PROFIT CHECK
     const now = new Date();
     const start = new Date(now.setHours(0, 0, 0, 0)).toISOString();
     const end = new Date(now.setHours(23, 59, 59, 999)).toISOString();
@@ -66,14 +72,10 @@ export async function POST() {
           message: "⚠ Low profit margin today",
         });
 
-        await createTaskIfNotExists(
-          "Review low margin dishes",
-          "analysis"
-        );
+        await createTaskIfNotExists("Review low margin dishes", "analysis");
       }
     }
 
-    // 🔹 2. INGREDIENT STOCK
     const { data: ingredients } = await supabase
       .from("ingredients")
       .select("id, name, quantity")
@@ -90,14 +92,10 @@ export async function POST() {
           message: `⚠ Low ingredient: ${name}`,
         });
 
-        await createTaskIfNotExists(
-          `Order more: ${name}`,
-          "purchase"
-        );
+        await createTaskIfNotExists(`Order more: ${name}`, "purchase");
       }
     }
 
-    // 🔹 3. DISH STOCK
     const { data: dishStock } = await supabase
       .from("dish_stock")
       .select("*")
@@ -138,10 +136,7 @@ export async function POST() {
           message: `🚨 LOW STOCK CRITICAL: ${name}`,
         });
 
-        await createTaskIfNotExists(
-          `URGENT: Produce ${name}`,
-          "production"
-        );
+        await createTaskIfNotExists(`URGENT: Produce ${name}`, "production");
       } else if (qty <= 5 && soldToday > 0) {
         alerts.push({
           alert_type: "stock",
@@ -151,7 +146,6 @@ export async function POST() {
       }
     }
 
-    // 🔹 4. KITCHEN IDLE
     const { data: activeOrders } = await supabase
       .from("orders")
       .select("id")
@@ -171,13 +165,8 @@ export async function POST() {
       );
     }
 
-    // 🔴 KEEP DELETE (NO CHANGE)
-    await supabase
-      .from("alerts")
-      .delete()
-      .eq("tenant_id", tenant_id);
+    await supabase.from("alerts").delete().eq("tenant_id", tenant_id);
 
-    // 🔹 FIX: REMOVE DUPLICATE ALERTS
     const uniqueMap = new Map();
     for (const a of alerts) {
       if (!uniqueMap.has(a.message)) {
@@ -196,22 +185,13 @@ export async function POST() {
         created_at: new Date().toISOString(),
       }));
 
-      const { error: insertError } = await supabase
-        .from("alerts")
-        .insert(insertData);
-
-      if (insertError) {
-        console.error("ALERT INSERT ERROR:", insertError);
-      }
+      await supabase.from("alerts").insert(insertData);
     }
-
-    console.log("FINAL ALERTS:", uniqueAlerts);
 
     return Response.json({
       success: true,
       alerts_created: uniqueAlerts.length,
     });
-
   } catch (err) {
     console.error("CONTROL SCAN ERROR:", err);
     return Response.json({ error: err.message }, { status: 500 });

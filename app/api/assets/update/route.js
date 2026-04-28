@@ -1,20 +1,32 @@
 import { NextResponse } from "next/server";
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+import { createClient } from "@supabase/supabase-js";
 
-if (!supabaseUrl || !serviceKey) {
-  throw new Error("Missing Supabase environment variables");
-}
-
-
+export const dynamic = "force-dynamic";
 
 // =========================
 // UPDATE ASSET (APPROVE / REJECT)
 // =========================
 export async function POST(req) {
   try {
-    const body = await req.json();
+    // ✅ MOVE ENV HERE (runtime safe)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+    if (!supabaseUrl || !serviceKey) {
+      console.error("ENV ERROR:", {
+        url: supabaseUrl,
+        key: serviceKey ? "OK" : "MISSING",
+      });
+
+      return NextResponse.json(
+        { success: false, error: "Missing Supabase environment variables" },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    const body = await req.json();
     const { id, status, note, impact } = body;
 
     if (!id || !status) {

@@ -1,10 +1,25 @@
-import { supabase } from "@/lib/supabase";
+export const dynamic = "force-dynamic";
+
+import { createClient } from "@supabase/supabase-js";
 import { runProduction } from "@/lib/production";
 
 const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
 export async function POST(req) {
   try {
+    // ✅ INIT SUPABASE INSIDE FUNCTION
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceKey) {
+      return Response.json(
+        { error: "Missing Supabase environment variables" },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, serviceKey);
+
     const { order_id, status } = await req.json();
 
     if (!order_id || !status) {
@@ -30,11 +45,11 @@ export async function POST(req) {
 
       for (const item of items || []) {
         await runProduction({
-  tenant_id: TENANT_ID,
-  dish_id: item.dish_id,
-  quantity: item.quantity,
-  source_id: `order-${order_id}-dish-${item.dish_id}`,
-});
+          tenant_id: TENANT_ID,
+          dish_id: item.dish_id,
+          quantity: item.quantity,
+          source_id: `order-${order_id}-dish-${item.dish_id}`,
+        });
       }
     }
 

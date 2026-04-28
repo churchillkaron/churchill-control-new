@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "@/app/AppShell";
+
 
 export default function ExpensesPage() {
   const [manualExpenses, setManualExpenses] = useState([]);
@@ -77,7 +77,7 @@ export default function ExpensesPage() {
   });
 
   return (
-    <AppShell>
+
       <div className="min-h-screen text-white p-6 max-w-5xl mx-auto space-y-10">
 
         <h1 className="text-3xl font-semibold">Expenses</h1>
@@ -183,6 +183,6 @@ export default function ExpensesPage() {
         </div>
 
       </div>
-    </AppShell>
+  
   );
 }

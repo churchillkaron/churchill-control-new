@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import AppShell from '@/app/AppShell'
+
 
 export default function TableDetailPage() {
   const { id } = useParams();
@@ -40,14 +40,14 @@ export default function TableDetailPage() {
 
   if (!table) {
     return (
-      <AppShell>
+    
         <div className="text-white">Table not found</div>
-      </AppShell>
+     
     );
   }
 
   return (
-    <AppShell>
+
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Table {table.table}</h1>
@@ -85,6 +85,6 @@ export default function TableDetailPage() {
         </button>
 
       </div>
-    </AppShell>
+    
   );
 }

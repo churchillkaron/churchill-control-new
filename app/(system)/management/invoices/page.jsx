@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import SearchableSelect from "@/app/components/SearchableSelect";
-import AppShell from '@/app/AppShell'
+import SearchableSelect from "@/components/SearchableSelect";
+
 // =========================
 // ACCOUNT STRUCTURE (FULL - EXACT)
 // =========================
@@ -58,6 +58,7 @@ const NATURAL_ACCOUNTS = {
   // ================= OPERATIONS =================
 
   Cleaning: { type: "Operating Expense", department: "Operations" },
+  "Cleaning Supplies": { type: "Operating Expense", department: "Operations" },
   Decoration: { type: "Operating Expense", department: "Operations" },
   Maintenance: { type: "Operating Expense", department: "Operations" },
   "Restaurant Supplies": { type: "Operating Expense", department: "Operations" },
@@ -99,11 +100,11 @@ const NATURAL_ACCOUNTS = {
   "Owner Funding": { type: "Owner / Non-Operating", department: "Owner" },
   "Owner Withdrawal": { type: "Owner / Non-Operating", department: "Owner" },
 };
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
-
 
 function formatDate(value) {
   if (!value) return "-";
@@ -195,7 +196,6 @@ async function loadLearningFromDB(supabase) {
 
   return map;
 }
-
 
 function ruleBasedSuggestion(name = "") {
   const text = normalizeKey(name);
@@ -306,7 +306,7 @@ export default function InvoiceManagement() {
 
     try {
       const memory = await loadLearningFromDB(supabase);
-setLearningMemory(memory);
+      setLearningMemory(memory);
 
       const { data, error } = await supabase
         .from("invoices")
@@ -346,15 +346,15 @@ setLearningMemory(memory);
   }
 
   useEffect(() => {
-  async function init() {
-    const memory = await loadLearningFromDB(supabase);
-    setLearningMemory(memory);
+    async function init() {
+      const memory = await loadLearningFromDB(supabase);
+      setLearningMemory(memory);
 
-    await loadInvoices();
-  }
+      await loadInvoices();
+    }
 
-  init();
-}, []);
+    init();
+  }, []);
 
   function updateInvoiceField(invoiceId, field, value) {
     setEditedInvoices((prev) => ({
@@ -382,7 +382,7 @@ setLearningMemory(memory);
       };
 
       if (field === "name_english") {
-        const suggestion = smartSuggest(value, learningMemory);
+        const suggestion = getSmartSuggestion(value, learningMemory);
 
         if (suggestion) {
           items[index] = {
@@ -499,7 +499,7 @@ setLearningMemory(memory);
 
     setLearningMemory(nextMemory);
 
-return nextMemory;
+    return nextMemory;
   }
 
   async function saveInvoice(id) {
@@ -796,19 +796,20 @@ return nextMemory;
                     />
 
                     <SearchableSelect
-  options={DEPARTMENTS}
-  value={item.department}
-  onChange={(val) =>
-    updateItemField(inv.id, i, "department", val)
-  }
-/>
+                      options={DEPARTMENTS}
+                      value={item.department}
+                      onChange={(val) =>
+                        updateItemField(inv.id, i, "department", val)
+                      }
+                    />
+
                     <SearchableSelect
-  options={ACCOUNT_TYPES}
-  value={item.account_type}
-  onChange={(val) =>
-    updateItemField(inv.id, i, "account_type", val)
-  }
-/>
+                      options={ACCOUNT_TYPES}
+                      value={item.account_type}
+                      onChange={(val) =>
+                        updateItemField(inv.id, i, "account_type", val)
+                      }
+                    />
 
                     <button
                       onClick={() => removeItem(inv.id, i)}
@@ -816,15 +817,16 @@ return nextMemory;
                     >
                       Remove
                     </button>
-<SearchableSelect
-  options={Object.keys(NATURAL_ACCOUNTS)}
-  value={item.natural_account}
-  onChange={(val) =>
-    updateItemField(inv.id, i, "natural_account", val)
-  }
-  placeholder="Select natural account"
-  style={{ gridColumn: "1 / span 6" }}
-/>
+
+                    <SearchableSelect
+                      options={Object.keys(NATURAL_ACCOUNTS)}
+                      value={item.natural_account}
+                      onChange={(val) =>
+                        updateItemField(inv.id, i, "natural_account", val)
+                      }
+                      placeholder="Select natural account"
+                      style={{ gridColumn: "1 / span 6" }}
+                    />
 
                     {suggestion && (
                       <button
@@ -853,38 +855,37 @@ return nextMemory;
             </div>
 
             <div style={{ marginTop: 20 }}>
-           
+              <button
+                type="button"
+                onClick={() => approveInvoice(inv.id)}
+                style={{
+                  marginRight: 10,
+                  padding: "10px 18px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "#ff7a00",
+                  color: "black",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                }}
+              >
+                Approve
+              </button>
 
-           <button
-  type="button"
-  onClick={() => approveInvoice(inv.id)}
-  style={{
-    marginRight: 10,
-    padding: "10px 18px",
-    borderRadius: 10,
-    border: "none",
-    background: "#ff7a00",
-    color: "black",
-    fontWeight: "bold",
-    cursor: "pointer",
-  }}
->
-  Approve
-</button>
-<button
-  type="button"
-  onClick={() => rejectInvoice(inv.id)}
-  style={{
-    padding: "10px 18px",
-    borderRadius: 10,
-    border: "1px solid #444",
-    background: "#111",
-    color: "white",
-    cursor: "pointer",
-  }}
->
-  Reject
-</button>
+              <button
+                type="button"
+                onClick={() => rejectInvoice(inv.id)}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: 10,
+                  border: "1px solid #444",
+                  background: "#111",
+                  color: "white",
+                  cursor: "pointer",
+                }}
+              >
+                Reject
+              </button>
             </div>
           </div>
         );
@@ -897,10 +898,10 @@ return nextMemory;
       </datalist>
 
       <datalist id="natural-accounts">
-  {Object.keys(NATURAL_ACCOUNTS).map((option) => (
-    <option key={option} value={option} />
-  ))}
-</datalist>
+        {Object.keys(NATURAL_ACCOUNTS).map((option) => (
+          <option key={option} value={option} />
+        ))}
+      </datalist>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "@/app/AppShell";
+import { supabase } from "@/lib/supabase";
+
 import {
   calculateFOH,
   getPerformanceLevel,
@@ -77,31 +78,36 @@ export default function ControlFinalPage() {
     setOrders(updatedOrders);
   };
 
-  const adjustments = orders.flatMap((o) =>
-    (o.adjustmentRequests || []).map((a) => ({
-      ...a,
-      orderId: o.id,
-      table: o.table,
+  const adjustments = orders.flatMap((order) =>
+    (order.adjustmentRequests || []).map((adjustment) => ({
+      ...adjustment,
+      orderId: order.id,
+      table: order.table,
     }))
   );
 
-  const subtotal = orders.reduce(
-    (sum, o) => sum + o.items.reduce((s, i) => s + i.price, 0),
-    0
-  );
+  const subtotal = orders.reduce((sum, order) => {
+    const orderTotal = (order.items || []).reduce(
+      (itemSum, item) => itemSum + Number(item.price || 0),
+      0
+    );
 
-  const discountTotal = adjustments.reduce((sum, a) => {
-    if (a.status !== "approved") return sum;
+    return sum + orderTotal;
+  }, 0);
 
-    if (a.type === "discount") {
-      if (a.mode === "percent") {
-        return sum + (subtotal * a.value) / 100;
+  const discountTotal = adjustments.reduce((sum, adjustment) => {
+    if (adjustment.status !== "approved") return sum;
+
+    if (adjustment.type === "discount") {
+      if (adjustment.mode === "percent") {
+        return sum + (subtotal * Number(adjustment.value || 0)) / 100;
       }
-      return sum + a.value;
+
+      return sum + Number(adjustment.value || 0);
     }
 
-    if (a.type === "comp") {
-      return sum + a.value;
+    if (adjustment.type === "comp") {
+      return sum + Number(adjustment.value || 0);
     }
 
     return sum;
@@ -112,29 +118,34 @@ export default function ControlFinalPage() {
   const foh = calculateFOH(orders);
   const performance = getPerformanceLevel(foh.score);
   const servicePercent = getServiceLevel(foh.score) / 100;
-
   const servicePool = finalRevenue * servicePercent;
 
   const calculateStaff = () => {
     if (!staff || staff.length === 0) return [];
 
-    const enriched = staff.map((s) => {
-      const att = attendance[s.id] || {};
+    const enriched = staff.map((staffMember) => {
+      const att = attendance[staffMember.id] || {};
 
       if (!att.present) {
-        return { ...s, weight: 0 };
+        return {
+          ...staffMember,
+          weight: 0,
+          hours: 0,
+          score: staffMember.score || 0,
+          penalty: att.penalty || 0,
+        };
       }
 
-      const hours = att.hours || 0;
-      const score = s.score || 0;
-      const penalty = att.penalty || 0;
+      const hours = Number(att.hours || 0);
+      const score = Number(staffMember.score || 0);
+      const penalty = Number(att.penalty || 0);
 
       let weight = score * hours;
       weight = weight * (1 - penalty / 100);
       weight = weight * performance.multiplier;
 
       return {
-        ...s,
+        ...staffMember,
         weight,
         hours,
         score,
@@ -142,112 +153,136 @@ export default function ControlFinalPage() {
       };
     });
 
-    const totalWeight = enriched.reduce((sum, s) => sum + s.weight, 0);
+    const totalWeight = enriched.reduce(
+      (sum, staffMember) => sum + Number(staffMember.weight || 0),
+      0
+    );
 
     if (totalWeight === 0) return [];
 
-    return enriched.map((s) => {
-      const payout = (s.weight / totalWeight) * servicePool;
+    return enriched.map((staffMember) => {
+      const payout = (staffMember.weight / totalWeight) * servicePool;
 
       return {
-        id: s.id,
-        name: s.name,
-        role: s.role,
-        score: s.score,
-        hours: s.hours,
-        penalty: s.penalty || 0,
+        id: staffMember.id,
+        name: staffMember.name,
+        role: staffMember.role,
+        score: staffMember.score || 0,
+        hours: staffMember.hours || 0,
+        penalty: staffMember.penalty || 0,
         payrollAmount: Math.round(payout),
       };
     });
   };
 
-  const saveDay = () => {
+  const saveDay = async () => {
     if (payrollLocked) {
       alert("Payroll is locked. Cannot close new days.");
       return;
     }
 
-    const history = JSON.parse(localStorage.getItem("history") || "[]");
     const calculatedStaff = calculateStaff();
 
-    const newDay = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      orders,
-      adjustments,
-      subtotal,
-      discountTotal,
-      finalRevenue,
-      performance: {
-        score: foh.score,
-        level: performance.level,
-        servicePercent: servicePercent * 100,
+    const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+
+    const { error } = await supabase.from("history_days").insert([
+      {
+        day_date: new Date().toISOString(),
+
+        orders: orders || [],
+        subtotal: Number(subtotal || 0),
+        discount_total: Number(discountTotal || 0),
+        final_revenue: Number(finalRevenue || 0),
+        adjustments: adjustments || [],
+
+        revenue: Number(finalRevenue || 0),
+        service_charge: Number(servicePool || 0),
+        service_pool: Number(servicePool || 0),
+        payout_pool: Number(servicePool || 0),
+        payout_status: "locked",
+
+        foh_score: Number(foh.score || 0),
+        bar_score: 0,
+        kitchen_score: 0,
+
+        staff_data: calculatedStaff || [],
+        tenant_id,
       },
-      servicePool,
-      staff: calculatedStaff,
-      locked: true,
-      created_at: new Date().toISOString(),
-    };
+    ]);
 
-    history.push(newDay);
+    if (error) {
+      console.error("SAVE ERROR:", error);
+      alert("Error saving day");
+      return;
+    }
 
-    localStorage.setItem("history", JSON.stringify(history));
     localStorage.removeItem("orders");
+    setOrders([]);
 
     alert("Day Closed & Locked");
-    setOrders([]);
   };
 
   return (
-    <AppShell showNav={true}>
-      <div className="text-white space-y-6">
-        <h1>Control Final</h1>
+    <div className="text-white space-y-6">
+      <h1>Control Final</h1>
 
-        <div className="bg-white/5 p-4 rounded flex justify-between">
-          <div>
-            <div className="text-white/50 text-sm">Payroll Status</div>
-            <div className={payrollLocked ? "text-red-400" : "text-green-400"}>
-              {payrollLocked ? "LOCKED" : "OPEN"}
-            </div>
+      <div className="bg-white/5 p-4 rounded flex justify-between">
+        <div>
+          <div className="text-white/50 text-sm">Payroll Status</div>
+          <div className={payrollLocked ? "text-red-400" : "text-green-400"}>
+            {payrollLocked ? "LOCKED" : "OPEN"}
           </div>
-
-          {!payrollLocked && (
-            <button
-              onClick={lockPayroll}
-              className="bg-red-500 px-4 py-2 rounded"
-            >
-              Lock Month
-            </button>
-          )}
+          <div className="text-white/40 text-xs mt-1">
+            Month: {currentMonth}
+          </div>
         </div>
 
-        <div className="bg-white/5 p-4 rounded space-y-2">
-          <div>Revenue: {finalRevenue}</div>
-          <div>Score: {foh.score}</div>
-          <div>Level: {performance.level}</div>
-          <div>Service %: {servicePercent * 100}%</div>
-        </div>
-
-        <div className="bg-white/5 p-4 rounded space-y-2">
-          <div className="text-sm text-white/50">Staff Preview</div>
-
-          {calculateStaff().map((s) => (
-            <div key={s.id} className="flex justify-between text-sm">
-              <div>
-                {s.name} ({s.hours}h / -{s.penalty}%)
-              </div>
-              <div>{s.payrollAmount} THB</div>
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={saveDay}
-          className="w-full bg-orange-500 py-3 rounded text-black"
-        >
-          CLOSE DAY
-        </button>
+        {!payrollLocked && (
+          <button onClick={lockPayroll} className="bg-red-500 px-4 py-2 rounded">
+            Lock Month
+          </button>
+        )}
       </div>
-    </AppShell>
+
+      <div className="bg-white/5 p-4 rounded space-y-2">
+        <div>Subtotal: {subtotal}</div>
+        <div>Discounts: -{discountTotal}</div>
+        <div>Revenue: {finalRevenue}</div>
+        <div>Score: {foh.score}</div>
+        <div>Level: {performance.level}</div>
+        <div>Service %: {servicePercent * 100}%</div>
+        <div>Service Pool: {Math.round(servicePool)} THB</div>
+      </div>
+
+      <div className="bg-white/5 p-4 rounded space-y-2">
+        <div className="text-sm text-white/50">Staff Preview</div>
+
+        {calculateStaff().length === 0 && (
+          <div className="text-white/40 text-sm">No staff payout data</div>
+        )}
+
+        {calculateStaff().map((staffMember) => (
+          <div key={staffMember.id} className="flex justify-between text-sm">
+            <div>
+              {staffMember.name} ({staffMember.hours}h / -
+              {staffMember.penalty}%)
+            </div>
+            <div>{staffMember.payrollAmount} THB</div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={saveDay}
+        disabled={orders.length === 0}
+        className={`w-full py-3 rounded text-black ${
+          orders.length === 0
+            ? "bg-white/30 cursor-not-allowed"
+            : "bg-orange-500"
+        }`}
+      >
+        CLOSE DAY
+      </button>
+    </div>
   );
 }

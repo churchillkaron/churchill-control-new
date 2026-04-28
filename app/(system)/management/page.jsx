@@ -1,164 +1,173 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
-import AppShell from "../../AppShell";
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 export default function ManagementPage() {
-  const [staff, setStaff] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [assets, setAssets] = useState([]);
+  const [data, setData] = useState(null)
 
   useEffect(() => {
-    loadData();
-  }, []);
+    load()
+  }, [])
 
-  const loadData = () => {
+  const load = async () => {
     try {
-      const hist = JSON.parse(localStorage.getItem("history") || "[]");
-      setHistory(hist);
-
-      const latest = hist[hist.length - 1];
-      setStaff(latest?.staff || []);
-    } catch {
-      setStaff([]);
-      setHistory([]);
+      const res = await fetch('/api/dashboard/today')
+      const json = await res.json()
+      setData(json)
+    } catch (e) {
+      console.error(e)
     }
+  }
 
-    fetch("/api/assets")
-      .then((res) => res.json())
-      .then((data) => setAssets(data || []))
-      .catch(() => setAssets([]));
-  };
-
-  // 🔥 ROUTINE STATUS (today)
-  const todayUploads = assets.filter(
-    (a) => a.category === "routine"
-  );
-
-  const kitchenCount = todayUploads.filter(
-    (a) => a.department === "kitchen" && a.status === "approved"
-  ).length;
-
-  const fohCount = todayUploads.filter(
-    (a) => a.department === "foh" && a.status === "approved"
-  ).length;
-
-  const barCount = todayUploads.filter(
-    (a) => a.department === "bar" && a.status === "approved"
-  ).length;
+  if (!data) {
+    return <div className="p-6 text-white bg-black min-h-screen">Loading...</div>
+  }
 
   return (
-    <AppShell>
-      <div className="min-h-screen text-white p-6 max-w-7xl mx-auto space-y-10">
+    <div className="min-h-screen bg-black text-white flex">
+
+      {/* SIDEBAR */}
+      <aside className="w-64 bg-white/5 border-r border-white/10 p-4 space-y-2">
+        <h2 className="text-xl font-bold mb-4">Management</h2>
+
+        <Nav href="/management/dashboard" label="Dashboard" />
+        <Nav href="/management/approval" label="Approval" />
+        <Nav href="/management/attendance" label="Attendance" />
+        <Nav href="/management/invoices" label="Invoices" />
+        <Nav href="/management/messages" label="Messages" />
+        <Nav href="/management/salary" label="Salary" />
+        <Nav href="/management/staff-control" label="Staff Control" />
+      </aside>
+
+      {/* MAIN */}
+      <main className="flex-1 p-6 space-y-6">
 
         {/* HEADER */}
         <div>
-          <h1 className="text-3xl font-semibold">Management</h1>
-          <p className="text-white/50 text-sm">
-            Full control center
-          </p>
+          <h1 className="text-2xl font-bold">Manager Control Panel</h1>
+          <p className="text-sm opacity-60">Live system state</p>
         </div>
 
-        {/* QUICK NAV */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-          <NavCard title="Approvals" href="/management/approval" />
-          <NavCard title="Accounting" href="/accounting" />
-          <NavCard title="Staff Control" href="/management/staff-control" />
-          <NavCard title="Attendance" href="/management/attendance" />
-
+        {/* CORE METRICS */}
+        <div className="grid grid-cols-4 gap-4">
+          <Card title="Revenue" value={`฿${data.revenue}`} />
+          <Card title="Orders" value={data.orders} />
+          <Card title="Avg Order" value={`฿${data.avgOrder}`} />
+          <Card title="Service Charge" value={`฿${data.serviceCharge}`} />
         </div>
 
-        {/* OPERATIONS STATUS */}
-        <div className="bg-white/5 p-6 rounded-2xl">
-
-          <h2 className="text-xl mb-4">Routine Coverage</h2>
-
-          <div className="grid grid-cols-3 gap-4">
-
-            <StatusCard
-              title="Kitchen"
-              value={`${kitchenCount} / 5`}
-              ok={kitchenCount >= 5}
-            />
-
-            <StatusCard
-              title="FOH"
-              value={`${fohCount} / 5`}
-              ok={fohCount >= 5}
-            />
-
-            <StatusCard
-              title="Bar"
-              value={`${barCount} / 3`}
-              ok={barCount >= 3}
-            />
-
-          </div>
-
+        {/* PERFORMANCE */}
+        <div className="grid grid-cols-3 gap-4">
+          <Card title="FOH Score" value={`${data.fohScore}%`} />
+          <Card title="Kitchen Level" value={data.kitchenLevel} />
+          <Card title="Bar Level" value={data.barLevel} />
         </div>
 
-        {/* STAFF PERFORMANCE */}
-        <div className="bg-white/5 p-6 rounded-2xl">
-
-          <h2 className="text-xl mb-4">Staff Performance</h2>
-
-          {staff.length === 0 ? (
-            <p className="text-white/40">No staff data</p>
-          ) : (
-            <div className="space-y-3">
-
-              {staff.map((s, i) => (
-                <div
-                  key={i}
-                  className="flex justify-between items-center border-b border-white/10 pb-2"
-                >
-                  <div>
-                    <div>{s.name}</div>
-                    <div className="text-xs text-white/40">
-                      Score: {s.score || "-"}
-                    </div>
-                  </div>
-
-                  <a
-                    href="/staff"
-                    className="text-sm bg-white/10 px-3 py-1 rounded"
-                  >
-                    View
-                  </a>
-                </div>
-              ))}
-
-            </div>
-          )}
-
+        {/* FINANCE */}
+        <div className="grid grid-cols-3 gap-4">
+          <Card title="COGS" value={`฿${data.cogs}`} />
+          <Card title="Profit" value={`฿${data.profit}`} />
+          <Card title="Cost %" value={`${data.costPercent}%`} />
         </div>
 
-      </div>
-    </AppShell>
-  );
-}
+        {/* ALERTS */}
+        <Section title="Alerts">
+          {data.alerts?.length === 0 && <Empty />}
+          {data.alerts?.map((a, i) => (
+            <Alert key={i} type={a.type} message={a.message} />
+          ))}
+        </Section>
 
-// ----------------------------------
+        {/* TASKS */}
+        <Section title="Tasks">
+          {data.tasks?.length === 0 && <Empty />}
+          {data.tasks?.map((t, i) => (
+            <Task key={i} title={t.title} />
+          ))}
+        </Section>
 
-function NavCard({ title, href }) {
-  return (
-    <a
-      href={href}
-      className="bg-white/5 border border-white/10 p-5 rounded-2xl hover:bg-white/10"
-    >
-      {title}
-    </a>
-  );
-}
+        {/* STOCK */}
+        <Section title="Low Stock">
+          {data.stock?.length === 0 && <Empty />}
+          {data.stock?.map((s, i) => (
+            <Stock key={i} item={s.item} level={s.level} qty={s.qty} />
+          ))}
+        </Section>
 
-function StatusCard({ title, value, ok }) {
-  return (
-    <div className="bg-black/30 p-4 rounded-xl text-center">
-      <div className="text-sm text-white/50">{title}</div>
-      <div className={`text-xl mt-2 ${ok ? "text-green-400" : "text-red-400"}`}>
-        {value}
-      </div>
+        {/* TOP STAFF */}
+        <Section title="Staff Performance">
+          {data.staff?.map((s, i) => (
+            <Staff key={i} name={s.name} score={s.score} />
+          ))}
+        </Section>
+
+      </main>
     </div>
-  );
+  )
+}
+
+/* COMPONENTS */
+
+function Nav({ href, label }) {
+  return (
+    <Link href={href} className="block px-3 py-2 rounded hover:bg-white/10">
+      {label}
+    </Link>
+  )
+}
+
+function Card({ title, value }) {
+  return (
+    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+      <p className="text-sm opacity-60">{title}</p>
+      <p className="text-xl font-bold mt-1">{value}</p>
+    </div>
+  )
+}
+
+function Section({ title, children }) {
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-2">{title}</h2>
+      <div className="space-y-2">{children}</div>
+    </div>
+  )
+}
+
+function Alert({ type, message }) {
+  const color =
+    type === 'critical'
+      ? 'bg-red-900/40'
+      : type === 'warning'
+      ? 'bg-yellow-900/40'
+      : 'bg-blue-900/40'
+
+  return <div className={`p-3 rounded ${color}`}>{message}</div>
+}
+
+function Task({ title }) {
+  return <div className="p-3 bg-blue-900/40 rounded">{title}</div>
+}
+
+function Stock({ item, level, qty }) {
+  return (
+    <div className="p-3 bg-white/5 rounded border border-white/10 flex justify-between">
+      <span>{item}</span>
+      <span className="opacity-70">{qty} ({level})</span>
+    </div>
+  )
+}
+
+function Staff({ name, score }) {
+  return (
+    <div className="p-3 bg-white/5 rounded flex justify-between">
+      <span>{name}</span>
+      <span>{score}%</span>
+    </div>
+  )
+}
+
+function Empty() {
+  return <p className="opacity-50 text-sm">Nothing here</p>
 }

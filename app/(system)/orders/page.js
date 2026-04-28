@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -48,7 +48,7 @@ export default function OrdersPage() {
   };
 
   return (
-    <AppShell>
+   
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Orders</h1>
@@ -101,6 +101,6 @@ export default function OrdersPage() {
           ))}
 
       </div>
-    </AppShell>
+    
   );
 }

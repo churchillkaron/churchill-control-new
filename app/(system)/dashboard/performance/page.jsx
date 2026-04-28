@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 
 export default function PerformancePage() {
@@ -15,7 +15,7 @@ export default function PerformancePage() {
   }, []);
 
   return (
-    <AppShell>
+  
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Performance</h1>
@@ -33,7 +33,7 @@ export default function PerformancePage() {
         </div>
 
       </div>
-    </AppShell>
+  
   );
 }
 

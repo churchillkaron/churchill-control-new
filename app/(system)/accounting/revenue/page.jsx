@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 export default function RevenuePage() {
   const [history, setHistory] = useState([]);
@@ -30,7 +30,7 @@ export default function RevenuePage() {
   );
 
   return (
-    <AppShell>
+  
       <div className="min-h-screen text-white p-6 max-w-5xl mx-auto space-y-10">
 
         {/* HEADER */}
@@ -111,6 +111,6 @@ export default function RevenuePage() {
         </div>
 
       </div>
-    </AppShell>
+
   );
 }

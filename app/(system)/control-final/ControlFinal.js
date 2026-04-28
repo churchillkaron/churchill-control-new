@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+
 
 export default function ControlFinal() {
   const [revenue, setRevenue] = useState(0);
@@ -40,7 +40,7 @@ export default function ControlFinal() {
   const serviceCharge = Math.round(revenue * 0.05);
 
   return (
-    <AppShell>
+  
       <div className="space-y-10">
 
         <div>
@@ -80,6 +80,6 @@ export default function ControlFinal() {
         </div>
 
       </div>
-    </AppShell>
+   
   );
 }

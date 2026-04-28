@@ -2,7 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* RESET */
+/* =========================
+   RESET / BASE
+========================= */
 html,
 body {
   margin: 0;
@@ -10,45 +12,155 @@ body {
   background: black;
   color: white;
   font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* GLASS SYSTEM (GLOBAL) */
+* {
+  box-sizing: border-box;
+}
+
+/* =========================
+   GLASS SYSTEM
+========================= */
 .glass {
   background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
   border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 1.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.glass-strong {
+  background: rgba(10, 10, 10, 0.85);
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 1.5rem;
 }
 
-/* INPUT STYLE */
+/* =========================
+   INPUTS
+========================= */
 .input {
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 0.75rem;
-  border-radius: 0.75rem;
+  padding: 0.85rem;
+  border-radius: 0.85rem;
   color: white;
+  width: 100%;
+  transition: 0.2s;
 }
 
-/* BUTTON STYLE */
+.input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.input:focus {
+  outline: none;
+  border-color: #ff7a00;
+  box-shadow: 0 0 0 2px rgba(255, 122, 0, 0.25);
+}
+
+/* =========================
+   BUTTONS
+========================= */
 .btn-primary {
-  background: #ff7a00;
+  background: linear-gradient(135deg, #ff7a00, #ff8c1a);
   color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
+  padding: 0.85rem 1.6rem;
+  border-radius: 0.85rem;
+  font-weight: 600;
   transition: 0.2s;
 }
 
 .btn-primary:hover {
-  background: #ff8c1a;
+  background: linear-gradient(135deg, #ff8c1a, #ffa033);
+  transform: translateY(-1px);
 }
 
-/* TEXT DEPTH */
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.85rem 1.6rem;
+  border-radius: 0.85rem;
+  color: white;
+  transition: 0.2s;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* =========================
+   TEXT SYSTEM
+========================= */
 .text-muted {
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* ANIMATIONS */
+.text-soft {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* =========================
+   GLOW SYSTEM (BRAND)
+========================= */
+.glow-orange {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: #ff7a00;
+  filter: blur(120px);
+  opacity: 0.18;
+  animation: glowPulse 6s ease-in-out infinite;
+}
+
+.glow-soft {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  filter: blur(120px);
+}
+
+/* =========================
+   CARD INTERACTION
+========================= */
+.card-hover {
+  transition: 0.25s;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 122, 0, 0.4);
+}
+
+/* =========================
+   STATUS COLORS (SYSTEM LOGIC)
+========================= */
+.status-good {
+  color: #22c55e;
+}
+
+.status-warning {
+  color: #f59e0b;
+}
+
+.status-bad {
+  color: #ef4444;
+}
+
+/* =========================
+   ANIMATIONS
+========================= */
 @keyframes fadeUp {
   from {
     opacity: 0;
@@ -60,23 +172,31 @@ body {
   }
 }
 
-@keyframes heroZoom {
-  from {
-    transform: scale(1.04);
+@keyframes glowPulse {
+  0% {
+    opacity: 0.15;
   }
-  to {
-    transform: scale(1.12);
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0.15;
   }
 }
 
-@keyframes glowPulse {
-  0% {
-    opacity: 0.18;
-  }
-  50% {
-    opacity: 0.34;
-  }
-  100% {
-    opacity: 0.18;
-  }
+/* =========================
+   UTILITIES
+========================= */
+.fade-up {
+  animation: fadeUp 0.6s ease forwards;
+}
+
+.delay-1 {
+  animation-delay: 0.1s;
+}
+.delay-2 {
+  animation-delay: 0.2s;
+}
+.delay-3 {
+  animation-delay: 0.3s;
 }

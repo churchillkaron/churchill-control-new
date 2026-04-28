@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 import Link from "next/link";
 
 export default function StaffPerformancePage() {
@@ -41,7 +41,7 @@ export default function StaffPerformancePage() {
   else if (average >= 80) serviceCharge = 6;
 
   return (
-    <AppShell>
+  
       <div className="space-y-8 text-white">
 
         <div className="flex items-center justify-between">
@@ -117,6 +117,6 @@ export default function StaffPerformancePage() {
         </div>
 
       </div>
-    </AppShell>
+  
   );
 }

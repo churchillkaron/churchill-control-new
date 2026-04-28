@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 export default function StaffControlPage() {
   const [staff, setStaff] = useState([]);
@@ -36,7 +36,7 @@ export default function StaffControlPage() {
   };
 
   return (
-    <AppShell>
+  
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Staff Control</h1>
@@ -76,6 +76,6 @@ export default function StaffControlPage() {
         </div>
 
       </div>
-    </AppShell>
+
   );
 }

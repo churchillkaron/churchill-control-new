@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import AppShell from "../../AppShell.js";
+
+const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
 export default function POSPage() {
   const [orderItems, setOrderItems] = useState([]);
@@ -10,248 +11,359 @@ export default function POSPage() {
   const [category, setCategory] = useState("starter");
   const [menu, setMenu] = useState([]);
   const [user, setUser] = useState(null);
+  const [sending, setSending] = useState(false);
 
-  // LOAD MENU
   const loadMenu = async () => {
-  // 🔹 get dishes
-  const { data: dishes, error: dishError } = await supabase
-    .from("dishes")
-    .select("*");
+    const { data: dishes, error: dishError } = await supabase
+      .from("dishes")
+      .select("*")
+      .eq("tenant_id", TENANT_ID);
 
-  if (dishError) {
-    console.error("MENU LOAD ERROR:", dishError);
-    setMenu([]);
-    return;
-  }
+    if (dishError) {
+      console.error("MENU LOAD ERROR:", dishError);
+      setMenu([]);
+      return;
+    }
 
-  // 🔹 get stock
-  const { data: stockData, error: stockError } = await supabase
-    .from("dish_stock")
-    .select("dish_id, quantity");
+    const { data: stockData, error: stockError } = await supabase
+      .from("dish_stock")
+      .select("dish_id, quantity")
+      .eq("tenant_id", TENANT_ID);
 
-  if (stockError) {
-    console.error("STOCK LOAD ERROR:", stockError);
-  }
+    if (stockError) {
+      console.error("STOCK LOAD ERROR:", stockError);
+      setMenu([]);
+      return;
+    }
 
-  // 🔹 map stock
-  const stockMap = {};
-  for (const s of stockData || []) {
-    stockMap[s.dish_id] = s.quantity;
-  }
+    const stockMap = {};
 
-  // 🔹 merge
-  const merged = (dishes || []).map((d) => ({
-    ...d,
-    stock: stockMap[d.id] ?? 0,
-  }));
+    for (const stock of stockData || []) {
+      stockMap[stock.dish_id] = Number(stock.quantity || 0);
+    }
 
-  setMenu(merged);
-};
-useEffect(() => {
-  const getUser = async () => {
-    const { data } = await supabase.auth.getUser();
-    setUser(data?.user || null);
+    const mergedMenu = (dishes || []).map((dish) => ({
+      ...dish,
+      stock: stockMap[dish.id] ?? 0,
+    }));
+
+    setMenu(mergedMenu);
   };
 
-  getUser();
-}, []);
   useEffect(() => {
-  loadMenu();
-
-  // 🔥 REALTIME STOCK LISTENER
-  const channel = supabase
-    .channel("dish-stock-changes")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "dish_stock",
-      },
-      () => {
-        loadMenu(); // reload stock instantly
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
-
-  // ADD ITEM
-  const addItem = (item) => {
-    const orderItem = {
-      dish_id: item.id,
-      item_name: item.name,
-      price: item.price,
-      quantity: 1,
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data?.user || null);
     };
 
-    setOrderItems((prev) => [...prev, orderItem]);
+    getUser();
+  }, []);
+
+  useEffect(() => {
+    loadMenu();
+
+    const channel = supabase
+      .channel("dish-stock-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "dish_stock",
+          filter: `tenant_id=eq.${TENANT_ID}`,
+        },
+        () => {
+          loadMenu();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const getSelectedQuantity = (dishId) => {
+    const existingItem = orderItems.find((item) => item.dish_id === dishId);
+    return Number(existingItem?.quantity || 0);
   };
 
-  // TOTAL (FIXED: supports quantity)
+  const addItem = (item) => {
+    const stock = Number(item.stock || 0);
+    const alreadySelected = getSelectedQuantity(item.id);
+
+    if (stock <= 0) {
+      alert("This dish is out of stock");
+      return;
+    }
+
+    if (alreadySelected >= stock) {
+      alert(`Only ${stock} available`);
+      return;
+    }
+
+    const existingItem = orderItems.find(
+      (orderItem) => orderItem.dish_id === item.id
+    );
+
+    if (existingItem) {
+      setOrderItems((prev) =>
+        prev.map((orderItem) =>
+          orderItem.dish_id === item.id
+            ? {
+                ...orderItem,
+                quantity: Number(orderItem.quantity || 1) + 1,
+              }
+            : orderItem
+        )
+      );
+
+      return;
+    }
+
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        dish_id: item.id,
+        item_name: item.name,
+        price: Number(item.price || 0),
+        quantity: 1,
+      },
+    ]);
+  };
+
+  const removeItem = (dishId) => {
+    setOrderItems((prev) =>
+      prev
+        .map((item) =>
+          item.dish_id === dishId
+            ? { ...item, quantity: Number(item.quantity || 1) - 1 }
+            : item
+        )
+        .filter((item) => Number(item.quantity || 0) > 0)
+    );
+  };
+
   const total = orderItems.reduce(
-    (sum, i) => sum + i.price * i.quantity,
+    (sum, item) =>
+      sum + Number(item.price || 0) * Number(item.quantity || 1),
     0
   );
 
-  // SEND ORDER (POS ONLY → NO STOCK / NO RECIPE)
-const sendOrder = async () => {
-  if (orderItems.length === 0) return;
+  const validateStockBeforeSend = async () => {
+    const dishIds = orderItems.map((item) => item.dish_id);
 
-  const res = await fetch("/api/pos/create", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-  table: selectedTable,
-  items: orderItems,
-  total,
-  staff_name: user?.email || "Unknown",
-}),
-  });
+    const { data: stockData, error } = await supabase
+      .from("dish_stock")
+      .select("dish_id, quantity")
+      .eq("tenant_id", TENANT_ID)
+      .in("dish_id", dishIds);
 
-  const data = await res.json();
+    if (error) {
+      console.error("STOCK VALIDATION ERROR:", error);
+      alert("Could not validate stock");
+      return false;
+    }
 
-  console.log("SEND RESULT:", data);
+    const stockMap = {};
 
-  // 🔴 THIS IS THE FIX
-  if (!res.ok) {
-    alert(data.error || "Order failed");
-    return; // ❗ DO NOT CLEAR ORDER
-  }
+    for (const stock of stockData || []) {
+      stockMap[stock.dish_id] = Number(stock.quantity || 0);
+    }
 
-  // ✅ ONLY SUCCESS CLEARS
-  setOrderItems([]);
-};
-  // FILTER MENU
+    for (const item of orderItems) {
+      const available = stockMap[item.dish_id] || 0;
+      const needed = Number(item.quantity || 1);
+
+      if (available < needed) {
+        alert(`Not enough stock for ${item.item_name}. Available: ${available}`);
+        await loadMenu();
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const sendOrder = async () => {
+    if (orderItems.length === 0 || sending) return;
+
+    setSending(true);
+
+    const stockOk = await validateStockBeforeSend();
+
+    if (!stockOk) {
+      setSending(false);
+      return;
+    }
+
+    const response = await fetch("/api/pos/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        table: selectedTable,
+        items: orderItems,
+        total,
+        staff_name: user?.email || "Unknown",
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.error || "Order failed");
+      setSending(false);
+      return;
+    }
+
+    setOrderItems([]);
+    await loadMenu();
+    setSending(false);
+  };
+
   const filteredMenu = menu.filter((item) => {
     if (!item.category) return true;
     return item.category === category;
   });
 
   return (
-    <AppShell>
-      <div className="text-white grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div className="text-white grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="space-y-6">
+        <h1 className="text-2xl">POS</h1>
 
-        {/* LEFT */}
-        <div className="space-y-6">
-          <h1 className="text-2xl">POS</h1>
-
-          {/* TABLES */}
-          <div className="grid grid-cols-3 gap-3">
-            {["T1", "T2", "T3", "T4", "T5", "T6"].map((t) => (
-              <button
-                key={t}
-                onClick={() => setSelectedTable(t)}
-                className={`py-2 rounded ${
-                  selectedTable === t
-                    ? "bg-[#ff7a00] text-black"
-                    : "bg-white/10"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {/* CATEGORY */}
-          <div className="flex gap-2">
-            {["starter", "main", "dessert"].map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className={`px-3 py-1 rounded ${
-                  category === c
-                    ? "bg-[#ff7a00] text-black"
-                    : "bg-white/10"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-
-          {/* MENU */}
-          <div className="space-y-2">
-  {filteredMenu.map((item) => {
-    const outOfStock = item.stock <= 0;
-
-    return (
-      <div
-        key={item.id}
-        onClick={() => {
-          if (!outOfStock) addItem(item);
-        }}
-        className={`p-3 rounded ${
-          outOfStock
-            ? "bg-red-500/20 opacity-50 cursor-not-allowed"
-            : "bg-white/5 hover:bg-white/10 cursor-pointer"
-        }`}
-      >
-        <div className="flex justify-between">
-          <span>{item.name}</span>
-
-          <span className="text-sm">
-            {outOfStock
-              ? "OUT"
-              : `${item.stock} left`}
-          </span>
+        <div className="grid grid-cols-3 gap-3">
+          {["T1", "T2", "T3", "T4", "T5", "T6"].map((table) => (
+            <button
+              key={table}
+              onClick={() => setSelectedTable(table)}
+              className={`py-2 rounded ${
+                selectedTable === table
+                  ? "bg-[#ff7a00] text-black"
+                  : "bg-white/10"
+              }`}
+            >
+              {table}
+            </button>
+          ))}
         </div>
 
-        <div className="text-xs text-white/50">
-          {item.price}
+        <div className="flex gap-2">
+          {["starter", "main", "dessert"].map((menuCategory) => (
+            <button
+              key={menuCategory}
+              onClick={() => setCategory(menuCategory)}
+              className={`px-3 py-1 rounded ${
+                category === menuCategory
+                  ? "bg-[#ff7a00] text-black"
+                  : "bg-white/10"
+              }`}
+            >
+              {menuCategory}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          {filteredMenu.map((item) => {
+            const stock = Number(item.stock || 0);
+            const selected = getSelectedQuantity(item.id);
+            const availableToAdd = stock - selected;
+            const outOfStock = stock <= 0;
+            const maxSelected = selected >= stock;
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => addItem(item)}
+                className={`p-3 rounded ${
+                  outOfStock || maxSelected
+                    ? "bg-red-500/20 opacity-60 cursor-not-allowed"
+                    : "bg-white/5 hover:bg-white/10 cursor-pointer"
+                }`}
+              >
+                <div className="flex justify-between">
+                  <span>{item.name}</span>
+
+                  <span className="text-sm">
+                    {outOfStock
+                      ? "OUT"
+                      : maxSelected
+                      ? "MAX"
+                      : `${availableToAdd} left`}
+                  </span>
+                </div>
+
+                <div className="text-xs text-white/50">
+                  ฿{Number(item.price || 0)}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
-    );
-  })}
-</div>
-        </div>
 
-        {/* RIGHT */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-          <h2 className="text-lg">Table {selectedTable}</h2>
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+        <h2 className="text-lg">Table {selectedTable}</h2>
 
-          {orderItems.map((item, i) => (
-            <div key={i} className="text-sm">
+        {orderItems.length === 0 && (
+          <div className="text-white/40 text-sm">No items selected</div>
+        )}
+
+        {orderItems.map((item) => (
+          <div key={item.dish_id} className="flex justify-between text-sm">
+            <div>
               {item.item_name} x{item.quantity}
             </div>
-          ))}
 
-          <div className="text-lg">Total: {total}</div>
+            <div className="flex gap-3 items-center">
+              <span>
+                ฿{Number(item.price || 0) * Number(item.quantity || 1)}
+              </span>
 
-          <button className="w-full bg-purple-500 py-2 rounded">
-            REQUEST ADJUSTMENT
-          </button>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button className="bg-yellow-500 py-2 rounded">
-              HOLD
-            </button>
-            <button
-              onClick={sendOrder}
-              className="bg-green-500 py-2 rounded"
-            >
-              FIRE
-            </button>
+              <button
+                onClick={() => removeItem(item.dish_id)}
+                className="bg-red-500/80 px-2 rounded text-white"
+              >
+                -
+              </button>
+            </div>
           </div>
+        ))}
+
+        <div className="text-lg">Total: ฿{total}</div>
+
+        <button className="w-full bg-purple-500 py-2 rounded">
+          REQUEST ADJUSTMENT
+        </button>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button className="bg-yellow-500 py-2 rounded">HOLD</button>
 
           <button
             onClick={sendOrder}
-            className="w-full bg-green-600 py-3 rounded mt-2"
+            disabled={orderItems.length === 0 || sending}
+            className="bg-green-500 py-2 rounded disabled:bg-white/30 disabled:cursor-not-allowed"
           >
-            SEND ORDER
-          </button>
-
-          <button className="w-full bg-blue-500 py-2 rounded">
-            FIRE HELD
+            FIRE
           </button>
         </div>
 
+        <button
+          onClick={sendOrder}
+          disabled={orderItems.length === 0 || sending}
+          className={`w-full py-3 rounded mt-2 ${
+            orderItems.length === 0 || sending
+              ? "bg-white/30 cursor-not-allowed"
+              : "bg-green-600"
+          }`}
+        >
+          {sending ? "SENDING..." : "SEND ORDER"}
+        </button>
+
+        <button className="w-full bg-blue-500 py-2 rounded">FIRE HELD</button>
       </div>
-    </AppShell>
+    </div>
   );
 }

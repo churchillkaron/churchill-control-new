@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+
 ;
 
 export default function StaffControl() {
@@ -130,7 +130,7 @@ export default function StaffControl() {
   };
 
   return (
-    <AppShell>
+
       <div className="space-y-14">
 
         {/* HEADER */}
@@ -235,6 +235,6 @@ export default function StaffControl() {
         </div>
 
       </div>
-    </AppShell>
+  
   );
 }

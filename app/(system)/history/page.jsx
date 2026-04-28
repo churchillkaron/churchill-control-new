@@ -1,19 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+
 
 export default function HistoryPage() {
   const [history, setHistory] = useState([]);
 
   // 🔥 LOAD HISTORY
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("history") || "[]");
-    setHistory(stored.reverse()); // latest first
-  }, []);
+ useEffect(() => {
+  const loadHistory = async () => {
+    const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+
+    const { data, error } = await supabase
+      .from("history_days")
+      .select("*")
+      .eq("tenant_id", tenant_id)
+      .order("date", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setHistory(data || []);
+  };
+
+  loadHistory();
+}, []);
 
   return (
-    <AppShell showNav={true}>
+
       <div className="text-white space-y-6">
 
         <h1>History</h1>
@@ -59,6 +75,6 @@ export default function HistoryPage() {
         ))}
 
       </div>
-    </AppShell>
+   
   );
 }

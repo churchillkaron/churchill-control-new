@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 export default function ReportsPage() {
   const [history, setHistory] = useState([]);
@@ -20,7 +20,7 @@ export default function ReportsPage() {
   }, []);
 
   return (
-    <AppShell>
+  
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Reports</h1>
@@ -43,7 +43,7 @@ export default function ReportsPage() {
         )}
 
       </div>
-    </AppShell>
+
   );
 }
 

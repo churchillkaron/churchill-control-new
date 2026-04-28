@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 export default function AIPage() {
   const [logs, setLogs] = useState([]);
 
@@ -17,7 +17,7 @@ export default function AIPage() {
   }, []);
 
   return (
-    <AppShell showNav={true}>
+    
       <div className="text-white space-y-6">
 
         <h1 className="text-2xl">AI Owner</h1>
@@ -42,6 +42,6 @@ export default function AIPage() {
         ))}
 
       </div>
-    </AppShell>
+  
   );
 }

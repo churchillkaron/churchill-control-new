@@ -1,53 +1,122 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-export default function Login() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+const DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
-  async function signIn() {
-    setLoading(true);
+export default function LoginCallback() {
+  const router = useRouter();
 
-    try {
-      await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/marketing/design`,
-        },
-      });
+  useEffect(() => {
+    const handleLoginFlow = async () => {
+      try {
+        // 🔥 DEV MODE (only for development)
+        if (DEV_MODE) {
+          document.cookie = "role=Owner; path=/";
+          document.cookie = "setup_complete=true; path=/";
+          document.cookie = "subscription=active; path=/";
 
-      alert("Check your email for login link");
-    } catch (error) {
-      console.error(error);
-      alert("Login failed");
-    }
+          router.push("/control");
+          return;
+        }
 
-    setLoading(false);
-  }
+        // 🔥 1. GET AUTH USER
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          router.push("/");
+          return;
+        }
+
+        // 🔥 2. GET STAFF ACCOUNT (STRICT MATCH)
+        const { data: staff, error: staffError } = await supabase
+          .from("staff_accounts")
+          .select("tenant_id, role")
+          .eq("auth_user_id", user.id)
+          .maybeSingle();
+
+        // ❌ USER EXISTS BUT NOT LINKED → THIS IS A REAL ERROR
+        if (!staff || staffError) {
+          console.error("User not linked to staff account:", user.id);
+          router.push("/"); // back to landing
+          return;
+        }
+
+        // ❌ STAFF WITHOUT TENANT → DATA ERROR
+        if (!staff.tenant_id) {
+          console.error("Staff missing tenant_id");
+          router.push("/");
+          return;
+        }
+
+        // 🔥 3. GET TENANT
+        const { data: tenant, error: tenantError } = await supabase
+          .from("tenants")
+          .select("subscription_status, setup_step, setup_complete")
+          .eq("id", staff.tenant_id)
+          .maybeSingle();
+
+        if (!tenant || tenantError) {
+          console.error("Tenant not found");
+          router.push("/");
+          return;
+        }
+
+        // 🔥 STORE SESSION STATE (for middleware / future use)
+        document.cookie = `role=${staff.role}; path=/`;
+        document.cookie = `setup_complete=${tenant.setup_complete}; path=/`;
+        document.cookie = `subscription=${tenant.subscription_status}; path=/`;
+
+        // 🔥 4. SUBSCRIPTION CONTROL (SAAS RULE)
+        if (tenant.subscription_status !== "active") {
+          router.push("/subscribe");
+          return;
+        }
+
+        // 🔥 5. SETUP CONTROL (ONBOARDING FLOW)
+        if (!tenant.setup_complete) {
+          const step = tenant.setup_step || 1;
+          router.push(`/system-setup/step-${step}`);
+          return;
+        }
+
+        // 🔥 6. ROLE-BASED ACCESS (FINAL DESTINATION)
+        switch (staff.role) {
+          case "Owner":
+          case "General Manager":
+            router.push("/control");
+            break;
+
+          case "Manager":
+            router.push("/dashboard");
+            break;
+
+          case "Production":
+            router.push("/production");
+            break;
+
+          case "Staff":
+          default:
+            router.push("/staff");
+            break;
+        }
+
+      } catch (err) {
+        console.error("Login callback fatal error:", err);
+        router.push("/");
+      }
+    };
+
+    handleLoginFlow();
+  }, [router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black text-white">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-6">
-        <h1 className="mb-6 text-2xl font-light">Login</h1>
-
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="mb-4 w-full rounded-xl bg-white/10 p-3 outline-none"
-        />
-
-        <button
-          onClick={signIn}
-          disabled={loading}
-          className="w-full rounded-xl bg-orange-500 py-3 text-black"
-        >
-          {loading ? "Sending..." : "Send Login Link"}
-        </button>
-      </div>
+    <div className="h-screen flex items-center justify-center bg-black text-white">
+      <p className="text-white/60">Loading your system...</p>
     </div>
   );
 }

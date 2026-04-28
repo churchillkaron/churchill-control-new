@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import AppShell from "../../AppShell";
+
 
 const STATUSES = [
   { key: "pending_approval", label: "Pending" },
@@ -80,7 +80,7 @@ export default function AssetsPage() {
   };
 
   return (
-    <AppShell>
+    
       <div className="p-6 text-white max-w-7xl mx-auto space-y-6">
 
         {/* HEADER */}
@@ -235,7 +235,7 @@ export default function AssetsPage() {
           </div>
         )}
       </div>
-    </AppShell>
+    
   );
 }
 

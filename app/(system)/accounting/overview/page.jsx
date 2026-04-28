@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
 
 export default function AccountingOverview() {
   const [feed, setFeed] = useState([]);
@@ -29,7 +28,7 @@ export default function AccountingOverview() {
   const servicePool = (totalRevenue * serviceLevel) / 100;
 
   return (
-    <AppShell>
+  
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Accounting Overview</h1>
@@ -73,6 +72,6 @@ export default function AccountingOverview() {
         </div>
 
       </div>
-    </AppShell>
+  
   );
 }

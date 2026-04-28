@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 import { getHistoryDays } from "@/lib/storage/localStorage.js";
 
 export default function HistoryDaysPage() {
@@ -13,7 +13,7 @@ export default function HistoryDaysPage() {
   }, []);
 
   return (
-    <AppShell>
+  
       <div className="space-y-10">
 
         {/* HEADER */}
@@ -41,7 +41,7 @@ export default function HistoryDaysPage() {
         </div>
 
       </div>
-    </AppShell>
+   
   );
 }
 

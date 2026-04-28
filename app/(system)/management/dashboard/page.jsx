@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../../AppShell.js";
+
 
 export default function ManagerDashboard() {
   const [data, setData] = useState([]);
@@ -50,7 +50,7 @@ export default function ManagerDashboard() {
   });
 
   return (
-    <AppShell>
+   
       <div className="space-y-8 text-white">
 
         <div>
@@ -117,6 +117,6 @@ export default function ManagerDashboard() {
         </div>
 
       </div>
-    </AppShell>
+   
   );
 }

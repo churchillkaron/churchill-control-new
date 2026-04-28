@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+
 
 export default function TablesPage() {
   const [tables, setTables] = useState([]);
@@ -23,7 +23,7 @@ export default function TablesPage() {
   }, []);
 
   return (
-    <AppShell>
+   
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Tables</h1>
@@ -81,6 +81,6 @@ export default function TablesPage() {
         </div>
 
       </div>
-    </AppShell>
+   
   );
 }

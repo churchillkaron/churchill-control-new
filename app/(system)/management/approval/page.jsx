@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import AppShell from "../../../AppShell";
+
 
 const STORAGE_KEYS = {
   attendance: "staff_attendance",
@@ -823,7 +823,7 @@ const fetchAssets = useCallback(async () => {
   }, [rejections]);
 
    return (
-    <AppShell>
+  
       <div className="min-h-screen text-white p-6 max-w-7xl mx-auto space-y-8">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
@@ -963,13 +963,13 @@ const fetchAssets = useCallback(async () => {
                         <button
                           onClick={() => approveInvoiceItem(invoice)}
                           disabled={
-                            actionLoading === `invoice-${invoice.id}-${STATUS.APPROVED_MANAGER}` ||
-                            actionLoading === `asset-${invoice.id}-${STATUS.APPROVED_MANAGER}`
+                            actionLoading === `invoice-${invoice.id}-${STATUS.APPROVED}` ||
+                            actionLoading === `asset-${invoice.id}-${STATUS.APPROVED}`
                           }
                           className="px-3 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-sm text-black font-medium disabled:opacity-50"
                         >
-                          {actionLoading === `invoice-${invoice.id}-${STATUS.APPROVED_MANAGER}` ||
-                          actionLoading === `asset-${invoice.id}-${STATUS.APPROVED_MANAGER}`
+                          {actionLoading === `invoice-${invoice.id}-${STATUS.APPROVED}` ||
+                          actionLoading === `asset-${invoice.id}-${STATUS.APPROVED}`
                             ? "Approving..."
                             : "Approve"}
                         </button>
@@ -1391,7 +1391,7 @@ const fetchAssets = useCallback(async () => {
           </div>
         ) : null}
       </div>
-    </AppShell>
+  
   );
 }
 

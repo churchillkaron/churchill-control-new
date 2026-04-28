@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+
 
 export default function AttendancePage() {
   const [staff, setStaff] = useState([]);
@@ -66,7 +66,7 @@ export default function AttendancePage() {
   };
 
   return (
-    <AppShell>
+
       <div className="text-white space-y-6">
 
         <h1 className="text-3xl">Attendance</h1>
@@ -114,6 +114,6 @@ export default function AttendancePage() {
         </div>
 
       </div>
-    </AppShell>
+   
   );
 }

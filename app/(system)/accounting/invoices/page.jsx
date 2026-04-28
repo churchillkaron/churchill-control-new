@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 export default function InvoiceAI() {
   const [file, setFile] = useState(null);
@@ -94,7 +94,7 @@ export default function InvoiceAI() {
   };
 
   return (
-    <AppShell>
+  
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Invoice AI</h1>
@@ -161,6 +161,6 @@ export default function InvoiceAI() {
         )}
 
       </div>
-    </AppShell>
+  
   );
 }

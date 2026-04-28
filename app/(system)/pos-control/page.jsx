@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+
 export default function POSControl() {
   const [orders, setOrders] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
@@ -56,7 +56,7 @@ export default function POSControl() {
   const paidOrders = sortedOrders.filter((o) => o.status === "PAID");
 
   return (
-    <AppShell>
+   
       <div className="space-y-10">
 
         <div>
@@ -139,6 +139,6 @@ export default function POSControl() {
         )}
 
       </div>
-    </AppShell>
+  
   );
 }

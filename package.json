@@ -9,16 +9,23 @@
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",
+    "@radix-ui/react-slot": "^1.2.4",
     "@supabase/supabase-js": "^2.104.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "googleapis": "^171.4.0",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
+    "lucide-react": "^1.11.0",
     "next": "14.2.5",
     "openai": "^6.34.0",
+    "papaparse": "^5.5.3",
+    "radix-ui": "^1.4.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "stripe": "^22.1.0"
+    "stripe": "^22.1.0",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.5.0",

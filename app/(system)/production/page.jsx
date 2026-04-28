@@ -3,74 +3,115 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function ProductionPage() {
-  const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
+export default function ProductionPage() {
   const [lowDishes, setLowDishes] = useState([]);
   const [loadingId, setLoadingId] = useState(null);
 
-  // 🔹 LOAD LOW DISHES
+  // 🔹 LOAD LOW DISHES (SAFE)
   const loadLowDishes = async () => {
-    const { data: dishStock } = await supabase
-      .from("dish_stock")
-      .select("dish_id, quantity")
-      .eq("tenant_id", tenant_id);
+    try {
+      const { data: dishStock, error: stockError } = await supabase
+        .from("dish_stock")
+        .select("dish_id, quantity")
+        .eq("tenant_id", TENANT_ID);
 
-    const { data: dishes } = await supabase
-      .from("dishes")
-      .select("id, name")
-      .eq("tenant_id", tenant_id);
+      if (stockError) {
+        console.error("STOCK LOAD ERROR:", stockError);
+        return;
+      }
 
-    const map = {};
-    for (const d of dishes || []) {
-      map[d.id] = d.name;
+      const { data: dishes, error: dishError } = await supabase
+        .from("dishes")
+        .select("id, name")
+        .eq("tenant_id", TENANT_ID);
+
+      if (dishError) {
+        console.error("DISH LOAD ERROR:", dishError);
+        return;
+      }
+
+      const dishMap = {};
+      for (const d of dishes || []) {
+        dishMap[d.id] = d.name;
+      }
+
+      const low = (dishStock || [])
+        .filter((d) => Number(d.quantity) <= 5)
+        .map((d) => {
+          const qty = Number(d.quantity || 0);
+
+          const suggested = Math.max(10 - qty, 5);
+
+          return {
+            dish_id: d.dish_id,
+            name: dishMap[d.dish_id] || d.dish_id,
+            quantity: qty,
+            suggested,
+          };
+        });
+
+      setLowDishes(low);
+    } catch (err) {
+      console.error("LOAD ERROR:", err);
     }
-
-    const low = (dishStock || [])
-      .filter((d) => Number(d.quantity) <= 5)
-      .map((d) => {
-        const qty = Number(d.quantity || 0);
-
-        // 🔥 SMART PRODUCTION LOGIC
-        const suggested = Math.max(10 - qty, 5);
-
-        return {
-          dish_id: d.dish_id,
-          name: map[d.dish_id] || d.dish_id,
-          quantity: qty,
-          suggested,
-        };
-      });
-
-    setLowDishes(low);
   };
 
   useEffect(() => {
     loadLowDishes();
+
+    // 🔥 REAL-TIME SYNC (IMPORTANT FOR MULTI-USER)
+    const channel = supabase
+      .channel("production-dish-stock")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "dish_stock",
+          filter: `tenant_id=eq.${TENANT_ID}`,
+        },
+        () => {
+          loadLowDishes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  // 🔹 PRODUCE ACTION
+  // 🔹 PRODUCE ACTION (SAFE)
   const produce = async (dish_id, qty) => {
+    if (loadingId) return; // 🔒 prevent spam
+
     setLoadingId(dish_id);
 
     try {
       const res = await fetch("/api/production", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           dish_id,
           quantity: qty,
+          source_id: `manual-${dish_id}-${Date.now()}`, // 🔥 idempotency
         }),
       });
 
       const result = await res.json();
 
-      if (!result.success) {
+      if (!res.ok || !result.success) {
         alert(result.error || "Production failed");
       }
 
       await loadLowDishes();
     } catch (err) {
-      console.error(err);
+      console.error("PRODUCTION ERROR:", err);
+      alert("Production error");
     }
 
     setLoadingId(null);
@@ -104,7 +145,7 @@ export default function ProductionPage() {
           <button
             onClick={() => produce(dish.dish_id, dish.suggested)}
             disabled={loadingId === dish.dish_id}
-            className="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg"
+            className="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg disabled:bg-white/30"
           >
             {loadingId === dish.dish_id
               ? "Producing..."

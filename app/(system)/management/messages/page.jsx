@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 export default function MessagesPage() {
   const [messages, setMessages] = useState([]);
@@ -14,7 +14,7 @@ export default function MessagesPage() {
   }, []);
 
   return (
-    <AppShell>
+    
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Messages</h1>
@@ -32,7 +32,7 @@ export default function MessagesPage() {
         </div>
 
       </div>
-    </AppShell>
+    
   );
 }
 

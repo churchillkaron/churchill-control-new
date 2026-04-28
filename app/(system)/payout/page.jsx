@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+
 
 export default function PayoutPage() {
   const [staff, setStaff] = useState([]);
@@ -39,7 +39,7 @@ export default function PayoutPage() {
   }, []);
 
   return (
-    <AppShell>
+  
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Payout System</h1>
@@ -92,6 +92,6 @@ export default function PayoutPage() {
         </div>
 
       </div>
-    </AppShell>
+
   );
 }

@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 export default function PayrollPage() {
   const [staffTotals, setStaffTotals] = useState([]);
@@ -75,7 +75,7 @@ export default function PayrollPage() {
   );
 
   return (
-    <AppShell>
+  
       <div className="min-h-screen text-white p-6 max-w-5xl mx-auto space-y-10">
 
         {/* HEADER */}
@@ -165,6 +165,6 @@ export default function PayrollPage() {
         </div>
 
       </div>
-    </AppShell>
+   
   );
 }

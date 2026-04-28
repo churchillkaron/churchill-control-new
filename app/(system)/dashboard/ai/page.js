@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 import {
   calculateFOH,
   getPerformanceLevel,
@@ -126,7 +126,7 @@ export default function AIOwner() {
   };
 
   return (
-    <AppShell>
+  
       <div className="text-white space-y-6">
 
         <h1 className="text-3xl">AI Owner (Auto)</h1>
@@ -181,6 +181,6 @@ export default function AIOwner() {
         )}
 
       </div>
-    </AppShell>
+  
   );
 }

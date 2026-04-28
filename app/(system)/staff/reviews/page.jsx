@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 export default function ReviewsPage() {
   const [image, setImage] = useState(null);
@@ -59,7 +59,7 @@ export default function ReviewsPage() {
   };
 
   return (
-    <AppShell>
+   
       <div className="space-y-8 text-white max-w-2xl">
 
         <h1 className="text-3xl">Google Reviews</h1>
@@ -103,6 +103,6 @@ export default function ReviewsPage() {
         )}
 
       </div>
-    </AppShell>
+  
   );
 }

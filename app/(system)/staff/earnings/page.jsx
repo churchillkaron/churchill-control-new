@@ -1,11 +1,11 @@
 "use client";
 
-import AppShell from '@/app/AppShell'
+
 import Link from "next/link";
 
 export default function StaffEarningsPage() {
   return (
-    <AppShell>
+    
       <div className="space-y-8 text-white">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl">Earnings</h1>
@@ -24,6 +24,6 @@ export default function StaffEarningsPage() {
           </div>
         </div>
       </div>
-    </AppShell>
+   
   );
 }

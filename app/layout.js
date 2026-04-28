@@ -1,19 +1,10 @@
-import "./globals.css";
-import AppShell from "@/app/AppShell";
-
-export const metadata = {
-  title: "Churchill Control",
-  description: "Restaurant Operating System",
-};
+import './globals.css'
+import BottomNav from "../components/BottomNav";
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
-        <AppShell>
-          {children}
-        </AppShell>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

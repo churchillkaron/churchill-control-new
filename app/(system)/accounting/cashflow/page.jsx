@@ -3,7 +3,7 @@ import something from '@/lib/storage/localStorage'
 export const dynamic = "force-dynamic"; // ✅ FIX
 
 import { useEffect, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 
 export default function CashflowPage() {
@@ -31,7 +31,7 @@ export default function CashflowPage() {
   const netCash = totalRevenue - totalExpenses;
 
   return (
-    <AppShell>
+  
       <div className="space-y-10 text-white">
 
         <h1 className="text-3xl">Cash Flow</h1>
@@ -67,7 +67,7 @@ export default function CashflowPage() {
         </div>
 
       </div>
-    </AppShell>
+  
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "../../AppShell.js";
+
 export default function ExpeditorPage() {
   const [tables, setTables] = useState([]);
 
@@ -67,7 +67,7 @@ export default function ExpeditorPage() {
   };
 
   return (
-    <AppShell>
+
       <div className="space-y-6">
 
         <h1 className="text-4xl font-semibold">
@@ -123,6 +123,6 @@ export default function ExpeditorPage() {
         </div>
 
       </div>
-    </AppShell>
+
   );
 }

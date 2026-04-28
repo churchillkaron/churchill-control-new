@@ -1,7 +1,7 @@
 "use client";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useMemo, useState } from "react";
-import AppShell from '@/app/AppShell'
+
 
 const TABS = [
   "overview",
@@ -308,7 +308,7 @@ const salaryQueue = approvals
   };
 
   return (
-    <AppShell>
+  
       <div className="min-h-screen text-white p-6 max-w-7xl mx-auto space-y-8">
 
         {/* HEADER */}
@@ -818,7 +818,7 @@ const salaryQueue = approvals
           </div>
         )}
       </div>
-    </AppShell>
+
   );
 }
 

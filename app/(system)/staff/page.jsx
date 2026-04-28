@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import AppShell from "../../AppShell.js";
+
 import { supabase } from "@/lib/supabase";
 
 const REQUIRED_TASKS = {
@@ -312,7 +312,7 @@ const data = await res.json();
   };
 
   return (
-    <AppShell>
+  
       <div className="min-h-screen text-white p-6 max-w-6xl mx-auto space-y-10">
 
         {payrollLocked && (
@@ -492,6 +492,6 @@ const data = await res.json();
           </Link>
         </div>
       </div>
-    </AppShell>
+
   );
 }

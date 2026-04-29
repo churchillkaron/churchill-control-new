@@ -48,8 +48,6 @@ export async function POST(req) {
 
       if (itemsError) throw itemsError;
 
-      console.log("KITCHEN → PRODUCTION ITEMS:", items);
-
       for (const item of items || []) {
         try {
           console.log("RUNNING PRODUCTION FOR:", item);
@@ -57,7 +55,7 @@ export async function POST(req) {
           await runProduction({
             tenant_id: tenant_id,
             dish_id: item.dish_id,
-            quantity: item.quantity,
+            quantity: Number(item.quantity), // ✅ ensure numeric
             source_id: `order-${order_id}-dish-${item.dish_id}`,
           });
 

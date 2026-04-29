@@ -1,11 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
-import { runProduction } from "@/lib/production";
 
 export async function POST(req) {
   try {
-    // ✅ INIT SUPABASE INSIDE FUNCTION
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -20,7 +18,6 @@ export async function POST(req) {
 
     const { order_id, status, tenant_id } = await req.json();
 
-    // 🔴 VALIDATION
     if (!tenant_id) {
       return Response.json({ error: "Missing tenant_id" }, { status: 400 });
     }
@@ -29,7 +26,7 @@ export async function POST(req) {
       return Response.json({ error: "Missing data" }, { status: 400 });
     }
 
-    // 🔹 UPDATE ORDER STATUS
+    // UPDATE ORDER STATUS
     const { error: updateError } = await supabase
       .from("orders")
       .update({ kitchen_status: status })
@@ -38,7 +35,7 @@ export async function POST(req) {
 
     if (updateError) throw updateError;
 
-    // 🔥 RUN PRODUCTION WHEN DONE
+    // 🔥 ONLY DEDUCT DISH STOCK (NO PRODUCTION)
     if (status === "done") {
       const { data: items, error: itemsError } = await supabase
         .from("order_items")
@@ -49,23 +46,20 @@ export async function POST(req) {
       if (itemsError) throw itemsError;
 
       for (const item of items || []) {
-        try {
-          console.log("RUNNING PRODUCTION FOR:", item);
+        const { error: stockError } = await supabase.rpc(
+          "decrement_dish_stock",
+          {
+            p_tenant_id: tenant_id,
+            p_dish_id: item.dish_id,
+            p_qty: Number(item.quantity),
+          }
+        );
 
-          await runProduction({
-            tenant_id: tenant_id,
-            dish_id: item.dish_id,
-            quantity: Number(item.quantity), // ✅ ensure numeric
-            source_id: `order-${order_id}-dish-${item.dish_id}`,
-          });
-
-        } catch (prodErr) {
-          console.error("PRODUCTION ERROR:", prodErr);
-
+        if (stockError) {
           return Response.json(
             {
-              error: "Production failed",
-              detail: prodErr?.message || String(prodErr),
+              error: "Stock deduction failed",
+              detail: stockError.message,
             },
             { status: 500 }
           );
@@ -76,13 +70,10 @@ export async function POST(req) {
     return Response.json({ success: true });
 
   } catch (err) {
-    console.error("KITCHEN ERROR FULL:", err, err?.message);
+    console.error("KITCHEN ERROR:", err);
 
     return Response.json(
-      {
-        error: err?.message || "Kitchen error",
-        full: String(err),
-      },
+      { error: err.message || "Kitchen error" },
       { status: 500 }
     );
   }

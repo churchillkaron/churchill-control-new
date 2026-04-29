@@ -1,10 +1,14 @@
-import './globals.css'
-import BottomNav from "../components/BottomNav";
+import "./globals.css";
+import AppShell from "@/components/AppShell";
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AppShell>
+          {children}
+        </AppShell>
+      </body>
     </html>
   );
 }

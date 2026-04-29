@@ -80,19 +80,80 @@ export default function DashboardPage() {
   const [avgOrder, setAvgOrder] = useState(0);
 
   const [todayOrders, setTodayOrders] = useState([]);
+  const [openOrders, setOpenOrders] = useState([]);
+  const [kitchenPending, setKitchenPending] = useState([]);
+
   const [alerts, setAlerts] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [lowIngredients, setLowIngredients] = useState([]);
   const [lowDishes, setLowDishes] = useState([]);
 
   const [latestHistory, setLatestHistory] = useState(null);
+  const [recentHistory, setRecentHistory] = useState([]);
   const [staff, setStaff] = useState([]);
 
-  const [openOrders, setOpenOrders] = useState([]);
-  const [kitchenPending, setKitchenPending] = useState([]);
-  const [recentHistory, setRecentHistory] = useState([]);
-
   const [systemStatus, setSystemStatus] = useState("READY");
+
+  const [wasteStats, setWasteStats] = useState([]);
+  const [loadingWaste, setLoadingWaste] = useState(true);
+  const [dishMap, setDishMap] = useState({});
+
+  const totalProduced = (wasteStats || []).reduce(
+    (sum, d) => sum + Number(d.produced || 0),
+    0
+  );
+
+  const totalWasted = (wasteStats || []).reduce(
+    (sum, d) => sum + Number(d.wasted || 0),
+    0
+  );
+
+  const wastePercent =
+    totalProduced > 0 ? (totalWasted / totalProduced) * 100 : 0;
+
+  const worstDishes = useMemo(() => {
+    return [...(wasteStats || [])]
+      .sort((a, b) => Number(b.waste_percent || 0) - Number(a.waste_percent || 0))
+      .slice(0, 3);
+  }, [wasteStats]);
+
+  const loadWaste = async () => {
+    setLoadingWaste(true);
+
+    try {
+      const res = await fetch("/api/analytics/production-vs-waste");
+      const data = await res.json();
+
+      if (!Array.isArray(data)) {
+        setWasteStats([]);
+        return;
+      }
+
+      setWasteStats(data);
+    } catch (err) {
+      console.error("WASTE LOAD ERROR:", err);
+      setWasteStats([]);
+    }
+
+    setLoadingWaste(false);
+  };
+
+  const loadDishMap = async () => {
+    try {
+      const res = await fetch("/api/dishes");
+      const data = await res.json();
+
+      const map = {};
+      (Array.isArray(data) ? data : []).forEach((dish) => {
+        map[dish.id] = dish.name;
+      });
+
+      setDishMap(map);
+    } catch (err) {
+      console.error("DISH MAP LOAD ERROR:", err);
+      setDishMap({});
+    }
+  };
 
   const loadFinance = async () => {
     const { start, end } = getTodayRange();
@@ -186,6 +247,7 @@ export default function DashboardPage() {
     if (error) {
       console.error("ALERT LOAD ERROR:", error);
       setAlerts([]);
+      setSystemStatus("READY");
       return;
     }
 
@@ -258,17 +320,17 @@ export default function DashboardPage() {
       return;
     }
 
-    const dishMap = {};
+    const names = {};
 
     for (const dish of dishes || []) {
-      dishMap[dish.id] = dish.name;
+      names[dish.id] = dish.name;
     }
 
     const low = (stock || [])
       .filter((item) => Number(item.quantity || 0) <= 5)
       .map((item) => ({
         dish_id: item.dish_id,
-        name: dishMap[item.dish_id] || item.dish_id,
+        name: names[item.dish_id] || item.dish_id,
         quantity: Number(item.quantity || 0),
       }))
       .sort((a, b) => a.quantity - b.quantity);
@@ -311,6 +373,8 @@ export default function DashboardPage() {
       loadLowIngredients(),
       loadLowDishes(),
       loadHistory(),
+      loadWaste(),
+      loadDishMap(),
     ]);
 
     setLastUpdated(new Date());
@@ -397,6 +461,39 @@ export default function DashboardPage() {
         },
         () => {
           loadLowDishes();
+          loadWaste();
+        }
+      )
+      .subscribe();
+
+    const wasteChannel = supabase
+      .channel("dashboard-waste")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "waste_logs",
+          filter: `tenant_id=eq.${TENANT_ID}`,
+        },
+        () => {
+          loadWaste();
+        }
+      )
+      .subscribe();
+
+    const productionChannel = supabase
+      .channel("dashboard-production")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "production_logs",
+          filter: `tenant_id=eq.${TENANT_ID}`,
+        },
+        () => {
+          loadWaste();
         }
       )
       .subscribe();
@@ -423,6 +520,8 @@ export default function DashboardPage() {
       supabase.removeChannel(tasksChannel);
       supabase.removeChannel(ingredientsChannel);
       supabase.removeChannel(dishStockChannel);
+      supabase.removeChannel(wasteChannel);
+      supabase.removeChannel(productionChannel);
       supabase.removeChannel(historyChannel);
     };
   }, []);
@@ -518,9 +617,7 @@ export default function DashboardPage() {
           <div className="lg:col-span-2">
             <div className="text-white/50 text-sm">Revenue Today</div>
 
-            <div className="text-5xl mt-2 font-bold">
-              {money(revenue)}
-            </div>
+            <div className="text-5xl mt-2 font-bold">{money(revenue)}</div>
 
             <div className="text-sm text-white/60 mt-3">
               Orders: {orders} | Avg Order: {money(avgOrder)}
@@ -529,9 +626,7 @@ export default function DashboardPage() {
 
           <div>
             <div className="text-white/50 text-sm">COGS</div>
-            <div className="text-2xl mt-2 text-red-400">
-              {money(cost)}
-            </div>
+            <div className="text-2xl mt-2 text-red-400">{money(cost)}</div>
           </div>
 
           <div>
@@ -546,7 +641,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-black/20 rounded-2xl p-4 border border-white/10">
             <div className="text-white/50 text-sm">System Status</div>
             <div
@@ -559,6 +654,28 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-black/20 rounded-2xl p-4 border border-white/10">
+            <div className="text-white/50 text-sm">Open Tasks</div>
+            <div
+              className={`text-2xl mt-1 ${
+                (tasks?.length || 0) > 10
+                  ? "text-red-400"
+                  : (tasks?.length || 0) > 5
+                  ? "text-yellow-400"
+                  : "text-green-400"
+              }`}
+            >
+              {tasks?.length || 0}
+            </div>
+          </div>
+
+          <div className="bg-black/20 rounded-2xl p-4 border border-white/10">
+            <div className="text-white/50 text-sm">Open Orders</div>
+            <div className="text-2xl mt-1 text-orange-400">
+              {openOrders?.length || 0}
+            </div>
+          </div>
+
+          <div className="bg-black/20 rounded-2xl p-4 border border-white/10">
             <div className="text-white/50 text-sm">Critical Alerts</div>
             <div className="text-2xl mt-1 text-red-400">
               {criticalAlerts.length}
@@ -566,19 +683,46 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-black/20 rounded-2xl p-4 border border-white/10">
-            <div className="text-white/50 text-sm">Open Tasks</div>
-            <div className="text-2xl mt-1 text-yellow-400">
-              {tasks.length}
-            </div>
-          </div>
-
-          <div className="bg-black/20 rounded-2xl p-4 border border-white/10">
-            <div className="text-white/50 text-sm">Open Orders</div>
-            <div className="text-2xl mt-1 text-orange-400">
-              {openOrders.length}
+            <div className="text-white/50 text-sm">Waste %</div>
+            <div
+              className={`text-2xl mt-1 ${
+                wastePercent > 25
+                  ? "text-red-400"
+                  : wastePercent > 10
+                  ? "text-yellow-400"
+                  : "text-green-400"
+              }`}
+            >
+              {loadingWaste ? "..." : `${wastePercent.toFixed(1)}%`}
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-black/20 rounded-2xl p-4 border border-white/10">
+        <div className="text-white/50 text-sm mb-2">Highest Waste Dishes</div>
+
+        {worstDishes.length === 0 && (
+          <div className="text-white/30 text-sm">No waste data</div>
+        )}
+
+        {worstDishes.map((dish, index) => (
+          <div key={`${dish.dish_id}-${index}`} className="flex justify-between text-sm mb-1">
+            <span>{dishMap[dish.dish_id] || dish.dish_id || "Unknown"}</span>
+
+            <span
+              className={
+                Number(dish.waste_percent || 0) > 25
+                  ? "text-red-400"
+                  : Number(dish.waste_percent || 0) > 10
+                  ? "text-yellow-400"
+                  : "text-green-400"
+              }
+            >
+              {Number(dish.waste_percent || 0).toFixed(1)}%
+            </span>
+          </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -587,9 +731,7 @@ export default function DashboardPage() {
         >
           <div className="text-white/50 text-sm">FOH Performance</div>
           <div className="text-4xl mt-2 font-bold">{percent(fohScore)}</div>
-          <div className={`mt-2 ${fohStatus.color}`}>
-            {fohStatus.label}
-          </div>
+          <div className={`mt-2 ${fohStatus.color}`}>{fohStatus.label}</div>
         </div>
 
         <div
@@ -597,9 +739,7 @@ export default function DashboardPage() {
         >
           <div className="text-white/50 text-sm">Bar Performance</div>
           <div className="text-4xl mt-2 font-bold">{percent(barScore)}</div>
-          <div className={`mt-2 ${barStatus.color}`}>
-            {barStatus.label}
-          </div>
+          <div className={`mt-2 ${barStatus.color}`}>{barStatus.label}</div>
         </div>
 
         <div
@@ -655,10 +795,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <Link
-              href="/history"
-              className="text-sm text-orange-400 hover:text-orange-300"
-            >
+            <Link href="/history" className="text-sm text-orange-400 hover:text-orange-300">
               View history
             </Link>
           </div>
@@ -715,9 +852,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="text-red-400">
-                    {percent(member.score)}
-                  </div>
+                  <div className="text-red-400">{percent(member.score)}</div>
                 </div>
               ))}
             </div>
@@ -734,10 +869,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <Link
-            href="/payout"
-            className="text-sm text-orange-400 hover:text-orange-300"
-          >
+          <Link href="/payout" className="text-sm text-orange-400 hover:text-orange-300">
             Open payout
           </Link>
         </div>
@@ -771,14 +903,10 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center mb-4">
           <div>
             <div className="text-lg">AI Alerts</div>
-            <div className="text-white/40 text-sm">
-              Alerts from database only
-            </div>
+            <div className="text-white/40 text-sm">Alerts from database only</div>
           </div>
 
-          <div className="text-white/40 text-sm">
-            {alerts.length} total
-          </div>
+          <div className="text-white/40 text-sm">{alerts.length} total</div>
         </div>
 
         {alerts.length === 0 ? (

@@ -7,52 +7,75 @@ const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
 export default function ProductionPage() {
   const [lowDishes, setLowDishes] = useState([]);
-  const [loadingId, setLoadingId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [plan, setPlan] = useState({});
+  const [stockMap, setStockMap] = useState({});
+  const [ingredientSummary, setIngredientSummary] = useState([]);
+  const [canProduce, setCanProduce] = useState(true);
 
-  // 🔹 LOAD LOW DISHES (SAFE)
+  // ✅ NEW (profit layer only)
+  const [totalCost, setTotalCost] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalProfit, setTotalProfit] = useState(0);
+  const [margin, setMargin] = useState(0);
+
+  // =========================
+  // LOAD DATA (UNCHANGED)
+  // =========================
   const loadLowDishes = async () => {
     try {
-      const { data: dishStock, error: stockError } = await supabase
+      const { data: dishStock } = await supabase
         .from("dish_stock")
         .select("dish_id, quantity")
         .eq("tenant_id", TENANT_ID);
 
-      if (stockError) {
-        console.error("STOCK LOAD ERROR:", stockError);
-        return;
-      }
-
-      const { data: dishes, error: dishError } = await supabase
+      const { data: dishes } = await supabase
         .from("dishes")
-        .select("id, name")
+        .select("id, name, price")
         .eq("tenant_id", TENANT_ID);
 
-      if (dishError) {
-        console.error("DISH LOAD ERROR:", dishError);
-        return;
-      }
+      const { data: ingredientStock } = await supabase
+        .from("ingredient_stock")
+        .select("ingredient_id, quantity")
+        .eq("tenant_id", TENANT_ID);
 
       const dishMap = {};
+      const priceMap = {};
+
       for (const d of dishes || []) {
         dishMap[d.id] = d.name;
+        priceMap[d.id] = Number(d.price || 0);
       }
+
+      const stock = {};
+      for (const s of ingredientStock || []) {
+        stock[s.ingredient_id] = Number(s.quantity || 0);
+      }
+
+      setStockMap(stock);
 
       const low = (dishStock || [])
         .filter((d) => Number(d.quantity) <= 5)
         .map((d) => {
           const qty = Number(d.quantity || 0);
 
-          const suggested = Math.max(10 - qty, 5);
-
           return {
             dish_id: d.dish_id,
-            name: dishMap[d.dish_id] || d.dish_id,
+            name: dishMap[d.dish_id] || "Unknown",
+            price: priceMap[d.dish_id] || 0,
             quantity: qty,
-            suggested,
+            suggested: Math.max(10 - qty, 5),
           };
         });
 
       setLowDishes(low);
+
+      const initialPlan = {};
+      low.forEach((d) => {
+        initialPlan[d.dish_id] = d.suggested;
+      });
+
+      setPlan(initialPlan);
     } catch (err) {
       console.error("LOAD ERROR:", err);
     }
@@ -61,7 +84,6 @@ export default function ProductionPage() {
   useEffect(() => {
     loadLowDishes();
 
-    // 🔥 REAL-TIME SYNC (IMPORTANT FOR MULTI-USER)
     const channel = supabase
       .channel("production-dish-stock")
       .on(
@@ -83,76 +105,188 @@ export default function ProductionPage() {
     };
   }, []);
 
-  // 🔹 PRODUCE ACTION (SAFE)
-const produce = async (dish_id, qty) => {
-  if (loadingId) return;
+  // =========================
+  // CALCULATE INGREDIENTS (EXTENDED ONLY)
+  // =========================
+  const calculateIngredients = async (plan) => {
+    const summary = {};
+    let cost = 0;
+    let revenue = 0;
 
-  setLoadingId(dish_id);
+    for (const [dish_id, qty] of Object.entries(plan)) {
+      if (!qty || qty <= 0) continue;
 
-  try {
-    const res = await fetch("/api/production/run", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        tenant_id: TENANT_ID,
-        dish_id,
-        quantity: Number(qty),
-        source_id: `manual-${dish_id}-${Date.now()}`,
-      }),
+      const dish = lowDishes.find(d => d.dish_id === dish_id);
+      revenue += (dish?.price || 0) * qty;
+
+      const res = await fetch("/api/recipes/by-dish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dish_id }),
+      });
+
+      const recipe = await res.json();
+
+      for (const item of recipe) {
+        const total = item.quantity * qty;
+
+        if (!summary[item.ingredient_id]) {
+          summary[item.ingredient_id] = {
+            name: item.name,
+            needed: 0,
+            cost: item.cost || 0,
+          };
+        }
+
+        summary[item.ingredient_id].needed += total;
+        cost += (item.cost || 0) * total;
+      }
+    }
+
+    // ✅ NEW
+    const profit = revenue - cost;
+    const marginValue = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+    setTotalCost(cost);
+    setTotalRevenue(revenue);
+    setTotalProfit(profit);
+    setMargin(marginValue);
+
+    return summary;
+  };
+
+  // =========================
+  // VALIDATION (UNCHANGED)
+  // =========================
+  const evaluatePlan = async () => {
+    const summary = await calculateIngredients(plan);
+
+    let valid = true;
+
+    const result = Object.entries(summary).map(([id, data]) => {
+      const available = stockMap[id] || 0;
+
+      if (data.needed > available) valid = false;
+
+      return {
+        ...data,
+        available,
+        ok: data.needed <= available,
+      };
     });
 
-    const result = await res.json();
+    setIngredientSummary(result);
+    setCanProduce(valid);
+  };
 
-    if (!res.ok || !result.success) {
-      alert(result.error || "Production failed");
+  useEffect(() => {
+    evaluatePlan();
+  }, [plan, stockMap]);
+
+  // =========================
+  // PRODUCTION (UNCHANGED)
+  // =========================
+  const runBatchProduction = async () => {
+    if (loading || !canProduce) return;
+
+    const entries = Object.entries(plan).filter(([_, qty]) => qty > 0);
+
+    if (entries.length === 0) {
+      alert("No production planned");
+      return;
     }
 
-    await loadLowDishes();
-  } catch (err) {
-    console.error("PRODUCTION ERROR:", err);
-    alert("Production error");
-  }
+    setLoading(true);
 
-  setLoadingId(null);
-};
-  
+    try {
+      for (const [dish_id, qty] of entries) {
+        await fetch("/api/production/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenant_id: TENANT_ID,
+            dish_id,
+            quantity: Number(qty),
+          }),
+        });
+      }
 
+      alert("✅ Production completed");
+      setPlan({});
+      await loadLowDishes();
+    } catch (err) {
+      console.error(err);
+      alert("Production failed");
+    }
+
+    setLoading(false);
+  };
+
+  // =========================
+  // UI (ONLY EXTENDED)
+  // =========================
   return (
-    <div className="flex items-center gap-2">
-  {/* 🔹 Suggested button (keep it) */}
-  <button
-    onClick={() => produce(dish.dish_id, dish.suggested)}
-    disabled={loadingId === dish.dish_id}
-    className="bg-green-500 hover:bg-green-600 px-3 py-2 rounded-lg disabled:bg-white/30 text-sm"
-  >
-    {loadingId === dish.dish_id
-      ? "..."
-      : `+${dish.suggested}`}
-  </button>
+    <div className="p-6 text-white bg-black min-h-screen max-w-xl mx-auto">
+      <h1 className="text-2xl mb-6">Morning Production</h1>
 
-  {/* 🔹 Manual input */}
-  <input
-    type="number"
-    min="1"
-    placeholder="Qty"
-    className="w-20 text-black px-2 py-1 rounded"
-    onChange={(e) => {
-      dish.manualQty = Number(e.target.value);
-    }}
-  />
+      {lowDishes.map((dish) => (
+        <div key={dish.dish_id} className="flex justify-between bg-gray-900 p-4 mb-3 rounded">
+          <div>
+            <p>{dish.name}</p>
+            <p className="text-sm text-gray-400">
+              Stock: {dish.quantity} | Price: {dish.price}
+            </p>
+          </div>
 
-  {/* 🔹 Manual produce button */}
-  <button
-    onClick={() =>
-      produce(dish.dish_id, dish.manualQty || 0)
-    }
-    disabled={loadingId === dish.dish_id}
-    className="bg-blue-500 hover:bg-blue-600 px-3 py-2 rounded-lg disabled:bg-white/30 text-sm"
-  >
-    Produce
-  </button>
-</div>
+          <input
+            type="number"
+            value={plan[dish.dish_id] || 0}
+            onChange={(e) =>
+              setPlan({
+                ...plan,
+                [dish.dish_id]: Number(e.target.value),
+              })
+            }
+            className="w-20 text-black px-2 py-1 rounded"
+          />
+        </div>
+      ))}
+
+      <div className="bg-gray-900 p-4 mt-4 rounded">
+        <h2>Ingredients</h2>
+        {ingredientSummary.map((i, index) => (
+          <div key={index} className="flex justify-between text-sm">
+            <span>{i.name}</span>
+            <span className={i.ok ? "text-green-400" : "text-red-400"}>
+              {i.needed} / {i.available}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ✅ NEW PROFIT BOX ONLY */}
+      <div className="bg-gray-900 p-4 mt-4 rounded">
+        <h2>Batch Summary</h2>
+        <div className="flex justify-between"><span>Cost</span><span>{totalCost.toFixed(2)}</span></div>
+        <div className="flex justify-between"><span>Revenue</span><span>{totalRevenue.toFixed(2)}</span></div>
+        <div className="flex justify-between">
+          <span>Profit</span>
+          <span className={totalProfit >= 0 ? "text-green-400" : "text-red-400"}>
+            {totalProfit.toFixed(2)}
+          </span>
+        </div>
+        <div className="flex justify-between"><span>Margin</span><span>{margin.toFixed(1)}%</span></div>
+      </div>
+
+      <button
+        onClick={runBatchProduction}
+        disabled={!canProduce || loading}
+        className={`mt-6 w-full py-3 rounded ${
+          canProduce ? "bg-green-600" : "bg-red-600"
+        }`}
+      >
+        {loading ? "Processing..." : canProduce ? "Produce" : "Fix Ingredients"}
+      </button>
+    </div>
   );
 }

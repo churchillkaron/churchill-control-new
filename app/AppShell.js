@@ -3,93 +3,153 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+const menu = [
+  { name: "Dashboard", href: "/dashboard" },
+  { name: "POS", href: "/pos" },
+  { name: "Kitchen", href: "/kitchen" },
+  { name: "Tables", href: "/tables" },
+  { name: "Production", href: "/production" },
+  { name: "Store", href: "/store" },
+  { name: "Waste", href: "/waste" },
+  { name: "Control", href: "/control" },
+  { name: "Control Final", href: "/control-final" },
+  { name: "History", href: "/history" },
+  { name: "Staff", href: "/staff" },
+  { name: "Accounting", href: "/accounting" },
+  { name: "Payout", href: "/payout" },
+  { name: "Settings", href: "/settings" },
+];
+
 export default function AppShell({ children }) {
   const pathname = usePathname();
 
-  const navItems = [
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "POS", href: "/pos" },
-    { name: "Kitchen", href: "/kitchen" },
-    { name: "Tables", href: "/tables" },
-    { name: "Control", href: "/control-final" },
-    { name: "Accounting", href: "/accounting" },
-  ];
+  // Do NOT wrap login pages
+  if (pathname === "/" || pathname.startsWith("/login")) {
+    return children;
+  }
 
   return (
-    <div className="relative min-h-screen text-white overflow-hidden">
+    <div className="min-h-screen text-white relative bg-black overflow-x-hidden">
 
-      {/* Background */}
-      <div className="absolute inset-0">
-        <img
-          src="/bg-hero-control.jpg"
-          alt="background"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      </div>
+      {/* 🔥 BACKGROUND (MATCH FRONT PAGE) */}
+      <div
+        className="fixed inset-0 bg-cover bg-center opacity-45"
+        style={{ backgroundImage: "url('/bg-hero-control.jpg')" }}
+      />
+      <div className="fixed inset-0 bg-gradient-to-b from-black/65 via-black/45 to-black/80" />
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,122,0,0.22),transparent_35%)]" />
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.05),transparent_35%)]" />
 
-      <div className="relative z-10 min-h-screen flex flex-col">
+      <div className="relative z-10 flex">
 
-        {/* 🔹 DESKTOP NAV */}
-        <div className="hidden md:flex items-center justify-between px-6 py-4 border-b border-white/10 backdrop-blur-md bg-black/30">
+        {/* SIDEBAR (DESKTOP ONLY) */}
+        <aside className="hidden md:block w-64 min-h-screen border-r border-white/10 bg-black/40 backdrop-blur-xl p-5">
+          
+          <div className="text-xl font-bold mb-8 tracking-wide">
+            CONTROL
+          </div>
 
-          <div className="flex items-center gap-6">
+          <nav className="space-y-2">
+            {menu.map((item) => {
+              const active = pathname === item.href;
 
-            {/* LOGO */}
-            <Link href="/dashboard" className="font-semibold text-[#ff7a00]">
-              CC
-            </Link>
-
-            {/* NAV */}
-            <div className="flex gap-2">
-              {navItems.map((item) => (
+              return (
                 <Link
-                  key={item.href}
+                  key={item.name}
                   href={item.href}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition ${
-                    pathname === item.href
-                      ? "bg-[#ff7a00] text-black"
-                      : "text-white/70 hover:text-white hover:bg-white/10"
+                  className={`block px-4 py-2 rounded-xl text-sm transition ${
+                    active
+                      ? "bg-orange-500/15 border border-orange-500/30 shadow-[0_0_15px_rgba(255,122,0,0.2)]"
+                      : "text-white/70 hover:bg-white/5 hover:text-white"
                   }`}
                 >
                   {item.name}
                 </Link>
-              ))}
+              );
+            })}
+          </nav>
+        </aside>
+
+        {/* MAIN */}
+        <div className="flex-1 flex flex-col">
+
+          {/* TOPBAR */}
+          <header className="h-16 flex items-center justify-between px-6 border-b border-white/10 bg-black/30 backdrop-blur-xl">
+
+            {/* LEFT */}
+            <div className="flex items-center gap-4">
+              <div className="text-lg font-semibold tracking-wide">
+                {pathname.replace("/", "").toUpperCase() || "DASHBOARD"}
+              </div>
+
+              <div className="hidden md:block text-xs text-muted">
+                AI Control System
+              </div>
             </div>
 
-          </div>
+            {/* RIGHT */}
+            <div className="flex items-center gap-4">
 
-          <div className="text-sm text-white/40">
-            Churchill Control
-          </div>
+              {/* STATUS */}
+              <div className="text-xs text-green-400 flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                Live
+              </div>
 
-        </div>
+              {/* USER */}
+              <div className="glass px-3 py-1 rounded-lg text-xs">
+                Owner
+              </div>
 
-        {/* 🔹 CONTENT */}
-        <div className="p-6 flex-1 pb-24 md:pb-6">
-          {children}
-        </div>
+            </div>
+          </header>
 
-        {/* 🔥 MOBILE NAV */}
-        <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 flex justify-around py-3 md:hidden z-50">
-
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`text-xs ${
-                pathname === item.href
-                  ? "text-[#ff7a00]"
-                  : "text-white/60"
-              }`}
-            >
-              {item.name}
-            </Link>
-          ))}
+          {/* CONTENT */}
+          <main className="p-6 pb-24 md:pb-6">
+            {children}
+          </main>
 
         </div>
-
       </div>
+
+   {/* 🔥 MOBILE BOTTOM NAV */}
+<div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+  <div className="glass-strong border-t border-white/10 flex justify-around py-2">
+
+    {[
+      { name: "Home", href: "/dashboard", icon: "/icons/dashboard.png" },
+      { name: "POS", href: "/pos", icon: "/icons/pos.png" },
+      { name: "Kitchen", href: "/kitchen", icon: "/icons/production.png" },
+      { name: "Prod", href: "/production", icon: "/icons/production.png" },
+      { name: "Control", href: "/control", icon: "/icons/ai-process.png" },
+    ].map((item) => {
+      const active = pathname === item.href;
+
+      return (
+        <Link
+          key={item.name}
+          href={item.href}
+          className={`flex flex-col items-center text-xs transition duration-200 ${
+            active ? "text-orange-400" : "text-white/60"
+          }`}
+        >
+          <img
+            src={item.icon}
+            alt={item.name}
+            className={`h-5 w-5 mb-1 transition ${
+              active
+                ? "opacity-100 scale-110 drop-shadow-[0_0_10px_rgba(255,122,0,0.6)]"
+                : "opacity-60"
+            }`}
+          />
+          <span className="text-[10px]">{item.name}</span>
+        </Link>
+      );
+    })}
+
+  </div>
+</div>
+
     </div>
   );
 }

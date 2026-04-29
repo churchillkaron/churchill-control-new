@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import PageWrapper from "@/components/PageWrapper";
 
 export default function POSPage() {
   const [tenantId, setTenantId] = useState(null);
@@ -12,6 +13,7 @@ export default function POSPage() {
   const [user, setUser] = useState(null);
   const [sending, setSending] = useState(false);
 
+  // ===== LOAD MENU =====
   const loadMenu = async () => {
     if (!tenantId) return;
 
@@ -38,7 +40,6 @@ export default function POSPage() {
     }
 
     const stockMap = {};
-
     for (const stock of stockData || []) {
       stockMap[stock.dish_id] = Number(stock.quantity || 0);
     }
@@ -51,6 +52,7 @@ export default function POSPage() {
     setMenu(mergedMenu);
   };
 
+  // ===== LOAD USER =====
   useEffect(() => {
     const loadUserAndTenant = async () => {
       const {
@@ -78,6 +80,7 @@ export default function POSPage() {
     loadUserAndTenant();
   }, []);
 
+  // ===== REALTIME STOCK =====
   useEffect(() => {
     if (!tenantId) return;
 
@@ -109,6 +112,7 @@ export default function POSPage() {
     return Number(existingItem?.quantity || 0);
   };
 
+  // ===== ADD ITEM =====
   const addItem = (item) => {
     const stock = Number(item.stock || 0);
     const alreadySelected = getSelectedQuantity(item.id);
@@ -138,7 +142,6 @@ export default function POSPage() {
             : orderItem
         )
       );
-
       return;
     }
 
@@ -153,6 +156,7 @@ export default function POSPage() {
     ]);
   };
 
+  // ===== REMOVE ITEM =====
   const removeItem = (dishId) => {
     setOrderItems((prev) =>
       prev
@@ -171,6 +175,7 @@ export default function POSPage() {
     0
   );
 
+  // ===== STOCK VALIDATION =====
   const validateStockBeforeSend = async () => {
     if (!tenantId) {
       alert("Tenant not loaded");
@@ -192,7 +197,6 @@ export default function POSPage() {
     }
 
     const stockMap = {};
-
     for (const stock of stockData || []) {
       stockMap[stock.dish_id] = Number(stock.quantity || 0);
     }
@@ -211,6 +215,7 @@ export default function POSPage() {
     return true;
   };
 
+  // ===== SEND ORDER =====
   const sendOrder = async () => {
     if (orderItems.length === 0 || sending) return;
 
@@ -260,142 +265,146 @@ export default function POSPage() {
     return item.category === category;
   });
 
+  // ===== UI =====
   return (
-    <div className="text-white grid grid-cols-1 md:grid-cols-2 gap-8">
-      <div className="space-y-6">
-        <h1 className="text-2xl">POS</h1>
+    <PageWrapper title="POS" subtitle="Order system">
 
-        <div className="grid grid-cols-3 gap-3">
-          {["T1", "T2", "T3", "T4", "T5", "T6"].map((table) => (
-            <button
-              key={table}
-              onClick={() => setSelectedTable(table)}
-              className={`py-2 rounded ${
-                selectedTable === table
-                  ? "bg-[#ff7a00] text-black"
-                  : "bg-white/10"
-              }`}
-            >
-              {table}
-            </button>
-          ))}
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        <div className="flex gap-2">
-          {["starter", "main", "dessert"].map((menuCategory) => (
-            <button
-              key={menuCategory}
-              onClick={() => setCategory(menuCategory)}
-              className={`px-3 py-1 rounded ${
-                category === menuCategory
-                  ? "bg-[#ff7a00] text-black"
-                  : "bg-white/10"
-              }`}
-            >
-              {menuCategory}
-            </button>
-          ))}
-        </div>
+        {/* LEFT SIDE */}
+        <div className="space-y-6">
 
-        <div className="space-y-2">
-          {filteredMenu.map((item) => {
-            const stock = Number(item.stock || 0);
-            const selected = getSelectedQuantity(item.id);
-            const availableToAdd = stock - selected;
-            const outOfStock = stock <= 0;
-            const maxSelected = selected >= stock;
-
-            return (
-              <div
-                key={item.id}
-                onClick={() => addItem(item)}
-                className={`p-3 rounded ${
-                  outOfStock || maxSelected
-                    ? "bg-red-500/20 opacity-60 cursor-not-allowed"
-                    : "bg-white/5 hover:bg-white/10 cursor-pointer"
+          <div className="grid grid-cols-3 gap-3">
+            {["T1","T2","T3","T4","T5","T6"].map((table) => (
+              <button
+                key={table}
+                onClick={() => setSelectedTable(table)}
+                className={`glass p-3 rounded-xl ${
+                  selectedTable === table
+                    ? "border border-orange-500 text-orange-400"
+                    : ""
                 }`}
               >
-                <div className="flex justify-between">
-                  <span>{item.name}</span>
-
-                  <span className="text-sm">
-                    {outOfStock
-                      ? "OUT"
-                      : maxSelected
-                      ? "MAX"
-                      : `${availableToAdd} left`}
-                  </span>
-                </div>
-
-                <div className="text-xs text-white/50">
-                  ฿{Number(item.price || 0)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-        <h2 className="text-lg">Table {selectedTable}</h2>
-
-        {orderItems.length === 0 && (
-          <div className="text-white/40 text-sm">No items selected</div>
-        )}
-
-        {orderItems.map((item) => (
-          <div key={item.dish_id} className="flex justify-between text-sm">
-            <div>
-              {item.item_name} x{item.quantity}
-            </div>
-
-            <div className="flex gap-3 items-center">
-              <span>
-                ฿{Number(item.price || 0) * Number(item.quantity || 1)}
-              </span>
-
-              <button
-                onClick={() => removeItem(item.dish_id)}
-                className="bg-red-500/80 px-2 rounded text-white"
-              >
-                -
+                {table}
               </button>
-            </div>
+            ))}
           </div>
-        ))}
 
-        <div className="text-lg">Total: ฿{total}</div>
+          <div className="flex gap-2">
+            {["starter","main","dessert"].map((menuCategory) => (
+              <button
+                key={menuCategory}
+                onClick={() => setCategory(menuCategory)}
+                className={`glass px-3 py-1 rounded ${
+                  category === menuCategory
+                    ? "border border-orange-500 text-orange-400"
+                    : ""
+                }`}
+              >
+                {menuCategory}
+              </button>
+            ))}
+          </div>
 
-        <button className="w-full bg-purple-500 py-2 rounded">
-          REQUEST ADJUSTMENT
-        </button>
+          <div className="space-y-2">
+            {filteredMenu.map((item) => {
+              const stock = Number(item.stock || 0);
+              const selected = getSelectedQuantity(item.id);
+              const availableToAdd = stock - selected;
+              const outOfStock = stock <= 0;
+              const maxSelected = selected >= stock;
 
-        <div className="grid grid-cols-2 gap-2">
-          <button className="bg-yellow-500 py-2 rounded">HOLD</button>
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => addItem(item)}
+                  className={`glass p-3 rounded-xl ${
+                    outOfStock || maxSelected
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:bg-white/5 cursor-pointer"
+                  }`}
+                >
+                  <div className="flex justify-between">
+                    <span>{item.name}</span>
+                    <span className="text-xs text-muted">
+                      {outOfStock
+                        ? "OUT"
+                        : maxSelected
+                        ? "MAX"
+                        : `${availableToAdd} left`}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-muted">
+                    ฿{Number(item.price || 0)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+        </div>
+
+        {/* RIGHT SIDE */}
+        <div className="glass p-6 rounded-2xl space-y-4">
+
+          <h2>Table {selectedTable}</h2>
+
+          {orderItems.length === 0 && (
+            <div className="text-muted text-sm">No items selected</div>
+          )}
+
+          {orderItems.map((item) => (
+            <div key={item.dish_id} className="flex justify-between text-sm">
+              <div>{item.item_name} x{item.quantity}</div>
+
+              <div className="flex gap-3 items-center">
+                <span>฿{Number(item.price || 0) * item.quantity}</span>
+
+                <button
+                  onClick={() => removeItem(item.dish_id)}
+                  className="text-red-400"
+                >
+                  −
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <div className="text-lg">Total: ฿{total}</div>
+
+          <button className="glass p-2 rounded-xl">
+            REQUEST ADJUSTMENT
+          </button>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button className="glass p-2 rounded-xl">HOLD</button>
+
+            <button
+              onClick={sendOrder}
+              disabled={orderItems.length === 0 || sending}
+              className="glass p-2 rounded-xl"
+            >
+              FIRE
+            </button>
+          </div>
 
           <button
             onClick={sendOrder}
             disabled={orderItems.length === 0 || sending}
-            className="bg-green-500 py-2 rounded disabled:bg-white/30 disabled:cursor-not-allowed"
+            className="btn-primary w-full"
           >
-            FIRE
+            {sending ? "SENDING..." : "SEND ORDER"}
           </button>
+
+          <button className="glass p-2 rounded-xl">
+            FIRE HELD
+          </button>
+
         </div>
 
-        <button
-          onClick={sendOrder}
-          disabled={orderItems.length === 0 || sending}
-          className={`w-full py-3 rounded mt-2 ${
-            orderItems.length === 0 || sending
-              ? "bg-white/30 cursor-not-allowed"
-              : "bg-green-600"
-          }`}
-        >
-          {sending ? "SENDING..." : "SEND ORDER"}
-        </button>
-
-        <button className="w-full bg-blue-500 py-2 rounded">FIRE HELD</button>
       </div>
-    </div>
+
+    </PageWrapper>
   );
 }

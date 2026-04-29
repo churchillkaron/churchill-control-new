@@ -12,15 +12,18 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             {/* USERS */}
-            <a
-              href="/settings/users"
-              className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-[#ff7a00] transition"
-            >
-              <h2 className="text-lg text-[#ff7a00] mb-2">Users</h2>
-              <p className="text-white/60 text-sm">
-                Manage staff, roles and permissions
-              </p>
-            </a>
+            import Link from "next/link";
+
+{/* USERS */}
+<Link
+  href="/settings/users"
+  className="block bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-[#ff7a00] transition"
+>
+  <h2 className="text-lg text-[#ff7a00] mb-2">Users</h2>
+  <p className="text-white/60 text-sm">
+    Manage staff, roles and permissions
+  </p>
+</Link>
 
             {/* BUSINESS */}
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 opacity-50">

@@ -1088,21 +1088,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-        <div className="text-lg mb-4">Navigation</div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {cards.map((card) => (
-            <Link
-              key={card.href}
-              href={card.href}
-              className="bg-black/20 border border-white/10 p-5 rounded-2xl text-center hover:bg-white/10 transition"
-            >
-              {card.name}
-            </Link>
-          ))}
+      
+    
         </div>
-      </div>
-    </div>
+      
+  
   );
 }

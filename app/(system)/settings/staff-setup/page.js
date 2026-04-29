@@ -138,16 +138,21 @@ export default function StaffSetupFull() {
                       <option key={role}>{role}</option>
                     ))}
                   </select>
-
-                  <select
-                    value={person.department}
-                    onChange={(e) => updateStaff(index, "department", e.target.value)}
-                    className="bg-transparent border border-white/10 rounded-lg px-3 py-2"
-                  >
-                    {departments.map((dep) => (
-                      <option key={dep}>{dep}</option>
-                    ))}
-                  </select>
+{person.role === "Staff" ? (
+  <select
+    value={person.department}
+    onChange={(e) => updateStaff(index, "department", e.target.value)}
+    className="bg-transparent border border-white/10 rounded-lg px-3 py-2"
+  >
+    {departments.map((dep) => (
+      <option key={dep}>{dep}</option>
+    ))}
+  </select>
+) : (
+  <div className="text-white/40 flex items-center px-3">
+    All Departments
+  </div>
+)}
 
                   <input
                     value={person.salary}

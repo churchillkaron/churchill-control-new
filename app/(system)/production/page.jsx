@@ -84,38 +84,40 @@ export default function ProductionPage() {
   }, []);
 
   // 🔹 PRODUCE ACTION (SAFE)
-  const produce = async (dish_id, qty) => {
-    if (loadingId) return; // 🔒 prevent spam
+const produce = async (dish_id, qty) => {
+  if (loadingId) return;
 
-    setLoadingId(dish_id);
+  setLoadingId(dish_id);
 
-    try {
-      const res = await fetch("/api/production", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dish_id,
-          quantity: qty,
-          source_id: `manual-${dish_id}-${Date.now()}`, // 🔥 idempotency
-        }),
-      });
+  try {
+    const res = await fetch("/api/production/run", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tenant_id: TENANT_ID,
+        dish_id,
+        quantity: Number(qty),
+        source_id: `manual-${dish_id}-${Date.now()}`,
+      }),
+    });
 
-      const result = await res.json();
+    const result = await res.json();
 
-      if (!res.ok || !result.success) {
-        alert(result.error || "Production failed");
-      }
-
-      await loadLowDishes();
-    } catch (err) {
-      console.error("PRODUCTION ERROR:", err);
-      alert("Production error");
+    if (!res.ok || !result.success) {
+      alert(result.error || "Production failed");
     }
 
-    setLoadingId(null);
-  };
+    await loadLowDishes();
+  } catch (err) {
+    console.error("PRODUCTION ERROR:", err);
+    alert("Production error");
+  }
+
+  setLoadingId(null);
+};
+  
 
   return (
     <div className="p-6 text-white max-w-3xl mx-auto">

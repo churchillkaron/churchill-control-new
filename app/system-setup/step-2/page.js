@@ -38,13 +38,18 @@ export default function SystemSetupStepTwo() {
 
       if (!user) return;
 
-      const { data } = await supabase
-        .from("staff_accounts")
-        .select("tenant_id")
-        .eq("user_id", user.id)
-        .single();
+      const { data, error } = await supabase
+  .from("staff_accounts")
+  .select("tenant_id")
+  .eq("auth_user_id", user.id)
+  .single();
 
-      if (data?.tenant_id) setTenantId(data.tenant_id);
+if (error || !data?.tenant_id) {
+  console.error("Tenant not found for user");
+  return;
+}
+
+setTenantId(data.tenant_id);
     };
 
     loadTenant();
@@ -82,30 +87,32 @@ export default function SystemSetupStepTwo() {
   };
 
   const handleSave = async () => {
-    if (!tenantId) return alert("No tenant found");
-    if (!form.name) return alert("Business name required");
+  if (loading) return;
 
-    setLoading(true);
+  if (!tenantId) return alert("No tenant found");
+  if (!form.name) return alert("Business name required");
 
-    const { error } = await supabase
-      .from("tenants")
-      .update({
-        name: form.name,
-        country: form.country,
-        currency: form.currency,
-        setup_step: 2,
-      })
-      .eq("id", tenantId);
+  setLoading(true);
 
-    if (error) {
-      console.error(error);
-      alert("Error saving business");
-      setLoading(false);
-      return;
-    }
+  const { error } = await supabase
+    .from("tenants")
+    .update({
+      name: form.name,
+      country: form.country,
+      currency: form.currency,
+      setup_step: 3, // ✅ FIXED
+    })
+    .eq("id", tenantId);
 
-    router.push("/system-setup/step-3");
-  };
+  if (error) {
+    console.error(error);
+    alert("Error saving business");
+    setLoading(false);
+    return;
+  }
+
+  router.push("/system-setup/step-3");
+};
 
   return (
     <main className="min-h-screen bg-[#070707] text-white overflow-hidden relative">

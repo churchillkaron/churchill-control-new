@@ -49,31 +49,49 @@ export default function FinanceControlSetup() {
   };
 
   const handleSave = async () => {
-    if (!tenantId) return alert("No tenant");
+  if (loading) return;
 
-    setLoading(true);
+  if (!tenantId) {
+    alert("No tenant");
+    return;
+  }
 
-    const { error } = await supabase
-      .from("tenants")
-      .update({
-        service_charge: form.service_charge,
-        foh_split: form.foh_split,
-        bar_split: form.bar_split,
-        kitchen_split: form.kitchen_split,
-        approval_limit: form.approval_limit,
-        setup_step: 7,
-      })
-      .eq("id", tenantId);
+  setLoading(true);
 
-    if (error) {
-      console.error(error);
-      alert("Error saving finance settings");
+  try {
+    const totalSplit =
+      Number(form.foh_split) +
+      Number(form.bar_split) +
+      Number(form.kitchen_split);
+
+    if (totalSplit !== 100) {
+      alert("FOH + BAR + KITCHEN must equal 100%");
       setLoading(false);
       return;
     }
 
+    const { error } = await supabase
+      .from("tenants")
+      .update({
+        service_charge: Number(form.service_charge),
+        foh_split: Number(form.foh_split),
+        bar_split: Number(form.bar_split),
+        kitchen_split: Number(form.kitchen_split),
+        approval_limit: Number(form.approval_limit),
+        setup_step: 8, // ✅ FIXED
+      })
+      .eq("id", tenantId);
+
+    if (error) throw error;
+
     router.push("/system-setup/step-8");
-  };
+
+  } catch (err) {
+    console.error("Finance setup error:", err);
+    alert("Error saving finance settings");
+    setLoading(false);
+  }
+};
 
   return (
     <main className="min-h-screen bg-[#050505] text-white">

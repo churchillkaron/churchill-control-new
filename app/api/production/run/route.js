@@ -1,14 +1,18 @@
 import { supabase } from "@/lib/supabase";
 
-const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
-
 export async function POST(req) {
   try {
     const body = await req.json();
 
-    const { dish_id, quantity, source_id } = body;
-    // source_id = order_id or manual trigger id (PREVENT DUPLICATES)
+    const { dish_id, quantity, source_id, tenant_id } = body;
 
+    if (!tenant_id) {
+      return Response.json(
+        { error: "Missing tenant_id" },
+        { status: 400 }
+      );
+    }
+console.log("RUN PRODUCTION", item);
     if (!dish_id || !quantity || quantity <= 0) {
       return Response.json(
         { error: "Missing or invalid dish_id / quantity" },
@@ -16,12 +20,12 @@ export async function POST(req) {
       );
     }
 
-    // 🔒 IDEMPOTENCY CHECK (CRITICAL)
+    // 🔒 IDEMPOTENCY CHECK
     if (source_id) {
       const { data: existing } = await supabase
         .from("production_logs")
         .select("id")
-        .eq("tenant_id", TENANT_ID)
+        .eq("tenant_id", tenant_id)
         .eq("source_id", source_id)
         .limit(1);
 
@@ -36,28 +40,43 @@ export async function POST(req) {
     let totalCost = 0;
 
     // 🔹 1. GET RECIPE
-    const { data: recipeItems, error: recipeError } = await supabase
-      .from("recipe_items")
-      .select("*")
-      .eq("dish_id", dish_id)
-      .eq("tenant_id", TENANT_ID);
+const { data: recipe, error: recipeError } = await supabase
+  .from("recipes")
+  .select("id")
+  .eq("dish_id", dish_id)
+  .eq("tenant_id", tenant_id)
+  .single();
 
-    if (recipeError) throw recipeError;
+if (recipeError || !recipe) {
+  return Response.json(
+    { error: "No recipe found" },
+    { status: 400 }
+  );
+}
 
-    if (!recipeItems || recipeItems.length === 0) {
-      return Response.json(
-        { error: "No recipe found" },
-        { status: 400 }
-      );
-    }
+// 🔹 2. GET RECIPE ITEMS
+const { data: recipeItems, error: itemsError } = await supabase
+  .from("recipe_items")
+  .select("*")
+  .eq("recipe_id", recipe.id)
+  .eq("tenant_id", tenant_id);
 
-    // 🔴 2. VALIDATE ALL INGREDIENTS FIRST
+if (itemsError) throw itemsError;
+
+if (!recipeItems || recipeItems.length === 0) {
+  return Response.json(
+    { error: "No recipe items found" },
+    { status: 400 }
+  );
+}
+
+    // 🔴 2. VALIDATE INGREDIENTS
     const ingredientIds = recipeItems.map((r) => r.ingredient_id);
 
     const { data: ingredients, error: ingredientError } = await supabase
       .from("ingredients")
       .select("id, quantity, cost_per_unit, name")
-      .eq("tenant_id", TENANT_ID)
+      .eq("tenant_id", tenant_id)
       .in("id", ingredientIds);
 
     if (ingredientError) throw ingredientError;
@@ -72,7 +91,6 @@ export async function POST(req) {
         Number(recipeItem.quantity || 0) * Number(quantity);
 
       const ingredient = ingredientMap[recipeItem.ingredient_id];
-
       const currentStock = Number(ingredient?.quantity || 0);
 
       if (currentStock < requiredQty) {
@@ -85,7 +103,7 @@ export async function POST(req) {
       }
     }
 
-    // 🔹 3. PROCESS ALL INGREDIENTS (SAFE LOOP)
+    // 🔹 3. PROCESS INGREDIENTS
     for (const recipeItem of recipeItems) {
       const requiredQty =
         Number(recipeItem.quantity || 0) * Number(quantity);
@@ -97,11 +115,11 @@ export async function POST(req) {
 
       totalCost += cost;
 
-      // 🔥 ATOMIC STOCK DEDUCTION
+      // 🔥 DEDUCT INGREDIENT STOCK
       const { error: stockError } = await supabase.rpc(
         "decrement_ingredient_stock",
         {
-          p_tenant_id: TENANT_ID,
+          p_tenant_id: tenant_id,
           p_ingredient_id: recipeItem.ingredient_id,
           p_qty: requiredQty,
         }
@@ -111,9 +129,9 @@ export async function POST(req) {
         throw new Error("Stock deduction failed");
       }
 
-      // 🔥 LOG EACH INGREDIENT USAGE
+      // 🔥 LOG
       await supabase.from("production_logs").insert({
-        tenant_id: TENANT_ID,
+        tenant_id: tenant_id,
         dish_id,
         ingredient_id: recipeItem.ingredient_id,
         quantity_used: requiredQty,
@@ -121,11 +139,11 @@ export async function POST(req) {
       });
     }
 
-    // 🔹 4. INCREASE DISH STOCK
+    // 🔥 FIX: DISH STOCK SHOULD DECREASE (NOT INCREASE)
     const { error: dishStockError } = await supabase.rpc(
-      "increment_dish_stock",
+      "decrement_dish_stock",
       {
-        p_tenant_id: TENANT_ID,
+        p_tenant_id: tenant_id,
         p_dish_id: dish_id,
         p_qty: quantity,
       }
@@ -135,7 +153,6 @@ export async function POST(req) {
       throw new Error("Dish stock update failed");
     }
 
-    // 🔹 5. RETURN RESULT
     return Response.json({
       success: true,
       dish_id,

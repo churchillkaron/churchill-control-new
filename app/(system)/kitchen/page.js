@@ -19,17 +19,39 @@ function guessStation(name = "") {
 export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
   const [currentStation, setCurrentStation] = useState(null);
+  const [tenantId, setTenantId] = useState(null);
 
-  // 🔥 DEVICE LOCK (RUN ONCE)
+  // 🔥 LOAD TENANT (ADDED)
+  useEffect(() => {
+    const loadTenant = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("staff_accounts")
+        .select("tenant_id")
+        .eq("auth_user_id", user.id)
+        .single();
+
+      if (error || !data?.tenant_id) {
+        console.error("Tenant not found");
+        return;
+      }
+
+      setTenantId(data.tenant_id);
+    };
+
+    loadTenant();
+  }, []);
+
+  // 🔥 DEVICE LOCK
   const getStation = () => {
     if (typeof window === "undefined") return null;
 
     let station = localStorage.getItem("kitchen_station");
 
     if (!station) {
-      station = prompt(
-        "Enter station: THAI, WESTERN, PIZZA, BAR, DESSERT"
-      );
+      station = prompt("Enter station: THAI, WESTERN, PIZZA, BAR, DESSERT");
 
       if (station) {
         station = station.toUpperCase();
@@ -47,15 +69,19 @@ export default function KitchenPage() {
 
   // 🔹 LOAD ORDERS
   const loadOrders = async () => {
+    if (!tenantId) return;
+
     const { data: ordersData } = await supabase
       .from("orders")
       .select("*")
+      .eq("tenant_id", tenantId) // ✅ FIXED
       .in("kitchen_status", ["pending", "cooking", "approved"])
       .order("created_at", { ascending: true });
 
     const { data: itemsData } = await supabase
       .from("order_items")
-      .select("*");
+      .select("*")
+      .eq("tenant_id", tenantId); // ✅ FIXED
 
     const merged = (ordersData || []).map((order) => ({
       ...order,
@@ -66,28 +92,29 @@ export default function KitchenPage() {
   };
 
   useEffect(() => {
+    if (!tenantId) return;
+
     loadOrders();
     const interval = setInterval(loadOrders, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [tenantId]);
 
   // 🔹 UPDATE ITEM STATUS
   const updateItemStatus = async (ids, status) => {
     await supabase
       .from("order_items")
       .update({ status })
-      .in("id", ids);
+      .in("id", ids)
+      .eq("tenant_id", tenantId); // ✅ FIXED
 
     loadOrders();
   };
 
-  // 🔥 DONE HANDLER (CONNECTED TO BACKEND PRODUCTION)
+  // 🔥 DONE HANDLER
   const handleDone = async (order, item) => {
     try {
-      // mark items done
       await updateItemStatus(item.ids, "DONE");
 
-      // trigger backend (production)
       await fetch("/api/kitchen/update", {
         method: "POST",
         headers: {
@@ -96,6 +123,7 @@ export default function KitchenPage() {
         body: JSON.stringify({
           order_id: order.id,
           status: "done",
+          tenant_id: tenantId, // ✅ IMPORTANT
         }),
       });
     } catch (err) {
@@ -107,7 +135,6 @@ export default function KitchenPage() {
     <div className="space-y-10 text-white">
       <h1 className="text-3xl">Kitchen</h1>
 
-      {/* 🔥 DEBUG / RESET */}
       <div className="text-xs text-white/40">
         Station: {currentStation || "Not set"}
         <button
@@ -174,7 +201,7 @@ export default function KitchenPage() {
                         groupedItems[item.item_name] = {
                           name: item.item_name,
                           ids: [],
-                          dish_id: item.dish_id, // 🔥 IMPORTANT
+                          dish_id: item.dish_id,
                           status: item.status || "PENDING",
                         };
                       }

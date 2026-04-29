@@ -3,8 +3,6 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@supabase/supabase-js";
 import { runProduction } from "@/lib/production";
 
-const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
-
 export async function POST(req) {
   try {
     // ✅ INIT SUPABASE INSIDE FUNCTION
@@ -20,46 +18,73 @@ export async function POST(req) {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { order_id, status } = await req.json();
+    const { order_id, status, tenant_id } = await req.json();
+
+    // 🔴 VALIDATION
+    if (!tenant_id) {
+      return Response.json({ error: "Missing tenant_id" }, { status: 400 });
+    }
 
     if (!order_id || !status) {
       return Response.json({ error: "Missing data" }, { status: 400 });
     }
 
     // 🔹 UPDATE ORDER STATUS
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from("orders")
       .update({ kitchen_status: status })
       .eq("id", order_id)
-      .eq("tenant_id", TENANT_ID);
+      .eq("tenant_id", tenant_id);
 
-    if (error) throw error;
+    if (updateError) throw updateError;
 
     // 🔥 RUN PRODUCTION WHEN DONE
     if (status === "done") {
-      const { data: items } = await supabase
+      const { data: items, error: itemsError } = await supabase
         .from("order_items")
         .select("dish_id, quantity")
         .eq("order_id", order_id)
-        .eq("tenant_id", TENANT_ID);
+        .eq("tenant_id", tenant_id);
+
+      if (itemsError) throw itemsError;
+
+      console.log("KITCHEN → PRODUCTION ITEMS:", items);
 
       for (const item of items || []) {
-        await runProduction({
-          tenant_id: TENANT_ID,
-          dish_id: item.dish_id,
-          quantity: item.quantity,
-          source_id: `order-${order_id}-dish-${item.dish_id}`,
-        });
+        try {
+          console.log("RUNNING PRODUCTION FOR:", item);
+
+          await runProduction({
+            tenant_id: tenant_id,
+            dish_id: item.dish_id,
+            quantity: item.quantity,
+            source_id: `order-${order_id}-dish-${item.dish_id}`,
+          });
+
+        } catch (prodErr) {
+          console.error("PRODUCTION ERROR:", prodErr);
+
+          return Response.json(
+            {
+              error: "Production failed",
+              detail: prodErr?.message || String(prodErr),
+            },
+            { status: 500 }
+          );
+        }
       }
     }
 
     return Response.json({ success: true });
 
   } catch (err) {
-    console.error("KITCHEN ERROR:", err);
+    console.error("KITCHEN ERROR FULL:", err, err?.message);
 
     return Response.json(
-      { error: err.message },
+      {
+        error: err?.message || "Kitchen error",
+        full: String(err),
+      },
       { status: 500 }
     );
   }

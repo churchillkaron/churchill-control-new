@@ -5,6 +5,7 @@ export function middleware(request) {
   const pathname = url.pathname;
 
   const publicRoutes = [
+    "/", // ✅ added
     "/login",
     "/signup",
     "/login/callback",
@@ -20,6 +21,13 @@ export function middleware(request) {
     request.cookies.get("sb-refresh-token");
 
   if (!hasSession) {
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  // ✅ ADDED tenant_id check
+  const tenantId = request.cookies.get("tenant_id")?.value;
+  if (!tenantId) {
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
@@ -47,12 +55,17 @@ export function middleware(request) {
     role !== "owner" &&
     role !== "general manager"
   ) {
-    url.pathname = "/staff";
+    url.pathname = "/dashboard"; // ✅ changed (was /staff)
     return NextResponse.redirect(url);
   }
 
-  // 🔥 DASHBOARD ACCESS
-  if (pathname.startsWith("/dashboard") && role === "staff") {
+  // 🔥 DASHBOARD ACCESS (fixed logic)
+  if (
+    pathname.startsWith("/dashboard") &&
+    role !== "owner" &&
+    role !== "general manager" &&
+    role !== "manager"
+  ) {
     url.pathname = "/staff";
     return NextResponse.redirect(url);
   }
@@ -63,6 +76,27 @@ export function middleware(request) {
     role !== "production" &&
     role !== "owner" &&
     role !== "general manager"
+  ) {
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // ✅ ADDED ACCOUNTING RULE
+  if (
+    pathname.startsWith("/accounting") &&
+    role !== "owner" &&
+    role !== "general manager"
+  ) {
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // ✅ ADDED MANAGEMENT RULE
+  if (
+    pathname.startsWith("/management") &&
+    role !== "owner" &&
+    role !== "general manager" &&
+    role !== "manager"
   ) {
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

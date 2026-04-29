@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
-
 export default function POSPage() {
+  const [tenantId, setTenantId] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [selectedTable, setSelectedTable] = useState("T1");
   const [category, setCategory] = useState("starter");
@@ -14,10 +13,12 @@ export default function POSPage() {
   const [sending, setSending] = useState(false);
 
   const loadMenu = async () => {
+    if (!tenantId) return;
+
     const { data: dishes, error: dishError } = await supabase
       .from("dishes")
       .select("*")
-      .eq("tenant_id", TENANT_ID);
+      .eq("tenant_id", tenantId);
 
     if (dishError) {
       console.error("MENU LOAD ERROR:", dishError);
@@ -28,7 +29,7 @@ export default function POSPage() {
     const { data: stockData, error: stockError } = await supabase
       .from("dish_stock")
       .select("dish_id, quantity")
-      .eq("tenant_id", TENANT_ID);
+      .eq("tenant_id", tenantId);
 
     if (stockError) {
       console.error("STOCK LOAD ERROR:", stockError);
@@ -51,15 +52,35 @@ export default function POSPage() {
   };
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data?.user || null);
+    const loadUserAndTenant = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      setUser(user);
+
+      const { data, error } = await supabase
+        .from("staff_accounts")
+        .select("tenant_id")
+        .eq("auth_user_id", user.id)
+        .single();
+
+      if (error || !data?.tenant_id) {
+        console.error("Tenant not found for POS user");
+        return;
+      }
+
+      setTenantId(data.tenant_id);
     };
 
-    getUser();
+    loadUserAndTenant();
   }, []);
 
   useEffect(() => {
+    if (!tenantId) return;
+
     loadMenu();
 
     const channel = supabase
@@ -70,7 +91,7 @@ export default function POSPage() {
           event: "*",
           schema: "public",
           table: "dish_stock",
-          filter: `tenant_id=eq.${TENANT_ID}`,
+          filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
           loadMenu();
@@ -81,7 +102,7 @@ export default function POSPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [tenantId]);
 
   const getSelectedQuantity = (dishId) => {
     const existingItem = orderItems.find((item) => item.dish_id === dishId);
@@ -151,12 +172,17 @@ export default function POSPage() {
   );
 
   const validateStockBeforeSend = async () => {
+    if (!tenantId) {
+      alert("Tenant not loaded");
+      return false;
+    }
+
     const dishIds = orderItems.map((item) => item.dish_id);
 
     const { data: stockData, error } = await supabase
       .from("dish_stock")
       .select("dish_id, quantity")
-      .eq("tenant_id", TENANT_ID)
+      .eq("tenant_id", tenantId)
       .in("dish_id", dishIds);
 
     if (error) {
@@ -188,6 +214,11 @@ export default function POSPage() {
   const sendOrder = async () => {
     if (orderItems.length === 0 || sending) return;
 
+    if (!tenantId) {
+      alert("Tenant not loaded");
+      return;
+    }
+
     setSending(true);
 
     const stockOk = await validateStockBeforeSend();
@@ -207,6 +238,7 @@ export default function POSPage() {
         items: orderItems,
         total,
         staff_name: user?.email || "Unknown",
+        tenant_id: tenantId,
       }),
     });
 

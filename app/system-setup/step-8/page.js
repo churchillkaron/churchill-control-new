@@ -32,28 +32,34 @@ export default function FinalSetupActivation() {
   }, []);
 
   const handleActivate = async () => {
-    if (!tenantId) return alert("No tenant");
+  if (loading) return;
 
-    setLoading(true);
+  if (!tenantId) {
+    alert("No tenant");
+    return;
+  }
 
+  setLoading(true);
+
+  try {
     const { error } = await supabase
       .from("tenants")
       .update({
-        setup_step: 8,
+        setup_step: 9, // ✅ FINAL STEP
         setup_complete: true,
       })
       .eq("id", tenantId);
 
-    if (error) {
-      console.error(error);
-      alert("Error activating system");
-      setLoading(false);
-      return;
-    }
+    if (error) throw error;
 
     router.push("/control");
-  };
 
+  } catch (err) {
+    console.error("Activation error:", err);
+    alert("Error activating system");
+    setLoading(false);
+  }
+};
   return (
     <main className="min-h-screen bg-[#050505] text-white flex items-center justify-center">
       <motion.div

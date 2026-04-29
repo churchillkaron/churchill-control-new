@@ -83,31 +83,53 @@ export default function StockControlSetup() {
   };
 
   const handleSave = async () => {
-    if (!tenantId) return alert("No tenant");
+  if (loading) return;
 
-    setLoading(true);
+  if (!tenantId) {
+    alert("No tenant");
+    return;
+  }
 
-    for (const item of items) {
-      if (!item.name) continue;
+  setLoading(true);
 
-      await supabase.from("ingredients").insert({
+  try {
+    // 🔥 CLEAN OLD DATA
+    await supabase.from("ingredients").delete().eq("tenant_id", tenantId);
+
+    // 🔥 INSERT INGREDIENTS
+    const ingredientData = items
+      .filter((item) => item.name)
+      .map((item) => ({
         name: item.name,
         unit: item.unit,
         quantity: item.quantity,
         warning_level: item.warning,
         critical_level: item.critical,
-        cost: item.cost,
+        cost_per_unit: item.cost, // ✅ FIXED
         tenant_id: tenantId,
-      });
+      }));
+
+    if (ingredientData.length) {
+      const { error } = await supabase.from("ingredients").insert(ingredientData);
+      if (error) throw error;
     }
 
-    await supabase
+    // 🔥 UPDATE STEP
+    const { error: stepError } = await supabase
       .from("tenants")
-      .update({ setup_step: 6 })
+      .update({ setup_step: 7 })
       .eq("id", tenantId);
 
+    if (stepError) throw stepError;
+
     router.push("/system-setup/step-7");
-  };
+
+  } catch (err) {
+    console.error("Stock setup error:", err);
+    alert("Error saving inventory");
+    setLoading(false);
+  }
+};
 
   return (
     <main className="min-h-screen bg-[#050505] text-white">

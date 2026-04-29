@@ -10,7 +10,6 @@ import {
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -57,20 +56,35 @@ export default function StepOnePremium() {
 
       if (!user) return;
 
-      const { data } = await supabase
-  .from("staff_accounts")
-  .select("tenant_id")
-  .eq("auth_user_id", user.id)   // ✅ FIXED
-  .single();
+      const { data, error } = await supabase
+        .from("staff_accounts")
+        .select("tenant_id")
+        .eq("auth_user_id", user.id)
+        .single();
 
-      if (data?.tenant_id) setTenantId(data.tenant_id);
+      if (error || !data?.tenant_id) {
+        console.error("Tenant not found for user");
+        return;
+      }
+
+      setTenantId(data.tenant_id);
     };
 
     loadTenant();
   }, []);
 
   const handleContinue = async () => {
-    if (!tenantId) return alert("No tenant found");
+    if (loading) return;
+
+    if (!tenantId) {
+      alert("No tenant found");
+      return;
+    }
+
+    if (!selected) {
+      alert("Please select a business type");
+      return;
+    }
 
     setLoading(true);
 
@@ -78,7 +92,7 @@ export default function StepOnePremium() {
       .from("tenants")
       .update({
         business_type: selected,
-        setup_step: 1,
+        setup_step: 2, // ✅ FIXED
       })
       .eq("id", tenantId);
 

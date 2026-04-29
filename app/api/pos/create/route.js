@@ -1,14 +1,16 @@
 import { supabase } from "@/lib/supabase";
 
-const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
-
 export async function POST(req) {
   try {
     const body = await req.json();
 
-    const { table, items, total, staff_name } = body;
+    const { table, items, total, staff_name, tenant_id } = body;
 
     // 🔴 VALIDATE BASIC INPUT
+    if (!tenant_id) {
+      return Response.json({ error: "Missing tenant_id" }, { status: 400 });
+    }
+
     if (!table) {
       return Response.json({ error: "Missing table" }, { status: 400 });
     }
@@ -39,7 +41,7 @@ export async function POST(req) {
     const { data: stockData, error: stockError } = await supabase
       .from("dish_stock")
       .select("dish_id, quantity")
-      .eq("tenant_id", TENANT_ID)
+      .eq("tenant_id", tenant_id)
       .in("dish_id", dishIds);
 
     if (stockError) {
@@ -75,7 +77,7 @@ export async function POST(req) {
       .from("orders")
       .insert([
         {
-          tenant_id: TENANT_ID,
+          tenant_id: tenant_id,
           table_number: table,
           total: Number(total || 0),
           status: "approved",
@@ -93,43 +95,44 @@ export async function POST(req) {
         { status: 500 }
       );
     }
-// ✅ CREATE ORDER ITEMS (1 row per unit)
-const orderItems = [];
 
-for (const item of items) {
-  const qty = Number(item.quantity || 1);
+    // ✅ CREATE ORDER ITEMS (1 row per unit)
+    const orderItems = [];
 
-  for (let i = 0; i < qty; i++) {
-    orderItems.push({
-      tenant_id: TENANT_ID,
+    for (const item of items) {
+      const qty = Number(item.quantity || 1);
+
+      for (let i = 0; i < qty; i++) {
+        orderItems.push({
+          tenant_id: tenant_id,
+          order_id: order.id,
+          item_name: item.item_name || item.name || "Item",
+          status: "PENDING",
+          dish_id: item.dish_id,
+          price: Number(item.price || 0),
+          quantity: 1, // 🔥 ALWAYS 1
+        });
+      }
+    }
+
+    const { error: itemsError } = await supabase
+      .from("order_items")
+      .insert(orderItems);
+
+    if (itemsError) {
+      console.error("ITEM INSERT ERROR:", itemsError);
+
+      return Response.json(
+        { error: "Order items failed" },
+        { status: 500 }
+      );
+    }
+
+    // ✅ SUCCESS
+    return Response.json({
+      success: true,
       order_id: order.id,
-      item_name: item.item_name || item.name || "Item",
-      status: "PENDING",
-      dish_id: item.dish_id,
-      price: Number(item.price || 0),
-      quantity: 1, // 🔥 ALWAYS 1
     });
-  }
-}
-
-const { error: itemsError } = await supabase
-  .from("order_items")
-  .insert(orderItems);
-
-if (itemsError) {
-  console.error("ITEM INSERT ERROR:", itemsError);
-
-  return Response.json(
-    { error: "Order items failed" },
-    { status: 500 }
-  );
-}
-
-// ✅ SUCCESS
-return Response.json({
-  success: true,
-  order_id: order.id,
-});
 
   } catch (err) {
     console.error("POS API ERROR:", err);

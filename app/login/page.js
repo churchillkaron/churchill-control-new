@@ -10,27 +10,26 @@ export default function LoginCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    const handleLoginFlow = async () => {
-      try {
-        // 🔥 DEV MODE (only for development)
-        if (DEV_MODE) {
-          document.cookie = "role=Owner; path=/";
-          document.cookie = "setup_complete=true; path=/";
-          document.cookie = "subscription=active; path=/";
+  const handleLoginFlow = async () => {
+    try {
 
-          router.push("/control");
-          return;
-        }
+      // 🔥 DEV MODE (SAFE)
+      if (process.env.NODE_ENV === "development" && DEV_MODE) {
+        document.cookie = "role=Owner; path=/";
+        document.cookie = "tenant_id=dev; path=/"; // optional test value
+        document.cookie = "setup_complete=true; path=/";
+        document.cookie = "subscription=active; path=/";
 
-        // 🔥 1. GET AUTH USER
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        router.push("/control");
+        return;
+      }
 
-        if (!user) {
-          router.push("/");
-          return;
-        }
+      // 🔥 REAL AUTH STARTS HERE
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+       
 
         // 🔥 2. GET STAFF ACCOUNT (STRICT MATCH)
         const { data: staff, error: staffError } = await supabase

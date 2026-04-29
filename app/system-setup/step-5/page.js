@@ -115,42 +115,66 @@ export default function ProductsRecipesSetup() {
   };
 
   const handleSave = async () => {
-    if (!tenantId) return alert("No tenant");
+  if (loading) return;
 
-    setLoading(true);
+  if (!tenantId) {
+    alert("No tenant");
+    return;
+  }
 
-    // Save products
-    for (const p of products) {
-      if (!p.name) continue;
+  setLoading(true);
 
-      await supabase.from("products").insert({
+  try {
+    // 🔥 CLEAN OLD DATA
+    await supabase.from("products").delete().eq("tenant_id", tenantId);
+    await supabase.from("recipes").delete().eq("tenant_id", tenantId);
+
+    // 🔥 INSERT PRODUCTS
+    const productData = products
+      .filter((p) => p.name)
+      .map((p) => ({
         name: p.name,
         price: p.price,
         category: p.category,
         tenant_id: tenantId,
-      });
+      }));
+
+    if (productData.length) {
+      const { error } = await supabase.from("products").insert(productData);
+      if (error) throw error;
     }
 
-    // Save recipes (linked to product name)
-    for (const r of recipes) {
-      if (!r.product || !r.ingredient) continue;
-
-      await supabase.from("recipes").insert({
-        product_name: r.product, // THIS IS THE CONNECTION (dish)
+    // 🔥 INSERT RECIPES
+    const recipeData = recipes
+      .filter((r) => r.product && r.ingredient)
+      .map((r) => ({
+        product_name: r.product,
         ingredient_name: r.ingredient,
         quantity: r.quantity,
         tenant_id: tenantId,
-      });
+      }));
+
+    if (recipeData.length) {
+      const { error } = await supabase.from("recipes").insert(recipeData);
+      if (error) throw error;
     }
 
-    await supabase
+    // 🔥 UPDATE STEP
+    const { error: stepError } = await supabase
       .from("tenants")
-      .update({ setup_step: 5 })
+      .update({ setup_step: 6 })
       .eq("id", tenantId);
 
-    router.push("/system-setup/step-6");
-  };
+    if (stepError) throw stepError;
 
+    router.push("/system-setup/step-6");
+
+  } catch (err) {
+    console.error("Product setup error:", err);
+    alert("Error saving products");
+    setLoading(false);
+  }
+};
   return (
     <main className="min-h-screen bg-[#050505] text-white">
       <section className="max-w-7xl mx-auto px-6 py-10">

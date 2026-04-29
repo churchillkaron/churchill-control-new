@@ -38,13 +38,18 @@ export default function StructureSetup() {
 
       if (!user) return;
 
-      const { data } = await supabase
-        .from("staff_accounts")
-        .select("tenant_id")
-        .eq("user_id", user.id)
-        .single();
+     const { data, error } = await supabase
+  .from("staff_accounts")
+  .select("tenant_id")
+  .eq("auth_user_id", user.id)
+  .single();
 
-      if (data?.tenant_id) setTenantId(data.tenant_id);
+if (error || !data?.tenant_id) {
+  console.error("Tenant not found for user");
+  return;
+}
+
+setTenantId(data.tenant_id);
     };
 
     loadTenant();
@@ -79,36 +84,62 @@ export default function StructureSetup() {
   };
 
   const handleSave = async () => {
-    if (!tenantId) return alert("No tenant found");
+  if (loading) return;
 
-    setLoading(true);
+  if (!tenantId) {
+    alert("No tenant found");
+    return;
+  }
 
-    // insert departments
-    for (const dep of departments) {
-      if (!dep.name) continue;
-      await supabase.from("departments").insert({
-        name: dep.name,
+  setLoading(true);
+
+  try {
+    // 🔥 CLEAN OLD DATA (CRITICAL)
+    await supabase.from("departments").delete().eq("tenant_id", tenantId);
+    await supabase.from("locations").delete().eq("tenant_id", tenantId);
+
+    // 🔥 INSERT DEPARTMENTS
+    const depData = departments
+      .filter((d) => d.name)
+      .map((d) => ({
+        name: d.name,
         tenant_id: tenantId,
-      });
+      }));
+
+    if (depData.length) {
+      const { error: depError } = await supabase.from("departments").insert(depData);
+      if (depError) throw depError;
     }
 
-    // insert locations
-    for (const loc of locations) {
-      if (!loc.name) continue;
-      await supabase.from("locations").insert({
-        name: loc.name,
+    // 🔥 INSERT LOCATIONS
+    const locData = locations
+      .filter((l) => l.name)
+      .map((l) => ({
+        name: l.name,
         tenant_id: tenantId,
-      });
+      }));
+
+    if (locData.length) {
+      const { error: locError } = await supabase.from("locations").insert(locData);
+      if (locError) throw locError;
     }
 
-    // update setup step
-    await supabase
+    // 🔥 UPDATE STEP
+    const { error: stepError } = await supabase
       .from("tenants")
-      .update({ setup_step: 3 })
+      .update({ setup_step: 4 })
       .eq("id", tenantId);
 
+    if (stepError) throw stepError;
+
     router.push("/system-setup/step-4");
-  };
+
+  } catch (err) {
+    console.error("Setup error:", err);
+    alert("Error saving structure");
+    setLoading(false);
+  }
+};
 
   return (
     <main className="min-h-screen bg-[#050505] text-white relative">

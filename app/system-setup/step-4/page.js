@@ -85,31 +85,53 @@ export default function StaffSetupPremium() {
   };
 
   const handleSave = async () => {
-    if (!tenantId) return alert("No tenant");
+  if (loading) return;
 
-    setLoading(true);
+  if (!tenantId) {
+    alert("No tenant");
+    return;
+  }
 
-    for (const s of staff) {
-      if (!s.name) continue;
+  setLoading(true);
 
-      await supabase.from("staff_accounts").insert({
+  try {
+    // 🔥 CLEAN OLD STAFF
+    await supabase.from("staff_accounts").delete().eq("tenant_id", tenantId);
+
+    // 🔥 PREPARE DATA
+    const staffData = staff
+      .filter((s) => s.name)
+      .map((s) => ({
         name: s.name,
         role: s.role,
         department: s.department,
         email: s.email,
-        salary: s.salary,
+        salary_base: s.salary, // ✅ FIXED
         tenant_id: tenantId,
-      });
+        status: "active", // ✅ ADD
+      }));
+
+    if (staffData.length) {
+      const { error } = await supabase.from("staff_accounts").insert(staffData);
+      if (error) throw error;
     }
 
-    await supabase
+    // 🔥 UPDATE STEP
+    const { error: stepError } = await supabase
       .from("tenants")
-      .update({ setup_step: 4 })
+      .update({ setup_step: 5 })
       .eq("id", tenantId);
 
-    router.push("/system-setup/step-5");
-  };
+    if (stepError) throw stepError;
 
+    router.push("/system-setup/step-5");
+
+  } catch (err) {
+    console.error("Staff setup error:", err);
+    alert("Error saving staff");
+    setLoading(false);
+  }
+};
   return (
     <main className="min-h-screen bg-[#050505] text-white relative">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,120,40,0.25),transparent_40%)]" />

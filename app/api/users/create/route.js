@@ -15,15 +15,19 @@ export async function POST(req) {
       await supabase.auth.admin.inviteUserByEmail(email);
 
     if (inviteError) {
-      return Response.json({ error: inviteError.message }, { status: 400 });
+      console.log("INVITE ERROR FULL:", inviteError); // ✅ IMPORTANT
+      return Response.json(
+        { error: inviteError.message },
+        { status: 400 }
+      );
     }
 
-    // 2. Insert into staff_accounts (correct column)
+    // 2. Insert into staff_accounts
     const { error: insertError } = await supabase
       .from("staff_accounts")
       .insert([
         {
-          auth_user_id: inviteData.user.id, // ✅ correct mapping
+          auth_user_id: inviteData.user.id,
           name,
           email,
           role,
@@ -34,11 +38,16 @@ export async function POST(req) {
       ]);
 
     if (insertError) {
-      return Response.json({ error: insertError.message }, { status: 400 });
+      console.log("DB INSERT ERROR:", insertError); // ✅ ALSO LOG THIS
+      return Response.json(
+        { error: insertError.message },
+        { status: 400 }
+      );
     }
 
     return Response.json({ success: true });
   } catch (err) {
+    console.log("SERVER ERROR:", err); // ✅ FULL BACKEND FAIL SAFE
     return Response.json({ error: "Server error" }, { status: 500 });
   }
 }

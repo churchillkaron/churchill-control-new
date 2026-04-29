@@ -20,10 +20,17 @@ export async function GET() {
       .select("id, name")
       .eq("tenant_id", tenant_id);
 
-    const { data: recipes } = await supabase
-      .from("recipe_items")
-      .select("dish_id, ingredient_id, quantity")
-      .eq("tenant_id", tenant_id);
+    // get recipes with dish mapping
+const { data: recipes } = await supabase
+  .from("recipes")
+  .select(`
+    dish_id,
+    recipe_items (
+      ingredient_id,
+      quantity
+    )
+  `)
+  .eq("tenant_id", tenant_id);
 
     const { data: ingredients } = await supabase
       .from("ingredients")
@@ -40,15 +47,20 @@ export async function GET() {
       ingredientCostMap[i.id] = Number(i.cost_per_unit || 0);
     }
 
-    const recipeCostMap = {};
-    for (const r of recipes || []) {
-      if (!recipeCostMap[r.dish_id]) recipeCostMap[r.dish_id] = 0;
+   const recipeCostMap = {};
 
-      const ingredientCost = ingredientCostMap[r.ingredient_id] || 0;
-      const recipeQty = Number(r.quantity || 0);
+for (const r of recipes || []) {
+  const dishId = r.dish_id;
 
-      recipeCostMap[r.dish_id] += ingredientCost * recipeQty;
-    }
+  if (!recipeCostMap[dishId]) recipeCostMap[dishId] = 0;
+
+  for (const item of r.recipe_items || []) {
+    const ingredientCost = ingredientCostMap[item.ingredient_id] || 0;
+    const recipeQty = Number(item.quantity || 0);
+
+    recipeCostMap[dishId] += ingredientCost * recipeQty;
+  }
+}
 
     let revenue = 0;
     let cost = 0;

@@ -120,41 +120,39 @@ const produce = async (dish_id, qty) => {
   
 
   return (
-    <div className="p-6 text-white max-w-3xl mx-auto">
-      <h1 className="text-2xl mb-6 font-semibold">Production</h1>
+    <div className="flex items-center gap-2">
+  {/* 🔹 Suggested button (keep it) */}
+  <button
+    onClick={() => produce(dish.dish_id, dish.suggested)}
+    disabled={loadingId === dish.dish_id}
+    className="bg-green-500 hover:bg-green-600 px-3 py-2 rounded-lg disabled:bg-white/30 text-sm"
+  >
+    {loadingId === dish.dish_id
+      ? "..."
+      : `+${dish.suggested}`}
+  </button>
 
-      {lowDishes.length === 0 && (
-        <div className="text-white/50">No production needed</div>
-      )}
+  {/* 🔹 Manual input */}
+  <input
+    type="number"
+    min="1"
+    placeholder="Qty"
+    className="w-20 text-black px-2 py-1 rounded"
+    onChange={(e) => {
+      dish.manualQty = Number(e.target.value);
+    }}
+  />
 
-      {lowDishes.map((dish) => (
-        <div
-          key={dish.dish_id}
-          className="bg-white/5 border border-white/10 p-4 rounded-xl mb-3 flex justify-between items-center"
-        >
-          <div>
-            <div className="font-semibold">{dish.name}</div>
-
-            <div className="text-sm text-yellow-400">
-              Stock: {dish.quantity}
-            </div>
-
-            <div className="text-sm text-green-400">
-              Suggested: {dish.suggested}
-            </div>
-          </div>
-
-          <button
-            onClick={() => produce(dish.dish_id, dish.suggested)}
-            disabled={loadingId === dish.dish_id}
-            className="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg disabled:bg-white/30"
-          >
-            {loadingId === dish.dish_id
-              ? "Producing..."
-              : `Produce ${dish.suggested}`}
-          </button>
-        </div>
-      ))}
-    </div>
+  {/* 🔹 Manual produce button */}
+  <button
+    onClick={() =>
+      produce(dish.dish_id, dish.manualQty || 0)
+    }
+    disabled={loadingId === dish.dish_id}
+    className="bg-blue-500 hover:bg-blue-600 px-3 py-2 rounded-lg disabled:bg-white/30 text-sm"
+  >
+    Produce
+  </button>
+</div>
   );
 }

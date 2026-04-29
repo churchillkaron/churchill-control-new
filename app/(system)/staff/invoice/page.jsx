@@ -1,9 +1,7 @@
 "use client";
-
+export const dynamic = "force-dynamic";
 import { useState } from "react";
-import { useRef } from "react";
 
-const reviewInputRef = useRef(null);
 
 export default function InvoicePage() {
   const [image, setImage] = useState(null);

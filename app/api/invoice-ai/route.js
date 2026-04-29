@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../../AppShell";
-
+export const dynamic = "force-dynamic";
 export default function AIInvoicesPage() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -1,53 +1,82 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+process.env.SUPABASE_URL,
+process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+function generatePassword() {
+return Math.random().toString(36).slice(-8);
+}
+
 export async function POST(req) {
-  try {
-    const body = await req.json();
-    const { name, email, role, position, tenant_id } = body;
+try {
+const body = await req.json();
+const { name, email, role, position, tenant_id } = body;
 
-    // 1. Invite user (sends email)
-    const { data: inviteData, error: inviteError } =
-      await supabase.auth.admin.inviteUserByEmail(email);
+```
+// 🔴 Basic validation
+if (!name || !email || !role || !tenant_id) {
+  return Response.json(
+    { error: "Missing required fields" },
+    { status: 400 }
+  );
+}
 
-    if (inviteError) {
-      console.log("INVITE ERROR FULL:", inviteError); // ✅ IMPORTANT
-      return Response.json(
-        { error: inviteError.message },
-        { status: 400 }
-      );
-    }
+const password = generatePassword();
 
-    // 2. Insert into staff_accounts
-    const { error: insertError } = await supabase
-      .from("staff_accounts")
-      .insert([
-        {
-          auth_user_id: inviteData.user.id,
-          name,
-          email,
-          role,
-          position,
-          tenant_id,
-          active: true,
-        },
-      ]);
+// ✅ 1. Create user (NO EMAIL SYSTEM)
+const { data, error: createError } =
+  await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
 
-    if (insertError) {
-      console.log("DB INSERT ERROR:", insertError); // ✅ ALSO LOG THIS
-      return Response.json(
-        { error: insertError.message },
-        { status: 400 }
-      );
-    }
+if (createError) {
+  console.log("CREATE USER ERROR:", createError);
+  return Response.json(
+    { error: createError.message },
+    { status: 400 }
+  );
+}
 
-    return Response.json({ success: true });
-  } catch (err) {
-    console.log("SERVER ERROR:", err); // ✅ FULL BACKEND FAIL SAFE
-    return Response.json({ error: "Server error" }, { status: 500 });
-  }
+// ✅ 2. Insert into staff_accounts
+const { error: insertError } = await supabase
+  .from("staff_accounts")
+  .insert([
+    {
+      auth_user_id: data.user.id,
+      name,
+      email,
+      role,
+      position,
+      tenant_id,
+      active: true,
+    },
+  ]);
+
+if (insertError) {
+  console.log("DB INSERT ERROR:", insertError);
+  return Response.json(
+    { error: insertError.message },
+    { status: 400 }
+  );
+}
+
+// ✅ 3. Return credentials (CRITICAL for frontend + CSV)
+return Response.json({
+  success: true,
+  email,
+  password,
+});
+```
+
+} catch (err) {
+console.log("SERVER ERROR:", err);
+return Response.json(
+{ error: "Server error" },
+{ status: 500 }
+);
+}
 }

@@ -1,5 +1,6 @@
 "use client";
-console.log("USERS PAGE LOADED");
+
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -74,47 +75,112 @@ export default function UsersPage() {
     setStatus(`Loaded (${data?.length || 0})`);
   }
 
+  async function handleCSV(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!currentUser?.tenant_id) {
+      setStatus("No tenant found ❌");
+      return;
+    }
+
+    const text = await file.text();
+    const rows = text.split("\n").slice(1);
+
+    let results = [["email", "password"]];
+
+    for (let row of rows) {
+      if (!row.trim()) continue;
+
+      const [name, email, role, position] = row.split(",");
+
+      if (!name || !email || !role) {
+        results.push([email || "missing email", "ERROR: Missing required fields"]);
+        continue;
+      }
+
+      const res = await fetch("/api/users/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          role: role.trim(),
+          position: role.trim() === "Staff" ? position?.trim() || "FOH" : null,
+          tenant_id: currentUser.tenant_id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        results.push([data.email, data.password]);
+      } else {
+        results.push([email.trim(), "ERROR: " + data.error]);
+      }
+    }
+
+    const csvContent = results.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "staff_credentials.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+    alert("CSV upload complete. File downloaded.");
+    loadUsers(currentUser.tenant_id);
+  }
+
   async function addUser() {
-  if (!newName || !newEmail) {
-    setStatus("Name and Email required ❌");
-    return;
+    if (!newName || !newEmail) {
+      setStatus("Name and Email required ❌");
+      return;
+    }
+
+    setStatus("Creating user...");
+
+    const res = await fetch("/api/users/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: newName,
+        email: newEmail,
+        role: newRole,
+        position: newRole === "Staff" ? newPosition : null,
+        tenant_id: currentUser.tenant_id,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setStatus(data.error || "Failed ❌");
+      return;
+    }
+
+    setStatus("User created ✅");
+
+    alert(`Login details:
+
+Email: ${data.email}
+Password: ${data.password}`);
+
+    setShowModal(false);
+    setNewName("");
+    setNewEmail("");
+    setNewRole("Staff");
+    setNewPosition("FOH");
+
+    loadUsers(currentUser.tenant_id);
   }
-
-  setStatus("Inviting user...");
-
-  const res = await fetch("/api/users/create", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      name: newName,
-      email: newEmail,
-      role: newRole,
-      position: newRole === "Staff" ? newPosition : null, // ✅ FIX HERE
-      tenant_id: currentUser.tenant_id,
-    }),
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    setStatus(data.error || "Failed ❌");
-    return;
-  }
-
-  setStatus("User invited ✅");
-
-  // ✅ Reset form
-  setShowModal(false);
-  setNewName("");
-  setNewEmail("");
-  setNewRole("Staff");
-  setNewPosition("FOH");
-
-  // ✅ Reload users
-  loadUsers(currentUser.tenant_id);
-}
 
   async function toggleUserActive(user) {
     const { error } = await supabase
@@ -153,6 +219,15 @@ export default function UsersPage() {
       <h1 className="text-2xl mb-6">Users</h1>
 
       <div className="flex gap-3 mb-6">
+        {currentUser?.role === "Owner" && (
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleCSV}
+            className="text-white"
+          />
+        )}
+
         {!session ? (
           <button onClick={login} className="bg-gray-700 px-4 py-2 rounded">
             Login
@@ -208,69 +283,58 @@ export default function UsersPage() {
         {users.length === 0 && <p>No users found</p>}
       </div>
 
-     {showModal && (
-  <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
-    <div className="bg-gray-900 p-6 rounded w-80 space-y-4">
+      {showModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
+          <div className="bg-gray-900 p-6 rounded w-80 space-y-4">
+            <input
+              placeholder="Name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="w-full p-2 bg-gray-800"
+            />
 
-      {/* NAME */}
-      <input
-    
-    placeholder="Name"
-        value={newName}
-        onChange={(e) => setNewName(e.target.value)}
-        className="w-full p-2 bg-gray-800"
-      />
+            <input
+              placeholder="Email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              className="w-full p-2 bg-gray-800"
+            />
 
-      {/* EMAIL */}
-      <input
-        placeholder="Email"
-        value={newEmail}
-        onChange={(e) => setNewEmail(e.target.value)}
-        className="w-full p-2 bg-gray-800"
-      />
+            <select
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              className="w-full p-2 bg-gray-800"
+            >
+              <option value="Staff">Staff</option>
+              <option value="Manager">Manager</option>
+              <option value="Owner">Owner</option>
+            </select>
 
-      {/* ROLE (THIS WAS MISSING) */}
-      <select
-  value={newRole}
-  onChange={(e) => {
-    console.log("CHANGED TO:", e.target.value);
-    setNewRole(e.target.value);
-  }}
-  className="w-full p-2 bg-gray-800"
->
-  <option value="Staff">Staff</option>
-  <option value="Manager">Manager</option>
-  <option value="Owner">Owner</option>
-</select>
+            {newRole === "Staff" && (
+              <select
+                value={newPosition}
+                onChange={(e) => setNewPosition(e.target.value)}
+                className="w-full p-2 bg-gray-800"
+              >
+                <option value="FOH">FOH</option>
+                <option value="BAR">BAR</option>
+                <option value="KITCHEN">KITCHEN</option>
+              </select>
+            )}
 
-      {/* POSITION (ONLY FOR STAFF) */}
-      {newRole === "Staff" && (
-        <select
-          value={newPosition}
-          onChange={(e) => setNewPosition(e.target.value)}
-          className="w-full p-2 bg-gray-800"
-        >
-          <option value="FOH">FOH</option>
-          <option value="BAR">BAR</option>
-          <option value="KITCHEN">KITCHEN</option>
-        </select>
+            <div className="flex justify-between">
+              <button onClick={() => setShowModal(false)}>Cancel</button>
+
+              <button
+                onClick={addUser}
+                className="bg-orange-500 px-3 py-2 rounded text-black"
+              >
+                Create User
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-
-      {/* ACTIONS */}
-      <div className="flex justify-between">
-        <button onClick={() => setShowModal(false)}>Cancel</button>
-
-        <button
-          onClick={() => addUser()}
-          className="bg-orange-500 px-3 py-1"
-        >
-          Add
-        </button>
-      </div>
-
-    </div>
-  </div>
-)}
     </div>
   );
 }

@@ -1,7 +1,7 @@
-"use client";
+
+      "use client";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useMemo, useState } from "react";
-
 
 const TABS = [
   "overview",
@@ -27,207 +27,183 @@ export default function AccountingPage() {
   const [previewItem, setPreviewItem] = useState(null);
   const [actionLoading, setActionLoading] = useState("");
   const [approvals, setApprovals] = useState([]);
+  const [productionLogs, setProductionLogs] = useState([]);
+  const [salesItems, setSalesItems] = useState([]);
 
-useEffect(() => {
-  fetchAll();
-}, []);
+  useEffect(() => {
+    fetchAll();
+  }, []);
 
-const fetchAll = async () => {
-  try {
-    setLoading(true);
+  const fetchAll = async () => {
+    try {
+      setLoading(true);
 
-    const { data: invoiceData, error } = await supabase
-      .from("invoices")
-      .select("*")
-      .order("created_at", { ascending: false });
+      const { data: historyData } = await supabase
+        .from("history")
+        .select("*")
+        .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error("INVOICE ERROR:", error);
+      setHistory(historyData || []);
+
+      const { data: invoiceData } = await supabase
+        .from("invoices")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      setInvoices(invoiceData || []);
+
+      const { data: productionData } = await supabase
+        .from("production_logs")
+        .select("*");
+
+      setProductionLogs(productionData || []);
+
+      const { data: salesData } = await supabase
+        .from("daily_sales_items")
+        .select("*");
+
+      setSalesItems(salesData || []);
+    } catch (err) {
+      console.error(err);
     }
 
-    setInvoices(invoiceData || []);
-    console.log("INVOICES:", invoiceData);
-
-  } catch (err) {
-    console.error("FETCH ERROR:", err);
-  }
-
-  setLoading(false);
-};
-
-  const latestDay = history[history.length - 1] || {};
-const salaryQueue = approvals
-  .filter((a) => a.status === "approved_manager")
-  .map((a) => ({
-    id: a.id,
-    vendor: "Salary",
-    amount: 0,
-    category: "Salary",
-    department: "",
-    image_url: null,
-    status: a.status,
-    source_type: "salary",
-    staff_id: a.staff_id,
-  }));
-  // --------------------------------------------------
-  // HELPERS
-  // --------------------------------------------------
-  const getInvoicePreviewUrl = (invoice) => {
-  return (
-    invoice?.image_url ||
-    invoice?.receipt_url ||
-    invoice?.file_url ||
-    invoice?.document_url ||
-    invoice?.url ||
-    null
-  );
-};
-
-  const getInvoicePreviewType = (invoice) => {
-    const url = getInvoicePreviewUrl(invoice);
-    if (!url) return null;
-    return url.toLowerCase().endsWith(".pdf") ? "pdf" : "image";
-  };
-
-  const openInvoicePreview = (invoice) => {
-    const url = getInvoicePreviewUrl(invoice);
-    if (!url) return;
-
-    setPreviewItem({
-      type: getInvoicePreviewType(invoice),
-      url,
-      title: invoice.vendor || "Invoice Preview",
-      subtitle: invoice.amount ? `${invoice.amount} THB` : "Invoice",
-    });
+    setLoading(false);
   };
 
   // --------------------------------------------------
-  // INVOICES
+  // DERIVED DATA
   // --------------------------------------------------
-  const apiApprovedExpenses = useMemo(() => {
-    return invoices.filter((i) => i.status === "approved");
-  }, [invoices]);
-
-  const apiAccountingQueue = useMemo(() => {
-    return invoices.filter((i) => i.status === "approved_manager");
-  }, [invoices]);
-
-  const apiPendingManager = useMemo(() => {
-    return invoices.filter((i) => i.status === "pending_approval");
-  }, [invoices]);
-
-  const apiRejected = useMemo(() => {
-    return invoices.filter((i) => i.status === "rejected");
-  }, [invoices]);
-
-  // --------------------------------------------------
-  // STAFF-UPLOADED INVOICE ASSETS
-  // --------------------------------------------------
-  const assetInvoicesApprovedManager = useMemo(() => {
-    return assets.filter(
-      (a) => a.category === "invoice" && a.status === "approved_manager"
-    );
-  }, [assets]);
-
-  const assetInvoicesApproved = useMemo(() => {
-    return assets.filter(
-      (a) => a.category === "invoice" && a.status === "approved"
-    );
-  }, [assets]);
-
-  const assetInvoicesPending = useMemo(() => {
-    return assets.filter(
-      (a) => a.category === "invoice" && a.status === "pending_approval"
-    );
-  }, [assets]);
-
-  const assetInvoicesRejected = useMemo(() => {
-    return assets.filter(
-      (a) => a.category === "invoice" && a.status === "rejected"
-    );
-  }, [assets]);
+  const salaryQueue = approvals
+    .filter((a) => a.status === "approved_manager")
+    .map((a) => ({
+      id: a.id,
+      vendor: "Salary",
+      amount: 0,
+      category: "Salary",
+      department: "",
+      status: a.status,
+      source_type: "salary",
+    }));
 
   const normalizedAccountingQueue = useMemo(() => {
+    return invoices
+      .filter((i) => i.status === "approved_manager")
+      .map((i) => ({
+        ...i,
+        source_type: "invoice_api",
+      }));
+  }, [invoices]);
+
+  const normalizedApprovedInvoices = useMemo(() => {
+    return invoices.filter((i) => i.status === "approved");
+  }, [invoices]);
+const normalizedPendingManagerInvoices = useMemo(() => {
   return invoices
-    .filter((i) => i.status === "approved_manager")
+    .filter((i) => i.status === "pending_manager")
     .map((i) => ({
       ...i,
       source_type: "invoice_api",
     }));
 }, [invoices]);
-
-
-  const normalizedApprovedInvoices = useMemo(() => {
-    const apiItems = apiApprovedExpenses.map((i) => ({
+const normalizedRejectedInvoices = useMemo(() => {
+  return invoices
+    .filter((i) => i.status === "rejected")
+    .map((i) => ({
       ...i,
       source_type: "invoice_api",
     }));
-
-    const assetItems = assetInvoicesApproved.map((a) => ({
-      id: a.id,
-      vendor: a.note || "Staff Upload",
-      amount: 0,
-      category: "Staff Invoice",
-      department: a.department || "",
-      image_url: a.url,
-      status: a.status,
-      source_type: "asset_invoice",
-    }));
-
-    return [...apiItems, ...assetItems];
-  }, [apiApprovedExpenses, assetInvoicesApproved]);
-
-  const normalizedRejectedInvoices = useMemo(() => {
-    const apiItems = apiRejected.map((i) => ({
-      ...i,
-      source_type: "invoice_api",
-    }));
-
-    const assetItems = assetInvoicesRejected.map((a) => ({
-      id: a.id,
-      vendor: a.note || "Staff Upload",
-      amount: 0,
-      category: "Staff Invoice",
-      department: a.department || "",
-      image_url: a.url,
-      status: a.status,
-      source_type: "asset_invoice",
-    }));
-
-    return [...apiItems, ...assetItems];
-  }, [apiRejected, assetInvoicesRejected]);
-
-  const normalizedPendingManagerInvoices = useMemo(() => {
-    const apiItems = apiPendingManager.map((i) => ({
-      ...i,
-      source_type: "invoice_api",
-    }));
-
-    const assetItems = assetInvoicesPending.map((a) => ({
-      id: a.id,
-      vendor: a.note || "Staff Upload",
-      amount: 0,
-      category: "Staff Invoice",
-      department: a.department || "",
-      image_url: a.url,
-      status: a.status,
-      source_type: "asset_invoice",
-    }));
-
-    return [...apiItems, ...assetItems];
-  }, [apiPendingManager, assetInvoicesPending]);
-
+}, [invoices]);
   // --------------------------------------------------
   // FINANCIAL METRICS
   // --------------------------------------------------
-  const totalRevenue = latestDay?.revenue || 0;
+  const totalRevenue = (salesItems || []).reduce(
+    (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+    0
+  );
 
-  const totalExpenses = normalizedApprovedInvoices.reduce(
+  const totalExpenses = (normalizedApprovedInvoices || []).reduce(
     (sum, e) => sum + (e.amount || 0),
     0
   );
 
-  const netProfit = totalRevenue - totalExpenses;
+  const totalCOGS = (productionLogs || []).reduce(
+    (sum, p) => sum + (p.total_cost || 0),
+    0
+  );
+
+  const totalSalary = (salaryQueue || []).reduce(
+    (sum, s) => sum + (s.amount || 0),
+    0
+  );
+
+  const netProfit =
+    totalRevenue - totalExpenses - totalCOGS - totalSalary;
+
+  const margin =
+    totalRevenue > 0
+      ? ((netProfit / totalRevenue) * 100).toFixed(2)
+      : 0;
+
+  // --------------------------------------------------
+  // TOP EXPENSES
+  // --------------------------------------------------
+  const topExpenses = useMemo(() => {
+    const grouped = {};
+
+    (normalizedApprovedInvoices || []).forEach((inv) => {
+      const key = inv.vendor || "Unknown";
+      grouped[key] = (grouped[key] || 0) + (inv.amount || 0);
+    });
+
+    return Object.entries(grouped)
+      .map(([vendor, total]) => ({ vendor, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  }, [normalizedApprovedInvoices]);
+
+  // --------------------------------------------------
+  // ALERT SYSTEM
+  // --------------------------------------------------
+  const alerts = [];
+
+  if (totalRevenue === 0) {
+    alerts.push({ type: "CRITICAL", msg: "No revenue detected" });
+  }
+
+  if (netProfit < 0) {
+    alerts.push({ type: "CRITICAL", msg: "You are losing money" });
+  }
+
+  if (margin < 30) {
+    alerts.push({ type: "WARNING", msg: "Low profit margin" });
+  }
+
+  if (totalExpenses > totalRevenue * 0.7) {
+    alerts.push({ type: "WARNING", msg: "Expenses too high" });
+  }
+
+  if (topExpenses[0]?.total > totalRevenue * 0.3) {
+    alerts.push({
+      type: "WARNING",
+      msg: `High cost from ${topExpenses[0].vendor}`,
+    });
+  }
+
+  let alert = "GOOD";
+
+  if (alerts.some((a) => a.type === "CRITICAL")) {
+    alert = "CRITICAL";
+  } else if (alerts.some((a) => a.type === "WARNING")) {
+    alert = "WARNING";
+  }
+
+  // --------------------------------------------------
+  // EXTRA
+  // --------------------------------------------------
+  const totalPendingAccountingValue = (normalizedAccountingQueue || []).reduce(
+    (sum, inv) => sum + (inv.amount || 0),
+    0
+  );
 
   const departmentExpenses = useMemo(() => {
     const grouped = {};
@@ -243,73 +219,50 @@ const salaryQueue = approvals
     }));
   }, [normalizedApprovedInvoices]);
 
-  const categoryExpenses = useMemo(() => {
-    const grouped = {};
-
-    normalizedApprovedInvoices.forEach((inv) => {
-      const key = inv.category || "Uncategorized";
-      grouped[key] = (grouped[key] || 0) + (inv.amount || 0);
-    });
-
-    return Object.entries(grouped).map(([category, total]) => ({
-      category,
-      total,
-    }));
-  }, [normalizedApprovedInvoices]);
-
-  const totalPendingAccountingValue = normalizedAccountingQueue.reduce(
-    (sum, inv) => sum + (inv.amount || 0),
-    0
-  );
-
   // --------------------------------------------------
   // ACTIONS
   // --------------------------------------------------
   const updateInvoiceStatus = async (id, status) => {
     await fetch("/api/invoices/update", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ id, status }),
-    });
-  };
-
-  const updateAssetStatus = async (id, status) => {
-    await fetch("/api/assets/update", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
     });
   };
 
   const finalizeAccountingApproval = async (item, status) => {
     try {
-      setActionLoading(`${item.source_type}-${item.id}-${status}`);
-
-      if (item.source_type === "salary") {
-  await supabase
-    .from("approval_rejections")
-    .update({ status: status === "approved" ? "final_approved" : "rejected_manager" })
-    .eq("id", item.id);
-
-} else if (item.source_type === "asset_invoice") {
-  await updateAssetStatus(item.id, status);
-
-} else {
-  await updateInvoiceStatus(item.id, status);
-}
+      setActionLoading(`${item.id}-${status}`);
+      await updateInvoiceStatus(item.id, status);
       await fetchAll();
     } finally {
       setActionLoading("");
     }
   };
+const openInvoicePreview = (invoice) => {
+  if (!invoice?.image_url) return;
 
+  setPreviewItem({
+    type: "image",
+    url: invoice.image_url,
+    title: invoice.vendor || "Invoice",
+    subtitle: `${invoice.amount || 0} THB`,
+  });
+};
+const getInvoicePreviewUrl = (invoice) => {
   return (
+    invoice?.image_url ||
+    invoice?.receipt_url ||
+    invoice?.file_url ||
+    invoice?.document_url ||
+    invoice?.url ||
+    null
+  );
+};
+  return (
+    
   
-      <div className="min-h-screen text-white p-6 max-w-7xl mx-auto space-y-8">
+  <div className="min-h-screen text-white p-6 max-w-7xl mx-auto space-y-8">
 
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -361,74 +314,135 @@ const salaryQueue = approvals
         ) : (
           <>
             {/* OVERVIEW */}
-            {activeTab === "overview" && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <MetricCard
-                    title="Revenue"
-                    value={`${totalRevenue.toLocaleString()} THB`}
-                  />
-                  <MetricCard
-                    title="Expenses"
-                    value={`${totalExpenses.toLocaleString()} THB`}
-                  />
-                  <MetricCard
-                    title="Net Profit"
-                    value={`${netProfit.toLocaleString()} THB`}
-                    valueClass={netProfit >= 0 ? "text-green-400" : "text-red-400"}
-                  />
-                  <MetricCard
-                    title="Pending Accounting Queue"
-                    value={`${normalizedAccountingQueue.length}`}
-                    subtitle={`${totalPendingAccountingValue.toLocaleString()} THB pending`}
-                  />
-                </div>
+{activeTab === "overview" && (
+  <div className="space-y-6">
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  <Panel title="Accounting Queue Snapshot">
-                    {normalizedAccountingQueue.length === 0 ? (
-                      <Empty text="No invoices waiting for accounting" />
-                    ) : (
-                      <div className="space-y-3">
-                        {normalizedAccountingQueue.slice(0, 6).map((inv) => (
-                          <div
-                            key={`${inv.source_type}-${inv.id}`}
-                            className="flex justify-between items-center border-b border-white/10 pb-2"
-                          >
-                            <div>
-                              <div>{inv.vendor}</div>
-                              <div className="text-xs text-white/40">
-                                {inv.category} {inv.department ? `(${inv.department})` : ""}
-                              </div>
-                            </div>
-                            <div className="text-sm">{inv.amount || 0} THB</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </Panel>
+    {/* METRICS */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <MetricCard title="Revenue" value={`${totalRevenue.toLocaleString()} THB`} />
+      <MetricCard title="Expenses" value={`${totalExpenses.toLocaleString()} THB`} />
+      <MetricCard title="COGS" value={`${totalCOGS.toLocaleString()} THB`} />
+      <MetricCard title="Salary" value={`${totalSalary.toLocaleString()} THB`} />
+      <MetricCard
+        title="Net Profit"
+        value={`${netProfit.toLocaleString()} THB`}
+        valueClass={netProfit >= 0 ? "text-green-400" : "text-red-400"}
+      />
+      <MetricCard
+        title="Pending Accounting Queue"
+        value={`${normalizedAccountingQueue.length}`}
+        subtitle={`${totalPendingAccountingValue.toLocaleString()} THB pending`}
+      />
+    </div>
 
-                  <Panel title="Department Expense Snapshot">
-                    {departmentExpenses.length === 0 ? (
-                      <Empty text="No approved expenses yet" />
-                    ) : (
-                      <div className="space-y-3">
-                        {departmentExpenses.map((item) => (
-                          <div
-                            key={item.department}
-                            className="flex justify-between border-b border-white/10 pb-2"
-                          >
-                            <span>{item.department}</span>
-                            <span>{item.total.toLocaleString()} THB</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </Panel>
-                </div>
-              </div>
-            )}
+    {/* STATUS */}
+    <div
+      className={`text-lg ${
+        alert === "CRITICAL"
+          ? "text-red-500"
+          : alert === "WARNING"
+          ? "text-yellow-400"
+          : "text-green-400"
+      }`}
+    >
+      Status: {alert}
+    </div>
 
+    {/* ALERTS */}
+    {alerts.length > 0 && (
+      <div className="mt-2 space-y-1">
+        {alerts.map((a, i) => (
+          <div
+            key={i}
+            className={`text-sm ${
+              a.type === "CRITICAL"
+                ? "text-red-500"
+                : "text-yellow-400"
+            }`}
+          >
+            ⚠ {a.msg}
+          </div>
+        ))}
+      </div>
+    )}
+
+  </div>
+)}
+
+{/* ===== OUTSIDE OVERVIEW ===== */}
+
+{activeTab === "overview" && (
+  <>
+    <Panel title="Profit Breakdown">
+      <div className="space-y-3">
+        <div className="flex justify-between border-b border-white/10 pb-2">
+          <span>Revenue</span>
+          <span className="text-green-400">
+            {totalRevenue.toLocaleString()} THB
+          </span>
+        </div>
+
+        <div className="flex justify-between border-b border-white/10 pb-2">
+          <span>Expenses</span>
+          <span className="text-red-400">
+            -{totalExpenses.toLocaleString()} THB
+          </span>
+        </div>
+
+        <div className="flex justify-between border-b border-white/10 pb-2">
+          <span>COGS</span>
+          <span className="text-red-400">
+            -{totalCOGS.toLocaleString()} THB
+          </span>
+        </div>
+
+        <div className="flex justify-between border-b border-white/10 pb-2">
+          <span>Salary</span>
+          <span className="text-red-400">
+            -{totalSalary.toLocaleString()} THB
+          </span>
+        </div>
+
+        <div className="flex justify-between pt-2 text-lg font-bold">
+          <span>Net Profit</span>
+          <span className={netProfit >= 0 ? "text-green-400" : "text-red-400"}>
+            {netProfit.toLocaleString()} THB
+          </span>
+        </div>
+      </div>
+    </Panel>
+
+    <Panel title="Top Cost Leaks">
+      {topExpenses.length === 0 ? (
+        <Empty text="No expense data" />
+      ) : (
+        <div className="space-y-3">
+          {topExpenses.map((item) => (
+            <div
+              key={item.vendor}
+              className="flex justify-between border-b border-white/10 pb-2"
+            >
+              <span>{item.vendor}</span>
+              <span className="text-red-400">
+                {item.total.toLocaleString()} THB
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <Panel title="Accounting Queue Snapshot">
+        ...
+      </Panel>
+
+      <Panel title="Department Expense Snapshot">
+        ...
+      </Panel>
+    </div>
+  </>
+)}
             {/* REVENUE */}
             {activeTab === "revenue" && (
               <Panel title="Revenue View">
@@ -545,9 +559,10 @@ const salaryQueue = approvals
         <div className="space-y-4">
           {normalizedAccountingQueue.map((inv) => (
             <div
-              key={`${inv.source_type}-${inv.id}`}
-              className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-white/10 pb-3"
-            >
+  key={`${inv.source_type}-${inv.id}`}
+  onClick={() => openInvoicePreview(inv)}
+  className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-white/10 pb-3 cursor-pointer hover:bg-white/5 p-2 rounded"
+>
               <div>
                 <div className="text-lg">{inv.vendor}</div>
                 <div className="text-sm text-white/50">

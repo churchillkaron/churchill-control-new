@@ -242,7 +242,8 @@ export default function POSPage() {
         table: selectedTable,
         items: orderItems,
         total,
-        staff_name: user?.email || "Unknown",
+        staff_id: user?.id,
+staff_name: user?.email || "Unknown",
         tenant_id: tenantId,
       }),
     });

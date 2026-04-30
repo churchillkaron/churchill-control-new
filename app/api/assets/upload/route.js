@@ -14,45 +14,37 @@ export async function POST(req) {
     const body = await req.json();
 
     const {
+  url,
+  note,
+  category,
+  department,
+  uploaded_by,
+  uploaded_by_id,
+  source,
+  type,
+  status,
+  invoice_status, // ✅ ADD THIS
+} = body;
+
+const { data, error } = await supabase
+  .from("assets")
+  .insert([
+    {
       url,
-      note,
+      note: note || "",
       category,
       department,
       uploaded_by,
       uploaded_by_id,
       source,
       type,
-      status,
-    } = body;
-
-    // ✅ VALIDATION
-    if (!url) {
-      return NextResponse.json(
-        { success: false, error: "Missing URL" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ INSERT INTO DATABASE ONLY
-    const { data, error } = await supabase
-      .from("assets")
-      .insert([
-        {
-          url,
-          note: note || "",
-          category,
-          department,
-          uploaded_by,
-          uploaded_by_id,
-          source,
-          type,
-          status: status || "pending",
-          created_at: new Date().toISOString(),
-        },
-      ])
-      .select()
-      .single();
-
+      status: status || "pending",
+      invoice_status: invoice_status || null, // ✅ SAVE IT
+      created_at: new Date().toISOString(),
+    },
+  ])
+  .select()
+  .single();
     if (error) {
       console.error("DB INSERT ERROR:", error);
 

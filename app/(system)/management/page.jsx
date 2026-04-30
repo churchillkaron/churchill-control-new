@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { supabase } from "@/lib/supabase";
 
 export default function ManagementPage() {
   const [data, setData] = useState(null)
@@ -21,32 +22,25 @@ export default function ManagementPage() {
   }
 
   if (!data) {
-    return <div className="p-6 text-white bg-black min-h-screen">Loading...</div>
+    return <div className="p-6 text-white min-h-screen">Loading...</div>
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex">
-
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-white/5 border-r border-white/10 p-4 space-y-2">
-        <h2 className="text-xl font-bold mb-4">Management</h2>
-
-        <Nav href="/management/dashboard" label="Dashboard" />
-        <Nav href="/management/approval" label="Approval" />
-        <Nav href="/management/attendance" label="Attendance" />
-        <Nav href="/management/invoices" label="Invoices" />
-        <Nav href="/management/messages" label="Messages" />
-        <Nav href="/management/salary" label="Salary" />
-        <Nav href="/management/staff-control" label="Staff Control" />
-      </aside>
-
-      {/* MAIN */}
-      <main className="flex-1 p-6 space-y-6">
+    <div className="min-h-screen text-white flex">
+      <main className="flex-1 p-6 space-y-8">
 
         {/* HEADER */}
         <div>
           <h1 className="text-2xl font-bold">Manager Control Panel</h1>
           <p className="text-sm opacity-60">Live system state</p>
+        </div>
+
+        {/* NAV ACTIONS */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <NavCard title="Invoices" href="/management/approval" />
+          <NavCard title="Salary" href="/management/salary" />
+          <NavCard title="Attendance" href="/management/attendance" />
+          <NavCard title="Operations" href="/management/operations" />
         </div>
 
         {/* CORE METRICS */}
@@ -83,7 +77,7 @@ export default function ManagementPage() {
         <Section title="Tasks">
           {data.tasks?.length === 0 && <Empty />}
           {data.tasks?.map((t, i) => (
-            <Task key={i} title={t.title} />
+            <Task key={i} title={t.title} type={t.type} />
           ))}
         </Section>
 
@@ -95,7 +89,7 @@ export default function ManagementPage() {
           ))}
         </Section>
 
-        {/* TOP STAFF */}
+        {/* STAFF */}
         <Section title="Staff Performance">
           {data.staff?.map((s, i) => (
             <Staff key={i} name={s.name} score={s.score} />
@@ -107,15 +101,39 @@ export default function ManagementPage() {
   )
 }
 
-/* COMPONENTS */
-
-function Nav({ href, label }) {
+/* NAV CARD */
+function NavCard({ title, href }) {
   return (
-    <Link href={href} className="block px-3 py-2 rounded hover:bg-white/10">
-      {label}
+    <Link
+      href={href}
+      className="p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition"
+    >
+      <div className="font-semibold">{title}</div>
     </Link>
   )
 }
+
+/* TASK (CLICKABLE LOGIC) */
+function Task({ title, type }) {
+
+  let href = "/management"
+
+  if (type === "invoice") href = "/management/approval"
+  if (type === "salary") href = "/management/salary"
+  if (type === "routine") href = "/management/operations"
+  if (type === "performance") href = "/dashboard"
+  if (type === "critical") href = "/dashboard"
+
+  return (
+    <Link href={href}>
+      <div className="p-3 bg-blue-900/40 rounded hover:bg-blue-900/60 transition cursor-pointer">
+        {title}
+      </div>
+    </Link>
+  )
+}
+
+/* UI COMPONENTS */
 
 function Card({ title, value }) {
   return (
@@ -144,10 +162,6 @@ function Alert({ type, message }) {
       : 'bg-blue-900/40'
 
   return <div className={`p-3 rounded ${color}`}>{message}</div>
-}
-
-function Task({ title }) {
-  return <div className="p-3 bg-blue-900/40 rounded">{title}</div>
 }
 
 function Stock({ item, level, qty }) {

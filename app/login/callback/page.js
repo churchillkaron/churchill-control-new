@@ -17,7 +17,7 @@ export default function LoginCallback() {
           document.cookie = "role=Owner; path=/";
           document.cookie = "setup_complete=true; path=/";
           document.cookie = "subscription=active; path=/";
-          rsetTimeout(() => {
+          setTimeout(() => {
   router.push("/dashboard");
 }, 100);
           return;

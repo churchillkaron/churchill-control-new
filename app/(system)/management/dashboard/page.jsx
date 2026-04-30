@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import { createClient } from "@supabase/supabase-js";
 
 export default function ManagerDashboard() {
   const [data, setData] = useState([]);

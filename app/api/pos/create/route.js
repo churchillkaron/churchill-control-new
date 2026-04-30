@@ -4,9 +4,12 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    const { table, items, total, staff_name, tenant_id } = body;
+    const { table, items, total, staff_name, staff_id, tenant_id } = body;
 
     // 🔴 VALIDATE BASIC INPUT
+    if (!staff_id) {
+  return Response.json({ error: "Missing staff_id" }, { status: 400 });
+}
     if (!tenant_id) {
       return Response.json({ error: "Missing tenant_id" }, { status: 400 });
     }
@@ -97,27 +100,28 @@ export async function POST(req) {
     }
 
     // ✅ CREATE ORDER ITEMS (1 row per unit)
-    const orderItems = [];
+const orderItems = [];
 
-    for (const item of items) {
-      const qty = Number(item.quantity || 1);
+for (const item of items) {
+  const qty = Number(item.quantity || 1);
 
-      for (let i = 0; i < qty; i++) {
-        orderItems.push({
-          tenant_id: tenant_id,
-          order_id: order.id,
-          item_name: item.item_name || item.name || "Item",
-          status: "PENDING",
-          dish_id: item.dish_id,
-          price: Number(item.price || 0),
-          quantity: 1, // 🔥 ALWAYS 1
-        });
-      }
-    }
+  for (let i = 0; i < qty; i++) {
+    orderItems.push({
+      tenant_id: tenant_id,
+      order_id: order.id,
+      item_name: item.item_name || item.name || "Item",
+      status: "PENDING",
+      dish_id: item.dish_id,
+      price: Number(item.price || 0),
+      quantity: 1,
+      staff_id: staff_id, // ✅ ADD THIS
+    });
+  }
+}
 
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(orderItems);
+const { error: itemsError } = await supabase
+  .from("order_items")
+  .insert(orderItems);
 
     if (itemsError) {
       console.error("ITEM INSERT ERROR:", itemsError);

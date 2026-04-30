@@ -340,32 +340,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* MODULES */}
-        <section className="max-w-7xl mx-auto px-6 py-12">
-          <div className="glass-strong rounded-[2rem] p-8 md:p-10 border border-white/15">
-            <div className="text-xs text-orange-300 uppercase tracking-[0.22em] mb-2">System Architecture</div>
-            <h2 className="text-3xl font-bold mb-9">Full System Modules</h2>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {modules.map((module) => {
-                const isCore = module === "Operations" || module === "Dashboard" || module === "AI Manager";
-
-                return (
-                  <div
-                    key={module}
-                    className={`glass p-4 rounded-2xl group transition ${
-                      isCore ? "border border-orange-500/50 bg-orange-500/5" : "hover:border-orange-400/40"
-                    }`}
-                  >
-                    <img src={moduleIcons[module]} alt="" className="h-12 w-12 object-contain mb-3 transition duration-300 group-hover:scale-110" />
-                    <div className="text-sm font-semibold">{module}</div>
-                    <div className="text-xs text-muted mt-1 leading-5">{moduleDescriptions[module]}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
 
         {/* DISTRIBUTION */}
         <section className="max-w-7xl mx-auto px-6 py-12">

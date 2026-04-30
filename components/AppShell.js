@@ -1,108 +1,109 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-function getCookieValue(name) {
-  if (typeof document === "undefined") return "";
-  const value = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith(`${name}=`));
-
-  return value ? decodeURIComponent(value.split("=")[1]) : "";
-}
-
-function normalizeRole(role) {
-  return (role || "staff").toLowerCase().trim();
-}
+import { supabase } from "@/lib/supabase";
 
 const roleMenus = {
+  staff: {
+    foh: [
+      { name: "Home", href: "/staff" },
+      { name: "POS", href: "/pos" },
+      { name: "Tables", href: "/tables" },
+      { name: "Kitchen", href: "/kitchen" },
+    ],
+    kitchen: [
+      { name: "Home", href: "/staff" },
+      { name: "Kitchen", href: "/kitchen" },
+      { name: "Production", href: "/production" },
+    ],
+    bar: [
+      { name: "Home", href: "/staff" },
+      { name: "POS", href: "/pos" },
+      { name: "Tables", href: "/tables" },
+    ],
+  },
+
   owner: [
-    { name: "Dashboard", href: "/dashboard", icon: "/icons/dashboard.png" },
-    { name: "POS", href: "/pos", icon: "/icons/pos.png" },
-    { name: "Tables", href: "/tables", icon: "/icons/ai-process.png" },
-    { name: "Kitchen", href: "/kitchen", icon: "/icons/production.png" },
-    { name: "Production", href: "/production", icon: "/icons/production.png" },
-    { name: "Waste", href: "/waste", icon: "/icons/action-alert.png" },
-    { name: "Staff", href: "/staff", icon: "/icons/staff-salary.png" },
-    { name: "Salary", href: "/salary", icon: "/icons/salary.png" },
-    { name: "Accounting", href: "/accounting", icon: "/icons/accounting.png" },
-    { name: "Payout", href: "/payout", icon: "/icons/finance-cost.png" },
-    { name: "Settings", href: "/settings", icon: "/icons/integrations.png" },
+    { name: "Dashboard", href: "/dashboard" },
+    { name: "POS", href: "/pos" },
+    { name: "Tables", href: "/tables" },
+    { name: "Kitchen", href: "/kitchen" },
+    { name: "Production", href: "/production" },
+    { name: "Accounting", href: "/accounting" },
   ],
 
   manager: [
-    { name: "Dashboard", href: "/dashboard", icon: "/icons/dashboard.png" },
-    { name: "POS", href: "/pos", icon: "/icons/pos.png" },
-    { name: "Tables", href: "/tables", icon: "/icons/ai-process.png" },
-    { name: "Kitchen", href: "/kitchen", icon: "/icons/production.png" },
-    { name: "Production", href: "/production", icon: "/icons/production.png" },
-    { name: "Waste", href: "/waste", icon: "/icons/action-alert.png" },
-    { name: "Staff", href: "/staff", icon: "/icons/staff-salary.png" },
-    { name: "Payout", href: "/payout", icon: "/icons/finance-cost.png" },
-  ],
-
-  production: [
-    { name: "Production", href: "/production", icon: "/icons/production.png" },
-    { name: "Kitchen", href: "/kitchen", icon: "/icons/production.png" },
-    { name: "Waste", href: "/waste", icon: "/icons/action-alert.png" },
-    { name: "Stock", href: "/stock", icon: "/icons/input-box.png" },
-  ],
-
-  accounting: [
-    { name: "Accounting", href: "/accounting", icon: "/icons/accounting.png" },
-    { name: "Payout", href: "/payout", icon: "/icons/finance-cost.png" },
-    { name: "Salary", href: "/salary", icon: "/icons/salary.png" },
-  ],
-
-  staff: [
-    { name: "Staff", href: "/staff", icon: "/icons/staff-salary.png" },
-    { name: "Tasks", href: "/staff", icon: "/icons/action-lightning.png" },
-    { name: "Salary", href: "/salary", icon: "/icons/salary.png" },
+    { name: "home", href: "/management" },
+    { name: "Dashboard", href: "/dashboard" },
+    { name: "POS", href: "/pos" },
+    { name: "Tables", href: "/tables" },
+    { name: "Kitchen", href: "/kitchen" },
   ],
 };
 
-function getRoleMenu(role) {
-  if (role === "general manager") return roleMenus.manager;
-  return roleMenus[role] || roleMenus.staff;
-}
-
 export default function AppShell({ children }) {
   const pathname = usePathname();
+
   const [role, setRole] = useState("staff");
+  const [position, setPosition] = useState("foh");
 
+  // 🔥 LOAD USER FROM DB
   useEffect(() => {
-    setRole(normalizeRole(getCookieValue("role")));
-  }, [pathname]);
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data?.user) return;
 
-  const menu = useMemo(() => getRoleMenu(role), [role]);
+      const { data: userData } = await supabase
+        .from("staff_accounts")
+        .select("role, position")
+        .eq("auth_user_id", data.user.id)
+        .single();
+
+      if (userData) {
+        setRole((userData.role || "staff").toLowerCase());
+        setPosition((userData.position || "foh").toLowerCase());
+      }
+    };
+
+    loadUser();
+  }, []);
+
+  // 🔥 BUILD MENU
+  let menu = [];
+
+  if (role === "staff") {
+    menu = roleMenus.staff[position] || roleMenus.staff.foh;
+  } else {
+    menu = roleMenus[role] || [];
+  }
+
   const mobileMenu = menu.slice(0, 4);
 
+  // 🔥 DO NOT WRAP LOGIN PAGE
   if (pathname === "/" || pathname.startsWith("/login")) {
     return children;
   }
 
   return (
     <div className="h-screen text-white relative bg-black overflow-hidden">
+      
       {/* BACKGROUND */}
       <div
         className="fixed inset-0 bg-cover bg-center opacity-45"
         style={{ backgroundImage: "url('/bg-hero-control.jpg')" }}
       />
       <div className="fixed inset-0 bg-gradient-to-b from-black/65 via-black/45 to-black/80" />
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,122,0,0.22),transparent_35%)]" />
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.05),transparent_35%)]" />
 
       <div className="relative z-10 flex">
-        {/* DESKTOP SIDEBAR */}
-        <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col px-6 py-8">
-          <div className="text-xl font-bold mb-2 tracking-wide text-white/90">
-            CONTROL
-          </div>
 
-          <div className="text-xs text-orange-300/80 mb-8 uppercase tracking-[0.18em]">
-            {role}
+        {/* SIDEBAR */}
+        <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col px-6 py-8">
+          <div className="text-xl font-bold mb-4">CONTROL</div>
+
+          <div className="text-xs text-orange-300 mb-6 uppercase">
+            {role} / {position}
           </div>
 
           <nav className="flex flex-col gap-2">
@@ -113,10 +114,10 @@ export default function AppShell({ children }) {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                  className={`px-3 py-2 rounded-lg text-sm transition ${
                     active
-                      ? "text-orange-400 font-medium"
-                      : "text-white/50 hover:text-white hover:translate-x-1"
+                      ? "text-orange-400"
+                      : "text-white/50 hover:text-white"
                   }`}
                 >
                   {item.name}
@@ -128,40 +129,28 @@ export default function AppShell({ children }) {
 
         {/* MAIN */}
         <div className="flex-1 flex flex-col">
-          {/* TOPBAR */}
-          <header className="fixed top-0 left-0 md:left-56 right-0 h-16 flex items-center justify-between px-4 md:px-6 border-b border-white/10 bg-black/30 backdrop-blur-xl z-50">
-            <div className="flex items-center gap-4">
-              <div className="text-lg font-semibold tracking-wide">
-                {pathname.replace("/", "").toUpperCase() || "DASHBOARD"}
-              </div>
 
-              <div className="hidden md:block text-xs text-white/40">
-                AI Control System
-              </div>
+          {/* TOPBAR */}
+          <header className="fixed top-0 left-0 md:left-56 right-0 h-16 flex items-center justify-between px-6 border-b border-white/10 bg-black/30 backdrop-blur-xl z-50">
+            <div className="text-lg font-semibold">
+              {pathname.replace("/", "").toUpperCase() || "DASHBOARD"}
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="text-xs text-green-400 flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                Live
-              </div>
-
-              <div className="px-3 py-1 rounded-lg text-xs bg-white/5 border border-white/10 capitalize">
-                {role}
-              </div>
+            <div className="text-xs text-green-400 flex items-center gap-2">
+              ● Live
             </div>
           </header>
 
           {/* CONTENT */}
-          <main className="mt-16 md:ml-56 h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
+          <main className="mt-16 md:ml-56 h-[calc(100vh-4rem)] overflow-y-auto p-6 pb-24">
             {children}
           </main>
         </div>
       </div>
 
-      {/* MOBILE BOTTOM NAV - ROLE BASED */}
+      {/* MOBILE NAV */}
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
-        <div className="glass-strong border-t border-white/10 flex justify-around py-2">
+        <div className="flex justify-around py-2 bg-black/80 border-t border-white/10">
           {mobileMenu.map((item) => {
             const active = pathname === item.href;
 
@@ -169,25 +158,17 @@ export default function AppShell({ children }) {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex flex-col items-center text-xs transition ${
+                className={`flex flex-col items-center text-xs ${
                   active ? "text-orange-400" : "text-white/60"
                 }`}
               >
-                <img
-                  src={item.icon}
-                  alt={item.name}
-                  className={`h-5 w-5 mb-1 transition ${
-                    active
-                      ? "opacity-100 scale-110 drop-shadow-[0_0_10px_rgba(255,122,0,0.6)]"
-                      : "opacity-60"
-                  }`}
-                />
-                <span className="text-[10px]">{item.name}</span>
+                <span>{item.name}</span>
               </Link>
             );
           })}
         </div>
       </div>
+
     </div>
   );
 }

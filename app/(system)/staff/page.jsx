@@ -143,7 +143,7 @@ export default function StaffPage() {
     loadSalary(savedShift);
     loadLeaderboard();
     loadSalesCompetition();
-    checkDepartmentRoutine();
+  
   }, []);
 
  useEffect(() => {

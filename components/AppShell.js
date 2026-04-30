@@ -35,18 +35,21 @@ const roleMenus = {
   ],
 
   manager: [
-    { name: "home", href: "/management" },
+    { name: "home", href: "/staff" },
     { name: "Dashboard", href: "/dashboard" },
     { name: "POS", href: "/pos" },
     { name: "Tables", href: "/tables" },
     { name: "Kitchen", href: "/kitchen" },
+    { name: "Production", href: "/production" },
 ],
-    accounting: [
+  accounting: [
   { name: "home", href: "/accounting" },
+  { name: "accounting", href: "/accounting" },
   { name: "Dashboard", href: "/dashboard" },
   { name: "POS", href: "/pos" },
   { name: "Tables", href: "/tables" },
   { name: "Kitchen", href: "/kitchen" },
+  { name: "Production", href: "/production" },
 ],
 };
 

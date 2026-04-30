@@ -40,6 +40,13 @@ const roleMenus = {
     { name: "POS", href: "/pos" },
     { name: "Tables", href: "/tables" },
     { name: "Kitchen", href: "/kitchen" },
+
+    accounting: [
+    { name: "home", href: "/acounting" },
+    { name: "Dashboard", href: "/dashboard" },
+    { name: "POS", href: "/pos" },
+    { name: "Tables", href: "/tables" },
+    { name: "Kitchen", href: "/kitchen" },
   ],
 };
 

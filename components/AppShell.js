@@ -1,5 +1,6 @@
 "use client";
-console.log("APPSHELL V2 LOADED");
+console.log("APPSHELL V3 LOADED");
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -38,9 +39,8 @@ export default function AppShell({ children }) {
 
       <div className="relative z-10 flex">
 
-        {/* SIDEBAR */}
-     <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col px-6 py-8">
-
+        {/* SIDEBAR (DESKTOP ONLY) */}
+        <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col px-6 py-8">
           <div className="text-xl font-bold mb-10 tracking-wide text-white/90">
             CONTROL
           </div>
@@ -70,8 +70,18 @@ export default function AppShell({ children }) {
         <div className="flex-1 flex flex-col">
 
           {/* TOPBAR */}
-         <header className="fixed top-0 left-56 right-0 h-16 flex items-center justify-between px-6 border-b border-white/10 bg-black/30 backdrop-blur-xl z-50">
-
+          <header className="
+            fixed 
+            top-0 
+            left-0 md:left-56 
+            right-0 
+            h-16 
+            flex items-center justify-between 
+            px-4 md:px-6 
+            border-b border-white/10 
+            bg-black/30 backdrop-blur-xl 
+            z-50
+          ">
             <div className="flex items-center gap-4">
               <div className="text-lg font-semibold tracking-wide">
                 {pathname.replace("/", "").toUpperCase() || "DASHBOARD"}
@@ -83,7 +93,6 @@ export default function AppShell({ children }) {
             </div>
 
             <div className="flex items-center gap-4">
-
               <div className="text-xs text-green-400 flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                 Live
@@ -92,19 +101,25 @@ export default function AppShell({ children }) {
               <div className="px-3 py-1 rounded-lg text-xs bg-white/5 border border-white/10">
                 Owner
               </div>
-
             </div>
           </header>
 
           {/* CONTENT */}
-          <main className="ml-56 mt-16 h-[calc(100vh-4rem)] overflow-y-auto p-6 pb-24 md:pb-6">
-  {children}
-</main>
+          <main className="
+            mt-16 
+            md:ml-56 
+            h-[calc(100vh-4rem)] 
+            overflow-y-auto 
+            p-4 md:p-6 
+            pb-24 md:pb-6
+          ">
+            {children}
+          </main>
 
         </div>
       </div>
 
-      {/* MOBILE NAV */}
+      {/* MOBILE BOTTOM NAV ONLY */}
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
         <div className="glass-strong border-t border-white/10 flex justify-around py-2">
 

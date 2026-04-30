@@ -1,25 +1,83 @@
 "use client";
-console.log("APPSHELL V3 LOADED");
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const menu = [
-  { name: "Dashboard", href: "/dashboard" },
-  { name: "POS", href: "/pos" },
-  { name: "Kitchen", href: "/kitchen" },
-  { name: "Tables", href: "/tables" },
-  { name: "Production", href: "/production" },
-  { name: "Waste", href: "/waste" },
-  { name: "Staff", href: "/staff" },
-  { name: "Staff-salary", href: "/salary" },
-  { name: "Accounting", href: "/accounting" },
-  { name: "Payout", href: "/payout" },
-  { name: "Settings", href: "/settings" },
-];
+function getCookieValue(name) {
+  if (typeof document === "undefined") return "";
+  const value = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`));
+
+  return value ? decodeURIComponent(value.split("=")[1]) : "";
+}
+
+function normalizeRole(role) {
+  return (role || "staff").toLowerCase().trim();
+}
+
+const roleMenus = {
+  owner: [
+    { name: "Dashboard", href: "/dashboard", icon: "/icons/dashboard.png" },
+    { name: "POS", href: "/pos", icon: "/icons/pos.png" },
+    { name: "Tables", href: "/tables", icon: "/icons/ai-process.png" },
+    { name: "Kitchen", href: "/kitchen", icon: "/icons/production.png" },
+    { name: "Production", href: "/production", icon: "/icons/production.png" },
+    { name: "Waste", href: "/waste", icon: "/icons/action-alert.png" },
+    { name: "Staff", href: "/staff", icon: "/icons/staff-salary.png" },
+    { name: "Salary", href: "/salary", icon: "/icons/salary.png" },
+    { name: "Accounting", href: "/accounting", icon: "/icons/accounting.png" },
+    { name: "Payout", href: "/payout", icon: "/icons/finance-cost.png" },
+    { name: "Settings", href: "/settings", icon: "/icons/integrations.png" },
+  ],
+
+  manager: [
+    { name: "Dashboard", href: "/dashboard", icon: "/icons/dashboard.png" },
+    { name: "POS", href: "/pos", icon: "/icons/pos.png" },
+    { name: "Tables", href: "/tables", icon: "/icons/ai-process.png" },
+    { name: "Kitchen", href: "/kitchen", icon: "/icons/production.png" },
+    { name: "Production", href: "/production", icon: "/icons/production.png" },
+    { name: "Waste", href: "/waste", icon: "/icons/action-alert.png" },
+    { name: "Staff", href: "/staff", icon: "/icons/staff-salary.png" },
+    { name: "Payout", href: "/payout", icon: "/icons/finance-cost.png" },
+  ],
+
+  production: [
+    { name: "Production", href: "/production", icon: "/icons/production.png" },
+    { name: "Kitchen", href: "/kitchen", icon: "/icons/production.png" },
+    { name: "Waste", href: "/waste", icon: "/icons/action-alert.png" },
+    { name: "Stock", href: "/stock", icon: "/icons/input-box.png" },
+  ],
+
+  accounting: [
+    { name: "Accounting", href: "/accounting", icon: "/icons/accounting.png" },
+    { name: "Payout", href: "/payout", icon: "/icons/finance-cost.png" },
+    { name: "Salary", href: "/salary", icon: "/icons/salary.png" },
+  ],
+
+  staff: [
+    { name: "Staff", href: "/staff", icon: "/icons/staff-salary.png" },
+    { name: "Tasks", href: "/staff", icon: "/icons/action-lightning.png" },
+    { name: "Salary", href: "/salary", icon: "/icons/salary.png" },
+  ],
+};
+
+function getRoleMenu(role) {
+  if (role === "general manager") return roleMenus.manager;
+  return roleMenus[role] || roleMenus.staff;
+}
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
+  const [role, setRole] = useState("staff");
+
+  useEffect(() => {
+    setRole(normalizeRole(getCookieValue("role")));
+  }, [pathname]);
+
+  const menu = useMemo(() => getRoleMenu(role), [role]);
+  const mobileMenu = menu.slice(0, 4);
 
   if (pathname === "/" || pathname.startsWith("/login")) {
     return children;
@@ -27,7 +85,6 @@ export default function AppShell({ children }) {
 
   return (
     <div className="h-screen text-white relative bg-black overflow-hidden">
-
       {/* BACKGROUND */}
       <div
         className="fixed inset-0 bg-cover bg-center opacity-45"
@@ -38,11 +95,14 @@ export default function AppShell({ children }) {
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.05),transparent_35%)]" />
 
       <div className="relative z-10 flex">
-
-        {/* SIDEBAR (DESKTOP ONLY) */}
+        {/* DESKTOP SIDEBAR */}
         <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col px-6 py-8">
-          <div className="text-xl font-bold mb-10 tracking-wide text-white/90">
+          <div className="text-xl font-bold mb-2 tracking-wide text-white/90">
             CONTROL
+          </div>
+
+          <div className="text-xs text-orange-300/80 mb-8 uppercase tracking-[0.18em]">
+            {role}
           </div>
 
           <nav className="flex flex-col gap-2">
@@ -68,20 +128,8 @@ export default function AppShell({ children }) {
 
         {/* MAIN */}
         <div className="flex-1 flex flex-col">
-
           {/* TOPBAR */}
-          <header className="
-            fixed 
-            top-0 
-            left-0 md:left-56 
-            right-0 
-            h-16 
-            flex items-center justify-between 
-            px-4 md:px-6 
-            border-b border-white/10 
-            bg-black/30 backdrop-blur-xl 
-            z-50
-          ">
+          <header className="fixed top-0 left-0 md:left-56 right-0 h-16 flex items-center justify-between px-4 md:px-6 border-b border-white/10 bg-black/30 backdrop-blur-xl z-50">
             <div className="flex items-center gap-4">
               <div className="text-lg font-semibold tracking-wide">
                 {pathname.replace("/", "").toUpperCase() || "DASHBOARD"}
@@ -98,37 +146,23 @@ export default function AppShell({ children }) {
                 Live
               </div>
 
-              <div className="px-3 py-1 rounded-lg text-xs bg-white/5 border border-white/10">
-                Owner
+              <div className="px-3 py-1 rounded-lg text-xs bg-white/5 border border-white/10 capitalize">
+                {role}
               </div>
             </div>
           </header>
 
           {/* CONTENT */}
-          <main className="
-            mt-16 
-            md:ml-56 
-            h-[calc(100vh-4rem)] 
-            overflow-y-auto 
-            p-4 md:p-6 
-            pb-24 md:pb-6
-          ">
+          <main className="mt-16 md:ml-56 h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
             {children}
           </main>
-
         </div>
       </div>
 
-      {/* MOBILE BOTTOM NAV ONLY */}
+      {/* MOBILE BOTTOM NAV - ROLE BASED */}
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
         <div className="glass-strong border-t border-white/10 flex justify-around py-2">
-
-          {[
-            { name: "Home", href: "/dashboard", icon: "/icons/dashboard.png" },
-            { name: "POS", href: "/pos", icon: "/icons/pos.png" },
-            { name: "Tables", href: "/tables", icon: "/icons/ai-process.png" },
-            { name: "Kitchen", href: "/kitchen", icon: "/icons/production.png" },
-          ].map((item) => {
+          {mobileMenu.map((item) => {
             const active = pathname === item.href;
 
             return (
@@ -152,10 +186,8 @@ export default function AppShell({ children }) {
               </Link>
             );
           })}
-
         </div>
       </div>
-
     </div>
   );
 }

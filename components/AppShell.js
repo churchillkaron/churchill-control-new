@@ -126,9 +126,8 @@ export default function AppShell({ children }) {
           {[
             { name: "Home", href: "/dashboard", icon: "/icons/dashboard.png" },
             { name: "POS", href: "/pos", icon: "/icons/pos.png" },
+            { name: "Tables", href: "/tables", icon: "/icons/ai-process.png" },
             { name: "Kitchen", href: "/kitchen", icon: "/icons/production.png" },
-            { name: "Prod", href: "/production", icon: "/icons/production.png" },
-            { name: "Tables", href: "/control", icon: "/icons/ai-process.png" },
           ].map((item) => {
             const active = pathname === item.href;
 

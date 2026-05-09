@@ -52,9 +52,7 @@ console.log("TOKEN DATA:", tokenData);
 console.log("PAGES DATA:", JSON.stringify(pagesData, null, 2));
 if (!firstPage) {
 
-  return NextResponse.redirect(
-    `${BASE_URL}/marketing?facebook=no_pages&debug=${encodeURIComponent(JSON.stringify(pagesData))}`
-  );
+
 
 }
 
@@ -70,6 +68,13 @@ console.log("IG DATA:", igData);
 
 const instagramId =
   igData?.instagram_business_account?.id || null;
+  return Response.json({
+  success: true,
+  tokenData,
+  pagesData,
+  firstPage,
+  instagramId,
+});
   const response = NextResponse.redirect(
     `${BASE_URL}/marketing?facebook=connected`
   );

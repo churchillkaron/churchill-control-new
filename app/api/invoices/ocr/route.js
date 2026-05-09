@@ -3,18 +3,23 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-
-
-
-
-export async function GET() {
-  return Response.json({ success: true });
+function classifyItem(name = "") {
+  
 }
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
+export async function POST(req) {
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+
+}
 function classifyItem(name = "") {
   const text = String(name).toLowerCase();
 

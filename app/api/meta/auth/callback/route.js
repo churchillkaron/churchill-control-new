@@ -44,7 +44,8 @@ const pagesData = await pagesRes.json();
 console.log("PAGES:", pagesData);
 
 const firstPage = pagesData?.data?.[0];
-
+console.log("TOKEN DATA:", tokenData);
+console.log("PAGES DATA:", JSON.stringify(pagesData, null, 2));
 if (!firstPage) {
 
   return NextResponse.redirect(

@@ -46,7 +46,13 @@ const [venue, setVenue] =
 const [subject, setSubject] =
   useState("Guests enjoying nightlife");
 
+  const [pageId, setPageId] =
+  useState("");
+
   return {
+
+    pageId,
+    setPageId,
 
     selectedImage,
     setSelectedImage,

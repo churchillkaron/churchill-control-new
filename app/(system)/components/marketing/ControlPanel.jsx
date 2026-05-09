@@ -32,6 +32,49 @@ export default function ControlPanel({
         onChange={uploadImage}
       />
 
+      <select
+  value={poster.pageId}
+  onChange={(e) =>
+    poster.setPageId(
+      e.target.value
+    )
+  }
+  className="
+    w-full
+    bg-black
+    border
+    border-white/20
+    rounded-xl
+    p-4
+  "
+>
+
+  <option value="">
+    Select Business
+  </option>
+
+  <option value="113408238398926">
+    Cole Ley
+  </option>
+
+  <option value="118739891119327">
+    PCS Business Group
+  </option>
+
+  <option value="109949861972047">
+    Pestcontrol Phuket
+  </option>
+
+  <option value="106273351354545">
+    The New Butterfly
+  </option>
+
+  <option value="112860474967">
+    Churchill Bar and Restaurant
+  </option>
+
+</select>
+
 <select
   value={poster.layout}
   onChange={(e) =>

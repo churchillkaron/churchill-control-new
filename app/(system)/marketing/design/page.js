@@ -136,12 +136,15 @@ RECOMMENDATION:
 ${recommendation}
 `;
 
-    const campaign =
-      await createCampaignFlow({
-        tenantId,
-        prompt,
-        poster,
-      });
+   const campaign =
+  await createCampaignFlow({
+    tenantId,
+    prompt,
+    poster,
+
+    pageId:
+      poster.pageId,
+  });
 
     poster.setSelectedImage(
       campaign.image_url

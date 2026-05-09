@@ -58,10 +58,11 @@ export async function POST() {
         }
 
         const { data: account, error: accountError } = await supabase
-          .from("meta_accounts")
-          .select("*")
-          .eq("connected", true)
-          .single();
+  .from("meta_accounts")
+  .select("*")
+  .eq("connected", true)
+  .eq("page_id", campaign.page_id)
+  .single();
 
         if (accountError || !account) {
           throw new Error("No connected Meta account");

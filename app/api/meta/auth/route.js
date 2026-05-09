@@ -39,7 +39,7 @@ export async function GET() {
     authUrl.searchParams.set(
       "scope",
 
- "public_profile,pages_read_engagement"
+ "public_profile,pages_show_list"
     );
 
     const response =

@@ -5,14 +5,15 @@ export const runtime = "nodejs";
 
 
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+
 
 export async function GET() {
   return Response.json({ success: true });
 }
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 function classifyItem(name = "") {
   const text = String(name).toLowerCase();

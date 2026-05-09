@@ -43,8 +43,7 @@ authUrl.searchParams.set(
     "pages_read_engagement",
     "business_management",
     "instagram_basic",
-    "instagram_content_publish",
-    "instagram_business_manage_insights"
+    "instagram_content_publish"
   ].join(",")
 );
 

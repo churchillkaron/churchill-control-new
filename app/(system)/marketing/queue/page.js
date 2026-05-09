@@ -12,6 +12,25 @@ from "@/lib/supabase/queueCampaign";
 import { updateCampaignStatus }
 from "@/lib/supabase/updateCampaignStatus";
 
+const PAGE_NAMES = {
+
+  "112860474967":
+    "Churchill Bar and Restaurant",
+
+  "113408238398926":
+    "Cole Ley",
+
+  "118739891119327":
+    "PCS Business Group",
+
+  "109949861972047":
+    "Pestcontrol Phuket",
+
+  "106273351354545":
+    "The New Butterfly",
+
+};
+
 export default function Page() {
 
   const [campaigns, setCampaigns] =
@@ -55,7 +74,92 @@ export default function Page() {
     } finally {
 
       setLoading(false);
+
     }
+
+  }
+
+  async function publishCampaign(
+    campaign
+  ) {
+
+    try {
+
+      await queueCampaign({
+
+        campaignId:
+          campaign.id,
+
+        platform:
+          "instagram",
+
+        scheduledFor:
+          new Date()
+            .toISOString(),
+
+      });
+
+      await updateCampaignStatus({
+
+        campaignId:
+          campaign.id,
+
+        status:
+          "queued",
+
+      });
+
+      await loadCampaigns();
+
+      alert(
+        "Campaign queued"
+      );
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        "Queue failed"
+      );
+
+    }
+
+  }
+
+  async function processQueue() {
+
+    try {
+
+      const res =
+        await fetch(
+          "/api/marketing/process-queue",
+          {
+            method: "POST",
+          }
+        );
+
+      const data =
+        await res.json();
+
+      console.log(data);
+
+      await loadCampaigns();
+
+      alert(
+        "Queue processed"
+      );
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        "Processing failed"
+      );
+
+    }
+
   }
 
   if (loading) {
@@ -74,78 +178,9 @@ export default function Page() {
       </div>
 
     );
+
   }
-async function publishCampaign(
-  campaign
-) {
 
-  try {
-
-    await queueCampaign({
-
-      campaignId:
-        campaign.id,
-
-      platform:
-        "instagram",
-
-      scheduledFor:
-        new Date()
-          .toISOString(),
-    });
-await updateCampaignStatus({
-
-  campaignId:
-    campaign.id,
-
-  status:
-    "queued",
-});
-    alert(
-      "Campaign queued"
-    );
-
-  } catch (err) {
-
-    console.error(err);
-
-    alert(
-      "Queue failed"
-    );
-  }
-}
-async function processQueue() {
-
-  try {
-
-    const res =
-      await fetch(
-        "/api/marketing/process-queue",
-        {
-          method: "POST",
-        }
-      );
-
-    const data =
-      await res.json();
-
-    console.log(data);
-
-    await loadCampaigns();
-
-    alert(
-      "Queue processed"
-    );
-
-  } catch (err) {
-
-    console.error(err);
-
-    alert(
-      "Processing failed"
-    );
-  }
-}
   return (
 
     <div
@@ -164,15 +199,52 @@ async function processQueue() {
         "
       >
 
-        <h1
+        <div
           className="
-            text-5xl
-            font-light
+            flex
+            items-center
+            justify-between
             mb-10
           "
         >
-          Campaign Queue
-        </h1>
+
+          <div>
+
+            <h1
+              className="
+                text-5xl
+                font-light
+              "
+            >
+              Campaign Queue
+            </h1>
+
+            <div
+              className="
+                text-white/40
+                mt-2
+              "
+            >
+              Multi-brand AI publishing
+            </div>
+
+          </div>
+
+          <button
+            onClick={processQueue}
+            className="
+              bg-orange-500
+              text-black
+              px-6
+              py-3
+              rounded-xl
+              font-bold
+            "
+          >
+            Process Queue
+          </button>
+
+        </div>
 
         <div
           className="
@@ -181,23 +253,7 @@ async function processQueue() {
             gap-8
           "
         >
-<div className="mb-8">
 
-  <button
-    onClick={processQueue}
-    className="
-      bg-orange-500
-      text-black
-      px-6
-      py-3
-      rounded-xl
-      font-bold
-    "
-  >
-    Process Queue
-  </button>
-
-</div>
           {campaigns.map((campaign) => (
 
             <div
@@ -259,40 +315,90 @@ async function processQueue() {
 
                 <div
                   className="
-                    flex
-                    items-center
-                    justify-between
+                    text-sm
+                    text-blue-400
+                    mb-3
                   "
                 >
+                  {
+                    PAGE_NAMES[
+                      campaign.page_id
+                    ] || "Unknown Brand"
+                  }
+                </div>
+
+                <div
+                  className="
+                    text-xs
+                    uppercase
+                    tracking-[0.2em]
+                    text-white/40
+                    mb-2
+                  "
+                >
+                  Status:
+                  {" "}
+                  {campaign.status}
+                </div>
+
+                {campaign.instagram_post_id && (
 
                   <div
                     className="
                       text-xs
-                      uppercase
-                      tracking-[0.2em]
-                      text-white/40
+                      text-green-400
+                      mb-2
                     "
                   >
-                    {campaign.status}
+                    Instagram Published
                   </div>
 
-                  <button
-  onClick={() =>
-    publishCampaign(
-      campaign
-    )
-  }
-  className="
-    bg-blue-500
-    px-4
-    py-2
-    rounded-xl
-  "
->
-  Queue Publish
-</button>
+                )}
 
-                </div>
+                {campaign.facebook_post_id && (
+
+                  <div
+                    className="
+                      text-xs
+                      text-blue-400
+                      mb-2
+                    "
+                  >
+                    Facebook Published
+                  </div>
+
+                )}
+
+                {campaign.publish_error && (
+
+                  <div
+                    className="
+                      text-xs
+                      text-red-400
+                      mb-4
+                    "
+                  >
+                    {campaign.publish_error}
+                  </div>
+
+                )}
+
+                <button
+                  onClick={() =>
+                    publishCampaign(
+                      campaign
+                    )
+                  }
+                  className="
+                    bg-blue-500
+                    px-4
+                    py-2
+                    rounded-xl
+                    w-full
+                  "
+                >
+                  Queue Publish
+                </button>
 
               </div>
 
@@ -307,4 +413,5 @@ async function processQueue() {
     </div>
 
   );
+
 }

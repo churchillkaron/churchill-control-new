@@ -117,7 +117,7 @@ ${memoryItem.atmosphere}
       );
 
     const basePrompt =
-      buildPrompt(promptState);
+  await buildPrompt(promptState);
 
     const prompt = `
 

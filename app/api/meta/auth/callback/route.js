@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-const BASE_URL = "https://chaste-rut-framing.ngrok-free.dev";
+const BASE_URL =
+"https://churchill-control-new-lc8u.vercel.app";
 
 export async function GET(request) {
   const url = new URL(request.url);
@@ -80,17 +81,22 @@ await fetch(
     },
 
     body: JSON.stringify({
-      platform: "facebook",
 
-      page_name: firstPage.name,
+  connected: true,
 
-      page_id: firstPage.id,
+  access_token:
+    firstPage.access_token,
 
-      page_access_token:
-        firstPage.access_token,
+  page_name:
+    firstPage.name,
 
-      instagram_id: instagramId,
-    }),
+  page_id:
+    firstPage.id,
+
+  instagram_business_id:
+    instagramId,
+
+}),
   }
 );
 

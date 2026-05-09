@@ -35,8 +35,8 @@ from "@/lib/services/createCampaignFlow";
 
 export default function Page() {
  
- const { tenantId } =
-  useTenant();
+const tenantId =
+  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
   
   const posterExportNodeRef = useRef(null);
 
@@ -84,41 +84,42 @@ const basePrompt =
   try {
 
     setLoading(true);
-const memory =
-  await getCampaignMemory({
 
-    tenantId,
+    const memory =
+      await getCampaignMemory({
+        tenantId,
+        campaignType:
+          poster.campaignType,
+      });
 
-    campaignType:
-      poster.campaignType,
-  });
-
-  const memoryContext =
-  memory.map((m) => `
+    const memoryContext =
+      memory
+        .map((memoryItem) => `
 
 Mood:
-${m.mood}
+${memoryItem.mood}
 
 Lighting:
-${m.lighting}
+${memoryItem.lighting}
 
 Composition:
-${m.composition}
+${memoryItem.composition}
 
 Atmosphere:
-${m.atmosphere}
+${memoryItem.atmosphere}
 
-`).join("\n");
+`)
+        .join("\n");
 
-const recommendation =
-  getCampaignRecommendation(
-    memory
-  );
+    const recommendation =
+      getCampaignRecommendation(
+        memory
+      );
 
-const basePrompt =
-  buildPrompt(promptState);
+    const basePrompt =
+      buildPrompt(promptState);
 
-const prompt = `
+    const prompt = `
 
 ${basePrompt}
 
@@ -130,33 +131,39 @@ IMPORTANT:
 Maintain Churchill Phuket
 brand consistency and
 premium hospitality identity.
+
+RECOMMENDATION:
+${recommendation}
 `;
-const campaign =
-  await createCampaignFlow({
 
-    tenantId,
+    const campaign =
+      await createCampaignFlow({
+        tenantId,
+        prompt,
+        poster,
+      });
 
-    prompt,
+    poster.setSelectedImage(
+      campaign.image_url
+    );
 
-    poster,
-  });
+  } catch (err) {
 
-poster.setSelectedImage(
-  campaign.image_url
-);
-    
-
-    console.error(err);
+    console.error(
+      "CAMPAIGN MEMORY ERROR:",
+      err
+    );
 
     alert(
-      err.message ||
-      "Generation failed"
+      JSON.stringify(err)
     );
 
   } finally {
 
     setLoading(false);
+
   }
+
 }
 
   async function exportPoster() {

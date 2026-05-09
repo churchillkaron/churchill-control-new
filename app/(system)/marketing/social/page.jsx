@@ -27,26 +27,83 @@ const PLATFORM_OPTIONS = [
 export default function SocialPage() {
   const [campaigns, setCampaigns] = useState([]);
   const [selectedPlatform, setSelectedPlatform] = useState("facebook");
-
+const [selectedTab, setSelectedTab] =
+  useState("all");
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("campaigns") || "[]");
 
-    const normalized = stored.map((c) => ({
-      ...c,
-      status: c.status || "draft",
-      platforms: c.platforms || {
-        google: false,
-        facebook: true,
-        whatsapp: false,
-      },
-      type: c.type || "campaign",
-      desc: c.sub || c.desc || "",
-      title: c.headline || c.title || "Untitled Campaign",
-    }));
+  async function loadCampaigns() {
 
-    setCampaigns(normalized);
-    localStorage.setItem("campaigns", JSON.stringify(normalized));
-  }, []);
+    try {
+
+      const response =
+        await fetch("/api/marketing");
+
+      const data =
+        await response.json();
+
+      console.log(
+        "CAMPAIGNS:",
+        data
+      );
+
+      if (!Array.isArray(data)) {
+
+        setCampaigns([]);
+
+        return;
+      }
+
+      const normalized =
+  data.map((campaign) => ({
+
+    id:
+      campaign.id,
+
+    title:
+      campaign.title ||
+      campaign.campaign_type ||
+      "Untitled Campaign",
+
+    desc:
+      campaign.subtitle ||
+      campaign.caption ||
+      "",
+
+    image:
+      campaign.image_url,
+
+    status:
+      campaign.status ||
+      "draft",
+
+    type:
+      campaign.campaign_type ||
+      "campaign",
+
+    platforms: {
+      google: false,
+      facebook: true,
+      whatsapp: false,
+    },
+
+  }));
+
+      setCampaigns(normalized);
+
+    } catch (error) {
+
+      console.error(
+        "LOAD CAMPAIGNS ERROR:",
+        error
+      );
+
+    }
+
+  }
+
+  loadCampaigns();
+
+}, []);
 
   const saveCampaigns = (next) => {
     setCampaigns(next);
@@ -69,25 +126,97 @@ export default function SocialPage() {
     saveCampaigns(next);
   };
 
-  const postNow = (campaign) => {
-    const next = campaigns.map((c) =>
-      c.id === campaign.id ? { ...c, status: "posting" } : c
-    );
+  const postNow = async (campaign) => {
+
+  try {
+
+    const next =
+      campaigns.map((c) =>
+        c.id === campaign.id
+          ? {
+              ...c,
+              status: "queued",
+            }
+          : c
+      );
 
     saveCampaigns(next);
 
-    if (typeof window !== "undefined" && window.runPostingEngine) {
-      window.runPostingEngine(campaign);
+    const response =
+      await fetch(
+        "/api/marketing/publish",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            campaignId:
+              campaign.id,
+
+            platforms:
+              campaign.platforms,
+          }),
+        }
+      );
+
+    const data =
+      await response.json();
+
+    console.log(
+      "PUBLISH RESULT:",
+      data
+    );
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.error ||
+        "Publish failed"
+      );
+
     }
 
-    alert("Posting triggered");
-  };
+    alert(
+      "Campaign queued successfully"
+    );
+
+  } catch (error) {
+
+    console.error(
+      "POST ERROR:",
+      error
+    );
+
+    alert(
+      error.message
+    );
+
+  }
+
+};
+  
 
   const removeCampaign = (id) => {
     const next = campaigns.filter((c) => c.id !== id);
     saveCampaigns(next);
   };
+const filteredCampaigns =
+  campaigns.filter((campaign) => {
 
+    if (selectedTab === "all") {
+      return true;
+    }
+
+    return (
+      campaign.status ===
+      selectedTab
+    );
+
+  });
   return (
     <div className="min-h-screen text-white relative">
       <div className="absolute inset-0">
@@ -146,21 +275,38 @@ export default function SocialPage() {
 
         <div className="bg-black/50 border border-white/10 rounded-2xl p-6">
           <div className="flex gap-8 mb-8 text-sm">
-            <button className="text-[#ff7a00] border-b border-[#ff7a00] pb-2">
-              All Campaigns
-            </button>
-            <button className="text-white/70">Draft</button>
-            <button className="text-white/70">Ready</button>
-            <button className="text-white/70">Scheduled</button>
-            <button className="text-white/70">Posted</button>
-          </div>
 
-          {campaigns.length === 0 && (
-            <p className="text-white/40">No campaigns saved yet.</p>
-          )}
+  {[
+    "all",
+    "draft",
+    "ready",
+    "scheduled",
+    "posted",
+  ].map((tab) => (
+
+    <button
+      key={tab}
+      onClick={() =>
+        setSelectedTab(tab)
+      }
+      className={
+        selectedTab === tab
+          ? "text-[#ff7a00] border-b border-[#ff7a00] pb-2 capitalize"
+          : "text-white/70 capitalize"
+      }
+    >
+      {tab === "all"
+        ? "All Campaigns"
+        : tab}
+    </button>
+
+  ))}
+
+</div>
+
 
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {campaigns.map((c) => (
+  {filteredCampaigns.map((c) => (
               <div
                 key={c.id}
                 className="bg-black/60 border border-white/10 rounded-2xl overflow-hidden"

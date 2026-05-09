@@ -8,11 +8,11 @@ export async function POST(req) {
     const body = await req.json();
 
     const {
-      platform,
+      connected,
+      access_token,
       page_name,
       page_id,
-      page_access_token,
-      instagram_id,
+      instagram_business_id,
     } = body;
 
     const { data, error } = await supabase
@@ -20,13 +20,15 @@ export async function POST(req) {
       .upsert(
         [
           {
-            platform,
+            connected,
+
+            access_token,
+
             page_name,
+
             page_id,
-            access_token:
-              page_access_token,
-            instagram_id,
-            connected: true,
+
+            instagram_business_id,
           },
         ],
         {

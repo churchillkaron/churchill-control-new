@@ -1,11 +1,10 @@
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
 import { supabase }
 from "@/lib/supabase";
 
-import { getMetaAccount }
-from "@/lib/meta/getMetaAccount";
+export const dynamic =
+  "force-dynamic";
 
 export async function POST(req) {
 
@@ -16,19 +15,38 @@ export async function POST(req) {
 
     const {
       campaignId,
-      tenantId,
+      platforms,
     } = body;
 
-    const { data: campaign } =
-      await supabase
-        .from(
-          "marketing_campaigns"
-        )
-        .select("*")
-        .eq("id", campaignId)
-        .single();
+    if (!campaignId) {
 
-    if (!campaign) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing campaignId",
+        },
+        { status: 400 }
+      );
+
+    }
+
+    // LOAD CAMPAIGN
+
+    const {
+      data: campaign,
+      error: campaignError,
+    } = await supabase
+      .from(
+        "marketing_campaigns"
+      )
+      .select("*")
+      .eq("id", campaignId)
+      .single();
+
+    if (
+      campaignError ||
+      !campaign
+    ) {
 
       return NextResponse.json(
         {
@@ -37,50 +55,93 @@ export async function POST(req) {
         },
         { status: 404 }
       );
+
     }
 
-    const metaAccount =
-      await getMetaAccount(
-        tenantId
-      );
+    // CREATE QUEUE ITEM
 
-    if (!metaAccount) {
+    const {
+      data: queueItem,
+      error: queueError,
+    } = await supabase
+      .from(
+        "campaign_publish_queue"
+      )
+      .insert([
+        {
+          tenant_id:
+            campaign.tenant_id,
+
+          campaign_id:
+            campaign.id,
+
+          status:
+            "queued",
+
+          platforms,
+
+          scheduled_for:
+            new Date()
+              .toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (queueError) {
+
+      console.error(
+        "QUEUE ERROR:",
+        queueError
+      );
 
       return NextResponse.json(
         {
           error:
-            "Meta account missing",
+            queueError.message,
         },
-        { status: 400 }
+        { status: 500 }
       );
+
     }
 
-    console.log(
-      "READY TO PUBLISH:",
-      {
-        campaign,
-        metaAccount,
-      }
-    );
+    // UPDATE CAMPAIGN STATUS
+
+    await supabase
+      .from(
+        "marketing_campaigns"
+      )
+      .update({
+        status: "queued",
+      })
+      .eq(
+        "id",
+        campaign.id
+      );
 
     return NextResponse.json({
 
       success: true,
 
-      message:
-        "Publish pipeline ready",
+      queueItem,
+
     });
 
-  } catch (err) {
+  } catch (error) {
 
-    console.error(err);
+    console.error(
+      "PUBLISH ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         error:
-          err.message,
+          error.message,
       },
       { status: 500 }
     );
+
   }
+
 }

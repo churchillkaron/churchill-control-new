@@ -4,23 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 
 function classifyItem(name = "") {
-  
-}
-
-export async function POST(req) {
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-
-
-}
-function classifyItem(name = "") {
   const text = String(name).toLowerCase();
 
   if (
@@ -127,7 +110,6 @@ function normalizeDate(value) {
     dd = parsed.getDate();
   }
 
-  // Thai Buddhist year fix, e.g. 2569 -> 2026
   if (yyyy > 2400) {
     yyyy = yyyy - 543;
   }
@@ -156,6 +138,16 @@ function numberValue(value, fallback = 0) {
 
 export async function POST(req) {
   try {
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const body = await req.json();
     const image = body?.image;
 
@@ -163,13 +155,6 @@ export async function POST(req) {
       return Response.json(
         { success: false, error: "No image provided" },
         { status: 400 }
-      );
-    }
-
-    if (!openai) {
-      return Response.json(
-        { success: false, error: "Missing OPENAI_API_KEY" },
-        { status: 500 }
       );
     }
 
@@ -418,7 +403,9 @@ Return exactly this JSON structure:
         items,
       },
     });
+
   } catch (err) {
+
     console.error("OCR ERROR:", err);
 
     return Response.json(
@@ -429,5 +416,6 @@ Return exactly this JSON structure:
       },
       { status: 500 }
     );
+
   }
 }

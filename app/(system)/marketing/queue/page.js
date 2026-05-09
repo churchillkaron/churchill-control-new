@@ -45,6 +45,9 @@ export default function Page() {
 
   }, []);
 
+  const [scheduleDate, setScheduleDate] =
+  useState("");
+
   async function loadCampaigns() {
 
     try {
@@ -94,8 +97,11 @@ export default function Page() {
           "instagram",
 
         scheduledFor:
-          new Date()
-            .toISOString(),
+
+  scheduleDate ||
+
+  new Date()
+    .toISOString(),
 
       });
 
@@ -275,7 +281,24 @@ if (loading) {
             </div>
 
           </div>
-
+<input
+  type="datetime-local"
+  value={scheduleDate}
+  onChange={(e) =>
+    setScheduleDate(
+      e.target.value
+    )
+  }
+  className="
+    bg-black
+    border
+    border-white/20
+    rounded-xl
+    p-3
+    text-white
+    mr-4
+  "
+/>
           <button
             onClick={processQueue}
             className="

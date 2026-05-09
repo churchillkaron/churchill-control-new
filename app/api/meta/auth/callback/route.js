@@ -102,14 +102,57 @@ export async function GET(request) {
     JSON.stringify(igData, null, 2)
   );
 
-  const instagramId =
-    igData?.instagram_business_account?.id || null;
+ const instagramId =
+  igData?.instagram_business_account?.id || null;
 
-  return Response.json({
-    success: true,
-    tokenData,
-    pagesData,
-    firstPage,
-    instagramId,
-  });
+// SAVE META ACCOUNT
+
+await fetch(
+  `${BASE_URL}/api/meta/save-account`,
+  {
+    method: "POST",
+
+    headers: {
+      "Content-Type": "application/json",
+    },
+
+    body: JSON.stringify({
+      connected: true,
+
+      access_token:
+        firstPage.access_token,
+
+      page_name:
+        firstPage.name,
+
+      page_id:
+        firstPage.id,
+
+      instagram_business_id:
+        instagramId,
+    }),
+  }
+);
+
+const response =
+  NextResponse.redirect(
+    `${BASE_URL}/marketing?facebook=connected`
+  );
+
+response.cookies.set(
+  "fb_page_token",
+  firstPage.access_token,
+  {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+  }
+);
+
+response.cookies.delete(
+  "fb_oauth_state"
+);
+
+return response;
 }

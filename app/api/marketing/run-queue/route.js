@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "http://localhost:3000";
+  process.env.NEXT_PUBLIC_APP_URL;
+
+export const dynamic =
+  "force-dynamic";
 
 export async function GET() {
 
@@ -29,11 +31,8 @@ export async function GET() {
     );
 
     return NextResponse.json({
-
       success: true,
-
       result: data,
-
     });
 
   } catch (error) {
@@ -46,7 +45,8 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error:
+          error.message,
       },
       { status: 500 }
     );

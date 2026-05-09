@@ -37,10 +37,17 @@ export async function GET() {
     );
 
     authUrl.searchParams.set(
-      "scope",
-
- "public_profile,pages_show_list"
-    );
+  "scope",
+  [
+    "pages_show_list",
+    "pages_read_engagement",
+    "pages_manage_posts",
+    "instagram_basic",
+    "instagram_content_publish",
+    "instagram_manage_insights",
+    "business_management"
+  ].join(",")
+);
 
     const response =
       NextResponse.redirect(

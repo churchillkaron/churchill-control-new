@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const BASE_URL =
-"https://churchill-control-new-lc8u.vercel.app";
+  "https://app.churchillkaron.com";
 
 export async function GET(request) {
   const url = new URL(request.url);

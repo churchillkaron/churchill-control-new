@@ -462,225 +462,243 @@ ${recommendation}
   }
 
   return (
-<div className="min-h-screen bg-black text-white p-10">
 
-  <div className="max-w-[1800px] mx-auto">
+<div className="min-h-screen bg-black text-white overflow-hidden">
 
-    <div className="mb-10">
+  {/* TOP BAR */}
+
+  <div
+    className="
+      h-[90px]
+      border-b
+      border-white/10
+      flex
+      items-center
+      justify-between
+      px-10
+      backdrop-blur-xl
+      bg-black/70
+      sticky
+      top-0
+      z-50
+    "
+  >
+
+    <div>
 
       <div
         className="
-          flex
-          items-center
-          justify-between
-          gap-6
-          flex-wrap
+          text-3xl
+          font-light
+          tracking-tight
         "
       >
-
-        <div>
-
-          <h1
-            className="
-              text-6xl
-              font-light
-              tracking-tight
-            "
-          >
-            Churchill AI Studio
-          </h1>
-
-          <div
-            className="
-              text-white/40
-              mt-3
-              text-lg
-            "
-          >
-            Luxury Hospitality Marketing Engine
-          </div>
-
-        </div>
-
-        <a
-          href="/api/meta/auth"
-          className="
-            bg-blue-600
-            hover:bg-blue-500
-            transition-all
-            px-6
-            py-4
-            rounded-2xl
-            font-semibold
-            shadow-2xl
-          "
-        >
-          Connect Facebook & Instagram
-        </a>
-
+        Churchill AI Studio
       </div>
 
       <div
         className="
-          grid
-          grid-cols-1
-          lg:grid-cols-3
-          gap-4
-          mt-8
+          text-white/40
+          text-sm
+          mt-1
         "
       >
-
-        <button
-          className="
-            bg-white/5
-            border
-            border-orange-500/40
-            rounded-3xl
-            p-6
-            text-left
-            hover:border-orange-500
-            transition-all
-          "
-        >
-
-          <div
-            className="
-              text-orange-500
-              uppercase
-              text-xs
-              tracking-[0.3em]
-              mb-4
-            "
-          >
-            Engine 1
-          </div>
-
-          <div className="text-2xl mb-3">
-            Full AI Generation
-          </div>
-
-          <div className="text-white/40">
-            Generate full cinematic campaigns completely with AI.
-          </div>
-
-        </button>
-
-        <button
-          className="
-            bg-white/5
-            border
-            border-white/10
-            rounded-3xl
-            p-6
-            text-left
-            hover:border-orange-500
-            transition-all
-          "
-        >
-
-          <div
-            className="
-              text-orange-500
-              uppercase
-              text-xs
-              tracking-[0.3em]
-              mb-4
-            "
-          >
-            Engine 2
-          </div>
-
-          <div className="text-2xl mb-3">
-            AI Enhancement
-          </div>
-
-          <div className="text-white/40">
-            Upload real venue photos and enhance them into premium campaigns.
-          </div>
-
-        </button>
-
-        <button
-          className="
-            bg-white/5
-            border
-            border-white/10
-            rounded-3xl
-            p-6
-            text-left
-            hover:border-orange-500
-            transition-all
-          "
-        >
-
-          <div
-            className="
-              text-orange-500
-              uppercase
-              text-xs
-              tracking-[0.3em]
-              mb-4
-            "
-          >
-            Engine 3
-          </div>
-
-          <div className="text-2xl mb-3">
-            AI Composite
-          </div>
-
-          <div className="text-white/40">
-            Combine real staff, interiors and AI cinematic generation.
-          </div>
-
-        </button>
-
+        Luxury Hospitality Creative Engine
       </div>
 
     </div>
 
     <div
       className="
-        grid
-        grid-cols-1
-        xl:grid-cols-[420px_1fr_420px]
-        gap-8
-        items-start
+        flex
+        items-center
+        gap-4
+      "
+    >
+
+      <button
+        className="
+          bg-orange-500
+          text-black
+          px-5
+          py-3
+          rounded-2xl
+          font-semibold
+        "
+      >
+        Full AI
+      </button>
+
+      <button
+        className="
+          bg-white/5
+          border
+          border-white/10
+          px-5
+          py-3
+          rounded-2xl
+          text-white/70
+        "
+      >
+        Enhance
+      </button>
+
+      <button
+        className="
+          bg-white/5
+          border
+          border-white/10
+          px-5
+          py-3
+          rounded-2xl
+          text-white/70
+        "
+      >
+        Composite
+      </button>
+
+      <a
+        href="/api/meta/auth"
+        className="
+          bg-blue-600
+          hover:bg-blue-500
+          transition-all
+          px-6
+          py-3
+          rounded-2xl
+          font-semibold
+        "
+      >
+        Connect Meta
+      </a>
+
+    </div>
+
+  </div>
+
+  {/* MAIN CANVAS */}
+
+  <div
+    className="
+      relative
+      h-[calc(100vh-90px)]
+      flex
+      items-center
+      justify-center
+      p-10
+    "
+  >
+
+    {/* LEFT FLOATING PANEL */}
+
+    <div
+      className="
+        absolute
+        left-8
+        top-8
+        bottom-8
+        w-[320px]
+        bg-black/50
+        border
+        border-white/10
+        rounded-[32px]
+        backdrop-blur-2xl
+        p-6
+        overflow-auto
+        z-20
       "
     >
 
       <div
         className="
-          bg-white/5
-          border
-          border-white/10
-          rounded-[32px]
-          p-8
-          backdrop-blur-xl
-          sticky
+          text-orange-500
+          uppercase
+          tracking-[0.3em]
+          text-xs
+          mb-6
+        "
+      >
+        Creative Direction
+      </div>
+
+      <ControlPanel
+        poster={poster}
+      />
+
+    </div>
+
+    {/* CENTER CAMPAIGN */}
+
+    <div
+      className="
+        relative
+        w-full
+        h-full
+        flex
+        items-center
+        justify-center
+      "
+    >
+
+      <div
+        className="
+          absolute
           top-8
+          left-1/2
+          -translate-x-1/2
+          z-30
+          flex
+          items-center
+          gap-3
         "
       >
 
         <div
           className="
-            text-orange-500
+            bg-black/60
+            border
+            border-orange-500/20
+            px-5
+            py-3
+            rounded-full
+            text-xs
             uppercase
             tracking-[0.3em]
-            text-xs
-            mb-6
+            text-orange-400
           "
         >
-          Campaign Controls
+          Live Campaign
         </div>
 
-        <ControlPanel
-          poster={poster}
-        />
+        <div
+          className="
+            bg-green-500/20
+            border
+            border-green-500/20
+            px-5
+            py-3
+            rounded-full
+            text-xs
+            uppercase
+            tracking-[0.3em]
+            text-green-400
+          "
+        >
+          AI Render
+        </div>
 
       </div>
 
-      <div className="space-y-6">
+      <div
+        className="
+          w-full
+          max-w-[850px]
+          h-full
+          flex
+          items-center
+          justify-center
+        "
+      >
 
         <PosterPreview
           poster={poster}
@@ -689,86 +707,113 @@ ${recommendation}
           }
         />
 
-        <div
-          className="
-            bg-white/5
-            border
-            border-white/10
-            rounded-[32px]
-            p-8
-            backdrop-blur-xl
-          "
-        >
-
-          <div
-            className="
-              text-orange-500
-              uppercase
-              tracking-[0.3em]
-              text-xs
-              mb-6
-            "
-          >
-            AI Caption
-          </div>
-
-          <textarea
-            placeholder="Write cinematic luxury nightlife caption..."
-            className="
-              w-full
-              min-h-[180px]
-              bg-black/40
-              border
-              border-white/10
-              rounded-2xl
-              p-5
-              text-white
-            "
-          />
-
-          <div className="mt-6">
-
-            <div
-              className="
-                text-white/40
-                mb-3
-                text-sm
-                uppercase
-                tracking-[0.2em]
-              "
-            >
-              Suggested Hashtags
-            </div>
-
-            <div
-              className="
-                text-orange-400
-                leading-8
-              "
-            >
-              #churchillphuket
-              #luxurynightlife
-              #phuketnightlife
-              #cocktailbar
-              #hospitalitymarketing
-            </div>
-
-          </div>
-
-        </div>
-
       </div>
+
+    </div>
+
+    {/* RIGHT FLOATING PANEL */}
+
+    <div
+      className="
+        absolute
+        right-8
+        top-8
+        bottom-8
+        w-[340px]
+        bg-black/50
+        border
+        border-white/10
+        rounded-[32px]
+        backdrop-blur-2xl
+        p-6
+        overflow-auto
+        z-20
+      "
+    >
 
       <div
         className="
-          bg-white/5
-          border
+          text-orange-500
+          uppercase
+          tracking-[0.3em]
+          text-xs
+          mb-6
+        "
+      >
+        Campaign Workflow
+      </div>
+
+      <button
+        onClick={generateAIImage}
+        disabled={loading}
+        className="
+          w-full
+          bg-orange-500
+          hover:bg-orange-400
+          transition-all
+          text-black
+          px-8
+          py-5
+          rounded-2xl
+          font-bold
+          text-lg
+          mb-5
+          disabled:opacity-50
+        "
+      >
+        {loading
+          ? "Generating..."
+          : "Generate Campaign"}
+      </button>
+
+      <button
+        className="
+          w-full
+          bg-blue-600
+          hover:bg-blue-500
+          transition-all
+          text-white
+          px-8
+          py-5
+          rounded-2xl
+          font-bold
+          text-lg
+          mb-5
+        "
+      >
+        Queue Campaign
+      </button>
+
+      <button
+        className="
+          w-full
+          bg-green-600
+          hover:bg-green-500
+          transition-all
+          text-white
+          px-8
+          py-5
+          rounded-2xl
+          font-bold
+          text-lg
+          mb-5
+        "
+      >
+        Publish Now
+      </button>
+
+      <ExportControls
+        exportRef={
+          posterExportNodeRef
+        }
+      />
+
+      <div
+        className="
+          border-t
           border-white/10
-          rounded-[32px]
-          p-8
-          backdrop-blur-xl
-          sticky
-          top-8
+          mt-8
+          pt-8
         "
       >
 
@@ -778,154 +823,66 @@ ${recommendation}
             uppercase
             tracking-[0.3em]
             text-xs
-            mb-6
+            mb-5
           "
         >
-          AI Actions
+          AI Insights
         </div>
 
-        <button
-          onClick={generateAIImage}
-          disabled={loading}
-          className="
-            w-full
-            bg-orange-500
-            hover:bg-orange-400
-            transition-all
-            text-black
-            px-8
-            py-5
-            rounded-2xl
-            font-bold
-            text-lg
-            mb-5
-            disabled:opacity-50
-          "
-        >
-          {loading
-            ? "Generating..."
-            : "Generate Campaign"}
-        </button>
-
-        <button
-          className="
-            w-full
-            bg-blue-600
-            hover:bg-blue-500
-            transition-all
-            text-white
-            px-8
-            py-5
-            rounded-2xl
-            font-bold
-            text-lg
-            mb-5
-          "
-        >
-          Queue Campaign
-        </button>
-
-        <button
-          className="
-            w-full
-            bg-green-600
-            hover:bg-green-500
-            transition-all
-            text-white
-            px-8
-            py-5
-            rounded-2xl
-            font-bold
-            text-lg
-            mb-5
-          "
-        >
-          Publish Now
-        </button>
-
-        <ExportControls
-          exportRef={
-            posterExportNodeRef
-          }
-        />
-
-        <div
-          className="
-            border-t
-            border-white/10
-            mt-8
-            pt-8
-          "
-        >
+        <div className="space-y-4">
 
           <div
             className="
-              text-orange-500
-              uppercase
-              tracking-[0.3em]
-              text-xs
-              mb-5
+              bg-white/5
+              rounded-2xl
+              p-5
             "
           >
-            AI Insights
+
+            <div className="text-white/40 text-sm mb-2">
+              Best Mood
+            </div>
+
+            <div className="text-2xl">
+              Luxury Nightlife
+            </div>
+
           </div>
 
-          <div className="space-y-4">
+          <div
+            className="
+              bg-white/5
+              rounded-2xl
+              p-5
+            "
+          >
 
-            <div
-              className="
-                bg-black/30
-                rounded-2xl
-                p-5
-              "
-            >
-
-              <div className="text-white/40 text-sm mb-2">
-                Best Mood
-              </div>
-
-              <div className="text-xl">
-                Luxury Nightlife
-              </div>
-
+            <div className="text-white/40 text-sm mb-2">
+              Best Lighting
             </div>
 
-            <div
-              className="
-                bg-black/30
-                rounded-2xl
-                p-5
-              "
-            >
-
-              <div className="text-white/40 text-sm mb-2">
-                Best Lighting
-              </div>
-
-              <div className="text-xl">
-                Cinematic Warm
-              </div>
-
+            <div className="text-2xl">
+              Cinematic Warm
             </div>
 
-            <div
-              className="
-                bg-black/30
-                rounded-2xl
-                p-5
-              "
-            >
+          </div>
 
-              <div className="text-white/40 text-sm mb-2">
-                AI Recommendation
-              </div>
+          <div
+            className="
+              bg-white/5
+              rounded-2xl
+              p-5
+            "
+          >
 
-              <div className="text-white/80 leading-7">
-                Campaigns posted between
-                7PM and 10PM generated
-                the strongest engagement.
-              </div>
+            <div className="text-white/40 text-sm mb-2">
+              AI Recommendation
+            </div>
 
+            <div className="text-white/80 leading-7">
+              Luxury campaigns published
+              between 7PM–10PM generated
+              the strongest engagement.
             </div>
 
           </div>

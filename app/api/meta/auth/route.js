@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const BASE_URL =
- const BASE_URL =
+
   "https://app.churchillkaron.com";
 
 export async function GET() {

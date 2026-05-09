@@ -3,9 +3,17 @@ import { NextResponse } from "next/server";
 import { supabase }
 from "@/lib/supabase";
 
+import { calculateCampaignScore }
+from "@/lib/ai/calculateCampaignScore";
+
 export async function GET() {
 
   try {
+
+    const performanceScore =
+  calculateCampaignScore(
+    igData
+  );
 
     const {
       data: campaigns,
@@ -61,20 +69,23 @@ export async function GET() {
             igData
           );
 
-          await supabase
-            .from(
-              "marketing_campaigns"
-            )
-            .update({
+        await supabase
+  .from(
+    "marketing_campaigns"
+  )
+  .update({
 
-              analytics:
-                igData,
+    analytics:
+      igData,
 
-              analytics_updated_at:
-                new Date()
-                  .toISOString(),
+    performance_score:
+      performanceScore,
 
-            })
+    analytics_updated_at:
+      new Date()
+        .toISOString(),
+
+  })
             .eq(
               "id",
               campaign.id

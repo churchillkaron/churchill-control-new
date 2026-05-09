@@ -32,6 +32,12 @@ from "@/lib/ai/getCampaignRecommendation";
 import { createCampaignFlow }
 from "@/lib/services/createCampaignFlow";
 
+import { getTopPerformingCampaigns }
+from "@/lib/ai/getTopPerformingCampaigns";
+
+import { getCampaignRecommendation }
+from "@/lib/ai/getCampaignRecommendation";
+
 
 export default function Page() {
  
@@ -48,35 +54,7 @@ const tenantId =
   
     const poster = usePosterState();
 
-    const promptState = {
-
-  campaignType:
-    poster.campaignType,
-
-  mood:
-    poster.mood,
-
-  lighting:
-    poster.lighting,
-
-  composition:
-    poster.composition,
-
-  atmosphere:
-    poster.atmosphere,
-
-  subject:
-    poster.subject,
-
-  venue:
-    poster.venue,
-
-  extraDirection:
-    poster.extraDirection,
-};
-
-const basePrompt =
-  buildPrompt(promptState);
+    
     
 
   async function generateAIImage() {
@@ -92,9 +70,23 @@ const basePrompt =
           poster.campaignType,
       });
 
-    const memoryContext =
-      memory
-        .map((memoryItem) => `
+    const topCampaigns =
+  await getTopPerformingCampaigns({
+
+    tenantId,
+
+    limit: 5,
+
+  });
+
+const recommendation =
+  getCampaignRecommendation(
+    topCampaigns
+  );
+
+const memoryContext =
+  memory
+    .map((memoryItem) => `
 
 Mood:
 ${memoryItem.mood}
@@ -109,17 +101,47 @@ Atmosphere:
 ${memoryItem.atmosphere}
 
 `)
-        .join("\n");
+    .join("\n");
 
-    const recommendation =
-      getCampaignRecommendation(
-        memory
-      );
+const promptState = {
 
-    const basePrompt =
-  await buildPrompt(promptState);
+  tenantId,
 
-    const prompt = `
+  campaignType:
+    poster.campaignType,
+
+  mood:
+    recommendation.bestMood ||
+    poster.mood,
+
+  lighting:
+    recommendation.bestLighting ||
+    poster.lighting,
+
+  composition:
+    poster.composition,
+
+  atmosphere:
+    recommendation.bestAtmosphere ||
+    poster.atmosphere,
+
+  subject:
+    poster.subject,
+
+  venue:
+    poster.venue,
+
+  extraDirection:
+    poster.extraDirection,
+};
+
+const basePrompt =
+  await buildPrompt(
+    promptState
+  );
+
+  
+  const prompt = `
 
 ${basePrompt}
 

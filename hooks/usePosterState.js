@@ -46,6 +46,18 @@ const [venue, setVenue] =
 const [subject, setSubject] =
   useState("Guests enjoying nightlife");
 
+  const [engine, setEngine] =
+  useState("full-ai");
+
+const [interiorImages, setInteriorImages] =
+  useState([]);
+
+const [staffImages, setStaffImages] =
+  useState([]);
+
+const [brandAssets, setBrandAssets] =
+  useState([]);
+
   const [pageId, setPageId] =
   useState("");
 
@@ -95,5 +107,17 @@ setVenue,
 
 subject,
 setSubject,
+
+engine,
+setEngine,
+
+interiorImages,
+setInteriorImages,
+
+staffImages,
+setStaffImages,
+
+brandAssets,
+setBrandAssets,
   };
 }

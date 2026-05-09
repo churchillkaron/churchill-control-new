@@ -517,45 +517,97 @@ ${recommendation}
     >
 
       <button
-        className="
-          bg-orange-500
-          text-black
-          px-5
-          py-3
-          rounded-2xl
-          font-semibold
-        "
-      >
-        Full AI
-      </button>
+  onClick={() =>
+    poster.setEngine(
+      "full-ai"
+    )
+  }
+  className={`
+    px-5
+    py-3
+    rounded-2xl
+    font-semibold
+    transition-all
 
-      <button
-        className="
+    ${
+      poster.engine ===
+      "full-ai"
+
+        ? "bg-orange-500 text-black"
+
+        : `
           bg-white/5
           border
           border-white/10
-          px-5
-          py-3
-          rounded-2xl
           text-white/70
-        "
-      >
-        Enhance
-      </button>
+        `
+    }
+  `}
+>
+  Full AI
+</button>
 
       <button
-        className="
+  onClick={() =>
+    poster.setEngine(
+      "enhance"
+    )
+  }
+  className={`
+    px-5
+    py-3
+    rounded-2xl
+    font-semibold
+    transition-all
+
+    ${
+      poster.engine ===
+      "enhance"
+
+        ? "bg-orange-500 text-black"
+
+        : `
           bg-white/5
           border
           border-white/10
-          px-5
-          py-3
-          rounded-2xl
           text-white/70
-        "
-      >
-        Composite
-      </button>
+        `
+    }
+  `}
+>
+  Enhance
+</button>
+
+      <button
+  onClick={() =>
+    poster.setEngine(
+      "composite"
+    )
+  }
+  className={`
+    px-5
+    py-3
+    rounded-2xl
+    font-semibold
+    transition-all
+
+    ${
+      poster.engine ===
+      "composite"
+
+        ? "bg-orange-500 text-black"
+
+        : `
+          bg-white/5
+          border
+          border-white/10
+          text-white/70
+        `
+    }
+  `}
+>
+  Composite
+</button>
 
       <a
         href="/api/meta/auth"
@@ -620,7 +672,247 @@ ${recommendation}
       >
         Creative Direction
       </div>
+{poster.engine ===
+  "enhance" && (
 
+  <div
+    className="
+      mb-6
+      bg-white/5
+      border
+      border-white/10
+      rounded-2xl
+      p-5
+    "
+  >
+
+    <div
+      className="
+        text-orange-500
+        uppercase
+        tracking-[0.2em]
+        text-xs
+        mb-4
+      "
+    >
+      Venue Assets
+    </div>
+
+    <input
+  type="file"
+  multiple
+  accept="image/*"
+  onChange={(e) => {
+
+    const files =
+      Array.from(
+        e.target.files || []
+      );
+
+    poster.setInteriorImages(
+      files
+    );
+
+  }}
+  className="
+    w-full
+    bg-black/40
+    border
+    border-white/10
+    rounded-xl
+    p-4
+  "
+/>
+
+    <div
+      className="
+        text-white/40
+        text-sm
+        mt-3
+      "
+    >
+      Upload interior, food,
+      cocktail or venue photos.
+    </div>
+
+    {poster.interiorImages
+  ?.length > 0 && (
+
+  <div
+    className="
+      grid
+      grid-cols-3
+      gap-3
+      mt-5
+    "
+  >
+
+    {poster.interiorImages.map(
+      (file, index) => (
+
+        <img
+          key={index}
+          src={URL.createObjectURL(file)}
+          alt=""
+          className="
+            w-full
+            h-24
+            object-cover
+            rounded-xl
+          "
+        />
+
+      )
+    )}
+
+  </div>
+
+)}
+
+  </div>
+
+)}
+
+{poster.engine ===
+  "composite" && (
+
+  <div className="space-y-5 mb-6">
+
+    <div
+      className="
+        bg-white/5
+        border
+        border-white/10
+        rounded-2xl
+        p-5
+      "
+    >
+
+      <div
+        className="
+          text-orange-500
+          uppercase
+          tracking-[0.2em]
+          text-xs
+          mb-4
+        "
+      >
+        Staff Images
+      </div>
+
+      <input
+  type="file"
+  multiple
+  accept="image/*"
+  onChange={(e) => {
+
+    const files =
+      Array.from(
+        e.target.files || []
+      );
+
+    poster.setStaffImages(
+      files
+    );
+
+  }}
+  className="
+    w-full
+    bg-black/40
+    border
+    border-white/10
+    rounded-xl
+    p-4
+  "
+/>
+
+    </div>
+{poster.staffImages
+  ?.length > 0 && (
+
+  <div
+    className="
+      grid
+      grid-cols-3
+      gap-3
+      mt-5
+    "
+  >
+
+    {poster.staffImages.map(
+      (file, index) => (
+
+        <img
+          key={index}
+          src={URL.createObjectURL(file)}
+          alt=""
+          className="
+            w-full
+            h-24
+            object-cover
+            rounded-xl
+          "
+        />
+
+      )
+    )}
+
+  </div>
+
+)}
+    <div
+      className="
+        bg-white/5
+        border
+        border-white/10
+        rounded-2xl
+        p-5
+      "
+    >
+
+      <div
+        className="
+          text-orange-500
+          uppercase
+          tracking-[0.2em]
+          text-xs
+          mb-4
+        "
+      >
+        Interior Images
+      </div>
+
+      <input
+  type="file"
+  multiple
+  accept="image/*"
+  onChange={(e) => {
+
+    const files =
+      Array.from(
+        e.target.files || []
+      );
+
+    poster.setInteriorImages(
+      files
+    );
+
+  }}
+  className="
+    w-full
+    bg-black/40
+    border
+    border-white/10
+    rounded-xl
+    p-4
+  "
+/>
+
+    </div>
+
+  </div>
+
+)}
       <ControlPanel
         poster={poster}
       />

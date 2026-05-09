@@ -1,12 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 export async function GET() {
   try {
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
     // 🔹 GET PRODUCTION
     const { data: production } = await supabase
       .from("production_logs")
@@ -28,6 +29,7 @@ export async function GET() {
           wasted: 0,
         };
       }
+
       result[p.dish_id].produced += Number(p.quantity);
     }
 
@@ -63,9 +65,15 @@ export async function GET() {
     return Response.json(final);
 
   } catch (err) {
+
     return Response.json(
-      { error: err.message },
-      { status: 500 }
+      {
+        error: err.message,
+      },
+      {
+        status: 500,
+      }
     );
+
   }
 }

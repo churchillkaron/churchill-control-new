@@ -1,6 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from "@supabase/supabase-js";
 
-export async function GET(req) {
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+
+
   const { searchParams } = new URL(req.url)
   const event_id = searchParams.get('event_id')
 

@@ -36,7 +36,7 @@ export async function GET() {
       "code"
     );
 
- authUrl.searchParams.set(
+authUrl.searchParams.set(
   "scope",
   [
     "pages_show_list",
@@ -44,7 +44,7 @@ export async function GET() {
     "business_management",
     "instagram_basic",
     "instagram_content_publish",
-    instagram_business_manage_insights
+    "instagram_business_manage_insights"
   ].join(",")
 );
 

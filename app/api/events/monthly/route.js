@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -32,12 +34,9 @@ export async function GET() {
   for (const event of events) {
     const { id } = event
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE_URL}/api/events/leaderboard?event_id=${id}`
-    )
-
-    const data = await res.json()
-    const full = data.full || []
+    // TEMPORARY FIX:
+    // internal fetch disabled during build stabilization
+    const full = []
 
     // 3. ACCUMULATE SCORES
     for (const row of full) {

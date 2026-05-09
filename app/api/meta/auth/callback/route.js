@@ -31,8 +31,12 @@ export async function GET(request) {
   const tokenData = await tokenRes.json();
 
   if (!tokenData.access_token) {
-    return NextResponse.redirect(`${BASE_URL}/marketing?facebook=error`);
-  }
+
+  return NextResponse.redirect(
+    `${BASE_URL}/marketing?facebook=token_error&debug=${encodeURIComponent(JSON.stringify(tokenData))}`
+  );
+
+}
 // GET USER PAGES
 
 const pagesRes = await fetch(
@@ -49,7 +53,7 @@ console.log("PAGES DATA:", JSON.stringify(pagesData, null, 2));
 if (!firstPage) {
 
   return NextResponse.redirect(
-    `${BASE_URL}/marketing?facebook=no_pages`
+    `${BASE_URL}/marketing?facebook=no_pages&debug=${encodeURIComponent(JSON.stringify(pagesData))}`
   );
 
 }

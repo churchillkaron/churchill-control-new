@@ -3,9 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,

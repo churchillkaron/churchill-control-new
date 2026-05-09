@@ -76,22 +76,24 @@ export async function GET(request) {
     JSON.stringify(pagesData, null, 2)
   );
 
-  const firstPage =
-    pagesData?.data?.[0];
-
   // SAFE GUARD
-  if (!firstPage) {
-    return Response.json({
-      success: false,
-      pagesData,
-      message: "No Facebook pages found",
-    });
-  }
 
-  // GET INSTAGRAM BUSINESS ACCOUNT
+if (!pagesData?.data?.length) {
+
+  return Response.json({
+    success: false,
+    pagesData,
+    message: "No Facebook pages found",
+  });
+
+}
+
+// SAVE ALL PAGES
+
+for (const page of pagesData.data) {
 
   const igRes = await fetch(
-    `https://graph.facebook.com/v23.0/${firstPage.id}?fields=instagram_business_account&access_token=${firstPage.access_token}`
+    `https://graph.facebook.com/v23.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
   );
 
   const igData =
@@ -102,37 +104,39 @@ export async function GET(request) {
     JSON.stringify(igData, null, 2)
   );
 
- const instagramId =
-  igData?.instagram_business_account?.id || null;
+  const instagramId =
+    igData?.instagram_business_account?.id || null;
 
-// SAVE META ACCOUNT
+  await fetch(
+    `${BASE_URL}/api/meta/save-account`,
+    {
+      method: "POST",
 
-await fetch(
-  `${BASE_URL}/api/meta/save-account`,
-  {
-    method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
 
-    headers: {
-      "Content-Type": "application/json",
-    },
+      body: JSON.stringify({
 
-    body: JSON.stringify({
-      connected: true,
+        connected: true,
 
-      access_token:
-        firstPage.access_token,
+        access_token:
+          page.access_token,
 
-      page_name:
-        firstPage.name,
+        page_name:
+          page.name,
 
-      page_id:
-        firstPage.id,
+        page_id:
+          page.id,
 
-      instagram_business_id:
-        instagramId,
-    }),
-  }
-);
+        instagram_business_id:
+          instagramId,
+
+      }),
+    }
+  );
+
+}
 
 const response =
   NextResponse.redirect(

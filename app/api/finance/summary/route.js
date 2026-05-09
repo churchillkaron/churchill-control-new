@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+const TENANT_ID =
+  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
 function getTodayRange() {
   const now = new Date();
@@ -24,9 +20,13 @@ function getTodayRange() {
 }
 
 export async function GET() {
+  
   try {
     const { start, end } = getTodayRange();
-
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
     // ✅ REAL FINANCE FROM ORDER PROFIT VIEW
     const { data: financeRows, error: financeError } = await supabase
       .from("order_profit_view")

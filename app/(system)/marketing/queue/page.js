@@ -162,8 +162,54 @@ export default function Page() {
 
   }
 
-  if (loading) {
+  
 
+async function deletePost(
+  campaignId
+) {
+
+  try {
+
+    const res =
+      await fetch(
+        "/api/marketing/delete-post",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            campaignId,
+          }),
+        }
+      );
+
+    const data =
+      await res.json();
+
+    console.log(data);
+
+    await loadCampaigns();
+
+    alert(
+      "Post deleted"
+    );
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert(
+      "Delete failed"
+    );
+
+  }
+
+}
+if (loading) {
     return (
 
       <div

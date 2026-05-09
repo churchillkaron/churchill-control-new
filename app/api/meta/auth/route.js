@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const BASE_URL =
-  "https://chaste-rut-framing.ngrok-free.dev";
+  "https://churchill-control-new-lc8u.vercel.app";
 
 export async function GET() {
 

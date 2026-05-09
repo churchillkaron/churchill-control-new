@@ -38,7 +38,8 @@ export async function GET() {
 
     authUrl.searchParams.set(
       "scope",
- "public_profile"
+
+ "public_profile,pages_read_engagement"
     );
 
     const response =

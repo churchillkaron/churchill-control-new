@@ -1,10 +1,11 @@
 export const dynamic = "force-dynamic";
 
-import { getSupabase } from "@/lib/supabase";
+import { supabase }
+from "@/lib/supabase";
 
 export async function GET() {
   try {
-    const supabase = getSupabase();
+   
 
     const { data, error } = await supabase
       .from("dishes")

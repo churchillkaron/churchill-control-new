@@ -6,32 +6,27 @@ import { validateMetaToken } from "@/lib/meta/validateMetaToken";
 import { publishToFacebook } from "@/lib/meta/publishToFacebook";
 import { publishToInstagram } from "@/lib/meta/publishToInstagram";
 
+export const dynamic = "force-dynamic";
+
 export async function POST() {
-
   try {
-
     console.log("PROCESS QUEUE START");
 
-    // LOAD QUEUED JOBS
+    const now = new Date().toISOString();
 
-    const { data: jobs, error: jobsError } =
-      await supabase
-        .from("campaign_publish_queue")
-        .select("*")
-        .eq("status", "queued")
-.lte(
-  "scheduled_for",
-  new Date().toISOString()
-)
-.lt("retry_count", 5)
-.limit(5);
+    const { data: jobs, error: jobsError } = await supabase
+      .from("campaign_publish_queue")
+      .select("*")
+      .eq("status", "queued")
+      .lte("scheduled_for", now)
+      .lt("retry_count", 5)
+      .limit(5);
+
     if (jobsError) {
-
       throw jobsError;
     }
 
     if (!jobs?.length) {
-
       return NextResponse.json({
         success: true,
         processed: 0,
@@ -42,12 +37,8 @@ export async function POST() {
     let processed = 0;
 
     for (const job of jobs) {
-
       try {
-
         console.log("PROCESSING JOB:", job.id);
-
-        // UPDATE JOB STATUS -> PUBLISHING
 
         await supabase
           .from("campaign_publish_queue")
@@ -56,179 +47,100 @@ export async function POST() {
           })
           .eq("id", job.id);
 
-        // LOAD CAMPAIGN
-
-        const {
-          data: campaign,
-          error: campaignError,
-        } = await supabase
+        const { data: campaign, error: campaignError } = await supabase
           .from("marketing_campaigns")
           .select("*")
           .eq("id", job.campaign_id)
           .single();
 
         if (campaignError || !campaign) {
-
           throw new Error("Campaign not found");
         }
 
-        // LOAD META ACCOUNT
-
-        const {
-          data: account,
-          error: accountError,
-        } = await supabase
+        const { data: account, error: accountError } = await supabase
           .from("meta_accounts")
           .select("*")
           .eq("connected", true)
           .single();
 
         if (accountError || !account) {
-
-          throw new Error(
-            "No connected Meta account"
-          );
+          throw new Error("No connected Meta account");
         }
 
-        // VALIDATE TOKEN
-
-        const tokenValidation =
-          await validateMetaToken({
-            accessToken:
-              account.access_token,
-          });
+        const tokenValidation = await validateMetaToken({
+          accessToken: account.access_token,
+        });
 
         if (!tokenValidation.success) {
-
-          throw new Error(
-            tokenValidation.error ||
-            "Meta token invalid"
-          );
+          throw new Error(tokenValidation.error || "Meta token invalid");
         }
 
-        // BUILD CAPTION
+        const caption = `${campaign.caption || ""}
 
-        const caption = `
-${campaign.caption || ""}
-
-${campaign.hashtags || ""}
-`;
-
-        // FACEBOOK PUBLISH
+${campaign.hashtags || ""}`;
 
         let facebookResult = null;
 
-        if (
-          account.page_id &&
-          campaign.image_url
-        ) {
+        if (account.page_id && campaign.image_url) {
+          facebookResult = await publishToFacebook({
+            pageId: account.page_id,
+            accessToken: account.access_token,
+            imageUrl: campaign.image_url,
+            caption,
+          });
 
-          facebookResult =
-            await publishToFacebook({
-              pageId:
-                account.page_id,
-              accessToken:
-                account.access_token,
-              imageUrl:
-                campaign.image_url,
-              caption,
-            });
-
-          console.log(
-            "FACEBOOK RESULT:",
-            facebookResult
-          );
+          console.log("FACEBOOK RESULT:", facebookResult);
         }
-
-        // INSTAGRAM PUBLISH
 
         let instagramResult = null;
 
-        if (
-          account.instagram_business_id &&
-          campaign.image_url
-        ) {
+        if (account.instagram_business_id && campaign.image_url) {
+          instagramResult = await publishToInstagram({
+            instagramBusinessId: account.instagram_business_id,
+            accessToken: account.access_token,
+            imageUrl: campaign.image_url,
+            caption,
+          });
 
-          instagramResult =
-            await publishToInstagram({
-              instagramBusinessId:
-                account.instagram_business_id,
-              accessToken:
-                account.access_token,
-              imageUrl:
-                campaign.image_url,
-              caption,
-            });
-
-          console.log(
-            "INSTAGRAM RESULT:",
-            instagramResult
-          );
+          console.log("INSTAGRAM RESULT:", instagramResult);
         }
 
-        // DETERMINE SUCCESS
+        const facebookSuccess = !facebookResult || facebookResult.success;
+        const instagramSuccess = !instagramResult || instagramResult.success;
+        const publishSuccess = facebookSuccess && instagramSuccess;
 
-        const facebookSuccess =
-          !facebookResult ||
-          facebookResult.success;
+        if (!publishSuccess) {
+          await supabase
+            .from("campaign_publish_queue")
+            .update({
+              status: "failed",
+              retry_count: (job.retry_count || 0) + 1,
+              last_error:
+                facebookResult?.error ||
+                instagramResult?.error ||
+                "Publish failed",
+            })
+            .eq("id", job.id);
 
-        const instagramSuccess =
-          !instagramResult ||
-          instagramResult.success;
+          await supabase
+            .from("marketing_campaigns")
+            .update({
+              status: "failed",
+            })
+            .eq("id", campaign.id);
 
-        const publishSuccess =
-          facebookSuccess &&
-          instagramSuccess;
-
-        // FAILED
-
-        // FAILED
-
-if (!publishSuccess) {
-
-  await supabase
-    .from("campaign_publish_queue")
-    .update({
-
-      status: "failed",
-
-      retry_count:
-        (job.retry_count || 0) + 1,
-
-      last_error:
-        facebookResult?.error ||
-        instagramResult?.error ||
-        "Publish failed",
-
-    })
-    .eq("id", job.id);
-
-  await supabase
-    .from("marketing_campaigns")
-    .update({
-      status: "failed",
-    })
-    .eq("id", campaign.id);
-
-  continue;
-}
-
-        // UPDATE QUEUE -> PUBLISHED
+          continue;
+        }
 
         await supabase
           .from("campaign_publish_queue")
           .update({
             status: "published",
-            published_at:
-              new Date().toISOString(),
-            facebook_post_id:
-              facebookResult?.postId || null,
-            instagram_post_id:
-              instagramResult?.postId || null,
+            published_at: new Date().toISOString(),
+            facebook_post_id: facebookResult?.postId || null,
+            instagram_post_id: instagramResult?.postId || null,
           })
           .eq("id", job.id);
-
-        // UPDATE CAMPAIGN
 
         await supabase
           .from("marketing_campaigns")
@@ -238,30 +150,17 @@ if (!publishSuccess) {
           .eq("id", campaign.id);
 
         processed++;
-
       } catch (jobError) {
-
-        console.error(
-          "JOB FAILED:",
-          job.id,
-          jobError
-        );
+        console.error("JOB FAILED:", job.id, jobError);
 
         await supabase
-  .from("campaign_publish_queue")
-  .update({
-
-    status: "failed",
-
-    retry_count:
-      (job.retry_count || 0) + 1,
-
-    last_error:
-      jobError.message ||
-      "Unknown publish error",
-
-  })
-  .eq("id", job.id);
+          .from("campaign_publish_queue")
+          .update({
+            status: "failed",
+            retry_count: (job.retry_count || 0) + 1,
+            last_error: jobError.message || "Unknown publish error",
+          })
+          .eq("id", job.id);
       }
     }
 
@@ -269,19 +168,13 @@ if (!publishSuccess) {
       success: true,
       processed,
     });
-
   } catch (err) {
-
-    console.error(
-      "PROCESS QUEUE ERROR:",
-      err
-    );
+    console.error("PROCESS QUEUE ERROR:", err);
 
     return NextResponse.json(
       {
-        error:
-          err.message ||
-          "Queue processing failed",
+        success: false,
+        error: err.message || "Queue processing failed",
       },
       { status: 500 }
     );

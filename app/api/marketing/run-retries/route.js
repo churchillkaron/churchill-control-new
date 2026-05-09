@@ -1,8 +1,8 @@
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "http://localhost:3000";
 
 export async function GET() {
 
@@ -29,11 +29,8 @@ export async function GET() {
     );
 
     return NextResponse.json({
-
       success: true,
-
       result: data,
-
     });
 
   } catch (error) {

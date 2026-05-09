@@ -1,14 +1,15 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase";
+import { supabase }
+from "@/lib/supabase";
 
 // =========================
 // GET EXPENSES
 // =========================
 export async function GET() {
   try {
-    const supabase = getSupabase();
+  
 
     if (!supabase) {
       return NextResponse.json(

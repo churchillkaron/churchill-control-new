@@ -20,23 +20,17 @@ from "../../components/marketing/PosterPreview";
 import ExportControls
 from "../../components/marketing/ExportControls";
 
-
-
 import { useTenant }
-from "@/hooks/useTenant";
-
-
-
-
+from "@/app/providers/TenantProvider";
 
 import { getCampaignMemory }
-from "@/lib/getCampaignMemory";
+from "@/lib/supabase/getCampaignMemory";
 
 import { getCampaignRecommendation }
 from "@/lib/ai/getCampaignRecommendation";
 
 import { createCampaignFlow }
-from "../../../lib/services/createCampaignFlow";
+from "@/lib/services/createCampaignFlow";
 
 
 export default function Page() {

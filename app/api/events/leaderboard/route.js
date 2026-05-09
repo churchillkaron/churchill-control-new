@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req) {
 
 
   const { searchParams } = new URL(req.url)

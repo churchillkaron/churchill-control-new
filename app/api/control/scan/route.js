@@ -4,8 +4,12 @@ export const dynamic = "force-dynamic";
 
 const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
-// ✅ ENV SAFE LOAD
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+
+
+export async function POST() {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceKey) {
@@ -13,9 +17,6 @@ if (!supabaseUrl || !serviceKey) {
 }
 
 const supabase = createClient(supabaseUrl, serviceKey);
-
-export async function POST() {
-  try {
     const alerts = [];
 
     const createTaskIfNotExists = async (message, type) => {

@@ -20,9 +20,7 @@ export default function Page() {
           caption: "Churchill AI Instagram Test",
           image_url:
             "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
-          instagram_business_id: "17841401899330356",
-          access_token: "EAATFg4oQC4cBRaGDGdEqNj9ZBNvkPZCuHUPEzqUJLrm8W7ZCWozvdo1ZBJhwG77eP89kiVYA6vS942zLqI346ZBT5oFjKVaWZBXw2ZAKuX8asBFYqEhRvfTGg408m9f74OyyDwZCghQU7G8yAkzxVfNgH9C519owW1VK6iOnlEQ2A34DyjZBkZAhGxkYIKyXoSqKhtCS4ZD",
-        }),
+       page_id: "112860474967", }),
       });
 
       const data = await res.json();

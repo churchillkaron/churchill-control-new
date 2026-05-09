@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { supabase }
+from "@/lib/supabase";
+
 export async function POST(req) {
 
   try {
@@ -10,9 +13,41 @@ export async function POST(req) {
     const {
       caption,
       image_url,
-      instagram_business_id,
-      access_token,
+      page_id,
     } = body;
+
+    // GET ACCOUNT
+
+    const {
+      data: account,
+      error: accountError,
+    } = await supabase
+      .from("meta_accounts")
+      .select("*")
+      .eq("page_id", page_id)
+      .single();
+
+    if (
+      accountError ||
+      !account
+    ) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Meta account not found",
+        },
+        { status: 500 }
+      );
+
+    }
+
+    const instagram_business_id =
+      account.instagram_business_id;
+
+    const access_token =
+      account.access_token;
 
     // STEP 1
     // CREATE MEDIA CONTAINER

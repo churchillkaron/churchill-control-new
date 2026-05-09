@@ -9,7 +9,12 @@
     {
       "path": "/api/marketing/run-retries",
       "schedule": "*/15 * * * *"
-    }
+     },
+
+    {
+  "path": "/api/marketing/sync-analytics",
+  "schedule": "0 */6 * * *"
+}
 
   ]
 }

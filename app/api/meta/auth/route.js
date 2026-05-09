@@ -41,11 +41,10 @@ export async function GET() {
   [
     "pages_show_list",
     "pages_read_engagement",
-    "pages_manage_posts",
-    "instagram_basic",
-    "instagram_content_publish",
-    "instagram_manage_insights",
-    "business_management"
+    "business_management",
+    "instagram_business_basic",
+    "instagram_business_content_publish",
+    "instagram_business_manage_insights"
   ].join(",")
 );
 

@@ -1,20 +1,35 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req) {
-  const body = await req.json();
 
-  const {
-    revenue,
-    orders,
-    avg,
-    trend = {}
-  } = body;
+  try {
 
-  const prompt = `
+    if (!process.env.OPENAI_API_KEY) {
+
+      return Response.json(
+        {
+          error: "Missing OPENAI_API_KEY",
+        },
+        { status: 500 }
+      );
+
+    }
+
+    const openai = new OpenAI({
+      apiKey:
+        process.env.OPENAI_API_KEY,
+    });
+
+    const body = await req.json();
+
+    const {
+      revenue,
+      orders,
+      avg,
+      trend = {},
+    } = body;
+
+    const prompt = `
 You are a restaurant owner AI.
 
 Current performance:
@@ -42,12 +57,34 @@ Rules:
 - Focus on profit, efficiency, or risk
 `;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4.1-mini",
-    messages: [{ role: "user", content: prompt }],
-  });
+    const response =
+      await openai.chat.completions.create({
+        model: "gpt-4.1-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      });
 
-  return Response.json({
-    result: response.choices[0].message.content,
-  });
+    return Response.json({
+      result:
+        response.choices[0]
+          .message.content,
+    });
+
+  } catch (err) {
+
+    return Response.json(
+      {
+        error:
+          err.message ||
+          "AI analyze failed",
+      },
+      { status: 500 }
+    );
+
+  }
+
 }

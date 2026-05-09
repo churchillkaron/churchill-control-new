@@ -1,14 +1,34 @@
 import "./globals.css";
-import AppShell from "@/components/AppShell";
 
-export default function RootLayout({ children }) {
+import AppShell
+from "@/components/AppShell";
+
+import {
+  TenantProvider
+} from "@/app/providers/TenantProvider";
+
+export default function RootLayout({
+  children,
+}) {
+
   return (
+
     <html lang="en">
+
       <body>
-        <AppShell>
-          {children}
-        </AppShell>
+
+        <TenantProvider>
+
+          <AppShell>
+
+            {children}
+
+          </AppShell>
+
+        </TenantProvider>
+
       </body>
+
     </html>
   );
 }

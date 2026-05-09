@@ -9,9 +9,7 @@ export default function Navbar() {
 
   const navItems = [
   { name: "Dashboard", href: "/dashboard" },
-  { name: "Control", href: "/control-final" },
   { name: "POS", href: "/pos" },
-  { name: "Orders", href: "/pos-control" },
   { name: "Kitchen", href: "/kitchen" },
   { name: "Staff", href: "/staff" },
   { name: "Staff Control", href: "/staff-control" },

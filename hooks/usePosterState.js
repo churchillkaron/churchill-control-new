@@ -1,0 +1,93 @@
+"use client";
+
+import { useState } from "react";
+
+export function usePosterState() {
+
+  const [selectedImage, setSelectedImage] =
+    useState(null);
+
+  const [layout, setLayout] =
+    useState("Classic");
+
+  const [campaignType, setCampaignType] =
+    useState("ABBA Night");
+
+  const [campaignTitle, setCampaignTitle] =
+    useState("ABBA NIGHT");
+
+  const [campaignSubtitle, setCampaignSubtitle] =
+    useState("LIVE AT CHURCHILL");
+
+  const [eventDate, setEventDate] =
+    useState("FRIDAY 8PM");
+
+  const [footer, setFooter] =
+    useState("Reserve Your Table");
+
+  const [extraDirection, setExtraDirection] =
+    useState("");
+
+    const [mood, setMood] =
+  useState("Luxury Nightlife");
+
+const [lighting, setLighting] =
+  useState("Cinematic Warm");
+
+const [composition, setComposition] =
+  useState("Hero Shot");
+
+const [atmosphere, setAtmosphere] =
+  useState("Energetic");
+
+const [venue, setVenue] =
+  useState("Churchill Phuket");
+
+const [subject, setSubject] =
+  useState("Guests enjoying nightlife");
+
+  return {
+
+    selectedImage,
+    setSelectedImage,
+
+    layout,
+    setLayout,
+
+    campaignType,
+    setCampaignType,
+
+    campaignTitle,
+    setCampaignTitle,
+
+    campaignSubtitle,
+    setCampaignSubtitle,
+
+    eventDate,
+    setEventDate,
+
+    footer,
+    setFooter,
+
+    extraDirection,
+    setExtraDirection,
+
+    mood,
+setMood,
+
+lighting,
+setLighting,
+
+composition,
+setComposition,
+
+atmosphere,
+setAtmosphere,
+
+venue,
+setVenue,
+
+subject,
+setSubject,
+  };
+}

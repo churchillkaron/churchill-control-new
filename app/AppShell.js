@@ -1,5 +1,5 @@
 "use client";
-
+console.log("APPSHELL V2 LOADED");
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 

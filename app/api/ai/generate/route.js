@@ -1,18 +1,31 @@
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 export async function POST(req) {
   try {
     const { prompt } = await req.json();
 
-    if (!prompt) {
-      return Response.json({ error: "Missing prompt" }, { status: 400 });
-    }
-
-    // TEMP IMAGE (WORKING CONFIRMATION)
-    return Response.json({
-      url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e"
+    const result = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt,
+      size: "1024x1024",
+      n: 1,
     });
 
-  } catch (err) {
-    console.error(err);
-    return Response.json({ error: "Failed" }, { status: 500 });
+    const imageBase64 = result.data?.[0]?.b64_json;
+
+    return Response.json({
+      url: `data:image/png;base64,${imageBase64}`,
+    });
+  } catch (error) {
+    console.error("Image generation error:", error);
+
+    return Response.json(
+      { error: "Failed to generate image" },
+      { status: 500 }
+    );
   }
 }

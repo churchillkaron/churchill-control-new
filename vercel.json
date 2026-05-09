@@ -1,3 +1,15 @@
 {
-  "framework": "nextjs"
+  "crons": [
+
+    {
+      "path": "/api/marketing/run-queue",
+      "schedule": "*/5 * * * *"
+    },
+
+    {
+      "path": "/api/marketing/run-retries",
+      "schedule": "*/15 * * * *"
+    }
+
+  ]
 }

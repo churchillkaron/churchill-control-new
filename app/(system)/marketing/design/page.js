@@ -1,179 +1,506 @@
 "use client";
 
-import { useState } from "react";
+import { buildPrompt }
+from "@/lib/ai/buildPrompt";
 
-const PRESETS = [
-  { title: "Luxury Cinematic", style: "luxury" },
-  { title: "High-Energy Social", style: "party" },
-  { title: "Elegant Brand Story", style: "minimal" },
-];
+import { useRef, useState }
+from "react";
+
+import { usePosterState }
+from "@/hooks/usePosterState";
+
+
+
+import ControlPanel
+from "../../components/marketing/ControlPanel";
+
+import PosterPreview
+from "../../components/marketing/PosterPreview";
+
+import ExportControls
+from "../../components/marketing/ExportControls";
+
+
+
+import { useTenant }
+from "@/hooks/useTenant";
+
+
+
+
+
+import { getCampaignMemory }
+from "@/lib/getCampaignMemory";
+
+import { getCampaignRecommendation }
+from "@/lib/ai/getCampaignRecommendation";
+
+import { createCampaignFlow }
+from "../../../lib/services/createCampaignFlow";
+
 
 export default function Page() {
-  const [step, setStep] = useState(1);
-  const [images, setImages] = useState([]);
-  const [selectedIndex, setSelectedIndex] = useState(null);
+ 
+ const { tenantId } =
+  useTenant();
+  
+  const posterExportNodeRef = useRef(null);
+
+
+ 
+
   const [loading, setLoading] = useState(false);
 
-  const [format, setFormat] = useState("image");
-  const [platform, setPlatform] = useState("instagram");
+  
+    const poster = usePosterState();
 
-  const [idea, setIdea] = useState("beach sunset");
-  const [mood, setMood] = useState("luxury");
-  const [time, setTime] = useState("golden hour");
+    const promptState = {
 
-  const [caption, setCaption] = useState(
-    "Step into a new level of hospitality."
-  );
+  campaignType:
+    poster.campaignType,
 
-  const [hashtags, setHashtags] = useState(
-    "#LuxuryHospitality #BeachClub #Phuket"
-  );
+  mood:
+    poster.mood,
 
-  function buildPrompt(style) {
-    return `
-${idea}, ${mood}, ${time},
-premium hospitality campaign,
-${style} style, cinematic lighting
-`;
-  }
+  lighting:
+    poster.lighting,
 
-  async function generate() {
+  composition:
+    poster.composition,
+
+  atmosphere:
+    poster.atmosphere,
+
+  subject:
+    poster.subject,
+
+  venue:
+    poster.venue,
+
+  extraDirection:
+    poster.extraDirection,
+};
+
+const basePrompt =
+  buildPrompt(promptState);
+    
+
+  async function generateAIImage() {
+
+  try {
+
     setLoading(true);
-    setImages([]);
-    setSelectedIndex(null);
+const memory =
+  await getCampaignMemory({
 
-    try {
-      const results = await Promise.all(
-        PRESETS.map(async (p) => {
-          const res = await fetch("/api/ai/generate", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              prompt: buildPrompt(p.style),
-            }),
-          });
+    tenantId,
 
-          const data = await res.json();
-          return data.url;
-        })
-      );
+    campaignType:
+      poster.campaignType,
+  });
 
-      setImages(results.filter(Boolean));
-      setStep(3);
-    } catch (err) {
-      console.error(err);
-    }
+  const memoryContext =
+  memory.map((m) => `
+
+Mood:
+${m.mood}
+
+Lighting:
+${m.lighting}
+
+Composition:
+${m.composition}
+
+Atmosphere:
+${m.atmosphere}
+
+`).join("\n");
+
+const recommendation =
+  getCampaignRecommendation(
+    memory
+  );
+
+const basePrompt =
+  buildPrompt(promptState);
+
+const prompt = `
+
+${basePrompt}
+
+REFERENCE MEMORY:
+
+${memoryContext}
+
+IMPORTANT:
+Maintain Churchill Phuket
+brand consistency and
+premium hospitality identity.
+`;
+const campaign =
+  await createCampaignFlow({
+
+    tenantId,
+
+    prompt,
+
+    poster,
+  });
+
+poster.setSelectedImage(
+  campaign.image_url
+);
+    
+
+    console.error(err);
+
+    alert(
+      err.message ||
+      "Generation failed"
+    );
+
+  } finally {
 
     setLoading(false);
   }
+}
+
+  async function exportPoster() {
+
+    try {
+
+      const node =
+        posterExportNodeRef.current;
+
+      if (!node) {
+
+        alert("Poster node missing");
+
+        return;
+      }
+
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#000000",
+      });
+
+      const win = window.open();
+
+      if (!win) return;
+
+      win.document.write(`
+        <html>
+          <body style="margin:0;background:black;">
+            <img
+              src="${dataUrl}"
+              style="width:100%;display:block;"
+            />
+          </body>
+        </html>
+      `);
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert("Export failed");
+    }
+  }
+
+  function renderOverlay() {
+
+    switch (layout) {
+
+      case "Centered":
+        return (
+          <div
+            className="
+              absolute
+              inset-0
+              flex
+              items-center
+              justify-center
+              text-center
+              z-20
+              p-10
+            "
+          >
+            <div>
+
+              <div
+                className="
+                  uppercase
+                  tracking-[0.4em]
+                  text-orange-500
+                  mb-6
+                "
+              >
+                {campaignSubtitle}
+              </div>
+
+              <h1
+                className="
+                  text-8xl
+                  uppercase
+                  leading-none
+                  mb-6
+                "
+              >
+                {campaignTitle}
+              </h1>
+
+              <div
+                className="
+                  text-2xl
+                  tracking-[0.2em]
+                  uppercase
+                  text-white/90
+                "
+              >
+                {eventDate}
+              </div>
+
+            </div>
+          </div>
+        );
+
+      case "Minimal":
+        return (
+          <div
+            className="
+              absolute
+              bottom-10
+              left-10
+              z-20
+            "
+          >
+            <h1
+              className="
+                text-6xl
+                uppercase
+                font-light
+              "
+            >
+              {campaignTitle}
+            </h1>
+          </div>
+        );
+
+      case "Bottom Gradient":
+        return (
+          <>
+            <div
+              className="
+                absolute
+                inset-0
+                bg-gradient-to-t
+                from-black
+                via-black/40
+                to-transparent
+                z-10
+              "
+            />
+
+            <div
+              className="
+                absolute
+                bottom-16
+                left-10
+                z-20
+              "
+            >
+
+              <div
+                className="
+                  uppercase
+                  tracking-[0.4em]
+                  text-orange-500
+                  mb-5
+                "
+              >
+                {campaignSubtitle}
+              </div>
+
+              <h1
+                className="
+                  text-7xl
+                  uppercase
+                  leading-none
+                  mb-5
+                "
+              >
+                {campaignTitle}
+              </h1>
+
+              <div
+                className="
+                  text-xl
+                  uppercase
+                  tracking-[0.2em]
+                  text-white/80
+                  mb-6
+                "
+              >
+                {eventDate}
+              </div>
+
+              <div
+                className="
+                  inline-flex
+                  border
+                  border-orange-500/40
+                  rounded-full
+                  px-6
+                  py-3
+                  text-orange-500
+                  uppercase
+                  tracking-[0.2em]
+                  text-sm
+                  bg-black/50
+                "
+              >
+                {footer}
+              </div>
+
+            </div>
+          </>
+        );
+
+      case "Classic":
+      default:
+        return (
+          <div
+            className="
+              absolute
+              bottom-20
+              left-10
+              z-20
+            "
+          >
+
+            <div
+              className="
+                uppercase
+                tracking-[0.4em]
+                text-orange-500
+                mb-5
+              "
+            >
+              {campaignSubtitle}
+            </div>
+
+            <h1
+              className="
+                text-7xl
+                uppercase
+                leading-none
+                mb-5
+              "
+            >
+              {campaignTitle}
+            </h1>
+
+            <div
+              className="
+                text-2xl
+                tracking-[0.2em]
+                uppercase
+                text-white/90
+                mb-6
+              "
+            >
+              {eventDate}
+            </div>
+
+            <div
+              className="
+                inline-flex
+                border
+                border-orange-500/40
+                rounded-full
+                px-6
+                py-3
+                text-orange-500
+                uppercase
+                tracking-[0.2em]
+                text-sm
+                bg-black/50
+              "
+            >
+              {footer}
+            </div>
+
+          </div>
+        );
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
 
-      <h1 className="text-4xl mb-6">AI Creative Studio</h1>
+  <div className="min-h-screen bg-black text-white p-10">
 
-      {/* STEP NAV */}
-      <div className="flex gap-4 mb-8">
-        <button onClick={() => setStep(1)}>1. Setup</button>
-        <button onClick={() => setStep(2)}>2. Generate</button>
-        <button onClick={() => setStep(3)}>3. Review</button>
-        <button onClick={() => setStep(4)}>4. Export</button>
+    <div className="max-w-[1600px] mx-auto">
+
+      <div className="mb-10">
+
+        <h1 className="text-5xl font-light">
+          AI Poster Studio
+        </h1>
+
+        <div className="text-white/50 mt-3">
+          Churchill Marketing System
+        </div>
+
       </div>
 
-      {/* STEP 1 */}
-      {step === 1 && (
-        <div className="max-w-md space-y-4">
+      <div className="grid lg:grid-cols-2 gap-10">
 
-          <input
-            value={idea}
-            onChange={(e) => setIdea(e.target.value)}
-            className="w-full p-2 bg-black border border-white/20"
-            placeholder="Idea"
-          />
+        <div className="space-y-6">
 
-          <input
-            value={mood}
-            onChange={(e) => setMood(e.target.value)}
-            className="w-full p-2 bg-black border border-white/20"
-            placeholder="Mood"
-          />
-
-          <input
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            className="w-full p-2 bg-black border border-white/20"
-            placeholder="Time"
+          <ControlPanel
+            poster={poster}
           />
 
           <button
-            onClick={() => setStep(2)}
-            className="bg-orange-500 px-4 py-2 text-black"
+            onClick={generateAIImage}
+            disabled={loading}
+            className="
+              w-full
+              bg-blue-500
+              text-white
+              px-8
+              py-4
+              rounded-xl
+              font-bold
+              disabled:opacity-50
+            "
           >
-            Continue
+            {loading
+              ? "Generating..."
+              : "Generate AI Campaign"}
           </button>
-        </div>
-      )}
 
-      {/* STEP 2 */}
-      {step === 2 && (
-        <div>
-          <button
-            onClick={generate}
-            className="bg-orange-500 px-6 py-3 text-black"
-          >
-            {loading ? "Generating..." : "Generate 3 Directions"}
-          </button>
-        </div>
-      )}
-
-      {/* STEP 3 */}
-      {step === 3 && (
-        <div className="grid grid-cols-3 gap-6">
-
-          {images.map((img, i) => (
-            <div key={i} className="bg-white/5 p-2 rounded">
-
-              <img src={img} className="h-48 w-full object-cover" />
-
-              <button
-                onClick={() => {
-                  setSelectedIndex(i);
-                  setStep(4);
-                }}
-                className="mt-2 bg-orange-500 px-3 py-1 text-black"
-              >
-                Select
-              </button>
-            </div>
-          ))}
-
-        </div>
-      )}
-
-      {/* STEP 4 */}
-      {step === 4 && selectedIndex !== null && (
-        <div className="max-w-xl space-y-4">
-
-          <textarea
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            className="w-full p-2 bg-black border border-white/20"
+          <ExportControls
+            exportRef={
+              posterExportNodeRef
+            }
           />
 
-          <textarea
-            value={hashtags}
-            onChange={(e) => setHashtags(e.target.value)}
-            className="w-full p-2 bg-black border border-white/20"
-          />
-
-          <button className="bg-orange-500 px-6 py-3 text-black">
-            Export Campaign
-          </button>
         </div>
-      )}
+
+        <PosterPreview
+          poster={poster}
+          exportRef={
+            posterExportNodeRef
+          }
+        />
+
+      </div>
 
     </div>
-  );
+
+  </div>
+
+);
 }

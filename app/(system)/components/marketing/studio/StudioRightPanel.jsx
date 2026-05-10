@@ -14,6 +14,10 @@ from "@/lib/supabase/getQueuedCampaigns";
 
 export default function StudioRightPanel({
 
+
+  poster,
+
+
   loading,
 
   generateAIImage,
@@ -289,6 +293,9 @@ alert(
 <QueuePanel
   queuedCampaigns={
     queuedCampaigns
+  }
+  setQueuedCampaigns={
+    setQueuedCampaigns
   }
 />
       {/* QUEUE */}

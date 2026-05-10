@@ -1,8 +1,13 @@
 "use client";
 
+import { deleteQueuedCampaign }
+from "@/lib/supabase/deleteQueuedCampaign";
+
 export default function QueuePanel({
 
   queuedCampaigns = [],
+
+  setQueuedCampaigns,
 
 }) {
 
@@ -124,7 +129,66 @@ export default function QueuePanel({
                   {new Date(
                     item.scheduled_for
                   ).toLocaleString()}
-                </div>
+                </div><div
+  className="
+    flex
+    gap-2
+    mt-4
+  "
+>
+
+  <button
+    onClick={async () => {
+
+      const result =
+        await deleteQueuedCampaign({
+
+          queueId:
+            item.id,
+
+        });
+
+      if (!result.success) {
+
+        alert(
+          result.error
+        );
+
+        return;
+
+      }
+
+      setQueuedCampaigns(
+
+        queuedCampaigns.filter(
+          (queueItem) =>
+
+            queueItem.id !==
+            item.id
+        )
+
+      );
+
+    }}
+    className="
+      flex-1
+      bg-red-500/20
+      hover:bg-red-500/30
+      border
+      border-red-500/30
+      text-red-300
+      rounded-xl
+      py-2
+      text-xs
+      uppercase
+      tracking-[0.2em]
+      transition-all
+    "
+  >
+    Cancel
+  </button>
+
+</div>
 
               </div>
 

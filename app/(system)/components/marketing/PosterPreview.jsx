@@ -15,9 +15,12 @@ export default function PosterPreview({
       className="
         relative
         w-full
-        h-[900px]
+        h-[92vh]
         overflow-hidden
         rounded-3xl
+        border
+border-white/10
+shadow-[0_0_120px_rgba(249,115,22,0.08)]
         bg-black
       "
     >

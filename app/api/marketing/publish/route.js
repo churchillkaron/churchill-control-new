@@ -176,9 +176,25 @@ ${campaign.extra_direction || ""}
         await facebookRes.json();
 
       console.log(
-        "FACEBOOK PUBLISH:",
-        facebookResult
-      );
+  "FACEBOOK STATUS:",
+  facebookRes.status
+);
+
+console.log(
+  "FACEBOOK RESULT:",
+  facebookResult
+);
+
+if (
+  facebookResult.error
+) {
+
+  console.error(
+    "FACEBOOK ERROR:",
+    facebookResult.error
+  );
+
+}
 
     } catch (err) {
 

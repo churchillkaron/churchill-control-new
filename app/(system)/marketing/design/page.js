@@ -3,23 +3,9 @@
 import { useRef, useState }
 from "react";
 
-import { buildPrompt }
-from "@/lib/ai/buildPrompt";
-
 import { usePosterState }
 from "@/hooks/usePosterState";
 
-import { getCampaignMemory }
-from "@/lib/supabase/getCampaignMemory";
-
-import { getCampaignRecommendation }
-from "@/lib/ai/getCampaignRecommendation";
-
-import { getTopPerformingCampaigns }
-from "@/lib/ai/getTopPerformingCampaigns";
-
-import { createCampaignFlow }
-from "@/lib/services/createCampaignFlow";
 
 import StudioTopBar
 from "../../components/marketing/studio/StudioTopBar";
@@ -33,8 +19,9 @@ from "../../components/marketing/studio/StudioCenterStage";
 import StudioRightPanel
 from "../../components/marketing/studio/StudioRightPanel";
 
-import { getMarketingAssets }
-from "@/lib/supabase/getMarketingAssets";
+import { runCampaignGeneration }
+from "@/lib/services/runCampaignGeneration";
+
 
 export default function Page() {
 
@@ -52,180 +39,41 @@ export default function Page() {
 
   async function generateAIImage() {
 
-    try {
+  try {
 
-      setLoading(true);
-const interiorAssets =
-  await getMarketingAssets({
+    setLoading(true);
 
-    tenantId,
-
-    assetType:
-      "interior",
-
-  });
-
-const staffAssets =
-  await getMarketingAssets({
-
-    tenantId,
-
-    assetType:
-      "staff",
-
-  });
-      const memory =
-        await getCampaignMemory({
-
-          tenantId,
-
-          campaignType:
-            poster.campaignType,
-
-        });
-
-      const topCampaigns =
-        await getTopPerformingCampaigns({
-
-          tenantId,
-
-          limit: 5,
-
-        });
-
-      const recommendation =
-        getCampaignRecommendation(
-          topCampaigns
-        );
-
-      const memoryContext =
-        memory
-          .map((memoryItem) => `
-
-Mood:
-${memoryItem.mood}
-
-Lighting:
-${memoryItem.lighting}
-
-Composition:
-${memoryItem.composition}
-
-Atmosphere:
-${memoryItem.atmosphere}
-
-`)
-          .join("\n");
-const interiorContext =
-  interiorAssets
-    .map((asset) => `
-Interior Reference:
-${asset.file_url}
-`)
-    .join("\n");
-
-const staffContext =
-  staffAssets
-    .map((asset) => `
-Staff Reference:
-${asset.file_url}
-`)
-    .join("\n");
-
-      const promptState = {
+    const campaign =
+      await runCampaignGeneration({
 
         tenantId,
 
-        campaignType:
-          poster.campaignType,
+        poster,
 
-        mood:
-          recommendation.bestMood ||
-          poster.mood,
+      });
 
-        lighting:
-          recommendation.bestLighting ||
-          poster.lighting,
+    poster.setSelectedImage(
+      campaign.image_url
+    );
 
-        composition:
-          poster.composition,
+  } catch (err) {
 
-        atmosphere:
-          recommendation.bestAtmosphere ||
-          poster.atmosphere,
+    console.error(
+      "CAMPAIGN GENERATION ERROR:",
+      err
+    );
 
-        subject:
-          poster.subject,
+    alert(
+      JSON.stringify(err)
+    );
 
-        venue:
-          poster.venue,
+  } finally {
 
-        extraDirection:
-          poster.extraDirection,
-
-      };
-
-      const basePrompt =
-        await buildPrompt(
-          promptState
-        );
-
-      const prompt = `
-
-${basePrompt}
-
-REFERENCE MEMORY:
-
-${memoryContext}
-
-VENUE REFERENCES:
-
-${interiorContext}
-
-STAFF REFERENCES:
-
-${staffContext}
-
-IMPORTANT:
-Maintain Churchill Phuket
-brand consistency and
-premium hospitality identity.
-
-`;
-
-      const campaign =
-        await createCampaignFlow({
-
-          tenantId,
-
-          prompt,
-
-          poster,
-
-        });
-
-      poster.setSelectedImage(
-        campaign.image_url
-      );
-
-    } catch (err) {
-
-      console.error(
-        "CAMPAIGN GENERATION ERROR:",
-        err
-      );
-
-      alert(
-        JSON.stringify(err)
-      );
-
-    } finally {
-
-      setLoading(false);
-
-    }
+    setLoading(false);
 
   }
+
+}
 
   return (
 

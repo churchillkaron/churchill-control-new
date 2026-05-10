@@ -6,6 +6,9 @@ from "../ControlPanel";
 import { uploadMarketingAsset }
 from "@/lib/supabase/uploadMarketingAsset";
 
+import { analyzeMarketingAsset }
+from "@/lib/ai/analyzeMarketingAsset";
+
 export default function StudioLeftPanel({
 
   poster,
@@ -88,20 +91,32 @@ export default function StudioLeftPanel({
 
   for (const file of files) {
 
-    await uploadMarketingAsset({
+    const analysis =
+  await analyzeMarketingAsset({
 
-      file,
+    assetType:
+      "interior",
 
-      tenantId,
+  });
 
-      assetType:
-        "interior",
+await uploadMarketingAsset({
 
-    });
+    file,
+
+    tenantId,
+
+    assetType:
+      "interior",
+
+    analysis,
+
+  });
 
   }
 
 }}
+
+
             className="
               w-full
               bg-black/40
@@ -194,18 +209,34 @@ export default function StudioLeftPanel({
 
   for (const file of files) {
 
-    await uploadMarketingAsset({
+  const analysis =
+  await analyzeMarketingAsset({
 
-      file,
+    assetType:
+      "staff",
 
-      tenantId,
+  });
 
-      assetType:
-        "staff",
+await uploadMarketingAsset({
 
-    });
+    file,
 
-  }
+    tenantId,
+
+    assetType:
+      "staff",
+
+    analysis,
+
+  });
+
+  console.log(
+    "STAFF ANALYSIS:",
+    analysis
+  );
+
+}
+
 
 }}
               className="
@@ -293,18 +324,34 @@ export default function StudioLeftPanel({
 
   for (const file of files) {
 
-    await uploadMarketingAsset({
+  const analysis =
+  await analyzeMarketingAsset({
 
-      file,
+    assetType:
+      "interior",
 
-      tenantId,
+  });
 
-      assetType:
-        "interior",
+await uploadMarketingAsset({
 
-    });
+    file,
 
-  }
+    tenantId,
+
+    assetType:
+      "interior",
+
+    analysis,
+
+  });
+
+  console.log(
+    "ASSET ANALYSIS:",
+    analysis
+  );
+
+}
+
 
 }}
               className="

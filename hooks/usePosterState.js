@@ -179,6 +179,11 @@ const [
     brandAssets,
     setBrandAssets,
 
+    scheduledDate,
+setScheduledDate,
+
+scheduledTime,
+setScheduledTime,
   };
 
 }

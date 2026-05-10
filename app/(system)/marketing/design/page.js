@@ -3,7 +3,11 @@
 export const dynamic =
   "force-dynamic";
 
-import { useRef, useState }
+import {
+  useRef,
+  useState,
+  useEffect,
+}
 from "react";
 
 import { usePosterState }
@@ -21,17 +25,23 @@ from "../../components/marketing/studio/StudioCenterStage";
 import StudioRightPanel
 from "../../components/marketing/studio/StudioRightPanel";
 
+import PublishPanel
+from "@/app/(system)/components/marketing/studio/PublishPanel";
+
+import GenerationJobsPanel
+from "@/app/(system)/components/marketing/studio/GenerationJobsPanel";
+
 import { runCampaignGeneration }
 from "@/lib/services/runCampaignGeneration";
 
 import { getQueuedCampaigns }
 from "@/lib/supabase/getQueuedCampaigns";
 
-import { useEffect }
-from "react";
-
 import { getMetaAccounts }
 from "@/lib/supabase/getMetaAccounts";
+
+import { getGenerationJobs }
+from "@/lib/supabase/getGenerationJobs";
 
 export default function Page() {
 
@@ -53,50 +63,105 @@ export default function Page() {
   ] = useState(null);
 
   const [
-  queuedCampaigns,
-  setQueuedCampaigns,
-] = useState([]);
+    queuedCampaigns,
+    setQueuedCampaigns,
+  ] = useState([]);
 
-const [
-  metaAccounts,
-  setMetaAccounts,
-] = useState([]);
+  const [
+    metaAccounts,
+    setMetaAccounts,
+  ] = useState([]);
 
-useEffect(() => {
-async function loadMetaAccounts() {
+  const [
+    generationJobs,
+    setGenerationJobs,
+  ] = useState([]);
 
-  const accounts =
-    await getMetaAccounts({
+  useEffect(() => {
 
-      tenantId,
+    async function loadData() {
 
-    });
+      const accounts =
+        await getMetaAccounts({
 
-  setMetaAccounts(
-    accounts
-  );
+          tenantId,
 
-}
+        });
+if (latestCampaign?.id) {
 
-loadMetaAccounts();
-  async function loadQueue() {
+  const response =
+    await fetch(
 
-    const queueData =
-      await getQueuedCampaigns({
+      `/api/marketing/campaign/${latestCampaign.id}`
 
-        tenantId,
-
-      });
-
-    setQueuedCampaigns(
-      queueData
     );
+
+  const refreshedCampaign =
+    await response.json();
+
+  if (
+    refreshedCampaign?.id
+  ) {
+
+    setLatestCampaign(
+      refreshedCampaign
+    );
+
+    if (
+      refreshedCampaign.image_url
+    ) {
+
+      poster.setSelectedImage(
+        refreshedCampaign.image_url
+      );
+
+    }
 
   }
 
-  loadQueue();
+}
+      setMetaAccounts(
+        accounts
+      );
 
-}, []);
+      const queueData =
+        await getQueuedCampaigns({
+
+          tenantId,
+
+        });
+
+      setQueuedCampaigns(
+        queueData
+      );
+
+      const jobs =
+        await getGenerationJobs({
+
+          tenantId,
+
+        });
+
+      setGenerationJobs(
+        jobs
+      );
+
+    }
+
+   loadData();
+
+const interval =
+
+  setInterval(() => {
+
+    loadData();
+
+  }, 4000);
+
+return () =>
+  clearInterval(interval);
+
+  }, []);
 
   async function generateAIImage() {
 
@@ -113,24 +178,33 @@ loadMetaAccounts();
 
         });
 
-      poster.setSelectedImage(
-        campaign.image_url
-      );
+    
 
       setLatestCampaign(
         campaign
       );
 
       const queueData =
-  await getQueuedCampaigns({
+        await getQueuedCampaigns({
 
-    tenantId,
+          tenantId,
 
-  });
+        });
 
-setQueuedCampaigns(
-  queueData
-);
+      setQueuedCampaigns(
+        queueData
+      );
+
+      const jobs =
+        await getGenerationJobs({
+
+          tenantId,
+
+        });
+
+      setGenerationJobs(
+        jobs
+      );
 
     } catch (err) {
 
@@ -139,19 +213,15 @@ setQueuedCampaigns(
         err
       );
 
-     console.error(
-  "FULL GENERATION ERROR:",
-  err
-);
+      console.error(
+        "FULL GENERATION ERROR:",
+        err
+      );
 
-alert(
-  err.message ||
-  "Generation failed"
-);
-console.log(
-  "GENERATION RESPONSE:",
-  generation
-);
+      alert(
+        err.message ||
+        "Generation failed"
+      );
 
     } finally {
 
@@ -186,11 +256,9 @@ console.log(
         <StudioLeftPanel
           poster={poster}
           metaAccounts={
-  metaAccounts
-}
+            metaAccounts
+          }
         />
-
-        
 
         <StudioCenterStage
           poster={poster}
@@ -199,25 +267,52 @@ console.log(
           }
         />
 
-       <StudioRightPanel
-  poster={poster}
-  loading={loading}
-  generateAIImage={
-    generateAIImage
-  }
-  exportRef={
-    posterExportNodeRef
-  }
-  latestCampaign={
-    latestCampaign
-  }
-  queuedCampaigns={
-  queuedCampaigns
-}
-setQueuedCampaigns={
-  setQueuedCampaigns
-}
-/>
+        <div
+          className="
+            absolute
+            right-8
+            top-8
+            bottom-8
+            w-[380px]
+            flex
+            flex-col
+            gap-6
+            overflow-y-auto
+            pr-2
+            z-20
+          "
+        >
+
+          <PublishPanel
+            loading={loading}
+            generateAIImage={
+              generateAIImage
+            }
+            exportRef={
+              posterExportNodeRef
+            }
+            latestCampaign={
+              latestCampaign
+            }
+          />
+
+          <StudioRightPanel
+            latestCampaign={
+              latestCampaign
+            }
+            queuedCampaigns={
+              queuedCampaigns
+            }
+            setQueuedCampaigns={
+              setQueuedCampaigns
+            }
+          />
+
+          <GenerationJobsPanel
+            jobs={generationJobs}
+          />
+
+        </div>
 
       </div>
 

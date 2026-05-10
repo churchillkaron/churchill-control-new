@@ -151,7 +151,9 @@ setQueuedCampaigns(
   }
   queuedCampaigns={
     queuedCampaigns
-  }
+  }setQueuedCampaigns={
+  setQueuedCampaigns
+}
 />
 
       </div>

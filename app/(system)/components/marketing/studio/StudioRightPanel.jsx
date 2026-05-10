@@ -7,12 +7,25 @@ import { queueCampaign }
 from "@/lib/supabase/queueCampaign";
 
 import QueuePanel
-from "./QueuePanel";export default function StudioRightPanel({
+from "./QueuePanel";
+
+import { getQueuedCampaigns }
+from "@/lib/supabase/getQueuedCampaigns";
+
+export default function StudioRightPanel({
+
   loading,
+
   generateAIImage,
+
   exportRef,
+
   latestCampaign,
+
   queuedCampaigns,
+
+  setQueuedCampaigns,
+
 }) {
 
   async function handleQueueCampaign() {
@@ -24,6 +37,17 @@ from "./QueuePanel";export default function StudioRightPanel({
         alert(
           "Generate a campaign first"
         );
+        const updatedQueue =
+  await getQueuedCampaigns({
+
+    tenantId:
+      latestCampaign.tenant_id,
+
+  });
+
+setQueuedCampaigns(
+  updatedQueue
+);
 
         return;
 

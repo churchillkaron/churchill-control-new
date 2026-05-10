@@ -44,8 +44,14 @@ export default function QueuePanel({
 
       )}
 
-      <div className="space-y-4">
-
+<div
+  className="
+    space-y-4
+    max-h-[320px]
+    overflow-auto
+    pr-2
+  "
+>
         {queuedCampaigns.map(
           (item) => {
 

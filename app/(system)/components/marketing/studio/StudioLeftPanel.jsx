@@ -1,10 +1,7 @@
 "use client";
 
-import { uploadMarketingAsset }
-from "@/lib/supabase/uploadMarketingAsset";
 
-import { analyzeMarketingAsset }
-from "@/lib/ai/analyzeMarketingAsset";
+
 
 export default function StudioLeftPanel({
 

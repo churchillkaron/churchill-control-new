@@ -50,7 +50,7 @@ import AssetUploadPanel
 from "@/app/(system)/components/marketing/studio/AssetUploadPanel";
 
 import { getCampaignRecommendation }
-from "@/lib/ai/getCampaignRecommendation";
+from "@/lib/utils/getCampaignRecommendation";
 
 import { getBestPromptHistory }
 from "@/lib/supabase/getBestPromptHistory";

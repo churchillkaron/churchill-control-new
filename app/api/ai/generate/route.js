@@ -1,6 +1,7 @@
 import OpenAI
 from "openai";
 
+export async function POST(req) {
 const openai =
   new OpenAI({
 
@@ -9,7 +10,6 @@ const openai =
 
   });
 
-export async function POST(req) {
 
   try {
 

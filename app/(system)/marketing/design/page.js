@@ -31,9 +31,6 @@ from "@/app/(system)/components/marketing/studio/PublishPanel";
 import GenerationJobsPanel
 from "@/app/(system)/components/marketing/studio/GenerationJobsPanel";
 
-import { runCampaignGeneration }
-from "@/lib/services/runCampaignGeneration";
-
 import { getQueuedCampaigns }
 from "@/lib/supabase/getQueuedCampaigns";
 
@@ -310,16 +307,45 @@ setPromptHistory(
 
       setLoading(true);
 
-      const campaign =
-        await runCampaignGeneration({
+     const response =
+  await fetch(
+    "/api/marketing/generate",
+    {
+      method:
+        "POST",
 
-  tenantId,
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
 
-  poster,
+      body:
+        JSON.stringify({
 
-  selectedAssets,
+          tenantId,
 
-});
+          poster,
+
+          selectedAssets,
+
+        }),
+    }
+  );
+
+const data =
+  await response.json();
+
+if (!response.ok || !data.success) {
+
+  throw new Error(
+    data.error ||
+    "Generation failed"
+  );
+
+}
+
+const campaign =
+  data.campaign;
 
     
 

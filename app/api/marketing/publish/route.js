@@ -120,7 +120,9 @@ export async function POST(req) {
 
     // CAPTION
 
-    const caption = `
+const caption =
+  campaign.content ||
+  `
 
 ${campaign.title || ""}
 

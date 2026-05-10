@@ -1,29 +1,86 @@
-import OpenAI from "openai";
+import OpenAI
+from "openai";
 
+const openai =
+  new OpenAI({
 
+    apiKey:
+      process.env.OPENAI_API_KEY,
+
+  });
 
 export async function POST(req) {
+
   try {
-    const { prompt } = await req.json();
 
-    const result = await openai.images.generate({
-      model: "gpt-image-1",
+    const {
       prompt,
-      size: "1024x1024",
-      n: 1,
-    });
+    } = await req.json();
 
-    const imageBase64 = result.data?.[0]?.b64_json;
+    const result =
+      await openai.images.generate({
+
+        model:
+          "gpt-image-1",
+
+        prompt,
+
+        size:
+          "1536x1024",
+
+      });
+
+    const imageBase64 =
+      result.data?.[0]?.b64_json;
+
+    if (!imageBase64) {
+
+      throw new Error(
+        "No image generated"
+      );
+
+    }
+
+    const imageUrl = `
+
+data:image/png;base64,${imageBase64}
+
+`;
 
     return Response.json({
-      url: `data:image/png;base64,${imageBase64}`,
+
+      success: true,
+
+      imageUrl,
+
     });
+
   } catch (error) {
-    console.error("Image generation error:", error);
+
+    console.error(
+      "IMAGE GENERATION ERROR:",
+      error
+    );
 
     return Response.json(
-      { error: "Failed to generate image" },
-      { status: 500 }
+
+      {
+
+        success: false,
+
+        error:
+          error.message,
+
+      },
+
+      {
+
+        status: 500,
+
+      }
+
     );
+
   }
+
 }

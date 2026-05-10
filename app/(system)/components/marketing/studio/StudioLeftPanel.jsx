@@ -13,6 +13,8 @@ export default function StudioLeftPanel({
 
   poster,
 
+  metaAccounts = [],
+
 }) {
 
   const tenantId =
@@ -228,6 +230,62 @@ export default function StudioLeftPanel({
           </div>
 
         </div>
+        <div>
+
+  <div
+    className="
+      text-white/50
+      text-xs
+      uppercase
+      tracking-[0.2em]
+      mb-2
+    "
+  >
+    Publish Page
+  </div>
+
+  <select
+    value={
+      poster.pageId || ""
+    }
+    onChange={(e) =>
+      poster.setPageId(
+        e.target.value
+      )
+    }
+    className="
+      w-full
+      bg-black/40
+      border
+      border-white/10
+      rounded-xl
+      p-4
+      text-white
+    "
+  >
+
+    <option value="">
+      Select Page
+    </option>
+
+    {metaAccounts.map(
+      (account) => (
+
+        <option
+          key={account.id}
+          value={
+            account.page_id
+          }
+        >
+          {account.page_name}
+        </option>
+
+      )
+    )}
+
+  </select>
+
+</div>
 
       </div>
 

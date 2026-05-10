@@ -27,6 +27,12 @@ from "@/lib/services/runCampaignGeneration";
 import { getQueuedCampaigns }
 from "@/lib/supabase/getQueuedCampaigns";
 
+import { useEffect }
+from "react";
+
+import { getMetaAccounts }
+from "@/lib/supabase/getMetaAccounts";
+
 export default function Page() {
 
   const tenantId =
@@ -50,6 +56,47 @@ export default function Page() {
   queuedCampaigns,
   setQueuedCampaigns,
 ] = useState([]);
+
+const [
+  metaAccounts,
+  setMetaAccounts,
+] = useState([]);
+
+useEffect(() => {
+async function loadMetaAccounts() {
+
+  const accounts =
+    await getMetaAccounts({
+
+      tenantId,
+
+    });
+
+  setMetaAccounts(
+    accounts
+  );
+
+}
+
+loadMetaAccounts();
+  async function loadQueue() {
+
+    const queueData =
+      await getQueuedCampaigns({
+
+        tenantId,
+
+      });
+
+    setQueuedCampaigns(
+      queueData
+    );
+
+  }
+
+  loadQueue();
+
+}, []);
 
   async function generateAIImage() {
 
@@ -128,7 +175,12 @@ setQueuedCampaigns(
 
         <StudioLeftPanel
           poster={poster}
+          metaAccounts={
+  metaAccounts
+}
         />
+
+        
 
         <StudioCenterStage
           poster={poster}
@@ -150,8 +202,9 @@ setQueuedCampaigns(
     latestCampaign
   }
   queuedCampaigns={
-    queuedCampaigns
-  }setQueuedCampaigns={
+  queuedCampaigns
+}
+setQueuedCampaigns={
   setQueuedCampaigns
 }
 />

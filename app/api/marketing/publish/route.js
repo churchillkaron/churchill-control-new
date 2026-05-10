@@ -4,6 +4,9 @@ from "next/server";
 import { createClient }
 from "@supabase/supabase-js";
 
+import { publishToMeta }
+from "@/lib/meta/publishToMeta";
+
 export const dynamic =
   "force-dynamic";
 
@@ -80,12 +83,66 @@ export async function POST(req) {
 
     }
 
-    // TODO:
-    // META GRAPH API
-    // FACEBOOK POST
-    // INSTAGRAM POST
+    // LOAD META ACCOUNT
 
-    // UPDATE STATUS
+const {
+  data: metaAccount,
+} = await supabase
+
+  .from(
+    "meta_accounts"
+  )
+
+  .select("*")
+
+  .eq(
+    "tenant_id",
+    campaign.tenant_id
+  )
+
+  .single();
+
+// META PUBLISH
+
+if (metaAccount) {
+
+  const publishResult =
+    await publishToMeta({
+
+      imageUrl:
+        campaign.image_url,
+
+      caption:
+
+        `${campaign.title}
+
+${campaign.subtitle || ""}
+
+#ChurchillPhuket`,
+
+      accessToken:
+        metaAccount.access_token,
+
+      pageId:
+        metaAccount.page_id,
+
+    });
+
+  if (!publishResult.success) {
+
+    return NextResponse.json(
+      {
+        error:
+          publishResult.error,
+      },
+      {
+        status: 500,
+      }
+    );
+
+  }
+
+}
 
     const {
       error: updateError,

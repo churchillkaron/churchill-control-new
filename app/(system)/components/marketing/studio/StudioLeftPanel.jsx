@@ -4,7 +4,7 @@ import { uploadMarketingAsset }
 from "@/lib/supabase/uploadMarketingAsset";
 
 import { analyzeMarketingAsset }
-from "@/lib/utils/analyzeMarketingAsset";
+from "@/lib/ai/analyzeMarketingAsset";
 
 export default function StudioLeftPanel({
 

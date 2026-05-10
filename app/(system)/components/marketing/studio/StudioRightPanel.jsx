@@ -12,6 +12,9 @@ from "./QueuePanel";
 import { getQueuedCampaigns }
 from "@/lib/supabase/getQueuedCampaigns";
 
+import { publishCampaignNow }
+from "@/lib/services/publishCampaignNow";
+
 export default function StudioRightPanel({
 
 
@@ -118,11 +121,54 @@ alert(
 
   async function handlePublishNow() {
 
+  try {
+
+    if (!latestCampaign?.id) {
+
+      alert(
+        "Generate a campaign first"
+      );
+
+      return;
+
+    }
+
+    const result =
+      await publishCampaignNow({
+
+        campaignId:
+          latestCampaign.id,
+
+      });
+
+    if (!result.success) {
+
+      alert(
+        result.error
+      );
+
+      return;
+
+    }
+
     alert(
-      "Instant publishing connected next."
+      "Campaign published successfully"
+    );
+
+  } catch (err) {
+
+    console.error(
+      "PUBLISH NOW ERROR:",
+      err
+    );
+
+    alert(
+      err.message
     );
 
   }
+
+}
 
   return (
 

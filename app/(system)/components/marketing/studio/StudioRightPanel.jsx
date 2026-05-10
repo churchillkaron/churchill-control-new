@@ -93,7 +93,7 @@ export default function StudioRightPanel({
         right-8
         top-8
         bottom-8
-        w-[260px]
+        w-[320px]
         bg-white/[0.03]
         backdrop-blur-2xl
         rounded-[32px]
@@ -102,6 +102,8 @@ export default function StudioRightPanel({
         z-20
       "
     >
+
+      {/* HEADER */}
 
       <div
         className="
@@ -114,6 +116,8 @@ export default function StudioRightPanel({
       >
         Campaign Workflow
       </div>
+
+      {/* GENERATE */}
 
       <button
         onClick={generateAIImage}
@@ -138,8 +142,121 @@ export default function StudioRightPanel({
           : "Generate Campaign"}
       </button>
 
+      {/* CAMPAIGN STATUS */}
+
+      {latestCampaign ? (
+
+        <div
+          className="
+            bg-white/5
+            rounded-2xl
+            p-5
+            mb-5
+            border
+            border-white/10
+          "
+        >
+
+          <div
+            className="
+              text-orange-400
+              uppercase
+              text-xs
+              tracking-[0.2em]
+              mb-4
+            "
+          >
+            Latest Campaign
+          </div>
+
+          <div className="space-y-3 text-sm">
+
+            <div>
+
+              <div className="text-white/40">
+                Campaign ID
+              </div>
+
+              <div className="text-white break-all">
+                {latestCampaign.id}
+              </div>
+
+            </div>
+
+            <div>
+
+              <div className="text-white/40">
+                Type
+              </div>
+
+              <div className="text-white">
+                {latestCampaign.campaign_type}
+              </div>
+
+            </div>
+
+            <div>
+
+              <div className="text-white/40">
+                Engine
+              </div>
+
+              <div className="text-green-400">
+                {latestCampaign.engine}
+              </div>
+
+            </div>
+
+            <div>
+
+              <div className="text-white/40">
+                Provider
+              </div>
+
+              <div className="text-blue-400">
+                {latestCampaign.provider}
+              </div>
+
+            </div>
+
+            <div>
+
+              <div className="text-white/40">
+                Status
+              </div>
+
+              <div className="text-yellow-400">
+                {latestCampaign.status}
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      ) : (
+
+        <div
+          className="
+            bg-white/5
+            rounded-2xl
+            p-5
+            mb-5
+            text-white/50
+            text-sm
+          "
+        >
+          No campaign generated yet.
+        </div>
+
+      )}
+
+      {/* QUEUE */}
+
       <button
         onClick={handleQueueCampaign}
+        disabled={!latestCampaign}
         className="
           w-full
           bg-blue-600
@@ -152,13 +269,17 @@ export default function StudioRightPanel({
           font-bold
           text-lg
           mb-5
+          disabled:opacity-40
         "
       >
         Queue Campaign
       </button>
 
+      {/* PUBLISH */}
+
       <button
         onClick={handlePublishNow}
+        disabled={!latestCampaign}
         className="
           w-full
           bg-green-600
@@ -171,14 +292,19 @@ export default function StudioRightPanel({
           font-bold
           text-lg
           mb-5
+          disabled:opacity-40
         "
       >
         Publish Now
       </button>
 
+      {/* EXPORT */}
+
       <ExportControls
         exportRef={exportRef}
       />
+
+      {/* AI INSIGHTS */}
 
       <div
         className="

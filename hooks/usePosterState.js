@@ -41,6 +41,16 @@ export function usePosterState() {
   ] = useState("8PM");
 
   const [
+  scheduledDate,
+  setScheduledDate,
+] = useState("");
+
+const [
+  scheduledTime,
+  setScheduledTime,
+] = useState("");
+
+  const [
     footer,
     setFooter,
   ] = useState("Reserve Your Table");

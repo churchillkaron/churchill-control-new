@@ -54,34 +54,48 @@ setQueuedCampaigns(
       }
 
       const result =
-        await queueCampaign({
+  await queueCampaign({
 
-          campaignId:
-            latestCampaign.id,
+    campaignId:
+      latestCampaign.id,
 
-          tenantId:
-            latestCampaign.tenant_id,
+    tenantId:
+      latestCampaign.tenant_id,
 
-          platform:
-            "meta",
+    platform:
+      "meta",
 
-        });
+    scheduledFor:
 
-      if (!result.success) {
+      poster.scheduledDate &&
+      poster.scheduledTime
 
-        alert(
-          JSON.stringify(
-            result.error
-          )
-        );
+        ? new Date(
 
-        return;
+            `${poster.scheduledDate}T${poster.scheduledTime}`
 
-      }
+          ).toISOString()
 
-      alert(
-        "Campaign queued successfully"
-      );
+        : new Date()
+            .toISOString(),
+
+  });
+
+if (!result.success) {
+
+  alert(
+    JSON.stringify(
+      result.error
+    )
+  );
+
+  return;
+
+}
+
+alert(
+  "Campaign queued successfully"
+);
 
     } catch (err) {
 

@@ -153,7 +153,112 @@ export default function StudioLeftPanel({
 
           </div>
 
+          <div>
+
+            <div
+              className="
+                text-white/50
+                text-xs
+                uppercase
+                tracking-[0.2em]
+                mb-2
+              "
+            >
+              Schedule Date
+            </div>
+
+            <input
+              type="date"
+              value={
+                poster.scheduledDate || ""
+              }
+              onChange={(e) =>
+                poster.setScheduledDate(
+                  e.target.value
+                )
+              }
+              className="
+                w-full
+                bg-black/40
+                border
+                border-white/10
+                rounded-xl
+                p-4
+                text-white
+              "
+            />
+
+          </div>
+
+          <div>
+
+            <div
+              className="
+                text-white/50
+                text-xs
+                uppercase
+                tracking-[0.2em]
+                mb-2
+              "
+            >
+              Schedule Time
+            </div>
+
+            <input
+              type="time"
+              value={
+                poster.scheduledTime || ""
+              }
+              onChange={(e) =>
+                poster.setScheduledTime(
+                  e.target.value
+                )
+              }
+              className="
+                w-full
+                bg-black/40
+                border
+                border-white/10
+                rounded-xl
+                p-4
+                text-white
+              "
+            />
+
+          </div>
+
         </div>
+
+      </div>
+
+      {/* AI SETTINGS */}
+
+      <div
+        className="
+          bg-white/5
+          border
+          border-white/10
+          rounded-2xl
+          p-5
+          mb-6
+        "
+      >
+
+        <div
+          className="
+            text-orange-500
+            uppercase
+            tracking-[0.2em]
+            text-xs
+            mb-5
+          "
+        >
+          AI Settings
+        </div>
+
+        <ControlPanel
+          poster={poster}
+        />
 
       </div>
 
@@ -233,6 +338,7 @@ export default function StudioLeftPanel({
               border-white/10
               rounded-xl
               p-4
+              text-white
             "
           />
 
@@ -343,11 +449,6 @@ export default function StudioLeftPanel({
 
                   });
 
-                  console.log(
-                    "STAFF ANALYSIS:",
-                    analysis
-                  );
-
                 }
 
               }}
@@ -358,6 +459,7 @@ export default function StudioLeftPanel({
                 border-white/10
                 rounded-xl
                 p-4
+                text-white
               "
             />
 
@@ -459,11 +561,6 @@ export default function StudioLeftPanel({
 
                   });
 
-                  console.log(
-                    "ASSET ANALYSIS:",
-                    analysis
-                  );
-
                 }
 
               }}
@@ -474,6 +571,7 @@ export default function StudioLeftPanel({
                 border-white/10
                 rounded-xl
                 p-4
+                text-white
               "
             />
 
@@ -482,10 +580,6 @@ export default function StudioLeftPanel({
         </div>
 
       )}
-
-      <ControlPanel
-        poster={poster}
-      />
 
     </div>
 

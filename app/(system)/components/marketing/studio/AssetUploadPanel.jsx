@@ -3,8 +3,6 @@
 import { useState }
 from "react";
 
-import { uploadMarketingAssetFlow }
-from "@/lib/services/uploadMarketingAssetFlow";
 
 export default function
 AssetUploadPanel({
@@ -40,20 +38,58 @@ AssetUploadPanel({
 
       setUploading(true);
 
-      await uploadMarketingAssetFlow({
+      const formData =
+  new FormData();
 
-        tenantId,
+formData.append(
+  "tenantId",
+  tenantId
+);
 
-        pageId,
+formData.append(
+  "pageId",
+  pageId || ""
+);
 
-        file,
+formData.append(
+  "assetType",
+  assetType
+);
 
-        assetType,
+formData.append(
+  "name",
+  file.name
+);
 
-        name:
-          file.name,
+formData.append(
+  "file",
+  file
+);
 
-      });
+const response =
+  await fetch(
+    "/api/marketing/upload-asset",
+    {
+      method:
+        "POST",
+
+      body:
+        formData,
+    }
+  );
+
+const data =
+  await response.json();
+
+if (!response.ok || !data.success) {
+
+  throw new Error(
+    data.error ||
+    "Upload failed"
+  );
+
+}
+    
 
       alert(
         "Asset uploaded"

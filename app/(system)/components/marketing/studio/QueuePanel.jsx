@@ -3,8 +3,7 @@
 import { deleteQueuedCampaign }
 from "@/lib/supabase/deleteQueuedCampaign";
 
-import { publishCampaignNow }
-from "@/lib/services/publishCampaignNow";
+
 
 export default function QueuePanel({
 
@@ -146,13 +145,27 @@ export default function QueuePanel({
                   <button
                     onClick={async () => {
 
-                      const result =
-                        await publishCampaignNow({
+                      const response =
+  await fetch(
+    "/api/marketing/publish-now",
+    {
+      method:
+        "POST",
 
-                          campaignId:
-                            item.campaign_id,
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
 
-                        });
+      body:
+        JSON.stringify({
+          campaignId,
+        }),
+    }
+  );
+
+const result =
+  await response.json();
 
                       if (!result.success) {
 

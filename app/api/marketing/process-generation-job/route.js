@@ -2,19 +2,19 @@ import { supabase }
 from "@/app/lib/supabase";
 
 import engineRouter
-from "@/app/lib/ai/engineRouter";
+from "@/app/(system)/lib/ai/engineRouter";
 
 import { runOpenAIEngine }
-from "@/app/lib/ai/engines/openaiEngine";
+from "@/app/(system)/lib/ai/engines/openaiEngine";
 
 import { runFluxEnhanceEngine }
-from "@/app/lib/ai/engines/fluxEnhanceEngine";
+from "@/app/(system)/lib/ai/engines/fluxEnhanceEngine";
 
 import { runSDXLCompositeEngine }
-from "@/app/lib/ai/engines/sdxlCompositeEngine";
+from "@/app/(system)/lib/ai/engines/sdxlCompositeEngine";
 
 import { runVideoEngine }
-from "@app/lib/ai/engines/runVideoEngine";
+from "@app/(system)/lib/ai/engines/runVideoEngine";
 
 export async function POST(
   request

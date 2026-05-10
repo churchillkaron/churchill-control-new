@@ -3,11 +3,16 @@
 import PosterPreview
 from "../PosterPreview";
 
-export default function StudioCenterStage({
+export default function
+StudioCenterStage({
 
   poster,
 
   exportRef,
+
+  selectedAssets = [],
+
+  setSelectedAssets,
 
 }) {
 
@@ -83,6 +88,7 @@ export default function StudioCenterStage({
 
       <div
         className="
+          relative
           w-full
           max-w-[1400px]
           h-full
@@ -96,6 +102,90 @@ export default function StudioCenterStage({
           poster={poster}
           exportRef={exportRef}
         />
+
+        {selectedAssets.length > 0 && (
+
+          <div
+            className="
+              absolute
+              bottom-6
+              left-6
+              right-6
+              flex
+              gap-3
+              overflow-x-auto
+              z-20
+            "
+          >
+
+            {selectedAssets.map((asset) => (
+
+              <div
+                key={asset.id}
+                className="
+                  relative
+                  shrink-0
+                "
+              >
+
+                <img
+                  src={asset.image_url}
+                  alt={asset.name}
+                  className="
+                    w-20
+                    h-20
+                    object-cover
+                    rounded-xl
+                    border
+                    border-orange-500/30
+                  "
+                />
+
+                <button
+                  onClick={() => {
+
+                    if (
+                      setSelectedAssets
+                    ) {
+
+                      setSelectedAssets(
+                        (prev) =>
+
+                          prev.filter(
+                            (a) =>
+                              a.id !== asset.id
+                          )
+
+                      );
+
+                    }
+
+                  }}
+                  className="
+                    absolute
+                    -top-2
+                    -right-2
+                    w-6
+                    h-6
+                    rounded-full
+                    bg-red-500
+                    text-white
+                    text-xs
+                    flex
+                    items-center
+                    justify-center
+                  "
+                >
+                  ×
+                </button>
+
+              </div>
+
+            ))}
+
+          </div>
+
+        )}
 
       </div>
 

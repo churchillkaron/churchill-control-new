@@ -43,6 +43,21 @@ from "@/lib/supabase/getMetaAccounts";
 import { getGenerationJobs }
 from "@/lib/supabase/getGenerationJobs";
 
+import AssetLibraryPanel
+from "@/app/(system)/components/marketing/studio/AssetLibraryPanel";
+
+import { getMarketingAssets }
+from "@/lib/supabase/getMarketingAssets";
+
+import AssetUploadPanel
+from "@/app/(system)/components/marketing/studio/AssetUploadPanel";
+
+import { getCampaignRecommendation }
+from "@/lib/ai/getCampaignRecommendation";
+
+import { getBestPromptHistory }
+from "@/lib/supabase/getBestPromptHistory";
+
 export default function Page() {
 
   const tenantId =
@@ -77,9 +92,108 @@ export default function Page() {
     setGenerationJobs,
   ] = useState([]);
 
+ const [
+  marketingAssets,
+  setMarketingAssets,
+] = useState([]);
+
+const [
+  selectedAssets,
+  setSelectedAssets,
+] = useState([]);
+
+const [
+  promptHistory,
+  setPromptHistory,
+] = useState([]);
+
+const recommendation =
+  getCampaignRecommendation({
+
+    assets:
+      selectedAssets,
+
+    promptHistory,
+
+  });
+
+  const promptPreview = `
+
+Mood:
+${poster.mood}
+
+Lighting:
+${poster.lighting}
+
+Venue:
+${poster.venue}
+
+Campaign:
+${poster.campaignType}
+
+Atmosphere:
+${poster.atmosphere}
+
+Selected Assets:
+${selectedAssets
+  .map((a) => a.name)
+  .join(", ")}
+
+`;
+
+useEffect(() => {
+
+  if (!selectedAssets.length) {
+
+    return;
+
+  }
+
+  if (
+    recommendation?.mood &&
+    poster.mood !==
+      recommendation.mood
+  ) {
+
+    poster.setMood(
+      recommendation.mood
+    );
+
+  }
+
+  if (
+    recommendation?.lighting &&
+    poster.lighting !==
+      recommendation.lighting
+  ) {
+
+    poster.setLighting(
+      recommendation.lighting
+    );
+
+  }
+
+}, [
+
+  selectedAssets,
+
+  recommendation,
+
+]);
   useEffect(() => {
 
     async function loadData() {
+
+      const assets =
+  await getMarketingAssets({
+
+    tenantId,
+
+  });
+
+setMarketingAssets(
+  assets
+);
 
       const accounts =
         await getMetaAccounts({
@@ -88,6 +202,7 @@ export default function Page() {
 
         });
 if (latestCampaign?.id) {
+
 
   const response =
     await fetch(
@@ -161,7 +276,33 @@ const interval =
 return () =>
   clearInterval(interval);
 
+
+
   }, []);
+
+  async function refreshAssets() {
+
+  const assets =
+    await getMarketingAssets({
+
+      tenantId,
+
+    });
+
+  setMarketingAssets(
+    assets
+  );
+const history =
+  await getBestPromptHistory({
+
+    tenantId,
+
+  });
+
+setPromptHistory(
+  history
+);
+}
 
   async function generateAIImage() {
 
@@ -172,11 +313,13 @@ return () =>
       const campaign =
         await runCampaignGeneration({
 
-          tenantId,
+  tenantId,
 
-          poster,
+  poster,
 
-        });
+  selectedAssets,
+
+});
 
     
 
@@ -261,11 +404,17 @@ return () =>
         />
 
         <StudioCenterStage
-          poster={poster}
-          exportRef={
-            posterExportNodeRef
-          }
-        />
+  poster={poster}
+  exportRef={
+    posterExportNodeRef
+  }
+  selectedAssets={
+    selectedAssets
+  }
+  setSelectedAssets={
+    setSelectedAssets
+  }
+/>
 
         <div
           className="
@@ -297,21 +446,71 @@ return () =>
           />
 
           <StudioRightPanel
-            latestCampaign={
-              latestCampaign
-            }
-            queuedCampaigns={
-              queuedCampaigns
-            }
-            setQueuedCampaigns={
-              setQueuedCampaigns
-            }
-          />
+promptPreview={
+  promptPreview
+}
+  latestCampaign={
+    latestCampaign
+  }
+
+  queuedCampaigns={
+    queuedCampaigns
+  }
+
+  setQueuedCampaigns={
+    setQueuedCampaigns
+  }
+
+  recommendation={
+    recommendation
+  }
+
+  promptHistory={
+  promptHistory
+}
+
+/>
 
           <GenerationJobsPanel
             jobs={generationJobs}
           />
+<AssetLibraryPanel
+  assets={marketingAssets}
 
+  onSelectAsset={(asset) => {
+
+    setSelectedAssets(
+      (prev) => {
+
+        const exists =
+          prev.find(
+            (a) =>
+              a.id === asset.id
+          );
+
+        if (exists) {
+
+          return prev;
+
+        }
+
+        return [
+          ...prev,
+          asset,
+        ];
+
+      }
+    );
+
+  }}
+/>
+<AssetUploadPanel
+  tenantId={tenantId}
+  pageId={poster.pageId}
+  refreshAssets={
+    refreshAssets
+  }
+/>
         </div>
 
       </div>

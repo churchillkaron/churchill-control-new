@@ -139,9 +139,19 @@ setQueuedCampaigns(
         err
       );
 
-      alert(
-        JSON.stringify(err)
-      );
+     console.error(
+  "FULL GENERATION ERROR:",
+  err
+);
+
+alert(
+  err.message ||
+  "Generation failed"
+);
+console.log(
+  "GENERATION RESPONSE:",
+  generation
+);
 
     } finally {
 

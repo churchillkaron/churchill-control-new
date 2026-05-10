@@ -52,9 +52,18 @@ export default function Page() {
 
       });
 
+      const [
+  latestCampaign,
+  setLatestCampaign,
+] = useState(null);
+
     poster.setSelectedImage(
       campaign.image_url
     );
+
+    setLatestCampaign(
+  campaign
+);
 
   } catch (err) {
 
@@ -117,6 +126,9 @@ export default function Page() {
           exportRef={
             posterExportNodeRef
           }
+          latestCampaign={
+  latestCampaign
+}
         />
 
       </div>

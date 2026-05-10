@@ -3,6 +3,9 @@
 import ExportControls
 from "../ExportControls";
 
+import { queueCampaign }
+from "@/lib/supabase/queueCampaign";
+
 export default function StudioRightPanel({
 
   loading,
@@ -11,7 +14,76 @@ export default function StudioRightPanel({
 
   exportRef,
 
+  latestCampaign,
+
 }) {
+
+  async function handleQueueCampaign() {
+
+    try {
+
+      if (!latestCampaign?.id) {
+
+        alert(
+          "Generate a campaign first"
+        );
+
+        return;
+
+      }
+
+      const result =
+        await queueCampaign({
+
+          campaignId:
+            latestCampaign.id,
+
+          tenantId:
+            latestCampaign.tenant_id,
+
+          platform:
+            "meta",
+
+        });
+
+      if (!result.success) {
+
+        alert(
+          JSON.stringify(
+            result.error
+          )
+        );
+
+        return;
+
+      }
+
+      alert(
+        "Campaign queued successfully"
+      );
+
+    } catch (err) {
+
+      console.error(
+        "QUEUE CAMPAIGN ERROR:",
+        err
+      );
+
+      alert(
+        err.message
+      );
+
+    }
+
+  }
+
+  async function handlePublishNow() {
+
+    alert(
+      "Instant publishing connected next."
+    );
+
+  }
 
   return (
 
@@ -67,6 +139,7 @@ export default function StudioRightPanel({
       </button>
 
       <button
+        onClick={handleQueueCampaign}
         className="
           w-full
           bg-blue-600
@@ -85,6 +158,7 @@ export default function StudioRightPanel({
       </button>
 
       <button
+        onClick={handlePublishNow}
         className="
           w-full
           bg-green-600

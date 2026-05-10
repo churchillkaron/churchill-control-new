@@ -24,6 +24,9 @@ from "../../components/marketing/studio/StudioRightPanel";
 import { runCampaignGeneration }
 from "@/lib/services/runCampaignGeneration";
 
+import { getQueuedCampaigns }
+from "@/lib/supabase/getQueuedCampaigns";
+
 export default function Page() {
 
   const tenantId =
@@ -42,6 +45,11 @@ export default function Page() {
     latestCampaign,
     setLatestCampaign,
   ] = useState(null);
+
+  const [
+  queuedCampaigns,
+  setQueuedCampaigns,
+] = useState([]);
 
   async function generateAIImage() {
 
@@ -65,6 +73,17 @@ export default function Page() {
       setLatestCampaign(
         campaign
       );
+
+      const queueData =
+  await getQueuedCampaigns({
+
+    tenantId,
+
+  });
+
+setQueuedCampaigns(
+  queueData
+);
 
     } catch (err) {
 
@@ -118,19 +137,22 @@ export default function Page() {
           }
         />
 
-        <StudioRightPanel
-          poster={poster}
-          loading={loading}
-          generateAIImage={
-            generateAIImage
-          }
-          exportRef={
-            posterExportNodeRef
-          }
-          latestCampaign={
-            latestCampaign
-          }
-        />
+       <StudioRightPanel
+  poster={poster}
+  loading={loading}
+  generateAIImage={
+    generateAIImage
+  }
+  exportRef={
+    posterExportNodeRef
+  }
+  latestCampaign={
+    latestCampaign
+  }
+  queuedCampaigns={
+    queuedCampaigns
+  }
+/>
 
       </div>
 

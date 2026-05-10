@@ -6,16 +6,13 @@ from "../ExportControls";
 import { queueCampaign }
 from "@/lib/supabase/queueCampaign";
 
-export default function StudioRightPanel({
-
+import QueuePanel
+from "./QueuePanel";export default function StudioRightPanel({
   loading,
-
   generateAIImage,
-
   exportRef,
-
   latestCampaign,
-
+  queuedCampaigns,
 }) {
 
   async function handleQueueCampaign() {
@@ -251,7 +248,11 @@ export default function StudioRightPanel({
         </div>
 
       )}
-
+<QueuePanel
+  queuedCampaigns={
+    queuedCampaigns
+  }
+/>
       {/* QUEUE */}
 
       <button

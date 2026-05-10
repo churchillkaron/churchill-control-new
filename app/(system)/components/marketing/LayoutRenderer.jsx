@@ -4,6 +4,18 @@ export default function LayoutRenderer({
   poster,
 }) {
 
+  const displayDate =
+
+    poster.eventDate ||
+
+    "Friday";
+
+  const displayTime =
+
+    poster.eventTime ||
+
+    "8PM";
+
   switch (poster.layout) {
 
     case "Centered":
@@ -56,7 +68,7 @@ export default function LayoutRenderer({
                 text-white/90
               "
             >
-              {poster.eventDate}
+              {displayDate} {displayTime}
             </div>
 
           </div>
@@ -88,6 +100,18 @@ export default function LayoutRenderer({
           >
             {poster.campaignTitle}
           </h1>
+
+          <div
+            className="
+              mt-4
+              text-xl
+              uppercase
+              tracking-[0.2em]
+              text-white/70
+            "
+          >
+            {displayDate} {displayTime}
+          </div>
 
         </div>
 
@@ -138,11 +162,13 @@ export default function LayoutRenderer({
               text-white/90
             "
           >
-            {poster.eventDate}
+            {displayDate} {displayTime}
           </div>
 
         </div>
 
       );
+
   }
+
 }

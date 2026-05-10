@@ -1,65 +1,111 @@
 "use client";
 
-import { useState } from "react";
+import { useState }
+from "react";
 
 export function usePosterState() {
 
-  const [selectedImage, setSelectedImage] =
-    useState(null);
+  const [
+    selectedImage,
+    setSelectedImage,
+  ] = useState(null);
 
-  const [layout, setLayout] =
-    useState("Classic");
+  const [
+    layout,
+    setLayout,
+  ] = useState("Classic");
 
-  const [campaignType, setCampaignType] =
-    useState("ABBA Night");
+  const [
+    campaignType,
+    setCampaignType,
+  ] = useState("ABBA Night");
 
-  const [campaignTitle, setCampaignTitle] =
-    useState("ABBA NIGHT");
+  const [
+    campaignTitle,
+    setCampaignTitle,
+  ] = useState("ABBA NIGHT");
 
-  const [campaignSubtitle, setCampaignSubtitle] =
-    useState("LIVE AT CHURCHILL");
+  const [
+    campaignSubtitle,
+    setCampaignSubtitle,
+  ] = useState("LIVE AT CHURCHILL");
 
-  const [eventDate, setEventDate] =
-    useState("FRIDAY 8PM");
+  const [
+    eventDate,
+    setEventDate,
+  ] = useState("FRIDAY");
 
-  const [footer, setFooter] =
-    useState("Reserve Your Table");
+  const [
+    eventTime,
+    setEventTime,
+  ] = useState("8PM");
 
-  const [extraDirection, setExtraDirection] =
-    useState("");
+  const [
+    footer,
+    setFooter,
+  ] = useState("Reserve Your Table");
 
-    const [mood, setMood] =
-  useState("Luxury Nightlife");
+  const [
+    extraDirection,
+    setExtraDirection,
+  ] = useState("");
 
-const [lighting, setLighting] =
-  useState("Cinematic Warm");
+  const [
+    mood,
+    setMood,
+  ] = useState("Luxury Nightlife");
 
-const [composition, setComposition] =
-  useState("Hero Shot");
+  const [
+    lighting,
+    setLighting,
+  ] = useState("Cinematic Warm");
 
-const [atmosphere, setAtmosphere] =
-  useState("Energetic");
+  const [
+    composition,
+    setComposition,
+  ] = useState("Hero Shot");
 
-const [venue, setVenue] =
-  useState("Churchill Phuket");
+  const [
+    atmosphere,
+    setAtmosphere,
+  ] = useState("Energetic");
 
-const [subject, setSubject] =
-  useState("Guests enjoying nightlife");
+  const [
+    venue,
+    setVenue,
+  ] = useState("Churchill Phuket");
 
-  const [engine, setEngine] =
-  useState("full-ai");
+  const [
+    subject,
+    setSubject,
+  ] = useState(
+    "Guests enjoying nightlife"
+  );
 
-const [interiorImages, setInteriorImages] =
-  useState([]);
+  const [
+    engine,
+    setEngine,
+  ] = useState("full-ai");
 
-const [staffImages, setStaffImages] =
-  useState([]);
+  const [
+    interiorImages,
+    setInteriorImages,
+  ] = useState([]);
 
-const [brandAssets, setBrandAssets] =
-  useState([]);
+  const [
+    staffImages,
+    setStaffImages,
+  ] = useState([]);
 
-  const [pageId, setPageId] =
-  useState("");
+  const [
+    brandAssets,
+    setBrandAssets,
+  ] = useState([]);
+
+  const [
+    pageId,
+    setPageId,
+  ] = useState("");
 
   return {
 
@@ -84,6 +130,9 @@ const [brandAssets, setBrandAssets] =
     eventDate,
     setEventDate,
 
+    eventTime,
+    setEventTime,
+
     footer,
     setFooter,
 
@@ -91,33 +140,35 @@ const [brandAssets, setBrandAssets] =
     setExtraDirection,
 
     mood,
-setMood,
+    setMood,
 
-lighting,
-setLighting,
+    lighting,
+    setLighting,
 
-composition,
-setComposition,
+    composition,
+    setComposition,
 
-atmosphere,
-setAtmosphere,
+    atmosphere,
+    setAtmosphere,
 
-venue,
-setVenue,
+    venue,
+    setVenue,
 
-subject,
-setSubject,
+    subject,
+    setSubject,
 
-engine,
-setEngine,
+    engine,
+    setEngine,
 
-interiorImages,
-setInteriorImages,
+    interiorImages,
+    setInteriorImages,
 
-staffImages,
-setStaffImages,
+    staffImages,
+    setStaffImages,
 
-brandAssets,
-setBrandAssets,
+    brandAssets,
+    setBrandAssets,
+
   };
+
 }

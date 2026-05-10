@@ -1,11 +1,11 @@
 import { supabase }
-from "@/app/lib/supabase";
+from "@/lib/supabase";
 
 import engineRouter
 from "@/lib/ai/engineRouter";
 
 import { runOpenAIEngine }
-from "@/app/(system)/lib/ai/engines/openaiEngine";
+from "@/lib/ai/engines/openaiEngine";
 
 import { runFluxEnhanceEngine }
 from "@/lib/ai/engines/fluxEnhanceEngine";

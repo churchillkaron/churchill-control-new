@@ -1,11 +1,13 @@
 "use client";
 
+export const dynamic =
+  "force-dynamic";
+
 import { useRef, useState }
 from "react";
 
 import { usePosterState }
 from "@/hooks/usePosterState";
-
 
 import StudioTopBar
 from "../../components/marketing/studio/StudioTopBar";
@@ -22,8 +24,6 @@ from "../../components/marketing/studio/StudioRightPanel";
 import { runCampaignGeneration }
 from "@/lib/services/runCampaignGeneration";
 
-export const dynamic =
-  "force-dynamic";
 export default function Page() {
 
   const tenantId =
@@ -38,52 +38,52 @@ export default function Page() {
   const [loading, setLoading] =
     useState(false);
 
+  const [
+    latestCampaign,
+    setLatestCampaign,
+  ] = useState(null);
+
   async function generateAIImage() {
 
-  try {
+    try {
 
-    setLoading(true);
+      setLoading(true);
 
-    const campaign =
-      await runCampaignGeneration({
+      const campaign =
+        await runCampaignGeneration({
 
-        tenantId,
+          tenantId,
 
-        poster,
+          poster,
 
-      });
+        });
 
-      const [
-  latestCampaign,
-  setLatestCampaign,
-] = useState(null);
+      poster.setSelectedImage(
+        campaign.image_url
+      );
 
-    poster.setSelectedImage(
-      campaign.image_url
-    );
+      setLatestCampaign(
+        campaign
+      );
 
-    setLatestCampaign(
-  campaign
-);
+    } catch (err) {
 
-  } catch (err) {
+      console.error(
+        "CAMPAIGN GENERATION ERROR:",
+        err
+      );
 
-    console.error(
-      "CAMPAIGN GENERATION ERROR:",
-      err
-    );
+      alert(
+        JSON.stringify(err)
+      );
 
-    alert(
-      JSON.stringify(err)
-    );
+    } finally {
 
-  } finally {
+      setLoading(false);
 
-    setLoading(false);
+    }
 
   }
-
-}
 
   return (
 
@@ -128,8 +128,8 @@ export default function Page() {
             posterExportNodeRef
           }
           latestCampaign={
-  latestCampaign
-}
+            latestCampaign
+          }
         />
 
       </div>

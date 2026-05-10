@@ -4,9 +4,6 @@ from "next/server";
 import { createClient }
 from "@supabase/supabase-js";
 
-import { publishToMeta }
-from "@/lib/meta/publishToMeta";
-
 export const dynamic =
   "force-dynamic";
 
@@ -84,65 +81,224 @@ export async function POST(req) {
     }
 
     // LOAD META ACCOUNT
+    // USING PAGE ID
 
-const {
-  data: metaAccount,
-} = await supabase
+    const {
+      data: metaAccount,
+      error: metaError,
+    } = await supabase
 
-  .from(
-    "meta_accounts"
-  )
+      .from(
+        "meta_accounts"
+      )
 
-  .select("*")
+      .select("*")
 
-  .eq(
-    "tenant_id",
-    campaign.tenant_id
-  )
+      .eq(
+        "page_id",
+        campaign.page_id
+      )
 
-  .single();
+      .single();
 
-// META PUBLISH
+    if (
+      metaError ||
+      !metaAccount
+    ) {
 
-if (metaAccount) {
+      return NextResponse.json(
+        {
+          error:
+            "Meta account not found",
+        },
+        {
+          status: 404,
+        }
+      );
 
-  const publishResult =
-    await publishToMeta({
+    }
 
-      imageUrl:
-        campaign.image_url,
+    // CAPTION
 
-      caption:
+    const caption = `
 
-        `${campaign.title}
+${campaign.title || ""}
 
 ${campaign.subtitle || ""}
 
-#ChurchillPhuket`,
+${campaign.extra_direction || ""}
 
-      accessToken:
-        metaAccount.access_token,
+#ChurchillPhuket
 
-      pageId:
-        metaAccount.page_id,
+`;
 
-    });
+    // ====================================
+    // FACEBOOK PAGE POST
+    // ====================================
 
-  if (!publishResult.success) {
+    let facebookResult = null;
 
-    return NextResponse.json(
-      {
-        error:
-          publishResult.error,
-      },
-      {
-        status: 500,
+    try {
+
+      const facebookRes =
+        await fetch(
+
+          `https://graph.facebook.com/v23.0/${metaAccount.page_id}/photos`,
+
+          {
+
+            method: "POST",
+
+            headers: {
+
+              "Content-Type":
+                "application/json",
+
+            },
+
+            body: JSON.stringify({
+
+              url:
+                campaign.image_url,
+
+              caption,
+
+              access_token:
+                metaAccount.access_token,
+
+            }),
+
+          }
+
+        );
+
+      facebookResult =
+        await facebookRes.json();
+
+      console.log(
+        "FACEBOOK PUBLISH:",
+        facebookResult
+      );
+
+    } catch (err) {
+
+      console.error(
+        "FACEBOOK PUBLISH ERROR:",
+        err
+      );
+
+    }
+
+    // ====================================
+    // INSTAGRAM POST
+    // ====================================
+
+    let instagramResult = null;
+
+    try {
+
+      if (
+        metaAccount.instagram_business_id
+      ) {
+
+        // CREATE MEDIA CONTAINER
+
+        const containerRes =
+          await fetch(
+
+            `https://graph.facebook.com/v23.0/${metaAccount.instagram_business_id}/media`,
+
+            {
+
+              method: "POST",
+
+              headers: {
+
+                "Content-Type":
+                  "application/json",
+
+              },
+
+              body: JSON.stringify({
+
+                image_url:
+                  campaign.image_url,
+
+                caption,
+
+                access_token:
+                  metaAccount.access_token,
+
+              }),
+
+            }
+
+          );
+
+        const containerData =
+          await containerRes.json();
+
+        console.log(
+          "IG CONTAINER:",
+          containerData
+        );
+
+        if (containerData.id) {
+
+          // PUBLISH MEDIA
+
+          const publishRes =
+            await fetch(
+
+              `https://graph.facebook.com/v23.0/${metaAccount.instagram_business_id}/media_publish`,
+
+              {
+
+                method: "POST",
+
+                headers: {
+
+                  "Content-Type":
+                    "application/json",
+
+                },
+
+                body: JSON.stringify({
+
+                  creation_id:
+                    containerData.id,
+
+                  access_token:
+                    metaAccount.access_token,
+
+                }),
+
+              }
+
+            );
+
+          instagramResult =
+            await publishRes.json();
+
+          console.log(
+            "INSTAGRAM PUBLISH:",
+            instagramResult
+          );
+
+        }
+
       }
-    );
 
-  }
+    } catch (err) {
 
-}
+      console.error(
+        "INSTAGRAM PUBLISH ERROR:",
+        err
+      );
+
+    }
+
+    // UPDATE CAMPAIGN STATUS
 
     const {
       error: updateError,
@@ -214,15 +370,18 @@ ${campaign.subtitle || ""}
           campaign.id,
 
         provider:
-          "internal",
+          "meta",
 
         status:
           "success",
 
         response: {
 
-          message:
-            "Published successfully",
+          facebook:
+            facebookResult,
+
+          instagram:
+            instagramResult,
 
         },
 
@@ -237,6 +396,12 @@ ${campaign.subtitle || ""}
       success: true,
 
       campaignId,
+
+      facebook:
+        facebookResult,
+
+      instagram:
+        instagramResult,
 
     });
 

@@ -229,63 +229,122 @@ export default function StudioLeftPanel({
 
           </div>
 
+          {/* META PAGE CARDS */}
+
+          <div>
+
+            <div
+              className="
+                text-white/50
+                text-xs
+                uppercase
+                tracking-[0.2em]
+                mb-3
+              "
+            >
+              Publish Page
+            </div>
+
+            <div
+              className="
+                grid
+                grid-cols-2
+                gap-3
+              "
+            >
+
+              {metaAccounts.map(
+                (account) => {
+
+                  const active =
+
+                    poster.pageId ===
+                    account.page_id;
+
+                  return (
+
+                    <button
+                      key={account.id}
+                      onClick={() =>
+                        poster.setPageId(
+                          account.page_id
+                        )
+                      }
+                      className={`
+                        relative
+                        rounded-2xl
+                        border
+                        p-4
+                        text-left
+                        transition-all
+
+                        ${active
+
+                          ? `
+                            border-orange-500
+                            bg-orange-500/20
+                            shadow-[0_0_30px_rgba(255,120,0,0.25)]
+                          `
+
+                          : `
+                            border-white/10
+                            bg-black/30
+                            hover:bg-white/5
+                          `
+                        }
+                      `}
+                    >
+
+                      <div
+                        className="
+                          text-white
+                          font-semibold
+                          text-sm
+                          mb-1
+                        "
+                      >
+                        {account.page_name}
+                      </div>
+
+                      <div
+                        className="
+                          text-white/40
+                          text-xs
+                          uppercase
+                          tracking-[0.2em]
+                        "
+                      >
+                        Meta Connected
+                      </div>
+
+                      {active && (
+
+                        <div
+                          className="
+                            absolute
+                            top-3
+                            right-3
+                            w-2
+                            h-2
+                            rounded-full
+                            bg-orange-400
+                          "
+                        />
+
+                      )}
+
+                    </button>
+
+                  );
+
+                }
+              )}
+
+            </div>
+
+          </div>
+
         </div>
-        <div>
-
-  <div
-    className="
-      text-white/50
-      text-xs
-      uppercase
-      tracking-[0.2em]
-      mb-2
-    "
-  >
-    Publish Page
-  </div>
-
-  <select
-    value={
-      poster.pageId || ""
-    }
-    onChange={(e) =>
-      poster.setPageId(
-        e.target.value
-      )
-    }
-    className="
-      w-full
-      bg-black/40
-      border
-      border-white/10
-      rounded-xl
-      p-4
-      text-white
-    "
-  >
-
-    <option value="">
-      Select Page
-    </option>
-
-    {metaAccounts.map(
-      (account) => (
-
-        <option
-          key={account.id}
-          value={
-            account.page_id
-          }
-        >
-          {account.page_name}
-        </option>
-
-      )
-    )}
-
-  </select>
-
-</div>
 
       </div>
 
@@ -632,6 +691,40 @@ export default function StudioLeftPanel({
                 text-white
               "
             />
+
+            {poster.interiorImages
+              ?.length > 0 && (
+
+              <div
+                className="
+                  grid
+                  grid-cols-3
+                  gap-3
+                  mt-5
+                "
+              >
+
+                {poster.interiorImages.map(
+                  (file, index) => (
+
+                    <img
+                      key={index}
+                      src={URL.createObjectURL(file)}
+                      alt=""
+                      className="
+                        w-full
+                        h-24
+                        object-cover
+                        rounded-xl
+                      "
+                    />
+
+                  )
+                )}
+
+              </div>
+
+            )}
 
           </div>
 

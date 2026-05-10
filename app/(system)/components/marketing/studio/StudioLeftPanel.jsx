@@ -1,8 +1,5 @@
 "use client";
 
-import ControlPanel
-from "../ControlPanel";
-
 import { uploadMarketingAsset }
 from "@/lib/supabase/uploadMarketingAsset";
 
@@ -79,268 +76,168 @@ export default function StudioLeftPanel({
 
         <div className="space-y-4">
 
-          <div>
+          <input
+            type="text"
+            value={
+              poster.eventDate || ""
+            }
+            onChange={(e) =>
+              poster.setEventDate(
+                e.target.value
+              )
+            }
+            placeholder="Event Date"
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+            "
+          />
 
-            <div
-              className="
-                text-white/50
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                mb-2
-              "
-            >
-              Event Date
-            </div>
+          <input
+            type="text"
+            value={
+              poster.eventTime || ""
+            }
+            onChange={(e) =>
+              poster.setEventTime(
+                e.target.value
+              )
+            }
+            placeholder="Event Time"
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+            "
+          />
 
-            <input
-              type="text"
-              value={
-                poster.eventDate || ""
-              }
-              onChange={(e) =>
-                poster.setEventDate(
-                  e.target.value
-                )
-              }
-              placeholder="Friday"
-              className="
-                w-full
-                bg-black/40
-                border
-                border-white/10
-                rounded-xl
-                p-4
-                text-white
-              "
-            />
+          <input
+            type="date"
+            value={
+              poster.scheduledDate || ""
+            }
+            onChange={(e) =>
+              poster.setScheduledDate(
+                e.target.value
+              )
+            }
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+            "
+          />
 
-          </div>
-
-          <div>
-
-            <div
-              className="
-                text-white/50
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                mb-2
-              "
-            >
-              Event Time
-            </div>
-
-            <input
-              type="text"
-              value={
-                poster.eventTime || ""
-              }
-              onChange={(e) =>
-                poster.setEventTime(
-                  e.target.value
-                )
-              }
-              placeholder="8PM"
-              className="
-                w-full
-                bg-black/40
-                border
-                border-white/10
-                rounded-xl
-                p-4
-                text-white
-              "
-            />
-
-          </div>
-
-          <div>
-
-            <div
-              className="
-                text-white/50
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                mb-2
-              "
-            >
-              Schedule Date
-            </div>
-
-            <input
-              type="date"
-              value={
-                poster.scheduledDate || ""
-              }
-              onChange={(e) =>
-                poster.setScheduledDate(
-                  e.target.value
-                )
-              }
-              className="
-                w-full
-                bg-black/40
-                border
-                border-white/10
-                rounded-xl
-                p-4
-                text-white
-              "
-            />
-
-          </div>
-
-          <div>
-
-            <div
-              className="
-                text-white/50
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                mb-2
-              "
-            >
-              Schedule Time
-            </div>
-
-            <input
-              type="time"
-              value={
-                poster.scheduledTime || ""
-              }
-              onChange={(e) =>
-                poster.setScheduledTime(
-                  e.target.value
-                )
-              }
-              className="
-                w-full
-                bg-black/40
-                border
-                border-white/10
-                rounded-xl
-                p-4
-                text-white
-              "
-            />
-
-          </div>
+          <input
+            type="time"
+            value={
+              poster.scheduledTime || ""
+            }
+            onChange={(e) =>
+              poster.setScheduledTime(
+                e.target.value
+              )
+            }
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+            "
+          />
 
           {/* META PAGE CARDS */}
 
-          <div>
+          <div
+            className="
+              grid
+              grid-cols-2
+              gap-3
+            "
+          >
 
-            <div
-              className="
-                text-white/50
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                mb-3
-              "
-            >
-              Publish Page
-            </div>
+            {metaAccounts.map(
+              (account) => {
 
-            <div
-              className="
-                grid
-                grid-cols-2
-                gap-3
-              "
-            >
+                const active =
 
-              {metaAccounts.map(
-                (account) => {
+                  poster.pageId ===
+                  account.page_id;
 
-                  const active =
+                return (
 
-                    poster.pageId ===
-                    account.page_id;
+                  <button
+                    key={account.id}
+                    onClick={() =>
+                      poster.setPageId(
+                        account.page_id
+                      )
+                    }
+                    className={`
+                      relative
+                      rounded-2xl
+                      border
+                      p-4
+                      text-left
+                      transition-all
 
-                  return (
+                      ${active
 
-                    <button
-                      key={account.id}
-                      onClick={() =>
-                        poster.setPageId(
-                          account.page_id
-                        )
+                        ? `
+                          border-orange-500
+                          bg-orange-500/20
+                        `
+
+                        : `
+                          border-white/10
+                          bg-black/30
+                        `
                       }
-                      className={`
-                        relative
-                        rounded-2xl
-                        border
-                        p-4
-                        text-left
-                        transition-all
+                    `}
+                  >
 
-                        ${active
-
-                          ? `
-                            border-orange-500
-                            bg-orange-500/20
-                            shadow-[0_0_30px_rgba(255,120,0,0.25)]
-                          `
-
-                          : `
-                            border-white/10
-                            bg-black/30
-                            hover:bg-white/5
-                          `
-                        }
-                      `}
+                    <div
+                      className="
+                        text-white
+                        font-semibold
+                        text-sm
+                        mb-1
+                      "
                     >
+                      {account.page_name}
+                    </div>
 
-                      <div
-                        className="
-                          text-white
-                          font-semibold
-                          text-sm
-                          mb-1
-                        "
-                      >
-                        {account.page_name}
-                      </div>
+                    <div
+                      className="
+                        text-white/40
+                        text-xs
+                      "
+                    >
+                      Meta Connected
+                    </div>
 
-                      <div
-                        className="
-                          text-white/40
-                          text-xs
-                          uppercase
-                          tracking-[0.2em]
-                        "
-                      >
-                        Meta Connected
-                      </div>
+                  </button>
 
-                      {active && (
+                );
 
-                        <div
-                          className="
-                            absolute
-                            top-3
-                            right-3
-                            w-2
-                            h-2
-                            rounded-full
-                            bg-orange-400
-                          "
-                        />
-
-                      )}
-
-                    </button>
-
-                  );
-
-                }
-              )}
-
-            </div>
+              }
+            )}
 
           </div>
 
@@ -373,79 +270,30 @@ export default function StudioLeftPanel({
           AI Settings
         </div>
 
-        <ControlPanel
-          poster={poster}
-        />
-
-      </div>
-
-      {/* ENHANCE ENGINE */}
-
-      {poster.engine ===
-        "enhance" && (
-
-        <div
-          className="
-            mb-6
-            bg-white/5
-            border
-            border-white/10
-            rounded-2xl
-            p-5
-          "
-        >
-
-          <div
-            className="
-              text-orange-500
-              uppercase
-              tracking-[0.2em]
-              text-xs
-              mb-4
-            "
-          >
-            Venue Assets
-          </div>
+        <div className="space-y-5">
 
           <input
             type="file"
-            multiple
             accept="image/*"
-            onChange={async (e) => {
+            onChange={(e) => {
 
-              const files =
-                Array.from(
-                  e.target.files || []
+              const file =
+                e.target.files?.[0];
+
+              if (!file) return;
+
+              const reader =
+                new FileReader();
+
+              reader.onloadend = () => {
+
+                poster.setSelectedImage(
+                  reader.result
                 );
 
-              poster.setInteriorImages(
-                files
-              );
+              };
 
-              for (const file of files) {
-
-                const analysis =
-                  await analyzeMarketingAsset({
-
-                    assetType:
-                      "interior",
-
-                  });
-
-                await uploadMarketingAsset({
-
-                  file,
-
-                  tenantId,
-
-                  assetType:
-                    "interior",
-
-                  analysis,
-
-                });
-
-              }
+              reader.readAsDataURL(file);
 
             }}
             className="
@@ -459,278 +307,151 @@ export default function StudioLeftPanel({
             "
           />
 
-          {poster.interiorImages
-            ?.length > 0 && (
-
-            <div
-              className="
-                grid
-                grid-cols-3
-                gap-3
-                mt-5
-              "
-            >
-
-              {poster.interiorImages.map(
-                (file, index) => (
-
-                  <img
-                    key={index}
-                    src={URL.createObjectURL(file)}
-                    alt=""
-                    className="
-                      w-full
-                      h-24
-                      object-cover
-                      rounded-xl
-                    "
-                  />
-
-                )
-              )}
-
-            </div>
-
-          )}
-
-        </div>
-
-      )}
-
-      {/* COMPOSITE ENGINE */}
-
-      {poster.engine ===
-        "composite" && (
-
-        <div className="space-y-5 mb-6">
-
-          {/* STAFF */}
-
-          <div
+          <select
+            value={poster.layout}
+            onChange={(e) =>
+              poster.setLayout(
+                e.target.value
+              )
+            }
             className="
-              bg-white/5
+              w-full
+              bg-black/40
               border
               border-white/10
-              rounded-2xl
-              p-5
+              rounded-xl
+              p-4
+              text-white
             "
           >
 
-            <div
-              className="
-                text-orange-500
-                uppercase
-                tracking-[0.2em]
-                text-xs
-                mb-4
-              "
-            >
-              Staff Images
-            </div>
+            <option value="Classic">
+              Classic
+            </option>
 
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={async (e) => {
+            <option value="Centered">
+              Centered
+            </option>
 
-                const files =
-                  Array.from(
-                    e.target.files || []
-                  );
+            <option value="Minimal">
+              Minimal
+            </option>
 
-                poster.setStaffImages(
-                  files
-                );
+          </select>
 
-                for (const file of files) {
-
-                  const analysis =
-                    await analyzeMarketingAsset({
-
-                      assetType:
-                        "staff",
-
-                    });
-
-                  await uploadMarketingAsset({
-
-                    file,
-
-                    tenantId,
-
-                    assetType:
-                      "staff",
-
-                    analysis,
-
-                  });
-
-                }
-
-              }}
-              className="
-                w-full
-                bg-black/40
-                border
-                border-white/10
-                rounded-xl
-                p-4
-                text-white
-              "
-            />
-
-            {poster.staffImages
-              ?.length > 0 && (
-
-              <div
-                className="
-                  grid
-                  grid-cols-3
-                  gap-3
-                  mt-5
-                "
-              >
-
-                {poster.staffImages.map(
-                  (file, index) => (
-
-                    <img
-                      key={index}
-                      src={URL.createObjectURL(file)}
-                      alt=""
-                      className="
-                        w-full
-                        h-24
-                        object-cover
-                        rounded-xl
-                      "
-                    />
-
-                  )
-                )}
-
-              </div>
-
-            )}
-
-          </div>
-
-          {/* INTERIOR */}
-
-          <div
+          <select
+            value={poster.mood}
+            onChange={(e) =>
+              poster.setMood(
+                e.target.value
+              )
+            }
             className="
-              bg-white/5
+              w-full
+              bg-black/40
               border
               border-white/10
-              rounded-2xl
-              p-5
+              rounded-xl
+              p-4
+              text-white
             "
           >
 
-            <div
-              className="
-                text-orange-500
-                uppercase
-                tracking-[0.2em]
-                text-xs
-                mb-4
-              "
-            >
-              Interior Images
-            </div>
+            <option>
+              Luxury Nightlife
+            </option>
 
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={async (e) => {
+            <option>
+              Elegant Dinner
+            </option>
 
-                const files =
-                  Array.from(
-                    e.target.files || []
-                  );
+            <option>
+              Party Energy
+            </option>
 
-                poster.setInteriorImages(
-                  files
-                );
+            <option>
+              Romantic Lounge
+            </option>
 
-                for (const file of files) {
+          </select>
 
-                  const analysis =
-                    await analyzeMarketingAsset({
+          <select
+            value={poster.lighting}
+            onChange={(e) =>
+              poster.setLighting(
+                e.target.value
+              )
+            }
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+            "
+          >
 
-                      assetType:
-                        "interior",
+            <option>
+              Cinematic Warm
+            </option>
 
-                    });
+            <option>
+              Neon Nightclub
+            </option>
 
-                  await uploadMarketingAsset({
+            <option>
+              Moody Dark
+            </option>
 
-                    file,
+            <option>
+              Golden Luxury
+            </option>
 
-                    tenantId,
+          </select>
 
-                    assetType:
-                      "interior",
+          <input
+            value={poster.campaignTitle}
+            onChange={(e) =>
+              poster.setCampaignTitle(
+                e.target.value
+              )
+            }
+            placeholder="Campaign Title"
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+            "
+          />
 
-                    analysis,
-
-                  });
-
-                }
-
-              }}
-              className="
-                w-full
-                bg-black/40
-                border
-                border-white/10
-                rounded-xl
-                p-4
-                text-white
-              "
-            />
-
-            {poster.interiorImages
-              ?.length > 0 && (
-
-              <div
-                className="
-                  grid
-                  grid-cols-3
-                  gap-3
-                  mt-5
-                "
-              >
-
-                {poster.interiorImages.map(
-                  (file, index) => (
-
-                    <img
-                      key={index}
-                      src={URL.createObjectURL(file)}
-                      alt=""
-                      className="
-                        w-full
-                        h-24
-                        object-cover
-                        rounded-xl
-                      "
-                    />
-
-                  )
-                )}
-
-              </div>
-
-            )}
-
-          </div>
+          <input
+            value={poster.campaignSubtitle}
+            onChange={(e) =>
+              poster.setCampaignSubtitle(
+                e.target.value
+              )
+            }
+            placeholder="Subtitle"
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+            "
+          />
 
         </div>
 
-      )}
+      </div>
 
     </div>
 

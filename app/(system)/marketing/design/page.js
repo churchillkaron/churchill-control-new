@@ -22,7 +22,8 @@ from "../../components/marketing/studio/StudioRightPanel";
 import { runCampaignGeneration }
 from "@/lib/services/runCampaignGeneration";
 
-
+export const dynamic =
+  "force-dynamic";
 export default function Page() {
 
   const tenantId =

@@ -3,9 +3,17 @@
 import ControlPanel
 from "../ControlPanel";
 
+import { uploadMarketingAsset }
+from "@/lib/supabase/uploadMarketingAsset";
+
 export default function StudioLeftPanel({
+
   poster,
+
 }) {
+
+  const tenantId =
+    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
   return (
 
@@ -67,18 +75,33 @@ export default function StudioLeftPanel({
             type="file"
             multiple
             accept="image/*"
-            onChange={(e) => {
+            onChange={async (e) => {
 
-              const files =
-                Array.from(
-                  e.target.files || []
-                );
+  const files =
+    Array.from(
+      e.target.files || []
+    );
 
-              poster.setInteriorImages(
-                files
-              );
+  poster.setInteriorImages(
+    files
+  );
 
-            }}
+  for (const file of files) {
+
+    await uploadMarketingAsset({
+
+      file,
+
+      tenantId,
+
+      assetType:
+        "interior",
+
+    });
+
+  }
+
+}}
             className="
               w-full
               bg-black/40
@@ -158,18 +181,33 @@ export default function StudioLeftPanel({
               type="file"
               multiple
               accept="image/*"
-              onChange={(e) => {
+              onChange={async (e) => {
 
-                const files =
-                  Array.from(
-                    e.target.files || []
-                  );
+  const files =
+    Array.from(
+      e.target.files || []
+    );
 
-                poster.setStaffImages(
-                  files
-                );
+  poster.setStaffImages(
+    files
+  );
 
-              }}
+  for (const file of files) {
+
+    await uploadMarketingAsset({
+
+      file,
+
+      tenantId,
+
+      assetType:
+        "staff",
+
+    });
+
+  }
+
+}}
               className="
                 w-full
                 bg-black/40
@@ -242,18 +280,33 @@ export default function StudioLeftPanel({
               type="file"
               multiple
               accept="image/*"
-              onChange={(e) => {
+              onChange={async (e) => {
 
-                const files =
-                  Array.from(
-                    e.target.files || []
-                  );
+  const files =
+    Array.from(
+      e.target.files || []
+    );
 
-                poster.setInteriorImages(
-                  files
-                );
+  poster.setInteriorImages(
+    files
+  );
 
-              }}
+  for (const file of files) {
+
+    await uploadMarketingAsset({
+
+      file,
+
+      tenantId,
+
+      assetType:
+        "interior",
+
+    });
+
+  }
+
+}}
               className="
                 w-full
                 bg-black/40

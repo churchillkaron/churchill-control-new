@@ -33,6 +33,9 @@ from "../../components/marketing/studio/StudioCenterStage";
 import StudioRightPanel
 from "../../components/marketing/studio/StudioRightPanel";
 
+import { getMarketingAssets }
+from "@/lib/supabase/getMarketingAssets";
+
 export default function Page() {
 
   const tenantId =
@@ -52,7 +55,25 @@ export default function Page() {
     try {
 
       setLoading(true);
+const interiorAssets =
+  await getMarketingAssets({
 
+    tenantId,
+
+    assetType:
+      "interior",
+
+  });
+
+const staffAssets =
+  await getMarketingAssets({
+
+    tenantId,
+
+    assetType:
+      "staff",
+
+  });
       const memory =
         await getCampaignMemory({
 
@@ -95,6 +116,21 @@ ${memoryItem.atmosphere}
 
 `)
           .join("\n");
+const interiorContext =
+  interiorAssets
+    .map((asset) => `
+Interior Reference:
+${asset.file_url}
+`)
+    .join("\n");
+
+const staffContext =
+  staffAssets
+    .map((asset) => `
+Staff Reference:
+${asset.file_url}
+`)
+    .join("\n");
 
       const promptState = {
 
@@ -141,6 +177,14 @@ ${basePrompt}
 REFERENCE MEMORY:
 
 ${memoryContext}
+
+VENUE REFERENCES:
+
+${interiorContext}
+
+STAFF REFERENCES:
+
+${staffContext}
 
 IMPORTANT:
 Maintain Churchill Phuket

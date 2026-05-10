@@ -1,7 +1,9 @@
+export const runtime = "nodejs";
+
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "nodejs";
+
 
 function classifyItem(name = "") {
   const text = String(name).toLowerCase();

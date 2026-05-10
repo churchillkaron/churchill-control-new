@@ -3,6 +3,9 @@
 import { deleteQueuedCampaign }
 from "@/lib/supabase/deleteQueuedCampaign";
 
+import { publishCampaignNow }
+from "@/lib/services/publishCampaignNow";
+
 export default function QueuePanel({
 
   queuedCampaigns = [],
@@ -49,14 +52,15 @@ export default function QueuePanel({
 
       )}
 
-<div
-  className="
-    space-y-4
-    max-h-[320px]
-    overflow-auto
-    pr-2
-  "
->
+      <div
+        className="
+          space-y-4
+          max-h-[320px]
+          overflow-auto
+          pr-2
+        "
+      >
+
         {queuedCampaigns.map(
           (item) => {
 
@@ -129,66 +133,123 @@ export default function QueuePanel({
                   {new Date(
                     item.scheduled_for
                   ).toLocaleString()}
-                </div><div
-  className="
-    flex
-    gap-2
-    mt-4
-  "
->
+                </div>
 
-  <button
-    onClick={async () => {
+                <div
+                  className="
+                    flex
+                    gap-2
+                    mt-4
+                  "
+                >
 
-      const result =
-        await deleteQueuedCampaign({
+                  <button
+                    onClick={async () => {
 
-          queueId:
-            item.id,
+                      const result =
+                        await publishCampaignNow({
 
-        });
+                          campaignId:
+                            item.campaign_id,
 
-      if (!result.success) {
+                        });
 
-        alert(
-          result.error
-        );
+                      if (!result.success) {
 
-        return;
+                        alert(
+                          result.error
+                        );
 
-      }
+                        return;
 
-      setQueuedCampaigns(
+                      }
 
-        queuedCampaigns.filter(
-          (queueItem) =>
+                      alert(
+                        "Campaign published successfully"
+                      );
 
-            queueItem.id !==
-            item.id
-        )
+                      setQueuedCampaigns(
 
-      );
+                        queuedCampaigns.filter(
+                          (queueItem) =>
 
-    }}
-    className="
-      flex-1
-      bg-red-500/20
-      hover:bg-red-500/30
-      border
-      border-red-500/30
-      text-red-300
-      rounded-xl
-      py-2
-      text-xs
-      uppercase
-      tracking-[0.2em]
-      transition-all
-    "
-  >
-    Cancel
-  </button>
+                            queueItem.id !==
+                            item.id
+                        )
 
-</div>
+                      );
+
+                    }}
+                    className="
+                      flex-1
+                      bg-green-500/20
+                      hover:bg-green-500/30
+                      border
+                      border-green-500/30
+                      text-green-300
+                      rounded-xl
+                      py-2
+                      text-xs
+                      uppercase
+                      tracking-[0.2em]
+                      transition-all
+                    "
+                  >
+                    Publish
+                  </button>
+
+                  <button
+                    onClick={async () => {
+
+                      const result =
+                        await deleteQueuedCampaign({
+
+                          queueId:
+                            item.id,
+
+                        });
+
+                      if (!result.success) {
+
+                        alert(
+                          result.error
+                        );
+
+                        return;
+
+                      }
+
+                      setQueuedCampaigns(
+
+                        queuedCampaigns.filter(
+                          (queueItem) =>
+
+                            queueItem.id !==
+                            item.id
+                        )
+
+                      );
+
+                    }}
+                    className="
+                      flex-1
+                      bg-red-500/20
+                      hover:bg-red-500/30
+                      border
+                      border-red-500/30
+                      text-red-300
+                      rounded-xl
+                      py-2
+                      text-xs
+                      uppercase
+                      tracking-[0.2em]
+                      transition-all
+                    "
+                  >
+                    Cancel
+                  </button>
+
+                </div>
 
               </div>
 

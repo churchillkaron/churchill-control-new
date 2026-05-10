@@ -1,10 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextResponse }
+from "next/server";
 
-import { supabase }
-from "@/lib/supabase";
+import { createClient }
+from "@supabase/supabase-js";
 
 export const dynamic =
   "force-dynamic";
+
+const supabase =
+  createClient(
+
+    process.env
+      .NEXT_PUBLIC_SUPABASE_URL,
+
+    process.env
+      .SUPABASE_SERVICE_ROLE_KEY
+
+  );
 
 export async function POST(req) {
 
@@ -15,7 +27,6 @@ export async function POST(req) {
 
     const {
       campaignId,
-      platforms,
     } = body;
 
     if (!campaignId) {
@@ -25,7 +36,9 @@ export async function POST(req) {
           error:
             "Missing campaignId",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
 
     }
@@ -36,11 +49,18 @@ export async function POST(req) {
       data: campaign,
       error: campaignError,
     } = await supabase
+
       .from(
         "marketing_campaigns"
       )
+
       .select("*")
-      .eq("id", campaignId)
+
+      .eq(
+        "id",
+        campaignId
+      )
+
       .single();
 
     if (
@@ -53,77 +73,113 @@ export async function POST(req) {
           error:
             "Campaign not found",
         },
-        { status: 404 }
+        {
+          status: 404,
+        }
       );
 
     }
 
-    // CREATE QUEUE ITEM
+    // TODO:
+    // META GRAPH API
+    // FACEBOOK POST
+    // INSTAGRAM POST
+
+    // UPDATE STATUS
 
     const {
-      data: queueItem,
-      error: queueError,
+      error: updateError,
     } = await supabase
+
       .from(
-        "campaign_publish_queue"
+        "marketing_campaigns"
       )
-      .insert([
-        {
-          tenant_id:
-            campaign.tenant_id,
 
-          campaign_id:
-            campaign.id,
+      .update({
 
-          status:
-            "queued",
+        status:
+          "published",
 
-          platforms,
+        published_at:
+          new Date()
+            .toISOString(),
 
-          scheduled_for:
-            new Date()
-              .toISOString(),
-        },
-      ])
-      .select()
-      .single();
+      })
 
-    if (queueError) {
-
-      console.error(
-        "QUEUE ERROR:",
-        queueError
+      .eq(
+        "id",
+        campaignId
       );
+
+    if (updateError) {
 
       return NextResponse.json(
         {
           error:
-            queueError.message,
+            updateError.message,
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
 
     }
 
-    // UPDATE CAMPAIGN STATUS
+    // REMOVE FROM QUEUE
 
     await supabase
+
       .from(
-        "marketing_campaigns"
+        "campaign_publish_queue"
       )
-      .update({
-        status: "queued",
-      })
+
+      .delete()
+
       .eq(
-        "id",
-        campaign.id
+        "campaign_id",
+        campaignId
       );
+
+    // SAVE LOG
+
+    await supabase
+
+      .from(
+        "campaign_publish_logs"
+      )
+
+      .insert({
+
+        tenant_id:
+          campaign.tenant_id,
+
+        campaign_id:
+          campaign.id,
+
+        provider:
+          "internal",
+
+        status:
+          "success",
+
+        response: {
+
+          message:
+            "Published successfully",
+
+        },
+
+        created_at:
+          new Date()
+            .toISOString(),
+
+      });
 
     return NextResponse.json({
 
       success: true,
 
-      queueItem,
+      campaignId,
 
     });
 
@@ -139,7 +195,9 @@ export async function POST(req) {
         error:
           error.message,
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
 
   }

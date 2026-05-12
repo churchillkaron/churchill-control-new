@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin }
+from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +13,10 @@ export async function GET(req) {
     return Response.json({ error: 'Missing event_id' }, { status: 400 })
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+
 
   // 1. GET EVENT
-  const { data: event, error: eventError } = await supabase
+  const { data: event, error: eventError } = await supabaseAdmin
     .from('sales_events')
     .select('*')
     .eq('id', event_id)
@@ -31,7 +29,7 @@ export async function GET(req) {
   const { type, target_id, start_date, end_date, tenant_id } = event
 
   // 2. LOAD POS DATA
-  const { data: items, error: itemsError } = await supabase
+  const { data: items, error: itemsError } = await supabaseAdmin
     .from('order_items')
     .select(`
       quantity,
@@ -117,7 +115,7 @@ export async function GET(req) {
   let staffMap = {}
 
   if (staffIds.length > 0) {
-    const { data: staffRows, error: staffError } = await supabase
+    const { data: staffRows, error: staffError } = await supabaseAdmin
       .from('staff_accounts')
       .select('id, name')
       .in('id', staffIds)

@@ -259,6 +259,38 @@ const getInvoicePreviewUrl = (invoice) => {
     null
   );
 };
+
+  const categoryExpenses = Object.values(
+
+  (normalizedApprovedInvoices || []).reduce(
+
+    (acc, item) => {
+
+      const category =
+        item.category || "Other";
+
+      if (!acc[category]) {
+
+        acc[category] = {
+          category,
+          total: 0,
+        };
+
+      }
+
+      acc[category].total +=
+        Number(item.amount || 0);
+
+      return acc;
+
+    },
+
+    {}
+
+  )
+
+);
+
   return (
     
   
@@ -452,6 +484,11 @@ const getInvoicePreviewUrl = (invoice) => {
                 </div>
               </Panel>
             )}
+   
+      
+    
+        
+
 
             {/* EXPENSES */}
             {activeTab === "expenses" && (

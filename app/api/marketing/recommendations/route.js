@@ -1,17 +1,24 @@
-import { NextResponse }
-from "next/server";
-
 import { getBusinessRecommendations }
 from "@/lib/marketing/ai/recommendations/getBusinessRecommendations";
 
-export async function POST(
-  request
-) {
+import { withApiHandler }
+from "@/lib/shared/http/withApiHandler";
 
-  try {
+import { requireFields }
+from "@/lib/shared/validation/required";
+
+export const POST = withApiHandler(
+  "marketing-recommendations",
+
+  async (request) => {
 
     const body =
       await request.json();
+
+    requireFields(body, [
+      "tenantId",
+      "pageId",
+    ]);
 
     const {
 
@@ -20,27 +27,6 @@ export async function POST(
       pageId,
 
     } = body;
-
-    if (
-      !tenantId ||
-      !pageId
-    ) {
-
-      return NextResponse.json(
-
-        {
-          success: false,
-          error:
-            "Missing tenantId or pageId",
-        },
-
-        {
-          status: 400,
-        }
-
-      );
-
-    }
 
     const result =
 
@@ -52,32 +38,7 @@ export async function POST(
 
       });
 
-    return NextResponse.json(
-      result
-    );
-
-  } catch (err) {
-
-    console.error(
-      "RECOMMENDATIONS API ERROR:",
-      err
-    );
-
-    return NextResponse.json(
-
-      {
-        success: false,
-
-        error:
-          err.message,
-      },
-
-      {
-        status: 500,
-      }
-
-    );
+    return result;
 
   }
-
-}
+);

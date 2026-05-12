@@ -4,6 +4,9 @@ from "@/lib/marketing/ai/insights/getOwnerInsight";
 import { withApiHandler }
 from "@/lib/shared/http/withApiHandler";
 
+import { requireFields }
+from "@/lib/shared/validation/required";
+
 export const POST = withApiHandler(
   "marketing-owner-insights",
 
@@ -20,16 +23,12 @@ export const POST = withApiHandler(
 
     } = body;
 
-    if (
-      !tenantId ||
-      !pageId
-    ) {
+    requireFields(body, [
+  "tenantId",
+  "pageId",
+]);
 
-      throw new Error(
-        "Missing tenantId or pageId"
-      );
-
-    }
+  
 
     const result =
 

@@ -1,105 +1,36 @@
-import { NextResponse }
-from "next/server";
+import { withApiHandler }
+from "@/lib/shared/http/withApiHandler";
 
-import { supabase }
-from "@/lib/shared/supabase/client";
+import { getTenantId }
+from "@/lib/shared/tenant/getTenantId";
 
-export async function POST(
-  request
-) {
+import { getEngineLearningMemory }
+from "@/lib/marketing/services/getEngineLearningMemory";
 
-  try {
+export const POST = withApiHandler(
+  "marketing-engine-learning",
+
+  async (request) => {
 
     const body =
       await request.json();
 
+    const tenantId =
+      getTenantId(request);
+
     const {
-      tenantId,
+
       pageId,
+
     } = body;
 
-    let query =
-      supabase
+    return await getEngineLearningMemory({
 
-        .from(
-          "engine_learning_memory"
-        )
+      tenantId,
 
-        .select("*")
-
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          }
-        )
-
-        .limit(500);
-
-    if (tenantId) {
-
-      query =
-        query.eq(
-          "tenant_id",
-          tenantId
-        );
-
-    }
-
-    if (pageId) {
-
-      query =
-        query.eq(
-          "page_id",
-          pageId
-        );
-
-    }
-
-    const {
-      data,
-      error,
-    } = await query;
-
-    if (error) {
-
-      throw error;
-
-    }
-
-    return NextResponse.json({
-
-      success: true,
-
-      learningMemory:
-        data || [],
+      pageId,
 
     });
 
-  } catch (err) {
-
-    console.error(
-      "ENGINE LEARNING API ERROR:",
-      err
-    );
-
-    return NextResponse.json(
-
-      {
-
-        success: false,
-
-        error:
-          err.message,
-
-      },
-
-      {
-        status: 500,
-      }
-
-    );
-
   }
-
-}
+);

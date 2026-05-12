@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
+import { supabaseAdmin }
+from "@/lib/shared/supabase/admin";
 
 export async function GET() {
   try {
-    const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // backend only
-);
+    
 
     const today = new Date();
     const start = new Date(today.setHours(0, 0, 0, 0)).toISOString();
     const end = new Date(today.setHours(23, 59, 59, 999)).toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("assets")
       .select("uploaded_by, uploaded_by_id")
       .eq("type", "review")

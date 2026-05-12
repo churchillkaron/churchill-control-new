@@ -1,12 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin }
+from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+  
 
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
@@ -18,7 +16,7 @@ export async function GET() {
   endOfMonth.setHours(23, 59, 59, 999)
 
   // 1. GET ALL ACTIVE EVENTS IN MONTH
-  const { data: events, error: eventError } = await supabase
+  const { data: events, error: eventError } = await supabaseAdmin
     .from('sales_events')
     .select('*')
     .gte('start_date', startOfMonth.toISOString())
@@ -60,7 +58,7 @@ export async function GET() {
   let staffMap = {}
 
   if (staffIds.length > 0) {
-    const { data: staffRows, error: staffError } = await supabase
+    const { data: staffRows, error: staffError } = await supabaseAdmin
       .from('staff_accounts')
       .select('id, name')
       .in('id', staffIds)

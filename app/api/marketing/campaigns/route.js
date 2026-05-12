@@ -1,21 +1,31 @@
-import { NextResponse }
-from "next/server";
-
 import { supabase }
 from "@/lib/shared/supabase/client";
 
-export async function POST(
-  request
-) {
+import { withApiHandler }
+from "@/lib/shared/http/withApiHandler";
 
-  try {
+import { getTenantId }
+from "@/lib/shared/tenant/getTenantId";
+
+import { requireFields }
+from "@/lib/shared/validation/required";
+
+export const POST = withApiHandler(
+  "marketing-campaigns",
+
+  async (request) => {
 
     const body =
       await request.json();
 
-    const {
+    requireFields(body, [
+      "pageId",
+    ]);
 
-      tenantId,
+    const tenantId =
+      getTenantId(request);
+
+    const {
 
       pageId,
 
@@ -52,42 +62,13 @@ export async function POST(
       .limit(50);
 
     if (error) {
-
       throw error;
-
     }
 
-    return NextResponse.json({
-
-      success: true,
-
+    return {
       campaigns:
         data || [],
-
-    });
-
-  } catch (err) {
-
-    console.error(
-      "CAMPAIGNS API ERROR:",
-      err
-    );
-
-    return NextResponse.json(
-
-      {
-        success: false,
-
-        error:
-          err.message,
-      },
-
-      {
-        status: 500,
-      }
-
-    );
+    };
 
   }
-
-}
+);

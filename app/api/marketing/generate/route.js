@@ -2,7 +2,7 @@ import { NextResponse }
 from "next/server";
 
 import { createCampaignFlow }
-from "@/lib/services/createCampaignFlow";
+from "@/lib/marketing/services/createCampaignFlow";
 
 export async function POST(request) {
 

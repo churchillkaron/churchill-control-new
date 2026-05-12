@@ -2,7 +2,7 @@ export const runtime =
   "nodejs";
 
 import { uploadMarketingAssetFlow }
-from "@/lib/services/uploadMarketingAssetFlow";
+from "@/lib/marketing/services/uploadMarketingAssetFlow";
 
 export async function POST(request) {
 

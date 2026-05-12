@@ -5,7 +5,7 @@ import { NextResponse }
 from "next/server";
 
 import { uploadMarketingAssetFlow }
-from "@/lib/services/uploadMarketingAssetFlow";
+from "@/lib/marketing/services/uploadMarketingAssetFlow";
 
 export async function POST(
   request

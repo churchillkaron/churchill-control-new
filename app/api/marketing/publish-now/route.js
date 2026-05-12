@@ -2,7 +2,7 @@ export const runtime =
   "nodejs";
 
 import { publishCampaignNow }
-from "@/lib/services/publishCampaignNow";
+from "@/lib/marketing/services/publishCampaignNow";
 
 export async function POST(request) {
 

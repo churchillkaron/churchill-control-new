@@ -4,7 +4,7 @@ import { useEffect, useState }
 from "react";
 
 import { supabase }
-from "@/lib/supabase";
+from "@/lib/shared/supabase/client";
 
 import { queueCampaign }
 from "@/lib/supabase/queueCampaign";

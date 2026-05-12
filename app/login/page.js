@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/shared/supabase/client";
 
 const DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === "true";
 

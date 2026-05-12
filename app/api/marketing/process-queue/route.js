@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/shared/supabase/client";
 
 import { validateMetaToken } from "@/lib/marketing/distribution/meta/utils/validateMetaToken";
 import { publishToFacebook } from "@/lib/marketing/distribution/meta/publishing/publishToFacebook";

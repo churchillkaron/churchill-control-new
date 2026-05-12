@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { supabase }
-from "@/lib/supabase";
+from "@/lib/shared/supabase/client";
 
 export async function GET() {
   try {

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/shared/supabase/client";
 
 export async function GET() {
   const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";

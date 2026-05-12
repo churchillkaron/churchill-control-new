@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/shared/supabase/client";
 
 export default function TablesPage() {
   const [tables, setTables] = useState([]);

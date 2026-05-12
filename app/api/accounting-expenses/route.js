@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabase }
-from "@/lib/supabase";
+from "@/lib/shared/supabase/client";
 
 // =========================
 // GET EXPENSES

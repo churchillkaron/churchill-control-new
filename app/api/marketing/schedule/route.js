@@ -1,4 +1,4 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/lib/shared/supabase/server";
 
 export async function POST(req) {
   const supabase = getSupabaseServer();

@@ -6,7 +6,7 @@ import { CheckCircle2, Rocket, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/shared/supabase/client";
 
 export default function FinalSetupActivation() {
   const router = useRouter();

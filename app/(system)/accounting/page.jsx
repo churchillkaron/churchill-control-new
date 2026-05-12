@@ -1,6 +1,6 @@
 
       "use client";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/shared/supabase/client";
 import { useEffect, useMemo, useState } from "react";
 
 const TABS = [

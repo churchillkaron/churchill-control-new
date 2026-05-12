@@ -1,5 +1,5 @@
 import { supabase }
-from "@/lib/supabase";
+from "@/lib/shared/supabase/client";
 
 import engineRouter
 from "@/lib/marketing/ai/router/engineRouter";

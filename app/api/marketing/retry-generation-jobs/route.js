@@ -1,6 +1,5 @@
 import { supabase }
-from "@/lib/supabase";
-
+from "@/lib/shared/supabase/client";
 const MAX_RETRIES = 3;
 
 export async function GET() {

@@ -7,6 +7,9 @@ from "@/lib/shared/http/withApiHandler";
 import { requireFields }
 from "@/lib/shared/validation/required";
 
+import { getTenantId }
+from "@/lib/shared/tenant/getTenantId";
+
 export const POST = withApiHandler(
   "marketing-owner-insights",
 
@@ -15,32 +18,26 @@ export const POST = withApiHandler(
     const body =
       await request.json();
 
-    const {
+    requireFields(body, [
+      "pageId",
+    ]);
 
-      tenantId,
+    const tenantId =
+      getTenantId(request);
+
+    const {
 
       pageId,
 
     } = body;
 
-    requireFields(body, [
-  "tenantId",
-  "pageId",
-]);
+    return await getOwnerInsights({
 
-  
+      tenantId,
 
-    const result =
+      pageId,
 
-      await getOwnerInsights({
-
-        tenantId,
-
-        pageId,
-
-      });
-
-    return result;
+    });
 
   }
 );

@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
+import { supabaseAdmin }
+from "@/lib/shared/supabase/admin";
 
-export async function GET() {
+import { getTenantId }
+from "@/lib/shared/tenant/getTenantId";
+
+export async function GET(
+  request
+) {
+
   try {
-    const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
-    const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+    const tenant_id =
+      getTenantId(request);
 
     // 🔹 TODAY RANGE
     const now = new Date();
@@ -17,7 +21,7 @@ export async function GET() {
     const end = new Date(now.setHours(23, 59, 59, 999)).toISOString();
 
     // 🔹 ALERTS
-    const { data: alertRows } = await supabase
+    const { data: alertRows } = await supabaseAdmin
       .from("alerts")
       .select("*")
       .eq("tenant_id", tenant_id);
@@ -32,7 +36,7 @@ export async function GET() {
     );
 
     // 🔹 ORDERS
-    const { data: orders } = await supabase
+    const { data: orders } = await supabaseAdmin
       .from("orders")
       .select("id, staff_name, total, created_at")
       .eq("tenant_id", tenant_id)
@@ -40,7 +44,7 @@ export async function GET() {
       .lte("created_at", end);
 
     // 🔹 STAFF
-    const { data: staffData } = await supabase
+    const { data: staffData } = await supabaseAdmin
       .from("staff_accounts")
       .select("*")
       .eq("tenant_id", tenant_id);
@@ -133,7 +137,7 @@ export async function GET() {
     const tasks = [];
 
     // INVOICE
-    const { data: pendingInvoices } = await supabase
+    const { data: pendingInvoices } = await supabaseAdmin
       .from("assets")
       .select("id")
       .eq("tenant_id", tenant_id)
@@ -148,7 +152,7 @@ export async function GET() {
     }
 
     // ROUTINE / PHOTOS
-    const { data: routineUploads } = await supabase
+    const { data: routineUploads } = await supabaseAdmin
       .from("assets")
       .select("id")
       .eq("tenant_id", tenant_id)
@@ -163,7 +167,7 @@ export async function GET() {
     }
 
     // SALARY
-    const { data: salaryConfirm } = await supabase
+    const { data: salaryConfirm } = await supabaseAdmin
       .from("salary_confirmations")
       .select("id")
       .eq("tenant_id", tenant_id)

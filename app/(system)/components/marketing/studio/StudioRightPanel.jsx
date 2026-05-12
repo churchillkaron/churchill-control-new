@@ -3,7 +3,8 @@
 import QueuePanel
 from "./QueuePanel";
 
-export default function StudioRightPanel({
+export default function
+StudioRightPanel({
 
   latestCampaign,
 
@@ -17,7 +18,63 @@ export default function StudioRightPanel({
 
   promptHistory,
 
+  generateCampaign,
+
+  setActiveAsset,
+
 }) {
+
+  const openAsset = (
+    asset
+  ) => {
+
+    if (
+      !setActiveAsset
+    ) return;
+
+    const mediaUrl =
+
+      asset?.video_url ||
+
+      asset?.file_url ||
+
+      asset?.image_url ||
+
+      asset?.thumbnail_url ||
+
+      latestCampaign?.video_url ||
+
+      latestCampaign?.image_url ||
+
+      null;
+
+    const isVideo =
+
+      asset?.is_video ||
+
+      asset?.tags?.includes(
+        "video"
+      ) ||
+
+      asset?.video_url ||
+
+      latestCampaign?.is_video;
+
+    setActiveAsset({
+
+      type:
+        isVideo
+          ? "video"
+          : "image",
+
+      url:
+        mediaUrl,
+
+      asset,
+
+    });
+
+  };
 
   return (
 
@@ -48,6 +105,11 @@ export default function StudioRightPanel({
         <>
 
           <div
+            onClick={() =>
+              openAsset(
+                latestCampaign
+              )
+            }
             className="
               bg-black/30
               rounded-2xl
@@ -55,8 +117,70 @@ export default function StudioRightPanel({
               mb-5
               border
               border-white/10
+              cursor-pointer
+              hover:border-orange-500/30
+              transition-all
             "
           >
+
+            {(
+
+              latestCampaign?.video_url ||
+
+              latestCampaign?.image_url ||
+
+              latestCampaign?.thumbnail_url
+
+            ) && (
+
+              <div
+                className="
+                  relative
+                  w-full
+                  h-48
+                  rounded-2xl
+                  overflow-hidden
+                  mb-4
+                  bg-black
+                "
+              >
+
+                {latestCampaign?.is_video ? (
+
+                  <video
+                    src={
+                      latestCampaign.video_url
+                    }
+                    className="
+                      w-full
+                      h-full
+                      object-cover
+                    "
+                  />
+
+                ) : (
+
+                  <img
+                    src={
+
+                      latestCampaign?.image_url ||
+
+                      latestCampaign?.thumbnail_url
+
+                    }
+                    alt="Campaign"
+                    className="
+                      w-full
+                      h-full
+                      object-cover
+                    "
+                  />
+
+                )}
+
+              </div>
+
+            )}
 
             <div
               className="
@@ -70,29 +194,20 @@ export default function StudioRightPanel({
               Latest Campaign
             </div>
 
+            <div
+              className="
+                text-white
+                text-lg
+                mb-3
+              "
+            >
+              {latestCampaign.title}
+            </div>
+
             <div className="space-y-3 text-sm">
 
               <div>
-                <div className="text-white/40">
-                  Campaign ID
-                </div>
 
-                <div className="text-white break-all">
-                  {latestCampaign.id}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-white/40">
-                  Type
-                </div>
-
-                <div className="text-white">
-                  {latestCampaign.campaign_type}
-                </div>
-              </div>
-
-              <div>
                 <div className="text-white/40">
                   Engine
                 </div>
@@ -100,9 +215,11 @@ export default function StudioRightPanel({
                 <div className="text-green-400">
                   {latestCampaign.engine}
                 </div>
+
               </div>
 
               <div>
+
                 <div className="text-white/40">
                   Provider
                 </div>
@@ -110,9 +227,11 @@ export default function StudioRightPanel({
                 <div className="text-blue-400">
                   {latestCampaign.provider}
                 </div>
+
               </div>
 
               <div>
+
                 <div className="text-white/40">
                   Status
                 </div>
@@ -159,19 +278,10 @@ export default function StudioRightPanel({
 
           </div>
 
-          {latestCampaign?.dna && (
+          {latestCampaign?.selected_assets
+            ?.length > 0 && (
 
-            <div
-              className="
-                mt-5
-                bg-black/40
-                border
-                border-white/10
-                rounded-2xl
-                p-4
-                mb-5
-              "
-            >
+            <div className="mt-5">
 
               <div
                 className="
@@ -182,55 +292,89 @@ export default function StudioRightPanel({
                   mb-3
                 "
               >
-                Campaign DNA
+                AI Selected Assets
               </div>
 
-              <div className="space-y-2 text-xs">
+              <div
+                className="
+                  grid
+                  grid-cols-2
+                  gap-2
+                "
+              >
 
-                <div>
+                {latestCampaign
+                  .selected_assets
+                  .slice(0, 4)
+                  .map((asset) => {
 
-                  <span className="text-white/40">
-                    Mood:
-                  </span>
+                    const mediaUrl =
 
-                  <span className="ml-2 text-white">
-                    {
-                      latestCampaign
-                        ?.dna?.mood
-                    }
-                  </span>
+                      asset?.video_url ||
 
-                </div>
+                      asset?.file_url ||
 
-                <div>
+                      asset?.image_url ||
 
-                  <span className="text-white/40">
-                    Lighting:
-                  </span>
+                      asset?.thumbnail_url;
 
-                  <span className="ml-2 text-white">
-                    {
-                      latestCampaign
-                        ?.dna?.lighting
-                    }
-                  </span>
+                    const isVideo =
 
-                </div>
+                      asset?.is_video ||
 
-                <div>
+                      asset?.tags?.includes(
+                        "video"
+                      );
 
-                  <span className="text-white/40">
-                    Scene:
-                  </span>
+                    return (
 
-                  <span className="ml-2 text-white">
-                    {
-                      latestCampaign
-                        ?.dna?.sceneType
-                    }
-                  </span>
+                      <div
+                        key={asset.id}
+                        onClick={() =>
+                          openAsset(asset)
+                        }
+                        className="
+                          relative
+                          cursor-pointer
+                          rounded-xl
+                          overflow-hidden
+                          border
+                          border-white/10
+                          hover:border-orange-500/40
+                          transition-all
+                        "
+                      >
 
-                </div>
+                        {isVideo ? (
+
+                          <video
+                            src={mediaUrl}
+                            className="
+                              w-full
+                              h-24
+                              object-cover
+                            "
+                          />
+
+                        ) : (
+
+                          <img
+                            src={mediaUrl}
+                            alt={asset.name}
+                            className="
+                              w-full
+                              h-24
+                              object-cover
+                            "
+                          />
+
+                        )}
+
+                      </div>
+
+                    );
+
+                  })}
 
               </div>
 
@@ -255,60 +399,6 @@ export default function StudioRightPanel({
           "
         >
           No campaign generated yet.
-        </div>
-
-      )}
-
-      {latestCampaign?.selected_assets
-        ?.length > 0 && (
-
-        <div className="mt-5">
-
-          <div
-            className="
-              text-orange-400
-              uppercase
-              text-[10px]
-              tracking-[0.2em]
-              mb-3
-            "
-          >
-            AI Selected Assets
-          </div>
-
-          <div
-            className="
-              grid
-              grid-cols-2
-              gap-2
-            "
-          >
-
-            {latestCampaign
-              .selected_assets
-              .slice(0, 4)
-              .map((asset) => (
-
-                <img
-                  key={asset.id}
-                  src={
-                    asset.image_url
-                  }
-                  alt={asset.name}
-                  className="
-                    w-full
-                    h-24
-                    object-cover
-                    rounded-xl
-                    border
-                    border-white/10
-                  "
-                />
-
-            ))}
-
-          </div>
-
         </div>
 
       )}
@@ -423,84 +513,15 @@ export default function StudioRightPanel({
 
       </div>
 
-      <div
-        className="
-          bg-black/30
-          border
-          border-white/10
-          rounded-2xl
-          p-5
-          mb-5
-        "
-      >
-
-        <div
-          className="
-            text-orange-400
-            uppercase
-            text-[10px]
-            tracking-[0.2em]
-            mb-4
-          "
-        >
-          AI Memory
-        </div>
-
-        <div className="space-y-3">
-
-          {(promptHistory || [])
-            .slice(0, 3)
-            .map((memory) => (
-
-              <div
-                key={memory.id}
-                className="
-                  bg-black/40
-                  border
-                  border-white/10
-                  rounded-xl
-                  p-3
-                "
-              >
-
-                <div
-                  className="
-                    text-white/50
-                    text-[10px]
-                    mb-2
-                  "
-                >
-                  {
-                    memory
-                      ?.recommendation
-                      ?.campaignType
-                  }
-                </div>
-
-                <div
-                  className="
-                    text-white/80
-                    text-xs
-                    line-clamp-4
-                  "
-                >
-                  {memory.prompt}
-                </div>
-
-              </div>
-
-          ))}
-
-        </div>
-
-      </div>
-
       <QueuePanel
         queuedCampaigns={
           queuedCampaigns
         }
         setQueuedCampaigns={
           setQueuedCampaigns
+        }
+        setActiveAsset={
+          setActiveAsset
         }
       />
 

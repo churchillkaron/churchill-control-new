@@ -2,19 +2,21 @@ import { supabase }
 from "@/lib/supabase";
 
 import engineRouter
-from "@/lib/ai/engineRouter";
+from "@/lib/marketing/ai/router/engineRouter";
 
-import { runOpenAIEngine }
-from "@/lib/ai/engines/openaiEngine";
+import { runFullAIEngine }
+from "@/lib/marketing/ai/engines/runFullAIEngine";
 
 import { runFluxEnhanceEngine }
-from "@/lib/ai/engines/fluxEnhanceEngine";
+from "@/lib/marketing/ai/engines/runFluxEnhanceEngine";
 
-import { runSDXLCompositeEngine }
-from "@/lib/ai/engines/sdxlCompositeEngine";
+import { runCompositeEngine }
+from "@/lib/marketing/ai/engines/runCompositeEngine";
 
 import { runVideoEngine }
-from "@/lib/ai/engines/runVideoEngine";
+from "@/lib/marketing/ai/engines/runVideoEngine";
+
+const MAX_RETRIES = 3;
 
 export async function POST(
   request
@@ -32,12 +34,19 @@ export async function POST(
     } = body;
 
     const {
+
       data: job,
+
       error,
+
     } = await supabase
+
       .from("generation_jobs")
+
       .select("*")
+
       .eq("id", jobId)
+
       .single();
 
     if (error || !job) {
@@ -45,6 +54,7 @@ export async function POST(
       return Response.json({
 
         success: false,
+
         error:
           "Job not found",
 
@@ -63,7 +73,9 @@ export async function POST(
     );
 
     await supabase
+
       .from("generation_jobs")
+
       .update({
 
         status:
@@ -74,6 +86,7 @@ export async function POST(
             .toISOString(),
 
       })
+
       .eq("id", jobId);
 
     let engineResult = null;
@@ -83,37 +96,43 @@ export async function POST(
       case "full-ai":
 
         engineResult =
-  await runOpenAIEngine({
 
-    prompt:
-      job.prompt,
+         await runFullAIEngine({
 
-    tenantId:
-      job.tenant_id,
+            prompt:
+              job.prompt,
 
-  });
+            tenantId:
+              job.tenant_id,
+
+          });
 
         break;
 
       case "enhance":
 
         engineResult =
+
           await runFluxEnhanceEngine({
 
-            prompt:
-              job.prompt,
+    prompt:
+    campaign.prompt,
 
-            assets:
-              job.input,
+    poster:
+    campaign,
 
-          });
+   assets:
+    campaign.selected_assets,
+
+    });
 
         break;
 
       case "composite":
 
         engineResult =
-          await runSDXLCompositeEngine({
+
+          await runCompositeEngine({
 
             prompt:
               job.prompt,
@@ -128,6 +147,7 @@ export async function POST(
       case "video":
 
         engineResult =
+
           await runVideoEngine({
 
             prompt:
@@ -147,31 +167,46 @@ export async function POST(
         );
 
     }
-if (
-  engineResult?.output?.image_url
-) {
 
-  await supabase
-    .from(
-      "marketing_campaigns"
-    )
-    .update({
+    // UPDATE CAMPAIGN
 
-      image_url:
-        engineResult.output.image_url,
+    if (
+      engineResult?.output?.image_url
+    ) {
 
-     status:
-  "ready",
+      await supabase
 
-    })
-    .eq(
-      "id",
-      job.campaign_id
-    );
+        .from(
+          "marketing_campaigns"
+        )
 
-}
+        .update({
+
+          image_url:
+            engineResult.output.image_url,
+
+          status:
+            "ready",
+
+          updated_at:
+            new Date()
+              .toISOString(),
+
+        })
+
+        .eq(
+          "id",
+          job.campaign_id
+        );
+
+    }
+
+    // COMPLETE JOB
+
     await supabase
+
       .from("generation_jobs")
+
       .update({
 
         status:
@@ -180,11 +215,18 @@ if (
         output:
           engineResult?.output || {},
 
+        provider:
+          engineResult?.provider || "",
+
+        model:
+          engineResult?.model || "",
+
         completed_at:
           new Date()
             .toISOString(),
 
       })
+
       .eq("id", jobId);
 
     return Response.json({
@@ -194,29 +236,7 @@ if (
       engineResult,
 
     });
-if (
-  engineResult?.output?.image_url
-) {
 
-  await supabase
-    .from(
-      "marketing_campaigns"
-    )
-    .update({
-
-      image_url:
-        engineResult.output.image_url,
-
-      status:
-        "generated",
-
-    })
-    .eq(
-      "id",
-      job.campaign_id
-    );
-
-}
   } catch (err) {
 
     console.error(
@@ -224,23 +244,95 @@ if (
       err
     );
 
+    // LOAD CURRENT JOB
+
     if (body?.jobId) {
 
-      await supabase
+      const {
+        data: currentJob,
+      } = await supabase
+
         .from("generation_jobs")
-        .update({
 
-          status:
-            "failed",
+        .select("*")
 
-          error_text:
-            err.message,
-
-        })
         .eq(
           "id",
           body.jobId
-        );
+        )
+
+        .single();
+
+      const retryCount =
+        currentJob?.retry_count || 0;
+
+      const nextRetry =
+        retryCount + 1;
+
+      // PERMANENT FAILURE
+
+      if (
+        nextRetry >=
+        MAX_RETRIES
+      ) {
+
+        await supabase
+
+          .from("generation_jobs")
+
+          .update({
+
+            status:
+              "permanently_failed",
+
+            retry_count:
+              nextRetry,
+
+            error_text:
+              err.message,
+
+            failed_at:
+              new Date()
+                .toISOString(),
+
+          })
+
+          .eq(
+            "id",
+            body.jobId
+          );
+
+      } else {
+
+        // RETRYABLE FAILURE
+
+        await supabase
+
+          .from("generation_jobs")
+
+          .update({
+
+            status:
+              "retrying",
+
+            retry_count:
+              nextRetry,
+
+            error_text:
+              err.message,
+
+            updated_at:
+              new Date()
+                .toISOString(),
+
+          })
+
+          .eq(
+            "id",
+            body.jobId
+          );
+
+      }
 
     }
 

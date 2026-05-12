@@ -8,7 +8,11 @@ AssetLibraryPanel({
 
   assets = [],
 
+  selectedBusiness,
+
   onSelectAsset,
+
+  refreshAssets,
 
 }) {
 
@@ -17,18 +21,220 @@ AssetLibraryPanel({
     setActiveType,
   ] = useState("all");
 
-  const filteredAssets =
+  const [
+    search,
+    setSearch,
+  ] = useState("");
 
-    activeType === "all"
+  // =====================================
+  // BUSINESS FILTER
+  // =====================================
 
-      ? assets
+  const businessAssets =
 
-      : assets.filter(
+    selectedBusiness
+
+      ? assets.filter(
+
           (asset) =>
 
-            asset.asset_type ===
-            activeType
+            asset.page_id ===
+            selectedBusiness
+
+        )
+
+      : assets;
+
+  // =====================================
+  // SEARCH + TYPE FILTER
+  // =====================================
+
+  const filteredAssets =
+
+    businessAssets.filter(
+      (asset) => {
+
+        const matchesType =
+
+          activeType === "all"
+
+            ? true
+
+            : asset.asset_type ===
+              activeType;
+
+        const searchLower =
+          search.toLowerCase();
+
+        const matchesSearch =
+
+          !search
+
+            ? true
+
+            : (
+
+                asset.name
+                  ?.toLowerCase()
+                  ?.includes(
+                    searchLower
+                  )
+
+                ||
+
+                asset.tags?.some(
+                  (tag) =>
+
+                    tag
+                      ?.toLowerCase()
+                      ?.includes(
+                        searchLower
+                      )
+                )
+
+                ||
+
+                asset.analysis?.mood
+                  ?.toLowerCase()
+                  ?.includes(
+                    searchLower
+                  )
+
+                ||
+
+                asset.analysis?.sceneType
+                  ?.toLowerCase()
+                  ?.includes(
+                    searchLower
+                  )
+
+              );
+
+        return (
+          matchesType &&
+          matchesSearch
         );
+
+      }
+    );
+
+  // =====================================
+  // DELETE
+  // =====================================
+
+  async function deleteAsset(
+    assetId
+  ) {
+
+    try {
+
+      const confirmed =
+        confirm(
+          "Delete asset?"
+        );
+
+      if (!confirmed)
+        return;
+
+      await fetch(
+
+        "/api/marketing/delete-asset",
+
+        {
+
+          method:
+            "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+          },
+
+          body: JSON.stringify({
+
+            assetId,
+
+          }),
+
+        }
+
+      );
+
+      refreshAssets?.();
+
+    } catch (err) {
+
+      console.error(
+        err
+      );
+
+      alert(
+        "Delete failed"
+      );
+
+    }
+
+  }
+
+  // =====================================
+  // UPDATE TYPE
+  // =====================================
+
+  async function updateAssetType({
+
+    assetId,
+
+    assetType,
+
+  }) {
+
+    try {
+
+      await fetch(
+
+        "/api/marketing/update-asset",
+
+        {
+
+          method:
+            "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+          },
+
+          body: JSON.stringify({
+
+            assetId,
+
+            assetType,
+
+          }),
+
+        }
+
+      );
+
+      refreshAssets?.();
+
+    } catch (err) {
+
+      console.error(
+        err
+      );
+
+      alert(
+        "Update failed"
+      );
+
+    }
+
+  }
 
   return (
 
@@ -42,6 +248,8 @@ AssetLibraryPanel({
       "
     >
 
+      {/* HEADER */}
+
       <div
         className="
           text-orange-500
@@ -53,6 +261,34 @@ AssetLibraryPanel({
       >
         Asset Library
       </div>
+
+      {/* SEARCH */}
+
+      <input
+        value={search}
+        onChange={(e) =>
+          setSearch(
+            e.target.value
+          )
+        }
+        placeholder="
+          Search assets...
+        "
+        className="
+          w-full
+          mb-4
+          bg-black/40
+          border
+          border-white/10
+          rounded-xl
+          p-3
+          text-sm
+          text-white
+          placeholder:text-white/30
+        "
+      />
+
+      {/* FILTERS */}
 
       <div
         className="
@@ -70,6 +306,8 @@ AssetLibraryPanel({
           "cocktail",
           "food",
           "interior",
+          "branding",
+          "event",
         ].map((type) => (
 
           <button
@@ -99,6 +337,8 @@ AssetLibraryPanel({
 
       </div>
 
+      {/* GRID */}
+
       <div
         className="
           grid
@@ -111,113 +351,272 @@ AssetLibraryPanel({
 
           <div
             key={asset.id}
-
-            onClick={() => {
-
-              if (onSelectAsset) {
-
-                onSelectAsset(asset);
-
-              }
-
-            }}
-
             className="
+              relative
               bg-black/30
               border
               border-white/10
-              rounded-xl
+              rounded-2xl
               overflow-hidden
-              cursor-pointer
-              hover:border-orange-500/40
               transition-all
+              hover:border-orange-500/40
+              group
             "
           >
 
-            <img
-              src={asset.image_url}
-              alt={asset.name}
+            {/* IMAGE */}
+
+            <div
               className="
-                w-full
-                h-32
-                object-cover
+                relative
+                overflow-hidden
+                aspect-square
+                bg-black
               "
-            />
+            >
 
-            <div className="p-3">
+              <img
+                src={
+                  asset.thumbnail_url ||
+                  asset.image_url
+                }
+                alt={asset.name}
+                loading="lazy"
+                onClick={() => {
+
+                  onSelectAsset?.(
+                    asset
+                  );
+
+                }}
+                className="
+                  w-full
+                  h-full
+                  object-cover
+                  cursor-pointer
+                  transition
+                  duration-300
+                  group-hover:scale-105
+                "
+              />
+
+            </div>
+
+            {/* CONTENT */}
+
+            <div
+              className="
+                p-3
+                space-y-3
+              "
+            >
+
+              {/* TITLE */}
+
+              <div>
+
+                <div
+                  className="
+                    text-white
+                    text-sm
+                    truncate
+                  "
+                >
+                  {asset.name}
+                </div>
+
+                <div
+                  className="
+                    text-orange-400
+                    text-[10px]
+                    mt-1
+                    uppercase
+                    tracking-[0.15em]
+                  "
+                >
+                  {asset.asset_type}
+                </div>
+
+                {asset.ai_suggested_type &&
+
+                  asset.ai_suggested_type !==
+                    asset.asset_type && (
+
+                    <div
+                      className="
+                        text-yellow-400
+                        text-[10px]
+                        mt-1
+                      "
+                    >
+
+                      AI Suggested:
+                      {" "}
+
+                      {
+                        asset.ai_suggested_type
+                      }
+
+                    </div>
+
+                )}
+
+              </div>
+
+              {/* STATS */}
 
               <div
                 className="
-                  text-white
-                  text-sm
-                  truncate
+                  flex
+                  justify-between
+                  text-[10px]
                 "
               >
-                {asset.name}
+
+                <div
+                  className="
+                    text-orange-400
+                  "
+                >
+                  Score:
+                  {" "}
+                  {asset.score || 0}
+                </div>
+
+                <div
+                  className="
+                    text-white/40
+                  "
+                >
+                  Used:
+                  {" "}
+                  {asset.usage_count || 0}
+                </div>
+
               </div>
 
-              <div
-                className="
-                  text-white/50
-                  text-xs
-                  mt-1
-                "
-              >
-                {asset.asset_type}
-              </div>
+              {/* ROLE */}
 
-              <div
-  className="
-    text-orange-400
-    text-[10px]
-    mt-1
-  "
->
-  Score: {asset.score || 0}
-</div>
-<div
-  className="
-    text-white/40
-    text-[10px]
-    mt-1
-  "
->
-  Used: {asset.usage_count || 0}
-</div>
-{asset.analysis?.identity
-  ?.hospitality_role && (
+              {asset.analysis?.identity
+                ?.hospitality_role && (
 
-    
+                <div
+                  className="
+                    text-cyan-400
+                    text-[10px]
+                    uppercase
+                    tracking-[0.15em]
+                  "
+                >
 
-    
-  <div
-    className="
-      text-cyan-400
-      text-[10px]
-      mt-1
-      uppercase
-      tracking-[0.15em]
-    "
-  >
-    {
-      asset.analysis
-        .identity
-        .hospitality_role
-    }
-  </div>
+                  {
+                    asset.analysis
+                      .identity
+                      .hospitality_role
+                  }
 
-)}
+                </div>
+
+              )}
+
+              {/* AI ANALYSIS */}
+
+              {asset.analysis && (
+
+                <div
+                  className="
+                    mt-3
+                    space-y-1
+                    text-[10px]
+                    text-white/40
+                  "
+                >
+
+                  {asset.analysis.mood && (
+
+                    <div>
+
+                      Mood:
+                      {" "}
+
+                      <span
+                        className="
+                          text-orange-300
+                        "
+                      >
+
+                        {
+                          asset.analysis.mood
+                        }
+
+                      </span>
+
+                    </div>
+
+                  )}
+
+                  {asset.analysis.lighting && (
+
+                    <div>
+
+                      Lighting:
+                      {" "}
+
+                      <span
+                        className="
+                          text-orange-300
+                        "
+                      >
+
+                        {
+                          asset.analysis.lighting
+                        }
+
+                      </span>
+
+                    </div>
+
+                  )}
+
+                  {asset.analysis.sceneType && (
+
+                    <div>
+
+                      Scene:
+                      {" "}
+
+                      <span
+                        className="
+                          text-orange-300
+                        "
+                      >
+
+                        {
+                          asset.analysis.sceneType
+                        }
+
+                      </span>
+
+                    </div>
+
+                  )}
+
+                </div>
+
+              )}
+
+              {/* TAGS */}
+
               <div
                 className="
                   flex
                   flex-wrap
                   gap-1
-                  mt-2
                 "
               >
 
                 {(asset.tags || [])
-                  .slice(0, 3)
+                  .slice(0, 4)
                   .map((tag) => (
 
                     <div
@@ -234,7 +633,105 @@ AssetLibraryPanel({
                       {tag}
                     </div>
 
-                ))}
+                  ))}
+
+              </div>
+
+              {/* TYPE SELECT */}
+
+              <select
+
+                value={
+                  asset.asset_type
+                }
+
+                onChange={(e) =>
+
+                  updateAssetType({
+
+                    assetId:
+                      asset.id,
+
+                    assetType:
+                      e.target.value,
+
+                  })
+
+                }
+
+                className="
+                  w-full
+                  bg-black/40
+                  border
+                  border-white/10
+                  rounded-xl
+                  p-2
+                  text-xs
+                "
+              >
+
+                <option value="staff">
+                  Staff
+                </option>
+
+                <option value="venue">
+                  Venue
+                </option>
+
+                <option value="cocktail">
+                  Cocktail
+                </option>
+
+                <option value="food">
+                  Food
+                </option>
+
+                <option value="interior">
+                  Interior
+                </option>
+
+                <option value="branding">
+                  Branding
+                </option>
+
+                <option value="event">
+                  Event
+                </option>
+
+              </select>
+
+              {/* ACTIONS */}
+
+              <div
+                className="
+                  flex
+                  gap-2
+                "
+              >
+
+                <button
+
+                  onClick={() =>
+
+                    deleteAsset(
+                      asset.id
+                    )
+
+                  }
+
+                  className="
+                    flex-1
+                    bg-red-500/20
+                    hover:bg-red-500/30
+                    transition
+                    rounded-xl
+                    py-2
+                    text-xs
+                    text-red-300
+                  "
+                >
+                  Delete
+                </button>
 
               </div>
 

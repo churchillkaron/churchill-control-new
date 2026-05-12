@@ -28,8 +28,6 @@ from "../../components/marketing/studio/StudioRightPanel";
 import PublishPanel
 from "@/app/(system)/components/marketing/studio/PublishPanel";
 
-import GenerationJobsPanel
-from "@/app/(system)/components/marketing/studio/GenerationJobsPanel";
 
 import { getQueuedCampaigns }
 from "@/lib/supabase/getQueuedCampaigns";
@@ -50,10 +48,13 @@ import AssetUploadPanel
 from "@/app/(system)/components/marketing/studio/AssetUploadPanel";
 
 import { getCampaignRecommendation }
-from "@/lib/utils/getCampaignRecommendation";
+from "@/lib/marketing/ai/recommendations/getCampaignRecommendation";
 
 import { getBestPromptHistory }
 from "@/lib/supabase/getBestPromptHistory";
+
+import { engineCapabilities }
+from "@/lib/marketing/ai/router/engineCapabilities";
 
 export default function Page() {
 
@@ -95,10 +96,21 @@ export default function Page() {
 ] = useState([]);
 
 const [
+  activeAsset,
+  setActiveAsset,
+] = useState(null);
+
+const [
   selectedAssets,
   setSelectedAssets,
 ] = useState([]);
 
+const engineConfig =
+
+  engineCapabilities[
+    poster.engine
+  ] || {};
+  
 const [
   promptHistory,
   setPromptHistory,
@@ -190,6 +202,14 @@ useEffect(() => {
 
 setMarketingAssets(
   assets
+);
+const history =
+  await getBestPromptHistory({
+    tenantId,
+  });
+
+setPromptHistory(
+  history
 );
 
       const accounts =
@@ -303,7 +323,34 @@ setPromptHistory(
 
   async function generateAIImage() {
 
-    try {
+    try { 
+      
+      if (!poster.pageId) {
+
+  alert(
+    "Please choose a connected business before generating a campaign."
+  );
+
+  return;
+
+}
+if (
+
+  engineConfig.requiresImage &&
+
+  !selectedAssets.length &&
+
+  !poster.selectedImage
+
+) {
+
+  alert(
+    "This engine requires a source image. Select an asset or upload an image first."
+  );
+
+  return;
+
+}
 
       setLoading(true);
 
@@ -320,15 +367,26 @@ setPromptHistory(
       },
 
       body:
-        JSON.stringify({
+  JSON.stringify({
 
-          tenantId,
+    tenantId,
 
-          poster,
+    poster,
 
-          selectedAssets,
+    selectedAssets,
 
-        }),
+    pageId:
+      poster.pageId,
+
+    selectedBusiness:
+
+      metaAccounts.find(
+        (a) =>
+          a.page_id ===
+          poster.pageId
+      ) || null,
+
+  }),
     }
   );
 
@@ -347,33 +405,160 @@ if (!response.ok || !data.success) {
 const campaign =
   data.campaign;
 
-    
+setLatestCampaign(
+  campaign
+);
+// =====================================
+// VIDEO ENGINE POLLING
+// =====================================
 
-      setLatestCampaign(
-        campaign
+if (
+
+  engineConfig.supportsVideo &&
+
+  data?.output?.job_id
+
+) {
+
+  const pollVideo = async () => {
+
+    try {
+
+      const statusResponse =
+        await fetch(
+
+          "/api/marketing/video-status",
+
+          {
+
+            method: "POST",
+
+            headers: {
+
+              "Content-Type":
+                "application/json",
+
+            },
+
+            body: JSON.stringify({
+
+              jobId:
+                data.output.job_id,
+
+            }),
+
+          }
+
+        );
+
+      const statusData =
+        await statusResponse.json();
+
+      console.log(
+        "VIDEO STATUS:",
+        statusData
       );
 
-      const queueData =
-        await getQueuedCampaigns({
+      // =====================================
+      // COMPLETED
+      // =====================================
 
-          tenantId,
+      if (
+        statusData?.status ===
+        "completed"
+      ) {
 
-        });
+        setLatestCampaign(
 
-      setQueuedCampaigns(
-        queueData
+          (prev) => ({
+
+            ...prev,
+
+            video_url:
+              statusData.video_url,
+
+            image_url:
+              statusData.video_url,
+
+            is_video:
+              true,
+
+          })
+
+        );
+
+        return;
+
+      }
+
+      // =====================================
+      // FAILED
+      // =====================================
+
+      if (
+        statusData?.status ===
+        "failed"
+      ) {
+
+        alert(
+
+          statusData.error ||
+
+          "Video failed"
+
+        );
+
+        return;
+
+      }
+
+      // =====================================
+      // KEEP POLLING
+      // =====================================
+
+      setTimeout(
+        pollVideo,
+        5000
       );
 
-      const jobs =
-        await getGenerationJobs({
+    } catch (err) {
 
-          tenantId,
-
-        });
-
-      setGenerationJobs(
-        jobs
+      console.error(
+        "VIDEO POLLING ERROR:",
+        err
       );
+
+    }
+
+  };
+
+  // START POLLING
+
+  pollVideo();
+
+}
+
+const queueData =
+  await getQueuedCampaigns({
+
+    tenantId,
+
+  });
+
+setQueuedCampaigns(
+  queueData
+);
+
+const jobs =
+  await getGenerationJobs({
+
+    tenantId,
+
+  });
+
+setGenerationJobs(
+  jobs
+);
 
     } catch (err) {
 
@@ -399,7 +584,93 @@ const campaign =
     }
 
   }
+async function generateCampaign() {
 
+  try {
+
+    console.log(
+      "GENERATING CAMPAIGN..."
+    );
+
+    if (!poster.pageId) {
+
+  alert(
+    "Please choose a connected business first."
+  );
+
+  return;
+
+}
+
+    const response =
+      await fetch(
+
+        "/api/marketing/generate",
+
+        {
+
+          method: "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+          },
+
+          body: JSON.stringify({
+
+  tenantId,
+
+  pageId:
+    poster.pageId,
+
+
+  prompt:
+    promptPreview,
+
+  poster,
+
+  selectedBusiness:
+
+    metaAccounts.find(
+      (a) =>
+        a.page_id ===
+        poster.pageId
+    ) || null,
+
+}),
+
+        }
+
+      );
+
+    const data =
+      await response.json();
+
+    console.log(
+      "GENERATION RESULT:",
+      data
+    );
+
+    if (data?.campaign) {
+
+      setLatestCampaign(
+        data.campaign
+      );
+
+    }
+
+  } catch (err) {
+
+    console.error(
+      "GENERATE CAMPAIGN ERROR:",
+      err
+    );
+
+  }
+
+}
   return (
 
     <div
@@ -428,18 +699,14 @@ const campaign =
             metaAccounts
           }
         />
-
-        <StudioCenterStage
+<StudioCenterStage
   poster={poster}
-  exportRef={
-    posterExportNodeRef
-  }
-  selectedAssets={
-    selectedAssets
-  }
-  setSelectedAssets={
-    setSelectedAssets
-  }
+  exportRef={posterExportNodeRef}
+  selectedAssets={selectedAssets}
+  setSelectedAssets={setSelectedAssets}
+  latestCampaign={latestCampaign}
+  activeAsset={activeAsset}
+  setActiveAsset={setActiveAsset}
 />
 
         <div
@@ -459,49 +726,58 @@ const campaign =
         >
 
           <PublishPanel
-            loading={loading}
-            generateAIImage={
-              generateAIImage
-            }
-            exportRef={
-              posterExportNodeRef
-            }
-            latestCampaign={
-              latestCampaign
-            }
-          />
 
-          <StudioRightPanel
-promptPreview={
-  promptPreview
-}
+  loading={loading}
+
+  generateAIImage={
+    generateAIImage
+  }
+
+  exportRef={
+    posterExportNodeRef
+  }
+
   latestCampaign={
     latestCampaign
   }
 
-  queuedCampaigns={
-    queuedCampaigns
+  pageId={
+    poster.pageId
   }
 
-  setQueuedCampaigns={
-    setQueuedCampaigns
-  }
+  selectedBusiness={
 
-  recommendation={
-    recommendation
-  }
+    metaAccounts.find(
+      (a) =>
+        a.page_id ===
+        poster.pageId
+    ) || null
 
-  promptHistory={
-  promptHistory
-}
+  }
 
 />
-
-          <GenerationJobsPanel
-            jobs={generationJobs}
-          />
+          <StudioRightPanel
+  latestCampaign={latestCampaign}
+  queuedCampaigns={queuedCampaigns}
+  setQueuedCampaigns={setQueuedCampaigns}
+  recommendation={recommendation}
+  promptPreview={promptPreview}
+  promptHistory={promptHistory}
+  generateCampaign={generateCampaign}
+  setActiveAsset={setActiveAsset}
+/>
+          
 <AssetLibraryPanel
+
   assets={marketingAssets}
+
+  selectedBusiness={
+    poster.pageId
+  }
+
+  refreshAssets={
+    refreshAssets
+  }
 
   onSelectAsset={(asset) => {
 
@@ -521,21 +797,24 @@ promptPreview={
         }
 
         return [
+
           ...prev,
+
           asset,
+
         ];
 
       }
     );
 
   }}
+
 />
 <AssetUploadPanel
   tenantId={tenantId}
   pageId={poster.pageId}
-  refreshAssets={
-    refreshAssets
-  }
+  refreshAssets={refreshAssets}
+  metaAccounts={metaAccounts}
 />
         </div>
 

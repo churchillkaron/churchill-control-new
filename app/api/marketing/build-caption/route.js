@@ -1,37 +1,82 @@
+import { NextResponse }
+from "next/server";
+
 import OpenAI from "openai";
-export async function POST(request) {
+
+import { businessProfiles }
+from "@/lib/business/config/businessProfiles";
+
+const sanitize = (text = "") =>
+
+  text
+    .replace(/abba/gi, "retro disco")
+    .replace(/taylor swift/gi, "pop concert")
+    .replace(/beyonce/gi, "live music event");
+
+
 const openai =
   new OpenAI({
+
     apiKey:
       process.env.OPENAI_API_KEY,
+
   });
 
 
+export async function POST(
+  request
+) {
 
-  const body =
-    await request.json();
+  try {
 
-  const {
+    const body =
+      await request.json();
 
-    venue,
-    campaignType,
-    mood,
-    atmosphere,
-    subject,
+    const {
 
-  } = body;
+  venue,
 
-  const prompt = `
+  campaignType,
 
-You are a luxury nightlife marketing expert.
+  mood,
 
-Create a high-end social media caption for:
+  atmosphere,
 
-Venue:
+  subject,
+
+} = body;
+
+const businessKey =
+
+  venue ||
+
+  "default";
+
+const profile =
+
+  businessProfiles[
+    businessKey
+  ] ||
+
+  businessProfiles.default ||
+  {};
+
+    const prompt = `
+
+You are an elite hospitality and nightlife marketing copywriter.
+
+Create:
+
+1. Premium Instagram caption
+2. Engaging marketing copy
+3. CTA
+4. Relevant hashtags
+
+Business:
 ${venue}
 
-Campaign Type:
-${campaignType}
+Campaign:
+${sanitize(campaignType)}
 
 Mood:
 ${mood}
@@ -40,56 +85,114 @@ Atmosphere:
 ${atmosphere}
 
 Subject:
-${subject}
+${sanitize(subject)}
 
-Rules:
+BUSINESS TYPE:
+${profile?.type}
 
-- luxury nightlife tone
-- exciting
-- premium
-- short paragraphs
-- include emojis
-- include CTA
-- include hashtags
-- optimized for Instagram + Facebook
+AUDIENCE:
+${profile?.audience}
+
+BRAND TONE:
+${profile?.tone}
+
+MARKETING STYLE:
+${profile?.style}
+
+AVOID:
+${profile?.avoid?.join(", ")}
+
+Return ONLY valid JSON:
+
+{
+  "caption": "...",
+  "hashtags": ["#one", "#two"],
+  "fullContent": "..."
+}
 
 `;
 
-  const completion =
-    await openai.chat.completions.create({
+    const completion =
+      await openai.chat.completions.create({
 
-      model:
-        "gpt-4.1-mini",
+        model:
+          "gpt-4.1-mini",
 
-      messages: [
+        messages: [
 
-        {
-          role: "system",
-          content:
-            "You are an elite hospitality marketing copywriter.",
-        },
+          {
 
-        {
-          role: "user",
-          content:
-            prompt,
-        },
+            role: "user",
 
-      ],
+            content: prompt,
+
+          },
+
+        ],
+
+        temperature: 0.8,
+
+      });
+
+    const raw =
+      completion.choices?.[0]
+        ?.message?.content;
+
+    console.log(
+      "CAPTION RAW:",
+      raw
+    );
+
+    const parsed =
+      JSON.parse(raw);
+
+    return NextResponse.json({
+
+      success: true,
+
+      caption:
+        parsed.caption,
+
+      hashtags:
+        parsed.hashtags,
+
+      fullContent:
+        parsed.fullContent,
 
     });
 
-  const text =
-    completion.choices?.[0]
-      ?.message?.content || "";
+  } catch (err) {
 
-  return Response.json({
+    console.error(
+      "BUILD CAPTION ERROR:",
+      err
+    );
 
-    success: true,
+    return NextResponse.json(
 
-    content:
-      text,
+      {
 
-  });
+        success: false,
+
+        error:
+          err.message,
+
+        caption: "",
+
+        hashtags: [],
+
+        fullContent: "",
+
+      },
+
+      {
+
+        status: 500,
+
+      }
+
+    );
+
+  }
 
 }

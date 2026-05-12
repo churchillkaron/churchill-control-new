@@ -10,6 +10,8 @@ export default function PublishPanel({
 
   latestCampaign,
 
+  pageId,
+
 }) {
 
   return (
@@ -40,52 +42,121 @@ export default function PublishPanel({
 
         <button
           onClick={generateAIImage}
-          disabled={loading}
-          className="
+
+          disabled={
+            loading ||
+            !pageId
+          }
+
+          className={`
+
             w-full
-            bg-orange-500
-            hover:bg-orange-400
-            transition-all
             rounded-xl
             p-4
             font-semibold
-            text-black
-          "
+            transition-all
+
+            ${
+              !pageId
+
+                ? `
+                  bg-white/10
+                  text-white/30
+                  cursor-not-allowed
+                `
+
+                : `
+                  bg-orange-500
+                  hover:bg-orange-400
+                  text-black
+                `
+            }
+
+          `}
         >
 
           {loading
             ? "Generating..."
-            : "Generate AI"}
+            : !pageId
+              ? "Choose Business First"
+              : "Generate AI"}
 
         </button>
 
         <button
-          className="
+          disabled={!pageId}
+          className={`
+
             w-full
-            bg-white/10
-            hover:bg-white/20
             transition-all
             rounded-xl
             p-4
             font-semibold
-          "
+
+            ${
+              !pageId
+
+                ? `
+                  bg-white/10
+                  text-white/30
+                  cursor-not-allowed
+                `
+
+                : `
+                  bg-white/10
+                  hover:bg-white/20
+                `
+            }
+
+          `}
         >
           Queue Campaign
         </button>
 
         <button
-          className="
+          disabled={!pageId}
+          className={`
+
             w-full
-            bg-white/10
-            hover:bg-white/20
             transition-all
             rounded-xl
             p-4
             font-semibold
-          "
+
+            ${
+              !pageId
+
+                ? `
+                  bg-white/10
+                  text-white/30
+                  cursor-not-allowed
+                `
+
+                : `
+                  bg-white/10
+                  hover:bg-white/20
+                `
+            }
+
+          `}
         >
           Publish Now
         </button>
+
+        {!pageId && (
+
+          <div
+            className="
+              text-[11px]
+              text-orange-300/70
+              leading-relaxed
+              pt-2
+            "
+          >
+            Select a connected Meta business before generating campaigns.
+          </div>
+
+        )}
 
       </div>
 

@@ -4,14 +4,17 @@ import LayoutRenderer
 from "../../components/marketing/LayoutRenderer";
 
 export default function PosterPreview({
+
   poster,
+
   exportRef,
-}){
+
+}) {
 
   return (
 
     <div
-  ref={exportRef}
+      ref={exportRef}
       className="
         relative
         w-full
@@ -19,17 +22,37 @@ export default function PosterPreview({
         overflow-hidden
         rounded-3xl
         border
-border-white/10
-shadow-[0_0_120px_rgba(249,115,22,0.08)]
+        border-white/10
+        shadow-[0_0_120px_rgba(249,115,22,0.08)]
         bg-black
       "
     >
 
-      {poster.selectedImage && (
+      {/* ===================================== */}
+      {/* VIDEO */}
+      {/* ===================================== */}
 
-        <img
-          src={poster.selectedImage}
-          alt=""
+      {poster?.isVideo ||
+
+       poster?.video_url ? (
+
+        <video
+
+          src={
+            poster.video_url ||
+            poster.selectedImage
+          }
+
+          autoPlay
+
+          muted
+
+          loop
+
+          playsInline
+
+          controls
+
           className="
             absolute
             inset-0
@@ -39,7 +62,31 @@ shadow-[0_0_120px_rgba(249,115,22,0.08)]
           "
         />
 
+      ) : (
+
+        <>
+          {poster.selectedImage && (
+
+            <img
+              src={
+                poster.selectedImage
+              }
+              alt=""
+              className="
+                absolute
+                inset-0
+                w-full
+                h-full
+                object-cover
+              "
+            />
+
+          )}
+        </>
+
       )}
+
+      {/* OVERLAY */}
 
       <div
         className="
@@ -49,9 +96,14 @@ shadow-[0_0_120px_rgba(249,115,22,0.08)]
         "
       />
 
-      <LayoutRenderer poster={poster} />
+      {/* CONTENT */}
+
+      <LayoutRenderer
+        poster={poster}
+      />
 
     </div>
 
   );
+
 }

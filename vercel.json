@@ -2,19 +2,19 @@
   "crons": [
 
     {
-      "path": "/api/marketing/run-queue",
+      "path": "/api/marketing/process-queue",
       "schedule": "*/5 * * * *"
     },
 
     {
-      "path": "/api/marketing/run-retries",
-      "schedule": "*/15 * * * *"
-     },
+      "path": "/api/marketing/retry-generation-jobs",
+      "schedule": "*/3 * * * *"
+    },
 
     {
-  "path": "/api/marketing/sync-analytics",
-  "schedule": "0 */6 * * *"
-}
+      "path": "/api/marketing/sync-analytics",
+      "schedule": "0 */6 * * *"
+    }
 
   ]
 }

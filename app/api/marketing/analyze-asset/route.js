@@ -2,7 +2,7 @@ export const runtime =
   "nodejs";
 
 import { analyzeMarketingAsset }
-from "@/lib/ai/analyzeMarketingAsset";
+from "@/lib/marketing/ai/assets/analyzeMarketingAsset";
 
 export async function POST(request) {
 

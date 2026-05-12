@@ -38,7 +38,7 @@ export default function ControlPage() {
             <NavItem label="Accounting" onClick={() => router.push("/accounting")} />
             <NavItem label="Management" onClick={() => router.push("/management")} />
             <NavItem label="History" onClick={() => router.push("/history")} />
-            <NavItem label="Payout" onClick={() => router.push("/payout")} />
+            <NavItem label="Payout" onClick={() => router.push("/accounting/payout")} />
             <NavItem label="Settings" onClick={() => router.push("/system-setup/step-1")} />
 
           </nav>
@@ -95,7 +95,7 @@ export default function ControlPage() {
             <ActionButton label="Open POS" onClick={() => router.push("/pos")} />
             <ActionButton label="View Staff" onClick={() => router.push("/staff")} />
             <ActionButton label="Production" onClick={() => router.push("/production")} />
-            <ActionButton label="Payout" onClick={() => router.push("/payout")} />
+            <ActionButton label="Payout" onClick={() => router.push("/accounting/payout")} />
 
           </div>
         </div>

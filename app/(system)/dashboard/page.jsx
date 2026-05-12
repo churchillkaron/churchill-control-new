@@ -575,7 +575,7 @@ export default function DashboardPage() {
     { name: "History", href: "/history" },
     { name: "Approvals", href: "/management/approval" },
     { name: "Accounting", href: "/accounting" },
-    { name: "Payout", href: "/payout" },
+    { name: "Payout", href: "/accounting/payout" },
   ];
 
   const fohStatus = getScoreStatus(fohScore);
@@ -869,7 +869,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <Link href="/payout" className="text-sm text-orange-400 hover:text-orange-300">
+          <Link href="/accounting/payout" className="text-sm text-orange-400 hover:text-orange-300">
             Open payout
           </Link>
         </div>

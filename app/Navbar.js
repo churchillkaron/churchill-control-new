@@ -12,10 +12,10 @@ export default function Navbar() {
   { name: "POS", href: "/pos" },
   { name: "Kitchen", href: "/kitchen" },
   { name: "Staff", href: "/staff" },
-  { name: "Staff Control", href: "/staff-control" },
+  { name: "Staff Control", href: "/staff" },
   { name: "History", href: "/history" },
   { name: "Accounting", href: "/accounting" },
-  { name: "Payout", href: "/payout" },
+  { name: "Payout", href: "/accounting/payout" },
 
   // ADD THIS ↓
   { name: "Settings", href: "/settings" },

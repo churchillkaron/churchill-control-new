@@ -4,6 +4,30 @@ export default function StudioTopBar({
   poster,
 }) {
 
+  const engines = [
+
+    {
+      id: "full-ai",
+      label: "Full AI",
+    },
+
+    {
+      id: "enhance",
+      label: "Enhance",
+    },
+
+    {
+      id: "composite",
+      label: "Composite",
+    },
+
+    {
+      id: "video",
+      label: "Video",
+    },
+
+  ];
+
   return (
 
     <div
@@ -22,6 +46,8 @@ export default function StudioTopBar({
         z-50
       "
     >
+
+      {/* LEFT */}
 
       <div>
 
@@ -47,6 +73,8 @@ export default function StudioTopBar({
 
       </div>
 
+      {/* RIGHT */}
+
       <div
         className="
           flex
@@ -55,98 +83,64 @@ export default function StudioTopBar({
         "
       >
 
-        <button
-          onClick={() =>
-            poster.setEngine(
-              "full-ai"
-            )
-          }
-          className={`
-            px-5
-            py-3
-            rounded-2xl
-            font-semibold
-            transition-all
+        {/* ENGINES */}
 
-            ${
-              poster.engine ===
-              "full-ai"
-
-                ? "bg-orange-500 text-black"
-
-                : `
-                  bg-white/5
-                  border
-                  border-white/10
-                  text-white/70
-                `
-            }
-          `}
+        <div
+          className="
+            flex
+            items-center
+            gap-3
+          "
         >
-          Full AI
-        </button>
 
-        <button
-          onClick={() =>
-            poster.setEngine(
-              "enhance"
+          {engines.map(
+            (engine) => (
+
+              <button
+
+                key={engine.id}
+
+                onClick={() =>
+
+                  poster.setEngine(
+                    engine.id
+                  )
+
+                }
+
+                className={`
+                  px-5
+                  py-3
+                  rounded-2xl
+                  font-semibold
+                  transition-all
+
+                  ${
+                    poster.engine ===
+                    engine.id
+
+                      ? "bg-orange-500 text-black"
+
+                      : `
+                        bg-white/5
+                        border
+                        border-white/10
+                        text-white/70
+                      `
+                  }
+                `}
+              >
+
+                {engine.label}
+
+              </button>
+
             )
-          }
-          className={`
-            px-5
-            py-3
-            rounded-2xl
-            font-semibold
-            transition-all
+          )}
 
-            ${
-              poster.engine ===
-              "enhance"
+        </div>
 
-                ? "bg-orange-500 text-black"
-
-                : `
-                  bg-white/5
-                  border
-                  border-white/10
-                  text-white/70
-                `
-            }
-          `}
-        >
-          Enhance
-        </button>
-
-        <button
-          onClick={() =>
-            poster.setEngine(
-              "composite"
-            )
-          }
-          className={`
-            px-5
-            py-3
-            rounded-2xl
-            font-semibold
-            transition-all
-
-            ${
-              poster.engine ===
-              "composite"
-
-                ? "bg-orange-500 text-black"
-
-                : `
-                  bg-white/5
-                  border
-                  border-white/10
-                  text-white/70
-                `
-            }
-          `}
-        >
-          Composite
-        </button>
+        {/* META */}
 
         <a
           href="/api/meta/auth"

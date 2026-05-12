@@ -1,8 +1,5 @@
 "use client";
 
-
-
-
 export default function StudioLeftPanel({
 
   poster,
@@ -10,9 +7,6 @@ export default function StudioLeftPanel({
   metaAccounts = [],
 
 }) {
-
-  const tenantId =
-    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
   return (
 
@@ -22,7 +16,7 @@ export default function StudioLeftPanel({
         left-8
         top-8
         bottom-8
-        w-[320px]
+        w-[380px]
         bg-white/[0.03]
         backdrop-blur-2xl
         rounded-[32px]
@@ -44,6 +38,168 @@ export default function StudioLeftPanel({
         "
       >
         Creative Direction
+      </div>
+
+      {/* BUSINESS / META */}
+
+      <div
+        className="
+          bg-white/5
+          border
+          border-white/10
+          rounded-2xl
+          p-5
+          mb-6
+        "
+      >
+
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            mb-5
+          "
+        >
+
+          <div
+            className="
+              text-orange-500
+              uppercase
+              tracking-[0.2em]
+              text-xs
+            "
+          >
+            Connected Businesses
+          </div>
+
+          <div
+            className="
+              text-white/40
+              text-[10px]
+            "
+          >
+            Meta Connected
+          </div>
+
+        </div>
+
+        <div
+          className="
+            grid
+            grid-cols-1
+            gap-3
+          "
+        >
+
+          {metaAccounts.map(
+            (account) => {
+
+              const active =
+
+                poster.pageId ===
+                account.page_id;
+
+              return (
+
+                <button
+                  key={account.id}
+
+                  onClick={() => {
+
+  poster.setPageId(
+    account.page_id
+  );
+
+ 
+
+}}
+
+                  className={`
+
+                    relative
+                    rounded-2xl
+                    border
+                    p-4
+                    text-left
+                    transition-all
+
+                    ${
+                      active
+
+                        ? `
+                          border-orange-500
+                          bg-orange-500/20
+                          shadow-[0_0_25px_rgba(255,115,0,0.15)]
+                        `
+
+                        : `
+                          border-white/10
+                          bg-black/30
+                          hover:border-orange-500/30
+                        `
+                    }
+
+                  `}
+                >
+
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                    "
+                  >
+
+                    <div>
+
+                      <div
+                        className="
+                          text-white
+                          font-semibold
+                          text-sm
+                          mb-1
+                        "
+                      >
+                        {account.page_name}
+                      </div>
+
+                      <div
+                        className="
+                          text-white/40
+                          text-xs
+                        "
+                      >
+                        Facebook + Instagram
+                      </div>
+
+                    </div>
+
+                    <div
+                      className={`
+                        w-3
+                        h-3
+                        rounded-full
+
+                        ${
+                          active
+                            ? "bg-green-400"
+                            : "bg-white/20"
+                        }
+                      `}
+                    />
+
+                  </div>
+
+                </button>
+
+              );
+
+            }
+          )}
+
+        </div>
+
       </div>
 
       {/* EVENT SETTINGS */}
@@ -83,7 +239,7 @@ export default function StudioLeftPanel({
                 e.target.value
               )
             }
-            placeholder="Event Date"
+            placeholder="Optional Event Date"
             className="
               w-full
               bg-black/40
@@ -105,7 +261,7 @@ export default function StudioLeftPanel({
                 e.target.value
               )
             }
-            placeholder="Event Time"
+            placeholder="Optional Event Time"
             className="
               w-full
               bg-black/40
@@ -118,15 +274,16 @@ export default function StudioLeftPanel({
           />
 
           <input
-            type="date"
+            type="text"
             value={
-              poster.scheduledDate || ""
+              poster.footer || ""
             }
             onChange={(e) =>
-              poster.setScheduledDate(
+              poster.setFooter(
                 e.target.value
               )
             }
+            placeholder="Call To Action"
             className="
               w-full
               bg-black/40
@@ -137,106 +294,6 @@ export default function StudioLeftPanel({
               text-white
             "
           />
-
-          <input
-            type="time"
-            value={
-              poster.scheduledTime || ""
-            }
-            onChange={(e) =>
-              poster.setScheduledTime(
-                e.target.value
-              )
-            }
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          />
-
-          {/* META PAGE CARDS */}
-
-          <div
-            className="
-              grid
-              grid-cols-2
-              gap-3
-            "
-          >
-
-            {metaAccounts.map(
-              (account) => {
-
-                const active =
-
-                  poster.pageId ===
-                  account.page_id;
-
-                return (
-
-                  <button
-                    key={account.id}
-                    onClick={() =>
-                      poster.setPageId(
-                        account.page_id
-                      )
-                    }
-                    className={`
-                      relative
-                      rounded-2xl
-                      border
-                      p-4
-                      text-left
-                      transition-all
-
-                      ${active
-
-                        ? `
-                          border-orange-500
-                          bg-orange-500/20
-                        `
-
-                        : `
-                          border-white/10
-                          bg-black/30
-                        `
-                      }
-                    `}
-                  >
-
-                    <div
-                      className="
-                        text-white
-                        font-semibold
-                        text-sm
-                        mb-1
-                      "
-                    >
-                      {account.page_name}
-                    </div>
-
-                    <div
-                      className="
-                        text-white/40
-                        text-xs
-                      "
-                    >
-                      Meta Connected
-                    </div>
-
-                  </button>
-
-                );
-
-              }
-            )}
-
-          </div>
 
         </div>
 
@@ -334,6 +391,46 @@ export default function StudioLeftPanel({
               Minimal
             </option>
 
+            <option value="Luxury">
+              Luxury
+            </option>
+
+          </select>
+
+          <select
+            value={poster.engine}
+            onChange={(e) =>
+              poster.setEngine(
+                e.target.value
+              )
+            }
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+            "
+          >
+
+            <option value="full-ai">
+              Full AI
+            </option>
+
+            <option value="enhance">
+              Enhance Existing
+            </option>
+
+            <option value="composite">
+              Composite Assets
+            </option>
+
+            <option value="video">
+              Video Campaign
+            </option>
+
           </select>
 
           <select
@@ -408,6 +505,42 @@ export default function StudioLeftPanel({
 
           </select>
 
+          <select
+            value={poster.composition}
+            onChange={(e) =>
+              poster.setComposition(
+                e.target.value
+              )
+            }
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+            "
+          >
+
+            <option>
+              Hero Shot
+            </option>
+
+            <option>
+              Cinematic Portrait
+            </option>
+
+            <option>
+              Crowd Energy
+            </option>
+
+            <option>
+              Table Experience
+            </option>
+
+          </select>
+
           <input
             value={poster.campaignTitle}
             onChange={(e) =>
@@ -434,7 +567,7 @@ export default function StudioLeftPanel({
                 e.target.value
               )
             }
-            placeholder="Subtitle"
+            placeholder="Campaign Subtitle"
             className="
               w-full
               bg-black/40
@@ -443,6 +576,27 @@ export default function StudioLeftPanel({
               rounded-xl
               p-4
               text-white
+            "
+          />
+
+          <textarea
+            value={poster.extraDirection}
+            onChange={(e) =>
+              poster.setExtraDirection(
+                e.target.value
+              )
+            }
+            placeholder="Extra AI Direction"
+            rows={5}
+            className="
+              w-full
+              bg-black/40
+              border
+              border-white/10
+              rounded-xl
+              p-4
+              text-white
+              resize-none
             "
           />
 

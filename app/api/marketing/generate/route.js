@@ -1,8 +1,8 @@
-export const runtime =
-  "nodejs";
+import { NextResponse }
+from "next/server";
 
-import { runCampaignGeneration }
-from "@/lib/services/runCampaignGeneration";
+import { createCampaignFlow }
+from "@/lib/services/createCampaignFlow";
 
 export async function POST(request) {
 
@@ -11,24 +11,63 @@ export async function POST(request) {
     const body =
       await request.json();
 
+    console.log(
+      "GENERATE BODY:",
+      JSON.stringify(
+        body,
+        null,
+        2
+      )
+    );
+
     const {
+
       tenantId,
+
+      pageId,
+
+      prompt,
+
       poster,
+
       selectedAssets,
+
+      selectedBusiness,
+
     } = body;
 
-    const campaign =
-      await runCampaignGeneration({
+    console.log({
 
-        tenantId,
+      tenantId,
+
+      pageId,
+
+      selectedBusiness,
+
+    });
+poster.selectedBusiness =
+  selectedBusiness;
+  
+    const campaign =
+      await createCampaignFlow({
+
+        tenantId:
+          tenantId || null,
+
+        pageId:
+          pageId || null,
+
+        prompt:
+          prompt || "",
 
         poster,
 
-        selectedAssets,
+        selectedAssets:
+          selectedAssets || [],
 
       });
 
-    return Response.json({
+    return NextResponse.json({
 
       success: true,
 
@@ -43,16 +82,21 @@ export async function POST(request) {
       err
     );
 
-    return Response.json(
+    return NextResponse.json(
+
       {
+
         success: false,
+
         error:
-          err.message ||
-          "Generation failed",
+          err.message,
+
       },
+
       {
         status: 500,
       }
+
     );
 
   }

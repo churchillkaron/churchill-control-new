@@ -1,93 +1,43 @@
-import { NextResponse }
-from "next/server";
+import { withApiHandler }
+from "@/lib/shared/http/withApiHandler";
 
-import { supabase }
-from "@/lib/shared/supabase/client";
+import { requireFields }
+from "@/lib/shared/validation/required";
 
-export async function POST(
-  request
-) {
+import { getTenantId }
+from "@/lib/shared/tenant/getTenantId";
 
-  try {
+import { getQueuedCampaigns }
+from "@/lib/marketing/services/getQueuedCampaigns";
+
+export const POST = withApiHandler(
+  "marketing-queue",
+
+  async (request) => {
 
     const body =
       await request.json();
 
-    const {
+    requireFields(body, [
+      "pageId",
+    ]);
 
-      tenantId,
+    const tenantId =
+      getTenantId(request);
+
+    const {
 
       pageId,
 
     } = body;
 
-    const {
-      data,
-      error,
-    } = await supabase
+    return await getQueuedCampaigns({
 
-      .from(
-        "campaign_publish_queue"
-      )
+      tenantId,
 
-      .select("*")
-
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .eq(
-        "page_id",
-        pageId
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      )
-
-      .limit(100);
-
-    if (error) {
-
-      throw error;
-
-    }
-
-    return NextResponse.json({
-
-      success: true,
-
-      queue:
-        data || [],
+      pageId,
 
     });
 
-  } catch (err) {
-
-    console.error(
-      "QUEUE API ERROR:",
-      err
-    );
-
-    return NextResponse.json(
-
-      {
-        success: false,
-
-        error:
-          err.message,
-      },
-
-      {
-        status: 500,
-      }
-
-    );
-
   }
-
-}
+);

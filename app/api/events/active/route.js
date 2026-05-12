@@ -1,12 +1,12 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin }
+from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+export async function GET(
+  req
+) {
+  
 
   const now = new Date().toISOString()
 
@@ -14,7 +14,7 @@ export async function GET() {
   const { searchParams } = new URL(req.url)
   const tenant_id = searchParams.get('tenant_id')
 
-  let query = supabase
+  let query = supabaseAdmin
     .from('sales_events')
     .select('*')
     .eq('status', 'active')

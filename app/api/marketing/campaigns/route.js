@@ -1,14 +1,14 @@
-import { supabase }
-from "@/lib/shared/supabase/client";
-
 import { withApiHandler }
 from "@/lib/shared/http/withApiHandler";
+
+import { requireFields }
+from "@/lib/shared/validation/required";
 
 import { getTenantId }
 from "@/lib/shared/tenant/getTenantId";
 
-import { requireFields }
-from "@/lib/shared/validation/required";
+import { getMarketingCampaigns }
+from "@/lib/marketing/services/getMarketingCampaigns";
 
 export const POST = withApiHandler(
   "marketing-campaigns",
@@ -31,44 +31,13 @@ export const POST = withApiHandler(
 
     } = body;
 
-    const {
-      data,
-      error,
-    } = await supabase
+    return await getMarketingCampaigns({
 
-      .from(
-        "marketing_campaigns"
-      )
+      tenantId,
 
-      .select("*")
+      pageId,
 
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .eq(
-        "page_id",
-        pageId
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      )
-
-      .limit(50);
-
-    if (error) {
-      throw error;
-    }
-
-    return {
-      campaigns:
-        data || [],
-    };
+    });
 
   }
 );

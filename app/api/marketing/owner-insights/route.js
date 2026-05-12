@@ -1,14 +1,13 @@
-import { NextResponse }
-from "next/server";
-
 import { getOwnerInsights }
 from "@/lib/marketing/ai/insights/getOwnerInsight";
 
-export async function POST(
-  request
-) {
+import { withApiHandler }
+from "@/lib/shared/http/withApiHandler";
 
-  try {
+export const POST = withApiHandler(
+  "marketing-owner-insights",
+
+  async (request) => {
 
     const body =
       await request.json();
@@ -26,19 +25,8 @@ export async function POST(
       !pageId
     ) {
 
-      return NextResponse.json(
-
-        {
-          success: false,
-
-          error:
-            "Missing tenantId or pageId",
-        },
-
-        {
-          status: 400,
-        }
-
+      throw new Error(
+        "Missing tenantId or pageId"
       );
 
     }
@@ -53,32 +41,7 @@ export async function POST(
 
       });
 
-    return NextResponse.json(
-      result
-    );
-
-  } catch (err) {
-
-    console.error(
-      "OWNER INSIGHTS API ERROR:",
-      err
-    );
-
-    return NextResponse.json(
-
-      {
-        success: false,
-
-        error:
-          err.message,
-      },
-
-      {
-        status: 500,
-      }
-
-    );
+    return result;
 
   }
-
-}
+);

@@ -1,6 +1,9 @@
 import { NextResponse }
 from "next/server";
 
+import { supabaseAdmin }
+from "@/lib/shared/supabase/admin";
+
 import { executeApproval }
 from "@/lib/shared/approvals/executeApproval";
 
@@ -51,8 +54,60 @@ export async function POST(
 
     }
 
+    // -----------------------------------
+    // LOCKED RECORD PROTECTION
+    // -----------------------------------
+
+    const {
+      data: existing,
+      error: fetchError,
+    } = await supabaseAdmin
+
+      .from("invoices")
+
+      .select("status")
+
+      .eq("id", id)
+
+      .single();
+
+    if (fetchError) {
+
+      throw fetchError;
+
+    }
+
+    if (
+      existing?.status ===
+      "locked"
+    ) {
+
+      return NextResponse.json(
+
+        {
+          success: false,
+          error:
+            "Locked accounting record",
+        },
+
+        {
+          status: 403,
+        }
+
+      );
+
+    }
+
+    // -----------------------------------
+    // TENANT
+    // -----------------------------------
+
     const tenantId =
       getTenantId();
+
+    // -----------------------------------
+    // EXECUTE GOVERNED WORKFLOW
+    // -----------------------------------
 
     const result =
       await executeApproval({

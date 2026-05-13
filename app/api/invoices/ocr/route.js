@@ -365,12 +365,91 @@ Return exactly this JSON structure:
       ]);
     }
 
+    // -----------------------------------
+// VENDOR MATCHING
+// -----------------------------------
+
+let vendorId = null;
+
+const {
+  data: existingVendor,
+} = await supabase
+
+  .from("vendors")
+
+  .select("id")
+
+  .ilike(
+    "legal_name",
+    parsed.vendor || ""
+  )
+
+  .maybeSingle();
+
+if (existingVendor) {
+
+  vendorId =
+    existingVendor.id;
+
+}
+
+    // -----------------------------------
+// DUPLICATE INVOICE PROTECTION
+// -----------------------------------
+
+const {
+  data: existingInvoice,
+} = await supabase
+
+  .from("invoices")
+
+  .select("id")
+
+  .eq(
+    "vendor",
+    parsed.vendor || "Unknown Vendor"
+  )
+
+  .eq(
+    "date",
+    purchaseDate
+  )
+
+  .eq(
+    "total_amount",
+    totalAmount
+  )
+
+  .maybeSingle();
+
+if (existingInvoice) {
+
+  return Response.json(
+
+    {
+      success: false,
+      error:
+        "Duplicate invoice detected",
+    },
+
+    {
+      status: 409,
+    }
+
+  );
+
+}
+
     const { data, error } = await supabase
       .from("invoices")
       .insert([
         {
-          vendor: parsed.vendor || "Unknown Vendor",
-          total_amount: totalAmount,
+vendor:
+  parsed.vendor ||
+  "Unknown Vendor",
+
+vendor_id:
+  vendorId,          total_amount: totalAmount,
           date: purchaseDate,
           status: "pending_manager",
           image_url: image,

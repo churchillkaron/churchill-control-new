@@ -36,32 +36,16 @@ export default function ManagementPage() {
         </div>
 
         {/* NAV ACTIONS */}
-<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+<div className="grid grid-cols-2 md:grid-cols-8 gap-4">
+<NavCard title="Invoices" href="/management/approval" />
+<NavCard title="Salary" href="/management/salary" />
+<NavCard title="Attendance" href="/management/attendance" />
+<NavCard title="Operations" href="/management/operations" />
+<NavCard title="Owner Governance" href="/owner/approvals" />
+<NavCard title="Payments" href="/accounting/payments" />
+<NavCard title="Close Month" href="/accounting/close-month" />
+<NavCard title="Audit" href="/audit" />
 
-  <NavCard
-    title="Invoices"
-    href="/management/approval"
-  />
-
-  <NavCard
-    title="Salary"
-    href="/management/salary"
-  />
-
-  <NavCard
-    title="Attendance"
-    href="/management/attendance"
-  />
-
-  <NavCard
-    title="Operations"
-    href="/management/operations"
-  />
-
-  <NavCard
-    title="Owner Governance"
-    href="/owner/approvals"
-  />
 
 </div>
 

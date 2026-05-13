@@ -74,8 +74,7 @@ export default function AccountingPage() {
   // DERIVED DATA
   // --------------------------------------------------
   const salaryQueue = approvals
-    .filter((a) => a.status === "approved_manager")
-    .map((a) => ({
+.filter((a) => a.status === "pending_accounting")    .map((a) => ({
       id: a.id,
       vendor: "Salary",
       amount: 0,
@@ -86,8 +85,8 @@ export default function AccountingPage() {
     }));
 
   const normalizedAccountingQueue = useMemo(() => {
-    return invoices
-      .filter((i) => i.status === "approved_manager")
+  return invoices
+    .filter((i) => i.status === "pending_accounting")
       .map((i) => ({
         ...i,
         source_type: "invoice_api",
@@ -222,23 +221,86 @@ const normalizedRejectedInvoices = useMemo(() => {
   // --------------------------------------------------
   // ACTIONS
   // --------------------------------------------------
-  const updateInvoiceStatus = async (id, status) => {
-    await fetch("/api/invoices/update", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
-    });
-  };
+  
 
-  const finalizeAccountingApproval = async (item, status) => {
-    try {
-      setActionLoading(`${item.id}-${status}`);
-      await updateInvoiceStatus(item.id, status);
-      await fetchAll();
-    } finally {
-      setActionLoading("");
+  const finalizeAccountingApproval = async (item, action) => {
+
+  try {
+
+    setActionLoading(
+      `${item.id}-${action}`
+    );
+
+    const endpoint =
+      action === "rejected"
+        ? "/api/approvals/reject"
+        : "/api/approvals/process";
+
+    const response =
+      await fetch(
+
+        endpoint,
+
+        {
+
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+
+            entityType:
+              "invoice",
+
+            entityId:
+              item.id,
+
+            currentStatus:
+              item.status,
+
+            role:
+              "accounting",
+
+            actedBy:
+              null,
+
+            notes:
+              "Accounting approval",
+
+            reason:
+              "Rejected by accounting",
+
+          }),
+
+        }
+
+      );
+
+    const result =
+      await response.json();
+
+    if (!result.success) {
+
+      alert(
+        result.error
+      );
+
+      return;
+
     }
-  };
+
+    await fetchAll();
+
+  } finally {
+
+    setActionLoading("");
+
+  }
+
+};
 const openInvoicePreview = (invoice) => {
   if (!invoice?.image_url) return;
 
@@ -589,10 +651,8 @@ const getInvoicePreviewUrl = (invoice) => {
     </Panel>
 
     {/* ACCOUNTING APPROVAL */}
-    <Panel title="Pending Accounting Approval">
-      {normalizedAccountingQueue.length === 0 ? (
-        <Empty text="No invoices awaiting accounting approval" />
-      ) : (
+<Panel title="Pending Accounting Governance">      {normalizedAccountingQueue.length === 0 ? (
+<Empty text="No invoices in accounting workflow queue" />      ) : (
         <div className="space-y-4">
           {normalizedAccountingQueue.map((inv) => (
             <div
@@ -632,7 +692,7 @@ const getInvoicePreviewUrl = (invoice) => {
                 >
                   {actionLoading === `${inv.source_type}-${inv.id}-approved`
                     ? "Approving..."
-                    : "Final Approve"}
+                    : " Send To Owner"}
                 </button>
 
                 <button
@@ -795,7 +855,7 @@ const getInvoicePreviewUrl = (invoice) => {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <Panel title="Approval Audit Trail">
                   <div className="space-y-3">
-                    <AuditLine label="Manager-approved invoices" value={normalizedAccountingQueue.length} />
+                    <AuditLine label="Pending accounting invoices" value={normalizedAccountingQueue.length} />
                     <AuditLine label="Final-approved invoices" value={normalizedApprovedInvoices.length} />
                     <AuditLine label="Rejected invoices" value={normalizedRejectedInvoices.length} />
                   </div>

@@ -1,55 +1,117 @@
 import { NextResponse }
 from "next/server";
 
-import { supabase }
-from "@/lib/shared/supabase/client";
+import { executeApproval }
+from "@/lib/shared/approvals/executeApproval";
 
+import { getTenantId }
+from "@/lib/shared/tenant/getTenantId";
 
 // =========================
-// UPDATE INVOICE STATUS
+// PROCESS INVOICE APPROVAL
 // =========================
-export async function POST(req) {
-try {
-const body = await req.json();
-const { id, status } = body;
 
-```
-if (!id || !status) {
-  return NextResponse.json(
-    { error: "Missing id or status" },
-    { status: 400 }
-  );
-}
+export async function POST(
+  req
+) {
 
-const { data, error } = await supabase
-  .from("invoices")
-  .update({
-    status: status,
-    updated_at: new Date().toISOString(),
-  })
-  .eq("id", id)
-  .select()
-  .single();
+  try {
 
-if (error) {
-  console.error("UPDATE ERROR:", error);
-  return NextResponse.json(
-    { error: error.message },
-    { status: 500 }
-  );
-}
+    const body =
+      await req.json();
 
-return NextResponse.json({
-  success: true,
-  invoice: data,
-});
-```
+    const {
 
-} catch (err) {
-console.error("SERVER ERROR:", err);
-return NextResponse.json(
-{ error: err.message },
-{ status: 500 }
-);
-}
+      id,
+
+      currentStatus,
+
+      role,
+
+      actedBy,
+
+      notes,
+
+    } = body;
+
+    if (!id) {
+
+      return NextResponse.json(
+
+        {
+          error:
+            "Missing invoice id",
+        },
+
+        {
+          status: 400,
+        }
+
+      );
+
+    }
+
+    const tenantId =
+      getTenantId();
+
+    const result =
+      await executeApproval({
+
+        tenantId,
+
+        entityType:
+          "invoice",
+
+        entityId:
+          id,
+
+        currentStatus:
+          currentStatus ||
+          "pending_manager",
+
+        role:
+          role ||
+          "manager",
+
+        actedBy:
+          actedBy ||
+          null,
+
+        notes:
+          notes ||
+          "Invoice approval",
+
+      });
+
+    return NextResponse.json({
+
+      success: true,
+
+      result,
+
+    });
+
+  } catch (err) {
+
+    console.error(
+      "APPROVAL ERROR:",
+      err
+    );
+
+    return NextResponse.json(
+
+      {
+        success: false,
+        error:
+          err.message,
+      },
+
+      {
+        status: 500,
+      }
+
+    );
+
+  }
+
 }

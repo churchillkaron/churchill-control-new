@@ -37,6 +37,7 @@ export default function ManagementPage() {
 
         {/* NAV ACTIONS */}
 <div className="grid grid-cols-2 md:grid-cols-8 gap-4">
+
 <NavCard title="Invoices" href="/management/approval" />
 <NavCard title="Salary" href="/management/salary" />
 <NavCard title="Attendance" href="/management/attendance" />

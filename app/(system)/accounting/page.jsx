@@ -74,7 +74,8 @@ export default function AccountingPage() {
   // DERIVED DATA
   // --------------------------------------------------
   const salaryQueue = approvals
-.filter((a) => a.status === "pending_accounting")    .map((a) => ({
+.filter((a) => a.status === "pending_accounting")    
+.map((a) => ({
       id: a.id,
       vendor: "Salary",
       amount: 0,
@@ -651,8 +652,10 @@ const getInvoicePreviewUrl = (invoice) => {
     </Panel>
 
     {/* ACCOUNTING APPROVAL */}
-<Panel title="Pending Accounting Governance">      {normalizedAccountingQueue.length === 0 ? (
-<Empty text="No invoices in accounting workflow queue" />      ) : (
+<Panel title="Pending Accounting Governance">      
+  {normalizedAccountingQueue.length === 0 ? (
+<Empty text="No invoices in accounting workflow queue" />      
+  ) : (
         <div className="space-y-4">
           {normalizedAccountingQueue.map((inv) => (
             <div

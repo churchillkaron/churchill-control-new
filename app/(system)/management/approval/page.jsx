@@ -957,7 +957,7 @@ async function rejectInvoice(inv) {
               <button
                 type="button"
              onClick={() => rejectInvoice(inv)}
-style={{
+              style={{
                   padding: "10px 18px",
                   borderRadius: 10,
                   border: "1px solid #444",

@@ -279,23 +279,34 @@ export default function DashboardPage() {
   };
 
   const loadLowIngredients = async () => {
-    const { data, error } = await supabase
-      .from("ingredients")
-      .select("id, name, quantity")
-      .eq("tenant_id", TENANT_ID);
+  const { data, error } = await supabase
+    .from("ingredient_stock")
+    .select(`
+      ingredient_id,
+      quantity,
+      ingredients (
+        name
+      )
+    `)
+    .eq("tenant_id", TENANT_ID);
 
-    if (error) {
-      console.error("INGREDIENT LOAD ERROR:", error);
-      setLowIngredients([]);
-      return;
-    }
+  if (error) {
+    console.error("INGREDIENT LOAD ERROR:", error);
+    setLowIngredients([]);
+    return;
+  }
 
-    setLowIngredients(
-      (data || [])
-        .filter((item) => Number(item.quantity || 0) <= 5)
-        .sort((a, b) => Number(a.quantity || 0) - Number(b.quantity || 0))
-    );
-  };
+  setLowIngredients(
+    (data || [])
+      .map((item) => ({
+        id: item.ingredient_id,
+        name: item.ingredients?.name || "Unknown",
+        quantity: Number(item.quantity || 0),
+      }))
+      .filter((item) => item.quantity <= 5)
+      .sort((a, b) => a.quantity - b.quantity)
+  );
+};
 
   const loadLowDishes = async () => {
     const { data: stock, error: stockError } = await supabase

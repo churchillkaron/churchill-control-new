@@ -449,7 +449,9 @@ vendor:
   "Unknown Vendor",
 
 vendor_id:
-  vendorId,          total_amount: totalAmount,
+  vendorId,          
+  
+  total_amount: totalAmount,
           date: purchaseDate,
           status: "pending_manager",
           image_url: image,

@@ -16,15 +16,21 @@ export default function TablesPage() {
       .order("created_at", { ascending: false });
 
     // 🔥 LOAD ITEMS
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("*");
+   const { data: items } = await supabase
+  .from("order_items")
+  .select("*")
+  .neq("status", "REMOVED");
 
     // 🔥 MERGE
     const merged = (orders || []).map((order) => ({
       ...order,
-      items: (items || []).filter((i) => i.order_id === order.id),
-    }));
+items: Array.from(
+  new Map(
+    (items || [])
+      .filter((i) => i.order_id === order.id)
+      .map((item) => [item.id, item])
+  ).values()
+),    }));
 
     setTables(merged);
   };

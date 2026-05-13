@@ -198,28 +198,46 @@ export default function ProductionPage() {
 
     setLoading(true);
 
-    try {
-      for (const [dish_id, qty] of entries) {
-        await fetch("/api/production/run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tenant_id: TENANT_ID,
-            dish_id,
-            quantity: Number(qty),
-          }),
-        });
-      }
+try {
+  for (const [dish_id, qty] of entries) {
+    const response = await fetch("/api/production/batch/produce", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenantId: TENANT_ID,
+        dishId: dish_id,
+        quantity: Number(qty),
+        referenceId: crypto.randomUUID(),
+      }),
+    });
 
-      alert("✅ Production completed");
-      setPlan({});
-      await loadLowDishes();
-    } catch (err) {
-      console.error(err);
-      alert("Production failed");
+    const result = await response.json();
+
+    if (!result.success || !result.result?.success) {
+      console.error(result);
+
+      alert(
+        result?.result?.error ||
+        "Production failed"
+      );
+
+      return;
     }
+  }
 
-    setLoading(false);
+  alert("✅ Production completed");
+
+  setPlan({});
+
+  await loadLowDishes();
+
+} catch (err) {
+  console.error(err);
+
+  alert("Production failed");
+}
+
+setLoading(false);
   };
 
   // =========================

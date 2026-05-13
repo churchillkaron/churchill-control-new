@@ -13,15 +13,11 @@ export default function ProductionPage() {
   const [ingredientSummary, setIngredientSummary] = useState([]);
   const [canProduce, setCanProduce] = useState(true);
 
-  // ✅ NEW (profit layer only)
   const [totalCost, setTotalCost] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalProfit, setTotalProfit] = useState(0);
   const [margin, setMargin] = useState(0);
 
-  // =========================
-  // LOAD DATA (UNCHANGED)
-  // =========================
   const loadLowDishes = async () => {
     try {
       const { data: dishStock } = await supabase
@@ -39,14 +35,12 @@ export default function ProductionPage() {
         .select("ingredient_id, quantity")
         .eq("tenant_id", TENANT_ID);
 
-        const { data: recipes } = await supabase
-  .from("recipe_matrix")
-  .select("dish_id")
-  .eq("tenant_id", TENANT_ID);
+      const { data: recipes } = await supabase
+        .from("recipe_matrix")
+        .select("dish_id")
+        .eq("tenant_id", TENANT_ID);
 
-const recipeDishIds = new Set(
-  (recipes || []).map(r => r.dish_id)
-);
+      const recipeDishIds = new Set((recipes || []).map((r) => r.dish_id));
 
       const dishMap = {};
       const priceMap = {};
@@ -64,20 +58,18 @@ const recipeDishIds = new Set(
       setStockMap(stock);
 
       const low = (dishStock || [])
-       .filter(
-  (d) =>
-    Number(d.quantity) <= 5 &&
-    recipeDishIds.has(d.dish_id)
-)
+        .filter((d) => Number(d.quantity || 0) <= 5)
         .map((d) => {
           const qty = Number(d.quantity || 0);
+          const hasRecipe = recipeDishIds.has(d.dish_id);
 
           return {
             dish_id: d.dish_id,
             name: dishMap[d.dish_id] || "Unknown",
             price: priceMap[d.dish_id] || 0,
             quantity: qty,
-            suggested: Math.max(10 - qty, 5),
+            suggested: hasRecipe ? Math.max(10 - qty, 5) : 0,
+            hasRecipe,
           };
         });
 
@@ -85,7 +77,9 @@ const recipeDishIds = new Set(
 
       const initialPlan = {};
       low.forEach((d) => {
-        initialPlan[d.dish_id] = d.suggested;
+        if (d.hasRecipe) {
+          initialPlan[d.dish_id] = d.suggested;
+        }
       });
 
       setPlan(initialPlan);
@@ -107,9 +101,7 @@ const recipeDishIds = new Set(
           table: "dish_stock",
           filter: `tenant_id=eq.${TENANT_ID}`,
         },
-        () => {
-          loadLowDishes();
-        }
+        loadLowDishes
       )
       .subscribe();
 
@@ -118,18 +110,18 @@ const recipeDishIds = new Set(
     };
   }, []);
 
-  // =========================
-  // CALCULATE INGREDIENTS (EXTENDED ONLY)
-  // =========================
-  const calculateIngredients = async (plan) => {
+  const calculateIngredients = async (currentPlan) => {
     const summary = {};
     let cost = 0;
     let revenue = 0;
 
-    for (const [dish_id, qty] of Object.entries(plan)) {
+    for (const [dish_id, qty] of Object.entries(currentPlan)) {
       if (!qty || qty <= 0) continue;
 
-      const dish = lowDishes.find(d => d.dish_id === dish_id);
+      const dish = lowDishes.find((d) => d.dish_id === dish_id);
+
+      if (!dish?.hasRecipe) continue;
+
       revenue += (dish?.price || 0) * qty;
 
       const res = await fetch("/api/recipes/by-dish", {
@@ -140,8 +132,8 @@ const recipeDishIds = new Set(
 
       const recipe = await res.json();
 
-      for (const item of recipe) {
-        const total = item.quantity * qty;
+      for (const item of recipe || []) {
+        const total = Number(item.quantity || 0) * Number(qty || 0);
 
         if (!summary[item.ingredient_id]) {
           summary[item.ingredient_id] = {
@@ -152,11 +144,10 @@ const recipeDishIds = new Set(
         }
 
         summary[item.ingredient_id].needed += total;
-        cost += (item.cost || 0) * total;
+        cost += Number(item.cost || 0) * total;
       }
     }
 
-    // ✅ NEW
     const profit = revenue - cost;
     const marginValue = revenue > 0 ? (profit / revenue) * 100 : 0;
 
@@ -168,9 +159,6 @@ const recipeDishIds = new Set(
     return summary;
   };
 
-  // =========================
-  // VALIDATION (UNCHANGED)
-  // =========================
   const evaluatePlan = async () => {
     const summary = await calculateIngredients(plan);
 
@@ -194,83 +182,101 @@ const recipeDishIds = new Set(
 
   useEffect(() => {
     evaluatePlan();
-  }, [plan, stockMap]);
+  }, [plan, stockMap, lowDishes]);
 
-  // =========================
-  // PRODUCTION (UNCHANGED)
-  // =========================
   const runBatchProduction = async () => {
     if (loading || !canProduce) return;
 
-    const entries = Object.entries(plan).filter(([_, qty]) => qty > 0);
+    const entries = Object.entries(plan).filter(([dish_id, qty]) => {
+      const dish = lowDishes.find((d) => d.dish_id === dish_id);
+
+      return dish?.hasRecipe && Number(qty || 0) > 0;
+    });
 
     if (entries.length === 0) {
-      alert("No production planned");
+      alert("No valid production planned");
       return;
     }
 
     setLoading(true);
 
-try {
-  for (const [dish_id, qty] of entries) {
-    const response = await fetch("/api/production/batch/produce", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tenantId: TENANT_ID,
-        dishId: dish_id,
-        quantity: Number(qty),
-        referenceId: crypto.randomUUID(),
-      }),
-    });
+    try {
+      for (const [dish_id, qty] of entries) {
+        const response = await fetch("/api/production/batch/produce", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenantId: TENANT_ID,
+            dishId: dish_id,
+            quantity: Number(qty),
+            referenceId: crypto.randomUUID(),
+          }),
+        });
 
-    const result = await response.json();
+        const result = await response.json();
 
-    if (!result.success || !result.result?.success) {
-      console.error(result);
+        if (!result.success || !result.result?.success) {
+          console.error(result);
+          alert(result?.result?.error || "Production failed");
+          setLoading(false);
+          return;
+        }
+      }
 
-      alert(
-        result?.result?.error ||
-        "Production failed"
-      );
-
-      return;
+      alert("✅ Production completed");
+      setPlan({});
+      await loadLowDishes();
+    } catch (err) {
+      console.error(err);
+      alert("Production failed");
     }
-  }
 
-  alert("✅ Production completed");
-
-  setPlan({});
-
-  await loadLowDishes();
-
-} catch (err) {
-  console.error(err);
-
-  alert("Production failed");
-}
-
-setLoading(false);
+    setLoading(false);
   };
 
-  // =========================
-  // UI (ONLY EXTENDED)
-  // =========================
+  const validProductionCount = lowDishes.filter((d) => d.hasRecipe).length;
+  const blockedProductionCount = lowDishes.filter((d) => !d.hasRecipe).length;
+
   return (
     <div className="p-6 text-white bg-black min-h-screen max-w-xl mx-auto">
-      <h1 className="text-2xl mb-6">Morning Production</h1>
+      <h1 className="text-2xl mb-2">Morning Production</h1>
+
+      <div className="text-sm text-gray-400 mb-6">
+        Ready: {validProductionCount} | Blocked: {blockedProductionCount}
+      </div>
+
+      {lowDishes.length === 0 && (
+        <div className="bg-gray-900 p-4 rounded text-gray-400">
+          No low dish stock.
+        </div>
+      )}
 
       {lowDishes.map((dish) => (
-        <div key={dish.dish_id} className="flex justify-between bg-gray-900 p-4 mb-3 rounded">
+        <div
+          key={dish.dish_id}
+          className={`flex justify-between p-4 mb-3 rounded ${
+            dish.hasRecipe
+              ? "bg-gray-900"
+              : "bg-red-950 border border-red-700"
+          }`}
+        >
           <div>
             <p>{dish.name}</p>
+
             <p className="text-sm text-gray-400">
               Stock: {dish.quantity} | Price: {dish.price}
             </p>
+
+            {!dish.hasRecipe && (
+              <p className="text-sm text-red-400 mt-1">
+                Recipe Missing • Cannot Produce
+              </p>
+            )}
           </div>
 
           <input
             type="number"
+            disabled={!dish.hasRecipe}
             value={plan[dish.dish_id] || 0}
             onChange={(e) =>
               setPlan({
@@ -278,13 +284,22 @@ setLoading(false);
                 [dish.dish_id]: Number(e.target.value),
               })
             }
-            className="w-20 text-black px-2 py-1 rounded"
+            className={`w-20 text-black px-2 py-1 rounded ${
+              !dish.hasRecipe ? "opacity-40 cursor-not-allowed" : ""
+            }`}
           />
         </div>
       ))}
 
       <div className="bg-gray-900 p-4 mt-4 rounded">
         <h2>Ingredients</h2>
+
+        {ingredientSummary.length === 0 && (
+          <div className="text-sm text-gray-400 mt-2">
+            No valid production selected.
+          </div>
+        )}
+
         {ingredientSummary.map((i, index) => (
           <div key={index} className="flex justify-between text-sm">
             <span>{i.name}</span>
@@ -295,28 +310,48 @@ setLoading(false);
         ))}
       </div>
 
-      {/* ✅ NEW PROFIT BOX ONLY */}
       <div className="bg-gray-900 p-4 mt-4 rounded">
         <h2>Batch Summary</h2>
-        <div className="flex justify-between"><span>Cost</span><span>{totalCost.toFixed(2)}</span></div>
-        <div className="flex justify-between"><span>Revenue</span><span>{totalRevenue.toFixed(2)}</span></div>
+
+        <div className="flex justify-between">
+          <span>Cost</span>
+          <span>{totalCost.toFixed(2)}</span>
+        </div>
+
+        <div className="flex justify-between">
+          <span>Revenue</span>
+          <span>{totalRevenue.toFixed(2)}</span>
+        </div>
+
         <div className="flex justify-between">
           <span>Profit</span>
           <span className={totalProfit >= 0 ? "text-green-400" : "text-red-400"}>
             {totalProfit.toFixed(2)}
           </span>
         </div>
-        <div className="flex justify-between"><span>Margin</span><span>{margin.toFixed(1)}%</span></div>
+
+        <div className="flex justify-between">
+          <span>Margin</span>
+          <span>{margin.toFixed(1)}%</span>
+        </div>
       </div>
 
       <button
         onClick={runBatchProduction}
-        disabled={!canProduce || loading}
+        disabled={!canProduce || loading || validProductionCount === 0}
         className={`mt-6 w-full py-3 rounded ${
-          canProduce ? "bg-green-600" : "bg-red-600"
+          canProduce && validProductionCount > 0
+            ? "bg-green-600"
+            : "bg-red-600"
         }`}
       >
-        {loading ? "Processing..." : canProduce ? "Produce" : "Fix Ingredients"}
+        {loading
+          ? "Processing..."
+          : validProductionCount === 0
+          ? "No Valid Recipes"
+          : canProduce
+          ? "Produce"
+          : "Fix Ingredients"}
       </button>
     </div>
   );

@@ -2,76 +2,219 @@
 
 import { useEffect, useState } from "react";
 
+import { supabase } from "@/lib/shared/supabase/client";
+
+const TENANT_ID =
+  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+
 export default function AccountingOverview() {
-  const [feed, setFeed] = useState([]);
-  const [revenue, setRevenue] = useState([]);
+  const [revenue, setRevenue] = useState(0);
+  const [expenses, setExpenses] = useState(0);
+  const [cogs, setCogs] = useState(0);
+  const [profit, setProfit] = useState(0);
 
   useEffect(() => {
-    const storedFeed = JSON.parse(localStorage.getItem("accounting_feed") || "[]");
-    const storedRevenue = JSON.parse(localStorage.getItem("revenue") || "[]");
-
-    setFeed(storedFeed);
-    setRevenue(storedRevenue);
+    loadAccounting();
   }, []);
 
-  const totalExpenses = feed.reduce((sum, item) => sum + item.amount, 0);
-  const totalRevenue = revenue.reduce((sum, r) => sum + r.amount, 0);
+  const loadAccounting = async () => {
+    try {
 
-  const profit = totalRevenue - totalExpenses;
+      // =========================
+      // REVENUE
+      // =========================
 
-  // 🔥 SERVICE LEVEL LOGIC
+      const {
+        data: orderItems,
+        error: revenueError,
+      } = await supabase
+        .from("order_items")
+        .select(`
+          quantity,
+          price
+        `)
+        .eq("tenant_id", TENANT_ID);
+
+      if (revenueError) {
+        console.error(revenueError);
+      }
+
+      const totalRevenue =
+        (orderItems || []).reduce(
+          (sum, item) => {
+            return (
+              sum +
+              Number(item.price || 0) *
+                Number(item.quantity || 0)
+            );
+          },
+          0
+        );
+
+      // =========================
+      // COGS
+      // =========================
+
+      const {
+        data: cogsEntries,
+        error: cogsError,
+      } = await supabase
+        .from("cogs_entries")
+        .select(`
+          cost_amount
+        `)
+        .eq("tenant_id", TENANT_ID);
+
+      if (cogsError) {
+        console.error(cogsError);
+      }
+
+      const totalCogs =
+        (cogsEntries || []).reduce(
+          (sum, item) => {
+            return (
+              sum +
+              Number(item.cost_amount || 0)
+            );
+          },
+          0
+        );
+
+      // =========================
+      // EXPENSES
+      // =========================
+
+      const {
+        data: accountingExpenses,
+        error: expensesError,
+      } = await supabase
+        .from("accounting_expenses")
+        .select(`
+          amount
+        `)
+        .eq("tenant_id", TENANT_ID);
+
+      if (expensesError) {
+        console.error(expensesError);
+      }
+
+      const totalExpenses =
+        (accountingExpenses || []).reduce(
+          (sum, item) => {
+            return (
+              sum +
+              Number(item.amount || 0)
+            );
+          },
+          0
+        );
+
+      // =========================
+      // NET PROFIT
+      // =========================
+
+      const netProfit =
+        totalRevenue -
+        totalCogs -
+        totalExpenses;
+
+      setRevenue(totalRevenue);
+      setCogs(totalCogs);
+      setExpenses(totalExpenses);
+      setProfit(netProfit);
+
+    } catch (error) {
+      console.error(
+        "ACCOUNTING LOAD ERROR:",
+        error
+      );
+    }
+  };
+
+  // =========================
+  // SERVICE LEVEL
+  // =========================
+
   let serviceLevel = 5;
-  if (profit > 50000) serviceLevel = 7;
-  else if (profit > 20000) serviceLevel = 6;
 
-  // 🔥 SERVICE CHARGE POOL
-  const servicePool = (totalRevenue * serviceLevel) / 100;
+  if (profit > 50000) {
+    serviceLevel = 7;
+  } else if (profit > 20000) {
+    serviceLevel = 6;
+  }
+
+  // =========================
+  // SERVICE POOL
+  // =========================
+
+  const servicePool =
+    (revenue * serviceLevel) / 100;
 
   return (
-  
-      <div className="space-y-10 text-white">
+    <div className="space-y-10 text-white">
 
-        <h1 className="text-3xl">Accounting Overview</h1>
+      <h1 className="text-3xl">
+        Accounting Overview
+      </h1>
 
-        {/* MAIN */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3">
 
-          <div className="text-green-400">
-            Revenue: THB {totalRevenue.toLocaleString()}
-          </div>
-
-          <div className="text-red-400">
-            Expenses: THB {totalExpenses.toLocaleString()}
-          </div>
-
-          <hr className="border-white/10 my-3" />
-
-          <div className={`text-xl ${profit >= 0 ? "text-green-400" : "text-red-400"}`}>
-            Net Profit: THB {profit.toLocaleString()}
-          </div>
-
+        <div className="text-green-400">
+          Revenue: THB{" "}
+          {revenue.toLocaleString()}
         </div>
 
-        {/* SERVICE LEVEL */}
-        <div className="bg-[#ff7a00]/10 border border-[#ff7a00]/30 rounded-2xl p-6">
-          <div className="text-sm text-white/60">Service Charge Level</div>
-          <div className="text-3xl text-[#ff7a00]">{serviceLevel}%</div>
+        <div className="text-yellow-400">
+          COGS: THB{" "}
+          {cogs.toLocaleString()}
         </div>
 
-        {/* 🔥 SERVICE POOL */}
-        <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-6">
+        <div className="text-red-400">
+          Expenses: THB{" "}
+          {expenses.toLocaleString()}
+        </div>
 
-          <div className="text-sm text-white/60">
-            Service Charge Pool (Available for Staff)
-          </div>
+        <hr className="border-white/10 my-3" />
 
-          <div className="text-3xl text-green-400">
-            THB {servicePool.toLocaleString()}
-          </div>
-
+        <div
+          className={`text-xl ${
+            profit >= 0
+              ? "text-green-400"
+              : "text-red-400"
+          }`}
+        >
+          Net Profit: THB{" "}
+          {profit.toLocaleString()}
         </div>
 
       </div>
-  
+
+      <div className="bg-[#ff7a00]/10 border border-[#ff7a00]/30 rounded-2xl p-6">
+
+        <div className="text-sm text-white/60">
+          Service Charge Level
+        </div>
+
+        <div className="text-3xl text-[#ff7a00]">
+          {serviceLevel}%
+        </div>
+
+      </div>
+
+      <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-6">
+
+        <div className="text-sm text-white/60">
+          Service Charge Pool
+          (Available for Staff)
+        </div>
+
+        <div className="text-3xl text-green-400">
+          THB{" "}
+          {servicePool.toLocaleString()}
+        </div>
+
+      </div>
+
+    </div>
   );
 }

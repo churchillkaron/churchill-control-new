@@ -27,7 +27,7 @@ export default function AccountingPage() {
   const [previewItem, setPreviewItem] = useState(null);
   const [actionLoading, setActionLoading] = useState("");
   const [approvals, setApprovals] = useState([]);
-  const [productionLogs, setProductionLogs] = useState([]);
+  const [cogsEntries, setCogsEntries] = useState([]);
   const [salesItems, setSalesItems] = useState([]);
 
   useEffect(() => {
@@ -52,11 +52,11 @@ export default function AccountingPage() {
 
       setInvoices(invoiceData || []);
 
-      const { data: productionData } = await supabase
-        .from("production_logs")
-        .select("*");
+      const { data: cogsData } = await supabase
+     .from("cogs_entries")
+     .select("*");
 
-      setProductionLogs(productionData || []);
+      setCogsEntries(cogsData || []);
 
       const { data: salesData } = await supabase
         .from("daily_sales_items")
@@ -126,10 +126,10 @@ const normalizedRejectedInvoices = useMemo(() => {
     0
   );
 
-  const totalCOGS = (productionLogs || []).reduce(
-    (sum, p) => sum + (p.total_cost || 0),
-    0
-  );
+  const totalCOGS = (cogsEntries || []).reduce(
+  (sum, p) => sum + Number(p.cost_amount || 0),
+  0
+);
 
   const totalSalary = (salaryQueue || []).reduce(
     (sum, s) => sum + (s.amount || 0),

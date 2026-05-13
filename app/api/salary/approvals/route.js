@@ -12,12 +12,25 @@ export async function GET() {
   const { data, error } = await supabase
     .from("approval_rejections")
     .select("*")
-    .eq("status", "approved_manager");
+    .eq(
+      "status",
+      "pending_accounting"
+    );
 
   if (error) {
+
     console.error(error);
-    return new Response(JSON.stringify([]), { status: 200 });
+
+    return new Response(
+      JSON.stringify([]),
+      { status: 200 }
+    );
+
   }
 
-  return new Response(JSON.stringify(data || []), { status: 200 });
+  return new Response(
+    JSON.stringify(data || []),
+    { status: 200 }
+  );
+
 }

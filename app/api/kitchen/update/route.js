@@ -55,7 +55,7 @@ export async function POST(req) {
       await supabase
         .from("orders")
         .update({
-          kitchen_status: status,
+          kitchen_status: "ready",
         })
         .eq("id", order_id)
         .eq("tenant_id", tenant_id);
@@ -67,6 +67,7 @@ export async function POST(req) {
     // =========================
 
     if (status === "done") {
+
       const {
         data: items,
         error: itemsError,
@@ -100,6 +101,7 @@ export async function POST(req) {
         );
 
         if (stockError) {
+
           return Response.json(
             {
               error:
@@ -108,6 +110,7 @@ export async function POST(req) {
             },
             { status: 500 }
           );
+
         }
 
         // =========================
@@ -152,18 +155,24 @@ export async function POST(req) {
           });
 
         if (!cogsResult.success) {
+
           console.error(
             "COGS CREATION FAILED:",
             cogsResult
           );
+
         }
+
       }
+
     }
 
     return Response.json({
       success: true,
     });
+
   } catch (err) {
+
     console.error(
       "KITCHEN ERROR:",
       err
@@ -176,5 +185,6 @@ export async function POST(req) {
       },
       { status: 500 }
     );
+
   }
 }

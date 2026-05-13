@@ -530,37 +530,120 @@ export default function InvoiceManagement() {
     return true;
   }
 
-  async function approveInvoice(id) {
-    const saved = await saveInvoice(id);
+  async function approveInvoice(inv) {
 
-    if (!saved) return;
+  const saved =
+    await saveInvoice(inv.id);
 
-    const { error } = await supabase
-      .from("invoices")
-      .update({ status: "approved_manager" })
-      .eq("id", id);
+  if (!saved) return;
 
-    if (error) {
-      alert(error.message);
-      return;
+  const response = await fetch(
+    "/api/approvals/process",
+    {
+
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+
+      body: JSON.stringify({
+
+        entityType:
+          "invoice",
+
+        entityId:
+          inv.id,
+
+        currentStatus:
+          inv.status,
+
+        role:
+          "manager",
+
+        actedBy:
+          null,
+
+        notes:
+          "Manager approval",
+
+      }),
+
     }
+  );
 
-    await loadInvoices();
+  const result =
+    await response.json();
+
+  if (!result.success) {
+
+    alert(
+      result.error
+    );
+
+    return;
+
   }
 
-  async function rejectInvoice(id) {
-    const { error } = await supabase
-      .from("invoices")
-      .update({ status: "rejected_manager" })
-      .eq("id", id);
+  await loadInvoices();
 
-    if (error) {
-      alert(error.message);
-      return;
+}
+
+async function rejectInvoice(inv) {
+
+  const response = await fetch(
+    "/api/approvals/reject",
+    {
+
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+
+      body: JSON.stringify({
+
+        entityType:
+          "invoice",
+
+        entityId:
+          inv.id,
+
+        currentStatus:
+          inv.status,
+
+        role:
+          "manager",
+
+        actedBy:
+          null,
+
+        reason:
+          "Rejected by manager",
+
+      }),
+
     }
+  );
 
-    await loadInvoices();
+  const result =
+    await response.json();
+
+  if (!result.success) {
+
+    alert(
+      result.error
+    );
+
+    return;
+
   }
+
+  await loadInvoices();
+
+}
 
   if (loading) {
     return (
@@ -856,7 +939,7 @@ export default function InvoiceManagement() {
             <div style={{ marginTop: 20 }}>
               <button
                 type="button"
-                onClick={() => approveInvoice(inv.id)}
+                onClick={() => approveInvoice(inv)}
                 style={{
                   marginRight: 10,
                   padding: "10px 18px",
@@ -873,8 +956,8 @@ export default function InvoiceManagement() {
 
               <button
                 type="button"
-                onClick={() => rejectInvoice(inv.id)}
-                style={{
+             onClick={() => rejectInvoice(inv)}
+style={{
                   padding: "10px 18px",
                   borderRadius: 10,
                   border: "1px solid #444",

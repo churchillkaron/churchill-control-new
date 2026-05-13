@@ -1,12 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/shared/supabase/client";
 import SearchableSelect from "@/components/SearchableSelect";
-
-// =========================
-// ACCOUNT STRUCTURE (FULL - EXACT)
-// =========================
 
 const ACCOUNT_TYPES = [
   "Revenue",
@@ -29,34 +25,21 @@ const DEPARTMENTS = [
 ];
 
 const NATURAL_ACCOUNTS = {
-  // ================= COGS =================
-
   "Food Main Kitchen": { type: "COGS", department: "Kitchen" },
   "Food Thai Kitchen": { type: "COGS", department: "Kitchen" },
   "Pizza Kitchen": { type: "COGS", department: "Kitchen" },
-
   Alcohol: { type: "COGS", department: "Bar" },
   "Soft Drinks": { type: "COGS", department: "Bar" },
-
   "Breakfast Food": { type: "COGS", department: "Breakfast" },
-
-  // ================= ENTERTAINMENT =================
-
   DJ: { type: "Operating Expense", department: "Entertainment" },
   Band: { type: "Operating Expense", department: "Entertainment" },
   Acoustic: { type: "Operating Expense", department: "Entertainment" },
   Events: { type: "Operating Expense", department: "Entertainment" },
-
-  // ================= STAFF =================
-
   "Staff Food": { type: "Operating Expense", department: "Staff Welfare" },
   "Staff Drinks": { type: "Operating Expense", department: "Staff Welfare" },
   "Staff Rewards": { type: "Operating Expense", department: "Staff Welfare" },
   "Staff Tax": { type: "Operating Expense", department: "Staff Welfare" },
   SSO: { type: "Operating Expense", department: "Staff Welfare" },
-
-  // ================= OPERATIONS =================
-
   Cleaning: { type: "Operating Expense", department: "Operations" },
   "Cleaning Supplies": { type: "Operating Expense", department: "Operations" },
   Decoration: { type: "Operating Expense", department: "Operations" },
@@ -66,9 +49,6 @@ const NATURAL_ACCOUNTS = {
   "Kitchen Supplies": { type: "Operating Expense", department: "Operations" },
   "Bar Supplies": { type: "Operating Expense", department: "Operations" },
   "Bar Equipment": { type: "Operating Expense", department: "Operations" },
-
-  // ================= ADMIN =================
-
   Rent: { type: "Operating Expense", department: "Admin" },
   "Accounting Fees": { type: "Operating Expense", department: "Admin" },
   Software: { type: "Operating Expense", department: "Admin" },
@@ -77,60 +57,22 @@ const NATURAL_ACCOUNTS = {
   Overtime: { type: "Operating Expense", department: "Admin" },
   "Service Charge": { type: "Operating Expense", department: "Admin" },
   Postage: { type: "Operating Expense", department: "Admin" },
-
-  // ================= UTILITIES =================
-
   Electricity: { type: "Operating Expense", department: "Utilities" },
   Gas: { type: "Operating Expense", department: "Utilities" },
-
-  // ================= MARKETING =================
-
   Ads: { type: "Operating Expense", department: "Marketing" },
   "Social Media": { type: "Operating Expense", department: "Marketing" },
   Promotions: { type: "Operating Expense", department: "Marketing" },
   "Content Creation": { type: "Operating Expense", department: "Marketing" },
-
-  // ================= OTHER =================
-
   Miscellaneous: { type: "Operating Expense", department: "Operations" },
   "Police / Irregular": { type: "Operating Expense", department: "Operations" },
-
-  // ================= OWNER =================
-
   "Owner Funding": { type: "Owner / Non-Operating", department: "Owner" },
   "Owner Withdrawal": { type: "Owner / Non-Operating", department: "Owner" },
 };
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
-function formatDate(value) {
-  if (!value) return "-";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
 function formatDateTime(value) {
   if (!value) return "-";
-
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString("en-GB", {
     day: "2-digit",
     month: "2-digit",
@@ -142,13 +84,8 @@ function formatDateTime(value) {
 
 function toInputDate(value) {
   if (!value) return "";
-
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value).slice(0, 10);
-  }
-
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
   return date.toISOString().slice(0, 10);
 }
 
@@ -168,16 +105,11 @@ function normalizeItems(items) {
 }
 
 function normalizeKey(value) {
-  return String(value || "")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ");
+  return String(value || "").toLowerCase().trim().replace(/\s+/g, " ");
 }
 
-async function loadLearningFromDB(supabase) {
-  const { data, error } = await supabase
-    .from("item_learning")
-    .select("*");
+async function loadLearningFromDB() {
+  const { data, error } = await supabase.from("item_learning").select("*");
 
   if (error) {
     console.error("Learning load error:", error);
@@ -186,7 +118,7 @@ async function loadLearningFromDB(supabase) {
 
   const map = {};
 
-  data.forEach((row) => {
+  (data || []).forEach((row) => {
     map[row.name] = {
       department: row.department,
       account_type: row.account_type,
@@ -274,23 +206,8 @@ function ruleBasedSuggestion(name = "") {
 
 function getSmartSuggestion(name, memory) {
   const key = normalizeKey(name);
-
   if (!key) return null;
-
-  if (memory[key]) {
-    return memory[key];
-  }
-
-  return ruleBasedSuggestion(key);
-}
-
-function formatMoney(value) {
-  const number = Number(value || 0);
-
-  return number.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+  return memory[key] || ruleBasedSuggestion(key);
 }
 
 export default function InvoiceManagement() {
@@ -305,13 +222,13 @@ export default function InvoiceManagement() {
     setErrorText("");
 
     try {
-      const memory = await loadLearningFromDB(supabase);
+      const memory = await loadLearningFromDB();
       setLearningMemory(memory);
 
       const { data, error } = await supabase
         .from("invoices")
         .select("*")
-        .in("status", ["pending_manager", "pending"])
+        .in("status", ["submitted", "pending_manager", "pending"])
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -346,14 +263,7 @@ export default function InvoiceManagement() {
   }
 
   useEffect(() => {
-    async function init() {
-      const memory = await loadLearningFromDB(supabase);
-      setLearningMemory(memory);
-
-      await loadInvoices();
-    }
-
-    init();
+    loadInvoices();
   }, []);
 
   function updateInvoiceField(invoiceId, field, value) {
@@ -480,14 +390,12 @@ export default function InvoiceManagement() {
 
   function learnFromInvoice(id) {
     const edited = editedInvoices[id];
-
     if (!edited) return learningMemory;
 
     const nextMemory = { ...learningMemory };
 
     (edited.items || []).forEach((item) => {
       const key = normalizeKey(item.name_english || item.name_thai);
-
       if (!key) return;
 
       nextMemory[key] = {
@@ -498,7 +406,6 @@ export default function InvoiceManagement() {
     });
 
     setLearningMemory(nextMemory);
-
     return nextMemory;
   }
 
@@ -518,6 +425,7 @@ export default function InvoiceManagement() {
         vendor: edited.vendor || "Unknown Vendor",
         date: edited.date || null,
         total_amount: Number(edited.total_amount || 0),
+        amount: Number(edited.total_amount || 0),
         items: edited.items || [],
       })
       .eq("id", id);
@@ -531,32 +439,55 @@ export default function InvoiceManagement() {
     return true;
   }
 
-  async function approveInvoice(id) {
-    const saved = await saveInvoice(id);
-
+  async function approveInvoice(inv) {
+    const saved = await saveInvoice(inv.id);
     if (!saved) return;
 
-    const { error } = await supabase
-      .from("invoices")
-      .update({ status: "approved_manager" })
-      .eq("id", id);
+    const response = await fetch("/api/approvals/process", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        entityType: "invoice",
+        entityId: inv.id,
+        currentStatus: inv.status,
+        role: "manager",
+        actedBy: null,
+        notes: "Manager approval",
+      }),
+    });
 
-    if (error) {
-      alert(error.message);
+    const result = await response.json();
+
+    if (!result.success) {
+      alert(result.error);
       return;
     }
 
     await loadInvoices();
   }
 
-  async function rejectInvoice(id) {
-    const { error } = await supabase
-      .from("invoices")
-      .update({ status: "rejected_manager" })
-      .eq("id", id);
+  async function rejectInvoice(inv) {
+    const response = await fetch("/api/approvals/reject", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        entityType: "invoice",
+        entityId: inv.id,
+        currentStatus: inv.status,
+        role: "manager",
+        actedBy: null,
+        reason: "Rejected by manager",
+      }),
+    });
 
-    if (error) {
-      alert(error.message);
+    const result = await response.json();
+
+    if (!result.success) {
+      alert(result.error);
       return;
     }
 
@@ -857,7 +788,7 @@ export default function InvoiceManagement() {
             <div style={{ marginTop: 20 }}>
               <button
                 type="button"
-                onClick={() => approveInvoice(inv.id)}
+                onClick={() => approveInvoice(inv)}
                 style={{
                   marginRight: 10,
                   padding: "10px 18px",
@@ -874,7 +805,7 @@ export default function InvoiceManagement() {
 
               <button
                 type="button"
-                onClick={() => rejectInvoice(inv.id)}
+                onClick={() => rejectInvoice(inv)}
                 style={{
                   padding: "10px 18px",
                   borderRadius: 10,
@@ -890,18 +821,6 @@ export default function InvoiceManagement() {
           </div>
         );
       })}
-
-      <datalist id="departments">
-        {DEPARTMENTS.map((option) => (
-          <option key={option} value={option} />
-        ))}
-      </datalist>
-
-      <datalist id="natural-accounts">
-        {Object.keys(NATURAL_ACCOUNTS).map((option) => (
-          <option key={option} value={option} />
-        ))}
-      </datalist>
     </div>
   );
 }

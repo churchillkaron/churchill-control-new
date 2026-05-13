@@ -39,6 +39,15 @@ export default function ProductionPage() {
         .select("ingredient_id, quantity")
         .eq("tenant_id", TENANT_ID);
 
+        const { data: recipes } = await supabase
+  .from("recipe_matrix")
+  .select("dish_id")
+  .eq("tenant_id", TENANT_ID);
+
+const recipeDishIds = new Set(
+  (recipes || []).map(r => r.dish_id)
+);
+
       const dishMap = {};
       const priceMap = {};
 
@@ -55,7 +64,11 @@ export default function ProductionPage() {
       setStockMap(stock);
 
       const low = (dishStock || [])
-        .filter((d) => Number(d.quantity) <= 5)
+       .filter(
+  (d) =>
+    Number(d.quantity) <= 5 &&
+    recipeDishIds.has(d.dish_id)
+)
         .map((d) => {
           const qty = Number(d.quantity || 0);
 

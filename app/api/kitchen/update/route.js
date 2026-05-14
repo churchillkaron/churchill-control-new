@@ -6,6 +6,8 @@ import { createCogsEntry } from "@/lib/finance/createCogsEntry";
 
 import { consumeDishStock } from "@/lib/production/consumeDishStock";
 
+import { createAlert } from "@/lib/alerts/createAlert";
+
 export async function POST(req) {
 
   try {
@@ -16,22 +18,28 @@ export async function POST(req) {
     const serviceKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !serviceKey) {
+    if (
+      !supabaseUrl ||
+      !serviceKey
+    ) {
 
       return Response.json(
         {
           error:
             "Missing Supabase environment variables",
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
 
     }
 
-    const supabase = createClient(
-      supabaseUrl,
-      serviceKey
-    );
+    const supabase =
+      createClient(
+        supabaseUrl,
+        serviceKey
+      );
 
     const {
       order_id,
@@ -43,46 +51,53 @@ export async function POST(req) {
 
       return Response.json(
         {
-          error: "Missing tenant_id",
+          error:
+            "Missing tenant_id",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
 
     }
 
-    if (!order_id || !status) {
+    if (
+      !order_id ||
+      !status
+    ) {
 
       return Response.json(
         {
-          error: "Missing data",
+          error:
+            "Missing data",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
 
     }
 
     // =========================
-    // KITCHEN STATUS ONLY
+    // UPDATE ORDER STATUS
     // =========================
-
-    // IMPORTANT:
-    // Kitchen must NEVER close order.
-    // Payment lifecycle is separate.
-
-    const kitchenStatus =
-      status === "done"
-        ? "ready"
-        : status;
 
     const {
       error: updateError,
     } = await supabase
+
       .from("orders")
+
       .update({
         kitchen_status:
-          kitchenStatus,
+          "ready",
       })
-      .eq("id", order_id)
+
+      .eq(
+        "id",
+        order_id
+      )
+
       .eq(
         "tenant_id",
         tenant_id
@@ -93,25 +108,30 @@ export async function POST(req) {
 
     // =========================
     // SALES CONSUMPTION
-    // ONLY WHEN KITCHEN DONE
     // =========================
 
-    if (status === "done") {
+    if (
+      status === "done"
+    ) {
 
       const {
         data: items,
         error: itemsError,
       } = await supabase
+
         .from("order_items")
+
         .select(`
           dish_id,
           quantity,
           price
         `)
+
         .eq(
           "order_id",
           order_id
         )
+
         .eq(
           "tenant_id",
           tenant_id
@@ -136,39 +156,43 @@ export async function POST(req) {
         ) {
 
           groupedItems[key] = {
+
             dish_id:
               item.dish_id,
+
             quantity: 0,
+
             revenue: 0,
+
           };
 
         }
 
-        groupedItems[
-          key
-        ].quantity += Number(
-          item.quantity || 0
-        );
+        groupedItems[key]
+          .quantity +=
+          Number(
+            item.quantity || 1
+          );
 
-        groupedItems[
-          key
-        ].revenue +=
+        groupedItems[key]
+          .revenue +=
           Number(
             item.price || 0
           ) *
           Number(
-            item.quantity || 0
+            item.quantity || 1
           );
 
       }
 
       // =========================
-      // PROCESS GROUPED ITEMS
+      // PROCESS GROUPED DISHES
       // =========================
 
-      for (const groupedItem of Object.values(
-        groupedItems
-      )) {
+      for (const key in groupedItems) {
+
+        const item =
+          groupedItems[key];
 
         // =========================
         // DISH STOCK DEDUCTION
@@ -176,19 +200,29 @@ export async function POST(req) {
 
         const stockResult =
           await consumeDishStock({
+
             tenantId:
               tenant_id,
+
             dishId:
-              groupedItem.dish_id,
+              item.dish_id,
+
             quantity:
               Number(
-                groupedItem.quantity
+                item.quantity || 1
               ),
+
             referenceId:
               order_id,
+
             source:
               "ORDER_COMPLETED",
+
           });
+
+        console.log(
+          "KITCHEN STOCK CONSUMED"
+        );
 
         if (
           !stockResult.success
@@ -198,11 +232,140 @@ export async function POST(req) {
             {
               error:
                 "Stock deduction failed",
+
               detail:
                 stockResult.error,
             },
-            { status: 500 }
+            {
+              status: 500,
+            }
           );
+
+        }
+
+        // =========================
+        // LOW STOCK ALERTS
+        // =========================
+
+        const {
+          data: recipeItems,
+        } = await supabase
+
+          .from("recipe_items")
+
+          .select(`
+            ingredient_id
+          `)
+
+          .eq(
+            "dish_id",
+            item.dish_id
+          )
+
+          .eq(
+            "tenant_id",
+            tenant_id
+          );
+
+        for (
+          const recipeItem of
+          recipeItems || []
+        ) {
+
+          const {
+            data: stockData,
+          } = await supabase
+
+            .from(
+              "ingredient_stock"
+            )
+
+            .select(`
+              quantity
+            `)
+
+            .eq(
+              "tenant_id",
+              tenant_id
+            )
+
+            .eq(
+              "ingredient_id",
+              recipeItem.ingredient_id
+            )
+
+            .single();
+
+          const {
+            data: ingredientData,
+          } = await supabase
+
+            .from("ingredients")
+
+            .select(`
+              name
+            `)
+
+            .eq(
+              "id",
+              recipeItem.ingredient_id
+            )
+
+            .single();
+
+          console.log(
+            "STOCK DATA:",
+            stockData
+          );
+
+          const remainingQty =
+            parseFloat(
+              stockData?.quantity ?? 0
+            );
+
+          console.log(
+            "REMAINING STOCK:",
+            remainingQty
+          );
+
+          if (
+            remainingQty <= 10
+          ) {
+
+            console.log(
+              "LOW STOCK TRIGGERED",
+              ingredientData?.name,
+              remainingQty
+            );
+
+            await createAlert({
+
+              tenantId:
+                tenant_id,
+
+              alertType:
+                "LOW_STOCK",
+
+              severity:
+                remainingQty <= 3
+                  ? "CRITICAL"
+                  : "WARNING",
+
+              title:
+                "Low Ingredient Stock",
+
+              message:
+                `${ingredientData?.name || "Ingredient"} is running low (${remainingQty} remaining)`,
+
+              source:
+                "KITCHEN",
+
+              sourceId:
+                recipeItem.ingredient_id,
+
+            });
+
+          }
 
         }
 
@@ -212,20 +375,26 @@ export async function POST(req) {
 
         const cogsResult =
           await createCogsEntry({
+
             tenantId:
               tenant_id,
+
             orderId:
               order_id,
+
             dishId:
-              groupedItem.dish_id,
+              item.dish_id,
+
             quantity:
               Number(
-                groupedItem.quantity
+                item.quantity
               ),
+
             revenueAmount:
               Number(
-                groupedItem.revenue
+                item.revenue || 0
               ),
+
           });
 
         if (
@@ -233,7 +402,7 @@ export async function POST(req) {
         ) {
 
           console.error(
-            "COGS CREATION FAILED:",
+            "COGS CREATION FAILED FULL:",
             JSON.stringify(
               cogsResult,
               null,
@@ -264,7 +433,9 @@ export async function POST(req) {
           err.message ||
           "Kitchen error",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
 
   }

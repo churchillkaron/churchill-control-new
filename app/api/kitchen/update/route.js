@@ -156,12 +156,12 @@ export async function POST(req) {
 
         if (!cogsResult.success) {
 
-          console.error(
-            "COGS CREATION FAILED:",
-            cogsResult
-          );
+  console.error(
+    "COGS CREATION FAILED FULL:",
+    JSON.stringify(cogsResult, null, 2)
+  );
 
-        }
+}
 
       }
 

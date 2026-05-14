@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 
 import { createCogsEntry } from "@/lib/finance/createCogsEntry";
 
+import { consumeDishStock } from "@/lib/production/consumeDishStock";
+
 export async function POST(req) {
   try {
     const supabaseUrl =
@@ -89,51 +91,29 @@ export async function POST(req) {
         // DISH STOCK DEDUCTION
         // =========================
 
-        const {
-          error: stockError,
-        } = await supabase.rpc(
-          "decrement_dish_stock",
-          {
-            p_tenant_id: tenant_id,
-            p_dish_id: item.dish_id,
-            p_qty: Number(item.quantity),
-          }
-        );
+        const stockResult =
+          await consumeDishStock({
+            tenantId: tenant_id,
+            dishId: item.dish_id,
+            quantity: Number(
+              item.quantity || 1
+            ),
+            referenceId: order_id,
+            source: "ORDER_COMPLETED",
+          });
 
-        if (stockError) {
+        if (!stockResult.success) {
 
           return Response.json(
             {
               error:
                 "Stock deduction failed",
-              detail: stockError.message,
+              detail: stockResult.error,
             },
             { status: 500 }
           );
 
         }
-
-        // =========================
-        // STOCK MOVEMENT LEDGER
-        // =========================
-
-        const {
-          error: movementError,
-        } = await supabase
-          .from("stock_movements")
-          .insert({
-            tenant_id: tenant_id,
-            item_type: "DISH",
-            item_id: item.dish_id,
-            movement_type: "SALE",
-            quantity:
-              -Number(item.quantity),
-            source: "ORDER_COMPLETED",
-            reference_id: order_id,
-          });
-
-        if (movementError)
-          throw movementError;
 
         // =========================
         // COGS ENTRY
@@ -156,12 +136,16 @@ export async function POST(req) {
 
         if (!cogsResult.success) {
 
-  console.error(
-    "COGS CREATION FAILED FULL:",
-    JSON.stringify(cogsResult, null, 2)
-  );
+          console.error(
+            "COGS CREATION FAILED FULL:",
+            JSON.stringify(
+              cogsResult,
+              null,
+              2
+            )
+          );
 
-}
+        }
 
       }
 

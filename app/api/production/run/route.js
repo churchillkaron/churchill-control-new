@@ -212,6 +212,10 @@ export async function POST(req) {
 
     for (const item of recipe) {
 
+      console.log(
+  "INSIDE ALERT LOOP"
+);
+
       // LOAD STOCK
 
       const {
@@ -257,10 +261,20 @@ export async function POST(req) {
 
         .single();
 
-      const remainingQty =
-        Number(
-          stockData?.quantity || 0
-        );
+      console.log(
+  "STOCK DATA:",
+  stockData
+);
+
+const remainingQty =
+  parseFloat(
+    stockData?.quantity ?? 0
+  );
+
+console.log(
+  "REMAINING QTY:",
+  remainingQty
+);
 
       const ingredientName =
         ingredientData?.name ||
@@ -268,7 +282,15 @@ export async function POST(req) {
 
       if (remainingQty <= 10) {
 
+      console.log(
+       "LOW STOCK TRIGGERED",
+             ingredientName,
+           remainingQty
+        );
+
         await createAlert({
+
+          
 
           tenantId:
             tenant_id,
@@ -292,6 +314,8 @@ export async function POST(req) {
 
           sourceId:
             item.ingredient_id,
+
+            
 
         });
 

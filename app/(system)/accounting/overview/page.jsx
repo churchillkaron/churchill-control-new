@@ -50,6 +50,44 @@ export default function AccountingOverview() {
           },
           0
         );
+        const cashRevenue = (salesItems || [])
+  .filter(
+    (o) =>
+      o.payment_method ===
+      "CASH"
+  )
+  .reduce(
+    (sum, o) =>
+      sum +
+      Number(o.total || 0),
+    0
+  );
+
+const cardRevenue = (salesItems || [])
+  .filter(
+    (o) =>
+      o.payment_method ===
+      "CARD"
+  )
+  .reduce(
+    (sum, o) =>
+      sum +
+      Number(o.total || 0),
+    0
+  );
+
+const transferRevenue = (salesItems || [])
+  .filter(
+    (o) =>
+      o.payment_method ===
+      "TRANSFER"
+  )
+  .reduce(
+    (sum, o) =>
+      sum +
+      Number(o.total || 0),
+    0
+  );
 
       // =========================
       // COGS

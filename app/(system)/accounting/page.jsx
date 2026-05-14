@@ -58,11 +58,18 @@ export default function AccountingPage() {
 
       setCogsEntries(cogsData || []);
 
-      const { data: salesData } = await supabase
-        .from("daily_sales_items")
-        .select("*");
+     const { data: salesData } = await supabase
+  .from("orders")
+  .select(`
+    id,
+    total,
+    payment_status,
+    payment_method,
+    paid_at
+  `)
+  .eq("payment_status", "PAID");
 
-      setSalesItems(salesData || []);
+setSalesItems(salesData || []);
     } catch (err) {
       console.error(err);
     }
@@ -117,9 +124,10 @@ const normalizedRejectedInvoices = useMemo(() => {
   // FINANCIAL METRICS
   // --------------------------------------------------
   const totalRevenue = (salesItems || []).reduce(
-    (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
-    0
-  );
+  (sum, order) =>
+    sum + Number(order.total || 0),
+  0
+);
 
   const totalExpenses = (normalizedApprovedInvoices || []).reduce(
     (sum, e) => sum + (e.amount || 0),

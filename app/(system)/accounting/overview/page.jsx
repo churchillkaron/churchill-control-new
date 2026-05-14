@@ -492,6 +492,21 @@ export default function AccountingOverview() {
                   : "text-red-400"
               }`}
             >
+              {latestShift.notes && (
+
+  <div className="bg-black/30 border border-white/10 rounded-xl p-4 mt-4">
+
+    <div className="text-sm text-white/50 mb-2">
+      Shift Notes
+    </div>
+
+    <div className="text-white whitespace-pre-wrap">
+      {latestShift.notes}
+    </div>
+
+  </div>
+
+)}
 
               Difference:
               {" "}

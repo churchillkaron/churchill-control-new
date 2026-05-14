@@ -1,92 +1,289 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import Link from "next/link";
+
 import { usePathname } from "next/navigation";
+
 import { supabase } from "@/lib/shared/supabase/client";
 
+// =========================
+// ROLE MENUS
+// =========================
+
 const roleMenus = {
+
+  // =========================
+  // STAFF
+  // =========================
+
   staff: {
+
+    // =========================
+    // FOH
+    // =========================
+
     foh: [
-      { name: "Home", href: "/staff" },
-      { name: "POS", href: "/pos" },
-      { name: "Tables", href: "/tables" },
-      { name: "Kitchen", href: "/kitchen" },
+
+      {
+        name: "POS",
+        href: "/pos",
+      },
+
+      {
+        name: "Tables",
+        href: "/tables",
+      },
+
+      {
+        name: "Kitchen",
+        href: "/kitchen",
+      },
+
     ],
+
+    // =========================
+    // KITCHEN
+    // =========================
 
     kitchen: [
-      { name: "Home", href: "/staff" },
-      { name: "Kitchen", href: "/kitchen" },
-      { name: "Production", href: "/production" },
+
+      {
+        name: "Kitchen",
+        href: "/kitchen",
+      },
+
+      {
+        name: "Production",
+        href: "/production",
+      },
+
+      {
+        name: "Shift Close",
+        href: "/shift-close",
+      },
+
     ],
+
+    // =========================
+    // BAR
+    // =========================
 
     bar: [
-      { name: "Home", href: "/staff" },
-      { name: "POS", href: "/pos" },
-      { name: "Tables", href: "/tables" },
+
+      {
+        name: "POS",
+        href: "/pos",
+      },
+
+      {
+        name: "Tables",
+        href: "/tables",
+      },
+
+      {
+        name: "Shift Close",
+        href: "/shift-close",
+      },
+
     ],
+
   },
+
+  // =========================
+  // OWNER
+  // =========================
 
   owner: [
-  { name: "Dashboard", href: "/dashboard" },
 
-  {
-    name: "Marketing Ops",
-    href: "/marketing/operations",
-  },
+    // =========================
+    // CONTROL
+    // =========================
 
-  { name: "POS", href: "/pos" },
-  { name: "Tables", href: "/tables" },
-  { name: "Kitchen", href: "/kitchen" },
-  { name: "Production", href: "/production" },
-  { name: "Accounting", href: "/accounting" },
-],
+    {
+      name: "Dashboard",
+      href: "/dashboard",
+    },
+
+    // =========================
+    // OPERATIONS
+    // =========================
+
+    {
+      name: "POS",
+      href: "/pos",
+    },
+
+    {
+      name: "Tables",
+      href: "/tables",
+    },
+
+    {
+      name: "Kitchen",
+      href: "/kitchen",
+    },
+
+    {
+      name: "Production",
+      href: "/production",
+    },
+
+    // =========================
+    // FINANCE
+    // =========================
+
+    {
+      name: "Accounting",
+      href: "/accounting-overview",
+    },
+
+    {
+      name: "Shift Close",
+      href: "/shift-close",
+    },
+
+    {
+      name: "Shift History",
+      href: "/shift-history",
+    },
+
+    // =========================
+    // MARKETING
+    // =========================
+
+    {
+      name: "Marketing",
+      href: "/marketing/operations",
+    },
+
+  ],
+
+  // =========================
+  // MANAGER
+  // =========================
 
   manager: [
-    { name: "Home", href: "/staff" },
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "POS", href: "/pos" },
-    { name: "Tables", href: "/tables" },
-    { name: "Kitchen", href: "/kitchen" },
-    { name: "Production", href: "/production" },
+
+    {
+      name: "Dashboard",
+      href: "/dashboard",
+    },
+
+    {
+      name: "POS",
+      href: "/pos",
+    },
+
+    {
+      name: "Tables",
+      href: "/tables",
+    },
+
+    {
+      name: "Kitchen",
+      href: "/kitchen",
+    },
+
+    {
+      name: "Production",
+      href: "/production",
+    },
+
+    {
+      name: "Shift Close",
+      href: "/shift-close",
+    },
+
+    {
+      name: "Shift History",
+      href: "/shift-history",
+    },
+
   ],
+
+  // =========================
+  // ACCOUNTING
+  // =========================
 
   accounting: [
-    { name: "Home", href: "/accounting" },
-    { name: "Accounting", href: "/accounting" },
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "POS", href: "/pos" },
-    { name: "Tables", href: "/tables" },
-    { name: "Kitchen", href: "/kitchen" },
-    { name: "Production", href: "/production" },
+
+    {
+      name: "Accounting",
+      href: "/accounting-overview",
+    },
+
+    {
+      name: "Shift Close",
+      href: "/shift-close",
+    },
+
+    {
+      name: "Shift History",
+      href: "/shift-history",
+    },
+
+    {
+      name: "Dashboard",
+      href: "/dashboard",
+    },
+
   ],
+
 };
 
-export default function AppShell({ children }) {
+// =========================
+// COMPONENT
+// =========================
 
-  const pathname = usePathname();
+export default function AppShell({
+  children,
+}) {
+
+  const pathname =
+    usePathname();
 
   const [role, setRole] =
     useState("staff");
 
-  const [position, setPosition] =
-    useState("foh");
+  const [
+    position,
+    setPosition,
+  ] = useState("foh");
+
+  // =========================
+  // LOAD USER
+  // =========================
 
   useEffect(() => {
 
-    const loadUser = async () => {
+    const loadUser =
+      async () => {
 
-      const { data } =
-        await supabase.auth.getUser();
+        const {
+          data,
+        } =
+          await supabase.auth.getUser();
 
-      if (!data?.user) return;
+        if (
+          !data?.user
+        ) {
+          return;
+        }
 
-      const { data: userData } =
-        await supabase
+        const {
+          data: userData,
+        } = await supabase
 
-          .from("staff_accounts")
+          .from(
+            "staff_accounts"
+          )
 
-          .select("role, position")
+          .select(`
+            role,
+            position
+          `)
 
           .eq(
             "auth_user_id",
@@ -95,51 +292,68 @@ export default function AppShell({ children }) {
 
           .single();
 
-      if (userData) {
+        if (userData) {
 
-        setRole(
-          (
-            userData.role ||
-            "staff"
-          ).toLowerCase()
-        );
+          setRole(
+            (
+              userData.role ||
+              "staff"
+            ).toLowerCase()
+          );
 
-        setPosition(
-          (
-            userData.position ||
-            "foh"
-          ).toLowerCase()
-        );
+          setPosition(
+            (
+              userData.position ||
+              "foh"
+            ).toLowerCase()
+          );
 
-      }
+        }
 
-    };
+      };
 
     loadUser();
 
   }, []);
+
+  // =========================
+  // MENU RESOLUTION
+  // =========================
 
   let menu = [];
 
   if (role === "staff") {
 
     menu =
-      roleMenus.staff[position] ||
+      roleMenus.staff[
+        position
+      ] ||
       roleMenus.staff.foh;
 
   } else {
 
     menu =
-      roleMenus[role] || [];
+      roleMenus[role] ||
+      [];
 
   }
 
-  const mobileMenu =
-    menu.slice(0, 4);
+  // =========================
+  // MOBILE NAV
+  // =========================
+
+  let mobileMenu =
+    menu;
+
+  // =========================
+  // AUTH EXCLUDED ROUTES
+  // =========================
 
   if (
     pathname === "/" ||
-    pathname.startsWith("/login")
+    pathname.startsWith(
+      "/login"
+    )
   ) {
 
     return children;
@@ -158,7 +372,9 @@ export default function AppShell({ children }) {
       "
     >
 
+      {/* ========================= */}
       {/* BACKGROUND */}
+      {/* ========================= */}
 
       <div
         className="
@@ -185,6 +401,10 @@ export default function AppShell({ children }) {
         "
       />
 
+      {/* ========================= */}
+      {/* APP */}
+      {/* ========================= */}
+
       <div
         className="
           relative
@@ -194,7 +414,9 @@ export default function AppShell({ children }) {
         "
       >
 
+        {/* ========================= */}
         {/* TOPBAR */}
+        {/* ========================= */}
 
         <header
           className="
@@ -215,7 +437,9 @@ export default function AppShell({ children }) {
           "
         >
 
+          {/* ========================= */}
           {/* LEFT */}
+          {/* ========================= */}
 
           <div
             className="
@@ -231,7 +455,9 @@ export default function AppShell({ children }) {
                 font-bold
               "
             >
+
               CONTROL
+
             </div>
 
             <div
@@ -243,10 +469,16 @@ export default function AppShell({ children }) {
                 uppercase
               "
             >
-              {role} / {position}
+
+              {role}
+              {" / "}
+              {position}
+
             </div>
 
+            {/* ========================= */}
             {/* DESKTOP NAV */}
+            {/* ========================= */}
 
             <nav
               className="
@@ -254,51 +486,61 @@ export default function AppShell({ children }) {
                 lg:flex
                 items-center
                 gap-2
+                flex-wrap
               "
             >
 
-              {menu.map((item) => {
+              {menu.map(
+                (item) => {
 
-                const active =
-                  pathname === item.href;
+                  const active =
+                    pathname ===
+                    item.href;
 
-                return (
+                  return (
 
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`
-
-                      px-3
-                      py-2
-                      rounded-lg
-                      text-xs
-                      uppercase
-                      tracking-[0.15em]
-                      transition
-
-                      ${
-                        active
-                          ? "bg-orange-500 text-black"
-                          : "text-white/50 hover:text-white hover:bg-white/5"
+                    <Link
+                      key={
+                        item.name
                       }
+                      href={
+                        item.href
+                      }
+                      className={`
 
-                    `}
-                  >
+                        px-3
+                        py-2
+                        rounded-lg
+                        text-xs
+                        uppercase
+                        tracking-[0.15em]
+                        transition
 
-                    {item.name}
+                        ${
+                          active
+                            ? "bg-orange-500 text-black"
+                            : "text-white/50 hover:text-white hover:bg-white/5"
+                        }
 
-                  </Link>
+                      `}
+                    >
 
-                );
+                      {item.name}
 
-              })}
+                    </Link>
+
+                  );
+
+                }
+              )}
 
             </nav>
 
           </div>
 
+          {/* ========================= */}
           {/* RIGHT */}
+          {/* ========================= */}
 
           <div
             className="
@@ -309,12 +551,16 @@ export default function AppShell({ children }) {
               gap-2
             "
           >
+
             ● Live
+
           </div>
 
         </header>
 
+        {/* ========================= */}
         {/* CONTENT */}
+        {/* ========================= */}
 
         <main
           className="
@@ -323,7 +569,7 @@ export default function AppShell({ children }) {
             h-[calc(100vh-4rem)]
             overflow-y-auto
             p-6
-            pb-24
+            pb-28
           "
         >
 
@@ -333,7 +579,9 @@ export default function AppShell({ children }) {
 
       </div>
 
+      {/* ========================= */}
       {/* MOBILE NAV */}
+      {/* ========================= */}
 
       <div
         className="
@@ -350,48 +598,65 @@ export default function AppShell({ children }) {
           className="
             flex
             justify-around
+            items-center
             py-2
             bg-black/80
             border-t
             border-white/10
+            backdrop-blur-xl
+            overflow-x-auto
           "
         >
 
-          {mobileMenu.map((item) => {
+          {mobileMenu.map(
+            (item) => {
 
-            const active =
-              pathname === item.href;
+              const active =
+                pathname ===
+                item.href;
 
-            return (
+              return (
 
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`
-
-                  flex
-                  flex-col
-                  items-center
-                  text-xs
-
-                  ${
-                    active
-                      ? "text-orange-400"
-                      : "text-white/60"
+                <Link
+                  key={
+                    item.name
                   }
+                  href={
+                    item.href
+                  }
+                  className={`
 
-                `}
-              >
+                    flex
+                    flex-col
+                    items-center
+                    justify-center
+                    min-w-[72px]
+                    text-[10px]
+                    px-2
+                    py-1
+                    transition
 
-                <span>
-                  {item.name}
-                </span>
+                    ${
+                      active
+                        ? "text-orange-400"
+                        : "text-white/60"
+                    }
 
-              </Link>
+                  `}
+                >
 
-            );
+                  <span>
 
-          })}
+                    {item.name}
+
+                  </span>
+
+                </Link>
+
+              );
+
+            }
+          )}
 
         </div>
 

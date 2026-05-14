@@ -257,24 +257,50 @@ console.log(
         // =========================
 
         const {
-          data: recipeItems,
-        } = await supabase
+  data: recipeItems,
+  error: recipeError,
+} = await supabase
 
-          .from("recipe_items")
+  .from("recipe_items")
 
-          .select(`
-            ingredient_id
-          `)
+  .select(`
+    ingredient_id
+  `)
 
-          .eq(
-            "dish_id",
-            item.dish_id
-          )
+  .eq(
+    "dish_id",
+    item.dish_id
+  )
 
-          .eq(
-            "tenant_id",
-            tenant_id
-          );
+  .eq(
+    "tenant_id",
+    tenant_id
+  );
+
+console.log(
+  "RECIPE ITEMS:",
+  recipeItems
+);
+
+console.log(
+  "RECIPE ERROR:",
+  recipeError
+);
+
+if (recipeError) {
+
+  console.error(
+    "RECIPE LOAD FAILED:",
+    recipeError
+  );
+
+} else {
+
+  console.log(
+    "RECIPE LOADED"
+  );
+
+}
 
         for (
           const recipeItem of

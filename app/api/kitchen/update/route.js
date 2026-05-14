@@ -190,6 +190,9 @@ export async function POST(req) {
       // =========================
 
       for (const key in groupedItems) {
+        console.log(
+  "ENTERING GROUP LOOP"
+);
 
         const item =
           groupedItems[key];
@@ -197,7 +200,9 @@ export async function POST(req) {
         // =========================
         // DISH STOCK DEDUCTION
         // =========================
-
+console.log(
+  "BEFORE STOCK CONSUMPTION"
+);
         const stockResult =
           await consumeDishStock({
 
@@ -219,6 +224,10 @@ export async function POST(req) {
               "ORDER_COMPLETED",
 
           });
+
+          console.log(
+  "AFTER STOCK CONSUMPTION"
+);
 
         console.log(
           "KITCHEN STOCK CONSUMED"

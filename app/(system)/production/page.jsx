@@ -1,257 +1,659 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/shared/supabase/client";
 
-const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+const LOW_STOCK_LIMIT = 5;
+const TARGET_STOCK = 10;
 
 export default function ProductionPage() {
-  const [lowDishes, setLowDishes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [plan, setPlan] = useState({});
-  const [stockMap, setStockMap] = useState({});
-  const [ingredientSummary, setIngredientSummary] = useState([]);
-  const [canProduce, setCanProduce] = useState(true);
 
-  const [totalCost, setTotalCost] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [totalProfit, setTotalProfit] = useState(0);
-  const [margin, setMargin] = useState(0);
+  const [tenantId, setTenantId] =
+    useState(null);
 
-  const loadLowDishes = async () => {
+  const [lowDishes, setLowDishes] =
+    useState([]);
+
+  const [plan, setPlan] =
+    useState({});
+
+  const [recipes, setRecipes] =
+    useState([]);
+
+  const [ingredients, setIngredients] =
+    useState([]);
+
+  const [dishStock, setDishStock] =
+    useState([]);
+
+  const [ingredientStock, setIngredientStock] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [canProduce, setCanProduce] =
+    useState(true);
+
+  const [ingredientSummary, setIngredientSummary] =
+    useState([]);
+
+  const [totalCost, setTotalCost] =
+    useState(0);
+
+  const [totalRevenue, setTotalRevenue] =
+    useState(0);
+
+  const [totalProfit, setTotalProfit] =
+    useState(0);
+
+  const [margin, setMargin] =
+    useState(0);
+
+  // =========================
+  // LOAD TENANT
+  // =========================
+
+  useEffect(() => {
+
+    const loadTenant = async () => {
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data, error } =
+        await supabase
+          .from("staff_accounts")
+          .select("tenant_id")
+          .eq("auth_user_id", user.id)
+          .single();
+
+      if (error || !data?.tenant_id) {
+
+        console.error(
+          "TENANT LOAD ERROR:",
+          error
+        );
+
+        return;
+
+      }
+
+      setTenantId(data.tenant_id);
+
+    };
+
+    loadTenant();
+
+  }, []);
+
+  // =========================
+  // LOAD DATA
+  // =========================
+
+  const loadData = async () => {
+
+    if (!tenantId) return;
+
     try {
-      const { data: dishStock } = await supabase
-        .from("dish_stock")
-        .select("dish_id, quantity")
-        .eq("tenant_id", TENANT_ID);
 
-      const { data: dishes } = await supabase
-        .from("dishes")
-        .select("id, name, price")
-        .eq("tenant_id", TENANT_ID);
+      const [
+        dishStockRes,
+        dishesRes,
+        ingredientStockRes,
+        recipesRes,
+        ingredientsRes,
+      ] = await Promise.all([
 
-      const { data: ingredientStock } = await supabase
-        .from("ingredient_stock")
-        .select("ingredient_id, quantity")
-        .eq("tenant_id", TENANT_ID);
+        supabase
+          .from("dish_stock")
+          .select("dish_id, quantity")
+          .eq("tenant_id", tenantId),
 
-      const { data: recipes } = await supabase
-        .from("recipe_matrix")
-        .select("dish_id")
-        .eq("tenant_id", TENANT_ID);
+        supabase
+          .from("dishes")
+          .select("id, name, price")
+          .eq("tenant_id", tenantId),
 
-      const recipeDishIds = new Set((recipes || []).map((r) => r.dish_id));
+        supabase
+          .from("ingredient_stock")
+          .select("ingredient_id, quantity")
+          .eq("tenant_id", tenantId),
 
-      const dishMap = {};
-      const priceMap = {};
+        supabase
+          .from("recipe_matrix")
+          .select("*")
+          .eq("tenant_id", tenantId),
 
-      for (const d of dishes || []) {
-        dishMap[d.id] = d.name;
-        priceMap[d.id] = Number(d.price || 0);
-      }
+        supabase
+          .from("ingredients")
+          .select("*")
+          .eq("tenant_id", tenantId),
 
-      const stock = {};
-      for (const s of ingredientStock || []) {
-        stock[s.ingredient_id] = Number(s.quantity || 0);
-      }
+      ]);
 
-      setStockMap(stock);
+      const dishStockData =
+        dishStockRes.data || [];
 
-      const low = (dishStock || [])
-        .filter((d) => Number(d.quantity || 0) <= 5)
-        .map((d) => {
-          const qty = Number(d.quantity || 0);
-          const hasRecipe = recipeDishIds.has(d.dish_id);
+      const dishesData =
+        dishesRes.data || [];
 
-          return {
-            dish_id: d.dish_id,
-            name: dishMap[d.dish_id] || "Unknown",
-            price: priceMap[d.dish_id] || 0,
-            quantity: qty,
-            suggested: hasRecipe ? Math.max(10 - qty, 5) : 0,
-            hasRecipe,
-          };
-        });
+      const ingredientStockData =
+        ingredientStockRes.data || [];
+
+      const recipesData =
+        recipesRes.data || [];
+
+      const ingredientsData =
+        ingredientsRes.data || [];
+
+      setRecipes(recipesData);
+      setIngredients(ingredientsData);
+      setDishStock(dishStockData);
+      setIngredientStock(
+        ingredientStockData
+      );
+
+      const recipeDishIds =
+        new Set(
+          recipesData.map(
+            (r) => r.dish_id
+          )
+        );
+
+      const low =
+        dishStockData
+          .filter(
+            (d) =>
+              Number(
+                d.quantity || 0
+              ) <= LOW_STOCK_LIMIT
+          )
+          .map((d) => {
+
+            const dish =
+              dishesData.find(
+                (x) =>
+                  x.id === d.dish_id
+              );
+
+            const currentQty =
+              Number(
+                d.quantity || 0
+              );
+
+            const hasRecipe =
+              recipeDishIds.has(
+                d.dish_id
+              );
+
+            return {
+              dish_id: d.dish_id,
+              name:
+                dish?.name ||
+                "Unknown",
+              price:
+                Number(
+                  dish?.price || 0
+                ),
+              quantity:
+                currentQty,
+              suggested:
+                hasRecipe
+                  ? Math.max(
+                      TARGET_STOCK -
+                        currentQty,
+                      5
+                    )
+                  : 0,
+              hasRecipe,
+            };
+
+          });
 
       setLowDishes(low);
 
       const initialPlan = {};
-      low.forEach((d) => {
-        if (d.hasRecipe) {
-          initialPlan[d.dish_id] = d.suggested;
+
+      low.forEach((dish) => {
+
+        if (dish.hasRecipe) {
+
+          initialPlan[
+            dish.dish_id
+          ] = dish.suggested;
+
         }
+
       });
 
       setPlan(initialPlan);
+
     } catch (err) {
-      console.error("LOAD ERROR:", err);
+
+      console.error(
+        "PRODUCTION LOAD ERROR:",
+        err
+      );
+
     }
+
   };
 
   useEffect(() => {
-    loadLowDishes();
+
+    if (!tenantId) return;
+
+    loadData();
 
     const channel = supabase
-      .channel("production-dish-stock")
+      .channel(
+        "production-stock-sync"
+      )
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "dish_stock",
-          filter: `tenant_id=eq.${TENANT_ID}`,
+          filter: `tenant_id=eq.${tenantId}`,
         },
-        loadLowDishes
+        () => {
+          loadData();
+        }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(
+        channel
+      );
     };
-  }, []);
 
-  const calculateIngredients = async (currentPlan) => {
-    const summary = {};
-    let cost = 0;
-    let revenue = 0;
+  }, [tenantId]);
 
-    for (const [dish_id, qty] of Object.entries(currentPlan)) {
-      if (!qty || qty <= 0) continue;
+  // =========================
+  // MAPS
+  // =========================
 
-      const dish = lowDishes.find((d) => d.dish_id === dish_id);
+  const ingredientMap =
+    useMemo(() => {
 
-      if (!dish?.hasRecipe) continue;
+      const map = {};
 
-      revenue += (dish?.price || 0) * qty;
+      for (const ingredient of ingredients) {
 
-      const res = await fetch("/api/recipes/by-dish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dish_id }),
-      });
+        map[ingredient.id] =
+          ingredient;
 
-      const recipe = await res.json();
-
-      for (const item of recipe || []) {
-        const total = Number(item.quantity || 0) * Number(qty || 0);
-
-        if (!summary[item.ingredient_id]) {
-          summary[item.ingredient_id] = {
-            name: item.name,
-            needed: 0,
-            cost: item.cost || 0,
-          };
-        }
-
-        summary[item.ingredient_id].needed += total;
-        cost += Number(item.cost || 0) * total;
       }
-    }
 
-    const profit = revenue - cost;
-    const marginValue = revenue > 0 ? (profit / revenue) * 100 : 0;
+      return map;
 
-    setTotalCost(cost);
-    setTotalRevenue(revenue);
-    setTotalProfit(profit);
-    setMargin(marginValue);
+    }, [ingredients]);
 
-    return summary;
-  };
+  const ingredientStockMap =
+    useMemo(() => {
 
-  const evaluatePlan = async () => {
-    const summary = await calculateIngredients(plan);
+      const map = {};
 
-    let valid = true;
+      for (const stock of ingredientStock) {
 
-    const result = Object.entries(summary).map(([id, data]) => {
-      const available = stockMap[id] || 0;
+        map[
+          stock.ingredient_id
+        ] = Number(
+          stock.quantity || 0
+        );
 
-      if (data.needed > available) valid = false;
+      }
 
-      return {
-        ...data,
-        available,
-        ok: data.needed <= available,
-      };
-    });
+      return map;
 
-    setIngredientSummary(result);
-    setCanProduce(valid);
-  };
+    }, [ingredientStock]);
+
+  // =========================
+  // CALCULATE PLAN
+  // =========================
 
   useEffect(() => {
-    evaluatePlan();
-  }, [plan, stockMap, lowDishes]);
 
-  const runBatchProduction = async () => {
-    if (loading || !canProduce) return;
+    const calculate =
+      async () => {
 
-    const entries = Object.entries(plan).filter(([dish_id, qty]) => {
-      const dish = lowDishes.find((d) => d.dish_id === dish_id);
+        let cost = 0;
+        let revenue = 0;
+        let valid = true;
 
-      return dish?.hasRecipe && Number(qty || 0) > 0;
-    });
+        const summary = {};
 
-    if (entries.length === 0) {
-      alert("No valid production planned");
-      return;
-    }
+        for (const [
+          dish_id,
+          qty,
+        ] of Object.entries(plan)) {
 
-    setLoading(true);
+          const produceQty =
+            Number(qty || 0);
 
-    try {
-      for (const [dish_id, qty] of entries) {
-        const response = await fetch("/api/production/batch/produce", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tenantId: TENANT_ID,
-            dishId: dish_id,
-            quantity: Number(qty),
-            referenceId: crypto.randomUUID(),
-          }),
-        });
+          if (produceQty <= 0)
+            continue;
 
-        const result = await response.json();
+          const dish =
+            lowDishes.find(
+              (d) =>
+                d.dish_id ===
+                dish_id
+            );
 
-        if (!result.success || !result.result?.success) {
-          console.error(result);
-          alert(result?.result?.error || "Production failed");
-          setLoading(false);
-          return;
+          if (!dish?.hasRecipe)
+            continue;
+
+          revenue +=
+            Number(
+              dish.price || 0
+            ) * produceQty;
+
+          const recipeItems =
+            recipes.filter(
+              (r) =>
+                r.dish_id ===
+                dish_id
+            );
+
+          for (const recipeItem of recipeItems) {
+
+            const ingredient =
+              ingredientMap[
+                recipeItem
+                  .ingredient_id
+              ];
+
+            const ingredientCost =
+              Number(
+                ingredient?.cost_per_unit ||
+                  0
+              );
+
+            const recipeQty =
+              Number(
+                recipeItem.quantity ||
+                  0
+              );
+
+            const requiredQty =
+              recipeQty *
+              produceQty;
+
+            cost +=
+              ingredientCost *
+              requiredQty;
+
+            if (
+              !summary[
+                recipeItem
+                  .ingredient_id
+              ]
+            ) {
+
+              summary[
+                recipeItem
+                  .ingredient_id
+              ] = {
+                name:
+                  recipeItem
+                    .ingredient_name ||
+                  ingredient?.name ||
+                  "Unknown",
+                needed: 0,
+                available:
+                  ingredientStockMap[
+                    recipeItem
+                      .ingredient_id
+                  ] || 0,
+              };
+
+            }
+
+            summary[
+              recipeItem
+                .ingredient_id
+            ].needed +=
+              requiredQty;
+
+          }
+
         }
+
+        const summaryArray =
+          Object.values(summary).map(
+            (item) => {
+
+              const ok =
+                item.available >=
+                item.needed;
+
+              if (!ok)
+                valid = false;
+
+              return {
+                ...item,
+                ok,
+              };
+
+            }
+          );
+
+        const profit =
+          revenue - cost;
+
+        const marginValue =
+          revenue > 0
+            ? (
+                (profit /
+                  revenue) *
+                100
+              ).toFixed(1)
+            : "0.0";
+
+        setIngredientSummary(
+          summaryArray
+        );
+
+        setTotalCost(cost);
+
+        setTotalRevenue(revenue);
+
+        setTotalProfit(profit);
+
+        setMargin(marginValue);
+
+        setCanProduce(valid);
+
+      };
+
+    calculate();
+
+  }, [
+    plan,
+    lowDishes,
+    recipes,
+    ingredientMap,
+    ingredientStockMap,
+  ]);
+
+  // =========================
+  // PRODUCE
+  // =========================
+
+  const runBatchProduction =
+    async () => {
+
+      if (
+        loading ||
+        !canProduce
+      )
+        return;
+
+      const entries =
+        Object.entries(plan).filter(
+          ([dish_id, qty]) => {
+
+            const dish =
+              lowDishes.find(
+                (d) =>
+                  d.dish_id ===
+                  dish_id
+              );
+
+            return (
+              dish?.hasRecipe &&
+              Number(qty || 0) >
+                0
+            );
+
+          }
+        );
+
+      if (
+        entries.length === 0
+      ) {
+
+        alert(
+          "No valid production planned"
+        );
+
+        return;
+
       }
 
-      alert("✅ Production completed");
-      setPlan({});
-      await loadLowDishes();
-    } catch (err) {
-      console.error(err);
-      alert("Production failed");
-    }
+      setLoading(true);
 
-    setLoading(false);
-  };
+      try {
 
-  const validProductionCount = lowDishes.filter((d) => d.hasRecipe).length;
-  const blockedProductionCount = lowDishes.filter((d) => !d.hasRecipe).length;
+        for (const [
+          dish_id,
+          qty,
+        ] of entries) {
+
+          const response =
+            await fetch(
+              "/api/production/batch/produce",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  tenantId:
+                    tenantId,
+                  dishId:
+                    dish_id,
+                  quantity:
+                    Number(qty),
+                  referenceId:
+                    crypto.randomUUID(),
+                }),
+              }
+            );
+
+          const result =
+            await response.json();
+
+          if (
+            !result.success ||
+            !result.result
+              ?.success
+          ) {
+
+            console.error(
+              result
+            );
+
+            alert(
+              result?.result
+                ?.error ||
+                "Production failed"
+            );
+
+            setLoading(false);
+
+            return;
+
+          }
+
+        }
+
+        alert(
+          "✅ Production completed"
+        );
+
+        await loadData();
+
+      } catch (err) {
+
+        console.error(err);
+
+        alert(
+          "Production failed"
+        );
+
+      }
+
+      setLoading(false);
+
+    };
+
+  // =========================
+  // UI
+  // =========================
+
+  const validProductionCount =
+    lowDishes.filter(
+      (d) => d.hasRecipe
+    ).length;
+
+  const blockedProductionCount =
+    lowDishes.filter(
+      (d) => !d.hasRecipe
+    ).length;
 
   return (
+
     <div className="p-6 text-white bg-black min-h-screen max-w-xl mx-auto">
-      <h1 className="text-2xl mb-2">Morning Production</h1>
+
+      <h1 className="text-3xl mb-2 font-bold">
+        Morning Production
+      </h1>
 
       <div className="text-sm text-gray-400 mb-6">
-        Ready: {validProductionCount} | Blocked: {blockedProductionCount}
+
+        Ready:
+        {" "}
+        {validProductionCount}
+        {" "}
+        |
+        {" "}
+        Blocked:
+        {" "}
+        {blockedProductionCount}
+
       </div>
 
       {lowDishes.length === 0 && (
+
         <div className="bg-gray-900 p-4 rounded text-gray-400">
+
           No low dish stock.
+
         </div>
+
       )}
 
       {lowDishes.map((dish) => (
+
         <div
           key={dish.dish_id}
           className={`flex justify-between p-4 mb-3 rounded ${
@@ -260,99 +662,215 @@ export default function ProductionPage() {
               : "bg-red-950 border border-red-700"
           }`}
         >
+
           <div>
-            <p>{dish.name}</p>
+
+            <p className="text-lg font-semibold">
+              {dish.name}
+            </p>
 
             <p className="text-sm text-gray-400">
-              Stock: {dish.quantity} | Price: {dish.price}
+
+              Stock:
+              {" "}
+              {dish.quantity}
+              {" "}
+              |
+              {" "}
+              Price:
+              {" "}
+              ฿
+              {dish.price}
+
             </p>
 
             {!dish.hasRecipe && (
+
               <p className="text-sm text-red-400 mt-1">
+
                 Recipe Missing • Cannot Produce
+
               </p>
+
             )}
+
           </div>
 
           <input
             type="number"
             disabled={!dish.hasRecipe}
-            value={plan[dish.dish_id] || 0}
+            value={
+              plan[
+                dish.dish_id
+              ] || 0
+            }
             onChange={(e) =>
               setPlan({
                 ...plan,
-                [dish.dish_id]: Number(e.target.value),
+                [dish.dish_id]:
+                  Number(
+                    e.target.value
+                  ),
               })
             }
             className={`w-20 text-black px-2 py-1 rounded ${
-              !dish.hasRecipe ? "opacity-40 cursor-not-allowed" : ""
+              !dish.hasRecipe
+                ? "opacity-40 cursor-not-allowed"
+                : ""
             }`}
           />
+
         </div>
+
       ))}
 
       <div className="bg-gray-900 p-4 mt-4 rounded">
-        <h2>Ingredients</h2>
 
-        {ingredientSummary.length === 0 && (
-          <div className="text-sm text-gray-400 mt-2">
+        <h2 className="text-xl mb-3">
+          Ingredients
+        </h2>
+
+        {ingredientSummary.length ===
+          0 && (
+
+          <div className="text-sm text-gray-400">
+
             No valid production selected.
+
           </div>
+
         )}
 
-        {ingredientSummary.map((i, index) => (
-          <div key={index} className="flex justify-between text-sm">
-            <span>{i.name}</span>
-            <span className={i.ok ? "text-green-400" : "text-red-400"}>
-              {i.needed} / {i.available}
-            </span>
-          </div>
-        ))}
+        {ingredientSummary.map(
+          (i, index) => (
+
+            <div
+              key={index}
+              className="flex justify-between text-sm mb-1"
+            >
+
+              <span>
+                {i.name}
+              </span>
+
+              <span
+                className={
+                  i.ok
+                    ? "text-green-400"
+                    : "text-red-400"
+                }
+              >
+
+                {i.needed}
+                {" / "}
+                {i.available}
+
+              </span>
+
+            </div>
+
+          )
+        )}
+
       </div>
 
       <div className="bg-gray-900 p-4 mt-4 rounded">
-        <h2>Batch Summary</h2>
 
-        <div className="flex justify-between">
+        <h2 className="text-xl mb-3">
+          Batch Summary
+        </h2>
+
+        <div className="flex justify-between mb-1">
+
           <span>Cost</span>
-          <span>{totalCost.toFixed(2)}</span>
-        </div>
 
-        <div className="flex justify-between">
-          <span>Revenue</span>
-          <span>{totalRevenue.toFixed(2)}</span>
-        </div>
-
-        <div className="flex justify-between">
-          <span>Profit</span>
-          <span className={totalProfit >= 0 ? "text-green-400" : "text-red-400"}>
-            {totalProfit.toFixed(2)}
+          <span>
+            ฿
+            {totalCost.toFixed(
+              2
+            )}
           </span>
+
+        </div>
+
+        <div className="flex justify-between mb-1">
+
+          <span>Revenue</span>
+
+          <span>
+            ฿
+            {totalRevenue.toFixed(
+              2
+            )}
+          </span>
+
+        </div>
+
+        <div className="flex justify-between mb-1">
+
+          <span>Profit</span>
+
+          <span
+            className={
+              totalProfit >= 0
+                ? "text-green-400"
+                : "text-red-400"
+            }
+          >
+
+            ฿
+            {totalProfit.toFixed(
+              2
+            )}
+
+          </span>
+
         </div>
 
         <div className="flex justify-between">
+
           <span>Margin</span>
-          <span>{margin.toFixed(1)}%</span>
+
+          <span>
+            {margin}%
+          </span>
+
         </div>
+
       </div>
 
       <button
-        onClick={runBatchProduction}
-        disabled={!canProduce || loading || validProductionCount === 0}
-        className={`mt-6 w-full py-3 rounded ${
-          canProduce && validProductionCount > 0
-            ? "bg-green-600"
+        onClick={
+          runBatchProduction
+        }
+        disabled={
+          !canProduce ||
+          loading ||
+          validProductionCount ===
+            0
+        }
+        className={`mt-6 w-full py-3 rounded text-lg font-semibold ${
+          canProduce &&
+          validProductionCount >
+            0
+            ? "bg-green-600 hover:bg-green-500"
             : "bg-red-600"
         }`}
       >
+
         {loading
           ? "Processing..."
-          : validProductionCount === 0
+          : validProductionCount ===
+            0
           ? "No Valid Recipes"
           : canProduce
           ? "Produce"
           : "Fix Ingredients"}
+
       </button>
+
     </div>
+
   );
+
 }

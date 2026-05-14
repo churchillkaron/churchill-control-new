@@ -193,6 +193,10 @@ export async function POST(req) {
         console.log(
   "ENTERING GROUP LOOP"
 );
+console.log(
+  "PROCESSING DISH:",
+  item.dish_id
+);
 
         const item =
           groupedItems[key];

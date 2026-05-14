@@ -32,6 +32,11 @@ const navigation = {
         href: "/history",
       },
 
+      {
+        name: "Alerts",
+        href: "/alerts",
+      }
+
     ],
 
     OPERATIONS: [
@@ -124,6 +129,11 @@ const navigation = {
         name: "Dashboard",
         href: "/dashboard",
       },
+
+      {
+  name: "Alerts",
+  href: "/alerts",
+}
 
     ],
 

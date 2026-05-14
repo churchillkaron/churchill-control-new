@@ -190,16 +190,18 @@ export async function POST(req) {
       // =========================
 
       for (const key in groupedItems) {
-        console.log(
-  "ENTERING GROUP LOOP"
-);
-console.log(
-  "PROCESSING DISH:",
-  item.dish_id
-);
 
-        const item =
-          groupedItems[key];
+  console.log(
+    "ENTERING GROUP LOOP"
+  );
+
+  const item =
+    groupedItems[key];
+
+  console.log(
+    "PROCESSING DISH:",
+    item.dish_id
+  );
 
         // =========================
         // DISH STOCK DEDUCTION

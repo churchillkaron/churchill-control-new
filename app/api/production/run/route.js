@@ -212,8 +212,10 @@ export async function POST(req) {
 
     for (const item of recipe) {
 
+      // LOAD STOCK
+
       const {
-        data: ingredientStock,
+        data: stockData,
       } = await supabase
 
         .from(
@@ -221,10 +223,7 @@ export async function POST(req) {
         )
 
         .select(`
-          quantity,
-          ingredients (
-            name
-          )
+          quantity
         `)
 
         .eq(
@@ -239,19 +238,35 @@ export async function POST(req) {
 
         .single();
 
+      // LOAD INGREDIENT
+
+      const {
+        data: ingredientData,
+      } = await supabase
+
+        .from("ingredients")
+
+        .select(`
+          name
+        `)
+
+        .eq(
+          "id",
+          item.ingredient_id
+        )
+
+        .single();
+
       const remainingQty =
         Number(
-          ingredientStock?.quantity || 0
+          stockData?.quantity || 0
         );
 
       const ingredientName =
-        ingredientStock
-          ?.ingredients?.name ||
+        ingredientData?.name ||
         "Ingredient";
 
-      if (
-        remainingQty <= 10
-      ) {
+      if (remainingQty <= 10) {
 
         await createAlert({
 

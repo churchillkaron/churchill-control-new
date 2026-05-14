@@ -476,12 +476,12 @@ export default function ProductionPage() {
     calculate();
 
   }, [
-    plan,
-    lowDishes,
-    recipes,
-    ingredientMap,
-    ingredientStockMap,
-  ]);
+  plan,
+  lowDishes,
+  recipes,
+  ingredients,
+  ingredientStock,
+]);
 
   // =========================
   // PRODUCE

@@ -80,32 +80,38 @@ export default function POSPage() {
     loadUserAndTenant();
   }, []);
 
-  // ===== REALTIME STOCK =====
-  useEffect(() => {
-    if (!tenantId) return;
+ // ===== REALTIME STOCK =====
+useEffect(() => {
+  if (!tenantId) return;
 
+  loadMenu();
+
+  const interval = setInterval(() => {
     loadMenu();
+  }, 2000);
 
-    const channel = supabase
-      .channel("dish-stock-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "dish_stock",
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        () => {
-          loadMenu();
-        }
-      )
-      .subscribe();
+  const channel = supabase
+    .channel("dish-stock-changes")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "dish_stock",
+        filter: `tenant_id=eq.${tenantId}`,
+      },
+      () => {
+        loadMenu();
+      }
+    )
+    .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tenantId]);
+  return () => {
+    clearInterval(interval);
+    supabase.removeChannel(channel);
+  };
+
+}, [tenantId]);
 
   const getSelectedQuantity = (dishId) => {
     const existingItem = orderItems.find((item) => item.dish_id === dishId);

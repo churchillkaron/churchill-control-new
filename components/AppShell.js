@@ -9,22 +9,32 @@ import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/shared/supabase/client";
 
 // =========================
-// ROLE MENUS
+// DOMAIN NAVIGATION
 // =========================
 
-const roleMenus = {
+const navigation = {
 
   // =========================
-  // STAFF
+  // OWNER
   // =========================
 
-  staff: {
+  owner: {
 
-    // =========================
-    // FOH
-    // =========================
+    CONTROL: [
 
-    foh: [
+      {
+        name: "Dashboard",
+        href: "/dashboard",
+      },
+
+      {
+        name: "History",
+        href: "/history",
+      },
+
+    ],
+
+    OPERATIONS: [
 
       {
         name: "POS",
@@ -35,19 +45,6 @@ const roleMenus = {
         name: "Tables",
         href: "/tables",
       },
-
-      {
-        name: "Kitchen",
-        href: "/kitchen",
-      },
-
-    ],
-
-    // =========================
-    // KITCHEN
-    // =========================
-
-    kitchen: [
 
       {
         name: "Kitchen",
@@ -59,18 +56,78 @@ const roleMenus = {
         href: "/production",
       },
 
+    ],
+
+    FINANCE: [
+
+      {
+        name: "Accounting",
+        href: "/accounting-overview",
+      },
+
       {
         name: "Shift Close",
         href: "/shift-close",
       },
 
+      {
+        name: "Shift History",
+        href: "/shift-history",
+      },
+
+      {
+        name: "Payout",
+        href: "/payout",
+      },
+
     ],
 
-    // =========================
-    // BAR
-    // =========================
+    MARKETING: [
 
-    bar: [
+      {
+        name: "Operations",
+        href: "/marketing/operations",
+      },
+
+      {
+        name: "Design",
+        href: "/marketing/design",
+      },
+
+      {
+        name: "Queue",
+        href: "/marketing/queue",
+      },
+
+    ],
+
+    ADMIN: [
+
+      {
+        name: "Users",
+        href: "/users",
+      },
+
+    ],
+
+  },
+
+  // =========================
+  // MANAGER
+  // =========================
+
+  manager: {
+
+    CONTROL: [
+
+      {
+        name: "Dashboard",
+        href: "/dashboard",
+      },
+
+    ],
+
+    OPERATIONS: [
 
       {
         name: "POS",
@@ -83,8 +140,27 @@ const roleMenus = {
       },
 
       {
+        name: "Kitchen",
+        href: "/kitchen",
+      },
+
+      {
+        name: "Production",
+        href: "/production",
+      },
+
+    ],
+
+    FINANCE: [
+
+      {
         name: "Shift Close",
         href: "/shift-close",
+      },
+
+      {
+        name: "Shift History",
+        href: "/shift-history",
       },
 
     ],
@@ -92,149 +168,103 @@ const roleMenus = {
   },
 
   // =========================
-  // OWNER
-  // =========================
-
-  owner: [
-
-    // =========================
-    // CONTROL
-    // =========================
-
-    {
-      name: "Dashboard",
-      href: "/dashboard",
-    },
-
-    // =========================
-    // OPERATIONS
-    // =========================
-
-    {
-      name: "POS",
-      href: "/pos",
-    },
-
-    {
-      name: "Tables",
-      href: "/tables",
-    },
-
-    {
-      name: "Kitchen",
-      href: "/kitchen",
-    },
-
-    {
-      name: "Production",
-      href: "/production",
-    },
-
-    // =========================
-    // FINANCE
-    // =========================
-
-    {
-      name: "Accounting",
-      href: "/accounting-overview",
-    },
-
-    {
-      name: "Shift Close",
-      href: "/shift-close",
-    },
-
-    {
-      name: "Shift History",
-      href: "/shift-history",
-    },
-
-    // =========================
-    // MARKETING
-    // =========================
-
-    {
-      name: "Marketing",
-      href: "/marketing/operations",
-    },
-
-  ],
-
-  // =========================
-  // MANAGER
-  // =========================
-
-  manager: [
-
-    {
-      name: "Dashboard",
-      href: "/dashboard",
-    },
-
-    {
-      name: "POS",
-      href: "/pos",
-    },
-
-    {
-      name: "Tables",
-      href: "/tables",
-    },
-
-    {
-      name: "Kitchen",
-      href: "/kitchen",
-    },
-
-    {
-      name: "Production",
-      href: "/production",
-    },
-
-    {
-      name: "Shift Close",
-      href: "/shift-close",
-    },
-
-    {
-      name: "Shift History",
-      href: "/shift-history",
-    },
-
-  ],
-
-  // =========================
   // ACCOUNTING
   // =========================
 
-  accounting: [
+  accounting: {
 
-    {
-      name: "Accounting",
-      href: "/accounting-overview",
+    FINANCE: [
+
+      {
+        name: "Accounting",
+        href: "/accounting-overview",
+      },
+
+      {
+        name: "Shift Close",
+        href: "/shift-close",
+      },
+
+      {
+        name: "Shift History",
+        href: "/shift-history",
+      },
+
+      {
+        name: "Payout",
+        href: "/payout",
+      },
+
+    ],
+
+  },
+
+  // =========================
+  // STAFF
+  // =========================
+
+  staff: {
+
+    foh: {
+
+      OPERATIONS: [
+
+        {
+          name: "POS",
+          href: "/pos",
+        },
+
+        {
+          name: "Tables",
+          href: "/tables",
+        },
+
+      ],
+
     },
 
-    {
-      name: "Shift Close",
-      href: "/shift-close",
+    kitchen: {
+
+      OPERATIONS: [
+
+        {
+          name: "Kitchen",
+          href: "/kitchen",
+        },
+
+        {
+          name: "Production",
+          href: "/production",
+        },
+
+      ],
+
     },
 
-    {
-      name: "Shift History",
-      href: "/shift-history",
+    bar: {
+
+      OPERATIONS: [
+
+        {
+          name: "POS",
+          href: "/pos",
+        },
+
+        {
+          name: "Tables",
+          href: "/tables",
+        },
+
+      ],
+
     },
 
-    {
-      name: "Dashboard",
-      href: "/dashboard",
-    },
-
-  ],
+  },
 
 };
 
 // =========================
-// COMPONENT
+// APP SHELL
 // =========================
 
 export default function AppShell({
@@ -251,6 +281,11 @@ export default function AppShell({
     position,
     setPosition,
   ] = useState("foh");
+
+  const [
+    expandedGroup,
+    setExpandedGroup,
+  ] = useState(null);
 
   // =========================
   // LOAD USER
@@ -317,36 +352,67 @@ export default function AppShell({
   }, []);
 
   // =========================
-  // MENU RESOLUTION
+  // RESOLVE NAVIGATION
   // =========================
 
-  let menu = [];
+  let navGroups =
+    {};
 
-  if (role === "staff") {
+  if (
+    role ===
+    "staff"
+  ) {
 
-    menu =
-      roleMenus.staff[
+    navGroups =
+      navigation.staff[
         position
       ] ||
-      roleMenus.staff.foh;
+      navigation.staff.foh;
 
   } else {
 
-    menu =
-      roleMenus[role] ||
-      [];
+    navGroups =
+      navigation[
+        role
+      ] || {};
 
   }
 
   // =========================
-  // MOBILE NAV
+  // MOBILE MENU
   // =========================
 
-  let mobileMenu =
-    menu;
+  const mobileMenu = [
+
+    {
+      name: "Dashboard",
+      href: "/dashboard",
+    },
+
+    {
+      name: "POS",
+      href: "/pos",
+    },
+
+    {
+      name: "Kitchen",
+      href: "/kitchen",
+    },
+
+    {
+      name: "Finance",
+      href: "/accounting-overview",
+    },
+
+    {
+      name: "More",
+      href: "/dashboard",
+    },
+
+  ];
 
   // =========================
-  // AUTH EXCLUDED ROUTES
+  // LOGIN EXCLUSION
   // =========================
 
   if (
@@ -365,9 +431,9 @@ export default function AppShell({
     <div
       className="
         min-h-screen
+        bg-black
         text-white
         relative
-        bg-black
         overflow-hidden
       "
     >
@@ -395,9 +461,9 @@ export default function AppShell({
           fixed
           inset-0
           bg-gradient-to-b
-          from-black/65
-          via-black/45
-          to-black/80
+          from-black/70
+          via-black/50
+          to-black/85
         "
       />
 
@@ -415,7 +481,7 @@ export default function AppShell({
       >
 
         {/* ========================= */}
-        {/* TOPBAR */}
+        {/* TOP NAV */}
         {/* ========================= */}
 
         <header
@@ -437,9 +503,7 @@ export default function AppShell({
           "
         >
 
-          {/* ========================= */}
           {/* LEFT */}
-          {/* ========================= */}
 
           <div
             className="
@@ -465,8 +529,8 @@ export default function AppShell({
                 hidden
                 md:block
                 text-xs
-                text-orange-300
                 uppercase
+                text-orange-300
               "
             >
 
@@ -477,70 +541,139 @@ export default function AppShell({
             </div>
 
             {/* ========================= */}
-            {/* DESKTOP NAV */}
+            {/* DESKTOP GROUPS */}
             {/* ========================= */}
 
-            <nav
+            <div
               className="
                 hidden
                 lg:flex
                 items-center
-                gap-2
-                flex-wrap
+                gap-3
               "
             >
 
-              {menu.map(
-                (item) => {
+              {Object.entries(
+                navGroups
+              ).map(
+                ([
+                  groupName,
+                  items,
+                ]) => (
 
-                  const active =
-                    pathname ===
-                    item.href;
+                  <div
+                    key={
+                      groupName
+                    }
+                    className="relative"
+                  >
 
-                  return (
-
-                    <Link
-                      key={
-                        item.name
+                    <button
+                      onClick={() =>
+                        setExpandedGroup(
+                          expandedGroup ===
+                            groupName
+                            ? null
+                            : groupName
+                        )
                       }
-                      href={
-                        item.href
-                      }
-                      className={`
-
+                      className="
                         px-3
                         py-2
                         rounded-lg
                         text-xs
                         uppercase
                         tracking-[0.15em]
+                        bg-white/5
+                        hover:bg-white/10
                         transition
-
-                        ${
-                          active
-                            ? "bg-orange-500 text-black"
-                            : "text-white/50 hover:text-white hover:bg-white/5"
-                        }
-
-                      `}
+                      "
                     >
 
-                      {item.name}
+                      {groupName}
 
-                    </Link>
+                    </button>
 
-                  );
+                    {expandedGroup ===
+                      groupName && (
 
-                }
+                      <div
+                        className="
+                          absolute
+                          top-12
+                          left-0
+                          min-w-[220px]
+                          bg-black/90
+                          border
+                          border-white/10
+                          rounded-2xl
+                          p-2
+                          space-y-1
+                          backdrop-blur-xl
+                        "
+                      >
+
+                        {items.map(
+                          (
+                            item
+                          ) => {
+
+                            const active =
+                              pathname ===
+                              item.href;
+
+                            return (
+
+                              <Link
+                                key={
+                                  item.name
+                                }
+                                href={
+                                  item.href
+                                }
+                                className={`
+
+                                  block
+                                  px-4
+                                  py-3
+                                  rounded-xl
+                                  text-sm
+                                  transition
+
+                                  ${
+                                    active
+                                      ? "bg-orange-500 text-black"
+                                      : "text-white/70 hover:bg-white/5 hover:text-white"
+                                  }
+
+                                `}
+                              >
+
+                                {
+                                  item.name
+                                }
+
+                              </Link>
+
+                            );
+
+                          }
+                        )}
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+                )
               )}
 
-            </nav>
+            </div>
 
           </div>
 
-          {/* ========================= */}
           {/* RIGHT */}
-          {/* ========================= */}
 
           <div
             className="
@@ -565,7 +698,6 @@ export default function AppShell({
         <main
           className="
             mt-16
-            w-full
             h-[calc(100vh-4rem)]
             overflow-y-auto
             p-6
@@ -589,8 +721,8 @@ export default function AppShell({
           bottom-0
           left-0
           right-0
-          z-50
           md:hidden
+          z-50
         "
       >
 
@@ -600,11 +732,10 @@ export default function AppShell({
             justify-around
             items-center
             py-2
-            bg-black/80
+            bg-black/85
             border-t
             border-white/10
             backdrop-blur-xl
-            overflow-x-auto
           "
         >
 
@@ -629,11 +760,8 @@ export default function AppShell({
                     flex
                     flex-col
                     items-center
-                    justify-center
-                    min-w-[72px]
                     text-[10px]
-                    px-2
-                    py-1
+                    min-w-[60px]
                     transition
 
                     ${

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import generateEmbeddings from "@/lib/intelligence/openai/generateEmbeddings";
+
 import searchMemory from "@/lib/intelligence/semantic/searchMemory";
 
 export async function POST(req) {
@@ -9,10 +11,30 @@ export async function POST(req) {
     const body =
       await req.json();
 
-    const result =
-      await searchMemory(
-        body
+    const embedding =
+      await generateEmbeddings(
+        body.query
       );
+
+    if (
+      !embedding.success
+    ) {
+
+      return NextResponse.json(
+        embedding,
+        {
+          status: 500,
+        }
+      );
+    }
+
+    const result =
+      await searchMemory({
+        tenant_id:
+          body.tenant_id,
+        embedding:
+          embedding.embedding,
+      });
 
     return NextResponse.json(
       result

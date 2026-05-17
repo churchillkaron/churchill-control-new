@@ -4,6 +4,10 @@ const nextConfig = {
 
   output: "standalone",
 
+  experimental: {
+    optimizePackageImports: [],
+  },
+
   images: {
     unoptimized: true,
   },

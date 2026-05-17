@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export default function CustomerAIPage() {
+export default function RetentionAIPage() {
 
   const [
     data,
@@ -13,7 +13,7 @@ export default function CustomerAIPage() {
 
     const res =
       await fetch(
-        "/api/intelligence/customers",
+        "/api/intelligence/retention",
         {
           method: "POST",
 
@@ -50,11 +50,11 @@ export default function CustomerAIPage() {
         <div>
 
           <h1 className="text-6xl font-bold">
-            Customer Lifetime AI
+            Retention AI
           </h1>
 
           <div className="text-zinc-500 mt-3">
-            Customer Value & Retention Intelligence
+            Customer Retention & Win-Back Intelligence
           </div>
 
         </div>
@@ -68,7 +68,7 @@ export default function CustomerAIPage() {
 
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
         <div className="border border-zinc-800 rounded-2xl p-6">
 
@@ -88,13 +88,13 @@ export default function CustomerAIPage() {
         <div className="border border-zinc-800 rounded-2xl p-6">
 
           <div className="text-zinc-500">
-            Revenue
+            High Risk
           </div>
 
           <div className="text-5xl mt-4">
             {
               data?.summary
-                ?.total_customer_revenue || 0
+                ?.high_risk || 0
             }
           </div>
 
@@ -103,28 +103,13 @@ export default function CustomerAIPage() {
         <div className="border border-zinc-800 rounded-2xl p-6">
 
           <div className="text-zinc-500">
-            VIP
+            VIP Risk
           </div>
 
           <div className="text-5xl mt-4">
             {
               data?.summary
-                ?.vip_customers || 0
-            }
-          </div>
-
-        </div>
-
-        <div className="border border-zinc-800 rounded-2xl p-6">
-
-          <div className="text-zinc-500">
-            Elite
-          </div>
-
-          <div className="text-5xl mt-4">
-            {
-              data?.summary
-                ?.elite_customers || 0
+                ?.vip_risk || 0
             }
           </div>
 
@@ -157,16 +142,8 @@ export default function CustomerAIPage() {
                     {customer.phone}
                   </div>
 
-                  <div className="mt-4 text-sm">
-                    First Visit:
-                    {" "}
-                    {customer.first_visit}
-                  </div>
-
-                  <div className="mt-2 text-sm">
-                    Last Visit:
-                    {" "}
-                    {customer.last_visit}
+                  <div className="mt-4">
+                    {customer.action}
                   </div>
 
                 </div>
@@ -174,9 +151,9 @@ export default function CustomerAIPage() {
                 <div className="text-right">
 
                   <div>
-                    Tier:
+                    Risk:
                     {" "}
-                    {customer.tier}
+                    {customer.retention_risk}
                   </div>
 
                   <div className="mt-2">
@@ -192,9 +169,9 @@ export default function CustomerAIPage() {
                   </div>
 
                   <div className="mt-2">
-                    Avg Spend:
+                    Days Away:
                     {" "}
-                    {customer.average_spend}
+                    {customer.days_since_visit}
                   </div>
 
                 </div>

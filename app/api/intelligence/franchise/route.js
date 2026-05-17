@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
 
-import buildCustomerLifetimeValueAI from "@/lib/intelligence/customers/buildCustomerLifetimeValueAI";
+import buildFranchiseIntelligenceNetwork from "@/lib/intelligence/franchise/buildFranchiseIntelligenceNetwork";
 
-export async function POST(req) {
+export async function GET() {
 
   try {
 
-    const body =
-      await req.json();
-
     const result =
-      await buildCustomerLifetimeValueAI(
-        body
-      );
+      await buildFranchiseIntelligenceNetwork();
 
     return NextResponse.json(
       result

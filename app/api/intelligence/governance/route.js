@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import buildCustomerLifetimeValueAI from "@/lib/intelligence/customers/buildCustomerLifetimeValueAI";
+import buildAIGovernanceEngine from "@/lib/intelligence/governance/buildAIGovernanceEngine";
 
 export async function POST(req) {
 
@@ -10,7 +10,7 @@ export async function POST(req) {
       await req.json();
 
     const result =
-      await buildCustomerLifetimeValueAI(
+      await buildAIGovernanceEngine(
         body
       );
 

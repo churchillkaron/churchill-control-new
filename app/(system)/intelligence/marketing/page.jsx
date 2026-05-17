@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export default function CustomerAIPage() {
+export default function MarketingAIPage() {
 
   const [
     data,
@@ -13,7 +13,7 @@ export default function CustomerAIPage() {
 
     const res =
       await fetch(
-        "/api/intelligence/customers",
+        "/api/intelligence/marketing",
         {
           method: "POST",
 
@@ -50,11 +50,11 @@ export default function CustomerAIPage() {
         <div>
 
           <h1 className="text-6xl font-bold">
-            Customer Lifetime AI
+            Marketing Optimization AI
           </h1>
 
           <div className="text-zinc-500 mt-3">
-            Customer Value & Retention Intelligence
+            Campaign Intelligence & Growth Optimization
           </div>
 
         </div>
@@ -73,13 +73,13 @@ export default function CustomerAIPage() {
         <div className="border border-zinc-800 rounded-2xl p-6">
 
           <div className="text-zinc-500">
-            Customers
+            Campaigns
           </div>
 
           <div className="text-5xl mt-4">
             {
               data?.summary
-                ?.total_customers || 0
+                ?.campaigns || 0
             }
           </div>
 
@@ -88,13 +88,13 @@ export default function CustomerAIPage() {
         <div className="border border-zinc-800 rounded-2xl p-6">
 
           <div className="text-zinc-500">
-            Revenue
+            Impressions
           </div>
 
           <div className="text-5xl mt-4">
             {
               data?.summary
-                ?.total_customer_revenue || 0
+                ?.impressions || 0
             }
           </div>
 
@@ -103,13 +103,13 @@ export default function CustomerAIPage() {
         <div className="border border-zinc-800 rounded-2xl p-6">
 
           <div className="text-zinc-500">
-            VIP
+            Clicks
           </div>
 
           <div className="text-5xl mt-4">
             {
               data?.summary
-                ?.vip_customers || 0
+                ?.clicks || 0
             }
           </div>
 
@@ -118,14 +118,14 @@ export default function CustomerAIPage() {
         <div className="border border-zinc-800 rounded-2xl p-6">
 
           <div className="text-zinc-500">
-            Elite
+            Avg CTR
           </div>
 
           <div className="text-5xl mt-4">
             {
               data?.summary
-                ?.elite_customers || 0
-            }
+                ?.average_ctr || 0
+            }%
           </div>
 
         </div>
@@ -134,9 +134,9 @@ export default function CustomerAIPage() {
 
       <div className="space-y-6">
 
-        {data?.customers?.map(
+        {data?.analysis?.map(
           (
-            customer,
+            item,
             index
           ) => (
 
@@ -150,23 +150,15 @@ export default function CustomerAIPage() {
                 <div>
 
                   <div className="text-2xl">
-                    {customer.customer}
+                    {item.campaign}
                   </div>
 
                   <div className="text-zinc-500 mt-2">
-                    {customer.phone}
+                    {item.platform}
                   </div>
 
                   <div className="mt-4 text-sm">
-                    First Visit:
-                    {" "}
-                    {customer.first_visit}
-                  </div>
-
-                  <div className="mt-2 text-sm">
-                    Last Visit:
-                    {" "}
-                    {customer.last_visit}
+                    {item.recommendation}
                   </div>
 
                 </div>
@@ -174,27 +166,25 @@ export default function CustomerAIPage() {
                 <div className="text-right">
 
                   <div>
-                    Tier:
+                    CTR:
                     {" "}
-                    {customer.tier}
+                    {item.ctr}%
                   </div>
 
                   <div className="mt-2">
-                    Revenue:
+                    Clicks:
                     {" "}
-                    {customer.revenue}
+                    {item.clicks}
                   </div>
 
                   <div className="mt-2">
-                    Visits:
+                    Score:
                     {" "}
-                    {customer.visits}
+                    {item.engagement_score}
                   </div>
 
                   <div className="mt-2">
-                    Avg Spend:
-                    {" "}
-                    {customer.average_spend}
+                    {item.performance}
                   </div>
 
                 </div>

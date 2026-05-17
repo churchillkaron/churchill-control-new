@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export default function CustomerAIPage() {
+export default function WasteAIPage() {
 
   const [
     data,
@@ -13,7 +13,7 @@ export default function CustomerAIPage() {
 
     const res =
       await fetch(
-        "/api/intelligence/customers",
+        "/api/intelligence/waste",
         {
           method: "POST",
 
@@ -50,11 +50,11 @@ export default function CustomerAIPage() {
         <div>
 
           <h1 className="text-6xl font-bold">
-            Customer Lifetime AI
+            Food Waste AI
           </h1>
 
           <div className="text-zinc-500 mt-3">
-            Customer Value & Retention Intelligence
+            Waste Reduction & Operational Efficiency Intelligence
           </div>
 
         </div>
@@ -68,19 +68,16 @@ export default function CustomerAIPage() {
 
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
 
         <div className="border border-zinc-800 rounded-2xl p-6">
 
           <div className="text-zinc-500">
-            Customers
+            Total Waste Cost
           </div>
 
           <div className="text-5xl mt-4">
-            {
-              data?.summary
-                ?.total_customers || 0
-            }
+            {data?.total_waste_cost || 0}
           </div>
 
         </div>
@@ -88,44 +85,11 @@ export default function CustomerAIPage() {
         <div className="border border-zinc-800 rounded-2xl p-6">
 
           <div className="text-zinc-500">
-            Revenue
+            Critical Waste Items
           </div>
 
           <div className="text-5xl mt-4">
-            {
-              data?.summary
-                ?.total_customer_revenue || 0
-            }
-          </div>
-
-        </div>
-
-        <div className="border border-zinc-800 rounded-2xl p-6">
-
-          <div className="text-zinc-500">
-            VIP
-          </div>
-
-          <div className="text-5xl mt-4">
-            {
-              data?.summary
-                ?.vip_customers || 0
-            }
-          </div>
-
-        </div>
-
-        <div className="border border-zinc-800 rounded-2xl p-6">
-
-          <div className="text-zinc-500">
-            Elite
-          </div>
-
-          <div className="text-5xl mt-4">
-            {
-              data?.summary
-                ?.elite_customers || 0
-            }
+            {data?.critical_items || 0}
           </div>
 
         </div>
@@ -134,9 +98,9 @@ export default function CustomerAIPage() {
 
       <div className="space-y-6">
 
-        {data?.customers?.map(
+        {data?.analysis?.map(
           (
-            customer,
+            item,
             index
           ) => (
 
@@ -150,23 +114,17 @@ export default function CustomerAIPage() {
                 <div>
 
                   <div className="text-2xl">
-                    {customer.customer}
+                    {item.item}
                   </div>
 
                   <div className="text-zinc-500 mt-2">
-                    {customer.phone}
+                    Incidents:
+                    {" "}
+                    {item.incidents}
                   </div>
 
                   <div className="mt-4 text-sm">
-                    First Visit:
-                    {" "}
-                    {customer.first_visit}
-                  </div>
-
-                  <div className="mt-2 text-sm">
-                    Last Visit:
-                    {" "}
-                    {customer.last_visit}
+                    {item.recommendation}
                   </div>
 
                 </div>
@@ -174,27 +132,15 @@ export default function CustomerAIPage() {
                 <div className="text-right">
 
                   <div>
-                    Tier:
+                    Cost:
                     {" "}
-                    {customer.tier}
+                    {item.total_cost}
                   </div>
 
                   <div className="mt-2">
-                    Revenue:
+                    Quantity:
                     {" "}
-                    {customer.revenue}
-                  </div>
-
-                  <div className="mt-2">
-                    Visits:
-                    {" "}
-                    {customer.visits}
-                  </div>
-
-                  <div className="mt-2">
-                    Avg Spend:
-                    {" "}
-                    {customer.average_spend}
+                    {item.total_quantity}
                   </div>
 
                 </div>

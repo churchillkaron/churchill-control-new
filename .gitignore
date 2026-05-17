@@ -46,3 +46,4 @@ backups/
 .vercel
 .env.vercel
 .env.staging
+.env.staging

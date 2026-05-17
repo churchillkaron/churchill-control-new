@@ -78,26 +78,26 @@ export default function LoginPage() {
       setLoading(true);
 
       const {
-        error,
-      } = await supabase.auth.signInWithPassword({
+  data,
+  error,
+} = await supabase.auth.signInWithPassword({
+  email,
+  password,
+});
 
-        email,
+if (error) {
 
-        password,
-      });
+  alert(error.message);
 
-      if (error) {
+  return;
+}
 
-        alert(
-          error.message
-        );
+if (data?.session) {
 
-        return;
-      }
+  await supabase.auth.getSession();
 
-      router.replace(
-        "/dashboard"
-      );
+  window.location.href = "/dashboard";
+}
 
     } catch (error) {
 

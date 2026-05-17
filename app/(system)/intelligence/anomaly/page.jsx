@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function AnomalyPage() {
 
@@ -9,18 +9,22 @@ export default function AnomalyPage() {
     setData,
   ] = useState(null);
 
-  async function runDetection() {
+  async function load() {
 
     const res =
       await fetch(
-        "/api/intelligence/anomaly/detect",
+        "/api/intelligence/anomaly",
         {
+
           method: "POST",
+
           headers: {
             "Content-Type":
               "application/json",
           },
+
           body: JSON.stringify({
+
             tenant_id:
               "demo",
           }),
@@ -33,63 +37,93 @@ export default function AnomalyPage() {
     setData(json);
   }
 
+  useEffect(() => {
+
+    load();
+
+  }, []);
+
   return (
+
     <div className="min-h-screen bg-black text-white p-10">
 
-      <h1 className="text-5xl font-bold mb-10">
-        AI Anomaly Detection
-      </h1>
+      <div className="max-w-6xl mx-auto">
 
-      <button
-        onClick={
-          runDetection
-        }
-        className="bg-white text-black px-6 py-3 rounded-xl"
-      >
-        Run Detection
-      </button>
+        <div className="flex items-center justify-between mb-10">
 
-      {data && (
+          <div>
 
-        <div className="mt-10 space-y-6">
+            <h1 className="text-6xl font-bold">
+              Predictive Anomaly Engine
+            </h1>
 
-          <div className="border border-zinc-800 rounded-xl p-6">
-            <div>
-              Average Order:
-              {" "}
-              {data.average_order}
+            <div className="text-zinc-500 mt-3">
+              AI Risk Detection & Preventive Intelligence
             </div>
 
-            <div className="mt-2">
-              Anomalies:
-              {" "}
-              {data.anomaly_count}
-            </div>
           </div>
 
-          {data.anomalies?.map(
+          <button
+            onClick={load}
+            className="bg-white text-black px-8 py-4 rounded-2xl"
+          >
+            Refresh
+          </button>
+
+        </div>
+
+        <div className="border border-zinc-800 rounded-2xl p-6 mb-10">
+
+          <div className="text-zinc-500">
+            Active Anomalies
+          </div>
+
+          <div className="text-5xl mt-4">
+            {data?.anomaly_count || 0}
+          </div>
+
+        </div>
+
+        <div className="space-y-6">
+
+          {data?.anomalies?.map(
             (
-              anomaly,
+              item,
               index
             ) => (
 
               <div
                 key={index}
-                className="border border-red-800 rounded-xl p-6"
+                className="border border-zinc-800 rounded-2xl p-6"
               >
-                <div>
-                  {anomaly.type}
+
+                <div className="flex items-center justify-between mb-4">
+
+                  <div className="text-2xl">
+                    {item.type}
+                  </div>
+
+                  <div className="text-sm text-red-400">
+                    {item.severity}
+                  </div>
+
                 </div>
 
-                <div className="mt-2">
-                  {anomaly.value}
+                <div className="mb-4 text-lg">
+                  {item.prediction}
                 </div>
+
+                <div className="text-zinc-400">
+                  {item.recommendation}
+                </div>
+
               </div>
             )
           )}
 
         </div>
-      )}
+
+      </div>
 
     </div>
   );

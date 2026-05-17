@@ -1,288 +1,476 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { supabase } from "@/lib/shared/supabase/client";
 
-import {
-  calculateFOH,
-  getPerformanceLevel,
-  getServiceLevel,
-} from "@/lib/performance";
+import PageWrapper from "@/components/PageWrapper";
 
 export default function ControlFinalPage() {
-  const [orders, setOrders] = useState([]);
-  const [staff, setStaff] = useState([]);
-  const [attendance, setAttendance] = useState({});
 
-  const [payrollLocked, setPayrollLocked] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState("");
+  const [
+    tenantId,
+    setTenantId,
+  ] = useState(null);
 
-  useEffect(() => {
-    loadOrders();
-    loadStaff();
-    loadAttendance();
-    checkPayrollLock();
-  }, []);
+  const [
+    sessions,
+    setSessions,
+  ] = useState([]);
 
-  const getMonthKey = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${now.getMonth() + 1}`;
-  };
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const checkPayrollLock = () => {
-    const lock = localStorage.getItem("payroll_locked") === "true";
-    const month = localStorage.getItem("payroll_month");
-    const current = getMonthKey();
+  const [
+    closing,
+    setClosing,
+  ] = useState(null);
 
-    if (month !== current) {
-      localStorage.setItem("payroll_locked", "false");
-      localStorage.setItem("payroll_month", current);
-      setPayrollLocked(false);
-    } else {
-      setPayrollLocked(lock);
-    }
+  // ===== LOAD =====
+  async function loadSessions() {
 
-    setCurrentMonth(current);
-  };
-
-  const lockPayroll = () => {
-    const ready = localStorage.getItem("system_ready_for_payroll");
-
-    if (ready !== "true") {
-      alert("System not ready. Finalize approvals first.");
+    if (!tenantId) {
       return;
     }
 
-    localStorage.setItem("payroll_locked", "true");
-    setPayrollLocked(true);
-    alert("Payroll locked for this month");
-  };
-
-  const loadOrders = () => {
-    const stored = JSON.parse(localStorage.getItem("orders") || "[]");
-    setOrders(stored);
-  };
-
-  const loadStaff = () => {
-    const stored = JSON.parse(localStorage.getItem("staff") || "[]");
-    setStaff(stored);
-  };
-
-  const loadAttendance = () => {
-    const stored = JSON.parse(localStorage.getItem("attendance") || "{}");
-    setAttendance(stored);
-  };
-
-  const saveOrders = (updatedOrders) => {
-    localStorage.setItem("orders", JSON.stringify(updatedOrders));
-    setOrders(updatedOrders);
-  };
-
-  const adjustments = orders.flatMap((order) =>
-    (order.adjustmentRequests || []).map((adjustment) => ({
-      ...adjustment,
-      orderId: order.id,
-      table: order.table,
-    }))
-  );
-
-  const subtotal = orders.reduce((sum, order) => {
-    const orderTotal = (order.items || []).reduce(
-      (itemSum, item) => itemSum + Number(item.price || 0),
-      0
-    );
-
-    return sum + orderTotal;
-  }, 0);
-
-  const discountTotal = adjustments.reduce((sum, adjustment) => {
-    if (adjustment.status !== "approved") return sum;
-
-    if (adjustment.type === "discount") {
-      if (adjustment.mode === "percent") {
-        return sum + (subtotal * Number(adjustment.value || 0)) / 100;
-      }
-
-      return sum + Number(adjustment.value || 0);
-    }
-
-    if (adjustment.type === "comp") {
-      return sum + Number(adjustment.value || 0);
-    }
-
-    return sum;
-  }, 0);
-
-  const finalRevenue = subtotal - discountTotal;
-
-  const foh = calculateFOH(orders);
-  const performance = getPerformanceLevel(foh.score);
-  const servicePercent = getServiceLevel(foh.score) / 100;
-  const servicePool = finalRevenue * servicePercent;
-
-  const calculateStaff = () => {
-    if (!staff || staff.length === 0) return [];
-
-    const enriched = staff.map((staffMember) => {
-      const att = attendance[staffMember.id] || {};
-
-      if (!att.present) {
-        return {
-          ...staffMember,
-          weight: 0,
-          hours: 0,
-          score: staffMember.score || 0,
-          penalty: att.penalty || 0,
-        };
-      }
-
-      const hours = Number(att.hours || 0);
-      const score = Number(staffMember.score || 0);
-      const penalty = Number(att.penalty || 0);
-
-      let weight = score * hours;
-      weight = weight * (1 - penalty / 100);
-      weight = weight * performance.multiplier;
-
-      return {
-        ...staffMember,
-        weight,
-        hours,
-        score,
-        penalty,
-      };
-    });
-
-    const totalWeight = enriched.reduce(
-      (sum, staffMember) => sum + Number(staffMember.weight || 0),
-      0
-    );
-
-    if (totalWeight === 0) return [];
-
-    return enriched.map((staffMember) => {
-      const payout = (staffMember.weight / totalWeight) * servicePool;
-
-      return {
-        id: staffMember.id,
-        name: staffMember.name,
-        role: staffMember.role,
-        score: staffMember.score || 0,
-        hours: staffMember.hours || 0,
-        penalty: staffMember.penalty || 0,
-        payrollAmount: Math.round(payout),
-      };
-    });
-  };
-
-  const saveDay = async () => {
-    if (payrollLocked) {
-      alert("Payroll is locked. Cannot close new days.");
-      return;
-    }
-
-    const calculatedStaff = calculateStaff();
-
-    const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
-
-    const { error } = await supabase.from("history_days").insert([
-      {
-        day_date: new Date().toISOString(),
-
-        orders: orders || [],
-        subtotal: Number(subtotal || 0),
-        discount_total: Number(discountTotal || 0),
-        final_revenue: Number(finalRevenue || 0),
-        adjustments: adjustments || [],
-
-        revenue: Number(finalRevenue || 0),
-        service_charge: Number(servicePool || 0),
-        service_pool: Number(servicePool || 0),
-        payout_pool: Number(servicePool || 0),
-        payout_status: "locked",
-
-        foh_score: Number(foh.score || 0),
-        bar_score: 0,
-        kitchen_score: 0,
-
-        staff_data: calculatedStaff || [],
-        tenant_id,
-      },
-    ]);
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("table_sessions")
+      .select("*")
+      .eq(
+        "tenant_id",
+        tenantId
+      )
+      .eq(
+        "status",
+        "ACTIVE"
+      )
+      .order(
+        "started_at",
+        {
+          ascending: true,
+        }
+      );
 
     if (error) {
-      console.error("SAVE ERROR:", error);
-      alert("Error saving day");
+
+      console.error(
+        error
+      );
+
       return;
     }
 
-    localStorage.removeItem("orders");
-    setOrders([]);
+    setSessions(
+      data || []
+    );
 
-    alert("Day Closed & Locked");
-  };
+    setLoading(false);
+  }
+
+  // ===== INIT =====
+  useEffect(() => {
+
+    async function init() {
+
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser();
+
+      if (!user) {
+        return;
+      }
+
+      const {
+        data,
+      } = await supabase
+        .from(
+          "staff_accounts"
+        )
+        .select(
+          "tenant_id"
+        )
+        .eq(
+          "auth_user_id",
+          user.id
+        )
+        .single();
+
+      if (
+        !data?.tenant_id
+      ) {
+        return;
+      }
+
+      setTenantId(
+        data.tenant_id
+      );
+    }
+
+    init();
+
+  }, []);
+
+  // ===== LOAD =====
+  useEffect(() => {
+
+    if (!tenantId) {
+      return;
+    }
+
+    loadSessions();
+
+  }, [tenantId]);
+
+  // ===== REALTIME =====
+  useEffect(() => {
+
+    if (!tenantId) {
+      return;
+    }
+
+    const channel =
+      supabase
+        .channel(
+          "control-final-live"
+        )
+
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema:
+              "public",
+            table:
+              "table_sessions",
+            filter: `tenant_id=eq.${tenantId}`,
+          },
+          () =>
+            loadSessions()
+        )
+
+        .subscribe();
+
+    return () => {
+      supabase.removeChannel(
+        channel
+      );
+    };
+
+  }, [tenantId]);
+
+  // ===== CLOSE SESSION =====
+  async function closeSession(
+    session
+  ) {
+
+    try {
+
+      setClosing(
+        session.id
+      );
+
+      // ===== COMPLETE ORDERS =====
+      await supabase
+        .from("orders")
+        .update({
+          status:
+            "COMPLETED",
+
+          kitchen_status:
+            "COMPLETED",
+        })
+        .eq(
+          "tenant_id",
+          tenantId
+        )
+        .eq(
+          "table_number",
+          session.table_number
+        );
+
+      // ===== CLOSE SESSION =====
+      await supabase
+        .from("table_sessions")
+        .update({
+          status:
+            "COMPLETED",
+
+          closed_at:
+            new Date(),
+        })
+        .eq(
+          "id",
+          session.id
+        );
+
+      await loadSessions();
+
+    } catch (error) {
+
+      console.error(
+        error
+      );
+
+      alert(
+        "Failed to close session"
+      );
+
+    } finally {
+
+      setClosing(
+        null
+      );
+    }
+  }
+
+  // ===== TOTAL =====
+  const totalRevenue =
+    sessions.reduce(
+      (
+        sum,
+        session
+      ) =>
+        sum +
+        Number(
+          session.revenue || 0
+        ),
+      0
+    );
 
   return (
-    <div className="text-white space-y-6">
-      <h1>Control Final</h1>
+    <div className="min-h-screen bg-[#050507]">
 
-      <div className="bg-white/5 p-4 rounded flex justify-between">
-        <div>
-          <div className="text-white/50 text-sm">Payroll Status</div>
-          <div className={payrollLocked ? "text-red-400" : "text-green-400"}>
-            {payrollLocked ? "LOCKED" : "OPEN"}
+      <PageWrapper
+        title="Control Final"
+        subtitle="Operational billing & closing"
+      >
+
+        {/* HEADER */}
+        <div className="mb-6 grid grid-cols-3 gap-4">
+
+          <div className="rounded-[24px] border border-white/10 bg-[#111117] p-5">
+
+            <div className="text-[11px] tracking-[0.25em] text-white/30">
+              ACTIVE TABLES
+            </div>
+
+            <div
+              className="mt-3 text-5xl"
+              style={{
+                fontWeight: 250,
+                letterSpacing: "-0.08em",
+              }}
+            >
+              {
+                sessions.length
+              }
+            </div>
+
           </div>
-          <div className="text-white/40 text-xs mt-1">
-            Month: {currentMonth}
+
+          <div className="rounded-[24px] border border-white/10 bg-[#111117] p-5">
+
+            <div className="text-[11px] tracking-[0.25em] text-white/30">
+              LIVE REVENUE
+            </div>
+
+            <div
+              className="mt-3 text-5xl"
+              style={{
+                fontWeight: 250,
+                letterSpacing: "-0.08em",
+              }}
+            >
+              ฿
+              {
+                totalRevenue
+              }
+            </div>
+
           </div>
+
+          <div className="rounded-[24px] border border-white/10 bg-[#111117] p-5">
+
+            <div className="text-[11px] tracking-[0.25em] text-white/30">
+              SYSTEM
+            </div>
+
+            <div
+              className="mt-3 text-xl text-green-400"
+              style={{
+                fontWeight: 300,
+              }}
+            >
+              OPERATIONAL
+            </div>
+
+          </div>
+
         </div>
 
-        {!payrollLocked && (
-          <button onClick={lockPayroll} className="bg-red-500 px-4 py-2 rounded">
-            Lock Month
-          </button>
-        )}
-      </div>
+        {/* TABLES */}
+        {loading ? (
 
-      <div className="bg-white/5 p-4 rounded space-y-2">
-        <div>Subtotal: {subtotal}</div>
-        <div>Discounts: -{discountTotal}</div>
-        <div>Revenue: {finalRevenue}</div>
-        <div>Score: {foh.score}</div>
-        <div>Level: {performance.level}</div>
-        <div>Service %: {servicePercent * 100}%</div>
-        <div>Service Pool: {Math.round(servicePool)} THB</div>
-      </div>
-
-      <div className="bg-white/5 p-4 rounded space-y-2">
-        <div className="text-sm text-white/50">Staff Preview</div>
-
-        {calculateStaff().length === 0 && (
-          <div className="text-white/40 text-sm">No staff payout data</div>
-        )}
-
-        {calculateStaff().map((staffMember) => (
-          <div key={staffMember.id} className="flex justify-between text-sm">
-            <div>
-              {staffMember.name} ({staffMember.hours}h / -
-              {staffMember.penalty}%)
-            </div>
-            <div>{staffMember.payrollAmount} THB</div>
+          <div className="text-white/40">
+            Loading sessions...
           </div>
-        ))}
-      </div>
 
-      <button
-        onClick={saveDay}
-        disabled={orders.length === 0}
-        className={`w-full py-3 rounded text-black ${
-          orders.length === 0
-            ? "bg-white/30 cursor-not-allowed"
-            : "bg-orange-500"
-        }`}
-      >
-        CLOSE DAY
-      </button>
+        ) : (
+
+          <div className="grid grid-cols-3 gap-4">
+
+            {sessions.map(
+              (session) => {
+
+                const duration =
+                  Math.floor(
+                    (
+                      Date.now() -
+                      new Date(
+                        session.started_at
+                      ).getTime()
+                    ) / 60000
+                  );
+
+                return (
+
+                  <div
+                    key={session.id}
+                    className="rounded-[24px] border border-white/10 bg-[#111117] p-5"
+                  >
+
+                    {/* HEADER */}
+                    <div className="flex items-start justify-between">
+
+                      <div>
+
+                        <div className="text-[11px] tracking-[0.25em] text-white/30">
+                          TABLE
+                        </div>
+
+                        <div
+                          className="mt-2 text-4xl"
+                          style={{
+                            fontWeight: 250,
+                            letterSpacing: "-0.06em",
+                          }}
+                        >
+                          {
+                            session.table_number
+                          }
+                        </div>
+
+                      </div>
+
+                      <div className="rounded-full bg-orange-500/10 px-3 py-1 text-[11px] tracking-[0.15em] text-orange-400">
+                        ACTIVE
+                      </div>
+
+                    </div>
+
+                    {/* METRICS */}
+                    <div className="mt-5 grid grid-cols-3 gap-2">
+
+                      <div className="rounded-[14px] border border-white/10 bg-black/20 p-3">
+
+                        <div className="text-[10px] tracking-[0.18em] text-white/30">
+                          TIME
+                        </div>
+
+                        <div
+                          className="mt-2 text-lg"
+                          style={{
+                            fontWeight: 250,
+                          }}
+                        >
+                          {
+                            duration
+                          }m
+                        </div>
+
+                      </div>
+
+                      <div className="rounded-[14px] border border-white/10 bg-black/20 p-3">
+
+                        <div className="text-[10px] tracking-[0.18em] text-white/30">
+                          ORDERS
+                        </div>
+
+                        <div
+                          className="mt-2 text-lg"
+                          style={{
+                            fontWeight: 250,
+                          }}
+                        >
+                          {
+                            session.orders
+                          }
+                        </div>
+
+                      </div>
+
+                      <div className="rounded-[14px] border border-white/10 bg-black/20 p-3">
+
+                        <div className="text-[10px] tracking-[0.18em] text-white/30">
+                          REVENUE
+                        </div>
+
+                        <div
+                          className="mt-2 text-lg"
+                          style={{
+                            fontWeight: 250,
+                          }}
+                        >
+                          ฿
+                          {
+                            session.revenue
+                          }
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    {/* ACTION */}
+                    <div className="mt-5">
+
+                      <button
+                        onClick={() =>
+                          closeSession(
+                            session
+                          )
+                        }
+                        disabled={
+                          closing ===
+                          session.id
+                        }
+                        className="w-full rounded-[18px] bg-[#8B5CF6] px-5 py-4 text-sm text-white transition hover:bg-[#9D6BFF] disabled:opacity-40"
+                      >
+                        {closing ===
+                        session.id
+                          ? "CLOSING..."
+                          : "CLOSE TABLE"}
+                      </button>
+
+                    </div>
+
+                  </div>
+                );
+              }
+            )}
+
+          </div>
+
+        )}
+
+      </PageWrapper>
+
     </div>
   );
 }

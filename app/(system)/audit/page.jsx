@@ -1,175 +1,307 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { supabase } from "@/lib/shared/supabase/client";
+
+import PageWrapper from "@/components/PageWrapper";
 
 export default function AuditPage() {
 
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [
+    tenantId,
+    setTenantId,
+  ] = useState(null);
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
+  const [
+    logs,
+    setLogs,
+  ] = useState([]);
 
-  async function fetchLogs() {
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-    setLoading(true);
+  // ===== LOAD =====
+  async function loadAuditLogs() {
 
-    const { data, error } =
-      await supabase
-        .from("approval_logs")
-        .select("*")
-        .order("created_at", {
+    if (!tenantId) {
+      return;
+    }
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("audit_logs")
+      .select("*")
+      .eq(
+        "tenant_id",
+        tenantId
+      )
+      .order(
+        "created_at",
+        {
           ascending: false,
-        });
+        }
+      )
+      .limit(100);
 
     if (error) {
 
-      console.error(error);
+      console.error(
+        error
+      );
 
+      return;
     }
 
-    setLogs(data || []);
-
-    setLoading(false);
-
-  }
-
-  // ---------------------------------
-  // UI
-  // ---------------------------------
-
-  if (loading) {
-
-    return (
-      <div className="min-h-screen bg-black text-white p-10">
-        Loading audit timeline...
-      </div>
+    setLogs(
+      data || []
     );
 
+    setLoading(false);
   }
 
+  // ===== INIT =====
+  useEffect(() => {
+
+    async function init() {
+
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser();
+
+      if (!user) {
+        return;
+      }
+
+      const {
+        data,
+      } = await supabase
+        .from(
+          "staff_accounts"
+        )
+        .select(
+          "tenant_id"
+        )
+        .eq(
+          "auth_user_id",
+          user.id
+        )
+        .single();
+
+      if (
+        !data?.tenant_id
+      ) {
+        return;
+      }
+
+      setTenantId(
+        data.tenant_id
+      );
+    }
+
+    init();
+
+  }, []);
+
+  // ===== LOAD =====
+  useEffect(() => {
+
+    if (!tenantId) {
+      return;
+    }
+
+    loadAuditLogs();
+
+  }, [tenantId]);
+
   return (
+    <div className="min-h-screen bg-[#050507]">
 
-    <div className="min-h-screen bg-black text-white p-10">
+      <PageWrapper
+        title="Audit Logs"
+        subtitle="Operational system activity tracking"
+      >
 
-      {/* HEADER */}
-      <div className="mb-10">
+        {loading ? (
 
-        <h1 className="text-4xl font-bold">
-          Governance Audit Timeline
-        </h1>
+          <div className="text-white/40">
+            Loading audit logs...
+          </div>
 
-        <div className="text-white/50 mt-2">
-          Immutable approval and accounting history
-        </div>
+        ) : (
 
-      </div>
+          <div className="space-y-6">
 
-      {/* EMPTY */}
-      {logs.length === 0 && (
+            {/* METRICS */}
+            <div className="grid grid-cols-3 gap-4">
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-white/40">
-          No governance events found
-        </div>
+              <div className="rounded-[24px] border border-[#8B5CF6]/20 bg-[#8B5CF6]/10 p-6">
 
-      )}
-
-      {/* TIMELINE */}
-      <div className="space-y-4">
-
-        {logs.map((log) => (
-
-          <div
-            key={log.id}
-            className="bg-white/5 border border-white/10 rounded-2xl p-6"
-          >
-
-            {/* TOP */}
-            <div className="flex justify-between items-start mb-4">
-
-              <div>
-
-                <div className="text-xl font-semibold">
-
-                  {log.entity_type}
-                  {" "}
-                  #{log.entity_id}
-
+                <div className="text-[11px] tracking-[0.25em] text-[#C4B5FD]/60">
+                  TOTAL LOGS
                 </div>
 
-                <div className="text-white/40 text-sm mt-1">
-
-                  {new Date(
-                    log.created_at
-                  ).toLocaleString()}
-
+                <div
+                  className="mt-4 text-5xl text-[#B58AF8]"
+                  style={{
+                    fontWeight: 250,
+                    letterSpacing: "-0.08em",
+                  }}
+                >
+                  {
+                    logs.length
+                  }
                 </div>
 
               </div>
 
-              <div className="text-sm px-3 py-1 rounded-full bg-blue-600/20 text-blue-300 border border-blue-500/20">
+              <div className="rounded-[24px] border border-green-500/20 bg-green-500/10 p-6">
 
-                {log.role}
+                <div className="text-[11px] tracking-[0.25em] text-green-300/60">
+                  SYSTEM STATUS
+                </div>
+
+                <div
+                  className="mt-5 text-xl text-green-400"
+                  style={{
+                    fontWeight: 300,
+                  }}
+                >
+                  TRACKING ACTIVE
+                </div>
+
+              </div>
+
+              <div className="rounded-[24px] border border-blue-500/20 bg-blue-500/10 p-6">
+
+                <div className="text-[11px] tracking-[0.25em] text-blue-300/60">
+                  REALTIME
+                </div>
+
+                <div
+                  className="mt-5 text-xl text-blue-400"
+                  style={{
+                    fontWeight: 300,
+                  }}
+                >
+                  ENABLED
+                </div>
 
               </div>
 
             </div>
 
-            {/* STATUS */}
-            <div className="mb-4">
+            {/* TABLE */}
+            <div className="overflow-hidden rounded-[24px] border border-white/10 bg-[#111117]">
 
-              <div className="text-white/70">
+              <div className="grid grid-cols-6 border-b border-white/10 px-6 py-4 text-[11px] tracking-[0.25em] text-white/30">
 
-                <span className="text-yellow-400">
-                  {log.from_status}
-                </span>
+                <div>
+                  ACTION
+                </div>
 
-                {" → "}
+                <div>
+                  ENTITY
+                </div>
 
-                <span className="text-green-400">
-                  {log.to_status}
-                </span>
+                <div>
+                  USER
+                </div>
+
+                <div>
+                  ENTITY ID
+                </div>
+
+                <div>
+                  DATE
+                </div>
+
+                <div>
+                  METADATA
+                </div>
 
               </div>
 
-            </div>
+              <div className="divide-y divide-white/5">
 
-            {/* ACTOR */}
-            <div className="mb-2 text-white/60">
+                {logs.map(
+                  (log) => (
 
-              <span className="font-semibold text-white/80">
-                Actor:
-              </span>
+                    <div
+                      key={log.id}
+                      className="grid grid-cols-6 items-center px-6 py-5 transition hover:bg-white/[0.02]"
+                    >
 
-              {" "}
+                      <div>
 
-              {log.acted_by || "System"}
+                        <div className="inline-flex rounded-full border border-[#8B5CF6]/20 bg-[#8B5CF6]/10 px-3 py-1 text-[11px] tracking-[0.15em] text-[#B58AF8]">
+                          {
+                            log.action_type
+                          }
+                        </div>
 
-            </div>
+                      </div>
 
-            {/* NOTES */}
-            <div className="text-white/50">
+                      <div className="text-white/60">
+                        {
+                          log.entity_type
+                        }
+                      </div>
 
-              <span className="font-semibold text-white/70">
-                Notes:
-              </span>
+                      <div
+                        className="text-lg"
+                        style={{
+                          fontWeight: 300,
+                        }}
+                      >
+                        {
+                          log.performed_by_name
+                        }
+                      </div>
 
-              {" "}
+                      <div className="truncate text-xs text-white/30">
+                        {
+                          log.entity_id
+                        }
+                      </div>
 
-              {log.notes || "No notes"}
+                      <div className="text-sm text-white/40">
+
+                        {log.created_at
+                          ? new Date(
+                              log.created_at
+                            ).toLocaleString()
+                          : "-"}
+
+                      </div>
+
+                      <div className="truncate text-xs text-white/30">
+                        {log.metadata
+                          ? JSON.stringify(
+                              log.metadata
+                            )
+                          : "-"}
+                      </div>
+
+                    </div>
+                  )
+                )}
+
+              </div>
 
             </div>
 
           </div>
 
-        ))}
+        )}
 
-      </div>
+      </PageWrapper>
 
     </div>
-
   );
-
 }

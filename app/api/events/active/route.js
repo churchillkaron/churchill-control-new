@@ -1,51 +1,40 @@
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
-
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  req
-) {
-  
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-  const now = new Date().toISOString()
+export async function GET(req) {
 
-  // OPTIONAL: get tenant_id if you use multi-tenant (RECOMMENDED)
-  const { searchParams } = new URL(req.url)
-  const tenant_id = searchParams.get('tenant_id')
+  try {
 
-  let query = supabaseAdmin
-    .from('sales_events')
-    .select('*')
-    .eq('status', 'active')
-    .lte('start_date', now)
-    .gte('end_date', now)
-    .order('start_date', { ascending: false }) // ensures latest active wins
-    .limit(1)
+    const { data, error } =
+      await supabaseAdmin
+        .from("events")
+        .select("*")
+        .eq("status", "ACTIVE")
+        .order(
+          "created_at",
+          { ascending: false }
+        );
 
-  // 🔒 MULTI-TENANT SAFETY
-  if (tenant_id) {
-    query = query.eq('tenant_id', tenant_id)
-  }
+    if (error) {
+      throw error;
+    }
 
-  const { data, error } = await query.maybeSingle()
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 })
-  }
-
-  // ✅ STANDARDIZED RESPONSE (important for frontend stability)
-  if (!data) {
     return Response.json({
       success: true,
-      active: false,
-      event: null
-    })
-  }
+      data,
+    });
 
-  return Response.json({
-    success: true,
-    active: true,
-    event: data
-  })
+  } catch (error) {
+
+    console.error(error);
+
+    return Response.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
 }

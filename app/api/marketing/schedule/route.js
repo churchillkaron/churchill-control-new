@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getSupabaseServer } from "@/lib/shared/supabase/server";
 
 export async function POST(req) {

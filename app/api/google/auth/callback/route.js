@@ -1,101 +1,65 @@
-import { NextResponse } from "next/server";
-import { getOAuthClient } from "@/lib/integrations/googleAuth";
-
 export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+
+import { getOAuthClient }
+from "@/lib/integrations/googleAuth";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   "http://localhost:3000";
 
-export async function GET(req) {
+export async function GET(request) {
 
   try {
 
-    // Get code from Google
-
-    const url = new URL(req.url);
+    const url =
+      new URL(request.url);
 
     const code =
       url.searchParams.get("code");
 
     if (!code) {
 
-      console.error(
-        "No code returned from Google"
+      return NextResponse.redirect(
+        `${BASE_URL}/marketing?error=no_code`
       );
-
-      return new NextResponse(
-        "Missing code",
-        { status: 400 }
-      );
-
     }
-
-    console.log("CODE:", code);
-
-    // Create OAuth client
 
     const oauth2Client =
       getOAuthClient();
 
-    // Exchange code for tokens
-
-    const { tokens } =
-      await oauth2Client.getToken(code);
-
-    console.log("TOKENS:", tokens);
-
-    // Redirect to marketing page
+    const {
+      tokens,
+    } =
+      await oauth2Client.getToken(
+        code
+      );
 
     const response =
       NextResponse.redirect(
         `${BASE_URL}/marketing`
       );
 
-    // Store access token
-
-    if (tokens?.access_token) {
-
-      response.cookies.set(
-        "google_token",
-        tokens.access_token,
-        {
-          httpOnly: true,
-          path: "/",
-        }
-      );
-
-    }
-
-    // Store refresh token
-
-    if (tokens?.refresh_token) {
-
-      response.cookies.set(
-        "google_refresh",
-        tokens.refresh_token,
-        {
-          httpOnly: true,
-          path: "/",
-        }
-      );
-
-    }
+    response.cookies.set(
+      "google_token",
+      JSON.stringify(tokens),
+      {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/",
+      }
+    );
 
     return response;
 
-  } catch (err) {
+  } catch (error) {
 
-    console.error(
-      "CALLBACK ERROR:",
-      err
+    console.error(error);
+
+    return NextResponse.redirect(
+      `${BASE_URL}/marketing?error=oauth_failed`
     );
-
-    return new NextResponse(
-      "Error during Google auth",
-      { status: 500 }
-    );
-
   }
-
 }

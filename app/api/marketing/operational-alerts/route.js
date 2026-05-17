@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getOperationalAlerts }
 from "@/lib/marketing/ai/insights/getOperationalAlerts";
 

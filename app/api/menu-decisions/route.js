@@ -1,43 +1,28 @@
-import { NextResponse } from "next/server";
-
 export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
 
 export async function GET() {
 
   try {
 
-    console.log(
-      "MENU DECISIONS START"
-    );
-
-    const decisionResult = {
+    return NextResponse.json({
       success: true,
-      message:
-        "Menu decisions system online",
-      recommendations: [],
-    };
+      decisions: [],
+    });
 
-    return NextResponse.json(
-      decisionResult
-    );
+  } catch (error) {
 
-  } catch (menuError) {
-
-    console.error(
-      "MENU DECISION ERROR:",
-      menuError
-    );
+    console.error(error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          menuError.message ||
-          "Menu decisions failed",
+        error: error.message,
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
-
   }
-
 }

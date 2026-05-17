@@ -1,36 +1,50 @@
+export const dynamic = "force-dynamic";
+
 import { createClient } from "@supabase/supabase-js";
 
-export const dynamic = "force-dynamic";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function GET() {
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  try {
 
-  const { data, error } = await supabase
-    .from("approval_rejections")
-    .select("*")
-    .eq(
-      "status",
-      "pending_accounting"
-    );
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("salary_approvals")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      );
 
-  if (error) {
+    if (error) {
+      throw error;
+    }
+
+    return Response.json({
+      success: true,
+      data,
+    });
+
+  } catch (error) {
 
     console.error(error);
 
-    return new Response(
-      JSON.stringify([]),
-      { status: 200 }
+    return Response.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
     );
-
   }
-
-  return new Response(
-    JSON.stringify(data || []),
-    { status: 200 }
-  );
-
 }

@@ -1,37 +1,29 @@
-import { NextResponse } from "next/server";
-
 export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
 
 export async function POST() {
 
   try {
 
-    console.log(
-      "RETRY FAILED START"
-    );
-
     return NextResponse.json({
       success: true,
       message:
-        "Retry system online",
+        "Retry queue executed",
     });
 
-  } catch (retryError) {
+  } catch (error) {
 
-    console.error(
-      "RETRY FAILED ERROR:",
-      retryError
-    );
+    console.error(error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          retryError.message,
+        error: error.message,
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
-
   }
-
 }

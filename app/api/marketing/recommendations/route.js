@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getBusinessRecommendations }
 from "@/lib/marketing/ai/recommendations/getBusinessRecommendations";
 

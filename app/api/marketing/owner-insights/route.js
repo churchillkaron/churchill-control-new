@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getOwnerInsights }
 from "@/lib/marketing/ai/insights/getOwnerInsight";
 

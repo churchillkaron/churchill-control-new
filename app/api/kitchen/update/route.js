@@ -287,6 +287,78 @@ console.log(
   "RECIPE ITEMS:",
   recipeItems
 );
+if (
+  !recipeItems ||
+  recipeItems.length === 0
+) {
+
+  console.log(
+    "MISSING RECIPE ALERT START"
+  );
+
+  const alertResult =
+    await createAlert({
+
+      tenantId:
+        tenant_id,
+
+      alertType:
+        "MISSING_RECIPE",
+
+      severity:
+        "CRITICAL",
+
+      title:
+        "Dish Missing Recipe",
+
+      message:
+        `Dish ${item.dish_id} has no recipe configuration.`,
+
+      source:
+        "PRODUCTION",
+
+      sourceId:
+        item.dish_id,
+
+    });
+
+  console.log(
+    "ALERT RESULT:",
+    alertResult
+  );
+
+  continue;
+
+}{
+
+  await createAlert({
+
+    tenantId:
+      tenant_id,
+
+    alertType:
+      "MISSING_RECIPE",
+
+    severity:
+      "CRITICAL",
+
+    title:
+      "Dish Missing Recipe",
+
+    message:
+      `Dish ${item.dish_id} has no recipe configuration. COGS and inventory tracking disabled.`,
+
+    source:
+      "PRODUCTION",
+
+    sourceId:
+      item.dish_id,
+
+  });
+
+  continue;
+
+}
 
 console.log(
   "RECIPE ERROR:",

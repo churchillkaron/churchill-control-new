@@ -4,773 +4,435 @@ import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/shared/supabase/client";
 
-const ALL_STATIONS = [
-  "THAI",
-  "WESTERN",
-  "PIZZA",
-  "BAR",
-  "DESSERT",
-];
+import PageWrapper from "@/components/PageWrapper";
 
-function guessStation(name = "") {
-
-  const text =
-    name.toLowerCase();
-
-  if (
-    text.includes("tom yum") ||
-    text.includes("thai")
-  ) {
-    return "THAI";
-  }
-
-  if (
-    text.includes("pizza")
-  ) {
-    return "PIZZA";
-  }
-
-  if (
-    text.includes("cake") ||
-    text.includes("mango")
-  ) {
-    return "DESSERT";
-  }
-
-  if (
-    text.includes("beer") ||
-    text.includes("wine")
-  ) {
-    return "BAR";
-  }
-
-  return "WESTERN";
-
-}
+import { loadKitchenOrders } from "@/lib/kitchen/loadKitchenOrders";
+import { updateKitchenStatus } from "@/lib/kitchen/updateKitchenStatus";
 
 export default function KitchenPage() {
 
-  const [orders, setOrders] =
-    useState([]);
-
   const [
-    currentStation,
-    setCurrentStation,
+    tenantId,
+    setTenantId,
   ] = useState(null);
 
-  const [tenantId, setTenantId] =
-    useState(null);
+  const [
+    orders,
+    setOrders,
+  ] = useState([]);
 
-  // =========================
-  // LOAD TENANT
-  // =========================
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  useEffect(() => {
+  const [
+    updating,
+    setUpdating,
+  ] = useState(null);
 
-    const loadTenant =
-      async () => {
+  // ===== LOAD =====
+  async function refreshKitchen() {
 
-        const {
-          data: { user },
-        } =
-          await supabase.auth.getUser();
-
-        if (!user) return;
-
-        const {
-          data,
-          error,
-        } = await supabase
-          .from("staff_accounts")
-          .select(`
-            tenant_id
-          `)
-          .eq(
-            "auth_user_id",
-            user.id
-          )
-          .single();
-
-        if (
-          error ||
-          !data?.tenant_id
-        ) {
-
-          console.error(
-            "Tenant not found"
-          );
-
-          return;
-
-        }
-
-        setTenantId(
-          data.tenant_id
-        );
-
-      };
-
-    loadTenant();
-
-  }, []);
-
-  // =========================
-  // DEVICE STATION
-  // =========================
-
-  const getStation = () => {
-
-    if (
-      typeof window ===
-      "undefined"
-    ) {
-      return null;
-    }
-
-    let station =
-      localStorage.getItem(
-        "kitchen_station"
-      );
-
-    if (!station) {
-
-      station = prompt(
-        "Enter station: THAI, WESTERN, PIZZA, BAR, DESSERT"
-      );
-
-      if (station) {
-
-        station =
-          station.toUpperCase();
-
-        localStorage.setItem(
-          "kitchen_station",
-          station
-        );
-
-      }
-
-    }
-
-    return station;
-
-  };
-
-  useEffect(() => {
-
-    const station =
-      getStation();
-
-    setCurrentStation(
-      station
-    );
-
-  }, []);
-
-  // =========================
-  // LOAD ORDERS
-  // =========================
-
-  const loadOrders =
-    async () => {
-
-      if (!tenantId)
-        return;
-
-      // =========================
-      // ONLY ACTIVE KITCHEN ORDERS
-      // =========================
-
-      const {
-        data: ordersData,
-        error: ordersError,
-      } = await supabase
-        .from("orders")
-        .select("*")
-        .eq(
-          "tenant_id",
-          tenantId
-        )
-        .neq(
-          "status",
-          "closed"
-        )
-        .neq(
-          "payment_status",
-          "PAID"
-        )
-        .neq(
-          "kitchen_status",
-          "ready"
-        )
-        .order(
-          "created_at",
-          {
-            ascending: true,
-          }
-        );
-
-      if (ordersError) {
-
-        console.error(
-          "ORDERS ERROR:",
-          ordersError
-        );
-
-        return;
-
-      }
-
-      // =========================
-      // LOAD ITEMS
-      // =========================
-
-      const {
-        data: itemsData,
-        error: itemsError,
-      } = await supabase
-        .from("order_items")
-        .select("*")
-        .eq(
-          "tenant_id",
-          tenantId
-        )
-        .neq(
-          "status",
-          "REMOVED"
-        );
-
-      if (itemsError) {
-
-        console.error(
-          "ITEMS ERROR:",
-          itemsError
-        );
-
-        return;
-
-      }
-
-      // =========================
-      // MERGE
-      // =========================
-
-      const merged =
-        (
-          ordersData || []
-        ).map((order) => ({
-
-          ...order,
-
-          items: (
-            itemsData || []
-          ).filter(
-            (item) =>
-              item.order_id ===
-              order.id
-          ),
-
-        }));
-
-      setOrders(
-        merged
-      );
-
-    };
-
-  // =========================
-  // AUTO REFRESH
-  // =========================
-
-  useEffect(() => {
-
-    if (!tenantId)
+    if (!tenantId) {
       return;
+    }
 
-    loadOrders();
-
-    const interval =
-      setInterval(
-        loadOrders,
-        2000
+    const data =
+      await loadKitchenOrders(
+        tenantId
       );
 
-    return () =>
-      clearInterval(
-        interval
+    setOrders(data);
+
+    setLoading(false);
+  }
+
+  // ===== INIT =====
+  useEffect(() => {
+
+    async function loadUser() {
+
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser();
+
+      if (!user) {
+        return;
+      }
+
+      const {
+        data,
+      } = await supabase
+        .from(
+          "staff_accounts"
+        )
+        .select(
+          "tenant_id"
+        )
+        .eq(
+          "auth_user_id",
+          user.id
+        )
+        .single();
+
+      if (
+        !data?.tenant_id
+      ) {
+        return;
+      }
+
+      setTenantId(
+        data.tenant_id
       );
+    }
+
+    loadUser();
+
+  }, []);
+
+  // ===== LOAD =====
+  useEffect(() => {
+
+    if (!tenantId) {
+      return;
+    }
+
+    refreshKitchen();
 
   }, [tenantId]);
 
-  // =========================
-  // UPDATE ITEM STATUS
-  // =========================
+  // ===== REALTIME =====
+  useEffect(() => {
 
-  const updateItemStatus =
-    async (
-      ids,
-      status
-    ) => {
+    if (!tenantId) {
+      return;
+    }
 
-      const { error } =
-        await supabase
-          .from(
-            "order_items"
-          )
-          .update({
-            status,
-          })
-          .in("id", ids)
-          .eq(
-            "tenant_id",
-            tenantId
-          );
+    const channel =
+      supabase
+        .channel(
+          "kitchen-live"
+        )
 
-      if (error) {
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema:
+              "public",
+            table:
+              "orders",
+            filter: `tenant_id=eq.${tenantId}`,
+          },
+          () =>
+            refreshKitchen()
+        )
 
-        console.error(
-          error
-        );
+        .subscribe();
 
-      }
-
-      loadOrders();
-
+    return () => {
+      supabase.removeChannel(
+        channel
+      );
     };
 
-  // =========================
-  // HANDLE DONE
-  // =========================
+  }, [tenantId]);
 
-  const handleDone =
-    async (
-      order,
-      item
-    ) => {
+  // ===== STATUS =====
+  async function handleStatus(
+    orderId,
+    status
+  ) {
 
-      try {
+    try {
 
-        // =========================
-        // ITEM DONE
-        // =========================
+      setUpdating(
+        orderId
+      );
 
-        await updateItemStatus(
-          item.ids,
-          "DONE"
-        );
+      await updateKitchenStatus({
+        orderId,
+        status,
+      });
 
-        // =========================
-        // CHECK REMAINING
-        // =========================
+      await refreshKitchen();
 
-        const {
-          data:
-            remainingItems,
-        } = await supabase
-          .from(
-            "order_items"
-          )
-          .select("id")
-          .eq(
-            "order_id",
-            order.id
-          )
-          .eq(
-            "tenant_id",
-            tenantId
-          )
-          .neq(
-            "status",
-            "DONE"
-          )
-          .neq(
-            "status",
-            "REMOVED"
-          );
+    } catch (error) {
 
-        const hasRemaining =
-          (
-            remainingItems || []
-          ).length > 0;
+      console.error(
+        error
+      );
 
-        // =========================
-        // COMPLETE ORDER
-        // =========================
+      alert(
+        "Failed to update kitchen status"
+      );
 
-        if (!hasRemaining) {
+    } finally {
 
-          await fetch(
-            "/api/kitchen/update",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                order_id:
-                  order.id,
-                status:
-                  "done",
-                tenant_id:
-                  tenantId,
-              }),
-            }
-          );
-
-        }
-
-        loadOrders();
-
-      } catch (err) {
-
-        console.error(
-          "HANDLE DONE ERROR:",
-          err
-        );
-
-      }
-
-    };
+      setUpdating(
+        null
+      );
+    }
+  }
 
   return (
+    <div className="min-h-screen bg-[#050507]">
 
-    <div className="space-y-10 text-white">
+      <PageWrapper
+        title="Kitchen"
+        subtitle="Operational production queue"
+      >
 
-      <h1 className="text-3xl">
-        Kitchen
-      </h1>
+        {loading ? (
 
-      <div className="text-xs text-white/40">
+          <div className="text-white/40">
+            Loading kitchen...
+          </div>
 
-        Station:
-        {" "}
-        {currentStation ||
-          "Not set"}
+        ) : (
 
-        <button
-          onClick={() => {
+          <div className="grid grid-cols-3 gap-4">
 
-            localStorage.removeItem(
-              "kitchen_station"
-            );
+            {orders.map(
+              (order) => (
 
-            location.reload();
+                <div
+                  key={order.id}
+                  className={`rounded-[24px] border p-5 transition-all duration-300 ${
+                    order.urgency ===
+                    "CRITICAL"
+                      ? "border-red-500/30 bg-red-500/10 shadow-[0_0_40px_rgba(239,68,68,0.12)]"
+                      : order.urgency ===
+                        "WARNING"
+                      ? "border-yellow-500/30 bg-yellow-500/10 shadow-[0_0_40px_rgba(234,179,8,0.08)]"
+                      : "border-white/10 bg-[#111117]"
+                  }`}
+                >
 
-          }}
-          className="ml-4 text-red-400"
-        >
-          Reset
-        </button>
+                  {/* HEADER */}
+                  <div className="flex items-start justify-between">
 
-      </div>
+                    <div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+                      <div className="text-[11px] tracking-[0.25em] text-white/30">
+                        TABLE
+                      </div>
 
-        {(
-          currentStation
-            ? [currentStation]
-            : ALL_STATIONS
-        ).map((station) => {
-
-          const grouped =
-            {};
-
-          orders.forEach(
-            (order) => {
-
-              const stationItems =
-                (
-                  order.items ||
-                  []
-                )
-                  .map(
-                    (item) => ({
-
-                      ...item,
-
-                      station:
-                        item.station ||
-                        guessStation(
-                          item.item_name
-                        ),
-
-                    })
-                  )
-                  .filter(
-                    (item) =>
-                      item.station ===
-                        station &&
-                      item.status !==
-                        "DONE"
-                  );
-
-              if (
-                stationItems.length ===
-                0
-              ) {
-                return;
-              }
-
-              const table =
-                order.table_number ||
-                "T1";
-
-              if (
-                !grouped[
-                  table
-                ]
-              ) {
-
-                grouped[
-                  table
-                ] = [];
-
-              }
-
-              grouped[
-                table
-              ].push({
-
-                ...order,
-
-                stationItems,
-
-              });
-
-            }
-          );
-
-          return (
-
-            <div
-              key={station}
-              className="space-y-4"
-            >
-
-              <h2 className="text-xl font-semibold">
-
-                {station}
-
-              </h2>
-
-              {Object.keys(
-                grouped
-              ).length ===
-                0 && (
-
-                <div className="text-white/30 text-sm">
-
-                  No tickets
-
-                </div>
-
-              )}
-
-              {Object.entries(
-                grouped
-              ).map(
-                ([
-                  table,
-                  tableOrders,
-                ]) => (
-
-                  <div
-                    key={table}
-                    className="border border-white/10 rounded-2xl p-3 space-y-3 bg-white/5"
-                  >
-
-                    <div className="font-semibold">
-
-                      Table {table}
+                      <div
+                        className="mt-2 text-4xl"
+                        style={{
+                          fontWeight: 250,
+                          letterSpacing: "-0.06em",
+                        }}
+                      >
+                        {
+                          order.table_number
+                        }
+                      </div>
 
                     </div>
 
-                    {tableOrders.map(
-                      (
-                        order,
-                        index
-                      ) => {
+                    <div
+                      className={`rounded-full px-3 py-1 text-[11px] tracking-[0.15em] ${
+                        order.kitchen_status ===
+                        "READY"
+                          ? "bg-green-500/10 text-green-400"
+                          : order.kitchen_status ===
+                            "PREPARING"
+                          ? "bg-orange-500/10 text-orange-400"
+                          : "bg-blue-500/10 text-blue-400"
+                      }`}
+                    >
+                      {
+                        order.kitchen_status
+                      }
+                    </div>
 
-                        const groupedItems =
-                          {};
+                  </div>
 
-                        order.stationItems.forEach(
-                          (
-                            item
-                          ) => {
+                  {/* METRICS */}
+                  <div className="mt-5 grid grid-cols-3 gap-2">
 
-                            if (
-                              !groupedItems[
-                                item.item_name
-                              ]
-                            ) {
+                    <div className="rounded-[14px] border border-white/10 bg-black/20 p-3">
 
-                              groupedItems[
-                                item.item_name
-                              ] = {
+                      <div className="text-[10px] tracking-[0.18em] text-white/30">
+                        WAIT
+                      </div>
 
-                                name:
-                                  item.item_name,
+                      <div
+                        className={`mt-2 text-lg ${
+                          order.urgency ===
+                          "CRITICAL"
+                            ? "text-red-400"
+                            : order.urgency ===
+                              "WARNING"
+                            ? "text-yellow-400"
+                            : "text-white"
+                        }`}
+                        style={{
+                          fontWeight: 250,
+                        }}
+                      >
+                        {
+                          order.duration
+                        }m
+                      </div>
 
-                                ids:
-                                  [],
+                    </div>
 
-                                status:
-                                  item.status ||
-                                  "PENDING",
+                    <div className="rounded-[14px] border border-white/10 bg-black/20 p-3">
 
-                              };
+                      <div className="text-[10px] tracking-[0.18em] text-white/30">
+                        ITEMS
+                      </div>
 
-                            }
-
-                            groupedItems[
-                              item.item_name
-                            ].ids.push(
-                              item.id
-                            );
-
-                          }
-                        );
-
-                        const itemsArray =
-                          Object.values(
-                            groupedItems
-                          );
-
-                        if (
-                          itemsArray.length ===
-                          0
-                        ) {
-                          return null;
+                      <div
+                        className="mt-2 text-lg"
+                        style={{
+                          fontWeight: 250,
+                        }}
+                      >
+                        {
+                          order.totalItems
                         }
+                      </div>
 
-                        return (
+                    </div>
 
-                          <div
-                            key={order.id}
-                            className="border rounded-xl p-3 space-y-2 bg-white/5"
-                          >
+                    <div className="rounded-[14px] border border-white/10 bg-black/20 p-3">
 
-                            <div className="text-sm">
+                      <div className="text-[10px] tracking-[0.18em] text-white/30">
+                        VALUE
+                      </div>
 
-                              Ticket
-                              {" "}
-                              {index + 1}
+                      <div
+                        className="mt-2 text-lg"
+                        style={{
+                          fontWeight: 250,
+                        }}
+                      >
+                        ฿
+                        {
+                          order.revenue
+                        }
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  {/* ITEMS */}
+                  <div className="mt-5 space-y-3">
+
+                    {order.order_items?.map(
+                      (item) => (
+
+                        <div
+                          key={item.id}
+                          className="rounded-[16px] border border-white/10 bg-black/20 p-3"
+                        >
+
+                          <div className="flex items-center justify-between">
+
+                            <div>
+
+                              <div
+                                className="text-base"
+                                style={{
+                                  fontWeight: 300,
+                                }}
+                              >
+                                {
+                                  item.item_name
+                                }
+                              </div>
+
+                              <div className="mt-1 text-xs text-white/30">
+                                Kitchen item
+                              </div>
 
                             </div>
 
-                            {itemsArray.map(
-                              (
-                                item
-                              ) => {
-
-                                const isCooking =
-                                  item.status ===
-                                  "COOKING";
-
-                                return (
-
-                                  <div
-                                    key={
-                                      item.name
-                                    }
-                                    className="space-y-1"
-                                  >
-
-                                    <div className="flex justify-between items-center">
-
-                                      <span>
-
-                                        {
-                                          item.ids
-                                            .length
-                                        }
-                                        x{" "}
-                                        {
-                                          item.name
-                                        }
-
-                                      </span>
-
-                                      <span className="text-xs text-white/50">
-
-                                        {
-                                          item.status
-                                        }
-
-                                      </span>
-
-                                    </div>
-
-                                    <div className="flex gap-2">
-
-                                      <button
-                                        onClick={() =>
-                                          updateItemStatus(
-                                            item.ids,
-                                            "COOKING"
-                                          )
-                                        }
-                                        disabled={
-                                          isCooking
-                                        }
-                                        className={`px-2 py-1 text-xs rounded ${
-                                          isCooking
-                                            ? "bg-gray-600 cursor-not-allowed"
-                                            : "bg-yellow-500"
-                                        }`}
-                                      >
-
-                                        Cooking
-
-                                      </button>
-
-                                      <button
-                                        onClick={() =>
-                                          handleDone(
-                                            order,
-                                            item
-                                          )
-                                        }
-                                        className="bg-green-500 px-2 py-1 text-xs rounded"
-                                      >
-
-                                        Done
-
-                                      </button>
-
-                                    </div>
-
-                                  </div>
-
-                                );
-
+                            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/50">
+                              x
+                              {
+                                item.quantity
                               }
-                            )}
+                            </div>
 
                           </div>
 
-                        );
-
-                      }
+                        </div>
+                      )
                     )}
 
                   </div>
 
-                )
-              )}
+                  {/* ACTIONS */}
+                  <div className="mt-5 space-y-2">
 
-            </div>
+                    {order.kitchen_status ===
+                      "PENDING" && (
 
-          );
+                      <button
+                        onClick={() =>
+                          handleStatus(
+                            order.id,
+                            "PREPARING"
+                          )
+                        }
+                        disabled={
+                          updating ===
+                          order.id
+                        }
+                        className="w-full rounded-[16px] bg-orange-500/15 px-4 py-3 text-sm text-orange-400 transition hover:bg-orange-500/25 disabled:opacity-40"
+                      >
+                        START PREPARING
+                      </button>
+                    )}
 
-        })}
+                    {order.kitchen_status ===
+                      "PREPARING" && (
 
-      </div>
+                      <button
+                        onClick={() =>
+                          handleStatus(
+                            order.id,
+                            "READY"
+                          )
+                        }
+                        disabled={
+                          updating ===
+                          order.id
+                        }
+                        className="w-full rounded-[16px] bg-green-500/15 px-4 py-3 text-sm text-green-400 transition hover:bg-green-500/25 disabled:opacity-40"
+                      >
+                        MARK READY
+                      </button>
+                    )}
+
+                    {order.kitchen_status ===
+                      "READY" && (
+
+                      <div className="rounded-[16px] border border-green-500/20 bg-green-500/10 px-4 py-3 text-center text-sm text-green-400">
+                        READY FOR SERVICE
+                      </div>
+                    )}
+
+                  </div>
+
+                </div>
+              )
+            )}
+
+          </div>
+
+        )}
+
+      </PageWrapper>
 
     </div>
-
   );
-
 }

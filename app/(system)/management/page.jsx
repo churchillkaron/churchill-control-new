@@ -1,194 +1,380 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useState } from "react";
+
 import { supabase } from "@/lib/shared/supabase/client";
 
+import PageWrapper from "@/components/PageWrapper";
+
 export default function ManagementPage() {
-  const [data, setData] = useState(null)
 
-  useEffect(() => {
-    load()
-  }, [])
+  const [
+    tenantId,
+    setTenantId,
+  ] = useState(null);
 
-  const load = async () => {
-    try {
-      const res = await fetch('/api/dashboard/today')
-      const json = await res.json()
-      setData(json)
-    } catch (e) {
-      console.error(e)
+  const [
+    sessions,
+    setSessions,
+  ] = useState([]);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  // ===== LOAD =====
+  async function loadManagement() {
+
+    if (!tenantId) {
+      return;
     }
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("table_sessions")
+      .select("*")
+      .eq(
+        "tenant_id",
+        tenantId
+      )
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      )
+      .limit(20);
+
+    if (error) {
+
+      console.error(
+        error
+      );
+
+      return;
+    }
+
+    setSessions(
+      data || []
+    );
+
+    setLoading(false);
   }
 
-  if (!data) {
-    return <div className="p-6 text-white min-h-screen">Loading...</div>
-  }
+  // ===== INIT =====
+  useEffect(() => {
+
+    async function init() {
+
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser();
+
+      if (!user) {
+        return;
+      }
+
+      const {
+        data,
+      } = await supabase
+        .from(
+          "staff_accounts"
+        )
+        .select(
+          "tenant_id"
+        )
+        .eq(
+          "auth_user_id",
+          user.id
+        )
+        .single();
+
+      if (
+        !data?.tenant_id
+      ) {
+        return;
+      }
+
+      setTenantId(
+        data.tenant_id
+      );
+    }
+
+    init();
+
+  }, []);
+
+  // ===== LOAD =====
+  useEffect(() => {
+
+    if (!tenantId) {
+      return;
+    }
+
+    loadManagement();
+
+  }, [tenantId]);
+
+  // ===== METRICS =====
+  const totalRevenue =
+    sessions.reduce(
+      (
+        sum,
+        session
+      ) =>
+        sum +
+        Number(
+          session.revenue || 0
+        ),
+      0
+    );
+
+  const activeTables =
+    sessions.filter(
+      (s) =>
+        s.status ===
+        "ACTIVE"
+    ).length;
+
+  const completedTables =
+    sessions.filter(
+      (s) =>
+        s.status ===
+          "COMPLETED" ||
+        s.status ===
+          "PAID"
+    ).length;
 
   return (
-    <div className="min-h-screen text-white flex">
-      <main className="flex-1 p-6 space-y-8">
+    <div className="min-h-screen bg-[#050507]">
 
-        {/* HEADER */}
-        <div>
-          <h1 className="text-2xl font-bold">Manager Control Panel</h1>
-          <p className="text-sm opacity-60">Live system state</p>
-        </div>
+      <PageWrapper
+        title="Management"
+        subtitle="Operational management overview"
+      >
 
-        {/* NAV ACTIONS */}
-<div className="grid grid-cols-2 md:grid-cols-8 gap-4">
+        {loading ? (
 
-<NavCard title="Invoices" href="/management/approval" />
-<NavCard title="Salary" href="/management/salary" />
-<NavCard title="Attendance" href="/management/attendance" />
-<NavCard title="Operations" href="/management/operations" />
-<NavCard title="Owner Governance" href="/owner/approvals" />
-<NavCard title="Payments" href="/accounting/payments" />
-<NavCard title="Close Month" href="/accounting/close-month" />
-<NavCard title="Audit" href="/audit" />
+          <div className="text-white/40">
+            Loading management...
+          </div>
 
+        ) : (
 
-</div>
+          <div className="space-y-6">
 
-        {/* CORE METRICS */}
-        <div className="grid grid-cols-4 gap-4">
-          <Card title="Revenue" value={`฿${data.revenue}`} />
-          <Card title="Orders" value={data.orders} />
-          <Card title="Avg Order" value={`฿${data.avgOrder}`} />
-          <Card title="Service Charge" value={`฿${data.serviceCharge}`} />
-        </div>
+            {/* TOP */}
+            <div className="grid grid-cols-4 gap-4">
 
-        {/* PERFORMANCE */}
-        <div className="grid grid-cols-3 gap-4">
-          <Card title="FOH Score" value={`${data.fohScore}%`} />
-          <Card title="Kitchen Level" value={data.kitchenLevel} />
-          <Card title="Bar Level" value={data.barLevel} />
-        </div>
+              <div className="rounded-[24px] border border-white/10 bg-[#111117] p-6">
 
-        {/* FINANCE */}
-        <div className="grid grid-cols-3 gap-4">
-          <Card title="COGS" value={`฿${data.cogs}`} />
-          <Card title="Profit" value={`฿${data.profit}`} />
-          <Card title="Cost %" value={`${data.costPercent}%`} />
-        </div>
+                <div className="text-[11px] tracking-[0.25em] text-white/30">
+                  TOTAL REVENUE
+                </div>
 
-        {/* ALERTS */}
-        <Section title="Alerts">
-          {data.alerts?.length === 0 && <Empty />}
-          {data.alerts?.map((a, i) => (
-            <Alert key={i} type={a.type} message={a.message} />
-          ))}
-        </Section>
+                <div
+                  className="mt-4 text-5xl"
+                  style={{
+                    fontWeight: 250,
+                    letterSpacing: "-0.08em",
+                  }}
+                >
+                  ฿
+                  {
+                    totalRevenue
+                  }
+                </div>
 
-        {/* TASKS */}
-        <Section title="Tasks">
-          {data.tasks?.length === 0 && <Empty />}
-          {data.tasks?.map((t, i) => (
-            <Task key={i} title={t.title} type={t.type} />
-          ))}
-        </Section>
+              </div>
 
-        {/* STOCK */}
-        <Section title="Low Stock">
-          {data.stock?.length === 0 && <Empty />}
-          {data.stock?.map((s, i) => (
-            <Stock key={i} item={s.item} level={s.level} qty={s.qty} />
-          ))}
-        </Section>
+              <div className="rounded-[24px] border border-orange-500/20 bg-orange-500/10 p-6">
 
-        {/* STAFF */}
-        <Section title="Staff Performance">
-          {data.staff?.map((s, i) => (
-            <Staff key={i} name={s.name} score={s.score} />
-          ))}
-        </Section>
+                <div className="text-[11px] tracking-[0.25em] text-orange-300/60">
+                  ACTIVE TABLES
+                </div>
 
-      </main>
+                <div
+                  className="mt-4 text-5xl text-orange-400"
+                  style={{
+                    fontWeight: 250,
+                    letterSpacing: "-0.08em",
+                  }}
+                >
+                  {
+                    activeTables
+                  }
+                </div>
+
+              </div>
+
+              <div className="rounded-[24px] border border-green-500/20 bg-green-500/10 p-6">
+
+                <div className="text-[11px] tracking-[0.25em] text-green-300/60">
+                  COMPLETED
+                </div>
+
+                <div
+                  className="mt-4 text-5xl text-green-400"
+                  style={{
+                    fontWeight: 250,
+                    letterSpacing: "-0.08em",
+                  }}
+                >
+                  {
+                    completedTables
+                  }
+                </div>
+
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-[#111117] p-6">
+
+                <div className="text-[11px] tracking-[0.25em] text-white/30">
+                  SYSTEM STATUS
+                </div>
+
+                <div
+                  className="mt-5 text-xl text-green-400"
+                  style={{
+                    fontWeight: 300,
+                  }}
+                >
+                  OPERATIONAL
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* TABLE */}
+            <div className="overflow-hidden rounded-[24px] border border-white/10 bg-[#111117]">
+
+              <div className="grid grid-cols-6 border-b border-white/10 px-6 py-4 text-[11px] tracking-[0.25em] text-white/30">
+
+                <div>
+                  TABLE
+                </div>
+
+                <div>
+                  STATUS
+                </div>
+
+                <div>
+                  ORDERS
+                </div>
+
+                <div>
+                  REVENUE
+                </div>
+
+                <div>
+                  STARTED
+                </div>
+
+                <div>
+                  CLOSED
+                </div>
+
+              </div>
+
+              <div className="divide-y divide-white/5">
+
+                {sessions.map(
+                  (session) => (
+
+                    <div
+                      key={session.id}
+                      className="grid grid-cols-6 items-center px-6 py-5 transition hover:bg-white/[0.02]"
+                    >
+
+                      <div
+                        className="text-2xl"
+                        style={{
+                          fontWeight: 250,
+                          letterSpacing: "-0.05em",
+                        }}
+                      >
+                        {
+                          session.table_number
+                        }
+                      </div>
+
+                      <div>
+
+                        <div
+                          className={`inline-flex rounded-full px-3 py-1 text-[11px] tracking-[0.15em] ${
+                            session.status ===
+                            "ACTIVE"
+                              ? "border border-orange-500/20 bg-orange-500/10 text-orange-400"
+                              : session.status ===
+                                "PAID"
+                              ? "border border-green-500/20 bg-green-500/10 text-green-400"
+                              : "border border-blue-500/20 bg-blue-500/10 text-blue-400"
+                          }`}
+                        >
+                          {
+                            session.status
+                          }
+                        </div>
+
+                      </div>
+
+                      <div className="text-white/60">
+                        {
+                          session.orders
+                        }
+                      </div>
+
+                      <div
+                        className="text-lg"
+                        style={{
+                          fontWeight: 250,
+                        }}
+                      >
+                        ฿
+                        {
+                          session.revenue
+                        }
+                      </div>
+
+                      <div className="text-sm text-white/40">
+
+                        {session.started_at
+                          ? new Date(
+                              session.started_at
+                            ).toLocaleString()
+                          : "-"}
+
+                      </div>
+
+                      <div className="text-sm text-white/40">
+
+                        {session.closed_at
+                          ? new Date(
+                              session.closed_at
+                            ).toLocaleString()
+                          : "-"}
+
+                      </div>
+
+                    </div>
+                  )
+                )}
+
+              </div>
+
+            </div>
+
+          </div>
+
+        )}
+
+      </PageWrapper>
+
     </div>
-  )
-}
-
-/* NAV CARD */
-function NavCard({ title, href }) {
-  return (
-    <Link
-      href={href}
-      className="p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition"
-    >
-      <div className="font-semibold">{title}</div>
-    </Link>
-  )
-}
-
-/* TASK (CLICKABLE LOGIC) */
-function Task({ title, type }) {
-
-  let href = "/management"
-
-  if (type === "invoice") href = "/management/approval"
-  if (type === "salary") href = "/management/salary"
-  if (type === "routine") href = "/management/operations"
-  if (type === "performance") href = "/dashboard"
-  if (type === "critical") href = "/dashboard"
-
-  return (
-    <Link href={href}>
-      <div className="p-3 bg-blue-900/40 rounded hover:bg-blue-900/60 transition cursor-pointer">
-        {title}
-      </div>
-    </Link>
-  )
-}
-
-/* UI COMPONENTS */
-
-function Card({ title, value }) {
-  return (
-    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-      <p className="text-sm opacity-60">{title}</p>
-      <p className="text-xl font-bold mt-1">{value}</p>
-    </div>
-  )
-}
-
-function Section({ title, children }) {
-  return (
-    <div>
-      <h2 className="text-lg font-semibold mb-2">{title}</h2>
-      <div className="space-y-2">{children}</div>
-    </div>
-  )
-}
-
-function Alert({ type, message }) {
-  const color =
-    type === 'critical'
-      ? 'bg-red-900/40'
-      : type === 'warning'
-      ? 'bg-yellow-900/40'
-      : 'bg-blue-900/40'
-
-  return <div className={`p-3 rounded ${color}`}>{message}</div>
-}
-
-function Stock({ item, level, qty }) {
-  return (
-    <div className="p-3 bg-white/5 rounded border border-white/10 flex justify-between">
-      <span>{item}</span>
-      <span className="opacity-70">{qty} ({level})</span>
-    </div>
-  )
-}
-
-function Staff({ name, score }) {
-  return (
-    <div className="p-3 bg-white/5 rounded flex justify-between">
-      <span>{name}</span>
-      <span>{score}%</span>
-    </div>
-  )
-}
-
-function Empty() {
-  return <p className="opacity-50 text-sm">Nothing here</p>
+  );
 }

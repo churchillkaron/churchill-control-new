@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 export async function GET(request) {
   const token = request.cookies.get("fb_token")?.value;
 

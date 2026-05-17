@@ -1,36 +1,50 @@
-import { createClient } from "@supabase/supabase-js";
-
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
+import { createClient } from "@supabase/supabase-js";
 
-    const { data, error } = await supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export async function GET() {
+
+  try {
+
+    const {
+      data,
+      error,
+    } = await supabase
       .from("invoices")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      );
 
     if (error) {
-      console.error("INVOICES FETCH ERROR:", error);
-      return Response.json(
-        { success: false, invoices: [] },
-        { status: 500 }
-      );
+      throw error;
     }
 
     return Response.json({
       success: true,
-      invoices: data || [],
+      data,
     });
-  } catch (err) {
-    console.error("SERVER ERROR:", err);
+
+  } catch (error) {
+
+    console.error(error);
+
     return Response.json(
-      { success: false, invoices: [] },
-      { status: 500 }
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

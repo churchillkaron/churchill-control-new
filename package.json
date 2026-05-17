@@ -27,7 +27,8 @@
     "recharts": "^3.8.1",
     "sharp": "^0.34.5",
     "stripe": "^22.1.0",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "autoprefixer": "^10.5.0",

@@ -1,417 +1,528 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/shared/supabase/client";
+import { useEffect } from "react";
+
 import PageWrapper from "@/components/PageWrapper";
 
+import POSShell from "@/components/pos/POSShell";
+import POSMenuGrid from "@/components/pos/POSMenuGrid";
+import POSCart from "@/components/pos/POSCart";
+import POSTableSelector from "@/components/pos/POSTableSelector";
+
+import { supabase } from "@/lib/shared/supabase/client";
+
+import { usePOSStore } from "@/store/pos/usePOSStore";
+
+import { loadMenu } from "@/lib/pos/loadMenu";
+import { loadTableSessions } from "@/lib/pos/loadTableSessions";
+
+import { validateStock } from "@/lib/pos/validateStock";
+
+import { createOrder } from "@/lib/pos/createOrder";
+import { clearTable as clearTableService } from "@/lib/pos/clearTable";
+
+import {
+  addItemToCart,
+  removeItemFromCart,
+  getSelectedQuantity,
+} from "@/store/pos/cartActions";
+
 export default function POSPage() {
-  const [tenantId, setTenantId] = useState(null);
-  const [orderItems, setOrderItems] = useState([]);
-  const [selectedTable, setSelectedTable] = useState("T1");
-  const [category, setCategory] = useState("starter");
-  const [menu, setMenu] = useState([]);
-  const [user, setUser] = useState(null);
-  const [sending, setSending] = useState(false);
 
-  // ===== LOAD MENU =====
-  const loadMenu = async () => {
-    if (!tenantId) return;
+  const {
 
-    const { data: dishes, error: dishError } = await supabase
-      .from("dishes")
-      .select("*")
-      .eq("tenant_id", tenantId);
+    tenantId,
+    setTenantId,
 
-    if (dishError) {
-      console.error("MENU LOAD ERROR:", dishError);
-      setMenu([]);
-      return;
-    }
+    user,
+    setUser,
 
-    const { data: stockData, error: stockError } = await supabase
-      .from("dish_stock")
-      .select("dish_id, quantity")
-      .eq("tenant_id", tenantId);
+    sending,
+    setSending,
 
-    if (stockError) {
-      console.error("STOCK LOAD ERROR:", stockError);
-      setMenu([]);
-      return;
-    }
+    menu,
+    setMenu,
 
-    const stockMap = {};
-    for (const stock of stockData || []) {
-      stockMap[stock.dish_id] = Number(stock.quantity || 0);
-    }
+    category,
+    setCategory,
 
-    const mergedMenu = (dishes || []).map((dish) => ({
-      ...dish,
-      stock: stockMap[dish.id] ?? 0,
-    }));
+    search,
+    setSearch,
 
-    setMenu(mergedMenu);
-  };
+    orderItems,
+    setOrderItems,
 
-  // ===== LOAD USER =====
+    selectedTable,
+    setSelectedTable,
+
+    tableStatus,
+    setTableStatus,
+
+    tableSessions,
+    setTableSessions,
+
+  } = usePOSStore();
+
+  // ===== LOAD DATA =====
+  async function refreshPOSData(
+    currentTenantId
+  ) {
+
+    const loadedMenu =
+      await loadMenu(
+        currentTenantId
+      );
+
+    setMenu(
+      loadedMenu
+    );
+
+    const sessions =
+      await loadTableSessions(
+        currentTenantId
+      );
+
+    setTableSessions(
+      sessions
+    );
+
+    const updatedStatus = {
+      T1: "AVAILABLE",
+      T2: "AVAILABLE",
+      T3: "AVAILABLE",
+      T4: "AVAILABLE",
+      T5: "AVAILABLE",
+      T6: "AVAILABLE",
+    };
+
+    Object.keys(
+      sessions
+    ).forEach(
+      (table) => {
+
+        updatedStatus[
+          table
+        ] = "ACTIVE";
+      }
+    );
+
+    setTableStatus(
+      updatedStatus
+    );
+  }
+
+  // ===== INITIAL LOAD =====
   useEffect(() => {
-    const loadUserAndTenant = async () => {
+
+    async function loadUser() {
+
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } =
+        await supabase.auth.getUser();
 
-      if (!user) return;
-
-      setUser(user);
-
-      const { data, error } = await supabase
-        .from("staff_accounts")
-        .select("tenant_id")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      if (error || !data?.tenant_id) {
-        console.error("Tenant not found for POS user");
+      if (!user) {
         return;
       }
 
-      setTenantId(data.tenant_id);
-    };
+      setUser(user);
 
-    loadUserAndTenant();
+      const {
+        data,
+        error,
+      } = await supabase
+        .from(
+          "staff_accounts"
+        )
+        .select(
+          "tenant_id"
+        )
+        .eq(
+          "auth_user_id",
+          user.id
+        )
+        .single();
+
+      if (
+        error ||
+        !data?.tenant_id
+      ) {
+
+        console.error(
+          "TENANT ERROR"
+        );
+
+        return;
+      }
+
+      setTenantId(
+        data.tenant_id
+      );
+
+      await refreshPOSData(
+        data.tenant_id
+      );
+    }
+
+    loadUser();
+
   }, []);
 
- // ===== REALTIME STOCK =====
-useEffect(() => {
-  if (!tenantId) return;
+  // ===== REALTIME =====
+  useEffect(() => {
 
-  loadMenu();
+    if (!tenantId) {
+      return;
+    }
 
-  const interval = setInterval(() => {
-    loadMenu();
-  }, 2000);
+    const channel =
+      supabase
+        .channel(
+          "pos-live-sync"
+        )
 
-  const channel = supabase
-    .channel("dish-stock-changes")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "dish_stock",
-        filter: `tenant_id=eq.${tenantId}`,
-      },
-      () => {
-        loadMenu();
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema:
+              "public",
+            table:
+              "table_sessions",
+            filter: `tenant_id=eq.${tenantId}`,
+          },
+          () =>
+            refreshPOSData(
+              tenantId
+            )
+        )
+
+        .subscribe();
+
+    return () => {
+      supabase.removeChannel(
+        channel
+      );
+    };
+
+  }, [tenantId]);
+
+  // ===== FILTER =====
+  const filteredMenu =
+    menu.filter(
+      (item) => {
+
+        const matchesCategory =
+          !item.category ||
+          item.category ===
+            category;
+
+        const matchesSearch =
+          item.name
+            ?.toLowerCase()
+            .includes(
+              search.toLowerCase()
+            );
+
+        return (
+          matchesCategory &&
+          matchesSearch
+        );
       }
-    )
-    .subscribe();
-
-  return () => {
-    clearInterval(interval);
-    supabase.removeChannel(channel);
-  };
-
-}, [tenantId]);
-
-  const getSelectedQuantity = (dishId) => {
-    const existingItem = orderItems.find((item) => item.dish_id === dishId);
-    return Number(existingItem?.quantity || 0);
-  };
-
-  // ===== ADD ITEM =====
-  const addItem = (item) => {
-    const stock = Number(item.stock || 0);
-    const alreadySelected = getSelectedQuantity(item.id);
-
-    if (stock <= 0) {
-      alert("This dish is out of stock");
-      return;
-    }
-
-    if (alreadySelected >= stock) {
-      alert(`Only ${stock} available`);
-      return;
-    }
-
-    const existingItem = orderItems.find(
-      (orderItem) => orderItem.dish_id === item.id
     );
 
-    if (existingItem) {
-      setOrderItems((prev) =>
-        prev.map((orderItem) =>
-          orderItem.dish_id === item.id
-            ? {
-                ...orderItem,
-                quantity: Number(orderItem.quantity || 1) + 1,
-              }
-            : orderItem
-        )
-      );
-      return;
-    }
+  // ===== TOTAL =====
+  const total =
+    orderItems.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        Number(
+          item.price || 0
+        ) *
+          Number(
+            item.quantity || 0
+          ),
+      0
+    );
 
-    setOrderItems((prev) => [
-      ...prev,
-      {
-        dish_id: item.id,
-        item_name: item.name,
-        price: Number(item.price || 0),
-        quantity: 1,
-      },
-    ]);
+  // ===== HELPERS =====
+  const getQuantity = (
+    dishId
+  ) =>
+    getSelectedQuantity(
+      orderItems,
+      dishId
+    );
+
+  // ===== ADD ITEM =====
+  const addItem = (
+    item
+  ) => {
+
+    try {
+
+      const updatedCart =
+        addItemToCart({
+          orderItems,
+          item,
+        });
+
+      setOrderItems(
+        updatedCart
+      );
+
+    } catch (error) {
+
+      alert(
+        error.message
+      );
+    }
   };
 
   // ===== REMOVE ITEM =====
-  const removeItem = (dishId) => {
-    setOrderItems((prev) =>
-      prev
-        .map((item) =>
-          item.dish_id === dishId
-            ? { ...item, quantity: Number(item.quantity || 1) - 1 }
-            : item
-        )
-        .filter((item) => Number(item.quantity || 0) > 0)
+  const removeItem = (
+    dishId
+  ) => {
+
+    const updatedCart =
+      removeItemFromCart({
+        orderItems,
+        dishId,
+      });
+
+    setOrderItems(
+      updatedCart
     );
   };
 
-  const total = orderItems.reduce(
-    (sum, item) =>
-      sum + Number(item.price || 0) * Number(item.quantity || 1),
-    0
-  );
-
-  // ===== STOCK VALIDATION =====
-  const validateStockBeforeSend = async () => {
-    if (!tenantId) {
-      alert("Tenant not loaded");
-      return false;
-    }
-
-    const dishIds = orderItems.map((item) => item.dish_id);
-
-    const { data: stockData, error } = await supabase
-      .from("dish_stock")
-      .select("dish_id, quantity")
-      .eq("tenant_id", tenantId)
-      .in("dish_id", dishIds);
-
-    if (error) {
-      console.error("STOCK VALIDATION ERROR:", error);
-      alert("Could not validate stock");
-      return false;
-    }
-
-    const stockMap = {};
-    for (const stock of stockData || []) {
-      stockMap[stock.dish_id] = Number(stock.quantity || 0);
-    }
-
-    for (const item of orderItems) {
-      const available = stockMap[item.dish_id] || 0;
-      const needed = Number(item.quantity || 1);
-
-      if (available < needed) {
-        alert(`Not enough stock for ${item.item_name}. Available: ${available}`);
-        await loadMenu();
-        return false;
-      }
-    }
-
-    return true;
-  };
-
   // ===== SEND ORDER =====
-  const sendOrder = async () => {
-    if (orderItems.length === 0 || sending) return;
+  const sendOrder =
+    async () => {
 
-    if (!tenantId) {
-      alert("Tenant not loaded");
-      return;
-    }
+      if (
+        orderItems.length === 0 ||
+        sending
+      ) {
+        return;
+      }
 
-    setSending(true);
+      if (!tenantId) {
 
-    const stockOk = await validateStockBeforeSend();
+        alert(
+          "Tenant not loaded"
+        );
 
-    if (!stockOk) {
-      setSending(false);
-      return;
-    }
+        return;
+      }
 
-    const response = await fetch("/api/pos/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        table: selectedTable,
-        items: orderItems,
-        total,
-        staff_id: user?.id,
-staff_name: user?.email || "Unknown",
-        tenant_id: tenantId,
-      }),
-    });
+      setSending(true);
 
-    const data = await response.json();
+      try {
 
-    if (!response.ok) {
-      alert(data.error || "Order failed");
-      setSending(false);
-      return;
-    }
+        const validation =
+          await validateStock({
+            tenantId,
+            orderItems,
+          });
 
-    setOrderItems([]);
-    await loadMenu();
-    setSending(false);
-  };
+        if (
+          !validation.valid
+        ) {
 
-  const filteredMenu = menu.filter((item) => {
-    if (!item.category) return true;
-    return item.category === category;
-  });
+          alert(
+            validation.message
+          );
 
-  // ===== UI =====
+          await refreshPOSData(
+            tenantId
+          );
+
+          return;
+        }
+
+        await createOrder({
+          table:
+            selectedTable,
+
+          items:
+            orderItems,
+
+          total,
+
+          staff_id:
+            user?.id,
+
+          staff_name:
+            user?.email ||
+            "Unknown",
+
+          tenant_id:
+            tenantId,
+        });
+
+        setOrderItems([]);
+
+        await refreshPOSData(
+          tenantId
+        );
+
+      } catch (error) {
+
+        console.error(
+          error
+        );
+
+        alert(
+          error.message ||
+            "Failed to send order"
+        );
+
+      } finally {
+
+        setSending(false);
+      }
+    };
+
+  // ===== CLEAR TABLE =====
+  const clearTable =
+    async () => {
+
+      if (
+        !tenantId
+      ) {
+        return;
+      }
+
+      try {
+
+        setSending(
+          true
+        );
+
+        await clearTableService({
+          table:
+            selectedTable,
+
+          tenant_id:
+            tenantId,
+        });
+
+        setOrderItems([]);
+
+        await refreshPOSData(
+          tenantId
+        );
+
+      } catch (error) {
+
+        console.error(
+          error
+        );
+
+        alert(
+          "Failed to clear table"
+        );
+
+      } finally {
+
+        setSending(
+          false
+        );
+      }
+    };
+
   return (
-    <PageWrapper title="POS" subtitle="Order system">
+    <div className="min-h-screen bg-[#050507]">
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <PageWrapper
+        title="POS"
+        subtitle="Operational order system"
+      >
 
-        {/* LEFT SIDE */}
-        <div className="space-y-6">
+        <POSShell
 
-          <div className="grid grid-cols-3 gap-3">
-            {["T1","T2","T3","T4","T5","T6"].map((table) => (
-              <button
-                key={table}
-                onClick={() => setSelectedTable(table)}
-                className={`glass p-3 rounded-xl ${
-                  selectedTable === table
-                    ? "border border-orange-500 text-orange-400"
-                    : ""
-                }`}
-              >
-                {table}
-              </button>
-            ))}
-          </div>
+          tableSelector={
+            <POSTableSelector
+              selectedTable={
+                selectedTable
+              }
+              setSelectedTable={
+                setSelectedTable
+              }
+              tableStatus={
+                tableStatus
+              }
+              tableSessions={
+                tableSessions
+              }
+            />
+          }
 
-          <div className="flex gap-2">
-            {["starter","main","dessert"].map((menuCategory) => (
-              <button
-                key={menuCategory}
-                onClick={() => setCategory(menuCategory)}
-                className={`glass px-3 py-1 rounded ${
-                  category === menuCategory
-                    ? "border border-orange-500 text-orange-400"
-                    : ""
-                }`}
-              >
-                {menuCategory}
-              </button>
-            ))}
-          </div>
+          menu={
+            <POSMenuGrid
+              filteredMenu={
+                filteredMenu
+              }
+              category={
+                category
+              }
+              setCategory={
+                setCategory
+              }
+              addItem={
+                addItem
+              }
+              getSelectedQuantity={
+                getQuantity
+              }
+              search={
+                search
+              }
+              setSearch={
+                setSearch
+              }
+            />
+          }
 
-          <div className="space-y-2">
-            {filteredMenu.map((item) => {
-              const stock = Number(item.stock || 0);
-              const selected = getSelectedQuantity(item.id);
-              const availableToAdd = stock - selected;
-              const outOfStock = stock <= 0;
-              const maxSelected = selected >= stock;
+          cart={
+            <POSCart
+              selectedTable={
+                selectedTable
+              }
+              orderItems={
+                orderItems
+              }
+              total={
+                total
+              }
+              sending={
+                sending
+              }
+              removeItem={
+                removeItem
+              }
+              sendOrder={
+                sendOrder
+              }
+              clearTable={
+                clearTable
+              }
+              tableStatus={
+                tableStatus
+              }
+              tableSessions={
+                tableSessions
+              }
+            />
+          }
 
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => addItem(item)}
-                  className={`glass p-3 rounded-xl ${
-                    outOfStock || maxSelected
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:bg-white/5 cursor-pointer"
-                  }`}
-                >
-                  <div className="flex justify-between">
-                    <span>{item.name}</span>
-                    <span className="text-xs text-muted">
-                      {outOfStock
-                        ? "OUT"
-                        : maxSelected
-                        ? "MAX"
-                        : `${availableToAdd} left`}
-                    </span>
-                  </div>
+        />
 
-                  <div className="text-xs text-muted">
-                    ฿{Number(item.price || 0)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      </PageWrapper>
 
-        </div>
-
-        {/* RIGHT SIDE */}
-        <div className="glass p-6 rounded-2xl space-y-4">
-
-          <h2>Table {selectedTable}</h2>
-
-          {orderItems.length === 0 && (
-            <div className="text-muted text-sm">No items selected</div>
-          )}
-
-          {orderItems.map((item) => (
-            <div key={item.dish_id} className="flex justify-between text-sm">
-              <div>{item.item_name} x{item.quantity}</div>
-
-              <div className="flex gap-3 items-center">
-                <span>฿{Number(item.price || 0) * item.quantity}</span>
-
-                <button
-                  onClick={() => removeItem(item.dish_id)}
-                  className="text-red-400"
-                >
-                  −
-                </button>
-              </div>
-            </div>
-          ))}
-
-          <div className="text-lg">Total: ฿{total}</div>
-
-          <button className="glass p-2 rounded-xl">
-            REQUEST ADJUSTMENT
-          </button>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button className="glass p-2 rounded-xl">HOLD</button>
-
-            <button
-              onClick={sendOrder}
-              disabled={orderItems.length === 0 || sending}
-              className="glass p-2 rounded-xl"
-            >
-              FIRE
-            </button>
-          </div>
-
-          <button
-            onClick={sendOrder}
-            disabled={orderItems.length === 0 || sending}
-            className="btn-primary w-full"
-          >
-            {sending ? "SENDING..." : "SEND ORDER"}
-          </button>
-
-          <button className="glass p-2 rounded-xl">
-            FIRE HELD
-          </button>
-
-        </div>
-
-      </div>
-
-    </PageWrapper>
+    </div>
   );
 }

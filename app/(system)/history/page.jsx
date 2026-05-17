@@ -2,79 +2,355 @@
 
 import { useEffect, useState } from "react";
 
+import { supabase } from "@/lib/shared/supabase/client";
+
+import PageWrapper from "@/components/PageWrapper";
 
 export default function HistoryPage() {
-  const [history, setHistory] = useState([]);
 
-  // 🔥 LOAD HISTORY
- useEffect(() => {
-  const loadHistory = async () => {
-    const tenant_id = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+  const [
+    tenantId,
+    setTenantId,
+  ] = useState(null);
 
-    const { data, error } = await supabase
-      .from("history_days")
-      .select("*")
-      .eq("tenant_id", tenant_id)
-      .order("date", { ascending: false });
+  const [
+    sessions,
+    setSessions,
+  ] = useState([]);
 
-    if (error) {
-      console.error(error);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  // ===== LOAD =====
+  async function loadHistory() {
+
+    if (!tenantId) {
       return;
     }
 
-    setHistory(data || []);
-  };
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("table_sessions")
+      .select("*")
+      .eq(
+        "tenant_id",
+        tenantId
+      )
+      .in(
+        "status",
+        [
+          "COMPLETED",
+          "CLOSED",
+        ]
+      )
+      .order(
+        "closed_at",
+        {
+          ascending: false,
+        }
+      );
 
-  loadHistory();
-}, []);
+    if (error) {
+
+      console.error(
+        error
+      );
+
+      return;
+    }
+
+    setSessions(
+      data || []
+    );
+
+    setLoading(false);
+  }
+
+  // ===== INIT =====
+  useEffect(() => {
+
+    async function init() {
+
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser();
+
+      if (!user) {
+        return;
+      }
+
+      const {
+        data,
+      } = await supabase
+        .from(
+          "staff_accounts"
+        )
+        .select(
+          "tenant_id"
+        )
+        .eq(
+          "auth_user_id",
+          user.id
+        )
+        .single();
+
+      if (
+        !data?.tenant_id
+      ) {
+        return;
+      }
+
+      setTenantId(
+        data.tenant_id
+      );
+    }
+
+    init();
+
+  }, []);
+
+  // ===== LOAD =====
+  useEffect(() => {
+
+    if (!tenantId) {
+      return;
+    }
+
+    loadHistory();
+
+  }, [tenantId]);
+
+  // ===== TOTALS =====
+  const totalRevenue =
+    sessions.reduce(
+      (
+        sum,
+        session
+      ) =>
+        sum +
+        Number(
+          session.revenue || 0
+        ),
+      0
+    );
+
+  const totalOrders =
+    sessions.reduce(
+      (
+        sum,
+        session
+      ) =>
+        sum +
+        Number(
+          session.orders || 0
+        ),
+      0
+    );
 
   return (
+    <div className="min-h-screen bg-[#050507]">
 
-      <div className="text-white space-y-6">
+      <PageWrapper
+        title="History"
+        subtitle="Operational service history"
+      >
 
-        <h1>History</h1>
+        {loading ? (
 
-        {history.length === 0 && (
-          <div className="text-white/50">No saved days yet</div>
-        )}
+          <div className="text-white/40">
+            Loading history...
+          </div>
 
-        {history.map((day) => (
-          <div key={day.id} className="bg-white/5 p-4 rounded space-y-3">
+        ) : (
 
-            {/* 🔥 HEADER */}
-            <div className="flex justify-between">
-              <div>
-                {new Date(day.date).toLocaleDateString()}
+          <div className="space-y-6">
+
+            {/* METRICS */}
+            <div className="grid grid-cols-3 gap-4">
+
+              <div className="rounded-[24px] border border-white/10 bg-[#111117] p-6">
+
+                <div className="text-[11px] tracking-[0.25em] text-white/30">
+                  TOTAL SESSIONS
+                </div>
+
+                <div
+                  className="mt-4 text-5xl"
+                  style={{
+                    fontWeight: 250,
+                    letterSpacing: "-0.08em",
+                  }}
+                >
+                  {
+                    sessions.length
+                  }
+                </div>
+
               </div>
-              <div className="text-white/50 text-sm">
-                {day.orders.length} orders
+
+              <div className="rounded-[24px] border border-white/10 bg-[#111117] p-6">
+
+                <div className="text-[11px] tracking-[0.25em] text-white/30">
+                  TOTAL REVENUE
+                </div>
+
+                <div
+                  className="mt-4 text-5xl"
+                  style={{
+                    fontWeight: 250,
+                    letterSpacing: "-0.08em",
+                  }}
+                >
+                  ฿
+                  {
+                    totalRevenue
+                  }
+                </div>
+
               </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-[#111117] p-6">
+
+                <div className="text-[11px] tracking-[0.25em] text-white/30">
+                  TOTAL ORDERS
+                </div>
+
+                <div
+                  className="mt-4 text-5xl"
+                  style={{
+                    fontWeight: 250,
+                    letterSpacing: "-0.08em",
+                  }}
+                >
+                  {
+                    totalOrders
+                  }
+                </div>
+
+              </div>
+
             </div>
 
-            {/* 🔥 FINANCIALS */}
-            <div className="space-y-1 text-sm">
-              <div>Subtotal: {day.subtotal}</div>
-              <div>Discounts: -{day.discountTotal}</div>
-              <div className="text-lg">Revenue: {day.finalRevenue}</div>
-            </div>
+            {/* HISTORY TABLE */}
+            <div className="overflow-hidden rounded-[24px] border border-white/10 bg-[#111117]">
 
-            {/* 🔥 ADJUSTMENTS */}
-            {day.adjustments.length > 0 && (
-              <div className="space-y-1 text-xs text-white/60">
-                <div className="text-white">Adjustments:</div>
+              <div className="grid grid-cols-6 border-b border-white/10 px-6 py-4 text-[11px] tracking-[0.25em] text-white/30">
 
-                {day.adjustments.map((a) => (
-                  <div key={a.id}>
-                    Table {a.table} | {a.type} {a.value} | {a.status}
-                  </div>
-                ))}
+                <div>
+                  TABLE
+                </div>
+
+                <div>
+                  STATUS
+                </div>
+
+                <div>
+                  ORDERS
+                </div>
+
+                <div>
+                  REVENUE
+                </div>
+
+                <div>
+                  STARTED
+                </div>
+
+                <div>
+                  CLOSED
+                </div>
+
               </div>
-            )}
+
+              <div className="divide-y divide-white/5">
+
+                {sessions.map(
+                  (session) => (
+
+                    <div
+                      key={session.id}
+                      className="grid grid-cols-6 items-center px-6 py-5 transition hover:bg-white/[0.02]"
+                    >
+
+                      <div
+                        className="text-2xl"
+                        style={{
+                          fontWeight: 250,
+                          letterSpacing: "-0.05em",
+                        }}
+                      >
+                        {
+                          session.table_number
+                        }
+                      </div>
+
+                      <div>
+
+                        <div className="inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[11px] tracking-[0.15em] text-blue-400">
+                          {
+                            session.status
+                          }
+                        </div>
+
+                      </div>
+
+                      <div className="text-white/60">
+                        {
+                          session.orders
+                        }
+                      </div>
+
+                      <div
+                        className="text-lg"
+                        style={{
+                          fontWeight: 250,
+                        }}
+                      >
+                        ฿
+                        {
+                          session.revenue
+                        }
+                      </div>
+
+                      <div className="text-sm text-white/40">
+
+                        {session.started_at
+                          ? new Date(
+                              session.started_at
+                            ).toLocaleString()
+                          : "-"}
+
+                      </div>
+
+                      <div className="text-sm text-white/40">
+
+                        {session.closed_at
+                          ? new Date(
+                              session.closed_at
+                            ).toLocaleString()
+                          : "-"}
+
+                      </div>
+
+                    </div>
+                  )
+                )}
+
+              </div>
+
+            </div>
 
           </div>
-        ))}
 
-      </div>
-   
+        )}
+
+      </PageWrapper>
+
+    </div>
   );
 }

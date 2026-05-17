@@ -1,56 +1,26 @@
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
-import { withApiHandler }
-from "@/lib/shared/http/withApiHandler";
+export async function GET() {
 
-import { getTenantId }
-from "@/lib/shared/tenant/getTenantId";
+  try {
 
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
+    return Response.json({
+      success: true,
+      profit: 0,
+    });
 
-export const GET = withApiHandler(
-  "finance-profit",
+  } catch (error) {
 
-  async (request) => {
+    console.error(error);
 
-    const tenantId =
-      getTenantId(request);
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-
-      .from(
-        "order_profit_view"
-      )
-
-      .select("*")
-
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      )
-
-      .limit(50);
-
-    if (error) {
-      throw error;
-    }
-
-    return {
-      data:
-        data || [],
-    };
-
+    return Response.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
+    );
   }
-);
+}

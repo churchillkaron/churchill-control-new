@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getOAuthClient } from "@/lib/integrations/googleAuth";
 
 export async function GET() {

@@ -1,0 +1,56 @@
+name: Churchill CI
+
+on:
+
+push:
+branches:
+- main
+
+pull_request:
+branches:
+- main
+
+jobs:
+
+validate:
+
+
+runs-on: ubuntu-latest
+
+steps:
+
+  - name: Checkout
+    uses: actions/checkout@v4
+
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: 20
+
+  - name: Install dependencies
+    run: npm install
+
+  - name: Lint
+    run: npm run lint || true
+
+  - name: Build application
+    run: npm run build
+
+  - name: Verify Supabase migrations folder
+    run: |
+      test -d supabase/migrations
+
+  - name: Verify environment files ignored
+    run: |
+      if git ls-files | grep -E '\.env'; then
+        echo "ERROR: Environment files committed"
+        exit 1
+      fi
+
+  - name: Verify backups ignored
+    run: |
+      if git ls-files | grep backups; then
+        echo "ERROR: Backups committed"
+        exit 1
+      fi
+

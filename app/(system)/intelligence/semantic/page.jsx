@@ -1,109 +1,165 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-export default function SemanticPage() {
-
-  const [
-    query,
-    setQuery,
-  ] = useState("");
+export default function SemanticFederationPage() {
 
   const [
-    results,
-    setResults,
-  ] = useState([]);
+    data,
+    setData,
+  ] = useState(null);
 
-  async function search() {
+  async function load() {
 
     const res =
       await fetch(
-        "/api/intelligence/semantic/search",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            tenant_id:
-              "demo",
-            query,
-          }),
-        }
+        "/api/intelligence/semantic"
       );
 
     const json =
       await res.json();
 
-    setResults(
-      json.results || []
-    );
+    setData(json);
   }
 
+  useEffect(() => {
+
+    load();
+
+  }, []);
+
+  const summary =
+    data?.federation_summary;
+
   return (
+
     <div className="min-h-screen bg-black text-white p-10">
 
-      <h1 className="text-5xl font-bold mb-10">
-        Semantic Memory Search
-      </h1>
+      <div className="max-w-7xl mx-auto">
 
-      <div className="flex gap-4 mb-10">
+        <div className="mb-10">
 
-        <input
-          value={query}
-          onChange={(e) =>
-            setQuery(
-              e.target.value
-            )
-          }
-          placeholder="Search AI memory..."
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-6 py-4"
-        />
+          <h1 className="text-6xl font-bold">
+            Semantic Federation
+          </h1>
 
-        <button
-          onClick={search}
-          className="bg-white text-black px-8 rounded-2xl"
-        >
-          Search
-        </button>
+          <div className="text-zinc-500 mt-3">
+            Enterprise Semantic Intelligence & Cross-Brand Learning
+          </div>
 
-      </div>
+        </div>
 
-      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
 
-        {results.map(
-          (
-            item,
-            index
-          ) => (
+          <div className="border border-zinc-800 rounded-2xl p-6">
 
-            <div
-              key={index}
-              className="border border-zinc-800 rounded-2xl p-6"
-            >
-
-              <div className="flex items-center justify-between mb-4">
-
-                <div className="text-zinc-500">
-                  Score:
-                  {" "}
-                  {item.score}
-                </div>
-
-                <div className="text-zinc-500 text-sm">
-                  {item.created_at}
-                </div>
-
-              </div>
-
-              <div className="whitespace-pre-wrap">
-                {item.text}
-              </div>
-
+            <div className="text-zinc-500">
+              Brands
             </div>
-          )
-        )}
+
+            <div className="text-5xl mt-4">
+              {summary?.brands || 0}
+            </div>
+
+          </div>
+
+          <div className="border border-zinc-800 rounded-2xl p-6">
+
+            <div className="text-zinc-500">
+              Enterprise Patterns
+            </div>
+
+            <div className="text-5xl mt-4">
+              {
+                summary?.enterprise_patterns || 0
+              }
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="space-y-6">
+
+          {data?.federation?.map(
+            (
+              item,
+              index
+            ) => (
+
+              <div
+                key={index}
+                className="border border-zinc-800 rounded-2xl p-6"
+              >
+
+                <div className="flex items-start justify-between mb-6">
+
+                  <div>
+
+                    <div className="text-2xl">
+                      {item.tenant_name}
+                    </div>
+
+                    <div className="text-zinc-500 mt-2">
+                      Revenue:
+                      {" "}
+                      {item.revenue}
+                    </div>
+
+                  </div>
+
+                  <div className="text-right">
+
+                    <div>
+                      Campaigns:
+                      {" "}
+                      {item.campaigns}
+                    </div>
+
+                    <div className="mt-2">
+                      Audit Events:
+                      {" "}
+                      {item.audit_events}
+                    </div>
+
+                  </div>
+
+                </div>
+
+                <div className="space-y-4">
+
+                  {item.semantic_patterns?.map(
+                    (
+                      pattern,
+                      idx
+                    ) => (
+
+                      <div
+                        key={idx}
+                        className="border border-zinc-800 rounded-xl p-4"
+                      >
+
+                        <div className="text-lg mb-2">
+                          {pattern.category}
+                        </div>
+
+                        <div className="text-zinc-400">
+                          {
+                            pattern.intelligence
+                          }
+                        </div>
+
+                      </div>
+                    )
+                  )}
+
+                </div>
+
+              </div>
+            )
+          )}
+
+        </div>
 
       </div>
 

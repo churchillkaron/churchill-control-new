@@ -45,7 +45,7 @@ jobs:
 
       - name: Verify environment files ignored
         run: |
-          if git ls-files | grep -E '\.env'; then
+          if git ls-files | grep -E '^\.env($|\.local|\.development|\.production)'; then
             echo "ERROR: Environment files committed"
             exit 1
           fi

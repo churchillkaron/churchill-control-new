@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import buildAutonomousFinancialGovernance from "@/lib/intelligence/governance/buildAutonomousFinancialGovernance";
+import buildSelfHealingInfrastructure from "@/lib/intelligence/healing/buildSelfHealingInfrastructure";
 
 export async function POST(req) {
 
@@ -10,7 +10,7 @@ export async function POST(req) {
       await req.json();
 
     const result =
-      await buildAutonomousFinancialGovernance(
+      await buildSelfHealingInfrastructure(
         body
       );
 

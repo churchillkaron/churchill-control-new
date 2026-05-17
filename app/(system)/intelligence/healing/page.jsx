@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export default function GovernancePage() {
+export default function HealingPage() {
 
   const [
     data,
@@ -13,7 +13,7 @@ export default function GovernancePage() {
 
     const res =
       await fetch(
-        "/api/intelligence/governance",
+        "/api/intelligence/healing",
         {
 
           method: "POST",
@@ -52,11 +52,11 @@ export default function GovernancePage() {
         <div className="mb-10">
 
           <h1 className="text-6xl font-bold">
-            Financial Governance
+            Self-Healing Infrastructure
           </h1>
 
           <div className="text-zinc-500 mt-3">
-            Autonomous Financial Governance & Approval Intelligence
+            Autonomous Infrastructure Recovery & Protection Layer
           </div>
 
         </div>
@@ -64,12 +64,12 @@ export default function GovernancePage() {
         <div className="border border-zinc-800 rounded-2xl p-6 mb-10">
 
           <div className="text-zinc-500">
-            Governance Status
+            Infrastructure Status
           </div>
 
           <div className="text-5xl mt-4 text-green-400">
             {
-              data?.governance_status || "-"
+              data?.infrastructure_status || "-"
             }
           </div>
 
@@ -77,7 +77,7 @@ export default function GovernancePage() {
 
         <div className="space-y-6">
 
-          {data?.governance_actions?.map(
+          {data?.healing_actions?.map(
             (
               item,
               index
@@ -91,17 +91,23 @@ export default function GovernancePage() {
                 <div className="flex items-center justify-between mb-4">
 
                   <div className="text-2xl">
-                    {item.category}
+                    {item.type}
                   </div>
 
                   <div className="text-sm text-zinc-400">
-                    {item.severity}
+                    {item.status}
                   </div>
 
                 </div>
 
-                <div className="text-lg">
+                <div className="text-lg mb-4">
                   {item.action}
+                </div>
+
+                <div className="text-zinc-500">
+                  Source:
+                  {" "}
+                  {item.source}
                 </div>
 
               </div>

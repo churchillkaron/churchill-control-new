@@ -9,10 +9,24 @@ export default function RevenueIntelligencePage() {
     setData,
   ] = useState(null);
 
+  const [
+    trends,
+    setTrends,
+  ] = useState([]);
+
   async function loadRevenueIntelligence() {
 
-    const res =
-      await fetch(
+    const body = {
+      tenant_id:
+        "demo",
+    };
+
+    const [
+      revenueRes,
+      trendsRes,
+    ] = await Promise.all([
+
+      fetch(
         "/api/intelligence/revenue",
         {
           method: "POST",
@@ -20,17 +34,40 @@ export default function RevenueIntelligencePage() {
             "Content-Type":
               "application/json",
           },
-          body: JSON.stringify({
-            tenant_id:
-              "demo",
-          }),
+          body: JSON.stringify(
+            body
+          ),
         }
-      );
+      ),
 
-    const json =
-      await res.json();
+      fetch(
+        "/api/intelligence/revenue/trends",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(
+            body
+          ),
+        }
+      ),
+    ]);
 
-    setData(json);
+    const revenueJson =
+      await revenueRes.json();
+
+    const trendsJson =
+      await trendsRes.json();
+
+    setData(
+      revenueJson
+    );
+
+    setTrends(
+      trendsJson.trends || []
+    );
   }
 
   return (
@@ -75,6 +112,43 @@ export default function RevenueIntelligencePage() {
             Revenue Status:
             {" "}
             {data.revenue_status}
+          </div>
+
+        </div>
+      )}
+
+      {trends.length > 0 && (
+
+        <div className="mt-12">
+
+          <h2 className="text-2xl mb-6">
+            Revenue Trends
+          </h2>
+
+          <div className="space-y-3">
+
+            {trends.map(
+              (
+                trend,
+                index
+              ) => (
+
+                <div
+                  key={index}
+                  className="border border-zinc-800 rounded-xl p-4 flex justify-between"
+                >
+                  <div>
+                    {trend.date}
+                  </div>
+
+                  <div>
+                    {trend.revenue}
+                  </div>
+
+                </div>
+              )
+            )}
+
           </div>
 
         </div>

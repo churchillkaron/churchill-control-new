@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import storePgVectorMemory from "@/lib/intelligence/vector/storePgVectorMemory";
+import buildRealtimeVoiceSession from "@/lib/intelligence/realtime/voice/buildRealtimeVoiceSession";
 
 export async function POST(req) {
 
@@ -10,7 +10,7 @@ export async function POST(req) {
       await req.json();
 
     const result =
-      await storePgVectorMemory(
+      await buildRealtimeVoiceSession(
         body
       );
 

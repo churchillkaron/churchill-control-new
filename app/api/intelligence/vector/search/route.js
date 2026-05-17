@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import storePgVectorMemory from "@/lib/intelligence/vector/storePgVectorMemory";
+import searchPgVectorMemory from "@/lib/intelligence/vector/searchPgVectorMemory";
 
 export async function POST(req) {
 
@@ -10,7 +10,7 @@ export async function POST(req) {
       await req.json();
 
     const result =
-      await storePgVectorMemory(
+      await searchPgVectorMemory(
         body
       );
 

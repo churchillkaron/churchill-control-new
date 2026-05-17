@@ -5,155 +5,108 @@ import { useState } from "react";
 export default function VoiceAIPage() {
 
   const [
-    transcript,
-    setTranscript,
-  ] = useState("");
-
-  const [
-    response,
-    setResponse,
+    session,
+    setSession,
   ] = useState(null);
 
   const [
-    listening,
-    setListening,
+    loading,
+    setLoading,
   ] = useState(false);
 
-  async function askVoiceAI() {
+  async function createSession() {
 
-    const res =
-      await fetch(
-        "/api/intelligence/voice",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            tenant_id:
-              "demo",
-            transcript,
-          }),
-        }
+    setLoading(true);
+
+    try {
+
+      const res =
+        await fetch(
+          "/api/intelligence/realtime/voice",
+          {
+
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+
+              tenant_id:
+                "demo",
+            }),
+          }
+        );
+
+      const json =
+        await res.json();
+
+      setSession(
+        json.session || null
       );
 
-    const json =
-      await res.json();
+    } finally {
 
-    setResponse(json);
-  }
-
-  function startVoice() {
-
-    if (
-      !window.webkitSpeechRecognition
-    ) {
-
-      alert(
-        "Speech recognition not supported."
-      );
-
-      return;
+      setLoading(false);
     }
-
-    const recognition =
-      new window.webkitSpeechRecognition();
-
-    recognition.continuous =
-      false;
-
-    recognition.interimResults =
-      false;
-
-    recognition.lang =
-      "en-US";
-
-    recognition.start();
-
-    setListening(true);
-
-    recognition.onresult =
-      (event) => {
-
-        const text =
-          event.results[0][0]
-            .transcript;
-
-        setTranscript(
-          text
-        );
-
-        setListening(
-          false
-        );
-      };
-
-    recognition.onerror =
-      () => {
-
-        setListening(
-          false
-        );
-      };
   }
 
   return (
+
     <div className="min-h-screen bg-black text-white p-10">
 
-      <h1 className="text-5xl font-bold mb-10">
-        Churchill Voice AI
-      </h1>
+      <div className="max-w-5xl mx-auto">
 
-      <div className="flex gap-4">
+        <div className="flex items-center justify-between mb-10">
 
-        <input
-          value={transcript}
-          onChange={(e) =>
-            setTranscript(
-              e.target.value
-            )
-          }
-          placeholder="Speak or type..."
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-6 py-4"
-        />
+          <div>
 
-        <button
-          onClick={
-            startVoice
-          }
-          className="bg-zinc-800 px-6 rounded-2xl"
-        >
-          {listening
-            ? "Listening..."
-            : "Voice"}
-        </button>
+            <h1 className="text-6xl font-bold">
+              Realtime Voice AI
+            </h1>
 
-        <button
-          onClick={
-            askVoiceAI
-          }
-          className="bg-white text-black px-8 rounded-2xl"
-        >
-          Ask
-        </button>
+            <div className="text-zinc-500 mt-3">
+              OpenAI Executive Voice Agent Infrastructure
+            </div>
 
-      </div>
-
-      {response && (
-
-        <div className="mt-10 border border-zinc-800 rounded-2xl p-6">
-
-          <div className="text-zinc-500 mb-4">
-            Churchill AI Response
           </div>
 
-          <div className="text-xl whitespace-pre-wrap">
-            {response.response}
-          </div>
+          <button
+            onClick={
+              createSession
+            }
+            disabled={loading}
+            className="bg-white text-black px-8 py-4 rounded-2xl disabled:opacity-50"
+          >
+            {loading
+              ? "Creating..."
+              : "Create Voice Session"}
+          </button>
 
         </div>
-      )}
+
+        {session && (
+
+          <div className="border border-zinc-800 rounded-2xl p-6">
+
+            <div className="text-2xl mb-6">
+              Session Created
+            </div>
+
+            <pre className="overflow-auto text-sm">
+              {JSON.stringify(
+                session,
+                null,
+                2
+              )}
+            </pre>
+
+          </div>
+        )}
+
+      </div>
 
     </div>
   );

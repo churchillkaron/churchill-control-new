@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import PageWrapper from "@/components/PageWrapper";
 
 import POSShell from "@/components/pos/POSShell";
@@ -9,9 +11,16 @@ import POSTableSelector from "@/components/pos/POSTableSelector";
 
 import { usePOSStore } from "@/store/pos/usePOSStore";
 
+import { loadMenu } from "@/lib/pos/loadMenu";
+
 export default function POSPage() {
 
   const {
+
+    tenantId,
+
+    menu,
+    setMenu,
 
     category,
     setCategory,
@@ -29,6 +38,56 @@ export default function POSPage() {
     tableSessions,
 
   } = usePOSStore();
+
+  // ===== LOAD MENU =====
+  useEffect(() => {
+
+    async function run() {
+
+      if (!tenantId) {
+        return;
+      }
+
+      const loadedMenu =
+        await loadMenu(
+          tenantId
+        );
+
+      setMenu(
+        loadedMenu || []
+      );
+    }
+
+    run();
+
+  }, [
+    tenantId,
+    setMenu,
+  ]);
+
+  // ===== FILTER =====
+  const filteredMenu =
+    menu.filter(
+      (item) => {
+
+        const matchesCategory =
+          !category ||
+          item.category ===
+            category;
+
+        const matchesSearch =
+          item.name
+            ?.toLowerCase()
+            .includes(
+              search.toLowerCase()
+            );
+
+        return (
+          matchesCategory &&
+          matchesSearch
+        );
+      }
+    );
 
   return (
 
@@ -60,7 +119,9 @@ export default function POSPage() {
 
           menu={
             <POSMenuGrid
-              filteredMenu={[]}
+              filteredMenu={
+                filteredMenu
+              }
               category={
                 category
               }

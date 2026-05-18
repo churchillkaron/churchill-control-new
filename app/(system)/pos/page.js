@@ -11,6 +11,8 @@ import POSTableSelector from "@/components/pos/POSTableSelector";
 
 import { usePOSStore } from "@/store/pos/usePOSStore";
 
+import { supabase } from "@/lib/shared/supabase/client";
+
 import { loadMenu } from "@/lib/pos/loadMenu";
 
 import {
@@ -24,6 +26,7 @@ export default function POSPage() {
   const {
 
     tenantId,
+    setTenantId,
 
     menu,
     setMenu,
@@ -45,6 +48,58 @@ export default function POSPage() {
     tableSessions,
 
   } = usePOSStore();
+
+  // ===== LOAD TENANT =====
+  useEffect(() => {
+
+    async function loadTenant() {
+
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser();
+
+      if (!user) {
+        return;
+      }
+
+      const {
+        data,
+        error,
+      } = await supabase
+        .from(
+          "staff_accounts"
+        )
+        .select(
+          "tenant_id"
+        )
+        .eq(
+          "auth_user_id",
+          user.id
+        )
+        .single();
+
+      if (
+        error ||
+        !data?.tenant_id
+      ) {
+
+        console.error(
+          "TENANT ERROR",
+          error
+        );
+
+        return;
+      }
+
+      setTenantId(
+        data.tenant_id
+      );
+    }
+
+    loadTenant();
+
+  }, []);
 
   // ===== LOAD MENU =====
   useEffect(() => {

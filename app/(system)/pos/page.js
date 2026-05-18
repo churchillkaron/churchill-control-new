@@ -7,7 +7,12 @@ import POSMenuGrid from "@/components/pos/POSMenuGrid";
 import POSCart from "@/components/pos/POSCart";
 import POSTableSelector from "@/components/pos/POSTableSelector";
 
+import { usePOSStore } from "@/store/pos/usePOSStore";
+
 export default function POSPage() {
+
+  const store =
+    usePOSStore();
 
   return (
 
@@ -22,7 +27,7 @@ export default function POSPage() {
       fontWeight: "bold",
     }}>
 
-      STEP 5 SAFE
+      STORE SAFE
 
     </div>
   );

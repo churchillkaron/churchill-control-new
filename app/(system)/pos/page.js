@@ -11,13 +11,16 @@ import { usePOSStore } from "@/store/pos/usePOSStore";
 
 import { supabase } from "@/lib/shared/supabase/client";
 
+import { loadMenu } from "@/lib/pos/loadMenu";
+
 export default function POSPage() {
 
   const store =
     usePOSStore();
 
   console.log(
-    supabase
+    supabase,
+    loadMenu
   );
 
   return (
@@ -33,7 +36,7 @@ export default function POSPage() {
       fontWeight: "bold",
     }}>
 
-      SUPABASE SAFE
+      LOADMENU SAFE
 
     </div>
   );

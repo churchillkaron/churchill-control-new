@@ -4,6 +4,7 @@ import PageWrapper from "@/components/PageWrapper";
 
 import POSShell from "@/components/pos/POSShell";
 import POSMenuGrid from "@/components/pos/POSMenuGrid";
+import POSCart from "@/components/pos/POSCart";
 
 export default function POSPage() {
 
@@ -20,7 +21,7 @@ export default function POSPage() {
       fontWeight: "bold",
     }}>
 
-      STEP 3 SAFE
+      STEP 4 SAFE
 
     </div>
   );

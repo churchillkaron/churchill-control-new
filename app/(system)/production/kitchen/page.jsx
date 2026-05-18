@@ -11,84 +11,134 @@ export default function ProductionKitchenPage() {
     setTickets,
   ] = useState([]);
 
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
   async function loadTickets() {
 
     const {
       data,
+      error,
     } = await supabase
-      .from("kitchen_tickets")
-      .select(`
-        id,
-        table_number,
-        status,
-        created_at,
-        kitchen_ticket_items (
-          id,
-          item_name,
-          quantity,
-          station,
-          status
-        )
-      `)
+      .from(
+        "kitchen_ticket_items"
+      )
+      .select("*")
       .order(
         "created_at",
         {
-          ascending: true,
+          ascending: false,
         }
       );
 
-    setTickets(
-      data || []
+    console.log(
+      "LOAD",
+      data,
+      error
+    );
+
+    if (!error) {
+
+      setTickets(
+        data || []
+      );
+    }
+
+    setLoading(
+      false
     );
   }
 
   async function updateStatus(
-    item_id,
+    id,
     status
   ) {
 
-    await fetch(
-      "/api/production/kitchen",
-      {
-
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-
-        body: JSON.stringify({
-
-          action:
-            "UPDATE_ITEM_STATUS",
-
-          item_id,
-
-          status,
-        }),
-      }
+    console.log(
+      "UPDATING",
+      id,
+      status
     );
 
-    loadTickets();
+    const {
+      data,
+      error,
+    } = await supabase
+      .from(
+        "kitchen_ticket_items"
+      )
+      .update({
+        status,
+      })
+      .eq(
+        "id",
+        id
+      )
+      .select();
+
+    console.log(
+      "UPDATE RESULT",
+      data,
+      error
+    );
+
+    if (!error) {
+
+      await loadTickets();
+    }
   }
 
   useEffect(() => {
 
     loadTickets();
 
-    const interval =
-      setInterval(
-        loadTickets,
-        3000
-      );
+    const channel =
+      supabase
+        .channel(
+          "kitchen-live"
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table:
+              "kitchen_ticket_items",
+          },
+          (payload) => {
 
-    return () =>
-      clearInterval(
-        interval
+            console.log(
+              "REALTIME",
+              payload
+            );
+
+            loadTickets();
+          }
+        )
+        .subscribe();
+
+    return () => {
+
+      supabase.removeChannel(
+        channel
       );
+    };
 
   }, []);
+
+  if (loading) {
+
+    return (
+
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+
+        Loading Kitchen...
+
+      </div>
+    );
+  }
 
   return (
 
@@ -96,15 +146,11 @@ export default function ProductionKitchenPage() {
 
       <div className="max-w-7xl mx-auto">
 
-        <h1 className="text-6xl font-bold mb-3">
-          Kitchen Production
+        <h1 className="text-5xl font-bold mb-10">
+          Production Kitchen
         </h1>
 
-        <div className="text-zinc-500 mb-10">
-          Live Production Workflow Engine
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-4 gap-6">
 
           {tickets.map(
             (
@@ -113,109 +159,74 @@ export default function ProductionKitchenPage() {
 
               <div
                 key={ticket.id}
-                className="border border-zinc-800 rounded-3xl p-6"
+                className="border border-zinc-800 rounded-3xl p-5"
               >
 
-                <div className="flex items-center justify-between mb-6">
-
-                  <div>
-
-                    <div className="text-3xl font-bold">
-                      {
-                        ticket.table_number
-                      }
-                    </div>
-
-                    <div className="text-zinc-500 mt-1">
-                      {
-                        ticket.status
-                      }
-                    </div>
-
-                  </div>
-
+                <div className="text-2xl font-bold mb-3">
+                  {
+                    ticket.item_name
+                  }
                 </div>
 
-                <div className="space-y-4">
+                <div className="text-zinc-400 mb-3">
+                  Qty:
+                  {" "}
+                  {
+                    ticket.quantity
+                  }
+                </div>
 
-                  {ticket.kitchen_ticket_items?.map(
-                    (
-                      item
-                    ) => (
+                <div className="text-zinc-500 mb-3">
+                  Station:
+                  {" "}
+                  {
+                    ticket.station
+                  }
+                </div>
 
-                      <div
-                        key={
-                          item.id
-                        }
-                        className="border border-zinc-800 rounded-2xl p-4"
-                      >
+                <div className="text-xl font-bold mb-6">
+                  {
+                    ticket.status
+                  }
+                </div>
 
-                        <div className="flex justify-between mb-3">
+                <div className="flex flex-col gap-3">
 
-                          <div>
-                            {
-                              item.item_name
-                            }
-                          </div>
+                  <button
+                    onClick={() =>
+                      updateStatus(
+                        ticket.id,
+                        "PREPARING"
+                      )
+                    }
+                    className="bg-yellow-500 text-black rounded-xl py-3 font-bold"
+                  >
+                    PREPARING
+                  </button>
 
-                          <div>
-                            x
-                            {
-                              item.quantity
-                            }
-                          </div>
+                  <button
+                    onClick={() =>
+                      updateStatus(
+                        ticket.id,
+                        "READY"
+                      )
+                    }
+                    className="bg-green-500 text-black rounded-xl py-3 font-bold"
+                  >
+                    READY
+                  </button>
 
-                        </div>
-
-                        <div className="text-zinc-500 text-sm mb-4">
-                          {
-                            item.station
-                          }
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-
-                          <button
-                            onClick={() =>
-                              updateStatus(
-                                item.id,
-                                "FIRED"
-                              )
-                            }
-                            className="border border-yellow-500 rounded-xl py-2 text-xs"
-                          >
-                            FIRE
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              updateStatus(
-                                item.id,
-                                "READY"
-                              )
-                            }
-                            className="border border-green-500 rounded-xl py-2 text-xs"
-                          >
-                            READY
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              updateStatus(
-                                item.id,
-                                "SERVED"
-                              )
-                            }
-                            className="border border-blue-500 rounded-xl py-2 text-xs"
-                          >
-                            SERVED
-                          </button>
-
-                        </div>
-
-                      </div>
-                    )
-                  )}
+                  <button
+                    onClick={() =>
+                      updateStatus(
+                        ticket.id,
+                        "SERVED"
+                      )
+                    }
+                    className="bg-blue-500 text-black rounded-xl py-3 font-bold"
+                  >
+                    SERVED
+                  </button>
 
                 </div>
 

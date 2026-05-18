@@ -9,10 +9,16 @@ import POSTableSelector from "@/components/pos/POSTableSelector";
 
 import { usePOSStore } from "@/store/pos/usePOSStore";
 
+import { supabase } from "@/lib/shared/supabase/client";
+
 export default function POSPage() {
 
   const store =
     usePOSStore();
+
+  console.log(
+    supabase
+  );
 
   return (
 
@@ -27,7 +33,7 @@ export default function POSPage() {
       fontWeight: "bold",
     }}>
 
-      STORE SAFE
+      SUPABASE SAFE
 
     </div>
   );

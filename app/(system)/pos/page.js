@@ -12,6 +12,7 @@ import { usePOSStore } from "@/store/pos/usePOSStore";
 import { supabase } from "@/lib/shared/supabase/client";
 
 import { loadMenu } from "@/lib/pos/loadMenu";
+import { loadTableSessions } from "@/lib/pos/loadTableSessions";
 
 export default function POSPage() {
 
@@ -20,7 +21,8 @@ export default function POSPage() {
 
   console.log(
     supabase,
-    loadMenu
+    loadMenu,
+    loadTableSessions
   );
 
   return (
@@ -36,7 +38,7 @@ export default function POSPage() {
       fontWeight: "bold",
     }}>
 
-      LOADMENU SAFE
+      TABLESESSIONS SAFE
 
     </div>
   );

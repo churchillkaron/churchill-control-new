@@ -215,87 +215,353 @@ export default function POSPage() {
 
   return (
 
-    <div className="min-h-screen bg-[#050507]">
+    <div className="min-h-screen bg-black text-white overflow-hidden">
 
-      <PageWrapper
-        title="POS"
-        subtitle="Operational order system"
-      >
+      {/* ===== TOP BAR ===== */}
+      <div className="h-20 border-b border-white/5 backdrop-blur-xl bg-white/[0.02] flex items-center justify-between px-8">
 
-        <POSShell
+        <div className="flex items-center gap-10">
 
-          tableSelector={
-            <POSTableSelector
-              selectedTable={
-                selectedTable
-              }
-              setSelectedTable={
-                setSelectedTable
-              }
-              tableStatus={
-                tableStatus
-              }
-              tableSessions={
-                tableSessions
-              }
-            />
-          }
+          <div>
 
-          menu={
-            <POSMenuGrid
-              filteredMenu={
-                filteredMenu
-              }
-              category={
-                category
-              }
-              setCategory={
-                setCategory
-              }
-              addItem={
-                addItem
-              }
-              getSelectedQuantity={
-                getQuantity
-              }
-              search={
-                search
-              }
-              setSearch={
-                setSearch
-              }
-            />
-          }
+            <div className="text-3xl font-semibold tracking-tight">
+              CONTROL
+            </div>
 
-          cart={
-            <POSCart
-              selectedTable={
-                selectedTable
-              }
-              orderItems={
-                orderItems
-              }
-              total={
-                total
-              }
-              sending={false}
-              removeItem={
-                removeItem
-              }
-              sendOrder={() => {}}
-              clearTable={() => {}}
-              tableStatus={
-                tableStatus
-              }
-              tableSessions={
-                tableSessions
-              }
-            />
-          }
+            <div className="text-xs text-zinc-500 tracking-[0.3em] uppercase">
+              AI Restaurant OS
+            </div>
 
-        />
+          </div>
 
-      </PageWrapper>
+          <div className="flex gap-3">
+
+            {[
+              "CONTROL",
+              "OPERATIONS",
+              "FINANCE",
+              "MARKETING",
+              "ADMIN",
+            ].map((tab) => (
+
+              <div
+                key={tab}
+                className="px-5 py-2 rounded-2xl bg-white/[0.04] border border-white/5 text-sm tracking-widest text-zinc-300 hover:bg-violet-500/20 transition-all"
+              >
+                {tab}
+              </div>
+            ))}
+
+          </div>
+
+        </div>
+
+        <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-2 text-emerald-400 text-sm">
+
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+
+            LIVE
+
+          </div>
+
+          <div className="w-11 h-11 rounded-2xl bg-white/[0.04] border border-white/5" />
+
+        </div>
+
+      </div>
+
+      {/* ===== MAIN ===== */}
+      <div className="flex h-[calc(100vh-80px)] overflow-hidden">
+
+        {/* ===== TABLES ===== */}
+        <div className="w-[260px] border-r border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent p-5 overflow-auto">
+
+          <div className="mb-6">
+
+            <div className="text-xs tracking-[0.3em] text-violet-400 mb-2">
+              TABLES
+            </div>
+
+            <div className="text-2xl font-semibold">
+              Dining Floor
+            </div>
+
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+
+            {["T1","T2","T3","T4","T5","T6"].map((table, index) => (
+
+              <div
+                key={table}
+                className="aspect-square rounded-3xl bg-white/[0.03] border border-white/5 p-4 flex flex-col justify-between hover:border-violet-500/40 hover:bg-violet-500/10 transition-all"
+              >
+
+                <div className="flex items-center justify-between">
+
+                  <div className="text-3xl font-light">
+                    {table}
+                  </div>
+
+                  <div className={`w-3 h-3 rounded-full ${
+                    index % 3 === 0
+                      ? "bg-emerald-400"
+                      : index % 3 === 1
+                      ? "bg-orange-400"
+                      : "bg-blue-400"
+                  }`} />
+
+                </div>
+
+                <div>
+
+                  <div className="text-sm text-zinc-400 uppercase tracking-widest">
+                    Active
+                  </div>
+
+                  <div className="text-lg mt-1 font-medium">
+                    ฿0
+                  </div>
+
+                </div>
+
+              </div>
+            ))}
+
+          </div>
+
+        </div>
+
+        {/* ===== MENU ===== */}
+        <div className="flex-1 overflow-auto p-8">
+
+          <div className="flex items-center justify-between mb-8">
+
+            <div>
+
+              <div className="text-xs tracking-[0.3em] text-violet-400 mb-2">
+                MENU
+              </div>
+
+              <div className="text-4xl font-semibold tracking-tight">
+                Operational POS
+              </div>
+
+            </div>
+
+            <div className="flex gap-3">
+
+              <input
+                value={search}
+                onChange={(e) =>
+                  setSearch(
+                    e.target.value
+                  )
+                }
+                placeholder="Search menu..."
+                className="w-[360px] h-14 rounded-2xl bg-white/[0.04] border border-white/5 px-5 outline-none focus:border-violet-500/40"
+              />
+
+            </div>
+
+          </div>
+
+          {/* ===== CATEGORIES ===== */}
+          <div className="flex gap-3 mb-8">
+
+            {[
+              "starter",
+              "main",
+              "dessert",
+            ].map((cat) => (
+
+              <button
+                key={cat}
+                onClick={() =>
+                  setCategory(cat)
+                }
+                className={`px-6 h-12 rounded-2xl border transition-all uppercase tracking-widest text-sm ${
+                  category === cat
+                    ? "bg-violet-500 border-violet-400 text-white shadow-[0_0_30px_rgba(139,92,246,0.4)]"
+                    : "bg-white/[0.03] border-white/5 text-zinc-400 hover:border-violet-500/30"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+
+          </div>
+
+          {/* ===== MENU GRID ===== */}
+          <div className="grid grid-cols-3 gap-6">
+
+            {filteredMenu.map((item) => (
+
+              <div
+                key={item.id}
+                className="group rounded-[32px] bg-gradient-to-b from-white/[0.05] to-white/[0.02] border border-white/5 overflow-hidden hover:border-violet-500/30 hover:shadow-[0_0_40px_rgba(139,92,246,0.15)] transition-all"
+              >
+
+                <div className="h-48 bg-gradient-to-br from-zinc-900 to-black relative overflow-hidden">
+
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(139,92,246,0.15),transparent_70%)]" />
+
+                </div>
+
+                <div className="p-6">
+
+                  <div className="flex items-start justify-between mb-5">
+
+                    <div>
+
+                      <div className="text-2xl font-medium leading-tight mb-2">
+                        {item.name}
+                      </div>
+
+                      <div className="text-zinc-500 text-sm uppercase tracking-widest">
+                        {item.category}
+                      </div>
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <div className="text-3xl font-light">
+                        ฿{item.price}
+                      </div>
+
+                      <div className="text-emerald-400 text-sm mt-1">
+                        {item.stock_quantity || 0} AVAILABLE
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      addItem(item)
+                    }
+                    className="w-full h-14 rounded-2xl bg-violet-500 hover:bg-violet-400 transition-all text-lg font-medium shadow-[0_0_25px_rgba(139,92,246,0.35)]"
+                  >
+                    ADD TO ORDER
+                  </button>
+
+                </div>
+
+              </div>
+            ))}
+
+          </div>
+
+        </div>
+
+        {/* ===== ORDER PANEL ===== */}
+        <div className="w-[420px] border-l border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent flex flex-col">
+
+          <div className="p-8 border-b border-white/5">
+
+            <div className="text-xs tracking-[0.3em] text-violet-400 mb-2">
+              LIVE ORDER
+            </div>
+
+            <div className="text-4xl font-semibold tracking-tight">
+              Cart
+            </div>
+
+          </div>
+
+          <div className="flex-1 overflow-auto p-6 space-y-4">
+
+            {orderItems.length === 0 ? (
+
+              <div className="h-full flex flex-col items-center justify-center text-zinc-600">
+
+                <div className="text-7xl mb-6">
+                  🛒
+                </div>
+
+                <div className="text-2xl">
+                  No items selected
+                </div>
+
+              </div>
+
+            ) : (
+
+              orderItems.map((item) => (
+
+                <div
+                  key={item.dish_id}
+                  className="rounded-3xl bg-white/[0.04] border border-white/5 p-5"
+                >
+
+                  <div className="flex items-start justify-between mb-4">
+
+                    <div>
+
+                      <div className="text-xl font-medium">
+                        {item.item_name}
+                      </div>
+
+                      <div className="text-zinc-500 mt-1">
+                        Qty {item.quantity}
+                      </div>
+
+                    </div>
+
+                    <div className="text-2xl font-light">
+                      ฿{item.price}
+                    </div>
+
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      removeItem(
+                        item.dish_id
+                      )
+                    }
+                    className="w-full h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all"
+                  >
+                    REMOVE
+                  </button>
+
+                </div>
+              ))
+
+            )}
+
+          </div>
+
+          {/* ===== FOOTER ===== */}
+          <div className="border-t border-white/5 p-8">
+
+            <div className="flex items-center justify-between mb-6">
+
+              <div className="text-zinc-500 uppercase tracking-widest text-sm">
+                Order Total
+              </div>
+
+              <div className="text-5xl font-light">
+                ฿{total}
+              </div>
+
+            </div>
+
+            <button
+              className="w-full h-16 rounded-3xl bg-violet-500 hover:bg-violet-400 transition-all text-xl font-medium shadow-[0_0_40px_rgba(139,92,246,0.45)]"
+            >
+              SEND ORDER
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
 
     </div>
   );

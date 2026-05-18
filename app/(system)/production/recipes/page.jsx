@@ -1,344 +1,313 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { supabase } from "@/lib/shared/supabase/client";
 
 export default function RecipesPage() {
 
-  const [dishes, setDishes] = useState([]);
-  const [ingredients, setIngredients] = useState([]);
+  const [
+    dishes,
+    setDishes,
+  ] = useState([]);
 
-  const [selectedDish, setSelectedDish] =
-    useState("");
+  const [
+    ingredients,
+    setIngredients,
+  ] = useState([]);
 
-  const [recipeItems, setRecipeItems] =
-    useState([]);
+  const [
+    recipes,
+    setRecipes,
+  ] = useState([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    form,
+    setForm,
+  ] = useState({
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+    dish_id: "",
 
-  async function fetchData() {
+    ingredient_id: "",
 
-    setLoading(true);
+    quantity_required: 1,
+  });
 
-    const { data: dishData } =
-      await supabase
+  async function loadData() {
+
+    const [
+      dishesRes,
+      ingredientsRes,
+      recipesRes,
+    ] = await Promise.all([
+
+      supabase
         .from("dishes")
         .select("*")
-        .order("name");
+        .order(
+          "name",
+          {
+            ascending: true,
+          }
+        ),
 
-    const { data: ingredientData } =
-      await supabase
+      supabase
         .from("ingredients")
         .select("*")
-        .order("name");
+        .order(
+          "name",
+          {
+            ascending: true,
+          }
+        ),
 
-    setDishes(dishData || []);
-    setIngredients(
-      ingredientData || []
-    );
-
-    setLoading(false);
-
-  }
-
-  async function loadRecipe(
-    dishId
-  ) {
-
-    setSelectedDish(dishId);
-
-    const response =
-      await fetch(
-        "/api/production/recipes/get",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            dish_id: dishId,
-          }),
-
-        }
-      );
-
-    const data =
-      await response.json();
-
-    setRecipeItems(data || []);
-
-  }
-
-  function addRecipeRow() {
-
-    setRecipeItems([
-      ...recipeItems,
-      {
-        ingredient_id: "",
-        quantity: 0,
-      },
+      fetch(
+        "/api/production/recipes"
+      ).then(
+        (res) =>
+          res.json()
+      ),
     ]);
 
-  }
-
-  function updateRecipeRow(
-    index,
-    field,
-    value
-  ) {
-
-    const updated =
-      [...recipeItems];
-
-    updated[index][field] =
-      value;
-
-    setRecipeItems(updated);
-
-  }
-
-  async function saveRecipe() {
-
-    if (!selectedDish) {
-
-      alert(
-        "Select dish first"
-      );
-
-      return;
-
-    }
-
-    const response =
-      await fetch(
-        "/api/production/recipes/create",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-
-            dishId:
-              selectedDish,
-
-            ingredients:
-              recipeItems,
-
-          }),
-
-        }
-      );
-
-    const result =
-      await response.json();
-
-    if (!response.ok) {
-
-      alert(
-        result.error ||
-        "Failed to save recipe"
-      );
-
-      return;
-
-    }
-
-    alert(
-      "Recipe saved"
+    setDishes(
+      dishesRes.data || []
     );
 
-  }
-
-  if (loading) {
-
-    return (
-      <div className="min-h-screen bg-black text-white p-10">
-        Loading recipes...
-      </div>
+    setIngredients(
+      ingredientsRes.data || []
     );
 
+    setRecipes(
+      recipesRes.recipes || []
+    );
   }
+
+  async function createRecipe() {
+
+    await fetch(
+      "/api/production/recipes",
+      {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+
+          tenant_id:
+            "demo",
+
+          ...form,
+        }),
+      }
+    );
+
+    setForm({
+
+      dish_id: "",
+
+      ingredient_id: "",
+
+      quantity_required: 1,
+    });
+
+    loadData();
+  }
+
+  useEffect(() => {
+
+    loadData();
+
+  }, []);
 
   return (
 
     <div className="min-h-screen bg-black text-white p-10">
 
-      {/* HEADER */}
-      <div className="mb-10">
+      <div className="max-w-7xl mx-auto">
 
-        <h1 className="text-4xl font-bold">
-          Recipe Management
+        <h1 className="text-6xl font-bold mb-3">
+          Recipe Builder
         </h1>
 
-        <div className="text-white/50 mt-2">
-          Production and cost control engine
+        <div className="text-zinc-500 mb-10">
+          Production Manufacturing Engine
         </div>
 
-      </div>
+        <div className="border border-zinc-800 rounded-3xl p-8 mb-10">
 
-      {/* DISH */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 
-        <h2 className="text-2xl mb-6">
-          Select Dish
-        </h2>
+            <select
+              value={form.dish_id}
+              onChange={(e) =>
+                setForm({
 
-        <select
-          value={selectedDish}
-          onChange={(e) =>
-            loadRecipe(
-              e.target.value
-            )
-          }
-          className="bg-black border border-white/10 rounded-xl px-4 py-3 w-full"
-        >
+                  ...form,
 
-          <option value="">
-            Select Dish
-          </option>
-
-          {dishes.map((dish) => (
-
-            <option
-              key={dish.id}
-              value={dish.id}
+                  dish_id:
+                    e.target.value,
+                })
+              }
+              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
             >
 
-              {dish.name}
+              <option value="">
+                Select Dish
+              </option>
 
-            </option>
+              {dishes.map(
+                (
+                  dish
+                ) => (
 
-          ))}
+                  <option
+                    key={dish.id}
+                    value={dish.id}
+                  >
+                    {dish.name}
+                  </option>
+                )
+              )}
 
-        </select>
+            </select>
 
-      </div>
+            <select
+              value={form.ingredient_id}
+              onChange={(e) =>
+                setForm({
 
-      {/* RECIPE */}
-      {selectedDish && (
+                  ...form,
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                  ingredient_id:
+                    e.target.value,
+                })
+              }
+              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+            >
 
-          <div className="flex justify-between items-center mb-6">
+              <option value="">
+                Select Ingredient
+              </option>
 
-            <h2 className="text-2xl">
-              Recipe Items
-            </h2>
+              {ingredients.map(
+                (
+                  ingredient
+                ) => (
+
+                  <option
+                    key={
+                      ingredient.id
+                    }
+                    value={
+                      ingredient.id
+                    }
+                  >
+                    {
+                      ingredient.name
+                    }
+                  </option>
+                )
+              )}
+
+            </select>
+
+            <input
+              type="number"
+              placeholder="Quantity"
+              value={
+                form.quantity_required
+              }
+              onChange={(e) =>
+                setForm({
+
+                  ...form,
+
+                  quantity_required:
+                    e.target.value,
+                })
+              }
+              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+            />
 
             <button
-              onClick={addRecipeRow}
-              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl"
+              onClick={
+                createRecipe
+              }
+              className="bg-white text-black rounded-2xl font-bold"
             >
-
-              Add Ingredient
-
+              ADD RECIPE ITEM
             </button>
 
           </div>
 
-          <div className="space-y-4">
+        </div>
 
-            {recipeItems.map(
-              (item, index) => (
+        <div className="space-y-4">
 
-                <div
-                  key={index}
-                  className="grid grid-cols-2 gap-4"
-                >
+          {recipes.map(
+            (
+              recipe
+            ) => (
 
-                  <select
-                    value={
-                      item.ingredient_id
-                    }
-                    onChange={(e) =>
-                      updateRecipeRow(
-                        index,
-                        "ingredient_id",
-                        e.target.value
-                      )
-                    }
-                    className="bg-black border border-white/10 rounded-xl px-4 py-3"
-                  >
+              <div
+                key={recipe.id}
+                className="border border-zinc-800 rounded-3xl p-6"
+              >
 
-                    <option value="">
-                      Ingredient
-                    </option>
+                <div className="flex items-center justify-between">
 
-                    {ingredients.map(
-                      (
-                        ingredient
-                      ) => (
+                  <div>
 
-                        <option
-                          key={
-                            ingredient.id
-                          }
-                          value={
-                            ingredient.id
-                          }
-                        >
+                    <div className="text-2xl font-bold">
+                      Dish:
+                      {" "}
+                      {
+                        recipe.dish_id
+                      }
+                    </div>
 
-                          {
-                            ingredient.name
-                          }
+                    <div className="text-zinc-500 mt-2">
+                      Ingredient:
+                      {" "}
+                      {
+                        recipe.ingredients
+                          ?.name
+                      }
+                    </div>
 
-                        </option>
+                  </div>
 
-                      )
-                    )}
+                  <div className="text-right">
 
-                  </select>
+                    <div className="text-xl">
+                      {
+                        recipe.quantity_required
+                      }
+                    </div>
 
-                  <input
-                    type="number"
-                    placeholder="Quantity"
-                    value={
-                      item.quantity
-                    }
-                    onChange={(e) =>
-                      updateRecipeRow(
-                        index,
-                        "quantity",
-                        e.target.value
-                      )
-                    }
-                    className="bg-black border border-white/10 rounded-xl px-4 py-3"
-                  />
+                    <div className="text-zinc-500 mt-2">
+                      {
+                        recipe.ingredients
+                          ?.unit
+                      }
+                    </div>
+
+                  </div>
 
                 </div>
 
-              )
-            )}
-
-          </div>
-
-          <button
-            onClick={saveRecipe}
-            className="mt-8 bg-green-600 hover:bg-green-700 px-6 py-3 rounded-xl"
-          >
-
-            Save Recipe
-
-          </button>
+              </div>
+            )
+          )}
 
         </div>
 
-      )}
+      </div>
 
     </div>
-
   );
-
 }

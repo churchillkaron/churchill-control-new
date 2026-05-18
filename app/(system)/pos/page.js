@@ -435,94 +435,41 @@ export default function POSPage() {
     };
 
   return (
-    <div className="min-h-screen bg-[#050507]">
 
-      <PageWrapper
-        title="POS"
-        subtitle="Operational order system"
-      >
+  <div className="min-h-screen bg-black text-white p-10">
 
-        <POSShell
+    <h1 className="text-5xl font-bold mb-10">
+      POS DEBUG
+    </h1>
 
-          tableSelector={
-            <POSTableSelector
-              selectedTable={
-                selectedTable
-              }
-              setSelectedTable={
-                setSelectedTable
-              }
-              tableStatus={
-                tableStatus
-              }
-              tableSessions={
-                tableSessions
-              }
-            />
-          }
+    <div className="space-y-4 text-xl">
 
-          menu={
-            <POSMenuGrid
-              filteredMenu={
-                filteredMenu
-              }
-              category={
-                category
-              }
-              setCategory={
-                setCategory
-              }
-              addItem={
-                addItem
-              }
-              getSelectedQuantity={
-                getQuantity
-              }
-              search={
-                search
-              }
-              setSearch={
-                setSearch
-              }
-            />
-          }
+      <div>
+        Tenant:
+        {" "}
+        {tenantId || "NONE"}
+      </div>
 
-          cart={
-            <POSCart
-              selectedTable={
-                selectedTable
-              }
-              orderItems={
-                orderItems
-              }
-              total={
-                total
-              }
-              sending={
-                sending
-              }
-              removeItem={
-                removeItem
-              }
-              sendOrder={
-                sendOrder
-              }
-              clearTable={
-                clearTable
-              }
-              tableStatus={
-                tableStatus
-              }
-              tableSessions={
-                tableSessions
-              }
-            />
-          }
+      <div>
+        Menu Count:
+        {" "}
+        {menu?.length || 0}
+      </div>
 
-        />
+      <div>
+        Order Items:
+        {" "}
+        {orderItems?.length || 0}
+      </div>
 
-      </PageWrapper>
+      <div>
+        Selected Table:
+        {" "}
+        {selectedTable}
+      </div>
 
     </div>
-  );
+
+  </div>
+);
 }

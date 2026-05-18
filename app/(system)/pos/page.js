@@ -16,6 +16,8 @@ import { loadTableSessions } from "@/lib/pos/loadTableSessions";
 
 import { validateStock } from "@/lib/pos/validateStock";
 
+import { createOrder } from "@/lib/pos/createOrder";
+
 export default function POSPage() {
 
   const store =
@@ -25,7 +27,8 @@ export default function POSPage() {
     supabase,
     loadMenu,
     loadTableSessions,
-    validateStock
+    validateStock,
+    createOrder
   );
 
   return (
@@ -41,7 +44,7 @@ export default function POSPage() {
       fontWeight: "bold",
     }}>
 
-      VALIDATESTOCK SAFE
+      CREATEORDER SAFE
 
     </div>
   );

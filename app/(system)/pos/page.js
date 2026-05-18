@@ -13,6 +13,12 @@ import { usePOSStore } from "@/store/pos/usePOSStore";
 
 import { loadMenu } from "@/lib/pos/loadMenu";
 
+import {
+  addItemToCart,
+  removeItemFromCart,
+  getSelectedQuantity,
+} from "@/store/pos/cartActions";
+
 export default function POSPage() {
 
   const {
@@ -29,6 +35,7 @@ export default function POSPage() {
     setSearch,
 
     orderItems,
+    setOrderItems,
 
     selectedTable,
     setSelectedTable,
@@ -89,6 +96,68 @@ export default function POSPage() {
       }
     );
 
+  // ===== TOTAL =====
+  const total =
+    orderItems.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        Number(
+          item.price || 0
+        ) *
+          Number(
+            item.quantity || 0
+          ),
+      0
+    );
+
+  // ===== ADD ITEM =====
+  const addItem = (
+    item
+  ) => {
+
+    const updatedCart =
+      addItemToCart({
+
+        orderItems,
+
+        item,
+      });
+
+    setOrderItems(
+      updatedCart
+    );
+  };
+
+  // ===== REMOVE ITEM =====
+  const removeItem = (
+    dishId
+  ) => {
+
+    const updatedCart =
+      removeItemFromCart({
+
+        orderItems,
+
+        dishId,
+      });
+
+    setOrderItems(
+      updatedCart
+    );
+  };
+
+  // ===== QUANTITY =====
+  const getQuantity = (
+    dishId
+  ) =>
+    getSelectedQuantity(
+      orderItems,
+      dishId
+    );
+
   return (
 
     <div className="min-h-screen bg-[#050507]">
@@ -128,8 +197,12 @@ export default function POSPage() {
               setCategory={
                 setCategory
               }
-              addItem={() => {}}
-              getSelectedQuantity={() => 0}
+              addItem={
+                addItem
+              }
+              getSelectedQuantity={
+                getQuantity
+              }
               search={
                 search
               }
@@ -147,9 +220,13 @@ export default function POSPage() {
               orderItems={
                 orderItems
               }
-              total={0}
+              total={
+                total
+              }
               sending={false}
-              removeItem={() => {}}
+              removeItem={
+                removeItem
+              }
               sendOrder={() => {}}
               clearTable={() => {}}
               tableStatus={

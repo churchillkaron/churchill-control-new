@@ -2,6 +2,8 @@
 
 import PageWrapper from "@/components/PageWrapper";
 
+import POSShell from "@/components/pos/POSShell";
+
 export default function POSPage() {
 
   return (
@@ -17,7 +19,7 @@ export default function POSPage() {
       fontWeight: "bold",
     }}>
 
-      STEP 1 SAFE
+      STEP 2 SAFE
 
     </div>
   );

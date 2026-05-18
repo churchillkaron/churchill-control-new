@@ -11,11 +11,6 @@ export default function ProductionKitchenPage() {
     setTickets,
   ] = useState([]);
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
   async function loadTickets() {
 
     const {
@@ -26,6 +21,10 @@ export default function ProductionKitchenPage() {
         "kitchen_ticket_items"
       )
       .select("*")
+      .neq(
+        "status",
+        "SERVED"
+      )
       .order(
         "created_at",
         {
@@ -33,22 +32,12 @@ export default function ProductionKitchenPage() {
         }
       );
 
-    console.log(
-      "LOAD",
-      data,
-      error
-    );
-
     if (!error) {
 
       setTickets(
         data || []
       );
     }
-
-    setLoading(
-      false
-    );
   }
 
   async function updateStatus(
@@ -56,14 +45,7 @@ export default function ProductionKitchenPage() {
     status
   ) {
 
-    console.log(
-      "UPDATING",
-      id,
-      status
-    );
-
     const {
-      data,
       error,
     } = await supabase
       .from(
@@ -75,14 +57,7 @@ export default function ProductionKitchenPage() {
       .eq(
         "id",
         id
-      )
-      .select();
-
-    console.log(
-      "UPDATE RESULT",
-      data,
-      error
-    );
+      );
 
     if (!error) {
 
@@ -107,12 +82,7 @@ export default function ProductionKitchenPage() {
             table:
               "kitchen_ticket_items",
           },
-          (payload) => {
-
-            console.log(
-              "REALTIME",
-              payload
-            );
+          () => {
 
             loadTickets();
           }
@@ -127,18 +97,6 @@ export default function ProductionKitchenPage() {
     };
 
   }, []);
-
-  if (loading) {
-
-    return (
-
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-
-        Loading Kitchen...
-
-      </div>
-    );
-  }
 
   return (
 
@@ -177,8 +135,6 @@ export default function ProductionKitchenPage() {
                 </div>
 
                 <div className="text-zinc-500 mb-3">
-                  Station:
-                  {" "}
                   {
                     ticket.station
                   }
@@ -192,41 +148,53 @@ export default function ProductionKitchenPage() {
 
                 <div className="flex flex-col gap-3">
 
-                  <button
-                    onClick={() =>
-                      updateStatus(
-                        ticket.id,
-                        "PREPARING"
-                      )
-                    }
-                    className="bg-yellow-500 text-black rounded-xl py-3 font-bold"
-                  >
-                    PREPARING
-                  </button>
+                  {ticket.status ===
+                    "PENDING" && (
 
-                  <button
-                    onClick={() =>
-                      updateStatus(
-                        ticket.id,
-                        "READY"
-                      )
-                    }
-                    className="bg-green-500 text-black rounded-xl py-3 font-bold"
-                  >
-                    READY
-                  </button>
+                    <button
+                      onClick={() =>
+                        updateStatus(
+                          ticket.id,
+                          "PREPARING"
+                        )
+                      }
+                      className="bg-yellow-500 text-black rounded-xl py-3 font-bold"
+                    >
+                      START
+                    </button>
+                  )}
 
-                  <button
-                    onClick={() =>
-                      updateStatus(
-                        ticket.id,
-                        "SERVED"
-                      )
-                    }
-                    className="bg-blue-500 text-black rounded-xl py-3 font-bold"
-                  >
-                    SERVED
-                  </button>
+                  {ticket.status ===
+                    "PREPARING" && (
+
+                    <button
+                      onClick={() =>
+                        updateStatus(
+                          ticket.id,
+                          "READY"
+                        )
+                      }
+                      className="bg-green-500 text-black rounded-xl py-3 font-bold"
+                    >
+                      READY
+                    </button>
+                  )}
+
+                  {ticket.status ===
+                    "READY" && (
+
+                    <button
+                      onClick={() =>
+                        updateStatus(
+                          ticket.id,
+                          "SERVED"
+                        )
+                      }
+                      className="bg-blue-500 text-black rounded-xl py-3 font-bold"
+                    >
+                      SERVED
+                    </button>
+                  )}
 
                 </div>
 

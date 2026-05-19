@@ -9,7 +9,7 @@ import PageWrapper from '@/components/PageWrapper'
 
 import { supabase } from '@/lib/shared/supabase/client'
 
-export default function MetaIntelligencePage() {
+export default function EnterpriseConsciousnessPage() {
 
   const [
     tenantId,
@@ -17,25 +17,25 @@ export default function MetaIntelligencePage() {
   ] = useState(null)
 
   const [
-    meta,
-    setMeta,
+    consciousness,
+    setConsciousness,
   ] = useState({
 
     awareness: 0,
 
+    governance: 0,
+
     adaptation: 0,
 
-    orchestration: 0,
+    prediction: 0,
 
-    intelligence: 0,
+    resilience: 0,
 
-    optimization: 0,
+    evolution: 0,
 
-    autonomy: 0,
+    state: 'OBSERVING',
 
-    state: 'ANALYZING',
-
-    streams: [],
+    signals: [],
   })
 
   useEffect(() => {
@@ -183,25 +183,25 @@ export default function MetaIntelligencePage() {
             'ACTIVE'
         )
 
-    let awareness = 86
-    let adaptation = 82
-    let orchestration = 84
-    let intelligence = 88
-    let optimization = 85
-    let autonomy = 83
+    let awareness = 92
+    let governance = 90
+    let adaptation = 88
+    let prediction = 94
+    let resilience = 91
+    let evolution = 89
 
-    const streams =
+    const signals =
       []
 
     if (
       revenue > 100000
     ) {
 
-      intelligence += 5
-      orchestration += 5
+      awareness += 4
+      evolution += 5
 
-      streams.push(
-        'Revenue intelligence amplification active'
+      signals.push(
+        'Enterprise growth awareness active'
       )
     }
 
@@ -209,11 +209,11 @@ export default function MetaIntelligencePage() {
       foodCost < 30
     ) {
 
-      optimization += 8
-      autonomy += 5
+      governance += 5
+      resilience += 4
 
-      streams.push(
-        'Financial optimization loop stable'
+      signals.push(
+        'Financial equilibrium maintained'
       )
     }
 
@@ -221,11 +221,11 @@ export default function MetaIntelligencePage() {
       lowStock.length > 0
     ) {
 
-      adaptation += 10
-      awareness += 5
+      adaptation += 8
+      prediction += 5
 
-      streams.push(
-        'Inventory adaptation intelligence active'
+      signals.push(
+        'Adaptive inventory consciousness active'
       )
     }
 
@@ -234,11 +234,11 @@ export default function MetaIntelligencePage() {
         .length > 10
     ) {
 
-      orchestration += 8
-      autonomy += 5
+      resilience += 5
+      governance += 4
 
-      streams.push(
-        'Operational orchestration balancing workload'
+      signals.push(
+        'Operational stabilization protocols engaged'
       )
     }
 
@@ -246,63 +246,68 @@ export default function MetaIntelligencePage() {
       activeTables.length > 15
     ) {
 
-      awareness += 6
-      intelligence += 4
+      evolution += 6
+      awareness += 5
 
-      streams.push(
-        'Scaling intelligence expansion detected'
+      signals.push(
+        'High-scale operational evolution detected'
       )
     }
 
     const total =
       (
         awareness +
+        governance +
         adaptation +
-        orchestration +
-        intelligence +
-        optimization +
-        autonomy
+        prediction +
+        resilience +
+        evolution
       ) / 6
 
     let state =
-      'META AWARE'
+      'CONSCIOUS'
 
     if (
-      total >= 96
+      total >= 98
     ) {
 
       state =
-        'META CONSCIOUSNESS'
+        'ENTERPRISE ASCENSION'
 
     } else if (
-      total >= 90
+      total >= 94
     ) {
 
       state =
-        'META EVOLUTION'
+        'FULL CONSCIOUSNESS'
 
     } else if (
-      total >= 84
+      total < 82
     ) {
 
       state =
-        'META STABLE'
+        'CONSCIOUS WARNING'
     }
 
     if (
-      streams.length === 0
+      signals.length === 0
     ) {
 
-      streams.push(
-        'Meta intelligence monitoring operational reality'
+      signals.push(
+        'Enterprise consciousness monitoring ecosystem'
       )
     }
 
-    setMeta({
+    setConsciousness({
 
       awareness:
         Math.round(
           awareness
+        ),
+
+      governance:
+        Math.round(
+          governance
         ),
 
       adaptation:
@@ -310,29 +315,24 @@ export default function MetaIntelligencePage() {
           adaptation
         ),
 
-      orchestration:
+      prediction:
         Math.round(
-          orchestration
+          prediction
         ),
 
-      intelligence:
+      resilience:
         Math.round(
-          intelligence
+          resilience
         ),
 
-      optimization:
+      evolution:
         Math.round(
-          optimization
-        ),
-
-      autonomy:
-        Math.round(
-          autonomy
+          evolution
         ),
 
       state,
 
-      streams,
+      signals,
     })
   }
 
@@ -340,11 +340,11 @@ export default function MetaIntelligencePage() {
     value
   ) {
 
-    if (value >= 92) {
+    if (value >= 95) {
       return 'text-emerald-400'
     }
 
-    if (value >= 82) {
+    if (value >= 85) {
       return 'text-yellow-400'
     }
 
@@ -354,8 +354,8 @@ export default function MetaIntelligencePage() {
   return (
 
     <PageWrapper
-      title="Meta Intelligence"
-      subtitle="Unified enterprise orchestration intelligence"
+      title="Enterprise Consciousness"
+      subtitle="Self-aware enterprise intelligence layer"
     >
 
       <div className="p-6 text-white">
@@ -367,17 +367,17 @@ export default function MetaIntelligencePage() {
             <div>
 
               <div className="text-sm text-zinc-500 mb-2">
-                Meta State
+                Consciousness State
               </div>
 
               <div className={`text-6xl font-light ${
                 color(
-                  meta.intelligence
+                  consciousness.awareness
                 )
               }`}>
 
                 {
-                  meta.state
+                  consciousness.state
                 }
 
               </div>
@@ -386,12 +386,12 @@ export default function MetaIntelligencePage() {
 
             <div className={`text-8xl font-light ${
               color(
-                meta.intelligence
+                consciousness.awareness
               )
             }`}>
 
               {
-                meta.intelligence
+                consciousness.awareness
               }
 
             </div>
@@ -404,37 +404,37 @@ export default function MetaIntelligencePage() {
 
           <Metric
             label="Awareness"
-            value={meta.awareness}
+            value={consciousness.awareness}
+            color={color}
+          />
+
+          <Metric
+            label="Governance"
+            value={consciousness.governance}
             color={color}
           />
 
           <Metric
             label="Adaptation"
-            value={meta.adaptation}
+            value={consciousness.adaptation}
             color={color}
           />
 
           <Metric
-            label="Orchestration"
-            value={meta.orchestration}
+            label="Prediction"
+            value={consciousness.prediction}
             color={color}
           />
 
           <Metric
-            label="Intelligence"
-            value={meta.intelligence}
+            label="Resilience"
+            value={consciousness.resilience}
             color={color}
           />
 
           <Metric
-            label="Optimization"
-            value={meta.optimization}
-            color={color}
-          />
-
-          <Metric
-            label="Autonomy"
-            value={meta.autonomy}
+            label="Evolution"
+            value={consciousness.evolution}
             color={color}
           />
 
@@ -443,14 +443,14 @@ export default function MetaIntelligencePage() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
 
           <div className="text-2xl font-semibold mb-6">
-            Meta Streams
+            Consciousness Signals
           </div>
 
           <div className="space-y-4">
 
-            {meta.streams.map(
+            {consciousness.signals.map(
               (
-                stream,
+                signal,
                 index
               ) => (
 
@@ -460,7 +460,7 @@ export default function MetaIntelligencePage() {
                 >
 
                   {
-                    stream
+                    signal
                   }
 
                 </div>

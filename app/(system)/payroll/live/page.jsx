@@ -7,9 +7,9 @@ import {
 
 import { supabase } from "@/lib/shared/supabase/client";
 
-import { loadStaffPerformance } from "@/lib/staff/loadStaffPerformance";
+import { loadDailyPayrollPreview } from "@/lib/payroll/loadDailyPayrollPreview";
 
-export default function StaffPerformancePage() {
+export default function PayrollLivePage() {
 
   const [
     tenantId,
@@ -17,11 +17,11 @@ export default function StaffPerformancePage() {
   ] = useState(null);
 
   const [
-    staff,
-    setStaff,
+    payroll,
+    setPayroll,
   ] = useState([]);
 
-  // ===== TENANT =====
+  // ===== LOAD TENANT =====
   useEffect(() => {
 
     async function loadTenant() {
@@ -68,11 +68,11 @@ export default function StaffPerformancePage() {
     }
 
     const data =
-      await loadStaffPerformance(
+      await loadDailyPayrollPreview(
         tenantId
       );
 
-    setStaff(
+    setPayroll(
       data || []
     );
   }
@@ -95,7 +95,7 @@ export default function StaffPerformancePage() {
     const channel =
       supabase
         .channel(
-          "staff-performance"
+          "payroll-live"
         )
         .on(
           "postgres_changes",
@@ -125,30 +125,26 @@ export default function StaffPerformancePage() {
     <div className="min-h-screen bg-black text-white overflow-hidden">
 
       {/* ===== HEADER ===== */}
-      <div className="h-28 border-b border-white/5 flex items-center justify-between px-12">
+      <div className="h-24 border-b border-white/5 flex items-center justify-between px-10">
 
         <div>
 
-          <div className="text-xs tracking-[0.35em] uppercase text-cyan-400 mb-3">
-            STAFF
+          <div className="text-xs tracking-[0.3em] uppercase text-emerald-400 mb-2">
+            PAYROLL
           </div>
 
-          <div className="text-6xl font-semibold tracking-tight">
-            Performance Ranking
+          <div className="text-5xl font-semibold">
+            Live Payouts
           </div>
 
-        </div>
-
-        <div className="px-6 h-14 rounded-3xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs uppercase tracking-[0.3em] flex items-center">
-          LIVE STAFF
         </div>
 
       </div>
 
-      {/* ===== STAFF GRID ===== */}
-      <div className="p-10 grid grid-cols-3 gap-7">
+      {/* ===== GRID ===== */}
+      <div className="p-8 grid grid-cols-3 gap-6">
 
-        {staff.map(
+        {payroll.map(
           (
             member,
             index
@@ -156,34 +152,34 @@ export default function StaffPerformancePage() {
 
             <div
               key={index}
-              className="rounded-[40px] border border-white/10 bg-white/[0.03] overflow-hidden"
+              className="rounded-[36px] border border-white/10 bg-white/[0.03] overflow-hidden"
             >
 
-              <div className="p-10">
+              <div className="p-8">
 
-                <div className="flex items-start justify-between mb-10">
+                <div className="flex items-start justify-between mb-8">
 
                   <div>
 
-                    <div className="text-xs uppercase tracking-[0.3em] text-cyan-400 mb-3">
+                    <div className="text-xs uppercase tracking-[0.25em] text-emerald-400 mb-2">
                       Staff
                     </div>
 
-                    <div className="text-4xl font-light">
+                    <div className="text-3xl font-medium">
                       {
-                        member.name
+                        member.staff_name
                       }
                     </div>
 
                   </div>
 
-                  <div className="w-16 h-16 rounded-3xl bg-cyan-500 text-black flex items-center justify-center text-2xl font-semibold">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-black flex items-center justify-center text-xl font-semibold">
                     #{index + 1}
                   </div>
 
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-5">
 
                   <div className="flex items-center justify-between">
 
@@ -191,7 +187,7 @@ export default function StaffPerformancePage() {
                       Orders
                     </div>
 
-                    <div className="text-3xl font-light">
+                    <div className="text-2xl font-light">
                       {
                         member.orders
                       }
@@ -205,9 +201,23 @@ export default function StaffPerformancePage() {
                       Revenue
                     </div>
 
-                    <div className="text-4xl font-light text-emerald-400">
+                    <div className="text-2xl font-light">
                       ฿{
                         member.revenue
+                      }
+                    </div>
+
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-white/5 pt-5">
+
+                    <div className="text-zinc-400 uppercase tracking-[0.2em] text-xs">
+                      Payout
+                    </div>
+
+                    <div className="text-4xl font-light text-emerald-400">
+                      ฿{
+                        member.payout
                       }
                     </div>
 

@@ -7,9 +7,9 @@ import {
 
 import { supabase } from "@/lib/shared/supabase/client";
 
-import { loadStaffPerformance } from "@/lib/staff/loadStaffPerformance";
+import { loadLowStockItems } from "@/lib/inventory/loadLowStockItems";
 
-export default function StaffPerformancePage() {
+export default function LowStockPage() {
 
   const [
     tenantId,
@@ -17,11 +17,11 @@ export default function StaffPerformancePage() {
   ] = useState(null);
 
   const [
-    staff,
-    setStaff,
+    items,
+    setItems,
   ] = useState([]);
 
-  // ===== TENANT =====
+  // ===== LOAD TENANT =====
   useEffect(() => {
 
     async function loadTenant() {
@@ -68,11 +68,11 @@ export default function StaffPerformancePage() {
     }
 
     const data =
-      await loadStaffPerformance(
+      await loadLowStockItems(
         tenantId
       );
 
-    setStaff(
+    setItems(
       data || []
     );
   }
@@ -95,7 +95,7 @@ export default function StaffPerformancePage() {
     const channel =
       supabase
         .channel(
-          "staff-performance"
+          "low-stock-live"
         )
         .on(
           "postgres_changes",
@@ -103,7 +103,7 @@ export default function StaffPerformancePage() {
             event: "*",
             schema: "public",
             table:
-              "orders",
+              "dishes",
           },
           refresh
         )
@@ -125,75 +125,79 @@ export default function StaffPerformancePage() {
     <div className="min-h-screen bg-black text-white overflow-hidden">
 
       {/* ===== HEADER ===== */}
-      <div className="h-28 border-b border-white/5 flex items-center justify-between px-12">
+      <div className="h-24 border-b border-white/5 flex items-center justify-between px-10">
 
         <div>
 
-          <div className="text-xs tracking-[0.35em] uppercase text-cyan-400 mb-3">
-            STAFF
+          <div className="text-xs tracking-[0.3em] uppercase text-orange-400 mb-2">
+            INVENTORY
           </div>
 
-          <div className="text-6xl font-semibold tracking-tight">
-            Performance Ranking
+          <div className="text-5xl font-semibold">
+            Low Stock
           </div>
 
         </div>
 
-        <div className="px-6 h-14 rounded-3xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs uppercase tracking-[0.3em] flex items-center">
-          LIVE STAFF
+        <div className="px-5 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs uppercase tracking-[0.25em] flex items-center">
+          {items.length} ITEMS
         </div>
 
       </div>
 
-      {/* ===== STAFF GRID ===== */}
-      <div className="p-10 grid grid-cols-3 gap-7">
+      {/* ===== GRID ===== */}
+      <div className="p-8 grid grid-cols-4 gap-6">
 
-        {staff.map(
-          (
-            member,
-            index
-          ) => (
+        {items.length === 0 ? (
+
+          <div className="col-span-4 h-[60vh] flex items-center justify-center text-zinc-600 text-2xl">
+            No low stock items
+          </div>
+
+        ) : (
+
+          items.map((item) => (
 
             <div
-              key={index}
-              className="rounded-[40px] border border-white/10 bg-white/[0.03] overflow-hidden"
+              key={item.id}
+              className="rounded-[32px] border border-orange-500/20 bg-orange-500/5 overflow-hidden"
             >
 
-              <div className="p-10">
+              <div className="p-8">
 
-                <div className="flex items-start justify-between mb-10">
+                <div className="flex items-start justify-between mb-6">
 
                   <div>
 
-                    <div className="text-xs uppercase tracking-[0.3em] text-cyan-400 mb-3">
-                      Staff
+                    <div className="text-xs uppercase tracking-[0.25em] text-orange-400 mb-2">
+                      Dish
                     </div>
 
-                    <div className="text-4xl font-light">
-                      {
-                        member.name
-                      }
+                    <div className="text-3xl font-medium">
+                      {item.name}
                     </div>
 
                   </div>
 
-                  <div className="w-16 h-16 rounded-3xl bg-cyan-500 text-black flex items-center justify-center text-2xl font-semibold">
-                    #{index + 1}
+                  <div className="w-16 h-16 rounded-2xl bg-orange-500 text-black flex items-center justify-center text-2xl font-semibold">
+                    {
+                      item.stock_quantity
+                    }
                   </div>
 
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-3">
 
                   <div className="flex items-center justify-between">
 
                     <div className="text-zinc-500">
-                      Orders
+                      Category
                     </div>
 
-                    <div className="text-3xl font-light">
+                    <div className="text-white">
                       {
-                        member.orders
+                        item.category
                       }
                     </div>
 
@@ -202,12 +206,12 @@ export default function StaffPerformancePage() {
                   <div className="flex items-center justify-between">
 
                     <div className="text-zinc-500">
-                      Revenue
+                      Price
                     </div>
 
-                    <div className="text-4xl font-light text-emerald-400">
+                    <div className="text-white text-xl font-light">
                       ฿{
-                        member.revenue
+                        item.price
                       }
                     </div>
 
@@ -218,7 +222,8 @@ export default function StaffPerformancePage() {
               </div>
 
             </div>
-          )
+          ))
+
         )}
 
       </div>

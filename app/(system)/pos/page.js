@@ -10,8 +10,6 @@ import { supabase } from "@/lib/shared/supabase/client";
 
 import { loadMenu } from "@/lib/pos/loadMenu";
 import { loadTableSessions } from "@/lib/pos/loadTableSessions";
-import { loadActiveOrders } from "@/lib/pos/loadActiveOrders";
-
 import { closeTableSession } from "@/lib/pos/closeTableSession";
 
 import { createOrder } from "@/lib/pos/createOrder";
@@ -54,11 +52,6 @@ export default function POSPage() {
   const [
     tableSessions,
     setTableSessions,
-  ] = useState([]);
-
-  const [
-    activeOrders,
-    setActiveOrders,
   ] = useState([]);
 
   // ===== LOAD TENANT =====
@@ -123,8 +116,8 @@ export default function POSPage() {
     tenantId,
   ]);
 
-  // ===== REFRESH =====
-  async function refreshAll() {
+  // ===== LOAD TABLES =====
+  async function refreshTables() {
 
     if (!tenantId) {
       return;
@@ -138,71 +131,11 @@ export default function POSPage() {
     setTableSessions(
       sessions || []
     );
-
-    const orders =
-      await loadActiveOrders(
-        tenantId
-      );
-
-    setActiveOrders(
-      orders || []
-    );
   }
 
   useEffect(() => {
 
-    refreshAll();
-
-  }, [
-    tenantId,
-  ]);
-
-  // ===== REALTIME =====
-  useEffect(() => {
-
-    if (!tenantId) {
-      return;
-    }
-
-    const channel =
-      supabase
-        .channel(
-          "pos-live"
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table:
-              "table_sessions",
-          },
-          async () => {
-
-            await refreshAll();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table:
-              "orders",
-          },
-          async () => {
-
-            await refreshAll();
-          }
-        )
-        .subscribe();
-
-    return () => {
-
-      supabase.removeChannel(
-        channel
-      );
-    };
+    refreshTables();
 
   }, [
     tenantId,
@@ -249,7 +182,7 @@ export default function POSPage() {
       0
     );
 
-  // ===== ADD ITEM =====
+  // ===== ADD =====
   const addItem = (
     item
   ) => {
@@ -265,7 +198,7 @@ export default function POSPage() {
     );
   };
 
-  // ===== REMOVE ITEM =====
+  // ===== REMOVE =====
   const removeItem = (
     dishId
   ) => {
@@ -281,15 +214,7 @@ export default function POSPage() {
     );
   };
 
-  // ===== QUANTITY =====
-  const getQuantity =
-    (dishId) =>
-      getSelectedQuantity(
-        orderItems,
-        dishId
-      );
-
-  // ===== SEND ORDER =====
+  // ===== SEND =====
   async function sendOrder() {
 
     try {
@@ -356,7 +281,7 @@ export default function POSPage() {
 
       setOrderItems([]);
 
-      await refreshAll();
+      await refreshTables();
 
     } catch (error) {
 
@@ -372,7 +297,7 @@ export default function POSPage() {
     }
   }
 
-  // ===== CLOSE TABLE =====
+  // ===== CLOSE =====
   async function closeTable(
     sessionId
   ) {
@@ -383,7 +308,7 @@ export default function POSPage() {
         sessionId
       );
 
-      await refreshAll();
+      await refreshTables();
 
     } catch (error) {
 
@@ -457,8 +382,8 @@ export default function POSPage() {
                   }
                   className={`aspect-square rounded-2xl border transition-all ${
                     selectedTable === table
-                      ? "bg-violet-500 border-violet-400 shadow-[0_0_25px_rgba(139,92,246,0.35)]"
-                      : "bg-white/[0.03] border-white/10 hover:border-violet-500/40"
+                      ? "bg-violet-500 border-violet-400"
+                      : "bg-white/[0.03] border-white/10"
                   }`}
                 >
 
@@ -495,7 +420,7 @@ export default function POSPage() {
         </div>
 
         {/* ===== MENU ===== */}
-        <div className="flex-1 rounded-[32px] border border-white/10 bg-white/[0.03] backdrop-blur-2xl overflow-hidden flex flex-col">
+        <div className="flex-1 rounded-[32px] border border-white/10 bg-white/[0.03] overflow-hidden flex flex-col">
 
           <div className="p-6 border-b border-white/5 flex items-center justify-between">
 
@@ -511,28 +436,20 @@ export default function POSPage() {
 
             </div>
 
-            <div className="flex items-center gap-3">
-
-              <div className="px-4 h-11 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs uppercase tracking-widest flex items-center">
-                {activeOrders.length} LIVE ORDERS
-              </div>
-
-              <input
-                value={search}
-                onChange={(e) =>
-                  setSearch(
-                    e.target.value
-                  )
-                }
-                placeholder="Search..."
-                className="w-[260px] h-11 rounded-2xl bg-black/40 border border-white/10 px-4 text-sm text-white outline-none focus:border-violet-500/40"
-              />
-
-            </div>
+            <input
+              value={search}
+              onChange={(e) =>
+                setSearch(
+                  e.target.value
+                )
+              }
+              placeholder="Search..."
+              className="w-[260px] h-11 rounded-2xl bg-black/40 border border-white/10 px-4 text-sm text-white outline-none"
+            />
 
           </div>
 
-          {/* ===== CATEGORIES ===== */}
+          {/* ===== CATEGORY ===== */}
           <div className="px-6 pt-5 flex gap-3">
 
             {[
@@ -546,10 +463,10 @@ export default function POSPage() {
                 onClick={() =>
                   setCategory(cat)
                 }
-                className={`h-10 px-5 rounded-2xl text-[11px] uppercase tracking-[0.2em] transition-all ${
+                className={`h-10 px-5 rounded-2xl text-[11px] uppercase tracking-[0.2em] ${
                   category === cat
                     ? "bg-violet-500 text-white"
-                    : "bg-white/[0.04] border border-white/10 text-zinc-400 hover:border-violet-500/30"
+                    : "bg-white/[0.04] border border-white/10 text-zinc-400"
                 }`}
               >
                 {cat}
@@ -567,7 +484,7 @@ export default function POSPage() {
 
                 <div
                   key={item.id}
-                  className="rounded-[26px] border border-white/10 bg-black/30 overflow-hidden hover:border-violet-500/40 transition-all"
+                  className="rounded-[26px] border border-white/10 bg-black/30 overflow-hidden"
                 >
 
                   <div className="h-36 bg-gradient-to-br from-violet-500/10 to-black" />
@@ -595,7 +512,7 @@ export default function POSPage() {
                         </div>
 
                         <div className="text-[10px] text-emerald-400 mt-1">
-                          {item.stock_quantity || 0} LEFT
+                          {item.stock_quantity || 0}
                         </div>
 
                       </div>
@@ -608,11 +525,7 @@ export default function POSPage() {
                       }
                       className="w-full h-11 rounded-2xl bg-violet-500 hover:bg-violet-400 transition-all text-sm font-medium text-white"
                     >
-                      {getQuantity(
-                        item.id
-                      ) > 0
-                        ? `ADD (${getQuantity(item.id)})`
-                        : "ADD"}
+                      ADD
                     </button>
 
                   </div>
@@ -627,7 +540,7 @@ export default function POSPage() {
         </div>
 
         {/* ===== CART ===== */}
-        <div className="w-[330px] rounded-[32px] border border-white/10 bg-white/[0.03] backdrop-blur-2xl flex flex-col overflow-hidden">
+        <div className="w-[330px] rounded-[32px] border border-white/10 bg-white/[0.03] flex flex-col overflow-hidden">
 
           <div className="p-6 border-b border-white/5">
 
@@ -684,7 +597,7 @@ export default function POSPage() {
                         item.dish_id
                       )
                     }
-                    className="w-full h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs uppercase tracking-widest hover:bg-red-500/20"
+                    className="w-full h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs uppercase tracking-widest"
                   >
                     Remove
                   </button>
@@ -696,7 +609,6 @@ export default function POSPage() {
 
           </div>
 
-          {/* ===== FOOTER ===== */}
           <div className="border-t border-white/5 p-5">
 
             <div className="flex items-center justify-between mb-4">
@@ -719,7 +631,7 @@ export default function POSPage() {
                     getTableSession(selectedTable).id
                   )
                 }
-                className="w-full h-11 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400 text-sm mb-3 hover:bg-red-500/20 transition-all"
+                className="w-full h-11 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400 text-sm mb-3"
               >
                 CLOSE TABLE
               </button>
@@ -728,7 +640,7 @@ export default function POSPage() {
             <button
               onClick={sendOrder}
               disabled={sending}
-              className="w-full h-14 rounded-2xl bg-violet-500 hover:bg-violet-400 transition-all text-white text-sm font-medium disabled:opacity-50"
+              className="w-full h-14 rounded-2xl bg-violet-500 hover:bg-violet-400 transition-all text-white text-sm font-medium"
             >
               {sending
                 ? "SENDING..."

@@ -1,203 +1,299 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from 'react'
 
-import { supabase } from "@/lib/shared/supabase/client";
+import PageWrapper from '@/components/PageWrapper'
+
+import { supabase } from '@/lib/shared/supabase/client'
 
 export default function ProductionCostingPage() {
 
   const [
-    dishes,
-    setDishes,
-  ] = useState([]);
+    tenantId,
+    setTenantId,
+  ] = useState(null)
 
   const [
-    results,
-    setResults,
-  ] = useState({});
+    dishes,
+    setDishes,
+  ] = useState([])
 
-  async function loadDishes() {
-
-    const {
-      data,
-    } = await supabase
-      .from("dishes")
-      .select("*")
-      .order(
-        "name",
-        {
-          ascending: true,
-        }
-      );
-
-    setDishes(
-      data || []
-    );
-  }
-
-  async function calculateCost(
-    dish_id
-  ) {
-
-    const res =
-      await fetch(
-        "/api/production/costing",
-        {
-
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-
-            dish_id,
-          }),
-        }
-      );
-
-    const json =
-      await res.json();
-
-    setResults(
-      (prev) => ({
-
-        ...prev,
-
-        [dish_id]:
-          json,
-      })
-    );
-
-    loadDishes();
-  }
+  const [
+    recipes,
+    setRecipes,
+  ] = useState([])
 
   useEffect(() => {
 
-    loadDishes();
+    async function loadTenant() {
 
-  }, []);
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser()
+
+      if (!user) return
+
+      const {
+        data,
+      } = await supabase
+        .from(
+          'staff_accounts'
+        )
+        .select('*')
+        .eq(
+          'auth_user_id',
+          user.id
+        )
+        .single()
+
+      if (
+        data?.tenant_id
+      ) {
+
+        setTenantId(
+          data.tenant_id
+        )
+      }
+    }
+
+    loadTenant()
+
+  }, [])
+
+  useEffect(() => {
+
+    loadData()
+
+  }, [tenantId])
+
+  async function loadData() {
+
+    if (!tenantId) {
+      return
+    }
+
+    const {
+      data: dishesData,
+    } = await supabase
+      .from('dishes')
+      .select('*')
+      .eq(
+        'tenant_id',
+        tenantId
+      )
+      .order('name')
+
+    const response =
+      await fetch(
+        '/api/production/recipes/get',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+          body: JSON.stringify({
+            tenant_id:
+              tenantId,
+          }),
+        }
+      )
+
+    const result =
+      await response.json()
+
+    setDishes(
+      dishesData || []
+    )
+
+    setRecipes(
+      result.data || []
+    )
+  }
+
+  function getMargin(
+    price,
+    cost
+  ) {
+
+    if (!price) {
+      return 0
+    }
+
+    return (
+      (
+        (
+          Number(price || 0) -
+          Number(cost || 0)
+        ) /
+        Number(price || 0)
+      ) * 100
+    ).toFixed(1)
+  }
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-10">
+    <PageWrapper
+      title="Production Costing"
+      subtitle="Dish profitability and production margin"
+    >
 
-      <div className="max-w-7xl mx-auto">
+      <div className="p-6 text-white">
 
-        <h1 className="text-6xl font-bold mb-3">
-          Production Costing
-        </h1>
+        <div className="grid grid-cols-3 gap-6">
 
-        <div className="text-zinc-500 mb-10">
-          Manufacturing Cost Intelligence
-        </div>
+          {recipes.map(
+            dish => {
 
-        <div className="space-y-4">
+              const margin =
+                getMargin(
+                  dish.price,
+                  dish.cost
+                )
 
-          {dishes.map(
-            (
-              dish
-            ) => {
+              let color =
+                'text-emerald-400'
 
-              const result =
-                results[
-                  dish.id
-                ];
+              if (
+                Number(margin) < 40
+              ) {
+
+                color =
+                  'text-red-400'
+
+              } else if (
+                Number(margin) < 60
+              ) {
+
+                color =
+                  'text-yellow-400'
+              }
 
               return (
 
                 <div
                   key={dish.id}
-                  className="border border-zinc-800 rounded-3xl p-6"
+                  className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6"
                 >
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between mb-6">
 
                     <div>
 
-                      <div className="text-2xl font-bold">
+                      <div className="text-2xl font-semibold">
                         {dish.name}
                       </div>
 
-                      <div className="text-zinc-500 mt-2">
+                      <div className="text-sm text-zinc-500 mt-1">
                         {dish.category}
                       </div>
 
                     </div>
 
-                    <button
-                      onClick={() =>
-                        calculateCost(
-                          dish.id
-                        )
-                      }
-                      className="bg-white text-black rounded-2xl px-6 py-3 font-bold"
-                    >
-                      CALCULATE
-                    </button>
+                    <div className={`text-lg font-semibold ${color}`}>
+                      {margin}%
+                    </div>
 
                   </div>
 
-                  <div className="grid grid-cols-4 gap-4 mt-8">
+                  <div className="space-y-3 mb-6">
 
-                    <div className="border border-zinc-800 rounded-2xl p-4">
+                    <div className="flex items-center justify-between">
 
-                      <div className="text-zinc-500 text-sm">
-                        Price
+                      <div className="text-zinc-500">
+                        Selling Price
                       </div>
 
-                      <div className="text-2xl mt-2">
+                      <div className="text-xl">
                         ฿
                         {dish.price || 0}
                       </div>
 
                     </div>
 
-                    <div className="border border-zinc-800 rounded-2xl p-4">
+                    <div className="flex items-center justify-between">
 
-                      <div className="text-zinc-500 text-sm">
-                        Cost
+                      <div className="text-zinc-500">
+                        Production Cost
                       </div>
 
-                      <div className="text-2xl mt-2">
+                      <div className="text-xl text-red-400">
                         ฿
                         {dish.cost || 0}
                       </div>
 
                     </div>
 
-                    <div className="border border-zinc-800 rounded-2xl p-4">
+                    <div className="flex items-center justify-between">
 
-                      <div className="text-zinc-500 text-sm">
-                        Profit
+                      <div className="text-zinc-500">
+                        Gross Profit
                       </div>
 
-                      <div className="text-2xl mt-2">
+                      <div className="text-xl text-emerald-400">
                         ฿
-                        {result?.profit || 0}
-                      </div>
-
-                    </div>
-
-                    <div className="border border-zinc-800 rounded-2xl p-4">
-
-                      <div className="text-zinc-500 text-sm">
-                        Food Cost %
-                      </div>
-
-                      <div className="text-2xl mt-2">
-                        {result?.food_cost_percent || 0}
-                        %
+                        {(
+                          Number(
+                            dish.price || 0
+                          ) -
+                          Number(
+                            dish.cost || 0
+                          )
+                        ).toFixed(2)}
                       </div>
 
                     </div>
 
                   </div>
 
+                  <div className="border-t border-zinc-800 pt-4">
+
+                    <div className="text-sm text-zinc-500 mb-3">
+                      Recipe Components
+                    </div>
+
+                    <div className="space-y-2">
+
+                      {dish.recipe_items?.map(
+                        recipe => (
+
+                          <div
+                            key={recipe.id}
+                            className="flex items-center justify-between text-sm"
+                          >
+
+                            <div>
+                              {
+                                recipe.ingredients?.name
+                              }
+                            </div>
+
+                            <div className="text-zinc-500">
+                              {
+                                recipe.quantity
+                              }
+                              {' '}
+                              {
+                                recipe.ingredients?.unit
+                              }
+                            </div>
+
+                          </div>
+
+                        )
+                      )}
+
+                    </div>
+
+                  </div>
+
                 </div>
-              );
+
+              )
             }
           )}
 
@@ -205,6 +301,6 @@ export default function ProductionCostingPage() {
 
       </div>
 
-    </div>
-  );
+    </PageWrapper>
+  )
 }

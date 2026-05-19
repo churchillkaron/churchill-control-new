@@ -1,80 +1,56 @@
-export function getSelectedQuantity(
-  orderItems,
-  dishId
-) {
-  const existingItem =
-    orderItems.find(
-      (item) =>
-        item.dish_id === dishId
-    );
-
-  return Number(
-    existingItem?.quantity || 0
-  );
-}
-
 export function addItemToCart({
   orderItems,
   item,
 }) {
 
-  const stock =
-    Number(item.stock || 0);
-
-  const alreadySelected =
-    getSelectedQuantity(
-      orderItems,
-      item.id
-    );
-
-  if (stock <= 0) {
-    throw new Error(
-      "This dish is out of stock"
-    );
-  }
-
-  if (
-    alreadySelected >= stock
-  ) {
-    throw new Error(
-      `Only ${stock} available`
-    );
-  }
-
-  const existingItem =
+  const existing =
     orderItems.find(
-      (orderItem) =>
-        orderItem.dish_id ===
+      i =>
+        i.dish_id ===
         item.id
-    );
+    )
 
-  if (existingItem) {
+  if (existing) {
+
     return orderItems.map(
-      (orderItem) =>
-        orderItem.dish_id ===
-        item.id
-          ? {
-              ...orderItem,
-              quantity:
-                Number(
-                  orderItem.quantity || 1
-                ) + 1,
-            }
-          : orderItem
-    );
+      i => {
+
+        if (
+          i.dish_id ===
+          item.id
+        ) {
+
+          return {
+            ...i,
+            quantity:
+              Number(
+                i.quantity || 0
+              ) + 1,
+          }
+        }
+
+        return i
+      }
+    )
   }
 
   return [
     ...orderItems,
     {
-      dish_id: item.id,
-      item_name: item.name,
-      price: Number(
-        item.price || 0
-      ),
+      dish_id:
+        item.id,
+
+      item_name:
+        item.name,
+
       quantity: 1,
+
+      price:
+        Number(
+          item.price || 0
+        ),
     },
-  ];
+  ]
 }
 
 export function removeItemFromCart({
@@ -82,22 +58,63 @@ export function removeItemFromCart({
   dishId,
 }) {
 
-  return orderItems
-    .map((item) =>
-      item.dish_id === dishId
-        ? {
-            ...item,
-            quantity:
-              Number(
-                item.quantity || 1
-              ) - 1,
-          }
-        : item
+  const existing =
+    orderItems.find(
+      i =>
+        i.dish_id ===
+        dishId
     )
-    .filter(
-      (item) =>
-        Number(
-          item.quantity || 0
-        ) > 0
-    );
+
+  if (!existing) {
+    return orderItems
+  }
+
+  if (
+    existing.quantity <= 1
+  ) {
+
+    return orderItems.filter(
+      i =>
+        i.dish_id !==
+        dishId
+    )
+  }
+
+  return orderItems.map(
+    i => {
+
+      if (
+        i.dish_id ===
+        dishId
+      ) {
+
+        return {
+          ...i,
+          quantity:
+            Number(
+              i.quantity || 0
+            ) - 1,
+        }
+      }
+
+      return i
+    }
+  )
+}
+
+export function getSelectedQuantity({
+  orderItems,
+  dishId,
+}) {
+
+  const existing =
+    orderItems.find(
+      i =>
+        i.dish_id ===
+        dishId
+    )
+
+  return existing
+    ? existing.quantity
+    : 0
 }

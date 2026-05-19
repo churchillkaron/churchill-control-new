@@ -1,122 +1,50 @@
-export const dynamic = "force-dynamic";
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
-import { createClient }
-from "@supabase/supabase-js";
-
-// =====================================
-// GET RECIPE
-// =====================================
-
-export async function POST(
-  req
-) {
-
+export async function POST(req) {
   try {
+    const body = await req.json()
 
-    const supabase =
-      createClient(
+    const { tenant_id } = body
 
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-
-        process.env.SUPABASE_SERVICE_ROLE_KEY
-
-      );
-
-    const {
-      dish_id,
-    } = await req.json();
-
-    if (!dish_id) {
-
-      return Response.json(
-        [],
-        {
-          status: 200,
-        }
-      );
-
-    }
-
-    const {
-      data,
-      error,
-    } = await supabase
-
-      .from("recipe_items")
-
+    const { data, error } = await supabaseAdmin
+      .from('dishes')
       .select(`
-        ingredient_id,
-        quantity,
-
-        ingredients (
-          name,
-          cost
+        *,
+        recipe_items (
+          id,
+          quantity,
+          ingredient_id,
+          ingredients (
+            id,
+            name,
+            unit,
+            cost_per_unit
+          )
         )
       `)
-
-      .eq(
-        "dish_id",
-        dish_id
-      );
+      .eq('tenant_id', tenant_id)
+      .order('name')
 
     if (error) {
-
-      console.error(
-        "RECIPE ERROR:",
-        error
-      );
-
-      return Response.json(
-        [],
-        {
-          status: 200,
-        }
-      );
-
+      throw new Error(error.message)
     }
 
-    const formatted =
-      (data || []).map(
-        (i) => ({
+    return NextResponse.json({
+      success: true,
+      data,
+    })
+  } catch (error) {
+    console.error('GET RECIPES ERROR:', error)
 
-          ingredient_id:
-            i.ingredient_id,
-
-          quantity:
-            Number(
-              i.quantity || 0
-            ),
-
-          name:
-            i.ingredients?.name ||
-            "Unknown",
-
-          cost:
-            Number(
-              i.ingredients?.cost || 0
-            ),
-
-        })
-      );
-
-    return Response.json(
-      formatted
-    );
-
-  } catch (err) {
-
-    console.error(
-      "RECIPE CRASH:",
-      err
-    );
-
-    return Response.json(
-      [],
+    return NextResponse.json(
       {
-        status: 200,
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
       }
-    );
-
+    )
   }
-
 }

@@ -17,7 +17,6 @@ import { createOrder } from "@/lib/pos/createOrder";
 import {
   addItemToCart,
   removeItemFromCart,
-  getSelectedQuantity,
 } from "@/store/pos/cartActions";
 
 export default function POSPage() {
@@ -54,7 +53,6 @@ export default function POSPage() {
     setTableSessions,
   ] = useState([]);
 
-  // ===== LOAD TENANT =====
   useEffect(() => {
 
     async function loadTenant() {
@@ -91,7 +89,6 @@ export default function POSPage() {
 
   }, []);
 
-  // ===== LOAD MENU =====
   useEffect(() => {
 
     async function run() {
@@ -116,7 +113,6 @@ export default function POSPage() {
     tenantId,
   ]);
 
-  // ===== LOAD TABLES =====
   async function refreshTables() {
 
     if (!tenantId) {
@@ -141,7 +137,6 @@ export default function POSPage() {
     tenantId,
   ]);
 
-  // ===== FILTER =====
   const filteredMenu =
     menu.filter(
       (item) => {
@@ -165,7 +160,6 @@ export default function POSPage() {
       }
     );
 
-  // ===== TOTAL =====
   const total =
     orderItems.reduce(
       (
@@ -182,7 +176,6 @@ export default function POSPage() {
       0
     );
 
-  // ===== ADD =====
   const addItem = (
     item
   ) => {
@@ -198,7 +191,6 @@ export default function POSPage() {
     );
   };
 
-  // ===== REMOVE =====
   const removeItem = (
     dishId
   ) => {
@@ -214,7 +206,6 @@ export default function POSPage() {
     );
   };
 
-  // ===== SEND =====
   async function sendOrder() {
 
     try {
@@ -259,25 +250,43 @@ export default function POSPage() {
         )
         .single();
 
-      await createOrder({
+      const order =
+        await createOrder({
 
-        table:
-          selectedTable,
+          table:
+            selectedTable,
 
-        items:
-          orderItems,
+          items:
+            orderItems,
 
-        total,
+          total,
 
-        staff_id:
-          staff?.id,
+          staff_id:
+            staff?.id,
 
-        staff_name:
-          staff?.name,
+          staff_name:
+            staff?.name,
 
-        tenant_id:
-          tenantId,
-      });
+          tenant_id:
+            tenantId,
+        });
+
+      await fetch(
+        "/api/production/process-order",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            order_id:
+              order.id,
+            tenant_id:
+              tenantId,
+          }),
+        }
+      );
 
       setOrderItems([]);
 
@@ -297,7 +306,6 @@ export default function POSPage() {
     }
   }
 
-  // ===== CLOSE =====
   async function closeTable(
     sessionId
   ) {
@@ -340,7 +348,6 @@ export default function POSPage() {
 
       <div className="flex gap-5 h-[calc(100vh-170px)]">
 
-        {/* ===== TABLES ===== */}
         <div className="w-[190px] rounded-[28px] border border-white/10 bg-white/[0.03] backdrop-blur-2xl p-4 overflow-auto">
 
           <div className="mb-5">
@@ -419,7 +426,6 @@ export default function POSPage() {
 
         </div>
 
-        {/* ===== MENU ===== */}
         <div className="flex-1 rounded-[32px] border border-white/10 bg-white/[0.03] overflow-hidden flex flex-col">
 
           <div className="p-6 border-b border-white/5 flex items-center justify-between">
@@ -449,7 +455,6 @@ export default function POSPage() {
 
           </div>
 
-          {/* ===== CATEGORY ===== */}
           <div className="px-6 pt-5 flex gap-3">
 
             {[
@@ -475,7 +480,6 @@ export default function POSPage() {
 
           </div>
 
-          {/* ===== GRID ===== */}
           <div className="flex-1 overflow-auto p-6">
 
             <div className="grid grid-cols-3 gap-5">
@@ -539,7 +543,6 @@ export default function POSPage() {
 
         </div>
 
-        {/* ===== CART ===== */}
         <div className="w-[330px] rounded-[32px] border border-white/10 bg-white/[0.03] flex flex-col overflow-hidden">
 
           <div className="p-6 border-b border-white/5">

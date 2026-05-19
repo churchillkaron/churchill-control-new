@@ -9,7 +9,7 @@ import PageWrapper from '@/components/PageWrapper'
 
 import { supabase } from '@/lib/shared/supabase/client'
 
-export default function SovereignAIPage() {
+export default function OmniscientCorePage() {
 
   const [
     tenantId,
@@ -17,25 +17,25 @@ export default function SovereignAIPage() {
   ] = useState(null)
 
   const [
-    sovereign,
-    setSovereign,
+    omniscient,
+    setOmniscient,
   ] = useState({
 
-    sovereignty: 0,
+    awareness: 0,
 
-    governance: 0,
+    foresight: 0,
 
-    control: 0,
+    orchestration: 0,
 
     resilience: 0,
 
-    scalability: 0,
-
     intelligence: 0,
 
-    state: 'INITIALIZING',
+    sovereignty: 0,
 
-    protocols: [],
+    state: 'OBSERVING',
+
+    streams: [],
   })
 
   useEffect(() => {
@@ -183,25 +183,25 @@ export default function SovereignAIPage() {
             'ACTIVE'
         )
 
-    let sovereignty = 90
-    let governance = 88
-    let control = 92
-    let resilience = 86
-    let scalability = 84
-    let intelligence = 94
+    let awareness = 94
+    let foresight = 96
+    let orchestration = 92
+    let resilience = 91
+    let intelligence = 98
+    let sovereignty = 95
 
-    const protocols =
+    const streams =
       []
 
     if (
       revenue > 100000
     ) {
 
-      sovereignty += 5
-      scalability += 6
+      awareness += 3
+      foresight += 4
 
-      protocols.push(
-        'Enterprise expansion governance active'
+      streams.push(
+        'Revenue acceleration mapped before occurrence'
       )
     }
 
@@ -209,11 +209,11 @@ export default function SovereignAIPage() {
       foodCost < 30
     ) {
 
-      governance += 5
-      resilience += 5
+      orchestration += 5
+      sovereignty += 4
 
-      protocols.push(
-        'Financial governance stabilized'
+      streams.push(
+        'Financial equilibrium maintained'
       )
     }
 
@@ -221,11 +221,11 @@ export default function SovereignAIPage() {
       lowStock.length > 0
     ) {
 
-      control -= 8
-      intelligence += 5
+      resilience += 5
+      intelligence += 3
 
-      protocols.push(
-        'Inventory containment protocols active'
+      streams.push(
+        'Inventory instability neutralized'
       )
     }
 
@@ -234,11 +234,11 @@ export default function SovereignAIPage() {
         .length > 10
     ) {
 
-      control -= 5
-      resilience += 4
+      orchestration += 4
+      foresight += 5
 
-      protocols.push(
-        'Operational overload mitigation active'
+      streams.push(
+        'Operational overload predicted and absorbed'
       )
     }
 
@@ -246,73 +246,66 @@ export default function SovereignAIPage() {
       activeTables.length > 15
     ) {
 
-      scalability += 8
-      sovereignty += 4
+      sovereignty += 5
+      awareness += 4
 
-      protocols.push(
-        'High-volume scaling governance active'
+      streams.push(
+        'High-scale flow harmonized'
       )
     }
 
     const total =
       (
-        sovereignty +
-        governance +
-        control +
+        awareness +
+        foresight +
+        orchestration +
         resilience +
-        scalability +
-        intelligence
+        intelligence +
+        sovereignty
       ) / 6
 
     let state =
-      'SOVEREIGN STABLE'
+      'OMNISCIENT'
 
     if (
-      total >= 98
+      total >= 100
     ) {
 
       state =
-        'SOVEREIGN ASCENSION'
+        'ABSOLUTE OMNISCIENCE'
 
     } else if (
-      total >= 92
+      total >= 96
     ) {
 
       state =
-        'ABSOLUTE CONTROL'
-
-    } else if (
-      total < 80
-    ) {
-
-      state =
-        'SOVEREIGN WARNING'
+        'TOTAL AWARENESS'
     }
 
     if (
-      protocols.length === 0
+      streams.length === 0
     ) {
 
-      protocols.push(
-        'Sovereign AI monitoring enterprise sovereignty'
+      streams.push(
+        'Omniscient core observing enterprise reality'
       )
     }
 
-    setSovereign({
+    setOmniscient({
 
-      sovereignty:
+      awareness:
         Math.round(
-          sovereignty
+          awareness
         ),
 
-      governance:
+      foresight:
         Math.round(
-          governance
+          foresight
         ),
 
-      control:
+      orchestration:
         Math.round(
-          control
+          orchestration
         ),
 
       resilience:
@@ -320,19 +313,19 @@ export default function SovereignAIPage() {
           resilience
         ),
 
-      scalability:
-        Math.round(
-          scalability
-        ),
-
       intelligence:
         Math.round(
           intelligence
         ),
 
+      sovereignty:
+        Math.round(
+          sovereignty
+        ),
+
       state,
 
-      protocols,
+      streams,
     })
   }
 
@@ -340,11 +333,11 @@ export default function SovereignAIPage() {
     value
   ) {
 
-    if (value >= 94) {
+    if (value >= 98) {
       return 'text-emerald-400'
     }
 
-    if (value >= 84) {
+    if (value >= 90) {
       return 'text-yellow-400'
     }
 
@@ -354,8 +347,8 @@ export default function SovereignAIPage() {
   return (
 
     <PageWrapper
-      title="Sovereign AI"
-      subtitle="Enterprise sovereignty and governance intelligence"
+      title="Omniscient Core"
+      subtitle="Absolute enterprise intelligence layer"
     >
 
       <div className="p-6 text-white">
@@ -367,17 +360,17 @@ export default function SovereignAIPage() {
             <div>
 
               <div className="text-sm text-zinc-500 mb-2">
-                Sovereign State
+                Omniscient State
               </div>
 
               <div className={`text-6xl font-light ${
                 color(
-                  sovereign.intelligence
+                  omniscient.intelligence
                 )
               }`}>
 
                 {
-                  sovereign.state
+                  omniscient.state
                 }
 
               </div>
@@ -386,12 +379,12 @@ export default function SovereignAIPage() {
 
             <div className={`text-8xl font-light ${
               color(
-                sovereign.intelligence
+                omniscient.intelligence
               )
             }`}>
 
               {
-                sovereign.intelligence
+                omniscient.intelligence
               }
 
             </div>
@@ -403,38 +396,38 @@ export default function SovereignAIPage() {
         <div className="grid grid-cols-6 gap-4 mb-6">
 
           <Metric
-            label="Sovereignty"
-            value={sovereign.sovereignty}
+            label="Awareness"
+            value={omniscient.awareness}
             color={color}
           />
 
           <Metric
-            label="Governance"
-            value={sovereign.governance}
+            label="Foresight"
+            value={omniscient.foresight}
             color={color}
           />
 
           <Metric
-            label="Control"
-            value={sovereign.control}
+            label="Orchestration"
+            value={omniscient.orchestration}
             color={color}
           />
 
           <Metric
             label="Resilience"
-            value={sovereign.resilience}
-            color={color}
-          />
-
-          <Metric
-            label="Scalability"
-            value={sovereign.scalability}
+            value={omniscient.resilience}
             color={color}
           />
 
           <Metric
             label="Intelligence"
-            value={sovereign.intelligence}
+            value={omniscient.intelligence}
+            color={color}
+          />
+
+          <Metric
+            label="Sovereignty"
+            value={omniscient.sovereignty}
             color={color}
           />
 
@@ -443,14 +436,14 @@ export default function SovereignAIPage() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
 
           <div className="text-2xl font-semibold mb-6">
-            Sovereign Protocols
+            Omniscient Streams
           </div>
 
           <div className="space-y-4">
 
-            {sovereign.protocols.map(
+            {omniscient.streams.map(
               (
-                protocol,
+                stream,
                 index
               ) => (
 
@@ -460,7 +453,7 @@ export default function SovereignAIPage() {
                 >
 
                   {
-                    protocol
+                    stream
                   }
 
                 </div>

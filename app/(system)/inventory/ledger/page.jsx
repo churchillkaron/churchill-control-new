@@ -1,83 +1,208 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from 'react'
 
-import { supabase } from "@/lib/shared/supabase/client";
+import PageWrapper from '@/components/PageWrapper'
+
+import { supabase } from '@/lib/shared/supabase/client'
 
 export default function InventoryLedgerPage() {
 
   const [
-    entries,
-    setEntries,
-  ] = useState([]);
+    tenantId,
+    setTenantId,
+  ] = useState(null)
 
-  async function loadLedger() {
+  const [
+    movements,
+    setMovements,
+  ] = useState([])
+
+  const [
+    ingredients,
+    setIngredients,
+  ] = useState([])
+
+  useEffect(() => {
+
+    async function loadTenant() {
+
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser()
+
+      if (!user) return
+
+      const {
+        data,
+      } = await supabase
+        .from(
+          'staff_accounts'
+        )
+        .select('*')
+        .eq(
+          'auth_user_id',
+          user.id
+        )
+        .single()
+
+      if (
+        data?.tenant_id
+      ) {
+
+        setTenantId(
+          data.tenant_id
+        )
+      }
+    }
+
+    loadTenant()
+
+  }, [])
+
+  useEffect(() => {
+
+    loadData()
+
+  }, [tenantId])
+
+  async function loadData() {
+
+    if (!tenantId) {
+      return
+    }
 
     const {
-      data,
+      data: ingredientData,
+    } = await supabase
+      .from('ingredients')
+      .select('*')
+      .eq(
+        'tenant_id',
+        tenantId
+      )
+      .order('name')
+
+    const {
+      data: movementData,
     } = await supabase
       .from(
-        "inventory_ledger"
+        'inventory_movements'
       )
-      .select("*")
+      .select('*')
+      .eq(
+        'tenant_id',
+        tenantId
+      )
       .order(
-        "created_at",
+        'created_at',
         {
           ascending: false,
         }
       )
-      .limit(200);
 
-    setEntries(
-      data || []
-    );
+    setIngredients(
+      ingredientData || []
+    )
+
+    setMovements(
+      movementData || []
+    )
   }
 
-  useEffect(() => {
+  function getIngredientName(
+    id
+  ) {
 
-    loadLedger();
+    const ingredient =
+      ingredients.find(
+        i => i.id === id
+      )
 
-  }, []);
+    return ingredient
+      ? ingredient.name
+      : 'Unknown'
+  }
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-10">
+    <PageWrapper
+      title="Inventory Ledger"
+      subtitle="Live ingredient movement tracking"
+    >
 
-      <div className="max-w-7xl mx-auto">
+      <div className="p-6 text-white">
 
-        <h1 className="text-6xl font-bold mb-3">
-          Inventory Ledger
-        </h1>
+        <div className="grid grid-cols-4 gap-4 mb-6">
 
-        <div className="text-zinc-500 mb-10">
-          Live Inventory Movement Engine
-        </div>
-
-        <div className="space-y-4">
-
-          {entries.map(
-            (
-              entry
-            ) => (
+          {ingredients.map(
+            ingredient => (
 
               <div
-                key={entry.id}
-                className="border border-zinc-800 rounded-3xl p-6"
+                key={ingredient.id}
+                className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5"
               >
 
-                <div className="flex items-center justify-between">
+                <div className="text-sm text-zinc-500 mb-2">
+                  Ingredient
+                </div>
+
+                <div className="text-xl font-semibold">
+                  {
+                    ingredient.name
+                  }
+                </div>
+
+                <div className="mt-4 text-3xl font-light">
+                  {
+                    ingredient.quantity
+                  }
+                </div>
+
+                <div className="text-sm text-zinc-500 mt-1">
+                  {
+                    ingredient.unit
+                  }
+                </div>
+
+              </div>
+
+            )
+          )}
+
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+
+          <div className="text-2xl font-semibold mb-6">
+            Inventory Movements
+          </div>
+
+          <div className="space-y-4">
+
+            {movements.map(
+              movement => (
+
+                <div
+                  key={movement.id}
+                  className="bg-black border border-zinc-800 rounded-2xl p-4 flex items-center justify-between"
+                >
 
                   <div>
 
-                    <div className="text-2xl font-bold">
-                      {
-                        entry.ingredient_name
-                      }
+                    <div className="text-lg">
+                      {getIngredientName(
+                        movement.ingredient_id
+                      )}
                     </div>
 
-                    <div className="text-zinc-500 mt-2">
+                    <div className="text-sm text-zinc-500 mt-1">
                       {
-                        entry.movement_type
+                        movement.notes
                       }
                     </div>
 
@@ -85,20 +210,25 @@ export default function InventoryLedgerPage() {
 
                   <div className="text-right">
 
-                    <div className="text-xl">
-                      -
+                    <div className={`text-xl ${
+                      movement.type === 'usage'
+                        ? 'text-red-400'
+                        : 'text-emerald-400'
+                    }`}>
+
+                      {movement.type === 'usage'
+                        ? '-'
+                        : '+'}
+
                       {
-                        entry.quantity
+                        movement.quantity
                       }
+
                     </div>
 
-                    <div className="text-zinc-500 mt-2">
+                    <div className="text-sm text-zinc-500 mt-1">
                       {
-                        entry.previous_quantity
-                      }
-                      {" → "}
-                      {
-                        entry.new_quantity
+                        movement.type
                       }
                     </div>
 
@@ -106,14 +236,15 @@ export default function InventoryLedgerPage() {
 
                 </div>
 
-              </div>
-            )
-          )}
+              )
+            )}
+
+          </div>
 
         </div>
 
       </div>
 
-    </div>
-  );
+    </PageWrapper>
+  )
 }

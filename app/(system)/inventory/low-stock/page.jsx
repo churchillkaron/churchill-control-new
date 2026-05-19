@@ -1,27 +1,26 @@
-"use client";
+'use client'
 
 import {
   useEffect,
   useState,
-} from "react";
+} from 'react'
 
-import { supabase } from "@/lib/shared/supabase/client";
+import PageWrapper from '@/components/PageWrapper'
 
-import { loadLowStockItems } from "@/lib/inventory/loadLowStockItems";
+import { supabase } from '@/lib/shared/supabase/client'
 
 export default function LowStockPage() {
 
   const [
     tenantId,
     setTenantId,
-  ] = useState(null);
+  ] = useState(null)
 
   const [
-    items,
-    setItems,
-  ] = useState([]);
+    ingredients,
+    setIngredients,
+  ] = useState([])
 
-  // ===== LOAD TENANT =====
   useEffect(() => {
 
     async function loadTenant() {
@@ -29,22 +28,22 @@ export default function LowStockPage() {
       const {
         data: { user },
       } =
-        await supabase.auth.getUser();
+        await supabase.auth.getUser()
 
-      if (!user) {
-        return;
-      }
+      if (!user) return
 
       const {
         data,
       } = await supabase
-        .from("staff_accounts")
-        .select("*")
+        .from(
+          'staff_accounts'
+        )
+        .select('*')
         .eq(
-          "auth_user_id",
+          'auth_user_id',
           user.id
         )
-        .single();
+        .single()
 
       if (
         data?.tenant_id
@@ -52,182 +51,201 @@ export default function LowStockPage() {
 
         setTenantId(
           data.tenant_id
-        );
+        )
       }
     }
 
-    loadTenant();
+    loadTenant()
 
-  }, []);
+  }, [])
 
-  // ===== LOAD =====
-  async function refresh() {
+  useEffect(() => {
+
+    loadData()
+
+  }, [tenantId])
+
+  async function loadData() {
 
     if (!tenantId) {
-      return;
+      return
     }
 
-    const data =
-      await loadLowStockItems(
+    const {
+      data,
+    } = await supabase
+      .from('ingredients')
+      .select('*')
+      .eq(
+        'tenant_id',
         tenantId
-      );
+      )
+      .order(
+        'quantity',
+        {
+          ascending: true,
+        }
+      )
 
-    setItems(
+    setIngredients(
       data || []
-    );
+    )
   }
 
-  useEffect(() => {
+  const critical =
+    ingredients.filter(
+      i =>
+        Number(
+          i.quantity || 0
+        ) <= 5
+    )
 
-    refresh();
-
-  }, [
-    tenantId,
-  ]);
-
-  // ===== REALTIME =====
-  useEffect(() => {
-
-    if (!tenantId) {
-      return;
-    }
-
-    const channel =
-      supabase
-        .channel(
-          "low-stock-live"
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table:
-              "dishes",
-          },
-          refresh
-        )
-        .subscribe();
-
-    return () => {
-
-      supabase.removeChannel(
-        channel
-      );
-    };
-
-  }, [
-    tenantId,
-  ]);
+  const warning =
+    ingredients.filter(
+      i =>
+        Number(
+          i.quantity || 0
+        ) > 5 &&
+        Number(
+          i.quantity || 0
+        ) <= 10
+    )
 
   return (
 
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <PageWrapper
+      title="Low Stock Monitoring"
+      subtitle="Inventory risk and replenishment"
+    >
 
-      {/* ===== HEADER ===== */}
-      <div className="h-24 border-b border-white/5 flex items-center justify-between px-10">
+      <div className="p-6 text-white">
 
-        <div>
+        <div className="grid grid-cols-2 gap-6 mb-6">
 
-          <div className="text-xs tracking-[0.3em] uppercase text-orange-400 mb-2">
-            INVENTORY
-          </div>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-3xl p-6">
 
-          <div className="text-5xl font-semibold">
-            Low Stock
-          </div>
-
-        </div>
-
-        <div className="px-5 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs uppercase tracking-[0.25em] flex items-center">
-          {items.length} ITEMS
-        </div>
-
-      </div>
-
-      {/* ===== GRID ===== */}
-      <div className="p-8 grid grid-cols-4 gap-6">
-
-        {items.length === 0 ? (
-
-          <div className="col-span-4 h-[60vh] flex items-center justify-center text-zinc-600 text-2xl">
-            No low stock items
-          </div>
-
-        ) : (
-
-          items.map((item) => (
-
-            <div
-              key={item.id}
-              className="rounded-[32px] border border-orange-500/20 bg-orange-500/5 overflow-hidden"
-            >
-
-              <div className="p-8">
-
-                <div className="flex items-start justify-between mb-6">
-
-                  <div>
-
-                    <div className="text-xs uppercase tracking-[0.25em] text-orange-400 mb-2">
-                      Dish
-                    </div>
-
-                    <div className="text-3xl font-medium">
-                      {item.name}
-                    </div>
-
-                  </div>
-
-                  <div className="w-16 h-16 rounded-2xl bg-orange-500 text-black flex items-center justify-center text-2xl font-semibold">
-                    {
-                      item.stock_quantity
-                    }
-                  </div>
-
-                </div>
-
-                <div className="space-y-3">
-
-                  <div className="flex items-center justify-between">
-
-                    <div className="text-zinc-500">
-                      Category
-                    </div>
-
-                    <div className="text-white">
-                      {
-                        item.category
-                      }
-                    </div>
-
-                  </div>
-
-                  <div className="flex items-center justify-between">
-
-                    <div className="text-zinc-500">
-                      Price
-                    </div>
-
-                    <div className="text-white text-xl font-light">
-                      ฿{
-                        item.price
-                      }
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
+            <div className="text-sm text-red-400 mb-2">
+              Critical
             </div>
-          ))
 
-        )}
+            <div className="text-5xl font-light">
+              {
+                critical.length
+              }
+            </div>
+
+          </div>
+
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-3xl p-6">
+
+            <div className="text-sm text-yellow-400 mb-2">
+              Warning
+            </div>
+
+            <div className="text-5xl font-light">
+              {
+                warning.length
+              }
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+
+          <div className="text-2xl font-semibold mb-6">
+            Inventory Status
+          </div>
+
+          <div className="space-y-4">
+
+            {ingredients.map(
+              ingredient => {
+
+                const qty =
+                  Number(
+                    ingredient.quantity || 0
+                  )
+
+                let status =
+                  'GOOD'
+
+                let color =
+                  'text-emerald-400'
+
+                if (qty <= 5) {
+
+                  status =
+                    'CRITICAL'
+
+                  color =
+                    'text-red-400'
+
+                } else if (
+                  qty <= 10
+                ) {
+
+                  status =
+                    'WARNING'
+
+                  color =
+                    'text-yellow-400'
+                }
+
+                return (
+
+                  <div
+                    key={ingredient.id}
+                    className="bg-black border border-zinc-800 rounded-2xl p-5 flex items-center justify-between"
+                  >
+
+                    <div>
+
+                      <div className="text-xl">
+                        {
+                          ingredient.name
+                        }
+                      </div>
+
+                      <div className="text-sm text-zinc-500 mt-1">
+                        {
+                          ingredient.department
+                        }
+                      </div>
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <div className="text-3xl font-light">
+                        {qty}
+                      </div>
+
+                      <div className="text-sm text-zinc-500">
+                        {
+                          ingredient.unit
+                        }
+                      </div>
+
+                    </div>
+
+                    <div className={`text-sm font-semibold ${color}`}>
+                      {status}
+                    </div>
+
+                  </div>
+
+                )
+              }
+            )}
+
+          </div>
+
+        </div>
 
       </div>
 
-    </div>
-  );
+    </PageWrapper>
+  )
 }

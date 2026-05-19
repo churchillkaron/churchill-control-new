@@ -1,8 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 
 import { createClient } from '@supabase/supabase-js'
 
 import { calculateFinancialHealth } from '@/lib/shared/finance/financialEngine'
+
 
 const supabase =
   createClient(

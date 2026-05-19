@@ -9,12 +9,8 @@ import {
 } from '@/lib/shared/api/createDynamicRoute'
 
 import {
-  generateRecommendations,
-} from '@/lib/shared/recommendations/recommendationEngine'
-
-import {
-  detectAnomalies,
-} from '@/lib/shared/anomaly/anomalyEngine'
+  calculateKPIs,
+} from '@/lib/shared/kpi/kpiEngine'
 
 const supabase =
   createClient(
@@ -39,8 +35,7 @@ export async function GET(req) {
 
     const [
       salesResponse,
-      ingredientResponse,
-      kitchenResponse,
+      tableResponse,
     ] = await Promise.all([
 
       supabase
@@ -49,12 +44,7 @@ export async function GET(req) {
         .eq('tenant_id', tenantId),
 
       supabase
-        .from('ingredients')
-        .select('*')
-        .eq('tenant_id', tenantId),
-
-      supabase
-        .from('kitchen_tickets')
+        .from('table_sessions')
         .select('*')
         .eq('tenant_id', tenantId),
 
@@ -63,11 +53,8 @@ export async function GET(req) {
     const sales =
       salesResponse.data || []
 
-    const ingredients =
-      ingredientResponse.data || []
-
-    const kitchen =
-      kitchenResponse.data || []
+    const tables =
+      tableResponse.data || []
 
     const revenue =
       sales.reduce(
@@ -93,55 +80,26 @@ export async function GET(req) {
         ? (cost / revenue) * 100
         : 0
 
-    const lowStock =
-      ingredients.filter(
-        ingredient =>
-          Number(
-            ingredient.quantity || 0
-          ) <= 5
-      ).length
-
-    const kitchenLoad =
-      kitchen.length
-
-    const payrollRatio =
-      0.22
-
-    const anomalies =
-      detectAnomalies({
+    const kpis =
+      calculateKPIs({
 
         revenue,
 
-        averageRevenue:
-          revenue * 1.1,
+        orders:
+          sales.length,
+
+        tables:
+          tables.filter(
+            table =>
+              table.status === 'ACTIVE'
+          ).length,
+
+        laborCost:
+          revenue * 0.22,
 
         foodCost,
 
-        averageFoodCost:
-          30,
-
-        voids: 2,
-
-        refunds: 1,
-
-        discounts: 5,
-
-      })
-
-    const recommendations =
-      generateRecommendations({
-
-        revenue,
-
-        foodCost,
-
-        lowStock,
-
-        kitchenLoad,
-
-        payrollRatio,
-
-        anomalies,
+        refunds: 2,
 
       })
 
@@ -149,7 +107,22 @@ export async function GET(req) {
 
       success: true,
 
-      recommendations,
+      metrics: {
+
+        revenue,
+
+        orders:
+          sales.length,
+
+        activeTables:
+          tables.filter(
+            table =>
+              table.status === 'ACTIVE'
+          ).length,
+
+      },
+
+      kpis,
 
     })
 

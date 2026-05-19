@@ -1,6 +1,9 @@
+
+export const dynamic = 'force-dynamic'
 import { NextResponse } from "next/server";
 
 import buildOperationalRecommendations from "@/lib/intelligence/recommendations/buildOperationalRecommendations";
+
 
 export async function POST(req) {
 

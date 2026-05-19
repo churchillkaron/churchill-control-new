@@ -1,8 +1,16 @@
+export { dynamic } from '@/lib/shared/api/createDynamicRoute'
+
 import { NextResponse } from 'next/server'
 
 import { createClient } from '@supabase/supabase-js'
 
-import { detectAnomalies } from '@/lib/shared/anomaly/anomalyEngine'
+import {
+  validateTenant,
+} from '@/lib/shared/api/createDynamicRoute'
+
+import {
+  detectAnomalies,
+} from '@/lib/shared/anomaly/anomalyEngine'
 
 const supabase =
   createClient(
@@ -14,20 +22,16 @@ export async function GET(req) {
 
   try {
 
-    const tenantId =
-      req.nextUrl.searchParams.get('tenantId')
+    const validation =
+      validateTenant(req)
 
-    if (!tenantId) {
-
-      return NextResponse.json(
-        {
-          error: 'tenantId required',
-        },
-        {
-          status: 400,
-        }
-      )
+    if (validation.error) {
+      return validation.error
     }
+
+    const {
+      tenantId,
+    } = validation
 
     const {
       data: sales,

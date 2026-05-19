@@ -1,8 +1,22 @@
+export { dynamic } from '@/lib/shared/api/createDynamicRoute'
+
 import { NextResponse } from 'next/server'
 
 import { createClient } from '@supabase/supabase-js'
 
-import { calculateIntelligence } from '@/lib/shared/intelligence/intelligenceEngine'
+import {
+  validateTenant,
+} from '@/lib/shared/api/createDynamicRoute'
+
+import {
+  calculateIntelligence,
+} from '@/lib/shared/intelligence/intelligenceEngine'
+
+import {
+  registerSystemEvents,
+} from '@/lib/shared/bootstrap/registerSystemEvents'
+
+registerSystemEvents()
 
 const supabase =
   createClient(
@@ -14,20 +28,16 @@ export async function GET(req) {
 
   try {
 
-    const tenantId =
-      req.nextUrl.searchParams.get('tenantId')
+    const validation =
+      validateTenant(req)
 
-    if (!tenantId) {
-
-      return NextResponse.json(
-        {
-          error: 'tenantId required',
-        },
-        {
-          status: 400,
-        }
-      )
+    if (validation.error) {
+      return validation.error
     }
+
+    const {
+      tenantId,
+    } = validation
 
     const [
       salesResponse,

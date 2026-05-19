@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { buildReceipt } from '@/lib/pos/receipts/buildReceipt'
+import { buildFinancialConsolidation } from '@/lib/finance/consolidation/buildFinancialConsolidation'
 
 export async function POST(req) {
 
@@ -9,30 +9,25 @@ export async function POST(req) {
     const body =
       await req.json()
 
-    const receipt =
-      buildReceipt({
-        order:
-          body.order,
+    const consolidation =
+      buildFinancialConsolidation({
 
-        items:
-          body.items || [],
+        pnl:
+          body.pnl || {},
 
-        payments:
-          body.payments || [],
+        balanceSheet:
+          body.balanceSheet || {},
 
-        cashier:
-          body.cashier,
+        cashflow:
+          body.cashflow || {},
 
-        table:
-          body.table,
-
-        guests:
-          body.guests,
+        tax:
+          body.tax || {},
       })
 
     return NextResponse.json({
       success: true,
-      receipt,
+      consolidation,
     })
 
   } catch (error) {
@@ -40,7 +35,6 @@ export async function POST(req) {
     return NextResponse.json(
       {
         success: false,
-
         error:
           error.message,
       },

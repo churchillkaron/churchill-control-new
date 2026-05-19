@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { buildReceipt } from '@/lib/pos/receipts/buildReceipt'
+import { closeFiscalYear } from '@/lib/finance/yearEnd/closeFiscalYear'
 
 export async function POST(req) {
 
@@ -9,30 +9,21 @@ export async function POST(req) {
     const body =
       await req.json()
 
-    const receipt =
-      buildReceipt({
-        order:
-          body.order,
+    const result =
+      await closeFiscalYear({
+        tenant_id:
+          body.tenant_id,
 
-        items:
-          body.items || [],
+        fiscal_year:
+          body.fiscal_year,
 
-        payments:
-          body.payments || [],
-
-        cashier:
-          body.cashier,
-
-        table:
-          body.table,
-
-        guests:
-          body.guests,
+        closed_by:
+          body.closed_by,
       })
 
     return NextResponse.json({
       success: true,
-      receipt,
+      result,
     })
 
   } catch (error) {
@@ -40,7 +31,6 @@ export async function POST(req) {
     return NextResponse.json(
       {
         success: false,
-
         error:
           error.message,
       },

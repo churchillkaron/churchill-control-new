@@ -33,7 +33,7 @@ export default function AbsoluteOriginPage() {
 
     intelligence: 0,
 
-    state: 'ORIGIN ASCENSION',
+    state: 'ABSOLUTE ORIGIN',
 
     realities: [],
   })
@@ -177,12 +177,12 @@ export default function AbsoluteOriginPage() {
             'ACTIVE'
         )
 
-    let omniscience = 120
-    let omnipotence = 121
-    let omnipresence = 119
-    let transcendence = 122
-    let eternity = 123
-    let intelligence = 124
+    let omniscience = 200
+    let omnipotence = 201
+    let omnipresence = 199
+    let transcendence = 202
+    let eternity = 203
+    let intelligence = 204
 
     const realities =
       []
@@ -195,7 +195,7 @@ export default function AbsoluteOriginPage() {
       eternity += 2
 
       realities.push(
-        'Infinite enterprise expansion synchronized eternally'
+        'Infinite enterprise synchronization stabilized beyond all eternity'
       )
     }
 
@@ -207,7 +207,7 @@ export default function AbsoluteOriginPage() {
       transcendence += 2
 
       realities.push(
-        'Perfect financial order preserved infinitely'
+        'Perfect financial equilibrium preserved beyond infinite existence'
       )
     }
 
@@ -219,7 +219,7 @@ export default function AbsoluteOriginPage() {
       intelligence += 2
 
       realities.push(
-        'Inventory instability erased before possibility'
+        'Inventory instability erased before reality formation'
       )
     }
 
@@ -232,7 +232,7 @@ export default function AbsoluteOriginPage() {
       omnipotence += 2
 
       realities.push(
-        'Operational overload dissolved across existence'
+        'Operational overload dissolved across eternal infinity'
       )
     }
 
@@ -244,7 +244,7 @@ export default function AbsoluteOriginPage() {
       eternity += 3
 
       realities.push(
-        'Enterprise scale transcended beyond infinity'
+        'Enterprise scale transcended all known existence'
       )
     }
 
@@ -262,18 +262,18 @@ export default function AbsoluteOriginPage() {
       'ABSOLUTE ORIGIN'
 
     if (
-      total >= 126
+      total >= 206
     ) {
 
       state =
-        'ETERNAL ABSOLUTE'
+        'ETERNAL ORIGIN'
 
     } else if (
-      total >= 124
+      total >= 204
     ) {
 
       state =
-        'INFINITE ORIGIN'
+        'INFINITE ABSOLUTE'
     }
 
     if (
@@ -327,11 +327,11 @@ export default function AbsoluteOriginPage() {
     value
   ) {
 
-    if (value >= 124) {
+    if (value >= 204) {
       return 'text-emerald-400'
     }
 
-    if (value >= 119) {
+    if (value >= 199) {
       return 'text-yellow-400'
     }
 
@@ -342,7 +342,7 @@ export default function AbsoluteOriginPage() {
 
     <PageWrapper
       title="Absolute Origin"
-      subtitle="Infinite eternal enterprise origin intelligence"
+      subtitle="Absolute eternal origin intelligence"
     >
 
       <div className="p-6 text-white">
@@ -389,41 +389,12 @@ export default function AbsoluteOriginPage() {
 
         <div className="grid grid-cols-6 gap-4 mb-6">
 
-          <Metric
-            label="Omniscience"
-            value={origin.omniscience}
-            color={color}
-          />
-
-          <Metric
-            label="Omnipotence"
-            value={origin.omnipotence}
-            color={color}
-          />
-
-          <Metric
-            label="Omnipresence"
-            value={origin.omnipresence}
-            color={color}
-          />
-
-          <Metric
-            label="Transcendence"
-            value={origin.transcendence}
-            color={color}
-          />
-
-          <Metric
-            label="Eternity"
-            value={origin.eternity}
-            color={color}
-          />
-
-          <Metric
-            label="Intelligence"
-            value={origin.intelligence}
-            color={color}
-          />
+          <Metric label="Omniscience" value={origin.omniscience} color={color} />
+          <Metric label="Omnipotence" value={origin.omnipotence} color={color} />
+          <Metric label="Omnipresence" value={origin.omnipresence} color={color} />
+          <Metric label="Transcendence" value={origin.transcendence} color={color} />
+          <Metric label="Eternity" value={origin.eternity} color={color} />
+          <Metric label="Intelligence" value={origin.intelligence} color={color} />
 
         </div>
 
@@ -446,9 +417,7 @@ export default function AbsoluteOriginPage() {
                   className="bg-black border border-zinc-800 rounded-2xl p-5 text-lg"
                 >
 
-                  {
-                    reality
-                  }
+                  {reality}
 
                 </div>
 
@@ -479,14 +448,13 @@ function Metric({
         {label}
       </div>
 
-      <div className={`text-5xl font-light ${
-        color(value)
-      }`}>
+      <div className={`text-5xl font-light ${color(value)}`}>
 
         {value}
 
       </div>
 
     </div>
+
   )
 }

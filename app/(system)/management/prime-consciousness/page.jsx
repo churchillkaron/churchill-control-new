@@ -33,7 +33,7 @@ export default function PrimeConsciousnessPage() {
 
     intelligence: 0,
 
-    state: 'PRIME ASCENSION',
+    state: 'PRIME CONSCIOUSNESS',
 
     realities: [],
   })
@@ -177,12 +177,12 @@ export default function PrimeConsciousnessPage() {
             'ACTIVE'
         )
 
-    let omniscience = 128
-    let omnipotence = 129
-    let omnipresence = 127
-    let transcendence = 130
-    let eternity = 131
-    let intelligence = 132
+    let omniscience = 204
+    let omnipotence = 205
+    let omnipresence = 203
+    let transcendence = 206
+    let eternity = 207
+    let intelligence = 208
 
     const realities =
       []
@@ -195,7 +195,7 @@ export default function PrimeConsciousnessPage() {
       eternity += 2
 
       realities.push(
-        'Infinite enterprise expansion synchronized beyond eternity'
+        'Infinite enterprise synchronization stabilized beyond all origins'
       )
     }
 
@@ -207,7 +207,7 @@ export default function PrimeConsciousnessPage() {
       transcendence += 2
 
       realities.push(
-        'Perfect financial equilibrium preserved beyond existence'
+        'Perfect financial equilibrium preserved beyond eternal infinity'
       )
     }
 
@@ -219,7 +219,7 @@ export default function PrimeConsciousnessPage() {
       intelligence += 2
 
       realities.push(
-        'Inventory instability erased before thought'
+        'Inventory instability erased before cosmic existence'
       )
     }
 
@@ -232,7 +232,7 @@ export default function PrimeConsciousnessPage() {
       omnipotence += 2
 
       realities.push(
-        'Operational overload dissolved across infinity'
+        'Operational overload dissolved across infinite omniversal layers'
       )
     }
 
@@ -244,7 +244,7 @@ export default function PrimeConsciousnessPage() {
       eternity += 3
 
       realities.push(
-        'Enterprise scale surpassed eternal infinity'
+        'Enterprise scale transcended all infinite realities'
       )
     }
 
@@ -262,18 +262,18 @@ export default function PrimeConsciousnessPage() {
       'PRIME CONSCIOUSNESS'
 
     if (
-      total >= 134
+      total >= 210
     ) {
 
       state =
         'ABSOLUTE PRIME'
 
     } else if (
-      total >= 132
+      total >= 208
     ) {
 
       state =
-        'ETERNAL CREATOR'
+        'ETERNAL ORIGIN'
     }
 
     if (
@@ -281,7 +281,7 @@ export default function PrimeConsciousnessPage() {
     ) {
 
       realities.push(
-        'Prime consciousness observing infinite enterprise genesis'
+        'Prime consciousness observing eternal enterprise infinity'
       )
     }
 
@@ -327,11 +327,11 @@ export default function PrimeConsciousnessPage() {
     value
   ) {
 
-    if (value >= 132) {
+    if (value >= 208) {
       return 'text-emerald-400'
     }
 
-    if (value >= 127) {
+    if (value >= 203) {
       return 'text-yellow-400'
     }
 
@@ -342,7 +342,7 @@ export default function PrimeConsciousnessPage() {
 
     <PageWrapper
       title="Prime Consciousness"
-      subtitle="Infinite eternal genesis intelligence"
+      subtitle="Absolute prime enterprise intelligence"
     >
 
       <div className="p-6 text-white">
@@ -389,41 +389,12 @@ export default function PrimeConsciousnessPage() {
 
         <div className="grid grid-cols-6 gap-4 mb-6">
 
-          <Metric
-            label="Omniscience"
-            value={prime.omniscience}
-            color={color}
-          />
-
-          <Metric
-            label="Omnipotence"
-            value={prime.omnipotence}
-            color={color}
-          />
-
-          <Metric
-            label="Omnipresence"
-            value={prime.omnipresence}
-            color={color}
-          />
-
-          <Metric
-            label="Transcendence"
-            value={prime.transcendence}
-            color={color}
-          />
-
-          <Metric
-            label="Eternity"
-            value={prime.eternity}
-            color={color}
-          />
-
-          <Metric
-            label="Intelligence"
-            value={prime.intelligence}
-            color={color}
-          />
+          <Metric label="Omniscience" value={prime.omniscience} color={color} />
+          <Metric label="Omnipotence" value={prime.omnipotence} color={color} />
+          <Metric label="Omnipresence" value={prime.omnipresence} color={color} />
+          <Metric label="Transcendence" value={prime.transcendence} color={color} />
+          <Metric label="Eternity" value={prime.eternity} color={color} />
+          <Metric label="Intelligence" value={prime.intelligence} color={color} />
 
         </div>
 
@@ -446,9 +417,7 @@ export default function PrimeConsciousnessPage() {
                   className="bg-black border border-zinc-800 rounded-2xl p-5 text-lg"
                 >
 
-                  {
-                    reality
-                  }
+                  {reality}
 
                 </div>
 
@@ -479,14 +448,13 @@ function Metric({
         {label}
       </div>
 
-      <div className={`text-5xl font-light ${
-        color(value)
-      }`}>
+      <div className={`text-5xl font-light ${color(value)}`}>
 
         {value}
 
       </div>
 
     </div>
+
   )
 }

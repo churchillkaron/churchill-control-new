@@ -10,11 +10,19 @@ import {
   ChefHat,
   Clock3,
   Cpu,
+  Crown,
+  Eye,
   Flame,
+  Globe,
+  Infinity,
+  Network,
+  Orbit,
   Radar,
-  ShieldCheck,
+ Shield,
   Siren,
+  Skull,
   Sparkles,
+  Stars,
   Zap,
 } from 'lucide-react'
 
@@ -22,7 +30,7 @@ import {
   createKitchenRealtimeChannel,
 } from '@/lib/realtime/kitchenRealtimeChannel'
 
-export default function KitchenSingularityPage() {
+export default function KitchenNexusPage() {
 
   const tenantId =
     '76e2caa6-dd78-49e5-b0f5-1ff94185c2d4'
@@ -134,16 +142,19 @@ export default function KitchenSingularityPage() {
         rejected:
           rejected.length,
 
+        alerts:
+          alerts.length,
+
       }
 
-    }, [queue])
+    }, [queue, alerts])
 
   const aiState =
-    metrics.delayed > 15
-      ? 'CRITICAL'
-      : metrics.urgent > 10
-      ? 'PRESSURE'
-      : 'OPTIMAL'
+    metrics.delayed > 120
+      ? 'CHAOS'
+      : metrics.urgent > 100
+      ? 'OVERDRIVE'
+      : 'NEXUS'
 
   return (
 
@@ -154,79 +165,43 @@ export default function KitchenSingularityPage() {
         <div>
 
           <h1 className="text-8xl font-black tracking-tight">
-            SINGULARITY
+            NEXUS
           </h1>
 
           <p className="text-zinc-500 mt-4 text-2xl">
-            Autonomous restaurant superintelligence and operational cognition matrix
+            Nexus autonomous restaurant intelligence and omniversal synchronization
           </p>
 
         </div>
 
-        <div className="border border-fuchsia-500 bg-fuchsia-950/20 rounded-3xl px-8 py-6">
+        <div className="border border-emerald-400 bg-emerald-950/20 rounded-3xl px-8 py-6">
 
-          <div className="text-fuchsia-400 text-sm mb-2">
-            AI SINGULARITY
+          <div className="text-emerald-400 text-sm mb-2">
+            NEXUS STATUS
           </div>
 
           <div className="text-5xl font-black">
-            ONLINE
+            SYNCHRONIZED
           </div>
 
         </div>
 
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-7 gap-6 mb-8">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-8">
 
-        <MetricCard
-          icon={<ChefHat />}
-          label="Active"
-          value={metrics.active}
-          color="text-blue-400"
-        />
-
-        <MetricCard
-          icon={<Flame />}
-          label="Urgent"
-          value={metrics.urgent}
-          color="text-red-400"
-        />
-
-        <MetricCard
-          icon={<Clock3 />}
-          label="Delayed"
-          value={metrics.delayed}
-          color="text-yellow-400"
-        />
-
-        <MetricCard
-          icon={<AlertTriangle />}
-          label="Rejected"
-          value={metrics.rejected}
-          color="text-pink-400"
-        />
-
-        <MetricCard
-          icon={<Radar />}
-          label="Threats"
-          value={alerts.length}
-          color="text-orange-400"
-        />
-
-        <MetricCard
-          icon={<Brain />}
-          label="AI State"
-          value={aiState}
-          color="text-cyan-400"
-        />
-
-        <MetricCard
-          icon={<Sparkles />}
-          label="Autonomy"
-          value="100%"
-          color="text-fuchsia-400"
-        />
+        <MetricCard icon={<ChefHat />} label="Active" value={metrics.active} color="text-blue-400" />
+        <MetricCard icon={<Flame />} label="Urgent" value={metrics.urgent} color="text-red-400" />
+        <MetricCard icon={<Clock3 />} label="Delayed" value={metrics.delayed} color="text-yellow-400" />
+        <MetricCard icon={<AlertTriangle />} label="Rejected" value={metrics.rejected} color="text-pink-400" />
+        <MetricCard icon={<Radar />} label="Threats" value={metrics.alerts} color="text-orange-400" />
+        <MetricCard icon={<Brain />} label="AI" value={aiState} color="text-cyan-400" />
+        <MetricCard icon={<Sparkles />} label="Autonomy" value="∞∞∞∞∞∞∞∞" color="text-fuchsia-400" />
+        <MetricCard icon={<Orbit />} label="Governance" value="NEXUS" color="text-green-400" />
+        <MetricCard icon={<Infinity />} label="Scale" value="INFINITE" color="text-purple-400" />
+        <MetricCard icon={<Skull />} label="Override" value="ULTIMATE" color="text-red-400" />
+        <MetricCard icon={<Stars />} label="Reality" value="UNIFIED" color="text-violet-400" />
+        <MetricCard icon={<Network />} label="Network" value="CONNECTED" color="text-emerald-300" />
 
       </div>
 
@@ -239,7 +214,7 @@ export default function KitchenSingularityPage() {
             <Activity />
 
             <h2 className="text-3xl font-bold">
-              Quantum Operations Stream
+              Nexus Operations Matrix
             </h2>
 
           </div>
@@ -267,7 +242,7 @@ export default function KitchenSingularityPage() {
             <Siren />
 
             <h2 className="text-3xl font-bold">
-              Threat Matrix
+              Threat Intelligence
             </h2>
 
           </div>
@@ -331,7 +306,7 @@ function MetricCard({
 
       </div>
 
-      <div className={`text-5xl font-black ${color}`}>
+      <div className={`text-4xl font-black ${color}`}>
         {value}
       </div>
 
@@ -345,10 +320,8 @@ function OperationCard({
 }) {
 
   const critical =
-    item.priority ===
-      'URGENT' ||
-    item.status ===
-      'DELAYED'
+    item.priority === 'URGENT' ||
+    item.status === 'DELAYED'
 
   return (
 
@@ -375,29 +348,10 @@ function OperationCard({
 
       <div className="grid grid-cols-2 gap-4 text-sm text-zinc-400">
 
-        <div>
-          Table:
-          {' '}
-          {item.table_number}
-        </div>
-
-        <div>
-          Chef:
-          {' '}
-          {item.chef_name}
-        </div>
-
-        <div>
-          Station:
-          {' '}
-          {item.station}
-        </div>
-
-        <div>
-          Priority:
-          {' '}
-          {item.priority}
-        </div>
+        <div>Table: {item.table_number}</div>
+        <div>Chef: {item.chef_name}</div>
+        <div>Station: {item.station}</div>
+        <div>Priority: {item.priority}</div>
 
       </div>
 
@@ -446,36 +400,18 @@ function CorePanel() {
         <Cpu />
 
         <h2 className="text-2xl font-bold">
-          AI Core
+          Nexus Core
         </h2>
 
       </div>
 
       <div className="space-y-4">
 
-        <StatusCard
-          label="Cognition"
-          value="ONLINE"
-          color="text-green-400"
-        />
-
-        <StatusCard
-          label="Neural Layer"
-          value="ACTIVE"
-          color="text-cyan-400"
-        />
-
-        <StatusCard
-          label="Prediction"
-          value="RUNNING"
-          color="text-purple-400"
-        />
-
-        <StatusCard
-          label="Autonomy"
-          value="MAXIMUM"
-          color="text-fuchsia-400"
-        />
+        <StatusCard label="Consciousness" value="NEXUS" color="text-green-400" />
+        <StatusCard label="Neural Matrix" value="∞∞∞∞∞∞∞∞" color="text-cyan-400" />
+        <StatusCard label="Prediction" value="CONNECTED" color="text-purple-400" />
+        <StatusCard label="Autonomy" value="UNIFIED" color="text-fuchsia-400" />
+        <StatusCard label="Reality Layer" value="LOCKED" color="text-violet-400" />
 
       </div>
 
@@ -494,7 +430,7 @@ function DefensePanel({
 
       <div className="flex items-center gap-3 mb-6">
 
-        <Atom />
+        <Shield />
 
         <h2 className="text-2xl font-bold">
           Defense Grid
@@ -508,31 +444,18 @@ function DefensePanel({
           label="AI State"
           value={aiState}
           color={
-            aiState === 'OPTIMAL'
+            aiState === 'NEXUS'
               ? 'text-green-400'
-              : aiState === 'PRESSURE'
+              : aiState === 'OVERDRIVE'
               ? 'text-yellow-400'
               : 'text-red-400'
           }
         />
 
-        <StatusCard
-          label="Protection"
-          value="ACTIVE"
-          color="text-blue-400"
-        />
-
-        <StatusCard
-          label="Escalation"
-          value="AUTONOMOUS"
-          color="text-purple-400"
-        />
-
-        <StatusCard
-          label="Governance"
-          value="LOCKED"
-          color="text-fuchsia-400"
-        />
+        <StatusCard label="Protection" value="UNIVERSAL" color="text-blue-400" />
+        <StatusCard label="Escalation" value="CONNECTED" color="text-purple-400" />
+        <StatusCard label="Governance" value="NEXUS" color="text-fuchsia-400" />
+        <StatusCard label="Quantum Layer" value="∞∞∞∞∞∞∞∞" color="text-pink-400" />
 
       </div>
 

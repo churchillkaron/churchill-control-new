@@ -1,205 +1,320 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from 'react'
 
-import { supabase } from "@/lib/shared/supabase/client";
+import PageWrapper from '@/components/PageWrapper'
+
+import { supabase } from '@/lib/shared/supabase/client'
 
 export default function ReplenishmentPage() {
 
   const [
-    ingredients,
-    setIngredients,
-  ] = useState([]);
+    tenantId,
+    setTenantId,
+  ] = useState(null)
 
   const [
-    recommendations,
-    setRecommendations,
-  ] = useState({});
+    ingredients,
+    setIngredients,
+  ] = useState([])
 
-  async function loadIngredients() {
+  const [
+    loading,
+    setLoading,
+  ] = useState(false)
+
+  useEffect(() => {
+
+    async function loadTenant() {
+
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser()
+
+      if (!user) return
+
+      const {
+        data,
+      } = await supabase
+        .from(
+          'staff_accounts'
+        )
+        .select('*')
+        .eq(
+          'auth_user_id',
+          user.id
+        )
+        .single()
+
+      if (
+        data?.tenant_id
+      ) {
+
+        setTenantId(
+          data.tenant_id
+        )
+      }
+    }
+
+    loadTenant()
+
+  }, [])
+
+  useEffect(() => {
+
+    loadData()
+
+  }, [tenantId])
+
+  async function loadData() {
+
+    if (!tenantId) {
+      return
+    }
 
     const {
       data,
     } = await supabase
-      .from("ingredients")
-      .select("*")
+      .from('ingredients')
+      .select('*')
+      .eq(
+        'tenant_id',
+        tenantId
+      )
       .order(
-        "name",
+        'quantity',
         {
           ascending: true,
         }
-      );
+      )
 
     setIngredients(
       data || []
-    );
+    )
   }
 
-  async function generateRecommendation(
+  async function createPurchaseRequest(
     ingredient
   ) {
 
-    const res =
-      await fetch(
-        "/api/procurement/replenishment",
-        {
+    try {
 
-          method: "POST",
+      setLoading(true)
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+      const suggestedQty =
+        Math.max(
+          20 -
+          Number(
+            ingredient.quantity || 0
+          ),
+          5
+        )
 
-          body: JSON.stringify({
+      const estimatedCost =
+        suggestedQty *
+        Number(
+          ingredient.cost_per_unit || 0
+        )
 
-            ingredient_id:
-              ingredient.id,
-          }),
-        }
-      );
+      const {
+        error,
+      } = await supabase
+        .from(
+          'purchase_requests'
+        )
+        .insert({
 
-    const json =
-      await res.json();
+          ingredient_id:
+            ingredient.id,
 
-    setRecommendations(
-      (prev) => ({
+          ingredient_name:
+            ingredient.name,
 
-        ...prev,
+          quantity:
+            suggestedQty,
 
-        [ingredient.id]:
-          json,
-      })
-    );
+          estimated_cost:
+            estimatedCost,
+
+          status:
+            'PENDING',
+
+          tenant_id:
+            tenantId,
+
+          created_at:
+            new Date(),
+        })
+
+      if (error) {
+
+        console.error(
+          error
+        )
+
+        alert(
+          error.message
+        )
+
+        return
+      }
+
+      alert(
+        'Purchase Request Created'
+      )
+
+    } catch (error) {
+
+      console.error(error)
+
+      alert('Failed')
+
+    } finally {
+
+      setLoading(false)
+    }
   }
 
-  useEffect(() => {
-
-    loadIngredients();
-
-  }, []);
+  const lowStock =
+    ingredients.filter(
+      i =>
+        Number(
+          i.quantity || 0
+        ) <= 10
+    )
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-10">
+    <PageWrapper
+      title="Auto Replenishment"
+      subtitle="Procurement intelligence and low stock purchasing"
+    >
 
-      <div className="max-w-7xl mx-auto">
+      <div className="p-6 text-white">
 
-        <h1 className="text-6xl font-bold mb-3">
-          Replenishment Intelligence
-        </h1>
+        <div className="grid grid-cols-3 gap-6">
 
-        <div className="text-zinc-500 mb-10">
-          Procurement Forecasting Engine
-        </div>
+          {lowStock.map(
+            ingredient => {
 
-        <div className="space-y-4">
+              const qty =
+                Number(
+                  ingredient.quantity || 0
+                )
 
-          {ingredients.map(
-            (
-              ingredient
-            ) => {
+              const suggestedQty =
+                Math.max(
+                  20 - qty,
+                  5
+                )
 
-              const recommendation =
-                recommendations[
-                  ingredient.id
-                ];
+              const estimatedCost =
+                suggestedQty *
+                Number(
+                  ingredient.cost_per_unit || 0
+                )
 
               return (
 
                 <div
                   key={ingredient.id}
-                  className="border border-zinc-800 rounded-3xl p-6"
+                  className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6"
                 >
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between mb-6">
 
                     <div>
 
-                      <div className="text-2xl font-bold">
+                      <div className="text-2xl font-semibold">
                         {
                           ingredient.name
                         }
                       </div>
 
-                      <div className="text-zinc-500 mt-2">
-                        Stock:
-                        {" "}
+                      <div className="text-sm text-zinc-500 mt-1">
                         {
-                          ingredient.quantity
-                        }
-                        {" "}
-                        {
-                          ingredient.unit
+                          ingredient.department
                         }
                       </div>
 
                     </div>
 
-                    <button
-                      onClick={() =>
-                        generateRecommendation(
-                          ingredient
-                        )
-                      }
-                      className="bg-white text-black rounded-2xl px-6 py-3 font-bold"
-                    >
-                      ANALYZE
-                    </button>
+                    <div className={`text-sm font-semibold ${
+                      qty <= 5
+                        ? 'text-red-400'
+                        : 'text-yellow-400'
+                    }`}>
+
+                      {qty <= 5
+                        ? 'CRITICAL'
+                        : 'WARNING'}
+
+                    </div>
 
                   </div>
 
-                  {recommendation?.success && (
+                  <div className="space-y-4 mb-6">
 
-                    <div className="grid grid-cols-3 gap-4 mt-8">
+                    <div className="flex items-center justify-between">
 
-                      <div className="border border-zinc-800 rounded-2xl p-4">
-
-                        <div className="text-zinc-500 text-sm">
-                          Daily Consumption
-                        </div>
-
-                        <div className="text-2xl mt-2">
-                          {
-                            recommendation.avg_daily_consumption
-                          }
-                        </div>
-
+                      <div className="text-zinc-500">
+                        Current Stock
                       </div>
 
-                      <div className="border border-zinc-800 rounded-2xl p-4">
-
-                        <div className="text-zinc-500 text-sm">
-                          Current Stock
-                        </div>
-
-                        <div className="text-2xl mt-2">
-                          {
-                            recommendation.current_stock
-                          }
-                        </div>
-
-                      </div>
-
-                      <div className="border border-zinc-800 rounded-2xl p-4">
-
-                        <div className="text-zinc-500 text-sm">
-                          Recommended Buy
-                        </div>
-
-                        <div className="text-2xl mt-2 text-green-400">
-                          {
-                            recommendation.recommended_purchase
-                          }
-                        </div>
-
+                      <div className="text-2xl font-light">
+                        {qty}
                       </div>
 
                     </div>
-                  )}
+
+                    <div className="flex items-center justify-between">
+
+                      <div className="text-zinc-500">
+                        Suggested Order
+                      </div>
+
+                      <div className="text-2xl font-light text-emerald-400">
+                        {suggestedQty}
+                      </div>
+
+                    </div>
+
+                    <div className="flex items-center justify-between">
+
+                      <div className="text-zinc-500">
+                        Estimated Cost
+                      </div>
+
+                      <div className="text-xl">
+                        ฿
+                        {estimatedCost.toFixed(2)}
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      createPurchaseRequest(
+                        ingredient
+                      )
+                    }
+                    disabled={loading}
+                    className="w-full bg-violet-500 hover:bg-violet-400 transition-all rounded-2xl py-4"
+                  >
+
+                    Create Purchase Request
+
+                  </button>
 
                 </div>
-              );
+
+              )
             }
           )}
 
@@ -207,6 +322,6 @@ export default function ReplenishmentPage() {
 
       </div>
 
-    </div>
-  );
+    </PageWrapper>
+  )
 }

@@ -1,82 +1,136 @@
-"use client";
+'use client'
 
-import { useState } from "react";
+import { useEffect, useState } from 'react'
 
-import useRealtimePOS from "@/lib/pos/live/useRealtimePOS";
+import {
+  createKitchenRealtimeChannel,
+} from '@/lib/realtime/kitchenRealtimeChannel'
 
-export default function LiveKitchenPage() {
+export default function KitchenLivePage() {
+
+  const tenantId =
+    '76e2caa6-dd78-49e5-b0f5-1ff94185c2d4'
 
   const [
     events,
     setEvents,
-  ] = useState([]);
+  ] = useState([])
 
-  useRealtimePOS({
+  useEffect(() => {
 
-    tenant_id:
-      "demo",
+    const channel =
+      createKitchenRealtimeChannel({
 
-    onEvent:
-      (event) => {
+        tenantId,
 
-        setEvents(
-          (prev) => [
-            event,
-            ...prev,
-          ]
-        );
-      },
-  });
+        onQueueInsert:
+          data => {
+
+            setEvents(prev => [
+              {
+                type:
+                  'QUEUE_INSERT',
+                data,
+              },
+              ...prev,
+            ])
+          },
+
+        onQueueUpdate:
+          data => {
+
+            setEvents(prev => [
+              {
+                type:
+                  'QUEUE_UPDATE',
+                data,
+              },
+              ...prev,
+            ])
+          },
+
+        onTicketUpdate:
+          data => {
+
+            setEvents(prev => [
+              {
+                type:
+                  'TICKET_UPDATE',
+                data,
+              },
+              ...prev,
+            ])
+          },
+
+        onAlertInsert:
+          data => {
+
+            setEvents(prev => [
+              {
+                type:
+                  'ALERT',
+                data,
+              },
+              ...prev,
+            ])
+          },
+
+      })
+
+    return () => {
+
+      channel.unsubscribe()
+    }
+
+  }, [])
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-10">
+    <div className="min-h-screen bg-black text-white p-8">
 
-      <div className="max-w-6xl mx-auto">
+      <div className="mb-8">
 
-        <h1 className="text-5xl font-bold mb-4">
-          Live Kitchen Feed
+        <h1 className="text-4xl font-bold">
+          Kitchen Live Engine
         </h1>
 
-        <div className="text-zinc-500 mb-10">
-          Realtime Kitchen Synchronization
-        </div>
+        <p className="text-zinc-400 mt-2">
+          Real-time operational stream
+        </p>
 
-        <div className="space-y-4">
+      </div>
 
-          {events.map(
-            (
-              event,
-              index
-            ) => (
+      <div className="space-y-4">
 
-              <div
-                key={index}
-                className="border border-zinc-800 rounded-2xl p-5"
-              >
+        {events.map(
+          (
+            event,
+            index
+          ) => (
 
-                <div className="font-bold text-xl mb-2">
-                  {
-                    event.event_type
-                  }
-                </div>
+            <div
+              key={index}
+              className="border border-zinc-800 rounded-2xl p-4 bg-zinc-950"
+            >
 
-                <pre className="text-sm overflow-auto">
-                  {JSON.stringify(
-                    event,
-                    null,
-                    2
-                  )}
-                </pre>
-
+              <div className="text-sm text-zinc-500 mb-2">
+                {event.type}
               </div>
-            )
-          )}
 
-        </div>
+              <pre className="text-xs overflow-auto">
+                {JSON.stringify(
+                  event.data,
+                  null,
+                  2
+                )}
+              </pre>
+
+            </div>
+          )
+        )}
 
       </div>
 
     </div>
-  );
+  )
 }

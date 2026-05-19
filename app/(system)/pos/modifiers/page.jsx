@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import {
   Plus,
   Settings2,
+  Layers3,
 } from 'lucide-react'
 
 export default function POSModifiersPage() {
@@ -15,6 +16,11 @@ export default function POSModifiersPage() {
   const [
     modifiers,
     setModifiers,
+  ] = useState([])
+
+  const [
+    groups,
+    setGroups,
   ] = useState([])
 
   const [
@@ -31,80 +37,130 @@ export default function POSModifiersPage() {
     modifier_group_id: '',
   })
 
+  const [
+    groupForm,
+    setGroupForm,
+  ] = useState({
+    name: '',
+    required: false,
+    multi_select: false,
+    max_select: 1,
+  })
+
   async function loadModifiers() {
 
-    try {
+    const response =
+      await fetch(
+        '/api/pos/modifiers/get'
+      )
 
-      const response =
-        await fetch(
-          '/api/pos/modifiers/get'
-        )
+    const result =
+      await response.json()
 
-      const result =
-        await response.json()
+    if (result.success) {
+      setModifiers(result.data)
+    }
+  }
 
-      if (result.success) {
-        setModifiers(result.data)
-      }
+  async function loadGroups() {
 
-    } catch (error) {
+    const response =
+      await fetch(
+        '/api/pos/modifier-groups/get'
+      )
 
-      console.error(error)
+    const result =
+      await response.json()
+
+    if (result.success) {
+      setGroups(result.data)
     }
   }
 
   useEffect(() => {
 
     loadModifiers()
+    loadGroups()
 
   }, [])
 
   async function createModifier() {
 
-    try {
+    setLoading(true)
 
-      setLoading(true)
+    const response =
+      await fetch(
+        '/api/pos/modifiers/create',
+        {
+          method: 'POST',
 
-      const response =
-        await fetch(
-          '/api/pos/modifiers/create',
-          {
-            method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
 
-            headers: {
-              'Content-Type':
-                'application/json',
-            },
+          body: JSON.stringify({
+            tenant_id,
+            ...form,
+          }),
+        }
+      )
 
-            body: JSON.stringify({
-              tenant_id,
-              ...form,
-            }),
-          }
-        )
+    const result =
+      await response.json()
 
-      const result =
-        await response.json()
+    if (result.success) {
 
-      if (result.success) {
+      setForm({
+        name: '',
+        price: 0,
+        modifier_group_id: '',
+      })
 
-        setForm({
-          name: '',
-          price: 0,
-          modifier_group_id: '',
-        })
-
-        loadModifiers()
-      }
-
-    } catch (error) {
-
-      console.error(error)
-
-    } finally {
-
-      setLoading(false)
+      loadModifiers()
     }
+
+    setLoading(false)
+  }
+
+  async function createGroup() {
+
+    setLoading(true)
+
+    const response =
+      await fetch(
+        '/api/pos/modifier-groups/create',
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+
+          body: JSON.stringify({
+            tenant_id,
+            ...groupForm,
+          }),
+        }
+      )
+
+    const result =
+      await response.json()
+
+    if (result.success) {
+
+      setGroupForm({
+        name: '',
+        required: false,
+        multi_select: false,
+        max_select: 1,
+      })
+
+      loadGroups()
+    }
+
+    setLoading(false)
   }
 
   return (
@@ -120,20 +176,8 @@ export default function POSModifiersPage() {
           </h1>
 
           <p className="text-zinc-500 mt-3">
-            Enterprise modifier management system
+            Enterprise modifier architecture
           </p>
-
-        </div>
-
-        <div className="border border-zinc-800 rounded-3xl px-6 py-4 bg-zinc-950">
-
-          <div className="text-sm text-zinc-500">
-            Total Modifiers
-          </div>
-
-          <div className="text-4xl font-black text-cyan-400">
-            {modifiers.length}
-          </div>
 
         </div>
 
@@ -141,69 +185,183 @@ export default function POSModifiersPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-        <div className="border border-zinc-800 bg-zinc-950 rounded-3xl p-6">
+        <div className="space-y-6">
 
-          <div className="flex items-center gap-3 mb-6">
+          <div className="border border-zinc-800 bg-zinc-950 rounded-3xl p-6">
 
-            <Plus />
+            <div className="flex items-center gap-3 mb-6">
 
-            <h2 className="text-2xl font-bold">
-              Create Modifier
-            </h2>
+              <Layers3 />
+
+              <h2 className="text-2xl font-bold">
+                Create Group
+              </h2>
+
+            </div>
+
+            <div className="space-y-4">
+
+              <input
+                type="text"
+                placeholder="Group Name"
+                value={groupForm.name}
+                onChange={e =>
+                  setGroupForm(prev => ({
+                    ...prev,
+                    name: e.target.value,
+                  }))
+                }
+                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+              />
+
+              <div className="flex items-center justify-between">
+
+                <span>
+                  Required
+                </span>
+
+                <input
+                  type="checkbox"
+                  checked={groupForm.required}
+                  onChange={e =>
+                    setGroupForm(prev => ({
+                      ...prev,
+                      required:
+                        e.target.checked,
+                    }))
+                  }
+                />
+
+              </div>
+
+              <div className="flex items-center justify-between">
+
+                <span>
+                  Multi Select
+                </span>
+
+                <input
+                  type="checkbox"
+                  checked={groupForm.multi_select}
+                  onChange={e =>
+                    setGroupForm(prev => ({
+                      ...prev,
+                      multi_select:
+                        e.target.checked,
+                    }))
+                  }
+                />
+
+              </div>
+
+              <input
+                type="number"
+                placeholder="Max Select"
+                value={groupForm.max_select}
+                onChange={e =>
+                  setGroupForm(prev => ({
+                    ...prev,
+                    max_select:
+                      Number(
+                        e.target.value
+                      ),
+                  }))
+                }
+                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+              />
+
+              <button
+                onClick={createGroup}
+                className="w-full bg-pink-500 hover:bg-pink-400 transition-all rounded-2xl p-4 font-bold text-black"
+              >
+                CREATE GROUP
+              </button>
+
+            </div>
 
           </div>
 
-          <div className="space-y-4">
+          <div className="border border-zinc-800 bg-zinc-950 rounded-3xl p-6">
 
-            <input
-              type="text"
-              placeholder="Modifier Name"
-              value={form.name}
-              onChange={e =>
-                setForm(prev => ({
-                  ...prev,
-                  name: e.target.value,
-                }))
-              }
-              className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
-            />
+            <div className="flex items-center gap-3 mb-6">
 
-            <input
-              type="number"
-              placeholder="Price"
-              value={form.price}
-              onChange={e =>
-                setForm(prev => ({
-                  ...prev,
-                  price: Number(e.target.value),
-                }))
-              }
-              className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
-            />
+              <Plus />
 
-            <input
-              type="text"
-              placeholder="Modifier Group ID"
-              value={form.modifier_group_id}
-              onChange={e =>
-                setForm(prev => ({
-                  ...prev,
-                  modifier_group_id:
-                    e.target.value,
-                }))
-              }
-              className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
-            />
+              <h2 className="text-2xl font-bold">
+                Create Modifier
+              </h2>
 
-            <button
-              onClick={createModifier}
-              disabled={loading}
-              className="w-full bg-cyan-500 hover:bg-cyan-400 transition-all rounded-2xl p-4 font-bold text-black"
-            >
-              {loading
-                ? 'CREATING...'
-                : 'CREATE MODIFIER'}
-            </button>
+            </div>
+
+            <div className="space-y-4">
+
+              <input
+                type="text"
+                placeholder="Modifier Name"
+                value={form.name}
+                onChange={e =>
+                  setForm(prev => ({
+                    ...prev,
+                    name: e.target.value,
+                  }))
+                }
+                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+              />
+
+              <input
+                type="number"
+                placeholder="Price"
+                value={form.price}
+                onChange={e =>
+                  setForm(prev => ({
+                    ...prev,
+                    price:
+                      Number(
+                        e.target.value
+                      ),
+                  }))
+                }
+                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+              />
+
+              <select
+                value={form.modifier_group_id}
+                onChange={e =>
+                  setForm(prev => ({
+                    ...prev,
+                    modifier_group_id:
+                      e.target.value,
+                  }))
+                }
+                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+              >
+
+                <option value="">
+                  Select Group
+                </option>
+
+                {groups.map(group => (
+
+                  <option
+                    key={group.id}
+                    value={group.id}
+                  >
+                    {group.name}
+                  </option>
+
+                ))}
+
+              </select>
+
+              <button
+                onClick={createModifier}
+                disabled={loading}
+                className="w-full bg-cyan-500 hover:bg-cyan-400 transition-all rounded-2xl p-4 font-bold text-black"
+              >
+                CREATE MODIFIER
+              </button>
+
+            </div>
 
           </div>
 
@@ -221,38 +379,38 @@ export default function POSModifiersPage() {
 
           </div>
 
-          <div className="space-y-4 max-h-[850px] overflow-auto">
+          <div className="space-y-4 max-h-[900px] overflow-auto">
 
-            {modifiers.map(
-              modifier => (
+            {groups.map(group => (
 
-                <div
-                  key={modifier.id}
-                  className="border border-zinc-800 rounded-2xl bg-black p-5"
-                >
+              <div
+                key={group.id}
+                className="border border-zinc-800 rounded-3xl p-5 bg-black"
+              >
 
-                  <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-5">
 
-                    <div>
+                  <div>
 
-                      <div className="text-2xl font-bold">
-                        {modifier.name}
-                      </div>
-
-                      <div className="text-zinc-500 text-sm mt-2">
-                        Group:
-                        {' '}
-                        {modifier.modifier_group_id || 'N/A'}
-                      </div>
-
+                    <div className="text-2xl font-bold">
+                      {group.name}
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-zinc-500 text-sm mt-2">
 
-                      <div className="text-cyan-400 text-3xl font-black">
-                        ฿
-                        {modifier.price}
-                      </div>
+                      Required:
+                      {' '}
+                      {group.required
+                        ? 'YES'
+                        : 'NO'}
+
+                      {' • '}
+
+                      Multi:
+                      {' '}
+                      {group.multi_select
+                        ? 'YES'
+                        : 'NO'}
 
                     </div>
 
@@ -260,8 +418,39 @@ export default function POSModifiersPage() {
 
                 </div>
 
-              )
-            )}
+                <div className="space-y-3">
+
+                  {modifiers
+                    .filter(
+                      modifier =>
+                        modifier.modifier_group_id ===
+                        group.id
+                    )
+                    .map(modifier => (
+
+                      <div
+                        key={modifier.id}
+                        className="border border-zinc-800 rounded-2xl p-4 flex items-center justify-between"
+                      >
+
+                        <div className="font-bold">
+                          {modifier.name}
+                        </div>
+
+                        <div className="text-cyan-400 font-black">
+                          ฿
+                          {modifier.price}
+                        </div>
+
+                      </div>
+
+                    ))}
+
+                </div>
+
+              </div>
+
+            ))}
 
           </div>
 

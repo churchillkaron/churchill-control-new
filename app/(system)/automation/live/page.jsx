@@ -1,13 +1,22 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import {
   useEffect,
   useState,
 } from "react";
 
-import { supabase } from "@/lib/shared/supabase/client";
+import { supabase }
+from "@/lib/shared/supabase/client";
 
-import { loadAutomationStatus } from "@/lib/automation/loadAutomationStatus";
+import {
+  createEnterpriseRealtime,
+} from "@/lib/runtime/createEnterpriseRealtime";
+
+import {
+  loadWorkflowRuntime,
+} from "@/lib/automation/loadWorkflowRuntime";
 
 export default function AutomationLivePage() {
 
@@ -17,9 +26,9 @@ export default function AutomationLivePage() {
   ] = useState(null);
 
   const [
-    stats,
-    setStats,
-  ] = useState(null);
+    logs,
+    setLogs,
+  ] = useState([]);
 
   // ===== TENANT =====
   useEffect(() => {
@@ -29,7 +38,7 @@ export default function AutomationLivePage() {
       const {
         data: { user },
       } =
-        await supabase.auth.getUser();
+        await supabase.auth.getSession();
 
       if (!user) {
         return;
@@ -68,11 +77,11 @@ export default function AutomationLivePage() {
     }
 
     const data =
-      await loadAutomationStatus(
+      await loadWorkflowRuntime(
         tenantId
       );
 
-    setStats(data);
+    setLogs(data || []);
   }
 
   useEffect(() => {
@@ -90,62 +99,51 @@ export default function AutomationLivePage() {
       return;
     }
 
-    const channel =
-      supabase
-        .channel(
-          "automation-live"
-        )
-        .on(
-          "postgres_changes",
+    const runtime =
+      createEnterpriseRealtime({
+
+        name:
+          `workflow-runtime-${tenantId}`,
+
+        subscriptions: [
+
           {
-            event: "*",
-            schema: "public",
             table:
-              "orders",
+              "workflow_logs",
           },
-          refresh
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table:
-              "kitchen_ticket_items",
-          },
-          refresh
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table:
-              "table_sessions",
-          },
-          refresh
-        )
-        .subscribe();
+
+        ],
+
+        onChange() {
+
+          refresh();
+
+        },
+
+      });
 
     return () => {
 
-      supabase.removeChannel(
-        channel
-      );
+      runtime.unsubscribe();
+
     };
 
   }, [
     tenantId,
   ]);
 
-  if (!stats) {
+  function getStyles(
+    status
+  ) {
 
-    return (
+    if (
+      status === "FAILED"
+    ) {
 
-      <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500 text-2xl">
-        Loading Automation...
-      </div>
-    );
+      return "border-red-500/20 bg-red-500/5 text-red-400";
+    }
+
+    return "border-emerald-500/20 bg-emerald-500/5 text-emerald-400";
   }
 
   return (
@@ -162,121 +160,107 @@ export default function AutomationLivePage() {
           </div>
 
           <div className="text-6xl font-semibold tracking-tight">
-            System Status
+            Workflow Runtime
           </div>
 
         </div>
 
-        <div className={`px-6 h-14 rounded-3xl border text-xs uppercase tracking-[0.3em] flex items-center ${
-          stats.automationScore >= 80
-            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-            : stats.automationScore >= 50
-            ? "bg-orange-500/10 border-orange-500/20 text-orange-400"
-            : "bg-red-500/10 border-red-500/20 text-red-400"
-        }`}>
-          {stats.automationScore}% STABLE
+        <div className="px-6 h-14 rounded-3xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs uppercase tracking-[0.3em] flex items-center">
+          LIVE EXECUTION
         </div>
 
       </div>
 
-      {/* ===== GRID ===== */}
-      <div className="p-10 grid grid-cols-3 gap-7">
+      {/* ===== RUNTIME LOGS ===== */}
+      <div className="p-10 space-y-5">
 
-        <div className="rounded-[40px] border border-orange-500/20 bg-orange-500/5 p-10">
+        {logs.length === 0 && (
 
-          <div className="text-xs uppercase tracking-[0.3em] text-orange-400 mb-6">
-            Active Orders
+          <div className="h-[60vh] flex items-center justify-center text-zinc-600 text-3xl">
+            Waiting for workflow execution...
           </div>
 
-          <div className="text-7xl font-light">
-            {
-              stats.activeOrders
-            }
+        )}
+
+        {logs.map(log => (
+
+          <div
+            key={log.id}
+            className={`rounded-[32px] border overflow-hidden ${getStyles(log.status)}`}
+          >
+
+            <div className="p-8">
+
+              <div className="flex items-center justify-between mb-8">
+
+                <div>
+
+                  <div className="text-xs uppercase tracking-[0.3em] mb-3">
+                    {log.event}
+                  </div>
+
+                  <div className="text-4xl font-light">
+                    {log.workflow}
+                  </div>
+
+                </div>
+
+                <div className="text-right">
+
+                  <div className="text-xs uppercase tracking-[0.3em] mb-2">
+                    {log.status}
+                  </div>
+
+                  <div className="text-2xl font-light">
+                    {log.duration_ms || 0}ms
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div className="grid grid-cols-2 gap-7">
+
+                <div className="rounded-3xl bg-black/30 p-6 overflow-auto">
+
+                  <div className="text-xs uppercase tracking-[0.3em] text-zinc-500 mb-5">
+                    Payload
+                  </div>
+
+                  <pre className="text-sm text-zinc-300">
+                    {JSON.stringify(
+                      log.payload,
+                      null,
+                      2
+                    )}
+                  </pre>
+
+                </div>
+
+                <div className="rounded-3xl bg-black/30 p-6 overflow-auto">
+
+                  <div className="text-xs uppercase tracking-[0.3em] text-zinc-500 mb-5">
+                    Result
+                  </div>
+
+                  <pre className="text-sm text-zinc-300">
+                    {JSON.stringify(
+                      log.result ||
+                      log.error,
+                      null,
+                      2
+                    )}
+                  </pre>
+
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
 
-        </div>
-
-        <div className="rounded-[40px] border border-emerald-500/20 bg-emerald-500/5 p-10">
-
-          <div className="text-xs uppercase tracking-[0.3em] text-emerald-400 mb-6">
-            Paid Orders
-          </div>
-
-          <div className="text-7xl font-light">
-            {
-              stats.paidOrders
-            }
-          </div>
-
-        </div>
-
-        <div className="rounded-[40px] border border-cyan-500/20 bg-cyan-500/5 p-10">
-
-          <div className="text-xs uppercase tracking-[0.3em] text-cyan-400 mb-6">
-            Active Tables
-          </div>
-
-          <div className="text-7xl font-light">
-            {
-              stats.activeTables
-            }
-          </div>
-
-        </div>
-
-        <div className="rounded-[40px] border border-red-500/20 bg-red-500/5 p-10">
-
-          <div className="text-xs uppercase tracking-[0.3em] text-red-400 mb-6">
-            Kitchen Pending
-          </div>
-
-          <div className="text-7xl font-light">
-            {
-              stats.kitchenPending
-            }
-          </div>
-
-        </div>
-
-        <div className="rounded-[40px] border border-orange-500/20 bg-orange-500/5 p-10">
-
-          <div className="text-xs uppercase tracking-[0.3em] text-orange-400 mb-6">
-            Kitchen Preparing
-          </div>
-
-          <div className="text-7xl font-light">
-            {
-              stats.kitchenPreparing
-            }
-          </div>
-
-        </div>
-
-        <div className={`rounded-[40px] border p-10 ${
-          stats.automationScore >= 80
-            ? "border-emerald-500/20 bg-emerald-500/5"
-            : stats.automationScore >= 50
-            ? "border-orange-500/20 bg-orange-500/5"
-            : "border-red-500/20 bg-red-500/5"
-        }`}>
-
-          <div className={`text-xs uppercase tracking-[0.3em] mb-6 ${
-            stats.automationScore >= 80
-              ? "text-emerald-400"
-              : stats.automationScore >= 50
-              ? "text-orange-400"
-              : "text-red-400"
-          }`}>
-            Automation Score
-          </div>
-
-          <div className="text-7xl font-light">
-            {
-              stats.automationScore
-            }%
-          </div>
-
-        </div>
+        ))}
 
       </div>
 

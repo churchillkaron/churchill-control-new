@@ -1,4 +1,6 @@
-'use client'
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from 'react'
 
@@ -41,7 +43,7 @@ export default function FinanceOverviewPage() {
 
     const {
       data: auth,
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getSession()
 
     const user =
       auth?.user

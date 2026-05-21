@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import {
   useEffect,
   useState,
@@ -29,7 +31,7 @@ export default function StaffPerformancePage() {
       const {
         data: { user },
       } =
-        await supabase.auth.getUser();
+        await supabase.auth.getSession();
 
       if (!user) {
         return;

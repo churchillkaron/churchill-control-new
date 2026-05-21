@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-import { useRouter } from "next/navigation";
+import {
+  useRouter,
+} from "next/navigation";
 
-import { supabase } from "@/lib/shared/supabase/client";
+import {
+  supabase,
+} from "@/lib/shared/supabase/client";
 
-import { checkPermission } from "@/lib/auth/checkPermission";
+import {
+  checkPermission,
+} from "@/lib/auth/checkPermission";
 
 export default function AuthGuard({
 
@@ -38,9 +47,21 @@ export default function AuthGuard({
       try {
 
         const {
+          data: { session },
+        } =
+          await supabase.auth.getSession();
+
+        if (!session) {
+
+          router.push("/");
+
+          return;
+        }
+
+        const {
           data: { user },
         } =
-          await supabase.auth.getUser();
+          await supabase.auth.getSession();
 
         if (!user) {
 
@@ -119,12 +140,7 @@ export default function AuthGuard({
   ]);
 
   if (loading) {
-
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#050507] text-white/40">
-        Validating access...
-      </div>
-    );
+    return null;
   }
 
   if (!allowed) {

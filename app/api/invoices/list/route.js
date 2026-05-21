@@ -1,22 +1,25 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import {
+  createServerSupabase,
+} from "@/lib/shared/supabase/server";
 
 export async function GET() {
 
   try {
 
+    const supabase =
+      createServerSupabase();
+
     const {
       data,
       error,
     } = await supabase
+
       .from("invoices")
+
       .select("*")
+
       .order(
         "created_at",
         {
@@ -29,8 +32,11 @@ export async function GET() {
     }
 
     return Response.json({
+
       success: true,
+
       data,
+
     });
 
   } catch (error) {
@@ -38,13 +44,19 @@ export async function GET() {
     console.error(error);
 
     return Response.json(
+
       {
         success: false,
-        error: error.message,
+        error:
+          error.message,
       },
+
       {
         status: 500,
       }
+
     );
+
   }
+
 }

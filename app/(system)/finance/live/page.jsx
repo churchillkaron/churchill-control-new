@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import {
   useEffect,
   useState,
@@ -8,6 +10,10 @@ import {
 import { supabase } from "@/lib/shared/supabase/client";
 
 import { loadFinanceOverview } from "@/lib/finance/loadFinanceOverview";
+
+import {
+  createEnterpriseRealtime,
+} from "@/lib/runtime/createEnterpriseRealtime";
 
 export default function FinanceLivePage() {
 
@@ -29,7 +35,7 @@ export default function FinanceLivePage() {
       const {
         data: { user },
       } =
-        await supabase.auth.getUser();
+        await supabase.auth.getSession();
 
       if (!user) {
         return;
@@ -83,35 +89,50 @@ export default function FinanceLivePage() {
     tenantId,
   ]);
 
-  // ===== REALTIME =====
+  // ===== ENTERPRISE REALTIME =====
   useEffect(() => {
 
     if (!tenantId) {
       return;
     }
 
-    const channel =
-      supabase
-        .channel(
-          "finance-live"
-        )
-        .on(
-          "postgres_changes",
+    const runtime =
+      createEnterpriseRealtime({
+
+        name:
+          `finance-live-${tenantId}`,
+
+        subscriptions: [
+
           {
-            event: "*",
-            schema: "public",
             table:
               "orders",
           },
-          refresh
-        )
-        .subscribe();
+
+          {
+            table:
+              "payments",
+          },
+
+          {
+            table:
+              "journal_entries",
+          },
+
+        ],
+
+        onChange() {
+
+          refresh();
+
+        },
+
+      });
 
     return () => {
 
-      supabase.removeChannel(
-        channel
-      );
+      runtime.unsubscribe();
+
     };
 
   }, [

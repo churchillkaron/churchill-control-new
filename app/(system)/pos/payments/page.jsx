@@ -1,209 +1,601 @@
 "use client";
 
-import { useState } from "react";
+export const dynamic = "force-dynamic";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { useSearchParams } from "next/navigation";
+
+import {
+  CreditCard,
+  Split,
+  CheckCircle2,
+} from "lucide-react";
+
+import PageWrapper from "@/components/PageWrapper";
+
+import { supabase } from "@/lib/shared/supabase/client";
+
+import {
+  calculateBill,
+} from "@/lib/payments/calculateBill";
+
+import {
+  splitBill,
+} from "@/lib/payments/splitBill";
+
+import {
+  postPaymentJournal,
+} from "@/lib/accounting/postPaymentJournal";
+
+const TENANT_ID =
+  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
 export default function PaymentsPage() {
 
-  const [
-    form,
-    setForm,
-  ] = useState({
+  const searchParams =
+    useSearchParams();
 
-    order_id: "",
+  const orderId =
+    searchParams.get(
+      "order_id"
+    );
 
-    payment_type:
-      "CARD",
+  const [order, setOrder] =
+    useState(null);
 
-    amount_paid: "",
+  const [splitCount, setSplitCount] =
+    useState(1);
 
-    reference_number: "",
-  });
+  const [paymentMethod, setPaymentMethod] =
+    useState("CARD");
 
-  const [
-    response,
-    setResponse,
-  ] = useState(null);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
+  async function loadOrder() {
 
-  async function submitPayment() {
+    if (!orderId)
+      return;
+
+    setLoading(true);
+
+    const {
+      data,
+    } = await supabase
+
+      .from("orders")
+
+      .select(`
+        *,
+        order_items (*)
+      `)
+
+      .eq(
+        "id",
+        orderId
+      )
+
+      .single();
+
+    setOrder(data);
+
+    setLoading(false);
+
+  }
+
+  useEffect(() => {
+
+    loadOrder();
+
+  }, [orderId]);
+
+  const bill =
+    useMemo(() => {
+
+      if (!order)
+        return null;
+
+      return calculateBill(
+        order
+      );
+
+    }, [order]);
+
+  const splitData =
+    useMemo(() => {
+
+      if (!order)
+        return null;
+
+      return splitBill(
+        order,
+        splitCount
+      );
+
+    }, [
+      order,
+      splitCount,
+    ]);
+
+  async function completePayment() {
+
+    if (!order)
+      return;
 
     try {
 
-      setLoading(true);
+      const createdPayments =
+        [];
 
-      const res =
-        await fetch(
-          "/api/pos/payments",
-          {
+      for (
+        const paymentData of
+        splitData.payments
+      ) {
 
-            method: "POST",
+        const {
+          data: payment,
+          error,
+        } = await supabase
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+          .from("payments")
 
-            body: JSON.stringify({
+          .insert({
 
-              tenant_id:
-                "demo",
+            tenant_id:
+              TENANT_ID,
 
-              ...form,
-            }),
-          }
+            order_id:
+              order.id,
+
+            payment_method:
+              paymentMethod,
+
+            payment_type:
+
+              splitCount > 1
+
+                ? "SPLIT"
+
+                : "FULL",
+
+            amount:
+              paymentData.total,
+
+            tax_amount:
+              paymentData.taxAmount,
+
+            service_amount:
+              paymentData.serviceAmount,
+
+            status:
+              "COMPLETED",
+
+          })
+
+          .select()
+
+          .single();
+
+        if (error)
+          throw error;
+
+        createdPayments.push(
+          payment
         );
 
-      const json =
-        await res.json();
+        await postPaymentJournal(
+          supabase,
+          payment,
+          order
+        );
 
-      setResponse(
-        json
+      }
+
+      await supabase
+
+        .from("orders")
+
+        .update({
+
+          status:
+            "CLOSED",
+
+          payment_status:
+            "PAID",
+
+        })
+
+        .eq(
+          "id",
+          order.id
+        );
+
+      await supabase
+
+        .from(
+          "restaurant_tables"
+        )
+
+        .update({
+
+          status:
+            "AVAILABLE",
+
+        })
+
+        .eq(
+          "table_name",
+          order.table_number
+        );
+
+      alert(
+        "Payment completed & journal posted"
       );
 
-    } finally {
+    } catch (err) {
 
-      setLoading(false);
+      console.error(
+        err
+      );
+
+      alert(
+        err.message
+      );
+
     }
+
   }
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-10">
+    <PageWrapper
+      title="Payments"
+      subtitle="Enterprise billing & accounting settlement"
+    >
 
-      <div className="max-w-2xl mx-auto">
+      {loading ? (
 
-        <h1 className="text-6xl font-bold mb-3">
-          POS Payments
-        </h1>
-
-        <div className="text-zinc-500 mb-10">
-          Universal Payment Processing Engine
+        <div className="text-white/40">
+          Loading payment...
         </div>
 
-        <div className="space-y-6">
+      ) : order ? (
 
-          <input
-            placeholder="Order ID"
-            value={
-              form.order_id
-            }
-            onChange={(e) =>
-              setForm({
+        <div className="grid grid-cols-3 gap-6">
 
-                ...form,
+          <div className="col-span-2 rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
 
-                order_id:
-                  e.target.value,
-              })
-            }
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-5"
-          />
+            <div className="flex items-center justify-between mb-8">
 
-          <select
-            value={
-              form.payment_type
-            }
-            onChange={(e) =>
-              setForm({
+              <div>
 
-                ...form,
+                <div className="text-xs uppercase tracking-[0.2em] text-violet-400 mb-2">
+                  Table
+                </div>
 
-                payment_type:
-                  e.target.value,
-              })
-            }
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-5"
-          >
+                <div className="text-5xl font-light">
+                  {
+                    order.table_number
+                  }
+                </div>
 
-            <option value="CASH">
-              CASH
-            </option>
+              </div>
 
-            <option value="CARD">
-              CARD
-            </option>
+              <div className="text-right">
 
-            <option value="QR">
-              QR
-            </option>
+                <div className="text-xs uppercase text-white/40 mb-2">
+                  Items
+                </div>
 
-            <option value="TRANSFER">
-              TRANSFER
-            </option>
+                <div className="text-4xl">
+                  {
+                    order.order_items
+                      ?.length || 0
+                  }
+                </div>
 
-          </select>
-
-          <input
-            placeholder="Amount Paid"
-            value={
-              form.amount_paid
-            }
-            onChange={(e) =>
-              setForm({
-
-                ...form,
-
-                amount_paid:
-                  e.target.value,
-              })
-            }
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-5"
-          />
-
-          <input
-            placeholder="Reference Number"
-            value={
-              form.reference_number
-            }
-            onChange={(e) =>
-              setForm({
-
-                ...form,
-
-                reference_number:
-                  e.target.value,
-              })
-            }
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-5"
-          />
-
-          <button
-            onClick={
-              submitPayment
-            }
-            disabled={loading}
-            className="w-full bg-white text-black rounded-2xl py-5 text-xl font-bold disabled:opacity-50"
-          >
-
-            {loading
-              ? "PROCESSING..."
-              : "PROCESS PAYMENT"}
-
-          </button>
-
-          {response && (
-
-            <div className="border border-zinc-800 rounded-2xl p-6">
-
-              <pre className="text-xs overflow-auto">
-                {JSON.stringify(
-                  response,
-                  null,
-                  2
-                )}
-              </pre>
+              </div>
 
             </div>
-          )}
+
+            <div className="space-y-3 mb-8">
+
+              {order.order_items?.map(
+                item => (
+
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-white/10 bg-black/20 p-4 flex items-center justify-between"
+                  >
+
+                    <div>
+
+                      <div className="text-lg">
+                        {
+                          item.item_name
+                        }
+                      </div>
+
+                      <div className="text-xs uppercase text-white/40 mt-1">
+
+                        COURSE {
+                          item.course || 1
+                        }
+
+                      </div>
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <div className="text-lg">
+
+                        x{
+                          item.quantity
+                        }
+
+                      </div>
+
+                      <div className="text-sm text-violet-400">
+
+                        ฿{
+                          Number(
+                            item.price || 0
+                          ) *
+                          Number(
+                            item.quantity || 0
+                          )
+                        }
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                )
+              )}
+
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+
+              <div className="rounded-2xl border border-white/10 p-5">
+
+                <div className="flex items-center gap-2 mb-4">
+
+                  <Split className="w-5 h-5 text-orange-400" />
+
+                  <div className="text-lg">
+                    Split Bill
+                  </div>
+
+                </div>
+
+                <select
+                  value={
+                    splitCount
+                  }
+                  onChange={e =>
+                    setSplitCount(
+                      Number(
+                        e.target.value
+                      )
+                    )
+                  }
+                  className="w-full h-12 rounded-2xl bg-white/5 border border-white/10 px-4"
+                >
+
+                  <option value={1}>
+                    Full Bill
+                  </option>
+
+                  <option value={2}>
+                    Split 2
+                  </option>
+
+                  <option value={3}>
+                    Split 3
+                  </option>
+
+                  <option value={4}>
+                    Split 4
+                  </option>
+
+                  <option value={5}>
+                    Split 5
+                  </option>
+
+                </select>
+
+              </div>
+
+              <div className="rounded-2xl border border-white/10 p-5">
+
+                <div className="flex items-center gap-2 mb-4">
+
+                  <CreditCard className="w-5 h-5 text-emerald-400" />
+
+                  <div className="text-lg">
+                    Payment Method
+                  </div>
+
+                </div>
+
+                <select
+                  value={
+                    paymentMethod
+                  }
+                  onChange={e =>
+                    setPaymentMethod(
+                      e.target.value
+                    )
+                  }
+                  className="w-full h-12 rounded-2xl bg-white/5 border border-white/10 px-4"
+                >
+
+                  <option value="CARD">
+                    CARD
+                  </option>
+
+                  <option value="CASH">
+                    CASH
+                  </option>
+
+                  <option value="TRANSFER">
+                    TRANSFER
+                  </option>
+
+                </select>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
+
+            <div className="text-3xl mb-8">
+              Bill Summary
+            </div>
+
+            <div className="space-y-4 mb-8">
+
+              <SummaryRow
+                label="Subtotal"
+                value={
+                  bill?.subtotal
+                }
+              />
+
+              <SummaryRow
+                label="Service"
+                value={
+                  bill?.serviceAmount
+                }
+              />
+
+              <SummaryRow
+                label="Tax"
+                value={
+                  bill?.taxAmount
+                }
+              />
+
+              <div className="border-t border-white/10 pt-4">
+
+                <SummaryRow
+                  label="Total"
+                  value={
+                    bill?.total
+                  }
+                  big
+                />
+
+              </div>
+
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 mb-6">
+
+              <div className="text-xs uppercase tracking-[0.2em] text-white/40 mb-3">
+                Split Payment
+              </div>
+
+              <div className="text-5xl font-light text-violet-400 mb-3">
+
+                ฿{
+                  splitData?.total?.toFixed(
+                    2
+                  )
+                }
+
+              </div>
+
+              <div className="text-sm text-white/40">
+
+                {
+                  splitData?.splitCount
+                } payment(s)
+
+              </div>
+
+            </div>
+
+            <button
+              onClick={
+                completePayment
+              }
+              className="w-full h-16 rounded-[24px] bg-emerald-500 hover:bg-emerald-400 transition-all text-black text-xl flex items-center justify-center gap-3"
+            >
+
+              <CheckCircle2 className="w-5 h-5" />
+
+              COMPLETE PAYMENT
+
+            </button>
+
+          </div>
 
         </div>
+
+      ) : (
+
+        <div className="text-white/40">
+          Order not found
+        </div>
+
+      )}
+
+    </PageWrapper>
+
+  );
+
+}
+
+function SummaryRow({
+  label,
+  value,
+  big,
+}) {
+
+  return (
+
+    <div className="flex items-center justify-between">
+
+      <div
+        className={`${
+          big
+            ? "text-xl"
+            : "text-white/60"
+        }`}
+      >
+
+        {label}
+
+      </div>
+
+      <div
+        className={`${
+          big
+            ? "text-3xl text-violet-400"
+
+            : "text-lg"
+        }`}
+      >
+
+        ฿{
+          Number(
+            value || 0
+          ).toFixed(2)
+        }
 
       </div>
 
     </div>
+
   );
+
 }

@@ -1,0 +1,42 @@
+app/api/anomaly/overview/route.js:15:  createClient(
+app/api/invoices/ocr/route.js:145:    const supabase = createClient(
+app/api/invoices/list/route.js:4:const supabase = createClient(
+app/api/intelligence/overview/route.js:21:  createClient(
+app/api/salary/approvals/route.js:4:const supabase = createClient(
+app/api/meta/save-account/route.js:9:  const supabase = createClient(
+app/api/recommendations/overview/route.js:19:  createClient(
+app/api/recipes/by-dish/route.js:8:    const supabase = createClient(
+app/api/monthly/route.js:13:  return createClient(url, key);
+app/api/kpi/overview/route.js:15:  createClient(
+app/api/finance/overview/route.js:10:  createClient(
+app/api/waste/create/route.js:9:    const supabase = createClient(
+app/api/forecasting/overview/route.js:9:  createClient(
+app/api/assets/update/route.js:5:const supabase = createClient(
+app/api/assets/upload-file/route.js:12:const supabase = createClient(
+app/api/assets/list/route.js:6:const supabase = createClient(
+app/api/assets/upload/route.js:11:    const supabase = createClient(
+app/api/control/scan/route.js:8:  createClient(
+app/api/analytics/production-vs-waste/route.js:7:    const supabase = createClient(
+app/api/debug/orders/route.js:5:  createClient(
+lib/restaurant/workflows/handlers/financeHandler.js:7:  createClient(
+lib/restaurant/workflows/handlers/intelligenceHandler.js:5:const supabase = createClient(
+lib/restaurant/workflows/handlers/inventoryHandler.js:11:  createClient(
+lib/restaurant/workflows/handlers/kpiHandler.js:3:const supabase = createClient(
+lib/restaurant/services/getActiveTableSession.js:3:  createClient(
+lib/restaurant/services/completeKitchenTicket.js:11:  createClient(
+lib/restaurant/services/completeOrder.js:17:  createClient(
+lib/restaurant/services/openTableSession.js:7:  createClient(
+lib/auth/getSession.js:4:    const supabase = createClient(
+lib/auth/server/getServerUser.js:24:      createClient(
+lib/supabase.js:10:  createClient(
+lib/shared/supabase/client.js:16:  createClient(
+lib/shared/supabase/server.js:11:  return createClient(
+lib/shared/supabase/admin.js:4:  createClient(
+lib/procurement/services/createPurchaseRequest.js:3:  createClient(
+lib/procurement/services/createPurchaseOrder.js:3:  createClient(
+lib/procurement/services/receivePurchaseOrder.js:11:  createClient(
+lib/inventory/services/createInventoryLedgerEntry.js:3:  createClient(
+lib/inventory/services/checkLowStock.js:7:  createClient(
+lib/finance/services/postJournalEntry.js:3:  createClient(
+lib/finance/services/createAccountsPayableInvoice.js:7:  createClient(
+lib/kitchen/updateKitchenItemStatus.js:3:  createClient(

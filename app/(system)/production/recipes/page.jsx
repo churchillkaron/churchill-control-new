@@ -1,4 +1,6 @@
-'use client'
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from 'react'
 
@@ -45,7 +47,7 @@ export default function RecipesPage() {
       const {
         data: { user },
       } =
-        await supabase.auth.getUser()
+        await supabase.auth.getSession()
 
       if (!user) return
 

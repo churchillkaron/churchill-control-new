@@ -1,0 +1,227 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Clock3, Receipt, ChefHat, Users } from "lucide-react";
+
+import PageWrapper from "@/components/PageWrapper";
+import { supabase } from "@/lib/supabase";
+
+const TENANT_ID =
+  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+
+export default function FloorPage() {
+  const router = useRouter();
+
+  const [tables, setTables] = useState([]);
+  console.log("TABLES STATE", tables);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  async function loadFloor() {
+    const { data: tableData } = await supabase
+      .from("restaurant_tables")
+      .select("*")
+      .eq("tenant_id", TENANT_ID)
+      .order("table_name", { ascending: true });
+console.log("TABLE QUERY RESULT", tableData);
+
+    const { data: orderData } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        order_items (*)
+      `)
+      .eq("tenant_id", TENANT_ID)
+      .in("status", ["OPEN", "BILLING"])
+      .order("created_at", { ascending: false });
+
+    setTables(tableData || []);
+    setOrders(orderData || []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadFloor();
+
+    const channel = supabase
+      .channel("floor-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "restaurant_tables" }, loadFloor)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, loadFloor)
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, loadFloor)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const mappedTables = useMemo(() => {
+    return tables.map((table) => {
+      const tableName = table.table_name || table.table_number || table.name;
+
+      const activeOrder = orders.find(
+        (order) => order.table_number === tableName
+      );
+
+      const active = !!activeOrder;
+      const billing = activeOrder?.status === "BILLING";
+
+      const waitMinutes = activeOrder?.created_at
+        ? Math.max(
+            0,
+            Math.floor(
+              (Date.now() - new Date(activeOrder.created_at).getTime()) / 60000
+            )
+          )
+        : 0;
+
+      const kitchenWaiting =
+        activeOrder?.order_items?.filter((item) => item.status !== "SERVED")
+          ?.length || 0;
+
+      return {
+        ...table,
+        tableName,
+        activeOrder,
+        active,
+        billing,
+        waitMinutes,
+        kitchenWaiting,
+      };
+    });
+  }, [tables, orders]);
+
+  async function openTable(tableName) {
+    await supabase
+      .from("restaurant_tables")
+      .update({ status: "OCCUPIED" })
+      .eq("tenant_id", TENANT_ID)
+      .eq("table_name", tableName);
+
+    router.push(`/pos?table=${encodeURIComponent(tableName)}`);
+  }
+
+  async function requestBill(orderId) {
+    await supabase
+      .from("orders")
+      .update({ status: "BILLING" })
+      .eq("id", orderId);
+
+    await loadFloor();
+  }
+
+  return (
+    <PageWrapper
+      title="Floor Control"
+      subtitle="Enterprise restaurant floor operations"
+    >
+      {loading ? (
+        <div className="text-white/40">Loading floor...</div>
+      ) : (
+        <div className="grid grid-cols-4 gap-6">
+          {mappedTables.map((table) => (
+            <div
+              key={table.id}
+              className={`rounded-[30px] border overflow-hidden ${
+                table.billing
+                  ? "border-orange-500/40 bg-orange-500/10"
+                  : table.active
+                  ? "border-emerald-500/30 bg-emerald-500/10"
+                  : "border-white/10 bg-white/[0.03]"
+              }`}
+            >
+              <div className="p-6 border-b border-white/5">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.2em] text-violet-400 mb-2">
+                      Table
+                    </div>
+
+                    <div className="text-5xl font-light">
+                      {table.tableName}
+                    </div>
+                  </div>
+
+                  <div
+                    className={`px-4 h-10 rounded-2xl flex items-center text-xs uppercase tracking-[0.2em] ${
+                      table.billing
+                        ? "bg-orange-500 text-black"
+                        : table.active
+                        ? "bg-emerald-500 text-black"
+                        : "bg-zinc-700 text-white"
+                    }`}
+                  >
+                    {table.billing
+                      ? "BILLING"
+                      : table.active
+                      ? "ACTIVE"
+                      : "AVAILABLE"}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Metric icon={Receipt} label="Revenue" value={`฿${table.activeOrder?.total_amount || 0}`} />
+                  <Metric icon={Clock3} label="Time" value={`${table.waitMinutes}m`} />
+                  <Metric icon={ChefHat} label="Kitchen" value={table.kitchenWaiting} />
+                  <Metric icon={Users} label="Items" value={table.activeOrder?.order_items?.length || 0} />
+                </div>
+              </div>
+
+              <div className="p-6 space-y-3">
+                {!table.active && (
+                  <button
+                    onClick={() => openTable(table.tableName)}
+                    className="w-full h-12 rounded-2xl bg-violet-500 hover:bg-violet-400 transition-all text-white font-medium"
+                  >
+                    OPEN TABLE
+                  </button>
+                )}
+
+                {table.active && !table.billing && (
+                  <>
+                    <button
+                      onClick={() => router.push(`/pos?table=${encodeURIComponent(table.tableName)}`)}
+                      className="w-full h-12 rounded-2xl bg-violet-500 hover:bg-violet-400 transition-all text-white font-medium"
+                    >
+                      CONTINUE SERVICE
+                    </button>
+
+                    <button
+                      onClick={() => requestBill(table.activeOrder.id)}
+                      className="w-full h-12 rounded-2xl bg-orange-500 hover:bg-orange-400 transition-all text-black font-medium"
+                    >
+                      REQUEST BILL
+                    </button>
+                  </>
+                )}
+
+                {table.billing && (
+                  <button
+                    onClick={() => router.push(`/pos/payments?order_id=${table.activeOrder.id}`)}
+                    className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-400 transition-all text-black font-medium"
+                  >
+                    OPEN PAYMENT
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </PageWrapper>
+  );
+}
+
+function Metric({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-2xl border border-white/10 p-4">
+      <div className="flex items-center gap-2 text-xs uppercase text-white/40 mb-2">
+        <Icon className="w-4 h-4" />
+        {label}
+      </div>
+
+      <div className="text-2xl">{value}</div>
+    </div>
+  );
+}

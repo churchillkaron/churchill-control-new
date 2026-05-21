@@ -1,4 +1,6 @@
-'use client'
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import {
   useEffect,
@@ -33,7 +35,7 @@ export default function InventoryLedgerPage() {
       const {
         data: { user },
       } =
-        await supabase.auth.getUser()
+        await supabase.auth.getSession()
 
       if (!user) return
 

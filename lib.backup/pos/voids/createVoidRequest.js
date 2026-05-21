@@ -1,0 +1,34 @@
+import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+
+export async function createVoidRequest({
+  tenant_id,
+  order_id,
+  order_item_id,
+  reason,
+  requested_by,
+}) {
+
+  const {
+    data,
+    error,
+  } = await supabaseAdmin
+    .from('void_requests')
+    .insert([
+      {
+        tenant_id,
+        order_id,
+        order_item_id,
+        reason,
+        requested_by,
+        status: 'PENDING',
+      },
+    ])
+    .select()
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}

@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import {
   useEffect,
   useState,
@@ -8,6 +10,10 @@ import {
 import { supabase } from "@/lib/shared/supabase/client";
 
 import { loadRealtimeMonitoring } from "@/lib/monitoring/loadRealtimeMonitoring";
+
+import {
+  createEnterpriseRealtime,
+} from "@/lib/runtime/createEnterpriseRealtime";
 
 export default function MonitoringLivePage() {
 
@@ -29,7 +35,7 @@ export default function MonitoringLivePage() {
       const {
         data: { user },
       } =
-        await supabase.auth.getUser();
+        await supabase.auth.getSession();
 
       if (!user) {
         return;
@@ -83,55 +89,50 @@ export default function MonitoringLivePage() {
     tenantId,
   ]);
 
-  // ===== REALTIME =====
+  // ===== ENTERPRISE REALTIME =====
   useEffect(() => {
 
     if (!tenantId) {
       return;
     }
 
-    const channel =
-      supabase
-        .channel(
-          "monitoring-live"
-        )
-        .on(
-          "postgres_changes",
+    const runtime =
+      createEnterpriseRealtime({
+
+        name:
+          `monitoring-live-${tenantId}`,
+
+        subscriptions: [
+
           {
-            event: "*",
-            schema: "public",
             table:
               "orders",
           },
-          refresh
-        )
-        .on(
-          "postgres_changes",
+
           {
-            event: "*",
-            schema: "public",
             table:
               "table_sessions",
           },
-          refresh
-        )
-        .on(
-          "postgres_changes",
+
           {
-            event: "*",
-            schema: "public",
             table:
               "kitchen_ticket_items",
           },
-          refresh
-        )
-        .subscribe();
+
+        ],
+
+        onChange() {
+
+          refresh();
+
+        },
+
+      });
 
     return () => {
 
-      supabase.removeChannel(
-        channel
-      );
+      runtime.unsubscribe();
+
     };
 
   }, [

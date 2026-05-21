@@ -1,8 +1,8 @@
-export { dynamic } from '@/lib/shared/api/createDynamicRoute'
+export { dynamic }
+from '@/lib/shared/api/createDynamicRoute'
 
-import { NextResponse } from 'next/server'
-
-import { createClient } from '@supabase/supabase-js'
+import { NextResponse }
+from 'next/server'
 
 import {
   validateTenant,
@@ -16,13 +16,11 @@ import {
   registerSystemEvents,
 } from '@/lib/shared/bootstrap/registerSystemEvents'
 
-registerSystemEvents()
+import {
+  createServerSupabase,
+} from '@/lib/shared/supabase/server'
 
-const supabase =
-  createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+registerSystemEvents()
 
 export async function GET(req) {
 
@@ -39,32 +37,52 @@ export async function GET(req) {
       tenantId,
     } = validation
 
+    const supabase =
+      createServerSupabase()
+
     const [
+
       salesResponse,
+
       ingredientResponse,
+
       kitchenResponse,
+
       tableResponse,
+
     ] = await Promise.all([
 
       supabase
         .from('daily_sales_items')
         .select('*')
-        .eq('tenant_id', tenantId),
+        .eq(
+          'tenant_id',
+          tenantId
+        ),
 
       supabase
         .from('ingredients')
         .select('*')
-        .eq('tenant_id', tenantId),
+        .eq(
+          'tenant_id',
+          tenantId
+        ),
 
       supabase
         .from('kitchen_tickets')
         .select('*')
-        .eq('tenant_id', tenantId),
+        .eq(
+          'tenant_id',
+          tenantId
+        ),
 
       supabase
         .from('table_sessions')
         .select('*')
-        .eq('tenant_id', tenantId),
+        .eq(
+          'tenant_id',
+          tenantId
+        ),
 
     ])
 
@@ -82,21 +100,30 @@ export async function GET(req) {
 
     const revenue =
       sales.reduce(
+
         (sum, row) =>
+
           sum +
+
           (
             Number(row.price || 0) *
             Number(row.quantity || 1)
           ),
+
         0
+
       )
 
     const cost =
       sales.reduce(
+
         (sum, row) =>
+
           sum +
           Number(row.cost || 0),
+
         0
+
       )
 
     const intelligence =
@@ -110,23 +137,28 @@ export async function GET(req) {
           sales.length,
 
         activeTables:
+
           tables.filter(
             table =>
               table.status === 'ACTIVE'
           ).length,
 
         lowStock:
+
           ingredients.filter(
             ingredient =>
+
               Number(
                 ingredient.quantity || 0
               ) <= 5
+
           ).length,
 
         kitchenTickets:
           kitchen.length,
 
         base: 100,
+
       })
 
     return NextResponse.json({
@@ -148,6 +180,7 @@ export async function GET(req) {
       },
 
       intelligence,
+
     })
 
   } catch (error) {
@@ -155,12 +188,18 @@ export async function GET(req) {
     console.error(error)
 
     return NextResponse.json(
+
       {
-        error: 'Internal server error',
+        error:
+          'Internal server error',
       },
+
       {
         status: 500,
       }
+
     )
+
   }
+
 }

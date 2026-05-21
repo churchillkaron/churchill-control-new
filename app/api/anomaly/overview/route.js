@@ -1,8 +1,8 @@
-export { dynamic } from '@/lib/shared/api/createDynamicRoute'
+export { dynamic }
+from '@/lib/shared/api/createDynamicRoute'
 
-import { NextResponse } from 'next/server'
-
-import { createClient } from '@supabase/supabase-js'
+import { NextResponse }
+from 'next/server'
 
 import {
   validateTenant,
@@ -12,11 +12,9 @@ import {
   detectAnomalies,
 } from '@/lib/shared/anomaly/anomalyEngine'
 
-const supabase =
-  createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+import {
+  createServerSupabase,
+} from '@/lib/shared/supabase/server'
 
 export async function GET(req) {
 
@@ -32,6 +30,9 @@ export async function GET(req) {
     const {
       tenantId,
     } = validation
+
+    const supabase =
+      createServerSupabase()
 
     const {
       data: sales,
@@ -64,8 +65,7 @@ export async function GET(req) {
         ? (cost / revenue) * 100
         : 0
 
-    const grouped =
-      {}
+    const grouped = {}
 
     ;(sales || []).forEach(
       row => {
@@ -79,6 +79,7 @@ export async function GET(req) {
             revenue: 0,
             cost: 0,
           }
+
         }
 
         grouped[batch].revenue +=
@@ -89,6 +90,7 @@ export async function GET(req) {
 
         grouped[batch].cost +=
           Number(row.cost || 0)
+
       }
     )
 
@@ -181,5 +183,7 @@ export async function GET(req) {
         status: 500,
       }
     )
+
   }
+
 }

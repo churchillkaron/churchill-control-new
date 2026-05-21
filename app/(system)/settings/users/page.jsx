@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/shared/supabase/client";
 
@@ -34,7 +36,7 @@ export default function UsersPage() {
   async function init() {
     setStatus("Checking user...");
 
-    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const { data: authData, error: authError } = await supabase.auth.getSession();
 
     if (authError || !authData?.user) {
       setCurrentUser(null);

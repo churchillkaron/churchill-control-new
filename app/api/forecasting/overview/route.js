@@ -1,45 +1,59 @@
 export const dynamic = 'force-dynamic'
 
-import { NextResponse } from 'next/server'
+import { NextResponse }
+from 'next/server'
 
-import { createClient } from '@supabase/supabase-js'
+import {
+  generateForecast,
+} from '@/lib/shared/forecasting/forecastEngine'
 
-import { generateForecast } from '@/lib/shared/forecasting/forecastEngine'
-
-const supabase =
-  createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+import {
+  createServerSupabase,
+} from '@/lib/shared/supabase/server'
 
 export async function GET(req) {
 
   try {
 
+    const supabase =
+      createServerSupabase()
+
     const tenantId =
-      req.nextUrl.searchParams.get('tenantId')
+      req.nextUrl.searchParams.get(
+        'tenantId'
+      )
 
     if (!tenantId) {
 
       return NextResponse.json(
+
         {
-          error: 'tenantId required',
+          error:
+            'tenantId required',
         },
+
         {
           status: 400,
         }
+
       )
+
     }
 
     const {
       data: sales,
     } = await supabase
-      .from('daily_sales_items')
-      .select('*')
-      .eq('tenant_id', tenantId)
 
-    const grouped =
-      {}
+      .from('daily_sales_items')
+
+      .select('*')
+
+      .eq(
+        'tenant_id',
+        tenantId
+      )
+
+    const grouped = {}
 
     ;(sales || []).forEach(
       row => {
@@ -50,12 +64,17 @@ export async function GET(req) {
         if (!grouped[day]) {
 
           grouped[day] = {
+
             revenue: 0,
+
             cost: 0,
+
           }
+
         }
 
         grouped[day].revenue +=
+
           (
             Number(row.price || 0) *
             Number(row.quantity || 1)
@@ -63,21 +82,28 @@ export async function GET(req) {
 
         grouped[day].cost +=
           Number(row.cost || 0)
+
       }
     )
 
     const revenueHistory =
       Object.values(grouped)
-        .map(day => day.revenue)
+        .map(
+          day => day.revenue
+        )
 
     const costHistory =
       Object.values(grouped)
-        .map(day => day.cost)
+        .map(
+          day => day.cost
+        )
 
     const payrollHistory =
       revenueHistory.map(
+
         revenue =>
           revenue * 0.18
+
       )
 
     const forecast =
@@ -104,12 +130,18 @@ export async function GET(req) {
     console.error(error)
 
     return NextResponse.json(
+
       {
-        error: 'Internal server error',
+        error:
+          'Internal server error',
       },
+
       {
         status: 500,
       }
+
     )
+
   }
+
 }

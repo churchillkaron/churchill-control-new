@@ -1,96 +1,94 @@
 "use client";
 
-import {
-  usePathname,
-} from "next/navigation";
+import { Bell } from "lucide-react";
 
-import {
-  ChevronRight,
-  Activity,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
+
+function getTitle(pathname) {
+
+  if (!pathname) {
+    return "Dashboard";
+  }
+
+  const clean =
+    pathname
+      .replace("/", "")
+      .split("/")[0];
+
+  if (!clean) {
+    return "Dashboard";
+  }
+
+  return clean
+    .replaceAll("-", " ")
+    .replace(
+      /\b\w/g,
+      l => l.toUpperCase()
+    );
+
+}
 
 export default function PlatformHeader() {
 
   const pathname =
     usePathname();
 
-  const segments =
-
-    pathname
-      .split("/")
-      .filter(Boolean);
+  const title =
+    getTitle(pathname);
 
   return (
 
-    <header className="sticky top-0 z-40 flex h-[76px] items-center justify-between border-b border-white/10 bg-black/70 px-8 backdrop-blur-xl">
-
-      {/* LEFT */}
+    <header className="sticky top-0 z-40 flex h-[88px] items-center justify-between border-b border-white/10 bg-black/60 px-8 backdrop-blur-2xl">
 
       <div>
 
-        <div className="mb-1 text-xs uppercase tracking-[0.28em] text-violet-400">
+        <div className="text-[11px] tracking-[0.35em] text-violet-400">
 
-          AVANTIQO ENTERPRISE RUNTIME
-
-        </div>
-
-        <div className="flex items-center gap-2 text-sm text-white/40">
-
-          {segments.length === 0 && (
-
-            <div className="capitalize">
-              Dashboard
-            </div>
-
-          )}
-
-          {segments.map(
-            (
-              segment,
-              index
-            ) => (
-
-              <div
-                key={segment}
-                className="flex items-center gap-2"
-              >
-
-                <div className="capitalize">
-
-                  {
-                    segment.replaceAll(
-                      "-",
-                      " "
-                    )
-                  }
-
-                </div>
-
-                {index <
-                  segments.length - 1 && (
-
-                  <ChevronRight className="h-4 w-4 text-white/20" />
-
-                )}
-
-              </div>
-
-            )
-          )}
+          AVANTIQO ENTERPRISE
 
         </div>
+
+        <h1
+          className="mt-1 text-[30px] leading-none text-white"
+          style={{
+            fontWeight: 250,
+            letterSpacing: "-0.06em",
+          }}
+        >
+
+          {title}
+
+        </h1>
 
       </div>
 
-      {/* RIGHT */}
-
       <div className="flex items-center gap-4">
 
-        <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-emerald-400">
+        <div className="hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 md:flex">
 
-          <Activity className="h-3 w-3" />
+          <div className="flex items-center gap-2">
 
-          Runtime Active
+            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+
+            <div className="text-sm text-emerald-300">
+
+              Enterprise Runtime Active
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <button className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-white/70 transition-all hover:bg-white/[0.08] hover:text-white">
+
+          <Bell className="h-5 w-5" />
+
+        </button>
+
+        <div className="flex h-12 min-w-[120px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white/70">
+
+          OWNER
 
         </div>
 

@@ -2,19 +2,30 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-import { useSearchParams } from "next/navigation";
+import {
+  useSearchParams,
+} from "next/navigation";
 
 import {
   CreditCard,
   Split,
   CheckCircle2,
+  QrCode,
+  Landmark,
+  Wallet,
 } from "lucide-react";
 
-import PageWrapper from "@/components/PageWrapper";
+import PageWrapper
+from "@/components/PageWrapper";
 
-import { supabase } from "@/lib/shared/supabase/client";
+import { supabase }
+from "@/lib/shared/supabase/client";
 
 import {
   calculateBill,
@@ -28,8 +39,47 @@ import {
   postPaymentJournal,
 } from "@/lib/accounting/postPaymentJournal";
 
+import {
+  updateOrderStatusFromItems,
+} from "@/lib/orders/updateOrderStatusFromItems";
+
+
 const TENANT_ID =
   "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+
+const PAYMENT_OPTIONS = [
+
+  {
+    value: "CARD",
+    label: "CARD",
+    icon: CreditCard,
+  },
+
+  {
+    value: "CASH",
+    label: "CASH",
+    icon: Wallet,
+  },
+
+  {
+    value: "QR",
+    label: "QR PAYMENT",
+    icon: QrCode,
+  },
+
+  {
+    value: "TRANSFER",
+    label: "BANK TRANSFER",
+    icon: Landmark,
+  },
+
+  {
+    value: "MIXED",
+    label: "MIXED PAYMENT",
+    icon: Split,
+  },
+
+];
 
 export default function PaymentsPage() {
 
@@ -41,17 +91,50 @@ export default function PaymentsPage() {
       "order_id"
     );
 
-  const [order, setOrder] =
-    useState(null);
+  const [
+    order,
+    setOrder,
+  ] = useState(null);
 
-  const [splitCount, setSplitCount] =
-    useState(1);
+  const [
+    splitCount,
+    setSplitCount,
+  ] = useState(1);
 
-  const [paymentMethod, setPaymentMethod] =
-    useState("CARD");
+  const [
+    selectedItems,
+    setSelectedItems,
+  ] = useState([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    paymentMethod,
+    setPaymentMethod,
+  ] = useState("CARD");
+
+  const [
+    tenders,
+    setTenders,
+  ] = useState([
+    {
+      method: "CARD",
+      amount: "",
+    },
+  ]);
+
+  const [
+    partialAmount,
+    setPartialAmount,
+  ] = useState("");
+
+  const [
+    partialLoading,
+    setPartialLoading,
+  ] = useState(false);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
   async function loadOrder() {
 
@@ -76,6 +159,12 @@ export default function PaymentsPage() {
         orderId
       )
 
+      .not(
+        "status",
+        "in",
+        "(PAID,CLOSED)"
+      )
+
       .single();
 
     setOrder(data);
@@ -96,8 +185,20 @@ export default function PaymentsPage() {
       if (!order)
         return null;
 
+      const unpaidItems =
+        {
+          ...order,
+
+          order_items:
+            order.order_items.filter(
+              item =>
+                item.status !==
+                "PAID_SPLIT"
+            ),
+        };
+
       return calculateBill(
-        order
+        unpaidItems
       );
 
     }, [order]);
@@ -118,6 +219,522 @@ export default function PaymentsPage() {
       splitCount,
     ]);
 
+  async function partialPaymentAction() {
+
+    try {
+
+      setPartialLoading(true);
+
+      const response =
+        await fetch(
+          "/api/pos/partial-payment",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+
+              tenantId:
+                TENANT_ID,
+
+              tableNumber:
+                order.table_number,
+
+              paymentMethod,
+
+              amount:
+                Number(
+                  partialAmount || 0
+                ),
+
+              cashierName:
+                "SYSTEM",
+
+            }),
+
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!result.success) {
+
+        throw new Error(
+          result.error
+        );
+
+      }
+
+      alert(
+        `Partial payment completed. Remaining balance: ฿${result.result.remainingBalance}`
+      );
+
+      window.location.reload();
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        err.message
+      );
+
+    } finally {
+
+      setPartialLoading(false);
+
+    }
+
+  }
+
+
+  function toggleSplitItem(
+    itemId
+  ) {
+
+    setSelectedItems(
+      prev =>
+
+        prev.includes(itemId)
+
+          ? prev.filter(
+              id => id !== itemId
+            )
+
+          : [
+              ...prev,
+              itemId,
+            ]
+    );
+
+  }
+
+  const selectedSplitTotal =
+    order?.order_items
+      ?.filter(
+        item =>
+          selectedItems.includes(
+            item.id
+          )
+      )
+      ?.reduce(
+        (
+          sum,
+          item
+        ) =>
+
+          sum +
+
+          (
+            Number(
+              item.price || 0
+            ) *
+
+            Number(
+              item.quantity || 1
+            )
+          ),
+
+        0
+      ) || 0;
+
+
+  async function paySelectedItems() {
+
+    try {
+
+      if (
+        selectedItems.length === 0
+      ) {
+
+        alert(
+          "Select items first"
+        );
+
+        return;
+      }
+
+      const selectedOrderItems =
+        order.order_items.filter(
+          item =>
+            selectedItems.includes(
+              item.id
+            )
+        );
+
+      const selectedTotal =
+        selectedOrderItems.reduce(
+          (
+            sum,
+            item
+          ) =>
+
+            sum +
+
+            (
+              Number(
+                item.price || 0
+              ) *
+
+              Number(
+                item.quantity || 1
+              )
+            ),
+
+          0
+        );
+
+      await supabase
+
+        .from("pos_payments")
+
+        .insert({
+
+          tenant_id:
+            TENANT_ID,
+
+          order_id:
+            order.id,
+
+          payment_type:
+            "ITEM_SPLIT",
+
+          amount_paid:
+            selectedTotal,
+
+          total_amount:
+            selectedTotal,
+
+          change_amount:
+            0,
+
+        });
+
+      await supabase
+
+        .from("order_items")
+
+        .update({
+
+          status:
+            "PAID_SPLIT",
+
+        })
+
+        .in(
+          "id",
+          selectedItems
+        );
+
+      const remainingItems =
+        order.order_items.filter(
+          item =>
+            !selectedItems.includes(item.id) &&
+            item.status !== "PAID_SPLIT"
+        );
+
+      if (remainingItems.length === 0) {
+
+        await supabase
+          .from("orders")
+          .update({
+            status: "PAID",
+            payment_status: "PAID",
+            paid_at: new Date().toISOString(),
+          })
+          .eq("id", order.id);
+
+        await supabase
+          .from("restaurant_tables")
+          .update({
+            status: "AVAILABLE",
+          })
+          .eq("table_name", order.table_number);
+
+        alert("All items paid. Table closed.");
+
+        window.location.href = "/tables";
+
+        return;
+      }
+
+      alert(
+        "Selected items paid"
+      );
+
+      window.location.reload();
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        err.message
+      );
+
+    }
+
+  }
+
+
+  function updateTender(
+    index,
+    field,
+    value
+  ) {
+
+    setTenders(prev => {
+
+      const updated =
+        [...prev];
+
+      updated[index] = {
+        ...updated[index],
+        [field]: value,
+      };
+
+      return updated;
+
+    });
+
+  }
+
+  function addTender() {
+
+    setTenders(prev => [
+
+      ...prev,
+
+      {
+        method: "CARD",
+        amount: "",
+      },
+
+    ]);
+
+  }
+
+  const tenderTotal =
+    tenders.reduce(
+      (
+        sum,
+        tender
+      ) =>
+
+        sum +
+        Number(
+          tender.amount || 0
+        ),
+
+      0
+    );
+
+  const validPaymentTotal =
+    (
+      order?.payments || []
+    )
+
+      .filter(
+        payment =>
+
+          payment.payment_status !==
+          "VOIDED"
+      )
+
+      .reduce(
+        (
+          sum,
+          payment
+        ) =>
+
+          sum +
+
+          Number(
+            payment.amount_paid || 0
+          ),
+
+        0
+      );
+
+  const remainingBalance =
+    Math.max(
+      0,
+
+      Number(
+        bill?.total || 0
+      ) -
+
+      validPaymentTotal
+    );
+
+  const remainingTenderBalance =
+    Math.max(
+      0,
+      remainingBalance -
+      tenderTotal
+    );
+
+
+  useEffect(() => {
+
+    if (
+      tenders.length === 1 &&
+      (
+        !tenders[0].amount ||
+        Number(tenders[0].amount) === 0
+      ) &&
+      remainingBalance > 0
+    ) {
+
+      setTenders([
+
+        {
+
+          ...tenders[0],
+
+          amount:
+            remainingBalance.toFixed(2),
+
+        },
+
+      ]);
+
+    }
+
+  }, [remainingBalance]);
+
+
+
+  async function requestVoidItem(
+    item
+  ) {
+
+    const reason =
+      prompt(
+        "Void item reason"
+      );
+
+    if (!reason)
+      return;
+
+    try {
+
+      const res =
+        await fetch(
+          "/api/pos/items/void",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+
+              item,
+
+              reason,
+
+            }),
+
+          }
+        );
+
+      const json =
+        await res.json();
+
+      if (!json.success) {
+        throw new Error(
+          json.error
+        );
+      }
+
+      alert(
+        "Void request submitted"
+      );
+
+      window.location.reload();
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        err.message
+      );
+
+    }
+
+  }
+
+  async function requestVoid(
+    payment
+  ) {
+
+    const reason =
+      prompt(
+        "Void reason"
+      );
+
+    if (!reason)
+      return;
+
+    try {
+
+      const res =
+        await fetch(
+          "/api/pos/payments/void",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+
+              payment,
+
+              reason,
+
+            }),
+
+          }
+        );
+
+      const json =
+        await res.json();
+
+      if (!json.success) {
+        throw new Error(
+          json.error
+        );
+      }
+
+      alert(
+        "Void request submitted"
+      );
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        err.message
+      );
+
+    }
+
+  }
+
+
   async function completePayment() {
 
     if (!order)
@@ -125,20 +742,45 @@ export default function PaymentsPage() {
 
     try {
 
-      const createdPayments =
-        [];
+      if (
+        tenderTotal <= 0
+      ) {
+
+        alert(
+          "Enter payment amount"
+        );
+
+        return;
+      }
+
+      if (
+        tenderTotal >
+        remainingBalance
+      ) {
+
+        alert(
+          "Payment exceeds remaining balance"
+        );
+
+        return;
+      }
 
       for (
-        const paymentData of
-        splitData.payments
+        const tender of
+        tenders
       ) {
+
+        if (
+          !tender.amount ||
+          Number(tender.amount) <= 0
+        ) continue;
 
         const {
           data: payment,
           error,
         } = await supabase
 
-          .from("payments")
+          .from("pos_payments")
 
           .insert({
 
@@ -148,28 +790,19 @@ export default function PaymentsPage() {
             order_id:
               order.id,
 
-            payment_method:
-              paymentMethod,
-
             payment_type:
+              tender.method,
 
-              splitCount > 1
+            amount_paid:
+              Number(
+                tender.amount
+              ),
 
-                ? "SPLIT"
+            total_amount:
+              bill.total,
 
-                : "FULL",
-
-            amount:
-              paymentData.total,
-
-            tax_amount:
-              paymentData.taxAmount,
-
-            service_amount:
-              paymentData.serviceAmount,
-
-            status:
-              "COMPLETED",
+            change_amount:
+              0,
 
           })
 
@@ -179,10 +812,6 @@ export default function PaymentsPage() {
 
         if (error)
           throw error;
-
-        createdPayments.push(
-          payment
-        );
 
         await postPaymentJournal(
           supabase,
@@ -194,15 +823,41 @@ export default function PaymentsPage() {
 
       await supabase
 
-        .from("orders")
+        .from("order_items")
 
         .update({
 
           status:
             "CLOSED",
 
+          closed_at:
+            new Date().toISOString(),
+
+        })
+
+        .eq(
+          "order_id",
+          order.id
+        );
+
+      await updateOrderStatusFromItems(
+        order.id
+      );
+
+      await supabase
+
+        .from("orders")
+
+        .update({
+
+          status:
+            "PAID",
+
           payment_status:
             "PAID",
+
+          paid_at:
+            new Date().toISOString(),
 
         })
 
@@ -230,8 +885,47 @@ export default function PaymentsPage() {
         );
 
       alert(
-        "Payment completed & journal posted"
+        "Payment completed"
       );
+
+      await supabase
+        .from("orders")
+        .update({
+          status: "CLOSED",
+          payment_status: "PAID",
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", order.id);
+
+      await supabase
+        .from("restaurant_tables")
+        .update({
+          status: "AVAILABLE",
+        })
+        .eq(
+          "table_name",
+          order.table_number
+        );
+
+      await fetch(
+        "/api/pos/orders/close",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            orderId:
+              order.id,
+          }),
+
+        }
+      );
+
+      window.location.href = "/tables";
 
     } catch (err) {
 
@@ -251,13 +945,13 @@ export default function PaymentsPage() {
 
     <PageWrapper
       title="Payments"
-      subtitle="Enterprise billing & accounting settlement"
+      subtitle="Enterprise billing & settlement"
     >
 
       {loading ? (
 
         <div className="text-white/40">
-          Loading payment...
+          Loading...
         </div>
 
       ) : order ? (
@@ -266,61 +960,89 @@ export default function PaymentsPage() {
 
           <div className="col-span-2 rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
 
-            <div className="flex items-center justify-between mb-8">
+            <div className="mb-8 flex items-center justify-between">
 
               <div>
 
-                <div className="text-xs uppercase tracking-[0.2em] text-violet-400 mb-2">
+                <div className="mb-2 text-xs uppercase tracking-[0.2em] text-violet-400">
+
                   Table
+
                 </div>
 
                 <div className="text-5xl font-light">
-                  {
-                    order.table_number
-                  }
+
+                  {order.table_number}
+
                 </div>
 
               </div>
 
               <div className="text-right">
 
-                <div className="text-xs uppercase text-white/40 mb-2">
-                  Items
+                <div className="mb-2 text-xs uppercase text-white/40">
+
+                  Status
+
                 </div>
 
-                <div className="text-4xl">
-                  {
-                    order.order_items
-                      ?.length || 0
-                  }
+                <div className="text-2xl text-emerald-400">
+
+                  {order.status}
+
                 </div>
 
               </div>
 
             </div>
 
-            <div className="space-y-3 mb-8">
+            <div className="mb-8 space-y-3">
 
               {order.order_items?.map(
                 item => (
 
                   <div
                     key={item.id}
-                    className="rounded-2xl border border-white/10 bg-black/20 p-4 flex items-center justify-between"
+
+                    onClick={() => {
+
+                      if (
+                        item.status ===
+                        "PAID_SPLIT"
+                      ) return;
+
+                      toggleSplitItem(
+                        item.id
+                      )
+
+                    }}
+
+                    className={`flex cursor-pointer items-center justify-between rounded-2xl border p-4 transition-all ${
+                      selectedItems.includes(item.id)
+                        ? "border-emerald-400 bg-emerald-500/10"
+                        : "border-white/10 bg-black/20"
+                    }`}
                   >
 
                     <div>
 
                       <div className="text-lg">
+
                         {
-                          item.item_name
+                          item.item_name ||
+                          item.dish_name
                         }
+
                       </div>
 
-                      <div className="text-xs uppercase text-white/40 mt-1">
+                      <div className="mt-1 text-xs uppercase text-white/40">
 
-                        COURSE {
-                          item.course || 1
+                        {
+                          item.status === "PAID_SPLIT"
+
+                            ? "PAID"
+
+                            : item.status
                         }
 
                       </div>
@@ -350,6 +1072,19 @@ export default function PaymentsPage() {
 
                       </div>
 
+                      <button
+                        onClick={() =>
+                          requestVoidItem(
+                            item
+                          )
+                        }
+                        className="mt-3 rounded-xl bg-red-500 px-4 py-2 text-xs font-semibold text-white"
+                      >
+
+                        VOID ITEM
+
+                      </button>
+
                     </div>
 
                   </div>
@@ -359,95 +1094,19 @@ export default function PaymentsPage() {
 
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
 
-              <div className="rounded-2xl border border-white/10 p-5">
+              <div className="mb-2 text-xs uppercase tracking-[0.2em] text-emerald-400">
 
-                <div className="flex items-center gap-2 mb-4">
-
-                  <Split className="w-5 h-5 text-orange-400" />
-
-                  <div className="text-lg">
-                    Split Bill
-                  </div>
-
-                </div>
-
-                <select
-                  value={
-                    splitCount
-                  }
-                  onChange={e =>
-                    setSplitCount(
-                      Number(
-                        e.target.value
-                      )
-                    )
-                  }
-                  className="w-full h-12 rounded-2xl bg-white/5 border border-white/10 px-4"
-                >
-
-                  <option value={1}>
-                    Full Bill
-                  </option>
-
-                  <option value={2}>
-                    Split 2
-                  </option>
-
-                  <option value={3}>
-                    Split 3
-                  </option>
-
-                  <option value={4}>
-                    Split 4
-                  </option>
-
-                  <option value={5}>
-                    Split 5
-                  </option>
-
-                </select>
+                Selected Split Total
 
               </div>
 
-              <div className="rounded-2xl border border-white/10 p-5">
+              <div className="text-3xl font-light text-white">
 
-                <div className="flex items-center gap-2 mb-4">
-
-                  <CreditCard className="w-5 h-5 text-emerald-400" />
-
-                  <div className="text-lg">
-                    Payment Method
-                  </div>
-
-                </div>
-
-                <select
-                  value={
-                    paymentMethod
-                  }
-                  onChange={e =>
-                    setPaymentMethod(
-                      e.target.value
-                    )
-                  }
-                  className="w-full h-12 rounded-2xl bg-white/5 border border-white/10 px-4"
-                >
-
-                  <option value="CARD">
-                    CARD
-                  </option>
-
-                  <option value="CASH">
-                    CASH
-                  </option>
-
-                  <option value="TRANSFER">
-                    TRANSFER
-                  </option>
-
-                </select>
+                ฿{
+                  selectedSplitTotal.toLocaleString()
+                }
 
               </div>
 
@@ -457,11 +1116,13 @@ export default function PaymentsPage() {
 
           <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
 
-            <div className="text-3xl mb-8">
-              Bill Summary
+            <div className="mb-8 text-3xl">
+
+              Settlement
+
             </div>
 
-            <div className="space-y-4 mb-8">
+            <div className="mb-8 space-y-4">
 
               <SummaryRow
                 label="Subtotal"
@@ -496,46 +1157,205 @@ export default function PaymentsPage() {
 
               </div>
 
-            </div>
+              <div className="mt-6">
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 mb-6">
+                <button
+                  onClick={() =>
+                    requestVoid(
+                      {
+                        id: order.id,
+                      }
+                    )
+                  }
+                  className="w-full rounded-2xl bg-red-500 py-4 text-lg font-semibold text-white"
+                >
 
-              <div className="text-xs uppercase tracking-[0.2em] text-white/40 mb-3">
-                Split Payment
+                  VOID PAYMENT
+
+                </button>
+
               </div>
 
-              <div className="text-5xl font-light text-violet-400 mb-3">
+            </div>
 
-                ฿{
-                  splitData?.total?.toFixed(
-                    2
+
+            <div className="mb-6">
+
+              <div className="mb-3 text-sm uppercase tracking-[0.2em] text-white/40">
+
+                Payment Methods
+
+              </div>
+
+              <div className="space-y-4">
+
+                {tenders.map(
+                  (
+                    tender,
+                    index
+                  ) => (
+
+                    <div
+                      key={index}
+                      className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                    >
+
+                      <div className="mb-3">
+
+                        <select
+                          value={tender.method}
+                          onChange={e =>
+                            updateTender(
+                              index,
+                              "method",
+                              e.target.value
+                            )
+                          }
+                          className="w-full rounded-xl bg-black/40 p-3 text-white"
+                        >
+
+                          {PAYMENT_OPTIONS.map(
+                            option => (
+
+                              <option
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </option>
+
+                            )
+                          )}
+
+                        </select>
+
+                      </div>
+
+                      <input
+                        type="number"
+                        value={tender.amount}
+                        onChange={e =>
+                          updateTender(
+                            index,
+                            "amount",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Amount"
+                        className="w-full rounded-xl bg-black/40 p-3 text-white"
+                      />
+
+                    </div>
+
+                  )
+                )}
+
+                <button
+                  onClick={addTender}
+                  className="w-full rounded-2xl border border-dashed border-violet-500 py-3 text-violet-400"
+                >
+
+                  + ADD PAYMENT METHOD
+
+                </button>
+
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+
+                  <div className="mb-2 text-xs uppercase tracking-[0.2em] text-emerald-400">
+
+                    Remaining Balance
+
+                  </div>
+
+                  <div className="text-3xl font-light text-white">
+
+                    ฿{
+                      remainingTenderBalance.toLocaleString()
+                    }
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+            <div className="mb-6">
+
+              <div className="mb-3 text-sm uppercase tracking-[0.2em] text-white/40">
+
+                Split Bill
+
+              </div>
+
+              <select
+                value={
+                  splitCount
+                }
+                onChange={e =>
+                  setSplitCount(
+                    Number(
+                      e.target.value
+                    )
                   )
                 }
+                className="h-12 w-full rounded-2xl border border-white/10 bg-black/20 px-4"
+              >
 
-              </div>
+                <option value={1}>
+                  Full Bill
+                </option>
 
-              <div className="text-sm text-white/40">
+                <option value={2}>
+                  Split 2
+                </option>
 
-                {
-                  splitData?.splitCount
-                } payment(s)
+                <option value={3}>
+                  Split 3
+                </option>
 
-              </div>
+                <option value={4}>
+                  Split 4
+                </option>
+
+                <option value={5}>
+                  Split 5
+                </option>
+
+              </select>
 
             </div>
 
-            <button
-              onClick={
-                completePayment
-              }
-              className="w-full h-16 rounded-[24px] bg-emerald-500 hover:bg-emerald-400 transition-all text-black text-xl flex items-center justify-center gap-3"
-            >
+            <div className="space-y-4">
 
-              <CheckCircle2 className="w-5 h-5" />
+              <input
+                type="number"
+                value={partialAmount}
+                onChange={e => setPartialAmount(e.target.value)}
+                placeholder="Partial amount"
+                className="h-14 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-white outline-none"
+              />
 
-              COMPLETE PAYMENT
+              <button
+                onClick={partialPaymentAction}
+                disabled={partialLoading}
+                className="flex h-14 w-full items-center justify-center rounded-2xl bg-orange-500 text-lg font-semibold text-black"
+              >
+                PARTIAL PAYMENT
+              </button>
 
-            </button>
+              <button
+                onClick={completePayment}
+                className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-emerald-500 text-lg font-semibold text-black transition-all hover:bg-emerald-400"
+              >
+
+                <CheckCircle2 className="h-6 w-6" />
+
+                COMPLETE PAYMENT
+
+              </button>
+
+            </div>
 
           </div>
 
@@ -544,7 +1364,9 @@ export default function PaymentsPage() {
       ) : (
 
         <div className="text-white/40">
-          Order not found
+
+          Payment unavailable
+
         </div>
 
       )}
@@ -566,11 +1388,11 @@ function SummaryRow({
     <div className="flex items-center justify-between">
 
       <div
-        className={`${
+        className={
           big
             ? "text-xl"
             : "text-white/60"
-        }`}
+        }
       >
 
         {label}
@@ -578,12 +1400,11 @@ function SummaryRow({
       </div>
 
       <div
-        className={`${
+        className={
           big
-            ? "text-3xl text-violet-400"
-
+            ? "text-3xl font-light"
             : "text-lg"
-        }`}
+        }
       >
 
         ฿{

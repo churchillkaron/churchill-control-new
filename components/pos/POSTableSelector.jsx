@@ -1,160 +1,198 @@
+"use client";
+
+import {
+  useMemo,
+  useState,
+} from "react";
+
+const SECTIONS = [
+
+  "ALL",
+  "MAIN FLOOR",
+  "TERRACE",
+  "VIP",
+  "BAR",
+  "OUTSIDE",
+
+];
+
 export default function POSTableSelector({
-  selectedTable,
-  setSelectedTable,
-  tableStatus,
-  tableSessions,
+  tables = [],
+  selectedTable = null,
+  onSelect,
 }) {
 
-  const tables = [
-    "T1",
-    "T2",
-    "T3",
-    "T4",
-    "T5",
-    "T6",
-  ];
+  const [
+    activeSection,
+    setActiveSection,
+  ] = useState("ALL");
 
-  const statusStyles = {
-    AVAILABLE: {
-      dot: "bg-green-400 shadow-[0_0_20px_rgba(74,222,128,0.7)]",
-      text: "text-green-400",
-    },
+  const filteredTables =
+    useMemo(() => {
 
-    ACTIVE: {
-      dot: "bg-orange-400 shadow-[0_0_20px_rgba(251,146,60,0.7)]",
-      text: "text-orange-400",
-    },
+      if (
+        activeSection === "ALL"
+      ) {
 
-    BILLING: {
-      dot: "bg-blue-400 shadow-[0_0_20px_rgba(96,165,250,0.7)]",
-      text: "text-blue-400",
-    },
+        return tables;
 
-    WAITING: {
-      dot: "bg-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.7)]",
-      text: "text-yellow-400",
-    },
+      }
 
-    CLEANING: {
-      dot: "bg-red-400 shadow-[0_0_20px_rgba(248,113,113,0.7)]",
-      text: "text-red-400",
-    },
-  };
+      return tables.filter(
+        table =>
+
+          (
+            table.section ||
+            "MAIN FLOOR"
+          ) === activeSection
+      );
+
+    }, [
+      tables,
+      activeSection,
+    ]);
 
   return (
-    <div className="grid grid-cols-2 gap-[10px]">
 
-      {tables.map((table) => {
+    <div className="flex h-full flex-col">
 
-        const active =
-          selectedTable ===
-          table;
+      {/* SECTION BAR */}
 
-        const status =
-          tableStatus?.[table] ||
-          "AVAILABLE";
+      <div className="mb-5 flex gap-2 overflow-x-auto pb-2">
 
-        const session =
-          tableSessions?.[table];
+        {SECTIONS.map(
+          section => (
 
-        const duration =
-          session
-            ? Math.floor(
-                (
-                  Date.now() -
-                  session.startedAt
-                ) / 60000
-              )
-            : 0;
+            <button
+              key={section}
+              onClick={() =>
+                setActiveSection(
+                  section
+                )
+              }
+              className={`
+                whitespace-nowrap rounded-2xl border px-4 py-2 text-xs transition-all
 
-        return (
-          <button
-            key={table}
-            onClick={() =>
-              setSelectedTable(
-                table
-              )
-            }
-            className={`group relative min-h-[145px] overflow-hidden rounded-[16px] border p-3 text-left transition-all duration-300 ${
-              active
-                ? "border-[#8B5CF6]/40 bg-gradient-to-br from-[#8B5CF6]/20 to-[#8B5CF6]/5 shadow-[0_0_35px_rgba(139,92,246,0.15)]"
-                : "border-white/10 bg-[#111117] hover:border-white/20 hover:bg-[#15151D]"
-            }`}
-          >
+                ${
+                  activeSection ===
+                  section
 
-            {/* BACKGROUND GLOW */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
+                    ? "border-violet-500 bg-violet-500/20 text-white"
 
-            <div className="relative z-10 flex h-full flex-col justify-between">
+                    : "border-white/10 bg-black/20 text-white/50 hover:text-white"
+                }
+              `}
+            >
 
-              {/* TOP */}
-              <div>
+              {section}
 
-                <div className="flex items-start justify-between">
+            </button>
 
-                  <div className="text-[10px] tracking-[0.3em] text-white/25">
-                    TABLE
-                  </div>
+          )
+        )}
 
-                  <div
-                    className={`h-2.5 w-2.5 rounded-full ${
-                      statusStyles[
-                        status
-                      ]?.dot
-                    }`}
-                  />
+      </div>
 
-                </div>
+      {/* TABLE LIST */}
+
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+
+        {filteredTables.map(table => {
+
+          const active =
+            selectedTable?.id ===
+            table.id;
+
+          return (
+
+            <button
+              key={table.id}
+              onClick={() =>
+                onSelect(table)
+              }
+              className={`
+                w-full rounded-[22px] border p-4 text-left transition-all
+
+                ${
+                  active
+
+                    ? "border-violet-500 bg-violet-500/20"
+
+                    : "border-white/10 bg-white/[0.03] hover:border-white/20"
+                }
+              `}
+            >
+
+              <div className="mb-3 flex items-center justify-between">
 
                 <div
-                  className="mt-2 text-[30px] leading-none text-white"
+                  className="text-xl"
                   style={{
-                    fontWeight: 250,
-                    letterSpacing: "-0.06em",
+                    fontWeight: 300,
                   }}
                 >
-                  {table}
+
+                  {
+                    table.table_name
+                  }
+
                 </div>
-
-              </div>
-
-              {/* BOTTOM */}
-              <div>
 
                 <div
-                  className={`text-[11px] tracking-[0.18em] ${
-                    statusStyles[
-                      status
-                    ]?.text
-                  }`}
+                  className={`
+                    rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em]
+
+                    ${
+                      table.status === "AVAILABLE"
+
+                        ? "bg-emerald-500/20 text-emerald-300"
+
+                        : "bg-orange-500/20 text-orange-300"
+                    }
+                  `}
                 >
-                  {status}
+
+                  {
+                    table.status
+                  }
+
                 </div>
-
-                {session && (
-
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-white/35">
-
-                    <div>
-                      {duration} MIN
-                    </div>
-
-                    <div>
-                      ฿
-                      {session.revenue || 0}
-                    </div>
-
-                  </div>
-                )}
 
               </div>
 
-            </div>
+              <div className="flex items-center justify-between text-sm text-white/40">
 
-          </button>
-        );
-      })}
+                <div>
+
+                  Capacity:
+                  {" "}
+                  {
+                    table.capacity || 0
+                  }
+
+                </div>
+
+                <div>
+
+                  {
+                    table.section ||
+                    "MAIN FLOOR"
+                  }
+
+                </div>
+
+              </div>
+
+            </button>
+
+          );
+
+        })}
+
+      </div>
 
     </div>
+
   );
+
 }

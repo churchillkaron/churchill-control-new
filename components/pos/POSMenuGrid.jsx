@@ -1,180 +1,188 @@
+"use client";
+
+import {
+  useMemo,
+  useState,
+} from "react";
+
+const CATEGORIES = [
+
+  "ALL",
+  "STARTER",
+  "MAIN",
+  "DESSERT",
+  "BAR",
+  "WINE",
+  "BEER",
+  "COCKTAIL",
+  "COFFEE",
+  "SOFT DRINK",
+
+];
+
 export default function POSMenuGrid({
-  filteredMenu,
-  category,
-  setCategory,
-  addItem,
-  getSelectedQuantity,
-  search,
-  setSearch,
+  items = [],
+  onAdd,
 }) {
+
+  const [
+    activeCategory,
+    setActiveCategory,
+  ] = useState("ALL");
+
+  const filteredItems =
+    useMemo(() => {
+
+      if (
+        activeCategory === "ALL"
+      ) {
+
+        return items;
+
+      }
+
+      return items.filter(
+        item =>
+
+          (
+            item.category ||
+            ""
+          )
+            .toUpperCase()
+            .includes(
+              activeCategory
+            )
+      );
+
+    }, [
+      items,
+      activeCategory,
+    ]);
+
   return (
-    <div className="flex h-full flex-col">
+
+    <div className="flex h-full flex-col overflow-hidden">
 
       {/* CATEGORY BAR */}
-      <div className="mb-5 flex gap-3 overflow-x-auto pb-1">
 
-        {[
-          "starter",
-          "main",
-          "dessert",
-        ].map(
-          (menuCategory) => (
-            <button
-              key={menuCategory}
-              onClick={() =>
-                setCategory(
-                  menuCategory
-                )
-              }
-              className={`rounded-2xl px-5 py-3 text-sm transition-all duration-300 ${
-                category ===
-                menuCategory
-                  ? "bg-[#8B5CF6] text-white shadow-[0_0_40px_rgba(139,92,246,0.25)]"
-                  : "border border-white/10 bg-[#111117] text-white/50 hover:border-white/20 hover:bg-[#15151D]"
-              }`}
-            >
-              {menuCategory}
-            </button>
-          )
-        )}
+      <div className="mb-6 shrink-0 overflow-x-auto pb-3">
 
-      </div>
+        <div className="flex min-w-max gap-3">
 
-      {/* SEARCH */}
-      <div className="mb-5">
+          {CATEGORIES.map(
+            category => (
 
-        <input
-          value={search}
-          onChange={(e) =>
-            setSearch(
-              e.target.value
-            )
-          }
-          placeholder="Search menu..."
-          className="h-[58px] w-full rounded-[22px] border border-white/10 bg-[#111117] px-5 text-white outline-none transition placeholder:text-white/20 focus:border-[#8B5CF6]/40"
-        />
-
-      </div>
-
-      {/* MENU GRID */}
-      <div className="grid flex-1 grid-cols-2 gap-3 overflow-y-auto pr-2 xl:grid-cols-3">
-
-        {filteredMenu.map(
-          (item) => {
-
-            const stock =
-              Number(
-                item.stock || 0
-              );
-
-            const selected =
-              getSelectedQuantity(
-                item.id
-              );
-
-            const availableToAdd =
-              stock - selected;
-
-            const outOfStock =
-              stock <= 0;
-
-            const maxSelected =
-              selected >= stock;
-
-            return (
               <button
-                key={item.id}
+                key={category}
                 onClick={() =>
-                  addItem(item)
+                  setActiveCategory(
+                    category
+                  )
                 }
-                disabled={
-                  outOfStock ||
-                  maxSelected
-                }
-                className={`group relative flex min-h-[145px] flex-col justify-between overflow-hidden rounded-[24px] border p-4 text-left transition-all duration-300 ${
-                  outOfStock ||
-                  maxSelected
-                    ? "border-white/5 bg-[#0E0E14] opacity-40"
-                    : "border-white/10 bg-[#12121A] hover:-translate-y-[2px] hover:border-[#8B5CF6]/40 hover:bg-[#1A1A24] hover:shadow-[0_10px_40px_rgba(139,92,246,0.12)]"
-                }`}
+                className={`
+                  whitespace-nowrap rounded-2xl border px-5 py-3 text-sm transition-all
+
+                  ${
+                    activeCategory ===
+                    category
+
+                      ? "border-violet-500 bg-violet-500/20 text-white"
+
+                      : "border-white/10 bg-black/20 text-white/50 hover:text-white"
+                  }
+                `}
               >
 
-                {/* TOP */}
-                <div>
-
-                  <div
-                    className="leading-tight text-[20px]"
-                    style={{
-                      fontWeight: 300,
-                      letterSpacing: "-0.05em",
-                    }}
-                  >
-                    {item.name}
-                  </div>
-
-                  
-
-                </div>
-
-                {/* BOTTOM */}
-                <div className="mt-8 flex items-end justify-between">
-
-                  <div>
-
-                    <div className="text-[10px] tracking-[0.25em] text-white/25">
-                      PRICE
-                    </div>
-
-                    <div
-                      className="mt-2 text-2xl"
-                      style={{
-                        fontWeight: 250,
-                        letterSpacing: "-0.06em",
-                      }}
-                    >
-                      ฿
-                      {Number(
-                        item.price || 0
-                      )}
-                    </div>
-
-                  </div>
-
-                  <div className="text-right">
-
-                    <div className="text-[10px] tracking-[0.25em] text-white/25">
-                      STOCK
-                    </div>
-
-                    <div
-                      className={`mt-2 text-sm ${
-                        outOfStock
-                          ? "text-red-400"
-                          : availableToAdd <= 3
-                          ? "text-yellow-400"
-                          : "text-green-400"
-                      }`}
-                    >
-
-                      {outOfStock
-                        ? "OUT OF STOCK"
-                        : availableToAdd <= 3
-                        ? `LOW (${availableToAdd})`
-                        : `${availableToAdd} AVAILABLE`}
-
-                    </div>
-
-                  </div>
-
-                </div>
+                {category}
 
               </button>
-            );
-          }
-        )}
+
+            )
+          )}
+
+        </div>
+
+      </div>
+
+      {/* MENU AREA */}
+
+      <div className="flex-1 overflow-y-auto pr-2">
+
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+
+          {filteredItems.map(item => (
+
+            <button
+              key={item.id}
+              onClick={() =>
+                onAdd(item)
+              }
+              className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5 text-left transition-all hover:border-violet-500 hover:bg-violet-500/10"
+            >
+
+              <div className="mb-3 flex items-start justify-between gap-3">
+
+                <div
+                  className="line-clamp-2 text-xl"
+                  style={{
+                    fontWeight: 300,
+                  }}
+                >
+
+                  {item.name}
+
+                </div>
+
+                <div className="shrink-0 rounded-full bg-violet-500/20 px-3 py-1 text-xs uppercase text-violet-300">
+
+                  {
+                    item.category ||
+                    "MENU"
+                  }
+
+                </div>
+
+              </div>
+
+              <div className="mb-6 line-clamp-2 text-sm text-white/40">
+
+                {
+                  item.description ||
+                  "No description"
+                }
+
+              </div>
+
+              <div className="flex items-center justify-between">
+
+                <div className="text-2xl font-light text-violet-300">
+
+                  ฿{
+                    Number(
+                      item.price || 0
+                    ).toFixed(0)
+                  }
+
+                </div>
+
+                <div className="rounded-full border border-white/10 px-4 py-2 text-sm text-white/60">
+
+                  ADD
+
+                </div>
+
+              </div>
+
+            </button>
+
+          ))}
+
+        </div>
 
       </div>
 
     </div>
+
   );
+
 }

@@ -71,7 +71,7 @@ export default function PayrollPage() {
 
       .eq(
         "payment_status",
-        "PAID"
+        PAYROLL_STATUS.PAID
       );
 
     setStaff(
@@ -408,6 +408,33 @@ export default function PayrollPage() {
       )}
 
     </PageWrapper>
+
+  );
+
+}
+
+function KPI({
+  title,
+  value,
+}) {
+
+  return (
+
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
+
+      <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+
+        {title}
+
+      </div>
+
+      <div className="mt-4 text-3xl font-bold">
+
+        {value}
+
+      </div>
+
+    </div>
 
   );
 

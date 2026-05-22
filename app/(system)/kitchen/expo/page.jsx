@@ -2,202 +2,240 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
-  BellRing,
   CheckCircle2,
-  ChefHat,
-  Clock3,
-  Flame,
-  UtensilsCrossed,
-} from 'lucide-react'
+  BellRing,
+} from "lucide-react";
 
-import {
-  createKitchenRealtimeChannel,
-} from '@/lib/realtime/kitchenRealtimeChannel'
+import { supabase }
+from "@/lib/shared/supabase/client";
 
-export default function KitchenExpoPage() {
+const TENANT_ID =
+  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
-  const tenantId =
-    '76e2caa6-dd78-49e5-b0f5-1ff94185c2d4'
+export default function ExpoPage() {
 
   const [
-    queue,
-    setQueue,
-  ] = useState([])
+    orders,
+    setOrders,
+  ] = useState([]);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  async function loadExpo() {
+
+    setLoading(true);
+
+    const {
+      data,
+      error,
+    } = await supabase
+
+      .from("orders")
+
+      .select(`
+        *,
+        order_items (*)
+      `)
+
+      .eq(
+        "tenant_id",
+        TENANT_ID
+      )
+
+      .order(
+        "created_at",
+        {
+          ascending: true,
+        }
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      setLoading(false);
+
+      return;
+
+    }
+
+    setOrders(data || []);
+
+    setLoading(false);
+
+  }
 
   useEffect(() => {
 
+    loadExpo();
+
     const channel =
-      createKitchenRealtimeChannel({
+      supabase
 
-        tenantId,
+        .channel("expo-live")
 
-        onQueueInsert:
-          data => {
-
-            setQueue(prev => [
-              data,
-              ...prev,
-            ])
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "order_items",
           },
+          () => {
+            loadExpo();
+          }
+        )
 
-        onQueueUpdate:
-          data => {
-
-            setQueue(prev =>
-              prev.map(item =>
-                item.id === data.id
-                  ? data
-                  : item
-              )
-            )
-          },
-
-      })
+        .subscribe();
 
     return () => {
 
-      channel.unsubscribe()
+      supabase.removeChannel(
+        channel
+      );
+
+    };
+
+  }, []);
+
+  async function serveTable(
+    items
+  ) {
+
+    const ids =
+      items.map(
+        i => i.id
+      );
+
+    const { error } =
+      await supabase
+
+        .from("order_items")
+
+        .update({
+
+          status:
+            "SERVED",
+
+        })
+
+        .in(
+          "id",
+          ids
+        );
+
+    if (error) {
+
+      console.error(error);
+
+      return;
+
     }
 
-  }, [])
+    loadExpo();
 
-  const readyItems =
+  }
+
+  const readyTables =
     useMemo(() => {
 
-      return queue.filter(
-        item =>
-          item.status ===
-          'READY'
-      )
+      const readyItems =
+        orders.flatMap(
+          order =>
 
-    }, [queue])
+            (order.order_items || [])
 
-  const activeItems =
-    useMemo(() => {
+              .filter(
+                item =>
+                  item.status ===
+                  "READY"
+              )
 
-      return queue.filter(
-        item =>
-          [
-            'WAITING',
-            'PREPARING',
-            'COOKING',
-            'PLATING',
-          ].includes(
-            item.status
-          )
-      )
+              .map(
+                item => ({
+                  ...item,
+                  table_number:
+                    order.table_number,
+                })
+              )
+        );
 
-    }, [queue])
+      const grouped = {};
 
-  const urgentItems =
-    useMemo(() => {
+      for (
+        const item of readyItems
+      ) {
 
-      return queue.filter(
-        item =>
-          item.priority ===
-          'URGENT'
-      )
+        const table =
+          item.table_number;
 
-    }, [queue])
+        if (
+          !grouped[table]
+        ) {
+
+          grouped[table] = [];
+
+        }
+
+        grouped[table].push(
+          item
+        );
+
+      }
+
+      return grouped;
+
+    }, [orders]);
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-8">
+    <div className="min-h-screen bg-[#111111] p-8 text-white">
 
-      <div className="flex items-center justify-between mb-10">
+      <div className="mb-10 flex items-center justify-between">
 
         <div>
 
           <h1 className="text-5xl font-bold tracking-tight">
+
             Expo Control
+
           </h1>
 
-          <p className="text-zinc-500 mt-3 text-lg">
-            Final kitchen pass and dispatch control
+          <p className="mt-3 text-lg text-zinc-500">
+
+            Ready tables & service coordination
+
           </p>
 
         </div>
 
-        <div className="flex gap-4">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-6 py-4">
 
-          <TopStat
-            icon={<UtensilsCrossed />}
-            label="Active"
-            value={activeItems.length}
-          />
+          <div className="mb-2 flex items-center gap-2 text-zinc-500">
 
-          <TopStat
-            icon={<CheckCircle2 />}
-            label="Ready"
-            value={readyItems.length}
-          />
+            <BellRing size={18} />
 
-          <TopStat
-            icon={<Flame />}
-            label="Urgent"
-            value={urgentItems.length}
-          />
-
-        </div>
-
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-        <div className="border border-zinc-800 rounded-3xl bg-zinc-950 p-6">
-
-          <div className="flex items-center gap-3 mb-6">
-
-            <BellRing />
-
-            <h2 className="text-2xl font-semibold">
-              Ready For Service
-            </h2>
+            READY TABLES
 
           </div>
 
-          <div className="space-y-4 max-h-[800px] overflow-auto">
+          <div className="text-4xl font-bold">
 
-            {readyItems.map(
-              item => (
-
-                <ReadyCard
-                  key={item.id}
-                  item={item}
-                />
-              )
-            )}
-
-          </div>
-
-        </div>
-
-        <div className="border border-zinc-800 rounded-3xl bg-zinc-950 p-6">
-
-          <div className="flex items-center gap-3 mb-6">
-
-            <ChefHat />
-
-            <h2 className="text-2xl font-semibold">
-              Production Queue
-            </h2>
-
-          </div>
-
-          <div className="space-y-4 max-h-[800px] overflow-auto">
-
-            {activeItems.map(
-              item => (
-
-                <ProductionCard
-                  key={item.id}
-                  item={item}
-                />
-              )
-            )}
+            {
+              Object.keys(
+                readyTables
+              ).length
+            }
 
           </div>
 
@@ -205,158 +243,118 @@ export default function KitchenExpoPage() {
 
       </div>
 
-    </div>
-  )
-}
+      {loading ? (
 
-function TopStat({
-  icon,
-  label,
-  value,
-}) {
-
-  return (
-
-    <div className="border border-zinc-800 rounded-2xl bg-zinc-950 px-5 py-4 min-w-[130px]">
-
-      <div className="flex items-center justify-between mb-3 text-zinc-500">
-
-        <div className="text-sm">
-          {label}
+        <div className="text-zinc-500">
+          Loading expo...
         </div>
 
-        {icon}
+      ) : (
 
-      </div>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
 
-      <div className="text-3xl font-bold">
-        {value}
-      </div>
+          {Object.entries(
+            readyTables
+          ).map(
+            ([table, items]) => (
 
-    </div>
-  )
-}
+              <div
+                key={table}
+                className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6"
+              >
 
-function ReadyCard({
-  item,
-}) {
+                <div className="mb-6 flex items-center justify-between">
 
-  return (
+                  <div>
 
-    <div className="border border-green-500 bg-green-950/20 rounded-2xl p-5">
+                    <div className="text-sm text-zinc-500">
 
-      <div className="flex items-center justify-between mb-4">
+                      TABLE
 
-        <div className="text-2xl font-bold">
-          {item.dish_name}
-        </div>
+                    </div>
 
-        <div className="text-green-400 text-sm font-bold">
-          READY
-        </div>
+                    <div className="text-4xl font-bold">
 
-      </div>
+                      {table}
 
-      <div className="grid grid-cols-2 gap-4 text-sm text-zinc-300">
+                    </div>
 
-        <div>
-          Table:
-          {' '}
-          {item.table_number}
-        </div>
+                  </div>
 
-        <div>
-          Qty:
-          {' '}
-          {item.quantity}
-        </div>
+                  <CheckCircle2
+                    size={36}
+                    className="text-green-400"
+                  />
 
-        <div>
-          Chef:
-          {' '}
-          {item.chef_name || '-'}
-        </div>
+                </div>
 
-        <div>
-          Station:
-          {' '}
-          {item.station || '-'}
-        </div>
+                <div className="space-y-3">
 
-      </div>
+                  {items.map(
+                    item => (
 
-    </div>
-  )
-}
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between rounded-xl border border-zinc-800 bg-black px-4 py-3"
+                      >
 
-function ProductionCard({
-  item,
-}) {
+                        <div>
 
-  const urgent =
-    item.priority ===
-    'URGENT'
+                          <div className="text-xl font-semibold">
 
-  return (
+                            {
+                              item.item_name
+                            }
 
-    <div
-      className={`
-        rounded-2xl border p-5
-        ${
-          urgent
-            ? 'border-red-500 bg-red-950/20'
-            : 'border-zinc-800 bg-black'
-        }
-      `}
-    >
+                          </div>
 
-      <div className="flex items-center justify-between mb-4">
+                          <div className="text-sm text-zinc-500">
 
-        <div className="text-xl font-bold">
-          {item.dish_name}
-        </div>
+                            Qty:
+                            {" "}
+                            {item.quantity}
 
-        <div className="text-xs text-zinc-400">
-          {item.status}
-        </div>
+                          </div>
 
-      </div>
+                        </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm text-zinc-400">
+                        <div className="text-green-400 font-bold">
 
-        <div className="flex items-center gap-2">
-          <Clock3 size={14} />
-          Table {item.table_number}
-        </div>
+                          READY
 
-        <div>
-          Qty:
-          {' '}
-          {item.quantity}
-        </div>
+                        </div>
 
-        <div>
-          Chef:
-          {' '}
-          {item.chef_name || '-'}
-        </div>
+                      </div>
 
-        <div>
-          Station:
-          {' '}
-          {item.station || '-'}
-        </div>
+                    )
+                  )}
 
-      </div>
+                </div>
 
-      {urgent && (
+                <button
+                  onClick={() =>
+                    serveTable(
+                      items
+                    )
+                  }
+                  className="mt-6 w-full rounded-2xl bg-green-500 py-4 text-lg font-bold text-black"
+                >
 
-        <div className="text-red-400 text-xs font-bold mt-4">
-          URGENT PRIORITY
+                  SERVE TABLE
+
+                </button>
+
+              </div>
+
+            )
+          )}
+
         </div>
 
       )}
 
     </div>
-  )
+
+  );
+
 }

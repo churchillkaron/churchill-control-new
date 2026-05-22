@@ -8,6 +8,9 @@ from "@/lib/shared/supabase/admin";
 import { getTenantId }
 from "@/lib/shared/tenant/getTenantId";
 
+import { generateKitchenCultureScore }
+from "@/lib/kitchen/generateKitchenCultureScore";
+
 export async function GET(
   request
 ) {
@@ -124,6 +127,28 @@ export async function GET(
       };
     });
 
+    const kitchenCulture =
+      await generateKitchenCultureScore({
+
+        tenantId:
+          tenant_id,
+
+      });
+
+    const averageKitchenCulture =
+      kitchenCulture?.length
+
+        ? Math.round(
+            kitchenCulture.reduce(
+              (sum, chef) =>
+                sum + chef.cultureScore,
+              0
+            ) /
+            kitchenCulture.length
+          )
+
+        : 100;
+
     const fohScore =
       staff.length > 0
         ? Math.round(
@@ -132,7 +157,27 @@ export async function GET(
           )
         : 0;
 
-    const kitchenLevel = hasCritical ? "CRITICAL" : "GOOD";
+    let kitchenLevel = "GOOD";
+
+    if (
+      averageKitchenCulture < 40
+    ) {
+
+      kitchenLevel = "CRITICAL";
+
+    } else if (
+      averageKitchenCulture < 60
+    ) {
+
+      kitchenLevel = "BAD";
+
+    } else if (
+      averageKitchenCulture < 80
+    ) {
+
+      kitchenLevel = "WARNING";
+
+    }
     const barLevel = hasCritical ? "CRITICAL" : "GOOD";
 
     // 🔥 TASK ENGINE (FULL + FIXED)

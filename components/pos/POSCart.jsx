@@ -1,295 +1,186 @@
+"use client";
+
+import {
+  Minus,
+  Plus,
+  Send,
+} from "lucide-react";
+
 export default function POSCart({
-  selectedTable,
-  orderItems,
-  total,
-  sending,
-  removeItem,
-  sendOrder,
-  clearTable,
-  tableStatus,
-  tableSessions,
+  items = [],
+  total = 0,
+  onQuantityChange,
+  onSendOrder,
 }) {
 
-  const session =
-    tableSessions?.[
-      selectedTable
-    ];
-
-  const status =
-    tableStatus?.[
-      selectedTable
-    ] || "AVAILABLE";
-
-  const duration =
-    session
-      ? Math.floor(
-          (
-            Date.now() -
-            session.startedAt
-          ) / 60000
-        )
-      : 0;
-
-  const statusStyles = {
-    AVAILABLE:
-      "bg-green-500/10 text-green-400",
-
-    ACTIVE:
-      "bg-orange-500/10 text-orange-400",
-
-    BILLING:
-      "bg-blue-500/10 text-blue-400",
-
-    WAITING:
-      "bg-yellow-500/10 text-yellow-400",
-
-    CLEANING:
-      "bg-red-500/10 text-red-400",
-  };
-
   return (
-    <div className="flex h-full flex-col">
 
-      {/* HEADER */}
-      <div>
-
-        <div className="flex items-start justify-between">
-
-          <div>
-
-            <div className="text-[11px] tracking-[0.3em] text-[#B58AF8]">
-              ACTIVE TABLE
-            </div>
-
-            <div
-              className="mt-2 text-3xl"
-              style={{
-                fontWeight: 250,
-                letterSpacing: "-0.06em",
-              }}
-            >
-              {selectedTable}
-            </div>
-
-          </div>
-
-          <div
-            className={`rounded-full px-4 py-2 text-[11px] tracking-[0.15em] ${
-              statusStyles[
-                status
-              ]
-            }`}
-          >
-            {status}
-          </div>
-
-        </div>
-
-        {/* SESSION */}
-        {session && (
-
-          <div className="mt-5 grid grid-cols-3 gap-2">
-
-            <div className="rounded-[14px] border border-white/10 bg-[#15151D] p-3">
-
-              <div className="text-[10px] tracking-[0.18em] text-white/30">
-                TIME
-              </div>
-
-              <div
-                className="mt-2 text-lg"
-                style={{
-                  fontWeight: 250,
-                }}
-              >
-                {duration}m
-              </div>
-
-            </div>
-
-            <div className="rounded-[14px] border border-white/10 bg-[#15151D] p-3">
-
-              <div className="text-[10px] tracking-[0.18em] text-white/30">
-                ORDERS
-              </div>
-
-              <div
-                className="mt-2 text-lg"
-                style={{
-                  fontWeight: 250,
-                }}
-              >
-                {session.orders}
-              </div>
-
-            </div>
-
-            <div className="rounded-[14px] border border-white/10 bg-[#15151D] p-3">
-
-              <div className="text-[10px] tracking-[0.18em] text-white/30">
-                REVENUE
-              </div>
-
-              <div
-                className="mt-2 text-lg"
-                style={{
-                  fontWeight: 250,
-                }}
-              >
-                ฿
-                {session.revenue}
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-      </div>
+    <div className="flex h-full flex-col overflow-hidden">
 
       {/* ITEMS */}
-      <div className="mt-5 flex-1 space-y-3 overflow-y-auto pr-1">
 
-        {orderItems.length === 0 && (
+      <div className="flex-1 overflow-y-auto pr-2">
 
-          <div className="flex h-full items-center justify-center rounded-[18px] border border-dashed border-white/10 bg-black/20 text-sm text-white/30">
+        <div className="space-y-3 pb-6">
 
-            No items selected
+          {items.length === 0 && (
 
-          </div>
-        )}
+            <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-white/40">
 
-        {orderItems.map((item) => (
-
-          <div
-            key={item.dish_id}
-            className="rounded-[18px] border border-white/10 bg-[#15151D] p-3"
-          >
-
-            <div className="flex items-start justify-between">
-
-              <div>
-
-                <div
-                  className="text-base"
-                  style={{
-                    fontWeight: 300,
-                    letterSpacing: "-0.03em",
-                  }}
-                >
-                  {item.item_name}
-                </div>
-
-                <div className="mt-1 text-sm text-white/40">
-                  Qty {item.quantity}
-                </div>
-
-              </div>
-
-              <button
-                onClick={() =>
-                  removeItem(
-                    item.dish_id
-                  )
-                }
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 text-lg text-red-400 transition hover:scale-105"
-              >
-                −
-              </button>
+              Cart empty
 
             </div>
 
-            <div className="mt-4 flex items-end justify-between">
+          )}
 
-              <div className="text-[10px] tracking-[0.18em] text-white/30">
-                TOTAL
+          {items.map(item => (
+
+            <div
+              key={item.id}
+              className="rounded-2xl border border-white/10 bg-black/20 p-4"
+            >
+
+              <div className="mb-3 flex items-start justify-between">
+
+                <div>
+
+                  <div className="text-lg">
+
+                    {
+                      item.name
+                    }
+
+                  </div>
+
+                  <div className="mt-1 text-xs uppercase text-white/40">
+
+                    {
+                      item.category ||
+                      "MENU"
+                    }
+
+                  </div>
+
+                </div>
+
+                <div className="text-violet-300">
+
+                  ฿{
+                    Number(
+                      item.price || 0
+                    ).toFixed(0)
+                  }
+
+                </div>
+
               </div>
 
-              <div
-                className="text-xl"
-                style={{
-                  fontWeight: 250,
-                  letterSpacing: "-0.05em",
-                }}
-              >
-                ฿
-                {Number(
-                  item.price || 0
-                ) * item.quantity}
+              <div className="flex items-center justify-between">
+
+                <div className="flex items-center gap-2">
+
+                  <button
+                    onClick={() =>
+                      onQuantityChange(
+                        item.id,
+                        -1
+                      )
+                    }
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5"
+                  >
+
+                    <Minus size={14} />
+
+                  </button>
+
+                  <div className="min-w-[24px] text-center">
+
+                    {
+                      item.quantity
+                    }
+
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      onQuantityChange(
+                        item.id,
+                        1
+                      )
+                    }
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5"
+                  >
+
+                    <Plus size={14} />
+
+                  </button>
+
+                </div>
+
+                <div className="text-lg font-light">
+
+                  ฿{
+                    (
+                      Number(
+                        item.price || 0
+                      ) *
+                      Number(
+                        item.quantity || 0
+                      )
+                    ).toFixed(0)
+                  }
+
+                </div>
+
               </div>
 
             </div>
 
-          </div>
-        ))}
+          ))}
+
+        </div>
 
       </div>
 
       {/* FOOTER */}
-      <div className="mt-5 border-t border-white/10 pt-5">
 
-        <div className="mb-5 flex items-end justify-between">
+      <div className="shrink-0 border-t border-white/10 bg-[#12121A] pt-5">
 
-          <div>
+        <div className="mb-5 flex items-center justify-between">
 
-            <div className="text-[10px] tracking-[0.18em] text-white/30">
-              ORDER TOTAL
-            </div>
+          <div className="text-white/50">
 
-            <div
-              className="mt-2 text-4xl"
-              style={{
-                fontWeight: 250,
-                letterSpacing: "-0.07em",
-              }}
-            >
-              ฿{total}
-            </div>
+            TOTAL
 
           </div>
 
-        </div>
+          <div className="text-3xl font-light text-violet-300">
 
-        {/* ACTIONS */}
-        <div className="space-y-3">
-
-          <button
-            onClick={sendOrder}
-            disabled={
-              orderItems.length === 0 ||
-              sending
+            ฿{
+              Number(
+                total || 0
+              ).toFixed(0)
             }
-            className="w-full rounded-[18px] bg-[#8B5CF6] px-5 py-4 text-lg font-medium text-white transition duration-300 hover:bg-[#9D6BFF] disabled:opacity-40"
-          >
-            {sending
-              ? "SENDING..."
-              : "SEND ORDER"}
-          </button>
-
-          <div className="grid grid-cols-3 gap-2">
-
-            <button className="rounded-[16px] border border-white/10 bg-[#15151D] px-4 py-3 text-sm text-white/60 transition hover:bg-[#1A1A24]">
-              HOLD
-            </button>
-
-            <button className="rounded-[16px] border border-white/10 bg-[#15151D] px-4 py-3 text-sm text-white/60 transition hover:bg-[#1A1A24]">
-              ADJUST
-            </button>
-
-            <button
-              onClick={clearTable}
-              disabled={sending}
-              className="rounded-[16px] border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400 transition hover:bg-red-500/20 disabled:opacity-40"
-            >
-              CLEAR
-            </button>
 
           </div>
 
         </div>
+
+        <button
+          onClick={onSendOrder}
+          className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-violet-500 text-lg font-semibold text-black transition-all hover:bg-violet-400"
+        >
+
+          <Send size={18} />
+
+          SEND ORDER
+
+        </button>
 
       </div>
 
     </div>
+
   );
+
 }

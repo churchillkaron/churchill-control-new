@@ -10,14 +10,12 @@ import { loadActiveOrders } from "@/lib/pos/loadActiveOrders";
 
 import { loadOrderItems } from "@/lib/pos/loadOrderItems";
 
-import { markOrderPaid } from "@/lib/pos/markOrderPaid";
+
 
 export default function POSOrdersPage() {
 
-  const [
-    tenantId,
-    setTenantId,
-  ] = useState(null);
+  const tenantId =
+    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
   const [
     orders,
@@ -33,45 +31,6 @@ export default function POSOrdersPage() {
     loading,
     setLoading,
   ] = useState(true);
-
-  // ===== LOAD TENANT =====
-  useEffect(() => {
-
-    async function loadTenant() {
-
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getSession();
-
-      if (!user) {
-        return;
-      }
-
-      const {
-        data,
-      } = await supabase
-        .from("staff_accounts")
-        .select("*")
-        .eq(
-          "auth_user_id",
-          user.id
-        )
-        .single();
-
-      if (
-        data?.tenant_id
-      ) {
-
-        setTenantId(
-          data.tenant_id
-        );
-      }
-    }
-
-    loadTenant();
-
-  }, []);
 
   // ===== LOAD ORDERS =====
   async function refreshOrders() {
@@ -159,27 +118,14 @@ export default function POSOrdersPage() {
     tenantId,
   ]);
 
-  // ===== PAY =====
-  async function payOrder(
+  // ===== PAYMENT ROUTE =====
+  function goToPayment(
     orderId
   ) {
 
-    try {
+    window.location.href =
+      `/pos/payments?order_id=${orderId}`;
 
-      await markOrderPaid(
-        orderId
-      );
-
-      await refreshOrders();
-
-    } catch (error) {
-
-      console.error(error);
-
-      alert(
-        error.message
-      );
-    }
   }
 
   return (
@@ -338,7 +284,7 @@ export default function POSOrdersPage() {
 
                   <button
                     onClick={() =>
-                      payOrder(
+                      goToPayment(
                         order.id
                       )
                     }

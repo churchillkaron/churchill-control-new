@@ -1,201 +1,258 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
-
 import {
-  Search,
-  Plus,
-  Minus,
-  Send,
-  Flame,
-  PauseCircle,
-  BellRing,
-} from "lucide-react";
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-import PageWrapper from "@/components/PageWrapper";
-import { supabase } from "@/lib/shared/supabase/client";
+import { useRouter }
+from "next/navigation";
+
+import POSShell
+from "@/components/pos/POSShell";
+
+import POSTableSelector
+from "@/components/pos/POSTableSelector";
+
+import POSMenuGrid
+from "@/components/pos/POSMenuGrid";
+
+import POSCart
+from "@/components/pos/POSCart";
+
+import { supabase }
+from "@/lib/shared/supabase/client";
+
+import loadOperationalSettings
+from "@/lib/settings/loadOperationalSettings";
 
 const TENANT_ID =
   "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
 export default function POSContent() {
 
-  const searchParams =
-    useSearchParams();
+  const router =
+    useRouter();
 
-  const queryTable =
-    searchParams.get("table");
+  const [
+    tables,
+    setTables,
+  ] = useState([]);
 
-  const [tables, setTables] =
-    useState([]);
+  const [
+    menu,
+    setMenu,
+  ] = useState([]);
 
-  const [selectedTable, setSelectedTable] =
-    useState(
-      queryTable || ""
-    );
+  const [
+    selectedTable,
+    setSelectedTable,
+  ] = useState(null);
 
-  const [dishes, setDishes] =
-    useState([]);
+  const [
+    cart,
+    setCart,
+  ] = useState([]);
 
-  const [cart, setCart] =
-    useState([]);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [search, setSearch] =
-    useState("");
+  const [
+    posSettings,
+    setPosSettings,
+  ] = useState(null);
 
-  useEffect(() => {
+  async function loadTables() {
 
-    async function load() {
+    const {
+      data,
+      error,
+    } = await supabase
 
-      const {
-        data: tablesData,
-      } = await supabase
+      .from(
+        "restaurant_tables"
+      )
 
-        .from("restaurant_tables")
+      .select("*")
 
-        .select("*")
+      .eq(
+        "tenant_id",
+        TENANT_ID
+      )
 
-        .order(
-          "table_name",
-          {
-            ascending: true,
-          }
-        );
-
-      const {
-        data: dishesData,
-      } = await supabase
-
-        .from("dishes")
-
-        .select("*")
-
-        .eq(
-          "tenant_id",
-          TENANT_ID
-        );
-
-      setTables(
-        tablesData || []
+      .order(
+        "table_name"
       );
 
-      setDishes(
-        dishesData || []
-      );
+    if (error) {
 
-    }
-
-    load();
-
-  }, []);
-
-  const filteredDishes =
-    useMemo(() => {
-
-      return dishes.filter(
-        dish =>
-
-          dish.name
-            ?.toLowerCase()
-            .includes(
-              search.toLowerCase()
-            )
-      );
-
-    }, [
-      dishes,
-      search,
-    ]);
-
-  function addDish(dish) {
-
-    const exists =
-      cart.find(
-        item =>
-          item.id ===
-          dish.id
-      );
-
-    if (exists) {
-
-      setCart(
-        cart.map(item =>
-
-          item.id === dish.id
-
-            ? {
-                ...item,
-                quantity:
-                  item.quantity + 1,
-              }
-
-            : item
-        )
+      console.error(
+        error
       );
 
       return;
 
     }
 
-    setCart([
-      ...cart,
-
-      {
-        ...dish,
-
-        quantity: 1,
-
-        fire: false,
-
-        hold: false,
-
-        vip: false,
-
-        rush: false,
-
-        course: 1,
-
-      },
-    ]);
-
-  }
-
-  function increase(id) {
-
-    setCart(
-      cart.map(item =>
-
-        item.id === id
-
-          ? {
-              ...item,
-              quantity:
-                item.quantity + 1,
-            }
-
-          : item
-      )
+    setTables(
+      data || []
     );
 
   }
 
-  function decrease(id) {
+  async function loadMenu() {
 
-    setCart(
-      cart
-        .map(item =>
+    const {
+      data,
+      error,
+    } = await supabase
 
-          item.id === id
+      .from("dishes")
 
-            ? {
-                ...item,
-                quantity:
-                  item.quantity - 1,
-              }
+      .select("*")
 
-            : item
-        )
+      .eq(
+        "tenant_id",
+        TENANT_ID
+      )
+
+      .order("name");
+
+    if (error) {
+
+      console.error(
+        error
+      );
+
+      return;
+
+    }
+
+    setMenu(
+      data || []
+    );
+
+  }
+
+  async function loadPOSSettings() {
+
+    try {
+
+      const settings =
+        await loadOperationalSettings({
+
+          tenantId:
+            TENANT_ID,
+
+          domain:
+            "POS",
+
+        });
+
+      setPosSettings(
+        settings
+      );
+
+    } catch (error) {
+
+      console.error(
+        error
+      );
+
+    }
+
+  }
+
+  useEffect(() => {
+
+    async function init() {
+
+      setLoading(true);
+
+      await Promise.all([
+        loadTables(),
+        loadMenu(),
+        loadPOSSettings(),
+      ]);
+
+      setLoading(false);
+
+    }
+
+    init();
+
+  }, []);
+
+  function addToCart(
+    item
+  ) {
+
+    setCart(prev => {
+
+      const existing =
+        prev.find(
+          i =>
+            i.id === item.id
+        );
+
+      if (existing) {
+
+        return prev.map(
+          i =>
+
+            i.id === item.id
+
+              ? {
+                  ...i,
+                  quantity:
+                    i.quantity + 1,
+                }
+
+              : i
+        );
+
+      }
+
+      return [
+        ...prev,
+        {
+          ...item,
+          quantity: 1,
+          status: "NEW",
+          course: 1,
+        },
+      ];
+
+    });
+
+  }
+
+  function updateQuantity(
+    id,
+    change
+  ) {
+
+    setCart(prev =>
+
+      prev
+        .map(item => {
+
+          if (
+            item.id !== id
+          )
+            return item;
+
+          return {
+            ...item,
+            quantity:
+              item.quantity +
+              change,
+          };
+
+        })
         .filter(
           item =>
             item.quantity > 0
@@ -204,34 +261,16 @@ export default function POSContent() {
 
   }
 
-  function updateCartItem(
-    id,
-    field,
-    value
-  ) {
+  
+async function sendOrder() {
 
-    setCart(
-      cart.map(item =>
-
-        item.id === id
-
-          ? {
-              ...item,
-              [field]: value,
-            }
-
-          : item
-      )
-    );
-
-  }
-
-  async function sendOrder() {
-
-    if (!selectedTable) {
+    if (
+      posSettings?.require_table_assignment &&
+      !selectedTable
+    ) {
 
       alert(
-        "Select table first"
+        "Select table"
       );
 
       return;
@@ -243,126 +282,111 @@ export default function POSContent() {
     ) {
 
       alert(
-        "No items"
+        "Cart empty"
       );
 
       return;
 
     }
 
-    try {
+    try {const subtotal =
+        cart.reduce(
+          (
+            sum,
+            item
+          ) =>
 
-      let order = null;
+            sum +
+
+            (
+              Number(
+                item.price || 0
+              ) *
+
+              Number(
+                item.quantity || 1
+              )
+            ),
+
+          0
+        );
+
+      const serviceCharge =
+        posSettings?.enable_service_charge
+
+          ? Number(
+              (
+                subtotal *
+                (
+                  Number(
+                    posSettings?.service_charge_percent || 0
+                  ) / 100
+                )
+              ).toFixed(2)
+            )
+
+          : 0;
+
+      const vat =
+        Number(
+          (
+            (
+              subtotal +
+              serviceCharge
+            ) * 0.07
+          ).toFixed(2)
+        );
+
+      const totalAmount =
+        Number(
+          (
+            subtotal +
+            serviceCharge +
+            vat
+          ).toFixed(2)
+        );
 
       const {
-        data: existingOrder,
+        data: order,
+        error: orderError,
       } = await supabase
 
         .from("orders")
 
-        .select("*")
+        .insert({
 
-        .eq(
-          "tenant_id",
-          TENANT_ID
-        )
+          tenant_id:
+            TENANT_ID,
 
-        .eq(
-          "table_number",
-          selectedTable
-        )
+          table_number:
+            selectedTable.table_name,
 
-        .in(
-          "status",
-          [
+
+
+
+          total:
+            totalAmount,
+
+          total_amount:
+            totalAmount,
+
+          amount_paid:
+            0,
+
+          status:
             "OPEN",
-            "READY",
-            "BILLING",
-          ]
-        )
 
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          }
-        )
+          payment_status:
+            "UNPAID",
 
-        .limit(1)
+        })
 
-        .maybeSingle();
+        .select()
 
-      if (existingOrder) {
+        .single();
 
-        order =
-          existingOrder;
-
-      } else {
-
-        const total =
-          cart.reduce(
-            (
-              sum,
-              item
-            ) =>
-
-              sum +
-              (
-                Number(
-                  item.price
-                ) *
-                item.quantity
-              ),
-
-            0
-          );
-
-        const {
-          data: newOrder,
-          error,
-        } = await supabase
-
-          .from("orders")
-
-          .insert([
-            {
-              tenant_id:
-                TENANT_ID,
-
-              table_number:
-                selectedTable,
-
-              status:
-                "OPEN",
-
-              payment_status:
-                "PENDING",
-
-              pacing_status:
-                "ACTIVE",
-
-              current_course:
-                1,
-
-              total_amount:
-                total,
-            },
-          ])
-
-          .select()
-
-          .single();
-
-        if (error)
-          throw error;
-
-        order =
-          newOrder;
-
-      }
-
-      const now =
-        new Date().toISOString();
+      if (orderError)
+        throw orderError;
 
       const items =
         cart.map(item => ({
@@ -377,62 +401,46 @@ export default function POSContent() {
             item.id,
 
           item_name:
-            item.name,
+            item.name || item.item_name || "Unnamed Item",
 
           quantity:
-            item.quantity,
+            Number(
+              item.quantity || 1
+            ),
 
           price:
-            item.price,
-
-          station:
-            item.station ||
-            "HOT",
+            Number(
+              item.price || 0
+            ),
 
           status:
-
-            item.course > 1
-
-              ? "HOLD"
-
-              : "NEW",
-
-          fire:
-            item.fire,
-
-          hold:
-
-            item.course > 1
-
-              ? true
-
-              : item.hold,
-
-          vip:
-            item.vip,
-
-          rush:
-            item.rush,
+            "NEW",
 
           course:
-            item.course,
+            item.category || "MAIN",
 
-          created_at:
-            now,
+          station:
 
-          updated_at:
-            now,
+            (
+              item.category || ""
+            ).toUpperCase().includes("BAR")
+
+              ? "BAR"
+
+              : "HOT",
 
         }));
 
+      console.log(
+        "INSERTING ITEMS",
+        items
+      );
+
       const {
-        error:
-          itemError,
+        error: itemError,
       } = await supabase
 
-        .from(
-          "order_items"
-        )
+        .from("order_items")
 
         .insert(items);
 
@@ -446,20 +454,26 @@ export default function POSContent() {
         )
 
         .update({
+
           status:
             "OCCUPIED",
+
         })
 
         .eq(
-          "table_name",
-          selectedTable
+          "id",
+          selectedTable.id
         );
 
       alert(
-        "Order sent successfully"
+        "Order sent to kitchen"
       );
 
       setCart([]);
+
+      router.push(
+        "/kitchen"
+      );
 
     } catch (err) {
 
@@ -475,383 +489,99 @@ export default function POSContent() {
 
   }
 
+const total =
+    useMemo(() => {
+
+      return cart.reduce(
+        (
+          sum,
+          item
+        ) =>
+
+          sum +
+          (
+            Number(
+              item.price || 0
+            ) *
+            Number(
+              item.quantity || 0
+            )
+          ),
+
+        0
+      );
+
+    }, [cart]);
+
   return (
 
-    <PageWrapper
-      title="POS"
-      subtitle="Enterprise course & fire control"
-    >
+    <POSShell
 
-      <div className="grid grid-cols-3 gap-6">
+      tableSelector={
 
-        <div className="col-span-2">
+        <POSTableSelector
+          tables={tables}
+          selectedTable={
+            selectedTable
+          }
+          onSelect={
+            setSelectedTable
+          }
+        />
 
-          <div className="flex gap-4 mb-6">
+      }
 
-            <select
-              value={
-                selectedTable
-              }
-              onChange={e =>
-                setSelectedTable(
-                  e.target.value
-                )
-              }
-              className="h-14 px-5 rounded-2xl bg-white/5 border border-white/10 min-w-[220px]"
-            >
+      menu={
 
-              <option value="">
-                Select Table
-              </option>
+        loading
 
-              {tables.map(
-                table => (
+          ? (
+              <div className="p-10 text-white/40">
+                Loading menu...
+              </div>
+            )
 
-                  <option
-                    key={
-                      table.id
-                    }
-                    value={
-                      table.table_name
-                    }
-                  >
+          : (
 
-                    {
-                      table.table_name
-                    }
+            <div className="h-full overflow-y-auto pr-2">
 
-                  </option>
-
-                )
-              )}
-
-            </select>
-
-            <div className="flex-1 relative">
-
-              <Search className="absolute left-4 top-4 w-5 h-5 text-white/30" />
-
-              <input
-                value={search}
-                onChange={e =>
-                  setSearch(
-                    e.target.value
-                  )
+              <POSMenuGrid
+                items={menu}
+                onAdd={
+                  addToCart
                 }
-                placeholder="Search dishes..."
-                className="w-full h-14 pl-12 rounded-2xl bg-white/5 border border-white/10"
               />
 
             </div>
 
-          </div>
+          )
 
-          <div className="grid grid-cols-3 gap-4">
+      }
 
-            {filteredDishes.map(
-              dish => (
+      cart={
 
-                <button
-                  key={dish.id}
-                  onClick={() =>
-                    addDish(
-                      dish
-                    )
-                  }
-                  className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6 text-left hover:bg-white/[0.05]"
-                >
+        <div className="flex h-full flex-col">
 
-                  <div className="text-2xl mb-3">
-                    {
-                      dish.name
-                    }
-                  </div>
+          <div className="flex-1 overflow-y-auto">
 
-                  <div className="text-sm text-white/40 uppercase mb-4">
-                    {
-                      dish.station ||
-                      "HOT"
-                    }
-                  </div>
-
-                  <div className="text-3xl text-violet-400">
-                    ฿{
-                      dish.price
-                    }
-                  </div>
-
-                </button>
-
-              )
-            )}
-
-          </div>
-
-        </div>
-
-        <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
-
-          <div className="text-3xl mb-8">
-            Course Control
-          </div>
-
-          <div className="space-y-4">
-
-            {cart.map(item => (
-
-              <div
-                key={item.id}
-                className="rounded-2xl border border-white/10 p-4"
-              >
-
-                <div className="flex justify-between mb-4">
-
-                  <div>
-
-                    <div className="text-xl">
-                      {
-                        item.name
-                      }
-                    </div>
-
-                    <div className="text-sm text-white/40">
-                      ฿{
-                        item.price
-                      }
-                    </div>
-
-                  </div>
-
-                  <div className="text-xl">
-                    ฿{
-                      item.price *
-                      item.quantity
-                    }
-                  </div>
-
-                </div>
-
-                <div className="flex items-center gap-3 mb-4">
-
-                  <button
-                    onClick={() =>
-                      decrease(
-                        item.id
-                      )
-                    }
-                    className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"
-                  >
-
-                    <Minus className="w-4 h-4" />
-
-                  </button>
-
-                  <div className="w-10 text-center">
-                    {
-                      item.quantity
-                    }
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      increase(
-                        item.id
-                      )
-                    }
-                    className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"
-                  >
-
-                    <Plus className="w-4 h-4" />
-
-                  </button>
-
-                </div>
-
-                <div className="mb-4">
-
-                  <div className="text-xs uppercase text-white/40 mb-2">
-                    Course
-                  </div>
-
-                  <select
-                    value={
-                      item.course
-                    }
-                    onChange={e =>
-                      updateCartItem(
-                        item.id,
-                        "course",
-                        Number(
-                          e.target.value
-                        )
-                      )
-                    }
-                    className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4"
-                  >
-
-                    <option value={1}>
-                      Course 1
-                    </option>
-
-                    <option value={2}>
-                      Course 2
-                    </option>
-
-                    <option value={3}>
-                      Course 3
-                    </option>
-
-                    <option value={4}>
-                      Course 4
-                    </option>
-
-                  </select>
-
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-
-                  <button
-                    onClick={() =>
-                      updateCartItem(
-                        item.id,
-                        "fire",
-                        !item.fire
-                      )
-                    }
-                    className={`h-10 rounded-xl ${
-                      item.fire
-
-                        ? "bg-red-500 text-black"
-
-                        : "bg-white/10 text-white"
-                    }`}
-                  >
-
-                    <Flame className="w-4 h-4 mx-auto" />
-
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      updateCartItem(
-                        item.id,
-                        "hold",
-                        !item.hold
-                      )
-                    }
-                    className={`h-10 rounded-xl ${
-                      item.hold
-
-                        ? "bg-yellow-500 text-black"
-
-                        : "bg-white/10 text-white"
-                    }`}
-                  >
-
-                    <PauseCircle className="w-4 h-4 mx-auto" />
-
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      updateCartItem(
-                        item.id,
-                        "vip",
-                        !item.vip
-                      )
-                    }
-                    className={`h-10 rounded-xl ${
-                      item.vip
-
-                        ? "bg-yellow-300 text-black"
-
-                        : "bg-white/10 text-white"
-                    }`}
-                  >
-
-                    VIP
-
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      updateCartItem(
-                        item.id,
-                        "rush",
-                        !item.rush
-                      )
-                    }
-                    className={`h-10 rounded-xl ${
-                      item.rush
-
-                        ? "bg-orange-500 text-black"
-
-                        : "bg-white/10 text-white"
-                    }`}
-                  >
-
-                    <BellRing className="w-4 h-4 mx-auto" />
-
-                  </button>
-
-                </div>
-
-              </div>
-
-            ))}
-
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-white/10">
-
-            <div className="flex justify-between text-3xl mb-6">
-
-              <div>Total</div>
-
-              <div className="text-violet-400">
-
-                ฿{
-                  cart.reduce(
-                    (
-                      sum,
-                      item
-                    ) =>
-
-                      sum +
-                      (
-                        item.price *
-                        item.quantity
-                      ),
-
-                    0
-                  )
-                }
-
-              </div>
-
-            </div>
-
-            <button
-              onClick={
+            <POSCart
+              items={cart}
+              total={total}
+              onQuantityChange={
+                updateQuantity
+              }
+              onSendOrder={
                 sendOrder
               }
-              className="w-full h-16 rounded-[24px] bg-violet-500 hover:bg-violet-400 transition-all text-xl flex items-center justify-center gap-3"
-            >
-
-              <Send className="w-5 h-5" />
-
-              SEND ORDER
-
-            </button>
+            />
 
           </div>
 
         </div>
 
-      </div>
+      }
 
-    </PageWrapper>
+    />
 
   );
 

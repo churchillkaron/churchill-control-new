@@ -2,30 +2,34 @@
 
 import {
   createContext,
-  use,
   useContext,
 } from "react";
 
 const PlatformContext =
-  createContext(null);
+  createContext({
+    tenant: null,
+    user: null,
+    runtime: null,
+  });
 
 export function PlatformProvider({
-
   children,
-
-  runtimePromise,
-
 }) {
 
-  const runtime =
-    use(
-      runtimePromise
-    );
+  const platform = {
+
+    tenant: null,
+
+    user: null,
+
+    runtime: null,
+
+  };
 
   return (
 
     <PlatformContext.Provider
-      value={runtime}
+      value={platform}
     >
 
       {children}

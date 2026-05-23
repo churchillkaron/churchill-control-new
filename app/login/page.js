@@ -2,122 +2,272 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
+import {
+  Bot,
+  Lock,
+  Mail,
+} from "lucide-react";
+
 import { supabase } from "@/lib/shared/supabase/client";
 
-const DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+const DEV_MODE =
+  process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
-export default function LoginCallback() {
-  const router = useRouter();
+export default function LoginPage() {
+
+  const router =
+    useRouter();
+
+  const [
+    email,
+    setEmail,
+  ] = useState("");
+
+  const [
+    password,
+    setPassword,
+  ] = useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
 
   useEffect(() => {
-  const handleLoginFlow = async () => {
+
+    checkSession();
+
+  }, []);
+
+  async function checkSession() {
+
+    const {
+      data: { session },
+    } =
+      await supabase.auth.getSession();
+
+    if (
+      session?.user
+    ) {
+
+      router.push("/dashboard");
+
+    }
+
+  }
+
+  async function handleManualLogin() {
+
     try {
 
-      // 🔥 DEV MODE (SAFE)
-      if (process.env.NODE_ENV === "development" && DEV_MODE) {
-        document.cookie = "role=Owner; path=/";
-        document.cookie = "tenant_id=dev; path=/"; // optional test value
-        document.cookie = "setup_complete=true; path=/";
-        document.cookie = "subscription=active; path=/";
+      setLoading(true);
+      setError("");
 
-        router.push("/control");
+      const {
+        error,
+      } =
+        await supabase.auth.signInWithPassword({
+
+          email,
+
+          password,
+
+        });
+
+      if (error) {
+
+        setError(
+          error.message
+        );
+
         return;
       }
 
-      // 🔥 REAL AUTH STARTS HERE
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      router.push("/dashboard");
 
-       
+    } catch (err) {
 
-        // 🔥 2. GET STAFF ACCOUNT (STRICT MATCH)
-        const { data: staff, error: staffError } = await supabase
-          .from("staff_accounts")
-          .select("tenant_id, role")
-          .eq("auth_user_id", user.id)
-          .maybeSingle();
+      setError(
+        "Login failed"
+      );
 
-        // ❌ USER EXISTS BUT NOT LINKED → THIS IS A REAL ERROR
-        if (!staff || staffError) {
-          console.error("User not linked to staff account:", user.id);
-          router.push("/"); // back to landing
-          return;
-        }
+    } finally {
 
-        // ❌ STAFF WITHOUT TENANT → DATA ERROR
-        if (!staff.tenant_id) {
-          console.error("Staff missing tenant_id");
-          router.push("/");
-          return;
-        }
+      setLoading(false);
 
-        // 🔥 3. GET TENANT
-        const { data: tenant, error: tenantError } = await supabase
-          .from("tenants")
-          .select("subscription_status, setup_step, setup_complete")
-          .eq("id", staff.tenant_id)
-          .maybeSingle();
+    }
 
-        if (!tenant || tenantError) {
-          console.error("Tenant not found");
-          router.push("/");
-          return;
-        }
+  }
 
-        // 🔥 STORE SESSION STATE (for middleware / future use)
-        document.cookie = `role=${staff.role}; path=/`;
-        document.cookie = `setup_complete=${tenant.setup_complete}; path=/`;
-        document.cookie = `subscription=${tenant.subscription_status}; path=/`;
+  async function handleGoogleLogin() {
 
-        // 🔥 4. SUBSCRIPTION CONTROL (SAAS RULE)
-        if (tenant.subscription_status !== "active") {
-          router.push("/subscribe");
-          return;
-        }
+    await supabase.auth.signInWithOAuth({
 
-        // 🔥 5. SETUP CONTROL (ONBOARDING FLOW)
-        if (!tenant.setup_complete) {
-          const step = tenant.setup_step || 1;
-          router.push(`/system-setup/step-${step}`);
-          return;
-        }
+      provider: "google",
 
-        // 🔥 6. ROLE-BASED ACCESS (FINAL DESTINATION)
-        switch (staff.role) {
-          case "Owner":
-          case "General Manager":
-            router.push("/control");
-            break;
+      options: {
 
-          case "Manager":
-            router.push("/dashboard");
-            break;
+        redirectTo:
+          `${window.location.origin}/login/callback`,
 
-          case "Production":
-            router.push("/production");
-            break;
+      },
 
-          case "Staff":
-          default:
-            router.push("/staff");
-            break;
-        }
+    });
 
-      } catch (err) {
-        console.error("Login callback fatal error:", err);
-        router.push("/");
-      }
-    };
-
-    handleLoginFlow();
-  }, [router]);
+  }
 
   return (
-    <div className="h-screen flex items-center justify-center bg-black text-white">
-      <p className="text-white/60">Loading your system...</p>
+
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-black px-4 text-white">
+
+      <div className="absolute left-[-120px] top-[-120px] h-[320px] w-[320px] rounded-full bg-fuchsia-500/20 blur-[120px]" />
+
+      <div className="absolute bottom-[-140px] right-[-100px] h-[360px] w-[360px] rounded-full bg-cyan-500/20 blur-[120px]" />
+
+      <div className="relative z-20 w-full max-w-md overflow-hidden rounded-[36px] border border-white/10 bg-black/60 backdrop-blur-3xl">
+
+        <div className="h-[2px] bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400" />
+
+        <div className="p-8">
+
+          <div className="flex justify-center">
+
+            <div className="flex h-16 w-16 items-center justify-center rounded-[28px] bg-gradient-to-br from-fuchsia-500 via-violet-500 to-cyan-400 shadow-[0_0_60px_rgba(217,70,239,0.35)]">
+
+              <Bot className="h-8 w-8 text-white" />
+
+            </div>
+
+          </div>
+
+          <div className="mt-6 text-center">
+
+            <div className="text-[10px] uppercase tracking-[0.35em] text-fuchsia-300">
+              Powered by Avantiqo
+            </div>
+
+            <h1 className="mt-4 text-4xl font-black">
+              Churchill Runtime
+            </h1>
+
+            <p className="mt-3 text-sm leading-relaxed text-white/45">
+              Luxury hospitality operating system and nightlife intelligence runtime.
+            </p>
+
+          </div>
+
+          <div className="mt-8 space-y-4">
+
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3">
+
+              <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
+                <Mail className="h-4 w-4" />
+                Email
+              </div>
+
+              <input
+                value={email}
+                onChange={(e) =>
+                  setEmail(
+                    e.target.value
+                  )
+                }
+                placeholder="you@churchill.com"
+                className="w-full bg-transparent text-white outline-none placeholder:text-white/20"
+              />
+
+            </div>
+
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3">
+
+              <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
+                <Lock className="h-4 w-4" />
+                Password
+              </div>
+
+              <input
+                type="password"
+                value={password}
+                onChange={(e) =>
+                  setPassword(
+                    e.target.value
+                  )
+                }
+                placeholder="••••••••"
+                className="w-full bg-transparent text-white outline-none placeholder:text-white/20"
+              />
+
+            </div>
+
+            {error && (
+
+              <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">
+
+                {error}
+
+              </div>
+
+            )}
+
+            <button
+              onClick={
+                handleManualLogin
+              }
+              disabled={loading}
+              className="flex h-14 w-full items-center justify-center rounded-[24px] bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 font-semibold text-white shadow-[0_0_50px_rgba(217,70,239,0.35)]"
+            >
+
+              {loading
+                ? "Loading..."
+                : "Login"}
+
+            </button>
+
+            <div className="relative py-2">
+
+              <div className="absolute inset-0 flex items-center">
+
+                <div className="w-full border-t border-white/10" />
+
+              </div>
+
+              <div className="relative flex justify-center text-[10px] uppercase tracking-[0.25em] text-white/30">
+
+                <span className="bg-black px-4">
+                  OR
+                </span>
+
+              </div>
+
+            </div>
+
+            <button
+              onClick={
+                handleGoogleLogin
+              }
+              className="flex h-14 w-full items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.04] font-semibold text-white transition-all duration-300 hover:bg-white/[0.08]"
+            >
+
+              Continue with Google
+
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
+
   );
+
 }

@@ -1,230 +1,126 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import {
-  useEffect,
-  useState,
-} from "react";
-
-import { supabase } from "@/lib/shared/supabase/client";
-
-import { loadStaffPerformance } from "@/lib/staff/loadStaffPerformance";
+  Trophy,
+  Flame,
+  Brain,
+  Languages,
+  Crown,
+} from "lucide-react";
 
 export default function StaffPerformancePage() {
 
-  const [
-    tenantId,
-    setTenantId,
-  ] = useState(null);
+  const stats = [
 
-  const [
-    staff,
-    setStaff,
-  ] = useState([]);
+    {
+      title: "Guest Recovery",
+      value: "92%",
+      icon: Crown,
+      color: "text-amber-300",
+    },
 
-  // ===== TENANT =====
-  useEffect(() => {
+    {
+      title: "Upsell Skill",
+      value: "88%",
+      icon: Flame,
+      color: "text-fuchsia-300",
+    },
 
-    async function loadTenant() {
+    {
+      title: "Translation",
+      value: "95%",
+      icon: Languages,
+      color: "text-cyan-300",
+    },
 
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getSession();
+    {
+      title: "AI Instinct",
+      value: "91%",
+      icon: Brain,
+      color: "text-violet-300",
+    },
 
-      if (!user) {
-        return;
-      }
-
-      const {
-        data,
-      } = await supabase
-        .from("staff_accounts")
-        .select("*")
-        .eq(
-          "auth_user_id",
-          user.id
-        )
-        .single();
-
-      if (
-        data?.tenant_id
-      ) {
-
-        setTenantId(
-          data.tenant_id
-        );
-      }
-    }
-
-    loadTenant();
-
-  }, []);
-
-  // ===== LOAD =====
-  async function refresh() {
-
-    if (!tenantId) {
-      return;
-    }
-
-    const data =
-      await loadStaffPerformance(
-        tenantId
-      );
-
-    setStaff(
-      data || []
-    );
-  }
-
-  useEffect(() => {
-
-    refresh();
-
-  }, [
-    tenantId,
-  ]);
-
-  // ===== REALTIME =====
-  useEffect(() => {
-
-    if (!tenantId) {
-      return;
-    }
-
-    const channel =
-      supabase
-        .channel(
-          "staff-performance"
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table:
-              "orders",
-          },
-          refresh
-        )
-        .subscribe();
-
-    return () => {
-
-      supabase.removeChannel(
-        channel
-      );
-    };
-
-  }, [
-    tenantId,
-  ]);
+  ];
 
   return (
 
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-black px-5 py-10 text-white">
 
-      {/* ===== HEADER ===== */}
-      <div className="h-28 border-b border-white/5 flex items-center justify-between px-12">
+      <div className="mx-auto max-w-5xl">
 
-        <div>
+        <div className="mb-10">
 
-          <div className="text-xs tracking-[0.35em] uppercase text-cyan-400 mb-3">
-            STAFF
+          <div className="text-[11px] uppercase tracking-[0.35em] text-amber-300">
+            Churchill Staff
           </div>
 
-          <div className="text-6xl font-semibold tracking-tight">
-            Performance Ranking
+          <div className="mt-3 flex items-center gap-3 text-5xl font-black">
+
+            <Trophy className="h-10 w-10 text-amber-300" />
+
+            Performance Runtime
+
+          </div>
+
+          <div className="mt-3 text-white/40">
+            AI coaching, rankings, instinct score and operational growth.
           </div>
 
         </div>
 
-        <div className="px-6 h-14 rounded-3xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs uppercase tracking-[0.3em] flex items-center">
-          LIVE STAFF
-        </div>
+        <div className="grid gap-4 md:grid-cols-2">
 
-      </div>
+          {stats.map(
+            (
+              stat,
+              index
+            ) => {
 
-      {/* ===== STAFF GRID ===== */}
-      <div className="p-10 grid grid-cols-3 gap-7">
+              const Icon =
+                stat.icon;
 
-        {staff.map(
-          (
-            member,
-            index
-          ) => (
+              return (
 
-            <div
-              key={index}
-              className="rounded-[40px] border border-white/10 bg-white/[0.03] overflow-hidden"
-            >
-
-              <div className="p-10">
-
-                <div className="flex items-start justify-between mb-10">
-
-                  <div>
-
-                    <div className="text-xs uppercase tracking-[0.3em] text-cyan-400 mb-3">
-                      Staff
-                    </div>
-
-                    <div className="text-4xl font-light">
-                      {
-                        member.name
-                      }
-                    </div>
-
-                  </div>
-
-                  <div className="w-16 h-16 rounded-3xl bg-cyan-500 text-black flex items-center justify-center text-2xl font-semibold">
-                    #{index + 1}
-                  </div>
-
-                </div>
-
-                <div className="space-y-6">
+                <div
+                  key={index}
+                  className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6"
+                >
 
                   <div className="flex items-center justify-between">
 
-                    <div className="text-zinc-500">
-                      Orders
+                    <div>
+
+                      <div className="text-sm uppercase tracking-[0.25em] text-white/40">
+                        {stat.title}
+                      </div>
+
+                      <div className={`mt-3 text-5xl font-black ${stat.color}`}>
+                        {stat.value}
+                      </div>
+
                     </div>
 
-                    <div className="text-3xl font-light">
-                      {
-                        member.orders
-                      }
-                    </div>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-black/40">
 
-                  </div>
+                      <Icon className={`h-8 w-8 ${stat.color}`} />
 
-                  <div className="flex items-center justify-between">
-
-                    <div className="text-zinc-500">
-                      Revenue
-                    </div>
-
-                    <div className="text-4xl font-light text-emerald-400">
-                      ฿{
-                        member.revenue
-                      }
                     </div>
 
                   </div>
 
                 </div>
 
-              </div>
+              );
 
-            </div>
-          )
-        )}
+            }
+          )}
+
+        </div>
 
       </div>
 
     </div>
+
   );
+
 }

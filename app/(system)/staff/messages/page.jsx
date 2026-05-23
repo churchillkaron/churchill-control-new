@@ -2,211 +2,503 @@
 
 import {
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 
 import {
   MessageCircle,
-  Crown,
-  Brain,
-  Sparkles,
   Send,
+  Plus,
+  Search,
+  Users,
+  CheckCheck,
+  Trash2,
+  Paperclip,
 } from "lucide-react";
 
 export default function StaffMessagesPage() {
 
-  const [messages, setMessages] =
-    useState([]);
+  const bottomRef =
+    useRef(null);
 
-  const [message, setMessage] =
-    useState("");
+  const fileRef =
+    useRef(null);
+
+  const [
+    identity,
+    setIdentity,
+  ] = useState(null);
+
+  const [
+    threads,
+    setThreads,
+  ] = useState([]);
+
+  const [
+    selectedThread,
+    setSelectedThread,
+  ] = useState(null);
+
+  const [
+    messages,
+    setMessages,
+  ] = useState([]);
+
+  const [
+    members,
+    setMembers,
+  ] = useState([]);
+
+  const [
+    content,
+    setContent,
+  ] = useState("");
+
+  const [
+    uploading,
+    setUploading,
+  ] = useState(false);
+
+  const headers =
+    useMemo(
+      () => ({
+        "x-staff-email":
+          localStorage.getItem(
+            "staff_email"
+          ) || "",
+      }),
+      []
+    );
+
+  async function loadInbox() {
+
+    const res =
+      await fetch(
+        "/api/messages/inbox",
+        { headers }
+      );
+
+    const data =
+      await res.json();
+
+    if (
+      data.identity
+    ) {
+
+      setIdentity(
+        data.identity
+      );
+
+    }
+
+    setThreads(
+      data.threads || []
+    );
+
+  }
+
+  async function loadMessages(
+    thread_id
+  ) {
+
+    const res =
+      await fetch(
+        `/api/messages/list?thread_id=${thread_id}`,
+        { headers }
+      );
+
+    const data =
+      await res.json();
+
+    setMessages(
+      data.messages || []
+    );
+
+    setTimeout(() => {
+
+      bottomRef.current?.scrollIntoView({
+        behavior:
+          "smooth",
+      });
+
+    }, 100);
+
+  }
+
+  async function uploadAttachment(
+    file
+  ) {
+
+    setUploading(true);
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    const uploadRes =
+      await fetch(
+        "/api/messages/upload-attachment",
+        {
+          method: "POST",
+
+          headers,
+
+          body: formData,
+        }
+      );
+
+    const uploadData =
+      await uploadRes.json();
+
+    setUploading(false);
+
+    if (
+      !uploadData.url
+    ) return;
+
+    const sendRes =
+      await fetch(
+        "/api/messages/send",
+        {
+          method: "POST",
+
+          headers: {
+            ...headers,
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+
+            thread_id:
+              selectedThread.id,
+
+            content:
+              file.name,
+
+            attachment_url:
+              uploadData.url,
+
+          }),
+        }
+      );
+
+    const sendData =
+      await sendRes.json();
+
+    if (
+      sendData.message
+    ) {
+
+      setMessages(
+        (prev) => [
+          ...prev,
+          sendData.message,
+        ]
+      );
+
+      loadInbox();
+
+    }
+
+  }
+
+  async function sendMessage() {
+
+    if (
+      !selectedThread ||
+      !content
+    ) return;
+
+    const res =
+      await fetch(
+        "/api/messages/send",
+        {
+          method: "POST",
+
+          headers: {
+            ...headers,
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            thread_id:
+              selectedThread.id,
+            content,
+          }),
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (
+      data.message
+    ) {
+
+      setMessages(
+        (prev) => [
+          ...prev,
+          data.message,
+        ]
+      );
+
+      loadInbox();
+
+    }
+
+    setContent("");
+
+  }
 
   useEffect(() => {
 
-    loadMessages();
+    loadInbox();
 
-  }, []);
+    const interval =
+      setInterval(() => {
 
-  async function loadMessages() {
+        if (
+          selectedThread
+        ) {
 
-    try {
+          loadMessages(
+            selectedThread.id
+          );
 
-      const res =
-        await fetch(
-          "/api/staff/profile-overview?tenant_id=76e2caa6-dd78-49e5-b0f5-1ff94185c2d4&email=patric@harrysphuket.com"
-        );
+        }
 
-      const data =
-        await res.json();
+      }, 4000);
 
-      setMessages(
-        data?.profile?.messages ||
-        []
+    return () =>
+      clearInterval(
+        interval
       );
 
-    } catch (err) {
-
-      console.error(err);
-
-    }
-
-  }
-
-  function getIcon(type) {
-
-    if (
-      type?.includes(
-        "VIP"
-      )
-    ) {
-
-      return Crown;
-
-    }
-
-    if (
-      type?.includes(
-        "AI"
-      )
-    ) {
-
-      return Brain;
-
-    }
-
-    return Sparkles;
-
-  }
+  }, [selectedThread]);
 
   return (
 
-    <div className="min-h-screen bg-black px-5 py-10 text-white">
+    <div className="min-h-screen bg-black text-white">
 
-      <div className="mx-auto max-w-6xl">
+      <div className="grid h-screen grid-cols-[360px_1fr]">
 
-        <div className="overflow-hidden rounded-[40px] border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-500/10 via-black to-black p-8">
+        <div className="overflow-y-auto border-r border-white/10 bg-white/[0.03] p-5">
 
-          <div className="flex items-center justify-between">
+          <div className="text-2xl font-black">
+            Messages
+          </div>
 
-            <div>
+          <div className="mt-6 space-y-3">
 
-              <div className="text-[11px] uppercase tracking-[0.35em] text-fuchsia-300">
-                Churchill Communication
-              </div>
+            {threads.map(
+              (thread) => (
 
-              <div className="mt-3 text-6xl font-black">
-                Messages
-              </div>
+                <button
+                  key={thread.id}
+                  onClick={() => {
 
-              <div className="mt-3 text-white/40">
-                Management communication, AI alerts and operational coordination.
-              </div>
+                    setSelectedThread(
+                      thread
+                    );
 
-            </div>
+                    loadMessages(
+                      thread.id
+                    );
 
-            <div className="hidden md:flex h-28 w-28 items-center justify-center rounded-full bg-fuchsia-500/10">
+                  }}
+                  className={`w-full rounded-2xl border p-4 text-left ${
+                    selectedThread?.id ===
+                    thread.id
+                      ? "border-cyan-400/40 bg-cyan-400/10"
+                      : "border-white/10 bg-white/[0.04]"
+                  }`}
+                >
 
-              <MessageCircle className="h-14 w-14 text-fuchsia-300" />
+                  <div className="font-semibold">
+                    {thread.title}
+                  </div>
 
-            </div>
+                  <div className="mt-1 text-xs text-white/40">
+                    {thread.latest_message}
+                  </div>
+
+                </button>
+
+              )
+            )}
 
           </div>
 
         </div>
 
-        <div className="mt-8 space-y-4">
+        <div className="flex flex-col">
 
-          {messages.map(
-            (
-              item,
-              index
-            ) => {
+          <div className="border-b border-white/10 p-5">
 
-              const Icon =
-                getIcon(
-                  item.type || ""
-                );
+            <div className="flex items-center justify-between">
 
-              return (
+              <div>
 
-                <div
-                  key={index}
-                  className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6"
+                <div className="text-2xl font-black">
+
+                  {selectedThread
+                    ? selectedThread.title
+                    : "Select Conversation"}
+
+                </div>
+
+              </div>
+
+              {selectedThread && (
+
+                <button
+                  className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300"
                 >
 
-                  <div className="flex items-start justify-between">
+                  <Trash2 className="h-4 w-4" />
 
-                    <div className="flex gap-5">
+                </button>
 
-                      <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-black/40">
+              )}
 
-                        <Icon className="h-7 w-7 text-fuchsia-300" />
+            </div>
 
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6">
+
+            <div className="space-y-4">
+
+              {messages.map(
+                (message) => (
+
+                  <div
+                    key={message.id}
+                    className="rounded-3xl border border-white/10 bg-white/[0.05] p-4"
+                  >
+
+                    <div className="flex items-center gap-3">
+
+                      <div className="text-sm font-semibold">
+                        {message.sender?.name}
                       </div>
 
-                      <div>
-
-                        <div className="text-2xl font-bold">
-                          {item.subject ||
-                            item.type ||
-                            "Runtime Message"}
-                        </div>
-
-                        <div className="mt-3 max-w-3xl text-white/60">
-                          {item.message ||
-                            item.content ||
-                            "No content"}
-                        </div>
-
-                        <div className="mt-3 text-xs text-white/30">
-
-                          {new Date(
-                            item.created_at
-                          ).toLocaleString()}
-
-                        </div>
-
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">
+                        {message.sender?.role}
                       </div>
 
                     </div>
 
+                    <div className="mt-3 text-sm text-white/80">
+                      {message.content}
+                    </div>
+
+                    {message.attachment_url && (
+
+                      <a
+                        href={
+                          message.attachment_url
+                        }
+                        target="_blank"
+                        className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-300"
+                      >
+
+                        <Paperclip className="h-4 w-4" />
+
+                        Open Attachment
+
+                      </a>
+
+                    )}
+
                   </div>
 
-                </div>
+                )
+              )}
 
-              );
+              <div ref={bottomRef} />
 
-            }
-          )}
+            </div>
 
-        </div>
-
-        <div className="mt-8 rounded-[34px] border border-white/10 bg-white/[0.04] p-6">
-
-          <div className="text-2xl font-bold">
-            Send Message
           </div>
 
-          <textarea
-            value={message}
-            onChange={(e) =>
-              setMessage(
-                e.target.value
-              )
-            }
-            placeholder="Write message..."
-            className="mt-5 h-32 w-full rounded-3xl border border-white/10 bg-black/40 p-5 outline-none"
-          />
+          {selectedThread && (
 
-          <button
-            className="mt-5 flex items-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-6 py-3 font-semibold"
-          >
+            <div className="border-t border-white/10 p-5">
 
-            <Send className="h-4 w-4" />
+              <div className="flex gap-3">
 
-            Send Message
+                <input
+                  value={content}
+                  onChange={(e) =>
+                    setContent(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Send message..."
+                  className="flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 outline-none"
+                />
 
-          </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+
+                    const file =
+                      e.target.files?.[0];
+
+                    if (
+                      file
+                    ) {
+
+                      uploadAttachment(
+                        file
+                      );
+
+                    }
+
+                  }}
+                />
+
+                <button
+                  onClick={() =>
+                    fileRef.current?.click()
+                  }
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-5"
+                >
+
+                  <Paperclip className="h-5 w-5" />
+
+                </button>
+
+                <button
+                  onClick={sendMessage}
+                  disabled={uploading}
+                  className="flex items-center gap-2 rounded-2xl bg-cyan-400 px-6 font-semibold text-black"
+                >
+
+                  <Send className="h-4 w-4" />
+
+                  {uploading
+                    ? "Uploading..."
+                    : "Send"}
+
+                </button>
+
+              </div>
+
+            </div>
+
+          )}
 
         </div>
 

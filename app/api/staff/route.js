@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/shared/supabase/client";
+import { createServerSupabase } from "@/lib/shared/supabase/server";
 
 const BASE_REVENUE = 128450;
 const LATE_THRESHOLD_MINUTES = 10;
@@ -131,6 +131,7 @@ function buildSystemPayload(staffMembers, shifts) {
 }
 
 export async function GET() {
+  const supabase = createServerSupabase();
   const { data: staffMembers } = await supabase
     .from("staff_members")
     .select("*");
@@ -145,6 +146,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const supabase = createServerSupabase();
   const body = await request.json();
   const { action, staffName, staffRole } = body;
 
@@ -157,15 +159,115 @@ export async function POST(request) {
 
   if (action === "clock_in") {
     const now = new Date().toISOString();
-    const late = isLate(now);
+    const today =
+      new Date()
+        .toISOString()
+        .split("T")[0];
+
+    const { data: assignedSchedule } =
+      await supabase
+        .from("staff_schedules")
+        .select("*")
+        .eq("staff_name", staffName)
+        .eq("shift_date", today)
+        .limit(1)
+        .maybeSingle();
+
+    let late = false;
+    let scheduledStart = null;
+    let scheduledEnd = null;
+    let scheduleId = null;
+
+    if (!assignedSchedule) {
+
+      return NextResponse.json({
+
+        success: false,
+
+        error:
+          "No scheduled shift today",
+
+      });
+
+    }
+
+    if (assignedSchedule) {
+
+      scheduledStart =
+        assignedSchedule.start_time;
+
+      scheduledEnd =
+        assignedSchedule.end_time;
+
+      scheduleId =
+        assignedSchedule.id;
+
+      const shiftStart =
+        new Date(
+          `${today}T${scheduledStart}`
+        );
+
+      const current =
+        new Date(now);
+
+      const earlyWindow =
+        new Date(
+          shiftStart.getTime()
+          - 30 * 60000
+        );
+
+      if (
+        current <
+        earlyWindow
+      ) {
+
+        return NextResponse.json({
+
+          success: false,
+
+          error:
+            "Too early to start shift",
+
+        });
+
+      }
+
+      const diff =
+        (current - shiftStart) / 60000;
+
+      late =
+        diff >
+        LATE_THRESHOLD_MINUTES;
+
+    } else {
+
+      late = isLate(now);
+
+    }
 
     const { error } = await supabase.from("staff_shifts").insert({
       staff_name: staffName,
       staff_role: staffRole,
+
       clock_in: now,
+
       is_valid: true,
+
       is_late: late,
-      penalty_multiplier: late ? LATE_PENALTY : 1,
+
+      penalty_multiplier:
+        late
+          ? LATE_PENALTY
+          : 1,
+
+      scheduled_start:
+        scheduledStart,
+
+      scheduled_end:
+        scheduledEnd,
+
+      schedule_id:
+        scheduleId,
     });
 
     if (error) {

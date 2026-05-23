@@ -233,16 +233,16 @@ export default function ManagementPage() {
           <div className="space-y-6">
 
             {/* TOP */}
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-4">
 
-              <div className="rounded-[22px] border border-white/10 bg-[#111117] p-5">
+              <div className="rounded-[24px] border border-white/10 bg-[#111117] p-6">
 
                 <div className="text-[11px] tracking-[0.25em] text-white/30">
                   TOTAL REVENUE
                 </div>
 
                 <div
-                  className="mt-3 text-3xl xl:text-4xl"
+                  className="mt-4 text-5xl"
                   style={{
                     fontWeight: 250,
                     letterSpacing: "-0.08em",
@@ -256,14 +256,14 @@ export default function ManagementPage() {
 
               </div>
 
-              <div className="rounded-[22px] border border-orange-500/20 bg-orange-500/10 p-5">
+              <div className="rounded-[24px] border border-orange-500/20 bg-orange-500/10 p-6">
 
                 <div className="text-[11px] tracking-[0.25em] text-orange-300/60">
                   ACTIVE TABLES
                 </div>
 
                 <div
-                  className="mt-3 text-3xl xl:text-4xl text-orange-400"
+                  className="mt-4 text-5xl text-orange-400"
                   style={{
                     fontWeight: 250,
                     letterSpacing: "-0.08em",
@@ -276,14 +276,14 @@ export default function ManagementPage() {
 
               </div>
 
-              <div className="rounded-[22px] border border-green-500/20 bg-green-500/10 p-5">
+              <div className="rounded-[24px] border border-green-500/20 bg-green-500/10 p-6">
 
                 <div className="text-[11px] tracking-[0.25em] text-green-300/60">
                   COMPLETED
                 </div>
 
                 <div
-                  className="mt-3 text-3xl xl:text-4xl text-green-400"
+                  className="mt-4 text-5xl text-green-400"
                   style={{
                     fontWeight: 250,
                     letterSpacing: "-0.08em",
@@ -296,7 +296,7 @@ export default function ManagementPage() {
 
               </div>
 
-              <div className="rounded-[22px] border border-white/10 bg-[#111117] p-5">
+              <div className="rounded-[24px] border border-white/10 bg-[#111117] p-6">
 
                 <div className="text-[11px] tracking-[0.25em] text-white/30">
                   SYSTEM STATUS
@@ -317,16 +317,16 @@ export default function ManagementPage() {
 
             {/* WORKFORCE */}
 
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-4">
 
-              <div className="rounded-[22px] border border-cyan-500/20 bg-cyan-500/10 p-5">
+              <div className="rounded-[24px] border border-cyan-500/20 bg-cyan-500/10 p-6">
 
                 <div className="text-[11px] tracking-[0.25em] text-cyan-300/60">
                   ACTIVE STAFF
                 </div>
 
                 <div
-                  className="mt-3 text-3xl xl:text-4xl text-cyan-400"
+                  className="mt-4 text-5xl text-cyan-400"
                   style={{
                     fontWeight: 250,
                     letterSpacing: "-0.08em",
@@ -339,14 +339,14 @@ export default function ManagementPage() {
 
               </div>
 
-              <div className="rounded-[22px] border border-red-500/20 bg-red-500/10 p-5">
+              <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-6">
 
                 <div className="text-[11px] tracking-[0.25em] text-red-300/60">
                   LATE STAFF
                 </div>
 
                 <div
-                  className="mt-3 text-3xl xl:text-4xl text-red-400"
+                  className="mt-4 text-5xl text-red-400"
                   style={{
                     fontWeight: 250,
                     letterSpacing: "-0.08em",
@@ -359,14 +359,14 @@ export default function ManagementPage() {
 
               </div>
 
-              <div className="rounded-[22px] border border-yellow-500/20 bg-yellow-500/10 p-5">
+              <div className="rounded-[24px] border border-yellow-500/20 bg-yellow-500/10 p-6">
 
                 <div className="text-[11px] tracking-[0.25em] text-yellow-300/60">
                   MISSING STAFF
                 </div>
 
                 <div
-                  className="mt-3 text-3xl xl:text-4xl text-yellow-400"
+                  className="mt-4 text-5xl text-yellow-400"
                   style={{
                     fontWeight: 250,
                     letterSpacing: "-0.08em",
@@ -379,14 +379,14 @@ export default function ManagementPage() {
 
               </div>
 
-              <div className="rounded-[22px] border border-orange-500/20 bg-orange-500/10 p-5">
+              <div className="rounded-[24px] border border-orange-500/20 bg-orange-500/10 p-6">
 
                 <div className="text-[11px] tracking-[0.25em] text-orange-300/60">
                   OVERTIME RISK
                 </div>
 
                 <div
-                  className="mt-3 text-3xl xl:text-4xl text-orange-400"
+                  className="mt-4 text-5xl text-orange-400"
                   style={{
                     fontWeight: 250,
                     letterSpacing: "-0.08em",
@@ -405,9 +405,9 @@ export default function ManagementPage() {
 
             {/* LIVE RUNTIME */}
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
 
-              <div className="rounded-[22px] border border-cyan-500/20 bg-[#111117] p-5">
+              <div className="rounded-[24px] border border-cyan-500/20 bg-[#111117] p-6">
 
                 <div className="mb-6 text-[11px] tracking-[0.25em] text-cyan-300/60">
                   ACTIVE SHIFTS
@@ -466,7 +466,7 @@ export default function ManagementPage() {
 
               </div>
 
-              <div className="rounded-[22px] border border-red-500/20 bg-[#111117] p-5">
+              <div className="rounded-[24px] border border-red-500/20 bg-[#111117] p-6">
 
                 <div className="mb-6 text-[11px] tracking-[0.25em] text-red-300/60">
                   LATE / MISSING ALERTS
@@ -563,7 +563,7 @@ export default function ManagementPage() {
             </div>
 
             {/* TABLE */}
-            <div className="overflow-hidden rounded-[22px] border border-white/10 bg-[#111117]">
+            <div className="overflow-hidden rounded-[24px] border border-white/10 bg-[#111117]">
 
               <div className="grid grid-cols-6 border-b border-white/10 px-6 py-4 text-[11px] tracking-[0.25em] text-white/30">
 

@@ -13,7 +13,7 @@ export async function POST(req) {
   try {
 
     const identity =
-      await getStaffIdentity(req);
+      await getStaffIdentity();
 
     if (!identity) {
       return NextResponse.json(
@@ -41,20 +41,20 @@ export async function POST(req) {
     const buffer =
       Buffer.from(await file.arrayBuffer());
 
-    const filePath =
-      `message-attachments/${identity.tenant_id}/${identity.id}-${Date.now()}-${file.name}`;
+    const path =
+      `message-attachments/${identity.tenant_id}/${Date.now()}-${file.name}`;
 
-    const { error: uploadError } =
+    const { error } =
       await supabase.storage
         .from("uploads")
-        .upload(filePath, buffer, {
+        .upload(path, buffer, {
           contentType: file.type,
           upsert: true,
         });
 
-    if (uploadError) {
+    if (error) {
       return NextResponse.json(
-        { success: false, error: uploadError.message },
+        { success: false, error: error.message },
         { status: 500 }
       );
     }
@@ -62,13 +62,13 @@ export async function POST(req) {
     const { data } =
       supabase.storage
         .from("uploads")
-        .getPublicUrl(filePath);
+        .getPublicUrl(path);
 
     return NextResponse.json({
       success: true,
       url: data.publicUrl,
-      file_type: file.type,
-      file_name: file.name,
+      name: file.name,
+      type: file.type,
     });
 
   } catch (err) {

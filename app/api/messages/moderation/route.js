@@ -6,6 +6,14 @@ from "@/lib/shared/supabase/server";
 import { getStaffIdentity }
 from "@/lib/messages/getStaffIdentity";
 
+const bannedWords = [
+  "idiot",
+  "stupid",
+  "racist",
+  "hate",
+  "fuck",
+];
+
 export async function POST(req) {
 
   try {
@@ -31,64 +39,40 @@ export async function POST(req) {
       await req.json();
 
     const {
-      message_id,
+      content,
     } = body;
 
-    if (!message_id) {
+    if (!content) {
 
       return NextResponse.json(
         {
           success: false,
-          error:
-            "message_id required",
-        },
-        {
-          status: 400,
+          flagged: false,
         }
       );
 
     }
 
-    const supabase =
-      createServerSupabase();
+    const lower =
+      content.toLowerCase();
 
-    const {
-      error,
-    } = await supabase
-
-      .from(
-        "message_reads"
-      )
-
-      .upsert(
-        {
-          message_id,
-          staff_id:
-            identity.id,
-        },
-        {
-          onConflict:
-            "message_id,staff_id",
-        }
+    const matches =
+      bannedWords.filter(
+        (word) =>
+          lower.includes(word)
       );
 
-    if (error) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            error.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
-    }
+    const flagged =
+      matches.length > 0;
 
     return NextResponse.json({
+
       success: true,
+
+      flagged,
+
+      matches,
+
     });
 
   } catch (err) {

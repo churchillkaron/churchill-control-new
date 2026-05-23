@@ -33,6 +33,12 @@ export default function StaffPage() {
   const [shiftDuration, setShiftDuration] =
     useState("00:00");
 
+  const [todaySchedule, setTodaySchedule] =
+    useState(null);
+
+  const [shiftStatus, setShiftStatus] =
+    useState("NO_SHIFT");
+
   const [input, setInput] =
     useState("");
 
@@ -83,6 +89,70 @@ export default function StaffPage() {
           tenant_id:
             "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4",
         };
+
+      const today =
+        new Date()
+          .toISOString()
+          .split("T")[0];
+
+      const {
+        data: schedule,
+      } = await supabase
+        .from("staff_schedules")
+        .select("*")
+        .eq(
+          "staff_name",
+          activeAccount.name
+        )
+        .eq(
+          "shift_date",
+          today
+        )
+        .maybeSingle();
+
+      setTodaySchedule(
+        schedule || null
+      );
+
+      if (!schedule) {
+
+        setShiftStatus(
+          "NO_SHIFT"
+        );
+
+      } else {
+
+        const now =
+          new Date();
+
+        const shiftStart =
+          new Date(
+            `${today}T${schedule.start_time}`
+          );
+
+        if (activeShift) {
+
+          setShiftStatus(
+            "WORKING"
+          );
+
+        } else if (
+          now > shiftStart
+        ) {
+
+          setShiftStatus(
+            "LATE"
+          );
+
+        } else {
+
+          setShiftStatus(
+            "UPCOMING"
+          );
+
+        }
+
+      }
 
       fetch(
         `/api/staff/runtime?tenant_id=${activeAccount.tenant_id}&staff_name=${activeAccount.name}`
@@ -193,17 +263,42 @@ export default function StaffPage() {
 
     try {
 
-      await supabase
-        .from("staff_shifts")
-        .insert({
-          staff_name:
-            staffAccount.name,
+      const response =
+        await fetch(
+          "/api/staff",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
 
-          clock_in:
-            new Date().toISOString(),
-        });
+              action:
+                "clock_in",
 
-      setShiftActive(true);
+              staffName:
+                staffAccount.name,
+
+              staffRole:
+                staffAccount.role,
+
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      console.log(data);
+
+      if (
+        data.success
+      ) {
+
+        setShiftActive(true);
+
+      }
 
     } catch (err) {
 
@@ -223,26 +318,43 @@ export default function StaffPage() {
 
     try {
 
-      await supabase
-        .from("staff_shifts")
-        .update({
-          clock_out:
-            new Date().toISOString(),
-        })
-        .eq(
-          "staff_name",
-          staffAccount.name
-        )
-        .is(
-          "clock_out",
-          null
+      const response =
+        await fetch(
+          "/api/staff",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+
+              action:
+                "clock_out",
+
+              staffName:
+                staffAccount.name,
+
+            }),
+          }
         );
 
-      setShiftActive(false);
+      const data =
+        await response.json();
 
-      setShiftDuration(
-        "00:00"
-      );
+      console.log(data);
+
+      if (
+        data.success
+      ) {
+
+        setShiftActive(false);
+
+        setShiftDuration(
+          "00:00"
+        );
+
+      }
 
     } catch (err) {
 
@@ -307,6 +419,38 @@ export default function StaffPage() {
           shiftActive={shiftActive}
           shiftDuration={shiftDuration}
         />
+
+        {todaySchedule && (
+
+          <div className="mb-6 rounded-[32px] border border-cyan-500/20 bg-cyan-500/10 p-6">
+
+            <div className="text-xs uppercase tracking-[0.3em] text-cyan-300">
+              Scheduled Shift
+            </div>
+
+            <div className="mt-3 text-3xl font-black">
+
+              {todaySchedule.start_time}
+              {" - "}
+              {todaySchedule.end_time}
+
+            </div>
+
+            <div className="mt-2 text-white/50">
+              {todaySchedule.shift_type}
+            </div>
+
+            <div className="mt-4 inline-flex rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold">
+
+              STATUS:
+              {" "}
+              {shiftStatus}
+
+            </div>
+
+          </div>
+
+        )}
 
         <StaffShiftCard
           shiftActive={shiftActive}

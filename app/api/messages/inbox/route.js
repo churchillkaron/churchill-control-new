@@ -6,22 +6,19 @@ from "@/lib/shared/supabase/server";
 import { getStaffIdentity }
 from "@/lib/messages/getStaffIdentity";
 
-export async function GET(req) {
+export async function GET() {
 
   try {
 
     const identity =
-      await getStaffIdentity(
-        req
-      );
+      await getStaffIdentity();
 
     if (!identity) {
 
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Unauthorized",
+          error: "Unauthorized",
         },
         {
           status: 401,
@@ -34,10 +31,8 @@ export async function GET(req) {
       createServerSupabase();
 
     const {
-      data:
-        participantRows,
-      error:
-        participantError,
+      data: participantRows,
+      error: participantError,
     } = await supabase
 
       .from(
@@ -61,6 +56,11 @@ export async function GET(req) {
     if (
       participantError
     ) {
+
+      console.error(
+        "PARTICIPANT ERROR",
+        participantError
+      );
 
       return NextResponse.json(
         {
@@ -86,15 +86,13 @@ export async function GET(req) {
 
       return NextResponse.json({
         success: true,
-        identity,
         threads: [],
       });
 
     }
 
     const {
-      data:
-        threads,
+      data: threads,
       error,
     } = await supabase
 
@@ -103,31 +101,29 @@ export async function GET(req) {
       )
 
       .select(`
-        *,
+        id,
+        title,
+        type,
+        created_at,
         messages(
           id,
           content,
           created_at,
-          sender_id,
-          reads:message_reads(
-            staff_id
-          )
+          sender_id
         )
       `)
 
       .in(
         "id",
         threadIds
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
       );
 
     if (error) {
+
+      console.error(
+        "THREAD ERROR",
+        error
+      );
 
       return NextResponse.json(
         {
@@ -146,18 +142,21 @@ export async function GET(req) {
       (threads || []).map(
         (thread) => {
 
-          const latest =
-            [...(thread.messages || [])]
+          const sorted =
+            [...(
+              thread.messages || []
+            )].sort(
+              (a, b) =>
+                new Date(
+                  b.created_at
+                ) -
+                new Date(
+                  a.created_at
+                )
+            );
 
-              .sort(
-                (a, b) =>
-                  new Date(
-                    b.created_at
-                  ) -
-                  new Date(
-                    a.created_at
-                  )
-              )[0];
+          const latest =
+            sorted[0];
 
           let unread = 0;
 
@@ -167,19 +166,12 @@ export async function GET(req) {
           ) {
 
             if (
-              message.sender_id ===
+              message.sender_id !==
               identity.id
-            ) continue;
+            ) {
 
-            const alreadyRead =
-              message.reads?.find(
-                (x) =>
-                  x.staff_id ===
-                  identity.id
-              );
-
-            if (!alreadyRead) {
               unread++;
+
             }
 
           }
@@ -204,11 +196,15 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      identity,
       threads: enriched,
     });
 
   } catch (err) {
+
+    console.error(
+      "INBOX ERROR",
+      err
+    );
 
     return NextResponse.json(
       {

@@ -11,17 +11,14 @@ export async function GET(req) {
   try {
 
     const identity =
-      await getStaffIdentity(
-        req
-      );
+      await getStaffIdentity(req);
 
     if (!identity) {
 
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Unauthorized",
+          error: "Unauthorized",
         },
         {
           status: 401,
@@ -29,9 +26,6 @@ export async function GET(req) {
       );
 
     }
-
-    const supabase =
-      createServerSupabase();
 
     const {
       searchParams,
@@ -42,35 +36,51 @@ export async function GET(req) {
         "query"
       ) || "";
 
+    const supabase =
+      createServerSupabase();
+
+    let request =
+      supabase
+
+        .from(
+          "staff_accounts"
+        )
+
+        .select(`
+          id,
+          name,
+          role,
+          profile_picture,
+          email
+        `)
+
+        .eq(
+          "tenant_id",
+          identity.tenant_id
+        )
+
+        .neq(
+          "id",
+          identity.id
+        )
+
+        .limit(20);
+
+    if (
+      query
+    ) {
+
+      request =
+        request.or(
+          `name.ilike.%${query}%,email.ilike.%${query}%`
+        );
+
+    }
+
     const {
       data,
       error,
-    } = await supabase
-
-      .from(
-        "staff_accounts"
-      )
-
-      .select(`
-        id,
-        name,
-        role,
-        email,
-        profile_picture
-      `)
-
-      .eq(
-        "tenant_id",
-        identity.tenant_id
-      )
-
-      .or(`
-        name.ilike.%${query}%,
-        role.ilike.%${query}%,
-        email.ilike.%${query}%
-      `)
-
-      .limit(20);
+    } = await request;
 
     if (error) {
 

@@ -6,7 +6,7 @@ from "@/lib/shared/supabase/server";
 import { getStaffIdentity }
 from "@/lib/messages/getStaffIdentity";
 
-export async function GET(req) {
+export async function POST(req) {
 
   try {
 
@@ -27,24 +27,24 @@ export async function GET(req) {
 
     }
 
-    const {
-      searchParams,
-    } = new URL(req.url);
+    const body =
+      await req.json();
 
-    const thread_id =
-      searchParams.get(
-        "thread_id"
-      );
+    const {
+      title,
+      participant_ids = [],
+    } = body;
 
     if (
-      !thread_id
+      !title ||
+      participant_ids.length === 0
     ) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "thread_id required",
+            "title and participant_ids required",
         },
         {
           status: 400,
@@ -57,37 +57,41 @@ export async function GET(req) {
       createServerSupabase();
 
     const {
-      data,
-      error,
+      data: thread,
+      error: threadError,
     } = await supabase
 
       .from(
-        "message_participants"
+        "message_threads"
       )
 
-      .select(`
-        id,
-        staff:staff_accounts(
-          id,
-          name,
-          role,
-          email,
-          profile_picture
-        )
-      `)
+      .insert({
 
-      .eq(
-        "thread_id",
-        thread_id
-      );
+        tenant_id:
+          identity.tenant_id,
 
-    if (error) {
+        created_by:
+          identity.id,
+
+        title,
+
+        type:
+          "group",
+
+      })
+
+      .select("*")
+      .single();
+
+    if (
+      threadError
+    ) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            error.message,
+            threadError.message,
         },
         {
           status: 500,
@@ -96,10 +100,42 @@ export async function GET(req) {
 
     }
 
+    const allParticipants = [
+
+      identity.id,
+
+      ...participant_ids,
+
+    ];
+
+    await supabase
+
+      .from(
+        "message_participants"
+      )
+
+      .insert(
+
+        allParticipants.map(
+          (staffId) => ({
+
+            tenant_id:
+              identity.tenant_id,
+
+            thread_id:
+              thread.id,
+
+            staff_id:
+              staffId,
+
+          })
+        )
+
+      );
+
     return NextResponse.json({
       success: true,
-      members:
-        data || [],
+      thread,
     });
 
   } catch (err) {

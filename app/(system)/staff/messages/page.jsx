@@ -2,259 +2,197 @@
 
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 
 import {
-  MessageCircle,
+  ArrowLeft,
   Send,
-  Plus,
-  Search,
+  Megaphone,
+  UserPlus,
   Users,
-  CheckCheck,
-  Trash2,
+  Check,
+  Plus,
+  X,
   Paperclip,
+  Trash2,
+  Pencil,
+  Pin,
+  Star,
+  Flag,
+  ClipboardCheck,
 } from "lucide-react";
 
 export default function StaffMessagesPage() {
 
-  const bottomRef =
-    useRef(null);
+  const bottomRef = useRef(null);
+  const fileRef = useRef(null);
 
-  const fileRef =
-    useRef(null);
+  const headers = {};
 
-  const [
-    identity,
-    setIdentity,
-  ] = useState(null);
-
-  const [
-    threads,
-    setThreads,
-  ] = useState([]);
-
-  const [
-    selectedThread,
-    setSelectedThread,
-  ] = useState(null);
-
-  const [
-    messages,
-    setMessages,
-  ] = useState([]);
-
-  const [
-    members,
-    setMembers,
-  ] = useState([]);
-
-  const [
-    content,
-    setContent,
-  ] = useState("");
-
-  const [
-    uploading,
-    setUploading,
-  ] = useState(false);
-
-  const headers =
-    useMemo(
-      () => ({
-        "x-staff-email":
-          localStorage.getItem(
-            "staff_email"
-          ) || "",
-      }),
-      []
-    );
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [threads, setThreads] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [content, setContent] = useState("");
+  const [staff, setStaff] = useState([]);
+  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [groupTitle, setGroupTitle] = useState("");
+  const [search, setSearch] = useState("");
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [groupMode, setGroupMode] = useState(false);
+  const [broadcastMode, setBroadcastMode] = useState(false);
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastContent, setBroadcastContent] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [typingUsers, setTypingUsers] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
 
   async function loadInbox() {
 
-    const res =
-      await fetch(
-        "/api/messages/inbox",
-        { headers }
-      );
-
-    const data =
-      await res.json();
-
-    if (
-      data.identity
-    ) {
-
-      setIdentity(
-        data.identity
-      );
-
-    }
-
-    setThreads(
-      data.threads || []
+    const res = await fetch(
+      "/api/messages/inbox",
+      { headers }
     );
+
+    const data = await res.json();
+
+    setThreads(data.threads || []);
 
   }
 
-  async function loadMessages(
-    thread_id
-  ) {
+  async function loadMessages(threadId) {
 
-    const res =
-      await fetch(
-        `/api/messages/list?thread_id=${thread_id}`,
+    const [
+      messageRes,
+      memberRes,
+      typingRes,
+    ] = await Promise.all([
+
+      fetch(
+        `/api/messages/list?thread_id=${threadId}`,
         { headers }
-      );
+      ),
 
-    const data =
-      await res.json();
+      fetch(
+        `/api/messages/thread-members?thread_id=${threadId}`,
+        { headers }
+      ),
+
+      fetch(
+        `/api/messages/typing?thread_id=${threadId}`
+      ),
+
+    ]);
+
+    const messageData =
+      await messageRes.json();
+
+    const memberData =
+      await memberRes.json();
+
+    const typingData =
+      await typingRes.json();
+
+    setTypingUsers(
+      typingData.typing || []
+    );
 
     setMessages(
-      data.messages || []
+      messageData.messages || []
+    );
+
+    setMembers(
+      memberData.members || []
     );
 
     setTimeout(() => {
 
       bottomRef.current?.scrollIntoView({
-        behavior:
-          "smooth",
+        behavior: "smooth",
       });
 
     }, 100);
 
   }
 
-  async function uploadAttachment(
-    file
-  ) {
+  async function sendMessage() {
 
-    setUploading(true);
+    if (!selectedChat || !content)
+      return;
 
-    const formData =
-      new FormData();
+    const res = await fetch(
+      "/api/messages/send",
+      {
+        method: "POST",
 
-    formData.append(
-      "file",
-      file
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+
+          thread_id:
+            selectedChat.id,
+
+          content,
+
+        }),
+      }
     );
 
-    const uploadRes =
-      await fetch(
-        "/api/messages/upload-attachment",
-        {
-          method: "POST",
+    const data =
+      await res.json();
 
-          headers,
+    if (data.message) {
 
-          body: formData,
-        }
-      );
+      setMessages((prev) => [
+        ...prev,
+        data.message,
+      ]);
 
-    const uploadData =
-      await uploadRes.json();
-
-    setUploading(false);
-
-    if (
-      !uploadData.url
-    ) return;
-
-    const sendRes =
-      await fetch(
-        "/api/messages/send",
-        {
-          method: "POST",
-
-          headers: {
-            ...headers,
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-
-            thread_id:
-              selectedThread.id,
-
-            content:
-              file.name,
-
-            attachment_url:
-              uploadData.url,
-
-          }),
-        }
-      );
-
-    const sendData =
-      await sendRes.json();
-
-    if (
-      sendData.message
-    ) {
-
-      setMessages(
-        (prev) => [
-          ...prev,
-          sendData.message,
-        ]
-      );
+      setContent("");
 
       loadInbox();
+
+      setTimeout(() => {
+
+        bottomRef.current?.scrollIntoView({
+          behavior:
+            "smooth",
+        });
+
+      }, 100);
 
     }
 
   }
 
-  async function sendMessage() {
-
-    if (
-      !selectedThread ||
-      !content
-    ) return;
+  async function moderateMessage(content) {
 
     const res =
       await fetch(
-        "/api/messages/send",
+        "/api/messages/moderation",
         {
           method: "POST",
 
           headers: {
-            ...headers,
             "Content-Type":
               "application/json",
           },
 
           body: JSON.stringify({
-            thread_id:
-              selectedThread.id,
             content,
           }),
         }
       );
 
-    const data =
-      await res.json();
-
-    if (
-      data.message
-    ) {
-
-      setMessages(
-        (prev) => [
-          ...prev,
-          data.message,
-        ]
-      );
-
-      loadInbox();
-
-    }
-
-    setContent("");
+    return await res.json();
 
   }
 
@@ -263,166 +201,202 @@ export default function StaffMessagesPage() {
     loadInbox();
 
     const interval =
-      setInterval(() => {
+      setInterval(async () => {
 
-        if (
-          selectedThread
-        ) {
+        loadInbox();
+
+        if (selectedChat) {
 
           loadMessages(
-            selectedThread.id
+            selectedChat.id
           );
 
         }
 
-      }, 4000);
+      }, 3000);
 
     return () =>
-      clearInterval(
-        interval
-      );
+      clearInterval(interval);
 
-  }, [selectedThread]);
+  }, [selectedChat]);
 
   return (
 
-    <div className="min-h-screen bg-black text-white">
+    <div className="h-full overflow-hidden text-white">
 
-      <div className="grid h-screen grid-cols-[360px_1fr]">
+      {!selectedChat ? (
 
-        <div className="overflow-y-auto border-r border-white/10 bg-white/[0.03] p-5">
+        <div className="flex h-[calc(100vh-180px)] flex-col">
 
-          <div className="text-2xl font-black">
-            Messages
+          <div className="flex items-center justify-between px-5 pb-4 pt-4">
+
+            <div className="text-5xl font-black">
+              Messages
+            </div>
+
           </div>
 
-          <div className="mt-6 space-y-3">
+          <div className="flex-1 overflow-y-auto px-4 pb-32">
 
-            {threads.map(
-              (thread) => (
+            <div className="space-y-3">
+
+              {threads.map((chat) => (
 
                 <button
-                  key={thread.id}
+                  key={chat.id}
                   onClick={() => {
 
-                    setSelectedThread(
-                      thread
-                    );
+                    setSelectedChat(chat);
 
-                    loadMessages(
-                      thread.id
-                    );
+                    loadMessages(chat.id);
 
                   }}
-                  className={`w-full rounded-2xl border p-4 text-left ${
-                    selectedThread?.id ===
-                    thread.id
-                      ? "border-cyan-400/40 bg-cyan-400/10"
-                      : "border-white/10 bg-white/[0.04]"
-                  }`}
+                  className="w-full rounded-[32px] border border-cyan-400/20 bg-gradient-to-br from-cyan-400/10 to-black p-5 text-left"
                 >
 
-                  <div className="font-semibold">
-                    {thread.title}
-                  </div>
+                  <div className="flex items-start justify-between">
 
-                  <div className="mt-1 text-xs text-white/40">
-                    {thread.latest_message}
+                    <div>
+
+                      <div className="text-2xl font-bold">
+                        {chat.title || "Conversation"}
+                      </div>
+
+                      <div className="mt-2 text-base text-white/50">
+                        {chat.latest_message || "No messages"}
+                      </div>
+
+                    </div>
+
                   </div>
 
                 </button>
 
-              )
-            )}
-
-          </div>
-
-        </div>
-
-        <div className="flex flex-col">
-
-          <div className="border-b border-white/10 p-5">
-
-            <div className="flex items-center justify-between">
-
-              <div>
-
-                <div className="text-2xl font-black">
-
-                  {selectedThread
-                    ? selectedThread.title
-                    : "Select Conversation"}
-
-                </div>
-
-              </div>
-
-              {selectedThread && (
-
-                <button
-                  className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300"
-                >
-
-                  <Trash2 className="h-4 w-4" />
-
-                </button>
-
-              )}
+              ))}
 
             </div>
 
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
+        </div>
 
-            <div className="space-y-4">
+      ) : (
 
-              {messages.map(
-                (message) => (
+        <div className="flex h-[calc(100vh-180px)] flex-col">
 
-                  <div
-                    key={message.id}
-                    className="rounded-3xl border border-white/10 bg-white/[0.05] p-4"
-                  >
+          <div className="border-b border-white/10 px-5 pb-5 pt-4">
 
-                    <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
 
-                      <div className="text-sm font-semibold">
-                        {message.sender?.name}
-                      </div>
+              <button
+                onClick={() =>
+                  setSelectedChat(null)
+                }
+                className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]"
+              >
 
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">
-                        {message.sender?.role}
-                      </div>
+                <ArrowLeft className="h-5 w-5" />
 
-                    </div>
+              </button>
 
-                    <div className="mt-3 text-sm text-white/80">
-                      {message.content}
-                    </div>
+              <div>
 
-                    {message.attachment_url && (
+                <div className="text-2xl font-black">
+                  {selectedChat.title}
+                </div>
 
-                      <a
-                        href={
-                          message.attachment_url
-                        }
-                        target="_blank"
-                        className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-300"
-                      >
+                <div className="mt-1 text-sm text-cyan-300">
+                  Enterprise Runtime Active
+                </div>
 
-                        <Paperclip className="h-4 w-4" />
+              </div>
 
-                        Open Attachment
+            </div>
 
-                      </a>
+          </div>
 
-                    )}
+          <div className="flex-1 overflow-y-auto px-5 py-6">
+
+            <div className="space-y-5">
+
+              {messages.map((message) => (
+
+                <div
+                  key={message.id}
+                  className="rounded-[28px] border border-white/10 bg-white/[0.05] p-5"
+                >
+
+                  <div className="text-sm font-bold text-cyan-300">
+                    {message.sender?.name}
+                  </div>
+
+                  <div className="mt-3 text-lg leading-relaxed">
+                    {message.content}
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2">
+
+                    <button
+                      onClick={() => {
+
+                        setEditingMessageId(
+                          message.id
+                        );
+
+                        setEditingContent(
+                          message.content
+                        );
+
+                      }}
+                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300"
+                    >
+
+                      <Pencil className="h-4 w-4" />
+
+                    </button>
+
+                    <button
+                      onClick={async () => {
+
+                        await fetch(
+                          "/api/messages/delete",
+                          {
+                            method: "POST",
+
+                            headers: {
+                              "Content-Type":
+                                "application/json",
+                            },
+
+                            body: JSON.stringify({
+                              message_id:
+                                message.id,
+                            }),
+                          }
+                        );
+
+                        setMessages(
+                          (prev) =>
+                            prev.filter(
+                              (x) =>
+                                x.id !==
+                                message.id
+                            )
+                        );
+
+                      }}
+                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-400/20 bg-red-400/10 text-red-300"
+                    >
+
+                      <Trash2 className="h-4 w-4" />
+
+                    </button>
 
                   </div>
 
-                )
-              )}
+                </div>
+
+              ))}
 
               <div ref={bottomRef} />
 
@@ -430,79 +404,60 @@ export default function StaffMessagesPage() {
 
           </div>
 
-          {selectedThread && (
+          <div className="border-t border-white/10 bg-black/80 p-4 backdrop-blur-3xl">
 
-            <div className="border-t border-white/10 p-5">
+            <div className="flex items-center gap-3">
 
-              <div className="flex gap-3">
+              <input
+                value={content}
+                onChange={(e) => {
 
-                <input
-                  value={content}
-                  onChange={(e) =>
-                    setContent(
-                      e.target.value
-                    )
+                  setContent(
+                    e.target.value
+                  );
+
+                }}
+                placeholder="Type message..."
+                className="h-14 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-lg outline-none"
+              />
+
+              <button
+                onClick={async () => {
+
+                  const moderation =
+                    await moderateMessage(
+                      content
+                    );
+
+                  if (
+                    moderation.flagged
+                  ) {
+
+                    alert(
+                      `Blocked words detected: ${moderation.matches.join(", ")}`
+                    );
+
+                    return;
+
                   }
-                  placeholder="Send message..."
-                  className="flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 outline-none"
-                />
 
-                <input
-                  ref={fileRef}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
+                  sendMessage();
 
-                    const file =
-                      e.target.files?.[0];
+                }}
+                className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-400 text-black"
+              >
 
-                    if (
-                      file
-                    ) {
+                <Send className="h-5 w-5" />
 
-                      uploadAttachment(
-                        file
-                      );
-
-                    }
-
-                  }}
-                />
-
-                <button
-                  onClick={() =>
-                    fileRef.current?.click()
-                  }
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-5"
-                >
-
-                  <Paperclip className="h-5 w-5" />
-
-                </button>
-
-                <button
-                  onClick={sendMessage}
-                  disabled={uploading}
-                  className="flex items-center gap-2 rounded-2xl bg-cyan-400 px-6 font-semibold text-black"
-                >
-
-                  <Send className="h-4 w-4" />
-
-                  {uploading
-                    ? "Uploading..."
-                    : "Send"}
-
-                </button>
-
-              </div>
+              </button>
 
             </div>
 
-          )}
+          </div>
 
         </div>
 
-      </div>
+      )}
 
     </div>
 

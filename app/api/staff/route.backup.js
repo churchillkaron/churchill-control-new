@@ -1,9 +1,20 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/shared/supabase/client"
+import { createServerSupabase } from "@/lib/shared/supabase/server";
 
 const BASE_REVENUE = 128450;
+const LATE_THRESHOLD_MINUTES = 10;
+const LATE_PENALTY = 0.8;
+
+function isLate(clockInTime) {
+  const start = new Date(clockInTime);
+  const scheduled = new Date(start);
+  scheduled.setHours(17, 0, 0, 0);
+
+  const diff = (start - scheduled) / 60000;
+  return diff > LATE_THRESHOLD_MINUTES;
+}
 
 function buildSystemPayload(staffMembers, shifts) {
   const activeStaff = (staffMembers || []).filter((s) => s.is_active !== false);
@@ -38,7 +49,6 @@ function buildSystemPayload(staffMembers, shifts) {
     FOH: staffWithShift.filter((s) => s.role === "FOH"),
     Bar: staffWithShift.filter((s) => s.role === "Bar"),
     Kitchen: staffWithShift.filter((s) => s.role === "Kitchen"),
-    Owner: staffWithShift.filter((s) => s.role === "Owner"),
   };
 
   const avg = (arr) =>
@@ -92,8 +102,10 @@ function buildSystemPayload(staffMembers, shifts) {
     const validShift = !!member.shift?.is_valid && member.shiftMinutes > 0;
     const workedRatio = Math.min(member.shiftMinutes / fullShiftMinutes, 1);
 
+    const penalty = member.shift?.penalty_multiplier || 1;
+
     const payrollAmount = validShift
-      ? Math.round(fullPayoutShare * workedRatio)
+      ? Math.round(fullPayoutShare * workedRatio * penalty)
       : 0;
 
     return {
@@ -119,39 +131,24 @@ function buildSystemPayload(staffMembers, shifts) {
 }
 
 export async function GET() {
-  const { data: staffMembers, error: staffError } = await supabase
+  const supabase = createServerSupabase();
+  const { data: staffMembers } = await supabase
     .from("staff_members")
-    .select("*")
-    .order("created_at", { ascending: true });
+    .select("*");
 
-  if (staffError) {
-    return NextResponse.json(
-      { error: staffError.message },
-      { status: 500 }
-    );
-  }
-
-  const { data: shifts, error: shiftsError } = await supabase
+  const { data: shifts } = await supabase
     .from("staff_shifts")
     .select("*")
     .order("created_at", { ascending: false });
-
-  if (shiftsError) {
-    return NextResponse.json(
-      { error: shiftsError.message },
-      { status: 500 }
-    );
-  }
 
   const payload = buildSystemPayload(staffMembers, shifts);
   return NextResponse.json(payload);
 }
 
 export async function POST(request) {
+  const supabase = createServerSupabase();
   const body = await request.json();
-  const action = body?.action;
-  const staffName = body?.staffName;
-  const staffRole = body?.staffRole;
+  const { action, staffName, staffRole } = body;
 
   if (!staffName || !staffRole) {
     return NextResponse.json(
@@ -161,49 +158,33 @@ export async function POST(request) {
   }
 
   if (action === "clock_in") {
-    const { data: openShift } = await supabase
-      .from("staff_shifts")
-      .select("*")
-      .eq("staff_name", staffName)
-      .is("clock_out", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (openShift) {
-      return NextResponse.json(
-        { error: "Already clocked in" },
-        { status: 400 }
-      );
-    }
+    const now = new Date().toISOString();
+    const late = isLate(now);
 
     const { error } = await supabase.from("staff_shifts").insert({
       staff_name: staffName,
       staff_role: staffRole,
-      clock_in: new Date().toISOString(),
+      clock_in: now,
       is_valid: true,
+      is_late: late,
+      penalty_multiplier: late ? LATE_PENALTY : 1,
     });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, late });
   }
 
   if (action === "clock_out") {
-    const { data: openShift, error: findError } = await supabase
+    const { data: openShift } = await supabase
       .from("staff_shifts")
       .select("*")
       .eq("staff_name", staffName)
       .is("clock_out", null)
-      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-
-    if (findError) {
-      return NextResponse.json({ error: findError.message }, { status: 500 });
-    }
 
     if (!openShift) {
       return NextResponse.json(

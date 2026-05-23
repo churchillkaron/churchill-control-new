@@ -1,0 +1,20 @@
+
+> churchill-control@1.0.0 dev
+> next dev
+
+[@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead.
+[@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead.
+  ▲ Next.js 14.2.5
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+  - Experiments (use with caution):
+    · instrumentationHook
+
+ ✓ Starting...
+ ○ Compiling /instrumentation ...
+ ✓ Compiled /instrumentation in 1630ms (1164 modules)
+ ✓ Ready in 4.2s
+ ○ Compiling /management ...
+ ✓ Compiled /management in 3.6s (2656 modules)
+ GET /management 200 in 4144ms
+[?25h

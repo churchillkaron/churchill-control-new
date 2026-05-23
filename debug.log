@@ -1,0 +1,186 @@
+
+> churchill-control@1.0.0 dev
+> next dev
+
+[@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead.
+ ⚠ Port 3000 is in use, trying 3001 instead.
+[@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead.
+  ▲ Next.js 14.2.5
+  - Local:        http://localhost:3001
+  - Environments: .env.local
+  - Experiments (use with caution):
+    · instrumentationHook
+
+ ✓ Starting...
+ ○ Compiling /instrumentation ...
+ ✓ Compiled /instrumentation in 1766ms (1164 modules)
+ ✓ Ready in 4.5s
+ ○ Compiling /api/messages/inbox ...
+ ✓ Compiled /api/messages/inbox in 1632ms (1617 modules)
+ GET /api/messages/inbox 500 in 3156ms
+ GET /api/messages/inbox 500 in 1061ms
+ GET /api/messages/inbox 500 in 3858ms
+ GET /api/messages/inbox 500 in 677ms
+ ○ Compiling /staff/messages ...
+ ✓ Compiled /api/staff in 3.3s (2660 modules)
+ ⨯ Error: Attempted to call from() from the server but from is on the client. It's not possible to invoke a client function from the server, it can only be rendered as a Component or passed to props of a Client Component.
+    at Proxy.from (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:35:255262)
+    at GET$1 (webpack-internal:///(rsc)/./app/api/staff/route.js:124:108)
+    at eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:37:38)
+    at Module.handleCallbackErrors (webpack-internal:///(rsc)/./node_modules/@sentry/core/build/cjs/utils/handleCallbackErrors.js:30:26)
+    at eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:36:41)
+    at eval (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1390:14)
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (webpack-internal:///(instrument)/./node_modules/@opentelemetry/api/build/esm/api/context.js:55:46)
+    at Object.withScope (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1389:28)
+    at Module.withScope (webpack-internal:///(rsc)/./node_modules/@sentry/core/build/cjs/currentScopes.js:86:14)
+    at eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:31:23)
+    at eval (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1425:14)
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (webpack-internal:///(instrument)/./node_modules/@opentelemetry/api/build/esm/api/context.js:55:46)
+    at Object.withSetIsolationScope (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1424:28)
+    at Module.withIsolationScope (webpack-internal:///(rsc)/./node_modules/@sentry/core/build/cjs/currentScopes.js:118:16)
+    at Object.apply (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:28:19)
+    at Object.apply (webpack-internal:///(rsc)/./app/api/staff/route.js:234:10)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:55044
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:140:36
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (webpack-internal:///(instrument)/./node_modules/@opentelemetry/api/build/esm/api/context.js:55:46)
+    at Tracer.startActiveSpan (webpack-internal:///(instrument)/./node_modules/@opentelemetry/sdk-trace-base/build/esm/Tracer.js:154:76)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:122:103
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (/Users/leynaelizan/Projects/churchill-control-new/node_modules/@opentelemetry/api/build/src/api/context.js:51:46)
+    at NextTracerImpl.trace (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:122:28)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:47853
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at Object.wrap (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:40244)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46429
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at Object.wrap (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:37583)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46391
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at ek.execute (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:45838)
+    at ek.handle (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:56303)
+    at doRender (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1377:60)
+    at cacheEntry.responseCache.get.routeKind (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1599:34)
+    at ResponseCache.get (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/response-cache/index.js:49:26)
+    at DevServer.renderToResponseWithComponentsImpl (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1507:53)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1002:121
+    at NextTracerImpl.trace (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:105:20)
+    at DevServer.renderToResponseWithComponents (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1002:41)
+    at DevServer.renderPageComponent (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1931:35)
+    at async DevServer.renderToResponseImpl (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1969:32)
+ GET /api/staff 500 in 2609ms
+ GET /staff/messages 200 in 3882ms
+ GET /api/messages/inbox 200 in 131ms
+ GET /api/messages/inbox 200 in 2719ms
+ ⨯ Error: Attempted to call from() from the server but from is on the client. It's not possible to invoke a client function from the server, it can only be rendered as a Component or passed to props of a Client Component.
+    at Proxy.from (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:35:255262)
+    at GET$1 (webpack-internal:///(rsc)/./app/api/staff/route.js:124:108)
+    at eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:37:38)
+    at Module.handleCallbackErrors (webpack-internal:///(rsc)/./node_modules/@sentry/core/build/cjs/utils/handleCallbackErrors.js:30:26)
+    at eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:36:41)
+    at eval (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1390:14)
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (webpack-internal:///(instrument)/./node_modules/@opentelemetry/api/build/esm/api/context.js:55:46)
+    at Object.withScope (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1389:28)
+    at Module.withScope (webpack-internal:///(rsc)/./node_modules/@sentry/core/build/cjs/currentScopes.js:86:14)
+    at eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:31:23)
+    at eval (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1425:14)
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (webpack-internal:///(instrument)/./node_modules/@opentelemetry/api/build/esm/api/context.js:55:46)
+    at Object.withSetIsolationScope (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1424:28)
+    at Module.withIsolationScope (webpack-internal:///(rsc)/./node_modules/@sentry/core/build/cjs/currentScopes.js:118:16)
+    at Object.apply (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:28:19)
+    at Object.apply (webpack-internal:///(rsc)/./app/api/staff/route.js:234:10)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:55044
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:140:36
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (webpack-internal:///(instrument)/./node_modules/@opentelemetry/api/build/esm/api/context.js:55:46)
+    at Tracer.startActiveSpan (webpack-internal:///(instrument)/./node_modules/@opentelemetry/sdk-trace-base/build/esm/Tracer.js:154:76)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:122:103
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (/Users/leynaelizan/Projects/churchill-control-new/node_modules/@opentelemetry/api/build/src/api/context.js:51:46)
+    at NextTracerImpl.trace (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:122:28)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:47853
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at Object.wrap (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:40244)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46429
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at Object.wrap (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:37583)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46391
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at ek.execute (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:45838)
+    at ek.handle (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:56303)
+    at doRender (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1377:60)
+    at cacheEntry.responseCache.get.routeKind (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1599:34)
+    at ResponseCache.get (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/response-cache/index.js:49:26)
+    at DevServer.renderToResponseWithComponentsImpl (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1507:53)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1002:121
+    at NextTracerImpl.trace (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:105:20)
+    at DevServer.renderToResponseWithComponents (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1002:41)
+    at DevServer.renderPageComponent (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1931:35)
+    at async DevServer.renderToResponseImpl (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1969:32)
+ GET /api/staff 500 in 767ms
+ ⨯ Error: Attempted to call from() from the server but from is on the client. It's not possible to invoke a client function from the server, it can only be rendered as a Component or passed to props of a Client Component.
+    at Proxy.from (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:35:255262)
+    at GET$1 (webpack-internal:///(rsc)/./app/api/staff/route.js:124:108)
+    at eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:37:38)
+    at Module.handleCallbackErrors (webpack-internal:///(rsc)/./node_modules/@sentry/core/build/cjs/utils/handleCallbackErrors.js:30:26)
+    at eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:36:41)
+    at eval (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1390:14)
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (webpack-internal:///(instrument)/./node_modules/@opentelemetry/api/build/esm/api/context.js:55:46)
+    at Object.withScope (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1389:28)
+    at Module.withScope (webpack-internal:///(rsc)/./node_modules/@sentry/core/build/cjs/currentScopes.js:86:14)
+    at eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:31:23)
+    at eval (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1425:14)
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (webpack-internal:///(instrument)/./node_modules/@opentelemetry/api/build/esm/api/context.js:55:46)
+    at Object.withSetIsolationScope (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/resource-CD6NEt3L.js:1424:28)
+    at Module.withIsolationScope (webpack-internal:///(rsc)/./node_modules/@sentry/core/build/cjs/currentScopes.js:118:16)
+    at Object.apply (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:28:19)
+    at Object.apply (webpack-internal:///(rsc)/./app/api/staff/route.js:234:10)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:55044
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:140:36
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (webpack-internal:///(instrument)/./node_modules/@opentelemetry/api/build/esm/api/context.js:55:46)
+    at Tracer.startActiveSpan (webpack-internal:///(instrument)/./node_modules/@opentelemetry/sdk-trace-base/build/esm/Tracer.js:154:76)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:122:103
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at SentryAsyncLocalStorageContextManager.with (webpack-internal:///(instrument)/./node_modules/@sentry/opentelemetry/build/cjs/index.js:41:36)
+    at ContextAPI.with (/Users/leynaelizan/Projects/churchill-control-new/node_modules/@opentelemetry/api/build/src/api/context.js:51:46)
+    at NextTracerImpl.trace (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:122:28)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:47853
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at Object.wrap (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:40244)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46429
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at Object.wrap (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:37583)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46391
+    at AsyncLocalStorage.run (node:async_hooks:346:14)
+    at ek.execute (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:45838)
+    at ek.handle (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:56303)
+    at doRender (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1377:60)
+    at cacheEntry.responseCache.get.routeKind (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1599:34)
+    at ResponseCache.get (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/response-cache/index.js:49:26)
+    at DevServer.renderToResponseWithComponentsImpl (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1507:53)
+    at /Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1002:121
+    at NextTracerImpl.trace (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/lib/trace/tracer.js:105:20)
+    at DevServer.renderToResponseWithComponents (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1002:41)
+    at DevServer.renderPageComponent (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1931:35)
+    at async DevServer.renderToResponseImpl (/Users/leynaelizan/Projects/churchill-control-new/node_modules/next/dist/server/base-server.js:1969:32)
+ GET /api/staff 500 in 758ms
+ GET /api/messages/inbox 500 in 1040ms
+ GET /api/messages/inbox 500 in 1238ms

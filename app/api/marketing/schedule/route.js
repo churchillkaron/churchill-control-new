@@ -1,13 +1,12 @@
 export const dynamic = "force-dynamic";
 
-import {
-  createServerSupabase,
-} from "@/lib/shared/supabase/server";
+import { supabaseAdmin }
+from "@/lib/shared/supabase/admin";
 
 export async function POST(req) {
 
   const supabase =
-    createServerSupabase();
+    supabaseAdmin;
 
   try {
 

@@ -6,12 +6,12 @@ from "@/lib/shared/supabase/server";
 import { getStaffIdentity }
 from "@/lib/messages/getStaffIdentity";
 
-export async function GET(req) {
+export async function POST(req) {
 
   try {
 
     const identity =
-      await getStaffIdentity(req);
+      await getStaffIdentity();
 
     if (!identity) {
 
@@ -27,24 +27,24 @@ export async function GET(req) {
 
     }
 
-    const {
-      searchParams,
-    } = new URL(req.url);
+    const body =
+      await req.json();
 
-    const thread_id =
-      searchParams.get(
-        "thread_id"
-      );
+    const {
+      message_id,
+      emoji,
+    } = body;
 
     if (
-      !thread_id
+      !message_id ||
+      !emoji
     ) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "thread_id required",
+            "message_id and emoji required",
         },
         {
           status: 400,
@@ -57,29 +57,72 @@ export async function GET(req) {
       createServerSupabase();
 
     const {
+      data: existing,
+    } = await supabase
+
+      .from(
+        "message_reactions"
+      )
+
+      .select("*")
+
+      .eq(
+        "message_id",
+        message_id
+      )
+
+      .eq(
+        "staff_id",
+        identity.id
+      )
+
+      .eq(
+        "emoji",
+        emoji
+      )
+
+      .maybeSingle();
+
+    if (existing) {
+
+      await supabase
+
+        .from(
+          "message_reactions"
+        )
+
+        .delete()
+
+        .eq(
+          "id",
+          existing.id
+        );
+
+      return NextResponse.json({
+        success: true,
+        removed: true,
+      });
+
+    }
+
+    const {
       data,
       error,
     } = await supabase
 
       .from(
-        "message_participants"
+        "message_reactions"
       )
 
-      .select(`
-        id,
-        staff:staff_accounts(
-          id,
-          name,
-          role,
-          email,
-          profile_picture
-        )
-      `)
+      .insert({
+        message_id,
+        staff_id:
+          identity.id,
+        emoji,
+      })
 
-      .eq(
-        "thread_id",
-        thread_id
-      );
+      .select("*")
+      .single();
 
     if (error) {
 
@@ -98,8 +141,7 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      members:
-        data || [],
+      reaction: data,
     });
 
   } catch (err) {

@@ -6,7 +6,7 @@ from "@/lib/shared/supabase/server";
 import { getStaffIdentity }
 from "@/lib/messages/getStaffIdentity";
 
-export async function GET(req) {
+export async function POST(req) {
 
   try {
 
@@ -27,24 +27,24 @@ export async function GET(req) {
 
     }
 
-    const {
-      searchParams,
-    } = new URL(req.url);
+    const body =
+      await req.json();
 
-    const thread_id =
-      searchParams.get(
-        "thread_id"
-      );
+    const {
+      thread_id,
+      staff_id,
+    } = body;
 
     if (
-      !thread_id
+      !thread_id ||
+      !staff_id
     ) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "thread_id required",
+            "thread_id and staff_id required",
         },
         {
           status: 400,
@@ -57,7 +57,6 @@ export async function GET(req) {
       createServerSupabase();
 
     const {
-      data,
       error,
     } = await supabase
 
@@ -65,20 +64,16 @@ export async function GET(req) {
         "message_participants"
       )
 
-      .select(`
-        id,
-        staff:staff_accounts(
-          id,
-          name,
-          role,
-          email,
-          profile_picture
-        )
-      `)
+      .delete()
 
       .eq(
         "thread_id",
         thread_id
+      )
+
+      .eq(
+        "staff_id",
+        staff_id
       );
 
     if (error) {
@@ -98,8 +93,6 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      members:
-        data || [],
     });
 
   } catch (err) {

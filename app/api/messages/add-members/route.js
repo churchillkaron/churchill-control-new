@@ -6,7 +6,7 @@ from "@/lib/shared/supabase/server";
 import { getStaffIdentity }
 from "@/lib/messages/getStaffIdentity";
 
-export async function GET(req) {
+export async function POST(req) {
 
   try {
 
@@ -27,24 +27,24 @@ export async function GET(req) {
 
     }
 
-    const {
-      searchParams,
-    } = new URL(req.url);
+    const body =
+      await req.json();
 
-    const thread_id =
-      searchParams.get(
-        "thread_id"
-      );
+    const {
+      thread_id,
+      participant_ids = [],
+    } = body;
 
     if (
-      !thread_id
+      !thread_id ||
+      participant_ids.length === 0
     ) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "thread_id required",
+            "thread_id and participant_ids required",
         },
         {
           status: 400,
@@ -56,8 +56,22 @@ export async function GET(req) {
     const supabase =
       createServerSupabase();
 
+    const inserts =
+      participant_ids.map(
+        (staffId) => ({
+
+          tenant_id:
+            identity.tenant_id,
+
+          thread_id,
+
+          staff_id:
+            staffId,
+
+        })
+      );
+
     const {
-      data,
       error,
     } = await supabase
 
@@ -65,20 +79,12 @@ export async function GET(req) {
         "message_participants"
       )
 
-      .select(`
-        id,
-        staff:staff_accounts(
-          id,
-          name,
-          role,
-          email,
-          profile_picture
-        )
-      `)
-
-      .eq(
-        "thread_id",
-        thread_id
+      .upsert(
+        inserts,
+        {
+          onConflict:
+            "thread_id,staff_id",
+        }
       );
 
     if (error) {
@@ -98,8 +104,6 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      members:
-        data || [],
     });
 
   } catch (err) {

@@ -6,12 +6,12 @@ from "@/lib/shared/supabase/server";
 import { getStaffIdentity }
 from "@/lib/messages/getStaffIdentity";
 
-export async function GET(req) {
+export async function POST(req) {
 
   try {
 
     const identity =
-      await getStaffIdentity(req);
+      await getStaffIdentity();
 
     if (!identity) {
 
@@ -27,24 +27,20 @@ export async function GET(req) {
 
     }
 
+    const body =
+      await req.json();
+
     const {
-      searchParams,
-    } = new URL(req.url);
+      message_id,
+    } = body;
 
-    const thread_id =
-      searchParams.get(
-        "thread_id"
-      );
-
-    if (
-      !thread_id
-    ) {
+    if (!message_id) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "thread_id required",
+            "message_id required",
         },
         {
           status: 400,
@@ -57,28 +53,70 @@ export async function GET(req) {
       createServerSupabase();
 
     const {
-      data,
+      data: message,
+    } = await supabase
+
+      .from(
+        "messages"
+      )
+
+      .select("*")
+
+      .eq(
+        "id",
+        message_id
+      )
+
+      .single();
+
+    if (
+      !message
+    ) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Message not found",
+        },
+        {
+          status: 404,
+        }
+      );
+
+    }
+
+    if (
+      message.sender_id !==
+      identity.id
+    ) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Forbidden",
+        },
+        {
+          status: 403,
+        }
+      );
+
+    }
+
+    const {
       error,
     } = await supabase
 
       .from(
-        "message_participants"
+        "messages"
       )
 
-      .select(`
-        id,
-        staff:staff_accounts(
-          id,
-          name,
-          role,
-          email,
-          profile_picture
-        )
-      `)
+      .delete()
 
       .eq(
-        "thread_id",
-        thread_id
+        "id",
+        message_id
       );
 
     if (error) {
@@ -98,8 +136,6 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      members:
-        data || [],
     });
 
   } catch (err) {

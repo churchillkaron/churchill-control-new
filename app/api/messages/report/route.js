@@ -6,12 +6,12 @@ from "@/lib/shared/supabase/server";
 import { getStaffIdentity }
 from "@/lib/messages/getStaffIdentity";
 
-export async function GET(req) {
+export async function POST(req) {
 
   try {
 
     const identity =
-      await getStaffIdentity(req);
+      await getStaffIdentity();
 
     if (!identity) {
 
@@ -27,24 +27,21 @@ export async function GET(req) {
 
     }
 
+    const body =
+      await req.json();
+
     const {
-      searchParams,
-    } = new URL(req.url);
+      message_id,
+      reason,
+    } = body;
 
-    const thread_id =
-      searchParams.get(
-        "thread_id"
-      );
-
-    if (
-      !thread_id
-    ) {
+    if (!message_id) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "thread_id required",
+            "message_id required",
         },
         {
           status: 400,
@@ -62,24 +59,27 @@ export async function GET(req) {
     } = await supabase
 
       .from(
-        "message_participants"
+        "message_reports"
       )
 
-      .select(`
-        id,
-        staff:staff_accounts(
-          id,
-          name,
-          role,
-          email,
-          profile_picture
-        )
-      `)
+      .insert({
+        message_id,
 
-      .eq(
-        "thread_id",
-        thread_id
-      );
+        reported_by:
+          identity.id,
+
+        tenant_id:
+          identity.tenant_id,
+
+        reason:
+          reason || "",
+
+        status:
+          "pending",
+      })
+
+      .select("*")
+      .single();
 
     if (error) {
 
@@ -98,8 +98,7 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      members:
-        data || [],
+      report: data,
     });
 
   } catch (err) {

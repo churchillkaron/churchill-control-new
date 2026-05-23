@@ -6,12 +6,12 @@ from "@/lib/shared/supabase/server";
 import { getStaffIdentity }
 from "@/lib/messages/getStaffIdentity";
 
-export async function GET(req) {
+export async function POST(req) {
 
   try {
 
     const identity =
-      await getStaffIdentity(req);
+      await getStaffIdentity();
 
     if (!identity) {
 
@@ -27,24 +27,24 @@ export async function GET(req) {
 
     }
 
-    const {
-      searchParams,
-    } = new URL(req.url);
+    const body =
+      await req.json();
 
-    const thread_id =
-      searchParams.get(
-        "thread_id"
-      );
+    const {
+      message_id,
+      content,
+    } = body;
 
     if (
-      !thread_id
+      !message_id ||
+      !content
     ) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "thread_id required",
+            "message_id and content required",
         },
         {
           status: 400,
@@ -57,29 +57,77 @@ export async function GET(req) {
       createServerSupabase();
 
     const {
+      data: message,
+    } = await supabase
+
+      .from(
+        "messages"
+      )
+
+      .select("*")
+
+      .eq(
+        "id",
+        message_id
+      )
+
+      .single();
+
+    if (
+      !message
+    ) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Message not found",
+        },
+        {
+          status: 404,
+        }
+      );
+
+    }
+
+    if (
+      message.sender_id !==
+      identity.id
+    ) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Forbidden",
+        },
+        {
+          status: 403,
+        }
+      );
+
+    }
+
+    const {
       data,
       error,
     } = await supabase
 
       .from(
-        "message_participants"
+        "messages"
       )
 
-      .select(`
-        id,
-        staff:staff_accounts(
-          id,
-          name,
-          role,
-          email,
-          profile_picture
-        )
-      `)
+      .update({
+        content,
+      })
 
       .eq(
-        "thread_id",
-        thread_id
-      );
+        "id",
+        message_id
+      )
+
+      .select("*")
+      .single();
 
     if (error) {
 
@@ -98,8 +146,7 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      members:
-        data || [],
+      message: data,
     });
 
   } catch (err) {

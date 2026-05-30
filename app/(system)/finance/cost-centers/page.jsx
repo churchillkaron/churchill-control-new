@@ -4,7 +4,15 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 export default function CostCentersPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
   const [costCenters, setCostCenters] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +38,16 @@ export default function CostCentersPage() {
           "/api/finance/cost-centers/list",
           {
             method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              organizationId:
+                organization?.id,
+            }),
           }
         );
 
@@ -78,7 +96,14 @@ export default function CostCentersPage() {
               "application/json",
           },
 
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+
+            ...form,
+
+            organizationId:
+              organization?.id,
+
+          }),
 
         }
       );
@@ -123,6 +148,9 @@ export default function CostCentersPage() {
 
             cost_center_id:
               center.id,
+
+            organizationId:
+              organization?.id,
 
           }),
 

@@ -5,8 +5,9 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin }
 from "@/lib/shared/supabase/admin";
 
-import { getTenantId }
-from "@/lib/shared/tenant/getTenantId";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
 import { generateKitchenCultureScore }
 from "@/lib/kitchen/generateKitchenCultureScore";
@@ -17,8 +18,40 @@ export async function GET(
 
   try {
 
+    const {
+      searchParams,
+    } = new URL(
+      request.url
+    );
+
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          searchParams.get(
+            "organizationId"
+          ),
+
+      });
+
+    if (!access.success) {
+
+      return Response.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
     const tenant_id =
-      getTenantId(request);
+      access.tenantId;
 
     // 🔹 TODAY RANGE
     const now = new Date();

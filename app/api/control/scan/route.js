@@ -5,30 +5,58 @@ import {
 } from "@/lib/shared/supabase/server";
 
 import {
-  getTenantId,
-} from "@/lib/shared/tenant/getTenantId";
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
-export async function GET() {
+export async function GET(req) {
 
   try {
 
-    const tenantId =
-      await getTenantId();
+    const body =
+      req?.method === "GET"
+        ? {}
 
-    if (!tenantId) {
+        : await req.json();
 
-      return Response.json(
-        {
-          success: false,
-          error:
-            "Tenant not found",
-        },
-        {
-          status: 401,
-        }
-      );
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return Response?.json
+        ? Response.json(
+            {
+              success: false,
+              error:
+                access.error,
+            },
+            {
+              status:
+                access.status,
+            }
+          )
+
+        : NextResponse.json(
+            {
+              success: false,
+              error:
+                access.error,
+            },
+            {
+              status:
+                access.status,
+            }
+          );
 
     }
+
+    const tenantId =
+      access.tenantId;
 
     const supabase =
       createServerSupabase();

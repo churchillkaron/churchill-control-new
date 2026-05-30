@@ -212,6 +212,7 @@ Do not classify office workers, accountants, paperwork, filing cabinets, spreads
 
               body: JSON.stringify({
                 image,
+                tenantId,
               }),
 
             }

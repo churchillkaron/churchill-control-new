@@ -6,8 +6,9 @@ from "next/server";
 import { postDepreciationToLedger }
 from "@/lib/finance/accounting/postDepreciationToLedger";
 
-import { getTenantId }
-from "@/lib/shared/tenant/getTenantId";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
 // =====================================
 // RUN DEPRECIATION
@@ -40,8 +41,32 @@ export async function POST(
 
     }
 
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
     const tenantId =
-      await getTenantId();
+      access.tenantId;
 
     const result =
       await postDepreciationToLedger({

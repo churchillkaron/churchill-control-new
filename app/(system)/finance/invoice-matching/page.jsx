@@ -4,7 +4,15 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 export default function InvoiceMatchingPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
 
   const [invoices, setInvoices] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -27,6 +35,16 @@ export default function InvoiceMatchingPage() {
           "/api/finance/invoice-matching/runtime",
           {
             method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              organizationId:
+                organization?.id,
+            }),
           }
         );
 
@@ -115,6 +133,9 @@ export default function InvoiceMatchingPage() {
 
             goods_receipt_id:
               grn.id,
+
+            organizationId:
+              organization?.id,
 
           }),
 

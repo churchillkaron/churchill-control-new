@@ -1,0 +1,9 @@
+app/api/settings/payroll/load/route.js:      await getTenantId();
+app/api/settings/payroll/save/route.js:      await getTenantId();
+app/api/marketing/owner-insights/route.js:      getTenantId(request);
+app/api/marketing/operations/route.js:      getTenantId(request);
+app/api/marketing/operational-alerts/route.js:      getTenantId(request);
+app/api/marketing/recommendations/route.js:      getTenantId(request);
+app/api/marketing/queue/route.js:      getTenantId(request);
+app/api/marketing/engine-learning/route.js:      getTenantId(request);
+app/api/marketing/campaigns/route.js:      getTenantId(request);

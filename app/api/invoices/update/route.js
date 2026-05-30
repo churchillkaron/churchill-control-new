@@ -9,8 +9,9 @@ from "@/lib/shared/supabase/admin";
 import { executeApproval }
 from "@/lib/shared/approvals/executeApproval";
 
-import { getTenantId }
-from "@/lib/shared/tenant/getTenantId";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
 // =========================
 // PROCESS INVOICE APPROVAL
@@ -36,6 +37,8 @@ export async function POST(
       actedBy,
 
       notes,
+
+      organizationId,
 
     } = body;
 
@@ -104,8 +107,31 @@ export async function POST(
     // TENANT
     // -----------------------------------
 
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
     const tenantId =
-      getTenantId();
+      access.tenantId;
 
     // -----------------------------------
     // EXECUTE GOVERNED WORKFLOW

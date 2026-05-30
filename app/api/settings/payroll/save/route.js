@@ -5,33 +5,42 @@ import saveOperationalSettings
 from "@/lib/settings/saveOperationalSettings";
 
 import {
-  getTenantId,
-} from "@/lib/shared/tenant/getTenantId";
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function POST(request) {
 
   try {
 
-    const tenantId =
-      await getTenantId();
+    const body =
+      await request.json();
 
-    if (!tenantId) {
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "Tenant not found",
+            access.error,
         },
         {
-          status: 401,
+          status:
+            access.status,
         }
       );
 
     }
 
-    const body =
-      await request.json();
+    const tenantId =
+      access.tenantId;
 
     await saveOperationalSettings({
 

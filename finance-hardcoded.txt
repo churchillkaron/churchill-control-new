@@ -1,0 +1,15 @@
+app/api/finance/trial-balance/route.js:    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/insights/route.js:    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/periods/route.js:  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/periods/close/route.js:  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/periods/open/route.js:  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/profit-loss/route.js:    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/health/route.js:    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/anomalies/route.js:    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/kpis/route.js:    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/journals/route.js:    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/journals/request-reversal/route.js:  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/journals/reverse/route.js:  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/journals/[id]/route.js:  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/cash-flow/route.js:    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+app/api/finance/balance-sheet/route.js:    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";

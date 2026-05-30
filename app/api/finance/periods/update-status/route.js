@@ -3,7 +3,9 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { getTenantId } from "@/lib/shared/tenant/getTenantId";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
 export async function POST(req) {
@@ -42,7 +44,31 @@ export async function POST(req) {
       permissionKey: "close_period",
     });
 
-    const tenantId = getTenantId();
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
+    const tenantId =
+      access.tenantId;
 
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from("accounting_periods")

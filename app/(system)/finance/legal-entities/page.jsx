@@ -4,7 +4,15 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 export default function LegalEntitiesPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
 
   const [entities, setEntities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +46,16 @@ export default function LegalEntitiesPage() {
           "/api/finance/legal-entities/list",
           {
             method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              organizationId:
+                organization?.id,
+            }),
           }
         );
 
@@ -95,7 +113,14 @@ export default function LegalEntitiesPage() {
               "application/json",
           },
 
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+
+            ...form,
+
+            organizationId:
+              organization?.id,
+
+          }),
 
         }
       );
@@ -149,6 +174,9 @@ export default function LegalEntitiesPage() {
 
             entity_id:
               entity.id,
+
+            organizationId:
+              organization?.id,
 
           }),
 

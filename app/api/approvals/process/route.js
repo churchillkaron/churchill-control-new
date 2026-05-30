@@ -6,8 +6,9 @@ from "next/server";
 import { executeApproval }
 from "@/lib/shared/approvals/executeApproval";
 
-import { getTenantId }
-from "@/lib/shared/tenant/getTenantId";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function POST(
   request
@@ -34,8 +35,32 @@ export async function POST(
 
     } = body;
 
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
     const tenantId =
-      getTenantId();
+      access.tenantId;
 
     const result =
       await executeApproval({

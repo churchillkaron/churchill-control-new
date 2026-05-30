@@ -5,15 +5,46 @@ import {
 } from "@/lib/shared/supabase/server";
 
 import {
-  getTenantId,
-} from "@/lib/shared/tenant/getTenantId";
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function GET() {
 
   try {
 
+    const {
+      searchParams,
+    } = new URL(
+      request.url
+    );
+
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          searchParams.get(
+            "organizationId"
+          ),
+
+      });
+
+    if (!access.success) {
+
+      return Response.json(
+        {
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
     const tenantId =
-      await getTenantId();
+      access.tenantId;
 
     if (!tenantId) {
 

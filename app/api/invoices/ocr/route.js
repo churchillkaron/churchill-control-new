@@ -5,8 +5,6 @@ import { mapInvoiceItems } from "@/lib/accounting/mapInvoiceItems";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const TENANT_ID =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -314,6 +312,24 @@ export async function POST(req) {
     const image =
       body?.image;
 
+    const tenantId =
+      body?.tenantId;
+
+    if (!tenantId) {
+
+      return Response.json(
+        {
+          success: false,
+          error:
+            "tenantId required",
+        },
+        {
+          status: 400,
+        }
+      );
+
+    }
+
     if (!image) {
       return Response.json(
         {
@@ -427,7 +443,7 @@ Rules:
 
     const mappedItems =
       await mapInvoiceItems({
-        tenantId: TENANT_ID,
+        tenantId: tenantId,
         items: translatedItems,
       });
 
@@ -525,7 +541,7 @@ Rules:
                   item.unit_price,
                   0
                 ),
-              tenant_id: TENANT_ID,
+              tenant_id: tenantId,
             },
           ])
           .select()
@@ -656,7 +672,7 @@ Rules:
           status: "pending_manager",
           image_url: image,
           items: mappedItems,
-          tenant_id: TENANT_ID,
+          tenant_id: tenantId,
         },
       ])
       .select()

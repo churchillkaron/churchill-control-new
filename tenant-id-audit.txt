@@ -1,0 +1,405 @@
+app/api/messages/voice-note/route.js:        tenant_id:
+app/api/messages/online-status/route.js:          tenant_id:
+app/api/messages/report/route.js:        tenant_id:
+app/api/messages/send/route.js:        tenant_id:
+app/api/messages/create-private/route.js:        tenant_id:
+app/api/messages/create-private/route.js:          tenant_id:
+app/api/messages/create-private/route.js:          tenant_id:
+app/api/messages/create-group/route.js:        tenant_id:
+app/api/messages/create-group/route.js:            tenant_id:
+app/api/messages/broadcast/route.js:        tenant_id:
+app/api/messages/broadcast/route.js:              tenant_id:
+app/api/messages/broadcast/route.js:        tenant_id:
+app/api/messages/add-members/route.js:          tenant_id:
+app/api/messages/create-thread/route.js:        tenant_id:
+app/api/messages/create-thread/route.js:          tenant_id:
+app/api/invoices/ocr/route.js:              tenant_id: tenantId,
+app/api/invoices/ocr/route.js:          tenant_id: tenantId,
+app/api/intake/classify/route.js:          tenant_id:
+app/api/pos/payments/route.js:      tenant_id:
+app/api/pos/payments/route.js:        tenant_id:
+app/api/pos/modifier-groups/create/route.js:          tenant_id:
+app/api/pos/customer-display/update/route.js:          tenant_id:
+app/api/pos/discounts/create/route.js:          tenant_id:
+app/api/pos/realtime/route.js:        tenant_id:
+app/api/pos/tips/add/route.js:          tenant_id:
+app/api/pos/shifts/route.js:        tenant_id:
+app/api/procurement/purchase-orders/route.js:        tenant_id:
+app/api/procurement/receiving/route.js:        tenant_id:
+app/api/inventory/monitoring/route.js:        tenant_id:
+app/api/governance/deployment/request/route.js:        tenant_id:
+app/api/governance/automation/route.js:          tenant_id:
+app/api/governance/automation/route.js:        tenant_id:
+app/api/production/recipe-components/route.js:          tenant_id:
+app/api/production/recipes/route.js:          tenant_id:
+app/api/finance/month-end/close-period/route.js:        tenant_id:
+app/api/finance/reconciliation/route.js:        tenant_id:
+app/api/finance/reconciliation/route.js:        tenant_id:
+app/api/finance/periods/close/route.js:        tenant_id:
+app/api/finance/periods/update-status/route.js:        tenant_id: tenantId,
+app/api/finance/periods/open/route.js:        tenant_id:
+app/api/finance/periods/open/route.js:        tenant_id:
+app/api/finance/year-end/close-fiscal-year/route.js:        tenant_id:
+app/api/finance/period-close/route.js:        tenant_id:
+app/api/finance/journals/request-reversal/route.js:        tenant_id:
+app/api/finance/journals/reverse/route.js:        tenant_id:
+app/api/finance/journals/reverse/route.js:        tenant_id:
+app/api/finance/journals/reverse/route.js:        tenant_id:
+app/api/finance/gl-posting/route.js:        tenant_id:
+app/api/finance/budgeting/route.js:        tenant_id:
+app/api/finance/budgeting/route.js:        tenant_id:
+app/api/finance/budgeting/create/route.js:          tenant_id:
+app/api/finance/cost-centers/create/route.js:        tenant_id:
+app/api/finance/invoice-matching/create/route.js:        tenant_id:
+app/api/finance/legal-entities/create/route.js:        tenant_id:
+app/api/staff/route.js:      tenant_id: tenantId,
+app/api/staff/ai-memory/route.js:        tenant_id:
+app/api/waste/create/route.js:        p_tenant_id: tenant_id
+app/api/waste/create/route.js:        p_tenant_id: tenant_id
+lib/tenant/resolveTenant.js:      tenant_id:
+lib/accounting/mapInvoiceItems.js:          tenant_id: tenantId,
+lib/organizations/createOrganization.js:        tenant_id:
+lib/settings/saveOperationalSettings.js:      tenant_id: tenantId,
+lib/restaurant/workflows/handlers/financeHandler.js:    tenant_id:
+lib/restaurant/workflows/handlers/financeHandler.js:      tenant_id: tenantId,
+lib/restaurant/workflows/handlers/financeHandler.js:      tenant_id: tenantId,
+lib/restaurant/workflows/handlers/financeHandler.js:      tenant_id: tenantId,
+lib/restaurant/workflows/handlers/financeHandler.js:      tenant_id: tenantId,
+lib/restaurant/workflows/handlers/intelligenceHandler.js:    tenant_id:
+lib/restaurant/workflows/handlers/inventoryHandler.js:        tenant_id:
+lib/restaurant/workflows/handlers/kpiHandler.js:    tenant_id:
+lib/restaurant/services/openTableSession.js:      tenant_id:
+lib/intelligence/finance/runForecastScenario.js:        tenant_id: tenantId,
+lib/intelligence/finance/runExecutiveKPIs.js:        tenant_id: tenantId,
+lib/intelligence/finance/runWasteAnalysis.js:        tenant_id: tenantId,
+lib/intelligence/finance/getAIInsights.js:      tenant_id: tenantId,
+lib/intelligence/finance/getAIInsights.js:      tenant_id: tenantId,
+lib/intelligence/finance/runAIOptimizationEngine.js:        tenant_id: tenantId,
+lib/intelligence/finance/runLiquidityRiskAnalysis.js:        tenant_id: tenantId,
+lib/intelligence/finance/runVarianceAnalysis.js:        tenant_id: tenantId,
+lib/intelligence/finance/runTreasuryForecast.js:        tenant_id: tenantId,
+lib/intelligence/finance/runEntityProfitabilityRanking.js:          tenant_id: tenantId,
+lib/intelligence/finance/runAccountingRecommendations.js:      tenant_id: tenantId,
+lib/intelligence/finance/runAccountingRecommendations.js:      tenant_id: tenantId,
+lib/intelligence/finance/runAccountingKPIs.js:        tenant_id: tenantId,
+lib/intelligence/finance/runProfitabilityEngine.js:        tenant_id: tenantId,
+lib/intelligence/finance/runLiquidityAnalysis.js:        tenant_id: tenantId,
+lib/intelligence/finance/runAIOperatingSystem.js:        tenant_id: tenantId,
+lib/intelligence/finance/runAIExecutiveDecisions.js:      tenant_id: tenantId,
+lib/intelligence/finance/runAIExecutiveDecisions.js:      tenant_id: tenantId,
+lib/intelligence/finance/runFinancialForecast.js:        tenant_id: tenantId,
+lib/intelligence/finance/runExecutiveAlerts.js:      tenant_id: tenantId,
+lib/intelligence/finance/runExecutiveAlerts.js:      tenant_id: tenantId,
+lib/intelligence/finance/runFinanceAnomalyDetection.js:        tenant_id: tenantId,
+lib/intelligence/finance/runFinanceAnomalyDetection.js:        tenant_id: tenantId,
+lib/intelligence/finance/runAnomalyDetection.js:        tenant_id: tenantId,
+lib/intelligence/finance/runCashflowForecast.js:        tenant_id: tenantId,
+lib/intelligence/finance/accountingAICopilot.js:      tenant_id: tenantId,
+lib/auth/requireTenantAccess.js:    tenant_id:
+lib/auth/requireRole.js:    tenant_id:
+lib/runtime/realtime/createRuntimeSnapshot.js:      tenant_id:
+lib/shared/auth/requirePermission.js:      tenant_id:
+lib/shared/approvals/createApprovalLog.js:    tenant_id:
+lib/shared/approvals/executeApproval.js:      p_tenant_id:
+lib/supabase/uploadMarketingAsset.js:        tenant_id:
+lib/supabase/updateBusinessAIProfile.js:        tenant_id:
+lib/supabase/savePromptHistory.js:      tenant_id:
+lib/supabase/createGenerationJob.js:        tenant_id:
+lib/supabase/saveCampaignMemory.js:        tenant_id:
+lib/supabase/saveCampaignAssetUsage.js:        tenant_id:
+lib/supabase/queueCampaign.js:      tenant_id:
+lib/supabase/saveMarketingAsset.js:      tenant_id:
+lib/intake/workflows/processMarketingAsset.js:      tenant_id:
+lib/intake/workflows/processExpenseReceipt.js:      tenant_id:
+lib/dashboard/runtime/loadExecutiveDashboard.js:      tenant_id:
+lib/pos/reopenClosedOrder.js:      tenant_id:
+lib/pos/moveOrderItems.js:      tenant_id:
+lib/pos/refundPayment.js:      tenant_id:
+lib/pos/markOrderPaid.js:        tenant_id:
+lib/pos/payments/createVoidReversal.js:      tenant_id:
+lib/pos/partialPayment.js:        tenant_id:
+lib/pos/transferTable.js:      tenant_id:
+lib/pos/removeOrderModifier.js:      tenant_id:
+lib/pos/updateOrderItemQuantity.js:      tenant_id:
+lib/pos/mergeTables.js:      tenant_id:
+lib/pos/addOrderModifier.js:      tenant_id:
+lib/pos/addOrderModifier.js:      tenant_id:
+lib/pos/applyDiscount.js:      tenant_id:
+lib/pos/splitPayment.js:        tenant_id:
+lib/pos/splitPayment.js:      tenant_id:
+lib/pos/removeOrderItem.js:      tenant_id:
+lib/pos/voidOrder.js:      tenant_id:
+lib/pos/offline/processOfflineOrders.js:          tenant_id:
+lib/audit/createAuditLog.js:      tenant_id:
+lib/procurement/core/createPurchaseRequest.js:        tenant_id: tenantId,
+lib/procurement/core/createPurchaseOrder.js:        tenant_id: tenantId,
+lib/procurement/core/runThreeWayMatch.js:        tenant_id: tenantId,
+lib/procurement/core/receiveGoods.js:        tenant_id: tenantId,
+lib/procurement/runtime/createPurchaseRequest.js:      tenant_id:
+lib/procurement/actions/createPurchaseOrder.js:      tenant_id:
+lib/procurement/receiving/receivePurchaseOrder.js:          tenant_id:
+lib/procurement/receiving/receivePurchaseOrder.js:            tenant_id:
+lib/procurement/receiving/receivePurchaseOrder.js:            tenant_id:
+lib/procurement/services/createPurchaseRequest.js:    tenant_id:
+lib/procurement/services/createPurchaseOrder.js:    tenant_id:
+lib/procurement/services/createPurchaseOrder.js:    tenant_id:
+lib/procurement/services/receivePurchaseOrder.js:    tenant_id: tenantId,
+lib/procurement/services/receivePurchaseOrder.js:        tenant_id: tenantId,
+lib/ai/logAIUsage.js:          tenant_id:
+lib/inventory/core/runInventoryReconciliation.js:        tenant_id: tenantId,
+lib/inventory/core/runTheoreticalVsActual.js:        tenant_id: tenantId,
+lib/inventory/core/runVarianceAnalysis.js:        tenant_id: tenantId,
+lib/inventory/core/createInventoryMovement.js:        tenant_id: tenantId,
+lib/inventory/core/updateStockLedger.js:        tenant_id: tenantId,
+lib/inventory/spoilage/processSpoilage.js:          tenant_id:
+lib/inventory/auto-spoilage/processAutoSpoilage.js:            tenant_id:
+lib/inventory/auto-spoilage/processAutoSpoilage.js:            tenant_id:
+lib/inventory/services/createInventoryLedgerEntry.js:    tenant_id:
+lib/inventory/services/checkLowStock.js:    tenant_id:
+lib/orchestration/moveToDeadLetterQueue.js:        tenant_id: tenantId,
+lib/orchestration/retryFailedOrchestration.js:        tenant_id: tenantId,
+lib/orchestration/executeWorkflow.js:        tenant_id: tenantId,
+lib/orchestration/registerWorkflow.js:        tenant_id: tenantId,
+lib/orchestration/createRule.js:        tenant_id: tenantId,
+lib/orchestration/runOrderCompletedFlow.js:        tenant_id: tenantId,
+lib/orchestration/finance/rejectWorkflow.js:    tenant_id: data.tenant_id,
+lib/orchestration/finance/runAutonomousCloseCycle.js:        tenant_id: tenantId,
+lib/orchestration/finance/runScheduledJob.js:      tenant_id: tenantId,
+lib/orchestration/finance/runContinuousClose.js:        tenant_id: tenantId,
+lib/orchestration/finance/runContinuousClose.js:        tenant_id: tenantId,
+lib/orchestration/finance/runContinuousClose.js:        tenant_id: tenantId,
+lib/orchestration/finance/approveWorkflow.js:    tenant_id: data.tenant_id,
+lib/orchestration/finance/executeAccountingWorkflow.js:        tenant_id: tenantId,
+lib/orchestration/finance/runCloseChecklist.js:    tenant_id: tenantId,
+lib/orchestration/runStateTransition.js:        tenant_id: tenantId,
+lib/orchestration/evaluateRules.js:        tenant_id: tenantId,
+lib/governance/finance/runComplianceScoring.js:        tenant_id: tenantId,
+lib/governance/finance/runComplianceValidation.js:        tenant_id: tenantId,
+lib/governance/finance/validateEventPolicy.js:          tenant_id: tenantId,
+lib/governance/finance/validateEventPolicy.js:          tenant_id: tenantId,
+lib/production/core/runMenuEngineering.js:        tenant_id: tenantId,
+lib/production/core/calculateRecipeCost.js:        tenant_id: tenantId,
+lib/production/core/runShiftProfitability.js:        tenant_id: tenantId,
+lib/production/produceDishBatch.js:          tenant_id: tenantId,
+lib/production/produceDishBatch.js:            tenant_id: tenantId,
+lib/production/produceDishBatch.js:          tenant_id: tenantId,
+lib/production/consumeDishStock.js:          tenant_id: tenantId,
+lib/production/executeConsumptionDeduction.js:            tenant_id: tenantId,
+lib/production/postProductionCost.js:      tenant_id:
+lib/production/kitchen/updateKitchenItemStatus.js:          tenant_id:
+lib/production/kitchen/updateKitchenItemStatus.js:          tenant_id:
+lib/api/securePermissionRoute.js:          tenant_id:
+lib/marketing/ai/learning/updateEngineLearningMemory.js:      tenant_id:
+lib/marketing/services/createCampaignFlow.js:    tenant_id:
+lib/finance/revalueCurrencyBalances.js:      tenant_id: tenantId,
+lib/finance/accounting/createJournalEntry.js:      tenant_id:
+lib/finance/accounting/createJournalEntry.js:      tenant_id:
+lib/finance/createCogsEntry.js:        tenant_id:
+lib/finance/reporting/core/generateBalanceSheet.js:        tenant_id: tenantId,
+lib/finance/reporting/core/generateFinancialStatements.js:        tenant_id: tenantId,
+lib/finance/payments/processVendorPayment.js:          tenant_id:
+lib/finance/payments/processVendorPayment.js:          tenant_id:
+lib/finance/payments/processVendorPayment.js:        tenant_id:
+lib/finance/runYearEndClose.js:      tenant_id: tenantId,
+lib/finance/ledger/updateLedgerBalances.js:          tenant_id:
+lib/finance/createBudget.js:      tenant_id: budget.tenant_id,
+lib/finance/core/runAssetDepreciation.js:        tenant_id: tenantId,
+lib/finance/core/approveVendorInvoice.js:        tenant_id: tenantId,
+lib/finance/core/runBudgetVariance.js:        tenant_id: tenantId,
+lib/finance/core/runBankReconciliation.js:        tenant_id: tenantId,
+lib/finance/core/runYearEndClose.js:        tenant_id: tenantId,
+lib/finance/core/runAutonomousFinanceActions.js:      tenant_id: tenantId,
+lib/finance/core/createBudget.js:      tenant_id: tenantId,
+lib/finance/core/createBudget.js:      tenant_id: tenantId,
+lib/finance/core/createFixedAsset.js:        tenant_id: tenantId,
+lib/finance/core/runCurrencyTranslation.js:        tenant_id: tenantId,
+lib/finance/core/calculateRecipeCost.js:        tenant_id: tenantId,
+lib/finance/core/runConsolidationElimination.js:        tenant_id: tenantId,
+lib/finance/core/runGlobalConsolidation.js:        tenant_id: tenantId,
+lib/finance/core/runRiskScoring.js:        tenant_id: tenantId,
+lib/finance/core/createEntityHistorySnapshot.js:        tenant_id: tenantId,
+lib/finance/core/importBankTransaction.js:        tenant_id: tenantId,
+lib/finance/core/postAccrualEntry.js:        tenant_id: tenantId,
+lib/finance/core/createRegulatoryFiling.js:        tenant_id: tenantId,
+lib/finance/core/runAccountReconciliation.js:        tenant_id: tenantId,
+lib/finance/core/runTrialBalance.js:        tenant_id: tenantId,
+lib/finance/core/runWeightedAverageValuation.js:        tenant_id: tenantId,
+lib/finance/core/runRealTimeClose.js:        tenant_id: tenantId,
+lib/finance/core/runRealTimeClose.js:          tenant_id: tenantId,
+lib/finance/core/runExecutiveDecisionEngine.js:        tenant_id: tenantId,
+lib/finance/core/runItemProfitability.js:        tenant_id: tenantId,
+lib/finance/core/runARAging.js:        tenant_id: tenantId,
+lib/finance/core/createVendorInvoice.js:        tenant_id: tenantId,
+lib/finance/core/assignDimensionToJournalLine.js:      tenant_id: tenantId,
+lib/finance/core/publishAccountingEvent.js:        tenant_id: tenantId,
+lib/finance/core/runVATClose.js:        tenant_id: tenantId,
+lib/finance/core/createPaymentBatch.js:        tenant_id: tenantId,
+lib/finance/core/configureTaxRule.js:        tenant_id: tenantId,
+lib/finance/core/runEnterpriseCommandCenter.js:        tenant_id: tenantId,
+lib/finance/core/postCOGSJournal.js:        tenant_id: tenantId,
+lib/finance/core/createCustomerInvoice.js:        tenant_id: tenantId,
+lib/finance/core/postJournalEntrySafe.js:        tenant_id: tenantId,
+lib/finance/core/postJournalEntrySafe.js:    tenant_id: tenantId,
+lib/finance/core/postJournalEntrySafe.js:    tenant_id: tenantId,
+lib/finance/core/approveRealTimeClose.js:        tenant_id: tenantId,
+lib/finance/core/runTaxFiling.js:        tenant_id: tenantId,
+lib/finance/core/runConsolidation.js:        parent_tenant_id:
+lib/finance/core/runIntercompanyReconciliation.js:        tenant_id: tenantId,
+lib/finance/core/replayAccountingEvent.js:        tenant_id: tenantId,
+lib/finance/core/runSubledgerReconciliation.js:      tenant_id: tenantId,
+lib/finance/core/calculateTax.js:        tenant_id: tenantId,
+lib/finance/core/processCOGSForSale.js:        tenant_id: tenantId,
+lib/finance/core/runCashFlowEngine.js:        tenant_id: tenantId,
+lib/finance/core/runCashReconciliation.js:        tenant_id: tenantId,
+lib/finance/core/createBudgetPlan.js:        tenant_id: tenantId,
+lib/finance/core/runLaborCosting.js:        tenant_id: tenantId,
+lib/finance/core/runSelfHealingEngine.js:      tenant_id: tenantId,
+lib/finance/core/runSelfHealingEngine.js:      tenant_id: tenantId,
+lib/finance/core/postAutomaticJournal.js:      tenant_id: tenantId,
+lib/finance/core/postAutomaticJournal.js:      tenant_id: tenantId,
+lib/finance/core/emitAccountingEvent.js:      tenant_id: tenantId,
+lib/finance/core/processAccountingEvents.js:          tenant_id: tenantId,
+lib/finance/core/processAccountingEvents.js:          tenant_id: tenantId,
+lib/finance/core/postToLedger.js:    tenant_id: tenantId,
+lib/finance/core/runIntercompanyElimination.js:        tenant_id: tenantId,
+lib/finance/core/runAccountingAlerts.js:      tenant_id: tenantId,
+lib/finance/core/runAccountingAlerts.js:      tenant_id: tenantId,
+lib/finance/core/runAccountingAlerts.js:      tenant_id: tenantId,
+lib/finance/core/disposeFixedAsset.js:        tenant_id: tenantId,
+lib/finance/core/createInventoryCostLayer.js:        tenant_id: tenantId,
+lib/finance/core/runRegulatoryReporting.js:        tenant_id: tenantId,
+lib/finance/core/processCustomerPayment.js:        tenant_id: tenantId,
+lib/finance/core/createAuditLog.js:        tenant_id: tenantId,
+lib/finance/core/processVendorPayment.js:        tenant_id: tenantId,
+lib/finance/core/settleInvoice.js:        tenant_id: tenantId,
+lib/finance/core/lockAccountingPeriod.js:        tenant_id: tenantId,
+lib/finance/core/runPaymentPriorityQueue.js:        tenant_id: tenantId,
+lib/finance/core/createIntercompanyTransaction.js:        tenant_id: tenantId,
+lib/finance/core/validateDomainEvent.js:          tenant_id: tenantId,
+lib/finance/core/createEventLineage.js:        tenant_id: tenantId,
+lib/finance/runRiskAnalysis.js:      tenant_id: tenantId,
+lib/finance/runRiskAnalysis.js:      tenant_id: tenantId,
+lib/finance/group/runEliminations.js:      tenant_id: tenantId,
+lib/finance/group/runEliminations.js:      tenant_id: tenantId,
+lib/finance/postJournalEntry.js:      tenant_id: tenantId,
+lib/finance/postJournalEntry.js:    tenant_id: tenantId,
+lib/finance/runRetainedEarnings.js:      tenant_id: tenantId,
+lib/finance/getExecutiveFinancialSummary.js:    tenant_id: tenantId,
+lib/finance/runtime/createAccountsPayableEntry.js:      tenant_id:
+lib/finance/runDepreciation.js:      tenant_id: asset.tenant_id,
+lib/finance/general-ledger/postJournalToLedger.js:        tenant_id:
+lib/finance/runMonthEndClose.js:      tenant_id: tenantId,
+lib/finance/runFraudDetection.js:      tenant_id: tenantId,
+lib/finance/runFraudDetection.js:      tenant_id: tenantId,
+lib/finance/master-data/seedChartOfAccounts.js:    tenant_id: tenantId,
+lib/finance/runForecasting.js:      tenant_id: tenantId,
+lib/finance/runForecasting.js:      tenant_id: tenantId,
+lib/finance/accounts-payable/createAccountsPayableEntry.js:          tenant_id:
+lib/finance/postAccountingEvent.js:      tenant_id: tenantId,
+lib/finance/runComplianceChecks.js:    tenant_id: tenantId,
+lib/finance/services/postJournalEntry.js:      tenant_id:
+lib/finance/services/createAccountsPayableInvoice.js:    tenant_id:
+lib/finance/services/createAccountsPayableInvoice.js:    tenant_id:
+lib/finance/services/createAccountsPayableInvoice.js:      tenant_id:
+lib/finance/services/createAccountsPayableInvoice.js:      tenant_id:
+lib/finance/createPaymentTransaction.js:      tenant_id:
+lib/finance/runPeriodClose.js:      tenant_id: tenantId,
+lib/finance/reversals/createJournalReversal.js:      tenant_id:
+lib/finance/reversals/createJournalReversal.js:        tenant_id:
+lib/finance/strategy/runScenarioPlanning.js:      tenant_id: tenantId,
+lib/finance/strategy/runScenarioPlanning.js:      tenant_id: tenantId,
+lib/finance/strategy/runCostAllocation.js:      tenant_id: tenantId,
+lib/finance/strategy/runCostAllocation.js:      tenant_id: tenantId,
+lib/finance/strategy/getBoardReport.js:    tenant_id: tenantId,
+lib/finance/runAutoPostingWorkflow.js:      tenant_id: tenantId,
+lib/payroll/accounting/createPayrollJournalEntry.js:    tenant_id:
+lib/payroll/accounting/createPayrollJournalEntry.js:      tenant_id:
+lib/payroll/accounting/createPayrollJournalEntry.js:      tenant_id:
+lib/payroll/accounting/createPayrollJournalEntry.js:      tenant_id:
+lib/payroll/accounting/createPayrollJournalEntry.js:      tenant_id:
+lib/payroll/payments/executePayrollPayment.js:      tenant_id:
+lib/payroll/generatePayrollRecords.js:        tenant_id:
+lib/payroll/core/allocateLaborCost.js:        tenant_id: tenantId,
+lib/payroll/core/checkInStaff.js:        tenant_id: tenantId,
+lib/payroll/core/distributeServiceCharge.js:        tenant_id: tenantId,
+lib/payroll/core/calculateShiftPerformance.js:        tenant_id: tenantId,
+lib/payroll/snapshots/createPayrollSnapshot.js:        tenant_id:
+lib/payroll/snapshots/requestPayrollReopen.js:      tenant_id:
+lib/payroll/audit/createPayrollAuditLog.js:      tenant_id:
+lib/payroll/consolidation/processPayrollPayout.js:      tenant_id:
+lib/payroll/consolidation/generateMonthlyPayroll.js:      tenant_id:
+lib/kitchen/serveKitchenItem.js:      tenant_id:
+lib/kitchen/fireAllHeldCourses.js:      tenant_id:
+lib/kitchen/fireCourse.js:      tenant_id:
+lib/kitchen/duplicateKitchenTicket.js:      tenant_id:
+lib/kitchen/duplicateKitchenTicket.js:        tenant_id:
+lib/kitchen/duplicateKitchenTicket.js:      tenant_id:
+lib/kitchen/releaseKitchenItemClaim.js:      tenant_id:
+lib/kitchen/assignKitchenItemChef.js:      tenant_id:
+lib/kitchen/generateKitchenSuccessionPlanning.js:      tenant_id:
+lib/kitchen/generateKitchenSuccessionPlanning.js:      tenant_id:
+lib/kitchen/rejectKitchenItem.js:      tenant_id:
+lib/kitchen/generateKitchenLiveDashboard.js:      tenant_id:
+lib/kitchen/bumpKitchenItem.js:      tenant_id:
+lib/kitchen/recallCancelledKitchenItem.js:      tenant_id:
+lib/kitchen/generateKitchenLeaderboard.js:      tenant_id:
+lib/kitchen/generateKitchenShiftSummary.js:      tenant_id:
+lib/kitchen/generateKitchenPayrollAdjustment.js:      tenant_id:
+lib/kitchen/generateKitchenPayrollAdjustment.js:      tenant_id:
+lib/kitchen/expediteKitchenItem.js:      tenant_id:
+lib/kitchen/generateKitchenOperationalReport.js:      tenant_id:
+lib/kitchen/generateKitchenEndOfDayReport.js:      tenant_id:
+lib/kitchen/generateKitchenEndOfDayReport.js:      tenant_id:
+lib/kitchen/prioritizeKitchenItem.js:      tenant_id:
+lib/kitchen/deleteKitchenTicket.js:      tenant_id:
+lib/kitchen/claimKitchenItem.js:      tenant_id:
+lib/kitchen/startKitchenItem.js:      tenant_id:
+lib/kitchen/cancelKitchenItem.js:      tenant_id:
+lib/kitchen/reassignKitchenItemStation.js:      tenant_id:
+lib/kitchen/generateKitchenPromotionEligibility.js:      tenant_id:
+lib/kitchen/generateKitchenPromotionEligibility.js:      tenant_id:
+lib/kitchen/generateKitchenCultureScore.js:      tenant_id:
+lib/kitchen/generateKitchenCultureScore.js:      tenant_id:
+lib/kitchen/generateKitchenPredictiveAlerts.js:      tenant_id:
+lib/kitchen/generateKitchenPredictiveAlerts.js:      tenant_id:
+lib/kitchen/recallKitchenItem.js:      tenant_id:
+lib/kitchen/generateKitchenOwnershipMatrix.js:      tenant_id:
+lib/kitchen/generateKitchenOwnershipMatrix.js:      tenant_id:
+lib/kitchen/resumeDelayedKitchenItem.js:      tenant_id:
+lib/kitchen/markKitchenItemReady.js:      tenant_id:
+lib/kitchen/returnKitchenItem.js:      tenant_id:
+lib/kitchen/delayKitchenItem.js:      tenant_id:
+lib/kitchen/unarchiveKitchenTicket.js:      tenant_id:
+lib/kitchen/holdKitchenItem.js:      tenant_id:
+lib/kitchen/restoreDeletedKitchenTicket.js:      tenant_id:
+lib/kitchen/generateKitchenAIRecommendations.js:      tenant_id:
+lib/kitchen/generateKitchenAIRecommendations.js:      tenant_id:
+lib/kitchen/generateKitchenTerminationRisk.js:      tenant_id:
+lib/kitchen/generateKitchenTerminationRisk.js:      tenant_id:
+lib/kitchen/mergeKitchenTickets.js:      tenant_id:
+lib/kitchen/autoAssignKitchenItem.js:      tenant_id:
+lib/kitchen/generateKitchenBurnoutRisk.js:      tenant_id:
+lib/kitchen/generateKitchenBurnoutRisk.js:      tenant_id:
+lib/kitchen/reopenVoidedKitchenTicket.js:      tenant_id:
+lib/kitchen/voidKitchenTicket.js:      tenant_id:
+lib/kitchen/splitKitchenTicket.js:      tenant_id:
+lib/kitchen/splitKitchenTicket.js:      tenant_id:
+lib/kitchen/updateKitchenStatus.js:            tenant_id:
+lib/kitchen/updateKitchenStatus.js:            tenant_id:
+lib/kitchen/requeueKitchenItem.js:      tenant_id:
+lib/kitchen/generateKitchenPsychologicalStability.js:      tenant_id:
+lib/kitchen/generateKitchenPsychologicalStability.js:      tenant_id:
+lib/kitchen/generateKitchenMonthlyPerformance.js:      tenant_id:
+lib/kitchen/generateKitchenMonthlyPerformance.js:      tenant_id:
+lib/kitchen/generateKitchenDisciplinaryReport.js:      tenant_id:
+lib/kitchen/generateKitchenDisciplinaryReport.js:      tenant_id:
+lib/kitchen/calculateKitchenChefPerformance.js:      tenant_id:
+lib/kitchen/refireKitchenItem.js:      tenant_id:
+lib/kitchen/archiveKitchenTicket.js:      tenant_id:
+lib/kitchen/unassignKitchenItemChef.js:      tenant_id:
+lib/kitchen/transferKitchenItemChef.js:      tenant_id:
+lib/onboarding/runTenantSetup.js:    tenant_id:
+lib/onboarding/runTenantSetup.js:    tenant_id:
+lib/incidents/runtime/createWorkflowIncident.js:      tenant_id:
+lib/customer/runtime/createVIPCustomerEvent.js:      tenant_id:
+lib/approval/runtime/createApprovalTask.js:      tenant_id:

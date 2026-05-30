@@ -6,8 +6,9 @@ from "@/lib/shared/http/withApiHandler";
 import { requireFields }
 from "@/lib/shared/validation/required";
 
-import { getTenantId }
-from "@/lib/shared/tenant/getTenantId";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
 import { getQueuedCampaigns }
 from "@/lib/marketing/services/getQueuedCampaigns";
@@ -24,8 +25,24 @@ export const POST = withApiHandler(
       "pageId",
     ]);
 
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
+
+      throw new Error(
+        access.error
+      );
+
+    }
+
     const tenantId =
-      getTenantId(request);
+      access.tenantId;
 
     const {
 

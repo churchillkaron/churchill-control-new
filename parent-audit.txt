@@ -1,0 +1,8 @@
+lib/organizations/createOrganization.js:        parent_organization_id:
+lib/platform/runtime/loadPlatformRuntime.js:      parent: org.parent_organization_id,
+lib/platform/runtime/buildOrganizationTree.js:      organization.parent_organization_id &&
+lib/platform/runtime/buildOrganizationTree.js:        organization.parent_organization_id
+lib/platform/runtime/buildOrganizationTree.js:        organization.parent_organization_id
+lib/platform/runtime/buildOrganizationRuntime.js:          item.parent_organization_id ===
+lib/platform/runtime/buildOrganizationRuntime.js:            item.parent_organization_id ===
+lib/platform/runtime/buildOrganizationRuntime.js:            organization.parent_organization_id

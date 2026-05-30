@@ -14,6 +14,10 @@ import {
   loadAccountingClients,
 } from "@/lib/accounting/loadAccountingClients";
 
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
 
 
 
@@ -38,9 +42,6 @@ export async function GET(request) {
     const { searchParams } =
       new URL(request.url);
 
-    const tenantId =
-      searchParams.get("tenantId");
-
     const organizationId =
       searchParams.get(
         "organizationId"
@@ -50,6 +51,32 @@ export async function GET(request) {
       searchParams.get(
         "organizationType"
       );
+
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
+    const tenantId =
+      access.tenantId;
 
     if (
       organizationType ===

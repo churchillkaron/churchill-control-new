@@ -5,6 +5,10 @@ import {
   useContext,
 } from "react";
 
+import {
+  useActiveOrganization,
+} from "@/lib/hooks/useActiveOrganization";
+
 const TenantContext =
   createContext(null);
 
@@ -12,14 +16,21 @@ export function TenantProvider({
   children,
 }) {
 
-  const tenant = {
+  const {
+    tenantId,
+    activeOrganization,
+  } = useActiveOrganization();
 
-    id:
-      "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4",
+  const tenant =
+    tenantId
+      ? {
+          id: tenantId,
 
-    name:
-      "Churchill Phuket",
-  };
+          name:
+            activeOrganization?.name ||
+            "Active Tenant",
+        }
+      : null;
 
   return (
 
@@ -28,7 +39,9 @@ export function TenantProvider({
     >
       {children}
     </TenantContext.Provider>
+
   );
+
 }
 
 export function useTenant() {
@@ -36,4 +49,5 @@ export function useTenant() {
   return useContext(
     TenantContext
   );
+
 }

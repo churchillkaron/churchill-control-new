@@ -13,6 +13,10 @@ import {
 }
 from "react";
 
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
 import { usePosterState }
 from "@/hooks/usePosterState";
 
@@ -61,8 +65,11 @@ from "@/lib/marketing/ai/router/engineCapabilities";
 
 export default function Page() {
 
+  const tenant =
+    useTenant();
+
   const tenantId =
-    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+    tenant?.id;
 
   const poster =
     usePosterState();

@@ -8,7 +8,15 @@ import PageWrapper from '@/components/PageWrapper'
 
 import { supabase } from '@/lib/shared/supabase/client'
 
+import {
+  useActiveOrganization,
+} from '@/lib/hooks/useActiveOrganization'
+
 export default function FinanceOverviewPage() {
+
+  const {
+    organizationId,
+  } = useActiveOrganization();
 
   const [
     tenantId,
@@ -79,7 +87,7 @@ export default function FinanceOverviewPage() {
 
       const response =
         await fetch(
-          `/api/finance/overview?tenantId=${tenantId}`
+          `/api/finance/overview?tenantId=${tenantId}&organizationId=${organizationId}`
         )
 
       const json =

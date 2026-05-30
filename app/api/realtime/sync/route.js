@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import realtimeBus from "@/lib/realtime/sync/realtimeEventBus";
+import broadcastEvent
+from "@/lib/realtime/broadcastEvent";
 
 export async function POST(req) {
 
@@ -9,40 +10,45 @@ export async function POST(req) {
     const body =
       await req.json();
 
-    realtimeBus.publish({
+    const result =
+      await broadcastEvent({
 
-      type:
-        body.type ||
-        "SYSTEM_EVENT",
+        channel:
+          body.channel ||
+          "system",
 
-      payload:
-        body.payload || {},
+        event:
+          body.type ||
+          "SYSTEM_EVENT",
 
-      created_at:
-        new Date().toISOString(),
-    });
+        payload:
+          body.payload || {},
+
+      });
 
     return NextResponse.json({
 
       success: true,
+
+      result,
+
     });
 
   } catch (error) {
 
     return NextResponse.json(
       {
-
         success: false,
-
         error:
           error.message,
       },
       {
-
         status: 500,
       }
     );
+
   }
+
 }
 
 export async function GET() {
@@ -52,6 +58,8 @@ export async function GET() {
     success: true,
 
     message:
-      "Realtime sync online.",
+      "Realtime online",
+
   });
+
 }

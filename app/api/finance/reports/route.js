@@ -13,8 +13,23 @@ export async function POST(req) {
     const body =
       await req.json();
 
+
+    if (!body.tenant_id) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing tenant_id",
+        },
+        {
+          status: 400,
+        }
+      );
+
+    }
+
     const tenant_id =
-      body.tenant_id || "demo";
+      body.tenant_id;
 
     const [
       trialBalance,

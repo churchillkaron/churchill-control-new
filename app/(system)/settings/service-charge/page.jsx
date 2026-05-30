@@ -8,10 +8,20 @@ import {
 import { supabase }
 from "@/lib/shared/supabase/client";
 
-const TENANT_ID =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
+
 
 export default function ServiceChargeSettingsPage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
+
 
   const [
     loading,
@@ -60,7 +70,7 @@ export default function ServiceChargeSettingsPage() {
 
       .eq(
         "tenant_id",
-        TENANT_ID
+        tenantId
       )
 
       .limit(1)
@@ -90,7 +100,7 @@ export default function ServiceChargeSettingsPage() {
       .upsert({
 
         tenant_id:
-          TENANT_ID,
+          tenantId,
 
         ...form,
 

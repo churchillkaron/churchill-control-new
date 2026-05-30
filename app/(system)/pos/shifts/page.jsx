@@ -4,7 +4,18 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
 export default function ShiftPage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
+
 
   const [
     response,
@@ -62,7 +73,7 @@ export default function ShiftPage() {
                 "OPEN",
 
               tenant_id:
-                "demo",
+                tenantId,
 
               ...openForm,
             }),

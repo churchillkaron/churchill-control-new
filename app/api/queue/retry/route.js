@@ -1,17 +1,32 @@
 import { NextResponse } from "next/server";
 
-import retryFailedJobs from "@/lib/queue/retries/retryFailedJobs";
+import {
+  retryFailedOrchestration,
+} from "@/lib/orchestration/retryFailedOrchestration";
 
-export async function POST() {
+export async function POST(req) {
 
   try {
 
-    const result =
-      await retryFailedJobs();
+    const body =
+      await req.json();
 
-    return NextResponse.json(
-      result
-    );
+    const result =
+      await retryFailedOrchestration({
+
+        tenantId:
+          body?.tenantId,
+
+      });
+
+    return NextResponse.json({
+
+      success: true,
+
+      retried:
+        result,
+
+    });
 
   } catch (error) {
 
@@ -25,5 +40,7 @@ export async function POST() {
         status: 500,
       }
     );
+
   }
+
 }

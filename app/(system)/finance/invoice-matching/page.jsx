@@ -3,7 +3,6 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/shared/supabase/client";
 
 export default function InvoiceMatchingPage() {
 
@@ -21,48 +20,44 @@ export default function InvoiceMatchingPage() {
 
     setLoading(true);
 
-    const { data: invoiceData } =
-      await supabase
-        .from("invoices")
-        .select("*")
-        .in("status", [
-          "approved",
-          "paid",
-        ])
-        .order("created_at", {
-          ascending: false,
-        });
+    try {
 
-    const { data: poData } =
-      await supabase
-        .from("purchase_orders")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+      const response =
+        await fetch(
+          "/api/finance/invoice-matching/runtime",
+          {
+            method: "POST",
+          }
+        );
 
-    const { data: grnData } =
-      await supabase
-        .from("goods_receipts")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+      const result =
+        await response.json();
 
-    const { data: matchData } =
-      await supabase
-        .from("invoice_matches")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+      setInvoices(
+        result.invoices || []
+      );
 
-    setInvoices(invoiceData || []);
-    setPurchaseOrders(poData || []);
-    setGoodsReceipts(grnData || []);
-    setMatches(matchData || []);
+      setPurchaseOrders(
+        result.purchaseOrders || []
+      );
 
-    setLoading(false);
+      setGoodsReceipts(
+        result.goodsReceipts || []
+      );
+
+      setMatches(
+        result.matches || []
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      setLoading(false);
+
+    }
 
   }
 
@@ -76,15 +71,15 @@ export default function InvoiceMatchingPage() {
 
     const po =
       purchaseOrders.find(
-        (p) =>
-          p.vendor_id ===
+        item =>
+          item.vendor_id ===
           invoice.vendor_id
       );
 
     const grn =
       goodsReceipts.find(
-        (g) =>
-          g.vendor_id ===
+        item =>
+          item.vendor_id ===
           invoice.vendor_id
       );
 
@@ -98,96 +93,42 @@ export default function InvoiceMatchingPage() {
 
     }
 
-    const invoiceTotal =
-      Number(
-        invoice.total_amount || 0
+    const response =
+      await fetch(
+        "/api/finance/invoice-matching/create",
+        {
+
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+
+            invoice_id:
+              invoice.id,
+
+            purchase_order_id:
+              po.id,
+
+            goods_receipt_id:
+              grn.id,
+
+          }),
+
+        }
       );
 
-    const poTotal =
-      Number(
-        po.total_amount || 0
-      );
+    const result =
+      await response.json();
 
-    const grnTotal =
-      Number(
-        po.total_amount || 0
-      );
+    if (!result.success) {
 
-    const varianceAmount =
-      invoiceTotal - poTotal;
+      console.error(result.error);
 
-    const variancePercent =
-      poTotal > 0
-        ? (
-            varianceAmount /
-            poTotal
-          ) * 100
-        : 0;
-
-    let matchStatus =
-      "matched";
-
-    if (
-      Math.abs(
-        variancePercent
-      ) > 20
-    ) {
-
-      matchStatus =
-        "blocked";
-
-    } else if (
-      Math.abs(
-        variancePercent
-      ) > 5
-    ) {
-
-      matchStatus =
-        "variance_warning";
-
-    }
-
-    const { error } =
-      await supabase
-        .from("invoice_matches")
-        .insert([{
-
-          invoice_id:
-            invoice.id,
-
-          purchase_order_id:
-            po.id,
-
-          goods_receipt_id:
-            grn.id,
-
-          match_status:
-            matchStatus,
-
-          po_total:
-            poTotal,
-
-          grn_total:
-            grnTotal,
-
-          invoice_total:
-            invoiceTotal,
-
-          variance_amount:
-            varianceAmount,
-
-          variance_percent:
-            variancePercent,
-
-          matched_by:
-            "system",
-
-        }]);
-
-    if (error) {
-
-      console.error(error);
-      alert(error.message);
+      alert(result.error);
 
       return;
 

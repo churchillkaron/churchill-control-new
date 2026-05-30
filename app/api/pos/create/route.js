@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { supabase } from "@/lib/shared/supabase/client";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+import {
+  openTableSession,
+} from "@/lib/restaurant/services/openTableSession";
 
 export async function POST(req) {
 
@@ -52,13 +56,38 @@ export async function POST(req) {
 
     }
 
+    const session =
+      await openTableSession({
+
+        tenantId:
+          tenant_id,
+
+        tableNumber:
+          table,
+
+      });
+
+    if (!session?.id) {
+
+      return Response.json(
+        {
+          error:
+            "Failed to open table session",
+        },
+        {
+          status: 500,
+        }
+      );
+
+    }
+
     const now =
       new Date().toISOString();
 
     const {
       data: order,
       error: orderError,
-    } = await supabase
+    } = await supabaseAdmin
 
       .from("orders")
 
@@ -69,6 +98,9 @@ export async function POST(req) {
 
           table_number:
             table,
+
+          session_id:
+            session.id,
 
           total:
             Number(total || 0),
@@ -180,7 +212,7 @@ export async function POST(req) {
 
     const {
       error: itemsError,
-    } = await supabase
+    } = await supabaseAdmin
 
       .from("order_items")
 

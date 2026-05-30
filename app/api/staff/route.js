@@ -148,7 +148,7 @@ export async function GET() {
 export async function POST(request) {
   const supabase = createServerSupabase();
   const body = await request.json();
-  const { action, staffName, staffRole } = body;
+  const { action, staffName, staffRole, tenantId } = body;
 
   if (!staffName || !staffRole) {
     return NextResponse.json(
@@ -170,6 +170,7 @@ export async function POST(request) {
         .select("*")
         .eq("staff_name", staffName)
         .eq("shift_date", today)
+        .eq("tenant_id", tenantId)
         .limit(1)
         .maybeSingle();
 
@@ -180,14 +181,13 @@ export async function POST(request) {
 
     if (!assignedSchedule) {
 
-      return NextResponse.json({
+      scheduledStart = null;
 
-        success: false,
+      scheduledEnd = null;
 
-        error:
-          "No scheduled shift today",
+      scheduleId = null;
 
-      });
+      late = false;
 
     }
 
@@ -249,6 +249,8 @@ export async function POST(request) {
       staff_name: staffName,
       staff_role: staffRole,
 
+      tenant_id: tenantId,
+
       clock_in: now,
 
       is_valid: true,
@@ -266,8 +268,15 @@ export async function POST(request) {
       scheduled_end:
         scheduledEnd,
 
-      schedule_id:
-        scheduleId,
+      shift_source:
+        assignedSchedule
+          ? "SCHEDULED"
+          : "UNSCHEDULED",
+
+      approval_status:
+        assignedSchedule
+          ? "APPROVED"
+          : "PENDING",
     });
 
     if (error) {
@@ -282,6 +291,7 @@ export async function POST(request) {
       .from("staff_shifts")
       .select("*")
       .eq("staff_name", staffName)
+      .eq("tenant_id", tenantId)
       .is("clock_out", null)
       .limit(1)
       .maybeSingle();

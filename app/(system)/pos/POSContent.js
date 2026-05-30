@@ -24,13 +24,28 @@ from "@/components/pos/POSCart";
 import { supabase }
 from "@/lib/shared/supabase/client";
 
-import loadOperationalSettings
-from "@/lib/settings/loadOperationalSettings";
+import {
+  getCurrentUser,
+} from "@/lib/auth/getCurrentUser";
 
-const TENANT_ID =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+import {
+  loadMenu as loadMenuData,
+} from "@/lib/pos/loadMenu";
+
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
+
+
 
 export default function POSContent() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
 
   const router =
     useRouter();
@@ -65,11 +80,21 @@ export default function POSContent() {
     setPosSettings,
   ] = useState(null);
 
+
+  const [
+    currentStaff,
+    setCurrentStaff,
+  ] = useState(null);
+
   async function loadTables() {
 
+    if (!tenantId) {
+      return;
+    }
+
     const {
-      data,
-      error,
+      data: tablesData,
+      error: tablesError,
     } = await supabase
 
       .from(
@@ -80,80 +105,180 @@ export default function POSContent() {
 
       .eq(
         "tenant_id",
-        TENANT_ID
+        tenantId
       )
 
       .order(
         "table_name"
       );
 
-    if (error) {
+    if (tablesError) {
 
       console.error(
-        error
+        tablesError
       );
 
       return;
 
     }
 
+    const {
+      data: sessions,
+      error: sessionsError,
+    } = await supabase
+
+      .from(
+        "table_sessions"
+      )
+
+      .select("*")
+
+      .eq(
+        "tenant_id",
+        tenantId
+      )
+
+      .in(
+        "status",
+        [
+          "OPEN",
+          "ACTIVE",
+          "READY_FOR_PAYMENT",
+          "PARTIAL",
+        ]
+      );
+
+    if (sessionsError) {
+
+      console.error(
+        sessionsError
+      );
+
+    }
+
+    const mappedTables =
+      (tablesData || []).map(
+        table => {
+
+          const activeSession =
+            (sessions || []).find(
+              s =>
+                s.table_number ===
+                table.table_name
+            );
+
+          return {
+
+            ...table,
+
+            status:
+              activeSession
+                ? "OCCUPIED"
+                : "AVAILABLE",
+
+            active_session:
+              activeSession || null,
+
+          };
+
+        }
+      );
+
     setTables(
-      data || []
+      mappedTables
     );
 
   }
 
   async function loadMenu() {
 
-    const {
-      data,
-      error,
-    } = await supabase
+    try {
 
-      .from("dishes")
+      console.log(
+        "POS TENANT:",
+        tenantId
+      );
 
-      .select("*")
+      if (!tenantId) {
 
-      .eq(
-        "tenant_id",
-        TENANT_ID
-      )
+        console.log(
+          "NO TENANT ID"
+        );
 
-      .order("name");
+        return;
 
-    if (error) {
+      }
+
+      const menuData =
+        await loadMenuData(
+          tenantId
+        );
+
+      console.log(
+        "MENU RESULT:",
+        menuData
+      );
+
+      setMenu(
+        menuData || []
+      );
+
+    } catch (error) {
 
       console.error(
+        "LOAD MENU FAILED:",
         error
       );
 
-      return;
-
     }
-
-    setMenu(
-      data || []
-    );
 
   }
 
   async function loadPOSSettings() {
 
+    if (!tenantId) {
+      return;
+    }
+
     try {
 
-      const settings =
-        await loadOperationalSettings({
+      const response =
+        await fetch(
+          "/api/settings/operational",
+          {
+            method: "POST",
 
-          tenantId:
-            TENANT_ID,
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          domain:
-            "POS",
+            body: JSON.stringify({
 
-        });
+              tenantId:
+                tenantId,
+
+              domain:
+                "POS",
+
+            }),
+
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!result.success) {
+
+        throw new Error(
+          result.error
+        );
+
+      }
 
       setPosSettings(
-        settings
+        result.settings
       );
 
     } catch (error) {
@@ -166,25 +291,82 @@ export default function POSContent() {
 
   }
 
+
+  async function loadCurrentStaff() {
+
+    const user =
+      await getCurrentUser();
+
+    if (!user?.email) {
+      return;
+    }
+
+    const {
+      data,
+      error,
+    } = await supabase
+
+      .from("staff_accounts")
+
+      .select("*")
+
+      .eq(
+        "email",
+        user.email
+      )
+
+      .single();
+
+    if (error) {
+
+      console.error(error);
+
+      return;
+
+    }
+
+    setCurrentStaff(data);
+
+  }
+
   useEffect(() => {
+
+    console.log("POS EFFECT START");
 
     async function init() {
 
-      setLoading(true);
+      try {
 
-      await Promise.all([
-        loadTables(),
-        loadMenu(),
-        loadPOSSettings(),
-      ]);
+        console.log("INIT RUNNING");
 
-      setLoading(false);
+        setLoading(true);
+
+        console.log("BEFORE TABLES");
+        await loadTables();
+
+        console.log("BEFORE MENU");
+        await loadMenu();
+
+        console.log("AFTER MENU");
+
+        setLoading(false);
+
+      } catch (error) {
+
+        console.error(
+          "POS INIT ERROR",
+          error
+        );
+
+        setLoading(false);
+
+      }
 
     }
 
     init();
 
-  }, []);
+  }, [tenantId]);
 
   function addToCart(
     item
@@ -346,124 +528,61 @@ async function sendOrder() {
           ).toFixed(2)
         );
 
-      const {
-        data: order,
-        error: orderError,
-      } = await supabase
+      const response =
+        await fetch(
+          "/api/pos/create",
+          {
+            method: "POST",
 
-        .from("orders")
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-        .insert({
+            body: JSON.stringify({
 
-          tenant_id:
-            TENANT_ID,
+              tenant_id:
+                tenantId,
 
-          table_number:
-            selectedTable.table_name,
+              table:
+                selectedTable.table_name,
 
+              items:
+                cart,
 
+              total:
+                totalAmount,
 
+              staff_name:
+                currentStaff?.name || null,
 
-          total:
-            totalAmount,
+              staff_id:
+                currentStaff?.id || null,
 
-          total_amount:
-            totalAmount,
+            }),
 
-          amount_paid:
-            0,
-
-          status:
-            "OPEN",
-
-          payment_status:
-            "UNPAID",
-
-        })
-
-        .select()
-
-        .single();
-
-      if (orderError)
-        throw orderError;
-
-      const items =
-        cart.map(item => ({
-
-          tenant_id:
-            TENANT_ID,
-
-          order_id:
-            order.id,
-
-          dish_id:
-            item.id,
-
-          item_name:
-            item.name || item.item_name || "Unnamed Item",
-
-          quantity:
-            Number(
-              item.quantity || 1
-            ),
-
-          price:
-            Number(
-              item.price || 0
-            ),
-
-          status:
-            "NEW",
-
-          course:
-            item.category || "MAIN",
-
-          station:
-
-            (
-              item.category || ""
-            ).toUpperCase().includes("BAR")
-
-              ? "BAR"
-
-              : "HOT",
-
-        }));
-
-      console.log(
-        "INSERTING ITEMS",
-        items
-      );
-
-      const {
-        error: itemError,
-      } = await supabase
-
-        .from("order_items")
-
-        .insert(items);
-
-      if (itemError)
-        throw itemError;
-
-      await supabase
-
-        .from(
-          "restaurant_tables"
-        )
-
-        .update({
-
-          status:
-            "OCCUPIED",
-
-        })
-
-        .eq(
-          "id",
-          selectedTable.id
+          }
         );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+
+        throw new Error(
+          result.error ||
+          "ORDER CREATE FAILED"
+        );
+
+      }
+
+      const order = {
+
+        id:
+          result.order_id,
+
+      };
+      await loadTables();
 
       alert(
         "Order sent to kitchen"
@@ -524,7 +643,7 @@ const total =
           selectedTable={
             selectedTable
           }
-          onSelect={
+          setSelectedTable={
             setSelectedTable
           }
         />

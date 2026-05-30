@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-import checkDeploymentApproval from "@/lib/governance/checkDeploymentApproval";
+import {
+  supabaseAdmin,
+} from "@/lib/shared/supabase/admin";
 
 export async function POST(req) {
 
@@ -9,26 +11,78 @@ export async function POST(req) {
     const body =
       await req.json();
 
-    const result =
-      await checkDeploymentApproval(
-        body
-      );
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
 
-    return NextResponse.json(
-      result
-    );
+      .from(
+        "approval_requests"
+      )
+
+      .select("*")
+
+      .eq(
+        "tenant_id",
+        body.tenant_id
+      )
+
+      .eq(
+        "type",
+        "deployment"
+      )
+
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      )
+
+      .limit(1)
+
+      .single();
+
+    if (error) {
+
+      return NextResponse.json({
+
+        approved: false,
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+    return NextResponse.json({
+
+      approved:
+        data?.status ===
+        "approved",
+
+      request:
+        data,
+
+    });
 
   } catch (error) {
 
     return NextResponse.json(
       {
+
         approved: false,
+
         error:
           error.message,
+
       },
       {
         status: 500,
       }
     );
+
   }
+
 }

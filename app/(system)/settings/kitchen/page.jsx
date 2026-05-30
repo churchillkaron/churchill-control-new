@@ -5,10 +5,20 @@ import {
   useState,
 } from "react";
 
-const TENANT_ID =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
+
 
 export default function KitchenSettingsPage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
+
 
   const [
     settings,
@@ -33,7 +43,7 @@ export default function KitchenSettingsPage() {
           },
           body: JSON.stringify({
             tenantId:
-              TENANT_ID,
+              tenantId,
           }),
         }
       );
@@ -62,7 +72,7 @@ export default function KitchenSettingsPage() {
         body: JSON.stringify({
 
           tenantId:
-            TENANT_ID,
+            tenantId,
 
           settings,
 

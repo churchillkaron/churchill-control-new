@@ -4,9 +4,18 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 
-import { supabase } from "@/lib/shared/supabase/client";
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
 
 export default function ReceivingPage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
 
   const [
     purchaseOrders,
@@ -15,29 +24,33 @@ export default function ReceivingPage() {
 
   async function loadPOs() {
 
-    const {
-      data,
-    } = await supabase
-      .from("purchase_orders")
-      .select(`
-        *,
-        vendors (
-          vendor_name
-        )
-      `)
-      .eq(
-        "status",
-        "APPROVED"
-      )
-      .order(
-        "created_at",
+    const response =
+      await fetch(
+        "/api/procurement/receiving/list",
         {
-          ascending: false,
+
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+
+            tenant_id:
+              tenantId,
+
+          }),
+
         }
       );
 
+    const result =
+      await response.json();
+
     setPurchaseOrders(
-      data || []
+      result.purchaseOrders || []
     );
   }
 
@@ -109,7 +122,7 @@ export default function ReceivingPage() {
                     <div className="text-2xl font-bold">
                       {
                         po.vendors
-                          ?.vendor_name
+                          ?.display_name
                       }
                     </div>
 

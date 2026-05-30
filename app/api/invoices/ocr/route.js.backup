@@ -1,0 +1,594 @@
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+export const dynamic = "force-dynamic";
+
+export const runtime = "nodejs";
+
+import OpenAI from "openai";
+import { mapInvoiceItems } from "@/lib/accounting/mapInvoiceItems";
+
+
+
+function classifyItem(name = "") {
+  const text = String(name).toLowerCase();
+
+  if (
+    text.includes("flour") ||
+    text.includes("sugar") ||
+    text.includes("oil") ||
+    text.includes("rice") ||
+    text.includes("starch") ||
+    text.includes("pork") ||
+    text.includes("chicken") ||
+    text.includes("beef") ||
+    text.includes("fish") ||
+    text.includes("shrimp") ||
+    text.includes("egg") ||
+    text.includes("milk") ||
+    text.includes("cheese") ||
+    text.includes("bread") ||
+    text.includes("vegetable")
+  ) {
+    return {
+      account_type: "COGS",
+      department: "Kitchen",
+      natural_account: "Food Main Kitchen",
+    };
+  }
+
+  if (
+    text.includes("beer") ||
+    text.includes("wine") ||
+    text.includes("vodka") ||
+    text.includes("whisky") ||
+    text.includes("rum") ||
+    text.includes("gin") ||
+    text.includes("tequila")
+  ) {
+    return {
+      account_type: "COGS",
+      department: "Bar",
+      natural_account: "Alcohol",
+    };
+  }
+
+  if (
+    text.includes("coke") ||
+    text.includes("water") ||
+    text.includes("soda") ||
+    text.includes("juice") ||
+    text.includes("sprite") ||
+    text.includes("fanta")
+  ) {
+    return {
+      account_type: "COGS",
+      department: "Bar",
+      natural_account: "Soft Drinks",
+    };
+  }
+
+  return {
+    account_type: "Operating Expense",
+    department: "Operations",
+    natural_account: "Miscellaneous",
+  };
+}
+
+function todayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeDate(value) {
+  if (!value) return todayDate();
+
+  let raw = String(value).trim();
+
+  if (!raw || raw.toLowerCase() === "unknown" || raw.toLowerCase() === "null") {
+    return todayDate();
+  }
+
+  raw = raw.replace(/\//g, "-").replace(/\./g, "-");
+
+  const parts = raw.split("-").map((p) => p.trim());
+
+  let yyyy;
+  let mm;
+  let dd;
+
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      yyyy = Number(parts[0]);
+      mm = Number(parts[1]);
+      dd = Number(parts[2]);
+    } else if (parts[2].length === 4) {
+      dd = Number(parts[0]);
+      mm = Number(parts[1]);
+      yyyy = Number(parts[2]);
+    }
+  }
+
+  if (!yyyy || !mm || !dd) {
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return todayDate();
+
+    yyyy = parsed.getFullYear();
+    mm = parsed.getMonth() + 1;
+    dd = parsed.getDate();
+  }
+
+  if (yyyy > 2400) {
+    yyyy = yyyy - 543;
+  }
+
+  if (yyyy < 2000 || yyyy > 2100 || mm < 1 || mm > 12 || dd < 1 || dd > 31) {
+    return todayDate();
+  }
+
+  return `${String(yyyy).padStart(4, "0")}-${String(mm).padStart(
+    2,
+    "0"
+  )}-${String(dd).padStart(2, "0")}`;
+}
+
+function numberValue(value, fallback = 0) {
+  if (value === null || value === undefined) return fallback;
+
+  const cleaned = String(value)
+    .replace(/,/g, "")
+    .replace(/[^\d.-]/g, "");
+
+  const n = Number(cleaned);
+
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export async function POST(req) {
+  try {
+
+    const supabase = supabaseAdmin;
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const body = await req.json();
+    const image = body?.image;
+
+    if (!image) {
+      return Response.json(
+        { success: false, error: "No image provided" },
+        { status: 400 }
+      );
+    }
+
+    const response = await openai.responses.create({
+      model: "gpt-4.1",
+      temperature: 0,
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: `You are a receipt transcription engine.
+
+Your only job is to transcribe the receipt exactly as visible.
+
+Rules:
+
+- Return plain text only.
+- Do not return JSON.
+- Do not translate.
+- Do not classify products.
+- Do not summarize.
+- Do not calculate.
+- Do not reconcile totals.
+- Do not correct spelling.
+- Preserve Thai exactly as printed.
+- Preserve English exactly as printed.
+- Preserve line order exactly as printed.
+- Include every visible receipt row.
+- Include product rows.
+- Include subtotal rows.
+- Include VAT rows.
+- Include total rows.
+- Include all visible text.
+
+Return the complete receipt transcription.`,
+            },
+            {
+              type: "input_image",
+              image_url: image,
+              detail: "high",
+            },
+          ],
+        },
+      ],
+    });
+
+    const text =
+      response.output_text ||
+      response.output?.[0]?.content?.[0]?.text ||
+      "";
+
+    console.log(
+      "RAW OCR RESPONSE >>>>>>>",
+      text
+    );
+
+    const fs = require("fs");
+
+    fs.writeFileSync(
+      "/tmp/ocr-debug.txt",
+      text
+    );
+
+    if (!text) {
+      return Response.json(
+        { success: false, error: "No OCR text returned" },
+        { status: 500 }
+      );
+    }
+
+    let parsed;
+
+    try {
+      const cleaned = text.replace(/```json|```/g, "").trim();
+      const match = cleaned.match(/\{[\s\S]*\}/);
+
+      if (!match) {
+        throw new Error("No JSON found");
+      }
+
+      parsed = JSON.parse(match[0]);
+    } catch {
+      console.error("PARSE ERROR RAW:", text);
+
+      return Response.json(
+        {
+          success: false,
+          error: "JSON parse failed",
+          raw: text,
+        },
+        { status: 500 }
+      );
+    }
+
+    const baseItems = Array.isArray(parsed.items) ? parsed.items : [];
+
+    const items = baseItems.map((item) => {
+      const qty = numberValue(item.qty, 1);
+      const totalPrice = numberValue(item.total_price, 0);
+      const unitPrice =
+        numberValue(item.unit_price, 0) ||
+        (qty > 0 ? totalPrice / qty : 0);
+
+      const nameThai = item.name_thai || "";
+      const nameEnglish =
+        item.name_english ||
+        item.name ||
+        item.description ||
+        nameThai ||
+        "Unknown item";
+
+      return {
+        name_thai: nameThai,
+        name_english: nameEnglish,
+        qty,
+        unit_price: unitPrice,
+        total_price: totalPrice,
+      };
+    });
+
+    const mappedItems =
+      await mapInvoiceItems({
+        tenantId:
+          "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4",
+        items,
+      });
+
+    const bannedRows = [
+      "รวมเงิน",
+      "ยอดรวม",
+      "ยอดสุทธิ",
+      "ภาษี",
+      "ส่วนลด",
+      "เงินสด",
+      "เงินทอน",
+      "total",
+      "subtotal",
+      "tax",
+      "vat",
+      "discount",
+      "cash",
+      "change"
+    ];
+
+    const filteredItems =
+      mappedItems.filter((item) => {
+
+        const name =
+          String(
+            item.name_thai ||
+            item.name_english ||
+            ""
+          ).toLowerCase();
+
+        return !bannedRows.some(
+          banned =>
+            name.includes(
+              banned.toLowerCase()
+            )
+        );
+
+      });
+
+    const extractedItemsTotal =
+      filteredItems.reduce(
+        (sum, item) =>
+          sum + numberValue(item.total_price, 0),
+        0
+      );
+
+    const totalAmount =
+      numberValue(parsed.total_amount, 0) ||
+      extractedItemsTotal;
+
+    const reconciliationDifference =
+      Math.abs(
+        totalAmount - extractedItemsTotal
+      );
+
+    const reconciliationTolerance =
+      Math.max(
+        1,
+        totalAmount * 0.01
+      );
+
+    if (
+      totalAmount > 0 &&
+      reconciliationDifference > reconciliationTolerance
+    ) {
+
+      return Response.json(
+        {
+          success: false,
+          error: "OCR_RECONCILIATION_FAILED",
+          message: "Invoice lines do not match receipt total. Invoice was not saved.",
+          total_amount: totalAmount,
+          extracted_items_total: extractedItemsTotal,
+          difference: reconciliationDifference,
+          items: filteredItems,
+        },
+        {
+          status: 422,
+        }
+      );
+
+    }
+
+    const purchaseDate = normalizeDate(parsed.date);
+
+    for (const item of items) {
+      const name = item.name_english || item.name_thai;
+      if (!name) continue;
+
+      let { data: ingredient, error: ingredientFindError } = await supabase
+        .from("ingredients")
+        .select("*")
+        .ilike("name", name)
+        .maybeSingle();
+
+      if (ingredientFindError) {
+        console.error("INGREDIENT FIND ERROR:", ingredientFindError);
+        continue;
+      }
+
+      if (!ingredient) {
+        const { data: newIngredient, error: ingredientCreateError } =
+          await supabase
+            .from("ingredients")
+            .insert([
+              {
+                name,
+                name_thai: item.name_thai || null,
+                unit: "unit",
+                department: item.department,
+                cost_per_unit:
+                  numberValue(
+                    item.unit_price,
+                    0
+                  ),
+              },
+            ])
+            .select()
+            .single();
+
+        if (ingredientCreateError) {
+          console.error("INGREDIENT CREATE ERROR:", ingredientCreateError);
+          continue;
+        }
+
+        ingredient = newIngredient;
+      }
+
+      const qty = numberValue(item.qty, 0);
+      const costPerUnit =
+        qty > 0 ? numberValue(item.total_price, 0) / qty : 0;
+
+      const { data: existingInventory, error: inventoryFindError } =
+        await supabase
+          .from("inventory")
+          .select("*")
+          .eq("ingredient_id", ingredient.id)
+          .maybeSingle();
+
+      if (inventoryFindError) {
+        console.error("INVENTORY FIND ERROR:", inventoryFindError);
+        continue;
+      }
+
+      if (existingInventory) {
+        await supabase
+          .from("inventory")
+          .update({
+            quantity: numberValue(existingInventory.quantity, 0) + qty,
+            cost_per_unit: costPerUnit,
+            last_updated: new Date().toISOString(),
+          })
+          .eq("id", existingInventory.id);
+      } else {
+        await supabase.from("inventory").insert([
+          {
+            ingredient_id: ingredient.id,
+            quantity: qty,
+            cost_per_unit: costPerUnit,
+          },
+        ]);
+      }
+
+      await supabase.from("inventory_transactions").insert([
+        {
+          ingredient_id: ingredient.id,
+          change: qty,
+          type: "invoice",
+        },
+      ]);
+    }
+
+    // -----------------------------------
+// VENDOR MATCHING
+// -----------------------------------
+
+let vendorId = null;
+
+const {
+  data: existingVendor,
+} = await supabase
+
+  .from("vendors")
+
+  .select("id")
+
+  .ilike(
+    "legal_name",
+    parsed.vendor || ""
+  )
+
+  .maybeSingle();
+
+if (existingVendor) {
+
+  vendorId =
+    existingVendor.id;
+
+}
+
+    // -----------------------------------
+// DUPLICATE INVOICE PROTECTION
+// -----------------------------------
+
+const {
+  data: existingInvoice,
+} = await supabase
+
+  .from("invoices")
+
+  .select("id")
+
+  .eq(
+    "vendor",
+    parsed.vendor || "Unknown Vendor"
+  )
+
+  .eq(
+    "date",
+    purchaseDate
+  )
+
+  .eq(
+    "total_amount",
+    totalAmount
+  )
+
+  .maybeSingle();
+
+if (existingInvoice) {
+
+  return Response.json(
+
+    {
+      success: false,
+      error:
+        "Duplicate invoice detected",
+    },
+
+    {
+      status: 409,
+    }
+
+  );
+
+}
+
+    const { data, error } = await supabase
+      .from("invoices")
+      .insert([
+        {
+vendor:
+  parsed.vendor ||
+  "Unknown Vendor",
+
+vendor_id:
+  vendorId,          
+  
+  total_amount: totalAmount,
+          date: purchaseDate,
+          status: "pending_manager",
+          image_url: image,
+          items: filteredItems,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("DB INSERT ERROR:", error);
+
+      return Response.json(
+        {
+          success: false,
+          error: "DB insert failed",
+          message: error.message,
+          details: error,
+        },
+        { status: 500 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      invoice: data,
+      extracted: {
+        vendor: parsed.vendor || "Unknown Vendor",
+        total_amount: totalAmount,
+        date: purchaseDate,
+        raw_date: parsed.date || "",
+        items: filteredItems,
+      },
+    });
+
+  } catch (err) {
+
+    console.error("OCR ERROR:", err);
+
+    return Response.json(
+      {
+        success: false,
+        error: "OCR failed",
+        message: err.message,
+      },
+      { status: 500 }
+    );
+
+  }
+}

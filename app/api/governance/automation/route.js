@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 
-import evaluatePolicy from "@/lib/governance/policies/evaluatePolicy";
+import {
+  runComplianceValidation,
+} from "@/lib/governance/finance/runComplianceValidation";
 
-import requestApproval from "@/lib/governance/approvals/requestApproval";
+import {
+  createApprovalWorkflow,
+} from "@/lib/governance/finance/createApprovalWorkflow";
 
-import createAuditRecord from "@/lib/governance/audit/createAuditRecord";
+import logAuditEvent
+from "@/lib/audit/logAuditEvent";
 
 export async function POST(req) {
 
@@ -13,33 +18,40 @@ export async function POST(req) {
     const body =
       await req.json();
 
-    // ===== POLICY =====
+    if (!body.tenant_id) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing tenant_id",
+        },
+        {
+          status: 400,
+        }
+      );
+
+    }
+
     const policy =
-      await evaluatePolicy({
-
-        action_type:
-          body.action_type,
-
-        priority:
-          body.priority,
-
-        amount:
-          body.amount || 0,
+      await runComplianceValidation({
+        tenantId:
+          body.tenant_id,
       });
 
-    let execution = null;
+    let execution = {
+      success: true,
+      auto_approved: true,
+    };
 
-    // ===== APPROVAL =====
     if (
-      policy.policy
-        ?.approval_required
+      body.requiresApproval
     ) {
 
-      execution =
-        await requestApproval({
+      const workflow =
+        await createApprovalWorkflow({
 
           tenant_id:
-            body.tenant_id || "demo",
+            body.tenant_id,
 
           action_type:
             body.action_type,
@@ -47,43 +59,42 @@ export async function POST(req) {
           payload:
             body.payload || {},
 
-          risk_level:
-            policy.policy
-              ?.risk_level,
         });
-
-    } else {
 
       execution = {
 
         success: true,
 
-        auto_approved:
-          true,
+        auto_approved: false,
+
+        workflow,
+
       };
+
     }
 
-    // ===== AUDIT =====
     const audit =
-      await createAuditRecord({
+      await logAuditEvent({
 
         tenant_id:
-          body.tenant_id || "demo",
+          body.tenant_id,
 
         action_type:
-          body.action_type,
+          body.action_type ||
 
-        execution_result:
-          execution.success
-            ? "SUCCESS"
-            : "FAILED",
+          "governance_automation",
+
+        entity_type:
+          "governance",
 
         metadata: {
 
           policy,
 
           execution,
+
         },
+
       });
 
     return NextResponse.json({
@@ -97,7 +108,9 @@ export async function POST(req) {
         execution,
 
         audit,
+
       },
+
     });
 
   } catch (error) {
@@ -112,5 +125,7 @@ export async function POST(req) {
         status: 500,
       }
     );
+
   }
+
 }

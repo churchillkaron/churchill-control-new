@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
 import { supabase } from "@/lib/supabase";
 
 const DAYS = [
@@ -14,6 +18,12 @@ const DAYS = [
 ];
 
 export default function ManagementSchedulePage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
 
   const [staff, setStaff] =
     useState([]);
@@ -34,9 +44,13 @@ export default function ManagementSchedulePage() {
 
     loadData();
 
-  }, []);
+  }, [tenantId]);
 
   async function loadData() {
+
+    if (!tenantId) {
+      return;
+    }
 
     setLoading(true);
 
@@ -46,7 +60,7 @@ export default function ManagementSchedulePage() {
         .select("*")
         .eq(
           "tenant_id",
-          "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4"
+          tenantId
         )
         .eq("active", true);
 
@@ -56,7 +70,7 @@ export default function ManagementSchedulePage() {
         .select("*")
         .eq(
           "tenant_id",
-          "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4"
+          tenantId
         );
 
     setStaff(staffData || []);
@@ -185,7 +199,7 @@ export default function ManagementSchedulePage() {
       .insert({
 
         tenant_id:
-          "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4",
+          tenantId,
 
         staff_id:
           staffMember.id,

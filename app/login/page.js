@@ -58,7 +58,7 @@ export default function LoginPage() {
       session?.user
     ) {
 
-      router.push("/dashboard");
+      router.push("/login/callback");
 
     }
 
@@ -91,7 +91,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
+      router.push("/login/callback");
 
     } catch (err) {
 

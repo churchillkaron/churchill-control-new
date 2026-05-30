@@ -20,10 +20,19 @@ from "next/navigation";
 import { supabase }
 from "@/lib/shared/supabase/client";
 
-const TENANT_ID =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
+
 
 export default function TablesPage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
 
   const router =
     useRouter();
@@ -40,6 +49,10 @@ export default function TablesPage() {
 
   async function loadTables() {
 
+    if (!tenantId) {
+      return;
+    }
+
     setLoading(true);
 
     const {
@@ -55,7 +68,7 @@ export default function TablesPage() {
 
       .eq(
         "tenant_id",
-        TENANT_ID
+        tenantId
       )
 
       .order(
@@ -66,6 +79,42 @@ export default function TablesPage() {
 
       console.error(
         tablesError
+      );
+
+      setLoading(false);
+
+      return;
+
+    }
+
+    const {
+      data: sessionsData,
+      error: sessionsError,
+    } = await supabase
+
+      .from("table_sessions")
+
+      .select("*")
+
+      .eq(
+        "tenant_id",
+        tenantId
+      )
+
+      .in(
+        "status",
+        [
+          "OPEN",
+          "ACTIVE",
+          "READY_FOR_PAYMENT",
+          "PARTIAL",
+        ]
+      );
+
+    if (sessionsError) {
+
+      console.error(
+        sessionsError
       );
 
       setLoading(false);
@@ -88,13 +137,17 @@ export default function TablesPage() {
 
       .eq(
         "tenant_id",
-        TENANT_ID
+        tenantId
       )
 
-      .not(
+      .in(
         "status",
-        "in",
-        "(PAID,CLOSED)"
+        [
+          "OPEN",
+          "ACTIVE",
+          "READY_FOR_PAYMENT",
+          "PARTIAL",
+        ]
       );
 
     if (ordersError) {
@@ -110,19 +163,85 @@ export default function TablesPage() {
     }
 
     const mergedTables =
-      (tablesData || []).map(
-        table => ({
+      await Promise.all(
 
-          ...table,
+        (tablesData || []).map(
+          async table => {
 
-          orders:
-            (ordersData || []).filter(
-              order =>
-                order.table_number ===
-                table.table_name
-            ),
+            const session =
+              (sessionsData || []).find(
+                session =>
+                  session.table_number ===
+                  table.table_name
+              ) || null;
 
-        })
+            const orders =
+              (ordersData || []).filter(
+                order =>
+                  order.table_number ===
+                  table.table_name
+              );
+
+            let financials = null;
+
+            try {
+
+              const response =
+                await fetch(
+                  "/api/pos/payment-state",
+                  {
+                    method: "POST",
+
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                    },
+
+                    body: JSON.stringify({
+
+                      tenantId:
+                        tenantId,
+
+                      tableNumber:
+                        table.table_name,
+
+                    }),
+
+                  }
+                );
+
+              const result =
+                await response.json();
+
+              if (
+                result.success
+              ) {
+
+                financials =
+                  result.state;
+
+              }
+
+            } catch (err) {
+
+              console.error(err);
+
+            }
+
+            return {
+
+              ...table,
+
+              session,
+
+              orders,
+
+              financials,
+
+            };
+
+          }
+        )
       );
 
     setTables(
@@ -147,7 +266,7 @@ useEffect(() => {
           {
             event: "*",
             schema: "public",
-            table: "orders",
+            table: "table_sessions",
           },
           loadTables
         )
@@ -186,29 +305,23 @@ useEffect(() => {
               .filter(
                 order =>
 
-                  !["PAID","CLOSED"].includes(order.status)
+                  order.table_number ===
+                  table.table_name &&
+
+                  [
+                    "OPEN",
+                    "ACTIVE",
+                    "READY_FOR_PAYMENT",
+                    "PARTIAL",
+                  ].includes(order.status)
               );
 
           const items =
-            activeOrders.flatMap(
-              order =>
-                order.order_items || []
-            );
+            table.financials?.items || [];
 
           const total =
-            items.reduce(
-              (
-                sum,
-                item
-              ) =>
-
-                sum +
-                (
-                  Number(item.price || 0) *
-                  Number(item.quantity || 1)
-                ),
-
-              0
+            Number(
+              table.financials?.grandTotal || 0
             );
 
           return {
@@ -266,8 +379,9 @@ useEffect(() => {
             table => {
 
               const occupied =
-                table.activeOrders
-                  .length > 0;
+                Boolean(
+                  table.session
+                );
 
               return (
 
@@ -467,7 +581,7 @@ useEffect(() => {
                       <button
                         onClick={() =>
                           router.push(
-                            `/pos/payments?order_id=${table.activeOrders[0]?.id}`
+                            `/pos/payments?table=${table.table_name}`
                           )
                         }
                         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-500 py-3 font-semibold text-black"

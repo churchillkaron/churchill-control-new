@@ -5,9 +5,20 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/shared/supabase/client";
 
-const TENANT_ID = "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
+
 
 export default function SystemSettingsPage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
+
   const [settings, setSettings] = useState({
     mode: "small",
     production_mode: "combined",
@@ -22,7 +33,7 @@ export default function SystemSettingsPage() {
     const { data } = await supabase
       .from("restaurant_settings")
       .select("*")
-      .eq("tenant_id", TENANT_ID)
+      .eq("tenant_id", tenantId)
       .single();
 
     if (data) setSettings(data);
@@ -33,7 +44,7 @@ export default function SystemSettingsPage() {
       .from("restaurant_settings")
       .upsert({
         ...settings,
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
       });
 
     alert("System settings saved");

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/shared/supabase/client";
 
 import { updatePurchaseOrderReceiptStatus }
-from "@/lib/procurement/updatePurchaseOrderReceiptStatus";
+from "@/lib/procurement/receiving/updatePurchaseOrderReceiptStatus";
 
 export default function GoodsReceiptsPage() {
 

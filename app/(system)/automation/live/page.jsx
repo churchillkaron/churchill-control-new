@@ -12,7 +12,7 @@ from "@/lib/shared/supabase/client";
 
 import {
   createEnterpriseRealtime,
-} from "@/lib/runtime/createEnterpriseRealtime";
+} from "@/lib/runtime/realtime/createEnterpriseRealtime";
 
 import {
   loadWorkflowRuntime,

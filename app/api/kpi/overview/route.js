@@ -10,7 +10,7 @@ import {
 
 import {
   calculateKPIs,
-} from '@/lib/shared/kpi/kpiEngine'
+} from '@/lib/intelligence/kpi/kpiEngine'
 
 import {
   createServerSupabase,

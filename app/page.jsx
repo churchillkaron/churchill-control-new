@@ -55,7 +55,7 @@ export default function LoginPage() {
       if (session) {
 
         router.replace(
-          "/dashboard"
+          "/login/callback"
         );
       }
     }
@@ -96,7 +96,7 @@ if (data?.session) {
 
   await supabase.auth.getSession();
 
-  window.location.href = "/dashboard";
+  window.location.href = "/login/callback";
 }
 
     } catch (error) {

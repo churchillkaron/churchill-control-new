@@ -1,65 +1,43 @@
-import { NextResponse } from 'next/server'
+import {
+  NextResponse,
+} from "next/server";
 
-import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+import {
+  requireAuth,
+} from "@/lib/shared/auth";
+
+import createFixedAsset from "@/lib/finance/fixed-assets/createFixedAsset";
 
 export async function POST(req) {
 
   try {
 
+    await requireAuth();
+
     const body =
-      await req.json()
+      await req.json();
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from(
-        'finance_fixed_assets'
-      )
-      .insert([
-        {
-          tenant_id:
-            body.tenant_id,
+    const result =
+      await createFixedAsset(body);
 
-          asset_name:
-            body.asset_name,
-
-          purchase_cost:
-            body.purchase_cost,
-
-          salvage_value:
-            body.salvage_value,
-
-          useful_life_years:
-            body.useful_life_years,
-
-          purchased_at:
-            body.purchased_at,
-        },
-      ])
-      .select()
-      .single()
-
-    if (error) {
-      throw error
-    }
-
-    return NextResponse.json({
-      success: true,
-      data,
-    })
+    return NextResponse.json(
+      result
+    );
 
   } catch (error) {
+
+    console.error(error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
       }
-    )
+    );
+
   }
+
 }

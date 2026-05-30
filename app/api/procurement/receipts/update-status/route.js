@@ -4,7 +4,7 @@ import { NextResponse }
 from "next/server";
 
 import { updatePurchaseOrderReceiptStatus }
-from "@/lib/procurement/updatePurchaseOrderReceiptStatus";
+from "@/lib/procurement/receiving/updatePurchaseOrderReceiptStatus";
 
 // =====================================
 // UPDATE PO RECEIPT STATUS

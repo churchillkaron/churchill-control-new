@@ -13,7 +13,7 @@ import { loadFinanceOverview } from "@/lib/finance/loadFinanceOverview";
 
 import {
   createEnterpriseRealtime,
-} from "@/lib/runtime/createEnterpriseRealtime";
+} from "@/lib/runtime/realtime/createEnterpriseRealtime";
 
 export default function FinanceLivePage() {
 

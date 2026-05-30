@@ -13,6 +13,21 @@ export async function POST(req) {
     const body =
       await req.json();
 
+
+    if (!body.tenant_id) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing tenant_id",
+        },
+        {
+          status: 400,
+        }
+      );
+
+    }
+
     const result =
       await createPurchaseOrder(
         body
@@ -90,7 +105,7 @@ export async function PATCH(req) {
       await generateAutomaticPurchaseOrder({
 
         tenant_id:
-          body.tenant_id || "demo",
+          body.tenant_id,
       });
 
     return NextResponse.json(

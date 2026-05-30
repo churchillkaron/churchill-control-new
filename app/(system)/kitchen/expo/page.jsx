@@ -9,6 +9,10 @@ import {
 } from "react";
 
 import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
+import {
   CheckCircle2,
   BellRing,
 } from "lucide-react";
@@ -16,10 +20,16 @@ import {
 import { supabase }
 from "@/lib/shared/supabase/client";
 
-const TENANT_ID =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+
 
 export default function ExpoPage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
+
 
   const [
     orders,
@@ -32,6 +42,10 @@ export default function ExpoPage() {
   ] = useState(true);
 
   async function loadExpo() {
+
+    if (!tenantId) {
+      return;
+    }
 
     setLoading(true);
 
@@ -49,7 +63,7 @@ export default function ExpoPage() {
 
       .eq(
         "tenant_id",
-        TENANT_ID
+        tenantId
       )
 
       .order(

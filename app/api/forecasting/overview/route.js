@@ -5,7 +5,7 @@ from 'next/server'
 
 import {
   generateForecast,
-} from '@/lib/shared/forecasting/forecastEngine'
+} from '@/lib/intelligence/forecasting/forecastEngine'
 
 import {
   createServerSupabase,

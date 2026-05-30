@@ -27,7 +27,7 @@ import {
   getTenantId,
   loadStaff,
   createRealtimeChannel,
-} from "@/lib/shared/loaders/loadOperationalData";
+} from "@/domains/hospitality/loaders/loadOperationalData";
 
 export default function PayrollPage() {
 

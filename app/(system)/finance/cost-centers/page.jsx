@@ -3,7 +3,6 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/shared/supabase/client";
 
 export default function CostCentersPage() {
   const [costCenters, setCostCenters] = useState([]);
@@ -21,20 +20,44 @@ export default function CostCentersPage() {
   }, []);
 
   async function fetchCostCenters() {
+
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("cost_centers")
-      .select("*")
-      .order("code", { ascending: true });
+    try {
 
-    if (error) {
+      const response =
+        await fetch(
+          "/api/finance/cost-centers/list",
+          {
+            method: "POST",
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!result.success) {
+
+        alert(result.error);
+
+        return;
+
+      }
+
+      setCostCenters(
+        result.costCenters || []
+      );
+
+    } catch (error) {
+
       console.error(error);
-      alert(error.message);
+
+    } finally {
+
+      setLoading(false);
+
     }
 
-    setCostCenters(data || []);
-    setLoading(false);
   }
 
   async function createCostCenter() {
@@ -43,20 +66,34 @@ export default function CostCentersPage() {
       return;
     }
 
-    const { error } = await supabase.from("cost_centers").insert([
-      {
-        code: form.code,
-        name: form.name,
-        type: form.type,
-        manager: form.manager,
-        is_active: true,
-      },
-    ]);
+    const response =
+      await fetch(
+        "/api/finance/cost-centers/create",
+        {
 
-    if (error) {
-      console.error(error);
-      alert(error.message);
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify(form),
+
+        }
+      );
+
+    const result =
+      await response.json();
+
+    if (!result.success) {
+
+      console.error(result.error);
+
+      alert(result.error);
+
       return;
+
     }
 
     setForm({
@@ -70,18 +107,39 @@ export default function CostCentersPage() {
   }
 
   async function toggleCostCenter(center) {
-    const { error } = await supabase
-      .from("cost_centers")
-      .update({
-        is_active: !center.is_active,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", center.id);
+    const response =
+      await fetch(
+        "/api/finance/cost-centers/toggle",
+        {
 
-    if (error) {
-      console.error(error);
-      alert(error.message);
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+
+            cost_center_id:
+              center.id,
+
+          }),
+
+        }
+      );
+
+    const result =
+      await response.json();
+
+    if (!result.success) {
+
+      console.error(result.error);
+
+      alert(result.error);
+
       return;
+
     }
 
     await fetchCostCenters();

@@ -36,8 +36,11 @@ import {
   loadExecutiveDashboard,
 } from "@/lib/dashboard/runtime/loadExecutiveDashboard";
 
-const TENANT_ID =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
+
 
 function money(value) {
 
@@ -160,6 +163,12 @@ function RuntimeRow({
 
 export default function ExecutiveDashboardPage() {
 
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
+
   const [
     dashboard,
     setDashboard,
@@ -181,11 +190,16 @@ export default function ExecutiveDashboardPage() {
 
       setRefreshing(true);
 
+      if (!tenantId) {
+
+        return;
+
+      }
+
       const data =
         await loadExecutiveDashboard({
 
-          tenantId:
-            TENANT_ID,
+          tenantId,
 
         });
 

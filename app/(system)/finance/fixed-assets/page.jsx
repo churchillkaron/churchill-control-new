@@ -3,7 +3,6 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/shared/supabase/client";
 
 export default function FixedAssetsPage() {
   const [assets, setAssets] = useState([]);
@@ -31,52 +30,86 @@ export default function FixedAssetsPage() {
   }, []);
 
   async function fetchData() {
+
     setLoading(true);
 
-    const { data: assetData } = await supabase
-      .from("fixed_assets")
-      .select(`
-        *,
-        vendors (
-          id,
-          legal_name
+    try {
+
+      const [
+        assetsRes,
+        vendorsRes,
+        entitiesRes,
+        centersRes,
+      ] = await Promise.all([
+
+        fetch(
+          "/api/finance/fixed-assets/list",
+          {
+            method: "POST",
+          }
         ),
-        legal_entities (
-          id,
-          legal_name,
-          code
+
+        fetch(
+          "/api/finance/vendors/list",
+          {
+            method: "POST",
+          }
         ),
-        cost_centers (
-          id,
-          name,
-          code
-        )
-      `)
-      .order("created_at", { ascending: false });
 
-    const { data: vendorData } = await supabase
-      .from("vendors")
-      .select("*")
-      .eq("is_active", true)
-      .order("legal_name");
+        fetch(
+          "/api/finance/legal-entities/list",
+          {
+            method: "POST",
+          }
+        ),
 
-    const { data: entityData } = await supabase
-      .from("legal_entities")
-      .select("*")
-      .eq("is_active", true)
-      .order("legal_name");
+        fetch(
+          "/api/finance/cost-centers/list",
+          {
+            method: "POST",
+          }
+        ),
 
-    const { data: costCenterData } = await supabase
-      .from("cost_centers")
-      .select("*")
-      .eq("is_active", true)
-      .order("code");
+      ]);
 
-    setAssets(assetData || []);
-    setVendors(vendorData || []);
-    setLegalEntities(entityData || []);
-    setCostCenters(costCenterData || []);
-    setLoading(false);
+      const assetsJson =
+        await assetsRes.json();
+
+      const vendorsJson =
+        await vendorsRes.json();
+
+      const entitiesJson =
+        await entitiesRes.json();
+
+      const centersJson =
+        await centersRes.json();
+
+      setAssets(
+        assetsJson.assets || []
+      );
+
+      setVendors(
+        vendorsJson.vendors || []
+      );
+
+      setLegalEntities(
+        entitiesJson.entities || []
+      );
+
+      setCostCenters(
+        centersJson.costCenters || []
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
   }
 
   async function createAsset() {
@@ -90,30 +123,44 @@ export default function FixedAssetsPage() {
 
     const assetCode = `FA-${Date.now()}`;
 
-    const { error } = await supabase.from("fixed_assets").insert([
-      {
-        asset_code: assetCode,
-        asset_name: form.asset_name,
-        asset_category: form.asset_category,
-        purchase_date: form.purchase_date || null,
-        purchase_cost: purchaseCost,
-        useful_life_years: Number(form.useful_life_years || 5),
-        salvage_value: salvageValue,
-        depreciation_method: form.depreciation_method,
-        accumulated_depreciation: 0,
-        current_book_value: purchaseCost,
-        status: "active",
-        vendor_id: form.vendor_id || null,
-        legal_entity_id: form.legal_entity_id || null,
-        cost_center_id: form.cost_center_id || null,
-        notes: form.notes,
-      },
-    ]);
+    const response =
+      await fetch(
+        "/api/finance/fixed-assets/create",
+        {
 
-    if (error) {
-      console.error(error);
-      alert(error.message);
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+
+            ...form,
+
+            purchase_cost:
+              purchaseCost,
+
+            salvage_value:
+              salvageValue,
+
+          }),
+
+        }
+      );
+
+    const result =
+      await response.json();
+
+    if (!result.success) {
+
+      console.error(result.error);
+
+      alert(result.error);
+
       return;
+
     }
 
     setForm({
@@ -145,7 +192,7 @@ export default function FixedAssetsPage() {
     );
 
     const bookValue = assets.reduce(
-      (sum, asset) => sum + Number(asset.current_book_value || 0),
+      (sum, asset) => sum + Number(asset.calculated_book_value || 0),
       0
     );
 
@@ -367,7 +414,7 @@ export default function FixedAssetsPage() {
                 </div>
                 <div>
                   Book Value: ฿
-                  {Number(asset.current_book_value || 0).toLocaleString()}
+                  {Number(asset.calculated_book_value || 0).toLocaleString()}
                 </div>
               </div>
             </div>

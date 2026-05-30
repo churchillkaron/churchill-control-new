@@ -26,7 +26,7 @@ export async function POST(req) {
           body.paymentMethod || 'CASH',
 
         amount:
-          body.amount || 0,
+          Number(body.amount || 0),
 
         cashierName:
           body.cashierName || 'SYSTEM',

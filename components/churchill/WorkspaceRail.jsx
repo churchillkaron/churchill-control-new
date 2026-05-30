@@ -183,9 +183,9 @@ const NAVIGATION = [
     items: [
 
       {
-        id: "staff",
-        title: "Staff",
-        route: "/staff",
+        id: "workforce",
+        title: "Workforce",
+        route: "/workforce",
       },
 
       {

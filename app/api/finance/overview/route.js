@@ -5,22 +5,24 @@ from 'next/server'
 
 import {
   calculateFinancialHealth,
-} from '@/lib/shared/finance/financialEngine'
+} from '@/lib/finance/shared/financialEngine'
 
 import {
-  createServerSupabase,
-} from '@/lib/shared/supabase/server'
+  getFinanceSummary,
+} from '@/lib/finance/services/getFinanceSummary'
 
 export async function GET(req) {
 
   try {
 
-    const supabase =
-      createServerSupabase()
-
     const tenantId =
       req.nextUrl.searchParams.get(
         'tenantId'
+      )
+
+    const organizationId =
+      req.nextUrl.searchParams.get(
+        'organizationId'
       )
 
     if (!tenantId) {
@@ -40,117 +42,31 @@ export async function GET(req) {
 
     }
 
-    const [
+    const summary =
+      await getFinanceSummary({
 
-      salesResponse,
+        tenantId,
 
-      payrollResponse,
+        organizationId,
 
-      invoiceResponse,
-
-    ] = await Promise.all([
-
-      supabase
-        .from('daily_sales_items')
-        .select('*')
-        .eq(
-          'tenant_id',
-          tenantId
-        ),
-
-      supabase
-        .from('staff_salary_records')
-        .select('*')
-        .eq(
-          'tenant_id',
-          tenantId
-        ),
-
-      supabase
-        .from('vendor_invoices')
-        .select('*')
-        .eq(
-          'tenant_id',
-          tenantId
-        ),
-
-    ])
-
-    const sales =
-      salesResponse.data || []
-
-    const payrollRecords =
-      payrollResponse.data || []
-
-    const invoices =
-      invoiceResponse.data || []
-
-    const revenue =
-      sales.reduce(
-
-        (sum, row) =>
-
-          sum +
-
-          (
-            Number(row.price || 0) *
-            Number(row.quantity || 1)
-          ),
-
-        0
-
-      )
-
-    const cost =
-      sales.reduce(
-
-        (sum, row) =>
-
-          sum +
-          Number(row.cost || 0),
-
-        0
-
-      )
-
-    const payroll =
-      payrollRecords.reduce(
-
-        (sum, row) =>
-
-          sum +
-
-          Number(
-            row.final_salary || 0
-          ),
-
-        0
-
-      )
-
-    const pendingInvoices =
-      invoices.filter(
-
-        invoice =>
-          invoice.status !== 'paid'
-
-      ).length
+      })
 
     const financials =
       calculateFinancialHealth({
 
-        revenue,
+        revenue:
+          summary.revenue || 0,
 
-        cost,
+        cost:
+          summary.cost || 0,
 
-        payroll,
+        payroll: 0,
 
-        pendingInvoices,
+        pendingInvoices: 0,
 
         cashBalance:
-          revenue -
-          cost -
-          payroll,
+          (summary.revenue || 0) -
+          (summary.cost || 0),
 
       })
 
@@ -160,15 +76,31 @@ export async function GET(req) {
 
       metrics: {
 
-        revenue,
+        revenue:
+          summary.revenue || 0,
 
-        cost,
+        cost:
+          summary.cost || 0,
 
-        payroll,
+        payroll: 0,
 
-        pendingInvoices,
+        pendingInvoices: 0,
+
+        profit:
+          summary.profit || 0,
+
+        costPercent:
+          summary.costPercent || 0,
 
       },
+
+      lowStock:
+        summary.lowStock || [],
+
+      alerts: [
+        ...(summary.alerts || []),
+        ...(financials.alerts || []),
+      ],
 
       financials,
 

@@ -18,10 +18,19 @@ import {
 import { supabase }
 from "@/lib/shared/supabase/client";
 
-const TENANT_ID =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
+
 
 export default function KitchenPage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
 
   const [
     orders,
@@ -34,6 +43,10 @@ export default function KitchenPage() {
   ] = useState(true);
 
   async function loadKitchen() {
+
+    if (!tenantId) {
+      return;
+    }
 
     setLoading(true);
 
@@ -51,7 +64,17 @@ export default function KitchenPage() {
 
       .eq(
         "tenant_id",
-        TENANT_ID
+        tenantId
+      )
+
+      .in(
+        "status",
+        [
+          "OPEN",
+          "ACTIVE",
+          "READY_FOR_PAYMENT",
+          "PARTIAL",
+        ]
       )
 
       .order(

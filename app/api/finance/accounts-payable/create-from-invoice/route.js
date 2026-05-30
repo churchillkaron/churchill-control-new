@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
-import { createAccountsPayableEntry } from '@/lib/finance/accountsPayable/createAccountsPayableEntry'
+import createAccountsPayableEntry from '@/lib/finance/accounts-payable/createAccountsPayableEntry'
 
 export async function POST(req) {
 

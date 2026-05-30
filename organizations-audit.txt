@@ -1,0 +1,87 @@
+lib/accounting/createAccountingClient.js:} from "@/lib/organizations/createOrganization";
+lib/accounting/createAccountingClient.js:    .from("organizations")
+lib/accounting/loadAccountingClients.js:    data: organizations,
+lib/accounting/loadAccountingClients.js:    .from("organizations")
+lib/accounting/loadAccountingClients.js:  return (organizations || []).map(org => {
+lib/organizations/createOrganization.js:      .from("organizations")
+lib/organizations/buildOrganizationContext.js:  let organizations = [];
+lib/organizations/buildOrganizationContext.js:      error: organizationsError,
+lib/organizations/buildOrganizationContext.js:        "organizations"
+lib/organizations/buildOrganizationContext.js:      organizationsError
+lib/organizations/buildOrganizationContext.js:    organizations =
+lib/organizations/buildOrganizationContext.js:        "organizations"
+lib/organizations/buildOrganizationContext.js:    organizations =
+lib/organizations/buildOrganizationContext.js:    organizations[0] || null;
+lib/organizations/buildOrganizationContext.js:    organizations,
+lib/organizations/getOrganizations.js:    .from("organizations")
+lib/platform/accounting/getConsolidationOrganizations.js:      organizations: [
+lib/platform/accounting/getConsolidationOrganizations.js:      organizations: [
+lib/platform/accounting/getConsolidationOrganizations.js:    organizations: [
+lib/platform/loadPlatformCommandCenter.js:} from "@/lib/organizations/getOrganizations";
+lib/platform/loadPlatformCommandCenter.js:  const organizations =
+lib/platform/loadPlatformCommandCenter.js:    organizations:
+lib/platform/loadPlatformCommandCenter.js:      organizations.length,
+lib/platform/loadPlatformCommandCenter.js:      organizations.filter(
+lib/platform/runtime/loadPlatformRuntime.js:import { getOrganizations } from "@/lib/organizations/getOrganizations";
+lib/platform/runtime/loadPlatformRuntime.js:  const organizations =
+lib/platform/runtime/loadPlatformRuntime.js:      organizations
+lib/platform/runtime/loadPlatformRuntime.js:    organizations.filter(
+lib/platform/runtime/loadPlatformRuntime.js:    organizations.filter(
+lib/platform/runtime/loadPlatformRuntime.js:    organizations.map(org => ({
+lib/platform/runtime/loadPlatformRuntime.js:    organizations
+lib/platform/runtime/loadPlatformRuntime.js:  const organizationsWithModules =
+lib/platform/runtime/loadPlatformRuntime.js:  const organizationsWithoutModules =
+lib/platform/runtime/loadPlatformRuntime.js:    organizations.length
+lib/platform/runtime/loadPlatformRuntime.js:          organizationsWithModules /
+lib/platform/runtime/loadPlatformRuntime.js:          organizations.length
+lib/platform/runtime/loadPlatformRuntime.js:    organizations.length
+lib/platform/runtime/loadPlatformRuntime.js:          organizations.length
+lib/platform/runtime/loadPlatformRuntime.js:        `${expansionOpportunities.length} organizations are below platform maturity.`,
+lib/platform/runtime/loadPlatformRuntime.js:        `${zeroModuleOrganizations.length} organizations have zero active modules.`,
+lib/platform/runtime/loadPlatformRuntime.js:    organizations: {
+lib/platform/runtime/loadPlatformRuntime.js:        organizations.length,
+lib/platform/runtime/loadPlatformRuntime.js:      organizationsWithModules,
+lib/platform/runtime/loadPlatformRuntime.js:      organizationsWithoutModules,
+lib/platform/runtime/loadPlatformRuntime.js:      organizations.map(org => ({
+lib/platform/runtime/loadPlatformRuntime.js:  organizations = []
+lib/platform/runtime/loadPlatformRuntime.js:      organizations.filter(
+lib/platform/runtime/loadPlatformRuntime.js:      organizations.filter(
+lib/platform/runtime/loadPlatformRuntime.js:      organizations.filter(
+lib/platform/runtime/loadPlatformRuntime.js:      organizations.filter(
+lib/platform/runtime/buildWorkspaceRuntime.js:      .organizations
+lib/platform/runtime/buildWorkspaceRuntime.js:          organizationTree.organizations.find(
+lib/platform/runtime/buildWorkspaceRuntime.js:          resolvedOrganizations.organizations.find(
+lib/platform/runtime/buildWorkspaceRuntime.js:          organizationTree.organizations[0] ||
+lib/platform/runtime/buildWorkspaceRuntime.js:          resolvedOrganizations.organizations[0] ||
+lib/platform/runtime/buildWorkspaceRuntime.js:      organizationTree.organizations.map(
+lib/platform/runtime/buildWorkspaceRuntime.js:    organizations:
+lib/platform/runtime/buildWorkspaceRuntime.js:      organizationTree.organizations,
+lib/platform/runtime/buildOrganizationTree.js:    data: organizations,
+lib/platform/runtime/buildOrganizationTree.js:    .from("organizations")
+lib/platform/runtime/buildOrganizationTree.js:  for (const organization of organizations || []) {
+lib/platform/runtime/buildOrganizationTree.js:  for (const organization of organizations || []) {
+lib/platform/runtime/buildOrganizationTree.js:    organizations:
+lib/platform/runtime/buildOrganizationTree.js:      organizations || [],
+lib/platform/runtime/buildOrganizationRuntime.js:    resolved.organizations.filter(
+lib/platform/governance/resolveOrganizationAccess.js:  organizations,
+lib/platform/governance/resolveOrganizationAccess.js:    organizations.filter(
+lib/platform/governance/resolveOrganizationAccess.js:      organizations,
+lib/platform/governance/resolveOrganizationAccess.js:    data: organizations,
+lib/platform/governance/resolveOrganizationAccess.js:    .from("organizations")
+lib/platform/governance/resolveOrganizationAccess.js:      organizations:
+lib/platform/governance/resolveOrganizationAccess.js:        organizations || [],
+lib/platform/governance/resolveOrganizationAccess.js:      organizations.find(
+lib/platform/governance/resolveOrganizationAccess.js:        organizations.filter(
+lib/platform/governance/resolveOrganizationAccess.js:      organizations,
+lib/platform/governance/resolveOrganizationAccess.js:    organizations:
+lib/workspace/getActiveOrganization.js:      "organizations"
+app/(system)/platform/page.jsx:    organizations:
+app/(system)/platform/page.jsx:      runtime.organizations.total,
+app/(system)/platform/page.jsx:      value: data.organizations,
+app/(system)/platform/page.jsx:                Portfolio oversight, organizations,
+app/(system)/platform/page.jsx:                {data.organizations} organizations,
+app/(system)/platform/page.jsx:                {runtime.portfolioHealth.organizationsWithModules}
+app/(system)/platform/page.jsx:                {runtime.portfolioHealth.organizationsWithoutModules}
+app/(system)/workspace/page.jsx:            {(workspace?.organizations || []).map((organization) => (
+app/api/organizations/create/route.js:} from "@/lib/organizations/createOrganization";
+app/api/workspace/route.js:} from "@/lib/organizations/getOrganizationWorkspace";

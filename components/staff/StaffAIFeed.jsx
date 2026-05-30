@@ -51,7 +51,7 @@ export default function StaffAIFeed({
 
   return (
 
-    <div className="mb-6 overflow-hidden rounded-[28px] border border-cyan-500/10 bg-gradient-to-br from-cyan-500/10 via-black to-fuchsia-500/10 backdrop-blur-3xl">
+    <div className="mb-6 overflow-hidden rounded-[28px] border border-cyan-500/10 bg-gradient-to-br from-cyan-500/10 via-black to-fuchsia-500/10 backdrop-blur-3xl transition-all duration-500 hover:scale-[1.005] hover:border-white/20">
 
       <div className="border-b border-white/5 px-5 py-4">
 

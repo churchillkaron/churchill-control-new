@@ -1,3 +1,7 @@
+import {
+  requireAuth,
+} from "@/lib/shared/auth";
+
 import { NextResponse } from "next/server";
 
 import processVendorPayment from "@/lib/finance/payments/processVendorPayment";
@@ -5,6 +9,8 @@ import processVendorPayment from "@/lib/finance/payments/processVendorPayment";
 export async function POST(req) {
 
   try {
+
+    await requireAuth();
 
     const body =
       await req.json();

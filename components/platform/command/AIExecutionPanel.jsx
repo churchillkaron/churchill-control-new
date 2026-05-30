@@ -11,7 +11,7 @@ import {
 
 import {
   useAIExecution,
-} from "@/lib/platform/runtime/useAIExecution";
+} from "@/lib/intelligence/useAIExecution";
 
 export default function AIExecutionPanel() {
 

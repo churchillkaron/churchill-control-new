@@ -4,14 +4,18 @@ import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/shared/supabase/client";
 
+import {
+  useActiveOrganization,
+} from "@/lib/hooks/useActiveOrganization";
+
 import PageWrapper from "@/components/PageWrapper";
 
 export default function FinanceContent() {
 
-  const [
+  const {
     tenantId,
-    setTenantId,
-  ] = useState(null);
+    organization,
+  } = useActiveOrganization();
 
   const [
     loading,
@@ -178,48 +182,7 @@ export default function FinanceContent() {
     setLoading(false);
   }
 
-  useEffect(() => {
-
-    async function init() {
-
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getSession();
-
-      if (!user) {
-        return;
-      }
-
-      const {
-        data,
-      } = await supabase
-        .from(
-          "staff_accounts"
-        )
-        .select(
-          "tenant_id"
-        )
-        .eq(
-          "auth_user_id",
-          user.id
-        )
-        .single();
-
-      if (
-        !data?.tenant_id
-      ) {
-        return;
-      }
-
-      setTenantId(
-        data.tenant_id
-      );
-    }
-
-    init();
-
-  }, []);
+  
 
   useEffect(() => {
 

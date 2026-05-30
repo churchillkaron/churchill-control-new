@@ -54,7 +54,7 @@ export default function SuppliersPage() {
         .from("vendors")
         .select("*")
         .order(
-          "vendor_name",
+          "display_name",
           {
             ascending: true,
           }
@@ -75,7 +75,7 @@ export default function SuppliersPage() {
         .select(`
           *,
           vendors (
-            vendor_name
+            display_name
           ),
           ingredients (
             name
@@ -211,7 +211,7 @@ export default function SuppliersPage() {
                     value={vendor.id}
                   >
                     {
-                      vendor.vendor_name
+                      vendor.display_name
                     }
                   </option>
                 )
@@ -295,7 +295,7 @@ export default function SuppliersPage() {
             <div className="mt-4">
               {
                 bestPrice.vendors
-                  ?.vendor_name
+                  ?.display_name
               }
             </div>
 
@@ -335,7 +335,7 @@ export default function SuppliersPage() {
                     <div className="text-zinc-500 mt-2">
                       {
                         item.vendors
-                          ?.vendor_name
+                          ?.display_name
                       }
                     </div>
 

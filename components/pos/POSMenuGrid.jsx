@@ -30,6 +30,11 @@ export default function POSMenuGrid({
     setActiveCategory,
   ] = useState("ALL");
 
+  console.log(
+    "POS GRID ITEMS:",
+    items
+  );
+
   const filteredItems =
     useMemo(() => {
 

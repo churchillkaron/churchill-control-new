@@ -1,5 +1,9 @@
 export const dynamic = 'force-dynamic'
 
+import {
+  requireAuth,
+} from "@/lib/shared/auth";
+
 import { NextResponse } from 'next/server'
 
 import {
@@ -9,6 +13,8 @@ import {
 export async function POST(req) {
 
   try {
+
+    await requireAuth();
 
     const body =
       await req.json()

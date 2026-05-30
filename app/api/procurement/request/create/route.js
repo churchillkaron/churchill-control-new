@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import createPurchaseRequest from "@/lib/procurement/createPurchaseRequest";
+import { createPurchaseRequest } from "@/lib/procurement/services/createPurchaseRequest";
 
 export async function POST(req) {
   try {

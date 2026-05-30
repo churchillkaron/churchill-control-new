@@ -17,6 +17,7 @@ export default function LoginCallback() {
         // DEV MODE
         if (DEV_MODE) {
           document.cookie = "role=Owner; path=/";
+          document.cookie = "tenant_id=76e2caa6-dd78-49e5-b0f5-1ff94185c2d4; path=/";
           document.cookie = "setup_complete=true; path=/";
           document.cookie = "subscription=active; path=/";
           setTimeout(() => {
@@ -44,7 +45,7 @@ export default function LoginCallback() {
 
         if (!staff) {
           console.warn("No staff row → fallback");
-          router.push("/staff");
+          router.push("/workforce");
           return;
         }
 
@@ -66,6 +67,7 @@ export default function LoginCallback() {
 
         // STORE STATE
         document.cookie = `role=${role}; path=/`;
+        document.cookie = `tenant_id=${staff.tenant_id}; path=/`;
         document.cookie = `setup_complete=${tenant?.setup_complete ?? false}; path=/`;
         document.cookie = `subscription=${tenant?.subscription_status ?? "inactive"}; path=/`;
 
@@ -82,24 +84,46 @@ export default function LoginCallback() {
           return;
         }
 
-        // 6. ROLE ROUTING (NOW BULLETPROOF)
-        if (role === "owner" || role === "general manager") {
-          router.push("/control");
+        // 6. ORGANIZATION ROUTING
+
+        const { data: currentUser } =
+          await supabase
+            .from("staff_accounts")
+            .select(
+              "active_organization_id"
+            )
+            .eq(
+              "auth_user_id",
+              user.id
+            )
+            .maybeSingle();
+
+        const activeOrganizationId =
+          currentUser?.active_organization_id;
+
+        if (
+          activeOrganizationId ===
+          "9a148429-b6a0-4bc6-ac83-a35c64fb7045"
+        ) {
+
+          router.push("/platform");
           return;
+
         }
 
-        if (role === "manager") {
-          router.push("/dashboard");
+        if (
+          activeOrganizationId
+        ) {
+
+          router.push(
+            `/workspace/${activeOrganizationId}`
+          );
+
           return;
+
         }
 
-        if (role === "production") {
-          router.push("/production");
-          return;
-        }
-
-        // DEFAULT
-        router.push("/staff");
+        router.push("/workspace");
 
       } catch (err) {
         console.error("Login callback fatal error:", err);

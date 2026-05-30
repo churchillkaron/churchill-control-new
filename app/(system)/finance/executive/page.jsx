@@ -5,70 +5,54 @@ export const dynamic = "force-dynamic";
 import {
   useEffect,
   useState,
-} from 'react'
+} from "react";
 
-import PageWrapper from '@/components/PageWrapper'
+import PageWrapper from "@/components/PageWrapper";
 
-import { supabase } from '@/lib/shared/supabase/client'
+import { supabase }
+from "@/lib/shared/supabase/client";
 
 export default function ExecutiveFinancePage() {
 
   const [
     tenantId,
     setTenantId,
-  ] = useState(null)
+  ] = useState(null);
 
   const [
-    stats,
-    setStats,
-  ] = useState({
-
-    revenue: 0,
-
-    cost: 0,
-
-    profit: 0,
-
-    foodCost: 0,
-
-    orders: 0,
-
-    avgOrder: 0,
-  })
+    loading,
+    setLoading,
+  ] = useState(true);
 
   const [
-    topDishes,
-    setTopDishes,
-  ] = useState([])
-
-  const [
-    lowStock,
-    setLowStock,
-  ] = useState([])
+    data,
+    setData,
+  ] = useState(null);
 
   useEffect(() => {
 
     async function loadTenant() {
 
       const {
-        data: { user },
+        data: { session },
       } =
-        await supabase.auth.getSession()
+        await supabase.auth.getSession();
 
-      if (!user) return
+      const user =
+        session?.user;
+
+      if (!user) return;
 
       const {
         data,
       } = await supabase
-        .from(
-          'staff_accounts'
-        )
-        .select('*')
+        .from("staff_accounts")
+        .select("tenant_id")
         .eq(
-          'auth_user_id',
+          "auth_user_id",
           user.id
         )
-        .single()
+        .single();
 
       if (
         data?.tenant_id
@@ -76,375 +60,203 @@ export default function ExecutiveFinancePage() {
 
         setTenantId(
           data.tenant_id
-        )
+        );
+
       }
+
     }
 
-    loadTenant()
+    loadTenant();
 
-  }, [])
+  }, []);
 
   useEffect(() => {
 
-    loadData()
+    if (
+      tenantId
+    ) {
 
-  }, [tenantId])
+      loadExecutive();
 
-  async function loadData() {
-
-    if (!tenantId) {
-      return
     }
 
-    const {
-      data: sales,
-    } = await supabase
-      .from(
-        'daily_sales_items'
-      )
-      .select('*')
-      .eq(
-        'tenant_id',
-        tenantId
-      )
+  }, [tenantId]);
 
-    const {
-      data: ingredients,
-    } = await supabase
-      .from('ingredients')
-      .select('*')
-      .eq(
-        'tenant_id',
-        tenantId
-      )
+  async function loadExecutive() {
 
-    const rows =
-      sales || []
+    try {
 
-    let revenue = 0
-    let cost = 0
-    let orders = 0
+      setLoading(true);
 
-    const dishMap = {}
+      const res =
+        await fetch(
+          `/api/finance/overview?tenantId=${tenantId}`
+        );
 
-    rows.forEach(row => {
+      const json =
+        await res.json();
 
-      revenue +=
-        Number(
-          row.revenue || 0
-        )
+      setData(json);
 
-      cost +=
-        Number(
-          row.cost || 0
-        )
+    } catch (error) {
 
-      orders +=
-        Number(
-          row.quantity || 0
-        )
+      console.error(error);
 
-      if (
-        !dishMap[
-          row.item_name
-        ]
-      ) {
+    } finally {
 
-        dishMap[
-          row.item_name
-        ] = 0
-      }
+      setLoading(false);
 
-      dishMap[
-        row.item_name
-      ] += Number(
-        row.quantity || 0
-      )
-    })
+    }
 
-    const profit =
-      revenue - cost
-
-    const foodCost =
-      revenue > 0
-        ? (
-            (cost / revenue) *
-            100
-          ).toFixed(1)
-        : 0
-
-    const avgOrder =
-      orders > 0
-        ? (
-            revenue / orders
-          ).toFixed(2)
-        : 0
-
-    const ranked =
-      Object.entries(
-        dishMap
-      )
-        .map(
-          ([name, qty]) => ({
-            name,
-            qty,
-          })
-        )
-        .sort(
-          (
-            a,
-            b
-          ) =>
-            b.qty - a.qty
-        )
-        .slice(0, 5)
-
-    const low =
-      (ingredients || [])
-        .filter(
-          i =>
-            Number(
-              i.quantity || 0
-            ) <= 10
-        )
-        .sort(
-          (
-            a,
-            b
-          ) =>
-            Number(
-              a.quantity || 0
-            ) -
-            Number(
-              b.quantity || 0
-            )
-        )
-
-    setTopDishes(
-      ranked
-    )
-
-    setLowStock(
-      low
-    )
-
-    setStats({
-
-      revenue,
-
-      cost,
-
-      profit,
-
-      foodCost,
-
-      orders,
-
-      avgOrder,
-    })
   }
+
+  if (loading) {
+
+    return (
+
+      <PageWrapper
+        title="Executive Finance"
+        subtitle="Loading financial intelligence"
+      >
+
+        <div className="p-10 text-zinc-400">
+          Loading...
+        </div>
+
+      </PageWrapper>
+
+    );
+
+  }
+
+  const metrics =
+    data?.metrics || {};
+
+  const financials =
+    data?.financials || {};
 
   return (
 
     <PageWrapper
-      title="Executive Dashboard"
-      subtitle="Restaurant operating intelligence"
+      title="Executive Finance"
+      subtitle="Enterprise financial command center"
     >
 
-      <div className="p-6 text-white">
+      <div className="p-6 text-white space-y-6">
 
-        <div className="grid grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
+          <Card
+            title="Revenue"
+            value={`฿${Number(
+              metrics.revenue || 0
+            ).toLocaleString()}`}
+          />
 
-            <div className="text-sm text-zinc-500 mb-2">
-              Revenue
+          <Card
+            title="Cost"
+            value={`฿${Number(
+              metrics.cost || 0
+            ).toLocaleString()}`}
+          />
+
+          <Card
+            title="Payroll"
+            value={`฿${Number(
+              metrics.payroll || 0
+            ).toLocaleString()}`}
+          />
+
+          <Card
+            title="Net Margin"
+            value={`${financials.netMargin || 0}%`}
+          />
+
+          <Card
+            title="Gross Margin"
+            value={`${financials.grossMargin || 0}%`}
+          />
+
+          <Card
+            title="Pending AP"
+            value={
+              metrics.pendingInvoices || 0
+            }
+          />
+
+        </div>
+
+        <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+
+              <div className="text-sm text-zinc-500 mb-3">
+                Financial State
+              </div>
+
+              <div className="text-6xl font-light">
+
+                {
+                  financials.state
+                }
+
+              </div>
+
             </div>
 
-            <div className="text-3xl font-light">
-              ฿
+            <div className="text-8xl font-light text-cyan-400">
+
               {
-                stats.revenue.toFixed(0)
+                financials.score
               }
-            </div>
 
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
-
-            <div className="text-sm text-zinc-500 mb-2">
-              Cost
-            </div>
-
-            <div className="text-3xl font-light text-red-400">
-              ฿
-              {
-                stats.cost.toFixed(0)
-              }
-            </div>
-
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
-
-            <div className="text-sm text-zinc-500 mb-2">
-              Profit
-            </div>
-
-            <div className="text-3xl font-light text-emerald-400">
-              ฿
-              {
-                stats.profit.toFixed(0)
-              }
-            </div>
-
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
-
-            <div className="text-sm text-zinc-500 mb-2">
-              Food Cost
-            </div>
-
-            <div className="text-3xl font-light">
-              {
-                stats.foodCost
-              }%
-            </div>
-
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
-
-            <div className="text-sm text-zinc-500 mb-2">
-              Orders
-            </div>
-
-            <div className="text-3xl font-light">
-              {
-                stats.orders
-              }
-            </div>
-
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
-
-            <div className="text-sm text-zinc-500 mb-2">
-              Avg Order
-            </div>
-
-            <div className="text-3xl font-light">
-              ฿
-              {
-                stats.avgOrder
-              }
             </div>
 
           </div>
 
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8">
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+          <div className="text-2xl font-semibold mb-6">
+            Financial Alerts
+          </div>
 
-            <div className="text-2xl font-semibold mb-6">
-              Top Selling Dishes
+          {financials.alerts?.length === 0 ? (
+
+            <div className="text-zinc-500">
+              No alerts detected
             </div>
+
+          ) : (
 
             <div className="space-y-4">
 
-              {topDishes.map(
+              {financials.alerts?.map(
                 (
-                  dish,
+                  alert,
                   index
                 ) => (
 
                   <div
-                    key={dish.name}
-                    className="bg-black border border-zinc-800 rounded-2xl p-4 flex items-center justify-between"
+                    key={index}
+                    className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5"
                   >
 
-                    <div className="flex items-center gap-4">
+                    <div className="font-semibold text-red-300 mb-2">
 
-                      <div className="w-10 h-10 rounded-xl bg-violet-500 flex items-center justify-center">
-                        {index + 1}
-                      </div>
-
-                      <div>
-
-                        <div className="text-lg">
-                          {
-                            dish.name
-                          }
-                        </div>
-
-                        <div className="text-sm text-zinc-500">
-                          Best seller
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    <div className="text-2xl font-light">
                       {
-                        dish.qty
+                        alert.type
                       }
-                    </div>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-
-            <div className="text-2xl font-semibold mb-6">
-              Low Stock Alerts
-            </div>
-
-            <div className="space-y-4">
-
-              {lowStock.map(
-                ingredient => (
-
-                  <div
-                    key={ingredient.id}
-                    className="bg-black border border-zinc-800 rounded-2xl p-4 flex items-center justify-between"
-                  >
-
-                    <div>
-
-                      <div className="text-lg">
-                        {
-                          ingredient.name
-                        }
-                      </div>
-
-                      <div className="text-sm text-zinc-500">
-                        {
-                          ingredient.department
-                        }
-                      </div>
 
                     </div>
 
-                    <div className={`text-2xl font-light ${
-                      Number(
-                        ingredient.quantity || 0
-                      ) <= 5
-                        ? 'text-red-400'
-                        : 'text-yellow-400'
-                    }`}>
+                    <div className="text-zinc-300">
 
                       {
-                        ingredient.quantity
+                        alert.message
                       }
 
                     </div>
@@ -456,12 +268,41 @@ export default function ExecutiveFinancePage() {
 
             </div>
 
-          </div>
+          )}
 
         </div>
 
       </div>
 
     </PageWrapper>
-  )
+
+  );
+
+}
+
+function Card({
+  title,
+  value,
+}) {
+
+  return (
+
+    <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+
+      <div className="text-sm text-zinc-500 mb-2">
+
+        {title}
+
+      </div>
+
+      <div className="text-3xl font-light">
+
+        {value}
+
+      </div>
+
+    </div>
+
+  );
+
 }

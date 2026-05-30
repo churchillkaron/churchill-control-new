@@ -1,0 +1,916 @@
+lib/tenant/resolveTenant.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/tenant/resolveTenant.js:    } = await supabaseAdmin
+lib/accounting/loadAccountingFirmDashboard.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/accounting/loadAccountingFirmDashboard.js:  } = await supabaseAdmin
+lib/accounting/createAccountingClient.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/accounting/createAccountingClient.js:  await supabaseAdmin
+lib/accounting/createAccountingClient.js:    await supabaseAdmin
+lib/accounting/createAccountingClient.js:    await supabaseAdmin
+lib/accounting/createAccountingClient.js:    await supabaseAdmin
+lib/accounting/loadAccountingClients.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/accounting/loadAccountingClients.js:  } = await supabaseAdmin
+lib/accounting/loadAccountingClients.js:  } = await supabaseAdmin
+lib/accounting/loadAccountingClients.js:  } = await supabaseAdmin
+lib/accounting/loadAccountingClients.js:  } = await supabaseAdmin
+lib/accounting/mapInvoiceItems.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/accounting/mapInvoiceItems.js:    const { data } = await supabaseAdmin
+lib/accounting/mapInvoiceItems.js:      await supabaseAdmin
+lib/organizations/createOrganization.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/organizations/createOrganization.js:    await supabaseAdmin
+lib/organizations/getOrganizations.js:  supabaseAdmin,
+lib/organizations/getOrganizations.js:  } = await supabaseAdmin
+lib/settings/loadOperationalSettings.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/settings/loadOperationalSettings.js:  } = await supabaseAdmin
+lib/settings/saveOperationalSettings.js:import { supabaseAdmin }
+lib/settings/saveOperationalSettings.js:  } = await supabaseAdmin
+lib/ai-evolution/thresholds/generateDynamicThresholds.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/ai-evolution/thresholds/generateDynamicThresholds.js:    } = await supabaseAdmin
+lib/ai-evolution/thresholds/generateDynamicThresholds.js:    } = await supabaseAdmin
+lib/payments/accounting/postPaymentAccounting.js:import { supabaseAdmin }
+lib/payments/accounting/postPaymentAccounting.js:  } = await supabaseAdmin
+lib/aiOperations/getAIRecommendations.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/aiOperations/getAIRecommendations.js:    supabaseAdmin
+lib/aiOperations/getAIRecommendations.js:    supabaseAdmin
+lib/aiOperations/getAIRecommendations.js:    supabaseAdmin
+lib/aiOperations/getAIRecommendations.js:    supabaseAdmin
+lib/controlCenter/getSystemHealth.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/controlCenter/getSystemHealth.js:    supabaseAdmin
+lib/controlCenter/getSystemHealth.js:    supabaseAdmin
+lib/controlCenter/getSystemHealth.js:    supabaseAdmin
+lib/controlCenter/getSystemHealth.js:    supabaseAdmin
+lib/controlCenter/getSystemHealth.js:    supabaseAdmin
+lib/controlCenter/getSystemHealth.js:    supabaseAdmin
+lib/sales/workflows/saleCompletedWorkflow.js:import { supabaseAdmin }
+lib/sales/workflows/saleCompletedWorkflow.js:  } = await supabaseAdmin
+lib/security/getSecurityOverview.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/security/getSecurityOverview.js:    supabaseAdmin
+lib/security/getSecurityOverview.js:    supabaseAdmin
+lib/security/getSecurityOverview.js:    supabaseAdmin
+lib/security/getSecurityOverview.js:    supabaseAdmin
+lib/auth/rbac/checkPermission.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/auth/rbac/checkPermission.js:    } = await supabaseAdmin
+lib/auth/onboard/route.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/auth/onboard/route.js:    const { data: existingProfile } = await supabaseAdmin
+lib/auth/onboard/route.js:    const { data: client, error: clientError } = await supabaseAdmin
+lib/auth/onboard/route.js:    const { error: profileError } = await supabaseAdmin
+lib/auth/requireRole.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/auth/requireRole.js:  } = await supabaseAdmin
+lib/health/checkDatabaseHealth.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/health/checkDatabaseHealth.js:    const { error } = await supabaseAdmin
+lib/platform/loadPlatformCommandCenter.js:  supabaseAdmin,
+lib/platform/loadPlatformCommandCenter.js:    supabaseAdmin
+lib/platform/loadPlatformCommandCenter.js:    supabaseAdmin
+lib/platform/loadPlatformCommandCenter.js:    supabaseAdmin
+lib/platform/loadPlatformCommandCenter.js:    supabaseAdmin
+lib/platform/runtime/loadPlatformRuntime.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/platform/runtime/loadPlatformRuntime.js:    supabaseAdmin
+lib/platform/runtime/loadPlatformRuntime.js:    supabaseAdmin
+lib/platform/runtime/loadPlatformRuntime.js:    supabaseAdmin
+lib/platform/runtime/loadPlatformRuntime.js:    supabaseAdmin
+lib/platform/runtime/loadPlatformRuntime.js:    supabaseAdmin
+lib/platform/templates/applyWorkspaceTemplate.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/platform/templates/applyWorkspaceTemplate.js:    await supabaseAdmin
+lib/platform/templates/applyWorkspaceTemplate.js:  await supabaseAdmin
+lib/platform/templates/applyWorkspaceTemplate.js:    await supabaseAdmin
+lib/platform/templates/applyWorkspaceTemplate.js:  await supabaseAdmin
+lib/runtime/realtime/createRuntimeSnapshot.js:import { supabaseAdmin }
+lib/runtime/realtime/createRuntimeSnapshot.js:    supabaseAdmin
+lib/runtime/realtime/createRuntimeSnapshot.js:    supabaseAdmin
+lib/runtime/realtime/createRuntimeSnapshot.js:    supabaseAdmin
+lib/runtime/realtime/createRuntimeSnapshot.js:    supabaseAdmin
+lib/runtime/realtime/createRuntimeSnapshot.js:    supabaseAdmin
+lib/runtime/realtime/createRuntimeSnapshot.js:  } = await supabaseAdmin
+lib/runtime/replay/replayEvents.js:import { supabaseAdmin }
+lib/runtime/replay/replayEvents.js:  } = await supabaseAdmin
+lib/runtime/infrastructure/registerRuntimeNode.js:import { supabaseAdmin }
+lib/runtime/infrastructure/registerRuntimeNode.js:  } = await supabaseAdmin
+lib/runtime/infrastructure/runRecoveryEngine.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/runtime/infrastructure/runRecoveryEngine.js:      await supabaseAdmin
+lib/runtime/infrastructure/runWatchdog.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/runtime/infrastructure/runWatchdog.js:    } = await supabaseAdmin
+lib/runtime/infrastructure/runAutoscaling.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/runtime/infrastructure/runAutoscaling.js:    } = await supabaseAdmin
+lib/runtime/infrastructure/runHeartbeat.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/runtime/infrastructure/runHeartbeat.js:    } = await supabaseAdmin
+lib/runtime/infrastructure/sendNodeHeartbeat.js:import { supabaseAdmin }
+lib/runtime/infrastructure/sendNodeHeartbeat.js:  await supabaseAdmin
+lib/management/getManagementRuntime.js:import { supabaseAdmin }
+lib/management/getManagementRuntime.js:  } = await supabaseAdmin
+lib/management/getManagementRuntime.js:  } = await supabaseAdmin
+lib/management/getManagementOverview.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/management/getManagementOverview.js:    supabaseAdmin
+lib/management/getManagementOverview.js:    supabaseAdmin
+lib/management/getManagementOverview.js:    supabaseAdmin
+lib/management/getManagementOverview.js:    supabaseAdmin
+lib/management/getManagementOverview.js:    supabaseAdmin
+lib/management/getManagementOverview.js:    supabaseAdmin
+lib/shared/tenant/getTenantSetting.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/shared/tenant/getTenantSetting.js:  const { data, error } = await supabaseAdmin
+lib/shared/auth/checkFinancePermission.js:import { supabaseAdmin }
+lib/shared/auth/checkFinancePermission.js:  } = await supabaseAdmin
+lib/shared/supabase/admin.js:export const supabaseAdmin =
+lib/shared/approvals/createApprovalLog.js:import { supabaseAdmin }
+lib/shared/approvals/createApprovalLog.js:  } = await supabaseAdmin
+lib/shared/approvals/executeApproval.js:import { supabaseAdmin }
+lib/shared/approvals/executeApproval.js:  } = await supabaseAdmin.rpc(
+lib/observability/createSystemOverview.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/observability/createSystemOverview.js:      supabaseAdmin
+lib/observability/createSystemOverview.js:      supabaseAdmin
+lib/observability/createSystemOverview.js:      supabaseAdmin
+lib/permissions/checkPermission.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/permissions/checkPermission.js:    const { data: user } = await supabaseAdmin
+lib/permissions/checkPermission.js:    const { data: permissions } = await supabaseAdmin
+lib/intake/workflows/processMarketingAsset.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/intake/workflows/processMarketingAsset.js:    supabaseAdmin;
+lib/intake/workflows/processExpenseReceipt.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/intake/workflows/processExpenseReceipt.js:    supabaseAdmin;
+lib/dashboard/getExecutiveMetrics.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/dashboard/getExecutiveMetrics.js:    supabaseAdmin
+lib/dashboard/getExecutiveMetrics.js:    supabaseAdmin
+lib/dashboard/getExecutiveMetrics.js:    supabaseAdmin
+lib/dashboard/getExecutiveMetrics.js:    supabaseAdmin
+lib/dashboard/getExecutiveMetrics.js:    supabaseAdmin
+lib/dashboard/getExecutiveMetrics.js:    supabaseAdmin
+lib/pos/holdOrders/saveHoldOrder.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/holdOrders/saveHoldOrder.js:  } = await supabaseAdmin
+lib/pos/holdOrders/saveHoldOrder.js:  await supabaseAdmin
+lib/pos/tables/openTable.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/tables/openTable.js:  } = await supabaseAdmin
+lib/pos/tables/updateTableStatus.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/tables/updateTableStatus.js:    } = await supabaseAdmin
+lib/pos/tables/getTables.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/tables/getTables.js:    } = await supabaseAdmin
+lib/pos/markOrderPaid.js:  supabaseAdmin,
+lib/pos/markOrderPaid.js:    await supabaseAdmin
+lib/pos/markOrderPaid.js:  await supabaseAdmin
+lib/pos/markOrderPaid.js:  await supabaseAdmin
+lib/pos/markOrderPaid.js:    await supabaseAdmin
+lib/pos/payments/createVoidReversal.js:import { supabaseAdmin }
+lib/pos/payments/createVoidReversal.js:  } = await supabaseAdmin
+lib/pos/payments/loadPaymentState.js:import { supabaseAdmin }
+lib/pos/payments/loadPaymentState.js:  } = await supabaseAdmin
+lib/pos/payments/loadPaymentState.js:  } = await supabaseAdmin
+lib/pos/payments/processPOSPayment.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/payments/processPOSPayment.js:    } = await supabaseAdmin
+lib/pos/payments/processPOSPayment.js:    } = await supabaseAdmin
+lib/pos/payments/processPOSPayment.js:    } = await supabaseAdmin
+lib/pos/partialPayment.js:  supabaseAdmin,
+lib/pos/partialPayment.js:  supabaseAdmin
+lib/pos/terminals/registerTerminal.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/terminals/registerTerminal.js:  } = await supabaseAdmin
+lib/pos/createModifier.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/createModifier.js:  } = await supabaseAdmin
+lib/pos/voids/createVoidRequest.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/voids/createVoidRequest.js:  } = await supabaseAdmin
+lib/pos/realtime/broadcastOrderUpdate.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/realtime/broadcastOrderUpdate.js:  } = await supabaseAdmin
+lib/pos/realtime/publishPOSEvent.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/realtime/publishPOSEvent.js:    } = await supabaseAdmin
+lib/pos/printers/registerPrinter.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/printers/registerPrinter.js:  } = await supabaseAdmin
+lib/pos/audit/createAuditLog.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/audit/createAuditLog.js:  } = await supabaseAdmin
+lib/pos/orders/recalculateOrderTotals.js:import { supabaseAdmin }
+lib/pos/orders/recalculateOrderTotals.js:  } = await supabaseAdmin
+lib/pos/orders/recalculateOrderTotals.js:  } = await supabaseAdmin
+lib/pos/orders/autoCloseOrder.js:import { supabaseAdmin }
+lib/pos/orders/autoCloseOrder.js:  } = await supabaseAdmin
+lib/pos/orders/autoCloseOrder.js:  } = await supabaseAdmin
+lib/pos/orders/autoCloseOrder.js:  } = await supabaseAdmin
+lib/pos/orders/autoCloseOrder.js:  await supabaseAdmin
+lib/pos/orders/updatePaymentStatus.js:import { supabaseAdmin }
+lib/pos/orders/updatePaymentStatus.js:  } = await supabaseAdmin
+lib/pos/orders/updatePaymentStatus.js:  } = await supabaseAdmin
+lib/pos/orders/updatePaymentStatus.js:  } = await supabaseAdmin
+lib/pos/kitchen/getKitchenOrders.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/kitchen/getKitchenOrders.js:    } = await supabaseAdmin
+lib/pos/kitchen/updateKitchenOrderStatus.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/kitchen/updateKitchenOrderStatus.js:    } = await supabaseAdmin
+lib/pos/getDishModifierGroups.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/getDishModifierGroups.js:  } = await supabaseAdmin
+lib/pos/shifts/openShift.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/shifts/openShift.js:  } = await supabaseAdmin
+lib/pos/shifts/closeShift.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/shifts/closeShift.js:    } = await supabaseAdmin
+lib/pos/shifts/closeShift.js:    } = await supabaseAdmin
+lib/pos/shifts/closeShift.js:    } = await supabaseAdmin
+lib/pos/offline/processOfflineOrders.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/offline/processOfflineOrders.js:    } = await supabaseAdmin
+lib/audit/logAuditEvent.js:import { supabaseAdmin }
+lib/audit/logAuditEvent.js:      await supabaseAdmin
+lib/procurement/accounting/postGoodsReceiptAccounting.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/accounting/postGoodsReceiptAccounting.js:    supabaseAdmin
+lib/procurement/vendors/createVendor.js:  supabaseAdmin,
+lib/procurement/vendors/createVendor.js:    } = await supabaseAdmin
+lib/procurement/purchase-orders/createPurchaseOrder.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/purchase-orders/createPurchaseOrder.js:    } = await supabaseAdmin
+lib/procurement/purchase-orders/createPurchaseOrder.js:    } = await supabaseAdmin
+lib/procurement/suppliers/createSupplierPrice.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/suppliers/createSupplierPrice.js:    } = await supabaseAdmin
+lib/procurement/runtime/createPurchaseRequest.js:import { supabaseAdmin }
+lib/procurement/runtime/createPurchaseRequest.js:  } = await supabaseAdmin
+lib/procurement/replenishment/analyzeReplenishmentNeeds.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/replenishment/analyzeReplenishmentNeeds.js:    } = await supabaseAdmin
+lib/procurement/recommendations/generatePurchaseRecommendation.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/recommendations/generatePurchaseRecommendation.js:    } = await supabaseAdmin
+lib/procurement/actions/createPurchaseOrder.js:import { supabaseAdmin }
+lib/procurement/actions/createPurchaseOrder.js:  } = await supabaseAdmin
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:import { supabaseAdmin }
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:  } = await supabaseAdmin
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:  } = await supabaseAdmin
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:  await supabaseAdmin
+lib/procurement/receiving/receivePurchaseOrder.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/receiving/receivePurchaseOrder.js:    } = await supabaseAdmin
+lib/procurement/receiving/receivePurchaseOrder.js:    } = await supabaseAdmin
+lib/procurement/receiving/receivePurchaseOrder.js:      } = await supabaseAdmin
+lib/procurement/receiving/receivePurchaseOrder.js:      } = await supabaseAdmin
+lib/procurement/receiving/receivePurchaseOrder.js:      } = await supabaseAdmin
+lib/procurement/receiving/receivePurchaseOrder.js:      } = await supabaseAdmin
+lib/procurement/receiving/receivePurchaseOrder.js:    await supabaseAdmin
+lib/procurement/performance/calculateVendorPerformance.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/performance/calculateVendorPerformance.js:    } = await supabaseAdmin
+lib/procurement/forecasting/generateConsumptionForecast.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/forecasting/generateConsumptionForecast.js:    } = await supabaseAdmin
+lib/procurement/pricing/getBestSupplierPrice.js:  supabaseAdmin,
+lib/procurement/pricing/getBestSupplierPrice.js:    } = await supabaseAdmin
+lib/procurement/approval/approvePurchaseOrder.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/approval/approvePurchaseOrder.js:    } = await supabaseAdmin
+lib/ai/logAIUsage.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/ai/logAIUsage.js:      await supabaseAdmin
+lib/ai/logAIUsage.js:      await supabaseAdmin
+lib/inventory/alerts/generateInventoryAlerts.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/inventory/alerts/generateInventoryAlerts.js:    } = await supabaseAdmin
+lib/inventory/alerts/generateInventoryAlerts.js:    } = await supabaseAdmin
+lib/inventory/spoilage/processSpoilage.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/inventory/spoilage/processSpoilage.js:    } = await supabaseAdmin
+lib/inventory/spoilage/processSpoilage.js:    } = await supabaseAdmin
+lib/inventory/spoilage/processSpoilage.js:    } = await supabaseAdmin
+lib/inventory/auto-spoilage/processAutoSpoilage.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/inventory/auto-spoilage/processAutoSpoilage.js:    } = await supabaseAdmin
+lib/inventory/auto-spoilage/processAutoSpoilage.js:      } = await supabaseAdmin
+lib/inventory/auto-spoilage/processAutoSpoilage.js:      } = await supabaseAdmin
+lib/inventory/auto-spoilage/processAutoSpoilage.js:      } = await supabaseAdmin
+lib/accounts-payable/accounting/postInvoiceApprovalAccounting.js:import { supabaseAdmin }
+lib/accounts-payable/accounting/postInvoiceApprovalAccounting.js:  } = await supabaseAdmin
+lib/live/getLiveOperations.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/live/getLiveOperations.js:    supabaseAdmin
+lib/live/getLiveOperations.js:    supabaseAdmin
+lib/live/getLiveOperations.js:    supabaseAdmin
+lib/live/getLiveOperations.js:    supabaseAdmin
+lib/live/getLiveOperations.js:    supabaseAdmin
+lib/production/completeOrderFlow.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/completeOrderFlow.js:  } = await supabaseAdmin
+lib/production/processOrderProduction.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/processOrderProduction.js:  } = await supabaseAdmin
+lib/production/processOrderProduction.js:  } = await supabaseAdmin
+lib/production/processOrderProduction.js:    } = await supabaseAdmin
+lib/production/processOrderProduction.js:      } = await supabaseAdmin
+lib/production/processOrderProduction.js:      await supabaseAdmin
+lib/production/processOrderProduction.js:    await supabaseAdmin
+lib/production/processOrderProduction.js:  await supabaseAdmin
+lib/production/prep/createPrepBatch.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/prep/createPrepBatch.js:  } = await supabaseAdmin
+lib/production/prepared/processPreparedInventoryConsumption.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/prepared/processPreparedInventoryConsumption.js:    } = await supabaseAdmin
+lib/production/prepared/consumePreparedInventory.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/prepared/consumePreparedInventory.js:    } = await supabaseAdmin
+lib/production/prepared/consumePreparedInventory.js:    } = await supabaseAdmin
+lib/production/prepared/consumePreparedInventory.js:    } = await supabaseAdmin
+lib/production/costing/calculateOrderCost.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/costing/calculateOrderCost.js:    } = await supabaseAdmin
+lib/production/costing/calculateDishCost.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/costing/calculateDishCost.js:    } = await supabaseAdmin
+lib/production/costing/calculateDishCost.js:    } = await supabaseAdmin
+lib/production/invoiceApproval/approveSupplierInvoice.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/invoiceApproval/approveSupplierInvoice.js:  } = await supabaseAdmin
+lib/production/consumption/processInventoryConsumption.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/consumption/processInventoryConsumption.js:    } = await supabaseAdmin
+lib/production/consumption/processInventoryConsumption.js:      } = await supabaseAdmin
+lib/production/consumption/processInventoryConsumption.js:      } = await supabaseAdmin
+lib/production/deductInventoryFromOrder.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/deductInventoryFromOrder.js:    } = await supabaseAdmin
+lib/production/deductInventoryFromOrder.js:      } = await supabaseAdmin
+lib/production/deductInventoryFromOrder.js:      await supabaseAdmin
+lib/production/deductInventoryFromOrder.js:      await supabaseAdmin
+lib/production/produceDishBatch.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/produceDishBatch.js:      await supabaseAdmin
+lib/production/produceDishBatch.js:      } = await supabaseAdmin
+lib/production/produceDishBatch.js:        await supabaseAdmin
+lib/production/produceDishBatch.js:      } = await supabaseAdmin
+lib/production/produceDishBatch.js:    } = await supabaseAdmin
+lib/production/produceDishBatch.js:        await supabaseAdmin
+lib/production/produceDishBatch.js:        await supabaseAdmin
+lib/production/produceDishBatch.js:      } = await supabaseAdmin
+lib/production/produceDishBatch.js:      await supabaseAdmin
+lib/production/consumeDishStock.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/consumeDishStock.js:      await supabaseAdmin
+lib/production/consumeDishStock.js:      await supabaseAdmin
+lib/production/consumeDishStock.js:      await supabaseAdmin
+lib/production/sessions/startProductionSession.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/sessions/startProductionSession.js:  } = await supabaseAdmin
+lib/production/createRecipe.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/createRecipe.js:  const { data: dish, error: dishError } = await supabaseAdmin
+lib/production/createRecipe.js:  const { data: ingredients, error: ingredientsError } = await supabaseAdmin
+lib/production/createRecipe.js:  const { error: deleteError } = await supabaseAdmin
+lib/production/createRecipe.js:  const { error: insertError } = await supabaseAdmin
+lib/production/createRecipe.js:  const { error: updateDishError } = await supabaseAdmin
+lib/production/executeConsumptionDeduction.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/executeConsumptionDeduction.js:      await supabaseAdmin
+lib/production/executeConsumptionDeduction.js:        await supabaseAdmin
+lib/production/executeConsumptionDeduction.js:        await supabaseAdmin
+lib/production/executeConsumptionDeduction.js:        await supabaseAdmin
+lib/production/theoretical/calculateTheoreticalUsage.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/theoretical/calculateTheoreticalUsage.js:    } = await supabaseAdmin
+lib/production/yield/processYieldCalculation.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/yield/processYieldCalculation.js:    } = await supabaseAdmin
+lib/production/yield/processYieldCalculation.js:      await supabaseAdmin
+lib/production/centralKitchen/createKitchenTransfer.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/centralKitchen/createKitchenTransfer.js:  } = await supabaseAdmin
+lib/production/centralKitchen/createKitchenTransfer.js:  await supabaseAdmin
+lib/production/kitchen/createKitchenTicket.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/kitchen/createKitchenTicket.js:    } = await supabaseAdmin
+lib/production/kitchen/createKitchenTicket.js:    } = await supabaseAdmin
+lib/production/kitchen/updateKitchenItemStatus.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/kitchen/updateKitchenItemStatus.js:    } = await supabaseAdmin
+lib/production/kitchen/updateKitchenItemStatus.js:    } = await supabaseAdmin
+lib/production/kitchen/updateKitchenItemStatus.js:      } = await supabaseAdmin
+lib/production/purchaseOrders/createPurchaseOrder.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/purchaseOrders/createPurchaseOrder.js:  } = await supabaseAdmin
+lib/production/purchaseOrders/createPurchaseOrder.js:  } = await supabaseAdmin
+lib/production/waste/logWaste.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/waste/logWaste.js:  } = await supabaseAdmin
+lib/production/waste/logWaste.js:  await supabaseAdmin
+lib/production/waste/logWaste.js:  } = await supabaseAdmin
+lib/production/waste/logWaste.js:  await supabaseAdmin
+lib/production/batches/createBatchProduction.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/batches/createBatchProduction.js:    } = await supabaseAdmin
+lib/production/batches/createBatchProduction.js:      } = await supabaseAdmin
+lib/production/batches/createBatchProduction.js:      } = await supabaseAdmin
+lib/production/batches/createBatchProduction.js:      } = await supabaseAdmin
+lib/production/batches/createBatchProduction.js:    } = await supabaseAdmin
+lib/datawarehouse/buildExecutiveSnapshot.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/datawarehouse/buildExecutiveSnapshot.js:    } = await supabaseAdmin
+lib/datawarehouse/buildExecutiveSnapshot.js:    await supabaseAdmin
+lib/finance/accounting/createJournalEntry.js: import { supabaseAdmin }
+lib/finance/accounting/createJournalEntry.js:  } = await supabaseAdmin
+lib/finance/accounting/createJournalEntry.js:  } = await supabaseAdmin
+lib/finance/accounting/postPaymentToLedger.js:import { supabaseAdmin }
+lib/finance/accounting/postPaymentToLedger.js:  } = await supabaseAdmin
+lib/finance/accounting/postPaymentToLedger.js:  } = await supabaseAdmin
+lib/finance/accounting/postPaymentToLedger.js:  } = await supabaseAdmin
+lib/finance/accounting/validateAccountingPeriod.js:import { supabaseAdmin }
+lib/finance/accounting/validateAccountingPeriod.js:  } = await supabaseAdmin
+lib/finance/accounting/postInvoiceToLedger.js:import { supabaseAdmin }
+lib/finance/accounting/postInvoiceToLedger.js:  } = await supabaseAdmin
+lib/finance/accounting/postInvoiceToLedger.js:  } = await supabaseAdmin
+lib/finance/accounting/postInvoiceToLedger.js:  } = await supabaseAdmin
+lib/finance/accounting/postDepreciationToLedger.js:import { supabaseAdmin }
+lib/finance/accounting/postDepreciationToLedger.js:  } = await supabaseAdmin
+lib/finance/accounting/postDepreciationToLedger.js:  } = await supabaseAdmin
+lib/finance/accounting/postDepreciationToLedger.js:  } = await supabaseAdmin
+lib/finance/accounting/postDepreciationToLedger.js:  await supabaseAdmin
+lib/finance/accounting/postDepreciationToLedger.js:  await supabaseAdmin
+lib/finance/reconciliation/runBankReconciliation.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/reconciliation/runBankReconciliation.js:    } = await supabaseAdmin
+lib/finance/reconciliation/runBankReconciliation.js:      } = await supabaseAdmin
+lib/finance/reconciliation/runBankReconciliation.js:        await supabaseAdmin
+lib/finance/createCogsEntry.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/createCogsEntry.js:    supabaseAdmin
+lib/finance/createCogsEntry.js:    } = await supabaseAdmin
+lib/finance/createCogsEntry.js:    } = await supabaseAdmin
+lib/finance/entity-management/createEntity.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/entity-management/createEntity.js:    } = await supabaseAdmin
+lib/finance/monthEnd/closeAccountingPeriod.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/finance/monthEnd/closeAccountingPeriod.js:  } = await supabaseAdmin
+lib/finance/payments/payAccountsPayable.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/finance/payments/payAccountsPayable.js:  } = await supabaseAdmin
+lib/finance/payments/payAccountsPayable.js:  await supabaseAdmin
+lib/finance/payments/processVendorPayment.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/payments/processVendorPayment.js:    } = await supabaseAdmin
+lib/finance/payments/processVendorPayment.js:    } = await supabaseAdmin
+lib/finance/payments/processVendorPayment.js:    } = await supabaseAdmin
+lib/finance/payments/processVendorPayment.js:    } = await supabaseAdmin
+lib/finance/ledger/updateLedgerBalances.js:import { supabaseAdmin }
+lib/finance/ledger/updateLedgerBalances.js:    } = await supabaseAdmin
+lib/finance/ledger/updateLedgerBalances.js:      await supabaseAdmin
+lib/finance/ledger/updateLedgerBalances.js:    await supabaseAdmin
+lib/finance/profitability/calculateDepartmentProfitability.js:import { supabaseAdmin }
+lib/finance/profitability/calculateDepartmentProfitability.js:  } = await supabaseAdmin
+lib/finance/profitability/calculateDepartmentProfitability.js:  } = await supabaseAdmin
+lib/finance/year-end/runYearEndClose.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/year-end/runYearEndClose.js:    } = await supabaseAdmin
+lib/finance/fixed-assets/createFixedAsset.js:  supabaseAdmin,
+lib/finance/fixed-assets/createFixedAsset.js:    } = await supabaseAdmin
+lib/finance/intercompany/createIntercompanyTransaction.js:  supabaseAdmin,
+lib/finance/intercompany/createIntercompanyTransaction.js:      } = await supabaseAdmin
+lib/finance/intercompany/createIntercompanyTransaction.js:    } = await supabaseAdmin
+lib/finance/period-close/closeAccountingPeriod.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/period-close/closeAccountingPeriod.js:    } = await supabaseAdmin
+lib/finance/period-close/closeAccountingPeriod.js:    } = await supabaseAdmin
+lib/finance/runtime/createAccountsPayableEntry.js:import { supabaseAdmin }
+lib/finance/runtime/createAccountsPayableEntry.js:  } = await supabaseAdmin
+lib/finance/general-ledger/postGeneralLedgerEntry.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/general-ledger/postGeneralLedgerEntry.js:    } = await supabaseAdmin
+lib/finance/general-ledger/postJournalToLedger.js:import { supabaseAdmin }
+lib/finance/general-ledger/postJournalToLedger.js:  } = await supabaseAdmin
+lib/finance/general-ledger/postJournalToLedger.js:    } = await supabaseAdmin
+lib/finance/general-ledger/postJournalToLedger.js:    } = await supabaseAdmin
+lib/finance/general-ledger/postJournalToLedger.js:  await supabaseAdmin
+lib/finance/audit/createFinanceAuditLog.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/finance/audit/createFinanceAuditLog.js:  } = await supabaseAdmin
+lib/finance/accounts-payable/createAccountsPayableEntry.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/accounts-payable/createAccountsPayableEntry.js:    } = await supabaseAdmin
+lib/finance/accounts-payable/createAccountsPayableEntry.js:    } = await supabaseAdmin
+lib/finance/budgeting/createBudget.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/budgeting/createBudget.js:    } = await supabaseAdmin
+lib/finance/statement-import/importBankStatement.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/statement-import/importBankStatement.js:    } = await supabaseAdmin
+lib/finance/cost-centers/createCostCenter.js:  supabaseAdmin,
+lib/finance/cost-centers/createCostCenter.js:    } = await supabaseAdmin
+lib/finance/cost-centers/createCostCenter.js:    } = await supabaseAdmin
+lib/finance/consolidation/generateConsolidatedFinancials.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/consolidation/generateConsolidatedFinancials.js:    } = await supabaseAdmin
+lib/finance/consolidation/generateConsolidatedFinancials.js:      } = await supabaseAdmin
+lib/finance/forecasting/buildRevenueForecast.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/forecasting/buildRevenueForecast.js:    } = await supabaseAdmin
+lib/finance/forecasting/generateFinancialForecast.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/forecasting/generateFinancialForecast.js:    } = await supabaseAdmin
+lib/finance/invoice-matching/createInvoiceMatch.js:  supabaseAdmin,
+lib/finance/invoice-matching/createInvoiceMatch.js:    } = await supabaseAdmin
+lib/finance/invoice-matching/createInvoiceMatch.js:    } = await supabaseAdmin
+lib/finance/invoice-matching/createInvoiceMatch.js:    } = await supabaseAdmin
+lib/finance/invoice-matching/createInvoiceMatch.js:    } = await supabaseAdmin
+lib/finance/invoice-matching/createInvoiceMatch.js:    } = await supabaseAdmin
+lib/finance/invoice-matching/createInvoiceMatch.js:      } = await supabaseAdmin
+lib/finance/invoice-matching/runThreeWayMatch.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/invoice-matching/runThreeWayMatch.js:    } = await supabaseAdmin
+lib/finance/invoice-matching/runThreeWayMatch.js:    } = await supabaseAdmin
+lib/finance/invoice-matching/runThreeWayMatch.js:    } = await supabaseAdmin
+lib/finance/invoice-matching/runThreeWayMatch.js:    } = await supabaseAdmin
+lib/finance/variance-analysis/runVarianceAnalysis.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/variance-analysis/runVarianceAnalysis.js:    } = await supabaseAdmin
+lib/finance/variance-analysis/runVarianceAnalysis.js:    } = await supabaseAdmin
+lib/finance/services/getFinanceSummary.js:import { supabaseAdmin }
+lib/finance/services/getFinanceSummary.js:    supabaseAdmin
+lib/finance/services/getFinanceSummary.js:    supabaseAdmin
+lib/finance/reversals/createJournalReversal.js:import { supabaseAdmin }
+lib/finance/reversals/createJournalReversal.js:  } = await supabaseAdmin
+lib/finance/reversals/createJournalReversal.js:  } = await supabaseAdmin
+lib/finance/reversals/createJournalReversal.js:  } = await supabaseAdmin
+lib/finance/reversals/createJournalReversal.js:  } = await supabaseAdmin
+lib/finance/reversals/createJournalReversal.js:  await supabaseAdmin
+lib/finance/legal-entities/createLegalEntity.js:  supabaseAdmin,
+lib/finance/legal-entities/createLegalEntity.js:    } = await supabaseAdmin
+lib/finance/legal-entities/createLegalEntity.js:    } = await supabaseAdmin
+lib/finance/reports/generateTrialBalance.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/reports/generateTrialBalance.js:    } = await supabaseAdmin
+lib/finance/reports/generateBalanceSheet.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/reports/generateBalanceSheet.js:    } = await supabaseAdmin
+lib/finance/reports/generateProfitLoss.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/reports/generateProfitLoss.js:    } = await supabaseAdmin
+lib/finance/vendor-invoices/createVendorInvoice.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/vendor-invoices/createVendorInvoice.js:    } = await supabaseAdmin
+lib/staff/getStaffOperations.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/staff/getStaffOperations.js:    supabaseAdmin
+lib/staff/getStaffOperations.js:    supabaseAdmin
+lib/staff/getStaffOperations.js:    supabaseAdmin
+lib/floor/getFloorTables.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/floor/getFloorTables.js:  } = await supabaseAdmin
+lib/warehouse/calculateInventoryCost.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/warehouse/calculateInventoryCost.js:    const { data: transactions } = await supabaseAdmin
+lib/warehouse/valuation/calculateInventoryValuation.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/warehouse/valuation/calculateInventoryValuation.js:    } = await supabaseAdmin
+lib/payroll/accounting/createPayrollJournalEntry.js:import { supabaseAdmin }
+lib/payroll/accounting/createPayrollJournalEntry.js:  } = await supabaseAdmin
+lib/payroll/accounting/createPayrollJournalEntry.js:  } = await supabaseAdmin
+lib/payroll/accounting/createPayrollJournalEntry.js:  await supabaseAdmin
+lib/payroll/accounting/reversePayrollJournal.js:import { supabaseAdmin }
+lib/payroll/accounting/reversePayrollJournal.js:  } = await supabaseAdmin
+lib/payroll/payments/executePayrollPayment.js:import { supabaseAdmin }
+lib/payroll/payments/executePayrollPayment.js:  } = await supabaseAdmin
+lib/payroll/payments/executePayrollPayment.js:  } = await supabaseAdmin
+lib/payroll/snapshots/closePayrollPeriod.js:import { supabaseAdmin }
+lib/payroll/snapshots/closePayrollPeriod.js:  } = await supabaseAdmin
+lib/payroll/snapshots/rejectPayrollReopen.js:import { supabaseAdmin }
+lib/payroll/snapshots/rejectPayrollReopen.js:  } = await supabaseAdmin
+lib/payroll/snapshots/rejectPayrollReopen.js:  } = await supabaseAdmin
+lib/payroll/snapshots/createPayrollSnapshot.js:import { supabaseAdmin }
+lib/payroll/snapshots/createPayrollSnapshot.js:  } = await supabaseAdmin
+lib/payroll/snapshots/createPayrollSnapshot.js:    } = await supabaseAdmin
+lib/payroll/snapshots/requestPayrollReopen.js:import { supabaseAdmin }
+lib/payroll/snapshots/requestPayrollReopen.js:  } = await supabaseAdmin
+lib/payroll/snapshots/loadPayrollReopenRequests.js:import { supabaseAdmin }
+lib/payroll/snapshots/loadPayrollReopenRequests.js:  } = await supabaseAdmin
+lib/payroll/snapshots/reopenPayrollPeriod.js:import { supabaseAdmin }
+lib/payroll/snapshots/reopenPayrollPeriod.js:  } = await supabaseAdmin
+lib/payroll/snapshots/approvePayrollReopen.js:import { supabaseAdmin }
+lib/payroll/snapshots/approvePayrollReopen.js:  } = await supabaseAdmin
+lib/payroll/snapshots/approvePayrollReopen.js:  } = await supabaseAdmin
+lib/payroll/payslips/generatePayslipPdf.js:import { supabaseAdmin }
+lib/payroll/payslips/generatePayslipPdf.js:  } = await supabaseAdmin
+lib/payroll/payslips/generatePayslip.js:import { supabaseAdmin }
+lib/payroll/payslips/generatePayslip.js:  } = await supabaseAdmin
+lib/payroll/policies/loadTenantPayoutPolicy.js:import { supabaseAdmin }
+lib/payroll/policies/loadTenantPayoutPolicy.js:  } = await supabaseAdmin
+lib/payroll/audit/createPayrollAuditLog.js:import { supabaseAdmin }
+lib/payroll/audit/createPayrollAuditLog.js:  } = await supabaseAdmin
+lib/payroll/audit/loadPayrollAuditLogs.js:import { supabaseAdmin }
+lib/payroll/audit/loadPayrollAuditLogs.js:  } = await supabaseAdmin
+lib/payroll/history/loadPayrollPeriods.js:import { supabaseAdmin }
+lib/payroll/history/loadPayrollPeriods.js:  } = await supabaseAdmin
+lib/payroll/calculatePayroll.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/payroll/calculatePayroll.js:    const { data: staff } = await supabaseAdmin
+lib/payroll/export/exportPayrollPeriod.js:import { supabaseAdmin }
+lib/payroll/export/exportPayrollPeriod.js:  } = await supabaseAdmin
+lib/payroll/consolidation/disputePayrollRecord.js:import { supabaseAdmin }
+lib/payroll/consolidation/disputePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/disputePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/certifyPayrollRecord.js:import { supabaseAdmin }
+lib/payroll/consolidation/certifyPayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/certifyPayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/recalculatePayrollRecord.js:import { supabaseAdmin }
+lib/payroll/consolidation/recalculatePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/recalculatePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/processPayrollPayout.js:import { supabaseAdmin }
+lib/payroll/consolidation/processPayrollPayout.js:  } = await supabaseAdmin
+lib/payroll/consolidation/processPayrollPayout.js:  } = await supabaseAdmin
+lib/payroll/consolidation/processPayrollPayout.js:  } = await supabaseAdmin
+lib/payroll/consolidation/processPayrollPayout.js:  await supabaseAdmin
+lib/payroll/consolidation/resolvePayrollDispute.js:import { supabaseAdmin }
+lib/payroll/consolidation/resolvePayrollDispute.js:  } = await supabaseAdmin
+lib/payroll/consolidation/resolvePayrollDispute.js:  } = await supabaseAdmin
+lib/payroll/consolidation/approvePayrollRecord.js:import { supabaseAdmin }
+lib/payroll/consolidation/approvePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/approvePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/acknowledgePayrollRecord.js:import { supabaseAdmin }
+lib/payroll/consolidation/acknowledgePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/acknowledgePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/lockPayrollRecord.js:import { supabaseAdmin }
+lib/payroll/consolidation/lockPayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/lockPayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/closePayrollAccountingPeriod.js:import { supabaseAdmin }
+lib/payroll/consolidation/closePayrollAccountingPeriod.js:  } = await supabaseAdmin
+lib/payroll/consolidation/closePayrollAccountingPeriod.js:  } = await supabaseAdmin
+lib/payroll/consolidation/finalizePayrollRecord.js:import { supabaseAdmin }
+lib/payroll/consolidation/finalizePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/finalizePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/generateMonthlyPayroll.js:import { supabaseAdmin }
+lib/payroll/consolidation/generateMonthlyPayroll.js:  } = await supabaseAdmin
+lib/payroll/consolidation/generateMonthlyPayroll.js:  } = await supabaseAdmin
+lib/payroll/consolidation/generateMonthlyPayroll.js:  } = await supabaseAdmin
+lib/payroll/consolidation/generateMonthlyPayroll.js:    } = await supabaseAdmin
+lib/payroll/consolidation/rejectPayrollRecord.js:import { supabaseAdmin }
+lib/payroll/consolidation/rejectPayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/rejectPayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/archivePayrollRecord.js:import { supabaseAdmin }
+lib/payroll/consolidation/archivePayrollRecord.js:  } = await supabaseAdmin
+lib/payroll/consolidation/archivePayrollRecord.js:  } = await supabaseAdmin
+lib/performance/getPerformanceOverview.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/performance/getPerformanceOverview.js:    supabaseAdmin
+lib/performance/getPerformanceOverview.js:    supabaseAdmin
+lib/performance/getPerformanceOverview.js:    supabaseAdmin
+lib/performance/getPerformanceOverview.js:    supabaseAdmin
+lib/approvals/workflows/updateApprovalRequest.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/approvals/workflows/updateApprovalRequest.js:    } = await supabaseAdmin
+lib/approvals/workflows/createApprovalRequest.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/approvals/workflows/createApprovalRequest.js:    } = await supabaseAdmin
+lib/kitchen/getKitchenQueue.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/kitchen/getKitchenQueue.js:  } = await supabaseAdmin
+lib/kitchen/routing/routeKitchenItems.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/kitchen/routing/routeKitchenItems.js:      } = await supabaseAdmin
+lib/kitchen/routing/routeKitchenItems.js:    } = await supabaseAdmin
+lib/onboarding/setup/createDefaultRoles.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/onboarding/setup/createDefaultRoles.js:  } = await supabaseAdmin
+lib/onboarding/setup/createDefaultPermissions.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/onboarding/setup/createDefaultPermissions.js:  } = await supabaseAdmin
+lib/onboarding/createTenant.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/onboarding/createTenant.js:    const { data, error } = await supabaseAdmin
+lib/incidents/runtime/createWorkflowIncident.js:import { supabaseAdmin }
+lib/incidents/runtime/createWorkflowIncident.js:  } = await supabaseAdmin
+lib/customer/runtime/createVIPCustomerEvent.js:import { supabaseAdmin }
+lib/customer/runtime/createVIPCustomerEvent.js:  } = await supabaseAdmin
+lib/analytics/createSnapshot.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/analytics/createSnapshot.js:    const { data: sales } = await supabaseAdmin
+lib/analytics/createSnapshot.js:    const { error } = await supabaseAdmin
+lib/analytics/warehouse/buildRevenueAnalytics.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/analytics/warehouse/buildRevenueAnalytics.js:    } = await supabaseAdmin
+lib/approval/runtime/createApprovalTask.js:import { supabaseAdmin }
+lib/approval/runtime/createApprovalTask.js:  } = await supabaseAdmin
+lib/executive/getExecutiveSummary.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/executive/getExecutiveSummary.js:    supabaseAdmin
+lib/executive/getExecutiveSummary.js:    supabaseAdmin
+lib/executive/getExecutiveSummary.js:    supabaseAdmin
+lib/executive/getExecutiveSummary.js:    supabaseAdmin
+lib/executive/getExecutiveSummary.js:    supabaseAdmin
+lib/executive/getExecutiveSummary.js:    supabaseAdmin
+app/api/invoices/update/route.js:import { supabaseAdmin }
+app/api/invoices/update/route.js:    } = await supabaseAdmin
+app/api/invoices/ocr/route.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/invoices/ocr/route.js:    const supabase = supabaseAdmin;
+app/api/invoices/ocr/route.js.backup:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/invoices/ocr/route.js.backup:    const supabase = supabaseAdmin;
+app/api/invoices/list/route.js:import { supabaseAdmin }
+app/api/invoices/list/route.js:      supabaseAdmin;
+app/api/workspace/command-center/route.js:  supabaseAdmin,
+app/api/workspace/command-center/route.js:        supabaseAdmin
+app/api/workspace/command-center/route.js:        supabaseAdmin
+app/api/workspace/command-center/route.js:        supabaseAdmin
+app/api/workspace/command-center/route.js:        supabaseAdmin
+app/api/workspace/command-center/route.js:        supabaseAdmin
+app/api/workspace/command-center/route.js:        supabaseAdmin
+app/api/workspace/command-center/route.js:        supabaseAdmin
+app/api/workspace/command-center/route.js:        supabaseAdmin
+app/api/runtime/test-event/route.js:import { supabaseAdmin }
+app/api/runtime/test-event/route.js:  } = await supabaseAdmin
+app/api/runtime/process-jobs/route.js:import { supabaseAdmin }
+app/api/runtime/process-jobs/route.js:    } = await supabaseAdmin
+app/api/pos/receipts/route.js:import { supabaseAdmin }
+app/api/pos/receipts/route.js:    } = await supabaseAdmin
+app/api/pos/receipts/route.js:    } = await supabaseAdmin
+app/api/pos/receipts/route.js:    } = await supabaseAdmin
+app/api/pos/payments/route.js:import { supabaseAdmin }
+app/api/pos/payments/route.js:    } = await supabaseAdmin
+app/api/pos/payments/route.js:    } = await supabaseAdmin
+app/api/pos/payments/route.js:    } = await supabaseAdmin
+app/api/pos/payments/route.js:    await supabaseAdmin
+app/api/pos/payments/process/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/payments/process/route.js:    } = await supabaseAdmin
+app/api/pos/payments/process/route.js:    await supabaseAdmin
+app/api/pos/modifiers/get/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/modifiers/get/route.js:    } = await supabaseAdmin
+app/api/pos/modifier-groups/get/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/modifier-groups/get/route.js:    } = await supabaseAdmin
+app/api/pos/modifier-groups/create/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/modifier-groups/create/route.js:    } = await supabaseAdmin
+app/api/pos/terminals/status/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/terminals/status/route.js:    } = await supabaseAdmin
+app/api/pos/dish-modifier-groups/get/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/dish-modifier-groups/get/route.js:    } = await supabaseAdmin
+app/api/pos/dish-modifier-groups/assign/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/dish-modifier-groups/assign/route.js:    } = await supabaseAdmin
+app/api/pos/course-fire/fire/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/course-fire/fire/route.js:    } = await supabaseAdmin
+app/api/pos/customer-display/update/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/customer-display/update/route.js:    } = await supabaseAdmin
+app/api/pos/customer-display/current/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/customer-display/current/route.js:    } = await supabaseAdmin
+app/api/pos/discounts/apply/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/discounts/apply/route.js:    } = await supabaseAdmin
+app/api/pos/discounts/apply/route.js:    } = await supabaseAdmin
+app/api/pos/discounts/create/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/discounts/create/route.js:    } = await supabaseAdmin
+app/api/pos/split-bill/create/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/split-bill/create/route.js:    } = await supabaseAdmin
+app/api/pos/split-bill/create/route.js:    } = await supabaseAdmin
+app/api/pos/voids/approve/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/voids/approve/route.js:    } = await supabaseAdmin
+app/api/pos/voids/approve/route.js:    await supabaseAdmin
+app/api/pos/alerts/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/alerts/live/route.js:    } = await supabaseAdmin
+app/api/pos/alerts/live/route.js:    } = await supabaseAdmin
+app/api/pos/alerts/live/route.js:    } = await supabaseAdmin
+app/api/pos/printers/get/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/printers/get/route.js:    } = await supabaseAdmin
+app/api/pos/audit/get/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/audit/get/route.js:    } = await supabaseAdmin
+app/api/pos/table-management/merge/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/table-management/merge/route.js:    } = await supabaseAdmin
+app/api/pos/table-management/merge/route.js:    await supabaseAdmin
+app/api/pos/table-management/merge/route.js:    await supabaseAdmin
+app/api/pos/table-management/transfer/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/table-management/transfer/route.js:    } = await supabaseAdmin
+app/api/pos/table-management/transfer/route.js:    await supabaseAdmin
+app/api/pos/table-management/transfer/route.js:    await supabaseAdmin
+app/api/pos/tips/add/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/tips/add/route.js:    } = await supabaseAdmin
+app/api/pos/hold-orders/resume/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/hold-orders/resume/route.js:    } = await supabaseAdmin
+app/api/pos/hold-orders/resume/route.js:    await supabaseAdmin
+app/api/pos/refunds/approve/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/refunds/approve/route.js:    } = await supabaseAdmin
+app/api/pos/refunds/create/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/refunds/create/route.js:    } = await supabaseAdmin
+app/api/pos/orders/get-with-modifiers/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/orders/get-with-modifiers/route.js:    } = await supabaseAdmin
+app/api/pos/orders/add-item/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/orders/add-item/route.js:    } = await supabaseAdmin
+app/api/pos/orders/add-item/route.js:      } = await supabaseAdmin
+app/api/pos/performance/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/performance/live/route.js:    } = await supabaseAdmin
+app/api/pos/performance/live/route.js:    } = await supabaseAdmin
+app/api/pos/end-of-day/close/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/end-of-day/close/route.js:    } = await supabaseAdmin
+app/api/pos/end-of-day/close/route.js:    } = await supabaseAdmin
+app/api/pos/end-of-day/close/route.js:    } = await supabaseAdmin
+app/api/pos/end-of-day/close/route.js:    } = await supabaseAdmin
+app/api/pos/create/route.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/pos/create/route.js:    } = await supabaseAdmin
+app/api/pos/create/route.js:    } = await supabaseAdmin
+app/api/pos/combo/get/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/combo/get/route.js:    } = await supabaseAdmin
+app/api/pos/combo/create/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/combo/create/route.js:    } = await supabaseAdmin
+app/api/pos/combo/create/route.js:    } = await supabaseAdmin
+app/api/pos/shifts/close/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/shifts/close/route.js:    } = await supabaseAdmin
+app/api/pos/shifts/current/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/shifts/current/route.js:    } = await supabaseAdmin
+app/api/pos/analytics/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/analytics/live/route.js:    } = await supabaseAdmin
+app/api/pos/analytics/live/route.js:    } = await supabaseAdmin
+app/api/pos/analytics/live/route.js:    } = await supabaseAdmin
+app/api/procurement/vendors/list/route.js:  supabaseAdmin,
+app/api/procurement/vendors/list/route.js:    } = await supabaseAdmin
+app/api/procurement/purchase-orders/list/route.js:  supabaseAdmin,
+app/api/procurement/purchase-orders/list/route.js:    } = await supabaseAdmin
+app/api/procurement/receiving/list/route.js:  supabaseAdmin,
+app/api/procurement/receiving/list/route.js:    } = await supabaseAdmin
+app/api/production/prep-efficiency/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/prep-efficiency/live/route.js:    } = await supabaseAdmin
+app/api/production/purchase-orders/receive/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/purchase-orders/receive/route.js:    } = await supabaseAdmin
+app/api/production/purchase-orders/receive/route.js:      } = await supabaseAdmin
+app/api/production/purchase-orders/receive/route.js:      await supabaseAdmin
+app/api/production/purchase-orders/receive/route.js:      await supabaseAdmin
+app/api/production/purchase-orders/receive/route.js:    await supabaseAdmin
+app/api/production/station-load/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/station-load/live/route.js:    } = await supabaseAdmin
+app/api/production/station-load/live/route.js:    } = await supabaseAdmin
+app/api/production/expiry-monitor/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/expiry-monitor/live/route.js:    } = await supabaseAdmin
+app/api/production/recipe-components/route.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/production/recipe-components/route.js:    } = await supabaseAdmin
+app/api/production/recipe-components/route.js:    } = await supabaseAdmin
+app/api/production/stock-alerts/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/stock-alerts/live/route.js:    } = await supabaseAdmin
+app/api/production/supplier-performance/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/supplier-performance/live/route.js:    } = await supabaseAdmin
+app/api/production/vendor-price-history/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/vendor-price-history/live/route.js:    } = await supabaseAdmin
+app/api/production/recipes/route.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/production/recipes/route.js:    } = await supabaseAdmin
+app/api/production/recipes/route.js:    } = await supabaseAdmin
+app/api/production/recipes/get/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/recipes/get/route.js:    const { data, error } = await supabaseAdmin
+app/api/production/production-sessions/close/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/production-sessions/close/route.js:    } = await supabaseAdmin
+app/api/production/prep-batches/consume/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/prep-batches/consume/route.js:    } = await supabaseAdmin
+app/api/production/prep-batches/consume/route.js:    } = await supabaseAdmin
+app/api/production/waste/analytics/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/waste/analytics/route.js:    } = await supabaseAdmin
+app/api/marketing/schedule/route.js:import { supabaseAdmin }
+app/api/marketing/schedule/route.js:    supabaseAdmin;
+app/api/finance/journal/route.js:import { supabaseAdmin }
+app/api/finance/journal/route.js:  } = await supabaseAdmin
+app/api/finance/trial-balance/route.js:import { supabaseAdmin }
+app/api/finance/trial-balance/route.js:  } = await supabaseAdmin
+app/api/finance/month-end/status/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/month-end/status/route.js:    } = await supabaseAdmin
+app/api/finance/insights/route.js:import { supabaseAdmin }
+app/api/finance/insights/route.js:  } = await supabaseAdmin
+app/api/finance/periods/route.js:import { supabaseAdmin }
+app/api/finance/periods/route.js:  } = await supabaseAdmin
+app/api/finance/periods/close/route.js:import { supabaseAdmin }
+app/api/finance/periods/close/route.js:    } = await supabaseAdmin
+app/api/finance/periods/close/route.js:    } = await supabaseAdmin
+app/api/finance/periods/close/route.js:    await supabaseAdmin
+app/api/finance/periods/update-status/route.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/finance/periods/update-status/route.js:    const { data: existing, error: fetchError } = await supabaseAdmin
+app/api/finance/periods/update-status/route.js:    const { data, error } = await supabaseAdmin
+app/api/finance/periods/open/route.js:import { supabaseAdmin }
+app/api/finance/periods/open/route.js:    } = await supabaseAdmin
+app/api/finance/periods/open/route.js:    } = await supabaseAdmin
+app/api/finance/periods/open/route.js:    await supabaseAdmin
+app/api/finance/payments/list/route.js:  supabaseAdmin,
+app/api/finance/payments/list/route.js:    } = await supabaseAdmin
+app/api/finance/profit-loss/route.js:import { supabaseAdmin }
+app/api/finance/profit-loss/route.js:  } = await supabaseAdmin
+app/api/finance/profit-loss/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/profit-loss/live/route.js:    } = await supabaseAdmin
+app/api/finance/profit-loss/live/route.js:    } = await supabaseAdmin
+app/api/finance/profit-loss/live/route.js:    } = await supabaseAdmin
+app/api/finance/profit-loss/live/route.js:    } = await supabaseAdmin
+app/api/finance/profit-loss/live/route.js:    } = await supabaseAdmin
+app/api/finance/year-end/status/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/year-end/status/route.js:    } = await supabaseAdmin
+app/api/finance/fixed-assets/depreciation/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/fixed-assets/depreciation/route.js:    } = await supabaseAdmin
+app/api/finance/fixed-assets/list/route.js:  supabaseAdmin,
+app/api/finance/fixed-assets/list/route.js:    } = await supabaseAdmin
+app/api/finance/health/route.js:import { supabaseAdmin }
+app/api/finance/health/route.js:  } = await supabaseAdmin
+app/api/finance/health/route.js:  } = await supabaseAdmin
+app/api/finance/intercompany/runtime/route.js:  supabaseAdmin,
+app/api/finance/intercompany/runtime/route.js:      supabaseAdmin
+app/api/finance/intercompany/runtime/route.js:      supabaseAdmin
+app/api/finance/intercompany/settle/route.js:  supabaseAdmin,
+app/api/finance/intercompany/settle/route.js:    } = await supabaseAdmin
+app/api/finance/intercompany/settle/route.js:    } = await supabaseAdmin
+app/api/finance/anomalies/route.js:import { supabaseAdmin }
+app/api/finance/anomalies/route.js:  } = await supabaseAdmin
+app/api/finance/general-ledger/trial-balance/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/general-ledger/trial-balance/route.js:    } = await supabaseAdmin
+app/api/finance/kpis/route.js:import { supabaseAdmin }
+app/api/finance/kpis/route.js:  } = await supabaseAdmin
+app/api/finance/cashflow/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/cashflow/live/route.js:    } = await supabaseAdmin
+app/api/finance/cashflow/live/route.js:    } = await supabaseAdmin
+app/api/finance/role-permissions/create/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/role-permissions/create/route.js:    } = await supabaseAdmin
+app/api/finance/role-permissions/check/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/role-permissions/check/route.js:    } = await supabaseAdmin
+app/api/finance/tax-engine/calculate/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/tax-engine/calculate/route.js:    } = await supabaseAdmin
+app/api/finance/tax-engine/calculate/route.js:    } = await supabaseAdmin
+app/api/finance/tax-engine/report/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/tax-engine/report/route.js:    } = await supabaseAdmin
+app/api/finance/tax-engine/report/route.js:    } = await supabaseAdmin
+app/api/finance/journals/route.js:import { supabaseAdmin }
+app/api/finance/journals/route.js:  } = await supabaseAdmin
+app/api/finance/journals/request-reversal/route.js:import { supabaseAdmin }
+app/api/finance/journals/request-reversal/route.js:    } = await supabaseAdmin
+app/api/finance/journals/request-reversal/route.js:    } = await supabaseAdmin
+app/api/finance/journals/request-reversal/route.js:    await supabaseAdmin
+app/api/finance/journals/reverse/route.js:import { supabaseAdmin }
+app/api/finance/journals/reverse/route.js:    } = await supabaseAdmin
+app/api/finance/journals/reverse/route.js:    } = await supabaseAdmin
+app/api/finance/journals/reverse/route.js:    } = await supabaseAdmin
+app/api/finance/journals/reverse/route.js:    } = await supabaseAdmin
+app/api/finance/journals/reverse/route.js:    } = await supabaseAdmin
+app/api/finance/journals/reverse/route.js:    await supabaseAdmin
+app/api/finance/journals/reverse/route.js:    await supabaseAdmin
+app/api/finance/journals/[id]/route.js:import { supabaseAdmin }
+app/api/finance/journals/[id]/route.js:    } = await supabaseAdmin
+app/api/finance/journals/[id]/route.js:    } = await supabaseAdmin
+app/api/finance/cash-flow/route.js:import { supabaseAdmin }
+app/api/finance/cash-flow/route.js:  } = await supabaseAdmin
+app/api/finance/journal-chain/route.js:import { supabaseAdmin }
+app/api/finance/journal-chain/route.js:  } = await supabaseAdmin
+app/api/finance/accounts-payable/create-from-invoice/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/accounts-payable/create-from-invoice/route.js:    } = await supabaseAdmin
+app/api/finance/accounts-payable/aging-report/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/accounts-payable/aging-report/route.js:    } = await supabaseAdmin
+app/api/finance/audit-trail/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/audit-trail/live/route.js:    } = await supabaseAdmin
+app/api/finance/budgeting/variance/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/budgeting/variance/route.js:    } = await supabaseAdmin
+app/api/finance/budgeting/variance/route.js:    } = await supabaseAdmin
+app/api/finance/budgeting/create/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/budgeting/create/route.js:    } = await supabaseAdmin
+app/api/finance/cost-centers/toggle/route.js:  supabaseAdmin,
+app/api/finance/cost-centers/toggle/route.js:    } = await supabaseAdmin
+app/api/finance/cost-centers/toggle/route.js:    } = await supabaseAdmin
+app/api/finance/cost-centers/list/route.js:  supabaseAdmin,
+app/api/finance/cost-centers/list/route.js:    } = await supabaseAdmin
+app/api/finance/invoice-matching/runtime/route.js:  supabaseAdmin,
+app/api/finance/invoice-matching/runtime/route.js:      supabaseAdmin
+app/api/finance/invoice-matching/runtime/route.js:      supabaseAdmin
+app/api/finance/invoice-matching/runtime/route.js:      supabaseAdmin
+app/api/finance/invoice-matching/runtime/route.js:      supabaseAdmin
+app/api/finance/balance-sheet/route.js:import { supabaseAdmin }
+app/api/finance/balance-sheet/route.js:  } = await supabaseAdmin
+app/api/finance/balance-sheet/live/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/balance-sheet/live/route.js:    } = await supabaseAdmin
+app/api/finance/balance-sheet/live/route.js:    } = await supabaseAdmin
+app/api/finance/balance-sheet/live/route.js:    } = await supabaseAdmin
+app/api/finance/legal-entities/toggle/route.js:  supabaseAdmin,
+app/api/finance/legal-entities/toggle/route.js:    } = await supabaseAdmin
+app/api/finance/legal-entities/toggle/route.js:    } = await supabaseAdmin
+app/api/finance/legal-entities/list/route.js:  supabaseAdmin,
+app/api/finance/legal-entities/list/route.js:    } = await supabaseAdmin
+app/api/staff/ai-memory/route.js:import { supabaseAdmin }
+app/api/staff/ai-memory/route.js:    } = await supabaseAdmin
+app/api/staff/ai-feed/route.js:import { supabaseAdmin }
+app/api/staff/ai-feed/route.js:    } = await supabaseAdmin
+app/api/staff/ai-feed/route.js:    } = await supabaseAdmin
+app/api/staff/profile-overview/route.js:import { supabaseAdmin }
+app/api/staff/profile-overview/route.js:    } = await supabaseAdmin
+app/api/staff/profile-overview/route.js:    } = await supabaseAdmin
+app/api/staff/profile-overview/route.js:    } = await supabaseAdmin
+app/api/dishes/route.js:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/dishes/route.js:      await supabaseAdmin
+app/api/dishes/route.js:      await supabaseAdmin
+app/api/events/leaderboard/route.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/events/leaderboard/route.js:      await supabaseAdmin
+app/api/events/monthly/route.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/events/monthly/route.js:      await supabaseAdmin
+app/api/events/active/route.js:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/events/active/route.js:      await supabaseAdmin
+app/api/performance/list/route.js:import { supabaseAdmin }
+app/api/performance/list/route.js:    const { data: alerts } = await supabaseAdmin
+app/api/performance/list/route.js:    const { data: orders, error: orderError } = await supabaseAdmin
+app/api/performance/list/route.js:    const { data: staffData, error: staffError } = await supabaseAdmin
+app/api/performance/list/today/route.js:import { supabaseAdmin }
+app/api/performance/list/today/route.js:    const { data: alertRows } = await supabaseAdmin
+app/api/performance/list/today/route.js:    const { data: orders } = await supabaseAdmin
+app/api/performance/list/today/route.js:    const { data: staffData } = await supabaseAdmin
+app/api/performance/list/today/route.js:    const { data: pendingInvoices } = await supabaseAdmin
+app/api/performance/list/today/route.js:    const { data: routineUploads } = await supabaseAdmin
+app/api/performance/list/today/route.js:    const { data: salaryConfirm } = await supabaseAdmin
+app/api/approvals/reject/route.js:import { supabaseAdmin }
+app/api/approvals/reject/route.js:      await supabaseAdmin
+app/api/approval/update-status/route.js:import { supabaseAdmin }
+app/api/approval/update-status/route.js:    } = await supabaseAdmin
+app/api/reviews/leaderboard/route.js:import { supabaseAdmin }
+app/api/reviews/leaderboard/route.js:    const { data, error } = await supabaseAdmin

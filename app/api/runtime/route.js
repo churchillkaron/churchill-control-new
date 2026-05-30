@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 
-import runHeartbeat from "@/lib/runtime/heartbeat/runHeartbeat";
+import runHeartbeat from "@/lib/runtime/infrastructure/runHeartbeat";
 
-import runWatchdog from "@/lib/runtime/watchdog/runWatchdog";
+import runWatchdog from "@/lib/runtime/infrastructure/runWatchdog";
 
-import runRecoveryEngine from "@/lib/runtime/recovery/runRecoveryEngine";
+import runRecoveryEngine from "@/lib/runtime/infrastructure/runRecoveryEngine";
 
-import runAutoscaling from "@/lib/runtime/autoscaling/runAutoscaling";
+import runAutoscaling from "@/lib/runtime/infrastructure/runAutoscaling";
 
-import runHealthMonitor from "@/lib/runtime/health/runHealthMonitor";
+import runHealthMonitor from "@/lib/runtime/infrastructure/runHealthMonitor";
 
 export async function POST() {
 

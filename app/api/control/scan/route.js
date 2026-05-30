@@ -4,12 +4,31 @@ import {
   createServerSupabase,
 } from "@/lib/shared/supabase/server";
 
-const tenant_id =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+import {
+  getTenantId,
+} from "@/lib/shared/tenant/getTenantId";
 
 export async function GET() {
 
   try {
+
+    const tenantId =
+      await getTenantId();
+
+    if (!tenantId) {
+
+      return Response.json(
+        {
+          success: false,
+          error:
+            "Tenant not found",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
 
     const supabase =
       createServerSupabase();
@@ -25,7 +44,7 @@ export async function GET() {
 
       .eq(
         "tenant_id",
-        tenant_id
+        tenantId
       )
 
       .order(

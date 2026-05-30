@@ -3,7 +3,6 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/shared/supabase/client";
 
 export default function IntercompanyPage() {
 
@@ -30,37 +29,44 @@ export default function IntercompanyPage() {
 
     setLoading(true);
 
-    const { data: entityData } =
-      await supabase
-        .from("legal_entities")
-        .select("*")
-        .eq("is_active", true)
-        .order("legal_name");
+    try {
 
-    const { data: transactionData } =
-      await supabase
-        .from("intercompany_transactions")
-        .select(`
-          *,
-          from_entity:from_legal_entity_id (
-            id,
-            legal_name,
-            code
-          ),
-          to_entity:to_legal_entity_id (
-            id,
-            legal_name,
-            code
-          )
-        `)
-        .order("created_at", {
-          ascending: false,
-        });
+      const response =
+        await fetch(
+          "/api/finance/intercompany/runtime",
+          {
+            method: "POST",
+          }
+        );
 
-    setEntities(entityData || []);
-    setTransactions(transactionData || []);
+      const result =
+        await response.json();
 
-    setLoading(false);
+      if (!result.success) {
+
+        alert(result.error);
+
+        return;
+
+      }
+
+      setEntities(
+        result.entities || []
+      );
+
+      setTransactions(
+        result.transactions || []
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      setLoading(false);
+
+    }
 
   }
 
@@ -93,47 +99,38 @@ export default function IntercompanyPage() {
 
     }
 
-    const { error } =
-      await supabase
-        .from("intercompany_transactions")
-        .insert([{
+    const response =
+      await fetch(
+        "/api/finance/intercompany/create",
+        {
 
-          from_legal_entity_id:
-            form.from_legal_entity_id,
+          method: "POST",
 
-          to_legal_entity_id:
-            form.to_legal_entity_id,
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
 
-          transaction_type:
-            form.transaction_type,
+          body: JSON.stringify({
 
-          reference_number:
-            form.reference_number,
+            ...form,
 
-          description:
-            form.description,
+            amount:
+              Number(form.amount),
 
-          amount:
-            Number(form.amount),
+          }),
 
-          currency:
-            form.currency,
+        }
+      );
 
-          due_date:
-            form.due_date || null,
+    const result =
+      await response.json();
 
-          status:
-            "pending",
+    if (!result.success) {
 
-          created_by:
-            "system",
+      console.error(result.error);
 
-        }]);
-
-    if (error) {
-
-      console.error(error);
-      alert(error.message);
+      alert(result.error);
 
       return;
 
@@ -158,27 +155,36 @@ export default function IntercompanyPage() {
     transaction
   ) {
 
-    const { error } =
-      await supabase
-        .from("intercompany_transactions")
-        .update({
+    const response =
+      await fetch(
+        "/api/finance/intercompany/settle",
+        {
 
-          status:
-            "settled",
+          method: "POST",
 
-          settled_at:
-            new Date().toISOString(),
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
 
-          updated_at:
-            new Date().toISOString(),
+          body: JSON.stringify({
 
-        })
-        .eq("id", transaction.id);
+            transaction_id:
+              transaction.id,
 
-    if (error) {
+          }),
 
-      console.error(error);
-      alert(error.message);
+        }
+      );
+
+    const result =
+      await response.json();
+
+    if (!result.success) {
+
+      console.error(result.error);
+
+      alert(result.error);
 
       return;
 

@@ -15,6 +15,16 @@ export async function POST(req) {
     const supabase =
       createServerSupabase();
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    console.log(
+      "UPLOAD USER",
+      user?.email,
+      user?.id
+    );
+
     const formData =
       await req.formData();
 

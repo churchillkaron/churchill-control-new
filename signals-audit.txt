@@ -1,0 +1,6 @@
+lib/shared/bootstrap/registerSystemEvents.js:import '@/lib/signals/registerSignalWorkflows'
+lib/shared/events/eventBus.js:} from '@/lib/signals/detectEnterpriseSignals'
+lib/pos/markOrderPaid.js:} from '@/lib/signals/publishSignal'
+lib/pos/markOrderPaid.js:} from '@/lib/signals/signalTypes'
+lib/pos/partialPayment.js:} from '@/lib/signals/publishSignal'
+lib/pos/partialPayment.js:} from '@/lib/signals/signalTypes'

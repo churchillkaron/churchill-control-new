@@ -4,6 +4,10 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
+
 import { supabase } from "@/lib/shared/supabase/client";
 
 import { loadActiveOrders } from "@/lib/pos/loadActiveOrders";
@@ -14,8 +18,11 @@ import { loadOrderItems } from "@/lib/pos/loadOrderItems";
 
 export default function POSOrdersPage() {
 
+  const tenant =
+    useTenant();
+
   const tenantId =
-    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+    tenant?.id;
 
   const [
     orders,
@@ -46,23 +53,89 @@ export default function POSOrdersPage() {
         tenantId
       );
 
+    const enrichedOrders =
+      await Promise.all(
+
+        (data || []).map(
+          async order => {
+
+            let financials = null;
+
+            try {
+
+              const response =
+                await fetch(
+                  "/api/pos/payment-state",
+                  {
+                    method: "POST",
+
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                    },
+
+                    body: JSON.stringify({
+
+                      tenantId,
+
+                      tableNumber:
+                        order.table_number,
+
+                    }),
+
+                  }
+                );
+
+              const result =
+                await response.json();
+
+              if (
+                result.success
+              ) {
+
+                financials =
+                  result.state;
+
+              }
+
+            } catch (err) {
+
+              console.error(err);
+
+            }
+
+            return {
+
+              ...order,
+
+              financials,
+
+            };
+
+          }
+        )
+      );
+
     setOrders(
-      data || []
+      enrichedOrders
     );
 
-    // ===== LOAD ITEMS =====
     const itemMap = {};
 
-    for (const order of data || []) {
-
-      const items =
-        await loadOrderItems(
-          order.id
-        );
+    for (const order of enrichedOrders || []) {
 
       itemMap[
         order.id
-      ] = items || [];
+      ] =
+
+        order.financials?.items ||
+
+        await loadOrderItems(
+          order.id
+        ) ||
+
+        [];
+
     }
 
     setOrderItems(
@@ -123,8 +196,16 @@ export default function POSOrdersPage() {
     orderId
   ) {
 
+    const order =
+      orders.find(
+        o => o.id === orderId
+      );
+
+    if (!order)
+      return;
+
     window.location.href =
-      `/pos/payments?order_id=${orderId}`;
+      `/pos/payments?table=${order.table_number}`;
 
   }
 
@@ -228,7 +309,8 @@ export default function POSOrdersPage() {
 
                       <div className="text-2xl font-light text-white">
                         ฿{
-                          order.total_amount
+                          order.financials?.grandTotal ||
+                          0
                         }
                       </div>
 

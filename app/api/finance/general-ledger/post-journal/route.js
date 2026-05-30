@@ -1,10 +1,16 @@
+import {
+  requireAuth,
+} from "@/lib/shared/auth";
+
 import { NextResponse } from 'next/server'
 
-import { postJournalEntry } from '@/lib/finance/generalLedger/postJournalEntry'
+import { postJournalEntry } from '@/lib/finance/services/postJournalEntry'
 
 export async function POST(req) {
 
   try {
+
+    await requireAuth();
 
     const body =
       await req.json()

@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
+
 import { supabase } from "@/lib/shared/supabase/client";
 
 export default function GoodsReceivingPage() {
@@ -54,38 +55,43 @@ export default function GoodsReceivingPage() {
     try {
       setActionLoading(po.id);
 
-      const grnNumber = `GRN-${Date.now()}`;
-
-      const { error: receiptError } = await supabase
-        .from("goods_receipts")
-        .insert([
+      const response =
+        await fetch(
+          "/api/procurement/receiving",
           {
-            grn_number: grnNumber,
-            purchase_order_id: po.id,
-            vendor_id: po.vendor_id,
-            received_by: "system",
-            status: "received",
-            received_date: new Date().toISOString().slice(0, 10),
-            notes: "Goods received from purchase order",
-          },
-        ]);
 
-      if (receiptError) {
-        alert(receiptError.message);
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+
+              purchase_order_id:
+                po.id,
+
+              received_by:
+                "FINANCE",
+
+            }),
+
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!result.success) {
+
+        alert(
+          result.error ||
+          "Failed to receive goods"
+        );
+
         return;
-      }
 
-      const { error: poError } = await supabase
-        .from("purchase_orders")
-        .update({
-          status: "received",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", po.id);
-
-      if (poError) {
-        alert(poError.message);
-        return;
       }
 
       await fetchData();

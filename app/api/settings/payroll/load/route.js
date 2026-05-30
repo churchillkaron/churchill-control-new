@@ -4,15 +4,36 @@ from "next/server";
 import loadOperationalSettings
 from "@/lib/settings/loadOperationalSettings";
 
+import {
+  getTenantId,
+} from "@/lib/shared/tenant/getTenantId";
+
 export async function POST() {
 
   try {
 
+    const tenantId =
+      await getTenantId();
+
+    if (!tenantId) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Tenant not found",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
+
     const settings =
       await loadOperationalSettings({
 
-        tenantId:
-          "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4",
+        tenantId,
 
         domain:
           "PAYROLL",

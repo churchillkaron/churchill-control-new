@@ -2,11 +2,22 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-import { supabase } from "@/lib/shared/supabase/client";
+import {
+  useTenant,
+} from "@/app/providers/TenantProvider";
 
 export default function VendorsPage() {
+
+  const tenant =
+    useTenant();
+
+  const tenantId =
+    tenant?.id;
 
   const [
     vendors,
@@ -14,84 +25,175 @@ export default function VendorsPage() {
   ] = useState([]);
 
   const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    creating,
+    setCreating,
+  ] = useState(false);
+
+  const [
     form,
     setForm,
   ] = useState({
 
-    vendor_name: "",
+    vendor_code: "",
 
-    contact_name: "",
+    legal_name: "",
 
-    phone: "",
+    display_name: "",
+
+    tax_id: "",
 
     email: "",
 
+    phone: "",
+
     address: "",
+
+    payment_terms: "",
+
+    notes: "",
+
   });
 
   async function loadVendors() {
 
-    const {
-      data,
-    } = await supabase
-      .from("vendors")
-      .select("*")
-      .order(
-        "vendor_name",
-        {
-          ascending: true,
-        }
+    try {
+
+      setLoading(true);
+
+      const response =
+        await fetch(
+          "/api/procurement/vendors/list",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+
+              tenant_id:
+                tenantId,
+
+            }),
+
+          }
+        );
+
+      const result =
+        await response.json();
+
+      setVendors(
+        result.vendors || []
       );
 
-    setVendors(
-      data || []
-    );
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
   }
 
   async function createVendor() {
 
-    await fetch(
-      "/api/procurement/vendors",
-      {
+    try {
 
-        method: "POST",
+      setCreating(true);
 
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
+      const response =
+        await fetch(
+          "/api/procurement/vendors",
+          {
 
-        body: JSON.stringify({
+            method: "POST",
 
-          tenant_id:
-            "demo",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          ...form,
-        }),
+            body: JSON.stringify({
+
+              tenant_id:
+                tenantId,
+
+              ...form,
+
+            }),
+
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!result.success) {
+
+        alert(
+          result.error ||
+          "Failed to create vendor"
+        );
+
+        return;
+
       }
-    );
 
-    setForm({
+      setForm({
 
-      vendor_name: "",
+        vendor_code: "",
 
-      contact_name: "",
+        legal_name: "",
 
-      phone: "",
+        display_name: "",
 
-      email: "",
+        tax_id: "",
 
-      address: "",
-    });
+        email: "",
 
-    loadVendors();
+        phone: "",
+
+        address: "",
+
+        payment_terms: "",
+
+        notes: "",
+
+      });
+
+      loadVendors();
+
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      setCreating(false);
+
+    }
+
   }
 
   useEffect(() => {
 
+    if (!tenantId) {
+      return;
+    }
+
     loadVendors();
 
-  }, []);
+  }, [tenantId]);
 
   return (
 
@@ -104,24 +206,22 @@ export default function VendorsPage() {
         </h1>
 
         <div className="text-zinc-500 mb-10">
-          Supplier & Procurement Intelligence
+          Enterprise Procurement Vendor Governance
         </div>
 
         <div className="border border-zinc-800 rounded-3xl p-8 mb-10">
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
             <input
-              placeholder="Vendor Name"
+              placeholder="Vendor Code"
               value={
-                form.vendor_name
+                form.vendor_code
               }
               onChange={(e) =>
                 setForm({
-
                   ...form,
-
-                  vendor_name:
+                  vendor_code:
                     e.target.value,
                 })
               }
@@ -129,16 +229,44 @@ export default function VendorsPage() {
             />
 
             <input
-              placeholder="Contact"
+              placeholder="Legal Name"
               value={
-                form.contact_name
+                form.legal_name
               }
               onChange={(e) =>
                 setForm({
-
                   ...form,
+                  legal_name:
+                    e.target.value,
+                })
+              }
+              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+            />
 
-                  contact_name:
+            <input
+              placeholder="Display Name"
+              value={
+                form.display_name
+              }
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  display_name:
+                    e.target.value,
+                })
+              }
+              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
+            />
+
+            <input
+              placeholder="Tax ID"
+              value={
+                form.tax_id
+              }
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  tax_id:
                     e.target.value,
                 })
               }
@@ -152,9 +280,7 @@ export default function VendorsPage() {
               }
               onChange={(e) =>
                 setForm({
-
                   ...form,
-
                   phone:
                     e.target.value,
                 })
@@ -169,9 +295,7 @@ export default function VendorsPage() {
               }
               onChange={(e) =>
                 setForm({
-
                   ...form,
-
                   email:
                     e.target.value,
                 })
@@ -179,20 +303,65 @@ export default function VendorsPage() {
               className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
             />
 
-            <button
-              onClick={
-                createVendor
-              }
-              className="bg-white text-black rounded-2xl font-bold"
-            >
-              CREATE
-            </button>
-
           </div>
+
+          <textarea
+            placeholder="Address"
+            value={
+              form.address
+            }
+            onChange={(e) =>
+              setForm({
+                ...form,
+                address:
+                  e.target.value,
+              })
+            }
+            className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 w-full mt-4"
+          />
+
+          <textarea
+            placeholder="Payment Terms / Notes"
+            value={
+              form.payment_terms
+            }
+            onChange={(e) =>
+              setForm({
+                ...form,
+                payment_terms:
+                  e.target.value,
+              })
+            }
+            className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 w-full mt-4"
+          />
+
+          <button
+            onClick={
+              createVendor
+            }
+            disabled={
+              creating
+            }
+            className="bg-white text-black rounded-2xl font-bold px-8 py-4 mt-6"
+          >
+            {
+              creating
+                ? "CREATING..."
+                : "CREATE VENDOR"
+            }
+          </button>
 
         </div>
 
         <div className="space-y-4">
+
+          {loading && (
+
+            <div className="text-zinc-500">
+              Loading vendors...
+            </div>
+
+          )}
 
           {vendors.map(
             (
@@ -210,13 +379,19 @@ export default function VendorsPage() {
 
                     <div className="text-2xl font-bold">
                       {
-                        vendor.vendor_name
+                        vendor.display_name
                       }
                     </div>
 
                     <div className="text-zinc-500 mt-2">
                       {
-                        vendor.contact_name
+                        vendor.legal_name
+                      }
+                    </div>
+
+                    <div className="text-zinc-600 mt-2 text-sm">
+                      {
+                        vendor.vendor_code
                       }
                     </div>
 
@@ -236,6 +411,12 @@ export default function VendorsPage() {
                       }
                     </div>
 
+                    <div className="text-zinc-600 mt-2 text-sm">
+                      {
+                        vendor.tax_id
+                      }
+                    </div>
+
                   </div>
 
                 </div>
@@ -249,5 +430,7 @@ export default function VendorsPage() {
       </div>
 
     </div>
+
   );
+
 }

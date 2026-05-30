@@ -1,0 +1,200 @@
+import { NextResponse }
+from "next/server";
+
+import { supabaseAdmin }
+from "@/lib/shared/supabase/admin";
+
+const tenantId =
+  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+
+export async function POST(request) {
+
+  try {
+
+    const body =
+      await request.json();
+
+    const {
+
+      name,
+      start_date,
+      end_date,
+
+    } = body;
+
+    if (
+
+      !name ||
+      !start_date ||
+      !end_date
+
+    ) {
+
+      return NextResponse.json({
+
+        success: false,
+
+        error:
+          "Missing required fields",
+
+      }, {
+
+        status: 400,
+
+      });
+
+    }
+
+    // -----------------------------------
+    // CHECK OVERLAP
+    // -----------------------------------
+
+    const {
+      data: existing,
+    } = await supabaseAdmin
+
+      .from("accounting_periods")
+
+      .select("*")
+
+      .eq(
+        "tenant_id",
+        tenantId
+      )
+
+      .or(
+
+        `and(start_date.lte.${end_date},end_date.gte.${start_date})`
+
+      );
+
+    if (
+      existing &&
+      existing.length > 0
+    ) {
+
+      return NextResponse.json({
+
+        success: false,
+
+        error:
+          "Period overlap detected",
+
+      }, {
+
+        status: 400,
+
+      });
+
+    }
+
+    // -----------------------------------
+    // CREATE PERIOD
+    // -----------------------------------
+
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
+
+      .from("accounting_periods")
+
+      .insert([{
+
+        tenant_id:
+          tenantId,
+
+        name,
+
+        start_date,
+
+        end_date,
+
+        status:
+          "open",
+
+        created_by:
+          "system",
+
+      }])
+
+      .select()
+
+      .single();
+
+    if (error) {
+
+      return NextResponse.json({
+
+        success: false,
+
+        error:
+          error.message,
+
+      }, {
+
+        status: 500,
+
+      });
+
+    }
+
+    // -----------------------------------
+    // AUDIT LOG
+    // -----------------------------------
+
+    await supabaseAdmin
+
+      .from("audit_logs")
+
+      .insert([{
+
+        tenant_id:
+          tenantId,
+
+        action:
+          "ACCOUNTING_PERIOD_CREATED",
+
+        entity_type:
+          "accounting_period",
+
+        entity_id:
+          data.id,
+
+        metadata: {
+
+          name,
+          start_date,
+          end_date,
+
+        },
+
+      }]);
+
+    return NextResponse.json({
+
+      success: true,
+
+      period:
+        data,
+
+    });
+
+  } catch (error) {
+
+    return NextResponse.json({
+
+      success: false,
+
+      error:
+        error.message,
+
+    }, {
+
+      status: 500,
+
+    });
+
+  }
+
+}

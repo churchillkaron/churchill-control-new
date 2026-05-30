@@ -1,0 +1,3 @@
+app/api/invoices/ocr/route.js:        await supabase.from("inventory").insert([
+app/api/invoices/ocr/route.js:      await supabase.from("inventory_transactions").insert([
+app/api/staff/route.js:    const { error } = await supabase.from("staff_shifts").insert({

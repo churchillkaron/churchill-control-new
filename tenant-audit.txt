@@ -1,0 +1,1033 @@
+"use client";
+
+import {
+  createContext,
+  useContext,
+} from "react";
+
+import {
+  useActiveOrganization,
+} from "@/lib/hooks/useActiveOrganization";
+
+const TenantContext =
+  createContext(null);
+
+export function TenantProvider({
+  children,
+}) {
+
+  const {
+    tenantId,
+    activeOrganization,
+  } = useActiveOrganization();
+
+  const tenant =
+    tenantId
+      ? {
+          id: tenantId,
+
+          name:
+            activeOrganization?.name ||
+            "Active Tenant",
+        }
+      : null;
+
+  return (
+
+    <TenantContext.Provider
+      value={tenant}
+    >
+      {children}
+    </TenantContext.Provider>
+
+  );
+
+}
+
+export function useTenant() {
+
+  return useContext(
+    TenantContext
+  );
+
+}
+
+========================================
+"use client";
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+const OrganizationContext =
+  createContext(null);
+
+export function OrganizationProvider({
+  children,
+}) {
+
+  const [
+    organization,
+    setOrganizationState,
+  ] = useState(null);
+
+  // =====================================
+  // INITIAL LOAD
+  // =====================================
+
+  useEffect(() => {
+
+    try {
+
+      const stored =
+        localStorage.getItem(
+          "activeOrganization"
+        );
+
+      if (stored) {
+
+        setOrganizationState(
+          JSON.parse(stored)
+        );
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "organization restore error",
+        error
+      );
+
+    }
+
+  }, []);
+
+  // =====================================
+  // STABLE UPDATE
+  // =====================================
+
+  function setOrganization(
+    organizationData
+  ) {
+
+    if (!organizationData) {
+      return;
+    }
+
+    // PREVENT LOOPS
+
+    if (
+      organization?.activeOrganization?.id ===
+      organizationData?.activeOrganization?.id
+    ) {
+
+      return;
+
+    }
+
+    try {
+
+      localStorage.setItem(
+        "activeOrganization",
+        JSON.stringify(
+          organizationData
+        )
+      );
+
+    } catch (error) {
+
+      console.error(
+        "organization storage error",
+        error
+      );
+
+    }
+
+    setOrganizationState(
+      organizationData
+    );
+
+  }
+
+  const value =
+    useMemo(
+      () => ({
+
+        organization,
+
+        setOrganization,
+
+      }),
+      [organization]
+    );
+
+  return (
+
+    <OrganizationContext.Provider
+      value={value}
+    >
+
+      {children}
+
+    </OrganizationContext.Provider>
+
+  );
+
+}
+
+export function useOrganization() {
+
+  return useContext(
+    OrganizationContext
+  );
+
+}
+
+========================================
+"use client";
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+const WorkspaceRuntimeContext =
+  createContext(null);
+
+export function WorkspaceRuntimeProvider({
+  children,
+}) {
+
+  const [
+    runtime,
+    setRuntime,
+  ] = useState(null);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  async function loadWorkspaceRuntime() {
+
+    try {
+
+      setLoading(true);
+
+      const response =
+        await fetch(
+          `/api/workspace`
+        );
+
+      if (!response.ok) {
+
+        throw new Error(
+          `Workspace runtime failed: ${response.status}`
+        );
+
+      }
+
+      const data =
+        await response.json();
+
+      console.log(
+        "WORKSPACE RUNTIME:",
+        data?.activeOrganization?.name,
+        data?.activeOrganization?.tenant_id
+      );
+
+      setRuntime(data);
+
+    } catch (error) {
+
+      console.error(
+        "workspace runtime error",
+        error
+      );
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  }
+
+  useEffect(() => {
+
+    loadWorkspaceRuntime();
+
+  }, []);
+
+  const value =
+    useMemo(
+      () => ({
+
+        runtime,
+
+        loading,
+
+        reloadRuntime:
+          loadWorkspaceRuntime,
+
+      }),
+      [runtime, loading]
+    );
+
+  return (
+
+    <WorkspaceRuntimeContext.Provider
+      value={value}
+    >
+
+      {children}
+
+    </WorkspaceRuntimeContext.Provider>
+
+  );
+
+}
+
+export function useWorkspaceRuntime() {
+
+  return useContext(
+    WorkspaceRuntimeContext
+  );
+
+}
+
+========================================
+import {
+  cookies,
+} from "next/headers";
+
+export async function getTenantId() {
+
+  try {
+
+    const cookieStore =
+      cookies();
+
+    const tenantId =
+      cookieStore
+        .get("tenant_id")
+        ?.value;
+
+    if (!tenantId) {
+
+      return null;
+
+    }
+
+    return tenantId;
+
+  } catch (error) {
+
+    console.error(error);
+
+    return null;
+
+  }
+
+}
+
+========================================
+import {
+  supabase,
+} from "@/lib/shared/supabase/client";
+
+export async function loadTenantRuntime(
+  tenantId
+) {
+
+  if (!tenantId) {
+
+    return null;
+
+  }
+
+  // TENANT
+
+  const {
+    data: tenant,
+  } = await supabase
+
+    .from("tenants")
+
+    .select("*")
+
+    .eq(
+      "id",
+      tenantId
+    )
+
+    .single();
+
+  // MODULES
+
+  const {
+    data: modules,
+  } = await supabase
+
+    .from("tenant_modules")
+
+    .select("*")
+
+    .eq(
+      "tenant_id",
+      tenantId
+    )
+
+    .eq(
+      "enabled",
+      true
+    );
+
+  return {
+
+    tenant,
+
+    modules:
+      modules || [],
+
+  };
+
+}
+
+========================================
+import {
+  resolveOrganizationAccess,
+} from "@/lib/platform/governance/resolveOrganizationAccess";
+
+import {
+  getOrganizationIndustries,
+} from "@/lib/platform/industries/getOrganizationIndustries";
+
+export async function buildOrganizationRuntime({
+
+  organization,
+
+  access,
+
+  organizationTree,
+
+  modules,
+
+}) {
+
+  if (!organization) {
+
+    return {
+      success: false,
+      error: "Missing organization",
+    };
+
+  }
+
+  // =====================================
+  // ORGANIZATION ACCESS
+  // =====================================
+
+  const resolved =
+    await resolveOrganizationAccess({
+
+      memberships:
+        access.memberships,
+
+      isSuperAdmin:
+        access.isSuperAdmin,
+
+      tenantId:
+        access.tenantId,
+
+    });
+
+  if (!resolved.success) {
+    return resolved;
+  }
+
+  // =====================================
+  // INDUSTRY GOVERNANCE
+  // =====================================
+
+  const industryRuntime =
+    await getOrganizationIndustries({
+
+      organizationId:
+        organization.id,
+
+    });
+
+  if (!industryRuntime.success) {
+    return industryRuntime;
+  }
+
+  // =====================================
+  // VISIBLE ORGANIZATIONS
+  // =====================================
+
+  const visibleOrganizations =
+
+    resolved.organizations.filter(
+      item => {
+
+        // SELF
+
+        if (
+          item.id ===
+          organization.id
+        ) {
+          return true;
+        }
+
+        // CHILDREN
+
+        if (
+          item.parent_organization_id ===
+          organization.id
+        ) {
+          return true;
+        }
+
+        // ACCOUNTING SCOPE
+
+        if (
+          organization.organization_type ===
+          "accounting_firm"
+        ) {
+
+          return (
+            item.parent_organization_id ===
+            organization.parent_organization_id
+          );
+
+        }
+
+        return false;
+
+      }
+    );
+
+  // =====================================
+  // INDUSTRY DASHBOARDS
+  // =====================================
+
+  const dashboards =
+
+    industryRuntime.runtimes.flatMap(
+      runtime =>
+        runtime.dashboards || []
+    );
+
+  // =====================================
+  // INDUSTRY MODULES
+  // =====================================
+
+  const industryModules =
+
+    industryRuntime.runtimes.flatMap(
+      runtime =>
+        runtime.modules || []
+    );
+
+  return {
+
+    success: true,
+
+    activeOrganization:
+      organization,
+
+    visibleOrganizations,
+
+    organizationTree,
+
+    modules,
+
+    dashboards,
+
+    industries:
+      industryRuntime.industries,
+
+    industryRuntimes:
+      industryRuntime.runtimes,
+
+    industryModules,
+
+    organizationType:
+      organization.organization_type,
+
+    tenantId:
+      organization.tenant_id,
+
+  };
+
+}
+
+========================================
+import {
+  buildAccessRuntime,
+} from "./buildAccessRuntime";
+
+import {
+  buildOrganizationTree,
+} from "./buildOrganizationTree";
+
+import {
+  buildModuleRuntime,
+} from "./buildModuleRuntime";
+
+import {
+  buildNavigationRuntime,
+} from "./buildNavigationRuntime";
+
+import {
+  resolveOrganizationAccess,
+} from "@/lib/platform/governance/resolveOrganizationAccess";
+
+import {
+  buildOrganizationRuntime,
+} from "@/lib/platform/runtime/buildOrganizationRuntime";
+
+export async function buildWorkspaceRuntime({
+  userEmail,
+  organizationId,
+}) {
+
+  const access =
+    await buildAccessRuntime({
+      userEmail,
+    });
+
+  if (!access.success) {
+    return access;
+  }
+
+  const resolvedOrganizations =
+    await resolveOrganizationAccess({
+
+      memberships:
+        access.memberships,
+
+      isSuperAdmin:
+        access.isSuperAdmin,
+
+      tenantId:
+        access.tenantId,
+
+    });
+
+  if (!resolvedOrganizations.success) {
+    return resolvedOrganizations;
+  }
+
+  const organizationIds =
+
+    resolvedOrganizations
+      .organizations
+      .map(
+        item => item.id
+      );
+
+  const organizationTree =
+    await buildOrganizationTree({
+
+      organizationIds,
+
+    });
+
+  const preferredOrganizationId =
+    organizationId ||
+    access.activeOrganizationId;
+
+  const activeOrganization =
+
+    preferredOrganizationId
+
+      ? (
+          organizationTree.organizations.find(
+            item =>
+              item.id ===
+              preferredOrganizationId
+          ) ||
+
+          resolvedOrganizations.organizations.find(
+            item =>
+              item.id ===
+              preferredOrganizationId
+          ) ||
+
+          null
+        )
+
+      : (
+          organizationTree.organizations[0] ||
+          resolvedOrganizations.organizations[0] ||
+          null
+        );
+
+  const navigation =
+    await buildNavigationRuntime({
+
+      organization:
+        activeOrganization,
+
+      activeTenantId:
+        access.tenantId,
+
+      role:
+        access.role,
+
+    });
+
+  const organizationRuntimes =
+    await Promise.all(
+
+      organizationTree.organizations.map(
+        async organization => {
+
+          return await buildOrganizationRuntime({
+
+            organization,
+
+            access,
+
+            organizationTree:
+              organizationTree.tree,
+
+            modules:
+              (
+                await buildModuleRuntime({
+
+                  tenantId:
+                    organization.tenant_id,
+
+                  organizationId:
+                    organization.id,
+
+                })
+              ).modules,
+
+          });
+
+        }
+      )
+
+    );
+
+  return {
+
+    success: true,
+
+    access,
+
+    organizations:
+      organizationTree.organizations,
+
+    organizationTree:
+      organizationTree.tree,
+
+    activeOrganization,
+
+    modules:
+      activeOrganization
+        ? (
+            await buildModuleRuntime({
+
+              tenantId:
+                activeOrganization.tenant_id,
+
+              organizationId:
+                activeOrganization.id,
+
+            })
+          ).modules
+        : [],
+
+    navigation:
+      navigation.navigation,
+
+    organizationRuntimes,
+
+  };
+
+}
+
+========================================
+
+========================================
+import {
+  createServerSupabase,
+} from "@/lib/shared/supabase/server";
+
+export async function getActiveOrganization(
+  organizationId
+) {
+
+  const supabase =
+    createServerSupabase();
+
+  const {
+    data,
+    error,
+  } = await supabase
+
+    .from(
+      "organizations"
+    )
+
+    .select("*")
+
+    .eq(
+      "id",
+      organizationId
+    )
+
+    .single();
+
+  if (error) {
+
+    console.error(
+      "getActiveOrganization:",
+      error
+    );
+
+    return null;
+
+  }
+
+  return data;
+
+}
+
+========================================
+import { NextResponse } from "next/server";
+
+import {
+  createAccountingClient,
+} from "@/lib/accounting/createAccountingClient";
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+
+    const result =
+      await createAccountingClient({
+        ...body,
+      });
+
+    return NextResponse.json({
+      success: true,
+      organization: result.organization,
+      relationship: result.relationship,
+      profile: result.profile,
+      engagement: result.engagement,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+========================================
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+import {
+  createOrganization,
+} from "@/lib/organizations/createOrganization";
+
+export async function createAccountingClient({
+  accountingFirmId,
+  clientName,
+  tenantId,
+  templateId,
+
+  legalName = null,
+  industry = null,
+  address = null,
+  country = "Thailand",
+
+  contactName = null,
+  contactEmail = null,
+  contactPhone = null,
+  position = null,
+  whatsapp = null,
+
+  taxId = null,
+  vatNumber = null,
+
+  assignedAccountantId = null,
+  assignedAccountantName = null,
+  assignedReviewerId = null,
+  assignedReviewerName = null,
+
+  monthlyFee = 0,
+  billingDay = 1,
+  servicePackage = "Standard",
+
+  bookkeepingEnabled = true,
+  vatEnabled = true,
+  payrollEnabled = false,
+  taxEnabled = true,
+  reportingEnabled = true,
+  auditEnabled = false,
+
+  vatFrequency = "MONTHLY",
+  payrollFrequency = "MONTHLY",
+  accountingStandard = "TFRS",
+  yearEndDate = null,
+
+  contractStartDate = null,
+  renewalDate = null,
+}) {
+
+  const organization =
+    await createOrganization({
+      name: clientName,
+      organizationType: "client_company",
+      tenantId,
+      templateId,
+    });
+
+  await supabaseAdmin
+    .from("organizations")
+    .update({
+      legal_name: legalName,
+      industry,
+      address,
+      country,
+      organization_status: "ACTIVE",
+    })
+    .eq("id", organization.id);
+
+  const relationship =
+    await supabaseAdmin
+      .from("organization_relationships")
+      .insert({
+        source_organization_id: accountingFirmId,
+        target_organization_id: organization.id,
+        relationship_type: "accounting_provider",
+        status: "ACTIVE",
+      })
+      .select()
+      .single();
+
+  if (relationship.error) {
+    throw relationship.error;
+  }
+
+  const profile =
+    await supabaseAdmin
+      .from("accounting_client_profiles")
+      .insert({
+        organization_id: organization.id,
+        accounting_firm_id: accountingFirmId,
+        assigned_accountant_id: assignedAccountantId,
+        assigned_accountant_name: assignedAccountantName,
+        assigned_reviewer_id: assignedReviewerId,
+        assigned_reviewer_name: assignedReviewerName,
+        contact_name: contactName,
+        contact_email: contactEmail,
+        contact_phone: contactPhone,
+        position,
+        whatsapp,
+        tax_id: taxId,
+        vat_number: vatNumber,
+        status: "ACTIVE",
+      })
+      .select()
+      .single();
+
+  if (profile.error) {
+    throw profile.error;
+  }
+
+  const engagement =
+    await supabaseAdmin
+      .from("accounting_engagements")
+      .insert({
+        organization_id: organization.id,
+        accounting_firm_id: accountingFirmId,
+        monthly_fee: monthlyFee,
+        billing_day: billingDay,
+        service_package: servicePackage,
+        bookkeeping_enabled: bookkeepingEnabled,
+        vat_enabled: vatEnabled,
+        payroll_enabled: payrollEnabled,
+        tax_enabled: taxEnabled,
+        reporting_enabled: reportingEnabled,
+        audit_enabled: auditEnabled,
+        vat_frequency: vatFrequency,
+        payroll_frequency: payrollFrequency,
+        accounting_standard: accountingStandard,
+        year_end_date: yearEndDate || null,
+        contract_start_date: contractStartDate || null,
+        renewal_date: renewalDate || null,
+        status: "ACTIVE",
+      })
+      .select()
+      .single();
+
+  if (engagement.error) {
+    throw engagement.error;
+  }
+
+  return {
+    organization,
+    relationship: relationship.data,
+    profile: profile.data,
+    engagement: engagement.data,
+  };
+}
+
+========================================
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export default async function createTenant({
+  name,
+  slug,
+}) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("tenants")
+      .insert([
+        {
+          name,
+          slug,
+          created_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      success: true,
+      tenant: data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}

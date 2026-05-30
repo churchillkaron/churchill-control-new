@@ -1,3 +1,7 @@
+import {
+  requireAuth,
+} from "@/lib/shared/auth";
+
 import { NextResponse }
 from "next/server";
 
@@ -9,6 +13,8 @@ export async function POST(
 ) {
 
   try {
+
+    await requireAuth();
 
     const body =
       await req.json();

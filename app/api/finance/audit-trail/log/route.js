@@ -1,33 +1,46 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
 
-import { createFinanceAuditLog } from '@/lib/finance/audit/createFinanceAuditLog'
+import { createAuditLog } from "@/lib/finance/core/createAuditLog";
 
-export async function POST(req) {
-
+export async function POST(request) {
   try {
-
     const body =
-      await req.json()
+      await request.json();
 
-    const result =
-      await createFinanceAuditLog(body)
+    const log =
+      await createAuditLog({
+        tenantId:
+          body.tenantId,
+        moduleName:
+          body.moduleName,
+        entityType:
+          body.entityType,
+        entityId:
+          body.entityId,
+        actionType:
+          body.actionType,
+        previousData:
+          body.previousData,
+        newData:
+          body.newData,
+        changedBy:
+          body.changedBy,
+      });
 
     return NextResponse.json({
       success: true,
-      result,
-    })
-
+      log,
+    });
   } catch (error) {
-
     return NextResponse.json(
       {
         success: false,
-        error:
+        message:
           error.message,
       },
       {
-        status: 500,
+        status: 400,
       }
-    )
+    );
   }
 }

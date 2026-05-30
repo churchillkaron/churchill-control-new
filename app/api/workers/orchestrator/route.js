@@ -1,29 +1,14 @@
 import { NextResponse } from "next/server";
 
-import runWorkerCycle from "@/lib/workers/orchestrator/runWorkerCycle";
-
 export async function POST() {
 
-  try {
+  return NextResponse.json({
 
-    const result =
-      await runWorkerCycle();
+    success: true,
 
-    return NextResponse.json(
-      result
-    );
+    status:
+      "orchestrator_disabled",
 
-  } catch (error) {
+  });
 
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-      },
-      {
-        status: 500,
-      }
-    );
-  }
 }

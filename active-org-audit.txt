@@ -1,0 +1,42 @@
+lib/platform/loadPlatformCommandCenter.js:    activeOrganizations:
+lib/platform/runtime/buildAccessRuntime.js:    activeOrganizationId:
+lib/platform/runtime/loadPlatformRuntime.js:  const activeOrganizations =
+lib/platform/runtime/loadPlatformRuntime.js:  const inactiveOrganizations =
+lib/platform/runtime/loadPlatformRuntime.js:        activeOrganizations.length,
+lib/platform/runtime/loadPlatformRuntime.js:        inactiveOrganizations.length,
+lib/platform/runtime/loadPlatformRuntime.js:      activeOrganizations:
+lib/platform/runtime/loadPlatformRuntime.js:        activeOrganizations.length,
+lib/platform/runtime/loadPlatformRuntime.js:      inactiveOrganizations:
+lib/platform/runtime/loadPlatformRuntime.js:        inactiveOrganizations.length,
+lib/platform/runtime/buildWorkspaceRuntime.js:    access.activeOrganizationId;
+lib/platform/runtime/buildWorkspaceRuntime.js:  const activeOrganization =
+lib/platform/runtime/buildWorkspaceRuntime.js:        activeOrganization,
+lib/platform/runtime/buildWorkspaceRuntime.js:    activeOrganization,
+lib/platform/runtime/buildWorkspaceRuntime.js:      activeOrganization
+lib/platform/runtime/buildWorkspaceRuntime.js:                activeOrganization.tenant_id,
+lib/platform/runtime/buildWorkspaceRuntime.js:                activeOrganization.id,
+lib/platform/runtime/buildOrganizationRuntime.js:    activeOrganization:
+lib/hooks/useOrganizationRuntime.js:          item?.activeOrganization?.id ===
+lib/hooks/useOrganizationRuntime.js:        id: x?.activeOrganization?.id,
+lib/hooks/useOrganizationRuntime.js:        name: x?.activeOrganization?.name,
+lib/hooks/useOrganizationRuntime.js:    organizationRuntime?.activeOrganization?.name
+lib/hooks/useOrganizationRuntime.js:      organizationRuntime?.activeOrganization || null,
+lib/hooks/useActiveOrganization.js:          activeOrganization:
+lib/hooks/useActiveOrganization.js:        activeOrganization:
+lib/hooks/useActiveOrganization.js:          organization.activeOrganization ||
+lib/hooks/useActiveOrganization.js:          organization.activeOrganization?.id ||
+lib/hooks/useActiveOrganization.js:          organization.activeOrganization?.tenant_id ||
+app/(system)/platform/page.jsx:                  <span>{runtime.portfolio.activeOrganizations}</span>
+app/(system)/platform/page.jsx:                  <span>{runtime.portfolio.inactiveOrganizations}</span>
+app/providers/OrganizationProvider.jsx:          "activeOrganization"
+app/providers/OrganizationProvider.jsx:      organization?.activeOrganization?.id ===
+app/providers/OrganizationProvider.jsx:      organizationData?.activeOrganization?.id
+app/providers/OrganizationProvider.jsx:        "activeOrganization",
+app/providers/WorkspaceRuntimeProvider.jsx:        data?.activeOrganization?.name,
+app/providers/WorkspaceRuntimeProvider.jsx:        data?.activeOrganization?.tenant_id
+app/providers/TenantProvider.js:    activeOrganization,
+app/providers/TenantProvider.js:            activeOrganization?.name ||
+app/login/callback/page.js:        const activeOrganizationId =
+app/login/callback/page.js:          activeOrganizationId ===
+app/login/callback/page.js:          activeOrganizationId
+app/login/callback/page.js:            `/workspace/${activeOrganizationId}`

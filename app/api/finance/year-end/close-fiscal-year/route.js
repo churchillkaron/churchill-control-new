@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { closeFiscalYear } from '@/lib/finance/yearEnd/closeFiscalYear'
+import runYearEndClose from '@/lib/finance/year-end/runYearEndClose'
 
 export async function POST(req) {
 
@@ -10,7 +10,7 @@ export async function POST(req) {
       await req.json()
 
     const result =
-      await closeFiscalYear({
+      await runYearEndClose({
         tenant_id:
           body.tenant_id,
 

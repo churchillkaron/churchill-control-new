@@ -4,7 +4,6 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 
-import { supabase } from "@/lib/shared/supabase/client";
 
 export default function FinancePaymentsPage() {
 
@@ -15,29 +14,19 @@ export default function FinancePaymentsPage() {
 
   async function loadPayables() {
 
-    const {
-      data,
-    } = await supabase
-      .from("accounts_payable")
-      .select(`
-        *,
-        vendors (
-          vendor_name
-        )
-      `)
-      .eq(
-        "status",
-        "PENDING_PAYMENT"
-      )
-      .order(
-        "created_at",
+    const response =
+      await fetch(
+        "/api/finance/payments/list",
         {
-          ascending: false,
+          method: "POST",
         }
       );
 
+    const result =
+      await response.json();
+
     setPayables(
-      data || []
+      result.payables || []
     );
   }
 
@@ -109,7 +98,7 @@ export default function FinancePaymentsPage() {
                     <div className="text-2xl font-bold">
                       {
                         payable.vendors
-                          ?.vendor_name
+                          ?.display_name
                       }
                     </div>
 

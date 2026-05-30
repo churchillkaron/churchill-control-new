@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import createDeploymentApproval from "@/lib/governance/createDeploymentApproval";
+import createApprovalRequest
+from "@/lib/approvals/workflows/createApprovalRequest";
 
 export async function POST(req) {
 
@@ -10,9 +11,24 @@ export async function POST(req) {
       await req.json();
 
     const result =
-      await createDeploymentApproval(
-        body
-      );
+      await createApprovalRequest({
+
+        tenant_id:
+          body.tenant_id,
+
+        type:
+          "deployment",
+
+        entity_id:
+          body.entity_id || null,
+
+        requested_by:
+          body.requested_by || "SYSTEM",
+
+        metadata:
+          body,
+
+      });
 
     return NextResponse.json(
       result
@@ -30,5 +46,7 @@ export async function POST(req) {
         status: 500,
       }
     );
+
   }
+
 }

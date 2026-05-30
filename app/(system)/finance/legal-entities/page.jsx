@@ -3,7 +3,6 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/shared/supabase/client";
 
 export default function LegalEntitiesPage() {
 
@@ -32,24 +31,40 @@ export default function LegalEntitiesPage() {
 
     setLoading(true);
 
-    const { data, error } =
-      await supabase
-        .from("legal_entities")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+    try {
 
-    if (error) {
+      const response =
+        await fetch(
+          "/api/finance/legal-entities/list",
+          {
+            method: "POST",
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!result.success) {
+
+        alert(result.error);
+
+        return;
+
+      }
+
+      setEntities(
+        result.entities || []
+      );
+
+    } catch (error) {
 
       console.error(error);
-      alert(error.message);
+
+    } finally {
+
+      setLoading(false);
 
     }
-
-    setEntities(data || []);
-
-    setLoading(false);
 
   }
 
@@ -68,53 +83,31 @@ export default function LegalEntitiesPage() {
 
     }
 
-    const { error } =
-      await supabase
-        .from("legal_entities")
-        .insert([{
+    const response =
+      await fetch(
+        "/api/finance/legal-entities/create",
+        {
 
-          code:
-            form.code,
+          method: "POST",
 
-          legal_name:
-            form.legal_name,
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
 
-          display_name:
-            form.display_name,
+          body: JSON.stringify(form),
 
-          tax_id:
-            form.tax_id,
+        }
+      );
 
-          registration_number:
-            form.registration_number,
+    const result =
+      await response.json();
 
-          country:
-            form.country,
+    if (!result.success) {
 
-          currency:
-            form.currency,
+      console.error(result.error);
 
-          address:
-            form.address,
-
-          phone:
-            form.phone,
-
-          email:
-            form.email,
-
-          is_holding_company:
-            form.is_holding_company,
-
-          is_active:
-            true,
-
-        }]);
-
-    if (error) {
-
-      console.error(error);
-      alert(error.message);
+      alert(result.error);
 
       return;
 
@@ -140,21 +133,36 @@ export default function LegalEntitiesPage() {
 
   async function toggleEntity(entity) {
 
-    const { error } =
-      await supabase
-        .from("legal_entities")
-        .update({
-          is_active:
-            !entity.is_active,
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq("id", entity.id);
+    const response =
+      await fetch(
+        "/api/finance/legal-entities/toggle",
+        {
 
-    if (error) {
+          method: "POST",
 
-      console.error(error);
-      alert(error.message);
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+
+            entity_id:
+              entity.id,
+
+          }),
+
+        }
+      );
+
+    const result =
+      await response.json();
+
+    if (!result.success) {
+
+      console.error(result.error);
+
+      alert(result.error);
 
       return;
 

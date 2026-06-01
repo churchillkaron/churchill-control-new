@@ -219,6 +219,10 @@ export default function OrganizationWorkspacePage() {
         "construction"
     );
 
+  const workspaceDefinition =
+    runtime?.workspaceDefinitions?.[0] ||
+    null;
+
   console.log(
     "DASHBOARD WIDGETS",
     dashboardWidgets

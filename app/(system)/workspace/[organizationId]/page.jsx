@@ -393,6 +393,54 @@ export default function OrganizationWorkspacePage() {
 
             </>
 
+          ) : isHospitality ? (
+
+            <>
+
+              <MetricCard
+                label="Revenue"
+                value={money(metrics.revenue || 0)}
+                detail="Today's revenue"
+                icon={CircleDollarSign}
+              />
+
+              <MetricCard
+                label="Service Charge"
+                value={money(metrics.serviceCharge || 0)}
+                detail="Current service charge"
+                icon={CircleDollarSign}
+              />
+
+              <MetricCard
+                label="Orders"
+                value={metrics.totalOrders || 0}
+                detail="Orders processed"
+                icon={ClipboardList}
+              />
+
+              <MetricCard
+                label="Average Order"
+                value={money(metrics.avgOrderValue || 0)}
+                detail="Average ticket size"
+                icon={CircleDollarSign}
+              />
+
+              <MetricCard
+                label="Staff"
+                value={metrics.staffCount || 0}
+                detail="Active staff"
+                icon={Users}
+              />
+
+              <MetricCard
+                label="Inventory"
+                value={metrics.lowStockItems || 0}
+                detail="Low stock alerts"
+                icon={Package}
+              />
+
+            </>
+
           ) : (
 
             dashboardWidgets.map(widget => (

@@ -466,11 +466,11 @@ export default function OrganizationWorkspacePage() {
 
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-violet-300">
-                  Accounting AI
+                  {isAccounting ? "Accounting AI" : isHospitality ? "Hospitality AI" : "Industry AI"}
                 </p>
 
                 <h2 className="text-2xl font-light">
-                  Firm Operations Overview
+                  {isAccounting ? "Firm Operations Overview" : isHospitality ? "Operations Overview" : "Industry Overview"}
                 </h2>
               </div>
             </div>
@@ -525,11 +525,11 @@ export default function OrganizationWorkspacePage() {
 
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">
-                  Firm Alerts
+                  {isAccounting ? "Firm Alerts" : isHospitality ? "Operations Alerts" : "Runtime Alerts"}
                 </p>
 
                 <h2 className="text-2xl font-light">
-                  Accounting Operations
+                  {isAccounting ? "Accounting Operations" : isHospitality ? "Restaurant Operations" : "Industry Operations"}
                 </h2>
               </div>
             </div>
@@ -562,12 +562,12 @@ export default function OrganizationWorkspacePage() {
               <Building2 className="h-5 w-5 text-violet-300" />
 
               <h2 className="text-xl font-light">
-                Client Portfolio
+                {isAccounting ? "Client Portfolio" : isHospitality ? "Operational Overview" : "Portfolio"}
               </h2>
             </div>
 
             <p className="text-sm text-white/35">
-              Manage accounting clients
+              {isAccounting ? "Manage accounting clients" : isHospitality ? "Manage operations and performance" : "Manage portfolio"}
             </p>
           </div>
 

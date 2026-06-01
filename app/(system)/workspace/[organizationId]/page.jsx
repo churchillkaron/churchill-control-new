@@ -191,6 +191,34 @@ export default function OrganizationWorkspacePage() {
       )
     );
 
+  const isAccounting =
+    industries.some(
+      item =>
+        item?.industry_id ===
+        "accounting"
+    );
+
+  const isHospitality =
+    industries.some(
+      item =>
+        item?.industry_id ===
+        "hospitality"
+    );
+
+  const isEntertainment =
+    industries.some(
+      item =>
+        item?.industry_id ===
+        "entertainment"
+    );
+
+  const isConstruction =
+    industries.some(
+      item =>
+        item?.industry_id ===
+        "construction"
+    );
+
   console.log(
     "DASHBOARD WIDGETS",
     dashboardWidgets
@@ -263,7 +291,7 @@ export default function OrganizationWorkspacePage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-sm text-white/45">
-                {organization?.organization_type === "accounting_firm"
+                {isAccounting
                   ? "Manage clients, accounting fees, staff workload, tax deadlines, payroll, documents, approvals and AI accounting workflows."
                   : "Enterprise operating system connected to modules, finance, payroll, operations and owner intelligence."}
               </p>
@@ -281,19 +309,19 @@ export default function OrganizationWorkspacePage() {
 
             <div className="rounded-[32px] border border-white/10 bg-black/30 p-6">
               <p className="text-xs uppercase tracking-[0.25em] text-white/35">
-                {organization?.organization_type === "accounting_firm"
+                {isAccounting
                   ? "Outstanding Fees"
                   : "Service Charge"}
               </p>
 
               <div className="mt-3 text-4xl font-light text-violet-200">
-                {organization?.organization_type === "accounting_firm"
+                {isAccounting
                   ? money(metrics.outstandingFees || 0)
                   : money(metrics.serviceCharge)}
               </div>
 
               <p className="mt-2 text-sm text-white/35">
-                {organization?.organization_type === "accounting_firm"
+                {isAccounting
                   ? "Unpaid accounting fees from clients."
                   : "Calculated from live revenue at 5%."}
               </p>
@@ -303,8 +331,7 @@ export default function OrganizationWorkspacePage() {
 
         <section className="mb-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
 
-          {organization?.organization_type ===
-          "accounting_firm" ? (
+          {isAccounting ? (
 
             <>
 
@@ -401,7 +428,7 @@ export default function OrganizationWorkspacePage() {
             </div>
 
             <p className="text-xl font-light leading-relaxed text-white/75">
-              {organization?.organization_type === "accounting_firm"
+              {isAccounting
                 ? "8 active clients. No tax deadlines due. No payroll runs pending. No compliance risks detected."
                 : ownerInsight}
             </p>
@@ -409,7 +436,7 @@ export default function OrganizationWorkspacePage() {
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/30">
-                  {organization?.organization_type === "accounting_firm"
+                  {isAccounting
                   ? "Fees Collected"
                   : "Monthly Revenue"}
                 </p>
@@ -420,7 +447,7 @@ export default function OrganizationWorkspacePage() {
 
               <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/30">
-                  {organization?.organization_type === "accounting_firm"
+                  {isAccounting
                   ? "Firm Profit"
                   : "Monthly Profit"}
                 </p>
@@ -431,7 +458,7 @@ export default function OrganizationWorkspacePage() {
 
               <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/30">
-                  {organization?.organization_type === "accounting_firm"
+                  {isAccounting
                   ? "AI Cost"
                   : "AI Processing Cost"}
                 </p>

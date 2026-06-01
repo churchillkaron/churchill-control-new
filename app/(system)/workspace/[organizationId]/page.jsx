@@ -224,6 +224,11 @@ export default function OrganizationWorkspacePage() {
     null;
 
   console.log(
+    "WORKSPACE_DEFINITION",
+    workspaceDefinition
+  );
+
+  console.log(
     "DASHBOARD WIDGETS",
     dashboardWidgets
   );
@@ -470,11 +475,11 @@ export default function OrganizationWorkspacePage() {
 
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-violet-300">
-                  {isAccounting ? "Accounting AI" : isHospitality ? "Hospitality AI" : "Industry AI"}
+                  {workspaceDefinition?.ai?.title || "Industry AI"}
                 </p>
 
                 <h2 className="text-2xl font-light">
-                  {isAccounting ? "Firm Operations Overview" : isHospitality ? "Operations Overview" : "Industry Overview"}
+                  {workspaceDefinition?.ai?.overview || "Industry Overview"}
                 </h2>
               </div>
             </div>

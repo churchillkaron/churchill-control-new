@@ -10,7 +10,7 @@ import { calculateCampaignScore }
 from "@/lib/marketing/ai/scoring/calculateCampaignScore";
 
 import { updateBusinessAIProfile }
-from "@/lib/supabase/updateBusinessAIProfile";
+from "@/lib/marketing/repositories/updateBusinessAIProfile";
 
 import { updateEngineLearningMemory }
 from "@/lib/marketing/ai/learning/updateEngineLearningMemory";

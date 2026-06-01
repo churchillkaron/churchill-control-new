@@ -37,19 +37,19 @@ from "@/app/(system)/components/marketing/studio/PublishPanel";
 
 
 import { getQueuedCampaigns }
-from "@/lib/supabase/getQueuedCampaigns";
+from "@/lib/marketing/repositories/getQueuedCampaigns";
 
 import { getMetaAccounts }
-from "@/lib/supabase/getMetaAccounts";
+from "@/lib/marketing/repositories/getMetaAccounts";
 
 import { getGenerationJobs }
-from "@/lib/supabase/getGenerationJobs";
+from "@/lib/marketing/repositories/getGenerationJobs";
 
 import AssetLibraryPanel
 from "@/app/(system)/components/marketing/studio/AssetLibraryPanel";
 
 import { getMarketingAssets }
-from "@/lib/supabase/getMarketingAssets";
+from "@/lib/marketing/repositories/getMarketingAssets";
 
 import AssetUploadPanel
 from "@/app/(system)/components/marketing/studio/AssetUploadPanel";
@@ -58,7 +58,7 @@ import { getCampaignRecommendation }
 from "@/lib/marketing/ai/recommendations/getCampaignRecommendation";
 
 import { getBestPromptHistory }
-from "@/lib/supabase/getBestPromptHistory";
+from "@/lib/marketing/repositories/getBestPromptHistory";
 
 import { engineCapabilities }
 from "@/lib/marketing/ai/router/engineCapabilities";

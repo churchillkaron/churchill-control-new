@@ -9,10 +9,10 @@ import { supabase }
 from "@/lib/shared/supabase/client";
 
 import { queueCampaign }
-from "@/lib/supabase/queueCampaign";
+from "@/lib/marketing/repositories/queueCampaign";
 
 import { updateCampaignStatus }
-from "@/lib/supabase/updateCampaignStatus";
+from "@/lib/marketing/repositories/updateCampaignStatus";
 
 const PAGE_NAMES = {
 

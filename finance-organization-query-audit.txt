@@ -1,0 +1,2 @@
+lib/finance/services/getFinanceSummary.js:          "organization_id",
+lib/finance/services/getFinanceSummary.js:          "organization_id",

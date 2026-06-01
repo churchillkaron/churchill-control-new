@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 
+import {
+  requireAuth,
+} from "@/lib/shared/auth";
+
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
 import runInventoryMonitoring from "@/lib/inventory/monitoring/runInventoryMonitoring";
 
 export async function POST(req) {
@@ -9,13 +17,42 @@ export async function POST(req) {
     const body =
       await req.json();
 
+    await requireAuth();
 
-    if (!body.tenant_id) {
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
 
       return NextResponse.json(
         {
           success: false,
-          error: "Missing tenant_id",
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
+    const tenant_id =
+      access.tenantId;
+
+
+    if (!tenant_id) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing tenant context",
         },
         {
           status: 400,
@@ -28,7 +65,7 @@ export async function POST(req) {
       await runInventoryMonitoring({
 
         tenant_id:
-          body.tenant_id,
+          tenant_id,
       });
 
     return NextResponse.json(

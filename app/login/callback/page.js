@@ -52,37 +52,7 @@ export default function LoginCallback() {
         // 🔥 NORMALIZE ROLE (THIS FIXES YOUR ISSUE)
         const role = (staff.role || "staff").toLowerCase().trim();
 
-        // 3. TENANT
-        let tenant = null;
-
-        if (staff.tenant_id) {
-          const { data } = await supabase
-            .from("tenants")
-            .select("subscription_status, setup_step, setup_complete")
-            .eq("id", staff.tenant_id)
-            .maybeSingle();
-
-          tenant = data;
-        }
-
-        // STORE STATE
-        document.cookie = `role=${role}; path=/`;
-        document.cookie = `tenant_id=${staff.tenant_id}; path=/`;
-        document.cookie = `setup_complete=${tenant?.setup_complete ?? false}; path=/`;
-        document.cookie = `subscription=${tenant?.subscription_status ?? "inactive"}; path=/`;
-
-        // 4. SUBSCRIPTION
-        if (tenant && tenant.subscription_status !== "active") {
-          router.push("/subscribe");
-          return;
-        }
-
-        // 5. SETUP
-        if (tenant && !tenant.setup_complete) {
-          const step = tenant.setup_step || 1;
-          router.push(`/system-setup/step-${step}`);
-          return;
-        }
+        // ORGANIZATION ROUTING ONLY
 
         // 6. ORGANIZATION ROUTING
 

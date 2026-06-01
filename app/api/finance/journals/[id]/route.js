@@ -4,13 +4,51 @@ from "next/server";
 import { supabaseAdmin }
 from "@/lib/shared/supabase/admin";
 
-const tenantId =
-  "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
+const tenantId = null;
 
 export async function GET(
   request,
   { params }
 ) {
+
+  const {
+    searchParams,
+  } = new URL(
+    request.url
+  );
+
+  const access =
+    await requireOrganizationAccess({
+
+      organizationId:
+        searchParams.get(
+          "organizationId"
+        ),
+
+    });
+
+  if (!access.success) {
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          access.error,
+      },
+      {
+        status:
+          access.status,
+      }
+    );
+
+  }
+
+  const tenantId =
+    access.tenantId;
 
   try {
 

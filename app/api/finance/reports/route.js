@@ -6,6 +6,10 @@ import generateProfitLoss from "@/lib/finance/reports/generateProfitLoss";
 
 import generateBalanceSheet from "@/lib/finance/reports/generateBalanceSheet";
 
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
 export async function POST(req) {
 
   try {
@@ -14,22 +18,30 @@ export async function POST(req) {
       await req.json();
 
 
-    if (!body.tenant_id) {
+    const access =
+      await requireOrganizationAccess({
+        organizationId:
+          body.organizationId,
+      });
+
+    if (!access.success) {
 
       return NextResponse.json(
         {
           success: false,
-          error: "Missing tenant_id",
+          error:
+            access.error,
         },
         {
-          status: 400,
+          status:
+            access.status,
         }
       );
 
     }
 
     const tenant_id =
-      body.tenant_id;
+      access.tenantId;
 
     const [
       trialBalance,

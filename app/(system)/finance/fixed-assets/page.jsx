@@ -4,7 +4,15 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 export default function FixedAssetsPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
   const [assets, setAssets] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [legalEntities, setLegalEntities] = useState([]);
@@ -46,6 +54,17 @@ export default function FixedAssetsPage() {
           "/api/finance/fixed-assets/list",
           {
             method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              organizationId:
+                organization?.id,
+            }),
+
           }
         ),
 
@@ -53,6 +72,17 @@ export default function FixedAssetsPage() {
           "/api/finance/vendors/list",
           {
             method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              organizationId:
+                organization?.id,
+            }),
+
           }
         ),
 
@@ -60,6 +90,17 @@ export default function FixedAssetsPage() {
           "/api/finance/legal-entities/list",
           {
             method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              organizationId:
+                organization?.id,
+            }),
+
           }
         ),
 
@@ -136,6 +177,9 @@ export default function FixedAssetsPage() {
           },
 
           body: JSON.stringify({
+
+            organizationId:
+              organization?.id,
 
             ...form,
 

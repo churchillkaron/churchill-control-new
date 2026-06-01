@@ -9,7 +9,16 @@ import {
   runtimeTheme as theme,
 } from "@/lib/design/runtimeTheme";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 export default function JournalExplorerPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
+
 
   const [journals, setJournals] =
     useState([]);
@@ -32,7 +41,7 @@ export default function JournalExplorerPage() {
 
       const res =
         await fetch(
-          "/api/finance/journals"
+          `/api/finance/journals?organizationId=${organization?.id}`
         );
 
       const json =
@@ -61,7 +70,7 @@ export default function JournalExplorerPage() {
       const res =
         await fetch(
 
-          `/api/finance/journal?id=${id}`
+          `/api/finance/journal?id=${id}&organizationId=${organization?.id}`
 
         );
 

@@ -4,10 +4,46 @@ from "next/server";
 import { supabaseAdmin }
 from "@/lib/shared/supabase/admin";
 
-export async function GET() {
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
+export async function GET(request) {
+
+  const {
+    searchParams,
+  } = new URL(
+    request.url
+  );
+
+  const access =
+    await requireOrganizationAccess({
+
+      organizationId:
+        searchParams.get(
+          "organizationId"
+        ),
+
+    });
+
+  if (!access.success) {
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          access.error,
+      },
+      {
+        status:
+          access.status,
+      }
+    );
+
+  }
 
   const tenantId =
-    "76e2caa6-dd78-49e5-b0f5-1ff94185c2d4";
+    access.tenantId;
 
   const {
     data: journals,

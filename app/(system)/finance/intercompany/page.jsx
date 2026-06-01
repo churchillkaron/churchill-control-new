@@ -4,7 +4,15 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 export default function IntercompanyPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
 
   const [transactions, setTransactions] = useState([]);
   const [entities, setEntities] = useState([]);
@@ -36,6 +44,17 @@ export default function IntercompanyPage() {
           "/api/finance/intercompany/runtime",
           {
             method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              organizationId:
+                organization?.id,
+            }),
+
           }
         );
 
@@ -113,6 +132,9 @@ export default function IntercompanyPage() {
 
           body: JSON.stringify({
 
+            organizationId:
+              organization?.id,
+
             ...form,
 
             amount:
@@ -168,6 +190,9 @@ export default function IntercompanyPage() {
           },
 
           body: JSON.stringify({
+
+            organizationId:
+              organization?.id,
 
             transaction_id:
               transaction.id,

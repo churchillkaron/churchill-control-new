@@ -9,10 +9,18 @@ import {
   runtimeTheme as theme,
 } from "@/lib/design/runtimeTheme";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 import JournalDetailsModal
 from "./components/JournalDetailsModal";
 
 export default function FinancePage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
 
   const [tab, setTab] =
     useState("overview");
@@ -71,14 +79,14 @@ export default function FinancePage() {
         kpisRes,
       ] = await Promise.all([
 
-        fetch("/api/finance/profit-loss"),
-        fetch("/api/finance/balance-sheet"),
-        fetch("/api/finance/cash-flow"),
-        fetch("/api/finance/trial-balance"),
-        fetch("/api/finance/journals"),
-        fetch("/api/finance/health"),
-        fetch("/api/finance/anomalies"),
-        fetch("/api/finance/kpis"),
+        fetch(`/api/finance/profit-loss?organizationId=${organization?.id}`),
+        fetch(`/api/finance/balance-sheet?organizationId=${organization?.id}`),
+        fetch(`/api/finance/cash-flow?organizationId=${organization?.id}`),
+        fetch(`/api/finance/trial-balance?organizationId=${organization?.id}`),
+        fetch(`/api/finance/journals?organizationId=${organization?.id}`),
+        fetch(`/api/finance/health?organizationId=${organization?.id}`),
+        fetch(`/api/finance/anomalies?organizationId=${organization?.id}`),
+        fetch(`/api/finance/kpis?organizationId=${organization?.id}`),
 
       ]);
 
@@ -147,7 +155,7 @@ export default function FinancePage() {
       const res =
         await fetch(
 
-          `/api/finance/journals/${journalId}`
+          `/api/finance/journals/${journalId}?organizationId=${organization?.id}`
 
         );
 

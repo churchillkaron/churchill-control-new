@@ -11,12 +11,16 @@ import PageWrapper from '@/components/PageWrapper'
 
 import { supabase } from '@/lib/shared/supabase/client'
 
+import {
+  useOrganizationRuntime,
+} from '@/lib/hooks/useOrganizationRuntime'
+
 export default function FoodCostPage() {
 
-  const [
+  const {
     tenantId,
-    setTenantId,
-  ] = useState(null)
+    organization,
+  } = useOrganizationRuntime()
 
   const [
     sales,
@@ -36,44 +40,6 @@ export default function FoodCostPage() {
 
     foodCost: 0,
   })
-
-  useEffect(() => {
-
-    async function loadTenant() {
-
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getSession()
-
-      if (!user) return
-
-      const {
-        data,
-      } = await supabase
-        .from(
-          'staff_accounts'
-        )
-        .select('*')
-        .eq(
-          'auth_user_id',
-          user.id
-        )
-        .single()
-
-      if (
-        data?.tenant_id
-      ) {
-
-        setTenantId(
-          data.tenant_id
-        )
-      }
-    }
-
-    loadTenant()
-
-  }, [])
 
   useEffect(() => {
 

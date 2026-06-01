@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
 
+import {
+  requireAuth,
+} from '@/lib/shared/auth'
+
+import {
+  requireOrganizationAccess,
+} from '@/lib/platform/security/requireOrganizationAccess'
+
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
 import { buildCustomerDisplay } from '@/lib/pos/customer-display/buildCustomerDisplay'
@@ -10,6 +18,35 @@ export async function POST(req) {
 
     const body =
       await req.json()
+
+    await requireAuth()
+
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      })
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      )
+
+    }
+
+    const tenant_id =
+      access.tenantId
 
     const payload =
       buildCustomerDisplay(body)
@@ -22,7 +59,7 @@ export async function POST(req) {
       .upsert([
         {
           tenant_id:
-            body.tenant_id,
+            tenant_id,
           terminal_id:
             body.terminal_id,
           payload,

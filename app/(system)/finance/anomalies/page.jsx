@@ -9,7 +9,16 @@ import {
   runtimeTheme as theme,
 } from "@/lib/design/runtimeTheme";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 export default function FinanceAnomaliesPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
+
 
   const [anomalies, setAnomalies] =
     useState([]);
@@ -29,7 +38,7 @@ export default function FinanceAnomaliesPage() {
 
       const res =
         await fetch(
-          "/api/finance/anomalies"
+          `/api/finance/anomalies?organizationId=${organization?.id}`
         );
 
       const json =

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
 import importBankStatement from "@/lib/finance/statement-import/importBankStatement";
 
 import runBankReconciliation from "@/lib/finance/reconciliation/runBankReconciliation";
@@ -11,11 +15,38 @@ export async function POST(req) {
     const body =
       await req.json();
 
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
+    const tenant_id =
+      access.tenantId;
+
     const result =
       await importBankStatement({
 
         tenant_id:
-          body.tenant_id,
+          tenant_id,
 
         transactions:
           body.transactions || [],
@@ -50,11 +81,38 @@ export async function PUT(req) {
     const body =
       await req.json();
 
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
+    const tenant_id =
+      access.tenantId;
+
     const result =
       await runBankReconciliation({
 
         tenant_id:
-          body.tenant_id,
+          tenant_id,
       });
 
     return NextResponse.json(

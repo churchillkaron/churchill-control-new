@@ -1,37 +1,63 @@
 import { NextResponse } from "next/server";
 
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
 import closeAccountingPeriod from "@/lib/finance/period-close/closeAccountingPeriod";
 
 import runYearEndClose from "@/lib/finance/year-end/runYearEndClose";
 
+async function resolveTenant(body) {
+  const access =
+    await requireOrganizationAccess({
+      organizationId:
+        body.organizationId,
+    });
+
+  return access;
+}
+
 export async function POST(req) {
-
   try {
-
     const body =
       await req.json();
 
-    const result =
-      await closeAccountingPeriod(
-        body
+    const access =
+      await resolveTenant(body);
+
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
       );
+    }
+
+    const result =
+      await closeAccountingPeriod({
+        ...body,
+        tenant_id:
+          access.tenantId,
+      });
 
     return NextResponse.json(
       result
     );
-
   } catch (error) {
-
     return NextResponse.json(
       {
-
         success: false,
-
         error:
           error.message,
       },
       {
-
         status: 500,
       }
     );
@@ -39,17 +65,31 @@ export async function POST(req) {
 }
 
 export async function PUT(req) {
-
   try {
-
     const body =
       await req.json();
 
+    const access =
+      await resolveTenant(body);
+
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+    }
+
     const result =
       await runYearEndClose({
-
         tenant_id:
-          body.tenant_id,
+          access.tenantId,
 
         fiscal_year:
           body.fiscal_year,
@@ -58,19 +98,14 @@ export async function PUT(req) {
     return NextResponse.json(
       result
     );
-
   } catch (error) {
-
     return NextResponse.json(
       {
-
         success: false,
-
         error:
           error.message,
       },
       {
-
         status: 500,
       }
     );

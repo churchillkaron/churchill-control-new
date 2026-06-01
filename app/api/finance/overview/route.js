@@ -11,36 +11,44 @@ import {
   getFinanceSummary,
 } from '@/lib/finance/services/getFinanceSummary'
 
+import {
+  requireOrganizationAccess,
+} from '@/lib/platform/security/requireOrganizationAccess'
+
 export async function GET(req) {
 
   try {
-
-    const tenantId =
-      req.nextUrl.searchParams.get(
-        'tenantId'
-      )
 
     const organizationId =
       req.nextUrl.searchParams.get(
         'organizationId'
       )
 
-    if (!tenantId) {
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId,
+
+      })
+
+    if (!access.success) {
 
       return NextResponse.json(
-
         {
+          success: false,
           error:
-            'tenantId required',
+            access.error,
         },
-
         {
-          status: 400,
+          status:
+            access.status,
         }
-
       )
 
     }
+
+    const tenantId =
+      access.tenantId
 
     const summary =
       await getFinanceSummary({

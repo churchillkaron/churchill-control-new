@@ -1,0 +1,403 @@
+app/api/finance/trial-balance/route.js:      "tenant_id",
+app/api/finance/month-end/close-period/route.js:        tenant_id:
+app/api/finance/month-end/close-period/route.js:          body.tenant_id,
+app/api/finance/reconciliation/route.js:        tenant_id:
+app/api/finance/reconciliation/route.js:          body.tenant_id,
+app/api/finance/reconciliation/route.js:        tenant_id:
+app/api/finance/reconciliation/route.js:          body.tenant_id,
+app/api/finance/insights/route.js:      "tenant_id",
+app/api/finance/periods/route.js:      "tenant_id",
+app/api/finance/periods/close/route.js:        "tenant_id",
+app/api/finance/periods/close/route.js:        tenant_id:
+app/api/finance/periods/update-status/route.js:        tenant_id: tenantId,
+app/api/finance/periods/open/route.js:        "tenant_id",
+app/api/finance/periods/open/route.js:        tenant_id:
+app/api/finance/periods/open/route.js:        tenant_id:
+app/api/finance/payments/list/route.js:        "tenant_id",
+app/api/finance/profit-loss/route.js:      "tenant_id",
+app/api/finance/year-end/close-fiscal-year/route.js:        tenant_id:
+app/api/finance/year-end/close-fiscal-year/route.js:          body.tenant_id,
+app/api/finance/fixed-assets/list/route.js:        "tenant_id",
+app/api/finance/health/route.js:      "tenant_id",
+app/api/finance/health/route.js:      "tenant_id",
+app/api/finance/intercompany/runtime/route.js:          "tenant_id",
+app/api/finance/intercompany/runtime/route.js:          "tenant_id",
+app/api/finance/intercompany/settle/route.js:        "tenant_id",
+app/api/finance/period-close/route.js:        tenant_id:
+app/api/finance/period-close/route.js:          body.tenant_id,
+app/api/finance/anomalies/route.js:      "tenant_id",
+app/api/finance/kpis/route.js:      "tenant_id",
+app/api/finance/journals/route.js:      "tenant_id",
+app/api/finance/journals/request-reversal/route.js:        "tenant_id",
+app/api/finance/journals/request-reversal/route.js:        tenant_id:
+app/api/finance/journals/reverse/route.js:        "tenant_id",
+app/api/finance/journals/reverse/route.js:        "tenant_id",
+app/api/finance/journals/reverse/route.js:        tenant_id:
+app/api/finance/journals/reverse/route.js:        tenant_id:
+app/api/finance/journals/reverse/route.js:        tenant_id:
+app/api/finance/journals/[id]/route.js:        "tenant_id",
+app/api/finance/gl-posting/route.js:        tenant_id:
+app/api/finance/gl-posting/route.js:          body.tenant_id,
+app/api/finance/cash-flow/route.js:      "tenant_id",
+app/api/finance/budgeting/route.js:        tenant_id:
+app/api/finance/budgeting/route.js:          body.tenant_id,
+app/api/finance/budgeting/route.js:        tenant_id:
+app/api/finance/budgeting/route.js:          body.tenant_id,
+app/api/finance/budgeting/create/route.js:          tenant_id:
+app/api/finance/budgeting/create/route.js:            body.tenant_id,
+app/api/finance/cost-centers/toggle/route.js:        "tenant_id",
+app/api/finance/cost-centers/list/route.js:        "tenant_id",
+app/api/finance/cost-centers/create/route.js:        tenant_id:
+app/api/finance/invoice-matching/runtime/route.js:        .eq("tenant_id", tenantId)
+app/api/finance/invoice-matching/runtime/route.js:        .eq("tenant_id", tenantId)
+app/api/finance/invoice-matching/runtime/route.js:        .eq("tenant_id", tenantId)
+app/api/finance/invoice-matching/runtime/route.js:        .eq("tenant_id", tenantId)
+app/api/finance/invoice-matching/create/route.js:        tenant_id:
+app/api/finance/balance-sheet/route.js:      "tenant_id",
+app/api/finance/legal-entities/toggle/route.js:        "tenant_id",
+app/api/finance/legal-entities/list/route.js:        "tenant_id",
+app/api/finance/legal-entities/create/route.js:        tenant_id:
+app/api/finance/reports/route.js:    if (!body.tenant_id) {
+app/api/finance/reports/route.js:          error: "Missing tenant_id",
+app/api/finance/reports/route.js:    const tenant_id =
+app/api/finance/reports/route.js:      body.tenant_id;
+app/api/finance/reports/route.js:        tenant_id,
+app/api/finance/reports/route.js:        tenant_id,
+app/api/finance/reports/route.js:        tenant_id,
+lib/finance/revalueCurrencyBalances.js:      tenant_id: tenantId,
+lib/finance/accounting/createJournalEntry.js:      tenant_id:
+lib/finance/accounting/createJournalEntry.js:      tenant_id:
+lib/finance/reconciliation/runBankReconciliation.js:  tenant_id,
+lib/finance/reconciliation/runBankReconciliation.js:        "tenant_id",
+lib/finance/reconciliation/runBankReconciliation.js:        tenant_id
+lib/finance/reconciliation/runBankReconciliation.js:          "tenant_id",
+lib/finance/reconciliation/runBankReconciliation.js:          tenant_id
+lib/finance/createCogsEntry.js:      "tenant_id",
+lib/finance/createCogsEntry.js:        "tenant_id",
+lib/finance/createCogsEntry.js:        tenant_id:
+lib/finance/reporting/generateCashflow.js:    .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateConsolidatedReport.js:      .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateBalanceSheet.js:      .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateBalanceSheet.js:      .eq("tenant_id", tenantId)
+lib/finance/reporting/core/generateBalanceSheet.js:      .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateBalanceSheet.js:      .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateBalanceSheet.js:        tenant_id: tenantId,
+lib/finance/reporting/core/generateFinancialStatements.js:      .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateFinancialStatements.js:        tenant_id: tenantId,
+lib/finance/reporting/generateTrialBalance.js:    .eq("tenant_id", tenantId);
+lib/finance/reporting/generateBalanceSheet.js:    .eq("tenant_id", tenantId);
+lib/finance/reporting/generateProfitLoss.js:    .eq("tenant_id", tenantId);
+lib/finance/monthEnd/closeAccountingPeriod.js:  tenant_id,
+lib/finance/monthEnd/closeAccountingPeriod.js:        tenant_id,
+lib/finance/payments/processVendorPayment.js:          tenant_id:
+lib/finance/payments/processVendorPayment.js:            ap.tenant_id,
+lib/finance/payments/processVendorPayment.js:          tenant_id:
+lib/finance/payments/processVendorPayment.js:            ap.tenant_id,
+lib/finance/payments/processVendorPayment.js:        tenant_id:
+lib/finance/payments/processVendorPayment.js:          ap.tenant_id,
+lib/finance/runYearEndClose.js:      tenant_id: tenantId,
+lib/finance/ledger/updateLedgerBalances.js:        'tenant_id',
+lib/finance/ledger/updateLedgerBalances.js:          tenant_id:
+lib/finance/createBudget.js:      tenant_id: budget.tenant_id,
+lib/finance/core/runAssetDepreciation.js:        tenant_id: tenantId,
+lib/finance/core/approveVendorInvoice.js:        tenant_id: tenantId,
+lib/finance/core/getEventProcessingStatus.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runBudgetVariance.js:        tenant_id: tenantId,
+lib/finance/core/getAuditTrail.js:    .eq("tenant_id", tenantId)
+lib/finance/core/getAccountingFailures.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getContinuousCloseExceptions.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runBankReconciliation.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runBankReconciliation.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runBankReconciliation.js:        tenant_id: tenantId,
+lib/finance/core/runYearEndClose.js:        tenant_id: tenantId,
+lib/finance/core/runAutonomousFinanceActions.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runAutonomousFinanceActions.js:      tenant_id: tenantId,
+lib/finance/core/createBudget.js:      tenant_id: tenantId,
+lib/finance/core/createBudget.js:      tenant_id: tenantId,
+lib/finance/core/createFixedAsset.js:        tenant_id: tenantId,
+lib/finance/core/getSelfHealingHistory.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runCurrencyTranslation.js:        tenant_id: tenantId,
+lib/finance/core/calculateRecipeCost.js:        .eq("tenant_id", tenantId)
+lib/finance/core/calculateRecipeCost.js:        tenant_id: tenantId,
+lib/finance/core/runConsolidationElimination.js:        tenant_id: tenantId,
+lib/finance/core/runGlobalConsolidation.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runGlobalConsolidation.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runGlobalConsolidation.js:        tenant_id: tenantId,
+lib/finance/core/runRiskScoring.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runRiskScoring.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runRiskScoring.js:        tenant_id: tenantId,
+lib/finance/core/getAutonomousCloseStatus.js:      .eq("tenant_id", tenantId)
+lib/finance/core/createEntityHistorySnapshot.js:        tenant_id: tenantId,
+lib/finance/core/reopenAccountingPeriod.js:      .eq("tenant_id", tenantId)
+lib/finance/core/importBankTransaction.js:        tenant_id: tenantId,
+lib/finance/core/postAccrualEntry.js:        tenant_id: tenantId,
+lib/finance/core/createRegulatoryFiling.js:        tenant_id: tenantId,
+lib/finance/core/runAccountReconciliation.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runAccountReconciliation.js:        tenant_id: tenantId,
+lib/finance/core/runTrialBalance.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runTrialBalance.js:        tenant_id: tenantId,
+lib/finance/core/runWeightedAverageValuation.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runWeightedAverageValuation.js:        tenant_id: tenantId,
+lib/finance/core/getCloseChecklistStatus.js:    .eq("tenant_id", tenantId)
+lib/finance/core/runRealTimeClose.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runRealTimeClose.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runRealTimeClose.js:        tenant_id: tenantId,
+lib/finance/core/runRealTimeClose.js:          tenant_id: tenantId,
+lib/finance/core/getEventSchema.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runExecutiveDecisionEngine.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runExecutiveDecisionEngine.js:        tenant_id: tenantId,
+lib/finance/core/runItemProfitability.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runItemProfitability.js:        tenant_id: tenantId,
+lib/finance/core/runARAging.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runARAging.js:        tenant_id: tenantId,
+lib/finance/core/getReconciliationExceptions.js:    .eq("tenant_id", tenantId)
+lib/finance/core/createVendorInvoice.js:        tenant_id: tenantId,
+lib/finance/core/getEventGraph.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getSchedulerJobs.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getDashboardSummary.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getDashboardSummary.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getDashboardSummary.js:      .eq("tenant_id", tenantId)
+lib/finance/core/assignDimensionToJournalLine.js:      tenant_id: tenantId,
+lib/finance/core/approveSelfHealingAction.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getEventGovernanceAudit.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runFIFOConsumption.js:      .eq("tenant_id", tenantId)
+lib/finance/core/publishAccountingEvent.js:        tenant_id: tenantId,
+lib/finance/core/runVATClose.js:        tenant_id: tenantId,
+lib/finance/core/createPaymentBatch.js:        tenant_id: tenantId,
+lib/finance/core/configureTaxRule.js:        tenant_id: tenantId,
+lib/finance/core/runEnterpriseCommandCenter.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runEnterpriseCommandCenter.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runEnterpriseCommandCenter.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runEnterpriseCommandCenter.js:        tenant_id: tenantId,
+lib/finance/core/postCOGSJournal.js:        tenant_id: tenantId,
+lib/finance/core/getPendingApprovals.js:      .eq("tenant_id", tenantId)
+lib/finance/core/validateAccountingPeriod.js:    .eq("tenant_id", tenantId)
+lib/finance/core/createCustomerInvoice.js:        tenant_id: tenantId,
+lib/finance/core/postJournalEntrySafe.js:        tenant_id: tenantId,
+lib/finance/core/postJournalEntrySafe.js:    tenant_id: tenantId,
+lib/finance/core/postJournalEntrySafe.js:    tenant_id: tenantId,
+lib/finance/core/approveRealTimeClose.js:        tenant_id: tenantId,
+lib/finance/core/runTaxFiling.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runTaxFiling.js:        tenant_id: tenantId,
+lib/finance/core/runConsolidation.js:        parent_tenant_id:
+lib/finance/core/retryFailedAccountingEvents.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runIntercompanyReconciliation.js:        tenant_id: tenantId,
+lib/finance/core/replayAccountingEvent.js:      .eq("tenant_id", tenantId)
+lib/finance/core/replayAccountingEvent.js:        tenant_id: tenantId,
+lib/finance/core/runSubledgerReconciliation.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runSubledgerReconciliation.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runSubledgerReconciliation.js:      tenant_id: tenantId,
+lib/finance/core/calculateTax.js:      .eq("tenant_id", tenantId)
+lib/finance/core/calculateTax.js:        tenant_id: tenantId,
+lib/finance/core/processCOGSForSale.js:        tenant_id: tenantId,
+lib/finance/core/getWorkflowHistory.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runCashFlowEngine.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runCashFlowEngine.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runCashFlowEngine.js:        tenant_id: tenantId,
+lib/finance/core/runCashReconciliation.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runCashReconciliation.js:        tenant_id: tenantId,
+lib/finance/core/getEntityAuditTrail.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getEventLineage.js:      .eq("tenant_id", tenantId)
+lib/finance/core/createBudgetPlan.js:        tenant_id: tenantId,
+lib/finance/core/runLaborCosting.js:        tenant_id: tenantId,
+lib/finance/core/getDimensionReporting.js:    .eq("tenant_id", tenantId);
+lib/finance/core/runSelfHealingEngine.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runSelfHealingEngine.js:      tenant_id: tenantId,
+lib/finance/core/runSelfHealingEngine.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runSelfHealingEngine.js:      tenant_id: tenantId,
+lib/finance/core/getAccountingAlerts.js:      .eq("tenant_id", tenantId)
+lib/finance/core/postAutomaticJournal.js:      tenant_id: tenantId,
+lib/finance/core/postAutomaticJournal.js:      tenant_id: tenantId,
+lib/finance/core/getLedgerBalances.js:    .eq("tenant_id", tenantId);
+lib/finance/core/getContinuousCloseStatus.js:      .eq("tenant_id", tenantId)
+lib/finance/core/emitAccountingEvent.js:      tenant_id: tenantId,
+lib/finance/core/runRealTimeProfitability.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runRealTimeProfitability.js:      .eq("tenant_id", tenantId);
+lib/finance/core/getCashPosition.js:      .eq("tenant_id", tenantId);
+lib/finance/core/processAccountingEvents.js:      .eq("tenant_id", tenantId)
+lib/finance/core/processAccountingEvents.js:          tenant_id: tenantId,
+lib/finance/core/processAccountingEvents.js:          tenant_id: tenantId,
+lib/finance/core/postToLedger.js:    tenant_id: tenantId,
+lib/finance/core/runIntercompanyElimination.js:        tenant_id: tenantId,
+lib/finance/core/getEnterpriseActions.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getEnterpriseActions.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runAccountingAlerts.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runAccountingAlerts.js:      tenant_id: tenantId,
+lib/finance/core/runAccountingAlerts.js:      .eq("tenant_id", tenantId)
+lib/finance/core/runAccountingAlerts.js:      tenant_id: tenantId,
+lib/finance/core/runAccountingAlerts.js:      tenant_id: tenantId,
+lib/finance/core/disposeFixedAsset.js:        tenant_id: tenantId,
+lib/finance/core/getRealTimeCloseExceptions.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getEnterpriseHealth.js:      .eq("tenant_id", tenantId)
+lib/finance/core/getDimensions.js:    .eq("tenant_id", tenantId);
+lib/finance/core/approveAutonomousClose.js:      .eq("tenant_id", tenantId)
+lib/finance/core/processAccountingEvent.js:      event.tenant_id,
+lib/finance/core/processAccountingEvent.js:      event.tenant_id,
+lib/finance/core/processAccountingEvent.js:        event.tenant_id,
+lib/finance/core/processAccountingEvent.js:        event.tenant_id,
+lib/finance/core/processAccountingEvent.js:      event.tenant_id,
+lib/finance/core/createInventoryCostLayer.js:        tenant_id: tenantId,
+lib/finance/core/runRegulatoryReporting.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runRegulatoryReporting.js:      .eq("tenant_id", tenantId);
+lib/finance/core/runRegulatoryReporting.js:        tenant_id: tenantId,
+lib/finance/core/processCustomerPayment.js:        tenant_id: tenantId,
+lib/finance/core/createAuditLog.js:        tenant_id: tenantId,
+lib/finance/core/processVendorPayment.js:        tenant_id: tenantId,
+lib/finance/core/settleInvoice.js:        tenant_id: tenantId,
+lib/finance/core/processPendingEvents.js:      .eq("tenant_id", tenantId)
+lib/finance/core/processPendingEvents.js:            event.tenant_id,
+lib/finance/core/getPostingRule.js:    .eq("tenant_id", tenantId)
+lib/finance/core/lockAccountingPeriod.js:        tenant_id: tenantId,
+lib/finance/core/runPaymentPriorityQueue.js:        tenant_id: tenantId,
+lib/finance/core/createIntercompanyTransaction.js:        tenant_id: tenantId,
+lib/finance/core/validateDomainEvent.js:      .eq("tenant_id", tenantId)
+lib/finance/core/validateDomainEvent.js:          tenant_id: tenantId,
+lib/finance/core/createEventLineage.js:        tenant_id: tenantId,
+lib/finance/core/getAccountingEvents.js:    .eq("tenant_id", tenantId)
+lib/finance/getTrialBalance.js:    .eq("tenant_id", tenantId);
+lib/finance/runRiskAnalysis.js:      tenant_id: tenantId,
+lib/finance/runRiskAnalysis.js:      tenant_id: tenantId,
+lib/finance/profitability/calculateDepartmentProfitability.js:      "tenant_id",
+lib/finance/profitability/calculateDepartmentProfitability.js:      "tenant_id",
+lib/finance/loadFinanceOverview.js:  tenant_id
+lib/finance/loadFinanceOverview.js:  if (!tenant_id) {
+lib/finance/loadFinanceOverview.js:      "tenant_id",
+lib/finance/loadFinanceOverview.js:      tenant_id
+lib/finance/group/runEliminations.js:      tenant_id: tenantId,
+lib/finance/group/runEliminations.js:      tenant_id: tenantId,
+lib/finance/year-end/runYearEndClose.js:  tenant_id,
+lib/finance/year-end/runYearEndClose.js:        "tenant_id",
+lib/finance/year-end/runYearEndClose.js:        tenant_id
+lib/finance/year-end/runYearEndClose.js:        tenant_id,
+lib/finance/fixed-assets/createFixedAsset.js:  tenant_id,
+lib/finance/fixed-assets/createFixedAsset.js:    if (!tenant_id) throw new Error("tenant_id required");
+lib/finance/fixed-assets/createFixedAsset.js:          tenant_id,
+lib/finance/postJournalEntry.js:      tenant_id: tenantId,
+lib/finance/postJournalEntry.js:    tenant_id: tenantId,
+lib/finance/runRetainedEarnings.js:      tenant_id: tenantId,
+lib/finance/getExecutiveFinancialSummary.js:    tenant_id: tenantId,
+lib/finance/intercompany/createIntercompanyTransaction.js:  tenant_id,
+lib/finance/intercompany/createIntercompanyTransaction.js:    if (!tenant_id) {
+lib/finance/intercompany/createIntercompanyTransaction.js:      throw new Error("tenant_id required");
+lib/finance/intercompany/createIntercompanyTransaction.js:        .eq("tenant_id", tenant_id)
+lib/finance/intercompany/createIntercompanyTransaction.js:          tenant_id,
+lib/finance/period-close/closeAccountingPeriod.js:  tenant_id,
+lib/finance/period-close/closeAccountingPeriod.js:        "tenant_id",
+lib/finance/period-close/closeAccountingPeriod.js:        tenant_id
+lib/finance/period-close/closeAccountingPeriod.js:          tenant_id,
+lib/finance/runtime/createAccountsPayableEntry.js:      tenant_id:
+lib/finance/runDepreciation.js:      tenant_id: asset.tenant_id,
+lib/finance/loadDailyRevenue.js:  tenant_id
+lib/finance/loadDailyRevenue.js:  if (!tenant_id) {
+lib/finance/loadDailyRevenue.js:      "tenant_id",
+lib/finance/loadDailyRevenue.js:      tenant_id
+lib/finance/management/getDepartmentPerformance.js:    .eq("tenant_id", tenantId);
+lib/finance/management/getVarianceAnalysis.js:    .eq("tenant_id", tenantId);
+lib/finance/general-ledger/postGeneralLedgerEntry.js:  tenant_id,
+lib/finance/general-ledger/postGeneralLedgerEntry.js:          tenant_id,
+lib/finance/general-ledger/postJournalToLedger.js:        tenant_id:
+lib/finance/getAccountingKPIs.js:      .eq("tenant_id", tenantId),
+lib/finance/getAccountingKPIs.js:      .eq("tenant_id", tenantId),
+lib/finance/getAccountingKPIs.js:      .eq("tenant_id", tenantId),
+lib/finance/getAccountingKPIs.js:      .eq("tenant_id", tenantId),
+lib/finance/runMonthEndClose.js:      tenant_id: tenantId,
+lib/finance/runFraudDetection.js:      tenant_id: tenantId,
+lib/finance/runFraudDetection.js:      tenant_id: tenantId,
+lib/finance/dashboard/loadExecutiveFinancials.js:      'tenant_id',
+lib/finance/dashboard/loadExecutiveFinancials.js:      'tenant_id',
+lib/finance/dashboard/loadExecutiveFinancials.js:      'tenant_id',
+lib/finance/master-data/getChartOfAccounts.js:    .eq("tenant_id", tenantId)
+lib/finance/master-data/seedChartOfAccounts.js:    tenant_id: tenantId,
+lib/finance/runConsolidation.js:      .eq("tenant_id", tenantId);
+lib/finance/statements/generateProfitAndLoss.js:      'tenant_id',
+lib/finance/audit/createFinanceAuditLog.js:  tenant_id,
+lib/finance/audit/createFinanceAuditLog.js:        tenant_id,
+lib/finance/getBalanceSheet.js:    .eq("tenant_id", tenantId);
+lib/finance/runForecasting.js:      tenant_id: tenantId,
+lib/finance/runForecasting.js:      tenant_id: tenantId,
+lib/finance/gl-posting/postVendorPaymentGL.js:  tenant_id,
+lib/finance/gl-posting/postVendorPaymentGL.js:      tenant_id,
+lib/finance/gl-posting/postVendorPaymentGL.js:      tenant_id,
+lib/finance/accounts-payable/createAccountsPayableEntry.js:          tenant_id:
+lib/finance/accounts-payable/createAccountsPayableEntry.js:            invoice.tenant_id,
+lib/finance/budgeting/createBudget.js:  tenant_id,
+lib/finance/budgeting/createBudget.js:          tenant_id,
+lib/finance/statement-import/importBankStatement.js:  tenant_id,
+lib/finance/statement-import/importBankStatement.js:          tenant_id,
+lib/finance/getCashflowSummary.js:    .eq("tenant_id", tenantId);
+lib/finance/getGeneralLedger.js:    .eq("tenant_id", tenantId);
+lib/finance/cost-centers/createCostCenter.js:  tenant_id,
+lib/finance/cost-centers/createCostCenter.js:    if (!tenant_id) {
+lib/finance/cost-centers/createCostCenter.js:      throw new Error("tenant_id required");
+lib/finance/cost-centers/createCostCenter.js:      .eq("tenant_id", tenant_id)
+lib/finance/cost-centers/createCostCenter.js:          tenant_id,
+lib/finance/consolidation/generateConsolidatedFinancials.js:          "tenant_id",
+lib/finance/forecasting/buildRevenueForecast.js:  tenant_id,
+lib/finance/forecasting/buildRevenueForecast.js:        "tenant_id",
+lib/finance/forecasting/buildRevenueForecast.js:        tenant_id
+lib/finance/forecasting/generateFinancialForecast.js:  tenant_id,
+lib/finance/forecasting/generateFinancialForecast.js:        "tenant_id",
+lib/finance/forecasting/generateFinancialForecast.js:        tenant_id
+lib/finance/postAccountingEvent.js:      tenant_id: tenantId,
+lib/finance/invoice-matching/createInvoiceMatch.js:  tenant_id,
+lib/finance/invoice-matching/createInvoiceMatch.js:    if (!tenant_id) throw new Error("tenant_id required");
+lib/finance/invoice-matching/createInvoiceMatch.js:      .eq("tenant_id", tenant_id)
+lib/finance/invoice-matching/createInvoiceMatch.js:      .eq("tenant_id", tenant_id)
+lib/finance/invoice-matching/createInvoiceMatch.js:      .eq("tenant_id", tenant_id)
+lib/finance/invoice-matching/createInvoiceMatch.js:      .eq("tenant_id", tenant_id)
+lib/finance/invoice-matching/createInvoiceMatch.js:          tenant_id,
+lib/finance/invoice-matching/createInvoiceMatch.js:          "tenant_id",
+lib/finance/invoice-matching/createInvoiceMatch.js:          tenant_id
+lib/finance/invoice-matching/createInvoiceMatch.js:            tenant_id,
+lib/finance/runComplianceChecks.js:    tenant_id: tenantId,
+lib/finance/variance-analysis/runVarianceAnalysis.js:  tenant_id,
+lib/finance/variance-analysis/runVarianceAnalysis.js:        "tenant_id",
+lib/finance/variance-analysis/runVarianceAnalysis.js:        tenant_id
+lib/finance/variance-analysis/runVarianceAnalysis.js:        "tenant_id",
+lib/finance/variance-analysis/runVarianceAnalysis.js:        tenant_id
+lib/finance/getProfitLoss.js:    .eq("tenant_id", tenantId);
+lib/finance/services/postJournalEntry.js:      'tenant_id',
+lib/finance/services/postJournalEntry.js:      'tenant_id',
+lib/finance/services/postJournalEntry.js:      tenant_id:
+lib/finance/services/createAccountsPayableInvoice.js:    .eq('tenant_id', tenantId)
+lib/finance/services/createAccountsPayableInvoice.js:    .eq('tenant_id', tenantId)
+lib/finance/services/createAccountsPayableInvoice.js:    tenant_id:
+lib/finance/services/createAccountsPayableInvoice.js:    tenant_id:
+lib/finance/services/createAccountsPayableInvoice.js:      tenant_id:
+lib/finance/services/createAccountsPayableInvoice.js:      tenant_id:
+lib/finance/services/createAccountsPayableInvoice.js:    .eq('tenant_id', tenantId)
+lib/finance/services/getFinanceSummary.js:          "tenant_id",
+lib/finance/services/getFinanceSummary.js:          "tenant_id",
+lib/finance/createPaymentTransaction.js:      tenant_id:
+lib/finance/runPeriodClose.js:      tenant_id: tenantId,
+lib/finance/reversals/createJournalReversal.js:      tenant_id:
+lib/finance/reversals/createJournalReversal.js:        originalEntry.tenant_id,
+lib/finance/reversals/createJournalReversal.js:        tenant_id:
+lib/finance/reversals/createJournalReversal.js:          line.tenant_id,
+lib/finance/legal-entities/createLegalEntity.js:  tenant_id,
+lib/finance/legal-entities/createLegalEntity.js:    if (!tenant_id) {
+lib/finance/legal-entities/createLegalEntity.js:      throw new Error("tenant_id required");
+lib/finance/legal-entities/createLegalEntity.js:      .eq("tenant_id", tenant_id)
+lib/finance/legal-entities/createLegalEntity.js:          tenant_id,
+lib/finance/analytics/getAPAging.js:    .eq("tenant_id", tenantId);
+lib/finance/analytics/getARAging.js:    .eq("tenant_id", tenantId);
+lib/finance/analytics/getLiquidityMetrics.js:    .eq("tenant_id", tenantId);
+lib/finance/reports/generateTrialBalance.js:  tenant_id,
+lib/finance/reports/generateTrialBalance.js:        "tenant_id",
+lib/finance/reports/generateTrialBalance.js:        tenant_id
+lib/finance/reports/generateBalanceSheet.js:  tenant_id,
+lib/finance/reports/generateBalanceSheet.js:        "tenant_id",
+lib/finance/reports/generateBalanceSheet.js:        tenant_id
+lib/finance/reports/generateProfitLoss.js:  tenant_id,
+lib/finance/reports/generateProfitLoss.js:        "tenant_id",
+lib/finance/reports/generateProfitLoss.js:        tenant_id
+lib/finance/strategy/runScenarioPlanning.js:      tenant_id: tenantId,
+lib/finance/strategy/runScenarioPlanning.js:      tenant_id: tenantId,
+lib/finance/strategy/runCostAllocation.js:      tenant_id: tenantId,
+lib/finance/strategy/runCostAllocation.js:      tenant_id: tenantId,
+lib/finance/strategy/getBoardReport.js:    tenant_id: tenantId,
+lib/finance/executive/getForecastVsActual.js:    .eq("tenant_id", tenantId);
+lib/finance/executive/getWorkingCapital.js:    .eq("tenant_id", tenantId);
+lib/finance/vendor-invoices/createVendorInvoice.js:  tenant_id,
+lib/finance/vendor-invoices/createVendorInvoice.js:          tenant_id,
+lib/finance/runAutoPostingWorkflow.js:      tenant_id: tenantId,

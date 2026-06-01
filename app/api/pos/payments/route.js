@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 
+import {
+  requireAuth,
+} from "@/lib/shared/auth";
+
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
 import processPOSPayment from "@/lib/pos/payments/processPOSPayment";
 
 import { createPaymentTransaction }
@@ -20,6 +28,35 @@ export async function POST(req) {
 
     const body =
       await req.json();
+
+    await requireAuth();
+
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
+    const tenant_id =
+      access.tenantId;
 
     const paymentResult =
       await processPOSPayment(
@@ -64,7 +101,7 @@ export async function POST(req) {
       await createPaymentTransaction({
 
         tenantId:
-          body.tenant_id,
+          tenant_id,
 
         tableSessionId:
           null,
@@ -153,7 +190,7 @@ export async function POST(req) {
       await createJournalEntry({
 
         tenantId:
-          body.tenant_id,
+          tenant_id,
 
         entryDate:
           new Date()
@@ -213,7 +250,7 @@ export async function POST(req) {
     await postGeneralLedgerEntry({
 
       tenant_id:
-        body.tenant_id,
+        tenant_id,
 
       account_name:
         "POS_REVENUE",
@@ -238,7 +275,7 @@ export async function POST(req) {
       .insert({
 
         tenant_id:
-          body.tenant_id,
+          tenant_id,
 
         event_type:
           "FINANCE_POSTED",

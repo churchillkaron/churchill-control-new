@@ -4,8 +4,16 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 
 export default function FinancePaymentsPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
 
   const [
     payables,
@@ -19,6 +27,17 @@ export default function FinancePaymentsPage() {
         "/api/finance/payments/list",
         {
           method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            organizationId:
+              organization?.id,
+          }),
+
         }
       );
 
@@ -46,6 +65,9 @@ export default function FinancePaymentsPage() {
         },
 
         body: JSON.stringify({
+
+          organizationId:
+            organization?.id,
 
           accounts_payable_id:
             id,

@@ -9,7 +9,15 @@ import {
   runtimeTheme as theme,
 } from "@/lib/design/runtimeTheme";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 export default function AccountingPeriodsPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
 
   const [periods, setPeriods] =
     useState([]);
@@ -32,7 +40,7 @@ export default function AccountingPeriodsPage() {
 
       const res =
         await fetch(
-          "/api/finance/periods"
+          `/api/finance/periods?organizationId=${organization?.id}`
         );
 
       const json =
@@ -79,6 +87,9 @@ export default function AccountingPeriodsPage() {
 
             body:
               JSON.stringify({
+
+                organizationId:
+                  organization?.id,
 
                 periodId: id,
 

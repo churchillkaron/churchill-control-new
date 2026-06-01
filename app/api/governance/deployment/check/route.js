@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 
 import {
+  requireAuth,
+} from "@/lib/shared/auth";
+
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
+import {
   supabaseAdmin,
 } from "@/lib/shared/supabase/admin";
 
@@ -10,6 +18,35 @@ export async function POST(req) {
 
     const body =
       await req.json();
+
+    await requireAuth();
+
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.error,
+        },
+        {
+          status:
+            access.status,
+        }
+      );
+
+    }
+
+    const tenant_id =
+      access.tenantId;
 
     const {
       data,
@@ -24,7 +61,7 @@ export async function POST(req) {
 
       .eq(
         "tenant_id",
-        body.tenant_id
+        tenant_id
       )
 
       .eq(

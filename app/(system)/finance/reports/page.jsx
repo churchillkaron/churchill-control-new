@@ -5,16 +5,14 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
 
 export default function FinanceReportsPage() {
 
-  const tenant =
-    useTenant();
-
-  const tenantId =
-    tenant?.id;
+  const {
+    organization,
+  } = useOrganizationRuntime();
 
 
   const [
@@ -38,8 +36,8 @@ export default function FinanceReportsPage() {
 
           body: JSON.stringify({
 
-            tenant_id:
-              tenantId,
+            organizationId:
+              organization?.id,
           }),
         }
       );

@@ -9,15 +9,15 @@ import {
 
 import PageWrapper from "@/components/PageWrapper";
 
-import { supabase }
-from "@/lib/shared/supabase/client";
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
 
 export default function ExecutiveFinancePage() {
 
-  const [
-    tenantId,
-    setTenantId,
-  ] = useState(null);
+  const {
+    organization,
+  } = useOrganizationRuntime();
 
   const [
     loading,
@@ -29,59 +29,6 @@ export default function ExecutiveFinancePage() {
     setData,
   ] = useState(null);
 
-  useEffect(() => {
-
-    async function loadTenant() {
-
-      const {
-        data: { session },
-      } =
-        await supabase.auth.getSession();
-
-      const user =
-        session?.user;
-
-      if (!user) return;
-
-      const {
-        data,
-      } = await supabase
-        .from("staff_accounts")
-        .select("tenant_id")
-        .eq(
-          "auth_user_id",
-          user.id
-        )
-        .single();
-
-      if (
-        data?.tenant_id
-      ) {
-
-        setTenantId(
-          data.tenant_id
-        );
-
-      }
-
-    }
-
-    loadTenant();
-
-  }, []);
-
-  useEffect(() => {
-
-    if (
-      tenantId
-    ) {
-
-      loadExecutive();
-
-    }
-
-  }, [tenantId]);
-
   async function loadExecutive() {
 
     try {
@@ -90,7 +37,7 @@ export default function ExecutiveFinancePage() {
 
       const res =
         await fetch(
-          `/api/finance/overview?tenantId=${tenantId}`
+          `/api/finance/overview?organizationId=${organization?.id}`
         );
 
       const json =

@@ -7,7 +7,9 @@ import {
   useState,
 } from "react";
 
-import { supabase } from "@/lib/shared/supabase/client";
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
 
 import { loadFinanceOverview } from "@/lib/finance/loadFinanceOverview";
 
@@ -17,54 +19,15 @@ import {
 
 export default function FinanceLivePage() {
 
-  const [
+  const {
     tenantId,
-    setTenantId,
-  ] = useState(null);
+    organization,
+  } = useOrganizationRuntime();
 
   const [
     stats,
     setStats,
   ] = useState(null);
-
-  // ===== TENANT =====
-  useEffect(() => {
-
-    async function loadTenant() {
-
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getSession();
-
-      if (!user) {
-        return;
-      }
-
-      const {
-        data,
-      } = await supabase
-        .from("staff_accounts")
-        .select("*")
-        .eq(
-          "auth_user_id",
-          user.id
-        )
-        .single();
-
-      if (
-        data?.tenant_id
-      ) {
-
-        setTenantId(
-          data.tenant_id
-        );
-      }
-    }
-
-    loadTenant();
-
-  }, []);
 
   // ===== LOAD =====
   async function refresh() {
@@ -83,6 +46,10 @@ export default function FinanceLivePage() {
 
   useEffect(() => {
 
+    if (!tenantId) {
+      return;
+    }
+
     refresh();
 
   }, [
@@ -100,7 +67,7 @@ export default function FinanceLivePage() {
       createEnterpriseRealtime({
 
         name:
-          `finance-live-${tenantId}`,
+          `finance-live-${organization?.id}`,
 
         subscriptions: [
 

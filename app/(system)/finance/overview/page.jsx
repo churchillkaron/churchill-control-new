@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 
 import PageWrapper from '@/components/PageWrapper'
 
-import { supabase } from '@/lib/shared/supabase/client'
 
 import {
   useActiveOrganization,
@@ -18,10 +17,6 @@ export default function FinanceOverviewPage() {
     organizationId,
   } = useActiveOrganization();
 
-  const [
-    tenantId,
-    setTenantId,
-  ] = useState(null)
 
   const [
     loading,
@@ -35,49 +30,11 @@ export default function FinanceOverviewPage() {
 
   useEffect(() => {
 
-    loadTenant()
-
-  }, [])
-
-  useEffect(() => {
-
-    if (tenantId) {
+    if (organizationId) {
       loadOverview()
     }
 
-  }, [tenantId])
-
-  async function loadTenant() {
-
-    const {
-      data: auth,
-    } = await supabase.auth.getSession()
-
-    const user =
-      auth?.user
-
-    if (!user) return
-
-    const {
-      data,
-    } = await supabase
-      .from('staff_accounts')
-      .select('tenant_id')
-      .eq(
-        'auth_user_id',
-        user.id
-      )
-      .single()
-
-    if (
-      data?.tenant_id
-    ) {
-
-      setTenantId(
-        data.tenant_id
-      )
-    }
-  }
+  }, [organizationId])
 
   async function loadOverview() {
 
@@ -87,7 +44,7 @@ export default function FinanceOverviewPage() {
 
       const response =
         await fetch(
-          `/api/finance/overview?tenantId=${tenantId}&organizationId=${organizationId}`
+          `/api/finance/overview?organizationId=${organizationId}`
         )
 
       const json =

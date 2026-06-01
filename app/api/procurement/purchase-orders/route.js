@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 
+import {
+  requireAuth,
+} from "@/lib/shared/auth";
+
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
 import createPurchaseOrder from "@/lib/procurement/purchase-orders/createPurchaseOrder";
 
 import approvePurchaseOrder from "@/lib/procurement/approval/approvePurchaseOrder";
@@ -13,20 +21,34 @@ export async function POST(req) {
     const body =
       await req.json();
 
+    await requireAuth();
 
-    if (!body.tenant_id) {
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
 
       return NextResponse.json(
         {
           success: false,
-          error: "Missing tenant_id",
+          error:
+            access.error,
         },
         {
-          status: 400,
+          status:
+            access.status,
         }
       );
 
     }
+
+    const tenant_id =
+      access.tenantId;
 
     const result =
       await createPurchaseOrder(
@@ -105,7 +127,7 @@ export async function PATCH(req) {
       await generateAutomaticPurchaseOrder({
 
         tenant_id:
-          body.tenant_id,
+          tenant_id,
       });
 
     return NextResponse.json(

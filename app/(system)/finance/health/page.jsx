@@ -9,7 +9,16 @@ import {
   runtimeTheme as theme,
 } from "@/lib/design/runtimeTheme";
 
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
 export default function FinanceHealthPage() {
+
+  const {
+    organization,
+  } = useOrganizationRuntime();
+
 
   const [report, setReport] =
     useState(null);
@@ -29,7 +38,7 @@ export default function FinanceHealthPage() {
 
       const res =
         await fetch(
-          "/api/finance/health"
+          `/api/finance/health?organizationId=${organization?.id}`
         );
 
       const json =

@@ -355,7 +355,7 @@ export default function OrganizationWorkspacePage() {
               />
 
               <MetricCard
-                label="Client Requests"
+                label={workspaceDefinition?.alerts?.[1] || "Alert 2"}
                 value={metrics.clientRequests || 0}
                 detail="Pending client requests"
                 icon={ClipboardList}
@@ -534,7 +534,7 @@ export default function OrganizationWorkspacePage() {
             <div className="space-y-4">
               <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                 <p className="text-sm text-white/45">
-                  Client Messages
+                  {workspaceDefinition?.alerts?.[0] || "Alert 1"}
                 </p>
                 <p className="mt-2 text-3xl font-light">
                   {metrics.newMessages || 0}
@@ -543,7 +543,7 @@ export default function OrganizationWorkspacePage() {
 
               <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                 <p className="text-sm text-white/45">
-                  Client Requests
+                  {workspaceDefinition?.alerts?.[1] || "Alert 2"}
                 </p>
                 <p className="mt-2 text-3xl font-light">
                   {metrics.clientRequests || 0}

@@ -223,10 +223,6 @@ export default function OrganizationWorkspacePage() {
     runtime?.workspaceDefinitions?.[0] ||
     null;
 
-  console.log(
-    "WORKSPACE_DEFINITION",
-    workspaceDefinition
-  );
 
   console.log(
     "DASHBOARD WIDGETS",
@@ -485,17 +481,13 @@ export default function OrganizationWorkspacePage() {
             </div>
 
             <p className="text-xl font-light leading-relaxed text-white/75">
-              {isAccounting
-                ? "8 active clients. No tax deadlines due. No payroll runs pending. No compliance risks detected."
-                : ownerInsight}
+              {workspaceDefinition?.ai?.insight || ownerInsight}
             </p>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/30">
-                  {isAccounting
-                  ? "Fees Collected"
-                  : "Monthly Revenue"}
+                  {workspaceDefinition?.ai?.metrics?.[0] || "Metric 1"}
                 </p>
                 <p className="mt-3 text-2xl font-light">
                   {money(0)}
@@ -504,9 +496,7 @@ export default function OrganizationWorkspacePage() {
 
               <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/30">
-                  {isAccounting
-                  ? "Firm Profit"
-                  : "Monthly Profit"}
+                  {workspaceDefinition?.ai?.metrics?.[1] || "Metric 2"}
                 </p>
                 <p className="mt-3 text-2xl font-light">
                   {money(0)}
@@ -515,9 +505,7 @@ export default function OrganizationWorkspacePage() {
 
               <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/30">
-                  {isAccounting
-                  ? "AI Cost"
-                  : "AI Processing Cost"}
+                  {workspaceDefinition?.ai?.metrics?.[2] || "Metric 3"}
                 </p>
                 <p className="mt-3 text-2xl font-light">
                   {money(0)}
@@ -534,11 +522,11 @@ export default function OrganizationWorkspacePage() {
 
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">
-                  {isAccounting ? "Firm Alerts" : isHospitality ? "Operations Alerts" : "Runtime Alerts"}
+                  {workspaceDefinition?.hero?.title || "Operations Alerts"}
                 </p>
 
                 <h2 className="text-2xl font-light">
-                  {isAccounting ? "Accounting Operations" : isHospitality ? "Restaurant Operations" : "Industry Operations"}
+                  {workspaceDefinition?.hero?.subtitle || "Industry Operations"}
                 </h2>
               </div>
             </div>
@@ -571,12 +559,12 @@ export default function OrganizationWorkspacePage() {
               <Building2 className="h-5 w-5 text-violet-300" />
 
               <h2 className="text-xl font-light">
-                {isAccounting ? "Client Portfolio" : isHospitality ? "Operational Overview" : "Portfolio"}
+                {workspaceDefinition?.hero?.title || "Portfolio"}
               </h2>
             </div>
 
             <p className="text-sm text-white/35">
-              {isAccounting ? "Manage accounting clients" : isHospitality ? "Manage operations and performance" : "Manage portfolio"}
+              {workspaceDefinition?.hero?.subtitle || "Manage workspace"}
             </p>
           </div>
 

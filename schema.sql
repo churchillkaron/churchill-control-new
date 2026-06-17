@@ -10105,7 +10105,6 @@ CREATE TABLE IF NOT EXISTS "public"."tenant_billing_profiles" (
 ALTER TABLE "public"."tenant_billing_profiles" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."tenant_modules" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid",
     "module_id" "text" NOT NULL,
@@ -10115,7 +10114,6 @@ CREATE TABLE IF NOT EXISTS "public"."tenant_modules" (
 );
 
 
-ALTER TABLE "public"."tenant_modules" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."tenant_platform_config" (
@@ -11207,8 +11205,6 @@ ALTER TABLE ONLY "public"."tenant_billing_profiles"
 
 
 
-ALTER TABLE ONLY "public"."tenant_modules"
-    ADD CONSTRAINT "tenant_modules_pkey" PRIMARY KEY ("id");
 
 
 
@@ -12886,7 +12882,6 @@ CREATE INDEX "idx_tenant_billing_profiles_tenant_id" ON "public"."tenant_billing
 
 
 
-CREATE INDEX "idx_tenant_modules_tenant_id" ON "public"."tenant_modules" USING "btree" ("tenant_id");
 
 
 
@@ -13603,13 +13598,9 @@ ALTER TABLE ONLY "public"."tenant_billing_profiles"
 
 
 
-ALTER TABLE ONLY "public"."tenant_modules"
-    ADD CONSTRAINT "tenant_modules_module_id_fkey" FOREIGN KEY ("module_id") REFERENCES "public"."platform_modules"("id");
 
 
 
-ALTER TABLE ONLY "public"."tenant_modules"
-    ADD CONSTRAINT "tenant_modules_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE;
 
 
 
@@ -15313,7 +15304,6 @@ CREATE POLICY "tenant_insert_websocket_sessions" ON "public"."websocket_sessions
 
 
 
-ALTER TABLE "public"."tenant_modules" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."tenant_platform_config" ENABLE ROW LEVEL SECURITY;
@@ -17952,9 +17942,6 @@ GRANT ALL ON TABLE "public"."tenant_billing_profiles" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."tenant_modules" TO "anon";
-GRANT ALL ON TABLE "public"."tenant_modules" TO "authenticated";
-GRANT ALL ON TABLE "public"."tenant_modules" TO "service_role";
 
 
 

@@ -9,8 +9,6 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import { generateKitchenCultureScore }
-from "@/lib/kitchen/generateKitchenCultureScore";
 
 export async function GET(
   request
@@ -160,13 +158,9 @@ export async function GET(
       };
     });
 
-    const kitchenCulture =
-      await generateKitchenCultureScore({
-
-        tenantId:
-          tenant_id,
-
-      });
+    const kitchenCulture = await loadKitchenCultureScore({
+      tenantId: tenant_id,
+    });
 
     const averageKitchenCulture =
       kitchenCulture?.length

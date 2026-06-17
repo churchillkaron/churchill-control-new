@@ -1,7 +1,5 @@
 /** @type {import('next').NextConfig} */
 
-const { withSentryConfig } = require("@sentry/nextjs");
-
 const nextConfig = {
   output: "standalone",
 
@@ -14,15 +12,4 @@ const nextConfig = {
   },
 };
 
-module.exports = withSentryConfig(nextConfig, {
-  org: "churchill-qu",
-  project: "javascript-nextjs",
-
-  silent: !process.env.CI,
-
-  widenClientFileUpload: true,
-
-  tunnelRoute: "/monitoring",
-
-  automaticVercelMonitors: true,
-});
+module.exports = nextConfig;

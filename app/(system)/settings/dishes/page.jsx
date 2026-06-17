@@ -216,7 +216,7 @@ export default function DishesPage() {
               className="bg-black border border-zinc-700 rounded-2xl p-4"
             >
 
-              <option value="starter">
+              <option value="">
                 Starter
               </option>
 

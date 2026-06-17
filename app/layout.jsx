@@ -26,35 +26,19 @@ export const metadata = {
 export default async function RootLayout({
   children,
 }) {
-
   return (
-
     <html lang="en">
-
       <body>
-
         <PlatformProvider>
-
-          <OrganizationProvider>
-
+          <TenantProvider>
             <WorkspaceRuntimeProvider>
-
-              <TenantProvider>
-
+              <OrganizationProvider>
                 {children}
-
-              </TenantProvider>
-
+              </OrganizationProvider>
             </WorkspaceRuntimeProvider>
-
-          </OrganizationProvider>
-
+          </TenantProvider>
         </PlatformProvider>
-
       </body>
-
     </html>
-
   );
-
 }

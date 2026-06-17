@@ -1,114 +1,117 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "@/lib/shared/supabase/client";
+import { useTenant } from "@/app/providers/TenantProvider";
 
-const WorkspaceRuntimeContext =
-  createContext(null);
+const WorkspaceRuntimeContext = createContext(null);
 
-export function WorkspaceRuntimeProvider({
-  children,
-}) {
+export function WorkspaceRuntimeProvider({ children }) {
+  const tenant = useTenant();
 
-  const [
-    runtime,
-    setRuntime,
-  ] = useState(null);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  async function loadWorkspaceRuntime() {
-
-    try {
-
-      setLoading(true);
-
-      const response =
-        await fetch(
-          `/api/workspace`
-        );
-
-      if (!response.ok) {
-
-        throw new Error(
-          `Workspace runtime failed: ${response.status}`
-        );
-
-      }
-
-      const data =
-        await response.json();
-
-      console.log(
-        "WORKSPACE RUNTIME:",
-        data?.activeOrganization?.name,
-        data?.activeOrganization?.tenant_id
-      );
-
-      setRuntime(data);
-
-    } catch (error) {
-
-      console.error(
-        "workspace runtime error",
-        error
-      );
-
-    } finally {
-
-      setLoading(false);
-
-    }
-
-  }
+  const [state, setState] = useState({
+    ready: false,
+    loading: true,
+    runtime: null,
+    access: null,
+    organizations: [],
+    organizationTree: [],
+    organization: null,
+    activeOrganization: null,
+    modules: [],
+    navigation: [],
+    resolvedRuntime: null,
+    error: null,
+  });
 
   useEffect(() => {
+    async function init() {
+      try {
+        if (!tenant?.staff?.email) {
+          setState(prev => ({
+            ...prev,
+            ready: true,
+            loading: false,
+            error: tenant === null ? null : "Missing tenant staff email",
+          }));
+          return;
+        }
 
-    loadWorkspaceRuntime();
+        const organizationId =
+          tenant.activeOrganization ||
+          tenant.staff?.active_organization_id ||
+          null;
 
-  }, []);
+        if (!organizationId) {
+          setState(prev => ({
+            ...prev,
+            ready: true,
+            loading: false,
+            error: "Missing active organization",
+          }));
+          return;
+        }
 
-  const value =
-    useMemo(
-      () => ({
+        const res = await fetch(
+          `/api/workspace?organizationId=${organizationId}&userEmail=${encodeURIComponent(tenant.staff.email)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
 
-        runtime,
+        const runtime = await res.json();
 
-        loading,
+        if (!runtime?.success) {
+          setState(prev => ({
+            ...prev,
+            ready: true,
+            loading: false,
+            runtime,
+            error: runtime?.error || "Workspace runtime failed",
+          }));
+          return;
+        }
 
-        reloadRuntime:
-          loadWorkspaceRuntime,
+        setState({
+          ready: true,
+          loading: false,
+          runtime,
+          access: runtime.access || null,
+          organizations: runtime.organizations || [],
+          organizationTree: runtime.organizationTree || [],
+          organization:
+            runtime.activeOrganization || null,
+          activeOrganization:
+            runtime.activeOrganization || null,
+          modules: runtime.modules || [],
+          navigation: runtime.navigation || { executive: [], modules: [] },
+          resolvedRuntime: runtime.resolvedRuntime || null,
+          error: null,
+        });
 
-      }),
-      [runtime, loading]
-    );
+      } catch (error) {
+        console.error("Workspace runtime load failed", error);
+
+        setState(prev => ({
+          ...prev,
+          ready: true,
+          loading: false,
+          error: error.message,
+        }));
+      }
+    }
+
+    init();
+  }, [tenant]);
 
   return (
-
-    <WorkspaceRuntimeContext.Provider
-      value={value}
-    >
-
+    <WorkspaceRuntimeContext.Provider value={state}>
       {children}
-
     </WorkspaceRuntimeContext.Provider>
-
   );
-
 }
 
 export function useWorkspaceRuntime() {
-
-  return useContext(
-    WorkspaceRuntimeContext
-  );
-
+  return useContext(WorkspaceRuntimeContext);
 }

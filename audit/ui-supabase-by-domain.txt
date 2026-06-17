@@ -1,0 +1,17 @@
+  14 finance
+  10 production
+   6 management
+   4 settings
+   4 procurement
+   4 inventory
+   3 pos
+   3 payroll
+   2 marketing
+   2 kitchen
+   2 components
+   2 analytics
+   1 tables
+   1 monitoring
+   1 history
+   1 bar
+   1 automation

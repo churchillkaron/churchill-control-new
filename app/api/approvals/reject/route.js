@@ -1,207 +1,63 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
+import { getStaffIdentity } from "@/lib/messages/getStaffIdentity";
+import { rejectApprovalRequest } from "@/lib/shared/approvals/rejectApprovalRequest";
 
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
-
-import { rejectApproval }
-from "@/lib/shared/approvals/rejectApproval";
-
-import { createApprovalLog }
-from "@/lib/shared/approvals/createApprovalLog";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-export async function POST(
-  request
-) {
-
+export async function POST(request) {
   try {
+    const body = await request.json();
 
-    const body =
-      await request.json();
+    const staff = await getStaffIdentity();
 
-    const {
-
-      entityType,
-
-      entityId,
-
-      currentStatus,
-
-      role,
-
-      actedBy,
-
-      reason,
-
-    } = body;
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
-      });
-
-    if (!access.success) {
-
+    if (!staff) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: "Unauthorized",
         },
         {
-          status:
-            access.status,
+          status: 401,
         }
       );
-
     }
 
-    const tenantId =
-      access.tenantId;
+    const result =
+      await rejectApprovalRequest({
+        workflowRequestId:
+          body.workflowRequestId,
 
-    // rejection payload
+        actedBy: {
+          id: staff.id,
+          role: staff.role,
+        },
 
-    const rejection =
-      rejectApproval({
-
-        reason,
-
-        rejectedBy:
-          actedBy,
-
+        reason:
+          body.reason ||
+          "Rejected",
       });
 
-    // resolve table
-
-    let table = null;
-
-    switch (
-      entityType
-    ) {
-
-      case "invoice":
-        table =
-          "invoices";
-        break;
-
-      case "payroll":
-        table =
-          "monthly_payroll";
-        break;
-
-      case "expense":
-        table =
-          "expenses";
-        break;
-
-      default:
-        throw new Error(
-          "Invalid entity type"
-        );
-
-    }
-
-    // update entity
-
-    const {
-      error:
-        updateError,
-    } =
-      await supabaseAdmin
-
-        .from(table)
-
-        .update({
-
-          status:
-            rejection.status,
-
-          rejected_reason:
-            rejection.rejected_reason,
-
-          rejected_by:
-            rejection.rejected_by,
-
-          rejected_at:
-            rejection.rejected_at,
-
-        })
-
-        .eq(
-          "id",
-          entityId
-        );
-
-    if (updateError) {
-
-      throw updateError;
-
-    }
-
-    // audit log
-
-    await createApprovalLog({
-
-      tenantId,
-
-      entityType,
-
-      entityId,
-
-      fromStatus:
-        currentStatus,
-
-      toStatus:
-        rejection.status,
-
-      actedBy,
-
-      role,
-
-      notes:
-        reason,
-
-    });
-
     return NextResponse.json({
-
       success: true,
-
+      result,
     });
 
   } catch (err) {
 
     console.error(
-      "REJECTION ERROR:",
+      "APPROVAL REJECT ERROR:",
       err
     );
 
     return NextResponse.json(
-
       {
-
         success: false,
-
-        error:
-          err.message,
-
+        error: err.message,
       },
-
       {
         status: 500,
       }
-
     );
 
   }
-
 }

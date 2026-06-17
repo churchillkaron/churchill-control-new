@@ -58,7 +58,7 @@ export default function StudioTopBar({
             tracking-tight
           "
         >
-          Churchill AI Studio
+          Avantiqo Design Studio
         </div>
 
         <div
@@ -68,7 +68,7 @@ export default function StudioTopBar({
             mt-1
           "
         >
-          Luxury Hospitality Creative Engine
+          Creative Operating System
         </div>
 
       </div>

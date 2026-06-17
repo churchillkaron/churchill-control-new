@@ -1,611 +1,149 @@
 "use client";
 
+const goals = ["Awareness", "Promotion", "Event", "Loyalty", "Recruitment"];
+const audiences = ["Tourists", "Expats", "Locals", "Hotel Guests", "Luxury"];
+const directions = ["Luxury", "Elegant", "Party", "Romantic", "Family"];
+const engines = ["full-ai", "enhance", "composite", "video"];
+
 export default function StudioLeftPanel({
-
   poster,
-
   metaAccounts = [],
-
+  organization,
 }) {
-
   return (
-
-    <div
-      className="
-        absolute
-        left-8
-        top-8
-        bottom-8
-        w-[380px]
-        bg-white/[0.03]
-        backdrop-blur-2xl
-        rounded-[32px]
-        p-6
-        overflow-auto
-        z-20
-      "
-    >
-
-      {/* HEADER */}
-
-      <div
-        className="
-          text-orange-500
-          uppercase
-          tracking-[0.3em]
-          text-xs
-          mb-6
-        "
-      >
-        Creative Direction
+    <aside className="h-full overflow-y-auto p-4 text-white">
+      <div className="mb-5">
+        <div className="text-[10px] uppercase tracking-[0.35em] text-[#D6B56D]">
+          Design Studio
+        </div>
+        <div className="mt-2 text-lg font-semibold tracking-[-0.03em]">
+          {organization?.name || "Active Organization"}
+        </div>
+        <div className="text-xs text-white/40">
+          Creative strategy and brand direction
+        </div>
       </div>
 
-      {/* BUSINESS / META */}
+      <Panel title="Brand Profile">
+        <Info label="Voice" value={poster?.brandVoice || "Premium"} />
+        <Info label="Style" value={poster?.style || "Luxury Glass"} />
+        <Info label="Venue" value={poster?.venue || organization?.name || "Venue"} />
+      </Panel>
 
-      <div
-        className="
-          bg-white/5
-          border
-          border-white/10
-          rounded-2xl
-          p-5
-          mb-6
-        "
-      >
-
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-            mb-5
-          "
-        >
-
-          <div
-            className="
-              text-orange-500
-              uppercase
-              tracking-[0.2em]
-              text-xs
-            "
-          >
-            Connected Businesses
-          </div>
-
-          <div
-            className="
-              text-white/40
-              text-[10px]
-            "
-          >
-            Meta Connected
-          </div>
-
-        </div>
-
-        <div
-          className="
-            grid
-            grid-cols-1
-            gap-3
-          "
-        >
-
-          {metaAccounts.map(
-            (account) => {
-
-              const active =
-
-                poster.pageId ===
-                account.page_id;
-
-              return (
-
-                <button
-                  key={account.id}
-
-                  onClick={() => {
-
-  poster.setPageId(
-    account.page_id
-  );
-
- 
-
-}}
-
-                  className={`
-
-                    relative
-                    rounded-2xl
-                    border
-                    p-4
-                    text-left
-                    transition-all
-
-                    ${
-                      active
-
-                        ? `
-                          border-orange-500
-                          bg-orange-500/20
-                          shadow-[0_0_25px_rgba(255,115,0,0.15)]
-                        `
-
-                        : `
-                          border-white/10
-                          bg-black/30
-                          hover:border-orange-500/30
-                        `
-                    }
-
-                  `}
-                >
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                    "
-                  >
-
-                    <div>
-
-                      <div
-                        className="
-                          text-white
-                          font-semibold
-                          text-sm
-                          mb-1
-                        "
-                      >
-                        {account.page_name}
-                      </div>
-
-                      <div
-                        className="
-                          text-white/40
-                          text-xs
-                        "
-                      >
-                        Facebook + Instagram
-                      </div>
-
-                    </div>
-
-                    <div
-                      className={`
-                        w-3
-                        h-3
-                        rounded-full
-
-                        ${
-                          active
-                            ? "bg-green-400"
-                            : "bg-white/20"
-                        }
-                      `}
-                    />
-
-                  </div>
-
-                </button>
-
-              );
-
-            }
+      <Panel title="Connected Accounts">
+        <div className="space-y-2">
+          {metaAccounts.length === 0 && (
+            <div className="rounded-2xl border border-white/[0.08] bg-black/30 p-3 text-xs text-white/40">
+              No Meta accounts connected.
+            </div>
           )}
 
+          {metaAccounts.map((account) => {
+            const active = poster.pageId === account.page_id;
+
+            return (
+              <button
+                key={account.id}
+                onClick={() => poster.setPageId?.(account.page_id)}
+                className={`w-full rounded-2xl border p-3 text-left transition ${
+                  active
+                    ? "border-[#D6B56D]/50 bg-[#D6B56D]/12"
+                    : "border-white/[0.08] bg-black/30 hover:border-[#D6B56D]/30"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">
+                      {account.page_name || "Meta Page"}
+                    </div>
+                    <div className="text-xs text-white/40">
+                      Facebook + Instagram
+                    </div>
+                  </div>
+                  <span className={`h-2.5 w-2.5 rounded-full ${active ? "bg-[#D6B56D]" : "bg-white/20"}`} />
+                </div>
+              </button>
+            );
+          })}
         </div>
+      </Panel>
 
-      </div>
+      <Panel title="Campaign Goal">
+        <PillGrid items={goals} active={poster?.campaignType} onClick={(value) => poster.setCampaignType?.(value)} />
+      </Panel>
 
-      {/* EVENT SETTINGS */}
+      <Panel title="Audience">
+        <PillGrid items={audiences} active={poster?.audience} onClick={(value) => poster.setAudience?.(value)} />
+      </Panel>
 
-      <div
-        className="
-          bg-white/5
-          border
-          border-white/10
-          rounded-2xl
-          p-5
-          mb-6
-        "
-      >
+      <Panel title="Creative Direction">
+        <PillGrid items={directions} active={poster?.mood} onClick={(value) => poster.setMood?.(value)} />
+      </Panel>
 
-        <div
-          className="
-            text-orange-500
-            uppercase
-            tracking-[0.2em]
-            text-xs
-            mb-5
-          "
-        >
-          Event Settings
+      <Panel title="AI Engine">
+        <PillGrid items={engines} active={poster?.engine || "full-ai"} onClick={(value) => poster.setEngine?.(value)} />
+      </Panel>
+
+      <Panel title="Event Details">
+        <div className="space-y-2">
+          <input
+            value={poster.eventDate || ""}
+            onChange={(e) => poster.setEventDate?.(e.target.value)}
+            placeholder="Event date"
+            className="w-full rounded-2xl border border-white/[0.08] bg-black/35 px-3 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#D6B56D]/40"
+          />
+          <input
+            value={poster.eventTime || ""}
+            onChange={(e) => poster.setEventTime?.(e.target.value)}
+            placeholder="Event time"
+            className="w-full rounded-2xl border border-white/[0.08] bg-black/35 px-3 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#D6B56D]/40"
+          />
         </div>
-
-        <div className="space-y-4">
-
-          <input
-            type="text"
-            value={
-              poster.eventDate || ""
-            }
-            onChange={(e) =>
-              poster.setEventDate(
-                e.target.value
-              )
-            }
-            placeholder="Optional Event Date"
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          />
-
-          <input
-            type="text"
-            value={
-              poster.eventTime || ""
-            }
-            onChange={(e) =>
-              poster.setEventTime(
-                e.target.value
-              )
-            }
-            placeholder="Optional Event Time"
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          />
-
-          <input
-            type="text"
-            value={
-              poster.footer || ""
-            }
-            onChange={(e) =>
-              poster.setFooter(
-                e.target.value
-              )
-            }
-            placeholder="Call To Action"
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          />
-
-        </div>
-
-      </div>
-
-      {/* AI SETTINGS */}
-
-      <div
-        className="
-          bg-white/5
-          border
-          border-white/10
-          rounded-2xl
-          p-5
-          mb-6
-        "
-      >
-
-        <div
-          className="
-            text-orange-500
-            uppercase
-            tracking-[0.2em]
-            text-xs
-            mb-5
-          "
-        >
-          AI Settings
-        </div>
-
-        <div className="space-y-5">
-
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-
-              const file =
-                e.target.files?.[0];
-
-              if (!file) return;
-
-              const reader =
-                new FileReader();
-
-              reader.onloadend = () => {
-
-                poster.setSelectedImage(
-                  reader.result
-                );
-
-              };
-
-              reader.readAsDataURL(file);
-
-            }}
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          />
-
-          <select
-            value={poster.layout}
-            onChange={(e) =>
-              poster.setLayout(
-                e.target.value
-              )
-            }
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          >
-
-            <option value="Classic">
-              Classic
-            </option>
-
-            <option value="Centered">
-              Centered
-            </option>
-
-            <option value="Minimal">
-              Minimal
-            </option>
-
-            <option value="Luxury">
-              Luxury
-            </option>
-
-          </select>
-
-          <select
-            value={poster.engine}
-            onChange={(e) =>
-              poster.setEngine(
-                e.target.value
-              )
-            }
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          >
-
-            <option value="full-ai">
-              Full AI
-            </option>
-
-            <option value="enhance">
-              Enhance Existing
-            </option>
-
-            <option value="composite">
-              Composite Assets
-            </option>
-
-            <option value="video">
-              Video Campaign
-            </option>
-
-          </select>
-
-          <select
-            value={poster.mood}
-            onChange={(e) =>
-              poster.setMood(
-                e.target.value
-              )
-            }
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          >
-
-            <option>
-              Luxury Nightlife
-            </option>
-
-            <option>
-              Elegant Dinner
-            </option>
-
-            <option>
-              Party Energy
-            </option>
-
-            <option>
-              Romantic Lounge
-            </option>
-
-          </select>
-
-          <select
-            value={poster.lighting}
-            onChange={(e) =>
-              poster.setLighting(
-                e.target.value
-              )
-            }
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          >
-
-            <option>
-              Cinematic Warm
-            </option>
-
-            <option>
-              Neon Nightclub
-            </option>
-
-            <option>
-              Moody Dark
-            </option>
-
-            <option>
-              Golden Luxury
-            </option>
-
-          </select>
-
-          <select
-            value={poster.composition}
-            onChange={(e) =>
-              poster.setComposition(
-                e.target.value
-              )
-            }
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          >
-
-            <option>
-              Hero Shot
-            </option>
-
-            <option>
-              Cinematic Portrait
-            </option>
-
-            <option>
-              Crowd Energy
-            </option>
-
-            <option>
-              Table Experience
-            </option>
-
-          </select>
-
-          <input
-            value={poster.campaignTitle}
-            onChange={(e) =>
-              poster.setCampaignTitle(
-                e.target.value
-              )
-            }
-            placeholder="Campaign Title"
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          />
-
-          <input
-            value={poster.campaignSubtitle}
-            onChange={(e) =>
-              poster.setCampaignSubtitle(
-                e.target.value
-              )
-            }
-            placeholder="Campaign Subtitle"
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-            "
-          />
-
-          <textarea
-            value={poster.extraDirection}
-            onChange={(e) =>
-              poster.setExtraDirection(
-                e.target.value
-              )
-            }
-            placeholder="Extra AI Direction"
-            rows={5}
-            className="
-              w-full
-              bg-black/40
-              border
-              border-white/10
-              rounded-xl
-              p-4
-              text-white
-              resize-none
-            "
-          />
-
-        </div>
-
-      </div>
-
-    </div>
-
+      </Panel>
+    </aside>
   );
+}
 
+function Panel({ title, children }) {
+  return (
+    <section className="mb-4 rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <div className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[#D6B56D]">
+        {title}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Info({ label, value }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+      <span className="text-white/40">{label}</span>
+      <span className="text-white/80">{value}</span>
+    </div>
+  );
+}
+
+function PillGrid({ items, active, onClick }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {items.map((item) => {
+        const selected = active === item;
+
+        return (
+          <button
+            key={item}
+            onClick={() => onClick?.(item)}
+            className={`rounded-full border px-3 py-2 text-xs transition ${
+              selected
+                ? "border-[#D6B56D]/60 bg-[#D6B56D]/15 text-[#F1DFA6]"
+                : "border-white/[0.08] bg-black/30 text-white/55 hover:border-[#D6B56D]/30 hover:text-white"
+            }`}
+          >
+            {item}
+          </button>
+        );
+      })}
+    </div>
+  );
 }

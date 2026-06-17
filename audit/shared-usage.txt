@@ -1,0 +1,749 @@
+app/(system)/settings/service-charge/page.jsx:9:from "@/lib/shared/supabase/client";
+app/(system)/settings/system/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/settings/users/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/settings/dishes/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/tables/page.jsx:21:from "@/lib/shared/supabase/client";
+app/(system)/management/payments/page.jsx:9:from "@/lib/shared/supabase/client";
+app/(system)/management/invoices/page.jsx:4:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/management/salary/page.jsx:4:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/management/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/management/performance/page.jsx:10:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/management/shifts/page.jsx:9:from "@/lib/shared/supabase/client";
+app/(system)/components/marketing/studio/QueuePanel.jsx:3:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/components/marketing/studio/GenerationJobsPanel.jsx:3:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/pos/POSContent.js:16:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/pos/history/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/pos/orders/page.jsx:11:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/procurement/suppliers/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/procurement/replenishment/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/procurement/dashboard/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/procurement/goods-receipts/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/inventory/ledger/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/inventory/low-stock/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/inventory/ingredients/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/inventory/expiry/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/history/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/prepared/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/costing/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/production/usage/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/recipe-components/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/logs/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/recipes/page.jsx:9:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/production/performance/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/kitchen/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/waste/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/batches/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/marketing/dashboard/page.js:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/marketing/queue/page.js:9:from "@/lib/shared/supabase/client";
+app/(system)/finance/trial-balance/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/accounting/shifts/page.jsx:9:from "@/lib/shared/supabase/client";
+app/(system)/finance/vendors/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/profit-loss/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/depreciation/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/purchase-requests/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/general-ledger/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/cashflow/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/FinanceContent.jsx:5:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/budgets/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/food-cost/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/finance/consolidated-reporting/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/goods-receiving/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/balance-sheet/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/automation/live/page.jsx:11:from "@/lib/shared/supabase/client";
+app/(system)/bar/page.jsx:22:from "@/lib/shared/supabase/client";
+app/(system)/monitoring/live/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/payroll/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/payroll/live/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/payroll/governance/page.jsx:20:from "@/lib/shared/supabase/client";
+app/(system)/kitchen/page.jsx:19:from "@/lib/shared/supabase/client";
+app/(system)/kitchen/expo/page.jsx:21:from "@/lib/shared/supabase/client";
+app/(system)/timeline/page.jsx:4:import { SYSTEM_EVENTS } from "@/lib/shared/constants/events";
+app/(system)/analytics/sales/page.jsx:18:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/analytics/live/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/page.jsx:9:import { supabase } from "@/lib/shared/supabase/client";
+app/system-map/page.jsx:21:} from "@/lib/shared/architecture/systemRegistry";
+app/api/customers/upsert/route.js:4:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/customers/search/route.js:4:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/customers/history/route.js:4:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/customers/timeline/route.js:2:import { supabaseAdmin } from "@/lib/shared/supabase/admin.js";
+app/api/settings/marketing/load/route.js:5:from "@/lib/shared/supabase/server";
+app/api/settings/marketing/save/route.js:5:from "@/lib/shared/supabase/server";
+app/api/messages/pin/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/inbox/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/mark-read/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/delete/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/thread-members/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/reactions/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/voice-note/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/remove-member/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/typing/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/edit/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/star/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/online-status/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/list/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/upload-attachment/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/report/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/send/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/thread/route.js:2:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/messages/create-private/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/delete-thread/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/create-group/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/broadcast/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/add-members/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/unread-count/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/moderation/route.js:4:from "@/lib/shared/supabase/server";
+app/api/messages/create-thread/route.js:4:from "@/lib/shared/supabase/server";
+app/api/owner/route.js:5:} from "@/lib/shared/supabase/server";
+app/api/invoices/update/route.js:4:import { executeApproval } from "@/lib/shared/approvals/executeApproval";
+app/api/invoices/review/update/route.js:5:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/invoices/list/route.js:4:from "@/lib/shared/supabase/admin";
+app/api/hotel/metrics/route.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/hotel/housekeeping/update/route.js:2:from "@/lib/shared/supabase/server";
+app/api/hotel/housekeeping/list/route.js:2:from "@/lib/shared/supabase/server";
+app/api/hotel/bookings/list/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/hotel/bookings/create/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/hotel/concierge/list/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/hotel/properties/list/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/hotel/maintenance/update/route.js:2:from "@/lib/shared/supabase/server";
+app/api/hotel/maintenance/list/route.js:2:from "@/lib/shared/supabase/server";
+app/api/hotel/rooms/list/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/hotel/guests/list/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/auth/role/route.js:2:import { requireRole } from "@/lib/shared/auth/requireRole";
+app/api/auth/session/route.js:2:import { requireAuth } from "@/lib/shared/auth/requireAuth";
+app/api/salary/approvals/route.js:5:} from "@/lib/shared/supabase/server";
+app/api/healthcare/patients/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/patients/[patientId]/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/pharmacy/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/appointments/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/wards/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/dashboard/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/medical-records/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/admissions/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/staff/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/beds/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/insurance/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/billing/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/healthcare/analytics/route.js:2:import { supabase } from "@/lib/shared/supabase";
+app/api/platform/admin/profit/route.js:2:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/platform/admin/overview/route.js:2:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/workspace/command-center/route.js:7:} from "@/lib/shared/supabase/admin";
+app/api/workspace/control-room/route.js:3:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/workspace/control-room/action/route.js:2:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/workspace/industry-organizations/route.js:2:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/meta/save-account/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/meta/Publish/route.js:4:import { supabase } from "@/lib/shared/supabase/client";
+app/api/meta/accounts/route.js:6:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/intake/classify/route.js:3:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/intake/classify/route.js:4:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/intake/approve/route.js:2:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/intake/review/route.js:2:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/intake/list/route.js:5:} from "@/lib/shared/supabase/server";
+app/api/intake/stats/route.js:2:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/intake/process/route.js:4:from "@/lib/shared/supabase/server";
+app/api/approval_requests/route.js:2:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/pos/receipts/route.js:8:from "@/lib/shared/supabase/admin";
+app/api/pos/payments/route.js:5:} from "@/lib/shared/auth";
+app/api/pos/payments/route.js:21:from "@/lib/shared/supabase/admin";
+app/api/pos/payments/process/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/modifiers/get/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/modifier-groups/get/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/modifier-groups/create/route.js:5:} from '@/lib/shared/auth'
+app/api/pos/modifier-groups/create/route.js:11:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/terminals/status/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/dish-modifier-groups/get/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/dish-modifier-groups/assign/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/course-fire/fire/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/customer-display/update/route.js:5:} from '@/lib/shared/auth'
+app/api/pos/customer-display/update/route.js:11:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/customer-display/current/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/discounts/apply/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/discounts/create/route.js:5:} from '@/lib/shared/auth'
+app/api/pos/discounts/create/route.js:11:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/split-bill/create/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/voids/approve/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/alerts/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/realtime/route.js:5:} from "@/lib/shared/auth";
+app/api/pos/printers/get/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/audit/get/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/table-management/merge/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/table-management/transfer/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/tips/add/route.js:5:} from '@/lib/shared/auth'
+app/api/pos/tips/add/route.js:11:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/hold-orders/resume/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/refunds/approve/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/refunds/create/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/orders/get-with-modifiers/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/orders/complete/route.js:5:} from "@/lib/shared/auth";
+app/api/pos/orders/add-item/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/performance/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/end-of-day/close/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/create/route.js:3:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/pos/create/route.js:15:} from "@/lib/shared/constants/events";
+app/api/pos/combo/get/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/combo/create/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/shifts/route.js:5:} from '@/lib/shared/auth'
+app/api/pos/shifts/close/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/shifts/current/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/pos/analytics/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/recipes/by-dish/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/procurement/vendors/list/route.js:7:} from "@/lib/shared/supabase/admin";
+app/api/procurement/purchase-orders/route.js:5:} from "@/lib/shared/auth";
+app/api/procurement/purchase-orders/list/route.js:7:} from "@/lib/shared/supabase/admin";
+app/api/procurement/receiving/route.js:7:} from "@/lib/shared/auth";
+app/api/procurement/receiving/list/route.js:7:} from "@/lib/shared/supabase/admin";
+app/api/procurement/approve-request/route.js:5:} from "@/lib/shared/auth";
+app/api/inventory/monitoring/route.js:5:} from "@/lib/shared/auth";
+app/api/users/create/route.js:7:from "@/lib/shared/supabase/client";
+app/api/ingredients/route.js:3:from "@/lib/shared/supabase/client";
+app/api/orchestration/shift-closed/route.js:3:import { supabase } from "@/lib/shared/supabase/client";
+app/api/governance/deployment/request/route.js:5:} from "@/lib/shared/auth";
+app/api/governance/deployment/check/route.js:5:} from "@/lib/shared/auth";
+app/api/governance/deployment/check/route.js:13:} from "@/lib/shared/supabase/admin";
+app/api/governance/automation/route.js:5:} from "@/lib/shared/auth";
+app/api/production/prep-efficiency/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/purchase-orders/receive/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/station-load/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/expiry-monitor/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/recipe-components/route.js:5:} from "@/lib/shared/auth";
+app/api/production/recipe-components/route.js:11:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/production/stock-alerts/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/supplier-performance/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/vendor-price-history/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/recipes/route.js:5:} from "@/lib/shared/auth";
+app/api/production/recipes/route.js:11:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/production/recipes/get/route.js:2:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/production-sessions/close/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/prep-batches/consume/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/production/waste/analytics/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/marketing/delete-asset/route.js:7:from "@/lib/shared/supabase/client";
+app/api/marketing/schedule/route.js:4:from "@/lib/shared/supabase/admin";
+app/api/marketing/create-generation-job-server/route.js:1:import { createServerSupabase } from '@/lib/shared/supabase/server';
+app/api/marketing/sync-analytics/route.js:7:from "@/lib/shared/supabase/client";
+app/api/marketing/retry-generation-jobs/route.js:4:from "@/lib/shared/supabase/client";
+app/api/marketing/owner-insights/route.js:7:from "@/lib/shared/http/withApiHandler";
+app/api/marketing/owner-insights/route.js:10:from "@/lib/shared/validation/required";
+app/api/marketing/operations/route.js:4:from "@/lib/shared/http/withApiHandler";
+app/api/marketing/operations/route.js:7:from "@/lib/shared/validation/required";
+app/api/marketing/operational-alerts/route.js:7:from "@/lib/shared/http/withApiHandler";
+app/api/marketing/operational-alerts/route.js:10:from "@/lib/shared/validation/required";
+app/api/marketing/recommendations/route.js:7:from "@/lib/shared/http/withApiHandler";
+app/api/marketing/recommendations/route.js:10:from "@/lib/shared/validation/required";
+app/api/marketing/check-video-status/route.js:4:from "@/lib/shared/supabase/client";
+app/api/marketing/publish-instagram/route.js:6:from "@/lib/shared/supabase/client";
+app/api/marketing/generation-jobs/[id]/route.js:7:from "@/lib/shared/supabase/client";
+app/api/marketing/campaign/[id]/route.js:4:from "@/lib/shared/supabase/service";
+app/api/marketing/delete-post/route.js:7:from "@/lib/shared/supabase/client";
+app/api/marketing/queue/route.js:4:from "@/lib/shared/http/withApiHandler";
+app/api/marketing/queue/route.js:7:from "@/lib/shared/validation/required";
+app/api/marketing/engine-learning/route.js:4:from "@/lib/shared/http/withApiHandler";
+app/api/marketing/campaigns/route.js:4:from "@/lib/shared/http/withApiHandler";
+app/api/marketing/campaigns/route.js:7:from "@/lib/shared/validation/required";
+app/api/marketing/process-generation-job/route.js:4:from "@/lib/shared/supabase/server";
+app/api/marketing/assets/route.js:5:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/kpi/overview/route.js:2:from '@/lib/shared/api/createDynamicRoute'
+app/api/kpi/overview/route.js:9:} from '@/lib/shared/api/createDynamicRoute'
+app/api/kpi/overview/route.js:17:} from '@/lib/shared/supabase/server'
+app/api/finance/journal/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/trial-balance/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/month-end/status/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/insights/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/periods/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/periods/close/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/periods/update-status/route.js:5:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/finance/periods/update-status/route.js:9:import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
+app/api/finance/periods/open/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/payments/route.js:3:} from "@/lib/shared/auth";
+app/api/finance/payments/list/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/payments/list/route.js:11:} from "@/lib/shared/supabase/admin";
+app/api/finance/profit-loss/route.js:4:from "@/lib/shared/supabase/admin";
+app/api/finance/year-end/status/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/fixed-assets/depreciation/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/fixed-assets/list/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/fixed-assets/list/route.js:11:} from "@/lib/shared/supabase/admin";
+app/api/finance/fixed-assets/create/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/health/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/intercompany/runtime/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/intercompany/runtime/route.js:15:} from "@/lib/shared/supabase/admin";
+app/api/finance/intercompany/settle/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/intercompany/settle/route.js:15:} from "@/lib/shared/supabase/admin";
+app/api/finance/anomalies/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/general-ledger/trial-balance/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/kpis/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/role-permissions/create/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/role-permissions/check/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/tax-engine/calculate/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/tax-engine/report/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/journals/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/journals/request-reversal/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/journals/reverse/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/journals/[id]/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/cash-flow/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/journal-chain/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/accounts-payable/pay/route.js:3:} from "@/lib/shared/auth";
+app/api/finance/accounts-payable/aging-report/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/audit-trail/live/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/budgeting/variance/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/budgeting/create/route.js:7:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/finance/cost-centers/toggle/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/cost-centers/toggle/route.js:15:} from "@/lib/shared/supabase/admin";
+app/api/finance/cost-centers/list/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/cost-centers/list/route.js:15:} from "@/lib/shared/supabase/admin";
+app/api/finance/cost-centers/create/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/invoice-matching/runtime/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/invoice-matching/runtime/route.js:15:} from "@/lib/shared/supabase/admin";
+app/api/finance/invoice-matching/create/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/summary/route.js:4:from "@/lib/shared/http/withApiHandler";
+app/api/finance/balance-sheet/route.js:5:from "@/lib/shared/supabase/admin";
+app/api/finance/legal-entities/toggle/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/legal-entities/toggle/route.js:15:} from "@/lib/shared/supabase/admin";
+app/api/finance/legal-entities/list/route.js:7:} from "@/lib/shared/auth";
+app/api/finance/legal-entities/list/route.js:15:} from "@/lib/shared/supabase/admin";
+app/api/finance/legal-entities/create/route.js:7:} from "@/lib/shared/auth";
+app/api/staff/route.js:4:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/staff/ai-memory/route.js:2:from "@/lib/shared/supabase/admin";
+app/api/staff/ai-feed/route.js:4:from "@/lib/shared/supabase/admin";
+app/api/staff/runtime/route.js:4:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/staff/profile-overview/route.js:4:from "@/lib/shared/supabase/admin";
+app/api/staff/search/route.js:4:from "@/lib/shared/supabase/server";
+app/api/staff/documents/route.js:2:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/staff/upload-profile-picture/route.js:4:from "@/lib/shared/supabase/server";
+app/api/dishes/route.js:3:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+app/api/orders/update/route.js:7:} from "@/lib/shared/supabase/server";
+app/api/payroll/generate/route.js:3:} from "@/lib/shared/auth";
+app/api/events/leaderboard/route.js:3:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/events/monthly/route.js:3:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/events/active/route.js:3:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/performance/list/route.js:6:from "@/lib/shared/supabase/admin";
+app/api/performance/list/today/route.js:6:from "@/lib/shared/supabase/admin";
+app/api/approvals/reject/route.js:5:import { rejectApprovalRequest } from "@/lib/shared/approvals/rejectApprovalRequest";
+app/api/approvals/process/route.js:4:import { executeApproval } from "@/lib/shared/approvals/executeApproval";
+app/api/forecasting/overview/route.js:12:} from '@/lib/shared/supabase/server'
+app/api/save/route.js:7:from "@/lib/shared/supabase/client";
+app/api/assets/update/route.js:8:} from "@/lib/shared/supabase/server";
+app/api/assets/upload-file/route.js:4:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/assets/upload-file/route.js:5:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/assets/list/route.js:9:} from "@/lib/shared/supabase/server";
+app/api/assets/upload/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/timeline/route.js:2:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/control/scan/route.js:5:} from "@/lib/shared/supabase/server";
+app/api/billing/webhook/route.js:3:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/billing/invoices/mark-paid/route.js:2:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/analytics/production-vs-waste/route.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+app/api/accounting-expenses/route.js:5:from "@/lib/shared/supabase/client";
+app/api/reviews/sync-facebook/route.js:4:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/reviews/leaderboard/route.js:6:from "@/lib/shared/supabase/admin";
+app/api/reviews/list/route.js:4:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/api/reviews/sync-google/route.js:4:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+app/(workforce)/workforce/page.jsx:19:import { supabase } from "@/lib/shared/supabase/client";
+app/(workforce)/workforce/upload/page.jsx:4:import { supabase } from "@/lib/shared/supabase/client";
+app/login/page.js:14:import { supabase } from "@/lib/shared/supabase/client";
+app/login/callback/page.js:7:import { supabase } from "@/lib/shared/supabase/client";
+lib/accounting/loadAccountingFirmDashboard.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/accounting/createAccountingClient.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/accounting/loadAccountingClients.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/accounting/loadAccessibleAccountingClients.js:2:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/accounting/mapInvoiceItems.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/organizations/createOrganization.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/organizations/getOrganizations.js:3:} from "@/lib/shared/supabase/admin";
+lib/settings/loadOperationalSettings.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/settings/saveOperationalSettings.js:2:from "@/lib/shared/supabase/admin";
+lib/design/assets/saveCreativeAsset.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/design/assets/getCreativeAssets.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/design/assets/updateCreativeAsset.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/restaurant/services/getActiveTableSession.js:1:import { getServiceSupabase } from '@/lib/shared/supabase/service'
+lib/restaurant/services/openTableSession.js:1:import { getServiceSupabase } from '@/lib/shared/supabase/service'
+lib/restaurant/services/closeTableSession.js:2:from "@/lib/shared/supabase/service";
+lib/payments/accounting/postPaymentAccounting.js:6:from "@/lib/shared/supabase/admin";
+lib/payments/loadPaymentControl.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/messages/getStaffIdentity.js:3:} from "@/lib/shared/supabase/server";
+lib/hotel/checkInGuest.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/hotel/checkOutGuest.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/hotel/createGuest.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/hotel/createBooking.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/hotel/createProperty.js:2:  from "@/lib/shared/supabase/client";
+lib/hotel/createHousekeepingTask.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/hotel/createConciergeRequest.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/hotel/buildHotelMetrics.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/hotel/getAvailability.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/hotel/createMaintenanceTask.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/hotel/createRoom.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/security/getSecurityOverview.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/auth/rbac/checkPermission.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/auth/checkPermission.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/auth/getCurrentUser.js:5:} from "@/lib/shared/supabase/client";
+lib/auth/getCurrentSession.js:5:} from "@/lib/shared/supabase/client";
+lib/auth/signOut.js:3:} from "@/lib/shared/supabase/client";
+lib/auth/getServerCurrentUser.js:3:} from "@/lib/shared/supabase/server";
+lib/health/checkDatabaseHealth.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/platform/accounting/getOrganizationAccountingProfile.js:3:} from "@/lib/shared/supabase/server";
+lib/platform/accounting/getConsolidationOrganizations.js:3:} from "@/lib/shared/supabase/server";
+lib/platform/getAvailableModules.js:3:} from "@/lib/shared/supabase/server";
+lib/platform/core/platformEngine.js:3:} from "@/lib/shared/architecture/systemRegistry";
+lib/platform/core/platformEngine.js:7:} from "@/lib/shared/routing/platformRoutes";
+lib/platform/loadPlatformCommandCenter.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/platform/runtime/buildAccessRuntime.js:3:} from "@/lib/shared/supabase/server";
+lib/platform/runtime/loadPlatformRuntime.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/platform/runtime/buildOrganizationTree.js:3:} from "@/lib/shared/supabase/server";
+lib/platform/industries/getOrganizationIndustries.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/platform/workspaces/getOrganizationWorkspaceSettings.js:3:} from "@/lib/shared/supabase/server";
+lib/platform/hooks/usePlatformNavigation.js:9:} from "@/lib/shared/routing/platformRoutes";
+lib/platform/governance/resolveOrganizationAccess.js:3:} from "@/lib/shared/supabase/server";
+lib/platform/templates/applyWorkspaceTemplate.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/platform/engine/domainEngine.js:7:} from "@/lib/shared/architecture/systemRegistry";
+lib/workspace/getActiveOrganization.js:3:} from "@/lib/shared/supabase/server";
+lib/runtime/core/createEnterpriseRuntime.js:2:from '@/lib/shared/supabase/client'
+lib/runtime/realtime/createEnterpriseRealtime.js:4:} from '@/lib/shared/realtime/createSafeRealtimeChannel'
+lib/runtime/realtime/createRuntimeSnapshot.js:2:from '@/lib/shared/supabase/admin'
+lib/runtime/replay/replayEvents.js:3:} from '@/lib/shared/events/eventBus'
+lib/runtime/replay/replayEvents.js:6:from '@/lib/shared/supabase/admin'
+lib/runtime/infrastructure/registerRuntimeNode.js:2:from '@/lib/shared/supabase/admin'
+lib/runtime/infrastructure/runRecoveryEngine.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/runtime/infrastructure/runWatchdog.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/runtime/infrastructure/runAutoscaling.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/runtime/infrastructure/runHeartbeat.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/runtime/infrastructure/sendNodeHeartbeat.js:2:from '@/lib/shared/supabase/admin'
+lib/shared/tenant/getTenantSetting.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/shared/auth/checkFinancePermission.js:2:from "@/lib/shared/supabase/admin";
+lib/shared/realtime/createSafeRealtimeChannel.js:3:} from "@/lib/shared/supabase/client";
+lib/shared/approvals/createApprovalLog.js:2:from "@/lib/shared/supabase/admin";
+lib/shared/approvals/executeApproval.js:8:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/shared/approvals/executeApproval.js:9:import { createApprovalLog } from "@/lib/shared/approvals/createApprovalLog";
+lib/shared/approvals/rejectApproval.js:2:from "@/lib/shared/constants/statuses";
+lib/shared/approvals/canApprove.js:2:from "@/lib/shared/constants/roles";
+lib/shared/approvals/rejectApprovalRequest.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/shared/approvals/rejectApprovalRequest.js:2:import { createApprovalLog } from "@/lib/shared/approvals/createApprovalLog";
+lib/observability/createSystemOverview.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/permissions/checkPermission.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/intake/workflows/processMarketingAsset.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/intake/workflows/processExpenseReceipt.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/dashboard/runtime/loadExecutiveDashboard.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/dashboard/loadDashboardSummary.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/realtime/kitchenRealtimeChannel.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/realtime/subscribeOrders.js:2:from "@/lib/shared/supabase/client";
+lib/realtime/subscribeTables.js:2:from "@/lib/shared/supabase/client";
+lib/realtime/channels/createChannel.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/pos/reopenClosedOrder.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/moveOrderItems.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/holdOrders/saveHoldOrder.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/tables/openTable.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/tables/updateTableStatus.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/tables/getTables.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/refundPayment.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/markOrderPaid.js:3:} from '@/lib/shared/supabase/admin'
+lib/pos/markOrderPaid.js:14:} from '@/lib/shared/events/eventBus'
+lib/pos/payments/createVoidReversal.js:2:from "@/lib/shared/supabase/admin";
+lib/pos/payments/loadPaymentState.js:2:from '@/lib/shared/supabase/admin'
+lib/pos/payments/processPOSPayment.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/partialPayment.js:3:} from '@/lib/shared/supabase/admin'
+lib/pos/partialPayment.js:14:} from '@/lib/shared/events/eventBus'
+lib/pos/transferTable.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/terminals/registerTerminal.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/createModifier.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/removeOrderModifier.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/updateOrderItemQuantity.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/loadPaidOrders.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/pos/mergeTables.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/cancelOrder.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/pos/voids/createVoidRequest.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/subscriptions/createPOSSubscription.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/pos/realtime/broadcastOrderUpdate.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/realtime/publishPOSEvent.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/realtime/createPOSRealtimeChannel.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/loadOrderItems.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/pos/printers/registerPrinter.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/audit/createAuditLog.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/loadMenu.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/addOrderModifier.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/applyDiscount.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/splitPayment.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/orders/recalculateOrderTotals.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/orders/autoCloseOrder.js:2:from "@/lib/shared/supabase/admin";
+lib/pos/orders/updatePaymentStatus.js:2:from "@/lib/shared/supabase/admin";
+lib/pos/removeOrderItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/kitchen/getKitchenOrders.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/kitchen/updateKitchenOrderStatus.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/getDishModifierGroups.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/loadTableSessions.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/pos/shifts/openShift.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/shifts/closeShift.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/pos/loadActiveOrders.js:2:from "@/lib/shared/supabase/client";
+lib/pos/reopenTableSession.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/pos/voidOrder.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/pos/offline/processOfflineOrders.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/pos/clearTable.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/pos/closeTableSession.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/audit/logAuditEvent.js:2:from "@/lib/shared/supabase/admin";
+lib/audit/createAuditLog.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/procurement/accounting/postGoodsReceiptAccounting.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/vendors/createVendor.js:3:} from "@/lib/shared/supabase/admin";
+lib/procurement/purchase-orders/getNextPONumber.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/purchase-orders/createPurchaseOrder.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/suppliers/createSupplierPrice.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/runtime/createPurchaseRequest.js:2:from '@/lib/shared/supabase/admin'
+lib/procurement/replenishment/analyzeReplenishmentNeeds.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/recommendations/generatePurchaseRecommendation.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/actions/createPurchaseOrder.js:2:from '@/lib/shared/supabase/admin'
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:2:from "@/lib/shared/supabase/admin";
+lib/procurement/receiving/utils/getNextGRNNumber.js:2:from "@/lib/shared/supabase/admin";
+lib/procurement/receiving/receivePurchaseOrder.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/receiving/receivePurchaseOrder.js:4:} from "@/lib/shared/events/eventBus";
+lib/procurement/events/registerProcurementEvents.js:3:} from '@/lib/shared/events/eventBus'
+lib/procurement/performance/calculateVendorPerformance.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/forecasting/generateConsumptionForecast.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/procurement/pricing/getBestSupplierPrice.js:3:} from "@/lib/shared/supabase/admin";
+lib/procurement/services/createPurchaseRequest.js:1:import { getServiceSupabase } from '@/lib/shared/supabase/service'
+lib/procurement/services/createPurchaseOrder.js:1:import { getServiceSupabase } from '@/lib/shared/supabase/service'
+lib/procurement/approval/approvePurchaseOrder.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/ai/approvalQueue.js:6:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/ai/memory/getTopPerformingCampaigns.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/ai/executeActions.js:6:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/ai/logAIUsage.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/ai/processAIEvents.js:6:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/ai/scoring/updateAssetPerformance.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/ai/profiles/resolveTenantIndustries.js:2:from "@/lib/shared/supabase/server";
+lib/ai/profiles/getOrCreateBusinessProfile.js:2:from "@/lib/shared/supabase/service";
+lib/ai/assets/getTopPerformingAssets.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/ai/runCommandCenterWatch.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/inventory/loadLowStockItems.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/inventory/alerts/generateInventoryAlerts.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/inventory/spoilage/processSpoilage.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/inventory/auto-spoilage/processAutoSpoilage.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/inventory/services/checkLowStock.js:1:import { getServiceSupabase } from '@/lib/shared/supabase/service'
+lib/_legacy_quarantine/predictive/loadPredictiveInsights.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/ai-evolution/thresholds/generateDynamicThresholds.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/_legacy_quarantine/aiOperations/getAIRecommendations.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/_legacy_quarantine/owner/loadOwnerSummary.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/management/getManagementRuntime.js:2:from "@/lib/shared/supabase/admin";
+lib/_legacy_quarantine/management/loadManagerOverview.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/navigation/buildPlatformNavigation.js:2:from "@/lib/shared/architecture/systemRegistry";
+lib/_legacy_quarantine/servicecharge/loadServiceLevel.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/operations/loadOperationsCenter.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/system/loadSystemHealth.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/live/loadRealtimeOverview.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/waiter/loadWaiterTables.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/kpi/loadRestaurantKPI.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/decision/loadDecisionEngine.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/command/loadCommandCenter.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/floor/getFloorTables.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/_legacy_quarantine/orders/updateOrderStatusFromItems.js:2:from '@/lib/shared/supabase/client'
+lib/_legacy_quarantine/bar/loadBarPerformance.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/performance/loadDepartmentPerformance.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/_legacy_quarantine/incidents/runtime/createWorkflowIncident.js:2:from '@/lib/shared/supabase/admin'
+lib/_legacy_quarantine/executive/getExecutiveSummary.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/_legacy_quarantine/executive/loadExecutiveOverview.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/production/completeOrderFlow.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/processOrderProduction.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/prep/createPrepBatch.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/prepared/processPreparedInventoryConsumption.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/prepared/consumePreparedInventory.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/costing/calculateOrderCost.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/costing/calculateDishCost.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/invoiceApproval/approveSupplierInvoice.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/consumption/processInventoryConsumption.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/loadIngredientUsage.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/production/loadKitchenPerformance.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/production/sessions/startProductionSession.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/createRecipe.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/theoretical/calculateTheoreticalUsage.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/yield/processYieldCalculation.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/centralKitchen/createKitchenTransfer.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/kitchen/createKitchenTicket.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/kitchen/updateKitchenItemStatus.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/purchaseOrders/createPurchaseOrder.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/production/waste/logWaste.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/production/batches/createBatchProduction.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/datawarehouse/buildExecutiveSnapshot.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/api/secureRoute.js:3:} from "@/lib/shared/auth";
+lib/api/securePermissionRoute.js:3:} from "@/lib/shared/auth";
+lib/api/secureRoleRoute.js:3:} from "@/lib/shared/auth";
+lib/marketing/distribution/meta/utils/getMetaAccount.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/uploadMarketingAsset.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/service";
+lib/marketing/repositories/deleteQueuedCampaign.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/updateBusinessAIProfile.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/getMarketingAssetsClient.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/savePromptHistory.js:1:import { getServiceSupabase } from "@/lib/shared/supabase/service";
+lib/marketing/repositories/uploadGeneratedImage.js:4:from "@/lib/shared/supabase/server";
+lib/marketing/repositories/updateCampaignPerformance.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/updateCampaignStatus.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/getQueuedCampaigns.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/saveCampaign.js:1:import { getServiceSupabase } from "@/lib/shared/supabase/service";
+lib/marketing/repositories/getGenerationJobs.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/uploadCampaignImage.js:2:from "@/lib/shared/supabase/service";
+lib/marketing/repositories/getBestPromptHistory.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/createGenerationJob.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/marketing/repositories/getMarketingAssets.js:2:from "@/lib/shared/supabase/server";
+lib/marketing/repositories/savePublishLog.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/marketing/repositories/saveCampaignMemory.js:2:from "@/lib/shared/supabase/service";
+lib/marketing/repositories/updateGenerationJob.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/saveCampaignAssetUsage.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/getCampaignMemory.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/getMetaAccounts.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/repositories/saveMarketingAsset.js:2:from "@/lib/shared/supabase/service";
+lib/marketing/repositories/incrementAssetUsage.js:1:import { getServiceSupabase } from "@/lib/shared/supabase/service";
+lib/marketing/ai/insights/getOperationalAlerts.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/marketing/ai/insights/getOwnerInsight.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/marketing/ai/learning/updateEngineLearningMemory.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/ai/utils/getTopPerformingCampaigns.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/marketing/ai/recommendations/getBusinessRecommendations.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/marketing/ai/performance/updateAssetPerformance.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/marketing/ai/assets/getTopPerformingAssets.js:1:import { createServerSupabase } from "@/lib/shared/supabase/server";
+lib/marketing/services/getEngineLearningMemory.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/services/getMarketingOperations.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/services/getQueuedCampaigns.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/services/publishCampaignNow.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/services/getMarketingCampaigns.js:2:from "@/lib/shared/supabase/client";
+lib/marketing/services/runCampaignGeneration.js:35:from "@/lib/shared/supabase/server";
+lib/finance/accounting/createJournalEntry.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/accounting/createJournalEntry.js:3:import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
+lib/finance/accounting/createJournalEntry.js:4:import { emitEvent } from "@/lib/shared/events/eventBus";
+lib/finance/accounting/postPaymentToLedger.js:2:from "@/lib/shared/supabase/admin";
+lib/finance/accounting/utils/getNextJENumber.js:2:from "@/lib/shared/supabase/admin";
+lib/finance/accounting/validateAccountingPeriod.js:2:from "@/lib/shared/supabase/admin";
+lib/finance/accounting/findAccount.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/accounting/postInvoiceToLedger.js:2:from "@/lib/shared/supabase/admin";
+lib/finance/accounting/postDepreciationToLedger.js:2:from "@/lib/shared/supabase/admin";
+lib/finance/reconciliation/runBankReconciliation.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/createCogsEntry.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/entity-management/createEntity.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/monthEnd/closeAccountingPeriod.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/finance/payments/payAccountsPayable.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/finance/payments/processVendorPayment.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/ledger/updateLedgerBalances.js:2:from '@/lib/shared/supabase/admin'
+lib/finance/profitability/calculateDepartmentProfitability.js:2:from "@/lib/shared/supabase/admin";
+lib/finance/loadFinanceOverview.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/finance/year-end/runYearEndClose.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/fixed-assets/createFixedAsset.js:3:} from "@/lib/shared/supabase/admin";
+lib/finance/intercompany/createIntercompanyTransaction.js:3:} from "@/lib/shared/supabase/admin";
+lib/finance/period-close/closeAccountingPeriod.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/loadDailyRevenue.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/finance/general-ledger/postGeneralLedgerEntry.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/general-ledger/postJournalToLedger.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/dashboard/loadExecutiveFinancials.js:6:from '@/lib/shared/supabase/client'
+lib/finance/statements/generateProfitAndLoss.js:2:from '@/lib/shared/supabase/client'
+lib/finance/accounts-payable/createAccountsPayableEntry.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/budgeting/createBudget.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/statement-import/importBankStatement.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/cost-centers/createCostCenter.js:3:} from "@/lib/shared/supabase/admin";
+lib/finance/consolidation/generateConsolidatedFinancials.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/forecasting/buildRevenueForecast.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/forecasting/generateFinancialForecast.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/invoice-matching/createInvoiceMatch.js:3:} from "@/lib/shared/supabase/admin";
+lib/finance/invoice-matching/runThreeWayMatch.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/variance-analysis/runVarianceAnalysis.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/services/getFinanceSummary.js:2:from "@/lib/shared/supabase/admin";
+lib/finance/createPaymentTransaction.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/finance/reversals/createJournalReversal.js:2:from "@/lib/shared/supabase/admin";
+lib/finance/legal-entities/createLegalEntity.js:3:} from "@/lib/shared/supabase/admin";
+lib/finance/reports/generateTrialBalance.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/reports/generateBalanceSheet.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/reports/generateProfitLoss.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/finance/vendor-invoices/createVendorInvoice.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/staff/getStaffOperations.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/staff/loadStaffPerformance.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/automation/loadAutomationStatus.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/monitoring/loadRealtimeMonitoring.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/payroll/accounting/createPayrollJournalEntry.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/accounting/reversePayrollJournal.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/payments/executePayrollPayment.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/generatePayrollRecords.js:20:import { supabaseAdmin as supabase } from "@/lib/shared/supabase/admin";
+lib/payroll/core/distributeServiceCharge.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/payroll/snapshots/closePayrollPeriod.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/snapshots/rejectPayrollReopen.js:6:from "@/lib/shared/supabase/admin";
+lib/payroll/snapshots/createPayrollSnapshot.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/snapshots/requestPayrollReopen.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/snapshots/loadPayrollReopenRequests.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/snapshots/reopenPayrollPeriod.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/snapshots/approvePayrollReopen.js:6:from "@/lib/shared/supabase/admin";
+lib/payroll/loadDailyPayrollPreview.js:5:import { supabase } from "@/lib/shared/supabase/client";
+lib/payroll/payslips/generatePayslipPdf.js:5:from "@/lib/shared/supabase/admin";
+lib/payroll/payslips/generatePayslip.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/policies/loadTenantPayoutPolicy.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/payroll/audit/createPayrollAuditLog.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/audit/loadPayrollAuditLogs.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/history/loadPayrollPeriods.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/calculatePayroll.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/payroll/export/exportPayrollPeriod.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/disputePayrollRecord.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/certifyPayrollRecord.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/recalculatePayrollRecord.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/processPayrollPayout.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/resolvePayrollDispute.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/approvePayrollRecord.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/acknowledgePayrollRecord.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/lockPayrollRecord.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/closePayrollAccountingPeriod.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/finalizePayrollRecord.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/generateMonthlyPayroll.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/rejectPayrollRecord.js:2:from "@/lib/shared/supabase/admin";
+lib/payroll/consolidation/archivePayrollRecord.js:2:from "@/lib/shared/supabase/admin";
+lib/events/recordSystemEvent.js:3:} from "@/lib/shared/supabase/admin";
+lib/kitchen/serveKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/fireAllHeldCourses.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/fireCourse.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/duplicateKitchenTicket.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/releaseKitchenItemClaim.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/assignKitchenItemChef.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/rejectKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenLiveDashboard.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/bumpKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/recallCancelledKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenLeaderboard.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenShiftSummary.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenPayrollAdjustment.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/expediteKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenOperationalReport.js:1:import { supabaseAdmin as supabase } from '@/lib/shared/supabase/admin'
+lib/kitchen/generateKitchenEndOfDayReport.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/getKitchenQueue.js:1:import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+lib/kitchen/prioritizeKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/deleteKitchenTicket.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/claimKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/startKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/cancelKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/reassignKitchenItemStation.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/loadKitchenOrders.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/kitchen/generateKitchenCultureScore.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/recallKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/resumeDelayedKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/markKitchenItemReady.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/returnKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/delayKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/unarchiveKitchenTicket.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/holdKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/restoreDeletedKitchenTicket.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenAIRecommendations.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/mergeKitchenTickets.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/autoAssignKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenBurnoutRisk.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/reopenVoidedKitchenTicket.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/voidKitchenTicket.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/splitKitchenTicket.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/routing/routeKitchenItems.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/kitchen/updateKitchenStatus.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/kitchen/requeueKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenPsychologicalStability.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenMonthlyPerformance.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/updateKitchenItemStatus.js:1:import { getServiceSupabase } from '@/lib/shared/supabase/service'
+lib/kitchen/generateKitchenExecutiveSummary.js:2:from '@/lib/shared/supabase/client'
+lib/kitchen/generateKitchenDisciplinaryReport.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/calculateKitchenChefPerformance.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/refireKitchenItem.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/archiveKitchenTicket.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/unassignKitchenItemChef.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/kitchen/transferKitchenItemChef.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/billing/profitEngine.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/billing/generateOrganizationInvoice.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/billing/usageLogger.js:6:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/billing/invoiceGenerator.js:6:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/onboarding/provisionOrganization.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/customer/loadCustomerFlow.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/customer/runtime/createVIPCustomerEvent.js:2:from '@/lib/shared/supabase/admin'
+lib/customer/processCustomerVisit.js:3:} from "@/lib/shared/supabase/admin";
+lib/analytics/loadRestaurantAnalytics.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/analytics/loadHourlySales.js:1:import { supabase } from "@/lib/shared/supabase/client";
+lib/analytics/getOperationalAnalytics.js:1:import { supabase } from '@/lib/shared/supabase/client'
+lib/analytics/createSnapshot.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/analytics/warehouse/buildRevenueAnalytics.js:1:import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+lib/approval/runtime/createApprovalTask.js:2:from '@/lib/shared/supabase/admin'
+lib/approval/runtime/loadApprovalTasks.js:2:from '@/lib/shared/supabase/client'
+lib/approval/runtime/loadRealtimeApprovals.js:2:from '@/lib/shared/supabase/client'
+lib/approval/events/registerApprovalEvents.js:3:} from '@/lib/shared/events/eventBus'

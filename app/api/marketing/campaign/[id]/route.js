@@ -1,16 +1,15 @@
 export const dynamic = "force-dynamic";
 
-import { supabase }
-from "@/lib/shared/supabase/client";
+import { getServiceSupabase }
+from "@/lib/shared/supabase/service";
+
+const supabaseAdmin =
+  getServiceSupabase();
 
 export async function GET(
-
   request,
-
   { params }
-
 ) {
-
   try {
 
     const { id } =
@@ -19,7 +18,7 @@ export async function GET(
     const {
       data,
       error,
-    } = await supabase
+    } = await supabaseAdmin
       .from(
         "marketing_campaigns"
       )
@@ -30,12 +29,9 @@ export async function GET(
     if (error) {
 
       return Response.json({
-
         success: false,
-
         error:
           error.message,
-
       });
 
     }
@@ -52,14 +48,10 @@ export async function GET(
     );
 
     return Response.json({
-
       success: false,
-
       error:
         err.message,
-
     });
 
   }
-
 }

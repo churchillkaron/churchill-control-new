@@ -1,53 +1,67 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-} from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "@/lib/shared/supabase/client";
 
-import {
-  useActiveOrganization,
-} from "@/lib/hooks/useActiveOrganization";
+const TenantContext = createContext(null);
 
-const TenantContext =
-  createContext(null);
+export function TenantProvider({ children }) {
+  const [tenant, setTenant] = useState(null);
 
-export function TenantProvider({
-  children,
-}) {
+  useEffect(() => {
+    async function loadTenant() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-  const {
-    tenantId,
-    activeOrganization,
-  } = useActiveOrganization();
+        if (!user) return;
 
-  const tenant =
-    tenantId
-      ? {
-          id: tenantId,
+        const res = await fetch("/api/session/bootstrap", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+          }),
+        });
 
-          name:
-            activeOrganization?.name ||
-            "Active Tenant",
+        const data = await res.json();
+
+        if (data?.success) {
+          const nextTenant = {
+            id: data.tenant_id,
+            role: data.role,
+            activeOrganization: data.active_organization_id,
+            staff: data.staff,
+          };
+
+          setTenant(nextTenant);
+
+          try {
+            localStorage.setItem(
+              "tenantRuntime",
+              JSON.stringify(nextTenant)
+            );
+          } catch {}
         }
-      : null;
+
+      } catch (err) {
+        console.error("Tenant load failed", err);
+      }
+    }
+
+    loadTenant();
+  }, []);
 
   return (
-
-    <TenantContext.Provider
-      value={tenant}
-    >
+    <TenantContext.Provider value={tenant}>
       {children}
     </TenantContext.Provider>
-
   );
-
 }
 
 export function useTenant() {
-
-  return useContext(
-    TenantContext
-  );
-
+  return useContext(TenantContext);
 }

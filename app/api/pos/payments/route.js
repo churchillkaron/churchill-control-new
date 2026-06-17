@@ -16,8 +16,6 @@ from "@/lib/finance/createPaymentTransaction";
 import { createJournalEntry }
 from "@/lib/finance/accounting/createJournalEntry";
 
-import postGeneralLedgerEntry
-from "@/lib/finance/general-ledger/postGeneralLedgerEntry";
 
 import { supabaseAdmin }
 from "@/lib/shared/supabase/admin";
@@ -246,27 +244,6 @@ export async function POST(req) {
         ],
 
       });
-
-    await postGeneralLedgerEntry({
-
-      tenant_id:
-        tenant_id,
-
-      account_name:
-        "POS_REVENUE",
-
-      entry_type:
-        "CREDIT",
-
-      amount:
-        Number(order.total || 0),
-
-      reference_type:
-        "pos_order",
-
-      reference_id:
-        order.id,
-    });
 
     await supabaseAdmin
 

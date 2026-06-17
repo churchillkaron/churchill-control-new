@@ -116,7 +116,7 @@ export default function MonitoringLivePage() {
 
           {
             table:
-              "kitchen_ticket_items",
+              "order_items",
           },
 
         ],

@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/shared/supabase/client";
-import { useTenant } from "@/app/providers/TenantProvider";
+import { useActiveOrganization } from "@/lib/hooks/useActiveOrganization";
 
 export default function WorkforceUploadPage() {
 
-  const tenant = useTenant();
+  const {
+    tenantId,
+    organizationId,
+  } = useActiveOrganization();
 
   const [uploading, setUploading] =
     useState(false);
@@ -35,6 +38,16 @@ export default function WorkforceUploadPage() {
       formData.append(
         "file",
         file
+      );
+
+      formData.append(
+        "organizationId",
+        organizationId
+      );
+
+      formData.append(
+        "tenantId",
+        tenantId
       );
 
       const uploadResponse =
@@ -74,7 +87,13 @@ export default function WorkforceUploadPage() {
                 upload.url,
 
               tenantId:
-                tenant?.id,
+                tenantId,
+
+              organizationId:
+                organizationId,
+
+              documentId:
+                upload.documentId,
 
               uploadedBy:
                 user?.id,

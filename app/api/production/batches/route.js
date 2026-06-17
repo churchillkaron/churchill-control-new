@@ -1,37 +1,30 @@
 import { NextResponse } from "next/server";
-
-import createBatchProduction from "@/lib/production/batches/createBatchProduction";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function POST(req) {
-
   try {
 
-    const body =
-      await req.json();
+    const { tenantId } = await req.json();
 
-    const result =
-      await createBatchProduction(
-        body
-      );
+    const { data, error } = await supabaseAdmin
+      .from("production_batches")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
 
-    return NextResponse.json(
-      result
-    );
+    if (error) throw error;
 
-  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      data: data || []
+    });
 
-    return NextResponse.json(
-      {
+  } catch (err) {
 
-        success: false,
+    return NextResponse.json({
+      success: false,
+      error: err.message
+    }, { status: 500 });
 
-        error:
-          error.message,
-      },
-      {
-
-        status: 500,
-      }
-    );
   }
 }

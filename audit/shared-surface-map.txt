@@ -1,0 +1,10 @@
+ 485 supabase
+ 202 
+  35 auth
+   8 http
+   6 validation
+   5 approvals
+   4 constants
+   4 architecture
+   2 routing
+   2 events

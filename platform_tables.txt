@@ -64,7 +64,6 @@ lib/platform/governance/resolveOrganizationAccess.js:    .from("organizations")
 lib/platform/runtime/buildAccessRuntime.js:    .from("organization_users")
 lib/platform/runtime/buildAccessRuntime.js:    .from("staff_accounts")
 lib/platform/runtime/buildOrganizationTree.js:    .from("organizations")
-lib/platform/runtime/loadTenantRuntime.js:    .from("tenant_modules")
 lib/platform/runtime/loadTenantRuntime.js:    .from("tenants")
 lib/production/invoiceApproval/approveSupplierInvoice.js:    .from(
 lib/shared/tenant/getTenantSetting.js:    .from("tenant_settings")

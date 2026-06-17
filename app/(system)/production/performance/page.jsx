@@ -105,7 +105,7 @@ export default function ProductionPerformancePage() {
             event: "*",
             schema: "public",
             table:
-              "kitchen_ticket_items",
+              "order_items",
           },
           refresh
         )

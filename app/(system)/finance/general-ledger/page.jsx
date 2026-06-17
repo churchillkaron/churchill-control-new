@@ -4,113 +4,85 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 
-import { supabase } from "@/lib/shared/supabase/client";
-
 export default function GeneralLedgerPage() {
 
-  const [
-    entries,
-    setEntries,
-  ] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  async function loadEntries() {
+  useEffect(() => {
+    load();
+  }, []);
 
-    const {
-      data,
-    } = await supabase
-      .from("general_ledger")
-      .select("*")
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      );
+  async function load() {
+    setLoading(true);
 
-    setEntries(
-      data || []
+    try {
+      const res = await fetch("/api/finance/reports", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          tenant_id: "demo"
+        })
+      });
+
+      const json = await res.json();
+
+      setRows(json.data?.generalLedger || []);
+
+    } catch (err) {
+      console.error(err);
+    }
+
+    setLoading(false);
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white p-10">
+        Loading general ledger...
+      </div>
     );
   }
 
-  useEffect(() => {
-
-    loadEntries();
-
-  }, []);
-
   return (
-
     <div className="min-h-screen bg-black text-white p-10">
 
-      <div className="max-w-7xl mx-auto">
+      <h1 className="text-4xl font-bold mb-6">
+        General Ledger
+      </h1>
 
-        <h1 className="text-6xl font-bold mb-3">
-          General Ledger
-        </h1>
+      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
 
-        <div className="text-zinc-500 mb-10">
-          Enterprise Financial Ledger
+        <div className="grid grid-cols-5 gap-4 px-6 py-4 border-b border-white/10 text-white/50 text-sm">
+          <div>Date</div>
+          <div>Account</div>
+          <div>Description</div>
+          <div className="text-right">Debit</div>
+          <div className="text-right">Credit</div>
         </div>
 
-        <div className="space-y-4">
+        {rows.length === 0 && (
+          <div className="p-6 text-white/40">
+            No ledger entries
+          </div>
+        )}
 
-          {entries.map(
-            (
-              entry
-            ) => (
-
-              <div
-                key={entry.id}
-                className="border border-zinc-800 rounded-3xl p-6"
-              >
-
-                <div className="flex items-center justify-between">
-
-                  <div>
-
-                    <div className="text-2xl font-bold">
-                      {
-                        entry.account_name
-                      }
-                    </div>
-
-                    <div className="text-zinc-500 mt-2">
-                      {
-                        entry.entry_type
-                      }
-                    </div>
-
-                  </div>
-
-                  <div className="text-right">
-
-                    <div className="text-3xl font-bold">
-
-                      ฿
-                      {
-                        entry.amount
-                      }
-
-                    </div>
-
-                    <div className="text-zinc-500 mt-2">
-                      {
-                        entry.reference_type
-                      }
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-            )
-          )}
-
-        </div>
+        {rows.map((row, i) => (
+          <div
+            key={i}
+            className="grid grid-cols-5 gap-4 px-6 py-4 border-b border-white/10 text-sm"
+          >
+            <div>{row.entry_date}</div>
+            <div>{row.account_name || row.account}</div>
+            <div>{row.description}</div>
+            <div className="text-right">{row.debit}</div>
+            <div className="text-right">{row.credit}</div>
+          </div>
+        ))}
 
       </div>
-
     </div>
   );
 }

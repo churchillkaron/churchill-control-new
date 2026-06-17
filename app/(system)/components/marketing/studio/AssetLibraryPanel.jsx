@@ -497,8 +497,11 @@ AssetLibraryPanel({
 
               {/* ROLE */}
 
-              {asset.analysis?.identity
-                ?.hospitality_role && (
+              {(asset.analysis?.identity
+                ?.business_role ||
+
+                asset.analysis?.identity
+                  ?.hospitality_role) && (
 
                 <div
                   className="
@@ -510,6 +513,10 @@ AssetLibraryPanel({
                 >
 
                   {
+                    asset.analysis
+                      .identity
+                      .business_role ||
+
                     asset.analysis
                       .identity
                       .hospitality_role

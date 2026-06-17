@@ -1,118 +1,33 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
+import { executeApproval } from "@/lib/shared/approvals/executeApproval";
+import { getStaffIdentity } from "@/lib/messages/getStaffIdentity";
 
-import { executeApproval }
-from "@/lib/shared/approvals/executeApproval";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-export async function POST(
-  request
-) {
-
+export async function POST(request) {
   try {
+    const body = await request.json();
 
-    const body =
-      await request.json();
-
-    const {
-
-      entityType,
-
-      entityId,
-
-      currentStatus,
-
-      role,
-
-      actedBy,
-
-      notes,
-
-    } = body;
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
-      });
-
-    if (!access.success) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            access.error,
-        },
-        {
-          status:
-            access.status,
-        }
-      );
-
+    // Resolve authenticated user server-side
+    const staff = await getStaffIdentity();
+    if (!staff) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId =
-      access.tenantId;
-
-    const result =
-      await executeApproval({
-
-        tenantId,
-
-        entityType,
-
-        entityId,
-
-        currentStatus,
-
-        role,
-
-        actedBy,
-
-        notes,
-
-      });
-
-    return NextResponse.json({
-
-      success: true,
-
-      result,
-
+    // Use workflowRequestId to resolve tenant internally
+    const result = await executeApproval({
+      tenantId: body.tenantId,  // tenantId is optional; can be derived from workflowRequest
+      workflowRequestId: body.workflowRequestId,
+      actedBy: {
+        id: staff.id,
+        role: staff.role,
+      },
+      notes: body.notes || null,
     });
 
+    return NextResponse.json({ success: true, result });
   } catch (err) {
-
-    console.error(
-      "APPROVAL ERROR:",
-      err
-    );
-
-    return NextResponse.json(
-
-      {
-
-        success: false,
-
-        error:
-          err.message,
-
-      },
-
-      {
-        status: 500,
-      }
-
-    );
-
+    console.error("APPROVAL PROCESS ERROR:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-
 }

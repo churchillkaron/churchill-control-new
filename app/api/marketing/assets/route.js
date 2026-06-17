@@ -1,10 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
-import { supabase }
-from "@/lib/shared/supabase/client";
+import { createServerSupabase } from "@/lib/shared/supabase/server";
+
+const supabase = createServerSupabase();
 
 export async function GET() {
 

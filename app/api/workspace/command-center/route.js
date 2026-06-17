@@ -18,6 +18,10 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
+import {
+  generateWorkspaceNarrative,
+} from "@/lib/platform/workspaces/generateWorkspaceNarrative";
+
 
 
 
@@ -219,7 +223,7 @@ export async function GET(request) {
       (orderItems.data || []).filter(
         item =>
           !["READY", "SERVED", "CANCELLED", "VOID"].includes(
-            String(item.kitchen_status || item.status || "").toUpperCase()
+            String(item.status || "").toUpperCase()
           )
       );
 
@@ -258,8 +262,87 @@ export async function GET(request) {
     const serviceCharge =
       revenue * 0.05;
 
+    const narrative =
+      await generateWorkspaceNarrative({
+
+        organization: {
+          id:
+            organizationId,
+
+          name:
+            organizationId,
+
+          organization_type:
+            organizationType,
+        },
+
+        industry:
+          organizationType,
+
+        metrics: {
+
+          revenue,
+
+          serviceCharge,
+
+          totalOrders:
+            orders.data.length,
+
+          openOrders:
+            openOrders.length,
+
+          paidOrders:
+            paidOrders.length,
+
+          averageOrder,
+
+          occupiedTables:
+            occupiedTables.length,
+
+          totalTables:
+            tables.data.length,
+
+          kitchenQueue:
+            kitchenQueue.length,
+
+          activeStaff:
+            activeStaff.length,
+
+          lowStockAlerts:
+            lowStock.length,
+
+          pendingPayables:
+            pendingPayables.length,
+
+          pendingPayablesAmount,
+
+          wasteCost,
+
+        },
+
+        alerts: [
+
+          lowStock.length > 0
+            ? `${lowStock.length} low stock alerts`
+            : null,
+
+          kitchenQueue.length > 5
+            ? `Kitchen queue ${kitchenQueue.length}`
+            : null,
+
+          pendingPayables.length > 0
+            ? `${pendingPayables.length} unpaid payables`
+            : null,
+
+        ].filter(Boolean),
+
+      });
+
     return NextResponse.json({
       success: true,
+
+      narrative,
+
       metrics: {
         revenue,
         serviceCharge,

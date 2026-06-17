@@ -1,7 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { supabase }
-from "@/lib/shared/supabase/client";
+import { createServerSupabase }
+from "@/lib/shared/supabase/server";
+
+const supabase =
+  createServerSupabase();
 
 import engineRouter
 from "@/lib/marketing/ai/router/engineRouter";

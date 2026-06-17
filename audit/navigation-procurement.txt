@@ -1,0 +1,65 @@
+lib/platform/modules/moduleRegistry.js:166:    description: "External portal for suppliers and partners.",
+app/(system)/workspace/[organizationId]/retail/page.jsx:12:  { name: "Suppliers", href: "suppliers" },
+app/(system)/procurement/vendors/page.jsx:23:    vendors,
+app/(system)/procurement/vendors/page.jsx:70:          "/api/procurement/vendors/list",
+app/(system)/procurement/vendors/page.jsx:93:        result.vendors || []
+app/(system)/procurement/vendors/page.jsx:116:          "/api/procurement/vendors",
+app/(system)/procurement/vendors/page.jsx:361:              Loading vendors...
+app/(system)/procurement/vendors/page.jsx:366:          {vendors.map(
+app/(system)/procurement/purchase-orders/page.jsx:30:        "/api/procurement/purchase-orders/list",
+app/(system)/procurement/purchase-orders/page.jsx:63:      "/api/procurement/purchase-orders",
+app/(system)/procurement/purchase-orders/page.jsx:90:      "/api/procurement/purchase-orders",
+app/(system)/procurement/purchase-orders/page.jsx:166:                        order.vendors
+app/(system)/procurement/suppliers/page.jsx:12:    vendors,
+app/(system)/procurement/suppliers/page.jsx:48:      vendorsRes,
+app/(system)/procurement/suppliers/page.jsx:54:        .from("vendors")
+app/(system)/procurement/suppliers/page.jsx:77:          vendors (
+app/(system)/procurement/suppliers/page.jsx:93:      vendorsRes.data || []
+app/(system)/procurement/suppliers/page.jsx:108:      "/api/procurement/suppliers",
+app/(system)/procurement/suppliers/page.jsx:137:        "/api/procurement/suppliers",
+app/(system)/procurement/suppliers/page.jsx:204:              {vendors.map(
+app/(system)/procurement/suppliers/page.jsx:297:                bestPrice.vendors
+app/(system)/procurement/suppliers/page.jsx:337:                        item.vendors
+app/(system)/procurement/page.jsx:65:      { name: "Purchase Orders", route: "/procurement/purchase-orders" },
+app/(system)/procurement/page.jsx:93:      { name: "Vendor Runtime", route: "/procurement/vendors" },
+app/(system)/procurement/page.jsx:94:      { name: "Supplier Directory", route: "/procurement/suppliers" },
+app/(system)/procurement/page.jsx:325:            placeholder="Ask procurement AI to analyze vendors, inventory demand or procurement costs..."
+app/(system)/procurement/receiving/page.jsx:124:                        po.vendors
+app/(system)/procurement/goods-receipts/page.jsx:36:          vendors (
+app/(system)/procurement/goods-receipts/page.jsx:185:                {po.vendors?.legal_name}
+app/(system)/finance/vendors/page.jsx:10:  const [vendors, setVendors] = useState([]);
+app/(system)/finance/vendors/page.jsx:33:        .from("vendors")
+app/(system)/finance/vendors/page.jsx:60:        .from("vendors")
+app/(system)/finance/vendors/page.jsx:118:        .from("vendors")
+app/(system)/finance/vendors/page.jsx:140:        Loading vendors...
+app/(system)/finance/vendors/page.jsx:281:        {vendors.length === 0 && (
+app/(system)/finance/vendors/page.jsx:284:            No vendors registered
+app/(system)/finance/vendors/page.jsx:289:        {vendors.map((vendor) => (
+app/(system)/finance/payments/page.jsx:122:                        payable.vendors
+app/(system)/finance/purchase-requests/page.jsx:11:  const [vendors, setVendors] = useState([]);
+app/(system)/finance/purchase-requests/page.jsx:38:          vendors (
+app/(system)/finance/purchase-requests/page.jsx:49:        .from("vendors")
+app/(system)/finance/purchase-requests/page.jsx:259:            {vendors.map((vendor) => (
+app/(system)/finance/purchase-requests/page.jsx:369:                    {request.vendors?.legal_name || "-"}
+app/(system)/finance/fixed-assets/page.jsx:17:  const [vendors, setVendors] = useState([]);
+app/(system)/finance/fixed-assets/page.jsx:48:        vendorsRes,
+app/(system)/finance/fixed-assets/page.jsx:72:          "/api/finance/vendors/list",
+app/(system)/finance/fixed-assets/page.jsx:119:      const vendorsJson =
+app/(system)/finance/fixed-assets/page.jsx:120:        await vendorsRes.json();
+app/(system)/finance/fixed-assets/page.jsx:133:        vendorsJson.vendors || []
+app/(system)/finance/fixed-assets/page.jsx:366:            {vendors.map((vendor) => (
+app/(system)/finance/fixed-assets/page.jsx:446:                <div>Vendor: {asset.vendors?.legal_name || "-"}</div>
+app/(system)/finance/goods-receiving/page.jsx:26:        vendors (
+app/(system)/finance/goods-receiving/page.jsx:38:        vendors (
+app/(system)/finance/goods-receiving/page.jsx:136:                  {po.vendors?.legal_name || "-"}
+app/(system)/finance/goods-receiving/page.jsx:179:                  Vendor: {receipt.vendors?.legal_name || "-"}
+app/api/procurement/vendors/route.js:3:import createVendor from "@/lib/procurement/vendors/createVendor";
+app/api/procurement/vendors/list/route.js:39:      .from("vendors")
+app/api/procurement/vendors/list/route.js:65:      vendors:
+app/api/procurement/purchase-orders/route.js:11:import createPurchaseOrder from "@/lib/procurement/purchase-orders/createPurchaseOrder";
+app/api/procurement/purchase-orders/list/route.js:43:        vendors (
+app/api/procurement/suppliers/route.js:3:import createSupplierPrice from "@/lib/procurement/suppliers/createSupplierPrice";
+app/api/procurement/receiving/list/route.js:43:        vendors (
+app/api/production/supplier-performance/live/route.js:5:import { buildSupplierPerformance } from '@/lib/production/suppliers/buildSupplierPerformance'
+app/api/finance/payments/list/route.js:62:        vendors (
+app/api/finance/fixed-assets/list/route.js:62:        vendors (

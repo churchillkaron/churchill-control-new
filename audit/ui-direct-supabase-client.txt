@@ -1,0 +1,79 @@
+app/(system)/settings/service-charge/page.jsx:9:from "@/lib/shared/supabase/client";
+app/(system)/settings/system/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/settings/users/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/settings/dishes/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/tables/page.jsx:21:from "@/lib/shared/supabase/client";
+app/(system)/management/payments/page.jsx:9:from "@/lib/shared/supabase/client";
+app/(system)/management/invoices/page.jsx:4:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/management/salary/page.jsx:4:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/management/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/management/performance/page.jsx:10:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/management/shifts/page.jsx:9:from "@/lib/shared/supabase/client";
+app/(system)/components/marketing/studio/QueuePanel.jsx:3:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/components/marketing/studio/GenerationJobsPanel.jsx:3:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/pos/POSContent.js:16:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/pos/history/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/pos/orders/page.jsx:11:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/procurement/suppliers/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/procurement/replenishment/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/procurement/dashboard/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/procurement/goods-receipts/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/inventory/ledger/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/inventory/low-stock/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/inventory/ingredients/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/inventory/expiry/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/history/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/prepared/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/costing/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/production/usage/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/recipe-components/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/logs/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/recipes/page.jsx:9:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/production/performance/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/kitchen/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/waste/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/production/batches/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/marketing/dashboard/page.js:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/marketing/queue/page.js:9:from "@/lib/shared/supabase/client";
+app/(system)/finance/trial-balance/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/accounting/shifts/page.jsx:9:from "@/lib/shared/supabase/client";
+app/(system)/finance/vendors/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/profit-loss/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/depreciation/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/purchase-requests/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/general-ledger/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/cashflow/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/FinanceContent.jsx:5:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/budgets/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/food-cost/page.jsx:12:import { supabase } from '@/lib/shared/supabase/client'
+app/(system)/finance/consolidated-reporting/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/goods-receiving/page.jsx:7:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/finance/balance-sheet/page.jsx:6:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/automation/live/page.jsx:11:from "@/lib/shared/supabase/client";
+app/(system)/bar/page.jsx:22:from "@/lib/shared/supabase/client";
+app/(system)/monitoring/live/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/payroll/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/payroll/live/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/payroll/governance/page.jsx:20:from "@/lib/shared/supabase/client";
+app/(system)/kitchen/page.jsx:19:from "@/lib/shared/supabase/client";
+app/(system)/kitchen/expo/page.jsx:21:from "@/lib/shared/supabase/client";
+app/(system)/analytics/sales/page.jsx:18:import { supabase } from "@/lib/shared/supabase/client";
+app/(system)/analytics/live/page.jsx:10:import { supabase } from "@/lib/shared/supabase/client";
+app/page.jsx:9:import { supabase } from "@/lib/shared/supabase/client";
+app/api/meta/Publish/route.js:4:import { supabase } from "@/lib/shared/supabase/client";
+app/api/users/create/route.js:7:from "@/lib/shared/supabase/client";
+app/api/ingredients/route.js:3:from "@/lib/shared/supabase/client";
+app/api/orchestration/shift-closed/route.js:3:import { supabase } from "@/lib/shared/supabase/client";
+app/api/marketing/delete-asset/route.js:7:from "@/lib/shared/supabase/client";
+app/api/marketing/sync-analytics/route.js:7:from "@/lib/shared/supabase/client";
+app/api/marketing/retry-generation-jobs/route.js:4:from "@/lib/shared/supabase/client";
+app/api/marketing/check-video-status/route.js:4:from "@/lib/shared/supabase/client";
+app/api/marketing/publish-instagram/route.js:6:from "@/lib/shared/supabase/client";
+app/api/marketing/generation-jobs/[id]/route.js:7:from "@/lib/shared/supabase/client";
+app/api/marketing/delete-post/route.js:7:from "@/lib/shared/supabase/client";
+app/api/save/route.js:7:from "@/lib/shared/supabase/client";
+app/api/accounting-expenses/route.js:5:from "@/lib/shared/supabase/client";
+app/(workforce)/workforce/page.jsx:19:import { supabase } from "@/lib/shared/supabase/client";
+app/(workforce)/workforce/upload/page.jsx:4:import { supabase } from "@/lib/shared/supabase/client";
+app/login/page.js:14:import { supabase } from "@/lib/shared/supabase/client";
+app/login/callback/page.js:7:import { supabase } from "@/lib/shared/supabase/client";

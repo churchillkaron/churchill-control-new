@@ -395,7 +395,7 @@ export default function MarketingPage() {
 
                   <Link
                     key={item.route}
-                    href={item.route}
+                    href={item.route || "#"}
                     className="group rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-pink-500/40 hover:bg-pink-500/5"
                   >
 

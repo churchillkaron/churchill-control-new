@@ -1,85 +1,107 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse }
-from "next/server";
-
-import { supabase }
-from "@/lib/shared/supabase/client";
-
-
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function generatePassword() {
-return Math.random().toString(36).slice(-8);
+  return Math.random().toString(36).slice(-8);
 }
 
 export async function POST(req) {
-try {
-const body = await req.json();
-const { name, email, role, position, tenant_id } = body;
+  try {
+    const body = await req.json();
 
-```
-// 🔴 Basic validation
-if (!name || !email || !role || !tenant_id) {
-  return Response.json(
-    { error: "Missing required fields" },
-    { status: 400 }
-  );
-}
-
-const password = generatePassword();
-
-// ✅ 1. Create user (NO EMAIL SYSTEM)
-const { data, error: createError } =
-  await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-
-if (createError) {
-  console.log("CREATE USER ERROR:", createError);
-  return Response.json(
-    { error: createError.message },
-    { status: 400 }
-  );
-}
-
-// ✅ 2. Insert into staff_accounts
-const { error: insertError } = await supabase
-  .from("staff_accounts")
-  .insert([
-    {
-      auth_user_id: data.user.id,
+    const {
       name,
       email,
       role,
       position,
       tenant_id,
-      active: true,
-    },
-  ]);
+    } = body;
 
-if (insertError) {
-  console.log("DB INSERT ERROR:", insertError);
-  return Response.json(
-    { error: insertError.message },
-    { status: 400 }
-  );
-}
+    if (!name || !email || !role || !tenant_id) {
+      return Response.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
 
-// ✅ 3. Return credentials (CRITICAL for frontend + CSV)
-return Response.json({
-  success: true,
-  email,
-  password,
-});
-```
+    const password = generatePassword();
 
-} catch (err) {
-console.log("SERVER ERROR:", err);
-return Response.json(
-{ error: "Server error" },
-{ status: 500 }
-);
-}
+    const {
+      data,
+      error: createError,
+    } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+
+    if (createError) {
+      return Response.json(
+        { error: createError.message },
+        { status: 400 }
+      );
+    }
+
+    const authUserId = data.user.id;
+
+    const {
+      data: tenantUser,
+      error: tenantError,
+    } = await supabaseAdmin
+      .from("tenant_users")
+      .insert({
+        auth_user_id: authUserId,
+        tenant_id,
+        email,
+        full_name: name,
+        role,
+        status: "active",
+      })
+      .select()
+      .single();
+
+    if (tenantError) {
+      return Response.json(
+        { error: tenantError.message },
+        { status: 400 }
+      );
+    }
+
+    const {
+      error: staffError,
+    } = await supabaseAdmin
+      .from("staff_accounts")
+      .insert({
+        auth_user_id: authUserId,
+        name,
+        email,
+        role,
+        position,
+        tenant_id,
+        active: true,
+      });
+
+    if (staffError) {
+      return Response.json(
+        { error: staffError.message },
+        { status: 400 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      email,
+      password,
+      tenant_user_id: tenantUser.id,
+    });
+
+  } catch (err) {
+
+    return Response.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
+
+  }
 }

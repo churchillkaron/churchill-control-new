@@ -1,638 +1,1297 @@
+
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
 import { useTenant } from "@/app/providers/TenantProvider";
 import { loadWaiterData } from "@/lib/pos/waiter/loadWaiterData";
 import { groupMenuByCategory } from "@/lib/pos/waiter/groupMenuByCategory";
 
+const spicyOptions = ["No spicy", "Mild", "Medium", "Thai spicy"];
+const cookingOptions = ["Rare", "Medium rare", "Medium", "Medium well", "Well done"];
+const sideOptions = ["Fries", "Rice", "Salad", "Mash"];
+const sauceOptions = ["Pepper", "Mushroom", "Garlic", "No sauce"];
+
+function OptionRow({ title, options, value, onChange }) {
+  return (
+    <div className="mt-4">
+      <div className="mb-2 text-xs uppercase tracking-[0.22em] text-white/45">
+        {title}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            onClick={() => onChange(option)}
+            className={
+              value === option
+                ? "rounded-2xl bg-[#D6A66A] px-3 py-3 text-xs font-semibold text-black"
+                : "rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs font-semibold text-white/65"
+            }
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function POSFinalUI() {
   const tenant = useTenant();
+
   const tenantId = tenant?.id;
+  const organizationId =
+    tenant?.activeOrganization ||
+    tenant?.active_organization_id ||
+    tenant?.organizationId ||
+    tenant?.organization_id;
+
+  console.log("TENANT_RUNTIME", tenant);
+
+const posConfig = tenant?.settings?.pos || {};
+
+  const holdTimer = useRef(null);
+  const longPressFired = useRef(false);
 
   const [data, setData] = useState(null);
-  const [activeCategory, setActiveCategory] = useState(null);
+  const [staff, setStaff] = useState(null);
+
+  const [activeZone, setActiveZone] = useState(null);
   const [activeTable, setActiveTable] = useState(null);
+  const [activeCategory, setActiveCategory] = useState(null);
 
+  const [customer, setCustomer] = useState(null);
+  const [guestCount, setGuestCount] = useState(0);
   const [cart, setCart] = useState([]);
-  const [cartOpen, setCartOpen] = useState(false);
 
-  const [guestPopup, setGuestPopup] = useState(false);
-  const [guests, setGuests] = useState(0);
-
-  const [customerPopup, setCustomerPopup] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [customerMode, setCustomerMode] = useState(null);
   const [customerSearch, setCustomerSearch] = useState("");
-  const [customerResults, setCustomerResults] = useState([]);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [newCustomer, setNewCustomer] = useState({
+    name: "",
+    phone: "",
+    email: "",
+  });
 
-  const [editingItem, setEditingItem] = useState(null);
-  const [itemNotes, setItemNotes] = useState("");
-  const [itemCookingLevel, setItemCookingLevel] = useState("");
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestDraft, setGuestDraft] = useState(1);
+  const [guestMode, setGuestMode] = useState("OPEN_TABLE");
 
-  useEffect(() => {
+  const [dishModal, setDishModal] = useState(null);
+  const [modifierDraft, setModifierDraft] = useState({
+    spicy: "",
+    cooking: "",
+    side: "",
+    sauce: "",
+    notes: "",
+  });
+
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [tableActions, setTableActions] = useState(null);
+  const [tableView, setTableView] = useState(null);
+
+  const [mergeSource, setMergeSource] = useState(null);
+  const [mergeTargets, setMergeTargets] = useState([]);
+  const [mergeConfirm, setMergeConfirm] = useState(false);
+
+  const [tableOrders, setTableOrders] = useState([]);
+  const [tableTotal, setTableTotal] = useState(0);
+
+  function tableId(table) {
+    return table?.id || table?.table?.id || null;
+  }
+
+  function tableName(table) {
+    return table?.table_name || table?.name || "--";
+  }
+
+  function closeAllActionState() {
+    setTableActions(null);
+    setMergeSource(null);
+    setMergeTargets([]);
+    setMergeConfirm(false);
+  }
+
+  function clearTableHold() {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  }
+
+  function startTableHold(table) {
+    clearTableHold();
+    longPressFired.current = false;
+
+    holdTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      setActiveTable(table);
+      setOrderOpen(false);
+      setTableActions(table);
+      setMergeSource(null);
+      setMergeTargets([]);
+      setMergeConfirm(false);
+    }, 600);
+  }
+
+  async function refreshPOS() {
     if (!tenantId) return;
 
-    loadWaiterData(tenantId).then((loaded) => {
-      setData(loaded);
+    const loaded = await loadWaiterData(tenantId);
+    setData(loaded);
 
-      const grouped =
-        groupMenuByCategory(loaded?.dishes || []);
+    if (loaded?.zones?.length && !activeZone) {
+      setActiveZone(loaded.zones[0].id);
+    }
 
-      const firstCategory =
-        Object.keys(grouped)[0] || null;
+    const grouped = groupMenuByCategory(loaded?.dishes || []);
+    const firstCategory = Object.keys(grouped)[0] || null;
 
+    if (!activeCategory && firstCategory) {
       setActiveCategory(firstCategory);
-    });
-  }, [tenantId]);
-
-  const tables =
-    data?.tables || [];
-
-  const groupedMenu =
-    useMemo(() => {
-      return groupMenuByCategory(
-        data?.dishes || []
-      );
-    }, [data]);
-
-  const categories =
-    Object.keys(groupedMenu || []);
-
-  const currentCategory =
-    activeCategory || categories[0];
-
-  const currentDishes =
-    groupedMenu[currentCategory] || [];
-
-  const cartCount =
-    cart.length;
-
-  const cartTotal =
-    cart.reduce(
-      (sum, item) =>
-        sum + Number(item.price || 0),
-      0
-    );
-
-  async function reloadData(tableId) {
-    if (!tenantId) return null;
-
-    const refreshed =
-      await loadWaiterData(tenantId);
-
-    setData(refreshed);
-
-    if (!tableId) return null;
-
-    return (
-      refreshed.tables.find(
-        (table) => table.id === tableId
-      ) || null
-    );
-  }
-
-  function startTable(table) {
-    setActiveTable(table);
-
-    if (
-      table.status === "OCCUPIED" ||
-      Number(table.current_guests || 0) > 0
-    ) {
-      setGuests(
-        Number(table.current_guests || 0)
-      );
-      setGuestPopup(false);
-      setCustomerPopup(true);
-      return;
-    }
-
-    setGuestPopup(true);
-  }
-
-  async function confirmGuests(amount) {
-    if (!activeTable) return;
-
-    await fetch(
-      "/api/pos/table-management/open",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          table_id: activeTable.id,
-          opened_by: "WAITER",
-          guests: amount,
-        }),
-      }
-    );
-
-    const updatedTable =
-      await reloadData(activeTable.id);
-
-    if (updatedTable) {
-      setActiveTable(updatedTable);
-    }
-
-    setGuests(amount);
-    setGuestPopup(false);
-    setCustomerPopup(true);
-  }
-
-  async function searchCustomer() {
-    const res = await fetch(
-      "/api/customers/search",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tenantId,
-          query: customerSearch,
-        }),
-      }
-    );
-
-    const json =
-      await res.json();
-
-    setCustomerResults(
-      json.customers || []
-    );
-  }
-
-  async function createCustomer() {
-    const name =
-      customerSearch.trim();
-
-    if (!name) return;
-
-    const res = await fetch(
-      "/api/customers/upsert",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tenantId,
-          customer_name: name,
-          customer_phone: null,
-          customer_email: null,
-        }),
-      }
-    );
-
-    const json =
-      await res.json();
-
-    if (json.customer) {
-      setSelectedCustomer(json.customer);
-      setCustomerPopup(false);
     }
   }
 
-  function selectWalkIn() {
-    setSelectedCustomer(null);
-    setCustomerPopup(false);
-  }
-
-  function addToCart(dish) {
-    setCart((prev) => [
-      ...prev,
-      {
-        ...dish,
-        cartRowId:
-          `${dish.id}-${Date.now()}-${Math.random()}`,
-        qty: 1,
-        notes: "",
-        cookingLevel: "",
-      },
-    ]);
-    setCartOpen(true);
-  }
-
-  function removeCartItem(cartRowId) {
-    setCart((prev) =>
-      prev.filter(
-        (item) =>
-          item.cartRowId !== cartRowId
-      )
-    );
-  }
-
-  function openItemEditor(item) {
-    setEditingItem(item);
-    setItemNotes(item.notes || "");
-    setItemCookingLevel(
-      item.cookingLevel || ""
-    );
-  }
-
-  function saveItemEditor() {
-    if (!editingItem) return;
-
-    setCart((prev) =>
-      prev.map((item) =>
-        item.cartRowId ===
-        editingItem.cartRowId
-          ? {
-              ...item,
-              notes: itemNotes,
-              cookingLevel:
-                itemCookingLevel,
-            }
-          : item
-      )
-    );
-
-    setEditingItem(null);
-    setItemNotes("");
-    setItemCookingLevel("");
-  }
-
-  async function sendOrder() {
-    if (!activeTable) {
-      setGuestPopup(true);
-      return;
-    }
-
-    if (!cart.length) return;
-
-    await fetch("/api/pos/create", {
+  async function posAction(action, payload = {}) {
+    const response = await fetch("/api/pos/tables/action", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        table: activeTable.table_name,
-        items: cart.map((item) => ({
-          id: item.id,
-          dish_id: item.id,
-          item_name: item.name,
-          name: item.name,
-          price: Number(item.price || 0),
-          quantity: 1,
-          notes: item.notes || null,
-          cookingLevel:
-            item.cookingLevel || null,
-          cooking_level:
-            item.cookingLevel || null,
-          station:
-            item.station || "HOT",
-        })),
-        total: cartTotal,
-        customerName:
-          selectedCustomer?.customer_name ||
-          null,
-        customerPhone:
-          selectedCustomer?.customer_phone ||
-          null,
-        customerEmail:
-          selectedCustomer?.customer_email ||
-          null,
-        staff_id: null,
-        staff_name: "WAITER",
-        tenant_id: tenantId,
+        action,
+        payload: {
+          ...payload,
+          tenantId,
+          tenant_id: tenantId,
+          organizationId,
+          organization_id: organizationId,
+          staffId: staff?.id || null,
+        },
       }),
     });
 
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || result?.success === false) {
+      throw new Error(result?.error || "POS action failed");
+    }
+
+    await refreshPOS();
+    return result;
+  }
+
+  async function loadStaffRuntime() {
+    const email =
+      tenant?.user?.email ||
+      tenant?.email ||
+      tenant?.userEmail ||
+      tenant?.staff?.email ||
+      null;
+
+    if (!email) return;
+
+    const response = await fetch(
+      `/api/staff/runtime?email=${encodeURIComponent(email)}`
+    );
+
+    const runtime = await response.json();
+
+    if (runtime?.success) {
+      setStaff(runtime.staff);
+    }
+  }
+
+  useEffect(() => {
+    if (!tenantId) return;
+
+    loadStaffRuntime();
+
+    loadWaiterData(tenantId).then((loaded) => {
+      setData(loaded);
+
+      if (loaded?.zones?.length) {
+        setActiveZone(loaded.zones[0].id);
+      }
+
+      const grouped = groupMenuByCategory(loaded?.dishes || []);
+      const firstCategory = Object.keys(grouped)[0] || null;
+      setActiveCategory(firstCategory);
+    });
+  }, [tenantId]);
+
+  const zones = data?.zones || [];
+
+  const activeZoneName =
+    zones.find((z) => z.id === activeZone)?.name || "--";
+
+  const tables = useMemo(() => {
+    const all = data?.tables || [];
+    if (!activeZone) return all;
+    return all.filter((table) => table.zone_id === activeZone);
+  }, [data, activeZone]);
+
+  const groupedMenu = useMemo(() => {
+    return groupMenuByCategory(data?.dishes || []);
+  }, [data]);
+
+  const categories = Object.keys(groupedMenu || {});
+  const currentCategory = activeCategory || categories[0];
+  const dishes = groupedMenu[currentCategory] || [];
+
+  const menuUnlocked =
+    Boolean(activeTable) &&
+    (!posConfig?.require_guest_count || Number(guestCount || 0) > 0) &&
+    (!posConfig?.require_customer || Boolean(customer));
+
+  function selectZone(zoneId) {
+    setActiveZone(zoneId);
+    setActiveTable(null);
+    setCustomer(null);
     setCart([]);
-    setCartOpen(false);
-    await reloadData(activeTable.id);
+    closeAllActionState();
+  }
+
+  async function openTable(table) {
+    setActiveTable(table);
+    setTableOrders([]);
+    setTableTotal(0);
+    setOrderOpen(false);
+    closeAllActionState();
+
+    if (!Number(table?.current_guests || 0)) {
+      setGuestMode("OPEN_TABLE");
+      setGuestDraft(1);
+      setShowCustomerModal(false);
+      setShowGuestModal(true);
+    }
+  }
+
+  async function confirmGuests(count) {
+    const guests = Number(count || 1);
+
+    setShowGuestModal(false);
+
+    if (guestMode === "MOVE_GUESTS") {
+      const target = tableActions || activeTable;
+
+      if (target) {
+        await posAction("MOVE_GUESTS", {
+          tableId: tableId(target),
+          guestCount: guests,
+        });
+      }
+
+      closeAllActionState();
+      setGuestMode("OPEN_TABLE");
+      return;
+    }
+
+    setGuestCount(guests);
+
+    if (activeTable) {
+      await posAction("MOVE_GUESTS", {
+        tableId: tableId(activeTable),
+        guestCount: guests,
+      }).catch(() => {});
+    }
+
+    setShowCustomerModal(true);
+    setCustomerMode(null);
+  }
+
+  function walkIn() {
+    setCustomer({
+      id: null,
+      name: "Walk-In Guest",
+      phone: null,
+      email: null,
+      type: "WALK_IN",
+    });
+
+    setShowCustomerModal(false);
+    setCustomerMode(null);
+  }
+
+  async function confirmSearchCustomer() {
+    if (!customerSearch?.trim()) return;
+
+    const response = await fetch("/api/customers/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: customerSearch,
+        tenantId,
+        tenant_id: tenantId,
+        organizationId,
+        organization_id: organizationId,
+      }),
+    });
+
+    const result = await response.json();
+    const selected = result?.customers?.[0];
+
+    if (!selected) {
+      alert("Customer not found");
+      return;
+    }
+
+    setCustomer({
+      id: selected.id,
+      name: selected.customer_name,
+      phone: selected.customer_phone,
+      email: selected.customer_email,
+    });
+
+    setShowCustomerModal(false);
+    setCustomerMode(null);
+    setCustomerSearch("");
+  }
+
+  async function confirmCreateCustomer() {
+    if (!newCustomer.name?.trim()) {
+      alert("Customer name required");
+      return;
+    }
+
+    const response = await fetch("/api/customers/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tenantId,
+        tenant_id: tenantId,
+        organizationId,
+        organization_id: organizationId,
+        customer_name: newCustomer.name,
+        customer_phone: newCustomer.phone,
+        customer_email: newCustomer.email,
+      }),
+    });
+
+    const result = await response.json();
+    const created = result?.customer;
+
+    if (!created) {
+      alert("Unable to create customer");
+      return;
+    }
+
+    setCustomer({
+      id: created.id,
+      name: created.customer_name,
+      phone: created.customer_phone,
+      email: created.customer_email,
+    });
+
+    setShowCustomerModal(false);
+    setCustomerMode(null);
+
+    setNewCustomer({
+      name: "",
+      phone: "",
+      email: "",
+    });
+  }
+
+  function openDish(dish) {
+    if (!menuUnlocked) return;
+
+    setDishModal(dish);
+    setModifierDraft({
+      spicy: "",
+      cooking: "",
+      side: "",
+      sauce: "",
+      notes: "",
+    });
+  }
+
+  function addDishToOrder() {
+    if (!dishModal) return;
+
+    setCart((prev) => [
+      ...prev,
+      {
+        id: `${dishModal.id}-${Date.now()}`,
+        dish_id: dishModal.id,
+        name: dishModal.name,
+        category: dishModal.category || currentCategory,
+        price: Number(dishModal.price || 0),
+        qty: 1,
+        modifiers: {
+          ...modifierDraft,
+        },
+      },
+    ]);
+
+    setDishModal(null);
+  }
+
+  async function sendOrderToKitchen() {
+    if (!activeTable) {
+      alert("Select a table");
+      return;
+    }
+
+    if (!Array.isArray(cart) || cart.length === 0) {
+      alert("No items");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/pos/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          table: activeTable.table_name,
+          table_id: tableId(activeTable),
+
+          items: cart.map((item) => ({
+            id: item.dish_id || item.id,
+            dish_id: item.dish_id || item.id,
+            item_name: item.name,
+            name: item.name,
+            quantity: item.qty || 1,
+            notes: item.modifiers?.notes || null,
+            cookingLevel: item.modifiers?.cooking || null,
+            station: "HOT",
+            price: Number(item.price || 0),
+          })),
+
+          total: cart.reduce(
+            (sum, item) =>
+              sum +
+              Number(item.price || 0) *
+                Number(item.qty || 1),
+            0
+          ),
+
+          customerName: customer?.name || null,
+          customerPhone: customer?.phone || null,
+          customerEmail: customer?.email || null,
+          customerId: customer?.id || null,
+          guestCount: Number(guestCount || 0),
+
+          staff_id: staff?.id || null,
+          staff_name: staff?.name || null,
+
+          tenant_id: tenantId,
+          organization_id: organizationId,
+          tenant_id: tenantId,
+        }),
+      });
+
+      const result = await res.json();
+
+      console.log(
+        "OPEN_TABLE_RESULT",
+        result
+      );
+
+      if (!res.ok) {
+        throw new Error(result?.error || "Order failed");
+      }
+
+      setCart([]);
+      setOrderOpen(false);
+
+      await refreshPOS();
+
+      alert("Order sent");
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  }
+
+  async function openTableView(table) {
+    try {
+      console.log("OPEN_TABLE_REQUEST", {
+  tableId: tableId(table),
+  organization_id: organizationId,
+  tenant_id: tenantId,
+});
+
+const res = await fetch("/api/pos/tables/open", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tableId: tableId(table),
+          organization_id: organizationId,
+          tenant_id: tenantId,
+        }),
+      });
+
+      const result = await res.json();
+
+      console.log(
+        "OPEN_TABLE_RESULT",
+        result
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to load table");
+      }
+
+      const orders = result.orders || [];
+
+      const items = orders.flatMap(
+        (order) => order.order_items || []
+      );
+
+      const total = items.reduce(
+        (sum, item) =>
+          sum +
+          Number(item.price || 0) *
+            Number(item.quantity || 0),
+        0
+      );
+
+      console.log(
+        "OPEN_TABLE_ITEMS",
+        items
+      );
+
+      setTableOrders(items);
+      setTableTotal(total);
+      setTableView(table);
+      closeAllActionState();
+
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  }
+
+  function handleTableAction(action) {
+    const table = tableActions;
+
+    if (!table) return;
+
+    if (action === "Merge tables") {
+      setMergeSource(table);
+      setMergeTargets([]);
+      setMergeConfirm(false);
+      setTableActions(null);
+      return;
+    }
+
+    if (action === "Transfer table") {
+      setActiveTable(table);
+      setTableView("TRANSFER");
+      setTableActions(null);
+      return;
+    }
+
+    if (action === "Move guests") {
+      setGuestMode("MOVE_GUESTS");
+      setGuestDraft(Number(table.current_guests || 1));
+      setShowCustomerModal(false);
+      setShowGuestModal(true);
+      return;
+    }
+
+    if (action === "Split table") {
+      setTableView("SPLIT");
+      setTableActions(null);
+      return;
+    }
+
+    if (action === "Close table") {
+      posAction("CLOSE_TABLE", {
+        tableId: tableId(table),
+      })
+        .then(() => {
+          setActiveTable(null);
+          setCustomer(null);
+          setCart([]);
+          closeAllActionState();
+        })
+        .catch((err) => alert(err.message));
+    }
+  }
+
+  async function confirmMergeTables() {
+    if (!mergeSource || !mergeTargets.length) return;
+
+    try {
+      for (const target of mergeTargets) {
+        await posAction("MERGE_TABLES", {
+          masterTableId: tableId(mergeSource),
+          targetTableId: tableId(target),
+        });
+      }
+
+      setMergeConfirm(false);
+      setMergeSource(null);
+      setMergeTargets([]);
+      await refreshPOS();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  if (!data) {
+    return (
+      <main className="min-h-screen bg-black p-4 text-white">
+        <div className="mx-auto flex h-[844px] w-[390px] items-center justify-center rounded-[38px] border border-white/10 bg-[#060606] text-xs text-white/40">
+          Loading waiter...
+        </div>
+      </main>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center p-4">
-      <div className="relative h-[844px] w-[390px] overflow-hidden rounded-[42px] border border-white/10 bg-[#0b0b0b] shadow-2xl">
+    <main className="min-h-screen bg-black p-4 text-white">
+      <section className="mx-auto flex h-[844px] w-[390px] overflow-hidden rounded-[38px] border border-white/10 bg-[#060606] shadow-2xl">
+        <div className="flex min-h-0 w-full flex-col">
+          <div className="border-b border-white/10 bg-black/70 px-4 py-3 backdrop-blur-xl">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold tracking-tight">
+                  {activeZoneName}
+                  {activeTable ? ` • ${tableName(activeTable)}` : ""}
+                </div>
 
-        <div className="absolute inset-x-0 top-0 z-10 bg-[#0b0b0b]/95 backdrop-blur">
-          <div className="flex items-center justify-between px-4 pt-4 pb-3">
-            <div>
-              <div className="text-lg font-semibold tracking-wide">
-                Churchill POS
+                <div className="mt-1 text-[10px] text-white/35">
+                  {(customer && customer.name) || "No customer"} • {guestCount || 0} guests
+                </div>
               </div>
-              <div className="text-[11px] text-white/45">
-                {activeTable
-                  ? `${activeTable.table_name} • ${guests || "-"} guests`
-                  : "Select table"}
-              </div>
-            </div>
 
-            <button
-              onClick={() => setCartOpen(true)}
-              className="relative rounded-2xl bg-[#D6A66A] px-4 py-2 text-xs font-bold text-black"
-            >
-              Cart {cartCount}
-            </button>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto border-y border-white/10 px-3 py-2">
-            {categories.map((category) => (
               <button
-                key={category}
-                onClick={() => setActiveCategory(category)}
-                className={`shrink-0 rounded-full px-4 py-2 text-xs ${
-                  currentCategory === category
-                    ? "bg-[#D6A66A] text-black"
-                    : "bg-white/10 text-white/70"
-                }`}
+                onClick={() => setOrderOpen(true)}
+                className="rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/15 px-4 py-2 text-sm font-black text-[#E2C48A]"
               >
-                {category}
+                <div className="flex flex-col items-center leading-none">
+                  <span className="text-[10px] tracking-[0.18em]">
+                    ORDER
+                  </span>
+                  <span className="mt-1 text-sm font-black">
+                    {cart.length} ITEMS
+                  </span>
+                </div>
               </button>
-            ))}
+            </div>
           </div>
-        </div>
 
-        <div className="flex h-full pt-[106px]">
-
-          <div className="flex-1 overflow-auto p-3 pr-2 pb-28">
-            <div className="grid grid-cols-3 gap-2">
-              {currentDishes.map((dish) => (
+          <div className="border-b border-white/10 px-3 py-2">
+            <div className="flex gap-2 overflow-x-auto">
+              {zones.map((zone) => (
                 <button
-                  key={dish.id}
-                  onClick={() => addToCart(dish)}
-                  className="aspect-square rounded-2xl border border-white/10 bg-white/[0.06] p-2 text-left transition active:scale-95"
+                  key={zone.id}
+                  onClick={() => selectZone(zone.id)}
+                  className={
+                    zone.id === activeZone
+                      ? "shrink-0 rounded-full bg-[#D6A66A] px-4 py-2 text-[9px] uppercase tracking-[0.18em] font-semibold text-black"
+                      : "shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-semibold text-white/60"
+                  }
                 >
-                  <div className="line-clamp-3 text-[12px] font-medium leading-tight">
-                    {dish.name}
-                  </div>
+                  {zone.name}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                  <div className="mt-2 text-[11px] text-[#D6A66A]">
-                    ฿{Number(dish.price || 0)}
+          <div className="border-b border-white/10 px-3 py-2">
+            <div className="flex gap-2 overflow-x-auto">
+              {tables.map((table) => (
+                <button
+                  key={table.id}
+                  onClick={() => openTable(table)}
+                  onPointerDown={() => startTableHold(table)}
+                  onPointerUp={clearTableHold}
+                  onPointerLeave={clearTableHold}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setActiveTable(table);
+                    setOrderOpen(false);
+                    setTableActions(table);
+                    setMergeSource(null);
+                    setMergeTargets([]);
+                    setMergeConfirm(false);
+                  }}
+                  className={
+                    tableId(activeTable) === table.id
+                      ? "shrink-0 rounded-2xl bg-white px-5 py-4 text-sm font-semibold text-black"
+                      : (
+                          table.status === "OCCUPIED" ||
+                          Number(table.current_guests || 0) > 0
+                        )
+                      ? "shrink-0 rounded-2xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 px-5 py-4 text-sm font-black text-[#F3D7A2] shadow-[0_0_20px_rgba(214,166,106,0.15)]"
+                      : table.status === "MERGED"
+                      ? "shrink-0 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm font-black text-red-300 opacity-70"
+                      : "shrink-0 rounded-2xl border border-[#D6A66A]/35 bg-[#D6A66A]/15 px-5 py-4 text-sm font-black text-[#E2C48A]"
+                  }
+                >
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm font-black tracking-[0.08em]">
+                      {tableName(table)}
+                    </span>
+
+                    {table.status === "MERGED" ? (
+                      <span className="mt-1 text-[9px] uppercase tracking-[0.22em] text-red-300">
+                        MERGED
+                      </span>
+                    ) : Number(table.current_guests || 0) > 0 ? (
+                      <span className="mt-1 text-[9px] uppercase tracking-[0.22em] text-[#E2C48A]">
+                        {table.current_guests} Guests
+                      </span>
+                    ) : null}
                   </div>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="w-[54px] overflow-auto border-l border-white/10 bg-black/25 py-2">
-            <div className="flex flex-col items-center gap-2">
-              {tables.map((table) => {
-                const active =
-                  activeTable?.id === table.id;
+          <div className="border-b border-white/10 px-3 py-2">
+            <div className="flex gap-2 overflow-x-auto">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setActiveCategory(category)}
+                  className={
+                    category === currentCategory
+                      ? "shrink-0 rounded-full bg-[#D6A66A] px-4 py-2 text-[9px] uppercase tracking-[0.18em] font-semibold text-black"
+                      : "shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[9px] uppercase tracking-[0.18em] font-semibold text-white/55"
+                  }
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                const occupied =
-                  table.status === "OCCUPIED" ||
-                  Number(table.current_guests || 0) > 0;
-
-                return (
-                  <button
-                    key={table.id}
-                    onClick={() => startTable(table)}
-                    className={`h-10 w-10 rounded-xl text-[11px] font-semibold ${
-                      active
-                        ? "bg-[#D6A66A] text-black"
-                        : occupied
-                          ? "bg-green-500/20 text-green-300 border border-green-400/30"
-                          : "bg-white/10 text-white/70"
-                    }`}
-                  >
-                    {table.table_name}
-                  </button>
-                );
-              })}
+          <div className="relative min-h-0 flex-1 overflow-y-auto px-3 py-3">
+            <div className="grid grid-cols-3 gap-2">
+              {dishes.map((dish) => (
+                <button
+                  key={dish.id}
+                  onClick={() => openDish(dish)}
+                  className="min-h-[74px] rounded-2xl border border-white/10 bg-white/[0.03] p-2 text-left text-[10px] font-medium leading-snug text-white/85 active:scale-[0.98]"
+                >
+                  {dish.name}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-[#0b0b0b]/95 p-3 backdrop-blur">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCartOpen(true)}
-              className="flex-1 rounded-2xl bg-white/10 py-3 text-xs"
-            >
-              {cartCount} Items • ฿{cartTotal}
-            </button>
-
-            <button
-              onClick={sendOrder}
-              className="flex-1 rounded-2xl bg-[#D6A66A] py-3 text-xs font-bold text-black"
-            >
-              SEND ORDER
-            </button>
-          </div>
-        </div>
-
-        {guestPopup && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-5">
-            <div className="w-full rounded-3xl border border-white/10 bg-[#111] p-5">
-              <div className="mb-4 text-center font-semibold">
-                How many guests?
-              </div>
-
-              <div className="grid grid-cols-4 gap-2">
-                {[1,2,3,4,5,6,7,8,9,10,11,12].map((amount) => (
-                  <button
-                    key={amount}
-                    onClick={() => confirmGuests(amount)}
-                    className="rounded-2xl bg-white/10 py-4 text-sm"
-                  >
-                    {amount}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {customerPopup && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-5">
-            <div className="w-full rounded-3xl border border-white/10 bg-[#111] p-5">
-              <div className="mb-4 text-center font-semibold">
+        {showCustomerModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/5 p-4">
+            <div className="w-[320px] rounded-[32px] border border-white/10 bg-black/70 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+              <div className="mb-4 text-lg font-semibold">
                 Customer
               </div>
 
-              <input
-                value={customerSearch}
-                onChange={(event) =>
-                  setCustomerSearch(event.target.value)
-                }
-                placeholder="Name, phone or email"
-                className="mb-3 w-full rounded-2xl bg-white/10 px-4 py-3 text-sm outline-none"
-              />
+              <div className="space-y-3">
+                <input
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  placeholder="Search customer name or phone"
+                  className="w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-sm outline-none"
+                />
 
-              <div className="mb-4 flex gap-2">
                 <button
-                  onClick={searchCustomer}
-                  className="flex-1 rounded-2xl bg-[#D6A66A] py-3 text-xs font-bold text-black"
+                  onClick={confirmSearchCustomer}
+                  className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-black"
                 >
-                  Search
+                  Select Customer
                 </button>
 
                 <button
-                  onClick={createCustomer}
-                  className="flex-1 rounded-2xl bg-white/10 py-3 text-xs"
+                  onClick={() => setCustomerMode("CREATE")}
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-4 text-sm font-semibold"
                 >
-                  Create
+                  Create Customer
                 </button>
 
                 <button
-                  onClick={selectWalkIn}
-                  className="flex-1 rounded-2xl bg-white/10 py-3 text-xs"
+                  onClick={walkIn}
+                  className="w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
                 >
-                  Walk-In
+                  Walk-In Guest
                 </button>
               </div>
 
-              <div className="max-h-56 space-y-2 overflow-auto">
-                {customerResults.map((customer) => (
+              {customerMode === "CREATE" && (
+                <div className="mt-4 space-y-3">
+                  <input
+                    value={newCustomer.name}
+                    onChange={(e) =>
+                      setNewCustomer({
+                        ...newCustomer,
+                        name: e.target.value,
+                      })
+                    }
+                    placeholder="Name"
+                    className="w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-sm outline-none"
+                  />
+
+                  <input
+                    value={newCustomer.phone}
+                    onChange={(e) =>
+                      setNewCustomer({
+                        ...newCustomer,
+                        phone: e.target.value,
+                      })
+                    }
+                    placeholder="Phone"
+                    className="w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-sm outline-none"
+                  />
+
+                  <input
+                    value={newCustomer.email}
+                    onChange={(e) =>
+                      setNewCustomer({
+                        ...newCustomer,
+                        email: e.target.value,
+                      })
+                    }
+                    placeholder="Email"
+                    className="w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-sm outline-none"
+                  />
+
                   <button
-                    key={customer.id}
-                    onClick={() => {
-                      setSelectedCustomer(customer);
-                      setCustomerPopup(false);
-                    }}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.05] p-3 text-left"
+                    onClick={confirmCreateCustomer}
+                    className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-black"
                   >
-                    <div className="text-sm font-medium">
-                      {customer.customer_name}
-                    </div>
-
-                    <div className="text-[11px] text-white/50">
-                      {customer.customer_phone || "No phone"}
-                    </div>
+                    Create customer
                   </button>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {cartOpen && (
-          <div className="absolute inset-0 z-40 flex items-end bg-black/60">
-            <div className="max-h-[72%] w-full rounded-t-[32px] border-t border-white/10 bg-[#111] p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <div className="font-semibold">
-                    Current Order
+        {showGuestModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/5 p-4">
+            <div className="w-[320px] rounded-[32px] border border-white/10 bg-black/70 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+              <div className="mb-4 text-lg font-semibold">
+                Guests
+              </div>
+
+              <div className="grid grid-cols-5 gap-2">
+                <div className="col-span-5 text-center text-sm text-white/60">
+                  How many guests?
+                </div>
+
+                <div className="col-span-5 mt-3 flex items-center justify-center gap-4">
+                  <button
+                    onClick={() => setGuestDraft(Math.max(1, guestDraft - 1))}
+                    className="h-14 w-14 rounded-2xl bg-white/[0.06] text-2xl font-black"
+                  >
+                    -
+                  </button>
+
+                  <div className="min-w-[80px] text-center text-4xl font-black">
+                    {guestDraft}
                   </div>
-                  <div className="text-[11px] text-white/45">
-                    {activeTable?.table_name || "No table"} • {selectedCustomer?.customer_name || "Walk-In"}
-                  </div>
+
+                  <button
+                    onClick={() => setGuestDraft(guestDraft + 1)}
+                    className="h-14 w-14 rounded-2xl bg-white/[0.06] text-2xl font-black"
+                  >
+                    +
+                  </button>
                 </div>
 
                 <button
-                  onClick={() => setCartOpen(false)}
-                  className="text-white/50"
+                  onClick={() => confirmGuests(guestDraft)}
+                  className="col-span-5 mt-4 rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
                 >
-                  ✕
+                  Start Order
                 </button>
               </div>
+            </div>
+          </div>
+        )}
 
-              <div className="max-h-80 space-y-2 overflow-auto">
-                {cart.map((item) => (
+        {dishModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/5 p-4">
+            <div className="max-h-[88vh] w-[390px] overflow-y-auto rounded-[30px] border border-white/10 bg-[#0B0B0B] p-5 shadow-2xl">
+              <div className="mb-4 text-lg font-semibold">
+                {dishModal.name}
+              </div>
+
+              <OptionRow
+                title="Spicy"
+                options={spicyOptions}
+                value={modifierDraft.spicy}
+                onChange={(value) =>
+                  setModifierDraft({
+                    ...modifierDraft,
+                    spicy: value,
+                  })
+                }
+              />
+
+              <OptionRow
+                title="Cooking"
+                options={cookingOptions}
+                value={modifierDraft.cooking}
+                onChange={(value) =>
+                  setModifierDraft({
+                    ...modifierDraft,
+                    cooking: value,
+                  })
+                }
+              />
+
+              <OptionRow
+                title="Side"
+                options={sideOptions}
+                value={modifierDraft.side}
+                onChange={(value) =>
+                  setModifierDraft({
+                    ...modifierDraft,
+                    side: value,
+                  })
+                }
+              />
+
+              <OptionRow
+                title="Sauce"
+                options={sauceOptions}
+                value={modifierDraft.sauce}
+                onChange={(value) =>
+                  setModifierDraft({
+                    ...modifierDraft,
+                    sauce: value,
+                  })
+                }
+              />
+
+              <textarea
+                value={modifierDraft.notes}
+                onChange={(e) =>
+                  setModifierDraft({
+                    ...modifierDraft,
+                    notes: e.target.value,
+                  })
+                }
+                placeholder="Notes"
+                className="mt-4 h-24 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-sm outline-none"
+              />
+
+              <button
+                onClick={addDishToOrder}
+                className="mt-4 w-full rounded-2xl bg-white py-4 text-sm font-semibold text-black"
+              >
+                Add to order
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tableActions && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/5 p-4">
+            <div className="w-[320px] rounded-[32px] border border-white/10 bg-black/70 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+              <div className="mb-4 text-lg font-semibold">
+                {tableName(tableActions)}
+              </div>
+
+              <button
+                onClick={() => openTableView(tableActions)}
+                className="mb-2 w-full rounded-2xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-4 py-4 text-left text-sm font-black text-[#E2C48A]"
+              >
+                Open Table
+              </button>
+
+              {[
+                "Transfer table",
+                "Merge tables",
+                "Split table",
+                "Move guests",
+                "Close table",
+              ].map((action) => (
+                <button
+                  key={action}
+                  onClick={() => handleTableAction(action)}
+                  className="mb-2 w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left text-sm font-semibold"
+                >
+                  {action}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setTableActions(null)}
+                className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm font-black"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mergeConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+            <div className="w-[340px] rounded-[32px] border border-[#D6A66A]/20 bg-[#0B0B0B] p-5">
+              <div className="text-lg font-semibold text-white">
+                Confirm Merge
+              </div>
+
+              <div className="mt-4 text-sm text-white/50">
+                Destination Table
+              </div>
+
+              <div className="mt-1 text-xl font-semibold text-[#E2C48A]">
+                {tableName(mergeSource)}
+              </div>
+
+              <div className="mt-5 text-sm text-white/50">
+                Tables To Merge
+              </div>
+
+              <div className="mt-2 space-y-2">
+                {mergeTargets.map((table) => (
                   <div
-                    key={item.cartRowId}
-                    className="flex items-center justify-between rounded-2xl bg-white/[0.05] p-3"
+                    key={table.id}
+                    className="rounded-2xl bg-white/[0.05] px-4 py-3"
                   >
+                    {tableName(table)}
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={confirmMergeTables}
+                className="mt-5 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
+              >
+                Confirm Merge
+              </button>
+
+              <button
+                onClick={() => setMergeConfirm(false)}
+                className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm font-black"
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mergeSource && !mergeConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-[340px] rounded-[32px] border border-white/10 bg-black/90 p-5 backdrop-blur-xl">
+              <div className="text-lg font-semibold text-white">
+                Merge Tables
+              </div>
+
+              <div className="mt-2 text-sm text-white/50">
+                Select tables to merge into {tableName(mergeSource)}
+              </div>
+
+              <div className="mt-5 max-h-[300px] space-y-2 overflow-y-auto">
+                {tables
+                  .filter((t) => t.id !== tableId(mergeSource))
+                  .map((table) => (
                     <button
-                      onClick={() => openItemEditor(item)}
-                      className="flex-1 text-left"
+                      key={table.id}
+                      onClick={() => {
+                        const exists = mergeTargets.some((t) => t.id === table.id);
+
+                        if (exists) {
+                          setMergeTargets(
+                            mergeTargets.filter((t) => t.id !== table.id)
+                          );
+                        } else {
+                          setMergeTargets([...mergeTargets, table]);
+                        }
+                      }}
+                      className={
+                        mergeTargets.some((t) => t.id === table.id)
+                          ? "w-full rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/15 px-4 py-4 text-left text-[#E2C48A]"
+                          : "w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left"
+                      }
                     >
-                      <div className="text-sm">
-                        {item.name}
+                      {tableName(table)}
+                    </button>
+                  ))}
+              </div>
+
+              <button
+                disabled={!mergeTargets.length}
+                onClick={() => setMergeConfirm(true)}
+                className="mt-4 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black disabled:opacity-30"
+              >
+                Continue
+              </button>
+
+              <button
+                onClick={() => {
+                  setMergeSource(null);
+                  setMergeTargets([]);
+                }}
+                className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm font-black"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tableView && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+            <div className="w-[360px] rounded-[32px] border border-[#D6A66A]/20 bg-[#0B0B0B] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.7)] backdrop-blur-xl">
+              <div className="mb-5">
+                <div className="text-xs uppercase tracking-[0.30em] text-[#E2C48A]">
+                  Table View
+                </div>
+
+                <div className="mt-4 text-2xl font-light tracking-wide text-white">
+                  {tableView === "TRANSFER"
+                    ? "Transfer Table"
+                    : tableView === "SPLIT"
+                    ? "Split Table"
+                    : tableName(tableView)}
+                </div>
+
+                <div className="mt-2 text-sm text-white/80">
+                  {(customer && customer.name) || "Walk-in"}
+                </div>
+
+                <div className="mt-1 text-xs uppercase tracking-[0.22em] text-[#E2C48A]">
+                  {tableView?.current_guests || 0} Guests
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-sm font-semibold">
+                  Orders
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {(tableOrders || []).length === 0 && (
+                    <div className="text-xs text-white/40">
+                      No open items loaded
+                    </div>
+                  )}
+
+                  {(tableOrders || []).map((item) => (
+                    <div
+                      key={item.id || item.item_name}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <div>
+                        <div className="font-medium text-white">
+                          {item.item_name}
+                        </div>
+
+                        <div className="text-xs text-white/40">
+                          x{item.quantity}
+                        </div>
                       </div>
 
-                      {item.notes && (
-                        <div className="text-[11px] text-orange-300">
-                          📝 {item.notes}
-                        </div>
-                      )}
+                      <div className="font-semibold text-[#E2C48A]">
+                        {Number(item.total || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-                      {item.cookingLevel && (
-                        <div className="text-[11px] text-[#D6A66A]">
-                          🔥 {item.cookingLevel}
-                        </div>
-                      )}
-                    </button>
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <div className="text-center">
+                    <div className="text-[10px] uppercase tracking-[0.30em] text-white/40">
+                      Open Amount
+                    </div>
+
+                    <div className="mt-2 text-2xl font-black text-[#E2C48A]">
+                      {Number(tableTotal || 0).toLocaleString()} THB
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (typeof tableView === "object") {
+                    openTable(tableView);
+                  }
+                  setTableView(null);
+                }}
+                className="mt-4 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
+              >
+                Continue Ordering
+              </button>
+
+              <button
+                onClick={() => setTableView(null)}
+                className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm font-black"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {orderOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/5 p-4">
+            <div className="max-h-[88vh] w-[390px] overflow-y-auto rounded-[30px] border border-white/10 bg-[#0B0B0B] p-5 shadow-2xl">
+              <div className="space-y-3">
+                {cart.length === 0 && (
+                  <div className="rounded-2xl border border-white/10 p-6 text-center text-xs text-white/40">
+                    No items yet
+                  </div>
+                )}
+
+                {cart.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+                  >
+                    <div className="font-semibold">
+                      {item.name}
+                    </div>
+
+                    {Object.values(item.modifiers || {}).some(Boolean) && (
+                      <div className="mt-2 space-y-1 text-xs text-white/55">
+                        {item.modifiers.spicy && <div>• {item.modifiers.spicy}</div>}
+                        {item.modifiers.cooking && <div>• {item.modifiers.cooking}</div>}
+                        {item.modifiers.side && <div>• {item.modifiers.side}</div>}
+                        {item.modifiers.sauce && <div>• {item.modifiers.sauce}</div>}
+                        {item.modifiers.notes && <div>• {item.modifiers.notes}</div>}
+                      </div>
+                    )}
 
                     <button
-                      onClick={() => removeCartItem(item.cartRowId)}
-                      className="ml-2 h-8 w-8 rounded-xl bg-red-500/20 text-red-300"
+                      onClick={() =>
+                        setCart((prev) =>
+                          prev.filter((_, i) => i !== index)
+                        )
+                      }
+                      className="mt-3 text-xs text-white/35"
                     >
-                      ×
+                      Remove
                     </button>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={() => setCart([])}
-                  className="flex-1 rounded-2xl bg-white/10 py-3 text-xs"
-                >
-                  Clear
-                </button>
-
-                <button
-                  onClick={sendOrder}
-                  className="flex-1 rounded-2xl bg-[#D6A66A] py-3 text-xs font-bold text-black"
-                >
-                  Send ฿{cartTotal}
-                </button>
-              </div>
+              <button
+                onClick={sendOrderToKitchen}
+                className="mt-4 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
+              >
+                Send to kitchen
+              </button>
             </div>
           </div>
         )}
-
-        {editingItem && (
-          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 p-5">
-            <div className="w-full rounded-3xl border border-white/10 bg-[#111] p-5">
-              <div className="mb-4 text-center font-semibold">
-                Edit {editingItem.name}
-              </div>
-
-              <textarea
-                value={itemNotes}
-                onChange={(event) =>
-                  setItemNotes(event.target.value)
-                }
-                placeholder="Notes: no tomato, allergy, extra sauce..."
-                className="mb-4 h-24 w-full rounded-2xl bg-white/10 p-3 text-sm outline-none"
-              />
-
-              <div className="mb-2 text-xs text-white/50">
-                Cooking Level
-              </div>
-
-              <div className="mb-4 grid grid-cols-2 gap-2">
-                {["Rare","Medium Rare","Medium","Medium Well","Well Done"].map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => setItemCookingLevel(level)}
-                    className={`rounded-2xl py-3 text-xs ${
-                      itemCookingLevel === level
-                        ? "bg-[#D6A66A] text-black"
-                        : "bg-white/10"
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setEditingItem(null)}
-                  className="flex-1 rounded-2xl bg-white/10 py-3 text-xs"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={saveItemEditor}
-                  className="flex-1 rounded-2xl bg-[#D6A66A] py-3 text-xs font-bold text-black"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

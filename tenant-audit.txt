@@ -377,7 +377,6 @@ export async function loadTenantRuntime(
     data: modules,
   } = await supabase
 
-    .from("tenant_modules")
 
     .select("*")
 

@@ -1,30 +1,25 @@
 import { NextResponse } from "next/server";
-import requireRole from "@/lib/auth/requireRole";
+import { requireRole } from "@/lib/shared/auth/requireRole";
 
 export async function POST(req) {
-
   try {
+    const body = await req.json();
 
-    const body =
-      await req.json();
-
-    const result =
+    const user =
       await requireRole(body);
 
-    return NextResponse.json(
-      result
-    );
-
+    return NextResponse.json({
+      allowed: true,
+      user,
+    });
   } catch (error) {
-
     return NextResponse.json(
       {
         allowed: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
-        status: 500,
+        status: 403,
       }
     );
   }

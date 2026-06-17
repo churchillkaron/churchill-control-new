@@ -1,482 +1,109 @@
 "use client";
+import { subscribe } from "@/lib/pos/core/posEventEngine";
 
 export const dynamic = "force-dynamic";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
-import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
-
-import {
-  Wine,
-  Clock3,
-  CheckCircle2,
-} from "lucide-react";
-
-import { supabase }
-from "@/lib/shared/supabase/client";
-
-
+import { useEffect, useMemo, useState } from "react";
+import { useTenant } from "@/app/providers/TenantProvider";
 
 export default function BarPage() {
 
-  const tenant =
-    useTenant();
+  const tenant = useTenant();
+  const tenantId = tenant?.id;
 
-  const tenantId =
-    tenant?.id;
-
-
-  const [
-    orders,
-    setOrders,
-  ] = useState([]);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   async function loadBar() {
-
-    if (!tenantId) {
-      return;
-    }
+    if (!tenantId) return;
 
     setLoading(true);
 
-    const {
-      data,
-      error,
-    } = await supabase
+    const res = await fetch("/api/pos/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenantId })
+    });
 
-      .from("orders")
+    const json = await res.json();
 
-      .select(`
-        *,
-        order_items (*)
-      `)
+    const filtered =
+      (json.data || []).map(order => ({
+        ...order,
+        order_items: (order.order_items || []).filter(item =>
+          item.station === "BAR" &&
+          ["PENDING","PREPARING","READY"].includes(item.status)
+        )
+      }));
 
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: true,
-        }
-      );
-
-    if (error) {
-
-      console.error(error);
-
-      setLoading(false);
-
-      return;
-
-    }
-
-    setOrders(data || []);
-
+    setOrders(filtered);
     setLoading(false);
-
   }
 
   useEffect(() => {
-
     loadBar();
 
-    const channel =
-      supabase
+    const interval = setInterval(() => {
+      loadBar();
+    }, 5000);
 
-        .channel("bar-live")
+    return () => clearInterval(interval);
+  }, [tenantId]);
 
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "order_items",
-          },
-          () => {
-            loadBar();
-          }
-        )
+  async function updateItemStatus(item, nextStatus) {
+    await fetch("/api/pos/orders/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        itemId: item.id,
+        status: nextStatus,
+        tenantId
+      })
+    });
 
-        .subscribe();
+    loadBar();
+  }
 
-    return () => {
+  const barItems = useMemo(() => {
+    return orders.flatMap(o => o.order_items || []);
+  }, [orders]);
 
-      supabase.removeChannel(
-        channel
-      );
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white p-10">
+        Loading bar...
+      </div>
+    );
+  }
 
-    };
+  return (
+    <div className="min-h-screen bg-black text-white p-10">
+      <h1 className="text-3xl font-bold mb-6">Bar</h1>
+
+      {barItems.map((item, i) => (
+        <div key={i} className="p-4 border-b border-white/10">
+          <div>{item.name}</div>
+          <div className="text-sm text-white/50">{item.status}</div>
+
+          <button
+            onClick={() => updateItemStatus(item, "READY")}
+            className="mt-2 px-3 py-1 bg-blue-600 rounded"
+          >
+            Ready
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+  // ===== EVENT SYNC (BAR) =====
+  useEffect(() => {
+
+    const unsub = subscribe("BAR", () => {
+      loadBar();
+    });
+
+    return () => unsub();
 
   }, []);
 
-  async function updateItemStatus(
-    item,
-    nextStatus
-  ) {
-
-    const { error } =
-      await supabase
-
-        .from("order_items")
-
-        .update({
-
-          status:
-            nextStatus,
-
-        })
-
-        .eq(
-          "id",
-          item.id
-        );
-
-    if (error) {
-
-      console.error(error);
-
-      return;
-
-    }
-
-    loadBar();
-
-  }
-
-  const barItems =
-    useMemo(() => {
-
-      return orders.flatMap(
-        order =>
-
-          (order.order_items || [])
-
-            .filter(item => {
-
-              const activeStatuses = [
-                "NEW",
-                "PENDING",
-                "COOKING",
-                "READY",
-                "HOLD",
-              ];
-
-              return (
-
-                activeStatuses.includes(
-                  item.status
-                ) &&
-
-                item.station ===
-                "BAR"
-
-              );
-
-            })
-
-            .map(
-              item => ({
-                ...item,
-
-                normalized_status:
-
-                  item.status === "NEW"
-                    ? "PENDING"
-                    : item.status,
-
-                table_number:
-                  order.table_number,
-
-                order_id:
-                  order.id,
-              })
-            )
-      );
-
-    }, [orders]);
-
-  function getWaitMinutes(
-    createdAt
-  ) {
-
-    if (!createdAt)
-      return 0;
-
-    const utcString =
-      createdAt.replace(
-        " ",
-        "T"
-      ) + "Z";
-
-    const created =
-      new Date(
-        utcString
-      );
-
-    return Math.max(
-      0,
-      Math.floor(
-        (
-          Date.now() -
-          created.getTime()
-        ) /
-        1000 /
-        60
-      )
-    );
-
-  }
-
-  return (
-
-    <div className="min-h-screen bg-[#140c0c] p-8 text-white">
-
-      <div className="mb-10 flex items-center justify-between">
-
-        <div>
-
-          <h1 className="text-5xl font-bold tracking-tight">
-
-            Bar Operations
-
-          </h1>
-
-          <p className="mt-3 text-lg text-zinc-500">
-
-            Live drink production
-
-          </p>
-
-        </div>
-
-        <div className="flex gap-4">
-
-          <TopStat
-            label="PENDING"
-            value={
-              barItems.filter(
-                i =>
-                  i.normalized_status ===
-                  "PENDING"
-              ).length
-            }
-            icon={<Clock3 />}
-          />
-
-          <TopStat
-            label="MAKING"
-            value={
-              barItems.filter(
-                i =>
-                  i.normalized_status ===
-                  "COOKING"
-              ).length
-            }
-            icon={<Wine />}
-          />
-
-          <TopStat
-            label="READY"
-            value={
-              barItems.filter(
-                i =>
-                  i.normalized_status ===
-                  "READY"
-              ).length
-            }
-            icon={<CheckCircle2 />}
-          />
-
-        </div>
-
-      </div>
-
-      {loading ? (
-
-        <div className="text-zinc-500">
-          Loading bar...
-        </div>
-
-      ) : (
-
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-
-          {barItems.map(
-            item => (
-
-              <BarCard
-                key={item.id}
-                item={item}
-                waitMinutes={
-                  getWaitMinutes(
-                    item.created_at
-                  )
-                }
-                onUpdate={
-                  updateItemStatus
-                }
-              />
-            )
-          )}
-
-        </div>
-
-      )}
-
-    </div>
-
-  );
-
-}
-
-function TopStat({
-  label,
-  value,
-  icon,
-}) {
-
-  return (
-
-    <div className="min-w-[140px] rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4">
-
-      <div className="mb-3 flex items-center justify-between text-zinc-500">
-
-        <div className="text-sm">
-          {label}
-        </div>
-
-        {icon}
-
-      </div>
-
-      <div className="text-3xl font-bold">
-
-        {value}
-
-      </div>
-
-    </div>
-
-  );
-
-}
-
-function BarCard({
-  item,
-  waitMinutes,
-  onUpdate,
-}) {
-
-  const status =
-    item.normalized_status;
-
-  return (
-
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
-
-      <div className="mb-4 flex items-center justify-between">
-
-        <div className="text-2xl font-bold">
-
-          {
-            item.item_name
-          }
-
-        </div>
-
-        <div className="text-sm font-bold text-cyan-400">
-
-          {status}
-
-        </div>
-
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 text-sm text-zinc-400">
-
-        <div>
-          Table:
-          {" "}
-          {item.table_number}
-        </div>
-
-        <div>
-          Qty:
-          {" "}
-          {item.quantity}
-        </div>
-
-        <div>
-          Wait:
-          {" "}
-          {waitMinutes} min
-        </div>
-
-        <div>
-          Station:
-          {" "}
-          BAR
-        </div>
-
-      </div>
-
-      <div className="mt-5 flex gap-3">
-
-        {(status === "PENDING") && (
-
-          <button
-            onClick={() =>
-              onUpdate(
-                item,
-                "COOKING"
-              )
-            }
-            className="flex-1 rounded-2xl bg-cyan-500 py-3 font-semibold text-black"
-          >
-
-            MAKE DRINK
-
-          </button>
-
-        )}
-
-        {status ===
-          "COOKING" && (
-
-          <button
-            onClick={() =>
-              onUpdate(
-                item,
-                "READY"
-              )
-            }
-            className="flex-1 rounded-2xl bg-green-500 py-3 font-semibold text-black"
-          >
-
-            READY
-
-          </button>
-
-        )}
-
-      </div>
-
-    </div>
-
-  );
-
-}

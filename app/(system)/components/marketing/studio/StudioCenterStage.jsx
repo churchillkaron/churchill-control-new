@@ -1,587 +1,196 @@
 "use client";
 
-import { useEffect, useState }
-from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import PosterPreview
-from "../PosterPreview";
-
-export default function
-StudioCenterStage({
-
-  poster,
-
-  exportRef,
-
+export default function StudioCenterStage({
   selectedAssets = [],
-
   setSelectedAssets,
-
+  marketingAssets = [],
   latestCampaign,
-
+  activeAsset: externalActiveAsset,
+  setActiveAsset: setExternalActiveAsset,
 }) {
-
-  const [activeAsset,
-  setActiveAsset] =
+  const [localActiveAsset, setLocalActiveAsset] =
     useState(null);
 
-  useEffect(() => {
+  const activeAsset =
+    externalActiveAsset || localActiveAsset;
 
-    if (
-      latestCampaign?.video_url
-    ) {
+  const setActiveAsset = (asset) => {
+    setLocalActiveAsset(asset);
+    setExternalActiveAsset?.(asset);
+  };
 
-      setActiveAsset({
-
+  const campaignMedia = useMemo(() => {
+    if (latestCampaign?.video_url) {
+      return {
         type: "video",
-
-        url:
-          latestCampaign.video_url,
-
-      });
-
-      return;
-
+        url: latestCampaign.video_url,
+      };
     }
 
     const imageUrl =
-
       latestCampaign?.image_url ||
-
       latestCampaign?.imageUrl ||
-
       latestCampaign?.thumbnail_url ||
-
       null;
 
-    if (imageUrl) {
-
-      setActiveAsset({
-
-        type: "image",
-
-        url: imageUrl,
-
-      });
-
-    }
-
+    return imageUrl
+      ? {
+          type: "image",
+          url: imageUrl,
+        }
+      : null;
   }, [latestCampaign]);
 
   useEffect(() => {
+    if (campaignMedia?.url) {
+      setActiveAsset(campaignMedia);
+    }
+  }, [campaignMedia?.url]);
 
-    if (
-
-      !latestCampaign?.video_job_id ||
-
-      latestCampaign?.video_url
-
-    ) return;
-
-    const interval =
-
-      setInterval(async () => {
-
-        try {
-
-          const response =
-
-            await fetch(
-
-              "/api/marketing/check-video-status",
-
-              {
-
-                method: "POST",
-
-                headers: {
-
-                  "Content-Type":
-                    "application/json",
-
-                },
-
-                body: JSON.stringify({
-
-                  campaignId:
-                    latestCampaign.id,
-
-                  videoJobId:
-                    latestCampaign.video_job_id,
-
-                }),
-
-              }
-
-            );
-
-          const result =
-            await response.json();
-
-          console.log(
-            "VIDEO POLL RESULT:",
-            result
-          );
-
-          if (
-            result?.completed
-          ) {
-
-            clearInterval(
-              interval
-            );
-
-            window.location.reload();
-
-          }
-
-        } catch (err) {
-
-          console.error(err);
-
-        }
-
-      }, 10000);
-
-    return () =>
-      clearInterval(interval);
-
-  }, [
-
-    latestCampaign?.video_job_id,
-
-    latestCampaign?.video_url,
-
-  ]);
-
-  const campaignTags =
-
-    (
-      latestCampaign?.selected_assets ||
-
-      selectedAssets ||
-
-      []
-    )
-
-      .flatMap(
-
-        (asset) =>
-          asset?.tags || []
-
-      )
-
-      .filter(Boolean)
-
-      .slice(0, 12);
+  const visibleAssets =
+    selectedAssets.length > 0
+      ? selectedAssets
+      : marketingAssets.slice(0, 10);
 
   return (
-
-    <div
-      className="
-        relative
-        h-full
-        overflow-y-auto
-        px-[420px]
-        py-12
-      "
-    >
-
-      <div
-        className="
-          absolute
-          inset-0
-          bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.08),transparent_60%)]
-          pointer-events-none
-        "
-      />
-
-      <div
-        className="
-          relative
-          z-10
-          w-full
-          max-w-[780px]
-          mx-auto
-          flex
-          flex-col
-          gap-6
-          pb-28
-        "
-      >
-
-        <div
-          className="
-            flex
-            items-center
-            justify-center
-            gap-3
-            mb-2
-          "
-        >
-
-          <div
-            className="
-              bg-black/60
-              border
-              border-orange-500/20
-              px-5
-              py-3
-              rounded-full
-              text-xs
-              uppercase
-              tracking-[0.3em]
-              text-orange-400
-              backdrop-blur-xl
-            "
-          >
-            Live Campaign
+    <main className="h-full overflow-hidden p-4">
+      <div className="flex h-full flex-col gap-4">
+        <div className="flex items-center justify-between rounded-[26px] border border-white/[0.08] bg-white/[0.035] px-5 py-3 backdrop-blur-3xl">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.35em] text-[#D6B56D]">
+              Creative Canvas
+            </div>
+            <div className="mt-1 text-xl font-semibold tracking-[-0.04em]">
+              Full Preview
+            </div>
           </div>
 
-          <div
-            className="
-              bg-green-500/20
-              border
-              border-green-500/20
-              px-5
-              py-3
-              rounded-full
-              text-xs
-              uppercase
-              tracking-[0.3em]
-              text-green-400
-              backdrop-blur-xl
-            "
-          >
-            AI Render
+          <div className="flex rounded-full border border-white/[0.08] bg-black/35 p-1 text-xs text-white/55">
+            {["Post", "Story", "Flyer", "Menu", "Screen", "Video"].map((item) => (
+              <button
+                key={item}
+                className="rounded-full px-4 py-2 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                {item}
+              </button>
+            ))}
           </div>
-
         </div>
 
-        {activeAsset ? (
+        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[34px] border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(214,181,109,0.12),transparent_32%),linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015))] shadow-[0_30px_120px_rgba(0,0,0,0.72)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.055),transparent_45%)]" />
 
-          <>
+          <div className="relative flex h-full w-full items-center justify-center p-6">
+            {activeAsset?.url ? (
+              <div className="relative h-full max-h-full overflow-hidden rounded-[34px] border border-[#D6B56D]/25 bg-black shadow-[0_35px_150px_rgba(0,0,0,0.95),0_0_90px_rgba(214,181,109,0.12)]">
+                {activeAsset?.type === "video" ? (
+                  <video
+                    src={activeAsset.url}
+                    controls
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <img
+                    src={activeAsset.url}
+                    alt="Creative Preview"
+                    className="h-full w-full object-contain"
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="flex max-w-md flex-col items-center text-center">
+                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl border border-dashed border-white/15 bg-black/35 text-white/30">
+                  +
+                </div>
+                <div className="text-xl font-semibold text-white">
+                  No creative selected
+                </div>
+                <div className="mt-2 text-sm leading-6 text-white/45">
+                  Generate a campaign or select an asset from the dock to preview it here.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
-            <div
-              className="
-                relative
-                w-full
-                aspect-[4/5]
-                rounded-[34px]
-                overflow-hidden
-                border
-                border-orange-500/20
-                shadow-[0_0_80px_rgba(249,115,22,0.12)]
-                bg-black
-              "
-            >
+        <div className="grid shrink-0 gap-4 xl:grid-cols-[1fr_360px]">
+          <section className="rounded-[26px] border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-3xl">
+            <div className="mb-2 text-[10px] uppercase tracking-[0.32em] text-[#D6B56D]">
+              Generated Copy
+            </div>
+            <div className="max-h-28 overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-white/70">
+              {latestCampaign?.content || "No campaign copy generated yet."}
+            </div>
+          </section>
 
-              {
+          <section className="rounded-[26px] border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-3xl">
+            <div className="mb-3 text-[10px] uppercase tracking-[0.32em] text-[#D6B56D]">
+              Asset Dock
+            </div>
 
-activeAsset?.type ===
-              "video"
-
-              ? (
-
-                <video
-
-                  src={
-                    activeAsset.url
-                  }
-
-                  controls
-
-                  autoPlay
-
-                  loop
-
-                  muted
-
-                  playsInline
-
-                  className="
-                    absolute
-                    inset-0
-                    w-full
-                    h-full
-                    object-cover
-                  "
-                />
-
-              ) : (
-
-                <img
-
-                  src={
-                    activeAsset.url
-                  }
-
-                  alt="Campaign"
-
-                  className="
-                    absolute
-                    inset-0
-                    w-full
-                    h-full
-                    object-cover
-                  "
-                />
-
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {visibleAssets.length === 0 && (
+                <div className="rounded-2xl border border-white/[0.08] bg-black/30 p-4 text-xs text-white/40">
+                  No assets loaded.
+                </div>
               )}
 
-            </div>
+              {visibleAssets.map((asset) => {
+                const mediaUrl =
+                  asset?.video_url ||
+                  asset?.file_url ||
+                  asset?.image_url ||
+                  asset?.thumbnail_url;
 
-            <div
-              className="
-                w-full
-                bg-black/55
-                border
-                border-white/10
-                rounded-[28px]
-                p-7
-                backdrop-blur-xl
-              "
-            >
+                const isVideo =
+                  asset?.tags?.includes("video") ||
+                  asset?.video_url;
 
-              <div
-                className="
-                  text-orange-400
-                  uppercase
-                  tracking-[0.3em]
-                  text-xs
-                  mb-5
-                "
-              >
-                AI Campaign Copy
-              </div>
-
-              <div
-                className="
-                  text-white/80
-                  leading-8
-                  text-[15px]
-                  whitespace-pre-wrap
-                  mb-7
-                "
-              >
-                {
-
-latestCampaign?.content ||
-
-                  "No campaign copy generated yet."
-
-                }
-              </div>
-
-              <div
-                className="
-                  flex
-                  flex-wrap
-                  gap-2
-                "
-              >
-
-                {campaignTags.map(
-
-                  (tag, index) => (
-
-                    <div
-
-                      key={`${tag}-${index}`}
-
-                      className="
-                        px-3
-                        py-1.5
-                        rounded-full
-                        bg-orange-500/10
-                        border
-                        border-orange-500/20
-                        text-orange-300
-                        text-xs
-                      "
-                    >
-                      #{tag}
-                    </div>
-
-                  )
-
-                )}
-
-              </div>
-
-            </div>
-
-          </>
-
-        ) : (
-
-          <PosterPreview
-            poster={poster}
-            exportRef={exportRef}
-          />
-
-        )}
-
-      </div>
-
-      {
-
-selectedAssets.length > 0 && (
-
-        <div
-          className="
-            fixed
-            bottom-8
-            left-1/2
-            -translate-x-1/2
-            flex
-            gap-3
-            overflow-x-auto
-            z-40
-            bg-black/60
-            backdrop-blur-xl
-            border
-            border-white/10
-            rounded-2xl
-            p-4
-            max-w-[620px]
-          "
-        >
-
-          {selectedAssets.map(
-            (asset) => {
-
-              const mediaUrl =
-
-                asset?.video_url ||
-
-                asset?.file_url ||
-
-                asset?.image_url ||
-
-                asset?.thumbnail_url;
-
-              const isVideo =
-
-                asset?.tags?.includes(
-                  "video"
-                );
-
-              return (
-
-                <div
-                  key={asset.id}
-                  className="
-                    relative
-                    shrink-0
-                    cursor-pointer
-                  "
-                  onClick={() =>
-
-                    setActiveAsset({
-
-                      type:
-                        isVideo
-                          ? "video"
-                          : "image",
-
-                      url: mediaUrl,
-
-                    })
-
-                  }
-                >
-
-                  {
-
-isVideo ? (
-
-                    <video
-                      src={mediaUrl}
-                      className="
-                        w-20
-                        h-20
-                        object-cover
-                        rounded-xl
-                        border
-                        border-orange-500/30
-                      "
-                    />
-
-                  ) : (
-
-                    <img
-                      src={mediaUrl}
-                      alt={
-                        asset.name ||
-                        "Asset"
-                      }
-                      className="
-                        w-20
-                        h-20
-                        object-cover
-                        rounded-xl
-                        border
-                        border-orange-500/30
-                      "
-                    />
-
-                  )}
-
+                return (
                   <button
-                    onClick={(e) => {
+                    key={asset.id}
+                    onClick={() => {
+                      setActiveAsset({
+                        type: isVideo ? "video" : "image",
+                        url: mediaUrl,
+                        asset,
+                      });
 
-                      e.stopPropagation();
+                      setSelectedAssets?.((prev) => {
+                        if (prev.find((item) => item.id === asset.id)) {
+                          return prev;
+                        }
 
-                      if (
-                        setSelectedAssets
-                      ) {
-
-                        setSelectedAssets(
-                          (prev) =>
-
-                            prev.filter(
-                              (a) =>
-                                a.id !==
-                                asset.id
-                            )
-                        );
-
-                      }
-
+                        return [...prev, asset];
+                      });
                     }}
-                    className="
-                      absolute
-                      -top-2
-                      -right-2
-                      w-6
-                      h-6
-                      rounded-full
-                      bg-red-500
-                      text-white
-                      text-xs
-                      flex
-                      items-center
-                      justify-center
-                    "
+                    className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-black/40 transition hover:border-[#D6B56D]/40"
                   >
-                    ×
+                    {isVideo ? (
+                      <video
+                        src={mediaUrl}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={mediaUrl}
+                        alt={asset.name || "Asset"}
+                        className="h-full w-full object-cover"
+                      />
+                    )}
                   </button>
-
-                </div>
-
-              );
-
-            }
-
-          )}
-
+                );
+              })}
+            </div>
+          </section>
         </div>
-
-      )}
-
-    </div>
-
+      </div>
+    </main>
   );
-
 }

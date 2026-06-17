@@ -8,7 +8,7 @@ export default function POSShell({
 
   return (
 
-    <div className="h-[calc(100vh-150px)] overflow-hidden">
+    <div className="h-[calc(100vh-150px)] overflow-y-auto">
 
       <div className="grid h-full grid-cols-12 gap-5">
 
@@ -104,7 +104,7 @@ export default function POSShell({
 
         {/* CART */}
 
-        <div className="col-span-3 overflow-hidden rounded-[28px] border border-white/10 bg-[#12121A] backdrop-blur-xl">
+        <div className="col-span-3 rounded-[28px] border border-white/10 bg-[#12121A] backdrop-blur-xl h-full flex flex-col">
 
           <div className="flex h-full flex-col">
 

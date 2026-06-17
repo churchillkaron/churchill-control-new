@@ -341,10 +341,10 @@ export async function GET() {
       data: stock,
     } = await supabase
 
-      .from("dish_stock")
+      .from("production_batches")
 
       .select(
-        "dish_id, quantity"
+        "dish_id, remaining_quantity"
       )
 
       .eq(
@@ -352,26 +352,37 @@ export async function GET() {
         tenantId
       );
 
+    const stockMap = {};
+
+    for (const row of stock || []) {
+
+      stockMap[row.dish_id] =
+        (stockMap[row.dish_id] || 0) +
+        Number(
+          row.remaining_quantity || 0
+        );
+
+    }
+
     const lowStock =
-      (stock || [])
+      Object.entries(stockMap)
 
         .filter(
-          (d) =>
-            Number(
-              d.quantity
-            ) <= 5
+          ([_, quantity]) =>
+            quantity <= 5
         )
 
-        .map((d) => ({
+        .map(
+          ([dishId, quantity]) => ({
 
-          name:
-            dishMap[d.dish_id] ||
-            d.dish_id,
+            name:
+              dishMap[dishId] ||
+              dishId,
 
-          quantity:
-            d.quantity,
+            quantity,
 
-        }));
+          })
+        );
 
     return Response.json({
 

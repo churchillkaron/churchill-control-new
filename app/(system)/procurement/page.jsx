@@ -408,7 +408,7 @@ export default function ProcurementPage() {
 
                   <Link
                     key={item.route}
-                    href={item.route}
+                    href={item.route || "#"}
                     className="group rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-amber-500/40 hover:bg-amber-500/5"
                   >
 

@@ -1,0 +1,218 @@
+app/(mobile)/executive/page.jsx:18:        "/api/mobile/executive",
+app/(system)/customers/page.jsx:27:    const response = await fetch("/api/customers/history", {
+app/(system)/customers/page.jsx:41:      const response = await fetch("/api/customers/search", {
+app/(system)/customers/page.jsx:59:    await fetch("/api/customers/upsert", {
+app/(system)/settings/tables/page.jsx:37:        "/api/settings/tables/load",
+app/(system)/settings/tables/page.jsx:65:      "/api/settings/tables/save",
+app/(system)/settings/pos/page.jsx:37:        "/api/settings/pos/load",
+app/(system)/settings/pos/page.jsx:65:      "/api/settings/pos/save",
+app/(system)/settings/users/page.jsx:103:      const res = await fetch("/api/users/create", {
+app/(system)/settings/users/page.jsx:149:    const res = await fetch("/api/users/create", {
+app/(system)/settings/marketing/page.jsx:92:          "/api/settings/marketing/load",
+app/(system)/settings/marketing/page.jsx:137:        "/api/settings/marketing/save",
+app/(system)/settings/dishes/page.jsx:92:        `/api/dishes?tenant_id=${tenantId}`
+app/(system)/settings/dishes/page.jsx:111:          '/api/dishes',
+app/(system)/settings/payroll/page.jsx:42:          "/api/settings/payroll/load",
+app/(system)/settings/payroll/page.jsx:81:        "/api/settings/payroll/save",
+app/(system)/settings/kitchen/page.jsx:37:        "/api/settings/kitchen/load",
+app/(system)/settings/kitchen/page.jsx:65:      "/api/settings/kitchen/save",
+app/(system)/tables/page.jsx:191:                  "/api/pos/payment-state",
+app/(system)/workspace/platform/[industryId]/page.jsx:23:        const res = await fetch(`/api/workspace/industry-organizations?industryId=${industryId}`);
+app/(system)/workspace/page.jsx:20:        const res = await fetch("/api/workspace/list");
+app/(system)/workspace/[organizationId]/accounting/page.jsx:53:            `/api/accounting/operations?organizationId=${organizationId}`
+app/(system)/workspace/[organizationId]/hotel/housekeeping/page.jsx:11:      const res = await fetch("/api/hotel/housekeeping/list");
+app/(system)/workspace/[organizationId]/hotel/housekeeping/page.jsx:23:      await fetch("/api/hotel/housekeeping/update", {
+app/(system)/workspace/[organizationId]/hotel/concierge/page.jsx:11:      const res = await fetch("/api/hotel/concierge/list");
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:27:        fetch(`/api/hotel/properties/list?organizationId=${organizationId}`).then(r => r.json()),
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:28:        fetch(`/api/hotel/guests/list?organizationId=${organizationId}`).then(r => r.json()),
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:29:        fetch(`/api/hotel/rooms/list?organizationId=${organizationId}`).then(r => r.json()),
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:45:    const res = await fetch("/api/hotel/bookings/create", {
+app/(system)/workspace/[organizationId]/hotel/page.jsx:31:          fetch(`/api/hotel/bookings/list${query}`).then(r => r.json()).catch(() => ({})),
+app/(system)/workspace/[organizationId]/hotel/page.jsx:32:          fetch(`/api/hotel/rooms/list${query}`).then(r => r.json()).catch(() => ({})),
+app/(system)/workspace/[organizationId]/hotel/page.jsx:33:          fetch(`/api/hotel/housekeeping/list${query}`).then(r => r.json()).catch(() => ({})),
+app/(system)/workspace/[organizationId]/hotel/page.jsx:34:          fetch(`/api/hotel/maintenance/list${query}`).then(r => r.json()).catch(() => ({})),
+app/(system)/workspace/[organizationId]/hotel/page.jsx:35:          fetch(`/api/hotel/concierge/list${query}`).then(r => r.json()).catch(() => ({})),
+app/(system)/workspace/[organizationId]/hotel/frontdesk/page.jsx:19:          "/api/hotel/bookings/list"
+app/(system)/workspace/[organizationId]/hotel/frontdesk/page.jsx:46:      "/api/hotel/bookings/check-in",
+app/(system)/workspace/[organizationId]/hotel/frontdesk/page.jsx:68:      "/api/hotel/bookings/check-out",
+app/(system)/workspace/[organizationId]/hotel/maintenance/page.jsx:19:          "/api/hotel/maintenance/list"
+app/(system)/workspace/[organizationId]/hotel/maintenance/page.jsx:49:        "/api/hotel/maintenance/update",
+app/(system)/workspace/[organizationId]/healthcare/patients/page.jsx:34:      `/api/healthcare/patients/${id}`,
+app/(system)/workspace/[organizationId]/healthcare/patients/[patientId]/page.jsx:16:          `/api/healthcare/patients/${params.patientId}`
+app/(system)/workspace/[organizationId]/healthcare/patients/[patientId]/edit/page.jsx:16:          `/api/healthcare/patients/${params.patientId}`
+app/(system)/workspace/[organizationId]/healthcare/patients/[patientId]/edit/page.jsx:32:      `/api/healthcare/patients/${params.patientId}`,
+app/(system)/workspace/[organizationId]/healthcare/patients/hooks/usePatients.js:17:      ? `/api/healthcare/patients?organization_id=${organizationId}`
+app/(system)/workspace/[organizationId]/healthcare/patients/create/page.jsx:28:    await fetch("/api/healthcare/patients", {
+app/(system)/workspace/[organizationId]/healthcare/appointments/[appointmentId]/page.jsx:12:      const response = await fetch(`/api/healthcare/appointments/${params.appointmentId}`);
+app/(system)/workspace/[organizationId]/healthcare/appointments/[appointmentId]/edit/page.jsx:12:      const response = await fetch(`/api/healthcare/appointments/${params.appointmentId}`);
+app/(system)/workspace/[organizationId]/healthcare/appointments/[appointmentId]/edit/page.jsx:21:    await fetch(`/api/healthcare/appointments/${params.appointmentId}`, {
+app/(system)/workspace/[organizationId]/healthcare/hooks/useStaff.js:11:        const res = await fetch(`/api/healthcare/staff?organizationId=${organizationId}`);
+app/(system)/workspace/[organizationId]/healthcare/hooks/usePatients.js:11:        const res = await fetch(`/api/healthcare/patients?organizationId=${organizationId}`);
+app/(system)/workspace/[organizationId]/healthcare/hooks/useBilling.js:8:    organizationId ? `/api/healthcare/billing?organization_id=${organizationId}` : null,
+app/(system)/workspace/[organizationId]/healthcare/hooks/useAppointments.js:8:    organizationId ? `/api/healthcare/appointments?organization_id=${organizationId}` : null,
+app/(system)/workspace/[organizationId]/healthcare/hooks/useMedicalRecords.js:8:    organizationId ? `/api/healthcare/medical-records?organization_id=${organizationId}` : null,
+app/(system)/workspace/[organizationId]/healthcare/hooks/useAdmissions.js:8:    organizationId ? `/api/healthcare/admissions?organization_id=${organizationId}` : null,
+app/(system)/workspace/[organizationId]/page.jsx:54:      const res = await fetch("/api/workspace/ai", {
+app/(system)/management/invoices/page.jsx:446:    const response = await fetch("/api/approvals/process", {
+app/(system)/management/invoices/page.jsx:472:    const response = await fetch("/api/approvals/reject", {
+app/(system)/management/salary/page.jsx:86:          "/api/approvals/process",
+app/(system)/management/salary/page.jsx:163:          "/api/approvals/reject",
+app/(system)/management/page.jsx:103:        `/api/management/runtime?tenant_id=${tenantId}`
+app/(system)/control-room/page.jsx:29:        `/api/workspace/control-room?organizationId=${organizationId}`
+app/(system)/control-room/page.jsx:138:                    await fetch("/api/workspace/control-room/action", {
+app/(system)/control-room/page.jsx:155:                    await fetch("/api/workspace/control-room/action", {
+app/(system)/components/marketing/studio/AssetUploadPanel.jsx:133:          "/api/marketing/upload-asset",
+app/(system)/components/marketing/studio/AssetLibraryPanel.jsx:141:        "/api/marketing/delete-asset",
+app/(system)/components/marketing/studio/AssetLibraryPanel.jsx:197:        "/api/marketing/update-asset",
+app/(system)/components/marketing/studio/QueuePanel.jsx:52:    await fetch("/api/marketing/publish", {
+app/(system)/components/marketing/studio/StudioTopBar.jsx:146:          href="/api/meta/auth"
+app/(system)/pos/receipts/page.jsx:64:        `/api/pos/receipts?order_id=${orderId}`
+app/(system)/pos/receipts/page.jsx:91:        "/api/pos/payments/void",
+app/(system)/pos/payments/page.jsx:137:        "/api/pos/payment-state",
+app/(system)/pos/payments/page.jsx:279:            ? "/api/pos/payments/create"
+app/(system)/pos/payments/page.jsx:280:            : "/api/pos/partial-payment",
+app/(system)/pos/modifiers/page.jsx:56:        '/api/pos/modifiers/get'
+app/(system)/pos/modifiers/page.jsx:71:        '/api/pos/modifier-groups/get'
+app/(system)/pos/modifiers/page.jsx:95:        '/api/pos/modifiers/create',
+app/(system)/pos/modifiers/page.jsx:134:        '/api/pos/modifier-groups/create',
+app/(system)/pos/POSContent.js:130:          "/api/settings/operational",
+app/(system)/pos/POSContent.js:223:          "/api/customers/search",
+app/(system)/pos/POSContent.js:279:        "/api/customers/upsert",
+app/(system)/pos/POSContent.js:467:          "/api/pos/create",
+app/(system)/pos/POSContent.js:586:              const saved = await fetch("/api/customers/upsert", {
+app/(system)/pos/new/page.jsx:234:          "/api/pos/core",
+app/(system)/pos/orders/page.jsx:68:                  "/api/pos/payment-state",
+app/(system)/pos/shifts/page.jsx:60:          "/api/pos/shifts",
+app/(system)/pos/shifts/page.jsx:104:          "/api/pos/shifts",
+app/(system)/procurement/vendors/page.jsx:70:          "/api/procurement/vendors/list",
+app/(system)/procurement/vendors/page.jsx:116:          "/api/procurement/vendors",
+app/(system)/procurement/purchase-orders/page.jsx:30:        "/api/procurement/purchase-orders/list",
+app/(system)/procurement/purchase-orders/page.jsx:63:      "/api/procurement/purchase-orders",
+app/(system)/procurement/purchase-orders/page.jsx:90:      "/api/procurement/purchase-orders",
+app/(system)/procurement/suppliers/page.jsx:108:      "/api/procurement/suppliers",
+app/(system)/procurement/suppliers/page.jsx:137:        "/api/procurement/suppliers",
+app/(system)/procurement/receiving/page.jsx:29:        "/api/procurement/receiving/list",
+app/(system)/procurement/receiving/page.jsx:62:      "/api/procurement/receiving",
+app/(system)/inventory/monitoring/page.jsx:27:          "/api/inventory/monitoring",
+app/(system)/production/prepared/page.jsx:42:      "/api/production/prepared",
+app/(system)/production/costing/page.jsx:94:        '/api/production/recipes/get',
+app/(system)/production/recipe-components/page.jsx:71:        "/api/production/recipe-components"
+app/(system)/production/recipe-components/page.jsx:94:      "/api/production/recipe-components",
+app/(system)/production/recipes/page.jsx:89:          `/api/dishes?tenant_id=${tenantId}`
+app/(system)/production/recipes/page.jsx:158:          '/api/production/recipes/create',
+app/(system)/production/batches/page.jsx:107:      "/api/production/batches",
+app/(system)/production/approval/page.jsx:12:    const res = await fetch("/api/production/suggestions");
+app/(system)/production/approval/page.jsx:26:      await fetch("/api/production", {
+app/(system)/marketing/design/page.js:289:            `/api/marketing/campaign/${latestCampaign.id}`
+app/(system)/marketing/design/page.js:395:          "/api/marketing/generate",
+app/(system)/marketing/design/page.js:450:                "/api/marketing/video-status",
+app/(system)/marketing/design/page.js:559:          "/api/marketing/generate",
+app/(system)/marketing/social/page.jsx:41:        await fetch("/api/marketing");
+app/(system)/marketing/social/page.jsx:149:        "/api/marketing/publish",
+app/(system)/marketing/queue/page.js:144:          "/api/marketing/process-queue",
+app/(system)/marketing/queue/page.js:183:        "/api/marketing/delete-post",
+app/(system)/marketing/assets/page.js:38:          "/api/marketing/assets"
+app/(system)/finance/forecast/page.jsx:18:        "/api/finance/forecast",
+app/(system)/finance/accounting/clients/create/page.jsx:102:      const response = await fetch("/api/accounting/clients/create", {
+app/(system)/finance/reconciliation/page.jsx:18:        "/api/finance/reconciliation",
+app/(system)/finance/periods/page.jsx:43:          `/api/finance/periods?organizationId=${organization?.id}`
+app/(system)/finance/periods/page.jsx:74:          "/api/finance/periods/close",
+app/(system)/finance/payments/page.jsx:27:        "/api/finance/payments/list",
+app/(system)/finance/payments/page.jsx:57:      "/api/finance/payments",
+app/(system)/finance/depreciation/page.jsx:56:        "/api/finance/depreciation/run",
+app/(system)/finance/fixed-assets/page.jsx:54:          "/api/finance/fixed-assets/list",
+app/(system)/finance/fixed-assets/page.jsx:72:          "/api/finance/vendors/list",
+app/(system)/finance/fixed-assets/page.jsx:90:          "/api/finance/legal-entities/list",
+app/(system)/finance/fixed-assets/page.jsx:108:          "/api/finance/cost-centers/list",
+app/(system)/finance/fixed-assets/page.jsx:169:        "/api/finance/fixed-assets/create",
+app/(system)/finance/health/page.jsx:41:          `/api/finance/health?organizationId=${organization?.id}`
+app/(system)/finance/intercompany/page.jsx:44:          "/api/finance/intercompany/runtime",
+app/(system)/finance/intercompany/page.jsx:123:        "/api/finance/intercompany/create",
+app/(system)/finance/intercompany/page.jsx:182:        "/api/finance/intercompany/settle",
+app/(system)/finance/period-close/page.jsx:18:        "/api/finance/period-close",
+app/(system)/finance/anomalies/page.jsx:41:          `/api/finance/anomalies?organizationId=${organization?.id}`
+app/(system)/finance/page.jsx:82:        fetch(`/api/finance/profit-loss?organizationId=${organization?.id}`),
+app/(system)/finance/page.jsx:83:        fetch(`/api/finance/balance-sheet?organizationId=${organization?.id}`),
+app/(system)/finance/page.jsx:84:        fetch(`/api/finance/cash-flow?organizationId=${organization?.id}`),
+app/(system)/finance/page.jsx:85:        fetch(`/api/finance/trial-balance?organizationId=${organization?.id}`),
+app/(system)/finance/page.jsx:86:        fetch(`/api/finance/journals?organizationId=${organization?.id}`),
+app/(system)/finance/page.jsx:87:        fetch(`/api/finance/health?organizationId=${organization?.id}`),
+app/(system)/finance/page.jsx:88:        fetch(`/api/finance/anomalies?organizationId=${organization?.id}`),
+app/(system)/finance/page.jsx:89:        fetch(`/api/finance/kpis?organizationId=${organization?.id}`),
+app/(system)/finance/page.jsx:158:          `/api/finance/journals/${journalId}?organizationId=${organization?.id}`
+app/(system)/finance/invoice-review/page.jsx:148:        `/api/invoices/list?organizationId=${organization.id}`
+app/(system)/finance/invoice-review/page.jsx:252:      const res = await fetch("/api/invoices/review/update", {
+app/(system)/finance/invoice-review/page.jsx:267:        await fetch("/api/approvals/process", {
+app/(system)/finance/journals/page.jsx:44:          `/api/finance/journals?organizationId=${organization?.id}`
+app/(system)/finance/journals/page.jsx:73:          `/api/finance/journal?id=${id}&organizationId=${organization?.id}`
+app/(system)/finance/components/JournalDetailsModal.jsx:56:          "/api/finance/journals/reverse",
+app/(system)/finance/audit/page.jsx:33:        "/api/finance/journals"
+app/(system)/finance/audit/page.jsx:52:        `/api/finance/journal-chain?source_type=${journal.source_type}&source_id=${journal.source_id}`
+app/(system)/finance/budgeting/page.jsx:23:        "/api/finance/budgeting",
+app/(system)/finance/budgeting/page.jsx:53:        "/api/finance/budgeting",
+app/(system)/finance/cost-centers/page.jsx:38:          "/api/finance/cost-centers/list",
+app/(system)/finance/cost-centers/page.jsx:89:        "/api/finance/cost-centers/create",
+app/(system)/finance/cost-centers/page.jsx:137:        "/api/finance/cost-centers/toggle",
+app/(system)/finance/overview/page.jsx:47:          `/api/finance/overview?organizationId=${organizationId}`
+app/(system)/finance/consolidation/page.jsx:18:        "/api/finance/consolidation",
+app/(system)/finance/invoice-matching/page.jsx:35:          "/api/finance/invoice-matching/runtime",
+app/(system)/finance/invoice-matching/page.jsx:116:        "/api/finance/invoice-matching/create",
+app/(system)/finance/goods-receiving/page.jsx:60:          "/api/procurement/receiving",
+app/(system)/finance/legal-entities/page.jsx:46:          "/api/finance/legal-entities/list",
+app/(system)/finance/legal-entities/page.jsx:106:        "/api/finance/legal-entities/create",
+app/(system)/finance/legal-entities/page.jsx:163:        "/api/finance/legal-entities/toggle",
+app/(system)/finance/reports/page.jsx:27:        "/api/finance/reports",
+app/(system)/finance/executive/page.jsx:40:          `/api/finance/overview?organizationId=${organization?.id}`
+app/(system)/automation/approvals-center/page.jsx:17:      `/api/approval_requests?tenantId=${TENANT_ID}&status=pending`
+app/(system)/automation/approvals-center/page.jsx:46:      await fetch("/api/approvals/process", {
+app/(system)/automation/approvals-center/page.jsx:67:      await fetch("/api/approvals/reject", {
+app/(system)/automation/approvals/page.jsx:541:    "/api/approvals/process",
+app/(system)/automation/approvals/page.jsx:596:    "/api/approvals/reject",
+app/(system)/payroll/page.jsx:66:      const response = await fetch("/api/payroll/generate", {
+app/(system)/kitchen/performance/page.jsx:43:          '/api/kitchen/performance',
+app/(system)/kitchen/analytics/page.jsx:43:          '/api/kitchen/analytics',
+app/(system)/timeline/page.jsx:13:      const res = await fetch("/api/timeline?tenantId=cbdc9308-5515-4d38-8e64-edae68dd5872");
+app/(system)/analytics/revenue/page.jsx:18:        "/api/analytics/revenue",
+app/providers/WorkspaceRuntimeProvider.jsx:25:      const res = await fetch(`/api/workspace?organizationId=${organizationId}`);
+app/providers/WorkspaceRuntimeProvider.jsx:35:        `/api/workspace/command-center?tenantId=${data.activeOrganization?.tenant_id}&organizationId=${organizationId}&organizationType=${data.activeOrganization?.organization_type}`
+app/subscribe/page.jsx:12:    await fetch("/api/activate-subscription");
+app/api/runtime/scheduler/route.js:11:      `${process.env.NEXT_PUBLIC_APP_URL}/api/runtime/process-jobs`
+app/api/meta/auth/route.js:28:      `${BASE_URL}/api/meta/auth/callback`
+app/api/meta/auth/callback/route.js:51:    `${BASE_URL}/api/meta/auth/callback`
+app/api/meta/auth/callback/route.js:150:      `${BASE_URL}/api/meta/save-account`,
+app/api/intake/classify/route.js:207:            `${baseUrl}/api/invoices/ocr`,
+app/api/intake/approve/route.js:43:        `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/intake/process`,
+app/api/dashboard/today/route.js:16:      fetch(`${base}/api/revenue/today`).catch(() => null),
+app/api/dashboard/today/route.js:17:      fetch(`${base}/api/orders/today`).catch(() => null),
+app/api/dashboard/today/route.js:18:      fetch(`${base}/api/performance/today`).catch(() => null),
+app/api/dashboard/today/route.js:19:      fetch(`${base}/api/finance/summary`).catch(() => null)
+app/api/realtime/ws/route.js:17:      "/api/realtime/ws",
+app/api/marketing/run-retries/route.js:19:        `${BASE_URL}/api/marketing/retry-failed`,
+app/api/marketing/retry-generation-jobs/route.js:55:          `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketing/process-generation-job`,
+app/api/kpi/overview/route.js:2:from '@/lib/shared/api/createDynamicRoute'
+app/api/kpi/overview/route.js:9:} from '@/lib/shared/api/createDynamicRoute'
+app/api/assets/route.js:9:      error: "Use /api/assets/list instead",
+app/api/reviews/sync-platforms/route.js:37:            `${origin}/api/reviews/${route}`,
+app/api/reviews/sync/route.js:23:        const res = await fetch(`${baseUrl}/api/reviews/${route}`, {
+app/api/reviews/sync-google/route.js:35:      "https://maps.googleapis.com/maps/api/place/details/json" +
+app/(workforce)/workforce/page.jsx:35:      `/api/staff/runtime?email=${session.user.email}`
+app/(workforce)/workforce/page.jsx:55:    await fetch("/api/staff", {
+app/(workforce)/workforce/page.jsx:78:    await fetch("/api/staff", {
+app/(workforce)/workforce/upload/page.jsx:55:          "/api/assets/upload-file",
+app/(workforce)/workforce/upload/page.jsx:75:          "/api/intake/classify",
+lib/design/assets/getCreativeAssetsClient.js:17:    await fetch(`/api/design/assets?${params.toString()}`);
+lib/realtime/websocket/socketServer.js:34:        "/api/realtime/ws",
+lib/integrations/metaAuth.js:5:    redirectUri: "http://localhost:3000/api/meta/auth/callback",
+lib/integrations/googleAuth.js:13:    `${BASE_URL}/api/google/auth/callback`
+lib/pos/offline/syncOfflineOrders.js:16:      '/api/pos/offline/sync',
+lib/ai/context/buildCampaignCaption.js:20:        "http://localhost:3000/api/marketing/build-caption",
+lib/ai/providers/runOpenAIGeneration.js:21:        "/api/ai/generate",
+lib/production/triggerProduction.js:9:      "/api/production/process-order",
+lib/marketing/ai/context/buildCampaignCaption.js:20:        "http://localhost:3000/api/marketing/build-caption",
+lib/marketing/ai/providers/runOpenAIGeneration.js:21:        "/api/ai/generate",
+lib/marketing/services/createCampaignFlow.js:826:      "http://localhost:3000/api/marketing/process-generation-job",
+lib/marketing/services/publishCampaignNow.js:30:        "/api/marketing/publish",
+lib/cron/cronRegistry.js:7:      "/api/workers/orchestrator",
+lib/cron/cronRegistry.js:16:      "/api/intelligence/agents/nightly",
+lib/cron/cronRegistry.js:25:      "/api/backups/run",
+lib/cron/cronRegistry.js:34:      "/api/monitoring/snapshot",

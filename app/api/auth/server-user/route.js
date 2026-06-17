@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-import getServerUser from "@/lib/auth/server/getServerUser";
+import {
+  getServerCurrentUser,
+} from "@/lib/auth/getServerCurrentUser";
 
 export const dynamic =
   "force-dynamic";
@@ -9,12 +11,13 @@ export async function GET() {
 
   try {
 
-    const result =
-      await getServerUser();
+    const user =
+      await getServerCurrentUser();
 
-    return NextResponse.json(
-      result
-    );
+    return NextResponse.json({
+      authenticated: !!user,
+      user,
+    });
 
   } catch (error) {
 
@@ -28,5 +31,7 @@ export async function GET() {
         status: 500,
       }
     );
+
   }
+
 }

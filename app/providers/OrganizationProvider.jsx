@@ -1,134 +1,39 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useContext, useMemo } from "react";
+import { useWorkspaceRuntime } from "@/app/providers/WorkspaceRuntimeProvider";
 
-const OrganizationContext =
-  createContext(null);
+const OrganizationContext = createContext(null);
 
-export function OrganizationProvider({
-  children,
-}) {
+export function OrganizationProvider({ children }) {
+  const runtime = useWorkspaceRuntime();
 
-  const [
-    organization,
-    setOrganizationState,
-  ] = useState(null);
+  const value = useMemo(
+    () => ({
+      organization:
+        runtime?.activeOrganization ||
+        runtime?.organization ||
+        null,
 
-  // =====================================
-  // INITIAL LOAD
-  // =====================================
+      organizations:
+        runtime?.organizations || [],
 
-  useEffect(() => {
-
-    try {
-
-      const stored =
-        localStorage.getItem(
-          "activeOrganization"
+      setOrganization: () => {
+        console.warn(
+          "setOrganization() is deprecated. Active organization is controlled by WorkspaceRuntime."
         );
-
-      if (stored) {
-
-        setOrganizationState(
-          JSON.parse(stored)
-        );
-
-      }
-
-    } catch (error) {
-
-      console.error(
-        "organization restore error",
-        error
-      );
-
-    }
-
-  }, []);
-
-  // =====================================
-  // STABLE UPDATE
-  // =====================================
-
-  function setOrganization(
-    organizationData
-  ) {
-
-    if (!organizationData) {
-      return;
-    }
-
-    // PREVENT LOOPS
-
-    if (
-      organization?.activeOrganization?.id ===
-      organizationData?.activeOrganization?.id
-    ) {
-
-      return;
-
-    }
-
-    try {
-
-      localStorage.setItem(
-        "activeOrganization",
-        JSON.stringify(
-          organizationData
-        )
-      );
-
-    } catch (error) {
-
-      console.error(
-        "organization storage error",
-        error
-      );
-
-    }
-
-    setOrganizationState(
-      organizationData
-    );
-
-  }
-
-  const value =
-    useMemo(
-      () => ({
-
-        organization,
-
-        setOrganization,
-
-      }),
-      [organization]
-    );
-
-  return (
-
-    <OrganizationContext.Provider
-      value={value}
-    >
-
-      {children}
-
-    </OrganizationContext.Provider>
-
+      },
+    }),
+    [runtime]
   );
 
+  return (
+    <OrganizationContext.Provider value={value}>
+      {children}
+    </OrganizationContext.Provider>
+  );
 }
 
 export function useOrganization() {
-
-  return useContext(
-    OrganizationContext
-  );
-
+  return useContext(OrganizationContext);
 }

@@ -12,12 +12,9 @@ import {
   runComplianceValidation,
 } from "@/lib/governance/finance/runComplianceValidation";
 
-import {
-  createApprovalWorkflow,
-} from "@/lib/governance/finance/createApprovalWorkflow";
+import { createApprovalRequest } from "@/lib/finance/createApprovalRequest";
 
-import logAuditEvent
-from "@/lib/audit/logAuditEvent";
+import logAuditEvent from "@/lib/audit/logAuditEvent";
 
 export async function POST(req) {
 
@@ -84,16 +81,22 @@ export async function POST(req) {
       body.requiresApproval
     ) {
 
-      const workflow =
-        await createApprovalWorkflow({
+      const approvalRequest =
+        await createApprovalRequest({
 
           tenant_id:
             tenant_id,
 
-          action_type:
-            body.action_type,
+          type:
+            body.action_type || "governance_automation",
 
-          payload:
+          entity_id:
+            body.payload?.entity_id || null,
+
+          requested_by:
+            body.requested_by || "SYSTEM",
+
+          metadata:
             body.payload || {},
 
         });
@@ -104,7 +107,7 @@ export async function POST(req) {
 
         auto_approved: false,
 
-        workflow,
+        approvalRequest,
 
       };
 

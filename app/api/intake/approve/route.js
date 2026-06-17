@@ -37,6 +37,30 @@ export async function POST(req) {
     if (error)
       throw error;
 
+    try {
+
+      await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/intake/process`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            submissionId,
+          }),
+        }
+      );
+
+    } catch (processError) {
+
+      console.error(
+        "AUTO_PROCESS_ERROR",
+        processError
+      );
+
+    }
+
     return NextResponse.json({
       success: true,
       submission: data,

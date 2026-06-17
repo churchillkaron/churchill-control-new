@@ -1,76 +1,50 @@
-import {
-  NextResponse,
-} from "next/server";
-
-import {
-  getServerCurrentUser,
-} from "@/lib/auth/getServerCurrentUser";
-
-import {
-  getOrganizationWorkspace,
-} from "@/lib/organizations/getOrganizationWorkspace";
+export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
+import { getOrganizationWorkspace } from "@/lib/organizations/getOrganizationWorkspace";
 
 export async function GET(request) {
-
   try {
+    const { searchParams } = new URL(request.url);
 
-    const user =
-      await getServerCurrentUser();
+    const organizationId = searchParams.get("organizationId");
+    const userEmail = searchParams.get("userEmail");
 
-    if (!user?.email) {
-
+    if (!organizationId) {
       return NextResponse.json(
         {
           success: false,
-          error: "Unauthorized",
+          error: "Missing organizationId",
         },
-        {
-          status: 401,
-        }
+        { status: 400 }
       );
-
     }
 
-    const {
-      searchParams,
-    } = new URL(
-      request.url
-    );
-
-    const organizationId =
-      searchParams.get(
-        "organizationId"
+    if (!userEmail) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing userEmail",
+        },
+        { status: 400 }
       );
+    }
 
-    const workspace =
-      await getOrganizationWorkspace({
-        userEmail:
-          user.email,
+    const workspace = await getOrganizationWorkspace({
+      userEmail,
+      organizationId,
+    });
 
-        organizationId,
-      });
-
-    return NextResponse.json(
-      workspace
-    );
+    return NextResponse.json(workspace);
 
   } catch (error) {
-
-    console.error(
-      "workspace api error:",
-      error
-    );
+    console.error("workspace api error:", error);
 
     return NextResponse.json(
       {
         success: false,
         error: error.message,
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
-
 }

@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { logAIUsage } from "@/lib/ai/logAIUsage";
 
 export const runtime = "nodejs";
@@ -16,7 +17,9 @@ export async function POST(req) {
       image,
       notes,
       tenantId,
+      organizationId,
       uploadedBy,
+      documentId,
     } = body;
 
     if (!image) {
@@ -218,8 +221,18 @@ Do not classify office workers, accountants, paperwork, filing cabinets, spreads
             }
           );
 
+        const rawOcrResponse =
+          await ocrResponse.text();
+
+        console.log(
+          "OCR RAW RESPONSE",
+          rawOcrResponse
+        );
+
         const ocr =
-          await ocrResponse.json();
+          JSON.parse(
+            rawOcrResponse
+          );
 
         console.log(
           "OCR RESULT",
@@ -241,6 +254,68 @@ Do not classify office workers, accountants, paperwork, filing cabinets, spreads
         console.error(
           "OCR AUTO ROUTE ERROR",
           error
+        );
+
+      }
+
+    }
+
+
+    if (documentId) {
+
+      const financialImpactTypes = [
+        "INVOICE",
+        "SUPPLIER_INVOICE",
+        "EXPENSE_RECEIPT",
+        "CASH_PURCHASE",
+        "PURCHASE_ORDER",
+      ];
+
+      const {
+        error: documentUpdateError,
+      } = await supabaseAdmin
+        .from("organization_documents")
+        .update({
+
+          ai_module:
+            result.module,
+
+          ai_type:
+            result.type,
+
+          approval_required:
+            financialImpactTypes.includes(
+              result.type
+            ),
+
+          financial_impact:
+            financialImpactTypes.includes(
+              result.type
+            ),
+
+          destination_module:
+            destinationModule,
+
+          destination_record_id:
+            destinationRecordId,
+
+          status:
+            "classified",
+
+          updated_at:
+            new Date().toISOString(),
+
+        })
+        .eq(
+          "id",
+          documentId
+        );
+
+      if (documentUpdateError) {
+
+        console.error(
+          "DOCUMENT_UPDATE_ERROR",
+          documentUpdateError
         );
 
       }
@@ -280,6 +355,9 @@ Do not classify office workers, accountants, paperwork, filing cabinets, spreads
 
           destination_module:
             destinationModule,
+
+          organization_document_id:
+            documentId || null,
 
           status:
             "classified",

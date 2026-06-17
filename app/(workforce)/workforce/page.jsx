@@ -59,6 +59,7 @@ export default function PortalHomePage() {
       },
       body: JSON.stringify({
         action: "clock_in",
+        staffId: staff.id,
         staffName: staff.name,
         staffRole: staff.role,
         tenantId: staff.tenant_id,
@@ -81,6 +82,7 @@ export default function PortalHomePage() {
       },
       body: JSON.stringify({
         action: "clock_out",
+        staffId: staff.id,
         staffName: staff.name,
         staffRole: staff.role,
         tenantId: staff.tenant_id,

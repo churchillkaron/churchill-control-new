@@ -1,51 +1,36 @@
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
-
 import { NextResponse } from "next/server";
-
-import processVendorPayment from "@/lib/finance/payments/processVendorPayment";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function POST(req) {
-
   try {
 
-    await requireAuth();
+    const { tenantId, tableNumber } = await req.json();
 
-    const body =
-      await req.json();
+    const { data, error } = await supabaseAdmin
+      .from("payments")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("table_number", tableNumber)
+      .order("created_at", { ascending: false });
 
-    const result =
-      await processVendorPayment({
+    if (error) throw error;
 
-        accounts_payable_id:
-          body.accounts_payable_id,
+    const totalPaid =
+      (data || []).reduce((sum, p) =>
+        sum + Number(p.amount || 0), 0);
 
-        payment_method:
-          body.payment_method,
-
-        paid_by:
-          body.paid_by || "ACCOUNTING",
-      });
-
-    return NextResponse.json(
-      result
-    );
-
-  } catch (error) {
-
-    return NextResponse.json(
-      {
-
-        success: false,
-
-        error:
-          error.message,
-      },
-      {
-
-        status: 500,
+    return NextResponse.json({
+      success: true,
+      state: {
+        payments: data || [],
+        totalPaid
       }
-    );
+    });
+
+  } catch (err) {
+    return NextResponse.json({
+      success: false,
+      error: err.message
+    }, { status: 500 });
   }
 }

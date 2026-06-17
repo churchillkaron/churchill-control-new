@@ -14,6 +14,7 @@ import {
 
 import {
   useSearchParams,
+  useRouter,
 } from "next/navigation";
 
 import {
@@ -81,6 +82,9 @@ export default function PaymentsPage() {
 
   const searchParams =
     useSearchParams();
+
+  const router =
+    useRouter();
 
   const tableNumber =
     searchParams.get("table");
@@ -312,8 +316,9 @@ export default function PaymentsPage() {
         ) <= 0 ||
         mode === "FULL"
       ) {
-        window.location.href =
-          "/tables";
+        router.push("/tables");
+
+        router.refresh();
         return;
       }
 

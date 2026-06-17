@@ -6,6 +6,14 @@ import {
   openTableSession,
 } from "@/lib/restaurant/services/openTableSession";
 
+import {
+  recordSystemEvent,
+} from "@/lib/events/recordSystemEvent";
+
+import {
+  SYSTEM_EVENTS,
+} from "@/lib/shared/constants/events";
+
 export async function POST(req) {
 
   try {
@@ -20,6 +28,13 @@ export async function POST(req) {
       staff_name,
       staff_id,
       tenant_id,
+
+      customerId,
+      customerName,
+      customerEmail,
+      customerPhone,
+      guestCount,
+
     } = body;
 
     if (!staff_id) {
@@ -65,6 +80,21 @@ export async function POST(req) {
         tableNumber:
           table,
 
+        customerId:
+          customerId || null,
+
+        customerName:
+          customerName || null,
+
+        customerEmail:
+          customerEmail || null,
+
+        customerPhone:
+          customerPhone || null,
+
+        guestCount:
+          Number(guestCount || 0),
+
       });
 
     if (!session?.id) {
@@ -108,9 +138,7 @@ export async function POST(req) {
           status:
             "OPEN",
 
-          kitchen_status:
-            "PENDING",
-
+    
           staff_name:
             staff_name || "Staff",
 
@@ -147,6 +175,20 @@ export async function POST(req) {
 
     }
 
+    await recordSystemEvent({
+      tenantId: tenant_id,
+      type: SYSTEM_EVENTS.ORDER_CREATED,
+      payload: {
+        order_id: order.id,
+        session_id: session.id,
+        table_number: table,
+        customer_name: customerName || null,
+        customer_phone: customerPhone || null,
+        total: Number(total || 0),
+        created_at: now,
+      },
+    });
+
     const orderItems = [];
 
     for (const item of items) {
@@ -170,7 +212,9 @@ export async function POST(req) {
             order.id,
 
           dish_id:
-            item.dish_id || null,
+            item.dish_id ||
+            item.id ||
+            null,
 
           item_name:
 
@@ -201,6 +245,12 @@ export async function POST(req) {
 
           staff_id,
 
+          notes:
+            item.notes || null,
+
+          cooking_level:
+            item.cookingLevel || null,
+
           created_at:
             now,
 
@@ -209,6 +259,11 @@ export async function POST(req) {
       }
 
     }
+
+    console.log(
+      'ORDER_ITEMS_INSERT',
+      JSON.stringify(orderItems, null, 2)
+    )
 
     const {
       error: itemsError,

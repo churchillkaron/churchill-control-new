@@ -36,10 +36,6 @@ const SECTIONS = [
       "Main production command center, kitchen visibility and operational control.",
     icon: LayoutDashboard,
     items: [
-      { name: "Overview", route: "/production/overview" },
-      { name: "Live Runtime", route: "/production/live" },
-      { name: "Production Dashboard", route: "/production/dashboard" },
-      { name: "Production Health", route: "/production/health" },
     ],
   },
 
@@ -49,11 +45,6 @@ const SECTIONS = [
       "Recipe management, recipe structures and production preparation systems.",
     icon: ChefHat,
     items: [
-      { name: "Recipes", route: "/production/recipes" },
-      { name: "Recipe Builder", route: "/production/recipe-builder" },
-      { name: "Ingredient Mapping", route: "/production/ingredients" },
-      { name: "Recipe Versions", route: "/production/versions" },
-      { name: "Recipe Categories", route: "/production/categories" },
     ],
   },
 
@@ -63,11 +54,6 @@ const SECTIONS = [
       "Batch preparation, prep operations and kitchen production runtime.",
     icon: Factory,
     items: [
-      { name: "Batch Production", route: "/production/batches" },
-      { name: "Prep Runtime", route: "/production/prep" },
-      { name: "Prep Scheduling", route: "/production/scheduling" },
-      { name: "Production Queue", route: "/production/queue" },
-      { name: "Kitchen Production", route: "/production/kitchen" },
     ],
   },
 
@@ -77,11 +63,6 @@ const SECTIONS = [
       "Ingredient consumption, production usage and stock coordination.",
     icon: Package,
     items: [
-      { name: "Ingredient Usage", route: "/production/usage" },
-      { name: "Consumption Logs", route: "/production/consumption" },
-      { name: "Prep Inventory", route: "/production/prep-inventory" },
-      { name: "Inventory Coordination", route: "/production/inventory" },
-      { name: "Stock Deduction", route: "/production/deductions" },
     ],
   },
 
@@ -91,11 +72,6 @@ const SECTIONS = [
       "Recipe costing, production costs and yield management operations.",
     icon: DollarSign,
     items: [
-      { name: "Recipe Costing", route: "/production/costing" },
-      { name: "Food Cost Runtime", route: "/production/food-cost" },
-      { name: "Yield Tracking", route: "/production/yield" },
-      { name: "Production Costs", route: "/production/costs" },
-      { name: "Cost Variance", route: "/production/variance" },
     ],
   },
 
@@ -105,11 +81,6 @@ const SECTIONS = [
       "Kitchen stations, preparation flow and realtime production operations.",
     icon: UtensilsCrossed,
     items: [
-      { name: "Kitchen Runtime", route: "/kitchen" },
-      { name: "Station Production", route: "/production/stations" },
-      { name: "Kitchen Queue", route: "/production/kitchen-queue" },
-      { name: "Prep Stations", route: "/production/prep-stations" },
-      { name: "Expo Runtime", route: "/production/expo" },
     ],
   },
 
@@ -119,11 +90,6 @@ const SECTIONS = [
       "Production waste tracking, spoilage monitoring and variance analysis.",
     icon: Flame,
     items: [
-      { name: "Waste Runtime", route: "/production/waste" },
-      { name: "Spoilage Tracking", route: "/production/spoilage" },
-      { name: "Production Variance", route: "/production/variances" },
-      { name: "Loss Analysis", route: "/production/losses" },
-      { name: "Waste Reports", route: "/production/waste-reports" },
     ],
   },
 
@@ -133,11 +99,6 @@ const SECTIONS = [
       "Production performance, forecasting and operational intelligence.",
     icon: BarChart3,
     items: [
-      { name: "Production Analytics", route: "/production/analytics" },
-      { name: "Performance Metrics", route: "/production/performance" },
-      { name: "Production Forecasting", route: "/production/forecasting" },
-      { name: "Output Trends", route: "/production/trends" },
-      { name: "Production Reports", route: "/production/reports" },
     ],
   },
 
@@ -147,11 +108,6 @@ const SECTIONS = [
       "Menu profitability, production optimization and item performance analysis.",
     icon: Scale,
     items: [
-      { name: "Menu Engineering", route: "/production/menu-engineering" },
-      { name: "Menu Profitability", route: "/production/profitability" },
-      { name: "Dish Performance", route: "/production/dishes" },
-      { name: "Item Cost Analysis", route: "/production/item-costs" },
-      { name: "Menu Optimization", route: "/production/optimization" },
     ],
   },
 
@@ -161,11 +117,6 @@ const SECTIONS = [
       "AI production forecasting, kitchen intelligence and prep optimization.",
     icon: Brain,
     items: [
-      { name: "Production AI", route: "/production/ai" },
-      { name: "AI Recommendations", route: "/production/recommendations" },
-      { name: "Prep Forecasting", route: "/production/predictions" },
-      { name: "Automation Runtime", route: "/production/automation" },
-      { name: "Optimization Engine", route: "/production/ai-optimization" },
     ],
   },
 
@@ -179,7 +130,7 @@ const STATUS = [
   },
 
   {
-    label: "Kitchen Production",
+    label: "Batch Production",
     value: "ONLINE",
   },
 

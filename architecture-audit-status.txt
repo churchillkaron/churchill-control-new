@@ -1,0 +1,306 @@
+ M app/(system)/components/marketing/studio/AssetLibraryPanel.jsx
+ M app/(system)/components/marketing/studio/QueuePanel.jsx
+ M app/(system)/components/marketing/studio/StudioCenterStage.jsx
+ M app/(system)/components/marketing/studio/StudioLeftPanel.jsx
+ M app/(system)/components/marketing/studio/StudioRightPanel.jsx
+ M app/(system)/components/marketing/studio/StudioTopBar.jsx
+ M app/(system)/kitchen/page.jsx
+ M app/(system)/marketing/design/page.js
+ M app/(system)/payroll/page.jsx
+ M app/(system)/pos/POSContent.js
+ M app/(system)/pos/payments/page.jsx
+ M app/(system)/workspace/[organizationId]/moduleGroups.js
+ M app/(system)/workspace/[organizationId]/page.jsx
+ M app/(system)/workspace/page.jsx
+ M app/(workforce)/workforce/page.jsx
+ D app/api/approval/update-status/route.js
+ D app/api/approvals/process-v2/route.js
+ M app/api/approvals/process/route.js
+ M app/api/approvals/reject/route.js
+ D app/api/approvals/request/route.js
+ D app/api/auth/tenant/route.js
+ M app/api/governance/automation/route.js
+ M app/api/governance/deployment/request/route.js
+ M app/api/invoices/update/route.js
+ M app/api/marketing/assets/route.js
+ M app/api/marketing/campaign/[id]/route.js
+ M app/api/marketing/process-generation-job/route.js
+ M app/api/meta/accounts/route.js
+ D app/api/onboarding/create/route.js
+ D app/api/onboarding/setup/route.js
+ M app/api/orchestration/shift-closed/route.js
+ M app/api/owner/route.js
+ M app/api/payroll/generate/route.js
+ M app/api/pos/create/route.js
+ D app/api/production/batch/produce/route.js
+ D app/api/production/dish/consume/route.js
+ D app/api/production/events/consume/route.js
+ D app/api/production/inventory/deduct-from-order/route.js
+ M app/api/staff/route.js
+ D app/api/warehouse/costing/route.js
+ D app/api/warehouse/valuation/route.js
+ D app/api/waste/create/route.js
+ M app/api/workspace/command-center/route.js
+ M app/api/workspace/route.js
+ M app/globals.css
+ M app/login/callback/page.js
+ M app/providers/OrganizationProvider.jsx
+ M app/providers/TenantProvider.js
+ M app/providers/WorkspaceRuntimeProvider.jsx
+ D app/system-setup/step-1/page.js
+ D app/system-setup/step-2/page.js
+ D app/system-setup/step-3/page.js
+ D app/system-setup/step-4/page.js
+ D app/system-setup/step-5/page.js
+ D app/system-setup/step-6/page.js
+ D app/system-setup/step-7/page.js
+ D app/system-setup/step-8/page.js
+ M components/platform/PlatformShell.jsx
+ M components/pos/POSShell.jsx
+ D lib/approvals/workflows/createApprovalRequest.js
+ D lib/approvals/workflows/updateApprovalRequest.js
+ M lib/finance/accounting/createJournalEntry.js
+ M lib/finance/accounting/findAccount.js
+ D lib/finance/audit/createFinanceAuditLog.js
+ M lib/finance/core/createCustomerInvoice.js
+ D lib/finance/core/getDashboardSummary.js
+ D lib/finance/core/getPendingApprovals.js
+ M lib/finance/core/postAutomaticJournal.js
+ M lib/finance/core/processCustomerPayment.js
+ M lib/finance/core/runAccountReconciliation.js
+ D lib/finance/core/runAccountingAlerts.js
+ M lib/finance/core/runAssetDepreciation.js
+ M lib/finance/core/runTrialBalance.js
+ D lib/finance/createAuditLog.js
+ M lib/finance/createCogsEntry.js
+ D lib/finance/createIntercompanyTransaction.js
+ M lib/finance/general-ledger/postJournalToLedger.js
+ D lib/finance/getBalanceSheet.js
+ D lib/finance/getProfitLoss.js
+ D lib/finance/getTrialBalance.js
+ D lib/finance/postJournalEntry.js
+ D lib/finance/reporting/generateBalanceSheet.js
+ D lib/finance/reporting/generateProfitLoss.js
+ D lib/finance/reporting/generateTrialBalance.js
+ D lib/governance/finance/createApprovalWorkflow.js
+ M lib/hooks/useOrganizationRuntime.js
+ D lib/inventory/services/createInventoryLedgerEntry.js
+ M lib/inventory/services/index.js
+ M lib/kitchen/generateKitchenOperationalReport.js
+ M lib/marketing/ai/assets/analyzeMarketingAsset.js
+ M lib/marketing/ai/assets/getTopPerformingAssets.js
+ M lib/marketing/ai/assets/selectBestAssets.js
+ M lib/marketing/ai/assets/selectRelevantAssets.js
+ M lib/marketing/ai/context/buildCampaignContext.js
+ M lib/marketing/ai/context/buildPrompt.js
+ M lib/marketing/ai/dna/buildCampaignDNA.js
+ M lib/marketing/ai/engines/buildFluxEnhancePrompt.js
+ M lib/marketing/ai/engines/runCompositeEngine.js
+ M lib/marketing/ai/engines/runFluxEnhanceEngine.js
+ M lib/marketing/ai/engines/runFullAIEngine.js
+ M lib/marketing/ai/engines/runVideoEngine.js
+ M lib/marketing/ai/identity/extractFaceIdentity.js
+ M lib/marketing/ai/insights/getOperationalAlerts.js
+ M lib/marketing/ai/insights/getOwnerInsight.js
+ M lib/marketing/ai/performance/updateAssetPerformance.js
+ M lib/marketing/ai/recommendations/getBusinessRecommendations.js
+ M lib/marketing/ai/router/engineRouter.js
+ M lib/marketing/ai/scoring/calculateAssetScore.js
+ M lib/marketing/ai/utils/getTopPerformingCampaigns.js
+ M lib/marketing/repositories/createGenerationJob.js
+ M lib/marketing/repositories/getBestPromptHistory.js
+ M lib/marketing/repositories/getGenerationJobs.js
+ M lib/marketing/repositories/getMarketingAssets.js
+ M lib/marketing/repositories/getMetaAccounts.js
+ M lib/marketing/repositories/getQueuedCampaigns.js
+ M lib/marketing/repositories/incrementAssetUsage.js
+ M lib/marketing/repositories/queueCampaign.js
+ M lib/marketing/repositories/saveCampaign.js
+ M lib/marketing/repositories/saveCampaignMemory.js
+ M lib/marketing/repositories/saveMarketingAsset.js
+ M lib/marketing/repositories/savePromptHistory.js
+ M lib/marketing/repositories/savePublishLog.js
+ M lib/marketing/repositories/updateBusinessAIProfile.js
+ M lib/marketing/repositories/uploadCampaignImage.js
+ M lib/marketing/repositories/uploadGeneratedImage.js
+ M lib/marketing/repositories/uploadMarketingAsset.js
+ M lib/marketing/services/createCampaignFlow.js
+ M lib/marketing/services/runCampaignGeneration.js
+ M lib/marketing/services/uploadMarketingAssetFlow.js
+ D lib/onboarding/createTenant.js
+ D lib/onboarding/runTenantSetup.js
+ D lib/onboarding/setup/createDefaultPermissions.js
+ D lib/onboarding/setup/createDefaultRoles.js
+ D lib/orchestration/finance/approveWorkflow.js
+ D lib/orchestration/finance/rejectWorkflow.js
+ M lib/orchestration/runDayClosedFlow.js
+ M lib/organizations/getOrganizationWorkspace.js
+ M lib/payroll/consolidation/generateMonthlyPayroll.js
+ M lib/payroll/core/distributeServiceCharge.js
+ M lib/payroll/generatePayrollRecords.js
+ M lib/payroll/policies/loadTenantPayoutPolicy.js
+ M lib/payroll/serviceCharge/calculateDailyPayouts.js
+ M lib/platform/getAvailableModules.js
+ M lib/platform/industries/getOrganizationIndustries.js
+ M lib/platform/industries/runtime/accounting.js
+ M lib/platform/industries/runtime/construction.js
+ M lib/platform/industries/runtime/entertainment.js
+ D lib/platform/industries/runtime/hospitality.js
+ M lib/platform/industries/runtime/pestControl.js
+ D lib/platform/industryRegistry.js
+ D lib/platform/industryTemplates.js
+ D lib/platform/legacy/getLegacyMappings.js
+ D lib/platform/legacy/legacyRegistry.js
+ M lib/platform/loadPlatformCommandCenter.js
+ D lib/platform/moduleRegistry.js
+ D lib/platform/modules/activateModule.js
+ D lib/platform/modules/getTenantModules.js
+ D lib/platform/modules/loadPlatformModules.js
+ D lib/platform/navigation/buildNavigation.js
+ D lib/platform/navigation/buildOrganizationNavigation.js
+ D lib/platform/navigation/generateNavigation.js
+ D lib/platform/navigation/generateWorkspaceNavigation.js
+ D lib/platform/onboarding/createIndustryTenant.js
+ M lib/platform/runtime/buildModuleRuntime.js
+ M lib/platform/runtime/buildNavigationRuntime.js
+ M lib/platform/runtime/buildOrganizationRuntime.js
+ M lib/platform/runtime/buildWorkspaceRuntime.js
+ M lib/platform/runtime/getIndustryRuntime.js
+ D lib/platform/runtime/getPlatformRuntime.js
+ M lib/platform/runtime/loadPlatformRuntime.js
+ D lib/platform/runtime/loadTenantRuntime.js
+ D lib/platform/tenant/getTenantPlatform.js
+ M lib/platform/workspaces/accountingWorkspace.js
+ M lib/platform/workspaces/constructionWorkspace.js
+ M lib/platform/workspaces/entertainmentWorkspace.js
+ M lib/platform/workspaces/getWorkspaceDefinition.js
+ D lib/platform/workspaces/hospitalityWorkspace.js
+ M lib/platform/workspaces/pestControlWorkspace.js
+ M lib/pos/markOrderPaid.js
+ M lib/pos/orders/recalculateOrderTotals.js
+ M lib/pos/partialPayment.js
+ D lib/pos/validateStock.js
+ D lib/production/consumeDishStock.js
+ D lib/production/deductInventoryFromOrder.js
+ D lib/production/executeConsumptionDeduction.js
+ D lib/production/finalizeProductionFlow.js
+ D lib/production/processCompletedOrder.js
+ D lib/production/processConsumptionEvent.js
+ M lib/production/processOrderProduction.js
+ D lib/production/processProductionOrder.js
+ D lib/production/produceDishBatch.js
+ M lib/production/waste/logWaste.js
+ M lib/restaurant/services/openTableSession.js
+ D lib/shared/approvals/advanceApproval.js
+ D lib/shared/approvals/approvalFlow.js
+ M lib/shared/approvals/executeApproval.js
+ D lib/shared/approvals/processApproval.js
+ D lib/shared/architecture/systemRegistry.backup.js
+ M lib/shared/bootstrap/registerSystemEvents.js
+ M lib/shared/constants/events.js
+ D lib/shared/events/events.js
+ D lib/warehouse/calculateInventoryCost.js
+ D lib/warehouse/valuation/calculateInventoryValuation.js
+ M lib/workspace/getActiveOrganization.js
+ M lib/workspace/runtime/getWorkspaceComponent.js
+ M lib/workspace/runtime/getWorkspaceModules.js
+ M package-lock.json
+ M package.json
+?? add_order_financial_columns.sql
+?? app/(system)/customers/
+?? app/(system)/design/
+?? app/(system)/management/approvals-center/
+?? app/(system)/settings/marketing/
+?? app/(system)/timeline/
+?? app/(system)/workspace/[organizationId]/accounting/
+?? app/(system)/workspace/[organizationId]/construction/
+?? app/(system)/workspace/[organizationId]/entertainment/
+?? app/(system)/workspace/[organizationId]/healthcare/
+?? app/(system)/workspace/[organizationId]/hotel/
+?? app/(system)/workspace/[organizationId]/pest_control/
+?? app/(system)/workspace/[organizationId]/restaurant/
+?? app/(system)/workspace/[organizationId]/retail/
+?? app/(system)/workspace/hotel/
+?? app/(system)/workspace/platform/
+?? app/api/ai/
+?? app/api/approval_requests/
+?? app/api/customers/
+?? app/api/healthcare/
+?? app/api/hotel/
+?? app/api/hotels/
+?? app/api/marketing/create-generation-job-server/
+?? app/api/reviews/list/
+?? app/api/reviews/sync-facebook/
+?? app/api/reviews/sync-google/
+?? app/api/reviews/sync-platforms/
+?? app/api/reviews/sync/
+?? app/api/settings/marketing/
+?? app/api/timeline/
+?? app/api/workspace/industry-organizations/
+?? app/api/workspace/list/
+?? app/components/
+?? architecture-audit-status.txt
+?? audit-files.txt
+?? build.log
+?? check_hotel_schema.sql
+?? check_hotel_tables.js
+?? cleanup-audit/
+?? components/ModuleCard.jsx
+?? components/reviews/
+?? components/workspace/MetricCard.jsx
+?? components/workspace/ModuleCard.jsx
+?? docs/architecture/audit/
+?? docs/architecture/business-object-map.md
+?? docs/architecture/business-object-registry.md
+?? docs/architecture/capability-map.md
+?? docs/architecture/capability-registry.md
+?? docs/architecture/commerce-item.md
+?? docs/architecture/core-object-language.md
+?? docs/architecture/core-objects.md
+?? docs/architecture/customer-360-implementation.md
+?? docs/architecture/customer-360.md
+?? docs/architecture/domain-registry.md
+?? docs/architecture/engine-registry.md
+?? docs/architecture/event-map.md
+?? docs/architecture/event-registry.md
+?? docs/architecture/industry-language-map.md
+?? docs/architecture/industry-validation.md
+?? docs/architecture/inventory/
+?? docs/architecture/navigation-architecture.md
+?? docs/architecture/package-registry.md
+?? docs/architecture/project-domain.md
+?? docs/architecture/runtime-architecture.md
+?? docs/architecture/runtime-model.md
+?? docs/architecture/solution-map.md
+?? docs/architecture/system-of-record.md
+?? lib/customer/ingestCustomer360.js
+?? lib/customer/processCustomerVisit.js
+?? lib/events/
+?? lib/healthcare/
+?? lib/hotel/
+?? lib/marketing/repositories/getMarketingAssetsClient.js
+?? lib/platform/ai/buildDefaultBusinessProfile.js
+?? lib/platform/ai/getOrCreateBusinessProfile.js
+?? lib/platform/ai/resolveTenantIndustries.js
+?? lib/platform/analytics/
+?? lib/platform/assets/
+?? lib/platform/industries/runtime/healthcare.js
+?? lib/platform/industries/runtime/hotel.js
+?? lib/platform/industries/runtime/restaurant.js
+?? lib/platform/industries/runtime/retail.js
+?? lib/platform/modules/moduleRegistry.js
+?? lib/platform/runtime/buildWorkspaceMetrics.js
+?? lib/platform/runtime/loadPlatformWorkspaceRuntime.js
+?? lib/platform/workspaces/generateWorkspaceNarrative.js
+?? lib/platform/workspaces/getOrganizationWorkspaceSettings.js
+?? lib/platform/workspaces/healthcareWorkspace.js
+?? lib/platform/workspaces/hotelWorkspace.js
+?? lib/platform/workspaces/restaurantWorkspace.js
+?? lib/shared/approvals/rejectApprovalRequest.js
+?? lib/shared/supabase/index.js
+?? setup_workspace_modules.sql
+?? simulate_customer_payments.sh
+?? simulate_customer_visits.sh
+?? supabase/migrations/20260602_organization_workspace_settings.sql
+?? test-payment.js
+?? verify_finance.sh

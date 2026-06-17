@@ -1,0 +1,16 @@
+app/(system)/workspace/hotel/testpage.jsx:42:        <p className="text-sm uppercase tracking-widest text-white/40">Hospitality Command Center</p>
+app/(system)/workspace/[organizationId]/moduleGroups.js:54:    title: "Hospitality",
+app/(system)/components/marketing/studio/StudioTopBar.jsx:71:          Luxury Hospitality Creative Engine
+app/(system)/marketing/page.jsx:217:              Hospitality growth runtime for campaigns, social publishing,
+app/api/workspace/industry-organizations/route.js:25:      .from("organization_industries")
+lib/platform/runtime/getIndustryRuntime.js:1:import { hospitalityRuntime } from "@/lib/platform/industries/runtime/hospitality";
+lib/platform/runtime/getIndustryRuntime.js:12:  hospitality: hospitalityRuntime,
+lib/platform/industries/getOrganizationIndustries.js:12:    .from("organization_industries")
+lib/platform/workspaces/getWorkspaceDefinition.js:4:import { hospitalityWorkspace }
+lib/platform/workspaces/getWorkspaceDefinition.js:5:from "@/lib/platform/workspaces/hospitalityWorkspace";
+lib/platform/workspaces/getWorkspaceDefinition.js:31:    hospitalityWorkspace,
+lib/marketing/ai/engines/buildFluxEnhancePrompt.js:38:${venue || "Luxury Hospitality Venue"}
+lib/marketing/ai/engines/buildFluxEnhancePrompt.js:47:${campaignType || "Hospitality"}
+lib/marketing/ai/dna/buildCampaignDNA.js:38:      "Luxury Hospitality",
+lib/marketing/ai/assets/analyzeMarketingAsset.js:31:      "Hospitality";
+lib/marketing/ai/assets/analyzeMarketingAsset.js:41:        "Hospitality staff member";

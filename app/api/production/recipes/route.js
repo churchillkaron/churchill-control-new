@@ -1,158 +1,32 @@
 import { NextResponse } from "next/server";
-
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function GET() {
-
-  try {
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from("recipe_items")
-      .select(`
-        id,
-        dish_id,
-        quantity_required,
-        ingredients (
-          id,
-          name,
-          unit,
-          cost
-        )
-      `)
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      );
-
-    if (error) {
-      throw error;
-    }
-
-    return NextResponse.json({
-
-      success: true,
-
-      recipes:
-        data || [],
-    });
-
-  } catch (error) {
-
-    return NextResponse.json(
-      {
-
-        success: false,
-
-        error:
-          error.message,
-      },
-      {
-
-        status: 500,
-      }
-    );
-  }
-}
-
 export async function POST(req) {
-
   try {
 
-    const body =
-      await req.json();
+    const { tenantId } = await req.json();
 
-    await requireAuth();
+    const { data, error } = await supabaseAdmin
+      .from("recipes")
+      .select(`
+        *,
+        recipe_components (*)
+      `)
+      .eq("tenant_id", tenantId);
 
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
-      });
-
-    if (!access.success) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            access.error,
-        },
-        {
-          status:
-            access.status,
-        }
-      );
-
-    }
-
-    const tenant_id =
-      access.tenantId;
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from("recipe_items")
-      .insert([
-        {
-
-          tenant_id:
-            tenant_id,
-
-          dish_id:
-            body.dish_id,
-
-          ingredient_id:
-            body.ingredient_id,
-
-          quantity_required:
-            body.quantity_required,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return NextResponse.json({
-
       success: true,
-
-      recipe:
-        data,
+      data: data || []
     });
 
-  } catch (error) {
+  } catch (err) {
 
-    return NextResponse.json(
-      {
+    return NextResponse.json({
+      success: false,
+      error: err.message
+    }, { status: 500 });
 
-        success: false,
-
-        error:
-          error.message,
-      },
-      {
-
-        status: 500,
-      }
-    );
   }
 }

@@ -8,23 +8,19 @@ export default function QueuePanel({
   setActiveAsset,
 }) {
   const openAsset = (item) => {
-    if (!setActiveAsset) return;
-
     const mediaUrl =
       item?.video_url ||
       item?.file_url ||
       item?.image_url ||
       item?.thumbnail_url ||
+      item?.marketing_campaigns?.campaign_content?.image_url ||
       null;
-
-    const isVideo =
-      item?.is_video ||
-      item?.tags?.includes("video") ||
-      item?.video_url;
 
     if (!mediaUrl) return;
 
-    setActiveAsset({
+    const isVideo = item?.is_video || item?.tags?.includes("video") || item?.video_url;
+
+    setActiveAsset?.({
       type: isVideo ? "video" : "image",
       url: mediaUrl,
       asset: item,
@@ -34,242 +30,96 @@ export default function QueuePanel({
   const deleteQueueItem = async (id) => {
     if (!id) return;
 
-    const confirmDelete = window.confirm(
-      "Remove queued campaign?"
-    );
-
+    const confirmDelete = window.confirm("Remove queued campaign?");
     if (!confirmDelete) return;
 
-    try {
-      const { error } = await supabase
-        .from("campaign_publish_queue")
-        .delete()
-        .eq("id", id);
+    const { error } = await supabase
+      .from("campaign_publish_queue")
+      .delete()
+      .eq("id", id);
 
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      setQueuedCampaigns((prev) =>
-        prev.filter((item) => item.id !== id)
-      );
-    } catch (err) {
-      console.error(err);
+    if (error) {
+      console.error(error);
+      return;
     }
+
+    setQueuedCampaigns?.((prev) =>
+      prev.filter((item) => item.id !== id)
+    );
   };
 
   const publishNow = async (campaign) => {
-    try {
-      await fetch("/api/marketing/publish", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          campaignId: campaign.campaign_id,
-          queueId: campaign.id,
-        }),
-      });
-    } catch (err) {
-      console.error(err);
-    }
+    await fetch("/api/marketing/publish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        campaignId: campaign.campaign_id,
+        queueId: campaign.id,
+      }),
+    });
   };
 
   return (
-    <div
-      className="
-        bg-black/30
-        border border-white/10
-        rounded-2xl
-        p-5
-      "
-    >
-      <div
-        className="
-          text-orange-400
-          uppercase
-          tracking-[0.2em]
-          text-xs
-          mb-4
-        "
-      >
-        Scheduled Queue
+    <section className="rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-[10px] uppercase tracking-[0.28em] text-[#D6B56D]">
+          Queue
+        </div>
+        <div className="text-xs text-white/35">
+          {queuedCampaigns.length}
+        </div>
       </div>
 
-      <div
-        className="
-          max-h-[500px]
-          overflow-y-auto
-          pr-2
-          space-y-4
-        "
-      >
-        {queuedCampaigns?.length === 0 && (
-          <div className="text-white/40 text-sm">
-            No queued campaigns
+      <div className="space-y-3">
+        {queuedCampaigns.length === 0 && (
+          <div className="rounded-2xl border border-white/[0.08] bg-black/30 p-4 text-sm text-white/40">
+            No queued campaigns.
           </div>
         )}
 
-        {queuedCampaigns?.map((item) => {
+        {queuedCampaigns.slice(0, 8).map((item) => {
           const mediaUrl =
             item?.video_url ||
             item?.file_url ||
             item?.image_url ||
             item?.thumbnail_url ||
+            item?.marketing_campaigns?.campaign_content?.image_url ||
             null;
 
-          const isVideo =
-            item?.is_video ||
-            item?.tags?.includes("video") ||
-            item?.video_url;
-
           return (
-            <div
-              key={item.id}
-              className="
-                bg-black/40
-                border border-white/10
-                rounded-2xl
-                p-4
-                relative
-              "
-            >
-              <button
-                onClick={() =>
-                  deleteQueueItem(item.id)
-                }
-                className="
-                  absolute
-                  top-3
-                  right-3
-                  w-8
-                  h-8
-                  rounded-full
-                  bg-red-500
-                  text-white
-                  text-sm
-                "
-              >
-                ×
-              </button>
-
-              <div
-                onClick={() =>
-                  openAsset(item)
-                }
-                className="
-                  w-full
-                  h-40
-                  rounded-xl
-                  overflow-hidden
-                  bg-black
-                  border border-white/10
-                  mb-4
-                  cursor-pointer
-                "
-              >
+            <div key={item.id} className="rounded-2xl border border-white/[0.08] bg-black/30 p-3">
+              <div onClick={() => openAsset(item)} className="mb-3 h-24 cursor-pointer overflow-hidden rounded-xl bg-black">
                 {mediaUrl ? (
-                  isVideo ? (
-                    <video
-                      src={mediaUrl}
-                      className="
-                        w-full
-                        h-full
-                        object-cover
-                      "
-                    />
-                  ) : (
-                    <img
-                      src={mediaUrl}
-                      alt={item.name}
-                      className="
-                        w-full
-                        h-full
-                        object-cover
-                      "
-                    />
-                  )
+                  <img src={mediaUrl} alt={item.title || "Campaign"} className="h-full w-full object-cover" />
                 ) : (
-                  <div
-                    className="
-                      w-full
-                      h-full
-                      flex
-                      items-center
-                      justify-center
-                      text-white/30
-                    "
-                  >
+                  <div className="flex h-full items-center justify-center text-xs text-white/25">
                     No Media
                   </div>
                 )}
               </div>
 
-              <div className="text-white text-2xl mb-1">
-                {item.title || item.name || "Campaign"}
+              <div className="text-sm font-medium">
+                {item.title || item.campaign_name || "Scheduled Campaign"}
               </div>
 
-              <div className="text-white/60 mb-2">
-                {item.subtitle ||
-                  item.campaign_name ||
-                  "Scheduled Campaign"}
-              </div>
-
-              <div className="text-blue-400 text-sm mb-2">
-                META
-              </div>
-
-              <div className="text-green-400 text-sm mb-3">
+              <div className="mt-1 text-xs text-white/40">
                 {item.status || "queued"}
               </div>
 
-              {item.scheduled_for && (
-                <div className="text-white/40 text-sm mb-4">
-                  Scheduled:{" "}
-                  {new Date(
-                    item.scheduled_for
-                  ).toLocaleString()}
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() =>
-                    publishNow(item)
-                  }
-                  className="
-                    flex-1
-                    bg-green-900/40
-                    border border-green-500/30
-                    text-green-300
-                    py-3
-                    rounded-xl
-                  "
-                >
-                  PUBLISH
+              <div className="mt-3 flex gap-2">
+                <button onClick={() => publishNow(item)} className="flex-1 rounded-xl border border-[#D6B56D]/25 bg-[#D6B56D]/12 py-2 text-xs text-[#E8D39A]">
+                  Publish
                 </button>
-
-                <button
-                  onClick={() =>
-                    deleteQueueItem(item.id)
-                  }
-                  className="
-                    flex-1
-                    bg-red-900/40
-                    border border-red-500/30
-                    text-red-300
-                    py-3
-                    rounded-xl
-                  "
-                >
-                  CANCEL
+                <button onClick={() => deleteQueueItem(item.id)} className="flex-1 rounded-xl border border-red-500/20 bg-red-500/10 py-2 text-xs text-red-300">
+                  Remove
                 </button>
               </div>
             </div>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

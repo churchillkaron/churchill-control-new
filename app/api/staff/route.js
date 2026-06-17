@@ -148,7 +148,13 @@ export async function GET() {
 export async function POST(request) {
   const supabase = createServerSupabase();
   const body = await request.json();
-  const { action, staffName, staffRole, tenantId } = body;
+  const {
+    action,
+    staffId,
+    staffName,
+    staffRole,
+    tenantId,
+  } = body;
 
   if (!staffName || !staffRole) {
     return NextResponse.json(
@@ -246,6 +252,7 @@ export async function POST(request) {
     }
 
     const { error } = await supabase.from("staff_shifts").insert({
+      staff_id: staffId,
       staff_name: staffName,
       staff_role: staffRole,
 
@@ -290,7 +297,7 @@ export async function POST(request) {
     const { data: openShift } = await supabase
       .from("staff_shifts")
       .select("*")
-      .eq("staff_name", staffName)
+      .eq("staff_id", staffId)
       .eq("tenant_id", tenantId)
       .is("clock_out", null)
       .limit(1)

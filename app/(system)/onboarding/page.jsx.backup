@@ -1,0 +1,131 @@
+"use client";
+
+import { useState } from "react";
+
+export default function OnboardingPage() {
+  const [step, setStep] = useState(1);
+
+  const [form, setForm] = useState({
+    name: "",
+    organizationType: "",
+    size: "small",
+    ownerEmail: "",
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const update = (key, value) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const submit = async () => {
+    setLoading(true);
+
+    const res = await fetch("/api/onboarding/provision", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    
+      const data = await res.json();
+      setResult(data);
+      setLoading(false);
+
+      if (data?.redirect?.redirectTo) {
+        window.location.href = data.redirect.redirectTo;
+      }
+
+    setResult(data);
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center p-10">
+      <div className="w-full max-w-xl bg-white/5 border border-white/10 rounded-2xl p-8">
+
+        <div className="text-sm text-white/50 mb-6">
+          Step 1 → 3
+        </div>
+
+        {step === 1 && (
+          <div className="space-y-4">
+            <input
+              placeholder="Company name"
+              className="w-full p-3 bg-black/40 border border-white/10 rounded"
+              value={form.name}
+              onChange={e => update("name", e.target.value)}
+            />
+
+            <select
+              className="w-full p-3 bg-black/40 border border-white/10 rounded"
+              value={form.organizationType}
+              onChange={e => update("organizationType", e.target.value)}
+            >
+              <option value="">Industry</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="hotel">Hotel</option>
+              <option value="agency">Agency</option>
+            </select>
+
+            <button
+              onClick={() => setStep(2)}
+              className="w-full p-3 bg-white text-black rounded"
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            <select
+              className="w-full p-3 bg-black/40 border border-white/10 rounded"
+              value={form.size}
+              onChange={e => update("size", e.target.value)}
+            >
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+
+            <input
+              placeholder="Owner email"
+              className="w-full p-3 bg-black/40 border border-white/10 rounded"
+              value={form.ownerEmail}
+              onChange={e => update("ownerEmail", e.target.value)}
+            />
+
+            <button onClick={() => setStep(3)} className="w-full p-3 bg-white text-black rounded">
+              Preview
+            </button>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-4">
+            <div className="text-white/60 text-sm">
+              AI will automatically generate your full system.
+            </div>
+
+            <button
+              onClick={submit}
+              disabled={loading}
+              className="w-full p-3 bg-green-500 text-black rounded"
+            >
+              {loading ? "Creating..." : "Create Organization"}
+            </button>
+
+            {result && (
+              <div className="text-green-400 text-sm">
+                Created successfully
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}

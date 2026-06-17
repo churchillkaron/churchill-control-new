@@ -66,7 +66,7 @@ export default function SystemSettingsPage() {
         >
           <option value="small">Small (All-in-one staff)</option>
           <option value="standard">Standard</option>
-          <option value="enterprise">Enterprise</option>
+          <option value="">Enterprise</option>
         </select>
       </div>
 

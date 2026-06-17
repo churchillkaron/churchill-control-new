@@ -422,7 +422,7 @@ export default function SettingsPage() {
 
                   <Link
                     key={item.route}
-                    href={item.route}
+                    href={item.route || "#"} 
                     className="group rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-zinc-400/40 hover:bg-zinc-500/5"
                   >
 

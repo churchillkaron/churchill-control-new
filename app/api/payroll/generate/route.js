@@ -40,21 +40,18 @@ export async function POST(
 
   } catch (error) {
 
+    console.error("PAYROLL_GENERATE_ERROR");
+    console.error(error);
+    console.error(error?.stack);
+
     return NextResponse.json(
-
       {
-
         success: false,
-
-        error:
-          error.message,
-
+        error: error?.message,
+        stack: error?.stack,
       },
-
       {
-
         status: 500,
-
       }
     );
 

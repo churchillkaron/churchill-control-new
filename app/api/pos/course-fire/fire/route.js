@@ -20,8 +20,6 @@ export async function POST(req) {
     } = await supabaseAdmin
       .from('order_items')
       .update({
-        kitchen_status:
-          'FIRED',
       })
       .eq('order_id', order_id)
       .eq('course', course)

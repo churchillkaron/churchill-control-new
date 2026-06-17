@@ -23,7 +23,6 @@ import {
   Activity,
 } from "lucide-react";
 
-import { buildPlatformNavigation } from "@/lib/navigation/buildPlatformNavigation";
 
 const ICONS = {
   dashboard: Home,
@@ -63,7 +62,7 @@ export default function ChurchillSidebar() {
   const pathname = usePathname();
 
   const navigation = useMemo(
-    () => buildPlatformNavigation(),
+    () => buildNavigationRuntime(),
     []
   );
 

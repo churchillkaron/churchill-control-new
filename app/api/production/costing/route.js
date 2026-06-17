@@ -1,39 +1,30 @@
 import { NextResponse } from "next/server";
-
-import calculateDishCost from "@/lib/production/costing/calculateDishCost";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function POST(req) {
-
   try {
 
-    const body =
-      await req.json();
+    const { tenantId } = await req.json();
 
-    const result =
-      await calculateDishCost({
+    const { data, error } = await supabaseAdmin
+      .from("production_costs")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
 
-        dish_id:
-          body.dish_id,
-      });
+    if (error) throw error;
 
-    return NextResponse.json(
-      result
-    );
+    return NextResponse.json({
+      success: true,
+      data: data || []
+    });
 
-  } catch (error) {
+  } catch (err) {
 
-    return NextResponse.json(
-      {
+    return NextResponse.json({
+      success: false,
+      error: err.message
+    }, { status: 500 });
 
-        success: false,
-
-        error:
-          error.message,
-      },
-      {
-
-        status: 500,
-      }
-    );
   }
 }

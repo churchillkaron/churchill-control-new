@@ -8,8 +8,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import createApprovalRequest
-from "@/lib/approvals/workflows/createApprovalRequest";
+import { createApprovalRequest } from "@/lib/finance/createApprovalRequest";
 
 export async function POST(req) {
 

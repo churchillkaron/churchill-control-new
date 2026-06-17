@@ -1,6 +1,10 @@
 import {
-  getWorkspaceRuntime,
-} from "@/lib/workspace/runtime/getWorkspaceRuntime";
+  getServerCurrentUser,
+} from "@/lib/auth/getServerCurrentUser";
+
+import {
+  getOrganizationWorkspace,
+} from "@/lib/organizations/getOrganizationWorkspace";
 
 import {
   getWorkspaceComponent,
@@ -10,30 +14,45 @@ export default async function OrganizationModulePage({
   params,
 }) {
 
-  const runtime =
+  const user =
+    await getServerCurrentUser();
 
-    await getWorkspaceRuntime({
+  if (!user?.email) {
+
+    return (
+      <main className="min-h-screen bg-black p-10 text-white">
+        Unauthorized
+      </main>
+    );
+
+  }
+
+  const runtime =
+    await getOrganizationWorkspace({
+
+      userEmail:
+        user.email,
 
       organizationId:
         params.organizationId,
 
     });
 
-  if (!runtime) {
+  if (
+    !runtime ||
+    runtime.success === false
+  ) {
 
     return (
-
       <main className="min-h-screen bg-black p-10 text-white">
         Runtime not found
       </main>
-
     );
 
   }
 
   const module =
-
-    runtime.modules.find(
+    (runtime.modules || []).find(
       (module) =>
         module.id ===
         params.moduleId
@@ -42,17 +61,14 @@ export default async function OrganizationModulePage({
   if (!module) {
 
     return (
-
       <main className="min-h-screen bg-black p-10 text-white">
         Module not found
       </main>
-
     );
 
   }
 
   const ModuleComponent =
-
     getWorkspaceComponent(
       module.id
     );
@@ -60,7 +76,6 @@ export default async function OrganizationModulePage({
   if (!ModuleComponent) {
 
     return (
-
       <main className="min-h-screen bg-[#030712] p-10 text-white">
 
         <div className="mx-auto max-w-5xl">
@@ -74,26 +89,20 @@ export default async function OrganizationModulePage({
           </h1>
 
           <p className="mt-4 text-white/40">
-            Runtime component
-            not implemented yet
+            Runtime component not implemented yet
           </p>
 
         </div>
 
       </main>
-
     );
 
   }
 
   return (
-
     <main className="min-h-screen bg-[#030712] text-white">
-
       <ModuleComponent />
-
     </main>
-
   );
 
 }

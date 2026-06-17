@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import requireAuth from "@/lib/auth/requireAuth";
+import { requireAuth } from "@/lib/shared/auth/requireAuth";
 
 export async function GET() {
   try {
-    const session = await requireAuth();
+    const user = await requireAuth();
 
-    return NextResponse.json(session);
+    return NextResponse.json({
+      authenticated: true,
+      user,
+    });
   } catch (error) {
     return NextResponse.json(
       {
@@ -13,7 +16,7 @@ export async function GET() {
         error: error.message,
       },
       {
-        status: 500,
+        status: 401,
       }
     );
   }

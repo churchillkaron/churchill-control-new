@@ -1,4 +1,5 @@
 "use client";
+import { subscribe } from "@/lib/pos/core/posEventEngine";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ import {
 
 import { supabase }
 from "@/lib/shared/supabase/client";
+import { acknowledgeOrder } from "./ack_patch";
 
 
 
@@ -372,3 +374,18 @@ export default function ExpoPage() {
   );
 
 }
+
+
+// AUTO ACK HOOK (SAFE)
+// NOTE: integrate inside loadKitchen() manually if needed
+  // ===== EVENT SYNC (EXPO) =====
+  useEffect(() => {
+
+    const unsub = subscribe("EXPO", () => {
+      loadExpo();
+    });
+
+    return () => unsub();
+
+  }, []);
+

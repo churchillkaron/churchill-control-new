@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/billing/stripe";
+import { getStripe } from "@/lib/billing/stripe";
 import { PLANS } from "@/lib/billing/plans";
 
 export async function POST(req) {
@@ -12,6 +12,8 @@ export async function POST(req) {
         { status: 400 }
       );
     }
+
+    const stripe = getStripe();
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],

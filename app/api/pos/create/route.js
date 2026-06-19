@@ -14,6 +14,10 @@ import {
   SYSTEM_EVENTS,
 } from "@/lib/shared/constants/events";
 
+import {
+  processKitchenEvents,
+} from "@/lib/workers/kitchen/processKitchenEvents";
+
 export async function POST(req) {
 
   try {
@@ -28,6 +32,8 @@ export async function POST(req) {
       staff_name,
       staff_id,
       tenant_id,
+      organization_id,
+      table_id,
 
       customerId,
       customerName,
@@ -114,45 +120,75 @@ export async function POST(req) {
     const now =
       new Date().toISOString();
 
-    const {
-      data: order,
-      error: orderError,
-    } = await supabaseAdmin
+    let order = null;
+    let orderError = null;
+    let isNewOrder = false;
 
-      .from("orders")
+    if (table_id && organization_id) {
 
-      .insert([
-        {
+      const existing =
+        await supabaseAdmin
+          .from("orders")
+          .select("*")
+          .eq("table_id", table_id)
+          .eq("organization_id", organization_id)
+          .eq("status", "OPEN")
+          .order("created_at", {
+            ascending: false
+          })
+          .limit(1)
+          .maybeSingle();
 
-          tenant_id,
+      order = existing.data || null;
+      orderError = existing.error || null;
+    }
 
-          table_number:
-            table,
+    if (!order) {
 
-          session_id:
-            session.id,
+      isNewOrder = true;
 
-          total:
-            Number(total || 0),
+      const created =
+        await supabaseAdmin
 
-          status:
-            "OPEN",
+          .from("orders")
 
-    
-          staff_name:
-            staff_name || "Staff",
+          .insert([
+            {
 
-          staff_id,
+              tenant_id,
+              organization_id,
+              table_id,
 
-          created_at:
-            now,
+              table_number:
+                table,
 
-        },
-      ])
+              session_id:
+                session.id,
 
-      .select()
+              total:
+                Number(total || 0),
 
-      .single();
+              status:
+                "OPEN",
+
+              staff_name:
+                staff_name || "Staff",
+
+              staff_id,
+
+              created_at:
+                now,
+
+            },
+          ])
+
+          .select()
+
+          .single();
+
+      order = created.data;
+      orderError = created.error;
+    }
 
     if (
       orderError ||
@@ -175,147 +211,96 @@ export async function POST(req) {
 
     }
 
-    await recordSystemEvent({
-      tenantId: tenant_id,
-      type: SYSTEM_EVENTS.ORDER_CREATED,
-      payload: {
-        order_id: order.id,
-        session_id: session.id,
-        table_number: table,
-        customer_name: customerName || null,
-        customer_phone: customerPhone || null,
-        total: Number(total || 0),
-        created_at: now,
-      },
-    });
-
     const orderItems = [];
 
     for (const item of items) {
-
       const qty =
-        Number(
-          item.quantity || 1
-        );
+        Number(item.quantity || 1);
 
-      for (
-        let i = 0;
-        i < qty;
-        i++
-      ) {
-
+      for (let i = 0; i < qty; i++) {
         orderItems.push({
-
           tenant_id,
-
-          order_id:
-            order.id,
-
-          dish_id:
-            item.dish_id ||
-            item.id ||
-            null,
-
+          order_id: order.id,
+          dish_id: item.dish_id || item.id || null,
           item_name:
-
             item.item_name ||
-
             item.name ||
-
             item.dish_name ||
-
             item.title ||
-
             "Unnamed Item",
-
           quantity: 1,
-
-          price:
-            Number(
-              item.price || 0
-            ),
-
-          station:
-
-            item.station ||
-            "HOT",
-
-          status:
-            "PENDING",
-
+          price: Number(item.price || 0),
+          station: item.station || "HOT",
+          status: "PENDING",
           staff_id,
-
-          notes:
-            item.notes || null,
-
-          cooking_level:
-            item.cookingLevel || null,
-
-          created_at:
-            now,
-
+          notes: item.notes || null,
+          cooking_level: item.cookingLevel || null,
+          created_at: now,
         });
-
       }
-
     }
 
-    console.log(
-      'ORDER_ITEMS_INSERT',
-      JSON.stringify(orderItems, null, 2)
-    )
-
     const {
+      data: insertedOrderItems,
       error: itemsError,
     } = await supabaseAdmin
-
-      .from("order_items")
-
-      .insert(
-        orderItems
-      );
+        .from("order_items")
+        .insert(orderItems)
+        .select("id");
 
     if (itemsError) {
-
-      console.error(
-        itemsError
-      );
+      console.error(itemsError);
 
       return Response.json(
         {
-          error:
-            "Order items failed",
+          error: "Order items failed",
         },
         {
           status: 500,
         }
       );
-
     }
 
-    return Response.json({
-
-      success: true,
-
-      order_id:
-        order.id,
-
+    await recordSystemEvent({
+      tenantId: tenant_id,
+      type: isNewOrder
+        ? SYSTEM_EVENTS.ORDER_CREATED
+        : SYSTEM_EVENTS.ORDER_ITEM_ADDED,
+      payload: {
+        order_id: order.id,
+        organization_id,
+        table_id,
+        table_number: table,
+        session_id: session?.id || null,
+        item_ids:
+          (insertedOrderItems || []).map(
+            item => item.id
+          ),
+        items_count: orderItems?.length || 0
+      }
     });
 
-  } catch (err) {
+    await processKitchenEvents();
 
-    console.error(err);
 
-    return Response.json(
-      {
-        error:
-          "Server error",
-      },
-      {
-        status: 500,
-      }
-    );
+// ================================
+// FIX AUTO-CLOSE (RECOVERY PATCH)
+// ================================
 
-  }
+return Response.json({
+  success: true,
+  order_id: order.id,
+});
 
+} catch (err) {
+  console.error("POS CREATE ERROR", err);
+
+  return Response.json(
+    {
+      success: false,
+      error: err.message,
+    },
+    { status: 500 }
+  );
+}
 }

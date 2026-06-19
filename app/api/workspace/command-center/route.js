@@ -137,7 +137,7 @@ export async function GET(request) {
     ] = await Promise.all([
       safeQuery(
         supabaseAdmin
-          .from("payments")
+          .from('payment_transactions')
           .select("*")
           .eq("tenant_id", tenantId)
           .gte("created_at", today.toISOString())

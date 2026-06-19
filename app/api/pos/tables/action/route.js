@@ -6,13 +6,6 @@ export async function POST(req) {
 
     const { action, payload = {} } = body;
 
-    if (!action) {
-      return Response.json(
-        { success: false, error: "Missing action" },
-        { status: 400 }
-      );
-    }
-
     const tenant_id =
       payload.tenant_id ||
       payload.tenantId ||
@@ -23,6 +16,13 @@ export async function POST(req) {
       payload.organizationId ||
       null;
 
+    if (!action) {
+      return Response.json(
+        { success: false, error: "Missing action" },
+        { status: 400 }
+      );
+    }
+
     if (!tenant_id && !organization_id) {
       return Response.json(
         { success: false, error: "Missing organization/tenant context" },
@@ -30,7 +30,7 @@ export async function POST(req) {
       );
     }
 
-    let queryScope = (query) => {
+    const scoped = (query) => {
       if (organization_id) {
         return query.eq("organization_id", organization_id);
       }
@@ -50,16 +50,16 @@ export async function POST(req) {
         );
       }
 
-      const query = supabaseAdmin
-        .from("restaurant_tables")
-        .update({
-          status: "CLOSED",
-          current_guests: 0,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", tableId);
-
-      result = await queryScope(query);
+      result = await scoped(
+        supabaseAdmin
+          .from("restaurant_tables")
+          .update({
+            status: "CLOSED",
+            current_guests: 0,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", tableId)
+      );
     }
 
     if (action === "MOVE_GUESTS") {
@@ -73,65 +73,269 @@ export async function POST(req) {
         );
       }
 
-      const query = supabaseAdmin
-        .from("restaurant_tables")
-        .update({
-          status: guestCount > 0 ? "OCCUPIED" : "AVAILABLE",
-          current_guests: guestCount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", tableId);
+      result = await scoped(
+        supabaseAdmin
+          .from("restaurant_tables")
+          .update({
+            status: guestCount > 0 ? "OCCUPIED" : "AVAILABLE",
+            current_guests: guestCount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", tableId)
+      );
+    }
 
-      result = await queryScope(query);
+
+    if (action === "TRANSFER_TABLE") {
+      const fromTableId = payload.fromTableId;
+      const toTableId = payload.toTableId;
+
+      if (!fromTableId || !toTableId) {
+        return Response.json(
+          {
+            success: false,
+            error: "Missing transfer table ids"
+          },
+          { status: 400 }
+        );
+      }
+
+      if (fromTableId === toTableId) {
+        return Response.json(
+          {
+            success: false,
+            error: "Cannot transfer into same table"
+          },
+          { status: 400 }
+        );
+      }
+
+      const { data: sourceTable, error: sourceError } =
+        await scoped(
+          supabaseAdmin
+            .from("restaurant_tables")
+            .select("id, current_guests")
+            .eq("id", fromTableId)
+        ).single();
+
+      if (sourceError || !sourceTable) {
+        throw sourceError || new Error("Source table not found");
+      }
+
+      const { data: destinationTable, error: destinationError } =
+        await scoped(
+          supabaseAdmin
+            .from("restaurant_tables")
+            .select("id, table_number, current_guests")
+            .eq("id", toTableId)
+        ).single();
+
+      if (destinationError || !destinationTable) {
+        throw destinationError || new Error("Destination table not found");
+      }
+
+      const { error: moveOrderError } =
+        await scoped(
+          supabaseAdmin
+            .from("orders")
+            .update({
+              table_id: toTableId,
+              table_number: destinationTable.table_number,
+            })
+            .eq("table_id", fromTableId)
+            .in("status", ["OPEN", "PENDING", "PREPARING"])
+        );
+
+      if (moveOrderError) {
+        throw moveOrderError;
+      }
+
+      const totalGuests =
+        Number(destinationTable.current_guests || 0) +
+        Number(sourceTable.current_guests || 0);
+
+      await scoped(
+        supabaseAdmin
+          .from("restaurant_tables")
+          .update({
+            status: "OCCUPIED",
+            current_guests: totalGuests,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", toTableId)
+      );
+
+      await scoped(
+        supabaseAdmin
+          .from("restaurant_tables")
+          .update({
+            status: "AVAILABLE",
+            current_guests: 0,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", fromTableId)
+      );
+
+      result = {
+        fromTableId,
+        toTableId,
+      };
     }
 
     if (action === "MERGE_TABLES") {
-      const masterTableId = payload.masterTableId;
-      const targetTableId = payload.targetTableId;
+      const sourceTableId = payload.masterTableId;
+      const destinationTableId = payload.targetTableId;
 
-      if (!masterTableId || !targetTableId) {
+      if (!sourceTableId || !destinationTableId) {
         return Response.json(
           { success: false, error: "Missing merge table ids" },
           { status: 400 }
         );
       }
 
-      const mergeInsert = {
-        master_table_id: masterTableId,
-        merged_table_id: targetTableId,
-      };
-
-      if (tenant_id) {
-        mergeInsert.tenant_id = tenant_id;
+      if (sourceTableId === destinationTableId) {
+        return Response.json(
+          {
+            success: false,
+            error: "Cannot merge table into itself"
+          },
+          { status: 400 }
+        );
       }
 
-      const mergeResult = await supabaseAdmin
+      const { data: destinationTable, error: destinationError } =
+        await scoped(
+          supabaseAdmin
+            .from("restaurant_tables")
+            .select("id, table_number, current_guests")
+            .eq("id", destinationTableId)
+        ).single();
+
+      if (destinationError || !destinationTable) {
+        throw destinationError || new Error("Destination table not found");
+      }
+
+      const { data: sourceTable, error: sourceError } =
+        await scoped(
+          supabaseAdmin
+            .from("restaurant_tables")
+            .select("id, current_guests")
+            .eq("id", sourceTableId)
+        ).single();
+
+      if (sourceError || !sourceTable) {
+        throw sourceError || new Error("Source table not found");
+      }
+
+      const { data: childMerges, error: childMergeError } =
+        await scoped(
+          supabaseAdmin
+            .from("restaurant_table_merges")
+            .select("merged_table_id")
+            .eq("master_table_id", sourceTableId)
+        );
+
+      if (childMergeError) {
+        throw childMergeError;
+      }
+
+      const sourceGroupIds = [
+        sourceTableId,
+        ...((childMerges || []).map((m) => m.merged_table_id)),
+      ];
+
+      const allOrderTableIds = [
+        destinationTableId,
+        ...sourceGroupIds,
+      ];
+
+      const cleanMergeIds = [
+        ...new Set(sourceGroupIds)
+      ].filter(
+        (id) => id !== destinationTableId
+      );
+
+      const mergeRows = cleanMergeIds.map((id) => ({
+        tenant_id: tenant_id || null,
+        organization_id: organization_id || null,
+        master_table_id: destinationTableId,
+        merged_table_id: id,
+      }));
+
+      await supabaseAdmin
         .from("restaurant_table_merges")
-        .insert(mergeInsert);
+        .delete()
+        .in(
+          "merged_table_id",
+          cleanMergeIds
+        );
 
-      if (mergeResult.error) {
-        throw mergeResult.error;
+      const { error: mergeInsertError } =
+        await supabaseAdmin
+          .from("restaurant_table_merges")
+          .insert(mergeRows);
+
+      if (mergeInsertError) {
+        throw mergeInsertError;
       }
 
-      const masterQuery = supabaseAdmin
-        .from("restaurant_tables")
-        .update({
-          status: "OCCUPIED",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", masterTableId);
+      const { error: moveOrderError } =
+        await scoped(
+          supabaseAdmin
+            .from("orders")
+            .update({
+              table_id: destinationTableId,
+              table_number: destinationTable.table_number,
+            })
+            .in("table_id", allOrderTableIds)
+            .in("status", ["OPEN", "PENDING", "PREPARING"])
+        );
 
-      const targetQuery = supabaseAdmin
-        .from("restaurant_tables")
-        .update({
-          status: "MERGED",
-          current_guests: 0,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", targetTableId);
+      if (moveOrderError) {
+        throw moveOrderError;
+      }
 
-      await queryScope(masterQuery);
-      result = await queryScope(targetQuery);
+      const totalGuests =
+        Number(destinationTable.current_guests || 0) +
+        Number(sourceTable.current_guests || 0);
+
+      const { error: destinationUpdateError } =
+        await scoped(
+          supabaseAdmin
+            .from("restaurant_tables")
+            .update({
+              status: "OCCUPIED",
+              current_guests: totalGuests,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", destinationTableId)
+        );
+
+      if (destinationUpdateError) {
+        throw destinationUpdateError;
+      }
+
+      const { error: sourceUpdateError } =
+        await scoped(
+          supabaseAdmin
+            .from("restaurant_tables")
+            .update({
+              status: "MERGED",
+              current_guests: 0,
+              updated_at: new Date().toISOString(),
+            })
+            .in("id", sourceGroupIds)
+        );
+
+      if (sourceUpdateError) {
+        throw sourceUpdateError;
+      }
+
+      result = {
+        sourceTableId,
+        destinationTableId,
+        movedTableIds: sourceGroupIds,
+      };
     }
 
     return Response.json({

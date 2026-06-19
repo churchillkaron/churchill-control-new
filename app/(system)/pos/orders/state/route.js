@@ -22,7 +22,7 @@ export async function GET(req) {
     const supabase = createServerSupabase();
 
     const { data, error } = await supabase
-      .from("pos_orders")
+      .from("orders")
       .select("*")
       .eq("tenant_id", tenant_id)
       .in("status", ["OPEN", "SENT", "PREPARING"]);

@@ -24,7 +24,7 @@ export async function POST(req) {
     const {
       data: payments,
     } = await supabaseAdmin
-      .from('payments')
+      .from('payment_transactions')
       .select('*')
 
     const {

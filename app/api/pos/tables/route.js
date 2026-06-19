@@ -13,10 +13,15 @@ export async function GET(req) {
         "tenant_id"
       );
 
+    const organization_id =
+      req.nextUrl.searchParams.get(
+        "organization_id"
+      );
+
     const result =
       await getTables({
-
         tenant_id,
+        organization_id,
       });
 
     return NextResponse.json(

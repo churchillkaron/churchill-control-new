@@ -19,7 +19,7 @@ export async function POST(req) {
     if (error) throw error;
 
     const { data: payments, error: pError } = await supabaseAdmin
-      .from("payments")
+      .from('payment_transactions')
       .select("*")
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })

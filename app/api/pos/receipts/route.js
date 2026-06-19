@@ -72,7 +72,7 @@ export async function GET(req) {
       data: payments,
     } = await supabaseAdmin
 
-      .from("pos_payments")
+      .from("payment_transactions")
 
       .select("*")
 

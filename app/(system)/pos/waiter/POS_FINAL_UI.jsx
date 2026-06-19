@@ -101,7 +101,18 @@ const posConfig = tenant?.settings?.pos || {};
   const [mergeTargets, setMergeTargets] = useState([]);
   const [mergeConfirm, setMergeConfirm] = useState(false);
 
+  const [transferSource, setTransferSource] = useState(null);
+  const [transferTarget, setTransferTarget] = useState(null);
+  const [transferConfirm, setTransferConfirm] = useState(false);
+
   const [tableOrders, setTableOrders] = useState([]);
+const [selectedGroup, setSelectedGroup] = useState(0);
+const [selectedItems, setSelectedItems] = useState([]);
+const [targetGroup, setTargetGroup] = useState(0);
+const [billGroups, setBillGroups] = useState([]);
+const [paymentGroup, setPaymentGroup] = useState(null);
+const [paymentMethod, setPaymentMethod] = useState(null);
+const [posSettings, setPosSettings] = useState(null);
   const [tableTotal, setTableTotal] = useState(0);
 
   function tableId(table) {
@@ -146,6 +157,9 @@ const posConfig = tenant?.settings?.pos || {};
 
     const loaded = await loadWaiterData(tenantId);
     setData(loaded);
+    setPosSettings(
+      loaded?.posSettings || null
+    );
 
     if (loaded?.zones?.length && !activeZone) {
       setActiveZone(loaded.zones[0].id);
@@ -217,6 +231,10 @@ const posConfig = tenant?.settings?.pos || {};
     loadWaiterData(tenantId).then((loaded) => {
       setData(loaded);
 
+      setPosSettings(
+        loaded?.posSettings || null
+      );
+
       if (loaded?.zones?.length) {
         setActiveZone(loaded.zones[0].id);
       }
@@ -226,6 +244,32 @@ const posConfig = tenant?.settings?.pos || {};
       setActiveCategory(firstCategory);
     });
   }, [tenantId]);
+
+  useEffect(() => {
+
+    if (!paymentGroup) return;
+
+    const methods = [
+      posSettings?.allow_cash_payment && "CASH",
+      posSettings?.allow_card_payment && "CARD",
+      posSettings?.allow_room_charge && "ROOM_CHARGE",
+      posSettings?.allow_bank_transfer && "BANK_TRANSFER",
+      posSettings?.allow_mobile_payment && "MOBILE_PAYMENT",
+      posSettings?.allow_house_account && "HOUSE_ACCOUNT",
+    ].filter(Boolean);
+
+    if (
+      methods.length &&
+      !methods.includes(paymentMethod)
+    ) {
+      setPaymentMethod(methods[0]);
+    }
+
+  }, [
+    paymentGroup,
+    posSettings,
+    paymentMethod
+  ]);
 
   const zones = data?.zones || [];
 
@@ -260,9 +304,18 @@ const posConfig = tenant?.settings?.pos || {};
   }
 
   async function openTable(table) {
+
+    if (table?.status === "MERGED") {
+      alert("This table is merged into another table");
+      return;
+    }
+
+    setMergeSource(null);
+    setMergeTargets([]);
+    setMergeConfirm(false);
+    setTableActions(null);
+
     setActiveTable(table);
-    setTableOrders([]);
-    setTableTotal(0);
     setOrderOpen(false);
     closeAllActionState();
 
@@ -501,6 +554,15 @@ const posConfig = tenant?.settings?.pos || {};
         result
       );
 
+      console.log(
+        "OPEN_TABLE_ORDERS",
+        JSON.stringify(
+          result.orders,
+          null,
+          2
+        )
+      );
+
       if (!res.ok) {
         throw new Error(result?.error || "Order failed");
       }
@@ -518,6 +580,16 @@ const posConfig = tenant?.settings?.pos || {};
   }
 
   async function openTableView(table) {
+
+    if (table?.status === "MERGED") {
+      alert("This table is merged into another table");
+      return;
+    }
+
+    setMergeSource(null);
+    setMergeTargets([]);
+    setMergeConfirm(false);
+    setTableActions(null);
     try {
       console.log("OPEN_TABLE_REQUEST", {
   tableId: tableId(table),
@@ -544,6 +616,15 @@ const res = await fetch("/api/pos/tables/open", {
         result
       );
 
+      console.log(
+        "OPEN_TABLE_ORDERS",
+        JSON.stringify(
+          result.orders,
+          null,
+          2
+        )
+      );
+
       if (!result.success) {
         throw new Error(result.error || "Failed to load table");
       }
@@ -554,21 +635,48 @@ const res = await fetch("/api/pos/tables/open", {
         (order) => order.order_items || []
       );
 
-      const total = items.reduce(
-        (sum, item) =>
-          sum +
-          Number(item.price || 0) *
-            Number(item.quantity || 0),
-        0
-      );
+      const total =
+        Number(
+          result.summary?.total || 0
+        );
 
       console.log(
         "OPEN_TABLE_ITEMS",
         items
       );
 
-      setTableOrders(items);
-      setTableTotal(total);
+      setTableOrders(orders);
+
+      const grouped = {};
+
+      items.forEach((item) => {
+        const key =
+          item.bill_group ||
+          "Group 1";
+
+        if (!grouped[key]) {
+          grouped[key] = {
+            id: key,
+            group_name: key,
+            order_items: []
+          };
+        }
+
+        console.log(
+  "GROUP_ITEM",
+  item
+);
+
+grouped[key].order_items.push(item);
+      });
+
+      setBillGroups(
+        Object.values(grouped)
+      );
+
+      setSelectedGroup(0);
+
+      setTableTotal(total); // unchanged
       setTableView(table);
       closeAllActionState();
 
@@ -578,15 +686,15 @@ const res = await fetch("/api/pos/tables/open", {
     }
   }
 
-  function handleTableAction(action) {
+  async function handleTableAction(action) {
     const table = tableActions;
 
     if (!table) return;
 
-    if (action === "Merge tables") {
-      setMergeSource(table);
-      setMergeTargets([]);
-      setMergeConfirm(false);
+    if (action === "Move table") {
+      setTransferSource(table);
+      setTransferTarget(null);
+      setTransferConfirm(true);
       setTableActions(null);
       return;
     }
@@ -606,8 +714,13 @@ const res = await fetch("/api/pos/tables/open", {
       return;
     }
 
-    if (action === "Split table") {
-      setTableView("SPLIT");
+    if (action === "Split Bill Group") {
+      await openTableView(table);
+
+      setSelectedGroup(0);
+
+      setActiveTable(table);
+      setTableView("SPLIT_BILL_GROUP");
       setTableActions(null);
       return;
     }
@@ -1014,8 +1127,8 @@ const res = await fetch("/api/pos/tables/open", {
 
               {[
                 "Transfer table",
-                "Merge tables",
-                "Split table",
+                "Move table",
+                "Split Bill Group",
                 "Move guests",
                 "Close table",
               ].map((action) => (
@@ -1046,7 +1159,7 @@ const res = await fetch("/api/pos/tables/open", {
               </div>
 
               <div className="mt-4 text-sm text-white/50">
-                Destination Table
+                Source Table
               </div>
 
               <div className="mt-1 text-xl font-semibold text-[#E2C48A]">
@@ -1054,7 +1167,7 @@ const res = await fetch("/api/pos/tables/open", {
               </div>
 
               <div className="mt-5 text-sm text-white/50">
-                Tables To Merge
+                Destination Table
               </div>
 
               <div className="mt-2 space-y-2">
@@ -1089,11 +1202,15 @@ const res = await fetch("/api/pos/tables/open", {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-[340px] rounded-[32px] border border-white/10 bg-black/90 p-5 backdrop-blur-xl">
               <div className="text-lg font-semibold text-white">
-                Merge Tables
+                Merge Table
               </div>
 
               <div className="mt-2 text-sm text-white/50">
-                Select tables to merge into {tableName(mergeSource)}
+                Selected table: {tableName(mergeSource)}
+              </div>
+
+              <div className="mt-1 text-xs uppercase tracking-[0.22em] text-[#E2C48A]">
+                Choose destination table
               </div>
 
               <div className="mt-5 max-h-[300px] space-y-2 overflow-y-auto">
@@ -1158,6 +1275,8 @@ const res = await fetch("/api/pos/tables/open", {
                     ? "Transfer Table"
                     : tableView === "SPLIT"
                     ? "Split Table"
+                    : tableView === "SPLIT_BILL_GROUP"
+                    ? "Split Bill Group"
                     : tableName(tableView)}
                 </div>
 
@@ -1175,34 +1294,249 @@ const res = await fetch("/api/pos/tables/open", {
                   Orders
                 </div>
 
-                <div className="mt-3 space-y-2">
-                  {(tableOrders || []).length === 0 && (
+                <div className="mt-3 space-y-3">
+
+                  <div className="text-xs uppercase tracking-[0.25em] text-white/40">
+                    Bill Groups
+                  </div>
+
+                  {(billGroups || []).length === 0 && (
                     <div className="text-xs text-white/40">
-                      No open items loaded
+                      No bill groups yet
                     </div>
                   )}
 
-                  {(tableOrders || []).map((item) => (
-                    <div
-                      key={item.id || item.item_name}
-                      className="flex items-center justify-between text-sm"
+                  {(billGroups || []).map((group, idx) => (
+                    <button
+                      key={group.id || idx}
+                      onClick={() => setSelectedGroup(idx)}
+                      className={`w-full rounded-xl border p-3 text-left transition ${
+                        selectedGroup === idx
+                          ? "border-[#E2C48A] bg-[#E2C48A]/10"
+                          : "border-white/10 bg-white/[0.03]"
+                      }`}
                     >
-                      <div>
+                      <div className="flex items-center justify-between">
                         <div className="font-medium text-white">
-                          {item.item_name}
+                          {group.customer_name || group.group_name || `Group ${idx + 1}`}
                         </div>
 
-                        <div className="text-xs text-white/40">
-                          x{item.quantity}
+                        <div className="text-right">
+                          <div className="text-[#E2C48A] font-semibold">
+                            {group.order_items?.length || 0} items
+                          </div>
+
+                          <div className="text-xs text-white/50">
+                            {(
+                              (group.order_items || []).reduce(
+                                (sum, item) =>
+                                  sum +
+                                  (Number(item.price || 0) *
+                                   Number(item.quantity || 1)),
+                                0
+                              )
+                            ).toLocaleString()} THB
+                          </div>
+
+                          <div
+                            className={`text-[10px] font-semibold ${
+                              (group.order_items || []).every(
+                                item => item.bill_group_paid
+                              )
+                                ? "text-green-400"
+                                : "text-orange-400"
+                            }`}
+                          >
+                            {(group.order_items || []).every(
+                              item => item.bill_group_paid
+                            )
+                              ? "PAID"
+                              : "UNPAID"}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="font-semibold text-[#E2C48A]">
-                        {Number(item.total || 0).toLocaleString()}
-                      </div>
-                    </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+
+                          setPaymentGroup({
+                            groupName:
+                              group.group_name,
+                            orderId:
+                              group.order_items?.[0]?.order_id,
+                            itemIds:
+                              (group.order_items || [])
+                                .map(item => item.id),
+                            total:
+                              (group.order_items || [])
+                                .reduce(
+                                  (sum, item) =>
+                                    sum +
+                                    (Number(item.price || 0) *
+                                     Number(item.quantity || 1)),
+                                  0
+                                )
+                          });
+
+                          console.log(
+                            "PAYMENT_GROUP",
+                            group
+                          );
+                        }}
+                        className="mt-3 w-full rounded-xl border border-green-500/40 bg-green-500/10 p-2 text-center text-xs font-semibold text-green-400"
+                      >
+                        Pay Group
+                      </button>
+
+                    </button>
                   ))}
-                </div>
+
+                  <button
+                    onClick={() => {
+                      setBillGroups([
+                        ...(billGroups || []),
+                        {
+                          id: `group-${Date.now()}`,
+                          group_name: `Group ${(billGroups || []).length + 1}`,
+                          order_items: []
+                        }
+                      ]);
+                    }}
+                    className="w-full rounded-xl border border-dashed border-[#E2C48A]/50 p-3 text-center text-[#E2C48A]"
+                  >
+                    + New Group
+                  </button>
+
+                  {(billGroups || [])[selectedGroup] && (
+                    <div className="mt-4 border-t border-white/10 pt-4">
+                      <div className="mb-3 text-xs uppercase tracking-[0.25em] text-white/40">
+                        Group Items
+                      </div>
+
+                      {((billGroups[selectedGroup]?.order_items) || []).map((item, idx) => {
+                        const selected =
+                          selectedItems.includes(item.id);
+
+                        return (
+                          <button
+                            key={item.id || idx}
+                            onClick={() => {
+                              if (selected) {
+                                setSelectedItems(
+                                  selectedItems.filter(
+                                    x => x !== item.id
+                                  )
+                                );
+                              } else {
+                                setSelectedItems([
+                                  ...selectedItems,
+                                  item.id
+                                ]);
+                              }
+                            }}
+                            className={`mb-2 w-full rounded-lg border p-2 text-left ${
+                              selected
+                                ? "border-[#E2C48A] bg-[#E2C48A]/10"
+                                : "border-white/10"
+                            }`}
+                          >
+                            <div className="text-sm text-white">
+                              {selected ? "☑ " : "☐ "}
+                              {item.item_name}
+                            </div>
+
+                            <div className="text-xs text-white/40">
+                              Qty {item.quantity || 1}
+                            </div>
+                          </button>
+                        );
+                      })}
+                      
+{selectedItems.length > 0 && (
+  <div className="mt-3 space-y-3">
+
+    <select
+      value={targetGroup}
+      onChange={(e) =>
+        setTargetGroup(Number(e.target.value))
+      }
+      className="w-full rounded-xl border border-white/10 bg-black p-3 text-white"
+    >
+      {(billGroups || []).map((group, idx) => (
+        <option key={idx} value={idx}>
+          {group.group_name || `Group ${idx + 1}`}
+        </option>
+      ))}
+    </select>
+
+    <button
+      onClick={async () => {
+        if (targetGroup === selectedGroup) return;
+
+        const groups = [...billGroups];
+
+        const source = groups[selectedGroup];
+
+        const itemsToMove =
+          source.order_items.filter(
+            item =>
+              selectedItems.includes(item.id)
+          );
+
+        const targetGroupName =
+          groups[targetGroup]?.group_name ||
+          `Group ${targetGroup + 1}`;
+
+        const res = await fetch(
+          "/api/pos/items/update-bill-group",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              itemIds: selectedItems,
+              billGroup: targetGroupName
+            })
+          }
+        );
+
+        const result = await res.json();
+
+        if (!result.success) {
+          alert(result.error || "Failed to save split");
+          return;
+        }
+
+        source.order_items =
+          source.order_items.filter(
+            item =>
+              !selectedItems.includes(item.id)
+          );
+
+        groups[targetGroup].order_items = [
+          ...(groups[targetGroup].order_items || []),
+          ...itemsToMove
+        ];
+
+        setBillGroups(groups);
+        setSelectedItems([]);
+
+        if (activeTable) {
+          await openTableView(activeTable);
+        }
+      }}
+      className="w-full rounded-xl border border-[#E2C48A] bg-[#E2C48A]/10 p-3 text-[#E2C48A]"
+    >
+      Move Selected To Group
+    </button>
+
+  </div>
+)}
+
+                    </div>
+                  )}                </div>
 
                 <div className="mt-4 border-t border-white/10 pt-4">
                   <div className="text-center">
@@ -1291,6 +1625,113 @@ const res = await fetch("/api/pos/tables/open", {
             </div>
           </div>
         )}
+
+        {paymentGroup && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+            <div className="w-[360px] rounded-[30px] border border-white/10 bg-[#0B0B0B] p-5">
+
+              <div className="text-center">
+                <div className="text-xs uppercase tracking-[0.30em] text-[#E2C48A]">
+                  Payment
+                </div>
+
+                <div className="mt-2 text-xl font-semibold text-white">
+                  {paymentGroup.groupName}
+                </div>
+
+                <div className="mt-3 text-3xl font-black text-[#E2C48A]">
+                  {Number(paymentGroup.total || 0).toLocaleString()} THB
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-3">
+
+                {[
+                  posSettings?.allow_cash_payment && "CASH",
+                  posSettings?.allow_card_payment && "CARD",
+                  posSettings?.allow_room_charge && "ROOM_CHARGE",
+                  posSettings?.allow_bank_transfer && "BANK_TRANSFER",
+                  posSettings?.allow_mobile_payment && "MOBILE_PAYMENT",
+                  posSettings?.allow_house_account && "HOUSE_ACCOUNT",
+                ]
+                  .filter(Boolean)
+                  .map(method => (
+                  <button
+                    key={method}
+                    onClick={() =>
+                      setPaymentMethod(method)
+                    }
+                    className={
+                      paymentMethod === method
+                        ? "w-full rounded-2xl border border-[#D6A66A] bg-[#D6A66A]/15 py-3 text-[#E2C48A]"
+                        : "w-full rounded-2xl border border-white/10 py-3 text-white"
+                    }
+                  >
+                    {method.replace("_"," ")}
+                  </button>
+                ))}
+
+              </div>
+
+              <button
+                onClick={async () => {
+
+                  const res =
+                    await fetch(
+                      "/api/pos/items/pay-group",
+                      {
+                        method:"POST",
+                        headers:{
+                          "Content-Type":"application/json"
+                        },
+                        body:JSON.stringify({
+                          itemIds:
+                            paymentGroup.itemIds,
+                          paymentMethod:
+                            paymentMethod
+                        })
+                      }
+                    );
+
+                  const result =
+                    await res.json();
+
+                  if (!result.success) {
+                    alert(
+                      result.error ||
+                      "Payment failed"
+                    );
+                    return;
+                  }
+
+                  setPaymentGroup(null);
+
+                  if (activeTable) {
+                    await openTableView(
+                      activeTable
+                    );
+                  }
+
+                }}
+                className="mt-6 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
+              >
+                Confirm Payment
+              </button>
+
+              <button
+                onClick={() =>
+                  setPaymentGroup(null)
+                }
+                className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm text-white"
+              >
+                Cancel
+              </button>
+
+            </div>
+          </div>
+        )}
+
+
       </section>
     </main>
   );

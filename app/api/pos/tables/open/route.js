@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import calculateOrderTotals from "@/lib/pos/orders/calculateOrderTotals";
 
 export async function POST(req) {
   try {
@@ -51,11 +52,31 @@ export async function POST(req) {
       throw mergeError;
     }
 
-    const tableIds = new Set([tableId]);
+    let effectiveTableId = tableId;
+
+    const mergedRow =
+      (merges || []).find(
+        (m) => m.merged_table_id === tableId
+      );
+
+    if (mergedRow) {
+      effectiveTableId =
+        mergedRow.master_table_id;
+    }
+
+    const tableIds = new Set([
+      effectiveTableId
+    ]);
 
     (merges || []).forEach((m) => {
-      tableIds.add(m.master_table_id);
-      tableIds.add(m.merged_table_id);
+      if (
+        m.master_table_id ===
+        effectiveTableId
+      ) {
+        tableIds.add(
+          m.merged_table_id
+        );
+      }
     });
 
     let orderQuery =
@@ -96,12 +117,46 @@ export async function POST(req) {
 
     if (error) throw error;
 
+    const items =
+      (orders || []).flatMap(
+        order => order.order_items || []
+      );
+
+    const totals =
+      calculateOrderTotals({
+        items,
+        taxRate: 7,
+        serviceChargeRate: 5,
+      });
+
+    const subtotal =
+      totals.subtotal;
+
+    const vat =
+      totals.tax;
+
+    const service =
+      totals.service_charge;
+
+    const total =
+      totals.total;
+
     return Response.json({
       success: true,
+      effective_table_id:
+        effectiveTableId,
       merged_table_ids:
         [...tableIds],
       orders:
         orders || [],
+
+      summary: {
+        subtotal,
+        vat,
+        service,
+        total,
+        item_count: items.length,
+      },
     });
 
   } catch (err) {

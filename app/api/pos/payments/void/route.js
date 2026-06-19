@@ -33,7 +33,7 @@ export async function POST(req) {
       error: loadError,
     } = await supabase
 
-      .from("pos_payments")
+      .from("payment_transactions")
 
       .select("*")
 
@@ -78,7 +78,7 @@ export async function POST(req) {
       error,
     } = await supabase
 
-      .from("pos_payments")
+      .from("payment_transactions")
 
       .update({
 

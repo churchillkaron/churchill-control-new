@@ -21,7 +21,7 @@ export default function PaymentApprovalsPage() {
       data,
     } = await supabase
 
-      .from("pos_payments")
+      .from("payment_transactions")
 
       .select("*")
 
@@ -112,7 +112,7 @@ export default function PaymentApprovalsPage() {
       error: reversalError,
     } = await supabase
 
-      .from("pos_payments")
+      .from("payment_transactions")
 
       .insert({
 
@@ -160,7 +160,7 @@ export default function PaymentApprovalsPage() {
 
     await supabase
 
-      .from("pos_payments")
+      .from("payment_transactions")
 
       .update({
 
@@ -190,7 +190,7 @@ export default function PaymentApprovalsPage() {
 
     await supabase
 
-      .from("pos_payments")
+      .from("payment_transactions")
 
       .update({
 

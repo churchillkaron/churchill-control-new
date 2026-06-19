@@ -20,7 +20,7 @@ export async function GET(req) {
       supabaseAdmin.from("healthcare_appointments").select("*").eq("patient_id", customer.source_id),
       supabaseAdmin.from("healthcare_admissions").select("*").eq("patient_id", customer.source_id),
       supabaseAdmin.from("invoices").select("*").eq("customer_id", customer.source_id),
-      supabaseAdmin.from("payments").select("*").eq("customer_id", customer.source_id),
+      supabaseAdmin.from('payment_transactions').select("*").eq("customer_id", customer.source_id),
       supabaseAdmin.from("healthcare_medical_records").select("*").eq("patient_id", customer.source_id)
     ]);
 

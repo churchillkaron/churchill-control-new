@@ -7,7 +7,7 @@ export async function POST(req) {
     const { tenantId, tableNumber } = await req.json();
 
     const { data, error } = await supabaseAdmin
-      .from("payments")
+      .from('payment_transactions')
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("table_number", tableNumber)

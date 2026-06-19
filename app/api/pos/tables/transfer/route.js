@@ -19,11 +19,11 @@ export async function POST(req) {
         tenantId:
           body.tenantId,
 
-        fromTableNumber:
-          body.fromTableNumber,
+        fromTableId:
+          body.fromTableId,
 
-        toTableNumber:
-          body.toTableNumber,
+        toTableId:
+          body.toTableId,
 
         transferredBy:
           body.transferredBy || 'SYSTEM',

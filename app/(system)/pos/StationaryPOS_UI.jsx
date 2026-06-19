@@ -1,93 +1,253 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
+import { loadWaiterData } from "@/lib/pos/waiter/loadWaiterData";
+import { useTenant } from "@/app/providers/TenantProvider";
 
-const sections = ["LOUNGE", "RESTAURANT", "TERRACE", "BAR"];
 
-const sampleTables = [
-  {
-    id: "T18",
-    section: "LOUNGE",
-    status: "BILL REQUESTED",
-    guests: 8,
-    total: 9600,
-    openTime: "02:10",
-    waiter: "Sarah",
-  },
-  {
-    id: "T12",
-    section: "LOUNGE",
-    status: "DINING",
-    guests: 4,
-    total: 4280,
-    openTime: "01:24",
-    waiter: "Sarah",
-  },
-  {
-    id: "T4",
-    section: "LOUNGE",
-    status: "DINING",
-    guests: 6,
-    total: 3420,
-    openTime: "00:58",
-    waiter: "John",
-  },
-  {
-    id: "T7",
-    section: "LOUNGE",
-    status: "FOOD READY",
-    guests: 2,
-    total: 1950,
-    openTime: "00:44",
-    waiter: "Anna",
-  },
-  {
-    id: "T22",
-    section: "LOUNGE",
-    status: "DINING",
-    guests: 3,
-    total: 1800,
-    openTime: "00:39",
-    waiter: "John",
-  },
-  {
-    id: "T1",
-    section: "LOUNGE",
-    status: "AVAILABLE",
-    guests: 0,
-    total: 0,
-    openTime: "",
-    waiter: "",
-  },
-  {
-    id: "T2",
-    section: "LOUNGE",
-    status: "AVAILABLE",
-    guests: 0,
-    total: 0,
-    openTime: "",
-    waiter: "",
-  },
-];
 
-const orderItems = [
-  { name: "Steak Ribeye", qty: 2, price: 920 },
-  { name: "Red Wine", qty: 1, price: 1200 },
-  { name: "Water", qty: 4, price: 120 },
-];
 
 function money(value) {
   return `฿${Number(value || 0).toLocaleString("en-US")}`;
 }
 
 export default function StationaryPOSUI() {
-  const [activeSection, setActiveSection] = useState("LOUNGE");
-  const [selectedTable, setSelectedTable] = useState(sampleTables[1]);
+
+  const tenant = useTenant();
+
+
+
+  const tenantId =
+    tenant?.id;
+
+  const organizationId =
+    tenant?.activeOrganization ||
+    tenant?.active_organization_id ||
+    tenant?.organizationId ||
+    tenant?.organization_id;
+
+  const [zones, setZones] =
+    useState([]);
+
+  const [tables, setTables] =
+    useState([]);
+
+  useEffect(() => {
+
+    if (
+      !tenantId &&
+      !organizationId
+    ) {
+      return;
+    }
+
+    async function loadTables() {
+
+      const params =
+        new URLSearchParams();
+
+      if (organizationId) {
+        params.set(
+          "organization_id",
+          organizationId
+        );
+      } else {
+        params.set(
+          "tenant_id",
+          tenantId
+        );
+      }
+
+      const res =
+        await fetch(
+          `/api/pos/tables?${params.toString()}`
+        );
+
+      const json =
+        await res.json();
+
+      if (json?.success) {
+        console.log(
+          "TABLES API",
+          json.tables
+        );
+
+        setTables(
+          json.tables || []
+        );
+      }
+
+    }
+
+    loadTables();
+
+  }, [
+    tenantId,
+    organizationId,
+  ]);
+
+
+  const [activeSection, setActiveSection] = useState(null);
+  const [selectedTable, setSelectedTable] = useState(null);
+  const [tableOrders, setTableOrders] = useState([]);
+
+  const [paymentSummary, setPaymentSummary] = useState({
+    subtotal: 0,
+    vat: 0,
+    service: 0,
+    total: 0,
+    item_count: 0,
+  });
+
+  const [tableActions, setTableActions] = useState(null);
+  const holdTimer = useRef(null);
+
+
+  function startHold(table) {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+
+    holdTimer.current = setTimeout(() => {
+      setTableActions(table);
+    }, 600);
+  }
+
+  function cancelHold() {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  }
+
+
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [splitPaymentOpen, setSplitPaymentOpen] = useState(false);
+  const [splitCount, setSplitCount] = useState(2);
   const [received, setReceived] = useState("");
 
+
+  async function posAction(action, payload = {}) {
+    try {
+      const res = await fetch("/api/pos/tables/action", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          ...payload,
+          organization_id: organizationId,
+          tenant_id: tenantId,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!json.success) {
+        throw new Error(json.error || "Action failed");
+      }
+
+      await refreshPOS?.();
+      return json;
+    } catch (err) {
+      console.error("POS ACTION ERROR:", err);
+      alert(err.message);
+    }
+  }
+
+
+  
+
+  
+
+  useEffect(() => {
+    async function load() {
+      console.log("POS TENANT DEBUG", {
+        tenant,
+        tenantId,
+        organizationId,
+      });
+
+      const data =
+        await loadWaiterData(
+          tenantId
+        );
+
+
+      console.log("POS ZONES", data?.zones);
+      setZones(data?.zones || []);
+      setTables(data?.tables || []);
+
+      if (!activeSection && data?.zones?.length) {
+        setActiveSection(data.zones[0].id);
+      }
+    }
+
+    if (tenantId) load();
+  }, [tenantId]);
+
+  async function openStationaryTable(table) {
+    setSelectedTable(table);
+    setTableOrders([]);
+    setPaymentSummary({
+      subtotal: 0,
+      vat: 0,
+      service: 0,
+      total: 0,
+      item_count: 0,
+    });
+
+    try {
+      const res = await fetch("/api/pos/tables/open", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tableId: table.id,
+          organization_id: organizationId,
+          tenant_id: tenantId,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to load table");
+      }
+
+      const effectiveTable =
+        (tables || []).find(
+          (t) => t.id === result.effective_table_id
+        ) || table;
+
+      setSelectedTable(effectiveTable);
+
+      const orders = result.orders || [];
+
+      const items = orders.flatMap(
+        (order) => order.order_items || []
+      );
+
+      setTableOrders(items);
+
+      setPaymentSummary(
+        result.summary || {
+          subtotal: 0,
+          vat: 0,
+          service: 0,
+          total: 0,
+          item_count: 0,
+        }
+      );
+    } catch (err) {
+      console.error("OPEN STATIONARY TABLE ERROR", err);
+      alert(err.message);
+    }
+  }
+
   const visibleTables = useMemo(() => {
+
     const priority = {
       "BILL REQUESTED": 1,
       "FOOD READY": 2,
@@ -95,8 +255,13 @@ export default function StationaryPOSUI() {
       AVAILABLE: 4,
     };
 
-    return sampleTables
-      .filter((table) => table.section === activeSection)
+    return tables
+      .filter(
+        (table) =>
+          !activeSection ||
+          table.zone_id === activeSection
+      )
+      
       .sort((a, b) => {
         const statusSort = priority[a.status] - priority[b.status];
         if (statusSort !== 0) return statusSort;
@@ -104,20 +269,46 @@ export default function StationaryPOSUI() {
       });
   }, [activeSection]);
 
-  const subtotal = orderItems.reduce(
-    (sum, item) => sum + item.qty * item.price,
-    0
-  );
+  const subtotal =
+    paymentSummary.subtotal || 0;
 
-  const vat = Math.round(subtotal * 0.07);
-  const service = Math.round(subtotal * 0.05);
-  const total = subtotal + vat + service;
-  const change = Number(received || 0) - total;
+  const vat =
+    paymentSummary.vat || 0;
 
-  const salesToday = 124580;
-  const vatToday = 8720;
-  const serviceToday = 6229;
-  const openTables = sampleTables.reduce((sum, table) => sum + table.total, 0);
+  const service =
+    paymentSummary.service || 0;
+
+  const total =
+    paymentSummary.total || 0;
+
+  const change =
+    Number(received || 0) - total;
+
+  const salesToday =
+    tables.reduce(
+      (sum, table) =>
+        sum + Number(table.total || 0),
+      0
+    );
+
+  const vatToday =
+    Math.round(
+      salesToday * 0.07
+    );
+
+  const serviceToday =
+    Math.round(
+      salesToday * 0.05
+    );
+  const openTables =
+    tables.reduce(
+      (sum, table) =>
+        sum +
+        Number(
+          table.current_guests || 0
+        ),
+      0
+    );
 
   function tableClass(table) {
     if (table.status === "BILL REQUESTED") {
@@ -151,17 +342,17 @@ export default function StationaryPOSUI() {
               </h1>
 
               <div className="mt-6 flex flex-wrap gap-3">
-                {sections.map((section) => (
+                {zones.map((zone) => (
                   <button
-                    key={section}
-                    onClick={() => setActiveSection(section)}
+                    key={zone.id}
+                    onClick={() => setActiveSection(zone.id)}
                     className={
-                      activeSection === section
+                      activeSection === zone.id
                         ? "rounded-full border border-[#D6A66A]/70 bg-[#D6A66A]/20 px-5 py-3 text-xs font-semibold tracking-[0.28em] text-white"
                         : "rounded-full border border-white/10 bg-white/[0.035] px-5 py-3 text-xs tracking-[0.28em] text-white/55 hover:text-white"
                     }
                   >
-                    {section}
+                    {zone.name}
                   </button>
                 ))}
               </div>
@@ -192,7 +383,7 @@ export default function StationaryPOSUI() {
 
                 <div className="flex justify-between border-t border-white/10 pt-3">
                   <span className="text-white/50">Open Tables</span>
-                  <span className="text-[#D6A66A]">{money(openTables)}</span>
+                  <span className="text-[#D6A66A]">{openTables}</span>
                 </div>
               </div>
             </div>
@@ -206,7 +397,11 @@ export default function StationaryPOSUI() {
                 <p className="text-xs uppercase tracking-[0.35em] text-white/35">
                   Active Tables First
                 </p>
-                <h2 className="mt-2 text-2xl font-light">{activeSection}</h2>
+                <h2 className="mt-2 text-2xl font-light">{
+  zones.find(
+    z => z.id === activeSection
+  )?.name || "Tables"
+}</h2>
               </div>
 
               <div className="text-right text-sm text-white/45">
@@ -215,20 +410,35 @@ export default function StationaryPOSUI() {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              {visibleTables.map((table) => (
+              {visibleTables.map((table) => {
+                console.log("TABLE CARD", table.table_name || table.table_number, "TOTAL:", table.total, table);
+
+                return (
                 <button
                   key={table.id}
-                  onClick={() => setSelectedTable(table)}
+                  onMouseDown={() => {
+  holdTimer.current = setTimeout(() => {
+    setTableActions(table);
+  }, 500);
+}}
+onMouseUp={() => clearTimeout(holdTimer.current)}
+onMouseLeave={() => clearTimeout(holdTimer.current)}
+onClick={() => openStationaryTable(table)}
+                  onMouseDown={() => startHold(table)}
+                  onMouseUp={cancelHold}
+                  onMouseLeave={cancelHold}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    alert("Table actions: Merge, Split, Transfer, Move Guests, Print Bill, Close Table");
+                    setTableActions(table);
                   }}
                   className={`min-h-[165px] rounded-[28px] border p-5 text-left transition hover:scale-[1.015] ${tableClass(table)} ${
                     selectedTable?.id === table.id ? "ring-1 ring-[#D6A66A]/70" : ""
                   }`}
                 >
                   <div className="flex items-start justify-between">
-                    <span className="text-2xl font-light">{table.id}</span>
+                    <span className="text-2xl font-light">
+                      {table.table_name || table.table_number}
+                    </span>
                     <span className="text-[10px] uppercase tracking-[0.22em] text-white/45">
                       {table.status}
                     </span>
@@ -241,15 +451,18 @@ export default function StationaryPOSUI() {
                   ) : (
                     <div className="mt-7 space-y-2">
                       <div className="text-sm text-white/55">{table.waiter}</div>
-                      <div className="text-sm">{table.guests} Guests</div>
+                      <div className="text-sm">{table.current_guests || 0} Guests</div>
                       <div className="text-2xl font-light text-[#D6A66A]">
-                        {money(table.total)}
+                        {money(
+  table.total || 0
+)}
                       </div>
                       <div className="text-sm text-white/45">{table.openTime}</div>
                     </div>
                   )}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -260,12 +473,16 @@ export default function StationaryPOSUI() {
                   Reference
                 </p>
                 <h2 className="mt-2 text-3xl font-light">
-                  {selectedTable?.id || "No Table"}
+                  {
+    selectedTable?.table_name ||
+    selectedTable?.table_number ||
+    "No Table"
+  }
                 </h2>
               </div>
 
               <div className="text-right text-sm text-white/50">
-                <div>{selectedTable?.guests || 0} Guests</div>
+                <div>{selectedTable?.current_guests || 0} Guests</div>
                 <div>{selectedTable?.waiter || "No waiter"}</div>
                 <div>{selectedTable?.openTime || "Available"}</div>
               </div>
@@ -277,16 +494,16 @@ export default function StationaryPOSUI() {
               </p>
 
               <div className="mt-4 space-y-3">
-                {orderItems.map((item) => (
+                {tableOrders.map((item) => (
                   <div
-                    key={item.name}
+                    key={item.id || item.dish_id || item.item_name}
                     className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                   >
                     <div>
-                      <div>{item.name}</div>
-                      <div className="text-xs text-white/35">Qty {item.qty}</div>
+                      <div>{item.item_name || item.name || "Item"}</div>
+                      <div className="text-xs text-white/35">Qty {item.quantity || item.qty || 0}</div>
                     </div>
-                    <div>{money(item.qty * item.price)}</div>
+                    <div>{money(Number(item.quantity || item.qty || 0) * Number(item.price || 0))}</div>
                   </div>
                 ))}
               </div>
@@ -338,13 +555,109 @@ export default function StationaryPOSUI() {
                 Print Bill
               </button>
 
-              <button className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm uppercase tracking-[0.25em] text-white/70">
-                Customer
+              <button
+                onClick={() => setSplitPaymentOpen(true)}
+                className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm uppercase tracking-[0.25em] text-white/70"
+              >
+                Split Payment
               </button>
             </div>
           </div>
         </section>
       </div>
+
+      {tableActions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm">
+          <div className="w-full max-w-[420px] rounded-[34px] border border-white/10 bg-[#060914]/95 p-7 shadow-2xl">
+
+            <div className="text-2xl font-light">
+              {tableActions?.table_name ||
+               tableActions?.table_number}
+            </div>
+
+            <div className="mt-6 space-y-3">
+
+              <button
+                onClick={() => {
+                  openStationaryTable(tableActions);
+                  setTableActions(null);
+                }}
+                className="w-full rounded-2xl border border-[#D6A66A]/60 bg-[#D6A66A]/20 px-5 py-4 text-left"
+              >
+                Open Table
+              </button>
+
+              {[
+                "Transfer Table",
+                "Move Guests",
+                "Split Bill Group",
+                "Close Table",
+              ].map(action => (
+                <button
+                  key={action}
+                  onClick={async () => {
+                    if (!selectedTable) return;
+
+                    if (action === "Move Guests") {
+                      setPaymentOpen(true);
+                      setTableActions(null);
+                      return;
+                    }
+
+                    if (action === "Split Bill Group") {
+                      alert("Split Bill Group - Coming Next");
+                      setTableActions(null);
+                      return;
+                    }
+
+                    if (action === "Transfer Table") {
+                      await fetch("/api/pos/tables/action", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          action: "TRANSFER_TABLE",
+                          tenantId,
+                          fromTableId: selectedTable.id,
+                          toTableId: null
+                        })
+                      });
+                      setTableActions(null);
+                      return;
+                    }
+
+                    if (action === "Close Table") {
+                      await fetch("/api/pos/tables/action", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          action: "CLOSE_TABLE",
+                          tenantId,
+                          tableId: selectedTable.id
+                        })
+                      });
+                      setSelectedTable(null);
+                      setTableActions(null);
+                      return;
+                    }
+                  }}
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-left"
+                >
+                  {action}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setTableActions(null)}
+                className="w-full rounded-2xl border border-white/10 px-5 py-4"
+              >
+                Cancel
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {paymentOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm">
@@ -370,7 +683,7 @@ export default function StationaryPOSUI() {
             <div className="mt-7 rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
               <div className="flex justify-between text-sm text-white/50">
                 <span>Reference</span>
-                <span>{selectedTable?.id}</span>
+                <span>{selectedTable?.table_name || selectedTable?.table_number}</span>
               </div>
 
               <div className="mt-4 flex justify-between">

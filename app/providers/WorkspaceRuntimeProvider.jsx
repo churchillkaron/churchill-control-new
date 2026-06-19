@@ -62,6 +62,13 @@ export function WorkspaceRuntimeProvider({ children }) {
 
         const runtime = await res.json();
 
+        console.log(
+          "RUNTIME MODULES",
+          (runtime.modules || []).map(
+            m => m.id || m.module_id
+          )
+        );
+
         if (!runtime?.success) {
           setState(prev => ({
             ...prev,

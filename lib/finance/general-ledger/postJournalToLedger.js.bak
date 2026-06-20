@@ -6,22 +6,6 @@ export default async function postJournalToLedger({
   journalEntryId,
   createdBy = "system",
 }) {
-  const { data: existingLedgerRows } =
-    await supabaseAdmin
-      .from("general_ledger")
-      .select("id")
-      .eq("journal_entry_id", journalEntryId)
-      .limit(1);
-
-  if ((existingLedgerRows || []).length > 0) {
-    return {
-      success: true,
-      skipped: true,
-      reason: "LEDGER_ALREADY_POSTED",
-      journalEntryId,
-    };
-  }
-
   const { data: journal, error: journalError } =
     await supabaseAdmin
       .from("journal_entries")

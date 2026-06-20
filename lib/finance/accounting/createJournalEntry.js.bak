@@ -3,7 +3,6 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { validateAccountingPeriod } from "./validateAccountingPeriod";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { emitEvent } from "@/lib/shared/events/eventBus";
-import postJournalToLedger from "@/lib/finance/general-ledger/postJournalToLedger";
 
 export async function createJournalEntry({
   organizationId = null,
@@ -95,21 +94,10 @@ export async function createJournalEntry({
     approvedBy: finalApprovedBy,
   });
 
-  let ledger = null;
-
-  if (status === "posted" || status === "approved") {
-    ledger = await postJournalToLedger({
-      journalEntryId: journalEntry.id,
-      tenantId,
-      createdBy: createdBy || "system",
-    });
-  }
-
   return {
     success: true,
     journal_entry_id: journalEntry.id,
     entry_number: entryNumber,
     status,
-    ledger,
   };
 }

@@ -55,7 +55,7 @@ export default function WorkCenterPage() {
     item,
     nextStatus
   ) {
-    await fetch("/api/kitchen/orders/state", {
+    await fetch("/api/work-centers/orders/state", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

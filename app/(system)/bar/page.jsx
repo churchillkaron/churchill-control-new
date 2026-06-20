@@ -1,109 +1,75 @@
 "use client";
-import { subscribe } from "@/lib/pos/core/posEventEngine";
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTenant } from "@/app/providers/TenantProvider";
+import { useOrganization } from "@/app/providers/OrganizationProvider";
 
-export default function BarPage() {
-
+export default function BarCompatibilityPage() {
+  const router = useRouter();
   const tenant = useTenant();
-  const tenantId = tenant?.id;
+  const { organization } = useOrganization();
 
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  async function loadBar() {
-    if (!tenantId) return;
-
-    setLoading(true);
-
-    const res = await fetch("/api/pos/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenantId })
-    });
-
-    const json = await res.json();
-
-    const filtered =
-      (json.data || []).map(order => ({
-        ...order,
-        order_items: (order.order_items || []).filter(item =>
-          item.station === "BAR" &&
-          ["PENDING","PREPARING","READY"].includes(item.status)
-        )
-      }));
-
-    setOrders(filtered);
-    setLoading(false);
-  }
+  const [message, setMessage] = useState(
+    "Opening work center..."
+  );
 
   useEffect(() => {
-    loadBar();
+    async function openWorkCenter() {
+      const organizationId =
+        organization?.id ||
+        tenant?.activeOrganization ||
+        tenant?.staff?.active_organization_id;
 
-    const interval = setInterval(() => {
-      loadBar();
-    }, 5000);
+      if (!organizationId) return;
 
-    return () => clearInterval(interval);
-  }, [tenantId]);
+      const res = await fetch("/api/work-centers/list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          organizationId,
+        }),
+      });
 
-  async function updateItemStatus(item, nextStatus) {
-    await fetch("/api/pos/orders/state", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        itemId: item.id,
-        status: nextStatus,
-        tenantId
-      })
-    });
+      const json = await res.json();
+      const centers = json.data || [];
 
-    loadBar();
-  }
+      const bar =
+        centers.find(
+          center =>
+            String(center.code || "")
+              .toUpperCase() === "BAR"
+        ) ||
+        centers.find(
+          center =>
+            String(center.name || "")
+              .toUpperCase() === "BAR"
+        );
 
-  const barItems = useMemo(() => {
-    return orders.flatMap(o => o.order_items || []);
-  }, [orders]);
+      if (!bar?.id) {
+        setMessage(
+          "No Bar work center configured. Create a Bar work center first."
+        );
+        return;
+      }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white p-10">
-        Loading bar...
-      </div>
-    );
-  }
+      router.replace(
+        `/operations/work-center/${bar.id}`
+      );
+    }
+
+    openWorkCenter();
+  }, [organization?.id, tenant]);
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
-      <h1 className="text-3xl font-bold mb-6">Bar</h1>
-
-      {barItems.map((item, i) => (
-        <div key={i} className="p-4 border-b border-white/10">
-          <div>{item.name}</div>
-          <div className="text-sm text-white/50">{item.status}</div>
-
-          <button
-            onClick={() => updateItemStatus(item, "READY")}
-            className="mt-2 px-3 py-1 bg-blue-600 rounded"
-          >
-            Ready
-          </button>
-        </div>
-      ))}
-    </div>
+    <main className="min-h-screen bg-[#030712] p-8 text-white">
+      <div className="rounded-[32px] border border-white/10 bg-white/[0.035] p-8">
+        {message}
+      </div>
+    </main>
   );
 }
-  // ===== EVENT SYNC (BAR) =====
-  useEffect(() => {
-
-    const unsub = subscribe("BAR", () => {
-      loadBar();
-    });
-
-    return () => unsub();
-
-  }, []);
-

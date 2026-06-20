@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useOrganization } from "@/app/providers/OrganizationProvider";
 import Link from "next/link";
 
@@ -16,13 +16,42 @@ export default function RestaurantWorkspacePage() {
   const [kitchenQueue, setKitchenQueue] = useState(5);
   const [readyOrders, setReadyOrders] = useState(4);
 
+  const [workCenters, setWorkCenters] = useState([]);
+
+  useEffect(() => {
+    async function loadWorkCenters() {
+      if (!organizationId) return;
+
+      const res = await fetch("/api/work-centers/list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          organizationId,
+        }),
+      });
+
+      const json = await res.json();
+      setWorkCenters(json.data || []);
+    }
+
+    loadWorkCenters();
+  }, [organizationId]);
+
   // Operational cards
   const operationCards = [
     { title: "Orders", value: ordersToday, label: "Orders Today", href: `/workspace/${organizationId}/restaurant/pos` },
     { title: "Tables", value: occupiedTables, label: "Occupied Tables", href: `/workspace/${organizationId}/restaurant/tables` },
-    { title: "Kitchen", value: kitchenQueue, label: "Kitchen Queue", href: `/workspace/${organizationId}/kitchen` },
-    { title: "Bar", value: 0, label: "Bar Queue", href: `/workspace/${organizationId}/restaurant/bar` },
-    { title: "Expo", value: readyOrders, label: "Ready Orders", href: `/workspace/${organizationId}/kitchen/expo` },
+
+    ...workCenters.map(center => ({
+      title: center.name,
+      value: 0,
+      label: `${center.name} Queue`,
+      href: `/operations/work-center/${center.id}`,
+    })),
+
+    { title: "Dispatch", value: readyOrders, label: "Ready Orders", href: `/workspace/${organizationId}/kitchen/expo` },
     { title: "Payments", value: 0, label: "Payments Pending", href: `/workspace/${organizationId}/restaurant/pos/payments` },
     { title: "Inventory", value: 0, label: "Stock Alerts", href: `/workspace/${organizationId}/restaurant/inventory` },
     { title: "Reservations", value: 0, label: "Today Arrivals", href: `/workspace/${organizationId}/restaurant/reservations` },
@@ -55,8 +84,8 @@ export default function RestaurantWorkspacePage() {
           <p className="text-2xl font-semibold">฿{averageTicket}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg">
-          <p className="text-white/70 text-sm">Kitchen Queue</p>
-          <p className="text-2xl font-semibold">{kitchenQueue}</p>
+          <p className="text-white/70 text-sm">Work Centers</p>
+          <p className="text-2xl font-semibold">{workCenters.length}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg">
           <p className="text-white/70 text-sm">Ready Orders</p>

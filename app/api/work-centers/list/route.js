@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { getWorkCenterOrders } from "@/lib/work-centers/getWorkCenterOrders";
+import { listWorkCenters } from "@/lib/work-centers/listWorkCenters";
 
 export async function POST(req) {
   try {
     const body = await req.json();
 
-    const result = await getWorkCenterOrders({
-      tenantId: body.tenantId,
-      workCenterId: body.workCenterId || null,
+    const result = await listWorkCenters({
+      organizationId: body.organizationId,
     });
 
     return NextResponse.json(result);

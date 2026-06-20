@@ -15,8 +15,8 @@ import {
 } from "@/lib/shared/constants/events";
 
 import {
-  processKitchenEvents,
-} from "@/lib/workers/kitchen/processKitchenEvents";
+  processWorkCenterEvents,
+} from "@/lib/workers/work-centers/processWorkCenterEvents";
 
 export async function POST(req) {
 
@@ -280,7 +280,7 @@ export async function POST(req) {
       }
     });
 
-    await processKitchenEvents();
+    await processWorkCenterEvents();
 
 
 // ================================

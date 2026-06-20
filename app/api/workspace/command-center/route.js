@@ -219,7 +219,7 @@ export async function GET(request) {
           )
       );
 
-    const kitchenQueue =
+    const operationsQueue =
       (orderItems.data || []).filter(
         item =>
           !["READY", "SERVED", "CANCELLED", "VOID"].includes(
@@ -302,8 +302,8 @@ export async function GET(request) {
           totalTables:
             tables.data.length,
 
-          kitchenQueue:
-            kitchenQueue.length,
+          operationsQueue:
+            operationsQueue.length,
 
           activeStaff:
             activeStaff.length,
@@ -326,8 +326,8 @@ export async function GET(request) {
             ? `${lowStock.length} low stock alerts`
             : null,
 
-          kitchenQueue.length > 5
-            ? `Kitchen queue ${kitchenQueue.length}`
+          operationsQueue.length > 5
+            ? `Operations queue ${operationsQueue.length}`
             : null,
 
           pendingPayables.length > 0
@@ -352,7 +352,7 @@ export async function GET(request) {
         averageOrder,
         occupiedTables: occupiedTables.length,
         totalTables: tables.data.length,
-        kitchenQueue: kitchenQueue.length,
+        operationsQueue: operationsQueue.length,
         activeStaff: activeStaff.length,
         lowStockAlerts: lowStock.length,
         pendingPayables: pendingPayables.length,

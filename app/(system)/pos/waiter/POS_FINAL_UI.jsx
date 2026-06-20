@@ -520,7 +520,7 @@ const [posSettings, setPosSettings] = useState(null);
             quantity: item.qty || 1,
             notes: item.modifiers?.notes || null,
             cookingLevel: item.modifiers?.cooking || null,
-            station: "HOT",
+            station: null,
             price: Number(item.price || 0),
           })),
 

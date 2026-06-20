@@ -230,7 +230,7 @@ export async function POST(req) {
             "Unnamed Item",
           quantity: 1,
           price: Number(item.price || 0),
-          station: item.station || "HOT",
+          station: null,
           status: "PENDING",
           staff_id,
           notes: item.notes || null,

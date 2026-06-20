@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import updateKitchenOrderStatus from "@/lib/operations/work-centers/updateWorkCenterItemStatus";
+import updateWorkCenterItemStatus from "@/lib/operations/work-centers/updateWorkCenterItemStatus";
 
 export async function POST(req) {
 

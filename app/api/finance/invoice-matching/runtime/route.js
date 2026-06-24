@@ -47,8 +47,7 @@ export async function POST(req) {
 
     }
 
-    const tenantId =
-      access.tenantId;
+    
 
     const [
       invoicesResult,
@@ -60,7 +59,7 @@ export async function POST(req) {
       supabaseAdmin
         .from("invoices")
         .select("*")
-        .eq("tenant_id", tenantId)
+        .eq("organization_id", body.organizationId)
         .in("status", [
           "approved",
           "paid",
@@ -75,7 +74,7 @@ export async function POST(req) {
       supabaseAdmin
         .from("purchase_orders")
         .select("*")
-        .eq("tenant_id", tenantId)
+        .eq("organization_id", body.organizationId)
         .order(
           "created_at",
           {
@@ -86,7 +85,7 @@ export async function POST(req) {
       supabaseAdmin
         .from("goods_receipts")
         .select("*")
-        .eq("tenant_id", tenantId)
+        .eq("organization_id", body.organizationId)
         .order(
           "created_at",
           {
@@ -97,7 +96,7 @@ export async function POST(req) {
       supabaseAdmin
         .from("invoice_matches")
         .select("*")
-        .eq("tenant_id", tenantId)
+        .eq("organization_id", body.organizationId)
         .order(
           "created_at",
           {

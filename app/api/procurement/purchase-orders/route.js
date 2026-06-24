@@ -127,7 +127,7 @@ export async function PATCH(req) {
       await generateAutomaticPurchaseOrder({
 
         tenant_id:
-          tenant_id,
+          body.tenant_id,
       });
 
     return NextResponse.json(

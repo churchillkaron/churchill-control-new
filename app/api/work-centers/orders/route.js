@@ -5,12 +5,25 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    const result = await getWorkCenterOrders({
+    console.log("WORK_CENTER_API", body);
+
+const result = await getWorkCenterOrders({
       tenantId: body.tenantId,
       workCenterId: body.workCenterId || null,
     });
 
-    return NextResponse.json(result);
+    
+console.log(
+  "WORK_CENTER_RESULT",
+  {
+    success: result?.success,
+    count: result?.data?.length || 0,
+    first: result?.data?.[0] || null
+  }
+);
+
+return NextResponse.json(result);
+
   } catch (error) {
     return NextResponse.json(
       {

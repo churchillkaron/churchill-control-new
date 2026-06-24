@@ -4,7 +4,7 @@ import {
   createPaymentTransaction,
 } from "@/lib/finance/createPaymentTransaction";
 
-import postPaymentAccounting
+import { postPaymentAccounting }
 from "@/lib/payments/accounting/postPaymentAccounting";
 
 export async function POST(req) {

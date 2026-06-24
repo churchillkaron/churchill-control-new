@@ -10,7 +10,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import createInvoiceMatch from "@/lib/finance/invoice-matching/createInvoiceMatch";
+import { createInvoiceMatch } from "@/lib/finance/invoice-matching/createInvoiceMatch";
 
 export async function POST(req) {
 

@@ -181,7 +181,7 @@ export async function GET(request) {
 
       safeQuery(
         supabaseAdmin
-          .from("finance_accounts_payable")
+          .from("accounts_payable")
           .select("*")
           .eq("tenant_id", tenantId)
       ),

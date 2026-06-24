@@ -318,6 +318,12 @@ export default function ExpoPage() {
 
                           <div className="text-xl font-semibold">
 
+                            {item.seat_position && (
+                              <span className="mr-2 text-sm font-black text-cyan-400">
+                                S{item.seat_position}
+                              </span>
+                            )}
+
                             {
                               item.item_name
                             }
@@ -331,6 +337,44 @@ export default function ExpoPage() {
                             {item.quantity}
 
                           </div>
+
+                          {item.cooking_level && (
+
+                            <div className="mt-1 text-xs font-bold uppercase text-amber-400">
+
+                              {item.cooking_level}
+
+                            </div>
+
+                          )}
+
+                          {item.notes && (
+
+                            <div className="mt-1 text-sm text-orange-300">
+
+                              {item.notes}
+
+                            </div>
+
+                          )}
+
+                          {item.modifiers?.side && (
+                            <div className="mt-1 text-xs text-cyan-300">
+                              SIDE: {item.modifiers.side}
+                            </div>
+                          )}
+
+                          {item.modifiers?.sauce && (
+                            <div className="mt-1 text-xs text-cyan-300">
+                              SAUCE: {item.modifiers.sauce}
+                            </div>
+                          )}
+
+                          {item.modifiers?.spicy && (
+                            <div className="mt-1 text-xs text-cyan-300">
+                              SPICY: {item.modifiers.spicy}
+                            </div>
+                          )}
 
                         </div>
 

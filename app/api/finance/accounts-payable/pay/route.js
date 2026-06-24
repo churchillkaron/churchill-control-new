@@ -2,9 +2,9 @@ import {
   requireAuth,
 } from "@/lib/shared/auth";
 
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
 
-import { payAccountsPayable } from '@/lib/finance/payments/payAccountsPayable'
+import processVendorPayment from "@/lib/finance/payments/processVendorPayment";
 
 export async function POST(req) {
 
@@ -13,11 +13,12 @@ export async function POST(req) {
     await requireAuth();
 
     const body =
-      await req.json()
+      await req.json();
 
     const result =
-      await payAccountsPayable({
-        payable_id:
+      await processVendorPayment({
+
+        accounts_payable_id:
           body.payable_id,
 
         payment_method:
@@ -26,14 +27,12 @@ export async function POST(req) {
         paid_by:
           body.paid_by,
 
-        reference_number:
-          body.reference_number,
-      })
+      });
 
     return NextResponse.json({
-      success: true,
-      result,
-    })
+      success: result.success,
+      ...result,
+    });
 
   } catch (error) {
 
@@ -46,6 +45,8 @@ export async function POST(req) {
       {
         status: 500,
       }
-    )
+    );
+
   }
+
 }

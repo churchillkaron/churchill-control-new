@@ -114,7 +114,7 @@ export async function POST(req) {
         await scoped(
           supabaseAdmin
             .from("restaurant_tables")
-            .select("id, current_guests")
+            .select("id, current_guests, active_session_id")
             .eq("id", fromTableId)
         ).single();
 
@@ -160,6 +160,7 @@ export async function POST(req) {
           .update({
             status: "OCCUPIED",
             current_guests: totalGuests,
+            active_session_id: sourceTable.active_session_id,
             updated_at: new Date().toISOString(),
           })
           .eq("id", toTableId)
@@ -171,6 +172,7 @@ export async function POST(req) {
           .update({
             status: "AVAILABLE",
             current_guests: 0,
+            active_session_id: null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", fromTableId)
@@ -195,19 +197,18 @@ export async function POST(req) {
 
       if (sourceTableId === destinationTableId) {
         return Response.json(
-          {
-            success: false,
-            error: "Cannot merge table into itself"
-          },
+          { success: false, error: "Cannot merge table into itself" },
           { status: 400 }
         );
       }
+
+      const now = new Date().toISOString();
 
       const { data: destinationTable, error: destinationError } =
         await scoped(
           supabaseAdmin
             .from("restaurant_tables")
-            .select("id, table_number, current_guests")
+            .select("id, table_number, current_guests, active_session_id")
             .eq("id", destinationTableId)
         ).single();
 
@@ -219,7 +220,7 @@ export async function POST(req) {
         await scoped(
           supabaseAdmin
             .from("restaurant_tables")
-            .select("id, current_guests")
+            .select("id, table_number, current_guests, active_session_id")
             .eq("id", sourceTableId)
         ).single();
 
@@ -251,48 +252,189 @@ export async function POST(req) {
 
       const cleanMergeIds = [
         ...new Set(sourceGroupIds)
-      ].filter(
-        (id) => id !== destinationTableId
-      );
+      ].filter((id) => id !== destinationTableId);
 
-      const mergeRows = cleanMergeIds.map((id) => ({
-        tenant_id: tenant_id || null,
-        organization_id: organization_id || null,
-        master_table_id: destinationTableId,
-        merged_table_id: id,
-      }));
-
-      await supabaseAdmin
-        .from("restaurant_table_merges")
-        .delete()
-        .in(
-          "merged_table_id",
-          cleanMergeIds
+      const { data: openOrders, error: openOrdersError } =
+        await scoped(
+          supabaseAdmin
+            .from("orders")
+            .select("*, order_items(*)")
+            .in("table_id", allOrderTableIds)
+            .in("status", ["OPEN", "PENDING", "PREPARING"])
+            .order("created_at", { ascending: true })
         );
 
-      const { error: mergeInsertError } =
-        await supabaseAdmin
-          .from("restaurant_table_merges")
-          .insert(mergeRows);
-
-      if (mergeInsertError) {
-        throw mergeInsertError;
+      if (openOrdersError) {
+        throw openOrdersError;
       }
 
-      const { error: moveOrderError } =
+      let masterOrder =
+        (openOrders || []).find(
+          (order) =>
+            order.table_id === destinationTableId &&
+            order.status === "OPEN"
+        ) || null;
+
+      if (!masterOrder && (openOrders || []).length > 0) {
+        masterOrder = openOrders[0];
+
+        const { error: masterMoveError } =
+          await scoped(
+            supabaseAdmin
+              .from("orders")
+              .update({
+                table_id: destinationTableId,
+                table_number: destinationTable.table_number,
+                status: "OPEN",
+                updated_at: now,
+              })
+              .eq("id", masterOrder.id)
+          );
+
+        if (masterMoveError) {
+          throw masterMoveError;
+        }
+      }
+
+      if (!masterOrder) {
+        const created =
+          await supabaseAdmin
+            .from("orders")
+            .insert({
+              tenant_id: tenant_id || null,
+              organization_id: organization_id || null,
+              table_id: destinationTableId,
+              table_number: destinationTable.table_number,
+              session_id:
+                destinationTable.active_session_id ||
+                sourceTable.active_session_id ||
+                null,
+              total: 0,
+              total_amount: 0,
+              status: "OPEN",
+              staff_name: "Staff",
+              created_at: now,
+            })
+            .select()
+            .single();
+
+        if (created.error) {
+          throw created.error;
+        }
+
+        masterOrder = created.data;
+      }
+
+      const sourceOrders =
+        (openOrders || []).filter(
+          (order) => order.id !== masterOrder.id
+        );
+
+      const sourceOrderIds =
+        sourceOrders.map((order) => order.id);
+
+      const itemIdsToMove =
+        sourceOrders.flatMap((order) =>
+          (order.order_items || []).map((item) => item.id)
+        );
+
+      if (itemIdsToMove.length > 0) {
+        const { error: itemMoveError } =
+          await scoped(
+            supabaseAdmin
+              .from("order_items")
+              .update({
+                order_id: masterOrder.id,
+                updated_at: now,
+              })
+              .in("id", itemIdsToMove)
+          );
+
+        if (itemMoveError) {
+          throw itemMoveError;
+        }
+      }
+
+      if (sourceOrderIds.length > 0) {
+        const { error: closeSourceOrdersError } =
+          await scoped(
+            supabaseAdmin
+              .from("orders")
+              .update({
+                status: "CLOSED",
+                total: 0,
+                total_amount: 0,
+                updated_at: now,
+              })
+              .in("id", sourceOrderIds)
+          );
+
+        if (closeSourceOrdersError) {
+          throw closeSourceOrdersError;
+        }
+      }
+
+      const { data: masterItems, error: masterItemsError } =
+        await scoped(
+          supabaseAdmin
+            .from("order_items")
+            .select("*")
+            .eq("order_id", masterOrder.id),
+        );
+
+      if (masterItemsError) {
+        throw masterItemsError;
+      }
+
+      const masterTotal =
+        (masterItems || []).reduce(
+          (sum, item) =>
+            sum +
+            Number(item.price || 0) *
+              Number(item.quantity || 1),
+          0
+        );
+
+      const { error: masterUpdateError } =
         await scoped(
           supabaseAdmin
             .from("orders")
             .update({
               table_id: destinationTableId,
               table_number: destinationTable.table_number,
+              total: masterTotal,
+              total_amount: masterTotal,
+              status: "OPEN",
+              updated_at: now,
             })
-            .in("table_id", allOrderTableIds)
-            .in("status", ["OPEN", "PENDING", "PREPARING"])
+            .eq("id", masterOrder.id)
         );
 
-      if (moveOrderError) {
-        throw moveOrderError;
+      if (masterUpdateError) {
+        throw masterUpdateError;
+      }
+
+      await supabaseAdmin
+        .from("restaurant_table_merges")
+        .delete()
+        .in("merged_table_id", cleanMergeIds);
+
+      if (cleanMergeIds.length > 0) {
+        const mergeRows = cleanMergeIds.map((id) => ({
+          tenant_id: tenant_id || null,
+          organization_id: organization_id || null,
+          master_table_id: destinationTableId,
+          merged_table_id: id,
+        }));
+
+        const { error: mergeInsertError } =
+          await supabaseAdmin
+            .from("restaurant_table_merges")
+            .insert(mergeRows);
+
+        if (mergeInsertError) {
+          throw mergeInsertError;
+        }
       }
 
       const totalGuests =
@@ -306,7 +448,7 @@ export async function POST(req) {
             .update({
               status: "OCCUPIED",
               current_guests: totalGuests,
-              updated_at: new Date().toISOString(),
+              updated_at: now,
             })
             .eq("id", destinationTableId)
         );
@@ -322,7 +464,8 @@ export async function POST(req) {
             .update({
               status: "MERGED",
               current_guests: 0,
-              updated_at: new Date().toISOString(),
+              active_session_id: null,
+              updated_at: now,
             })
             .in("id", sourceGroupIds)
         );
@@ -334,6 +477,9 @@ export async function POST(req) {
       result = {
         sourceTableId,
         destinationTableId,
+        masterOrderId: masterOrder.id,
+        movedItems: itemIdsToMove.length,
+        closedOrders: sourceOrderIds.length,
         movedTableIds: sourceGroupIds,
       };
     }

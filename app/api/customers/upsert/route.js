@@ -2,13 +2,35 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function POST(req) {
   try {
+
     const body = await req.json();
 
+    const access =
+      await requireOrganizationAccess({
+        organizationId:
+          body.organizationId,
+      });
+
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
+      );
+    }
+
+    const tenantId =
+      access.tenantId;
+
     const {
-      tenantId,
       customer_name,
       customer_phone,
       customer_email,
@@ -16,28 +38,11 @@ export async function POST(req) {
       notes,
     } = body;
 
-    if (!tenantId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Missing tenantId",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
     let query =
       supabaseAdmin
-        .from(
-          "customer_loyalty_accounts"
-        )
+        .from("customer_loyalty_accounts")
         .select("*")
-        .eq(
-          "tenant_id",
-          tenantId
-        );
+        .eq("tenant_id", tenantId);
 
     if (customer_phone) {
 
@@ -69,9 +74,7 @@ export async function POST(req) {
         error,
       } =
         await supabaseAdmin
-          .from(
-            "customer_loyalty_accounts"
-          )
+          .from("customer_loyalty_accounts")
           .update({
             customer_name,
             customer_phone,
@@ -79,10 +82,7 @@ export async function POST(req) {
             birthday,
             notes,
           })
-          .eq(
-            "id",
-            existing.id
-          )
+          .eq("id", existing.id)
           .select()
           .single();
 
@@ -102,29 +102,21 @@ export async function POST(req) {
       error,
     } =
       await supabaseAdmin
-        .from(
-          "customer_loyalty_accounts"
-        )
+        .from("customer_loyalty_accounts")
         .insert({
-          tenant_id:
-            tenantId,
+          tenant_id: tenantId,
+          organization_id:
+            body.organizationId,
 
           customer_name,
-
           customer_phone,
-
           customer_email,
-
           birthday,
-
           notes,
 
           loyalty_points: 0,
-
           total_spent: 0,
-
           visit_count: 0,
-
           tier: "REGULAR",
         })
         .select()
@@ -141,16 +133,10 @@ export async function POST(req) {
 
   } catch (error) {
 
-    console.error(
-      "[CUSTOMER_UPSERT]",
-      error
-    );
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,

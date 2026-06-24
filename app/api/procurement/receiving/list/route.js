@@ -6,6 +6,10 @@ import {
   supabaseAdmin,
 } from "@/lib/shared/supabase/admin";
 
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
 export async function POST(req) {
 
   try {
@@ -13,19 +17,25 @@ export async function POST(req) {
     const body =
       await req.json();
 
-    const tenantId =
-      body?.tenant_id;
+    const access =
+      await requireOrganizationAccess({
 
-    if (!tenantId) {
+        organizationId:
+          body.organizationId,
+
+      });
+
+    if (!access.success) {
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "tenant_id required",
+            access.error,
         },
         {
-          status: 400,
+          status:
+            access.status,
         }
       );
 
@@ -36,7 +46,7 @@ export async function POST(req) {
       error,
     } = await supabaseAdmin
 
-      .from("purchase_orders")
+      .from("goods_receipts")
 
       .select(`
         *,
@@ -44,37 +54,35 @@ export async function POST(req) {
           id,
           display_name,
           legal_name
+        ),
+        purchase_orders (
+          id,
+          po_number,
+          status
         )
       `)
 
       .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .eq(
-        "status",
-        "APPROVED"
+        "organization_id",
+        body.organizationId
       )
 
       .order(
-        "created_at",
+        "received_date",
         {
           ascending: false,
         }
       );
 
     if (error) {
-
       throw error;
-
     }
 
     return NextResponse.json({
 
       success: true,
 
-      purchaseOrders:
+      receipts:
         data || [],
 
     });
@@ -85,17 +93,12 @@ export async function POST(req) {
 
     return NextResponse.json(
       {
-
         success: false,
-
         error:
           error.message,
-
       },
       {
-
         status: 500,
-
       }
     );
 

@@ -454,10 +454,37 @@ export default function PaymentsPage() {
               >
                 <div>
                   <div className="text-lg">
+
+                    {item.seat_position && (
+                      <span className="mr-2 font-black text-cyan-400">
+                        S{item.seat_position}
+                      </span>
+                    )}
+
                     {item.item_name ||
                       item.dish_name ||
                       "Unnamed Item"}
+
                   </div>
+
+                  {item.modifiers?.side && (
+                    <div className="mt-1 text-xs text-cyan-300">
+                      SIDE: {item.modifiers.side}
+                    </div>
+                  )}
+
+                  {item.modifiers?.sauce && (
+                    <div className="mt-1 text-xs text-cyan-300">
+                      SAUCE: {item.modifiers.sauce}
+                    </div>
+                  )}
+
+                  {item.modifiers?.spicy && (
+                    <div className="mt-1 text-xs text-cyan-300">
+                      SPICY: {item.modifiers.spicy}
+                    </div>
+                  )}
+
                   <div className="mt-1 text-xs uppercase text-white/40">
                     {item.status || "OPEN"}
                   </div>

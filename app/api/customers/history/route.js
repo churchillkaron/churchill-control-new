@@ -2,34 +2,47 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function POST(req) {
 
   try {
 
-    const {
-      tenantId,
-      customerPhone,
-    } = await req.json();
+    const body =
+      await req.json();
+
+    const access =
+      await requireOrganizationAccess({
+        organizationId:
+          body.organizationId,
+      });
+
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
+      );
+    }
+
+    const tenantId =
+      access.tenantId;
+
+    const customerPhone =
+      body.customerPhone;
 
     const {
       data: sessions,
       error: sessionError,
     } = await supabaseAdmin
-
       .from("table_sessions")
-
       .select("id")
-
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .eq(
-        "customer_phone",
-        customerPhone
-      );
+      .eq("tenant_id", tenantId)
+      .eq("customer_phone", customerPhone);
 
     if (sessionError) {
       throw sessionError;
@@ -41,28 +54,19 @@ export async function POST(req) {
       );
 
     if (!sessionIds.length) {
-
       return NextResponse.json({
         success: true,
         history: [],
       });
-
     }
 
     const {
       data: orders,
       error: ordersError,
     } = await supabaseAdmin
-
       .from("orders")
-
       .select("*")
-
-      .in(
-        "session_id",
-        sessionIds
-      )
-
+      .in("session_id", sessionIds)
       .order(
         "created_at",
         {
@@ -83,18 +87,13 @@ export async function POST(req) {
       data: items,
       error: itemsError,
     } = await supabaseAdmin
-
       .from("order_items")
-
       .select("*")
-
       .in(
         "order_id",
         orderIds.length
           ? orderIds
-          : [
-              "00000000-0000-0000-0000-000000000000"
-            ]
+          : ["00000000-0000-0000-0000-000000000000"]
       );
 
     if (itemsError) {
@@ -108,8 +107,7 @@ export async function POST(req) {
           items:
             (items || []).filter(
               item =>
-                item.order_id ===
-                order.id
+                item.order_id === order.id
             ),
         })
       );
@@ -121,16 +119,10 @@ export async function POST(req) {
 
   } catch (error) {
 
-    console.error(
-      "[CUSTOMER_HISTORY]",
-      error
-    );
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,

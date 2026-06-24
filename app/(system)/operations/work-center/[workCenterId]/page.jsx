@@ -10,6 +10,8 @@ export default function WorkCenterPage() {
   const params = useParams();
   const workCenterId = params?.workCenterId;
 
+
+
   const tenant = useTenant();
   const tenantId = tenant?.id;
 
@@ -201,7 +203,47 @@ function TicketCard({
             key={item.id}
             className="flex items-center justify-between rounded-2xl bg-white/[0.04] px-3 py-2"
           >
-            <div>{item.item_name}</div>
+            <div>
+
+              {(item.seat_position || item.modifiers?.seat) && (
+                <div className="mb-1 text-xs font-bold uppercase text-cyan-400">
+                  SEAT {item.seat_position || item.modifiers?.seat}
+                </div>
+              )}
+
+              <div>{item.item_name}</div>
+
+              {item.cooking_level && (
+                <div className="mt-1 text-xs font-bold uppercase text-amber-400">
+                  {item.cooking_level}
+                </div>
+              )}
+
+              {item.notes && (
+                <div className="mt-1 text-xs text-orange-300">
+                  {item.notes}
+                </div>
+              )}
+
+              {item.modifiers?.side && (
+                <div className="text-xs text-cyan-300">
+                  SIDE: {item.modifiers.side}
+                </div>
+              )}
+
+              {item.modifiers?.sauce && (
+                <div className="text-xs text-cyan-300">
+                  SAUCE: {item.modifiers.sauce}
+                </div>
+              )}
+
+              {item.modifiers?.spicy && (
+                <div className="text-xs text-cyan-300">
+                  SPICY: {item.modifiers.spicy}
+                </div>
+              )}
+            </div>
+
             <div className="text-white/45">
               x{item.quantity}
             </div>

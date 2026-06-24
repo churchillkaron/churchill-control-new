@@ -1,0 +1,107 @@
+const EXECUTIVE_DOMAINS = [
+  "Operations",
+  "Finance",
+  "People",
+  "Customers",
+  "Intelligence",
+  "Platform",
+];
+
+function normalizeCategory(category) {
+  const c =
+    String(category || "")
+      .toLowerCase();
+
+  if (
+    ["operations", "hospitality", "guest experience"]
+      .includes(c)
+  ) {
+    return "Operations";
+  }
+
+  if (c === "finance") {
+    return "Finance";
+  }
+
+  if (
+    ["people", "workforce"]
+      .includes(c)
+  ) {
+    return "People";
+  }
+
+  if (c === "customer") {
+    return "Customers";
+  }
+
+  if (
+    ["ai", "analytics"]
+      .includes(c)
+  ) {
+    return "Intelligence";
+  }
+
+  return "Platform";
+}
+
+export async function buildNavigationRuntime({
+  organization,
+  role,
+}) {
+
+  const modules =
+    Array.isArray(organization?.modules)
+      ? organization.modules
+      : [];
+
+  const groupedModules = {};
+
+  for (const domain of EXECUTIVE_DOMAINS) {
+    groupedModules[domain] = [];
+  }
+
+  for (const module of modules) {
+
+    const domain =
+      normalizeCategory(
+        module.category
+      );
+
+    if (
+      module.id === "operations" ||
+      module.id === "finance"
+    ) {
+      continue;
+    }
+
+    groupedModules[domain].push({
+      id: module.id,
+      module_id: module.id,
+      name: module.name,
+      category: module.category,
+      route:
+        "/" +
+        String(
+          module.route || module.id
+        ),
+      role,
+    });
+
+  }
+
+  return {
+    success: true,
+    navigation: {
+      executive:
+        EXECUTIVE_DOMAINS.map(
+          (name) => ({
+            id:
+              name.toLowerCase(),
+            name,
+          })
+        ),
+      modules,
+      groupedModules,
+    },
+  };
+}

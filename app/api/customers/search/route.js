@@ -2,81 +2,60 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function POST(req) {
   try {
+
     const body = await req.json();
 
-    const tenantId = body.tenantId;
-    const query = String(body.query || "").trim();
+    const access =
+      await requireOrganizationAccess({
+        organizationId:
+          body.organizationId,
+      });
 
-    if (!tenantId) {
+    if (!access.success) {
       return NextResponse.json(
         {
           success: false,
-          error: "Missing tenantId",
+          error: access.error,
         },
         {
-          status: 400,
+          status: access.status,
         }
       );
     }
 
-    if (!query) {
+    const tenantId =
+      access.tenantId;
 
-      const {
-        data,
-        error,
-      } =
-        await supabaseAdmin
-          .from(
-            "customer_loyalty_accounts"
-          )
-          .select("*")
-          .eq(
-            "tenant_id",
-            tenantId
-          )
-          .order(
-            "last_visit_at",
-            {
-              ascending: false,
-            }
-          )
-          .limit(100);
+    const query =
+      String(body.query || "").trim();
 
-      if (error) {
-        throw error;
-      }
+    let db =
+      supabaseAdmin
+        .from("customer_loyalty_accounts")
+        .select("*")
+        .eq("tenant_id", tenantId);
 
-      return NextResponse.json({
-        success: true,
-        customers:
-          data || [],
-      });
-
+    if (query) {
+      db = db.or(
+        `customer_name.ilike.%${query}%,customer_phone.ilike.%${query}%,customer_email.ilike.%${query}%`
+      );
     }
 
     const { data, error } =
-      await supabaseAdmin
-        .from(
-          "customer_loyalty_accounts"
-        )
-        .select("*")
-        .eq(
-          "tenant_id",
-          tenantId
-        )
-        .or(
-          `customer_name.ilike.%${query}%,customer_phone.ilike.%${query}%,customer_email.ilike.%${query}%`
-        )
+      await db
         .order(
           "last_visit_at",
           {
             ascending: false,
           }
         )
-        .limit(10);
+        .limit(
+          query ? 10 : 100
+        );
 
     if (error) {
       throw error;
@@ -89,11 +68,6 @@ export async function POST(req) {
     });
 
   } catch (error) {
-
-    console.error(
-      "[CUSTOMER_SEARCH]",
-      error
-    );
 
     return NextResponse.json(
       {

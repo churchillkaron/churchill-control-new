@@ -47,8 +47,6 @@ export async function POST(req) {
 
     }
 
-    const tenantId =
-      access.tenantId;
 
     const {
       data,
@@ -67,8 +65,8 @@ export async function POST(req) {
       `)
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        body.organizationId
       )
 
       .eq(

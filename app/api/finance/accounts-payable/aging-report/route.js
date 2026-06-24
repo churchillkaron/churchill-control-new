@@ -13,7 +13,7 @@ export async function GET() {
       error,
     } = await supabaseAdmin
       .from(
-        'finance_accounts_payable'
+        'accounts_payable'
       )
       .select('*')
 

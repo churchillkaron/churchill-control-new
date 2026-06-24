@@ -251,6 +251,13 @@ export default function ReceiptsPage() {
                       >
 
                         <div>
+
+                          {item.seat_position && (
+                            <span className="mr-2 font-black text-cyan-400">
+                              S{item.seat_position}
+                            </span>
+                          )}
+
                           {
                             item.item_name
                           }{" "}
@@ -258,6 +265,7 @@ export default function ReceiptsPage() {
                           {
                             item.quantity
                           }
+
                         </div>
 
                         <div>

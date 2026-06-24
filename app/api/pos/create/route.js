@@ -235,6 +235,8 @@ export async function POST(req) {
           staff_id,
           notes: item.notes || null,
           cooking_level: item.cookingLevel || null,
+          seat_position: item.seatPosition || null,
+          modifiers: item.modifiers || null,
           created_at: now,
         });
       }

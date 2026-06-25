@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { finalizeStockCount } from "@/lib/inventory/core/finalizeStockCount";
+import { finalizeStockCount } from "@/lib/inventory/stock-count/finalizeStockCount";
 
 export async function POST(request) {
   try {

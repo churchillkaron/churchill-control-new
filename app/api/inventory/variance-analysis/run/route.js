@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runVarianceAnalysis } from "@/lib/inventory/core/runVarianceAnalysis";
+import { runVarianceAnalysis } from "@/lib/inventory/reconciliation/runVarianceAnalysis";
 
 export async function POST(request) {
   try {

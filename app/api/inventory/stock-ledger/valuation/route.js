@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { updateStockLedger } from "@/lib/inventory/core/updateStockLedger";
+import { updateStockLedger } from "@/lib/inventory/movements/updateStockLedger";
 
 export async function POST(request) {
   try {

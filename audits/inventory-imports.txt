@@ -1,0 +1,13 @@
+app/api/inventory/stock-ledger/reconciliation/route.js:3:import { runInventoryReconciliation } from "@/lib/inventory/core/runInventoryReconciliation";
+app/api/inventory/stock-ledger/movement/route.js:3:import { createInventoryMovement } from "@/lib/inventory/core/createInventoryMovement";
+app/api/inventory/stock-ledger/movement/route.js:4:import { updateStockLedger } from "@/lib/inventory/core/updateStockLedger";
+app/api/inventory/stock-ledger/valuation/route.js:3:import { updateStockLedger } from "@/lib/inventory/core/updateStockLedger";
+app/api/inventory/theoretical-vs-actual/run/route.js:3:import { runTheoreticalVsActual } from "@/lib/inventory/core/runTheoreticalVsActual";
+app/api/inventory/stock-count/finalize/route.js:3:import { finalizeStockCount } from "@/lib/inventory/core/finalizeStockCount";
+app/api/inventory/expiry/route.js:3:import calculateExpiryDate from "@/lib/inventory/expiry/calculateExpiryDate";
+app/api/inventory/monitoring/route.js:11:import runInventoryMonitoring from "@/lib/inventory/monitoring/runInventoryMonitoring";
+app/api/inventory/variance-analysis/run/route.js:3:import { runVarianceAnalysis } from "@/lib/inventory/core/runVarianceAnalysis";
+lib/procurement/receiving/receiveGoods.js:3:import { createInventoryMovement } from "@/lib/inventory/core/createInventoryMovement";
+lib/procurement/receiving/receiveGoods.js:4:import { updateStockLedger } from "@/lib/inventory/core/updateStockLedger";
+lib/inventory/monitoring/runInventoryMonitoring.js:1:import processAutoSpoilage from "@/lib/inventory/auto-spoilage/processAutoSpoilage";
+lib/inventory/monitoring/runInventoryMonitoring.js:3:import generateInventoryAlerts from "@/lib/inventory/alerts/generateInventoryAlerts";

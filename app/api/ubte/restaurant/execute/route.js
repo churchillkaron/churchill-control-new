@@ -1,34 +1,46 @@
 import { NextResponse } from "next/server";
-
-import {
-  executeRestaurantCapability,
-} from "@/lib/restaurant/runtime/loaders/RestaurantCapabilityLoader";
+import { RestaurantRuntime } from "@/lib/restaurant/RestaurantRuntime";
 
 export async function POST(req) {
+  try {
+    const body = await req.json();
 
-  const body =
-    await req.json();
+    const boundedContext = body.boundedContext;
+    const capability = body.capability;
 
-  const result =
-    await executeRestaurantCapability({
+    const loader =
+      RestaurantRuntime.capabilities?.[boundedContext]?.[capability];
 
-      boundedContext:
-        body.boundedContext,
+    if (!loader) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Unknown restaurant capability: ${boundedContext}.${capability}`,
+        },
+        { status: 404 }
+      );
+    }
 
-      capability:
-        body.capability,
+    const module = await loader();
 
-      context:
-        body.context,
-
-      payload:
-        body.payload,
-
+    const result = await module.execute({
+      context: body.context || {},
+      payload: body.payload || {},
     });
 
-  return NextResponse.json({
-    success: true,
-    result,
-  });
+    return NextResponse.json({
+      success: true,
+      result,
+    });
+  } catch (error) {
+    console.error("[RESTAURANT_EXECUTE]", error);
 
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
 }

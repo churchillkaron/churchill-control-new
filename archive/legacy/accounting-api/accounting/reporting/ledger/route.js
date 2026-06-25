@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getLedgerBalances } from "@/lib/finance/core/getLedgerBalances";
+import { getLedgerBalances } from "@/lib/finance/general-ledger/getLedgerBalances";
 
 export async function POST(request) {
   try {

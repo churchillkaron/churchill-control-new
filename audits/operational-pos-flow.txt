@@ -1,0 +1,204 @@
+lib/restaurant/realtime/tableStream.js:5:    .channel('restaurant_tables_realtime')
+lib/restaurant/realtime/tableStream.js:11:        table: 'restaurant_tables',
+lib/restaurant/services/getLiveTableState.js:24:    .from("restaurant_tables")
+lib/restaurant/services/moveGuestsBetweenTables.js:17:    .from("table_sessions")
+lib/restaurant/services/moveGuestsBetweenTables.js:26:    .from("restaurant_tables")
+lib/restaurant/services/getActiveTableSession.js:3:export async function getActiveTableSession({
+lib/restaurant/services/getActiveTableSession.js:15:    .from("table_sessions")
+lib/restaurant/services/splitTableGroup.js:18:    .from("restaurant_tables")
+lib/restaurant/services/openTableSession.js:2:import { getActiveTableSession } from "./getActiveTableSession";
+lib/restaurant/services/openTableSession.js:4:export async function openTableSession({
+lib/restaurant/services/openTableSession.js:23:  const existing = await getActiveTableSession({
+lib/restaurant/services/openTableSession.js:35:      .from("table_sessions")
+lib/restaurant/services/openTableSession.js:64:    .from("restaurant_tables")
+lib/restaurant/services/openTableSession.js:82:    .from("table_sessions")
+lib/restaurant/services/openTableSession.js:113:    .from("restaurant_tables")
+lib/restaurant/services/closeTableSession.js:3:export async function closeTableSession({
+lib/restaurant/services/closeTableSession.js:14:    .from("table_sessions")
+lib/restaurant/services/closeTableSession.js:30:    .from("restaurant_tables")
+lib/payments/calculateBill.js:16:    order.order_items || [];
+lib/platform/runtime/buildWorkspaceMetrics.js:21:      .from("table_sessions")
+lib/dashboard/loadDashboardSummary.js:26:    .from("table_sessions")
+lib/dashboard/loadDashboardSummary.js:38:      "order_items"
+lib/realtime/kitchenRealtimeChannel.js:87:      table: 'order_items',
+lib/realtime/kitchenRealtimeChannel.js:115:      table: 'order_items',
+lib/pos/reopenClosedOrder.js:4:  openTableSession,
+lib/pos/reopenClosedOrder.js:5:} from '@/lib/restaurant/services/openTableSession'
+lib/pos/reopenClosedOrder.js:54:  await openTableSession({
+lib/pos/reopenClosedOrder.js:111:    .from('order_items')
+lib/pos/moveOrderItems.js:84:    .from('order_items')
+lib/pos/moveOrderItems.js:122:    .from('order_items')
+lib/pos/moveOrderItems.js:150:    .from('order_items')
+lib/pos/moveOrderItems.js:164:    .from('order_items')
+lib/pos/tables/updateTableStatus.js:13:      .from("restaurant_tables")
+lib/pos/tables/getTables.js:10:      .from("restaurant_tables")
+lib/pos/markOrderPaid.js:217:    .from('table_sessions')
+lib/pos/markOrderPaid.js:360:      .from('restaurant_tables')
+lib/pos/payments/loadPaymentState.js:4:  getActiveTableSession,
+lib/pos/payments/loadPaymentState.js:5:} from "@/lib/restaurant/services/getActiveTableSession";
+lib/pos/payments/loadPaymentState.js:17:  const session = await getActiveTableSession({
+lib/pos/payments/loadPaymentState.js:30:      order_items (*)
+lib/pos/payments/loadPaymentState.js:44:    (order) => order.order_items || []
+lib/pos/partialPayment.js:177:    .from('table_sessions')
+lib/pos/partialPayment.js:231:      .from('restaurant_tables')
+lib/pos/core/orderStateMachine.js:4: * order_items.status
+lib/pos/core/POS_RULES.md:7:5. Kitchen/Bar read from order_items only via engine state
+lib/pos/core/loadPOSState.js:16:      order_items (*)
+lib/pos/core/loadPOSState.js:29:    itemMap[order.id] = order.order_items || [];
+lib/pos/transferTable.js:25:    .from('order_items')
+lib/pos/transferTable.js:34:    .from('table_sessions')
+lib/pos/removeOrderModifier.js:48:    .from('order_items')
+lib/pos/removeOrderModifier.js:103:    .from('order_items')
+lib/pos/removeOrderModifier.js:131:    .from('order_items')
+lib/pos/updateOrderItemQuantity.js:32:    .from('order_items')
+lib/pos/updateOrderItemQuantity.js:124:    .from('order_items')
+lib/pos/updateOrderItemQuantity.js:158:    .from('order_items')
+lib/pos/mergeTables.js:3:import { getActiveTableSession } from "@/lib/restaurant/services/getActiveTableSession";
+lib/pos/mergeTables.js:28:  const sourceSession = await getActiveTableSession({
+lib/pos/mergeTables.js:33:  const targetSession = await getActiveTableSession({
+lib/pos/mergeTables.js:52:    .from("order_items")
+lib/pos/mergeTables.js:69:    .from("table_sessions")
+lib/pos/mergeTables.js:89:    .from("restaurant_tables")
+lib/pos/mergeTables.js:100:    .from("restaurant_tables")
+lib/pos/cancelOrder.js:42:      "order_items"
+lib/pos/loadOrderItems.js:15:    .from("order_items")
+lib/pos/addOrderItem.js:6: * Adds item into existing order_items system
+lib/pos/addOrderItem.js:26:    .from("order_items")
+lib/pos/addOrderModifier.js:28:    .from('order_items')
+lib/pos/addOrderModifier.js:119:    .from('order_items')
+lib/pos/addOrderModifier.js:147:    .from('order_items')
+lib/pos/orders/recalculateOrderTotals.js:8:    .from("order_items")
+lib/pos/orders/autoCloseOrder.js:41:    .from("order_items")
+lib/pos/orders/autoCloseOrder.js:128:    .from("restaurant_tables")
+lib/pos/orders/autoCloseOrder.js:142:  await closeTableSession({
+lib/pos/removeOrderItem.js:22:    .from('order_items')
+lib/pos/removeOrderItem.js:69:    .from('order_items')
+lib/pos/removeOrderItem.js:89:    .from('order_items')
+lib/pos/removeOrderItem.js:178:      .from('order_items')
+lib/pos/loadTableSessions.js:15:    .from("table_sessions")
+lib/pos/loadActiveOrders.js:56:      "order_items"
+lib/pos/reopenTableSession.js:3:export async function reopenTableSession(
+lib/pos/reopenTableSession.js:14:    .from("table_sessions")
+lib/pos/voidOrder.js:100:    .from('order_items')
+lib/pos/clearTable.js:12:    .from("table_sessions")
+lib/procurement/purchase-orders/createPurchaseOrder.js:98:      .from("purchase_order_items")
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:23:    .from("purchase_order_items")
+lib/procurement/receiving/receivePurchaseOrder.js:28:        purchase_order_items (*)
+lib/procurement/receiving/receivePurchaseOrder.js:99:    for (const item of po.purchase_order_items || []) {
+lib/procurement/receiving/receivePurchaseOrder.js:197:        .from("purchase_order_items")
+lib/production/costing/calculateOrderCost.js:4:  order_items = [],
+lib/production/costing/calculateOrderCost.js:11:  for (const item of order_items) {
+lib/production/theoretical/calculateTheoreticalUsage.js:4:  order_items = [],
+lib/production/theoretical/calculateTheoreticalUsage.js:9:  for (const item of order_items) {
+lib/production/purchaseOrders/createPurchaseOrder.js:73:      'production_purchase_order_items'
+lib/workers/work-centers/processWorkCenterEvents.js:78:        .from("order_items")
+lib/finance/invoice-matching/runThreeWayMatch.js:65:      .from("purchase_order_items")
+lib/automation/loadAutomationStatus.js:27:      "order_items"
+lib/automation/loadAutomationStatus.js:39:    .from("table_sessions")
+lib/monitoring/loadRealtimeMonitoring.js:26:    .from("table_sessions")
+lib/monitoring/loadRealtimeMonitoring.js:38:      "order_items"
+lib/work-centers/getWorkCenterOrders.js:80:      order_items:
+lib/analytics/getOperationalAnalytics.js:17:      .from('order_items')
+lib/analytics/getOperationalAnalytics.js:28:        'restaurant_tables'
+app/api/customers/history/route.js:42:      .from("table_sessions")
+app/api/customers/history/route.js:90:      .from("order_items")
+app/api/workspace/command-center/route.js:156:          .from("restaurant_tables")
+app/api/workspace/command-center/route.js:163:          .from("order_items")
+app/api/pos/receipts/route.js:62:      .from("order_items")
+app/api/pos/tables/close/route.js:2:import { closeTableSession } from "@/lib/restaurant/services/closeTableSession";
+app/api/pos/tables/close/route.js:8:    const result = await closeTableSession({
+app/api/pos/tables/move-seat/route.js:17:      .from("order_items")
+app/api/pos/tables/move-seat/route.js:79:          .from("restaurant_tables")
+app/api/pos/tables/move-seat/route.js:92:          .from("restaurant_tables")
+app/api/pos/tables/move-seat/route.js:106:          .select("*, order_items(*)")
+app/api/pos/tables/move-seat/route.js:117:          (order.order_items || []).map((item) => ({
+app/api/pos/tables/move-seat/route.js:177:          .from("order_items")
+app/api/pos/tables/move-seat/route.js:209:        .from("restaurant_tables")
+app/api/pos/tables/move-seat/route.js:221:        .from("restaurant_tables")
+app/api/pos/tables/action/route.js:55:          .from("restaurant_tables")
+app/api/pos/tables/action/route.js:78:          .from("restaurant_tables")
+app/api/pos/tables/action/route.js:116:            .from("restaurant_tables")
+app/api/pos/tables/action/route.js:128:            .from("restaurant_tables")
+app/api/pos/tables/action/route.js:159:          .from("restaurant_tables")
+app/api/pos/tables/action/route.js:171:          .from("restaurant_tables")
+app/api/pos/tables/action/route.js:210:            .from("restaurant_tables")
+app/api/pos/tables/action/route.js:222:            .from("restaurant_tables")
+app/api/pos/tables/action/route.js:261:            .select("*, order_items(*)")
+app/api/pos/tables/action/route.js:338:          (order.order_items || []).map((item) => item.id)
+app/api/pos/tables/action/route.js:345:              .from("order_items")
+app/api/pos/tables/action/route.js:380:            .from("order_items")
+app/api/pos/tables/action/route.js:447:            .from("restaurant_tables")
+app/api/pos/tables/action/route.js:463:            .from("restaurant_tables")
+app/api/pos/tables/open/route.js:79:          order_items(*)
+app/api/pos/tables/open/route.js:107:        order => order.order_items || []
+app/api/pos/course-fire/fire/route.js:21:      .from('order_items')
+app/api/pos/voids/approve/route.js:41:      .from('order_items')
+app/api/pos/history/route.js:13:        order_items (*)
+app/api/pos/orders/get-with-modifiers/route.js:21:      .from('order_items')
+app/api/pos/items/pay-group/route.js:33:      .from("order_items")
+app/api/pos/items/pay-group/route.js:140:      .from("order_items")
+app/api/pos/items/pay-group/route.js:151:      .from("order_items")
+app/api/pos/items/void/route.js:31:      .from("order_items")
+app/api/pos/items/update-bill-group/route.js:26:      .from("order_items")
+app/api/pos/create/route.js:6:  openTableSession,
+app/api/pos/create/route.js:7:} from "@/lib/restaurant/services/openTableSession";
+app/api/pos/create/route.js:81:      await openTableSession({
+app/api/pos/create/route.js:252:        .from("order_items")
+app/api/production/purchase-orders/receive/route.js:21:        'production_purchase_order_items'
+app/api/production/costing/calculate-order-cost/route.js:14:        order_items:
+app/api/production/costing/calculate-order-cost/route.js:15:          body.order_items || [],
+app/api/production/theoretical-usage/calculate/route.js:14:        order_items:
+app/api/production/theoretical-usage/calculate/route.js:15:          body.order_items || [],
+app/api/production/vendor-price-history/live/route.js:16:        'production_purchase_order_items'
+app/api/kpi/overview/route.js:54:        .from('table_sessions')
+app/(system)/tables/page.jsx:64:        "restaurant_tables"
+app/(system)/tables/page.jsx:95:      .from("table_sessions")
+app/(system)/tables/page.jsx:135:        order_items (*)
+app/(system)/tables/page.jsx:269:            table: "table_sessions",
+app/(system)/tables/page.jsx:279:            table: "order_items",
+app/(system)/management/payments/page.jsx:40:      .from("order_items")
+app/(system)/management/payments/page.jsx:70:        .from("order_items")
+app/(system)/management/page.jsx:74:      .from("table_sessions")
+app/(system)/operations/work-center/[workCenterId]/page.jsx:174:  const items = ticket.order_items || [];
+app/(system)/pos/StationaryPOS_UI.jsx:229:        (order) => order.order_items || []
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:707:        (order) => order.order_items || []
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:733:            order_items: []
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:742:grouped[key].order_items.push(item);
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:786:        source.order_items.filter(
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:793:      source.order_items =
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:794:        source.order_items.filter(
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:801:      target.order_items.push(
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:1770:                            {group.order_items?.length || 0} items
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:1775:                              (group.order_items || []).reduce(
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:1787:                              (group.order_items || []).every(
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:1794:                            {(group.order_items || []).every(
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:1816:      (billGroups[selectedGroup].order_items || []).reduce(
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:190:        (order.order_items || []).map((item) => ({
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:218:          order_items: [],
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:222:      grouped[key].order_items.push(item);
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:231:          order_items: [],
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:241:    const items = moveSeatOrders.flatMap((order) => order.order_items || []);
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:1320:                    (group.order_items || [])
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:1386:                (group.order_items || []).forEach((item) => {
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:710:        (order) => order.order_items || []
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:736:            order_items: []
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:745:grouped[key].order_items.push(item);
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:789:        source.order_items.filter(
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:796:      source.order_items =
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:797:        source.order_items.filter(
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:804:      target.order_items.push(
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:945:            o => o.order_items || []
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:1629:                        .flatMap(order => order.order_items || [])
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:1840:                    order => order.order_items || []
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:1940:                                order_items: []
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:1960:                              (group.order_items || []).map(item =>
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:2026:                                    order.order_items || []
+app/(system)/pos/orders/page.jsx:30:        order_items (*)
+app/(system)/history/page.jsx:39:      .from("table_sessions")
+app/(system)/production/performance/page.jsx:108:              "order_items",
+app/(system)/monitoring/live/page.jsx:114:              "table_sessions",
+app/(system)/monitoring/live/page.jsx:119:              "order_items",
+app/(system)/kitchen/expo/page.jsx:63:        order_items (*)
+app/(system)/kitchen/expo/page.jsx:108:            table: "order_items",
+app/(system)/kitchen/expo/page.jsx:139:        .from("order_items")
+app/(system)/kitchen/expo/page.jsx:172:            (order.order_items || [])

@@ -1,14 +1,13 @@
-import { NextResponse } from 'next/server';
-
-import closeTableSession from '@/lib/restaurant/services/closeTableSession';
+import { NextResponse } from "next/server";
+import { closeTableSession } from "@/lib/restaurant/services/closeTableSession";
 
 export async function POST(req) {
   try {
     const body = await req.json();
 
     const result = await closeTableSession({
-      tenantId: body.tenantId || body.tenant_id,
-      tableNumber: body.tableNumber || body.table_number,
+      organizationId: body.organizationId || body.organization_id,
+      sessionId: body.sessionId,
     });
 
     return NextResponse.json({

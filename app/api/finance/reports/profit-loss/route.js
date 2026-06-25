@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import generateProfitLoss from "@/lib/finance/reports/generateProfitLoss";
+import generateProfitLoss from "@/lib/finance/reporting/generateProfitLoss";
 
 export async function POST(req) {
 

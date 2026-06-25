@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runRiskScoring } from "@/lib/finance/core/runRiskScoring";
+import { runRiskScoring } from "@/lib/finance/analytics/runRiskScoring";
 
 export async function POST(request) {
   try {

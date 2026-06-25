@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { validateDomainEvent } from "@/lib/finance/core/validateDomainEvent";
+import { validateDomainEvent } from "@/lib/platform/events/validateDomainEvent";
 
 export async function POST(request) {
   try {

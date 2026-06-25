@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runWeightedAverageValuation } from "@/lib/finance/core/runWeightedAverageValuation";
+import { runWeightedAverageValuation } from "@/lib/inventory/costing/runWeightedAverageValuation";
 
 export async function POST(request) {
   try {

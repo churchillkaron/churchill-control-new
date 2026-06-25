@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { postAutomaticJournal } from "@/lib/finance/core/postAutomaticJournal";
+import { postAutomaticJournal } from "@/lib/finance/accounting/postAutomaticJournal";
 
 export async function POST(request) {
   try {

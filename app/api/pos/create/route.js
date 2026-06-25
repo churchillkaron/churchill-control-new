@@ -50,9 +50,9 @@ export async function POST(req) {
       );
     }
 
-    if (!tenant_id) {
+    if (!organization_id) {
       return Response.json(
-        { error: "Missing tenant_id" },
+        { error: "Missing organization_id" },
         { status: 400 }
       );
     }
@@ -80,8 +80,11 @@ export async function POST(req) {
     const session =
       await openTableSession({
 
-        tenantId:
-          tenant_id,
+        organizationId:
+          organization_id,
+
+        tableId:
+          table_id || null,
 
         tableNumber:
           table,

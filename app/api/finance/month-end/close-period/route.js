@@ -4,7 +4,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import { closeAccountingPeriod } from '@/lib/finance/monthEnd/closeAccountingPeriod'
+import { closeMonthEndPeriod } from '@/lib/finance/monthEnd/closeMonthEndPeriod'
 
 export async function POST(req) {
 
@@ -41,7 +41,7 @@ export async function POST(req) {
       access.tenantId;
 
     const result =
-      await closeAccountingPeriod({
+      await closeMonthEndPeriod({
         tenant_id:
           tenant_id,
 

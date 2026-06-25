@@ -1,0 +1,276 @@
+lib/finance/accounting/createJournalEntry.js:3:import postJournalToLedger from "@/lib/finance/general-ledger/postJournalToLedger";
+lib/finance/accounting/createJournalEntry.js:26: * - journal_entries
+lib/finance/accounting/createJournalEntry.js:28: * - general_ledger via postJournalToLedger()
+lib/finance/accounting/createJournalEntry.js:202:    .from("journal_entries")
+lib/finance/accounting/createJournalEntry.js:234:    .from("journal_entries")
+lib/finance/accounting/createJournalEntry.js:285:      .from("journal_entries")
+lib/finance/accounting/createJournalEntry.js:292:  let ledger = null;
+lib/finance/accounting/createJournalEntry.js:295:    ledger =
+lib/finance/accounting/createJournalEntry.js:296:      await postJournalToLedger({
+lib/finance/accounting/createJournalEntry.js:310:    ledger,
+lib/finance/accounting/utils/getNextJENumber.js:14:    .from("journal_entries")
+lib/finance/accounting/validateAccountingPeriod.js:14:      .from("accounting_periods")
+lib/finance/accounting/validateAccountingPeriod.js:30:      ["closed", "locked"].includes(
+lib/finance/reconciliation/runBankReconciliation.js:34:        data: ledger,
+lib/finance/reconciliation/runBankReconciliation.js:36:        .from("bank_ledger")
+lib/finance/reconciliation/runBankReconciliation.js:52:      if (ledger) {
+lib/finance/reconciliation/runBankReconciliation.js:63:            ledger_reference_id:
+lib/finance/reconciliation/runBankReconciliation.js:64:              ledger.id,
+lib/finance/reconciliation/runBankReconciliation.js:76:          ledger_id:
+lib/finance/reconciliation/runBankReconciliation.js:77:            ledger.id,
+lib/finance/reporting/core/generateConsolidatedReport.js:23:      .from("general_ledger")
+lib/finance/reporting/core/generateConsolidatedReport.js:28:        chart_of_accounts!fk_general_ledger_account (
+lib/finance/reporting/core/generateBalanceSheet.js:11:        "inventory_ledger"
+lib/finance/monthEnd/closeAccountingPeriod.js:4:export async function closeAccountingPeriod({
+lib/finance/monthEnd/closeAccountingPeriod.js:8:  closed_by,
+lib/finance/monthEnd/closeAccountingPeriod.js:16:      'finance_accounting_periods'
+lib/finance/monthEnd/closeAccountingPeriod.js:25:        closed_by,
+lib/finance/monthEnd/closeAccountingPeriod.js:26:        closed_at:
+lib/finance/payments/processVendorPayment.js:107:      error: ledgerError,
+lib/finance/payments/processVendorPayment.js:109:      .from("bank_ledger")
+lib/finance/payments/processVendorPayment.js:136:    if (ledgerError) {
+lib/finance/payments/processVendorPayment.js:137:      throw ledgerError;
+lib/finance/ledger/updateLedgerBalances.js:33:        'general_ledger'
+lib/finance/ledger/updateLedgerBalances.js:50:          'general_ledger'
+lib/finance/ledger/updateLedgerBalances.js:76:        'general_ledger'
+lib/finance/accounts-receivable/createCustomerInvoice.js:40:    .from("customer_invoices")
+lib/finance/accounts-receivable/postCustomerPayment.js:127:    .from("customer_invoices")
+lib/finance/core/getContinuousCloseExceptions.js:10:        "accounting_close_exceptions"
+lib/finance/core/runBankReconciliation.js:17:  const { data: ledger, error: ledgerError } =
+lib/finance/core/runBankReconciliation.js:19:      .from("bank_ledger")
+lib/finance/core/runBankReconciliation.js:23:  if (ledgerError) {
+lib/finance/core/runBankReconciliation.js:24:    throw ledgerError;
+lib/finance/core/runBankReconciliation.js:41:  let ledgerBalance = 0;
+lib/finance/core/runBankReconciliation.js:43:  for (const row of ledger || []) {
+lib/finance/core/runBankReconciliation.js:47:    ledgerBalance +=
+lib/finance/core/runBankReconciliation.js:57:    ledgerBalance;
+lib/finance/core/runBankReconciliation.js:67:    ledgerBalance,
+lib/finance/core/runYearEndClose.js:5:import { postJournalEntrySafe } from "./postJournalEntrySafe";
+lib/finance/core/runYearEndClose.js:24:    await postJournalEntrySafe({
+lib/finance/core/getAutonomousCloseStatus.js:10:        "accounting_autonomous_close_cycles"
+lib/finance/core/runAccountReconciliation.js:11:    .from("general_ledger")
+lib/finance/core/runAccountReconciliation.js:21:  const { data: ledger, error } = await query;
+lib/finance/core/runAccountReconciliation.js:27:  let ledgerBalance = 0;
+lib/finance/core/runAccountReconciliation.js:29:  for (const row of ledger || []) {
+lib/finance/core/runAccountReconciliation.js:30:    ledgerBalance += Number(row.debit || 0);
+lib/finance/core/runAccountReconciliation.js:31:    ledgerBalance -= Number(row.credit || 0);
+lib/finance/core/runAccountReconciliation.js:35:    ledgerBalance -
+lib/finance/core/runAccountReconciliation.js:44:    .from("account_reconciliation_items")
+lib/finance/core/runAccountReconciliation.js:49:      ledger_balance: ledgerBalance,
+lib/finance/core/runAccountReconciliation.js:52:      reconciliation_status: status,
+lib/finance/core/runTrialBalance.js:7:  const { data: ledger, error } = await supabase
+lib/finance/core/runTrialBalance.js:8:    .from("general_ledger")
+lib/finance/core/runTrialBalance.js:18:  for (const row of ledger || []) {
+lib/finance/core/runTrialBalance.js:54:    .from("trial_balance_snapshots")
+lib/finance/core/getCloseChecklistStatus.js:9:    .from("accounting_close_checklists")
+lib/finance/core/runRealTimeClose.js:6:  closeDate,
+lib/finance/core/runRealTimeClose.js:34:        "inventory_ledger"
+lib/finance/core/runRealTimeClose.js:48:        "Inventory ledger missing",
+lib/finance/core/runRealTimeClose.js:52:  const close =
+lib/finance/core/runRealTimeClose.js:55:        "real_time_close_cycles"
+lib/finance/core/runRealTimeClose.js:59:        close_date: closeDate,
+lib/finance/core/runRealTimeClose.js:60:        close_status:
+lib/finance/core/runRealTimeClose.js:78:        "real_time_close_exceptions"
+lib/finance/core/runRealTimeClose.js:83:          close_cycle_id:
+lib/finance/core/runRealTimeClose.js:84:            close.data.id,
+lib/finance/core/runRealTimeClose.js:91:    close: close.data,
+lib/finance/core/postAPSubledger.js:4:export async function postAPSubledger(data) {
+lib/finance/core/postAPSubledger.js:6:    .from("ap_subledger")
+lib/finance/core/getReconciliationExceptions.js:8:    .from("reconciliation_exceptions")
+lib/finance/core/runVATClose.js:28:    .from("journal_entries")
+lib/finance/core/runEnterpriseCommandCenter.js:19:  const { data: close } =
+lib/finance/core/runEnterpriseCommandCenter.js:22:        "accounting_autonomous_close_cycles"
+lib/finance/core/runEnterpriseCommandCenter.js:46:  const closeCycle =
+lib/finance/core/runEnterpriseCommandCenter.js:47:    close?.[0] || {};
+lib/finance/core/runEnterpriseCommandCenter.js:83:    closeCycle.readiness_score ||
+lib/finance/core/postJournalEntrySafe.js:5:export async function postJournalEntrySafe({
+lib/finance/core/postJournalEntrySafe.js:55:      ledger: journal.ledger || null,
+lib/finance/core/postJournalEntrySafe.js:61:    ledger: journal.ledger || null,
+lib/finance/core/approveRealTimeClose.js:6:  closeCycleId,
+lib/finance/core/approveRealTimeClose.js:13:        "real_time_close_approvals"
+lib/finance/core/approveRealTimeClose.js:17:        close_cycle_id:
+lib/finance/core/approveRealTimeClose.js:18:          closeCycleId,
+lib/finance/core/approveRealTimeClose.js:29:      "real_time_close_cycles"
+lib/finance/core/approveRealTimeClose.js:33:      close_status:
+lib/finance/core/approveRealTimeClose.js:34:        "closed",
+lib/finance/core/approveRealTimeClose.js:36:    .eq("id", closeCycleId);
+lib/finance/core/runIntercompanyReconciliation.js:22:        "intercompany_reconciliations"
+lib/finance/core/runIntercompanyReconciliation.js:34:        reconciliation_status:
+lib/finance/core/runIntercompanyReconciliation.js:49:      reconciliation_status:
+lib/finance/core/postARSubledger.js:4:export async function postARSubledger(data) {
+lib/finance/core/postARSubledger.js:6:    .from("ar_subledger")
+lib/finance/core/runCashReconciliation.js:39:        "cash_reconciliation_snapshots"
+lib/finance/core/runCashReconciliation.js:49:        reconciliation_status:
+lib/finance/core/runSelfHealingEngine.js:36:      .from("bank_reconciliations")
+lib/finance/core/runSelfHealingEngine.js:40:        "reconciliation_status",
+lib/finance/core/runSelfHealingEngine.js:52:        "Bank reconciliation mismatch",
+lib/finance/core/runSelfHealingEngine.js:54:        "Force reconciliation review",
+lib/finance/core/runSelfHealingEngine.js:57:          "manual_reconciliation_review",
+lib/finance/core/runSelfHealingEngine.js:58:        reconciliationId:
+lib/finance/core/postAutomaticJournal.js:58:    ledger: journal.ledger || null,
+lib/finance/core/getLedgerBalances.js:10:    .from("general_ledger")
+lib/finance/core/getLedgerBalances.js:15:      chart_of_accounts!fk_general_ledger_account (
+lib/finance/core/getContinuousCloseStatus.js:10:        "accounting_continuous_close_runs"
+lib/finance/core/emitAccountingEvent.js:5:import { postJournalEntrySafe } from "./postJournalEntrySafe";
+lib/finance/core/runIntercompanyElimination.js:6:  reconciliationId,
+lib/finance/core/runIntercompanyElimination.js:16:        reconciliation_id:
+lib/finance/core/runIntercompanyElimination.js:17:          reconciliationId,
+lib/finance/core/getRealTimeCloseExceptions.js:10:        "real_time_close_exceptions"
+lib/finance/core/postInventorySubledger.js:4:export async function postInventorySubledger(data) {
+lib/finance/core/postInventorySubledger.js:6:    .from("inventory_subledger")
+lib/finance/core/approveAutonomousClose.js:12:        "accounting_autonomous_close_cycles"
+lib/finance/core/approveAutonomousClose.js:30:      "Cycle not approved for close"
+lib/finance/core/approveAutonomousClose.js:37:        "accounting_autonomous_close_cycles"
+lib/finance/core/processAccountingEvent.js:5:import { postJournalEntrySafe } from "./postJournalEntrySafe";
+lib/finance/core/processAccountingEvent.js:102:    await postJournalEntrySafe({
+lib/finance/core/processAccountingEvent.js:129:    ledgerEntryIds:
+lib/finance/core/createEventLineage.js:10:  ledgerEntryIds,
+lib/finance/core/createEventLineage.js:25:        ledger_entry_ids:
+lib/finance/core/createEventLineage.js:26:          ledgerEntryIds,
+lib/finance/year-end/runYearEndClose.js:32:      .from("general_ledger")
+lib/finance/year-end/runYearEndClose.js:48:        message: "Nothing to close",
+lib/finance/year-end/runYearEndClose.js:59:      sourceType: "year_end_close",
+lib/finance/period-close/closeAccountingPeriod.js:4:export default async function closeAccountingPeriod({
+lib/finance/period-close/closeAccountingPeriod.js:9:  closed_by = "ACCOUNTING",
+lib/finance/period-close/closeAccountingPeriod.js:18:      .from("accounting_periods")
+lib/finance/period-close/closeAccountingPeriod.js:42:      .from("accounting_periods")
+lib/finance/period-close/closeAccountingPeriod.js:57:          closed_by,
+lib/finance/period-close/closeAccountingPeriod.js:59:          closed_at:
+lib/finance/general-ledger/postJournalToLedger.js:3:export default async function postJournalToLedger({
+lib/finance/general-ledger/postJournalToLedger.js:19:      .from("general_ledger")
+lib/finance/general-ledger/postJournalToLedger.js:36:      .from("journal_entries")
+lib/finance/general-ledger/postJournalToLedger.js:84:    const { error: ledgerError } =
+lib/finance/general-ledger/postJournalToLedger.js:86:        .from("general_ledger")
+lib/finance/general-ledger/postJournalToLedger.js:127:    if (ledgerError) {
+lib/finance/general-ledger/postJournalToLedger.js:130:        error: ledgerError.message,
+lib/finance/general-ledger/postJournalToLedger.js:136:    .from("journal_entries")
+lib/finance/general-ledger/postJournalToLedger.js:147:    ledger_lines:
+lib/finance/getAccountingKPIs.js:22:      .from("journal_entries")
+lib/finance/index.js:2:export * from "./general-ledger";
+lib/finance/runMonthEndClose.js:12:      workflow_type: "month_end_close",
+lib/finance/closeAccountingPeriod.js:4:export async function closeAccountingPeriod(periodId) {
+lib/finance/closeAccountingPeriod.js:6:    .from("accounting_periods")
+lib/finance/closeAccountingPeriod.js:8:      status: "closed",
+lib/finance/closeAccountingPeriod.js:9:      closed_at: new Date().toISOString(),
+lib/finance/statements/generateProfitAndLoss.js:17:      'general_ledger'
+lib/finance/accounts-payable/createAccountsPayableEntry.js:14:      .from("vendor_invoices")
+lib/finance/automation/runMonthlyClose.js:18:  // 1. VAT CLOSE (ledger posting)
+lib/finance/createAccountingPeriod.js:6:    .from("accounting_periods")
+lib/finance/getGeneralLedger.js:25:      journal_entries (
+lib/finance/consolidation/generateConsolidatedFinancials.js:30:        data: ledger,
+lib/finance/consolidation/generateConsolidatedFinancials.js:32:        .from("general_ledger")
+lib/finance/consolidation/generateConsolidatedFinancials.js:45:      for (const row of ledger || []) {
+lib/finance/forecasting/generateFinancialForecast.js:11:      data: ledger,
+lib/finance/forecasting/generateFinancialForecast.js:14:      .from("general_ledger")
+lib/finance/forecasting/generateFinancialForecast.js:26:      (ledger || []).reduce(
+lib/finance/postAccountingEvent.js:3:import { postJournalEntrySafe } from "@/lib/finance/core/postJournalEntrySafe";
+lib/finance/postAccountingEvent.js:32:  const journal = await postJournalEntrySafe({
+lib/finance/invoice-matching/runThreeWayMatch.js:14:      .from("vendor_invoices")
+lib/finance/invoice-matching/runThreeWayMatch.js:224:      .from("vendor_invoices")
+lib/finance/runComplianceChecks.js:21:      module: "period_close",
+lib/finance/variance-analysis/runVarianceAnalysis.js:31:      data: ledger,
+lib/finance/variance-analysis/runVarianceAnalysis.js:32:      error: ledgerError,
+lib/finance/variance-analysis/runVarianceAnalysis.js:34:      .from("general_ledger")
+lib/finance/variance-analysis/runVarianceAnalysis.js:41:    if (ledgerError) {
+lib/finance/variance-analysis/runVarianceAnalysis.js:42:      throw ledgerError;
+lib/finance/variance-analysis/runVarianceAnalysis.js:50:        (ledger || [])
+lib/finance/reversals/createJournalReversal.js:25:      "journal_entries"
+lib/finance/reversals/createJournalReversal.js:94:      "journal_entries"
+lib/finance/reversals/createJournalReversal.js:194:      "journal_entries"
+lib/finance/reports/generateTrialBalance.js:14:      .from("general_ledger")
+lib/finance/reports/generateTrialBalance.js:72:      trial_balance:
+lib/finance/reports/generateBalanceSheet.js:14:      .from("general_ledger")
+lib/finance/reports/generateProfitLoss.js:14:      .from("general_ledger")
+lib/finance/vendor-invoices/createVendorInvoice.js:20:      .from("vendor_invoices")
+app/api/finance/journal/route.js:37:    .from("journal_entries")
+app/api/finance/trial-balance/route.js:49:    data: ledger,
+app/api/finance/trial-balance/route.js:53:    .from("general_ledger")
+app/api/finance/trial-balance/route.js:57:      chart_of_accounts!fk_general_ledger_account (
+app/api/finance/trial-balance/route.js:96:  for (const line of ledger || []) {
+app/api/finance/accounting/runtime/route.js:37:        .from("journal_entries")
+app/api/finance/accounting/runtime/route.js:88:      reconciliationExceptions: 0,
+app/api/finance/month-end/close-period/route.js:7:import { closeAccountingPeriod } from '@/lib/finance/monthEnd/closeAccountingPeriod'
+app/api/finance/month-end/close-period/route.js:44:      await closeAccountingPeriod({
+app/api/finance/month-end/close-period/route.js:54:        closed_by:
+app/api/finance/month-end/close-period/route.js:55:          body.closed_by,
+app/api/finance/month-end/status/route.js:14:        'finance_accounting_periods'
+app/api/finance/reconciliation/route.js:9:import runBankReconciliation from "@/lib/finance/reconciliation/runBankReconciliation";
+app/api/finance/insights/route.js:51:    data: ledger,
+app/api/finance/insights/route.js:54:    .from("general_ledger")
+app/api/finance/insights/route.js:58:      chart_of_accounts!fk_general_ledger_account (
+app/api/finance/insights/route.js:81:  for (const line of ledger || []) {
+app/api/finance/periods/route.js:55:    .from("accounting_periods")
+app/api/finance/periods/close/route.js:76:      .from("accounting_periods")
+app/api/finance/periods/close/route.js:117:      period.status === "closed"
+app/api/finance/periods/close/route.js:125:          "Period already closed",
+app/api/finance/periods/close/route.js:144:      .from("accounting_periods")
+app/api/finance/periods/close/route.js:149:          "closed",
+app/api/finance/periods/close/route.js:151:        closed_at:
+app/api/finance/periods/close/route.js:155:        closed_by:
+app/api/finance/periods/close/route.js:228:        "Accounting period closed successfully",
+app/api/finance/periods/update-status/route.js:30:      "soft_closed",
+app/api/finance/periods/update-status/route.js:31:      "closed",
+app/api/finance/periods/update-status/route.js:44:      permissionKey: "close_period",
+app/api/finance/periods/update-status/route.js:74:      .from("accounting_periods")
+app/api/finance/periods/update-status/route.js:91:      .from("accounting_periods")
+app/api/finance/periods/update-status/route.js:95:        closed_at:
+app/api/finance/periods/update-status/route.js:96:          status === "closed" || status === "locked"
+app/api/finance/periods/update-status/route.js:99:        closed_by:
+app/api/finance/periods/update-status/route.js:100:          status === "closed" || status === "locked"
+app/api/finance/periods/open/route.js:86:      .from("accounting_periods")
+app/api/finance/periods/open/route.js:130:      .from("accounting_periods")
+app/api/finance/close/runtime/route.js:37:        .from("accounting_periods")
+app/api/finance/close/runtime/route.js:71:      closeReadiness:
+app/api/finance/year-end/close-fiscal-year/route.js:51:        closed_by:
+app/api/finance/year-end/close-fiscal-year/route.js:52:          body.closed_by,
+app/api/finance/health/route.js:84:    .from("journal_entries")
+app/api/finance/intercompany/reconcile/route.js:10:    const reconciliation =
+app/api/finance/intercompany/reconcile/route.js:24:      reconciliation,
+app/api/finance/intercompany/eliminate/route.js:14:        reconciliationId:
+app/api/finance/intercompany/eliminate/route.js:15:          body.reconciliationId,
+app/api/finance/period-close/route.js:7:import closeAccountingPeriod from "@/lib/finance/period-close/closeAccountingPeriod";
+app/api/finance/period-close/route.js:44:      await closeAccountingPeriod({
+app/api/finance/runtime/route.js:50:        .from("journal_entries")
+app/api/finance/runtime/route.js:72:        .from("accounting_periods")
+app/api/finance/runtime/route.js:99:      close:
+app/api/finance/runtime/route.js:117:      closeReadiness:
+app/api/finance/anomalies/route.js:54:    .from("journal_entries")
+app/api/finance/kpis/route.js:49:    data: ledger,
+app/api/finance/kpis/route.js:52:    .from("general_ledger")
+app/api/finance/kpis/route.js:56:      chart_of_accounts!fk_general_ledger_account (
+app/api/finance/kpis/route.js:83:  for (const line of ledger || []) {
+app/api/finance/real-time-close/run/route.js:14:        closeDate:
+app/api/finance/real-time-close/run/route.js:15:          body.closeDate,
+app/api/finance/real-time-close/approval/route.js:14:        closeCycleId:
+app/api/finance/real-time-close/approval/route.js:15:          body.closeCycleId,
+app/api/finance/journals/route.js:53:    .from("journal_entries")
+app/api/finance/journals/request-reversal/route.js:84:      .from("journal_entries")
+app/api/finance/journals/request-reversal/route.js:152:      .from("journal_entries")
+app/api/finance/journals/reverse/route.js:79:      .from("journal_entries")
+app/api/finance/journals/reverse/route.js:157:      .from("accounting_periods")
+app/api/finance/journals/reverse/route.js:168:        "closed"
+app/api/finance/journals/reverse/route.js:190:          "Journal belongs to a closed accounting period",
+app/api/finance/journals/reverse/route.js:249:      .from("journal_entries")
+app/api/finance/journals/reverse/route.js:361:      .from("journal_entries")
+app/api/finance/journals/[id]/route.js:63:      .from("journal_entries")
+app/api/finance/customer-invoices/list/route.js:34:        .from("customer_invoices")
+app/api/finance/cash-flow/route.js:49:    data: ledger,
+app/api/finance/cash-flow/route.js:53:    .from("general_ledger")
+app/api/finance/cash-flow/route.js:57:      chart_of_accounts!fk_general_ledger_account (
+app/api/finance/cash-flow/route.js:110:  for (const line of ledger || []) {
+app/api/finance/journal-chain/route.js:47:    .from("journal_entries")
+app/api/finance/ar/runtime/route.js:41:        .from("customer_invoices")
+app/api/finance/procure-to-pay/runtime/route.js:73:        .from("vendor_invoices")
+app/api/finance/vendor-invoices/list/route.js:53:      .from("vendor_invoices")
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:22:      reconciliationExceptions: 0,
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:71:      href: `/workspace/${organizationId}/finance/ledger`,
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:130:              {runtime.reconciliationExceptions}
+app/(system)/workspace/[organizationId]/finance/ledger/page.jsx:15:          `/api/finance/general-ledger?organizationId=${organizationId}`
+app/(system)/workspace/[organizationId]/finance/ledger/page.jsx:52:            Loading ledger...
+app/(system)/workspace/[organizationId]/finance/ledger/page.jsx:58:            No ledger entries found.
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:16:      closeReadiness: "READY",
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:26:          "/api/finance/close/runtime",
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:60:      href: `/workspace/${organizationId}/finance/close`,
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:75:      href: `/workspace/${organizationId}/finance/close`,
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:205:              {runtime.closeReadiness}
+app/(system)/workspace/[organizationId]/finance/page.jsx:14:        "Journals, ledger, trial balance and close control.",

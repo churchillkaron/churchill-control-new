@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getRealTimeCloseExceptions } from "@/lib/finance/core/getRealTimeCloseExceptions";
+import { getRealTimeCloseExceptions } from "@/lib/finance/period-close/getRealTimeCloseExceptions";
 
 export async function POST(request) {
   try {

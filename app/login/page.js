@@ -54,13 +54,7 @@ export default function LoginPage() {
     } =
       await supabase.auth.getSession();
 
-    if (
-      session?.user
-    ) {
-
-      router.push("/login/callback");
-
-    }
+    // disabled for onboarding testing
 
   }
 

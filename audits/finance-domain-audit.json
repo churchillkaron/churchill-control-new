@@ -1,0 +1,6501 @@
+{
+  "totals": {
+    "financeFiles": 345,
+    "duplicateNameGroups": 13,
+    "suspiciousTenantOnlyCoreFiles": 94,
+    "likelyWrappers": 54
+  },
+  "duplicateNames": [
+    [
+      "route",
+      [
+        "app/api/finance/accounting/runtime/route.js",
+        "app/api/finance/accounts-payable/aging-report/route.js",
+        "app/api/finance/accounts-payable/pay/route.js",
+        "app/api/finance/accounts-payable/route.js",
+        "app/api/finance/accounts-receivable/list/route.js",
+        "app/api/finance/anomalies/route.js",
+        "app/api/finance/ar/aging/route.js",
+        "app/api/finance/ar/runtime/route.js",
+        "app/api/finance/audit-trail/anomaly-detection/route.js",
+        "app/api/finance/audit-trail/entity-history/route.js",
+        "app/api/finance/audit-trail/live/route.js",
+        "app/api/finance/audit-trail/log/route.js",
+        "app/api/finance/budgeting/create/route.js",
+        "app/api/finance/budgeting/route.js",
+        "app/api/finance/budgeting/variance/route.js",
+        "app/api/finance/cash-flow/route.js",
+        "app/api/finance/cash-flow/run/route.js",
+        "app/api/finance/close/runtime/route.js",
+        "app/api/finance/cogs/route.js",
+        "app/api/finance/consolidation/route.js",
+        "app/api/finance/cost-centers/create/route.js",
+        "app/api/finance/cost-centers/list/route.js",
+        "app/api/finance/cost-centers/toggle/route.js",
+        "app/api/finance/customer-invoices/create/route.js",
+        "app/api/finance/customer-invoices/list/route.js",
+        "app/api/finance/customer-payments/create/route.js",
+        "app/api/finance/customer-payments/list/route.js",
+        "app/api/finance/depreciation/run/route.js",
+        "app/api/finance/executive-dashboard/alerts/route.js",
+        "app/api/finance/executive-dashboard/entity-ranking/route.js",
+        "app/api/finance/executive-dashboard/kpi/route.js",
+        "app/api/finance/fixed-assets/create/route.js",
+        "app/api/finance/fixed-assets/depreciation/route.js",
+        "app/api/finance/fixed-assets/list/route.js",
+        "app/api/finance/forecast/route.js",
+        "app/api/finance/general-ledger/route.js",
+        "app/api/finance/gl-posting/route.js",
+        "app/api/finance/health/route.js",
+        "app/api/finance/insights/route.js",
+        "app/api/finance/intercompany/create/route.js",
+        "app/api/finance/intercompany/eliminate/route.js",
+        "app/api/finance/intercompany/reconcile/route.js",
+        "app/api/finance/intercompany/runtime/route.js",
+        "app/api/finance/intercompany/settle/route.js",
+        "app/api/finance/invoice-matching/create/route.js",
+        "app/api/finance/invoice-matching/runtime/route.js",
+        "app/api/finance/journal-chain/route.js",
+        "app/api/finance/journal/route.js",
+        "app/api/finance/journals/[id]/route.js",
+        "app/api/finance/journals/request-reversal/route.js",
+        "app/api/finance/journals/reverse/route.js",
+        "app/api/finance/journals/route.js",
+        "app/api/finance/kpis/route.js",
+        "app/api/finance/legal-entities/create/route.js",
+        "app/api/finance/legal-entities/list/route.js",
+        "app/api/finance/legal-entities/toggle/route.js",
+        "app/api/finance/module/route.js",
+        "app/api/finance/month-end/close-period/route.js",
+        "app/api/finance/month-end/status/route.js",
+        "app/api/finance/payments/list/route.js",
+        "app/api/finance/payments/route.js",
+        "app/api/finance/period-close/route.js",
+        "app/api/finance/periods/close/route.js",
+        "app/api/finance/periods/open/route.js",
+        "app/api/finance/periods/route.js",
+        "app/api/finance/periods/update-status/route.js",
+        "app/api/finance/procure-to-pay/runtime/route.js",
+        "app/api/finance/real-time-close/approval/route.js",
+        "app/api/finance/real-time-close/exceptions/route.js",
+        "app/api/finance/real-time-close/run/route.js",
+        "app/api/finance/reconciliation/route.js",
+        "app/api/finance/reports/profit-loss/route.js",
+        "app/api/finance/role-permissions/check/route.js",
+        "app/api/finance/role-permissions/create/route.js",
+        "app/api/finance/runtime/route.js",
+        "app/api/finance/summary/route.js",
+        "app/api/finance/tax/runtime/route.js",
+        "app/api/finance/treasury/liquidity/route.js",
+        "app/api/finance/treasury/payment-priority/route.js",
+        "app/api/finance/trial-balance/route.js",
+        "app/api/finance/vendor-invoices/list/route.js",
+        "app/api/finance/year-end/close-fiscal-year/route.js",
+        "app/api/finance/year-end/status/route.js"
+      ]
+    ],
+    [
+      "page",
+      [
+        "app/(system)/workspace/[organizationId]/finance/accounting/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/ap/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/ar/aging/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/ar/invoices/new/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/ar/invoices/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/ar/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/ar/payments/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/ar/receivables/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/close/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/filings/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/invoices/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/journals/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/ledger/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/matching/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/payments/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/purchase-orders/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/receiving/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/reports/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/tax/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/trial-balance/page.jsx",
+        "app/(system)/workspace/[organizationId]/finance/vendors/page.jsx"
+      ]
+    ],
+    [
+      "index",
+      [
+        "lib/finance/accounts-payable/index.js",
+        "lib/finance/general-ledger/index.js",
+        "lib/finance/index.js",
+        "lib/finance/year-end/index.js"
+      ]
+    ],
+    [
+      "closeAccountingPeriod",
+      [
+        "lib/finance/closeAccountingPeriod.js",
+        "lib/finance/monthEnd/closeAccountingPeriod.js",
+        "lib/finance/period-close/closeAccountingPeriod.js"
+      ]
+    ],
+    [
+      "createBudget",
+      [
+        "lib/finance/budgeting/createBudget.js",
+        "lib/finance/core/createBudget.js"
+      ]
+    ],
+    [
+      "createIntercompanyTransaction",
+      [
+        "lib/finance/core/createIntercompanyTransaction.js",
+        "lib/finance/intercompany/createIntercompanyTransaction.js"
+      ]
+    ],
+    [
+      "getEnterpriseHealth",
+      [
+        "lib/finance/core/getEnterpriseHealth.js",
+        "lib/finance/executive/getEnterpriseHealth.js"
+      ]
+    ],
+    [
+      "runBankReconciliation",
+      [
+        "lib/finance/core/runBankReconciliation.js",
+        "lib/finance/reconciliation/runBankReconciliation.js"
+      ]
+    ],
+    [
+      "runConsolidation",
+      [
+        "lib/finance/core/runConsolidation.js",
+        "lib/finance/runConsolidation.js"
+      ]
+    ],
+    [
+      "runYearEndClose",
+      [
+        "lib/finance/core/runYearEndClose.js",
+        "lib/finance/year-end/runYearEndClose.js"
+      ]
+    ],
+    [
+      "createCostCenter",
+      [
+        "lib/finance/cost-centers/createCostCenter.js",
+        "lib/finance/management/createCostCenter.js"
+      ]
+    ],
+    [
+      "createLegalEntity",
+      [
+        "lib/finance/group/createLegalEntity.js",
+        "lib/finance/legal-entities/createLegalEntity.js"
+      ]
+    ],
+    [
+      "generateBalanceSheet",
+      [
+        "lib/finance/reporting/core/generateBalanceSheet.js",
+        "lib/finance/reports/generateBalanceSheet.js"
+      ]
+    ]
+  ],
+  "suspiciousTenantOnlyCoreFiles": [
+    {
+      "file": "lib/finance/core/approveAutonomousClose.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 57,
+      "exports": [
+        "approveAutonomousClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/approveRealTimeClose.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "approveRealTimeClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/approveSelfHealingAction.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 53,
+      "exports": [
+        "approveSelfHealingAction"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/assignDimensionToJournalLine.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 25,
+      "exports": [
+        "assignDimensionToJournalLine"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/calculateRecipeCost.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 90,
+      "exports": [
+        "calculateRecipeCost"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/calculateRetainedEarnings.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 73,
+      "exports": [
+        "calculateRetainedEarnings"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/calculateVATLiability.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 45,
+      "exports": [
+        "calculateVATLiability"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/configureTaxRule.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 34,
+      "exports": [
+        "configureTaxRule"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createAuditLog.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 36,
+      "exports": [
+        "createAuditLog"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createBudget.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 61,
+      "exports": [
+        "createBudget"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createBudgetPlan.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "createBudgetPlan"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createEntityHistorySnapshot.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 30,
+      "exports": [
+        "createEntityHistorySnapshot"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createEventLineage.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 37,
+      "exports": [
+        "createEventLineage"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createIntercompanyTransaction.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 38,
+      "exports": [
+        "createIntercompanyTransaction"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createInventoryCostLayer.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 38,
+      "exports": [
+        "createInventoryCostLayer"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createPaymentBatch.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 43,
+      "exports": [
+        "createPaymentBatch"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createRegulatoryFiling.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 35,
+      "exports": [
+        "createRegulatoryFiling"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/disposeFixedAsset.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 58,
+      "exports": [
+        "disposeFixedAsset"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/emitAccountingEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 61,
+      "exports": [
+        "emitAccountingEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/emitInventoryConsumptionEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 27,
+      "exports": [
+        "emitInventoryConsumptionEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/emitInventoryReceiptEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 29,
+      "exports": [
+        "emitInventoryReceiptEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/emitInventoryWasteEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 27,
+      "exports": [
+        "emitInventoryWasteEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getAccountingAlerts.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 22,
+      "exports": [
+        "getAccountingAlerts"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getAccountingEvents.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 32,
+      "exports": [
+        "getAccountingEvents"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getAccountingFailures.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getAccountingFailures"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getAuditTrail.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "getAuditTrail"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getAutonomousCloseStatus.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 25,
+      "exports": [
+        "getAutonomousCloseStatus"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getBudgetVariance.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 86,
+      "exports": [
+        "getBudgetVariance"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getCashPosition.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 30,
+      "exports": [
+        "getCashPosition"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getCloseChecklistStatus.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 45,
+      "exports": [
+        "getCloseChecklistStatus"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getContinuousCloseExceptions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 25,
+      "exports": [
+        "getContinuousCloseExceptions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getContinuousCloseStatus.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 26,
+      "exports": [
+        "getContinuousCloseStatus"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getDimensions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 33,
+      "exports": [
+        "getDimensions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEnterpriseActions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 31,
+      "exports": [
+        "getEnterpriseActions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEnterpriseHealth.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 26,
+      "exports": [
+        "getEnterpriseHealth"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEntityAuditTrail.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 26,
+      "exports": [
+        "getEntityAuditTrail"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventGovernanceAudit.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 30,
+      "exports": [
+        "getEventGovernanceAudit"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventGraph.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 41,
+      "exports": [
+        "getEventGraph"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventLineage.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getEventLineage"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventProcessingStatus.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 38,
+      "exports": [
+        "getEventProcessingStatus"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventSchema.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 29,
+      "exports": [
+        "getEventSchema"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getLedgerBalances.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 101,
+      "exports": [
+        "getLedgerBalances"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getPostingRule.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 22,
+      "exports": [
+        "getPostingRule"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getRealTimeCloseExceptions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 25,
+      "exports": [
+        "getRealTimeCloseExceptions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getReconciliationExceptions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 21,
+      "exports": [
+        "getReconciliationExceptions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getSchedulerJobs.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getSchedulerJobs"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getSelfHealingHistory.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getSelfHealingHistory"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getWorkflowHistory.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getWorkflowHistory"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/importBankTransaction.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 55,
+      "exports": [
+        "importBankTransaction"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/lockAccountingPeriod.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 32,
+      "exports": [
+        "lockAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/postAccrualEntry.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 47,
+      "exports": [
+        "postAccrualEntry"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/processAccountingEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 148,
+      "exports": [
+        "processAccountingEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/processAccountingEvents.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 65,
+      "exports": [
+        "processAccountingEvents"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/processCOGSForSale.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 81,
+      "exports": [
+        "processCOGSForSale"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/processPendingEvents.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 58,
+      "exports": [
+        "processPendingEvents"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/recognizeDeferredRevenue.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 68,
+      "exports": [
+        "recognizeDeferredRevenue"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/reopenAccountingPeriod.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 35,
+      "exports": [
+        "reopenAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/replayAccountingEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 71,
+      "exports": [
+        "replayAccountingEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/retryFailedAccountingEvents.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "retryFailedAccountingEvents"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runAccountReconciliation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 63,
+      "exports": [
+        "runAccountReconciliation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runAutonomousFinanceActions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 53,
+      "exports": [
+        "runAutonomousFinanceActions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runBankReconciliation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 78,
+      "exports": [
+        "runBankReconciliation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/runBudgetVariance.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 76,
+      "exports": [
+        "runBudgetVariance"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runCashFlowEngine.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 58,
+      "exports": [
+        "runCashFlowEngine"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runCashReconciliation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 61,
+      "exports": [
+        "runCashReconciliation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runConsolidation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 58,
+      "exports": [
+        "runConsolidation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runConsolidationElimination.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 36,
+      "exports": [
+        "runConsolidationElimination"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runCurrencyTranslation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "runCurrencyTranslation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runEnterpriseCommandCenter.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 148,
+      "exports": [
+        "runEnterpriseCommandCenter"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runExecutiveDecisionEngine.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 75,
+      "exports": [
+        "runExecutiveDecisionEngine"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runFIFOConsumption.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 99,
+      "exports": [
+        "runFIFOConsumption"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runFXRevaluation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 52,
+      "exports": [
+        "runFXRevaluation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/runGlobalConsolidation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 74,
+      "exports": [
+        "runGlobalConsolidation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runIntercompanyElimination.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 30,
+      "exports": [
+        "runIntercompanyElimination"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runIntercompanyReconciliation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 56,
+      "exports": [
+        "runIntercompanyReconciliation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runItemProfitability.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 75,
+      "exports": [
+        "runItemProfitability"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runLaborCosting.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 49,
+      "exports": [
+        "runLaborCosting"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runPaymentBatch.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 41,
+      "exports": [
+        "runPaymentBatch"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runPaymentPriorityQueue.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 52,
+      "exports": [
+        "runPaymentPriorityQueue"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runRealTimeClose.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 95,
+      "exports": [
+        "runRealTimeClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runRealTimeProfitability.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 67,
+      "exports": [
+        "runRealTimeProfitability"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/runRegulatoryReporting.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 72,
+      "exports": [
+        "runRegulatoryReporting"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runRiskScoring.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 88,
+      "exports": [
+        "runRiskScoring"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runSelfHealingEngine.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 82,
+      "exports": [
+        "runSelfHealingEngine"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runTaxFiling.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 50,
+      "exports": [
+        "runTaxFiling"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runTrialBalance.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 64,
+      "exports": [
+        "runTrialBalance"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runWeightedAverageValuation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 67,
+      "exports": [
+        "runWeightedAverageValuation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runYearEndClose.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 96,
+      "exports": [
+        "runYearEndClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/settleInvoice.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 49,
+      "exports": [
+        "settleInvoice"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/validateDomainEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 60,
+      "exports": [
+        "validateDomainEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/reporting/core/generateBalanceSheet.js",
+      "type": "REPORTING",
+      "lines": 106,
+      "exports": [
+        "generateBalanceSheet"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/reporting/core/generateConsolidatedReport.js",
+      "type": "REPORTING",
+      "lines": 224,
+      "exports": [
+        "generateConsolidatedReport"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reporting/core/generateFinancialStatements.js",
+      "type": "REPORTING",
+      "lines": 64,
+      "exports": [
+        "generateFinancialStatements"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/reporting/core/generateFinancialStatementsFromLedger.js",
+      "type": "REPORTING",
+      "lines": 98,
+      "exports": [
+        "generateFinancialStatementsFromLedger"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    }
+  ],
+  "likelyWrappers": [
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/layout.jsx",
+      "type": "REVIEW",
+      "lines": 6,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/accounts-payable/index.js",
+      "type": "REVIEW",
+      "lines": 3,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/bridge/orderFinanceBridge.js",
+      "type": "REVIEW",
+      "lines": 32,
+      "exports": [
+        "handleOrderFinanceEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/closeAccountingPeriod.js",
+      "type": "REVIEW",
+      "lines": 21,
+      "exports": [
+        "closeAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createARInvoice.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createARInvoice"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createAccountingPeriod.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createApprovalRequest.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createApprovalRequest"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createBankAccount.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createBankAccount"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createCurrencyRate.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createCurrencyRate"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createCustomer.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createCustomer"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createTaxRate.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createTaxRate"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createVendor.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createVendor"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/enterprise/getTreasuryPositions.js",
+      "type": "REVIEW",
+      "lines": 16,
+      "exports": [
+        "getTreasuryPositions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/enterprise/runCapitalPlanning.js",
+      "type": "REVIEW",
+      "lines": 18,
+      "exports": [
+        "runCapitalPlanning"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/enterprise/runCovenantChecks.js",
+      "type": "REVIEW",
+      "lines": 18,
+      "exports": [
+        "runCovenantChecks"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/enterprise/runESGReport.js",
+      "type": "REVIEW",
+      "lines": 11,
+      "exports": [
+        "runESGReport"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/executive/getEnterpriseHealth.js",
+      "type": "REVIEW",
+      "lines": 14,
+      "exports": [
+        "getEnterpriseHealth"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/executive/getExecutiveKPIs.js",
+      "type": "REVIEW",
+      "lines": 14,
+      "exports": [
+        "getExecutiveKPIs"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/executive/getForecastVsActual.js",
+      "type": "REVIEW",
+      "lines": 21,
+      "exports": [
+        "getForecastVsActual"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/gateway/financeGateway.js",
+      "type": "REVIEW",
+      "lines": 28,
+      "exports": [
+        "financeGateway"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/general-ledger/index.js",
+      "type": "REVIEW",
+      "lines": 2,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/getCashflowSummary.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "getCashflowSummary"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/getExecutiveFinancialSummary.js",
+      "type": "REVIEW",
+      "lines": 30,
+      "exports": [
+        "getExecutiveFinancialSummary"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/group/createLegalEntity.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createLegalEntity"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/group/getGroupStructure.js",
+      "type": "REVIEW",
+      "lines": 13,
+      "exports": [
+        "getGroupStructure"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/group/getOwnershipStructure.js",
+      "type": "REVIEW",
+      "lines": 16,
+      "exports": [
+        "getOwnershipStructure"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/group/runEliminations.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "runEliminations"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/index.js",
+      "type": "REVIEW",
+      "lines": 5,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/integrations/postCOGS.js",
+      "type": "REVIEW",
+      "lines": 23,
+      "exports": [
+        "postCOGS"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/integrations/postPayroll.js",
+      "type": "REVIEW",
+      "lines": 23,
+      "exports": [
+        "postPayroll"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/integrations/postSupplierInvoice.js",
+      "type": "REVIEW",
+      "lines": 25,
+      "exports": [
+        "postSupplierInvoice"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/invoice-matching/createInvoiceMatch.js",
+      "type": "REVIEW",
+      "lines": 9,
+      "exports": [
+        "createInvoiceMatch"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/management/createCostCenter.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createCostCenter"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/management/getDepartmentPerformance.js",
+      "type": "REVIEW",
+      "lines": 18,
+      "exports": [
+        "getDepartmentPerformance"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/management/getVarianceAnalysis.js",
+      "type": "REVIEW",
+      "lines": 26,
+      "exports": [
+        "getVarianceAnalysis"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/master-data/defaultChartOfAccounts.js",
+      "type": "REVIEW",
+      "lines": 31,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/master-data/getChartOfAccounts.js",
+      "type": "REVIEW",
+      "lines": 21,
+      "exports": [
+        "getChartOfAccounts"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/master-data/seedChartOfAccounts.js",
+      "type": "REVIEW",
+      "lines": 28,
+      "exports": [
+        "seedChartOfAccounts"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/permissions/checkFinancePermission.js",
+      "type": "REVIEW",
+      "lines": 23,
+      "exports": [
+        "checkFinancePermission"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/revalueCurrencyBalances.js",
+      "type": "REVIEW",
+      "lines": 34,
+      "exports": [
+        "revalueCurrencyBalances"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runAutoPostingWorkflow.js",
+      "type": "REVIEW",
+      "lines": 25,
+      "exports": [
+        "runAutoPostingWorkflow"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runConsolidation.js",
+      "type": "REVIEW",
+      "lines": 32,
+      "exports": [
+        "runConsolidation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/runDepreciation.js",
+      "type": "REVIEW",
+      "lines": 29,
+      "exports": [
+        "runDepreciation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runForecasting.js",
+      "type": "REVIEW",
+      "lines": 33,
+      "exports": [
+        "runForecasting"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runFraudDetection.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "runFraudDetection"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runMonthEndClose.js",
+      "type": "REVIEW",
+      "lines": 25,
+      "exports": [
+        "runMonthEndClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runPeriodClose.js",
+      "type": "REVIEW",
+      "lines": 26,
+      "exports": [
+        "runPeriodClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runRetainedEarnings.js",
+      "type": "REVIEW",
+      "lines": 25,
+      "exports": [
+        "runRetainedEarnings"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runRiskAnalysis.js",
+      "type": "REVIEW",
+      "lines": 33,
+      "exports": [
+        "runRiskAnalysis"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/strategy/getBoardReport.js",
+      "type": "REVIEW",
+      "lines": 29,
+      "exports": [
+        "getBoardReport"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/strategy/getStrategicInsights.js",
+      "type": "REVIEW",
+      "lines": 24,
+      "exports": [
+        "getStrategicInsights"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/strategy/runCostAllocation.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "runCostAllocation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/strategy/runScenarioPlanning.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "runScenarioPlanning"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/year-end/index.js",
+      "type": "REVIEW",
+      "lines": 3,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    }
+  ],
+  "classifications": [
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/accounting/page.jsx",
+      "type": "UI",
+      "lines": 218,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/ap/page.jsx",
+      "type": "UI",
+      "lines": 211,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/ar/aging/page.jsx",
+      "type": "UI",
+      "lines": 117,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/ar/invoices/new/page.jsx",
+      "type": "UI",
+      "lines": 275,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/ar/invoices/page.jsx",
+      "type": "UI",
+      "lines": 210,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/ar/page.jsx",
+      "type": "UI",
+      "lines": 177,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/ar/payments/page.jsx",
+      "type": "UI",
+      "lines": 427,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/ar/receivables/page.jsx",
+      "type": "UI",
+      "lines": 171,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/close/page.jsx",
+      "type": "UI",
+      "lines": 216,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/filings/page.jsx",
+      "type": "UI",
+      "lines": 22,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/invoices/page.jsx",
+      "type": "UI",
+      "lines": 124,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/journals/page.jsx",
+      "type": "UI",
+      "lines": 112,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/layout.jsx",
+      "type": "REVIEW",
+      "lines": 6,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/ledger/page.jsx",
+      "type": "UI",
+      "lines": 142,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/matching/page.jsx",
+      "type": "UI",
+      "lines": 132,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/page.jsx",
+      "type": "UI",
+      "lines": 83,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/payments/page.jsx",
+      "type": "UI",
+      "lines": 134,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx",
+      "type": "UI",
+      "lines": 214,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/purchase-orders/page.jsx",
+      "type": "UI",
+      "lines": 95,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/receiving/page.jsx",
+      "type": "UI",
+      "lines": 72,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/reports/page.jsx",
+      "type": "REPORTING",
+      "lines": 22,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/tax/page.jsx",
+      "type": "UI",
+      "lines": 206,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/trial-balance/page.jsx",
+      "type": "UI",
+      "lines": 119,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/(system)/workspace/[organizationId]/finance/vendors/page.jsx",
+      "type": "UI",
+      "lines": 103,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/accounting/runtime/route.js",
+      "type": "RUNTIME",
+      "lines": 105,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/accounts-payable/aging-report/route.js",
+      "type": "API",
+      "lines": 49,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/accounts-payable/pay/route.js",
+      "type": "API",
+      "lines": 53,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/accounts-payable/route.js",
+      "type": "API",
+      "lines": 229,
+      "exports": [
+        "POST",
+        "PUT",
+        "PATCH"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/accounts-receivable/list/route.js",
+      "type": "API",
+      "lines": 71,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/anomalies/route.js",
+      "type": "API",
+      "lines": 222,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/ar/aging/route.js",
+      "type": "API",
+      "lines": 75,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/ar/runtime/route.js",
+      "type": "RUNTIME",
+      "lines": 125,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/audit-trail/anomaly-detection/route.js",
+      "type": "API",
+      "lines": 33,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/audit-trail/entity-history/route.js",
+      "type": "API",
+      "lines": 41,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/audit-trail/live/route.js",
+      "type": "API",
+      "lines": 49,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/audit-trail/log/route.js",
+      "type": "API",
+      "lines": 47,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/budgeting/create/route.js",
+      "type": "API",
+      "lines": 94,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/budgeting/route.js",
+      "type": "API",
+      "lines": 161,
+      "exports": [
+        "POST",
+        "PUT",
+        "PATCH"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/budgeting/variance/route.js",
+      "type": "API",
+      "lines": 55,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/cash-flow/route.js",
+      "type": "API",
+      "lines": 199,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/cash-flow/run/route.js",
+      "type": "API",
+      "lines": 33,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/close/runtime/route.js",
+      "type": "RUNTIME",
+      "lines": 91,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/cogs/route.js",
+      "type": "API",
+      "lines": 65,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/consolidation/route.js",
+      "type": "API",
+      "lines": 105,
+      "exports": [
+        "POST",
+        "PUT",
+        "PATCH"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/cost-centers/create/route.js",
+      "type": "API",
+      "lines": 83,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/cost-centers/list/route.js",
+      "type": "API",
+      "lines": 105,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/cost-centers/toggle/route.js",
+      "type": "API",
+      "lines": 135,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/customer-invoices/create/route.js",
+      "type": "API",
+      "lines": 90,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/customer-invoices/list/route.js",
+      "type": "API",
+      "lines": 79,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/customer-payments/create/route.js",
+      "type": "API",
+      "lines": 93,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/customer-payments/list/route.js",
+      "type": "API",
+      "lines": 71,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/depreciation/run/route.js",
+      "type": "API",
+      "lines": 114,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/executive-dashboard/alerts/route.js",
+      "type": "API",
+      "lines": 33,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/executive-dashboard/entity-ranking/route.js",
+      "type": "API",
+      "lines": 35,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/executive-dashboard/kpi/route.js",
+      "type": "API",
+      "lines": 33,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/fixed-assets/create/route.js",
+      "type": "API",
+      "lines": 44,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/fixed-assets/depreciation/route.js",
+      "type": "API",
+      "lines": 49,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/fixed-assets/list/route.js",
+      "type": "API",
+      "lines": 138,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/forecast/route.js",
+      "type": "API",
+      "lines": 35,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/general-ledger/route.js",
+      "type": "API",
+      "lines": 50,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/gl-posting/route.js",
+      "type": "API",
+      "lines": 77,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/health/route.js",
+      "type": "API",
+      "lines": 299,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/insights/route.js",
+      "type": "API",
+      "lines": 346,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/intercompany/create/route.js",
+      "type": "API",
+      "lines": 43,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/intercompany/eliminate/route.js",
+      "type": "API",
+      "lines": 37,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/intercompany/reconcile/route.js",
+      "type": "API",
+      "lines": 39,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/intercompany/runtime/route.js",
+      "type": "RUNTIME",
+      "lines": 134,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/intercompany/settle/route.js",
+      "type": "API",
+      "lines": 151,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/invoice-matching/create/route.js",
+      "type": "API",
+      "lines": 94,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/invoice-matching/runtime/route.js",
+      "type": "RUNTIME",
+      "lines": 145,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/journal-chain/route.js",
+      "type": "API",
+      "lines": 172,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/journal/route.js",
+      "type": "API",
+      "lines": 206,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/journals/[id]/route.js",
+      "type": "API",
+      "lines": 173,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/journals/request-reversal/route.js",
+      "type": "API",
+      "lines": 251,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/journals/reverse/route.js",
+      "type": "API",
+      "lines": 444,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/journals/route.js",
+      "type": "API",
+      "lines": 187,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/kpis/route.js",
+      "type": "API",
+      "lines": 293,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/legal-entities/create/route.js",
+      "type": "API",
+      "lines": 83,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/legal-entities/list/route.js",
+      "type": "API",
+      "lines": 105,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/legal-entities/toggle/route.js",
+      "type": "API",
+      "lines": 135,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/module/route.js",
+      "type": "API",
+      "lines": 30,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/month-end/close-period/route.js",
+      "type": "API",
+      "lines": 77,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/month-end/status/route.js",
+      "type": "API",
+      "lines": 54,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/payments/list/route.js",
+      "type": "API",
+      "lines": 110,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/payments/route.js",
+      "type": "API",
+      "lines": 37,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/period-close/route.js",
+      "type": "API",
+      "lines": 114,
+      "exports": [
+        "POST",
+        "PUT"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/periods/close/route.js",
+      "type": "API",
+      "lines": 253,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/periods/open/route.js",
+      "type": "API",
+      "lines": 231,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/periods/route.js",
+      "type": "API",
+      "lines": 96,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/periods/update-status/route.js",
+      "type": "API",
+      "lines": 128,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/procure-to-pay/runtime/route.js",
+      "type": "RUNTIME",
+      "lines": 157,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/real-time-close/approval/route.js",
+      "type": "API",
+      "lines": 39,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/real-time-close/exceptions/route.js",
+      "type": "API",
+      "lines": 33,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/real-time-close/run/route.js",
+      "type": "API",
+      "lines": 35,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/reconciliation/route.js",
+      "type": "API",
+      "lines": 139,
+      "exports": [
+        "POST",
+        "PUT"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/reports/profit-loss/route.js",
+      "type": "REPORTING",
+      "lines": 35,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/role-permissions/check/route.js",
+      "type": "API",
+      "lines": 62,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/role-permissions/create/route.js",
+      "type": "API",
+      "lines": 57,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "app/api/finance/runtime/route.js",
+      "type": "RUNTIME",
+      "lines": 137,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/summary/route.js",
+      "type": "API",
+      "lines": 48,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/tax/runtime/route.js",
+      "type": "RUNTIME",
+      "lines": 124,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/treasury/liquidity/route.js",
+      "type": "API",
+      "lines": 33,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/treasury/payment-priority/route.js",
+      "type": "API",
+      "lines": 35,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/trial-balance/route.js",
+      "type": "API",
+      "lines": 217,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/vendor-invoices/list/route.js",
+      "type": "API",
+      "lines": 104,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/year-end/close-fiscal-year/route.js",
+      "type": "API",
+      "lines": 74,
+      "exports": [
+        "POST"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "app/api/finance/year-end/status/route.js",
+      "type": "API",
+      "lines": 48,
+      "exports": [
+        "GET"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/accounting/accountingConfig.js",
+      "type": "REVIEW",
+      "lines": 100,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/accounting/createJournalEntry.js",
+      "type": "REVIEW",
+      "lines": 313,
+      "exports": [
+        "createJournalEntry"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/accounting/findAccount.js",
+      "type": "REVIEW",
+      "lines": 40,
+      "exports": [
+        "findAccount"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/accounting/postDepreciationToLedger.js",
+      "type": "REVIEW",
+      "lines": 189,
+      "exports": [
+        "postDepreciationToLedger"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/accounting/postInvoiceToLedger.js",
+      "type": "REVIEW",
+      "lines": 160,
+      "exports": [
+        "postInvoiceToLedger"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/accounting/postPaymentToLedger.js",
+      "type": "REVIEW",
+      "lines": 162,
+      "exports": [
+        "postPaymentToLedger"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/accounting/utils/getNextJENumber.js",
+      "type": "REVIEW",
+      "lines": 52,
+      "exports": [
+        "getNextJENumber"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/accounting/validateAccountingPeriod.js",
+      "type": "REVIEW",
+      "lines": 43,
+      "exports": [
+        "validateAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/accounts-payable/createAccountsPayableEntry.js",
+      "type": "REVIEW",
+      "lines": 118,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/accounts-payable/index.js",
+      "type": "REVIEW",
+      "lines": 3,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/accounts-receivable/createCustomerInvoice.js",
+      "type": "REVIEW",
+      "lines": 96,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/accounts-receivable/postCustomerPayment.js",
+      "type": "REVIEW",
+      "lines": 163,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/analytics/calcOverview.js",
+      "type": "ANALYTICS",
+      "lines": 111,
+      "exports": [
+        "calculateOverview"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/analytics/getAPAging.js",
+      "type": "ANALYTICS",
+      "lines": 40,
+      "exports": [
+        "getAPAging"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/analytics/getARAging.js",
+      "type": "ANALYTICS",
+      "lines": 40,
+      "exports": [
+        "getARAging"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/analytics/getLiquidityMetrics.js",
+      "type": "ANALYTICS",
+      "lines": 65,
+      "exports": [
+        "getLiquidityMetrics"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/automation/runMonthlyClose.js",
+      "type": "AUTOMATION",
+      "lines": 60,
+      "exports": [
+        "runMonthlyClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/automation/runMonthlyTaxClose.js",
+      "type": "AUTOMATION",
+      "lines": 42,
+      "exports": [
+        "runMonthlyTaxClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/balanceSheet/buildBalanceSheet.js",
+      "type": "REVIEW",
+      "lines": 100,
+      "exports": [
+        "buildBalanceSheet"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/bridge/orderFinanceBridge.js",
+      "type": "REVIEW",
+      "lines": 32,
+      "exports": [
+        "handleOrderFinanceEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/budgeting/calculateBudgetVariance.js",
+      "type": "REVIEW",
+      "lines": 67,
+      "exports": [
+        "calculateBudgetVariance"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/budgeting/createBudget.js",
+      "type": "REVIEW",
+      "lines": 62,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/calculateBill.js",
+      "type": "REVIEW",
+      "lines": 77,
+      "exports": [
+        "calculateBill"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/cashflow/buildCashflowSummary.js",
+      "type": "REVIEW",
+      "lines": 84,
+      "exports": [
+        "buildCashflowSummary"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/closeAccountingPeriod.js",
+      "type": "REVIEW",
+      "lines": 21,
+      "exports": [
+        "closeAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/consolidation/buildFinancialConsolidation.js",
+      "type": "REVIEW",
+      "lines": 86,
+      "exports": [
+        "buildFinancialConsolidation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/consolidation/generateConsolidatedFinancials.js",
+      "type": "REVIEW",
+      "lines": 138,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/approveAutonomousClose.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 57,
+      "exports": [
+        "approveAutonomousClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/approveRealTimeClose.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "approveRealTimeClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/approveSelfHealingAction.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 53,
+      "exports": [
+        "approveSelfHealingAction"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/assignDimensionToJournalLine.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 25,
+      "exports": [
+        "assignDimensionToJournalLine"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/calculateRecipeCost.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 90,
+      "exports": [
+        "calculateRecipeCost"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/calculateRetainedEarnings.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 73,
+      "exports": [
+        "calculateRetainedEarnings"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/calculateTax.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 75,
+      "exports": [
+        "calculateTax"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/calculateVATLiability.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 45,
+      "exports": [
+        "calculateVATLiability"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/configureTaxRule.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 34,
+      "exports": [
+        "configureTaxRule"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createAuditLog.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 36,
+      "exports": [
+        "createAuditLog"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createBudget.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 61,
+      "exports": [
+        "createBudget"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createBudgetPlan.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "createBudgetPlan"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createDimension.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 17,
+      "exports": [
+        "createDimension"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createEntityHistorySnapshot.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 30,
+      "exports": [
+        "createEntityHistorySnapshot"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createEventLineage.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 37,
+      "exports": [
+        "createEventLineage"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createIntercompanyTransaction.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 38,
+      "exports": [
+        "createIntercompanyTransaction"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createInventoryCostLayer.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 38,
+      "exports": [
+        "createInventoryCostLayer"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createPaymentBatch.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 43,
+      "exports": [
+        "createPaymentBatch"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createPostingRule.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 17,
+      "exports": [
+        "createPostingRule"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createRegulatoryFiling.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 35,
+      "exports": [
+        "createRegulatoryFiling"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/createUnlockRequest.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 17,
+      "exports": [
+        "createUnlockRequest"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/disposeFixedAsset.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 58,
+      "exports": [
+        "disposeFixedAsset"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/emitAccountingEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 61,
+      "exports": [
+        "emitAccountingEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/emitInventoryConsumptionEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 27,
+      "exports": [
+        "emitInventoryConsumptionEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/emitInventoryReceiptEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 29,
+      "exports": [
+        "emitInventoryReceiptEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/emitInventoryWasteEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 27,
+      "exports": [
+        "emitInventoryWasteEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/generateTaxReport.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 75,
+      "exports": [
+        "generateTaxReport"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/getAccountingAlerts.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 22,
+      "exports": [
+        "getAccountingAlerts"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getAccountingEvents.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 32,
+      "exports": [
+        "getAccountingEvents"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getAccountingFailures.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getAccountingFailures"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getAuditTrail.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "getAuditTrail"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getAutonomousCloseStatus.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 25,
+      "exports": [
+        "getAutonomousCloseStatus"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getBudgetVariance.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 86,
+      "exports": [
+        "getBudgetVariance"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getCashPosition.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 30,
+      "exports": [
+        "getCashPosition"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getCloseChecklistStatus.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 45,
+      "exports": [
+        "getCloseChecklistStatus"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getContinuousCloseExceptions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 25,
+      "exports": [
+        "getContinuousCloseExceptions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getContinuousCloseStatus.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 26,
+      "exports": [
+        "getContinuousCloseStatus"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getDimensions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 33,
+      "exports": [
+        "getDimensions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEnterpriseActions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 31,
+      "exports": [
+        "getEnterpriseActions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEnterpriseHealth.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 26,
+      "exports": [
+        "getEnterpriseHealth"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEntityAuditTrail.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 26,
+      "exports": [
+        "getEntityAuditTrail"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventGovernanceAudit.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 30,
+      "exports": [
+        "getEventGovernanceAudit"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventGraph.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 41,
+      "exports": [
+        "getEventGraph"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventLineage.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getEventLineage"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventProcessingStatus.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 38,
+      "exports": [
+        "getEventProcessingStatus"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getEventSchema.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 29,
+      "exports": [
+        "getEventSchema"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getLedgerBalances.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 101,
+      "exports": [
+        "getLedgerBalances"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getPostingRule.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 22,
+      "exports": [
+        "getPostingRule"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getRealTimeCloseExceptions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 25,
+      "exports": [
+        "getRealTimeCloseExceptions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getReconciliationExceptions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 21,
+      "exports": [
+        "getReconciliationExceptions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getSchedulerJobs.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getSchedulerJobs"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getSelfHealingHistory.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getSelfHealingHistory"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getTaxRule.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 21,
+      "exports": [
+        "getTaxRule"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/getWorkflowHistory.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 24,
+      "exports": [
+        "getWorkflowHistory"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/importBankTransaction.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 55,
+      "exports": [
+        "importBankTransaction"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/lockAccountingPeriod.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 32,
+      "exports": [
+        "lockAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/postAPSubledger.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 17,
+      "exports": [
+        "postAPSubledger"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/postARSubledger.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 17,
+      "exports": [
+        "postARSubledger"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/postAccrualEntry.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 47,
+      "exports": [
+        "postAccrualEntry"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/postAutomaticJournal.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 61,
+      "exports": [
+        "postAutomaticJournal"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/postInventorySubledger.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 17,
+      "exports": [
+        "postInventorySubledger"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/postJournalEntrySafe.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 65,
+      "exports": [
+        "postJournalEntrySafe"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/processAccountingEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 148,
+      "exports": [
+        "processAccountingEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/processAccountingEvents.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 65,
+      "exports": [
+        "processAccountingEvents"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/processCOGSForSale.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 81,
+      "exports": [
+        "processCOGSForSale"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/processPendingEvents.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 58,
+      "exports": [
+        "processPendingEvents"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/recognizeDeferredRevenue.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 68,
+      "exports": [
+        "recognizeDeferredRevenue"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/registerDomainRules.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 20,
+      "exports": [
+        "registerDomainRules"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/registerEventSchema.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 18,
+      "exports": [
+        "registerEventSchema"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/registerFixedAsset.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 25,
+      "exports": [
+        "registerFixedAsset"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/reopenAccountingPeriod.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 35,
+      "exports": [
+        "reopenAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/replayAccountingEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 71,
+      "exports": [
+        "replayAccountingEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/retryFailedAccountingEvents.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "retryFailedAccountingEvents"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runAccountReconciliation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 63,
+      "exports": [
+        "runAccountReconciliation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runAutonomousFinanceActions.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 53,
+      "exports": [
+        "runAutonomousFinanceActions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runBankReconciliation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 78,
+      "exports": [
+        "runBankReconciliation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/runBudgetVariance.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 76,
+      "exports": [
+        "runBudgetVariance"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runCashFlowEngine.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 58,
+      "exports": [
+        "runCashFlowEngine"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runCashReconciliation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 61,
+      "exports": [
+        "runCashReconciliation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runConsolidation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 58,
+      "exports": [
+        "runConsolidation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runConsolidationElimination.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 36,
+      "exports": [
+        "runConsolidationElimination"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runCurrencyTranslation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 40,
+      "exports": [
+        "runCurrencyTranslation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runEnterpriseCommandCenter.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 148,
+      "exports": [
+        "runEnterpriseCommandCenter"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runExecutiveDecisionEngine.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 75,
+      "exports": [
+        "runExecutiveDecisionEngine"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runFIFOConsumption.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 99,
+      "exports": [
+        "runFIFOConsumption"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runFXRevaluation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 52,
+      "exports": [
+        "runFXRevaluation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/runGlobalConsolidation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 74,
+      "exports": [
+        "runGlobalConsolidation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runIntercompanyElimination.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 30,
+      "exports": [
+        "runIntercompanyElimination"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runIntercompanyReconciliation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 56,
+      "exports": [
+        "runIntercompanyReconciliation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runItemProfitability.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 75,
+      "exports": [
+        "runItemProfitability"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runLaborCosting.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 49,
+      "exports": [
+        "runLaborCosting"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runPaymentBatch.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 41,
+      "exports": [
+        "runPaymentBatch"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runPaymentPriorityQueue.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 52,
+      "exports": [
+        "runPaymentPriorityQueue"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runRealTimeClose.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 95,
+      "exports": [
+        "runRealTimeClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runRealTimeProfitability.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 67,
+      "exports": [
+        "runRealTimeProfitability"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/core/runRegulatoryReporting.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 72,
+      "exports": [
+        "runRegulatoryReporting"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runRiskScoring.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 88,
+      "exports": [
+        "runRiskScoring"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runSelfHealingEngine.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 82,
+      "exports": [
+        "runSelfHealingEngine"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runTaxFiling.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 50,
+      "exports": [
+        "runTaxFiling"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runTrialBalance.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 64,
+      "exports": [
+        "runTrialBalance"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runVATClose.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 80,
+      "exports": [
+        "runVATClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runWeightedAverageValuation.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 67,
+      "exports": [
+        "runWeightedAverageValuation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/runYearEndClose.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 96,
+      "exports": [
+        "runYearEndClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/settleInvoice.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 49,
+      "exports": [
+        "settleInvoice"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/validateDomainEvent.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 60,
+      "exports": [
+        "validateDomainEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/core/writeImmutableAudit.js",
+      "type": "POSSIBLE_ENGINE",
+      "lines": 15,
+      "exports": [
+        "writeImmutableAudit"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/cost-centers/createCostCenter.js",
+      "type": "REVIEW",
+      "lines": 99,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createARInvoice.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createARInvoice"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createAccountingPeriod.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createApprovalRequest.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createApprovalRequest"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createBankAccount.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createBankAccount"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createCogsEntry.js",
+      "type": "REVIEW",
+      "lines": 159,
+      "exports": [
+        "createCogsEntry"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createCurrencyRate.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createCurrencyRate"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createCustomer.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createCustomer"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createPaymentTransaction.js",
+      "type": "REVIEW",
+      "lines": 113,
+      "exports": [
+        "createPaymentTransaction"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createTaxRate.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createTaxRate"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/createVendor.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createVendor"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/dashboard/loadExecutiveFinancials.js",
+      "type": "REVIEW",
+      "lines": 97,
+      "exports": [
+        "loadExecutiveFinancials"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/enterprise/getTreasuryPositions.js",
+      "type": "REVIEW",
+      "lines": 16,
+      "exports": [
+        "getTreasuryPositions"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/enterprise/runCapitalPlanning.js",
+      "type": "REVIEW",
+      "lines": 18,
+      "exports": [
+        "runCapitalPlanning"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/enterprise/runCovenantChecks.js",
+      "type": "REVIEW",
+      "lines": 18,
+      "exports": [
+        "runCovenantChecks"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/enterprise/runESGReport.js",
+      "type": "REVIEW",
+      "lines": 11,
+      "exports": [
+        "runESGReport"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/entity-management/createEntity.js",
+      "type": "REVIEW",
+      "lines": 62,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/events/eventTemplates.js",
+      "type": "REVIEW",
+      "lines": 128,
+      "exports": [
+        "buildJournalLinesFromEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/executive/getEnterpriseHealth.js",
+      "type": "REVIEW",
+      "lines": 14,
+      "exports": [
+        "getEnterpriseHealth"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/executive/getExecutiveKPIs.js",
+      "type": "REVIEW",
+      "lines": 14,
+      "exports": [
+        "getExecutiveKPIs"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/executive/getForecastVsActual.js",
+      "type": "REVIEW",
+      "lines": 21,
+      "exports": [
+        "getForecastVsActual"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/executive/getWorkingCapital.js",
+      "type": "REVIEW",
+      "lines": 59,
+      "exports": [
+        "getWorkingCapital"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/financeModule.js",
+      "type": "REVIEW",
+      "lines": 38,
+      "exports": [
+        "financeModule"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/fixed-assets/calculateDepreciation.js",
+      "type": "REVIEW",
+      "lines": 58,
+      "exports": [
+        "calculateDepreciation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/fixed-assets/createFixedAsset.js",
+      "type": "REVIEW",
+      "lines": 104,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/forecasting/buildRevenueForecast.js",
+      "type": "REVIEW",
+      "lines": 68,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/forecasting/generateFinancialForecast.js",
+      "type": "REVIEW",
+      "lines": 67,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/gateway/financeGateway.js",
+      "type": "REVIEW",
+      "lines": 28,
+      "exports": [
+        "financeGateway"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/general-ledger/index.js",
+      "type": "REVIEW",
+      "lines": 2,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/general-ledger/postJournalToLedger.js",
+      "type": "REVIEW",
+      "lines": 151,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/generateReceiptNumber.js",
+      "type": "REVIEW",
+      "lines": 47,
+      "exports": [
+        "generateReceiptNumber"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/getAccountingKPIs.js",
+      "type": "REVIEW",
+      "lines": 39,
+      "exports": [
+        "getAccountingKPIs"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/getCashflowSummary.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "getCashflowSummary"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/getExecutiveFinancialSummary.js",
+      "type": "REVIEW",
+      "lines": 30,
+      "exports": [
+        "getExecutiveFinancialSummary"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/getGeneralLedger.js",
+      "type": "REVIEW",
+      "lines": 53,
+      "exports": [
+        "getGeneralLedger"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/getJournalSourceRoute.js",
+      "type": "REVIEW",
+      "lines": 55,
+      "exports": [
+        "getJournalSourceRoute"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/gl-posting/postVendorPaymentGL.js",
+      "type": "REVIEW",
+      "lines": 37,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/group/createLegalEntity.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createLegalEntity"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/group/getGroupStructure.js",
+      "type": "REVIEW",
+      "lines": 13,
+      "exports": [
+        "getGroupStructure"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/group/getOwnershipStructure.js",
+      "type": "REVIEW",
+      "lines": 16,
+      "exports": [
+        "getOwnershipStructure"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/group/runEliminations.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "runEliminations"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/index.js",
+      "type": "REVIEW",
+      "lines": 5,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/integrations/postCOGS.js",
+      "type": "REVIEW",
+      "lines": 23,
+      "exports": [
+        "postCOGS"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/integrations/postPayroll.js",
+      "type": "REVIEW",
+      "lines": 23,
+      "exports": [
+        "postPayroll"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/integrations/postSupplierInvoice.js",
+      "type": "REVIEW",
+      "lines": 25,
+      "exports": [
+        "postSupplierInvoice"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/intercompany/createIntercompanyTransaction.js",
+      "type": "REVIEW",
+      "lines": 143,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/invoice-matching/createInvoiceMatch.js",
+      "type": "REVIEW",
+      "lines": 9,
+      "exports": [
+        "createInvoiceMatch"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/invoice-matching/runThreeWayMatch.js",
+      "type": "REVIEW",
+      "lines": 273,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/ledger/updateLedgerBalances.js",
+      "type": "REVIEW",
+      "lines": 92,
+      "exports": [
+        "updateLedgerBalances"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/legal-entities/createLegalEntity.js",
+      "type": "REVIEW",
+      "lines": 120,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/loadDailyRevenue.js",
+      "type": "REVIEW",
+      "lines": 65,
+      "exports": [
+        "loadDailyRevenue"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/loadFinanceOverview.js",
+      "type": "REVIEW",
+      "lines": 80,
+      "exports": [
+        "loadFinanceOverview"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/management/createCostCenter.js",
+      "type": "REVIEW",
+      "lines": 17,
+      "exports": [
+        "createCostCenter"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/management/getDepartmentPerformance.js",
+      "type": "REVIEW",
+      "lines": 18,
+      "exports": [
+        "getDepartmentPerformance"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/management/getVarianceAnalysis.js",
+      "type": "REVIEW",
+      "lines": 26,
+      "exports": [
+        "getVarianceAnalysis"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/master-data/defaultChartOfAccounts.js",
+      "type": "REVIEW",
+      "lines": 31,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/master-data/getChartOfAccounts.js",
+      "type": "REVIEW",
+      "lines": 21,
+      "exports": [
+        "getChartOfAccounts"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/master-data/seedChartOfAccounts.js",
+      "type": "REVIEW",
+      "lines": 28,
+      "exports": [
+        "seedChartOfAccounts"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/monthEnd/closeAccountingPeriod.js",
+      "type": "REVIEW",
+      "lines": 40,
+      "exports": [
+        "closeAccountingPeriod"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/onboarding/applyTaxSetup.js",
+      "type": "REVIEW",
+      "lines": 103,
+      "exports": [
+        "applyTaxSetup"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/payments/payAccountsPayable.js",
+      "type": "REVIEW",
+      "lines": 81,
+      "exports": [
+        "payAccountsPayable"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/payments/processVendorPayment.js",
+      "type": "REVIEW",
+      "lines": 186,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/period-close/closeAccountingPeriod.js",
+      "type": "REVIEW",
+      "lines": 92,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/permissions/checkFinancePermission.js",
+      "type": "REVIEW",
+      "lines": 23,
+      "exports": [
+        "checkFinancePermission"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/postAccountingEvent.js",
+      "type": "REVIEW",
+      "lines": 66,
+      "exports": [
+        "postAccountingEvent"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/profitLoss/buildProfitLossSummary.js",
+      "type": "REVIEW",
+      "lines": 137,
+      "exports": [
+        "buildProfitLossSummary"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/profitability/calculateDepartmentProfitability.js",
+      "type": "REVIEW",
+      "lines": 212,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reconciliation/runBankReconciliation.js",
+      "type": "REVIEW",
+      "lines": 113,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/reporting/core/generateBalanceSheet.js",
+      "type": "REPORTING",
+      "lines": 106,
+      "exports": [
+        "generateBalanceSheet"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/reporting/core/generateConsolidatedReport.js",
+      "type": "REPORTING",
+      "lines": 224,
+      "exports": [
+        "generateConsolidatedReport"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reporting/core/generateFinancialStatements.js",
+      "type": "REPORTING",
+      "lines": 64,
+      "exports": [
+        "generateFinancialStatements"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/reporting/core/generateFinancialStatementsFromLedger.js",
+      "type": "REPORTING",
+      "lines": 98,
+      "exports": [
+        "generateFinancialStatementsFromLedger"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reporting/generateCashflow.js",
+      "type": "REPORTING",
+      "lines": 37,
+      "exports": [
+        "generateCashflow"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reports/buildAccountsPayableAging.js",
+      "type": "REPORTING",
+      "lines": 127,
+      "exports": [
+        "buildAccountsPayableAging"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reports/eu/generateEUVAT.js",
+      "type": "REPORTING",
+      "lines": 39,
+      "exports": [
+        "generateEUVAT"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reports/generateBalanceSheet.js",
+      "type": "REPORTING",
+      "lines": 96,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reports/generateProfitLoss.js",
+      "type": "REPORTING",
+      "lines": 83,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reports/generateTrialBalance.js",
+      "type": "REPORTING",
+      "lines": 87,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/reports/thailand/generatePP30.js",
+      "type": "REPORTING",
+      "lines": 41,
+      "exports": [
+        "generatePP30"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/revalueCurrencyBalances.js",
+      "type": "REVIEW",
+      "lines": 34,
+      "exports": [
+        "revalueCurrencyBalances"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/reversals/createJournalReversal.js",
+      "type": "REVIEW",
+      "lines": 219,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runAutoPostingWorkflow.js",
+      "type": "REVIEW",
+      "lines": 25,
+      "exports": [
+        "runAutoPostingWorkflow"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runComplianceChecks.js",
+      "type": "REVIEW",
+      "lines": 44,
+      "exports": [
+        "runComplianceChecks"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runConsolidation.js",
+      "type": "REVIEW",
+      "lines": 32,
+      "exports": [
+        "runConsolidation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/runDepreciation.js",
+      "type": "REVIEW",
+      "lines": 29,
+      "exports": [
+        "runDepreciation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runForecasting.js",
+      "type": "REVIEW",
+      "lines": 33,
+      "exports": [
+        "runForecasting"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runFraudDetection.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "runFraudDetection"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runMonthEndClose.js",
+      "type": "REVIEW",
+      "lines": 25,
+      "exports": [
+        "runMonthEndClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runPeriodClose.js",
+      "type": "REVIEW",
+      "lines": 26,
+      "exports": [
+        "runPeriodClose"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runRetainedEarnings.js",
+      "type": "REVIEW",
+      "lines": 25,
+      "exports": [
+        "runRetainedEarnings"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/runRiskAnalysis.js",
+      "type": "REVIEW",
+      "lines": 33,
+      "exports": [
+        "runRiskAnalysis"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/services/getFinanceSummary.js",
+      "type": "REVIEW",
+      "lines": 305,
+      "exports": [
+        "getFinanceSummary"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/shared/financialEngine.js",
+      "type": "REVIEW",
+      "lines": 191,
+      "exports": [
+        "calculateFinancialHealth"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/statement-import/importBankStatement.js",
+      "type": "REVIEW",
+      "lines": 70,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/statements/generateProfitAndLoss.js",
+      "type": "REVIEW",
+      "lines": 97,
+      "exports": [
+        "generateProfitAndLoss"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/strategy/getBoardReport.js",
+      "type": "REVIEW",
+      "lines": 29,
+      "exports": [
+        "getBoardReport"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/strategy/getStrategicInsights.js",
+      "type": "REVIEW",
+      "lines": 24,
+      "exports": [
+        "getStrategicInsights"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/strategy/runCostAllocation.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "runCostAllocation"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/strategy/runScenarioPlanning.js",
+      "type": "REVIEW",
+      "lines": 35,
+      "exports": [
+        "runScenarioPlanning"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/variance-analysis/runVarianceAnalysis.js",
+      "type": "REVIEW",
+      "lines": 108,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/vendor-invoices/createVendorInvoice.js",
+      "type": "REVIEW",
+      "lines": 71,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": true,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/workflow/approveTaxFiling.js",
+      "type": "WORKFLOW",
+      "lines": 31,
+      "exports": [
+        "approveTaxFiling"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/workflow/lockTaxFiling.js",
+      "type": "WORKFLOW",
+      "lines": 29,
+      "exports": [
+        "lockTaxFiling"
+      ],
+      "defaultExport": false,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": true
+    },
+    {
+      "file": "lib/finance/year-end/index.js",
+      "type": "REVIEW",
+      "lines": 3,
+      "exports": [],
+      "defaultExport": false,
+      "usesSupabaseAdmin": false,
+      "usesOrganizationId": false,
+      "usesTenantId": false,
+      "hasDBWrite": false
+    },
+    {
+      "file": "lib/finance/year-end/runYearEndClose.js",
+      "type": "REVIEW",
+      "lines": 105,
+      "exports": [],
+      "defaultExport": true,
+      "usesSupabaseAdmin": true,
+      "usesOrganizationId": false,
+      "usesTenantId": true,
+      "hasDBWrite": false
+    }
+  ]
+}

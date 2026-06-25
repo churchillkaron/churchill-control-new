@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { processAccountingEvents } from "@/lib/finance/core/processAccountingEvents";
+import { processAccountingEvents } from "@/lib/finance/accounting/processAccountingEvents";
 
 export async function POST(request) {
   try {

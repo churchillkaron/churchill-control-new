@@ -1,38 +1,30 @@
 import { NextResponse } from "next/server";
-
-import { createIntercompanyTransaction } from "@/lib/finance/core/createIntercompanyTransaction";
+import createIntercompanyTransaction from "@/lib/finance/intercompany/createIntercompanyTransaction";
 
 export async function POST(request) {
   try {
-    const body =
-      await request.json();
+    const body = await request.json();
 
-    const transaction =
+    const result =
       await createIntercompanyTransaction({
-        tenantId:
-          body.tenantId,
-        sourceEntity:
-          body.sourceEntity,
-        targetEntity:
-          body.targetEntity,
-        transactionType:
-          body.transactionType,
-        referenceNumber:
-          body.referenceNumber,
-        amount:
-          body.amount,
+        tenant_id: body.tenant_id,
+        from_legal_entity_id: body.from_legal_entity_id,
+        to_legal_entity_id: body.to_legal_entity_id,
+        transaction_type: body.transaction_type,
+        reference_number: body.reference_number,
+        description: body.description,
+        amount: body.amount,
+        currency: body.currency,
+        due_date: body.due_date,
+        created_by: body.created_by,
       });
 
-    return NextResponse.json({
-      success: true,
-      transaction,
-    });
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        message:
-          error.message,
+        error: error.message,
       },
       {
         status: 400,

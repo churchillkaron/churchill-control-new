@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { createAuditLog } from "@/lib/finance/core/createAuditLog";
+import { createAuditLog } from "@/lib/platform/audit/createAuditLog";
 
 export async function POST(request) {
   try {

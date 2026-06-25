@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { emitInventoryWasteEvent } from "@/lib/finance/core/emitInventoryWasteEvent";
+import { emitInventoryWasteEvent } from "@/lib/production/finance/emitInventoryWasteEvent";
 
 export async function POST(request) {
   try {

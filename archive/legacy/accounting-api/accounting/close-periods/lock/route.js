@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { lockAccountingPeriod } from "@/lib/finance/core/lockAccountingPeriod";
+import { lockAccountingPeriod } from "@/lib/finance/period-close/lockAccountingPeriod";
 
 export async function POST(request) {
   try {

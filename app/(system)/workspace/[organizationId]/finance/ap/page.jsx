@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import FinanceNav from "@/components/finance/FinanceNav";
 
 export default function AccountsPayablePage({
   params,
@@ -64,15 +63,7 @@ export default function AccountsPayablePage({
     );
 
   return (
-    <div className="min-h-screen bg-[#030712] text-white p-8">
-
-      <FinanceNav
-        organizationId={
-          organizationId
-        }
-      />
-
-      <div className="mb-8">
+    <div className="min-h-screen bg-[#030712] text-white p-8"><div className="mb-8">
 
         <h1 className="text-4xl font-light">
           Accounts Payable

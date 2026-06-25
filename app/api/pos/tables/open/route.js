@@ -6,7 +6,6 @@ export async function POST(req) {
     const {
       tableId,
       organization_id,
-      tenant_id,
     } = await req.json();
 
     if (!tableId) {
@@ -34,12 +33,6 @@ export async function POST(req) {
         mergeQuery.eq(
           "organization_id",
           organization_id
-        );
-    } else if (tenant_id) {
-      mergeQuery =
-        mergeQuery.eq(
-          "tenant_id",
-          tenant_id
         );
     }
 
@@ -101,12 +94,6 @@ export async function POST(req) {
         orderQuery.eq(
           "organization_id",
           organization_id
-        );
-    } else if (tenant_id) {
-      orderQuery =
-        orderQuery.eq(
-          "tenant_id",
-          tenant_id
         );
     }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runVATClose } from "@/lib/finance/core/runVATClose";
+import { runVATClose } from "@/lib/finance/reporting/runVATClose";
 
 export async function POST(request) {
   try {

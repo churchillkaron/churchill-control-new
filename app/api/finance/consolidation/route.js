@@ -1,39 +1,37 @@
 import { NextResponse } from "next/server";
 
-import createEntity from "@/lib/finance/entity-management/createEntity";
-
+import createLegalEntity from "@/lib/finance/legal-entities/createLegalEntity";
 import createIntercompanyTransaction from "@/lib/finance/intercompany/createIntercompanyTransaction";
-
 import generateConsolidatedFinancials from "@/lib/finance/consolidation/generateConsolidatedFinancials";
 
 export async function POST(req) {
-
   try {
+    const body = await req.json();
 
-    const body =
-      await req.json();
+    const result = await createLegalEntity({
+      tenant_id: body.tenant_id,
+      code: body.code,
+      legal_name: body.legal_name,
+      display_name: body.display_name,
+      tax_id: body.tax_id,
+      registration_number: body.registration_number,
+      country: body.country,
+      currency: body.currency,
+      address: body.address,
+      phone: body.phone,
+      email: body.email,
+      is_holding_company: body.is_holding_company,
+    });
 
-    const result =
-      await createEntity(
-        body
-      );
-
-    return NextResponse.json(
-      result
-    );
+    return NextResponse.json(result);
 
   } catch (error) {
-
     return NextResponse.json(
       {
-
         success: false,
-
-        error:
-          error.message,
+        error: error.message,
       },
       {
-
         status: 500,
       }
     );
@@ -41,33 +39,21 @@ export async function POST(req) {
 }
 
 export async function PUT(req) {
-
   try {
-
-    const body =
-      await req.json();
+    const body = await req.json();
 
     const result =
-      await createIntercompanyTransaction(
-        body
-      );
+      await createIntercompanyTransaction(body);
 
-    return NextResponse.json(
-      result
-    );
+    return NextResponse.json(result);
 
   } catch (error) {
-
     return NextResponse.json(
       {
-
         success: false,
-
-        error:
-          error.message,
+        error: error.message,
       },
       {
-
         status: 500,
       }
     );
@@ -75,28 +61,21 @@ export async function PUT(req) {
 }
 
 export async function PATCH() {
-
   try {
 
     const result =
       await generateConsolidatedFinancials();
 
-    return NextResponse.json(
-      result
-    );
+    return NextResponse.json(result);
 
   } catch (error) {
 
     return NextResponse.json(
       {
-
         success: false,
-
-        error:
-          error.message,
+        error: error.message,
       },
       {
-
         status: 500,
       }
     );

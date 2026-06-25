@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import FinanceNav from "@/components/finance/FinanceNav";
 
 export default function ClosePage({
   params,
@@ -78,13 +77,7 @@ export default function ClosePage({
   ];
 
   return (
-    <div className="min-h-screen bg-[#030712] text-white p-8">
-
-      <FinanceNav
-        organizationId={organizationId}
-      />
-
-      <div className="mt-8 mb-8">
+    <div className="min-h-screen bg-[#030712] text-white p-8"><div className="mt-8 mb-8">
         <h1 className="text-5xl font-extralight">
           Period Close
         </h1>

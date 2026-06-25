@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { emitAccountingEvent } from "@/lib/finance/core/emitAccountingEvent";
+import { emitAccountingEvent } from "@/lib/finance/accounting/emitAccountingEvent";
 
 export async function POST(request) {
   try {

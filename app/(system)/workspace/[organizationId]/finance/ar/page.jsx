@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import FinanceNav from "@/components/finance/FinanceNav";
 
 export default function Page({ params }) {
 
@@ -104,13 +103,7 @@ export default function Page({ params }) {
         <p className="mt-2 text-white/50">
           Order-to-Cash Control Center
         </p>
-      </div>
-
-      <FinanceNav
-        organizationId={organizationId}
-      />
-
-      <div className="grid gap-4 md:grid-cols-4">
+      </div><div className="grid gap-4 md:grid-cols-4">
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
           <div className="text-sm text-white/50">

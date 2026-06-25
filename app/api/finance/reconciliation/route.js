@@ -4,7 +4,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import importBankStatement from "@/lib/finance/statement-import/importBankStatement";
+import importBankStatement from "@/lib/finance/integrations/importBankStatement";
 
 import runBankReconciliation from "@/lib/finance/reconciliation/runBankReconciliation";
 

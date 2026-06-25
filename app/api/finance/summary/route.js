@@ -8,7 +8,7 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 import { getFinanceSummary }
-from "@/lib/finance/services/getFinanceSummary";
+from "@/lib/finance/analytics/getFinanceSummary";
 
 export const GET = withApiHandler(
   "finance-summary",

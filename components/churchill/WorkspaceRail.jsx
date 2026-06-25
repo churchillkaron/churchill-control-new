@@ -168,12 +168,6 @@ const NAVIGATION = [
         route: "/finance",
       },
 
-      {
-        id: "accounting",
-        title: "Accounting",
-        route: "/accounting",
-      },
-
     ],
   },
 

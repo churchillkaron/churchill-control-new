@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runRealTimeClose } from "@/lib/finance/core/runRealTimeClose";
+import { runRealTimeClose } from "@/lib/finance/period-close/runRealTimeClose";
 
 export async function POST(request) {
   try {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { createEntityHistorySnapshot } from "@/lib/finance/core/createEntityHistorySnapshot";
+import { createEntityHistorySnapshot } from "@/lib/platform/audit/createEntityHistorySnapshot";
 
 export async function POST(request) {
   try {

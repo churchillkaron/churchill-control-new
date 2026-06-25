@@ -7,8 +7,12 @@ function scoped(query, { organizationId, tenantId }) {
   return query.eq("tenant_id", tenantId);
 }
 
+function scopedOrderItems(query, { tenantId }) {
+  return query.eq("tenant_id", tenantId);
+}
+
 async function recalcOrder(orderId, context) {
-  const { data: items, error } = await scoped(
+  const { data: items, error } = await scopedOrderItems(
     supabaseAdmin
       .from("order_items")
       .select("*")
@@ -168,7 +172,7 @@ export async function POST(req) {
 
       const itemIds = seatItems.map((item) => item.id);
 
-      const { error: moveError } = await scoped(
+      const { error: moveError } = await scopedOrderItems(
         supabaseAdmin
           .from("order_items")
           .update({

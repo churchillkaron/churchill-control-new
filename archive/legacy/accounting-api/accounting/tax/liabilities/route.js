@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { calculateVATLiability } from "@/lib/finance/core/calculateVATLiability";
+import { calculateVATLiability } from "@/lib/finance/reporting/calculateVATLiability";
 
 export async function POST(request) {
   try {

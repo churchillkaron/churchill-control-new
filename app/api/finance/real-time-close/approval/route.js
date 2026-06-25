@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { approveRealTimeClose } from "@/lib/finance/core/approveRealTimeClose";
+import { approveRealTimeClose } from "@/lib/finance/period-close/approveRealTimeClose";
 
 export async function POST(request) {
   try {

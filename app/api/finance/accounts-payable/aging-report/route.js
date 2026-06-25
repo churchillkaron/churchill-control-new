@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
-import { buildAccountsPayableAging } from '@/lib/finance/reports/buildAccountsPayableAging'
+import { buildAccountsPayableAging } from '@/lib/finance/reporting/accountsPayableAging'
 
 export async function GET() {
 

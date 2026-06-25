@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runConsolidationElimination } from "@/lib/finance/core/runConsolidationElimination";
+import { runConsolidationElimination } from "@/lib/finance/consolidation/runConsolidationElimination";
 
 export async function POST(request) {
   try {

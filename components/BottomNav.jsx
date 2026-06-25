@@ -84,8 +84,8 @@ export default function BottomNav() {
   // =========================
   else if (role === "accounting") {
     links = [
-      { name: "Accounting", href: "/accounting" },
-      { name: "Reports", href: "/accounting/reports" },
+      { name: "Finance", href: "/finance" },
+      { name: "Reports", href: "/finance/reports" },
     ];
   }
 

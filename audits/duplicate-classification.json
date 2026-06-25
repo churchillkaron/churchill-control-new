@@ -1,0 +1,466 @@
+{
+  "createAuditLog": [
+    {
+      "file": "lib/audit/createAuditLog.js",
+      "lines": 73,
+      "importedByApprox": 0,
+      "exports": [
+        "createAuditLog"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/finance/core/createAuditLog.js",
+      "lines": 36,
+      "importedByApprox": 2,
+      "exports": [
+        "createAuditLog"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/pos/audit/createAuditLog.js",
+      "lines": 36,
+      "importedByApprox": 2,
+      "exports": [
+        "createAuditLog"
+      ],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/shared/audit/createAuditLog.js",
+      "lines": 30,
+      "importedByApprox": 0,
+      "exports": [],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": false,
+      "hasTODO": false
+    }
+  ],
+  "closeAccountingPeriod": [
+    {
+      "file": "lib/finance/closeAccountingPeriod.js",
+      "lines": 21,
+      "importedByApprox": 0,
+      "exports": [
+        "closeAccountingPeriod"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/finance/monthEnd/closeAccountingPeriod.js",
+      "lines": 40,
+      "importedByApprox": 2,
+      "exports": [
+        "closeAccountingPeriod"
+      ],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/finance/period-close/closeAccountingPeriod.js",
+      "lines": 92,
+      "importedByApprox": 2,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    }
+  ],
+  "runBankReconciliation": [
+    {
+      "file": "lib/finance/core/runBankReconciliation.js",
+      "lines": 78,
+      "importedByApprox": 0,
+      "exports": [
+        "runBankReconciliation"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": false,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/finance/reconciliation/runBankReconciliation.js",
+      "lines": 113,
+      "importedByApprox": 2,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    }
+  ],
+  "runConsolidation": [
+    {
+      "file": "lib/finance/core/runConsolidation.js",
+      "lines": 58,
+      "importedByApprox": 0,
+      "exports": [
+        "runConsolidation"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/finance/runConsolidation.js",
+      "lines": 32,
+      "importedByApprox": 0,
+      "exports": [
+        "runConsolidation"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": false,
+      "hasTODO": false
+    }
+  ],
+  "runYearEndClose": [
+    {
+      "file": "lib/finance/core/runYearEndClose.js",
+      "lines": 96,
+      "importedByApprox": 0,
+      "exports": [
+        "runYearEndClose"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/finance/year-end/runYearEndClose.js",
+      "lines": 105,
+      "importedByApprox": 4,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": false,
+      "hasTODO": false
+    }
+  ],
+  "createPurchaseOrder": [
+    {
+      "file": "lib/procurement/actions/createPurchaseOrder.js",
+      "lines": 63,
+      "importedByApprox": 0,
+      "exports": [
+        "createPurchaseOrder"
+      ],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/procurement/purchase-orders/createPurchaseOrder.js",
+      "lines": 117,
+      "importedByApprox": 3,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/production/purchaseOrders/createPurchaseOrder.js",
+      "lines": 83,
+      "importedByApprox": 2,
+      "exports": [
+        "createPurchaseOrder"
+      ],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    }
+  ],
+  "createPurchaseRequest": [
+    {
+      "file": "lib/procurement/core/createPurchaseRequest.js",
+      "lines": 29,
+      "importedByApprox": 2,
+      "exports": [
+        "createPurchaseRequest"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/procurement/runtime/createPurchaseRequest.js",
+      "lines": 63,
+      "importedByApprox": 0,
+      "exports": [
+        "createPurchaseRequest"
+      ],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/procurement/services/createPurchaseRequest.js",
+      "lines": 80,
+      "importedByApprox": 3,
+      "exports": [
+        "createPurchaseRequest"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    }
+  ],
+  "runThreeWayMatch": [
+    {
+      "file": "lib/finance/invoice-matching/runThreeWayMatch.js",
+      "lines": 273,
+      "importedByApprox": 2,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/procurement/core/runThreeWayMatch.js",
+      "lines": 80,
+      "importedByApprox": 2,
+      "exports": [
+        "runThreeWayMatch"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    }
+  ],
+  "createBudget": [
+    {
+      "file": "lib/finance/budgeting/createBudget.js",
+      "lines": 62,
+      "importedByApprox": 2,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/finance/core/createBudget.js",
+      "lines": 61,
+      "importedByApprox": 0,
+      "exports": [
+        "createBudget"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    }
+  ],
+  "calculateRecipeCost": [
+    {
+      "file": "lib/finance/core/calculateRecipeCost.js",
+      "lines": 90,
+      "importedByApprox": 0,
+      "exports": [
+        "calculateRecipeCost"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/production/core/calculateRecipeCost.js",
+      "lines": 84,
+      "importedByApprox": 2,
+      "exports": [
+        "calculateRecipeCost"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    }
+  ],
+  "createIntercompanyTransaction": [
+    {
+      "file": "lib/finance/core/createIntercompanyTransaction.js",
+      "lines": 38,
+      "importedByApprox": 2,
+      "exports": [
+        "createIntercompanyTransaction"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/finance/intercompany/createIntercompanyTransaction.js",
+      "lines": 143,
+      "importedByApprox": 2,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    }
+  ],
+  "generateBalanceSheet": [
+    {
+      "file": "lib/finance/reporting/core/generateBalanceSheet.js",
+      "lines": 106,
+      "importedByApprox": 0,
+      "exports": [
+        "generateBalanceSheet"
+      ],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/finance/reports/generateBalanceSheet.js",
+      "lines": 96,
+      "importedByApprox": 0,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": false,
+      "hasTODO": false
+    }
+  ],
+  "processPayrollPayout": [
+    {
+      "file": "lib/payroll/consolidation/processPayrollPayout.js",
+      "lines": 275,
+      "importedByApprox": 1,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/payroll/processPayrollPayout.js",
+      "lines": 2,
+      "importedByApprox": 0,
+      "exports": [],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": false,
+      "hasTODO": false
+    }
+  ],
+  "closePayrollPeriod": [
+    {
+      "file": "lib/payroll/orchestration/closePayrollPeriod.js",
+      "lines": 84,
+      "importedByApprox": 0,
+      "exports": [],
+      "importsSupabaseAdmin": false,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": false,
+      "hasTODO": false
+    },
+    {
+      "file": "lib/payroll/snapshots/closePayrollPeriod.js",
+      "lines": 56,
+      "importedByApprox": 0,
+      "exports": [],
+      "importsSupabaseAdmin": true,
+      "importsSharedAudit": false,
+      "importsFinanceCore": false,
+      "importsProcurementCore": false,
+      "hasDirectDBWrites": true,
+      "hasTODO": false
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runFIFOConsumption } from "@/lib/finance/core/runFIFOConsumption";
+import { runFIFOConsumption } from "@/lib/inventory/costing/runFIFOConsumption";
 
 export async function POST(request) {
   try {

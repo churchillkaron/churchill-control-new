@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useOrganization } from "@/app/providers/OrganizationProvider";
-import FinanceNav from "@/components/finance/FinanceNav";
 
 export default function Page() {
 
@@ -125,13 +124,7 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-[#030712] text-white p-8">
-
-      <FinanceNav
-        organizationId={organizationId}
-      />
-
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+    <div className="min-h-screen bg-[#030712] text-white p-8"><div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
 
         <h1 className="text-3xl font-light">
           Create Customer Invoice

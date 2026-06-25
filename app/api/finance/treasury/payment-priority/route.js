@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runPaymentPriorityQueue } from "@/lib/finance/core/runPaymentPriorityQueue";
+import { runPaymentPriorityQueue } from "@/lib/finance/payments/runPaymentPriorityQueue";
 
 export async function POST(request) {
   try {

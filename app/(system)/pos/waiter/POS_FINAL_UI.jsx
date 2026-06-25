@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTenant } from "@/app/providers/TenantProvider";
+import { useWorkspaceRuntime } from "@/app/providers/WorkspaceRuntimeProvider";
 import { loadWaiterData } from "@/lib/pos/waiter/loadWaiterData";
 import { groupMenuByCategory } from "@/lib/pos/waiter/groupMenuByCategory";
 import { assignSeatToBillGroup } from "@/lib/pos/assignSeatToBillGroup";
@@ -103,6 +104,10 @@ function SmallTitle({ children }) {
 
 export default function POSFinalUI() {
   const tenant = useTenant();
+  const { runtime: workspaceRuntime } = useWorkspaceRuntime();
+
+  const waiterStaff =
+    workspaceRuntime?.access?.staff || null;
 
   const tenantId = tenant?.id;
   const organizationId =
@@ -191,15 +196,15 @@ export default function POSFinalUI() {
   );
 
   const openSeats = useMemo(() => {
-    const fromItems = [
-      ...new Set(openItems.map((item) => seatOf(item)).filter(Boolean).map(String)),
-    ];
+    const guestCount = Number(
+      openTable?.current_guests || 0
+    );
 
-    if (fromItems.length) return fromItems;
-
-    const guestCount = Number(openTable?.current_guests || 0);
-    return Array.from({ length: guestCount }, (_, index) => String(index + 1));
-  }, [openItems, openTable]);
+    return Array.from(
+      { length: guestCount },
+      (_, index) => String(index + 1)
+    );
+  }, [openTable]);
 
   const billGroups = useMemo(() => {
     const grouped = {};
@@ -387,7 +392,7 @@ export default function POSFinalUI() {
     setCart([]);
   }
 
-  function chooseTable(table) {
+  async function chooseTable(table) {
     if (table.status === "MERGED") {
       alert("This table is merged into another table");
       return;
@@ -397,11 +402,11 @@ export default function POSFinalUI() {
 
     if (!Number(table.current_guests || 0)) {
       setModalTableId(table.id);
-        setModal("CUSTOMER");
+      setModal("CUSTOMER");
       return;
     }
 
-    setModal("ORDER");
+    setModal(null);
   }
 
   async function searchCustomers() {
@@ -540,7 +545,7 @@ export default function POSFinalUI() {
     ]);
 
     setDishDraft(null);
-    setModal("ORDER");
+    setModal(null);
   }
 
   async function sendOrder() {
@@ -566,8 +571,10 @@ export default function POSFinalUI() {
         table_id: activeTable.id,
         items: cart,
         total: cartTotal,
-        staff_name: staff?.name || "Waiter",
-        staff_id: staff?.id,
+        staff_name:
+          waiterStaff?.name || "Waiter",
+        staff_id:
+          waiterStaff?.id || null,
         tenant_id: tenantId,
         organization_id: organizationId,
         customerId: customerDraft?.id || null,
@@ -870,6 +877,18 @@ export default function POSFinalUI() {
           </button>
 
           <button
+            onClick={() => {
+              setCustomerSearch("");
+              setCustomerResults([]);
+              setCustomerDraft(null);
+              setModal("CUSTOMER");
+            }}
+            className="mb-2 w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left text-sm font-semibold"
+          >
+            Change Customer
+          </button>
+
+          <button
             onClick={closeModal}
             className="mt-3 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
           >
@@ -933,34 +952,93 @@ export default function POSFinalUI() {
             </button>
 
             <div className="mt-4 border-t border-white/10 pt-4 space-y-2">
-              <input
-                value={customerForm.name}
-                onChange={(event) =>
-                  setCustomerForm({ ...customerForm, name: event.target.value })
-                }
-                placeholder="New customer name"
-                className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
-              />
-
-              <input
-                value={customerForm.phone}
-                onChange={(event) =>
-                  setCustomerForm({ ...customerForm, phone: event.target.value })
-                }
-                placeholder="Phone"
-                className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
-              />
+              <button
+                onClick={() => setModal("CREATE_CUSTOMER")}
+                className="w-full rounded-xl bg-[#D6A66A] py-3 text-sm font-semibold text-black"
+              >
+                Create New Customer
+              </button>
 
               <button
-                onClick={createCustomer}
-                className="w-full rounded-xl bg-white py-3 text-sm font-bold text-black"
+                onClick={closeModal}
+                className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"
               >
-                Create Customer
+                Cancel
               </button>
             </div>
           </div>
         </Modal>
       )}
+
+      {modal === "CREATE_CUSTOMER" && (
+        <Modal>
+          <div className="text-lg font-semibold">
+            Create Customer
+          </div>
+
+          <div className="mt-4 space-y-2">
+
+            <input
+              value={customerForm.name}
+              onChange={(event) =>
+                setCustomerForm({
+                  ...customerForm,
+                  name: event.target.value,
+                })
+              }
+              placeholder="Full Name"
+              className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
+            />
+
+            <input
+              value={customerForm.phone}
+              onChange={(event) =>
+                setCustomerForm({
+                  ...customerForm,
+                  phone: event.target.value,
+                })
+              }
+              placeholder="Phone"
+              className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
+            />
+
+            <input
+              value={customerForm.email}
+              onChange={(event) =>
+                setCustomerForm({
+                  ...customerForm,
+                  email: event.target.value,
+                })
+              }
+              placeholder="Email"
+              className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
+            />
+
+            <button
+              onClick={createCustomer}
+              className="w-full rounded-xl bg-white py-3 text-sm font-bold text-black"
+            >
+              Save Customer
+            </button>
+
+            <button
+              onClick={() => setModal("CUSTOMER")}
+              className="w-full rounded-xl border border-white/10 py-3 text-sm"
+            >
+              Back
+            </button>
+
+            <button
+              onClick={closeModal}
+              className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"
+            >
+              Cancel
+            </button>
+
+          </div>
+        </Modal>
+      )}
+
 
       {modal === "GUESTS" && (
         <Modal>
@@ -991,6 +1069,13 @@ export default function POSFinalUI() {
             className="mt-5 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
           >
             Start Order
+          </button>
+
+          <button
+            onClick={closeModal}
+            className="mt-2 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold text-white/70"
+          >
+            Cancel
           </button>
         </Modal>
       )}
@@ -1348,7 +1433,7 @@ export default function POSFinalUI() {
           <button
             onClick={() => {
               setActiveTableId(openTable.id);
-              setModal("ORDER");
+              setModal(null);
             }}
             className="mt-4 w-full rounded-xl bg-[#D6A66A] py-3 text-xs font-semibold text-black"
           >

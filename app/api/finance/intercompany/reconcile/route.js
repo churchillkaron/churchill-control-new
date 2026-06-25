@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runIntercompanyReconciliation } from "@/lib/finance/core/runIntercompanyReconciliation";
+import { runIntercompanyReconciliation } from "@/lib/finance/intercompany/runIntercompanyReconciliation";
 
 export async function POST(request) {
   try {

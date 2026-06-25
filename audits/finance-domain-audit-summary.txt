@@ -1,0 +1,308 @@
+FINANCE DOMAIN AUDIT
+====================
+
+Finance files: 345
+Duplicate name groups: 13
+Suspicious tenant-only core files: 94
+Likely wrappers: 54
+
+DUPLICATE NAMES
+---------------
+route
+  - app/api/finance/accounting/runtime/route.js
+  - app/api/finance/accounts-payable/aging-report/route.js
+  - app/api/finance/accounts-payable/pay/route.js
+  - app/api/finance/accounts-payable/route.js
+  - app/api/finance/accounts-receivable/list/route.js
+  - app/api/finance/anomalies/route.js
+  - app/api/finance/ar/aging/route.js
+  - app/api/finance/ar/runtime/route.js
+  - app/api/finance/audit-trail/anomaly-detection/route.js
+  - app/api/finance/audit-trail/entity-history/route.js
+  - app/api/finance/audit-trail/live/route.js
+  - app/api/finance/audit-trail/log/route.js
+  - app/api/finance/budgeting/create/route.js
+  - app/api/finance/budgeting/route.js
+  - app/api/finance/budgeting/variance/route.js
+  - app/api/finance/cash-flow/route.js
+  - app/api/finance/cash-flow/run/route.js
+  - app/api/finance/close/runtime/route.js
+  - app/api/finance/cogs/route.js
+  - app/api/finance/consolidation/route.js
+  - app/api/finance/cost-centers/create/route.js
+  - app/api/finance/cost-centers/list/route.js
+  - app/api/finance/cost-centers/toggle/route.js
+  - app/api/finance/customer-invoices/create/route.js
+  - app/api/finance/customer-invoices/list/route.js
+  - app/api/finance/customer-payments/create/route.js
+  - app/api/finance/customer-payments/list/route.js
+  - app/api/finance/depreciation/run/route.js
+  - app/api/finance/executive-dashboard/alerts/route.js
+  - app/api/finance/executive-dashboard/entity-ranking/route.js
+  - app/api/finance/executive-dashboard/kpi/route.js
+  - app/api/finance/fixed-assets/create/route.js
+  - app/api/finance/fixed-assets/depreciation/route.js
+  - app/api/finance/fixed-assets/list/route.js
+  - app/api/finance/forecast/route.js
+  - app/api/finance/general-ledger/route.js
+  - app/api/finance/gl-posting/route.js
+  - app/api/finance/health/route.js
+  - app/api/finance/insights/route.js
+  - app/api/finance/intercompany/create/route.js
+  - app/api/finance/intercompany/eliminate/route.js
+  - app/api/finance/intercompany/reconcile/route.js
+  - app/api/finance/intercompany/runtime/route.js
+  - app/api/finance/intercompany/settle/route.js
+  - app/api/finance/invoice-matching/create/route.js
+  - app/api/finance/invoice-matching/runtime/route.js
+  - app/api/finance/journal-chain/route.js
+  - app/api/finance/journal/route.js
+  - app/api/finance/journals/[id]/route.js
+  - app/api/finance/journals/request-reversal/route.js
+  - app/api/finance/journals/reverse/route.js
+  - app/api/finance/journals/route.js
+  - app/api/finance/kpis/route.js
+  - app/api/finance/legal-entities/create/route.js
+  - app/api/finance/legal-entities/list/route.js
+  - app/api/finance/legal-entities/toggle/route.js
+  - app/api/finance/module/route.js
+  - app/api/finance/month-end/close-period/route.js
+  - app/api/finance/month-end/status/route.js
+  - app/api/finance/payments/list/route.js
+  - app/api/finance/payments/route.js
+  - app/api/finance/period-close/route.js
+  - app/api/finance/periods/close/route.js
+  - app/api/finance/periods/open/route.js
+  - app/api/finance/periods/route.js
+  - app/api/finance/periods/update-status/route.js
+  - app/api/finance/procure-to-pay/runtime/route.js
+  - app/api/finance/real-time-close/approval/route.js
+  - app/api/finance/real-time-close/exceptions/route.js
+  - app/api/finance/real-time-close/run/route.js
+  - app/api/finance/reconciliation/route.js
+  - app/api/finance/reports/profit-loss/route.js
+  - app/api/finance/role-permissions/check/route.js
+  - app/api/finance/role-permissions/create/route.js
+  - app/api/finance/runtime/route.js
+  - app/api/finance/summary/route.js
+  - app/api/finance/tax/runtime/route.js
+  - app/api/finance/treasury/liquidity/route.js
+  - app/api/finance/treasury/payment-priority/route.js
+  - app/api/finance/trial-balance/route.js
+  - app/api/finance/vendor-invoices/list/route.js
+  - app/api/finance/year-end/close-fiscal-year/route.js
+  - app/api/finance/year-end/status/route.js
+page
+  - app/(system)/workspace/[organizationId]/finance/accounting/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/ap/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/ar/aging/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/ar/invoices/new/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/ar/invoices/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/ar/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/ar/payments/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/ar/receivables/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/close/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/filings/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/invoices/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/journals/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/ledger/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/matching/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/payments/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/purchase-orders/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/receiving/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/reports/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/tax/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/trial-balance/page.jsx
+  - app/(system)/workspace/[organizationId]/finance/vendors/page.jsx
+index
+  - lib/finance/accounts-payable/index.js
+  - lib/finance/general-ledger/index.js
+  - lib/finance/index.js
+  - lib/finance/year-end/index.js
+closeAccountingPeriod
+  - lib/finance/closeAccountingPeriod.js
+  - lib/finance/monthEnd/closeAccountingPeriod.js
+  - lib/finance/period-close/closeAccountingPeriod.js
+createBudget
+  - lib/finance/budgeting/createBudget.js
+  - lib/finance/core/createBudget.js
+createIntercompanyTransaction
+  - lib/finance/core/createIntercompanyTransaction.js
+  - lib/finance/intercompany/createIntercompanyTransaction.js
+getEnterpriseHealth
+  - lib/finance/core/getEnterpriseHealth.js
+  - lib/finance/executive/getEnterpriseHealth.js
+runBankReconciliation
+  - lib/finance/core/runBankReconciliation.js
+  - lib/finance/reconciliation/runBankReconciliation.js
+runConsolidation
+  - lib/finance/core/runConsolidation.js
+  - lib/finance/runConsolidation.js
+runYearEndClose
+  - lib/finance/core/runYearEndClose.js
+  - lib/finance/year-end/runYearEndClose.js
+createCostCenter
+  - lib/finance/cost-centers/createCostCenter.js
+  - lib/finance/management/createCostCenter.js
+createLegalEntity
+  - lib/finance/group/createLegalEntity.js
+  - lib/finance/legal-entities/createLegalEntity.js
+generateBalanceSheet
+  - lib/finance/reporting/core/generateBalanceSheet.js
+  - lib/finance/reports/generateBalanceSheet.js
+
+LIKELY WRAPPERS
+---------------
+app/(system)/workspace/[organizationId]/finance/layout.jsx (6 lines)
+lib/finance/accounts-payable/index.js (3 lines)
+lib/finance/bridge/orderFinanceBridge.js (32 lines)
+lib/finance/closeAccountingPeriod.js (21 lines)
+lib/finance/createARInvoice.js (17 lines)
+lib/finance/createAccountingPeriod.js (17 lines)
+lib/finance/createApprovalRequest.js (17 lines)
+lib/finance/createBankAccount.js (17 lines)
+lib/finance/createCurrencyRate.js (17 lines)
+lib/finance/createCustomer.js (17 lines)
+lib/finance/createTaxRate.js (17 lines)
+lib/finance/createVendor.js (17 lines)
+lib/finance/enterprise/getTreasuryPositions.js (16 lines)
+lib/finance/enterprise/runCapitalPlanning.js (18 lines)
+lib/finance/enterprise/runCovenantChecks.js (18 lines)
+lib/finance/enterprise/runESGReport.js (11 lines)
+lib/finance/executive/getEnterpriseHealth.js (14 lines)
+lib/finance/executive/getExecutiveKPIs.js (14 lines)
+lib/finance/executive/getForecastVsActual.js (21 lines)
+lib/finance/gateway/financeGateway.js (28 lines)
+lib/finance/general-ledger/index.js (2 lines)
+lib/finance/getCashflowSummary.js (35 lines)
+lib/finance/getExecutiveFinancialSummary.js (30 lines)
+lib/finance/group/createLegalEntity.js (17 lines)
+lib/finance/group/getGroupStructure.js (13 lines)
+lib/finance/group/getOwnershipStructure.js (16 lines)
+lib/finance/group/runEliminations.js (35 lines)
+lib/finance/index.js (5 lines)
+lib/finance/integrations/postCOGS.js (23 lines)
+lib/finance/integrations/postPayroll.js (23 lines)
+lib/finance/integrations/postSupplierInvoice.js (25 lines)
+lib/finance/invoice-matching/createInvoiceMatch.js (9 lines)
+lib/finance/management/createCostCenter.js (17 lines)
+lib/finance/management/getDepartmentPerformance.js (18 lines)
+lib/finance/management/getVarianceAnalysis.js (26 lines)
+lib/finance/master-data/defaultChartOfAccounts.js (31 lines)
+lib/finance/master-data/getChartOfAccounts.js (21 lines)
+lib/finance/master-data/seedChartOfAccounts.js (28 lines)
+lib/finance/permissions/checkFinancePermission.js (23 lines)
+lib/finance/revalueCurrencyBalances.js (34 lines)
+lib/finance/runAutoPostingWorkflow.js (25 lines)
+lib/finance/runConsolidation.js (32 lines)
+lib/finance/runDepreciation.js (29 lines)
+lib/finance/runForecasting.js (33 lines)
+lib/finance/runFraudDetection.js (35 lines)
+lib/finance/runMonthEndClose.js (25 lines)
+lib/finance/runPeriodClose.js (26 lines)
+lib/finance/runRetainedEarnings.js (25 lines)
+lib/finance/runRiskAnalysis.js (33 lines)
+lib/finance/strategy/getBoardReport.js (29 lines)
+lib/finance/strategy/getStrategicInsights.js (24 lines)
+lib/finance/strategy/runCostAllocation.js (35 lines)
+lib/finance/strategy/runScenarioPlanning.js (35 lines)
+lib/finance/year-end/index.js (3 lines)
+
+TENANT-ONLY CORE WARNINGS
+-------------------------
+lib/finance/core/approveAutonomousClose.js
+lib/finance/core/approveRealTimeClose.js
+lib/finance/core/approveSelfHealingAction.js
+lib/finance/core/assignDimensionToJournalLine.js
+lib/finance/core/calculateRecipeCost.js
+lib/finance/core/calculateRetainedEarnings.js
+lib/finance/core/calculateVATLiability.js
+lib/finance/core/configureTaxRule.js
+lib/finance/core/createAuditLog.js
+lib/finance/core/createBudget.js
+lib/finance/core/createBudgetPlan.js
+lib/finance/core/createEntityHistorySnapshot.js
+lib/finance/core/createEventLineage.js
+lib/finance/core/createIntercompanyTransaction.js
+lib/finance/core/createInventoryCostLayer.js
+lib/finance/core/createPaymentBatch.js
+lib/finance/core/createRegulatoryFiling.js
+lib/finance/core/disposeFixedAsset.js
+lib/finance/core/emitAccountingEvent.js
+lib/finance/core/emitInventoryConsumptionEvent.js
+lib/finance/core/emitInventoryReceiptEvent.js
+lib/finance/core/emitInventoryWasteEvent.js
+lib/finance/core/getAccountingAlerts.js
+lib/finance/core/getAccountingEvents.js
+lib/finance/core/getAccountingFailures.js
+lib/finance/core/getAuditTrail.js
+lib/finance/core/getAutonomousCloseStatus.js
+lib/finance/core/getBudgetVariance.js
+lib/finance/core/getCashPosition.js
+lib/finance/core/getCloseChecklistStatus.js
+lib/finance/core/getContinuousCloseExceptions.js
+lib/finance/core/getContinuousCloseStatus.js
+lib/finance/core/getDimensions.js
+lib/finance/core/getEnterpriseActions.js
+lib/finance/core/getEnterpriseHealth.js
+lib/finance/core/getEntityAuditTrail.js
+lib/finance/core/getEventGovernanceAudit.js
+lib/finance/core/getEventGraph.js
+lib/finance/core/getEventLineage.js
+lib/finance/core/getEventProcessingStatus.js
+lib/finance/core/getEventSchema.js
+lib/finance/core/getLedgerBalances.js
+lib/finance/core/getPostingRule.js
+lib/finance/core/getRealTimeCloseExceptions.js
+lib/finance/core/getReconciliationExceptions.js
+lib/finance/core/getSchedulerJobs.js
+lib/finance/core/getSelfHealingHistory.js
+lib/finance/core/getWorkflowHistory.js
+lib/finance/core/importBankTransaction.js
+lib/finance/core/lockAccountingPeriod.js
+lib/finance/core/postAccrualEntry.js
+lib/finance/core/processAccountingEvent.js
+lib/finance/core/processAccountingEvents.js
+lib/finance/core/processCOGSForSale.js
+lib/finance/core/processPendingEvents.js
+lib/finance/core/recognizeDeferredRevenue.js
+lib/finance/core/reopenAccountingPeriod.js
+lib/finance/core/replayAccountingEvent.js
+lib/finance/core/retryFailedAccountingEvents.js
+lib/finance/core/runAccountReconciliation.js
+lib/finance/core/runAutonomousFinanceActions.js
+lib/finance/core/runBankReconciliation.js
+lib/finance/core/runBudgetVariance.js
+lib/finance/core/runCashFlowEngine.js
+lib/finance/core/runCashReconciliation.js
+lib/finance/core/runConsolidation.js
+lib/finance/core/runConsolidationElimination.js
+lib/finance/core/runCurrencyTranslation.js
+lib/finance/core/runEnterpriseCommandCenter.js
+lib/finance/core/runExecutiveDecisionEngine.js
+lib/finance/core/runFIFOConsumption.js
+lib/finance/core/runFXRevaluation.js
+lib/finance/core/runGlobalConsolidation.js
+lib/finance/core/runIntercompanyElimination.js
+lib/finance/core/runIntercompanyReconciliation.js
+lib/finance/core/runItemProfitability.js
+lib/finance/core/runLaborCosting.js
+lib/finance/core/runPaymentBatch.js
+lib/finance/core/runPaymentPriorityQueue.js
+lib/finance/core/runRealTimeClose.js
+lib/finance/core/runRealTimeProfitability.js
+lib/finance/core/runRegulatoryReporting.js
+lib/finance/core/runRiskScoring.js
+lib/finance/core/runSelfHealingEngine.js
+lib/finance/core/runTaxFiling.js
+lib/finance/core/runTrialBalance.js
+lib/finance/core/runWeightedAverageValuation.js
+lib/finance/core/runYearEndClose.js
+lib/finance/core/settleInvoice.js
+lib/finance/core/validateDomainEvent.js
+lib/finance/reporting/core/generateBalanceSheet.js
+lib/finance/reporting/core/generateConsolidatedReport.js
+lib/finance/reporting/core/generateFinancialStatements.js
+lib/finance/reporting/core/generateFinancialStatementsFromLedger.js

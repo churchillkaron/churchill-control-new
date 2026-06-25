@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import FinanceNav from "@/components/finance/FinanceNav";
+import { useOrganization } from "@/app/providers/OrganizationProvider";
 
-export default function AccountingPage({
-  params,
-}) {
-  const { organizationId } = params;
+export default function AccountingPage() {
+
+  const { organization } =
+    useOrganization();
+
+  const organizationId =
+    organization?.id;
 
   const [runtime, setRuntime] =
     useState({
@@ -80,13 +83,7 @@ export default function AccountingPage({
   ];
 
   return (
-    <div className="min-h-screen bg-[#030712] text-white p-8">
-
-      <FinanceNav
-        organizationId={organizationId}
-      />
-
-      <div className="mt-8 mb-8">
+    <div className="min-h-screen bg-[#030712] text-white p-8"><div className="mt-8 mb-8">
         <h1 className="text-5xl font-extralight">
           Accounting
         </h1>

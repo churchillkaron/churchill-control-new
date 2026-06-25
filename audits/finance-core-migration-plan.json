@@ -1,0 +1,67 @@
+[
+  {
+    "from": "lib/finance/core/createBudget.js",
+    "to": "lib/finance/budgeting/createBudget.js",
+    "fromExists": true,
+    "toExists": true,
+    "fromAlias": "@/lib/finance/core/createBudget",
+    "toAlias": "@/lib/finance/budgeting/createBudget",
+    "references": []
+  },
+  {
+    "from": "lib/finance/core/createIntercompanyTransaction.js",
+    "to": "lib/finance/intercompany/createIntercompanyTransaction.js",
+    "fromExists": true,
+    "toExists": true,
+    "fromAlias": "@/lib/finance/core/createIntercompanyTransaction",
+    "toAlias": "@/lib/finance/intercompany/createIntercompanyTransaction",
+    "references": [
+      "app/api/finance/intercompany/create/route.js"
+    ]
+  },
+  {
+    "from": "lib/finance/core/runBankReconciliation.js",
+    "to": "lib/finance/reconciliation/runBankReconciliation.js",
+    "fromExists": true,
+    "toExists": true,
+    "fromAlias": "@/lib/finance/core/runBankReconciliation",
+    "toAlias": "@/lib/finance/reconciliation/runBankReconciliation",
+    "references": []
+  },
+  {
+    "from": "lib/finance/core/runConsolidation.js",
+    "to": "lib/finance/consolidation/runConsolidation.js",
+    "fromExists": true,
+    "toExists": false,
+    "fromAlias": "@/lib/finance/core/runConsolidation",
+    "toAlias": "@/lib/finance/consolidation/runConsolidation",
+    "references": []
+  },
+  {
+    "from": "lib/finance/core/runYearEndClose.js",
+    "to": "lib/finance/year-end/runYearEndClose.js",
+    "fromExists": true,
+    "toExists": true,
+    "fromAlias": "@/lib/finance/core/runYearEndClose",
+    "toAlias": "@/lib/finance/year-end/runYearEndClose",
+    "references": []
+  },
+  {
+    "from": "lib/finance/core/getEnterpriseHealth.js",
+    "to": "lib/finance/executive/getEnterpriseHealth.js",
+    "fromExists": true,
+    "toExists": true,
+    "fromAlias": "@/lib/finance/core/getEnterpriseHealth",
+    "toAlias": "@/lib/finance/executive/getEnterpriseHealth",
+    "references": []
+  },
+  {
+    "from": "lib/finance/core/createCostCenter.js",
+    "to": "lib/finance/cost-centers/createCostCenter.js",
+    "fromExists": false,
+    "toExists": true,
+    "fromAlias": "@/lib/finance/core/createCostCenter",
+    "toAlias": "@/lib/finance/cost-centers/createCostCenter",
+    "references": []
+  }
+]

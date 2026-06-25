@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { settleInvoice } from "@/lib/finance/core/settleInvoice";
+import { settleInvoice } from "@/lib/finance/payments/settleInvoice";
 
 export async function POST(request) {
   try {

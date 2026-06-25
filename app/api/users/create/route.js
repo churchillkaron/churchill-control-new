@@ -34,7 +34,7 @@ export async function POST(req) {
       email,
       password,
       email_confirm: true,
-    });
+    }).eq("email", email);
 
     if (createError) {
       return Response.json(
@@ -72,14 +72,8 @@ export async function POST(req) {
       error: staffError,
     } = await supabaseAdmin
       .from("staff_accounts")
-      .insert({
+      .update({
         auth_user_id: authUserId,
-        name,
-        email,
-        role,
-        position,
-        tenant_id,
-        active: true,
       });
 
     if (staffError) {

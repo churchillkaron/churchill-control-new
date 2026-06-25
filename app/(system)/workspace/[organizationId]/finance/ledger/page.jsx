@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import FinanceNav from "@/components/finance/FinanceNav";
 
 export default function LedgerPage({ params }) {
   const { organizationId } = params;
@@ -32,11 +31,7 @@ export default function LedgerPage({ params }) {
   }, [organizationId]);
 
   return (
-    <div className="min-h-screen bg-[#030712] text-white p-8">
-
-      <FinanceNav organizationId={organizationId} />
-
-      <h1 className="text-4xl font-light mb-6">
+    <div className="min-h-screen bg-[#030712] text-white p-8"><h1 className="text-4xl font-light mb-6">
         General Ledger
       </h1>
 

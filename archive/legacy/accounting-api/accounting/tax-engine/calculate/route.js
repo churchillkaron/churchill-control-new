@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { calculateTax } from "@/lib/finance/core/calculateTax";
+import { calculateTax } from "@/lib/finance/reporting/calculateTax";
 
 export async function POST(request) {
   try {

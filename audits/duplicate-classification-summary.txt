@@ -1,0 +1,242 @@
+DUPLICATE CLASSIFICATION
+========================
+
+createAuditLog
+--------------
+- lib/audit/createAuditLog.js
+  lines: 73
+  importedByApprox: 0
+  exports: createAuditLog
+  directDBWrites: true
+  supabaseAdmin: false
+- lib/finance/core/createAuditLog.js
+  lines: 36
+  importedByApprox: 2
+  exports: createAuditLog
+  directDBWrites: true
+  supabaseAdmin: false
+- lib/pos/audit/createAuditLog.js
+  lines: 36
+  importedByApprox: 2
+  exports: createAuditLog
+  directDBWrites: true
+  supabaseAdmin: true
+- lib/shared/audit/createAuditLog.js
+  lines: 30
+  importedByApprox: 0
+  exports: -
+  directDBWrites: false
+  supabaseAdmin: false
+
+closeAccountingPeriod
+---------------------
+- lib/finance/closeAccountingPeriod.js
+  lines: 21
+  importedByApprox: 0
+  exports: closeAccountingPeriod
+  directDBWrites: true
+  supabaseAdmin: false
+- lib/finance/monthEnd/closeAccountingPeriod.js
+  lines: 40
+  importedByApprox: 2
+  exports: closeAccountingPeriod
+  directDBWrites: true
+  supabaseAdmin: true
+- lib/finance/period-close/closeAccountingPeriod.js
+  lines: 92
+  importedByApprox: 2
+  exports: -
+  directDBWrites: true
+  supabaseAdmin: true
+
+runBankReconciliation
+---------------------
+- lib/finance/core/runBankReconciliation.js
+  lines: 78
+  importedByApprox: 0
+  exports: runBankReconciliation
+  directDBWrites: false
+  supabaseAdmin: false
+- lib/finance/reconciliation/runBankReconciliation.js
+  lines: 113
+  importedByApprox: 2
+  exports: -
+  directDBWrites: true
+  supabaseAdmin: true
+
+runConsolidation
+----------------
+- lib/finance/core/runConsolidation.js
+  lines: 58
+  importedByApprox: 0
+  exports: runConsolidation
+  directDBWrites: true
+  supabaseAdmin: false
+- lib/finance/runConsolidation.js
+  lines: 32
+  importedByApprox: 0
+  exports: runConsolidation
+  directDBWrites: false
+  supabaseAdmin: false
+
+runYearEndClose
+---------------
+- lib/finance/core/runYearEndClose.js
+  lines: 96
+  importedByApprox: 0
+  exports: runYearEndClose
+  directDBWrites: true
+  supabaseAdmin: false
+- lib/finance/year-end/runYearEndClose.js
+  lines: 105
+  importedByApprox: 4
+  exports: -
+  directDBWrites: false
+  supabaseAdmin: true
+
+createPurchaseOrder
+-------------------
+- lib/procurement/actions/createPurchaseOrder.js
+  lines: 63
+  importedByApprox: 0
+  exports: createPurchaseOrder
+  directDBWrites: true
+  supabaseAdmin: true
+- lib/procurement/purchase-orders/createPurchaseOrder.js
+  lines: 117
+  importedByApprox: 3
+  exports: -
+  directDBWrites: true
+  supabaseAdmin: true
+- lib/production/purchaseOrders/createPurchaseOrder.js
+  lines: 83
+  importedByApprox: 2
+  exports: createPurchaseOrder
+  directDBWrites: true
+  supabaseAdmin: true
+
+createPurchaseRequest
+---------------------
+- lib/procurement/core/createPurchaseRequest.js
+  lines: 29
+  importedByApprox: 2
+  exports: createPurchaseRequest
+  directDBWrites: true
+  supabaseAdmin: false
+- lib/procurement/runtime/createPurchaseRequest.js
+  lines: 63
+  importedByApprox: 0
+  exports: createPurchaseRequest
+  directDBWrites: true
+  supabaseAdmin: true
+- lib/procurement/services/createPurchaseRequest.js
+  lines: 80
+  importedByApprox: 3
+  exports: createPurchaseRequest
+  directDBWrites: true
+  supabaseAdmin: false
+
+runThreeWayMatch
+----------------
+- lib/finance/invoice-matching/runThreeWayMatch.js
+  lines: 273
+  importedByApprox: 2
+  exports: -
+  directDBWrites: true
+  supabaseAdmin: true
+- lib/procurement/core/runThreeWayMatch.js
+  lines: 80
+  importedByApprox: 2
+  exports: runThreeWayMatch
+  directDBWrites: true
+  supabaseAdmin: false
+
+createBudget
+------------
+- lib/finance/budgeting/createBudget.js
+  lines: 62
+  importedByApprox: 2
+  exports: -
+  directDBWrites: true
+  supabaseAdmin: true
+- lib/finance/core/createBudget.js
+  lines: 61
+  importedByApprox: 0
+  exports: createBudget
+  directDBWrites: true
+  supabaseAdmin: false
+
+calculateRecipeCost
+-------------------
+- lib/finance/core/calculateRecipeCost.js
+  lines: 90
+  importedByApprox: 0
+  exports: calculateRecipeCost
+  directDBWrites: true
+  supabaseAdmin: false
+- lib/production/core/calculateRecipeCost.js
+  lines: 84
+  importedByApprox: 2
+  exports: calculateRecipeCost
+  directDBWrites: true
+  supabaseAdmin: false
+
+createIntercompanyTransaction
+-----------------------------
+- lib/finance/core/createIntercompanyTransaction.js
+  lines: 38
+  importedByApprox: 2
+  exports: createIntercompanyTransaction
+  directDBWrites: true
+  supabaseAdmin: false
+- lib/finance/intercompany/createIntercompanyTransaction.js
+  lines: 143
+  importedByApprox: 2
+  exports: -
+  directDBWrites: true
+  supabaseAdmin: true
+
+generateBalanceSheet
+--------------------
+- lib/finance/reporting/core/generateBalanceSheet.js
+  lines: 106
+  importedByApprox: 0
+  exports: generateBalanceSheet
+  directDBWrites: true
+  supabaseAdmin: false
+- lib/finance/reports/generateBalanceSheet.js
+  lines: 96
+  importedByApprox: 0
+  exports: -
+  directDBWrites: false
+  supabaseAdmin: true
+
+processPayrollPayout
+--------------------
+- lib/payroll/consolidation/processPayrollPayout.js
+  lines: 275
+  importedByApprox: 1
+  exports: -
+  directDBWrites: true
+  supabaseAdmin: true
+- lib/payroll/processPayrollPayout.js
+  lines: 2
+  importedByApprox: 0
+  exports: -
+  directDBWrites: false
+  supabaseAdmin: false
+
+closePayrollPeriod
+------------------
+- lib/payroll/orchestration/closePayrollPeriod.js
+  lines: 84
+  importedByApprox: 0
+  exports: -
+  directDBWrites: false
+  supabaseAdmin: false
+- lib/payroll/snapshots/closePayrollPeriod.js
+  lines: 56
+  importedByApprox: 0
+  exports: -
+  directDBWrites: true
+  supabaseAdmin: true

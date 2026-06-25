@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runIntercompanyElimination } from "@/lib/finance/core/runIntercompanyElimination";
+import { runIntercompanyElimination } from "@/lib/finance/intercompany/runIntercompanyElimination";
 
 export async function POST(request) {
   try {

@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const snapshot =
       await createEntityHistorySnapshot({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
         entityType:
           body.entityType,
         entityId:

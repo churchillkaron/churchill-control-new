@@ -1,6 +1,7 @@
 create table if not exists executive_kpi_snapshots (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   total_revenue numeric(14,2) default 0,
   total_cogs numeric(14,2) default 0,
   total_labor numeric(14,2) default 0,
@@ -14,7 +15,8 @@ create table if not exists executive_kpi_snapshots (
 
 create table if not exists executive_alerts (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   alert_type text not null,
   severity text default 'medium',
   alert_message text not null,
@@ -24,7 +26,8 @@ create table if not exists executive_alerts (
 
 create table if not exists entity_profitability_rankings (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   entity_name text not null,
   revenue numeric(14,2) default 0,
   net_profit numeric(14,2) default 0,

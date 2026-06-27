@@ -8,7 +8,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-const tenantId = null;
+const organizationId = null;
 
 export async function POST(request) {
 
@@ -41,8 +41,8 @@ export async function POST(request) {
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     const periodId =
       body.periodId;
@@ -83,8 +83,8 @@ export async function POST(request) {
       )
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organizationId
       )
 
       .single();
@@ -193,8 +193,8 @@ export async function POST(request) {
 
       .insert([{
 
-        tenant_id:
-          tenantId,
+        organization_id:
+          organizationId,
 
         action:
           "ACCOUNTING_PERIOD_CLOSED",

@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const alerts =
       await runExecutiveAlerts({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
       });
 
     return NextResponse.json({

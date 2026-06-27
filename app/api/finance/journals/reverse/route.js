@@ -8,7 +8,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-const tenantId = null;
+const organizationId = null;
 
 export async function POST(request) {
 
@@ -41,8 +41,8 @@ export async function POST(request) {
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     const journalId =
       body.journalId;
@@ -81,8 +81,8 @@ export async function POST(request) {
       .select("*")
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organizationId
       )
 
       .eq(
@@ -159,8 +159,8 @@ export async function POST(request) {
       .select("*")
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organizationId
       )
 
       .eq(
@@ -250,8 +250,8 @@ export async function POST(request) {
 
       .insert([{
 
-        tenant_id:
-          tenantId,
+        organization_id:
+          organizationId,
 
         entry_number:
           reversalNumber,
@@ -308,8 +308,8 @@ export async function POST(request) {
     const reversalLines =
       lines.map((line) => ({
 
-        tenant_id:
-          tenantId,
+        organization_id:
+          organizationId,
 
         journal_entry_id:
           reversalJournal.id,
@@ -389,8 +389,8 @@ export async function POST(request) {
 
       .insert([{
 
-        tenant_id:
-          tenantId,
+        organization_id:
+          organizationId,
 
         action:
           "JOURNAL_REVERSED",

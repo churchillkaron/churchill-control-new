@@ -1,6 +1,7 @@
 create table if not exists fixed_assets (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   asset_name text not null,
   asset_category text,
   acquisition_date date not null,
@@ -15,7 +16,8 @@ create table if not exists fixed_assets (
 
 create table if not exists fixed_asset_depreciation (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   asset_id uuid not null,
   depreciation_date date not null,
   depreciation_amount numeric(14,2) default 0,
@@ -26,7 +28,8 @@ create table if not exists fixed_asset_depreciation (
 
 create table if not exists fixed_asset_disposals (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   asset_id uuid not null,
   disposal_date date not null,
   disposal_amount numeric(14,2) default 0,

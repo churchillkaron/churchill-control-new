@@ -13,7 +13,7 @@ export default function ShiftPage() {
   const tenant =
     useTenant();
 
-  const tenantId =
+  const organizationId =
     tenant?.id;
 
 
@@ -72,8 +72,8 @@ export default function ShiftPage() {
               action:
                 "OPEN",
 
-              tenant_id:
-                tenantId,
+              organization_id:
+                organizationId,
 
               ...openForm,
             }),

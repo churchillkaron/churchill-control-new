@@ -10,7 +10,7 @@ import { supabase } from "@/lib/shared/supabase/client";
 export default function POSOrdersPage() {
 
   const tenant = useTenant();
-  const tenantId = tenant?.id;
+  const organizationId = tenant?.id;
 
   const [orders, setOrders] = useState([]);
   const [orderItems, setOrderItems] = useState({});
@@ -19,7 +19,7 @@ export default function POSOrdersPage() {
   // ===== LOAD ORDERS =====
   async function refreshOrders() {
 
-    if (!tenantId) return;
+    if (!organizationId) return;
 
     setLoading(true);
 
@@ -29,7 +29,7 @@ export default function POSOrdersPage() {
         *,
         order_items (*)
       `)
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -49,7 +49,7 @@ export default function POSOrdersPage() {
 
   useEffect(() => {
     refreshOrders();
-  }, [tenantId]);
+  }, [organizationId]);
 
   return (
     <div className="min-h-screen bg-black text-white p-6">

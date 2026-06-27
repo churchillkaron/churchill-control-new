@@ -11,7 +11,7 @@ import { loadPaidOrders } from "@/lib/pos/loadPaidOrders";
 export default function POSHistoryPage() {
 
   const [
-    tenantId,
+    organizationId,
     setTenantId,
   ] = useState(null);
 
@@ -51,11 +51,11 @@ export default function POSHistoryPage() {
         .single();
 
       if (
-        data?.tenant_id
+        data?.organization_id
       ) {
 
         setTenantId(
-          data.tenant_id
+          data.organization_id
         );
       }
     }
@@ -67,7 +67,7 @@ export default function POSHistoryPage() {
   // ===== LOAD =====
   async function refreshHistory() {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return;
     }
 
@@ -75,7 +75,7 @@ export default function POSHistoryPage() {
 
     const data =
       await loadPaidOrders(
-        tenantId
+        organizationId
       );
 
     setOrders(
@@ -90,7 +90,7 @@ export default function POSHistoryPage() {
     refreshHistory();
 
   }, [
-    tenantId,
+    organizationId,
   ]);
 
   return (

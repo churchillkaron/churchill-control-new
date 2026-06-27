@@ -45,8 +45,8 @@ export async function POST(req) {
     const result =
       await createBudget({
         ...body,
-        tenant_id:
-          access.tenantId,
+        organization_id:
+          access.organizationId,
       });
 
     return NextResponse.json(
@@ -90,8 +90,8 @@ export async function PUT(req) {
 
     const result =
       await generateFinancialForecast({
-        tenant_id:
-          access.tenantId,
+        organization_id:
+          access.organizationId,
       });
 
     return NextResponse.json(
@@ -135,8 +135,8 @@ export async function PATCH(req) {
 
     const result =
       await runVarianceAnalysis({
-        tenant_id:
-          access.tenantId,
+        organization_id:
+          access.organizationId,
 
         fiscal_year:
           body.fiscal_year,

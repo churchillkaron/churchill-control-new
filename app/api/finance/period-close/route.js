@@ -43,8 +43,8 @@ export async function POST(req) {
     const result =
       await closeFinancialPeriod({
         ...body,
-        tenant_id:
-          access.tenantId,
+        organization_id:
+          access.organizationId,
       });
 
     return NextResponse.json(
@@ -88,8 +88,8 @@ export async function PUT(req) {
 
     const result =
       await runYearEndClose({
-        tenant_id:
-          access.tenantId,
+        organization_id:
+          access.organizationId,
 
         fiscal_year:
           body.fiscal_year,

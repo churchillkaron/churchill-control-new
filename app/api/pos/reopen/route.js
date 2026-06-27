@@ -16,8 +16,8 @@ export async function POST(req) {
     const result =
       await reopenClosedOrder({
 
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
 
         orderId:
           body.orderId,

@@ -1,0 +1,125 @@
+lib/platform/core/platformEngine.js:3:} from "@/lib/shared/architecture/systemRegistry";
+lib/platform/discovery/discoverPlatform.js:12:    domains: DomainRegistry.all(),
+lib/platform/discovery/discoverPlatform.js:13:    contexts: ContextRegistry.all(),
+lib/platform/discovery/discoverPlatform.js:14:    documents: DocumentRegistry.all(),
+lib/platform/discovery/discoverPlatform.js:15:    aggregates: AggregateRegistry.all(),
+lib/platform/discovery/discoverPlatform.js:16:    capabilities: CapabilityRegistry.all(),
+lib/platform/discovery/discoverPlatform.js:17:    workflows: WorkflowRegistry.all(),
+lib/platform/discovery/discoverPlatform.js:18:    events: EventRegistry.all(),
+lib/platform/discovery/discoverPlatform.js:19:    aiAgents: AIRegistry.all(),
+lib/platform/discovery/discoverPlatform.js:1:import { DomainRegistry } from "@/lib/domain-registry";
+lib/platform/discovery/discoverPlatform.js:2:import { ContextRegistry } from "@/lib/context-registry";
+lib/platform/discovery/discoverPlatform.js:3:import { DocumentRegistry } from "@/lib/document-registry";
+lib/platform/discovery/discoverPlatform.js:4:import { AggregateRegistry } from "@/lib/aggregate-registry";
+lib/platform/discovery/discoverPlatform.js:5:import { CapabilityRegistry } from "@/lib/capability-registry";
+lib/platform/discovery/discoverPlatform.js:6:import { WorkflowRegistry } from "@/lib/workflow-registry";
+lib/platform/discovery/discoverPlatform.js:7:import { EventRegistry } from "@/lib/event-registry";
+lib/platform/discovery/discoverPlatform.js:8:import { AIRegistry } from "@/lib/ai-registry";
+lib/platform/industries/getOrganizationIndustries.js:24:    .map(item => getIndustryRuntime(item.industry_id, organization))
+lib/platform/industries/getOrganizationIndustries.js:29:    const fallbackRuntime = getIndustryRuntime(null, organization);
+lib/platform/industries/getOrganizationIndustries.js:2:import { getIndustryRuntime } from "@/lib/platform/runtime/getIndustryRuntime";
+lib/platform/industries/getOrganizationIndustries.js:30:    if (fallbackRuntime) runtimes.push(fallbackRuntime);
+lib/platform/industries/runtime/accounting.js:1:export const accountingRuntime = {
+lib/platform/industries/runtime/construction.js:1:export const constructionRuntime = {
+lib/platform/industries/runtime/entertainment.js:1:export const entertainmentRuntime = {
+lib/platform/industries/runtime/healthcare.js:1:export const healthcareRuntime = {
+lib/platform/industries/runtime/hotel.js:1:export const hotelRuntime = {
+lib/platform/industries/runtime/pestControl.js:1:export const pestControlRuntime = {
+lib/platform/industries/runtime/restaurant.js:1:export const restaurantRuntime = {
+lib/platform/industries/runtime/retail.js:1:export const retailRuntime = {
+lib/platform/modules/moduleRegistry.js:1:export const moduleRegistry = {
+lib/platform/modules/moduleRegistry.js:216:  return moduleRegistry[key] || null;
+lib/platform/modules/moduleRegistry.js:220:  return Object.values(moduleRegistry);
+lib/platform/runtime/PlatformRuntime.js:35:export const platformRuntime =
+lib/platform/runtime/PlatformRuntime.js:36:  new PlatformRuntime();
+lib/platform/runtime/PlatformRuntime.js:3:class PlatformRuntime {
+lib/platform/runtime/buildAccessRuntime.js:5:export async function buildAccessRuntime({
+lib/platform/runtime/buildModuleRuntime.js:5:export async function buildModuleRuntime({
+lib/platform/runtime/buildNavigationRuntime.js.before-capability-nav:47:export async function buildNavigationRuntime({
+lib/platform/runtime/buildNavigationRuntime.js:11:export async function buildNavigationRuntime() {
+lib/platform/runtime/buildNavigationRuntime.js:1:import { SYSTEM_REGISTRY } from "@/lib/shared/architecture/systemRegistry";
+lib/platform/runtime/buildNavigationRuntime.js:5: * Navigation Runtime
+lib/platform/runtime/buildOrganizationRuntime.js:17:  const industryRuntime = await getOrganizationIndustries({
+lib/platform/runtime/buildOrganizationRuntime.js:22:  if (!industryRuntime.success) return industryRuntime;
+lib/platform/runtime/buildOrganizationRuntime.js:24:  const dashboards = industryRuntime.runtimes.flatMap(r => r.dashboards || []);
+lib/platform/runtime/buildOrganizationRuntime.js:36:  const isHotelRuntime =
+lib/platform/runtime/buildOrganizationRuntime.js:37:    industryRuntime.runtimes.some(runtime => runtime?.id === "hotel");
+lib/platform/runtime/buildOrganizationRuntime.js:40:    isHotelRuntime
+lib/platform/runtime/buildOrganizationRuntime.js:48:  const resolvedRuntime = {
+lib/platform/runtime/buildOrganizationRuntime.js:50:      industryRuntime.runtimes || [],
+lib/platform/runtime/buildOrganizationRuntime.js:59:      industryRuntime.runtimes?.[0]?.operations || null,
+lib/platform/runtime/buildOrganizationRuntime.js:72:    industries: industryRuntime.industries,
+lib/platform/runtime/buildOrganizationRuntime.js:73:    industryRuntimes: industryRuntime.runtimes,
+lib/platform/runtime/buildOrganizationRuntime.js:77:    resolvedRuntime,
+lib/platform/runtime/buildOrganizationRuntime.js:7:export async function buildOrganizationRuntime({
+lib/platform/runtime/buildWorkspaceRuntime.js:104:          const moduleRuntime =
+lib/platform/runtime/buildWorkspaceRuntime.js:105:            await buildModuleRuntime({
+lib/platform/runtime/buildWorkspaceRuntime.js:10:  buildModuleRuntime,
+lib/platform/runtime/buildWorkspaceRuntime.js:115:          return await buildOrganizationRuntime({
+lib/platform/runtime/buildWorkspaceRuntime.js:11:} from "./buildModuleRuntime";
+lib/platform/runtime/buildWorkspaceRuntime.js:125:              Array.isArray(moduleRuntime?.modules)
+lib/platform/runtime/buildWorkspaceRuntime.js:126:                ? moduleRuntime.modules
+lib/platform/runtime/buildWorkspaceRuntime.js:136:  const activeModuleRuntime =
+lib/platform/runtime/buildWorkspaceRuntime.js:138:      ? await buildModuleRuntime({
+lib/platform/runtime/buildWorkspaceRuntime.js:14:  buildNavigationRuntime,
+lib/platform/runtime/buildWorkspaceRuntime.js:152:    Array.isArray(activeModuleRuntime?.modules)
+lib/platform/runtime/buildWorkspaceRuntime.js:153:      ? activeModuleRuntime.modules
+lib/platform/runtime/buildWorkspaceRuntime.js:15:} from "./buildNavigationRuntime";
+lib/platform/runtime/buildWorkspaceRuntime.js:168:    await buildNavigationRuntime({
+lib/platform/runtime/buildWorkspaceRuntime.js:178:  const activeRuntime =
+lib/platform/runtime/buildWorkspaceRuntime.js:179:    organizationRuntimes.find(
+lib/platform/runtime/buildWorkspaceRuntime.js:187:    ...activeRuntime,
+lib/platform/runtime/buildWorkspaceRuntime.js:207:    organizationRuntimes:
+lib/platform/runtime/buildWorkspaceRuntime.js:208:      Array.isArray(organizationRuntimes)
+lib/platform/runtime/buildWorkspaceRuntime.js:209:        ? organizationRuntimes
+lib/platform/runtime/buildWorkspaceRuntime.js:22:  buildOrganizationRuntime,
+lib/platform/runtime/buildWorkspaceRuntime.js:23:} from "@/lib/platform/runtime/buildOrganizationRuntime";
+lib/platform/runtime/buildWorkspaceRuntime.js:25:export async function buildWorkspaceRuntime({
+lib/platform/runtime/buildWorkspaceRuntime.js:2:  buildAccessRuntime,
+lib/platform/runtime/buildWorkspaceRuntime.js:31:    await buildAccessRuntime({
+lib/platform/runtime/buildWorkspaceRuntime.js:3:} from "./buildAccessRuntime";
+lib/platform/runtime/buildWorkspaceRuntime.js:98:  const organizationRuntimes =
+lib/platform/runtime/core/getWorkspaceState.js:28:  const navigation = await buildNavigationRuntime(context);
+lib/platform/runtime/core/getWorkspaceState.js:2:import { buildNavigationRuntime } from "@/lib/platform/runtime/buildNavigationRuntime";
+lib/platform/runtime/getIndustryRuntime.js:11:  accounting: accountingRuntime,
+lib/platform/runtime/getIndustryRuntime.js:12:  entertainment: entertainmentRuntime,
+lib/platform/runtime/getIndustryRuntime.js:13:  construction: constructionRuntime,
+lib/platform/runtime/getIndustryRuntime.js:14:  pest_control: pestControlRuntime,
+lib/platform/runtime/getIndustryRuntime.js:15:  healthcare: healthcareRuntime,
+lib/platform/runtime/getIndustryRuntime.js:16:  hotel: hotelRuntime,
+lib/platform/runtime/getIndustryRuntime.js:17:  restaurant: restaurantRuntime,
+lib/platform/runtime/getIndustryRuntime.js:18:  retail: retailRuntime,
+lib/platform/runtime/getIndustryRuntime.js:1:import { accountingRuntime } from "@/lib/platform/industries/runtime/accounting";
+lib/platform/runtime/getIndustryRuntime.js:21:export function getIndustryRuntime(
+lib/platform/runtime/getIndustryRuntime.js:2:import { entertainmentRuntime } from "@/lib/platform/industries/runtime/entertainment";
+lib/platform/runtime/getIndustryRuntime.js:3:import { constructionRuntime } from "@/lib/platform/industries/runtime/construction";
+lib/platform/runtime/getIndustryRuntime.js:4:import { pestControlRuntime } from "@/lib/platform/industries/runtime/pestControl";
+lib/platform/runtime/getIndustryRuntime.js:5:import { healthcareRuntime } from "@/lib/platform/industries/runtime/healthcare";
+lib/platform/runtime/getIndustryRuntime.js:6:import { hotelRuntime } from "@/lib/platform/industries/runtime/hotel";
+lib/platform/runtime/getIndustryRuntime.js:7:import { restaurantRuntime } from "@/lib/platform/industries/runtime/restaurant";
+lib/platform/runtime/getIndustryRuntime.js:8:import { retailRuntime } from "@/lib/platform/industries/runtime/retail";
+lib/platform/runtime/index.js:1:export * from "./PlatformRuntime";
+lib/platform/runtime/loadPlatformRuntime.BROKEN.js:4:export async function loadPlatformRuntime() {
+lib/platform/runtime/loadPlatformRuntime.js:4:export async function loadPlatformRuntime() {
+lib/platform/runtime/loadPlatformWorkspaceRuntime.js:3:import { getIndustryRuntime } from "@/lib/platform/runtime/getIndustryRuntime";
+lib/platform/runtime/loadPlatformWorkspaceRuntime.js:40:          getIndustryRuntime(id),
+lib/platform/runtime/loadPlatformWorkspaceRuntime.js:5:export async function loadPlatformWorkspaceRuntime() {
+lib/platform/runtime/saaSReactor.js:14:  const navigation = await buildNavigationRuntime(context);
+lib/platform/runtime/saaSReactor.js:2:import { buildNavigationRuntime } from "@/lib/platform/runtime/buildNavigationRuntime";
+lib/platform/security/requireOrganizationAccess.js:33:    await buildAccessRuntime({
+lib/platform/security/requireOrganizationAccess.js:6:  buildAccessRuntime,
+lib/platform/security/requireOrganizationAccess.js:7:} from "@/lib/platform/runtime/buildAccessRuntime";
+lib/platform/unified/getUnifiedModules.js:1:import { SYSTEM_REGISTRY } from "@/lib/shared/architecture/systemRegistry";
+lib/platform/unified/getUnifiedModules.js:2:import { DOMAIN_REGISTRY } from "@/lib/platform/domains/domainRegistry";
+lib/ubte/capabilities/CapabilityRegistry.js:1:import { RESTAURANT_CAPABILITIES } from "@/lib/restaurant/RestaurantCapabilityRegistry";
+lib/ubte/capabilities/executeCapability.js:1:import { getCapabilityDefinition } from "./CapabilityRegistry";
+lib/ubte/runtime/domains/DomainRuntimeRegistry.js:1:import { RestaurantRuntime } from "@/lib/restaurant/RestaurantRuntime";
+lib/ubte/runtime/domains/DomainRuntimeRegistry.js:4:  restaurant: RestaurantRuntime,
+lib/ubte/runtime/domains/DomainRuntimeRegistry.js:7:export function getDomainRuntime(domain) {
+lib/ubte/runtime/loaders/CapabilityLoader.js:12:    domainRuntime.capabilities?.[capability];
+lib/ubte/runtime/loaders/CapabilityLoader.js:1:import { getDomainRuntime } from "../domains/DomainRuntimeRegistry";
+lib/ubte/runtime/loaders/CapabilityLoader.js:42:    domainRuntime,
+lib/ubte/runtime/loaders/CapabilityLoader.js:8:  const domainRuntime =
+lib/ubte/runtime/loaders/CapabilityLoader.js:9:    getDomainRuntime(domain);
+lib/ubte/workflows/runtime/WorkflowEngine.js:1:import { execute } from "@/lib/ubte/runtime/ExecutionEngine";
+lib/ubte/workflows/runtime/WorkflowEngine.js:2:import { getWorkflow } from "../WorkflowRegistry";

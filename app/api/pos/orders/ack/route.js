@@ -6,7 +6,7 @@ export async function POST(req) {
 
     const {
       orderId,
-      tenantId,
+      organizationId,
       acknowledgedBy
     } = await req.json();
 
@@ -14,7 +14,7 @@ export async function POST(req) {
       .from("order_acknowledgements")
       .insert({
         order_id: orderId,
-        tenant_id: tenantId,
+        organization_id: organizationId,
         acknowledged_by: acknowledgedBy,
         status: "RECEIVED"
       })

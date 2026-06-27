@@ -16,8 +16,8 @@ export async function POST(req) {
     const result =
       await voidOrder({
 
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
 
         orderId:
           body.orderId,

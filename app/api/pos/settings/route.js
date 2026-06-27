@@ -9,14 +9,14 @@ export async function GET(req) {
     const { searchParams } =
       new URL(req.url);
 
-    const tenantId =
-      searchParams.get("tenantId");
+    const organizationId =
+      searchParams.get("organizationId");
 
-    if (!tenantId) {
+    if (!organizationId) {
       return NextResponse.json(
         {
           success: false,
-          error: "tenantId required",
+          error: "organizationId required",
         },
         {
           status: 400,
@@ -26,7 +26,7 @@ export async function GET(req) {
 
     const settings =
       await loadOperationalSettings({
-        tenantId,
+        organizationId,
         domain: "POS",
       });
 

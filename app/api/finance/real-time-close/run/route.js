@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const result =
       await runRealTimeClose({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
         closeDate:
           body.closeDate,
       });

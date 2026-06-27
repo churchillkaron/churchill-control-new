@@ -1,6 +1,7 @@
 create table if not exists ap_subledger (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   vendor_id uuid,
   invoice_id uuid,
   journal_entry_id uuid,
@@ -12,7 +13,8 @@ create table if not exists ap_subledger (
 
 create table if not exists ar_subledger (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   customer_id uuid,
   invoice_id uuid,
   journal_entry_id uuid,
@@ -24,7 +26,8 @@ create table if not exists ar_subledger (
 
 create table if not exists inventory_subledger (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   item_id text,
   movement_type text,
   quantity numeric(14,2),

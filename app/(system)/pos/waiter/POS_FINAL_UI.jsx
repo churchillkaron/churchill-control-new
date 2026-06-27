@@ -109,7 +109,6 @@ export default function POSFinalUI() {
   const waiterStaff =
     workspaceRuntime?.access?.staff || null;
 
-  const tenantId = tenant?.id;
   const organizationId =
     tenant?.activeOrganization ||
     tenant?.active_organization_id ||
@@ -252,9 +251,9 @@ export default function POSFinalUI() {
   const cartTotal = cart.reduce((sum, item) => sum + Number(item.price || 0), 0);
 
   async function loadRuntime() {
-    if (!tenantId) return;
+    if (!organizationId) return;
 
-    const loaded = await loadWaiterData(tenantId);
+    const loaded = await loadWaiterData(organizationId);
     setRuntime(loaded);
 
     if (!activeZoneId && loaded?.zones?.[0]?.id) {
@@ -311,8 +310,8 @@ export default function POSFinalUI() {
         action,
         payload: {
           ...payload,
-          tenantId,
-          tenant_id: tenantId,
+          organizationId,
+          organization_id: organizationId,
           organizationId,
           organization_id: organizationId,
         },
@@ -336,7 +335,7 @@ export default function POSFinalUI() {
       },
       body: JSON.stringify({
         tableId: tableId(table),
-        tenant_id: tenantId,
+        organization_id: organizationId,
         organization_id: organizationId,
       }),
     });
@@ -353,7 +352,7 @@ export default function POSFinalUI() {
   useEffect(() => {
     loadRuntime();
     loadStaffRuntime();
-  }, [tenantId]);
+  }, [organizationId]);
 
   function clearHold() {
     if (holdTimer.current) {
@@ -418,7 +417,7 @@ export default function POSFinalUI() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        tenantId,
+        organizationId,
         organizationId,
         query: customerSearch,
       }),
@@ -438,7 +437,7 @@ export default function POSFinalUI() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        tenantId,
+        organizationId,
         customer_name: customerForm.name,
         customer_phone: customerForm.phone,
         customer_email: customerForm.email,
@@ -575,7 +574,7 @@ export default function POSFinalUI() {
           waiterStaff?.name || "Waiter",
         staff_id:
           waiterStaff?.id || null,
-        tenant_id: tenantId,
+        organization_id: organizationId,
         organization_id: organizationId,
         customerId: customerDraft?.id || null,
         customerName: customerDraft?.name || null,
@@ -662,7 +661,7 @@ export default function POSFinalUI() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        tenantId,
+        organizationId,
         organizationId,
         fromTableId: modalTable.id,
         toTableId: targetTable.id,

@@ -1,0 +1,1114 @@
+lib/accounting/loadAccountingFirmDashboard.js:4:  organizationId,
+lib/accounting/loadAccountingFirmDashboard.js:20:      organizationId
+lib/accounting/loadAccountingClients.js:4:  organizationId,
+lib/accounting/loadAccountingClients.js:13:    .eq("source_organization_id", organizationId)
+lib/accounting/loadAccessibleAccountingClients.js:5:  organizationId,
+lib/accounting/loadAccessibleAccountingClients.js:10:      organizationId,
+lib/organizations/getOrganizationWorkspace.js:3:export async function getOrganizationWorkspace({ userEmail, organizationId }) {
+lib/organizations/getOrganizationWorkspace.js:4:  return await buildWorkspaceRuntime({ userEmail, organizationId });
+lib/design/assets/getCreativeAssets.js:5:  organizationId = null,
+lib/design/assets/getCreativeAssets.js:15:  if (organizationId) {
+lib/design/assets/getCreativeAssets.js:18:      organizationId
+lib/design/assets/getCreativeAssetsClient.js:3:  organizationId = null,
+lib/design/assets/getCreativeAssetsClient.js:12:  if (organizationId) {
+lib/design/assets/getCreativeAssetsClient.js:13:    params.set("organizationId", organizationId);
+lib/restaurant/settings/PaymentSettingsRepository.js:10:  organizationId
+lib/restaurant/settings/PaymentSettingsRepository.js:15:      organizationId
+lib/restaurant/settings/KitchenSettingsRepository.js:6:  organizationId
+lib/restaurant/settings/KitchenSettingsRepository.js:11:      organizationId
+lib/restaurant/settings/WorkCenterRepository.js:6:  organizationId
+lib/restaurant/settings/WorkCenterRepository.js:9:  if (!organizationId) {
+lib/restaurant/settings/WorkCenterRepository.js:11:      "organizationId required"
+lib/restaurant/settings/WorkCenterRepository.js:15:  if (cache.has(organizationId)) {
+lib/restaurant/settings/WorkCenterRepository.js:17:      organizationId
+lib/restaurant/settings/WorkCenterRepository.js:29:      organizationId
+lib/restaurant/settings/WorkCenterRepository.js:51:    organizationId,
+lib/restaurant/settings/WorkCenterRepository.js:60:  organizationId,
+lib/restaurant/settings/WorkCenterRepository.js:66:      organizationId
+lib/restaurant/settings/WorkCenterRepository.js:85:  organizationId
+lib/restaurant/settings/WorkCenterRepository.js:88:  if(organizationId){
+lib/restaurant/settings/WorkCenterRepository.js:90:      organizationId
+lib/restaurant/settings/mappers/RestaurantSettingsMapper.js:11:    organizationId:
+lib/restaurant/settings/documents/RestaurantSettings.js:5:    this.organizationId =
+lib/restaurant/settings/RestaurantSettingsRepository.js:6:  organizationId
+lib/restaurant/settings/RestaurantSettingsRepository.js:9:  if (!organizationId) {
+lib/restaurant/settings/RestaurantSettingsRepository.js:11:      "organizationId required"
+lib/restaurant/settings/RestaurantSettingsRepository.js:15:  if (cache.has(organizationId)) {
+lib/restaurant/settings/RestaurantSettingsRepository.js:17:      organizationId
+lib/restaurant/settings/RestaurantSettingsRepository.js:29:      organizationId
+lib/restaurant/settings/RestaurantSettingsRepository.js:81:    organizationId,
+lib/restaurant/settings/RestaurantSettingsRepository.js:90:  organizationId
+lib/restaurant/settings/RestaurantSettingsRepository.js:93:  if (organizationId) {
+lib/restaurant/settings/RestaurantSettingsRepository.js:95:      organizationId
+lib/restaurant/payments/CreatePayment/execute.js:22:        organizationId:
+lib/restaurant/payments/CreatePayment/execute.js:23:          context.organizationId,
+lib/restaurant/payments/documents/Payment/factory.js:4:  organizationId,
+lib/restaurant/payments/documents/Payment/factory.js:14:    organizationId,
+lib/restaurant/read-models/payments/PaymentReadModel.js:4:  organizationId,
+lib/restaurant/read-models/payments/PaymentReadModel.js:12:      .eq("organization_id", organizationId)
+lib/restaurant/read-models/sessions/SessionReadModel.js:4:  organizationId,
+lib/restaurant/read-models/sessions/SessionReadModel.js:12:      .eq("organization_id", organizationId)
+lib/restaurant/read-models/orders/OrderReadModel.js:4:  organizationId,
+lib/restaurant/read-models/orders/OrderReadModel.js:15:      .eq("organization_id", organizationId)
+lib/restaurant/read-models/kitchen/KitchenReadModel.js:4:  organizationId,
+lib/restaurant/read-models/kitchen/KitchenReadModel.js:12:      .eq("organization_id", organizationId)
+lib/restaurant/queries/payments/GetPayment.js:6:  organizationId,
+lib/restaurant/queries/payments/GetPayment.js:10:    organizationId,
+lib/restaurant/queries/sessions/GetSession.js:6:  organizationId,
+lib/restaurant/queries/sessions/GetSession.js:10:    organizationId,
+lib/restaurant/queries/orders/GetOrder.js:6:  organizationId,
+lib/restaurant/queries/orders/GetOrder.js:10:    organizationId,
+lib/restaurant/queries/kitchen/GetKitchenTicket.js:6:  organizationId,
+lib/restaurant/queries/kitchen/GetKitchenTicket.js:10:    organizationId,
+lib/restaurant/workflows/ServiceLifecycle/execute.js:113:  context.organizationId
+lib/restaurant/repositories/payments/PaymentRepository.js:13:        organization_id: p.organizationId,
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:4:  organizationId,
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:7:  if (!organizationId) {
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:8:    throw new Error("organizationId required");
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:22:      .eq("organization_id", organizationId)
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:39:  if (!state.organizationId && !state.organization_id) {
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:40:    throw new Error("organizationId required");
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:43:  const organizationId =
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:44:    state.organizationId ||
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:75:        .eq("organization_id", organizationId)
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:90:          organization_id: organizationId,
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:134:          organization_id: organizationId,
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:154:    organizationId,
+lib/restaurant/repositories/orders/RestaurantOrderAggregateRepository.js:11:  organizationId,
+lib/restaurant/repositories/orders/RestaurantOrderAggregateRepository.js:16:      organizationId,
+lib/restaurant/repositories/orders/RestaurantOrderAggregateRepository.js:21:    organizationId,
+lib/restaurant/repositories/bar/BarTicketRepository.js:25:        b.organizationId,
+lib/restaurant/repositories/kitchen/KitchenTicketRepository.js:8:  organizationId,
+lib/restaurant/repositories/kitchen/KitchenTicketRepository.js:14:    .eq("organization_id", organizationId)
+lib/restaurant/repositories/kitchen/KitchenTicketRepository.js:32:      organization_id: k.organizationId || k.organization_id,
+lib/restaurant/executeRestaurantCommand.js:4:  organizationId,
+lib/restaurant/executeRestaurantCommand.js:10:  if (!organizationId) {
+lib/restaurant/executeRestaurantCommand.js:11:    throw new Error("organizationId required");
+lib/restaurant/executeRestaurantCommand.js:24:      organizationId,
+lib/restaurant/workcenters/WorkCenterService.js:6:  organizationId,
+lib/restaurant/workcenters/WorkCenterService.js:18:      organizationId
+lib/restaurant/floor/queries/GetTables.js:4:  organizationId,
+lib/restaurant/floor/queries/GetTables.js:12:        organizationId
+lib/restaurant/floor/FloorService.js:2:  organizationId,
+lib/restaurant/floor/FloorService.js:7:  if (!organizationId) {
+lib/restaurant/floor/FloorService.js:8:    throw new Error("organizationId required");
+lib/restaurant/floor/FloorService.js:15:          organizationId,
+lib/restaurant/floor/FloorService.js:22:          organizationId,
+lib/restaurant/floor/FloorService.js:29:          organizationId,
+lib/restaurant/floor/FloorService.js:37:          organizationId,
+lib/restaurant/floor/FloorService.js:45:          organizationId,
+lib/restaurant/documents/RestaurantOrder/factory.js:4:  organizationId,
+lib/restaurant/documents/RestaurantOrder/factory.js:14:  if (!organizationId) {
+lib/restaurant/documents/RestaurantOrder/factory.js:15:    throw new Error("organizationId required");
+lib/restaurant/documents/RestaurantOrder/factory.js:22:    organizationId,
+lib/restaurant/documents/RestaurantOrder/schema.js:3:  organizationId: "string",
+lib/restaurant/orders/UpdateQuantity/authorize.js:4:  if (!context?.organizationId) {
+lib/restaurant/orders/UpdateQuantity/authorize.js:5:    throw new Error("organizationId required");
+lib/restaurant/orders/UpdateQuantity/execute.js:17:function toAggregate(order, organizationId) {
+lib/restaurant/orders/UpdateQuantity/execute.js:20:    organizationId,
+lib/restaurant/orders/UpdateQuantity/execute.js:71:      organizationId:
+lib/restaurant/orders/UpdateQuantity/execute.js:72:        context.organizationId,
+lib/restaurant/orders/UpdateQuantity/validate.js:5:  if (!context?.organizationId) {
+lib/restaurant/orders/UpdateQuantity/validate.js:6:    throw new Error("organizationId required");
+lib/restaurant/orders/RemoveItem/authorize.js:4:  if (!context?.organizationId) {
+lib/restaurant/orders/RemoveItem/authorize.js:5:    throw new Error("organizationId required");
+lib/restaurant/orders/RemoveItem/execute.js:17:function toAggregate(order, organizationId) {
+lib/restaurant/orders/RemoveItem/execute.js:20:    organizationId,
+lib/restaurant/orders/RemoveItem/execute.js:71:      organizationId:
+lib/restaurant/orders/RemoveItem/execute.js:72:        context.organizationId,
+lib/restaurant/orders/RemoveItem/validate.js:5:  if (!context?.organizationId) {
+lib/restaurant/orders/RemoveItem/validate.js:6:    throw new Error("organizationId required");
+lib/restaurant/orders/ApplyDiscount/authorize.js:4:  if (!context?.organizationId) {
+lib/restaurant/orders/ApplyDiscount/authorize.js:5:    throw new Error("organizationId required");
+lib/restaurant/orders/ApplyDiscount/execute.js:17:function toAggregate(order, organizationId) {
+lib/restaurant/orders/ApplyDiscount/execute.js:20:    organizationId,
+lib/restaurant/orders/ApplyDiscount/execute.js:71:      organizationId:
+lib/restaurant/orders/ApplyDiscount/execute.js:72:        context.organizationId,
+lib/restaurant/orders/ApplyDiscount/validate.js:5:  if (!context?.organizationId) {
+lib/restaurant/orders/ApplyDiscount/validate.js:6:    throw new Error("organizationId required");
+lib/restaurant/orders/CreateRestaurantOrder/authorize.js:4:  if (!context?.organizationId) {
+lib/restaurant/orders/CreateRestaurantOrder/authorize.js:5:    throw new Error("organizationId required");
+lib/restaurant/orders/CreateRestaurantOrder/execute.js:42:      organizationId:
+lib/restaurant/orders/CreateRestaurantOrder/execute.js:43:        context.organizationId,
+lib/restaurant/orders/CreateRestaurantOrder/repository.js:11:      organizationId: context.organizationId,
+lib/restaurant/orders/CreateRestaurantOrder/validate.js:5:  if (!context?.organizationId) {
+lib/restaurant/orders/CreateRestaurantOrder/validate.js:6:    throw new Error("organizationId required");
+lib/restaurant/orders/mappers/RestaurantOrderMapper.js:6:  organizationId,
+lib/restaurant/orders/mappers/RestaurantOrderMapper.js:12:    organizationId,
+lib/restaurant/orders/SendToKitchen/authorize.js:4:  if (!context?.organizationId) {
+lib/restaurant/orders/SendToKitchen/authorize.js:5:    throw new Error("organizationId required");
+lib/restaurant/orders/SendToKitchen/repository.js:11:      organizationId: context.organizationId,
+lib/restaurant/orders/SendToKitchen/validate.js:5:  if (!context?.organizationId) {
+lib/restaurant/orders/SendToKitchen/validate.js:6:    throw new Error("organizationId required");
+lib/restaurant/orders/services/RestaurantOrderApplicationService.js:7:  organizationId,
+lib/restaurant/orders/services/RestaurantOrderApplicationService.js:13:      organizationId,
+lib/restaurant/orders/AddItem/authorize.js:4:  if (!context?.organizationId) {
+lib/restaurant/orders/AddItem/authorize.js:5:    throw new Error("organizationId required");
+lib/restaurant/orders/AddItem/execute.js:34:      organizationId:
+lib/restaurant/orders/AddItem/execute.js:35:        context.organizationId,
+lib/restaurant/orders/AddItem/validate.js:5:  if (!context?.organizationId) {
+lib/restaurant/orders/AddItem/validate.js:6:    throw new Error("organizationId required");
+lib/restaurant/bar/documents/BarTicket/factory.js:8:  organizationId,
+lib/restaurant/bar/documents/BarTicket/factory.js:24:    organizationId,
+lib/restaurant/events/projections/RestaurantProjectionManager.js:18:        organizationId: payload.organizationId,
+lib/restaurant/events/projections/RestaurantProjectionManager.js:25:        organizationId: payload.organizationId,
+lib/restaurant/events/projections/RestaurantProjectionManager.js:31:        organizationId: payload.organizationId,
+lib/restaurant/events/projections/RestaurantProjectionManager.js:37:        organizationId: payload.organizationId,
+lib/restaurant/kitchen/MarkReady/execute.js:10:    organizationId: context.organizationId,
+lib/restaurant/kitchen/CreateKitchenTicket/execute.js:17:      organizationId:
+lib/restaurant/kitchen/CreateKitchenTicket/execute.js:18:        context.organizationId,
+lib/restaurant/kitchen/StartPreparation/execute.js:10:    organizationId: context.organizationId,
+lib/restaurant/kitchen/Complete/execute.js:10:    organizationId: context.organizationId,
+lib/restaurant/kitchen/queries/GetKitchenQueue.js:5:  organizationId,
+lib/restaurant/kitchen/queries/GetKitchenQueue.js:20:        organizationId
+lib/restaurant/kitchen/mappers/KitchenTicketMapper.js:8:    organizationId: ticket.organization_id,
+lib/restaurant/kitchen/documents/KitchenTicket/factory.js:4:  organizationId,
+lib/restaurant/kitchen/documents/KitchenTicket/factory.js:17:    organizationId,
+lib/restaurant/kitchen/services/KitchenApplicationService.js:11:  organizationId,
+lib/restaurant/kitchen/services/KitchenApplicationService.js:15:  if (!organizationId) {
+lib/restaurant/kitchen/services/KitchenApplicationService.js:16:    throw new Error("organizationId required");
+lib/restaurant/kitchen/services/KitchenApplicationService.js:24:    organizationId,
+lib/restaurant/services/getLiveTableState.js:5:  organizationId,
+lib/restaurant/services/getLiveTableState.js:9:  if (!organizationId || (!tableNumber && !tableId)) {
+lib/restaurant/services/getLiveTableState.js:18:    organizationId,
+lib/restaurant/services/getLiveTableState.js:26:    .eq("organization_id", organizationId);
+lib/restaurant/services/getLiveTableState.js:39:    .eq("organization_id", organizationId)
+lib/restaurant/services/getMergedTableGroup.js:4:  organizationId,
+lib/restaurant/services/getMergedTableGroup.js:8:  if (!organizationId || (!tableNumber && !tableId)) {
+lib/restaurant/services/getMergedTableGroup.js:15:    .eq("organization_id", organizationId);
+lib/restaurant/services/moveGuestsBetweenTables.js:4:  organizationId,
+lib/restaurant/services/moveGuestsBetweenTables.js:8:  if (!organizationId) {
+lib/restaurant/services/moveGuestsBetweenTables.js:9:    throw new Error("organizationId required");
+lib/restaurant/services/moveGuestsBetweenTables.js:22:    .eq("organization_id", organizationId)
+lib/restaurant/services/moveGuestsBetweenTables.js:33:    .eq("organization_id", organizationId)
+lib/restaurant/services/getActiveTableSession.js:4:  organizationId = null,
+lib/restaurant/services/getActiveTableSession.js:10:  if (!organizationId) {
+lib/restaurant/services/getActiveTableSession.js:11:    throw new Error("organizationId required");
+lib/restaurant/services/getActiveTableSession.js:26:  if (organizationId) {
+lib/restaurant/services/getActiveTableSession.js:29:      organizationId
+lib/restaurant/services/splitTableGroup.js:4:  organizationId,
+lib/restaurant/services/splitTableGroup.js:7:  if (!organizationId || !masterTableId) {
+lib/restaurant/services/splitTableGroup.js:14:    .eq("organization_id", organizationId)
+lib/restaurant/services/splitTableGroup.js:24:    .eq("organization_id", organizationId);
+lib/restaurant/services/loadMergedTableOrders.js:4:  organizationId,
+lib/restaurant/services/loadMergedTableOrders.js:8:  if (!organizationId || (!tableNumber && !tableId)) {
+lib/restaurant/services/loadMergedTableOrders.js:15:    .eq("organization_id", organizationId);
+lib/restaurant/services/loadMergedTableOrders.js:34:    .eq("organization_id", organizationId)
+lib/restaurant/services/openTableSession.js:5:  organizationId = null,
+lib/restaurant/services/openTableSession.js:19:  if (!organizationId) {
+lib/restaurant/services/openTableSession.js:20:    throw new Error("organizationId required");
+lib/restaurant/services/openTableSession.js:24:    organizationId,
+lib/restaurant/services/openTableSession.js:37:        organization_id: organizationId || existing.organization_id || null,
+lib/restaurant/services/openTableSession.js:67:  if (organizationId) {
+lib/restaurant/services/openTableSession.js:70:      organizationId
+lib/restaurant/services/openTableSession.js:88:      organization_id: organizationId || table.organization_id || null,
+lib/restaurant/services/closeTableSession.js:4:  organizationId,
+lib/restaurant/services/closeTableSession.js:7:  if (!organizationId) {
+lib/restaurant/services/closeTableSession.js:8:    throw new Error("organizationId required");
+lib/restaurant/services/closeTableSession.js:20:    .eq("organization_id", organizationId)
+lib/restaurant/services/closeTableSession.js:37:    .eq("organization_id", organizationId)
+lib/restaurant/session/SplitSessionGroup/execute.js:4:  organizationId,
+lib/restaurant/session/SplitSessionGroup/execute.js:9:    organizationId,
+lib/restaurant/session/ChangeCustomer/authorize.js:4:  if (!context?.organizationId) {
+lib/restaurant/session/ChangeCustomer/authorize.js:5:    throw new Error("organizationId required");
+lib/restaurant/session/ChangeCustomer/repository.js:22:        context.organizationId
+lib/restaurant/session/ChangeCustomer/repository.js:38:        organizationId:
+lib/restaurant/session/ChangeCustomer/repository.js:39:          context.organizationId,
+lib/restaurant/session/ChangeCustomer/repository.js:72:      context.organizationId
+lib/restaurant/session/ChangeCustomer/schema.js:6:    "organizationId"
+lib/restaurant/session/ChangeCustomer/validate.js:7:  if (!context?.organizationId) {
+lib/restaurant/session/ChangeCustomer/validate.js:8:    throw new Error("organizationId required");
+lib/restaurant/session/MoveGuests/execute.js:4:  organizationId,
+lib/restaurant/session/MoveGuests/execute.js:9:    organizationId,
+lib/restaurant/session/SessionService.js:11:  organizationId,
+lib/restaurant/session/SessionService.js:19:        organizationId,
+lib/restaurant/session/SessionService.js:26:        organizationId,
+lib/restaurant/session/SessionService.js:33:        organizationId,
+lib/restaurant/session/SessionService.js:40:        organizationId,
+lib/restaurant/session/SessionService.js:47:        organizationId,
+lib/restaurant/session/SessionService.js:53:        organizationId,
+lib/restaurant/session/SessionService.js:59:        organizationId,
+lib/restaurant/session/CloseSession/execute.js:4:  organizationId,
+lib/restaurant/session/CloseSession/execute.js:9:    organizationId,
+lib/restaurant/session/LoadMergedSessionOrders/execute.js:4:  organizationId,
+lib/restaurant/session/LoadMergedSessionOrders/execute.js:8:    organizationId,
+lib/restaurant/session/GetActiveSession/execute.js:4:  organizationId,
+lib/restaurant/session/GetActiveSession/execute.js:8:    organizationId,
+lib/restaurant/session/GetLiveSessionState/execute.js:4:  organizationId,
+lib/restaurant/session/GetLiveSessionState/execute.js:8:    organizationId,
+lib/restaurant/session/OpenSession/authorize.js:2:  organizationId,
+lib/restaurant/session/OpenSession/authorize.js:5:  if (!organizationId) {
+lib/restaurant/session/OpenSession/authorize.js:7:      "organizationId required"
+lib/restaurant/session/OpenSession/execute.js:12:      organizationId:
+lib/restaurant/session/OpenSession/execute.js:13:        context.organizationId,
+lib/restaurant/session/OpenSession/execute.js:19:      organizationId:
+lib/restaurant/session/OpenSession/execute.js:20:        context.organizationId,
+lib/restaurant/session/OpenSession/rules.js:2:  organizationId,
+lib/restaurant/session/OpenSession/rules.js:5:  if (!organizationId) {
+lib/restaurant/session/OpenSession/rules.js:6:    throw new Error("organizationId required");
+lib/restaurant/session/OpenSession/audit.js:4:  organizationId,
+lib/restaurant/session/OpenSession/audit.js:11:      organization_id: organizationId,
+lib/restaurant/session/OpenSession/repository.js:4:  organizationId,
+lib/restaurant/session/OpenSession/repository.js:8:    organizationId,
+lib/restaurant/session/OpenSession/schema.js:6:    "organizationId"
+lib/restaurant/session/OpenSession/validate.js:4:  organizationId,
+lib/restaurant/session/OpenSession/validate.js:7:  if (!organizationId) {
+lib/restaurant/session/OpenSession/validate.js:8:    throw new Error("organizationId required");
+lib/hotel/createGuest.js:4:  organizationId,
+lib/hotel/createGuest.js:15:  if (!organizationId) throw new Error("organizationId required");
+lib/hotel/createGuest.js:21:      organization_id: organizationId,
+lib/hotel/createBooking.js:4:  organizationId,
+lib/hotel/createBooking.js:10:  if (!organizationId) throw new Error("organizationId required");
+lib/hotel/createBooking.js:27:      organization_id: organizationId,
+lib/hotel/createProperty.js:5:  organizationId,
+lib/hotel/createProperty.js:12:  if (!organizationId)
+lib/hotel/createProperty.js:14:      "organizationId required"
+lib/hotel/createProperty.js:29:        organizationId,
+lib/hotel/checkAvailability.js:6:  organizationId,
+lib/hotel/checkAvailability.js:11:    .eq("organization_id", organizationId)
+lib/hotel/createHousekeepingTask.js:4:  organizationId,
+lib/hotel/createHousekeepingTask.js:12:  if (!organizationId) throw new Error("organizationId required");
+lib/hotel/createHousekeepingTask.js:18:      organization_id: organizationId,
+lib/hotel/createConciergeRequest.js:4:  organizationId,
+lib/hotel/createConciergeRequest.js:12:  if (!organizationId)
+lib/hotel/createConciergeRequest.js:13:    throw new Error("organizationId required");
+lib/hotel/createConciergeRequest.js:31:        organizationId,
+lib/hotel/buildHotelMetrics.js:3:export async function buildHotelMetrics({ organizationId }) {
+lib/hotel/buildHotelMetrics.js:13:    supabaseAdmin.from("hotel_bookings").select("*").eq("organization_id", organizationId),
+lib/hotel/buildHotelMetrics.js:14:    supabaseAdmin.from("hotel_rooms").select("*").eq("organization_id", organizationId),
+lib/hotel/buildHotelMetrics.js:15:    supabaseAdmin.from("hotel_housekeeping_tasks").select("*").eq("organization_id", organizationId),
+lib/hotel/buildHotelMetrics.js:16:    supabaseAdmin.from("hotel_maintenance_tasks").select("*").eq("organization_id", organizationId),
+lib/hotel/buildHotelMetrics.js:17:    supabaseAdmin.from("hotel_concierge_requests").select("*").eq("organization_id", organizationId),
+lib/hotel/getAvailability.js:4:  organizationId,
+lib/hotel/getAvailability.js:9:  if (!organizationId) throw new Error("organizationId required");
+lib/hotel/getAvailability.js:17:    .eq("organization_id", organizationId)
+lib/hotel/createMaintenanceTask.js:4:  organizationId,
+lib/hotel/createMaintenanceTask.js:12:  if (!organizationId) throw new Error("organizationId required");
+lib/hotel/createMaintenanceTask.js:18:      organization_id: organizationId,
+lib/hotel/createRoom.js:4:  organizationId,
+lib/hotel/createRoom.js:10:  if (!organizationId) throw new Error("organizationId required");
+lib/hotel/createRoom.js:17:      organization_id: organizationId,
+lib/platform/tenant/resolveTenantModules.js:10:  organizationId,
+lib/platform/tenant/resolveTenantModules.js:17:    organizationId,
+lib/platform/tenant/tenantContext.js:18:    organizationId: context.organizationId,
+lib/platform/tenant/tenantContext.js:43:  return runtimeCache.get(tenantId)?.organizationId || null;
+lib/platform/accounting/getOrganizationAccountingProfile.js:6:  organizationId,
+lib/platform/accounting/getOrganizationAccountingProfile.js:9:  if (!organizationId) {
+lib/platform/accounting/getOrganizationAccountingProfile.js:13:      error: "Missing organizationId",
+lib/platform/accounting/getOrganizationAccountingProfile.js:34:      organizationId
+lib/platform/accounting/getConsolidationOrganizations.js:6:  organizationId,
+lib/platform/accounting/getConsolidationOrganizations.js:29:      organizationId
+lib/platform/accounting/getConsolidationOrganizations.js:57:        organizationId,
+lib/platform/accounting/getConsolidationOrganizations.js:86:        organizationId
+lib/platform/accounting/getConsolidationOrganizations.js:104:        organizationId,
+lib/platform/accounting/getConsolidationOrganizations.js:127:      organizationId,
+lib/platform/getAvailableModules.js:6:  organizationId,
+lib/platform/getAvailableModules.js:9:  if (!organizationId) {
+lib/platform/getAvailableModules.js:29:      organizationId
+lib/platform/orgScope.js:10:    organizationId:
+lib/platform/context/getSystemContextFromDB.js:33:    organizationId: data.organization_id,
+lib/platform/security/requireOrganizationAccess.js:15:  organizationId,
+lib/platform/security/requireOrganizationAccess.js:82:        organizationId
+lib/platform/runtime/buildWorkspaceRuntime.js:27:  organizationId,
+lib/platform/runtime/buildWorkspaceRuntime.js:57:  const organizationIds =
+lib/platform/runtime/buildWorkspaceRuntime.js:67:      organizationIds,
+lib/platform/runtime/buildWorkspaceRuntime.js:72:    organizationId ||
+lib/platform/runtime/buildWorkspaceRuntime.js:110:              organizationId:
+lib/platform/runtime/buildWorkspaceRuntime.js:143:          organizationId:
+lib/platform/runtime/loadPlatformWorkspaceRuntime.js:20:      organizationId:
+lib/platform/runtime/buildOrganizationTree.js:6:  organizationIds = [],
+lib/platform/runtime/buildOrganizationTree.js:18:    .in("id", organizationIds);
+lib/platform/runtime/validateWorkspaceBoot.js:10:  if (!context.organizationId) return false;
+lib/platform/runtime/buildOrganizationRuntime.js:18:    organizationId: organization.id,
+lib/platform/runtime/buildOrganizationRuntime.js:33:    organizationId: organization.id,
+lib/platform/runtime/buildOrganizationRuntime.js:41:      ? (await buildHotelMetrics({ organizationId: organization.id })).metrics || {}
+lib/platform/runtime/getWorkspaceNavModules.js:7:  organizationId,
+lib/platform/runtime/getWorkspaceNavModules.js:11:    organizationId,
+lib/platform/runtime/buildModuleRuntime.js:7:  organizationId,
+lib/platform/runtime/buildModuleRuntime.js:14:          organizationId,
+lib/platform/unified/getUnifiedModules.js:10:export async function getUnifiedModules({ organizationId }) {
+lib/platform/unified/getUnifiedModules.js:14:    organizationId,
+lib/platform/unified/getUnifiedModules.js:27:    .eq("organization_id", organizationId)
+lib/platform/industries/getOrganizationIndustries.js:4:export async function getOrganizationIndustries({ organizationId, organization }) {
+lib/platform/industries/getOrganizationIndustries.js:7:  if (!organizationId) {
+lib/platform/industries/getOrganizationIndustries.js:8:    return { success: false, error: "Missing organizationId" };
+lib/platform/industries/getOrganizationIndustries.js:14:    .eq("organization_id", organizationId)
+lib/platform/industries/getOrganizationIndustries.js:17:  if (organizationId === "33336a72-acb5-474e-856b-8be0269360e2") console.dir(data,{depth:null});
+lib/platform/workspaces/getOrganizationWorkspaceSettings.js:6:  organizationId,
+lib/platform/workspaces/getOrganizationWorkspaceSettings.js:9:  if (!organizationId) {
+lib/platform/workspaces/getOrganizationWorkspaceSettings.js:29:      organizationId
+lib/platform/eventRouter.js:14:    organization_id: orgScope.organizationId
+lib/platform/templates/applyWorkspaceTemplate.js:4:  organizationId,
+lib/platform/templates/applyWorkspaceTemplate.js:29:      organizationId
+lib/platform/templates/applyWorkspaceTemplate.js:37:          organizationId,
+lib/platform/templates/applyWorkspaceTemplate.js:64:        organizationId,
+lib/platform/data/getModules.js:9:  organizationId,
+lib/platform/billing/planActions.js:11:  organizationId,
+lib/platform/billing/planActions.js:15:    organizationId,
+lib/platform/billing/planLifecycle.js:9:  organizationId,
+lib/platform/billing/planLifecycle.js:12:  if (!organizationId || !plan) return null;
+lib/platform/billing/planLifecycle.js:20:    .eq("id", organizationId)
+lib/platform/analytics/usageIntelligence.js:7:export async function getModuleUsage(organizationId) {
+lib/platform/analytics/usageIntelligence.js:11:    .eq("organization_id", organizationId);
+lib/platform/analytics/platformMetrics.js:1:export async function getModuleMetrics(moduleId, organizationId) {
+lib/platform/analytics/eventTracker.js:10:  organizationId,
+lib/platform/analytics/eventTracker.js:20:      organization_id: organizationId,
+lib/workspace/runtime/getWorkspaceComponent.js:21:    import("@/app/(system)/workspace/[organizationId]/finance/page"),
+lib/workspace/runtime/getWorkspaceComponent.js:24:    import("@/app/(system)/workspace/[organizationId]/finance/accounting/page"),
+lib/workspace/getActiveOrganization.js:6:  organizationId
+lib/workspace/getActiveOrganization.js:10:    !organizationId ||
+lib/workspace/getActiveOrganization.js:11:    organizationId === "undefined"
+lib/workspace/getActiveOrganization.js:32:      organizationId
+lib/shared/identity/resolveIdentity.js:25:  const organizationId = staff.organization_id;
+lib/shared/identity/resolveIdentity.js:27:  if (!organizationId) {
+lib/shared/identity/resolveIdentity.js:35:    .eq("organization_id", organizationId)
+lib/shared/identity/resolveIdentity.js:42:    organization_id: organizationId,
+lib/shared/auth/requireTenantAccess.js:6:  organizationId,
+lib/shared/auth/requireTenantAccess.js:9:  if (!organizationId) {
+lib/shared/auth/requireTenantAccess.js:11:      "organizationId required"
+lib/shared/auth/requireTenantAccess.js:17:      organizationId,
+lib/pos/reopenClosedOrder.js:8:  organizationId,
+lib/pos/reopenClosedOrder.js:15:  if (!organizationId) {
+lib/pos/reopenClosedOrder.js:16:    throw new Error('organizationId required')
+lib/pos/reopenClosedOrder.js:31:      organizationId
+lib/pos/reopenClosedOrder.js:56:    organizationId,
+lib/pos/reopenClosedOrder.js:97:      organizationId
+lib/pos/reopenClosedOrder.js:123:      organizationId
+lib/pos/reopenClosedOrder.js:135:        organizationId,
+lib/pos/payments/loadPaymentState.js:10:  organizationId,
+lib/pos/payments/loadPaymentState.js:13:  if (!organizationId) {
+lib/pos/payments/loadPaymentState.js:14:    throw new Error("organizationId required");
+lib/pos/payments/loadPaymentState.js:18:    organizationId,
+lib/pos/payments/loadPaymentState.js:32:    .eq("organization_id", organizationId)
+lib/pos/payments/loadPaymentState.js:56:    .eq("organization_id", organizationId)
+lib/pos/core/partitionedEventStore.js:9:export async function getEvents(organizationId) {
+lib/pos/core/partitionedEventStore.js:14:    .eq("organization_id", organizationId)
+lib/pos/loadPOSSettings.js:10:  organizationId,
+lib/pos/loadPOSSettings.js:13:  if (!organizationId) {
+lib/pos/loadPOSSettings.js:34:      organizationId
+lib/pos/mergeTables.js:6:  organizationId,
+lib/pos/mergeTables.js:11:  if (!organizationId) {
+lib/pos/mergeTables.js:12:    throw new Error("organizationId required");
+lib/pos/mergeTables.js:20:    organizationId,
+lib/pos/mergeTables.js:29:    organizationId,
+lib/pos/mergeTables.js:34:    organizationId,
+lib/pos/mergeTables.js:48:    .eq("organization_id", organizationId)
+lib/pos/mergeTables.js:57:    .eq("organization_id", organizationId)
+lib/pos/mergeTables.js:75:    .eq("organization_id", organizationId)
+lib/pos/mergeTables.js:81:      organization_id: organizationId,
+lib/pos/mergeTables.js:96:    .eq("organization_id", organizationId)
+lib/pos/mergeTables.js:106:    .eq("organization_id", organizationId)
+lib/ai/approvalQueue.js:9:  organizationId,
+lib/ai/approvalQueue.js:25:          organization_id: organizationId,
+lib/ai/executeActions.js:10:  organizationId,
+lib/ai/executeActions.js:25:            organization_id: organizationId,
+lib/ai/executeActions.js:42:            organization_id: organizationId,
+lib/ai/executeActions.js:58:            organization_id: organizationId,
+lib/ai/executeActions.js:74:            organization_id: organizationId,
+lib/ai/logAIUsage.js:7:  organizationId = null,
+lib/ai/logAIUsage.js:85:            organizationId,
+lib/ai/useAIEventStream.js:16:export function useAIEventStream(organizationId) {
+lib/ai/useAIEventStream.js:20:    if (!organizationId) return;
+lib/ai/useAIEventStream.js:27:        .eq("organization_id", organizationId)
+lib/ai/useAIEventStream.js:45:          filter: `organization_id=eq.${organizationId}`,
+lib/ai/useAIEventStream.js:56:  }, [organizationId]);
+lib/ai/processAIEvents.js:8:export async function processAIEvents({ organizationId }) {
+lib/ai/processAIEvents.js:14:      .eq("organization_id", organizationId)
+lib/ai/processAIEvents.js:33:            organization_id: organizationId,
+lib/ai/processAIEvents.js:43:          .eq("organization_id", organizationId);
+lib/ai/processAIEvents.js:53:            organization_id: organizationId,
+lib/ai/processAIEvents.js:68:            organization_id: organizationId,
+lib/ai/profiles/resolveTenantIndustries.js:34:  const organizationIds =
+lib/ai/profiles/resolveTenantIndustries.js:39:    organizationIds.length === 0
+lib/ai/profiles/resolveTenantIndustries.js:61:      organizationIds
+lib/ai/runCommandCenterWatch.js:8:export async function runCommandCenterWatch({ organizationId }) {
+lib/ai/runCommandCenterWatch.js:13:      .eq("organization_id", organizationId)
+lib/ai/runCommandCenterWatch.js:69:        organization_id: organizationId,
+lib/ai/orchestrator/index.js:61:    organizationId: organization?.id,
+lib/ai/invoice/index.js:8:  organizationId,
+lib/ai/invoice/index.js:42:    organizationId,
+lib/hooks/useActiveOrganization.js:15:        organizationId: null,
+lib/hooks/useActiveOrganization.js:29:      organizationId: organization.id || null,
+lib/ubte/capabilities/executeCapability.js:27:  organizationId,
+lib/ubte/capabilities/executeCapability.js:34:  if (!organizationId) {
+lib/ubte/capabilities/executeCapability.js:35:    throw new Error("organizationId required");
+lib/ubte/capabilities/executeCapability.js:58:    organizationId,
+lib/ubte/runtime/context/createExecutionContext.js:2:  organizationId,
+lib/ubte/runtime/context/createExecutionContext.js:15:  if (!organizationId) {
+lib/ubte/runtime/context/createExecutionContext.js:16:    throw new Error("organizationId required");
+lib/ubte/runtime/context/createExecutionContext.js:22:    organizationId,
+lib/ubte/runtime/context/createExecutionContext.js:25:      id: organizationId,
+lib/ubte/runtime/engines/AuditEngine.js:14:        context.organizationId,
+lib/ubte/runtime/engines/AuthorizationEngine.js:6:  if (!context?.organizationId) {
+lib/ubte/runtime/engines/AuthorizationEngine.js:7:    throw new Error("organizationId required");
+lib/ubte/runtime/ExecutionEngine.js:36:  organizationId,
+lib/ubte/runtime/ExecutionEngine.js:44:  if (!organizationId) {
+lib/ubte/runtime/ExecutionEngine.js:45:    throw new Error("organizationId required");
+lib/ubte/runtime/ExecutionEngine.js:62:      organizationId,
+lib/ubte/runtime/ExecutionEngine.js:137:        organizationId:
+lib/ubte/runtime/ExecutionEngine.js:138:          context.organizationId,
+lib/ubte/workflows/runtime/WorkflowEngine.js:22:        organizationId:
+lib/ubte/workflows/runtime/WorkflowEngine.js:23:          context.organizationId,
+lib/ubte/documents/DocumentFactory.js:3:  organizationId,
+lib/ubte/documents/DocumentFactory.js:6:  if (!organizationId) {
+lib/ubte/documents/DocumentFactory.js:7:    throw new Error("organizationId required");
+lib/ubte/documents/DocumentFactory.js:17:    organizationId,
+lib/workers/work-centers/processWorkCenterEvents.js:106:          organizationId: event.payload?.organization_id,
+lib/finance/accounting/createJournalEntry.js:11: *   organizationId,
+lib/finance/accounting/createJournalEntry.js:35:  const organizationId =
+lib/finance/accounting/createJournalEntry.js:36:    entry.organizationId ||
+lib/finance/accounting/createJournalEntry.js:85:  if (!organizationId) {
+lib/finance/accounting/createJournalEntry.js:86:    throw new Error("organizationId required");
+lib/finance/accounting/createJournalEntry.js:164:    organizationId,
+lib/finance/accounting/createJournalEntry.js:174:    .eq("organization_id", organizationId)
+lib/finance/accounting/createJournalEntry.js:204:    .eq("organization_id", organizationId)
+lib/finance/accounting/createJournalEntry.js:237:      organization_id: organizationId,
+lib/finance/accounting/createJournalEntry.js:264:      organization_id: organizationId,
+lib/finance/accounting/createJournalEntry.js:298:        organizationId,
+lib/finance/accounting/validateAccountingPeriod.js:5:  organizationId,
+lib/finance/accounting/validateAccountingPeriod.js:8:  if (!organizationId) {
+lib/finance/accounting/validateAccountingPeriod.js:9:    throw new Error("organizationId required");
+lib/finance/accounting/validateAccountingPeriod.js:16:      .eq("organization_id", organizationId)
+lib/finance/accounting/postJournalEntrySafe.js:6:  organizationId = null,
+lib/finance/accounting/postJournalEntrySafe.js:32:    organizationId,
+lib/finance/accounting/postAutomaticJournal.js:7:  organizationId,
+lib/finance/accounting/postAutomaticJournal.js:27:  if (!organizationId) {
+lib/finance/accounting/postAutomaticJournal.js:28:    throw new Error("organizationId required for automatic journal");
+lib/finance/accounting/postAutomaticJournal.js:33:    organizationId,
+lib/finance/accounting/postDepreciationToLedger.js:82:      organizationId:
+lib/finance/reporting/generateTaxReport.js:8:  organizationId,
+lib/finance/reporting/generateTaxReport.js:15:  if (!tenantId || !organizationId) {
+lib/finance/reporting/generateTaxReport.js:23:    .eq("organization_id", organizationId)
+lib/finance/reporting/generateTaxReport.js:53:      organization_id: organizationId,
+lib/finance/reporting/runVATClose.js:8:    organizationId,
+lib/finance/reporting/runVATClose.js:55:    organization_id: organizationId,
+lib/finance/reporting/runVATClose.js:66:    organizationId,
+lib/finance/reporting/calculateTax.js:8:  organizationId,
+lib/finance/reporting/calculateTax.js:21:    .eq("organization_id", organizationId)
+lib/finance/reporting/calculateTax.js:53:      organization_id: organizationId,
+lib/finance/financeModule.js:12:  organizationId,
+lib/finance/general-ledger/postJournalToLedger.js:5:  organizationId,
+lib/finance/general-ledger/postJournalToLedger.js:13:  if (!organizationId) {
+lib/finance/general-ledger/postJournalToLedger.js:14:    throw new Error("organizationId required");
+lib/finance/general-ledger/postJournalToLedger.js:21:      .eq("organization_id", organizationId)
+lib/finance/general-ledger/postJournalToLedger.js:42:      .eq("organization_id", organizationId)
+lib/finance/general-ledger/postJournalToLedger.js:58:        .eq("organization_id", organizationId)
+lib/finance/general-ledger/postJournalToLedger.js:88:          organization_id: organizationId,
+lib/finance/general-ledger/postJournalToLedger.js:142:    .eq("organization_id", organizationId);
+lib/finance/gl-posting/postVendorPaymentGL.js:14:      organizationId: organization_id,
+lib/finance/automation/runMonthlyClose.js:10:  organizationId,
+lib/finance/automation/runMonthlyClose.js:21:    organizationId,
+lib/finance/automation/runMonthlyTaxClose.js:8:  organizationId,
+lib/finance/automation/runMonthlyTaxClose.js:18:    organizationId,
+lib/finance/automation/runMonthlyTaxClose.js:29:    organizationId,
+lib/finance/onboarding/applyTaxSetup.js:8:  organizationId,
+lib/finance/onboarding/applyTaxSetup.js:13:  if (!organizationId || !tenantId) {
+lib/finance/onboarding/applyTaxSetup.js:21:      organization_id: organizationId,
+lib/finance/analytics/getFinanceSummary.js:41:  organizationId,
+lib/finance/analytics/getFinanceSummary.js:64:    organizationId
+lib/finance/analytics/getFinanceSummary.js:68:          organizationId
+lib/finance/analytics/getFinanceSummary.js:166:    organizationId
+lib/finance/analytics/getFinanceSummary.js:170:          organizationId
+lib/routing/resolveWorkCenter.js:4:  organizationId,
+lib/routing/resolveWorkCenter.js:7:  if (!organizationId || !dishId) {
+lib/routing/resolveWorkCenter.js:17:      .eq("organization_id", organizationId)
+lib/work-centers/listWorkCenters.js:4:  organizationId,
+lib/work-centers/listWorkCenters.js:6:  if (!organizationId) {
+lib/work-centers/listWorkCenters.js:9:      error: "Missing organizationId",
+lib/work-centers/listWorkCenters.js:17:    .eq("organization_id", organizationId)
+lib/billing/profitEngine.js:3:export async function calculateOrganizationProfit(organizationId) {
+lib/billing/profitEngine.js:4:  if (!organizationId) return null;
+lib/billing/profitEngine.js:10:      .eq("organization_id", organizationId);
+lib/billing/profitEngine.js:29:      .eq("organization_id", organizationId);
+lib/billing/profitEngine.js:47:    organizationId,
+lib/billing/generateOrganizationInvoice.js:14:  organizationId,
+lib/billing/generateOrganizationInvoice.js:22:      .eq("id", organizationId)
+lib/billing/generateOrganizationInvoice.js:37:      .eq("organization_id", organizationId)
+lib/billing/generateOrganizationInvoice.js:60:      .eq("organization_id", organizationId)
+lib/billing/usageLogger.js:10:  organizationId,
+lib/billing/usageLogger.js:19:    organization_id: organizationId,
+lib/onboarding/provisionOrganization.js:54:    organizationId: organization.id,
+lib/onboarding/provisionOrganization.js:72:    organizationId: organization.id,
+lib/onboarding/postOnboardingRedirect.js:1:export function getPostOnboardingRedirect({ organizationId }) {
+lib/onboarding/postOnboardingRedirect.js:3:    redirectTo: `/dashboard?org=${organizationId}`,
+lib/onboarding/buildWorkspaceFromTemplate.js:7:  organizationId,
+lib/onboarding/buildWorkspaceFromTemplate.js:26:      organization_id: organizationId,
+lib/onboarding/buildWorkspaceFromTemplate.js:41:        organization_id: organizationId,
+lib/onboarding/buildWorkspaceFromTemplate.js:52:      organization_id: organizationId,
+lib/kernel/contracts/BusinessDocumentKernelContract.js:15:    "Every document requires organizationId",
+lib/kernel/runtime/DocumentRuntime.js:7:  organizationId,
+lib/kernel/runtime/DocumentRuntime.js:23:    organizationId,
+lib/kernel/documents/BusinessDocument.js:3:  organizationId,
+lib/kernel/documents/BusinessDocument.js:11:  if (!organizationId) {
+lib/kernel/documents/BusinessDocument.js:12:    throw new Error("organizationId required");
+lib/kernel/documents/BusinessDocument.js:28:    organizationId,
+lib/kernel/events/BusinessDocumentEvents.js:2:  organizationId,
+lib/kernel/events/BusinessDocumentEvents.js:11:  if (!organizationId) {
+lib/kernel/events/BusinessDocumentEvents.js:12:    throw new Error("organizationId required");
+lib/kernel/events/BusinessDocumentEvents.js:23:    organizationId,
+app/(system)/settings/marketing/page.jsx:26:  const organizationId =
+app/(system)/settings/marketing/page.jsx:74:      !organizationId
+app/(system)/settings/marketing/page.jsx:83:    organizationId,
+app/(system)/settings/marketing/page.jsx:101:              organizationId,
+app/(system)/settings/marketing/page.jsx:148:            organizationId,
+app/(system)/restaurant/kitchen/page.jsx:46:            organizationId:
+app/(system)/restaurant/kitchen/page.jsx:47:              localStorage.getItem("organizationId"),
+app/(system)/restaurant/kitchen/page.jsx:90:          organizationId:
+app/(system)/restaurant/kitchen/page.jsx:91:            localStorage.getItem("organizationId"),
+app/(system)/restaurant/kitchen/page.jsx:111:            "organizationId"
+app/(system)/workspace/[organizationId]/customers/page.jsx:17:  const organizationId =
+app/(system)/workspace/[organizationId]/customers/page.jsx:33:      body: JSON.stringify({ organizationId, customerPhone: customer.customer_phone })
+app/(system)/workspace/[organizationId]/customers/page.jsx:41:    if (!organizationId) return;
+app/(system)/workspace/[organizationId]/customers/page.jsx:47:        body: JSON.stringify({ organizationId, query: search })
+app/(system)/workspace/[organizationId]/customers/page.jsx:57:  useEffect(() => { searchCustomers(""); }, [organizationId]);
+app/(system)/workspace/[organizationId]/customers/page.jsx:66:        organizationId,
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:9:  const organizationId = organization?.id || "";
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:23:      if (!organizationId) return;
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:31:          organizationId,
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:40:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:44:    { title: "Orders", value: ordersToday, label: "Orders Today", href: `/workspace/${organizationId}/restaurant/pos` },
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:45:    { title: "Tables", value: occupiedTables, label: "Occupied Tables", href: `/workspace/${organizationId}/restaurant/tables` },
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:54:    { title: "Dispatch", value: readyOrders, label: "Ready Orders", href: `/workspace/${organizationId}/kitchen/expo` },
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:55:    { title: "Payments", value: 0, label: "Payments Pending", href: `/workspace/${organizationId}/restaurant/pos/payments` },
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:56:    { title: "Inventory", value: 0, label: "Stock Alerts", href: `/workspace/${organizationId}/restaurant/inventory` },
+app/(system)/workspace/[organizationId]/restaurant/page.jsx:57:    { title: "Reservations", value: 0, label: "Today Arrivals", href: `/workspace/${organizationId}/restaurant/reservations` },
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:8:  const organizationId = organization?.id || "";
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:24:    if (!organizationId) return;
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:27:        fetch(`/api/hotel/properties/list?organizationId=${organizationId}`).then(r => r.json()),
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:28:        fetch(`/api/hotel/guests/list?organizationId=${organizationId}`).then(r => r.json()),
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:29:        fetch(`/api/hotel/rooms/list?organizationId=${organizationId}`).then(r => r.json()),
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:36:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:39:    if (!organizationId) {
+app/(system)/workspace/[organizationId]/hotel/reservations/page.jsx:49:        organizationId,
+app/(system)/workspace/[organizationId]/hotel/page.jsx:8:  const organizationId = organization?.id || "";
+app/(system)/workspace/[organizationId]/hotel/page.jsx:18:    if (!organizationId) return;
+app/(system)/workspace/[organizationId]/hotel/page.jsx:23:        const query = `?organizationId=${organizationId}`;
+app/(system)/workspace/[organizationId]/hotel/page.jsx:49:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/hotel/page.jsx:84:    { title: "Reservations", value: stats.arrivalsToday, label: "Arrivals Today", href: `/workspace/${organizationId}/hotel/reservations` },
+app/(system)/workspace/[organizationId]/hotel/page.jsx:85:    { title: "Front Desk", value: stats.occupiedRooms, label: "Active Guests", href: `/workspace/${organizationId}/hotel/frontdesk` },
+app/(system)/workspace/[organizationId]/hotel/page.jsx:86:    { title: "Housekeeping", value: stats.pendingHousekeeping, label: "Rooms Pending", href: `/workspace/${organizationId}/hotel/housekeeping` },
+app/(system)/workspace/[organizationId]/hotel/page.jsx:87:    { title: "Maintenance", value: stats.openMaintenance, label: "Open Tickets", href: `/workspace/${organizationId}/hotel/maintenance` },
+app/(system)/workspace/[organizationId]/hotel/page.jsx:88:    { title: "Concierge", value: stats.openConcierge, label: "Requests Open", href: `/workspace/${organizationId}/hotel/concierge` },
+app/(system)/workspace/[organizationId]/healthcare/patients/hooks/usePatients.js:9:  organizationId
+app/(system)/workspace/[organizationId]/healthcare/patients/hooks/usePatients.js:16:    organizationId
+app/(system)/workspace/[organizationId]/healthcare/patients/hooks/usePatients.js:17:      ? `/api/healthcare/patients?organization_id=${organizationId}`
+app/(system)/workspace/[organizationId]/healthcare/hooks/useStaff.js:4:export function useStaff(organizationId) {
+app/(system)/workspace/[organizationId]/healthcare/hooks/useStaff.js:11:        const res = await fetch(`/api/healthcare/staff?organizationId=${organizationId}`);
+app/(system)/workspace/[organizationId]/healthcare/hooks/useStaff.js:21:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/healthcare/hooks/usePatients.js:4:export function usePatients(organizationId) {
+app/(system)/workspace/[organizationId]/healthcare/hooks/usePatients.js:11:        const res = await fetch(`/api/healthcare/patients?organizationId=${organizationId}`);
+app/(system)/workspace/[organizationId]/healthcare/hooks/usePatients.js:21:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/healthcare/hooks/useBilling.js:6:export function useBilling(organizationId) {
+app/(system)/workspace/[organizationId]/healthcare/hooks/useBilling.js:8:    organizationId ? `/api/healthcare/billing?organization_id=${organizationId}` : null,
+app/(system)/workspace/[organizationId]/healthcare/hooks/useAppointments.js:6:export function useAppointments(organizationId) {
+app/(system)/workspace/[organizationId]/healthcare/hooks/useAppointments.js:8:    organizationId ? `/api/healthcare/appointments?organization_id=${organizationId}` : null,
+app/(system)/workspace/[organizationId]/healthcare/hooks/useMedicalRecords.js:6:export function useMedicalRecords(organizationId) {
+app/(system)/workspace/[organizationId]/healthcare/hooks/useMedicalRecords.js:8:    organizationId ? `/api/healthcare/medical-records?organization_id=${organizationId}` : null,
+app/(system)/workspace/[organizationId]/healthcare/hooks/useAdmissions.js:6:export function useAdmissions(organizationId) {
+app/(system)/workspace/[organizationId]/healthcare/hooks/useAdmissions.js:8:    organizationId ? `/api/healthcare/admissions?organization_id=${organizationId}` : null,
+app/(system)/workspace/[organizationId]/page.jsx:50:          organizationId: organization?.id,
+app/(system)/workspace/[organizationId]/[moduleId]/page.jsx:33:  const organizationId =
+app/(system)/workspace/[organizationId]/[moduleId]/page.jsx:34:    params?.organizationId;
+app/(system)/workspace/[organizationId]/[moduleId]/page.jsx:40:          ? `/workspace/${organizationId}/finance/procure-to-pay`
+app/(system)/workspace/[organizationId]/[moduleId]/page.jsx:42:            ? `/workspace/${organizationId}/finance/accounting`
+app/(system)/workspace/[organizationId]/[moduleId]/page.jsx:44:              ? `/workspace/${organizationId}/finance`
+app/(system)/workspace/[organizationId]/[moduleId]/page.jsx:45:              : `/workspace/${organizationId}/finance/${moduleId}`;
+app/(system)/workspace/[organizationId]/finance/matching/page.jsx:7:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/matching/page.jsx:28:            organizationId,
+app/(system)/workspace/[organizationId]/finance/trial-balance/page.jsx:6:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/trial-balance/page.jsx:13:        `/api/finance/trial-balance?organizationId=${organizationId}`
+app/(system)/workspace/[organizationId]/finance/trial-balance/page.jsx:22:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:12:  const organizationId =
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:40:              organizationId,
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:60:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:66:      href: `/workspace/${organizationId}/finance/journals`,
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:71:      href: `/workspace/${organizationId}/finance/ledger`,
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:76:      href: `/workspace/${organizationId}/finance/trial-balance`,
+app/(system)/workspace/[organizationId]/finance/accounting/page.jsx:81:      href: `/workspace/${organizationId}/finance/accounts`,
+app/(system)/workspace/[organizationId]/finance/vendors/page.jsx:6:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/vendors/page.jsx:25:            organizationId,
+app/(system)/workspace/[organizationId]/finance/payments/page.jsx:7:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/payments/page.jsx:28:            organizationId,
+app/(system)/workspace/[organizationId]/finance/ledger/page.jsx:6:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/ledger/page.jsx:15:          `/api/finance/general-ledger?organizationId=${organizationId}`
+app/(system)/workspace/[organizationId]/finance/ledger/page.jsx:31:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:9:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:34:              organizationId,
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:54:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:60:      href: `/workspace/${organizationId}/finance/close`,
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:65:      href: `/workspace/${organizationId}/finance/accounting`,
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:70:      href: `/workspace/${organizationId}/finance/reports`,
+app/(system)/workspace/[organizationId]/finance/close/page.jsx:75:      href: `/workspace/${organizationId}/finance/close`,
+app/(system)/workspace/[organizationId]/finance/purchase-orders/page.jsx:6:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/purchase-orders/page.jsx:25:            organizationId,
+app/(system)/workspace/[organizationId]/finance/ap/page.jsx:8:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/ap/page.jsx:18:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/finance/ap/page.jsx:32:            organizationId,
+app/(system)/workspace/[organizationId]/finance/invoices/page.jsx:6:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/invoices/page.jsx:26:            organizationId,
+app/(system)/workspace/[organizationId]/finance/page.jsx:8:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/page.jsx:15:      href: `/workspace/${organizationId}/finance/accounting`,
+app/(system)/workspace/[organizationId]/finance/page.jsx:21:      href: `/workspace/${organizationId}/finance/ap`,
+app/(system)/workspace/[organizationId]/finance/page.jsx:27:      href: `/workspace/${organizationId}/finance/ar`,
+app/(system)/workspace/[organizationId]/finance/page.jsx:33:      href: `/workspace/${organizationId}/finance/procure-to-pay`,
+app/(system)/workspace/[organizationId]/finance/page.jsx:39:      href: `/workspace/${organizationId}/finance/tax`,
+app/(system)/workspace/[organizationId]/finance/page.jsx:45:      href: `/workspace/${organizationId}/finance/reports`,
+app/(system)/workspace/[organizationId]/finance/tax/page.jsx:9:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/tax/page.jsx:36:              organizationId,
+app/(system)/workspace/[organizationId]/finance/tax/page.jsx:56:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/finance/tax/page.jsx:62:      href: `/workspace/${organizationId}/finance/reports`,
+app/(system)/workspace/[organizationId]/finance/tax/page.jsx:67:      href: `/workspace/${organizationId}/finance/filings`,
+app/(system)/workspace/[organizationId]/finance/tax/page.jsx:72:      href: `/workspace/${organizationId}/finance/tax/rules`,
+app/(system)/workspace/[organizationId]/finance/tax/page.jsx:77:      href: `/workspace/${organizationId}/finance/tax/regimes`,
+app/(system)/workspace/[organizationId]/finance/journals/page.jsx:6:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/journals/page.jsx:15:          `/api/finance/journals?organizationId=${organizationId}`
+app/(system)/workspace/[organizationId]/finance/journals/page.jsx:29:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/finance/ar/receivables/page.jsx:8:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/ar/receivables/page.jsx:33:            organizationId,
+app/(system)/workspace/[organizationId]/finance/ar/receivables/page.jsx:158:            href={`/workspace/${organizationId}/finance/ar`}
+app/(system)/workspace/[organizationId]/finance/ar/payments/page.jsx:8:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/ar/payments/page.jsx:60:                organizationId,
+app/(system)/workspace/[organizationId]/finance/ar/payments/page.jsx:74:                organizationId,
+app/(system)/workspace/[organizationId]/finance/ar/payments/page.jsx:146:              organizationId,
+app/(system)/workspace/[organizationId]/finance/ar/payments/page.jsx:414:            href={`/workspace/${organizationId}/finance/ar`}
+app/(system)/workspace/[organizationId]/finance/ar/invoices/page.jsx:8:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/ar/invoices/page.jsx:33:            organizationId,
+app/(system)/workspace/[organizationId]/finance/ar/invoices/page.jsx:77:            href={`/workspace/${organizationId}/finance/ar/invoices/new`}
+app/(system)/workspace/[organizationId]/finance/ar/invoices/page.jsx:197:            href={`/workspace/${organizationId}/finance/ar`}
+app/(system)/workspace/[organizationId]/finance/ar/invoices/new/page.jsx:11:  const organizationId =
+app/(system)/workspace/[organizationId]/finance/ar/invoices/new/page.jsx:59:            organizationId,
+app/(system)/workspace/[organizationId]/finance/ar/invoices/new/page.jsx:110:            organizationId,
+app/(system)/workspace/[organizationId]/finance/ar/page.jsx:8:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/ar/page.jsx:33:              organizationId,
+app/(system)/workspace/[organizationId]/finance/ar/page.jsx:66:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/finance/ar/page.jsx:73:        `/workspace/${organizationId}/finance/ar/invoices`,
+app/(system)/workspace/[organizationId]/finance/ar/page.jsx:79:        `/workspace/${organizationId}/finance/ar/receivables`,
+app/(system)/workspace/[organizationId]/finance/ar/page.jsx:85:        `/workspace/${organizationId}/finance/ar/payments`,
+app/(system)/workspace/[organizationId]/finance/ar/page.jsx:91:        `/workspace/${organizationId}/finance/ar/aging`,
+app/(system)/workspace/[organizationId]/finance/ar/aging/page.jsx:7:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/ar/aging/page.jsx:24:          organizationId,
+app/(system)/workspace/[organizationId]/finance/ar/aging/page.jsx:107:            href={`/workspace/${organizationId}/finance/ar`}
+app/(system)/workspace/[organizationId]/finance/receiving/page.jsx:6:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/receiving/page.jsx:25:            organizationId,
+app/(system)/workspace/[organizationId]/finance/filings/page.jsx:6:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:9:  const { organizationId } = params;
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:33:              organizationId,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:57:  }, [organizationId]);
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:63:      href: `/workspace/${organizationId}/finance/purchase-orders`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:68:      href: `/workspace/${organizationId}/finance/invoices`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:73:      href: `/workspace/${organizationId}/finance/ap`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:78:      href: `/workspace/${organizationId}/finance/payments`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:86:      href: `/workspace/${organizationId}/finance/vendors`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:91:      href: `/workspace/${organizationId}/finance/purchase-orders`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:96:      href: `/workspace/${organizationId}/finance/receiving`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:101:      href: `/workspace/${organizationId}/finance/invoices`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:106:      href: `/workspace/${organizationId}/finance/matching`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:111:      href: `/workspace/${organizationId}/finance/ap`,
+app/(system)/workspace/[organizationId]/finance/procure-to-pay/page.jsx:116:      href: `/workspace/${organizationId}/finance/payments`,
+app/(system)/workspace/[organizationId]/finance/reports/page.jsx:6:  const { organizationId } = params;
+app/(system)/control-room/page.jsx:21:    const organizationId = localStorage.getItem("organizationId");
+app/(system)/control-room/page.jsx:22:    if (!organizationId) return;
+app/(system)/control-room/page.jsx:29:        `/api/workspace/control-room?organizationId=${organizationId}`
+app/(system)/control-room/page.jsx:48:          filter: `organization_id=eq.${organizationId}`,
+app/(system)/control-room/page.jsx:63:          filter: `organization_id=eq.${organizationId}`,
+app/(system)/control-room/page.jsx:144:                        organizationId: localStorage.getItem("organizationId"),
+app/(system)/control-room/page.jsx:161:                        organizationId: localStorage.getItem("organizationId"),
+app/(system)/pos/StationaryPOS_UI.jsx:23:  const organizationId =
+app/(system)/pos/StationaryPOS_UI.jsx:26:    tenant?.organizationId ||
+app/(system)/pos/StationaryPOS_UI.jsx:39:      !organizationId
+app/(system)/pos/StationaryPOS_UI.jsx:49:      if (organizationId) {
+app/(system)/pos/StationaryPOS_UI.jsx:52:          organizationId
+app/(system)/pos/StationaryPOS_UI.jsx:86:    organizationId,
+app/(system)/pos/StationaryPOS_UI.jsx:139:          organization_id: organizationId,
+app/(system)/pos/StationaryPOS_UI.jsx:168:        organizationId,
+app/(system)/pos/StationaryPOS_UI.jsx:208:          organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:50:  const organizationId =
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:53:    tenant?.organizationId ||
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:201:          organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:202:          organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:459:        organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:460:        organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:485:        organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:486:        organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:617:          organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:668:  organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:679:          organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:113:  const organizationId =
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:116:    tenant?.organizationId ||
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:316:          organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:317:          organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:340:        organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:422:        organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:579:        organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:666:        organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:51:  const organizationId =
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:54:    tenant?.organizationId ||
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:204:          organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:205:          organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:462:        organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:463:        organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:488:        organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:489:        organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:620:          organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:671:  organization_id: organizationId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:682:          organization_id: organizationId,
+app/(system)/marketing/design/page.js:121:  const organizationId =
+app/(system)/marketing/design/page.js:122:    searchParams.get("organizationId") ||
+app/(system)/marketing/design/page.js:245:          organizationId,
+app/(system)/marketing/design/page.js:255:          organizationId,
+app/(system)/marketing/design/page.js:265:          organizationId,
+app/(system)/marketing/design/page.js:316:          organizationId,
+app/(system)/marketing/design/page.js:326:          organizationId,
+app/(system)/marketing/design/page.js:345:    organizationId,
+app/(system)/marketing/design/page.js:353:        organizationId,
+app/(system)/marketing/design/page.js:363:        organizationId,
+app/(system)/marketing/design/page.js:406:                organizationId,
+app/(system)/marketing/design/page.js:516:          organizationId,
+app/(system)/marketing/design/page.js:526:          organizationId,
+app/(system)/marketing/design/page.js:568:              organizationId,
+app/(system)/marketing/design/page.js:603:    !organizationId ||
+app/(system)/bar/page.jsx:21:      const organizationId =
+app/(system)/bar/page.jsx:26:      if (!organizationId) return;
+app/(system)/bar/page.jsx:34:          organizationId,
+app/(system)/kitchen/page.jsx:19:      const organizationId =
+app/(system)/kitchen/page.jsx:24:      if (!organizationId) return;
+app/(system)/kitchen/page.jsx:32:          organizationId,
+app/providers/WorkspaceRuntimeProvider.jsx:40:        const organizationId =
+app/providers/WorkspaceRuntimeProvider.jsx:45:        if (!organizationId) {
+app/providers/WorkspaceRuntimeProvider.jsx:56:          `/api/workspace?organizationId=${organizationId}&userEmail=${encodeURIComponent(tenant.staff.email)}`,
+app/api/customers/upsert/route.js:14:        organizationId:
+app/api/customers/upsert/route.js:15:          body.organizationId,
+app/api/customers/upsert/route.js:109:            body.organizationId,
+app/api/customers/search/route.js:14:        organizationId:
+app/api/customers/search/route.js:15:          body.organizationId,
+app/api/customers/history/route.js:16:        organizationId:
+app/api/customers/history/route.js:17:          body.organizationId,
+app/api/accounting/operations/route.js:10:    const organizationId = searchParams.get("organizationId");
+app/api/accounting/operations/route.js:12:    if (!organizationId) {
+app/api/accounting/operations/route.js:13:      return NextResponse.json({ success: false, error: "Missing organizationId" }, { status: 400 });
+app/api/accounting/operations/route.js:22:    const workspace = await getOrganizationWorkspace({ userEmail: user.email, organizationId });
+app/api/accounting/operations/route.js:30:    const clients = await loadAccountingClients({ organizationId });
+app/api/settings/marketing/load/route.js:13:      organizationId,
+app/api/settings/marketing/load/route.js:37:        organizationId
+app/api/settings/marketing/save/route.js:13:      organizationId,
+app/api/settings/marketing/save/route.js:26:        organizationId,
+app/api/settings/payroll/load/route.js:21:        organizationId:
+app/api/settings/payroll/load/route.js:22:          body.organizationId,
+app/api/settings/payroll/save/route.js:21:        organizationId:
+app/api/settings/payroll/save/route.js:22:          body.organizationId,
+app/api/design/assets/route.js:14:    const organizationId =
+app/api/design/assets/route.js:15:      searchParams.get("organizationId");
+app/api/design/assets/route.js:30:        organizationId,
+app/api/restaurant/kitchen/ready/route.js:14:          organizationId:
+app/api/restaurant/kitchen/ready/route.js:15:            body.organizationId,
+app/api/restaurant/kitchen/complete/route.js:14:          organizationId:
+app/api/restaurant/kitchen/complete/route.js:15:            body.organizationId,
+app/api/restaurant/kitchen/start/route.js:14:          organizationId:
+app/api/restaurant/kitchen/start/route.js:15:            body.organizationId,
+app/api/restaurant/kitchen/queue/route.js:14:      organizationId:
+app/api/restaurant/kitchen/queue/route.js:15:        body.organizationId,
+app/api/owner/route.js:24:        organizationId:
+app/api/owner/route.js:26:            "organizationId"
+app/api/invoices/update/route.js:16:    const { id, notes, organizationId } = body;
+app/api/invoices/update/route.js:46:    const access = await requireOrganizationAccess({ organizationId });
+app/api/invoices/review/update/route.js:16:      organizationId,
+app/api/invoices/review/update/route.js:24:    if (!organizationId) {
+app/api/invoices/review/update/route.js:26:        { success: false, error: "organizationId required" },
+app/api/invoices/review/update/route.js:39:      organizationId,
+app/api/invoices/list/route.js:17:    const organizationId =
+app/api/invoices/list/route.js:19:        "organizationId"
+app/api/invoices/list/route.js:25:        organizationId,
+app/api/hotel/metrics/route.js:5:  const organizationId = searchParams.get("organizationId");
+app/api/hotel/metrics/route.js:7:  if (!organizationId) {
+app/api/hotel/metrics/route.js:8:    return new Response(JSON.stringify({ success: false, error: "Missing organizationId" }), {
+app/api/hotel/metrics/route.js:18:      .eq("organization_id", organizationId)
+app/api/hotel/bookings/create/route.js:8:  const organization = await getActiveOrganization(body.organizationId);
+app/api/hotel/bookings/create/route.js:19:    organizationId: organization.id,
+app/api/hotel/concierge/create/route.js:34:        organizationId:
+app/api/hotel/properties/list/route.js:7:    const organizationId =
+app/api/hotel/properties/list/route.js:8:      req.nextUrl.searchParams.get("organizationId");
+app/api/hotel/properties/list/route.js:13:      .eq("organization_id", organizationId)
+app/api/hotel/properties/create/route.js:18:      organizationId: organization.id,
+app/api/hotel/availability/route.js:13:      organizationId: organization.id,
+app/api/hotel/rooms/list/route.js:7:    const organizationId =
+app/api/hotel/rooms/list/route.js:8:      req.nextUrl.searchParams.get("organizationId");
+app/api/hotel/rooms/list/route.js:13:      .eq("organization_id", organizationId)
+app/api/hotel/rooms/create/route.js:13:      organizationId: organization.id,
+app/api/hotel/guests/list/route.js:7:    const organizationId =
+app/api/hotel/guests/list/route.js:8:      req.nextUrl.searchParams.get("organizationId");
+app/api/hotel/guests/list/route.js:13:      .eq("organization_id", organizationId)
+app/api/hotel/guests/create/route.js:13:      organizationId: organization.id,
+app/api/platform/admin/profit/route.js:25:          organizationId: organization.id,
+app/api/platform/templates/apply/route.js:19:        organizationId:
+app/api/platform/templates/apply/route.js:20:          body.organizationId,
+app/api/workspace/route.js:9:    const organizationId = searchParams.get("organizationId");
+app/api/workspace/route.js:12:    if (!organizationId) {
+app/api/workspace/route.js:16:          error: "Missing organizationId",
+app/api/workspace/route.js:34:      organizationId,
+app/api/workspace/command-center/route.js:49:    const organizationId =
+app/api/workspace/command-center/route.js:51:        "organizationId"
+app/api/workspace/command-center/route.js:62:        organizationId,
+app/api/workspace/command-center/route.js:93:          organizationId,
+app/api/workspace/command-center/route.js:100:          organizationId,
+app/api/workspace/command-center/route.js:270:            organizationId,
+app/api/workspace/command-center/route.js:273:            organizationId,
+app/api/workspace/control-room/route.js:10:    const organizationId = searchParams.get("organizationId");
+app/api/workspace/control-room/route.js:12:    if (!organizationId) {
+app/api/workspace/control-room/route.js:14:        { success: false, error: "Missing organizationId" },
+app/api/workspace/control-room/route.js:22:      .eq("organization_id", organizationId)
+app/api/workspace/control-room/route.js:29:      .eq("organization_id", organizationId)
+app/api/workspace/control-room/route.js:33:    const commandCenter = await runCommandCenterWatch({ organizationId });
+app/api/workspace/control-room/action/route.js:14:      organizationId,
+app/api/workspace/control-room/action/route.js:18:    if (!organizationId) {
+app/api/workspace/control-room/action/route.js:20:        { success: false, error: "Missing organizationId" },
+app/api/workspace/control-room/action/route.js:68:          organization_id: organizationId,
+app/api/workspace/ai/route.js:25:    const { query, organizationId, sessionId } = await req.json();
+app/api/workspace/ai/route.js:27:    const access = await requireOrganizationAccess({ organizationId });
+app/api/workspace/ai/route.js:74:    const sid = sessionId || organizationId;
+app/api/workspace/ai/route.js:118:    await executeActions({ actions, organizationId });
+app/api/workspace/ai/route.js:120:    const commandCenter = await runCommandCenterWatch({ organizationId });
+app/api/workspace/ai/route.js:132:      organizationId,
+app/api/workspace/ai/process/route.js:6:    const { organizationId } = await req.json();
+app/api/workspace/ai/process/route.js:8:    if (!organizationId) {
+app/api/workspace/ai/process/route.js:10:        { success: false, error: "Missing organizationId" },
+app/api/workspace/ai/process/route.js:15:    const result = await processAIEvents({ organizationId });
+app/api/workspace/industry-organizations/route.js:37:    const organizationIds =
+app/api/workspace/industry-organizations/route.js:44:      organizationIds.length === 0
+app/api/workspace/industry-organizations/route.js:60:        organizationIds
+app/api/intake/classify/route.js:20:      organizationId,
+app/api/pos/tables/close/route.js:9:      organizationId: body.organizationId || body.organization_id,
+app/api/pos/tables/merge/route.js:11:      organizationId: body.organizationId || body.organization_id,
+app/api/pos/tables/move-guests/route.js:9:      organizationId: body.organizationId || body.organization_id,
+app/api/pos/tables/move-seat/route.js:5:function scoped(query, { organizationId, tenantId }) {
+app/api/pos/tables/move-seat/route.js:6:  if (organizationId) return query.eq("organization_id", organizationId);
+app/api/pos/tables/move-seat/route.js:53:    const organizationId =
+app/api/pos/tables/move-seat/route.js:54:      body.organizationId || body.organization_id || null;
+app/api/pos/tables/move-seat/route.js:60:    if (!tenantId && !organizationId) {
+app/api/pos/tables/move-seat/route.js:74:    const context = { tenantId, organizationId };
+app/api/pos/tables/move-seat/route.js:153:            organization_id: organizationId,
+app/api/pos/tables/transfer/route.js:11:      organizationId: body.organizationId || body.organization_id,
+app/api/pos/tables/action/route.js:16:      payload.organizationId ||
+app/api/pos/payments/route.js:29:      organizationId: body.organizationId,
+app/api/pos/modifier-groups/create/route.js:25:        organizationId:
+app/api/pos/modifier-groups/create/route.js:26:          body.organizationId,
+app/api/pos/customer-display/update/route.js:27:        organizationId:
+app/api/pos/customer-display/update/route.js:28:          body.organizationId,
+app/api/pos/discounts/create/route.js:25:        organizationId:
+app/api/pos/discounts/create/route.js:26:          body.organizationId,
+app/api/pos/realtime/route.js:25:        organizationId:
+app/api/pos/realtime/route.js:26:          body.organizationId,
+app/api/pos/tips/add/route.js:25:        organizationId:
+app/api/pos/tips/add/route.js:26:          body.organizationId,
+app/api/pos/orders/complete/route.js:26:        organizationId:
+app/api/pos/orders/complete/route.js:27:          body.organizationId,
+app/api/pos/create/route.js:83:        organizationId:
+app/api/pos/shifts/route.js:25:        organizationId:
+app/api/pos/shifts/route.js:26:          body.organizationId,
+app/api/procurement/vendors/list/route.js:23:        organizationId:
+app/api/procurement/vendors/list/route.js:24:          body.organizationId,
+app/api/procurement/vendors/list/route.js:58:        body.organizationId
+app/api/procurement/purchase-orders/route.js:29:        organizationId:
+app/api/procurement/purchase-orders/route.js:30:          body.organizationId,
+app/api/procurement/purchase-orders/list/route.js:23:        organizationId:
+app/api/procurement/purchase-orders/list/route.js:24:          body.organizationId,
+app/api/procurement/purchase-orders/list/route.js:62:        body.organizationId
+app/api/procurement/receiving/route.js:27:        organizationId:
+app/api/procurement/receiving/route.js:28:          body.organizationId,
+app/api/procurement/receiving/list/route.js:23:        organizationId:
+app/api/procurement/receiving/list/route.js:24:          body.organizationId,
+app/api/procurement/receiving/list/route.js:67:        body.organizationId
+app/api/inventory/monitoring/route.js:25:        organizationId:
+app/api/inventory/monitoring/route.js:26:          body.organizationId,
+app/api/governance/deployment/request/route.js:25:        organizationId:
+app/api/governance/deployment/request/route.js:26:          body.organizationId,
+app/api/governance/deployment/check/route.js:27:        organizationId:
+app/api/governance/deployment/check/route.js:28:          body.organizationId,
+app/api/governance/automation/route.js:31:        organizationId:
+app/api/governance/automation/route.js:32:          body.organizationId,
+app/api/ubte/restaurant/workflow/route.js:26:    if (!body.context?.organizationId) {
+app/api/ubte/restaurant/workflow/route.js:30:          error: "context.organizationId required",
+app/api/ubte/workflow/execute/route.js:15:        organizationId:
+app/api/ubte/workflow/execute/route.js:16:          body.organizationId ||
+app/api/ubte/execute/route.js:14:        organizationId:
+app/api/ubte/execute/route.js:15:          body.organizationId ||
+app/api/production/recipe-components/route.js:81:        organizationId:
+app/api/production/recipe-components/route.js:82:          body.organizationId,
+app/api/marketing/owner-insights/route.js:31:        organizationId:
+app/api/marketing/owner-insights/route.js:32:          body.organizationId,
+app/api/marketing/operations/route.js:31:        organizationId:
+app/api/marketing/operations/route.js:32:          body.organizationId,
+app/api/marketing/operational-alerts/route.js:31:        organizationId:
+app/api/marketing/operational-alerts/route.js:32:          body.organizationId,
+app/api/marketing/recommendations/route.js:31:        organizationId:
+app/api/marketing/recommendations/route.js:32:          body.organizationId,
+app/api/marketing/queue/route.js:31:        organizationId:
+app/api/marketing/queue/route.js:32:          body.organizationId,
+app/api/marketing/engine-learning/route.js:24:        organizationId:
+app/api/marketing/engine-learning/route.js:25:          body.organizationId,
+app/api/marketing/campaigns/route.js:31:        organizationId:
+app/api/marketing/campaigns/route.js:32:          body.organizationId,
+app/api/finance/trial-balance/route.js:22:      organizationId:
+app/api/finance/trial-balance/route.js:24:          "organizationId"
+app/api/finance/accounting/runtime/route.js:12:        organizationId: body.organizationId,
+app/api/finance/accounting/runtime/route.js:27:    const organizationId =
+app/api/finance/accounting/runtime/route.js:28:      body.organizationId;
+app/api/finance/accounting/runtime/route.js:44:          organizationId
+app/api/finance/accounting/runtime/route.js:55:          organizationId
+app/api/finance/accounting/runtime/route.js:66:          organizationId
+app/api/finance/month-end/close-period/route.js:19:        organizationId:
+app/api/finance/month-end/close-period/route.js:20:          body.organizationId,
+app/api/finance/reconciliation/route.js:21:        organizationId:
+app/api/finance/reconciliation/route.js:22:          body.organizationId,
+app/api/finance/reconciliation/route.js:87:        organizationId:
+app/api/finance/reconciliation/route.js:88:          body.organizationId,
+app/api/finance/insights/route.js:22:      organizationId:
+app/api/finance/insights/route.js:24:          "organizationId"
+app/api/finance/periods/route.js:24:      organizationId:
+app/api/finance/periods/route.js:26:          "organizationId"
+app/api/finance/periods/close/route.js:23:        organizationId:
+app/api/finance/periods/close/route.js:24:          body.organizationId,
+app/api/finance/periods/update-status/route.js:50:        organizationId,
+app/api/finance/periods/open/route.js:23:        organizationId:
+app/api/finance/periods/open/route.js:24:          body.organizationId,
+app/api/finance/payments/list/route.js:29:        organizationId:
+app/api/finance/payments/list/route.js:30:          body.organizationId,
+app/api/finance/payments/list/route.js:69:        body.organizationId
+app/api/finance/accounts-receivable/list/route.js:17:        organizationId: body.organizationId,
+app/api/finance/accounts-receivable/list/route.js:38:          body.organizationId
+app/api/finance/close/runtime/route.js:12:        organizationId: body.organizationId,
+app/api/finance/close/runtime/route.js:27:    const organizationId =
+app/api/finance/close/runtime/route.js:28:      body.organizationId;
+app/api/finance/depreciation/run/route.js:47:        organizationId:
+app/api/finance/depreciation/run/route.js:48:          body.organizationId,
+app/api/finance/year-end/close-fiscal-year/route.js:19:        organizationId:
+app/api/finance/year-end/close-fiscal-year/route.js:20:          body.organizationId,
+app/api/finance/fixed-assets/list/route.js:29:        organizationId:
+app/api/finance/fixed-assets/list/route.js:30:          body.organizationId,
+app/api/finance/module/route.js:7:  const organizationId = searchParams.get("organizationId");
+app/api/finance/module/route.js:20:    organizationId,
+app/api/finance/health/route.js:22:      organizationId:
+app/api/finance/health/route.js:24:          "organizationId"
+app/api/finance/intercompany/runtime/route.js:29:        organizationId:
+app/api/finance/intercompany/runtime/route.js:30:          body.organizationId,
+app/api/finance/intercompany/settle/route.js:29:        organizationId:
+app/api/finance/intercompany/settle/route.js:30:          body.organizationId,
+app/api/finance/period-close/route.js:14:      organizationId:
+app/api/finance/period-close/route.js:15:        body.organizationId,
+app/api/finance/runtime/route.js:12:        organizationId: body.organizationId,
+app/api/finance/runtime/route.js:27:    const organizationId =
+app/api/finance/runtime/route.js:28:      body.organizationId;
+app/api/finance/runtime/route.js:46:          organizationId
+app/api/finance/runtime/route.js:57:          organizationId
+app/api/finance/runtime/route.js:68:          organizationId
+app/api/finance/anomalies/route.js:22:      organizationId:
+app/api/finance/anomalies/route.js:24:          "organizationId"
+app/api/finance/general-ledger/route.js:18:      organizationId:
+app/api/finance/general-ledger/route.js:20:          "organizationId"
+app/api/finance/kpis/route.js:22:      organizationId:
+app/api/finance/kpis/route.js:24:          "organizationId"
+app/api/finance/tax/runtime/route.js:12:        organizationId: body.organizationId,
+app/api/finance/tax/runtime/route.js:27:    const organizationId =
+app/api/finance/tax/runtime/route.js:28:      body.organizationId;
+app/api/finance/tax/runtime/route.js:38:        organizationId
+app/api/finance/customer-payments/list/route.js:17:        organizationId: body.organizationId,
+app/api/finance/customer-payments/list/route.js:38:          body.organizationId
+app/api/finance/customer-payments/create/route.js:23:        organizationId:
+app/api/finance/customer-payments/create/route.js:24:          body.organizationId,
+app/api/finance/customer-payments/create/route.js:48:          body.organizationId,
+app/api/finance/journals/route.js:22:      organizationId:
+app/api/finance/journals/route.js:24:          "organizationId"
+app/api/finance/journals/request-reversal/route.js:23:        organizationId:
+app/api/finance/journals/request-reversal/route.js:24:          body.organizationId,
+app/api/finance/journals/reverse/route.js:23:        organizationId:
+app/api/finance/journals/reverse/route.js:24:          body.organizationId,
+app/api/finance/journals/[id]/route.js:27:      organizationId:
+app/api/finance/journals/[id]/route.js:29:          "organizationId"
+app/api/finance/gl-posting/route.js:19:        organizationId:
+app/api/finance/gl-posting/route.js:20:          body.organizationId,
+app/api/finance/customer-invoices/list/route.js:17:        organizationId: body.organizationId,
+app/api/finance/customer-invoices/list/route.js:46:          body.organizationId
+app/api/finance/customer-invoices/create/route.js:20:        organizationId:
+app/api/finance/customer-invoices/create/route.js:21:          body.organizationId,
+app/api/finance/customer-invoices/create/route.js:45:          body.organizationId,
+app/api/finance/cash-flow/route.js:22:      organizationId:
+app/api/finance/cash-flow/route.js:24:          "organizationId"
+app/api/finance/accounts-payable/route.js:21:        organizationId:
+app/api/finance/accounts-payable/route.js:22:          body.organizationId,
+app/api/finance/accounts-payable/route.js:44:          body.organizationId,
+app/api/finance/accounts-payable/route.js:97:        organizationId:
+app/api/finance/accounts-payable/route.js:98:          body.organizationId,
+app/api/finance/accounts-payable/route.js:182:        organizationId:
+app/api/finance/accounts-payable/route.js:183:          body.organizationId,
+app/api/finance/ar/runtime/route.js:13:        organizationId: body.organizationId,
+app/api/finance/ar/runtime/route.js:30:    const organizationId =
+app/api/finance/ar/runtime/route.js:31:      body.organizationId;
+app/api/finance/ar/runtime/route.js:48:          organizationId
+app/api/finance/ar/runtime/route.js:59:          organizationId
+app/api/finance/ar/runtime/route.js:70:          organizationId
+app/api/finance/ar/runtime/route.js:81:          organizationId
+app/api/finance/ar/aging/route.js:17:        organizationId: body.organizationId,
+app/api/finance/ar/aging/route.js:42:        body.organizationId
+app/api/finance/budgeting/route.js:16:      organizationId:
+app/api/finance/budgeting/route.js:17:        body.organizationId,
+app/api/finance/budgeting/create/route.js:19:        organizationId:
+app/api/finance/budgeting/create/route.js:20:          body.organizationId,
+app/api/finance/cost-centers/toggle/route.js:29:        organizationId:
+app/api/finance/cost-centers/toggle/route.js:30:          body.organizationId,
+app/api/finance/cost-centers/list/route.js:29:        organizationId:
+app/api/finance/cost-centers/list/route.js:30:          body.organizationId,
+app/api/finance/cost-centers/create/route.js:27:        organizationId:
+app/api/finance/cost-centers/create/route.js:28:          body.organizationId,
+app/api/finance/procure-to-pay/runtime/route.js:11:        organizationId: body.organizationId,
+app/api/finance/procure-to-pay/runtime/route.js:26:    const organizationId =
+app/api/finance/procure-to-pay/runtime/route.js:27:      body.organizationId;
+app/api/finance/procure-to-pay/runtime/route.js:47:          organizationId
+app/api/finance/procure-to-pay/runtime/route.js:58:          organizationId
+app/api/finance/procure-to-pay/runtime/route.js:69:          organizationId
+app/api/finance/procure-to-pay/runtime/route.js:80:          organizationId
+app/api/finance/procure-to-pay/runtime/route.js:91:          organizationId
+app/api/finance/procure-to-pay/runtime/route.js:102:          organizationId
+app/api/finance/procure-to-pay/runtime/route.js:113:          organizationId
+app/api/finance/invoice-matching/runtime/route.js:29:        organizationId:
+app/api/finance/invoice-matching/runtime/route.js:30:          body.organizationId,
+app/api/finance/invoice-matching/runtime/route.js:62:        .eq("organization_id", body.organizationId)
+app/api/finance/invoice-matching/runtime/route.js:77:        .eq("organization_id", body.organizationId)
+app/api/finance/invoice-matching/runtime/route.js:88:        .eq("organization_id", body.organizationId)
+app/api/finance/invoice-matching/runtime/route.js:99:        .eq("organization_id", body.organizationId)
+app/api/finance/invoice-matching/create/route.js:27:        organizationId:
+app/api/finance/invoice-matching/create/route.js:28:          body.organizationId,
+app/api/finance/summary/route.js:27:        organizationId:
+app/api/finance/summary/route.js:29:            "organizationId"
+app/api/finance/legal-entities/toggle/route.js:29:        organizationId:
+app/api/finance/legal-entities/toggle/route.js:30:          body.organizationId,
+app/api/finance/legal-entities/list/route.js:29:        organizationId:
+app/api/finance/legal-entities/list/route.js:30:          body.organizationId,
+app/api/finance/legal-entities/create/route.js:27:        organizationId:
+app/api/finance/legal-entities/create/route.js:28:          body.organizationId,
+app/api/finance/vendor-invoices/list/route.js:29:        organizationId:
+app/api/finance/vendor-invoices/list/route.js:30:          body.organizationId,
+app/api/finance/vendor-invoices/list/route.js:66:        body.organizationId
+app/api/orders/update/route.js:39:        organizationId:
+app/api/orders/update/route.js:40:          body.organizationId,
+app/api/performance/list/route.js:26:        organizationId:
+app/api/performance/list/route.js:28:            "organizationId"
+app/api/performance/list/today/route.js:28:        organizationId:
+app/api/performance/list/today/route.js:30:            "organizationId"
+app/api/assets/upload-file/route.js:20:    const organizationId = formData.get("organizationId");
+app/api/assets/upload-file/route.js:30:    if (!organizationId || !tenantId) {
+app/api/assets/upload-file/route.js:32:        { success: false, error: "Missing organizationId or tenantId" },
+app/api/assets/upload-file/route.js:39:    const filePath = `organization-documents/${organizationId}/${Date.now()}-${safeName}`;
+app/api/assets/upload-file/route.js:62:        organization_id: organizationId,
+app/api/control/scan/route.js:24:        organizationId:
+app/api/control/scan/route.js:25:          body.organizationId,
+app/api/work-centers/list/route.js:9:      organizationId: body.organizationId,
+app/api/billing/webhook/route.js:27:    const { organizationId, plan } = session.metadata;
+app/api/billing/webhook/route.js:35:      .eq("id", organizationId);
+app/api/billing/invoices/generate/route.js:11:      organizationId,
+app/api/billing/invoices/generate/route.js:18:        organizationId,
+app/api/billing/checkout/route.js:7:    const { plan, organizationId } = await req.json();
+app/api/billing/checkout/route.js:28:        organizationId,
+app/(workforce)/workforce/upload/page.jsx:11:    organizationId,
+app/(workforce)/workforce/upload/page.jsx:44:        "organizationId",
+app/(workforce)/workforce/upload/page.jsx:45:        organizationId
+app/(workforce)/workforce/upload/page.jsx:92:              organizationId:
+app/(workforce)/workforce/upload/page.jsx:93:                organizationId,

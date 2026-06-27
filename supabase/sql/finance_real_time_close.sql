@@ -1,6 +1,7 @@
 create table if not exists real_time_close_cycles (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   close_date date not null,
   close_status text default 'running',
   revenue_locked boolean default false,
@@ -13,7 +14,8 @@ create table if not exists real_time_close_cycles (
 
 create table if not exists real_time_close_exceptions (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   close_cycle_id uuid,
   module_name text not null,
   severity text default 'medium',
@@ -24,7 +26,8 @@ create table if not exists real_time_close_exceptions (
 
 create table if not exists real_time_close_approvals (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   close_cycle_id uuid,
   approved_by text,
   approval_role text,

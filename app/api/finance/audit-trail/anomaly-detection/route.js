@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const anomalies =
       await runFinanceAnomalyDetection({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
       });
 
     return NextResponse.json({

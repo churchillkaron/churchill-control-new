@@ -12,7 +12,7 @@ export async function POST(req) {
       await req.json()
 
     const {
-      tenant_id,
+      organization_id,
       order_id,
       refundedItems,
       orderTotal,
@@ -33,7 +33,7 @@ export async function POST(req) {
       .from('pos_refunds')
       .insert([
         {
-          tenant_id,
+          organization_id,
           order_id,
           amount:
             result.refundAmount,

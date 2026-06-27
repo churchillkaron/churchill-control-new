@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const queue =
       await runPaymentPriorityQueue({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
         invoices:
           body.invoices,
       });

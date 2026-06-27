@@ -2,13 +2,13 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-function scoped(query, { organizationId, tenantId }) {
+function scoped(query, { organizationId }) {
   if (organizationId) return query.eq("organization_id", organizationId);
-  return query.eq("tenant_id", tenantId);
+  return query.eq("organization_id", organizationId);
 }
 
-function scopedOrderItems(query, { tenantId }) {
-  return query.eq("tenant_id", tenantId);
+function scopedOrderItems(query, { organizationId }) {
+  return query.eq("organization_id", organizationId);
 }
 
 async function recalcOrder(orderId, context) {
@@ -49,7 +49,6 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    const tenantId = body.tenantId || body.tenant_id || null;
     const organizationId =
       body.organizationId || body.organization_id || null;
 
@@ -57,7 +56,7 @@ export async function POST(req) {
     const toTableId = body.toTableId;
     const seatPosition = body.seatPosition;
 
-    if (!tenantId && !organizationId) {
+    if (!organizationId && !organizationId) {
       return Response.json(
         { success: false, error: "Missing tenant/organization" },
         { status: 400 }
@@ -71,7 +70,7 @@ export async function POST(req) {
       );
     }
 
-    const context = { tenantId, organizationId };
+    const context = { organizationId };
 
     const { data: sourceTable, error: sourceError } =
       await scoped(
@@ -149,7 +148,7 @@ export async function POST(req) {
         const created = await supabaseAdmin
           .from("orders")
           .insert({
-            tenant_id: tenantId,
+            organization_id: organizationId,
             organization_id: organizationId,
             table_id: toTableId,
             table_number: targetTable.table_number,

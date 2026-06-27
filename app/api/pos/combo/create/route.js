@@ -10,7 +10,7 @@ export async function POST(req) {
       await req.json()
 
     const {
-      tenant_id,
+      organization_id,
       name,
       combo_discount,
       items,
@@ -23,7 +23,7 @@ export async function POST(req) {
       .from('pos_combos')
       .insert([
         {
-          tenant_id,
+          organization_id,
           name,
           combo_discount,
         },
@@ -38,7 +38,7 @@ export async function POST(req) {
     const comboItems =
       items.map(
         item => ({
-          tenant_id,
+          organization_id,
           combo_id:
             combo.id,
           dish_id:

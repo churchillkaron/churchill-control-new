@@ -45,8 +45,8 @@ export async function POST(req) {
 
     }
 
-    const tenant_id =
-      access.tenantId
+    const organization_id =
+      access.organizationId
 
     const payload =
       buildCustomerDisplay(body)
@@ -58,8 +58,8 @@ export async function POST(req) {
       .from('pos_customer_displays')
       .upsert([
         {
-          tenant_id:
-            tenant_id,
+          organization_id:
+            organization_id,
           terminal_id:
             body.terminal_id,
           payload,

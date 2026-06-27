@@ -12,7 +12,7 @@ export async function POST(req) {
       await req.json()
 
     const {
-      tenant_id,
+      organization_id,
       order_id,
       guest_name,
       items,
@@ -30,7 +30,7 @@ export async function POST(req) {
       .from('split_bills')
       .insert([
         {
-          tenant_id,
+          organization_id,
           order_id,
           guest_name,
           total,
@@ -48,7 +48,7 @@ export async function POST(req) {
     const splitItems =
       items.map(
         item => ({
-          tenant_id,
+          organization_id,
           split_bill_id:
             data.id,
           order_item_id:

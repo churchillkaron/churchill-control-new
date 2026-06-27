@@ -41,7 +41,7 @@ export async function POST(req) {
       );
     }
 
-    const tenant_id = access.tenantId;
+    const organization_id = access.organizationId;
 
     const {
       data: order,
@@ -50,7 +50,7 @@ export async function POST(req) {
       .from("orders")
       .select("*")
       .eq("id", body.order_id)
-      .eq("tenant_id", tenant_id)
+      .eq("organization_id", organization_id)
       .single();
 
     if (orderError || !order) {
@@ -75,7 +75,7 @@ export async function POST(req) {
     const changeAmount = Number((paidAmount - finalTotal).toFixed(2));
 
     const financeTransaction = await createPaymentTransaction({
-      tenantId: tenant_id,
+      organizationId: organization_id,
       tableSessionId: order.session_id || null,
       tableNumber: order.table_number || null,
       paymentMethod: body.payment_type,
@@ -93,7 +93,7 @@ export async function POST(req) {
 
     const journal =
       await postPaymentAccounting({
-        tenantId: tenant_id,
+        organizationId: organization_id,
         paymentId:
           financeTransaction.id,
         payment: {
@@ -116,7 +116,7 @@ export async function POST(req) {
         change_amount: changeAmount,
       })
       .eq("id", order.id)
-      .eq("tenant_id", tenant_id);
+      .eq("organization_id", organization_id);
 
     return NextResponse.json({
       success: true,

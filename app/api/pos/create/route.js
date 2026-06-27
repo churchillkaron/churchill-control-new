@@ -31,7 +31,6 @@ export async function POST(req) {
       total,
       staff_name,
       staff_id,
-      tenant_id,
       organization_id,
       table_id,
 
@@ -158,7 +157,7 @@ export async function POST(req) {
           .insert([
             {
 
-              tenant_id,
+              organization_id,
               organization_id,
               table_id,
 
@@ -222,7 +221,7 @@ export async function POST(req) {
 
       for (let i = 0; i < qty; i++) {
         orderItems.push({
-          tenant_id,
+          organization_id,
           order_id: order.id,
           dish_id: item.dish_id || item.id || null,
           item_name:
@@ -267,7 +266,7 @@ export async function POST(req) {
     }
 
     await recordSystemEvent({
-      tenantId: tenant_id,
+      organizationId: organization_id,
       type: isNewOrder
         ? SYSTEM_EVENTS.ORDER_CREATED
         : SYSTEM_EVENTS.ORDER_ITEM_ADDED,

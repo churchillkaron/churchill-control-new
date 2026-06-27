@@ -12,7 +12,7 @@ export async function POST(req) {
       await req.json()
 
     const {
-      tenant_id,
+      organization_id,
       shift_id,
     } = body
 
@@ -60,7 +60,7 @@ export async function POST(req) {
       .from('pos_end_of_day_reports')
       .insert([
         {
-          tenant_id,
+          organization_id,
           shift_id,
           report_date:
             today,

@@ -47,8 +47,8 @@ export async function POST(req) {
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     const {
       data: transaction,
@@ -60,8 +60,8 @@ export async function POST(req) {
       .select("*")
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organizationId
       )
 
       .eq(

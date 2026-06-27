@@ -9,7 +9,7 @@ export async function POST(req) {
     const body = await req.json();
 
     const result = await createLegalEntity({
-      tenant_id: body.tenant_id,
+      organization_id: body.organization_id,
       code: body.code,
       legal_name: body.legal_name,
       display_name: body.display_name,

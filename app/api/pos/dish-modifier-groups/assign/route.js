@@ -10,7 +10,7 @@ export async function POST(req) {
       await req.json()
 
     const {
-      tenant_id,
+      organization_id,
       dish_id,
       modifier_group_id,
     } = body
@@ -22,7 +22,7 @@ export async function POST(req) {
       .from('dish_modifier_groups')
       .insert([
         {
-          tenant_id,
+          organization_id,
           dish_id,
           modifier_group_id,
         },

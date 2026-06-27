@@ -77,7 +77,7 @@ export default function PaymentsPage() {
   const tenant =
     useTenant();
 
-  const tenantId =
+  const organizationId =
     tenant?.id;
 
   const searchParams =
@@ -142,8 +142,8 @@ export default function PaymentsPage() {
               "application/json",
           },
           body: JSON.stringify({
-            tenantId:
-              tenantId,
+            organizationId:
+              organizationId,
             tableNumber,
           }),
         }
@@ -285,8 +285,8 @@ export default function PaymentsPage() {
                 "application/json",
             },
             body: JSON.stringify({
-              tenantId:
-                tenantId,
+              organizationId:
+                organizationId,
               tableNumber:
                 paymentState.session.table_number,
               paymentMethod,

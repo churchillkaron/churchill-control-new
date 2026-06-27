@@ -201,14 +201,14 @@ export async function GET(request) {
       (orders.data || []).filter(
         order =>
           !["PAID", "CLOSED", "CANCELLED", "VOID"].includes(
-            String(order.status || "").toUpperCase()
+            String(status || "").toUpperCase()
           )
       );
 
     const paidOrders =
       (orders.data || []).filter(
         order =>
-          String(order.status || "").toUpperCase() === "PAID"
+          String(status || "").toUpperCase() === "PAID"
       );
 
     const occupiedTables =

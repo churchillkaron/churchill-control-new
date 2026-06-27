@@ -35,14 +35,14 @@ export async function GET(request) {
 
   const data =
     await getGeneralLedger({
-      tenantId:
-        access.tenantId,
+      organizationId:
+        access.organizationId,
     });
 
   return NextResponse.json({
     success: true,
-    tenantId:
-      access.tenantId,
+    organizationId:
+      access.organizationId,
     rows: data,
   });
 

@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const approval =
       await approveRealTimeClose({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
         closeCycleId:
           body.closeCycleId,
         approvedBy:

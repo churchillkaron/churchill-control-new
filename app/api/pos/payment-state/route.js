@@ -11,8 +11,8 @@ export async function POST(req) {
 
     const state =
       await loadPaymentState({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
         tableNumber:
           body.tableNumber,
       });

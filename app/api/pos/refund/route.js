@@ -16,8 +16,8 @@ export async function POST(req) {
     const result =
       await refundPayment({
 
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
 
         paymentTransactionId:
           body.paymentTransactionId,

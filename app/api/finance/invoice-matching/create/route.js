@@ -45,14 +45,14 @@ export async function POST(req) {
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     const result =
       await createInvoiceMatch({
 
-        tenant_id:
-          tenantId,
+        organization_id:
+          organizationId,
 
         invoice_id:
           body.invoice_id,

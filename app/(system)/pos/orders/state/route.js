@@ -6,13 +6,13 @@ export const dynamic = "force-dynamic";
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const tenant_id = searchParams.get("tenant_id");
+    const organization_id = searchParams.get("organization_id");
 
-    if (!tenant_id) {
-      return Response.json({ error: "missing tenant_id" }, { status: 400 });
+    if (!organization_id) {
+      return Response.json({ error: "missing organization_id" }, { status: 400 });
     }
 
-    const cacheKey = `pos_state:${tenant_id}`;
+    const cacheKey = `pos_state:${organization_id}`;
 
     const cached = getCache(cacheKey);
     if (cached) {
@@ -24,7 +24,7 @@ export async function GET(req) {
     const { data, error } = await supabase
       .from("orders")
       .select("*")
-      .eq("tenant_id", tenant_id)
+      .eq("organization_id", organization_id)
       .in("status", ["OPEN", "SENT", "PREPARING"]);
 
     if (error) throw error;

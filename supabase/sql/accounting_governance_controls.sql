@@ -1,6 +1,7 @@
 create table if not exists internal_controls (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   control_name text,
   control_type text,
   status text,
@@ -10,7 +11,8 @@ create table if not exists internal_controls (
 
 create table if not exists internal_audits (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   audit_area text,
   findings text,
   risk_level text,
@@ -19,7 +21,8 @@ create table if not exists internal_audits (
 
 create table if not exists policy_rules (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   policy_name text,
   policy_type text,
   rule_definition jsonb,
@@ -28,7 +31,8 @@ create table if not exists policy_rules (
 
 create table if not exists segregation_checks (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   user_email text,
   violation_type text,
   severity text,

@@ -37,11 +37,11 @@ export const GET = withApiHandler(
       );
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     return await getFinanceSummary({
-      tenantId,
+      organizationId,
     });
 
   }

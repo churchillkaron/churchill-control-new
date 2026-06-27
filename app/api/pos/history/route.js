@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 export async function POST(req) {
   try {
 
-    const { tenantId } = await req.json();
+    const { organizationId } = await req.json();
 
     const { data: orders, error } = await supabaseAdmin
       .from("orders")
@@ -12,7 +12,7 @@ export async function POST(req) {
         *,
         order_items (*)
       `)
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .order("created_at", { ascending: false })
       .limit(200);
 
@@ -21,7 +21,7 @@ export async function POST(req) {
     const { data: payments, error: pError } = await supabaseAdmin
       .from('payment_transactions')
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .order("created_at", { ascending: false })
       .limit(200);
 

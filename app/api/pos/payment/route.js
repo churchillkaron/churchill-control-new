@@ -16,8 +16,8 @@ export async function POST(req) {
     const result =
       await createPayment({
 
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
 
         tableNumber:
           body.tableNumber,

@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const elimination =
       await runIntercompanyElimination({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
         reconciliationId:
           body.reconciliationId,
         eliminationAmount:

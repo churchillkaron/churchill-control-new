@@ -45,14 +45,14 @@ export async function POST(req) {
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     const result =
       await createCostCenter({
 
-        tenant_id:
-          tenantId,
+        organization_id:
+          organizationId,
 
         ...body,
 

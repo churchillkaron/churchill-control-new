@@ -3,20 +3,20 @@ import { financeModule } from "@/lib/finance/financeModule";
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
 
-  const tenantId = searchParams.get("tenantId");
+  const organizationId = searchParams.get("organizationId");
   const organizationId = searchParams.get("organizationId");
   const periodStart = searchParams.get("periodStart");
   const periodEnd = searchParams.get("periodEnd");
 
-  if (!tenantId) {
+  if (!organizationId) {
     return Response.json(
-      { success: false, error: "Missing tenantId" },
+      { success: false, error: "Missing organizationId" },
       { status: 400 }
     );
   }
 
   const data = await financeModule({
-    tenantId,
+    organizationId,
     organizationId,
     periodStart,
     periodEnd

@@ -47,8 +47,8 @@ export async function POST(req) {
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     const [
       entitiesResult,
@@ -59,8 +59,8 @@ export async function POST(req) {
         .from("legal_entities")
         .select("*")
         .eq(
-          "tenant_id",
-          tenantId
+          "organization_id",
+          organizationId
         )
         .eq(
           "is_active",
@@ -89,8 +89,8 @@ export async function POST(req) {
           )
         `)
         .eq(
-          "tenant_id",
-          tenantId
+          "organization_id",
+          organizationId
         )
         .order(
           "created_at",

@@ -37,14 +37,14 @@ export async function POST(req) {
 
     }
 
-    const tenant_id =
-      access.tenantId;
+    const organization_id =
+      access.organizationId;
 
     const result =
       await postVendorPaymentGL({
 
-        tenant_id:
-          tenant_id,
+        organization_id:
+          organization_id,
 
         payment_id:
           body.payment_id,

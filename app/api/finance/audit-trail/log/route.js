@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const log =
       await createAuditLog({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
         moduleName:
           body.moduleName,
         entityType:

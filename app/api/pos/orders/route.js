@@ -5,9 +5,9 @@ import { loadOrderItems } from "@/lib/pos/loadOrderItems";
 export async function POST(req) {
   try {
 
-    const { tenantId } = await req.json();
+    const { organizationId } = await req.json();
 
-    const orders = await loadActiveOrders(tenantId);
+    const orders = await loadActiveOrders(organizationId);
 
     const enriched = await Promise.all(
       (orders || []).map(async (order) => {

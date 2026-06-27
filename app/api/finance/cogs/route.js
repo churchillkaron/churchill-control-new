@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 export async function POST(req) {
   try {
 
-    const { tenantId, batchId } = await req.json();
+    const { organizationId, batchId } = await req.json();
 
     // 1. Get production batch
     const { data: batch, error: batchError } = await supabaseAdmin
@@ -19,7 +19,7 @@ export async function POST(req) {
     const { data: usage, error: usageError } = await supabaseAdmin
       .from("inventory_movements")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .eq("reference_id", batchId)
       .eq("type", "CONSUMPTION");
 
@@ -36,7 +36,7 @@ export async function POST(req) {
     const { data: cogs, error: cogsError } = await supabaseAdmin
       .from("cogs_entries")
       .insert({
-        tenant_id: tenantId,
+        organization_id: organizationId,
         batch_id: batchId,
         production_id: batch?.production_id,
         total_cost: totalCost,

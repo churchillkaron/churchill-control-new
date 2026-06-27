@@ -8,11 +8,6 @@ export async function GET(req) {
 
   try {
 
-    const tenant_id =
-      req.nextUrl.searchParams.get(
-        "tenant_id"
-      );
-
     const organization_id =
       req.nextUrl.searchParams.get(
         "organization_id"
@@ -20,7 +15,6 @@ export async function GET(req) {
 
     const result =
       await getTables({
-        tenant_id,
         organization_id,
       });
 

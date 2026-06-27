@@ -39,14 +39,14 @@ export async function POST(req) {
 
     }
 
-    const tenant_id =
-      access.tenantId;
+    const organization_id =
+      access.organizationId;
 
     const result =
       await importBankStatement({
 
-        tenant_id:
-          tenant_id,
+        organization_id:
+          organization_id,
 
         transactions:
           body.transactions || [],
@@ -105,14 +105,14 @@ export async function PUT(req) {
 
     }
 
-    const tenant_id =
-      access.tenantId;
+    const organization_id =
+      access.organizationId;
 
     const result =
       await runBankReconciliation({
 
-        tenant_id:
-          tenant_id,
+        organization_id:
+          organization_id,
       });
 
     return NextResponse.json(

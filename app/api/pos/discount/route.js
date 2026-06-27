@@ -16,8 +16,8 @@ export async function POST(req) {
     const result =
       await applyDiscount({
 
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
 
         orderId:
           body.orderId,

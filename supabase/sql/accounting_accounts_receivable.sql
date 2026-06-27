@@ -1,34 +1,58 @@
-create table if not exists ar_customer_invoices (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
-  customer_name text not null,
-  invoice_number text not null,
-  invoice_date date not null,
-  due_date date,
-  invoice_amount numeric(14,2) default 0,
-  outstanding_balance numeric(14,2) default 0,
-  invoice_status text default 'open',
-  created_at timestamptz default now()
+create table if not exists customer_invoices (
+    id uuid primary key default gen_random_uuid(),
+
+    organization_id uuid not null,
+    entity_id uuid not null,
+
+    invoice_number text not null,
+
+    customer_id uuid not null,
+
+    invoice_date date not null,
+    due_date date,
+
+    currency_code text default 'THB',
+    exchange_rate numeric(18,8) default 1,
+
+    subtotal numeric(18,2) default 0,
+    tax_amount numeric(18,2) default 0,
+    discount_amount numeric(18,2) default 0,
+    total_amount numeric(18,2) default 0,
+    outstanding_amount numeric(18,2) default 0,
+
+    status text default 'DRAFT',
+
+    journal_entry_id uuid
+        references journal_entries(id),
+
+    created_by uuid,
+
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
 );
 
-create table if not exists ar_payment_receipts (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
-  invoice_id uuid not null,
-  payment_reference text,
-  payment_amount numeric(14,2) default 0,
-  payment_method text,
-  received_at timestamptz default now()
+create index if not exists idx_ar_org_entity
+on customer_invoices(
+    organization_id,
+    entity_id
 );
 
-create table if not exists ar_aging_snapshots (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
-  customer_name text,
-  current_bucket numeric(14,2) default 0,
-  days_30 numeric(14,2) default 0,
-  days_60 numeric(14,2) default 0,
-  days_90 numeric(14,2) default 0,
-  total_outstanding numeric(14,2) default 0,
-  created_at timestamptz default now()
+create index if not exists idx_ar_customer
+on customer_invoices(
+    customer_id
+);
+
+create index if not exists idx_ar_status
+on customer_invoices(
+    status
+);
+
+create index if not exists idx_ar_due
+on customer_invoices(
+    due_date
+);
+
+create index if not exists idx_ar_journal
+on customer_invoices(
+    journal_entry_id
 );

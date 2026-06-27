@@ -65,13 +65,13 @@ export async function POST(
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     const result =
       await postDepreciationToLedger({
 
-        tenantId,
+        organizationId,
 
         assetId,
 

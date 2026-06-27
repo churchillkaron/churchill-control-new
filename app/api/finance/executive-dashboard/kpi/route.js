@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const kpis =
       await runExecutiveKPIs({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
       });
 
     return NextResponse.json({

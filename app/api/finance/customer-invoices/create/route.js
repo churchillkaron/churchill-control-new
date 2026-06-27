@@ -38,8 +38,8 @@ export async function POST(req) {
     const result =
       await createCustomerInvoice({
 
-        tenant_id:
-          access.tenantId,
+        organization_id:
+          access.organizationId,
 
         organization_id:
           body.organizationId,

@@ -7,7 +7,7 @@ export async function POST(request) {
 
     const result =
       await createIntercompanyTransaction({
-        tenant_id: body.tenant_id,
+        organization_id: body.organization_id,
         from_legal_entity_id: body.from_legal_entity_id,
         to_legal_entity_id: body.to_legal_entity_id,
         transaction_type: body.transaction_type,

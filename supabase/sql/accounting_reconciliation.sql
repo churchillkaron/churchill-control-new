@@ -1,6 +1,7 @@
 create table if not exists reconciliation_runs (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   bank_account_id uuid,
   reconciliation_date date not null,
   matched_count integer default 0,
@@ -11,7 +12,8 @@ create table if not exists reconciliation_runs (
 
 create table if not exists reconciliation_exceptions (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   bank_transaction_id uuid,
   reason text,
   severity text,

@@ -16,8 +16,8 @@ export async function POST(req) {
     const result =
       await addOrderModifier({
 
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
 
         orderItemId:
           body.orderItemId,

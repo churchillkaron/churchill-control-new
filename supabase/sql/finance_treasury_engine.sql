@@ -1,6 +1,7 @@
 create table if not exists cash_flow_snapshots (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   inflow numeric(14,2) default 0,
   outflow numeric(14,2) default 0,
   net_cash_flow numeric(14,2) default 0,
@@ -10,7 +11,8 @@ create table if not exists cash_flow_snapshots (
 
 create table if not exists treasury_liquidity_analysis (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   available_cash numeric(14,2) default 0,
   short_term_liabilities numeric(14,2) default 0,
   liquidity_ratio numeric(14,2) default 0,
@@ -20,7 +22,8 @@ create table if not exists treasury_liquidity_analysis (
 
 create table if not exists payment_priority_queue (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   vendor_name text,
   invoice_reference text,
   payment_amount numeric(14,2) default 0,

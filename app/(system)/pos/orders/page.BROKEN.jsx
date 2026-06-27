@@ -20,7 +20,7 @@ export default function POSOrdersPage() {
   const tenant =
     useTenant();
 
-  const tenantId =
+  const organizationId =
     tenant?.id;
 
   const [

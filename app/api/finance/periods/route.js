@@ -44,8 +44,8 @@ export async function GET(request) {
 
   }
 
-  const tenantId =
-    access.tenantId;
+  const organizationId =
+    access.organizationId;
 
   const {
     data,
@@ -57,8 +57,8 @@ export async function GET(request) {
     .select("*")
 
     .eq(
-      "tenant_id",
-      tenantId
+      "organization_id",
+      organizationId
     )
 
     .order(

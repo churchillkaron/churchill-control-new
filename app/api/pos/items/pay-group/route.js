@@ -95,8 +95,8 @@ export async function POST(req) {
 
     const paymentTransaction =
       await createPaymentTransaction({
-        tenantId:
-          order.tenant_id,
+        organizationId:
+          order.organization_id,
         tableSessionId:
           order.session_id,
         tableNumber:
@@ -122,8 +122,8 @@ export async function POST(req) {
       });
 
     await postPaymentAccounting({
-      tenantId:
-        order.tenant_id,
+      organizationId:
+        order.organization_id,
       paymentId:
         paymentTransaction.id,
       payment: {

@@ -16,8 +16,8 @@ export async function POST(req) {
     const result =
       await partialPayment({
 
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
 
         tableNumber:
           body.tableNumber,

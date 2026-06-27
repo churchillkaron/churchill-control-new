@@ -67,8 +67,8 @@ export async function POST(req) {
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from("accounting_periods")
@@ -90,7 +90,7 @@ export async function POST(req) {
     const { data, error } = await supabaseAdmin
       .from("accounting_periods")
       .update({
-        tenant_id: tenantId,
+        organization_id: organizationId,
         status,
         closed_at:
           status === "closed" || status === "locked"

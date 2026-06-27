@@ -12,7 +12,7 @@ import {
 
 export default function POSModifiersPage() {
 
-  const tenant_id =
+  const organization_id =
     '76e2caa6-dd78-49e5-b0f5-1ff94185c2d4'
 
   const [
@@ -102,7 +102,7 @@ export default function POSModifiersPage() {
           },
 
           body: JSON.stringify({
-            tenant_id,
+            organization_id,
             ...form,
           }),
         }
@@ -141,7 +141,7 @@ export default function POSModifiersPage() {
           },
 
           body: JSON.stringify({
-            tenant_id,
+            organization_id,
             ...groupForm,
           }),
         }

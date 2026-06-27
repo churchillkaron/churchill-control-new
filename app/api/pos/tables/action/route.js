@@ -6,11 +6,6 @@ export async function POST(req) {
 
     const { action, payload = {} } = body;
 
-    const tenant_id =
-      payload.tenant_id ||
-      payload.tenantId ||
-      null;
-
     const organization_id =
       payload.organization_id ||
       payload.organizationId ||
@@ -23,7 +18,7 @@ export async function POST(req) {
       );
     }
 
-    if (!tenant_id && !organization_id) {
+    if (!organization_id) {
       return Response.json(
         { success: false, error: "Missing organization/tenant context" },
         { status: 400 }
@@ -35,7 +30,7 @@ export async function POST(req) {
         return query.eq("organization_id", organization_id);
       }
 
-      return query.eq("tenant_id", tenant_id);
+      return query.eq("organization_id", organization_id);
     };
 
     let result = null;
@@ -301,7 +296,7 @@ export async function POST(req) {
           await supabaseAdmin
             .from("orders")
             .insert({
-              tenant_id: tenant_id || null,
+              organization_id: organization_id || null,
               organization_id: organization_id || null,
               table_id: destinationTableId,
               table_number: destinationTable.table_number,
@@ -421,7 +416,7 @@ export async function POST(req) {
 
       if (cleanMergeIds.length > 0) {
         const mergeRows = cleanMergeIds.map((id) => ({
-          tenant_id: tenant_id || null,
+          organization_id: organization_id || null,
           organization_id: organization_id || null,
           master_table_id: destinationTableId,
           merged_table_id: id,

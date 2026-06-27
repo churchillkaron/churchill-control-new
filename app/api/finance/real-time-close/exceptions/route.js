@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const exceptions =
       await getRealTimeCloseExceptions({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
       });
 
     return NextResponse.json({

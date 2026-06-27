@@ -46,7 +46,6 @@ function OptionRow({ title, options, value, onChange }) {
 export default function POSFinalUI() {
   const tenant = useTenant();
 
-  const tenantId = tenant?.id;
   const organizationId =
     tenant?.activeOrganization ||
     tenant?.active_organization_id ||
@@ -166,9 +165,9 @@ console.log("POS_SETTINGS", posSettings);
   }
 
   async function refreshPOS() {
-    if (!tenantId) return;
+    if (!organizationId) return;
 
-    const loaded = await loadWaiterData(tenantId);
+    const loaded = await loadWaiterData(organizationId);
     setData(loaded);
     setPosSettings(
       loaded?.posSettings || null
@@ -196,8 +195,8 @@ console.log("POS_SETTINGS", posSettings);
         action,
         payload: {
           ...payload,
-          tenantId,
-          tenant_id: tenantId,
+          organizationId,
+          organization_id: organizationId,
           organizationId,
           organization_id: organizationId,
           staffId: staff?.id || null,
@@ -237,11 +236,11 @@ console.log("POS_SETTINGS", posSettings);
   }
 
   useEffect(() => {
-    if (!tenantId) return;
+    if (!organizationId) return;
 
     loadStaffRuntime();
 
-    loadWaiterData(tenantId).then((loaded) => {
+    loadWaiterData(organizationId).then((loaded) => {
       setData(loaded);
 
       setPosSettings(
@@ -261,7 +260,7 @@ console.log("POS_SETTINGS", posSettings);
       const firstCategory = Object.keys(grouped)[0] || null;
       setActiveCategory(firstCategory);
     });
-  }, [tenantId]);
+  }, [organizationId]);
 
   useEffect(() => {
 
@@ -454,8 +453,8 @@ console.log("POS_SETTINGS", posSettings);
       },
       body: JSON.stringify({
         query: customerSearch,
-        tenantId,
-        tenant_id: tenantId,
+        organizationId,
+        organization_id: organizationId,
         organizationId,
         organization_id: organizationId,
       }),
@@ -480,8 +479,8 @@ console.log("POS_SETTINGS", posSettings);
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        tenantId,
-        tenant_id: tenantId,
+        organizationId,
+        organization_id: organizationId,
         organizationId,
         organization_id: organizationId,
         customer_name: newCustomer.name,
@@ -613,9 +612,9 @@ console.log("POS_SETTINGS", posSettings);
           staff_id: staff?.id || null,
           staff_name: staff?.name || null,
 
-          tenant_id: tenantId,
           organization_id: organizationId,
-          tenant_id: tenantId,
+          organization_id: organizationId,
+          organization_id: organizationId,
         }),
       });
 
@@ -666,7 +665,7 @@ console.log("POS_SETTINGS", posSettings);
       console.log("OPEN_TABLE_REQUEST", {
   tableId: tableId(table),
   organization_id: organizationId,
-  tenant_id: tenantId,
+  organization_id: organizationId,
 });
 
 const res = await fetch("/api/pos/tables/open", {
@@ -677,7 +676,7 @@ const res = await fetch("/api/pos/tables/open", {
         body: JSON.stringify({
           tableId: tableId(table),
           organization_id: organizationId,
-          tenant_id: tenantId,
+          organization_id: organizationId,
         }),
       });
 

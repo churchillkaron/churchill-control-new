@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const rankings =
       await runEntityProfitabilityRanking({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
         entities:
           body.entities,
       });

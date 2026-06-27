@@ -9,8 +9,8 @@ export async function POST(request) {
 
     const liquidity =
       await runLiquidityAnalysis({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
       });
 
     return NextResponse.json({

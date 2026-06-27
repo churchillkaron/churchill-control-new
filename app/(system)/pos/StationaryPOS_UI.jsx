@@ -17,9 +17,6 @@ export default function StationaryPOSUI() {
 
 
 
-  const tenantId =
-    tenant?.id;
-
   const organizationId =
     tenant?.activeOrganization ||
     tenant?.active_organization_id ||
@@ -35,7 +32,7 @@ export default function StationaryPOSUI() {
   useEffect(() => {
 
     if (
-      !tenantId &&
+      !organizationId &&
       !organizationId
     ) {
       return;
@@ -53,8 +50,8 @@ export default function StationaryPOSUI() {
         );
       } else {
         params.set(
-          "tenant_id",
-          tenantId
+          "organization_id",
+          organizationId
         );
       }
 
@@ -82,7 +79,7 @@ export default function StationaryPOSUI() {
     loadTables();
 
   }, [
-    tenantId,
+    organizationId,
     organizationId,
   ]);
 
@@ -137,7 +134,7 @@ export default function StationaryPOSUI() {
           action,
           ...payload,
           organization_id: organizationId,
-          tenant_id: tenantId,
+          organization_id: organizationId,
         }),
       });
 
@@ -164,13 +161,13 @@ export default function StationaryPOSUI() {
     async function load() {
       console.log("POS TENANT DEBUG", {
         tenant,
-        tenantId,
+        organizationId,
         organizationId,
       });
 
       const data =
         await loadWaiterData(
-          tenantId
+          organizationId
         );
 
 
@@ -183,8 +180,8 @@ export default function StationaryPOSUI() {
       }
     }
 
-    if (tenantId) load();
-  }, [tenantId]);
+    if (organizationId) load();
+  }, [organizationId]);
 
   async function openStationaryTable(table) {
     setSelectedTable(table);
@@ -206,7 +203,7 @@ export default function StationaryPOSUI() {
         body: JSON.stringify({
           tableId: table.id,
           organization_id: organizationId,
-          tenant_id: tenantId,
+          organization_id: organizationId,
         }),
       });
 
@@ -616,7 +613,7 @@ onClick={() => openStationaryTable(table)}
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           action: "TRANSFER_TABLE",
-                          tenantId,
+                          organizationId,
                           fromTableId: selectedTable.id,
                           toTableId: null
                         })
@@ -631,7 +628,7 @@ onClick={() => openStationaryTable(table)}
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           action: "CLOSE_TABLE",
-                          tenantId,
+                          organizationId,
                           tableId: selectedTable.id
                         })
                       });

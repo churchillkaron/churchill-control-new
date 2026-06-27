@@ -16,8 +16,8 @@ export async function POST(req) {
     const result =
       await removeOrderItem({
 
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
 
         orderItemId:
           body.orderItemId,

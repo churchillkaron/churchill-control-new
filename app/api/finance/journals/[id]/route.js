@@ -8,7 +8,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-const tenantId = null;
+const organizationId = null;
 
 export async function GET(
   request,
@@ -47,8 +47,8 @@ export async function GET(
 
   }
 
-  const tenantId =
-    access.tenantId;
+  const organizationId =
+    access.organizationId;
 
   try {
 
@@ -65,8 +65,8 @@ export async function GET(
       .select("*")
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organizationId
       )
 
       .eq(

@@ -43,8 +43,8 @@ export async function POST(req) {
         organization_id:
           body.organizationId,
 
-        tenant_id:
-          access.tenantId,
+        organization_id:
+          access.organizationId,
 
         vendor_id:
           body.vendor_id,

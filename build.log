@@ -6,700 +6,116 @@
   - Environments: .env.local
 
    Creating an optimized production build ...
- ✓ Compiled successfully
-   Linting and checking validity of types ...
-   Collecting page data ...
- ⚠ Using edge runtime on a page currently disables static generation for that page
-   Generating static pages (0/507) ...
-   Generating static pages (126/507) 
-   Generating static pages (253/507) 
-   Generating static pages (380/507) 
- ✓ Generating static pages (507/507)
-   Finalizing page optimization ...
-   Collecting build traces ...
+Failed to compile.
 
-Route (app)                                                                   Size     First Load JS
-┌ ƒ /                                                                         1.49 kB         155 kB
-├ ƒ /_not-found                                                               170 B          87.5 kB
-├ ƒ /analytics/live                                                           1.71 kB         155 kB
-├ ƒ /analytics/revenue                                                        620 B          87.9 kB
-├ ƒ /analytics/sales                                                          5.98 kB         257 kB
-├ ƒ /api/accounting-expenses                                                  0 B                0 B
-├ ƒ /api/accounting/clients/create                                            0 B                0 B
-├ ƒ /api/accounting/operations                                                0 B                0 B
-├ ƒ /api/ai/business-profile                                                  0 B                0 B
-├ ƒ /api/analytics/production-vs-waste                                        0 B                0 B
-├ ƒ /api/analytics/revenue                                                    0 B                0 B
-├ ƒ /api/analytics/snapshot                                                   0 B                0 B
-├ ƒ /api/approval_requests                                                    0 B                0 B
-├ ƒ /api/approvals/process                                                    0 B                0 B
-├ ƒ /api/approvals/reject                                                     0 B                0 B
-├ ƒ /api/assets                                                               0 B                0 B
-├ ƒ /api/assets/list                                                          0 B                0 B
-├ ƒ /api/assets/update                                                        0 B                0 B
-├ ƒ /api/assets/upload                                                        0 B                0 B
-├ ƒ /api/assets/upload-file                                                   0 B                0 B
-├ ƒ /api/audit/log                                                            0 B                0 B
-├ ƒ /api/auth/role                                                            0 B                0 B
-├ ƒ /api/auth/server-user                                                     0 B                0 B
-├ ƒ /api/auth/session                                                         0 B                0 B
-├ ƒ /api/billing/checkout                                                     0 B                0 B
-├ ƒ /api/billing/invoices/generate                                            0 B                0 B
-├ ƒ /api/billing/invoices/mark-paid                                           0 B                0 B
-├ ƒ /api/billing/webhook                                                      0 B                0 B
-├ ƒ /api/control/scan                                                         0 B                0 B
-├ ○ /api/cron/registry                                                        0 B                0 B
-├ ƒ /api/cron/run                                                             0 B                0 B
-├ ƒ /api/customers/history                                                    0 B                0 B
-├ ƒ /api/customers/search                                                     0 B                0 B
-├ ƒ /api/customers/timeline                                                   0 B                0 B
-├ ƒ /api/customers/upsert                                                     0 B                0 B
-├ ƒ /api/dashboard/today                                                      0 B                0 B
-├ ƒ /api/datawarehouse/snapshot                                               0 B                0 B
-├ ƒ /api/design/assets                                                        0 B                0 B
-├ ƒ /api/dishes                                                               0 B                0 B
-├ ƒ /api/edge/task                                                            0 B                0 B
-├ ƒ /api/events/active                                                        0 B                0 B
-├ ƒ /api/events/leaderboard                                                   0 B                0 B
-├ ƒ /api/events/monthly                                                       0 B                0 B
-├ ƒ /api/finance/accounts-payable                                             0 B                0 B
-├ ○ /api/finance/accounts-payable/aging-report                                0 B                0 B
-├ ƒ /api/finance/accounts-payable/pay                                         0 B                0 B
-├ ƒ /api/finance/anomalies                                                    0 B                0 B
-├ ƒ /api/finance/audit-trail/anomaly-detection                                0 B                0 B
-├ ƒ /api/finance/audit-trail/entity-history                                   0 B                0 B
-├ ○ /api/finance/audit-trail/live                                             0 B                0 B
-├ ƒ /api/finance/audit-trail/log                                              0 B                0 B
-├ ƒ /api/finance/balance-sheet                                                0 B                0 B
-├ ƒ /api/finance/budgeting                                                    0 B                0 B
-├ ƒ /api/finance/budgeting/create                                             0 B                0 B
-├ ○ /api/finance/budgeting/variance                                           0 B                0 B
-├ ƒ /api/finance/cash-flow                                                    0 B                0 B
-├ ƒ /api/finance/cash-flow/run                                                0 B                0 B
-├ ƒ /api/finance/cashflow                                                     0 B                0 B
-├ ƒ /api/finance/cogs                                                         0 B                0 B
-├ ƒ /api/finance/consolidation                                                0 B                0 B
-├ ƒ /api/finance/cost-centers/create                                          0 B                0 B
-├ ƒ /api/finance/cost-centers/list                                            0 B                0 B
-├ ƒ /api/finance/cost-centers/toggle                                          0 B                0 B
-├ ƒ /api/finance/depreciation/run                                             0 B                0 B
-├ ƒ /api/finance/executive-dashboard/alerts                                   0 B                0 B
-├ ƒ /api/finance/executive-dashboard/entity-ranking                           0 B                0 B
-├ ƒ /api/finance/executive-dashboard/kpi                                      0 B                0 B
-├ ƒ /api/finance/fixed-assets/create                                          0 B                0 B
-├ ○ /api/finance/fixed-assets/depreciation                                    0 B                0 B
-├ ƒ /api/finance/fixed-assets/list                                            0 B                0 B
-├ ƒ /api/finance/forecast                                                     0 B                0 B
-├ ƒ /api/finance/general-ledger                                               0 B                0 B
-├ ○ /api/finance/general-ledger/trial-balance                                 0 B                0 B
-├ ƒ /api/finance/gl-posting                                                   0 B                0 B
-├ ƒ /api/finance/health                                                       0 B                0 B
-├ ƒ /api/finance/insights                                                     0 B                0 B
-├ ƒ /api/finance/intercompany/create                                          0 B                0 B
-├ ƒ /api/finance/intercompany/eliminate                                       0 B                0 B
-├ ƒ /api/finance/intercompany/reconcile                                       0 B                0 B
-├ ƒ /api/finance/intercompany/runtime                                         0 B                0 B
-├ ƒ /api/finance/intercompany/settle                                          0 B                0 B
-├ ƒ /api/finance/invoice-matching/create                                      0 B                0 B
-├ ƒ /api/finance/invoice-matching/runtime                                     0 B                0 B
-├ ƒ /api/finance/journal                                                      0 B                0 B
-├ ƒ /api/finance/journal-chain                                                0 B                0 B
-├ ƒ /api/finance/journals                                                     0 B                0 B
-├ ƒ /api/finance/journals/[id]                                                0 B                0 B
-├ ƒ /api/finance/journals/request-reversal                                    0 B                0 B
-├ ƒ /api/finance/journals/reverse                                             0 B                0 B
-├ ƒ /api/finance/kpis                                                         0 B                0 B
-├ ƒ /api/finance/legal-entities/create                                        0 B                0 B
-├ ƒ /api/finance/legal-entities/list                                          0 B                0 B
-├ ƒ /api/finance/legal-entities/toggle                                        0 B                0 B
-├ ƒ /api/finance/month-end/close-period                                       0 B                0 B
-├ ○ /api/finance/month-end/status                                             0 B                0 B
-├ ƒ /api/finance/overview                                                     0 B                0 B
-├ ƒ /api/finance/payments                                                     0 B                0 B
-├ ƒ /api/finance/payments/list                                                0 B                0 B
-├ ƒ /api/finance/period-close                                                 0 B                0 B
-├ ƒ /api/finance/periods                                                      0 B                0 B
-├ ƒ /api/finance/periods/close                                                0 B                0 B
-├ ƒ /api/finance/periods/open                                                 0 B                0 B
-├ ƒ /api/finance/periods/update-status                                        0 B                0 B
-├ ƒ /api/finance/profit                                                       0 B                0 B
-├ ƒ /api/finance/profit-loss                                                  0 B                0 B
-├ ƒ /api/finance/real-time-close/approval                                     0 B                0 B
-├ ƒ /api/finance/real-time-close/exceptions                                   0 B                0 B
-├ ƒ /api/finance/real-time-close/run                                          0 B                0 B
-├ ƒ /api/finance/reconciliation                                               0 B                0 B
-├ ƒ /api/finance/reports                                                      0 B                0 B
-├ ƒ /api/finance/reports/profit-loss                                          0 B                0 B
-├ ƒ /api/finance/role-permissions/check                                       0 B                0 B
-├ ƒ /api/finance/role-permissions/create                                      0 B                0 B
-├ ƒ /api/finance/summary                                                      0 B                0 B
-├ ○ /api/finance/tax-engine/calculate                                         0 B                0 B
-├ ○ /api/finance/tax-engine/report                                            0 B                0 B
-├ ƒ /api/finance/treasury/liquidity                                           0 B                0 B
-├ ƒ /api/finance/treasury/payment-priority                                    0 B                0 B
-├ ƒ /api/finance/trial-balance                                                0 B                0 B
-├ ƒ /api/finance/year-end/close-fiscal-year                                   0 B                0 B
-├ ○ /api/finance/year-end/status                                              0 B                0 B
-├ ƒ /api/forecasting/overview                                                 0 B                0 B
-├ ƒ /api/google/auth                                                          0 B                0 B
-├ ƒ /api/google/auth/callback                                                 0 B                0 B
-├ ƒ /api/governance/automation                                                0 B                0 B
-├ ƒ /api/governance/deployment/check                                          0 B                0 B
-├ ƒ /api/governance/deployment/request                                        0 B                0 B
-├ ○ /api/health/database                                                      0 B                0 B
-├ ○ /api/health/queue                                                         0 B                0 B
-├ ○ /api/health/system                                                        0 B                0 B
-├ ƒ /api/healthcare/admissions                                                0 B                0 B
-├ ƒ /api/healthcare/analytics                                                 0 B                0 B
-├ ƒ /api/healthcare/appointments                                              0 B                0 B
-├ ƒ /api/healthcare/beds                                                      0 B                0 B
-├ ƒ /api/healthcare/billing                                                   0 B                0 B
-├ ƒ /api/healthcare/dashboard                                                 0 B                0 B
-├ ƒ /api/healthcare/insurance                                                 0 B                0 B
-├ ƒ /api/healthcare/medical-records                                           0 B                0 B
-├ ƒ /api/healthcare/patients                                                  0 B                0 B
-├ ƒ /api/healthcare/patients/[patientId]                                      0 B                0 B
-├ ƒ /api/healthcare/pharmacy                                                  0 B                0 B
-├ ƒ /api/healthcare/staff                                                     0 B                0 B
-├ ƒ /api/healthcare/wards                                                     0 B                0 B
-├ ƒ /api/history                                                              0 B                0 B
-├ ƒ /api/hotel/availability                                                   0 B                0 B
-├ ƒ /api/hotel/bookings/check-in                                              0 B                0 B
-├ ƒ /api/hotel/bookings/check-out                                             0 B                0 B
-├ ƒ /api/hotel/bookings/create                                                0 B                0 B
-├ ƒ /api/hotel/bookings/list                                                  0 B                0 B
-├ ƒ /api/hotel/concierge/create                                               0 B                0 B
-├ ƒ /api/hotel/concierge/list                                                 0 B                0 B
-├ ƒ /api/hotel/guests/create                                                  0 B                0 B
-├ ƒ /api/hotel/guests/list                                                    0 B                0 B
-├ ƒ /api/hotel/housekeeping/list                                              0 B                0 B
-├ ƒ /api/hotel/housekeeping/update                                            0 B                0 B
-├ ƒ /api/hotel/maintenance/list                                               0 B                0 B
-├ ƒ /api/hotel/maintenance/update                                             0 B                0 B
-├ ƒ /api/hotel/metrics                                                        0 B                0 B
-├ ƒ /api/hotel/properties/create                                              0 B                0 B
-├ ƒ /api/hotel/properties/list                                                0 B                0 B
-├ ƒ /api/hotel/rooms/create                                                   0 B                0 B
-├ ƒ /api/hotel/rooms/list                                                     0 B                0 B
-├ ƒ /api/hotels/bookings                                                      0 B                0 B
-├ ƒ /api/hotels/maintenance                                                   0 B                0 B
-├ ƒ /api/hotels/rooms                                                         0 B                0 B
-├ ƒ /api/ingredients                                                          0 B                0 B
-├ ƒ /api/intake/approve                                                       0 B                0 B
-├ ƒ /api/intake/classify                                                      0 B                0 B
-├ ƒ /api/intake/list                                                          0 B                0 B
-├ ƒ /api/intake/process                                                       0 B                0 B
-├ ƒ /api/intake/review                                                        0 B                0 B
-├ ƒ /api/intake/stats                                                         0 B                0 B
-├ ƒ /api/inventory/engine/consume                                             0 B                0 B
-├ ƒ /api/inventory/expiry                                                     0 B                0 B
-├ ƒ /api/inventory/monitoring                                                 0 B                0 B
-├ ƒ /api/inventory/stock-count/finalize                                       0 B                0 B
-├ ƒ /api/inventory/stock-ledger/movement                                      0 B                0 B
-├ ƒ /api/inventory/stock-ledger/reconciliation                                0 B                0 B
-├ ƒ /api/inventory/stock-ledger/valuation                                     0 B                0 B
-├ ƒ /api/inventory/theoretical-vs-actual/run                                  0 B                0 B
-├ ƒ /api/inventory/variance-analysis/run                                      0 B                0 B
-├ ƒ /api/invoice-ai                                                           0 B                0 B
-├ ƒ /api/invoices                                                             0 B                0 B
-├ ƒ /api/invoices/list                                                        0 B                0 B
-├ ƒ /api/invoices/ocr                                                         0 B                0 B
-├ ƒ /api/invoices/review/update                                               0 B                0 B
-├ ƒ /api/invoices/update                                                      0 B                0 B
-├ ƒ /api/kpi/overview                                                         0 B                0 B
-├ ƒ /api/marketing                                                            0 B                0 B
-├ ƒ /api/marketing/analyze-asset                                              0 B                0 B
-├ ƒ /api/marketing/assets                                                     0 B                0 B
-├ ƒ /api/marketing/build-caption                                              0 B                0 B
-├ ƒ /api/marketing/campaign/[id]                                              0 B                0 B
-├ ƒ /api/marketing/campaigns                                                  0 B                0 B
-├ ƒ /api/marketing/check-video-status                                         0 B                0 B
-├ ƒ /api/marketing/create-generation-job-server                               0 B                0 B
-├ ƒ /api/marketing/delete-asset                                               0 B                0 B
-├ ƒ /api/marketing/delete-post                                                0 B                0 B
-├ ƒ /api/marketing/engine-learning                                            0 B                0 B
-├ ƒ /api/marketing/generate                                                   0 B                0 B
-├ ƒ /api/marketing/generation-jobs/[id]                                       0 B                0 B
-├ ƒ /api/marketing/operational-alerts                                         0 B                0 B
-├ ƒ /api/marketing/operations                                                 0 B                0 B
-├ ƒ /api/marketing/owner-insights                                             0 B                0 B
-├ ƒ /api/marketing/process-generation-job                                     0 B                0 B
-├ ƒ /api/marketing/process-queue                                              0 B                0 B
-├ ƒ /api/marketing/publish                                                    0 B                0 B
-├ ƒ /api/marketing/publish-instagram                                          0 B                0 B
-├ ƒ /api/marketing/publish-now                                                0 B                0 B
-├ ƒ /api/marketing/queue                                                      0 B                0 B
-├ ƒ /api/marketing/recommendations                                            0 B                0 B
-├ ƒ /api/marketing/retry-failed                                               0 B                0 B
-├ ƒ /api/marketing/retry-generation-jobs                                      0 B                0 B
-├ ƒ /api/marketing/run-queue                                                  0 B                0 B
-├ ƒ /api/marketing/run-retries                                                0 B                0 B
-├ ƒ /api/marketing/save                                                       0 B                0 B
-├ ƒ /api/marketing/schedule                                                   0 B                0 B
-├ ƒ /api/marketing/sync-analytics                                             0 B                0 B
-├ ƒ /api/marketing/update-asset                                               0 B                0 B
-├ ƒ /api/marketing/upload-asset                                               0 B                0 B
-├ ƒ /api/marketing/video-status                                               0 B                0 B
-├ ƒ /api/menu-decisions                                                       0 B                0 B
-├ ƒ /api/messages/add-members                                                 0 B                0 B
-├ ƒ /api/messages/broadcast                                                   0 B                0 B
-├ ƒ /api/messages/create-group                                                0 B                0 B
-├ ƒ /api/messages/create-private                                              0 B                0 B
-├ ƒ /api/messages/create-thread                                               0 B                0 B
-├ ƒ /api/messages/delete                                                      0 B                0 B
-├ ƒ /api/messages/delete-thread                                               0 B                0 B
-├ ƒ /api/messages/edit                                                        0 B                0 B
-├ ƒ /api/messages/inbox                                                       0 B                0 B
-├ ƒ /api/messages/list                                                        0 B                0 B
-├ ƒ /api/messages/mark-read                                                   0 B                0 B
-├ ƒ /api/messages/moderation                                                  0 B                0 B
-├ ƒ /api/messages/online-status                                               0 B                0 B
-├ ƒ /api/messages/pin                                                         0 B                0 B
-├ ƒ /api/messages/reactions                                                   0 B                0 B
-├ ƒ /api/messages/remove-member                                               0 B                0 B
-├ ƒ /api/messages/report                                                      0 B                0 B
-├ ƒ /api/messages/send                                                        0 B                0 B
-├ ƒ /api/messages/star                                                        0 B                0 B
-├ ƒ /api/messages/thread                                                      0 B                0 B
-├ ƒ /api/messages/thread-members                                              0 B                0 B
-├ ƒ /api/messages/typing                                                      0 B                0 B
-├ ƒ /api/messages/unread-count                                                0 B                0 B
-├ ƒ /api/messages/upload-attachment                                           0 B                0 B
-├ ƒ /api/messages/voice-note                                                  0 B                0 B
-├ ƒ /api/meta/accounts                                                        0 B                0 B
-├ ƒ /api/meta/auth                                                            0 B                0 B
-├ ƒ /api/meta/auth/callback                                                   0 B                0 B
-├ ƒ /api/meta/me                                                              0 B                0 B
-├ ƒ /api/meta/pages                                                           0 B                0 B
-├ ƒ /api/meta/post                                                            0 B                0 B
-├ ƒ /api/meta/Publish                                                         0 B                0 B
-├ ƒ /api/meta/save-account                                                    0 B                0 B
-├ ○ /api/monitoring/metrics                                                   0 B                0 B
-├ ○ /api/monitoring/snapshot                                                  0 B                0 B
-├ ○ /api/observability/overview                                               0 B                0 B
-├ ƒ /api/onboarding/provision                                                 0 B                0 B
-├ ƒ /api/orchestration/day-closed                                             0 B                0 B
-├ ƒ /api/orchestration/order-completed                                        0 B                0 B
-├ ƒ /api/orchestration/recovery/dead-letter                                   0 B                0 B
-├ ƒ /api/orchestration/recovery/replay                                        0 B                0 B
-├ ƒ /api/orchestration/recovery/retry                                         0 B                0 B
-├ ƒ /api/orchestration/rules-engine/actions                                   0 B                0 B
-├ ƒ /api/orchestration/rules-engine/create                                    0 B                0 B
-├ ƒ /api/orchestration/rules-engine/evaluate                                  0 B                0 B
-├ ƒ /api/orchestration/shift-closed                                           0 B                0 B
-├ ƒ /api/orchestration/state-machine/history                                  0 B                0 B
-├ ƒ /api/orchestration/state-machine/transition                               0 B                0 B
-├ ƒ /api/orchestration/state-machine/validate                                 0 B                0 B
-├ ƒ /api/orchestration/workflows/execute                                      0 B                0 B
-├ ƒ /api/orchestration/workflows/register                                     0 B                0 B
-├ ƒ /api/orchestration/workflows/status                                       0 B                0 B
-├ ƒ /api/orders/update                                                        0 B                0 B
-├ ƒ /api/organizations/create                                                 0 B                0 B
-├ ƒ /api/owner                                                                0 B                0 B
-├ ƒ /api/payroll/attendance/check-in                                          0 B                0 B
-├ ƒ /api/payroll/calculate                                                    0 B                0 B
-├ ƒ /api/payroll/export                                                       0 B                0 B
-├ ƒ /api/payroll/generate                                                     0 B                0 B
-├ ƒ /api/payroll/labor-cost/allocation                                        0 B                0 B
-├ ƒ /api/payroll/payslip                                                      0 B                0 B
-├ ƒ /api/payroll/service-charge/distribute                                    0 B                0 B
-├ ƒ /api/payroll/shift-performance/calculate                                  0 B                0 B
-├ ƒ /api/performance/list                                                     0 B                0 B
-├ ƒ /api/performance/list/today                                               0 B                0 B
-├ ƒ /api/permissions/check                                                    0 B                0 B
-├ ○ /api/platform/admin/overview                                              0 B                0 B
-├ ○ /api/platform/admin/profit                                                0 B                0 B
-├ ƒ /api/platform/templates/apply                                             0 B                0 B
-├ ƒ /api/pos/add-modifier                                                     0 B                0 B
-├ ○ /api/pos/alerts/live                                                      0 B                0 B
-├ ○ /api/pos/analytics/live                                                   0 B                0 B
-├ ƒ /api/pos/audit/get                                                        0 B                0 B
-├ ƒ /api/pos/audit/log                                                        0 B                0 B
-├ ƒ /api/pos/combo/create                                                     0 B                0 B
-├ ○ /api/pos/combo/get                                                        0 B                0 B
-├ ƒ /api/pos/course-fire/create                                               0 B                0 B
-├ ƒ /api/pos/course-fire/fire                                                 0 B                0 B
-├ ƒ /api/pos/create                                                           0 B                0 B
-├ ƒ /api/pos/customer-display/current                                         0 B                0 B
-├ ƒ /api/pos/customer-display/update                                          0 B                0 B
-├ ƒ /api/pos/discount                                                         0 B                0 B
-├ ƒ /api/pos/discounts/apply                                                  0 B                0 B
-├ ƒ /api/pos/discounts/create                                                 0 B                0 B
-├ ƒ /api/pos/dish-modifier-groups/assign                                      0 B                0 B
-├ ƒ /api/pos/dish-modifier-groups/get                                         0 B                0 B
-├ ƒ /api/pos/end-of-day/close                                                 0 B                0 B
-├ ƒ /api/pos/history                                                          0 B                0 B
-├ ƒ /api/pos/hold-orders/resume                                               0 B                0 B
-├ ƒ /api/pos/hold-orders/save                                                 0 B                0 B
-├ ƒ /api/pos/items/void                                                       0 B                0 B
-├ ƒ /api/pos/kitchen-routing/process                                          0 B                0 B
-├ ƒ /api/pos/merge-tables                                                     0 B                0 B
-├ ƒ /api/pos/modifier-groups/create                                           0 B                0 B
-├ ○ /api/pos/modifier-groups/get                                              0 B                0 B
-├ ƒ /api/pos/modifiers/create                                                 0 B                0 B
-├ ○ /api/pos/modifiers/get                                                    0 B                0 B
-├ ƒ /api/pos/move-items                                                       0 B                0 B
-├ ƒ /api/pos/offline/sync                                                     0 B                0 B
-├ ƒ /api/pos/orders                                                           0 B                0 B
-├ ƒ /api/pos/orders/ack                                                       0 B                0 B
-├ ƒ /api/pos/orders/add-item                                                  0 B                0 B
-├ ƒ /api/pos/orders/close                                                     0 B                0 B
-├ ƒ /api/pos/orders/complete                                                  0 B                0 B
-├ ƒ /api/pos/orders/get-with-modifiers                                        0 B                0 B
-├ ƒ /api/pos/orders/state                                                     0 B                0 B
-├ ƒ /api/pos/partial-payment                                                  0 B                0 B
-├ ƒ /api/pos/payment                                                          0 B                0 B
-├ ƒ /api/pos/payment-state                                                    0 B                0 B
-├ ƒ /api/pos/payments                                                         0 B                0 B
-├ ƒ /api/pos/payments/create                                                  0 B                0 B
-├ ƒ /api/pos/payments/process                                                 0 B                0 B
-├ ƒ /api/pos/payments/void                                                    0 B                0 B
-├ ○ /api/pos/performance/live                                                 0 B                0 B
-├ ○ /api/pos/printers/get                                                     0 B                0 B
-├ ƒ /api/pos/printers/register                                                0 B                0 B
-├ ƒ /api/pos/realtime                                                         0 B                0 B
-├ ƒ /api/pos/realtime/broadcast                                               0 B                0 B
-├ ƒ /api/pos/receipts                                                         0 B                0 B
-├ ƒ /api/pos/receipts/generate                                                0 B                0 B
-├ ƒ /api/pos/refund                                                           0 B                0 B
-├ ƒ /api/pos/refunds/approve                                                  0 B                0 B
-├ ƒ /api/pos/refunds/create                                                   0 B                0 B
-├ ƒ /api/pos/remove-item                                                      0 B                0 B
-├ ƒ /api/pos/remove-modifier                                                  0 B                0 B
-├ ƒ /api/pos/reopen                                                           0 B                0 B
-├ ƒ /api/pos/service-charge/calculate                                         0 B                0 B
-├ ƒ /api/pos/service-charge/distribute                                        0 B                0 B
-├ ƒ /api/pos/shifts                                                           0 B                0 B
-├ ƒ /api/pos/shifts/close                                                     0 B                0 B
-├ ƒ /api/pos/shifts/current                                                   0 B                0 B
-├ ƒ /api/pos/shifts/open                                                      0 B                0 B
-├ ƒ /api/pos/split-bill/create                                                0 B                0 B
-├ ƒ /api/pos/split-payment                                                    0 B                0 B
-├ ƒ /api/pos/table-management/merge                                           0 B                0 B
-├ ƒ /api/pos/table-management/open                                            0 B                0 B
-├ ƒ /api/pos/table-management/transfer                                        0 B                0 B
-├ ƒ /api/pos/tables                                                           0 B                0 B
-├ ƒ /api/pos/terminals/register                                               0 B                0 B
-├ ○ /api/pos/terminals/status                                                 0 B                0 B
-├ ƒ /api/pos/tips/add                                                         0 B                0 B
-├ ƒ /api/pos/tips/distribute                                                  0 B                0 B
-├ ƒ /api/pos/transfer-table                                                   0 B                0 B
-├ ƒ /api/pos/update-item-quantity                                             0 B                0 B
-├ ƒ /api/pos/void                                                             0 B                0 B
-├ ƒ /api/pos/voids/approve                                                    0 B                0 B
-├ ƒ /api/pos/voids/request                                                    0 B                0 B
-├ ƒ /api/procurement/approve-request                                          0 B                0 B
-├ ƒ /api/procurement/goods-receipts/receive                                   0 B                0 B
-├ ƒ /api/procurement/purchase-orders                                          0 B                0 B
-├ ƒ /api/procurement/purchase-orders/create                                   0 B                0 B
-├ ƒ /api/procurement/purchase-orders/list                                     0 B                0 B
-├ ƒ /api/procurement/purchase-requests/create                                 0 B                0 B
-├ ƒ /api/procurement/receipts/update-status                                   0 B                0 B
-├ ƒ /api/procurement/receiving                                                0 B                0 B
-├ ƒ /api/procurement/receiving/list                                           0 B                0 B
-├ ƒ /api/procurement/replenishment                                            0 B                0 B
-├ ƒ /api/procurement/request/create                                           0 B                0 B
-├ ƒ /api/procurement/suppliers                                                0 B                0 B
-├ ƒ /api/procurement/three-way-match/run                                      0 B                0 B
-├ ƒ /api/procurement/vendors                                                  0 B                0 B
-├ ƒ /api/procurement/vendors/list                                             0 B                0 B
-├ ƒ /api/production/batches                                                   0 B                0 B
-├ ƒ /api/production/central-kitchen/transfer                                  0 B                0 B
-├ ƒ /api/production/consumption                                               0 B                0 B
-├ ƒ /api/production/costing                                                   0 B                0 B
-├ ƒ /api/production/costing/calculate-order-cost                              0 B                0 B
-├ ○ /api/production/expiry-monitor/live                                       0 B                0 B
-├ ƒ /api/production/invoice-approval/approve                                  0 B                0 B
-├ ƒ /api/production/invoice-matching/three-way-match                          0 B                0 B
-├ ƒ /api/production/prep-batches/consume                                      0 B                0 B
-├ ƒ /api/production/prep-batches/create                                       0 B                0 B
-├ ○ /api/production/prep-efficiency/live                                      0 B                0 B
-├ ƒ /api/production/prepared                                                  0 B                0 B
-├ ƒ /api/production/process-order                                             0 B                0 B
-├ ƒ /api/production/production-sessions/close                                 0 B                0 B
-├ ƒ /api/production/production-sessions/start                                 0 B                0 B
-├ ƒ /api/production/purchase-orders/create                                    0 B                0 B
-├ ƒ /api/production/purchase-orders/receive                                   0 B                0 B
-├ ƒ /api/production/recipe-components                                         0 B                0 B
-├ ƒ /api/production/recipe-costing/calculate                                  0 B                0 B
-├ ƒ /api/production/recipe-costing/menu-engineering                           0 B                0 B
-├ ƒ /api/production/recipe-costing/shift-profitability                        0 B                0 B
-├ ƒ /api/production/recipes                                                   0 B                0 B
-├ ƒ /api/production/recipes/create                                            0 B                0 B
-├ ƒ /api/production/recipes/get                                               0 B                0 B
-├ ○ /api/production/station-load/live                                         0 B                0 B
-├ ○ /api/production/stock-alerts/live                                         0 B                0 B
-├ ○ /api/production/supplier-performance/live                                 0 B                0 B
-├ ƒ /api/production/theoretical-usage/calculate                               0 B                0 B
-├ ƒ /api/production/variance/calculate                                        0 B                0 B
-├ ○ /api/production/vendor-price-history/live                                 0 B                0 B
-├ ○ /api/production/waste/analytics                                           0 B                0 B
-├ ƒ /api/production/waste/log                                                 0 B                0 B
-├ ƒ /api/production/yield                                                     0 B                0 B
-├ ƒ /api/production/yield-analysis/calculate                                  0 B                0 B
-├ ○ /api/queue/dead-letter                                                    0 B                0 B
-├ ƒ /api/queue/retry                                                          0 B                0 B
-├ ƒ /api/realtime/broadcast                                                   0 B                0 B
-├ ƒ /api/realtime/channels                                                    0 B                0 B
-├ ○ /api/realtime/orders                                                      0 B                0 B
-├ ƒ /api/realtime/sync                                                        0 B                0 B
-├ ƒ /api/realtime/ws                                                          0 B                0 B
-├ ƒ /api/recipes/by-dish                                                      0 B                0 B
-├ ƒ /api/revenue                                                              0 B                0 B
-├ ƒ /api/reviews/leaderboard                                                  0 B                0 B
-├ ƒ /api/reviews/list                                                         0 B                0 B
-├ ƒ /api/reviews/sync                                                         0 B                0 B
-├ ƒ /api/reviews/sync-facebook                                                0 B                0 B
-├ ƒ /api/reviews/sync-google                                                  0 B                0 B
-├ ƒ /api/reviews/sync-platforms                                               0 B                0 B
-├ ƒ /api/runtime                                                              0 B                0 B
-├ ƒ /api/runtime/scheduler                                                    0 B                0 B
-├ ƒ /api/salary/approvals                                                     0 B                0 B
-├ ƒ /api/save                                                                 0 B                0 B
-├ ƒ /api/schedule/my                                                          0 B                0 B
-├ ƒ /api/security/rate-limit                                                  0 B                0 B
-├ ƒ /api/settings/kitchen/load                                                0 B                0 B
-├ ƒ /api/settings/kitchen/save                                                0 B                0 B
-├ ƒ /api/settings/marketing/load                                              0 B                0 B
-├ ƒ /api/settings/marketing/save                                              0 B                0 B
-├ ƒ /api/settings/operational                                                 0 B                0 B
-├ ƒ /api/settings/payroll/load                                                0 B                0 B
-├ ƒ /api/settings/payroll/save                                                0 B                0 B
-├ ƒ /api/settings/pos/load                                                    0 B                0 B
-├ ƒ /api/settings/pos/save                                                    0 B                0 B
-├ ƒ /api/settings/tables/load                                                 0 B                0 B
-├ ƒ /api/settings/tables/save                                                 0 B                0 B
-├ ƒ /api/staff                                                                0 B                0 B
-├ ƒ /api/staff/ai-feed                                                        0 B                0 B
-├ ƒ /api/staff/ai-memory                                                      0 B                0 B
-├ ƒ /api/staff/documents                                                      0 B                0 B
-├ ƒ /api/staff/payroll/acknowledge                                            0 B                0 B
-├ ƒ /api/staff/payroll/dispute                                                0 B                0 B
-├ ƒ /api/staff/profile-overview                                               0 B                0 B
-├ ƒ /api/staff/runtime                                                        0 B                0 B
-├ ƒ /api/staff/search                                                         0 B                0 B
-├ ƒ /api/staff/upload-profile-picture                                         0 B                0 B
-├ ○ /api/test-runtime                                                         0 B                0 B
-├ ƒ /api/timeline                                                             0 B                0 B
-├ ƒ /api/users/create                                                         0 B                0 B
-├ ƒ /api/workers/orchestrator                                                 0 B                0 B
-├ ƒ /api/workers/run                                                          0 B                0 B
-├ ƒ /api/workspace                                                            0 B                0 B
-├ ƒ /api/workspace/ai                                                         0 B                0 B
-├ ƒ /api/workspace/ai/process                                                 0 B                0 B
-├ ƒ /api/workspace/command-center                                             0 B                0 B
-├ ƒ /api/workspace/control-room                                               0 B                0 B
-├ ƒ /api/workspace/control-room/action                                        0 B                0 B
-├ ƒ /api/workspace/industry-organizations                                     0 B                0 B
-├ ƒ /api/workspace/list                                                       0 B                0 B
-├ ƒ /automation/approvals                                                     4.42 kB         153 kB
-├ ƒ /automation/approvals-center                                              1.38 kB        88.7 kB
-├ ƒ /automation/live                                                          1.63 kB         155 kB
-├ ƒ /bar                                                                      1.84 kB         155 kB
-├ ƒ /control-room                                                             1.67 kB         150 kB
-├ ƒ /customers                                                                3.75 kB        91.1 kB
-├ ƒ /dashboard                                                                187 B           156 kB
-├ ƒ /design                                                                   985 B          95.1 kB
-├ ƒ /design/assets                                                            321 B          87.6 kB
-├ ƒ /design/brand                                                             321 B          87.6 kB
-├ ƒ /design/documents                                                         321 B          87.6 kB
-├ ƒ /design/jobs                                                              319 B          87.6 kB
-├ ƒ /design/studio                                                            1.34 kB        88.7 kB
-├ ƒ /design/templates                                                         320 B          87.6 kB
-├ ƒ /executive                                                                773 B          88.1 kB
-├ ƒ /finance                                                                  284 B          93.8 kB
-├ ƒ /finance/accounting/clients/create                                        2.15 kB        89.5 kB
-├ ƒ /finance/accounting/shifts                                                1.83 kB         155 kB
-├ ƒ /finance/accounts-payable                                                 413 B          87.7 kB
-├ ƒ /finance/anomalies                                                        2.2 kB         89.5 kB
-├ ƒ /finance/audit                                                            1.72 kB          89 kB
-├ ƒ /finance/balance-sheet                                                    669 B            88 kB
-├ ƒ /finance/budgeting                                                        794 B          88.1 kB
-├ ƒ /finance/budgets                                                          1.92 kB         155 kB
-├ ƒ /finance/cashflow                                                         965 B          88.3 kB
-├ ƒ /finance/chart-of-accounts                                                385 B          87.7 kB
-├ ƒ /finance/consolidated-reporting                                           1.73 kB         155 kB
-├ ƒ /finance/consolidation                                                    690 B            88 kB
-├ ƒ /finance/cost-centers                                                     1.95 kB        89.3 kB
-├ ƒ /finance/depreciation                                                     1.82 kB         155 kB
-├ ƒ /finance/executive                                                        1.82 kB        89.1 kB
-├ ƒ /finance/fixed-assets                                                     2.62 kB        89.9 kB
-├ ƒ /finance/food-cost                                                        2.19 kB         156 kB
-├ ƒ /finance/forecast                                                         630 B            88 kB
-├ ƒ /finance/general-ledger                                                   840 B          88.2 kB
-├ ƒ /finance/goods-receiving                                                  1.68 kB         155 kB
-├ ƒ /finance/health                                                           2.47 kB        89.8 kB
-├ ƒ /finance/intercompany                                                     2.49 kB        89.8 kB
-├ ƒ /finance/invoice-matching                                                 1.98 kB        89.3 kB
-├ ƒ /finance/invoice-review                                                   4.32 kB        91.6 kB
-├ ƒ /finance/journals                                                         2.41 kB        89.7 kB
-├ ƒ /finance/legal-entities                                                   2.27 kB        89.6 kB
-├ ƒ /finance/live                                                             2.32 kB         156 kB
-├ ƒ /finance/overview                                                         1.97 kB        89.3 kB
-├ ƒ /finance/payments                                                         1.48 kB        88.8 kB
-├ ƒ /finance/period-close                                                     690 B            88 kB
-├ ƒ /finance/periods                                                          2.19 kB        89.5 kB
-├ ƒ /finance/profit-loss                                                      686 B            88 kB
-├ ƒ /finance/purchase-orders                                                  170 B          87.5 kB
-├ ƒ /finance/purchase-requests                                                1.92 kB         155 kB
-├ ƒ /finance/reconciliation                                                   670 B            88 kB
-├ ƒ /finance/reports                                                          1.41 kB        88.7 kB
-├ ƒ /finance/tax                                                              439 B          87.8 kB
-├ ƒ /finance/trial-balance                                                    1.44 kB         155 kB
-├ ƒ /finance/vendors                                                          1.71 kB         155 kB
-├ ƒ /history                                                                  1.71 kB         155 kB
-├ ƒ /history/days                                                             760 B          88.1 kB
-├ ƒ /inventory                                                                2.91 kB        99.5 kB
-├ ƒ /inventory/expiry                                                         1.08 kB         154 kB
-├ ƒ /inventory/ingredients                                                    1.94 kB         155 kB
-├ ƒ /inventory/ledger                                                         1.48 kB         155 kB
-├ ƒ /inventory/low-stock                                                      1.52 kB         155 kB
-├ ƒ /inventory/monitoring                                                     926 B          88.3 kB
-├ ƒ /kitchen                                                                  1.8 kB          155 kB
-├ ƒ /kitchen/alerts                                                           3.2 kB          157 kB
-├ ƒ /kitchen/analytics                                                        2.65 kB          90 kB
-├ ƒ /kitchen/dashboard                                                        3.49 kB         157 kB
-├ ƒ /kitchen/expo                                                             3.48 kB         157 kB
-├ ƒ /kitchen/performance                                                      2.97 kB        90.3 kB
-├ ƒ /kitchen/stations                                                         3.05 kB         156 kB
-├ ƒ /kitchen/workload                                                         3.33 kB         157 kB
-├ ƒ /login                                                                    3.14 kB         157 kB
-├ ƒ /login/callback                                                           1.11 kB         154 kB
-├ ƒ /management                                                               188 B           156 kB
-├ ƒ /management/invoices                                                      4.39 kB         158 kB
-├ ƒ /management/messages                                                      578 B          87.9 kB
-├ ƒ /management/payments                                                      1.41 kB         155 kB
-├ ƒ /management/performance                                                   1.96 kB         155 kB
-├ ƒ /management/salary                                                        1.59 kB         155 kB
-├ ƒ /management/schedule                                                      2.4 kB          151 kB
-├ ƒ /management/shifts                                                        1.37 kB         155 kB
-├ ƒ /management/staff                                                         5.09 kB        99.2 kB
-├ ƒ /marketing                                                                4.62 kB        98.8 kB
-├ ƒ /marketing/assets                                                         848 B          88.2 kB
-├ ƒ /marketing/dashboard                                                      925 B           154 kB
-├ ƒ /marketing/design                                                         8.34 kB         162 kB
-├ ƒ /marketing/operations                                                     22.4 kB         273 kB
-├ ƒ /marketing/queue                                                          1.98 kB         155 kB
-├ ƒ /marketing/social                                                         7.37 kB        94.7 kB
-├ ƒ /monitoring/dashboard                                                     170 B          87.5 kB
-├ ƒ /monitoring/live                                                          1.81 kB         155 kB
-├ ƒ /onboarding                                                               1.17 kB        88.5 kB
-├ ƒ /payroll                                                                  3.45 kB         157 kB
-├ ƒ /payroll/governance                                                       6.05 kB         159 kB
-├ ƒ /payroll/live                                                             1.88 kB         155 kB
-├ ƒ /platform                                                                 971 B          95.1 kB
-├ ƒ /portal                                                                   170 B          87.5 kB
-├ ƒ /pos                                                                      1.32 kB        88.6 kB
-├ ƒ /pos/history                                                              1.5 kB          155 kB
-├ ƒ /pos/modifiers                                                            2.74 kB        90.1 kB
-├ ƒ /pos/new                                                                  1.99 kB        89.3 kB
-├ ƒ /pos/orders                                                               1.66 kB         155 kB
-├ ƒ /pos/orders/state                                                         0 B                0 B
-├ ƒ /pos/payments                                                             5.24 kB        92.6 kB
-├ ƒ /pos/receipts                                                             5.02 kB        92.3 kB
-├ ƒ /pos/shifts                                                               1.66 kB          89 kB
-├ ƒ /pos/waiter                                                               4.23 kB         158 kB
-├ ƒ /procurement                                                              4.75 kB        98.9 kB
-├ ƒ /procurement/dashboard                                                    1.1 kB          154 kB
-├ ƒ /procurement/goods-receipts                                               1.76 kB         155 kB
-├ ƒ /procurement/purchase-orders                                              1.56 kB        88.9 kB
-├ ƒ /procurement/purchase-requests                                            442 B          87.8 kB
-├ ƒ /procurement/receiving                                                    1.48 kB        88.8 kB
-├ ƒ /procurement/replenishment                                                1.77 kB         155 kB
-├ ƒ /procurement/suppliers                                                    1.61 kB         155 kB
-├ ƒ /procurement/vendors                                                      1.88 kB        89.2 kB
-├ ƒ /production                                                               2.62 kB        99.2 kB
-├ ƒ /production/approval                                                      782 B          88.1 kB
-├ ƒ /production/batches                                                       1.35 kB         155 kB
-├ ƒ /production/costing                                                       1.72 kB         155 kB
-├ ƒ /production/logs                                                          1.58 kB         155 kB
-├ ƒ /production/performance                                                   1.5 kB          155 kB
-├ ƒ /production/prepared                                                      1.14 kB         155 kB
-├ ƒ /production/recipe-components                                             1.41 kB         155 kB
-├ ƒ /production/recipes                                                       1.87 kB         155 kB
-├ ƒ /production/usage                                                         1.47 kB         155 kB
-├ ƒ /production/waste                                                         996 B           154 kB
-├ ƒ /schedule                                                                 2.32 kB          93 kB
-├ ƒ /settings                                                                 2.84 kB        99.4 kB
-├ ƒ /settings/business                                                        780 B          88.1 kB
-├ ƒ /settings/dishes                                                          1.76 kB         155 kB
-├ ƒ /settings/kitchen                                                         1.88 kB        89.2 kB
-├ ƒ /settings/marketing                                                       2.3 kB         89.6 kB
-├ ƒ /settings/payroll                                                         1.04 kB        88.4 kB
-├ ƒ /settings/pos                                                             1.78 kB        89.1 kB
-├ ƒ /settings/production-setup                                                6.97 kB        94.3 kB
-├ ƒ /settings/service-charge                                                  2.13 kB         156 kB
-├ ƒ /settings/staff-setup                                                     4.88 kB        92.2 kB
-├ ƒ /settings/stock-setup                                                     4.91 kB        92.2 kB
-├ ƒ /settings/system                                                          1.74 kB         155 kB
-├ ƒ /settings/tables                                                          1.7 kB           89 kB
-├ ƒ /settings/users                                                           2.45 kB         156 kB
-├ ƒ /subscribe                                                                661 B            88 kB
-├ ƒ /system-map                                                               3.68 kB        97.8 kB
-├ ƒ /tables                                                                   4.11 kB         157 kB
-├ ƒ /timeline                                                                 2.53 kB        89.9 kB
-├ ƒ /workforce                                                                5.3 kB          165 kB
-├ ƒ /workforce/documents                                                      2.44 kB        89.8 kB
-├ ƒ /workforce/payroll                                                        2.47 kB        89.8 kB
-├ ƒ /workforce/profile                                                        170 B          87.5 kB
-├ ƒ /workforce/tasks                                                          170 B          87.5 kB
-├ ƒ /workforce/training                                                       170 B          87.5 kB
-├ ƒ /workforce/upload                                                         1.79 kB         155 kB
-├ ƒ /workspace                                                                2.69 kB        96.8 kB
-├ ƒ /workspace/[organizationId]                                               2.4 kB         89.7 kB
-├ ƒ /workspace/[organizationId]/[moduleId]                                    13.8 kB         201 kB
-├ ƒ /workspace/[organizationId]/accounting                                    3.31 kB        97.4 kB
-├ ƒ /workspace/[organizationId]/construction                                  1.14 kB        95.3 kB
-├ ƒ /workspace/[organizationId]/entertainment                                 1.12 kB        95.3 kB
-├ ƒ /workspace/[organizationId]/healthcare                                    997 B          95.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/admissions                         820 B          93.3 kB
-├ ƒ /workspace/[organizationId]/healthcare/admissions/create                  800 B          88.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/analytics                          64.2 kB         151 kB
-├ ƒ /workspace/[organizationId]/healthcare/appointments                       825 B          93.3 kB
-├ ƒ /workspace/[organizationId]/healthcare/appointments/[appointmentId]       703 B            88 kB
-├ ƒ /workspace/[organizationId]/healthcare/appointments/[appointmentId]/edit  952 B          88.3 kB
-├ ƒ /workspace/[organizationId]/healthcare/appointments/create                794 B          88.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/beds                               836 B          88.2 kB
-├ ƒ /workspace/[organizationId]/healthcare/billing                            836 B          93.3 kB
-├ ƒ /workspace/[organizationId]/healthcare/billing/create                     778 B          88.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/dashboard                          795 B          88.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/emergency                          918 B          88.2 kB
-├ ƒ /workspace/[organizationId]/healthcare/insurance                          861 B          88.2 kB
-├ ƒ /workspace/[organizationId]/healthcare/insurance/claims                   776 B          88.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/laboratory                         886 B          88.2 kB
-├ ƒ /workspace/[organizationId]/healthcare/medical-records                    835 B          93.3 kB
-├ ƒ /workspace/[organizationId]/healthcare/medical-records/create             806 B          88.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/patients                           1.37 kB        95.5 kB
-├ ƒ /workspace/[organizationId]/healthcare/patients/[patientId]               710 B            88 kB
-├ ƒ /workspace/[organizationId]/healthcare/patients/[patientId]/edit          856 B          88.2 kB
-├ ƒ /workspace/[organizationId]/healthcare/patients/create                    1.3 kB         93.7 kB
-├ ƒ /workspace/[organizationId]/healthcare/pharmacy                           866 B          88.2 kB
-├ ƒ /workspace/[organizationId]/healthcare/pharmacy/inventory                 796 B          88.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/radiology                          748 B          88.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/staff                              1.08 kB        95.2 kB
-├ ƒ /workspace/[organizationId]/healthcare/staff/create                       794 B          88.1 kB
-├ ƒ /workspace/[organizationId]/healthcare/wards                              834 B          88.2 kB
-├ ƒ /workspace/[organizationId]/hotel                                         2.2 kB         89.5 kB
-├ ƒ /workspace/[organizationId]/hotel/concierge                               672 B            88 kB
-├ ƒ /workspace/[organizationId]/hotel/frontdesk                               810 B          88.1 kB
-├ ƒ /workspace/[organizationId]/hotel/housekeeping                            832 B          88.2 kB
-├ ƒ /workspace/[organizationId]/hotel/maintenance                             768 B          88.1 kB
-├ ƒ /workspace/[organizationId]/hotel/reservations                            1.81 kB        89.1 kB
-├ ƒ /workspace/[organizationId]/pest_control                                  1.12 kB        95.3 kB
-├ ƒ /workspace/[organizationId]/restaurant                                    1.49 kB        95.6 kB
-├ ƒ /workspace/[organizationId]/retail                                        1.12 kB        95.2 kB
-├ ƒ /workspace/platform/[industryId]                                          4.15 kB        98.3 kB
-├ ƒ /workspace/platform/[industryId]/[moduleId]                               3.94 kB        91.3 kB
-├ ƒ /workspace/platform/demo                                                  2.44 kB        96.6 kB
-└ ƒ /workspace/platform/demo/[moduleId]                                       1.42 kB        88.7 kB
-+ First Load JS shared by all                                                 87.3 kB
-  ├ chunks/7023-c5367128b94ebe77.js                                           31.7 kB
-  ├ chunks/fd9d1056-030cc7b4f1ddad26.js                                       53.6 kB
-  └ other shared chunks (total)                                               2 kB
+./lib/finance/accounts-receivable/createCustomerInvoice.js
+Error: 
+  [31mx[0m the name `organization_id` is bound more than once in this parameter list
+    ,-[[36;1;4m/Users/leynaelizan/Projects/churchill-control-new/lib/finance/accounts-receivable/createCustomerInvoice.js[0m:3:1]
+ [2m 3[0m | 
+ [2m 4[0m | export default async function createCustomerInvoice({
+ [2m 5[0m | 
+ [2m 6[0m |   organization_id,
+    : [31;1m  ^^^^^^^|^^^^^^^[0m
+    :          [31;1m`-- [31;1mprevious definition here[0m[0m
+ [2m 7[0m |   organization_id,
+    : [33;1m  ^^^^^^^|^^^^^^^[0m
+    :          [33;1m`-- [33;1mused as parameter more than once[0m[0m
+ [2m 8[0m |   customer_id,
+ [2m 9[0m | 
+ [2m10[0m |   invoice_number,
+    `----
+
+Import trace for requested module:
+./lib/finance/accounts-receivable/createCustomerInvoice.js
+./app/api/finance/customer-invoices/create/route.js
+
+./lib/finance/accounts-receivable/postCustomerPayment.js
+Error: 
+  [31mx[0m the name `organization_id` is bound more than once in this parameter list
+   ,-[[36;1;4m/Users/leynaelizan/Projects/churchill-control-new/lib/finance/accounts-receivable/postCustomerPayment.js[0m:3:1]
+ [2m3[0m | 
+ [2m4[0m | export default async function postCustomerPayment({
+ [2m5[0m | 
+ [2m6[0m |   organization_id,
+   : [31;1m  ^^^^^^^|^^^^^^^[0m
+   :          [31;1m`-- [31;1mprevious definition here[0m[0m
+ [2m7[0m |   organization_id,
+   : [33;1m  ^^^^^^^|^^^^^^^[0m
+   :          [33;1m`-- [33;1mused as parameter more than once[0m[0m
+ [2m8[0m |   customer_id,
+ [2m9[0m |   customer_invoice_id,
+   `----
+
+Import trace for requested module:
+./lib/finance/accounts-receivable/postCustomerPayment.js
+./app/api/finance/customer-payments/create/route.js
+
+./lib/finance/fixed-assets/createFixedAsset.js
+Error: 
+  [31mx[0m the name `organization_id` is bound more than once in this parameter list
+    ,-[[36;1;4m/Users/leynaelizan/Projects/churchill-control-new/lib/finance/fixed-assets/createFixedAsset.js[0m:4:1]
+ [2m 4[0m | } from "@/lib/shared/supabase/admin";
+ [2m 5[0m | 
+ [2m 6[0m | export default async function createFixedAsset({
+ [2m 7[0m |   organization_id,
+    : [31;1m  ^^^^^^^|^^^^^^^[0m
+    :          [31;1m`-- [31;1mprevious definition here[0m[0m
+ [2m 8[0m |   organization_id,
+    : [33;1m  ^^^^^^^|^^^^^^^[0m
+    :          [33;1m`-- [33;1mused as parameter more than once[0m[0m
+ [2m 9[0m |   asset_name,
+ [2m10[0m |   asset_category = null,
+ [2m11[0m |   purchase_date = null,
+    `----
+
+Import trace for requested module:
+./lib/finance/fixed-assets/createFixedAsset.js
+./app/api/finance/fixed-assets/create/route.js
+
+./lib/finance/gl-posting/postVendorPaymentGL.js
+Error: 
+  [31mx[0m the name `organization_id` is bound more than once in this parameter list
+   ,-[[36;1;4m/Users/leynaelizan/Projects/churchill-control-new/lib/finance/gl-posting/postVendorPaymentGL.js[0m:2:1]
+ [2m2[0m | import { postAutomaticJournal } from "@/lib/finance/accounting/postAutomaticJournal";
+ [2m3[0m | 
+ [2m4[0m | export default async function postVendorPaymentGL({
+ [2m5[0m |   organization_id,
+   : [31;1m  ^^^^^^^|^^^^^^^[0m
+   :          [31;1m`-- [31;1mprevious definition here[0m[0m
+ [2m6[0m |   organization_id,
+   : [33;1m  ^^^^^^^|^^^^^^^[0m
+   :          [33;1m`-- [33;1mused as parameter more than once[0m[0m
+ [2m7[0m |   payment_id,
+ [2m8[0m |   amount,
+ [2m9[0m |   created_by = "system",
+   `----
+
+Import trace for requested module:
+./lib/finance/gl-posting/postVendorPaymentGL.js
+./app/api/finance/gl-posting/route.js
+
+./lib/finance/vendor-invoices/createVendorInvoice.js
+Error: 
+  [31mx[0m the name `organization_id` is bound more than once in this parameter list
+   ,-[[36;1;4m/Users/leynaelizan/Projects/churchill-control-new/lib/finance/vendor-invoices/createVendorInvoice.js[0m:2:1]
+ [2m2[0m | import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+ [2m3[0m | 
+ [2m4[0m | export default async function createVendorInvoice({
+ [2m5[0m |   organization_id,
+   : [31;1m  ^^^^^^^|^^^^^^^[0m
+   :          [31;1m`-- [31;1mprevious definition here[0m[0m
+ [2m6[0m |   organization_id,
+   : [33;1m  ^^^^^^^|^^^^^^^[0m
+   :          [33;1m`-- [33;1mused as parameter more than once[0m[0m
+ [2m7[0m |   vendor_id,
+ [2m8[0m |   invoice_number,
+ [2m9[0m |   invoice_date,
+   `----
+
+Import trace for requested module:
+./lib/finance/vendor-invoices/createVendorInvoice.js
+./app/api/finance/accounts-payable/route.js
 
 
-ƒ Middleware                                                                  26.6 kB
-
-○  (Static)   prerendered as static content
-ƒ  (Dynamic)  server-rendered on demand
-
+> Build failed because of webpack errors

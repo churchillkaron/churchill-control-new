@@ -1,0 +1,1729 @@
+lib/accounting/createAccountingClient.js:7:  tenantId,
+lib/accounting/createAccountingClient.js:53:      tenantId,
+lib/accounting/mapInvoiceItems.js:58:  tenantId,
+lib/accounting/mapInvoiceItems.js:77:      .eq("tenant_id", tenantId)
+lib/accounting/mapInvoiceItems.js:91:          tenant_id: tenantId,
+lib/organizations/createOrganization.js:13:  tenantId,
+lib/organizations/createOrganization.js:23:      tenant_id: tenantId,
+lib/settings/loadOperationalSettings.js:8:  tenantId,
+lib/settings/loadOperationalSettings.js:27:      tenantId
+lib/settings/saveOperationalSettings.js:5:  tenantId,
+lib/settings/saveOperationalSettings.js:16:      tenant_id: tenantId,
+lib/design/assets/getCreativeAssets.js:4:  tenantId,
+lib/design/assets/getCreativeAssets.js:12:    .eq("tenant_id", tenantId)
+lib/design/assets/getCreativeAssetsClient.js:2:  tenantId,
+lib/design/assets/getCreativeAssetsClient.js:8:  if (tenantId) {
+lib/design/assets/getCreativeAssetsClient.js:9:    params.set("tenantId", tenantId);
+lib/restaurant/realtime/tableStream.js:3:export function subscribeTableUpdates(tenantId, callback) {
+lib/restaurant/realtime/tableStream.js:12:        filter: `tenant_id=eq.${tenantId}`
+lib/restaurant/realtime/tableStream.js:19:export function subscribeOrderUpdates(tenantId, callback) {
+lib/restaurant/realtime/tableStream.js:28:        filter: `tenant_id=eq.${tenantId}`
+lib/hotel/checkOutGuest.js:39:  await checkoutTimeline({ tenantId: booking.organization_id, booking });
+lib/hotel/recordBookingEvent.js:3:export async function recordBookingEvent({ tenantId, booking }) {
+lib/hotel/recordBookingEvent.js:5:    tenantId,
+lib/hotel/recordBookingEvent.js:11:export async function recordCheckinEvent({ tenantId, booking }) {
+lib/hotel/recordBookingEvent.js:13:    tenantId,
+lib/hotel/recordBookingEvent.js:19:export async function recordCheckoutEvent({ tenantId, booking }) {
+lib/hotel/recordBookingEvent.js:21:    tenantId,
+lib/intelligence/finance/runForecastScenario.js:4:  tenantId,
+lib/intelligence/finance/runForecastScenario.js:29:        tenant_id: tenantId,
+lib/intelligence/finance/runExecutiveKPIs.js:4:  tenantId,
+lib/intelligence/finance/runExecutiveKPIs.js:12:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runExecutiveKPIs.js:20:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runExecutiveKPIs.js:26:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runExecutiveKPIs.js:81:        tenant_id: tenantId,
+lib/intelligence/finance/runWasteAnalysis.js:4:  tenantId,
+lib/intelligence/finance/runWasteAnalysis.js:18:        tenant_id: tenantId,
+lib/intelligence/finance/runMarginAnalysis.js:4:  tenantId,
+lib/intelligence/finance/runMarginAnalysis.js:10:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/getAIInsights.js:4:  tenantId,
+lib/intelligence/finance/getAIInsights.js:8:      tenant_id: tenantId,
+lib/intelligence/finance/getAIInsights.js:15:      tenant_id: tenantId,
+lib/intelligence/finance/runAIOptimizationEngine.js:4:  tenantId,
+lib/intelligence/finance/runAIOptimizationEngine.js:14:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runAIOptimizationEngine.js:23:        tenant_id: tenantId,
+lib/intelligence/finance/runLiquidityRiskAnalysis.js:4:  tenantId,
+lib/intelligence/finance/runLiquidityRiskAnalysis.js:12:      .eq("tenant_id", tenantId)
+lib/intelligence/finance/runLiquidityRiskAnalysis.js:56:        tenant_id: tenantId,
+lib/intelligence/finance/runVarianceAnalysis.js:4:  tenantId,
+lib/intelligence/finance/runVarianceAnalysis.js:28:        tenant_id: tenantId,
+lib/intelligence/finance/runTreasuryForecast.js:4:  tenantId,
+lib/intelligence/finance/runTreasuryForecast.js:11:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runTreasuryForecast.js:17:      .eq("tenant_id", tenantId)
+lib/intelligence/finance/runTreasuryForecast.js:24:      .eq("tenant_id", tenantId)
+lib/intelligence/finance/runTreasuryForecast.js:60:        tenant_id: tenantId,
+lib/intelligence/finance/runEntityProfitabilityRanking.js:4:  tenantId,
+lib/intelligence/finance/runEntityProfitabilityRanking.js:29:          tenant_id: tenantId,
+lib/intelligence/finance/runAccountingRecommendations.js:4:  tenantId,
+lib/intelligence/finance/runAccountingRecommendations.js:14:      .eq("tenant_id", tenantId)
+lib/intelligence/finance/runAccountingRecommendations.js:27:      tenant_id: tenantId,
+lib/intelligence/finance/runAccountingRecommendations.js:44:      tenant_id: tenantId,
+lib/intelligence/finance/runAccountingKPIs.js:7:  tenantId,
+lib/intelligence/finance/runAccountingKPIs.js:13:      tenantId,
+lib/intelligence/finance/runAccountingKPIs.js:18:      tenantId,
+lib/intelligence/finance/runAccountingKPIs.js:64:        tenant_id: tenantId,
+lib/intelligence/finance/runProfitabilityEngine.js:4:  tenantId,
+lib/intelligence/finance/runProfitabilityEngine.js:35:        tenant_id: tenantId,
+lib/intelligence/finance/runLiquidityAnalysis.js:4:  tenantId,
+lib/intelligence/finance/runLiquidityAnalysis.js:12:      .eq("tenant_id", tenantId)
+lib/intelligence/finance/runLiquidityAnalysis.js:23:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runLiquidityAnalysis.js:60:        tenant_id: tenantId,
+lib/intelligence/finance/runAIOperatingSystem.js:4:  tenantId,
+lib/intelligence/finance/runAIOperatingSystem.js:12:      .eq("tenant_id", tenantId)
+lib/intelligence/finance/runAIOperatingSystem.js:62:        tenant_id: tenantId,
+lib/intelligence/finance/runExecutiveIntelligence.js:4:  tenantId,
+lib/intelligence/finance/runExecutiveIntelligence.js:12:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runExecutiveIntelligence.js:20:      .eq("tenant_id", tenantId)
+lib/intelligence/finance/runAIExecutiveDecisions.js:4:  tenantId,
+lib/intelligence/finance/runAIExecutiveDecisions.js:14:      .eq("tenant_id", tenantId)
+lib/intelligence/finance/runAIExecutiveDecisions.js:29:      tenant_id: tenantId,
+lib/intelligence/finance/runAIExecutiveDecisions.js:43:      tenant_id: tenantId,
+lib/intelligence/finance/runFinancialForecast.js:4:  tenantId,
+lib/intelligence/finance/runFinancialForecast.js:13:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runFinancialForecast.js:56:        tenant_id: tenantId,
+lib/intelligence/finance/runExecutiveAlerts.js:4:  tenantId,
+lib/intelligence/finance/runExecutiveAlerts.js:12:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runExecutiveAlerts.js:26:      tenant_id: tenantId,
+lib/intelligence/finance/runExecutiveAlerts.js:41:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runExecutiveAlerts.js:53:      tenant_id: tenantId,
+lib/intelligence/finance/runFinanceAnomalyDetection.js:4:  tenantId,
+lib/intelligence/finance/runFinanceAnomalyDetection.js:14:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runFinanceAnomalyDetection.js:24:        tenant_id: tenantId,
+lib/intelligence/finance/runFinanceAnomalyDetection.js:40:        tenant_id: tenantId,
+lib/intelligence/finance/runAnomalyDetection.js:4:  tenantId,
+lib/intelligence/finance/runAnomalyDetection.js:12:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runAnomalyDetection.js:24:        tenant_id: tenantId,
+lib/intelligence/finance/runCashflowForecast.js:4:  tenantId,
+lib/intelligence/finance/runCashflowForecast.js:11:      .eq("tenant_id", tenantId);
+lib/intelligence/finance/runCashflowForecast.js:45:        tenant_id: tenantId,
+lib/intelligence/finance/accountingAICopilot.js:4:  tenantId,
+lib/intelligence/finance/accountingAICopilot.js:13:      tenant_id: tenantId,
+lib/auth/checkPermission.js:5:  tenantId,
+lib/auth/checkPermission.js:25:      tenantId
+lib/platform/tenant/resolveTenantModules.js:9:  tenantId,
+lib/platform/tenant/tenantConfig.js:11:export function setTenantConfig(tenantId, config) {
+lib/platform/tenant/tenantConfig.js:12:  if (!tenantId) return;
+lib/platform/tenant/tenantConfig.js:14:  tenantConfigCache.set(tenantId, {
+lib/platform/tenant/tenantConfig.js:23:export function getTenantConfig(tenantId) {
+lib/platform/tenant/tenantConfig.js:24:  return tenantConfigCache.get(tenantId) || null;
+lib/platform/tenant/tenantConfig.js:30:export function getTenantPlan(tenantId) {
+lib/platform/tenant/tenantConfig.js:31:  return tenantConfigCache.get(tenantId)?.plan || "free";
+lib/platform/tenant/tenantContext.js:13:export function setSystemContext(tenantId, context) {
+lib/platform/tenant/tenantContext.js:14:  if (!tenantId) return;
+lib/platform/tenant/tenantContext.js:16:  runtimeCache.set(tenantId, {
+lib/platform/tenant/tenantContext.js:17:    tenantId,
+lib/platform/tenant/tenantContext.js:27:export function getSystemContext(tenantId) {
+lib/platform/tenant/tenantContext.js:28:  return runtimeCache.get(tenantId) || null;
+lib/platform/tenant/tenantContext.js:34:export function getPlan(tenantId) {
+lib/platform/tenant/tenantContext.js:35:  return runtimeCache.get(tenantId)?.plan || "free";
+lib/platform/tenant/tenantContext.js:38:export function getIndustry(tenantId) {
+lib/platform/tenant/tenantContext.js:39:  return runtimeCache.get(tenantId)?.industry || "agency";
+lib/platform/tenant/tenantContext.js:42:export function getOrganizationId(tenantId) {
+lib/platform/tenant/tenantContext.js:43:  return runtimeCache.get(tenantId)?.organizationId || null;
+lib/platform/context/getSystemContextFromDB.js:7:export async function getSystemContextFromDB(tenantId) {
+lib/platform/context/getSystemContextFromDB.js:8:  if (!tenantId) return null;
+lib/platform/context/getSystemContextFromDB.js:23:    .eq("tenant_user_id", tenantId)
+lib/platform/context/getSystemContextFromDB.js:32:    tenantId,
+lib/platform/security/requireOrganizationAccess.js:60:      tenantId:
+lib/platform/security/requireOrganizationAccess.js:61:        access.tenantId,
+lib/platform/security/requireOrganizationAccess.js:104:    tenantId:
+lib/platform/runtime/buildAccessRuntime.js:66:    tenantId: staff.tenant_id,
+lib/platform/runtime/buildWorkspaceMetrics.js:5:  tenantId,
+lib/platform/runtime/buildWorkspaceMetrics.js:18:      .eq("tenant_id", tenantId),
+lib/platform/runtime/buildWorkspaceMetrics.js:23:      .eq("tenant_id", tenantId),
+lib/platform/runtime/buildWorkspaceMetrics.js:28:      .eq("tenant_id", tenantId),
+lib/platform/runtime/buildWorkspaceMetrics.js:33:      .eq("tenant_id", tenantId),
+lib/platform/runtime/core/getWorkspaceState.js:9:export async function getWorkspaceState(tenantId) {
+lib/platform/runtime/core/getWorkspaceState.js:10:  if (!tenantId) {
+lib/platform/runtime/core/getWorkspaceState.js:18:  const context = await getSystemContextFromDB(tenantId);
+lib/platform/runtime/buildWorkspaceRuntime.js:48:      tenantId:
+lib/platform/runtime/buildWorkspaceRuntime.js:49:        access.tenantId,
+lib/platform/runtime/buildWorkspaceRuntime.js:107:              tenantId:
+lib/platform/runtime/buildWorkspaceRuntime.js:140:          tenantId:
+lib/platform/runtime/saaSReactor.js:9:export async function rebuildWorkspaceState(tenantId) {
+lib/platform/runtime/saaSReactor.js:10:  const context = await getSystemContextFromDB(tenantId);
+lib/platform/runtime/validateWorkspaceBoot.js:9:  if (!context.tenantId) return false;
+lib/platform/runtime/buildOrganizationRuntime.js:42:      : await buildWorkspaceMetrics({ tenantId: organization.tenant_id });
+lib/platform/runtime/buildOrganizationRuntime.js:75:    tenantId: organization.tenant_id,
+lib/platform/runtime/filterWorkspaceNav.js:7:  const { role = "staff", permissions = [], tenantId } = context;
+lib/platform/audit/createEntityHistorySnapshot.js:5:  tenantId,
+lib/platform/audit/createEntityHistorySnapshot.js:15:        tenant_id: tenantId,
+lib/platform/audit/createAuditLog.js:5:  tenantId,
+lib/platform/audit/createAuditLog.js:18:        tenant_id: tenantId,
+lib/platform/audit/createEventLineage.js:5:  tenantId,
+lib/platform/audit/createEventLineage.js:18:        tenant_id: tenantId,
+lib/platform/governance/resolveOrganizationAccess.js:8:  tenantId,
+lib/platform/events/validateDomainEvent.js:5:  tenantId,
+lib/platform/events/validateDomainEvent.js:16:      .eq("tenant_id", tenantId)
+lib/platform/events/validateDomainEvent.js:36:          tenant_id: tenantId,
+lib/platform/billing/planActions.js:10:  tenantId,
+lib/platform/billing/planActions.js:21:  const state = await rebuildWorkspaceState(tenantId);
+lib/platform/billing/planActions.js:24:    setSystemContext(tenantId, state.context);
+lib/platform/analytics/eventTracker.js:9:  tenantId,
+lib/platform/analytics/eventTracker.js:14:  if (!tenantId || !event) return;
+lib/platform/analytics/eventTracker.js:19:      tenant_id: tenantId,
+lib/runtime/core/processEnterpriseRuntimeEvent.js:3:  tenantId,
+lib/runtime/core/processEnterpriseRuntimeEvent.js:14:      tenantId,
+lib/runtime/core/processEnterpriseRuntimeEvent.js:24:    tenantId,
+lib/runtime/core/createEnterpriseRuntime.js:10:  tenantId,
+lib/runtime/core/createEnterpriseRuntime.js:18:      `enterprise-runtime-${tenantId}`
+lib/runtime/core/createEnterpriseRuntime.js:47:          tenantId,
+lib/runtime/realtime/createRuntimeSnapshot.js:7:  tenantId,
+lib/runtime/realtime/createRuntimeSnapshot.js:30:        tenantId
+lib/runtime/realtime/createRuntimeSnapshot.js:41:        tenantId
+lib/runtime/realtime/createRuntimeSnapshot.js:52:        tenantId
+lib/runtime/realtime/createRuntimeSnapshot.js:62:        tenantId
+lib/runtime/realtime/createRuntimeSnapshot.js:72:        tenantId
+lib/runtime/realtime/createRuntimeSnapshot.js:109:        tenantId,
+lib/runtime/replay/replayEvents.js:11:  tenantId,
+lib/runtime/replay/replayEvents.js:31:      tenantId
+lib/shared/tenant/getTenantId.js:12:    const tenantId =
+lib/shared/tenant/getTenantId.js:17:    if (!tenantId) {
+lib/shared/tenant/getTenantId.js:23:    return tenantId;
+lib/shared/tenant/getTenantSetting.js:4:  tenantId,
+lib/shared/tenant/getTenantSetting.js:11:    .eq("tenant_id", tenantId)
+lib/shared/identity/resolveIdentity.js:38:  const tenantId = mapping?.tenant_id || null;
+lib/shared/identity/resolveIdentity.js:43:    tenant_id: tenantId
+lib/shared/auth/requireTenantAccess.js:30:    tenantId:
+lib/shared/auth/requireTenantAccess.js:31:      access.tenantId,
+lib/shared/audit/erpAudit.js:9:  tenantId,
+lib/shared/audit/erpAudit.js:21:        tenant_id: tenantId,
+lib/shared/audit/createAuditLog.js:3:  tenantId,
+lib/shared/queue/erpQueue.js:13:      tenant_id: job.tenantId,
+lib/shared/api/createDynamicRoute.js:7:  const tenantId =
+lib/shared/api/createDynamicRoute.js:8:    req.nextUrl.searchParams.get('tenantId')
+lib/shared/api/createDynamicRoute.js:10:  if (!tenantId) {
+lib/shared/api/createDynamicRoute.js:15:          error: 'tenantId required',
+lib/shared/api/createDynamicRoute.js:25:    tenantId,
+lib/shared/approvals/createApprovalLog.js:6:  tenantId,
+lib/shared/approvals/createApprovalLog.js:27:      tenantId,
+lib/shared/approvals/executeApproval.js:13:  tenantId,
+lib/shared/approvals/executeApproval.js:23:        tenantId,
+lib/shared/approvals/executeApproval.js:96:    tenantId: request.tenant_id || request.tenantId,
+lib/shared/approvals/rejectApprovalRequest.js:33:    tenantId: request.tenant_id,
+lib/operations/work-centers/updateWorkCenterItemStatus.js:7:    tenantId,
+lib/operations/work-centers/updateWorkCenterItemStatus.js:10:  if (!itemId || !status || !tenantId) {
+lib/operations/work-centers/updateWorkCenterItemStatus.js:33:    .eq("tenant_id", tenantId)
+lib/dashboard/runtime/loadExecutiveDashboard.js:19:export async function loadExecutiveDashboard({ tenantId } = {}) {
+lib/dashboard/runtime/loadExecutiveDashboard.js:20:  if (!tenantId) {
+lib/dashboard/runtime/loadExecutiveDashboard.js:33:        tenantId: null,
+lib/dashboard/runtime/loadExecutiveDashboard.js:48:        .eq("tenant_id", tenantId)
+lib/dashboard/runtime/loadExecutiveDashboard.js:68:        .eq("tenant_id", tenantId)
+lib/dashboard/runtime/loadExecutiveDashboard.js:78:        .eq("tenant_id", tenantId)
+lib/dashboard/runtime/loadExecutiveDashboard.js:88:        .eq("tenant_id", tenantId)
+lib/dashboard/runtime/loadExecutiveDashboard.js:98:        .eq("tenant_id", tenantId)
+lib/dashboard/runtime/loadExecutiveDashboard.js:183:      tenantId,
+lib/realtime/kitchenRealtimeChannel.js:4:  tenantId,
+lib/realtime/kitchenRealtimeChannel.js:11:  if (!tenantId) {
+lib/realtime/kitchenRealtimeChannel.js:12:    throw new Error('tenantId required')
+lib/realtime/kitchenRealtimeChannel.js:17:      `restaurant-live-${tenantId}`
+lib/realtime/kitchenRealtimeChannel.js:33:        `tenant_id=eq.${tenantId}`,
+lib/realtime/kitchenRealtimeChannel.js:61:        `tenant_id=eq.${tenantId}`,
+lib/realtime/kitchenRealtimeChannel.js:89:        `tenant_id=eq.${tenantId}`,
+lib/realtime/kitchenRealtimeChannel.js:117:        `tenant_id=eq.${tenantId}`,
+lib/pos/reopenClosedOrder.js:9:  tenantId = null,
+lib/pos/moveOrderItems.js:4:  tenantId,
+lib/pos/moveOrderItems.js:12:  if (!tenantId) {
+lib/pos/moveOrderItems.js:13:    throw new Error('tenantId required')
+lib/pos/moveOrderItems.js:36:      tenantId
+lib/pos/moveOrderItems.js:62:      tenantId
+lib/pos/moveOrderItems.js:92:      tenantId
+lib/pos/moveOrderItems.js:138:      tenantId
+lib/pos/moveOrderItems.js:154:      tenantId
+lib/pos/moveOrderItems.js:168:      tenantId
+lib/pos/moveOrderItems.js:207:      tenantId
+lib/pos/moveOrderItems.js:230:      tenantId
+lib/pos/moveOrderItems.js:248:        tenantId,
+lib/pos/refundPayment.js:7:  tenantId,
+lib/pos/refundPayment.js:13:  if (!tenantId) {
+lib/pos/refundPayment.js:14:    throw new Error('tenantId required')
+lib/pos/refundPayment.js:26:      tenantId,
+lib/pos/refundPayment.js:62:      tenantId
+lib/pos/refundPayment.js:109:      tenantId
+lib/pos/refundPayment.js:137:      tenantId
+lib/pos/refundPayment.js:155:        tenantId,
+lib/pos/markOrderPaid.js:39:  tenantId,
+lib/pos/markOrderPaid.js:45:  if (!tenantId) {
+lib/pos/markOrderPaid.js:46:    throw new Error('tenantId required')
+lib/pos/markOrderPaid.js:55:      tenantId,
+lib/pos/markOrderPaid.js:80:      tenantId,
+lib/pos/markOrderPaid.js:146:      tenantId,
+lib/pos/markOrderPaid.js:170:    tenantId,
+lib/pos/markOrderPaid.js:213:    .eq('tenant_id', tenantId)
+lib/pos/markOrderPaid.js:242:    .eq('tenant_id', tenantId)
+lib/pos/markOrderPaid.js:291:        tenantId,
+lib/pos/markOrderPaid.js:339:              tenantId,
+lib/pos/markOrderPaid.js:369:      .eq('tenant_id', tenantId)
+lib/pos/markOrderPaid.js:374:    tenantId,
+lib/pos/markOrderPaid.js:397:    tenantId,
+lib/pos/markOrderPaid.js:417:      tenantId,
+lib/pos/partialPayment.js:31:  tenantId,
+lib/pos/partialPayment.js:37:  if (!tenantId) {
+lib/pos/partialPayment.js:38:    throw new Error('tenantId required')
+lib/pos/partialPayment.js:54:      tenantId,
+lib/pos/partialPayment.js:67:      tenantId,
+lib/pos/partialPayment.js:123:    tenantId,
+lib/pos/partialPayment.js:148:    tenantId,
+lib/pos/partialPayment.js:173:    .eq('tenant_id', tenantId)
+lib/pos/partialPayment.js:202:    .eq('tenant_id', tenantId)
+lib/pos/partialPayment.js:213:              tenantId,
+lib/pos/partialPayment.js:240:      .eq('tenant_id', tenantId)
+lib/pos/partialPayment.js:249:      tenantId,
+lib/pos/partialPayment.js:270:      tenantId,
+lib/pos/core/posStateEngine.js:10:  constructor(tenantId) {
+lib/pos/core/posStateEngine.js:11:    this.tenantId = tenantId;
+lib/pos/core/posStateEngine.js:24:    const data = await loadPOSState(this.tenantId);
+lib/pos/core/replayEngineV2.js:9:export async function replayEvents(tenantId) {
+lib/pos/core/replayEngineV2.js:14:    .eq("tenant_id", tenantId)
+lib/pos/core/replayEngine.js:9:export async function replayEvents(tenantId) {
+lib/pos/core/replayEngine.js:14:    .eq("tenant_id", tenantId)
+lib/pos/core/loadPOSState.js:8:export async function loadPOSState(tenantId) {
+lib/pos/core/loadPOSState.js:10:  if (!tenantId) return { orders: [], items: {} };
+lib/pos/core/loadPOSState.js:18:    .eq("tenant_id", tenantId)
+lib/pos/core/posEventEngine.js:58:    tenant_id: event.tenantId || null,
+lib/pos/transferTable.js:4:  tenantId,
+lib/pos/transferTable.js:10:  if (!tenantId) return
+lib/pos/transferTable.js:21:    .eq('tenant_id', tenantId)
+lib/pos/transferTable.js:30:    .eq('tenant_id', tenantId)
+lib/pos/transferTable.js:39:    .eq('tenant_id', tenantId)
+lib/pos/removeOrderModifier.js:4:  tenantId,
+lib/pos/removeOrderModifier.js:10:  if (!tenantId) {
+lib/pos/removeOrderModifier.js:11:    throw new Error('tenantId required')
+lib/pos/removeOrderModifier.js:26:      tenantId
+lib/pos/removeOrderModifier.js:52:      tenantId
+lib/pos/removeOrderModifier.js:81:      tenantId
+lib/pos/removeOrderModifier.js:115:      tenantId
+lib/pos/removeOrderModifier.js:135:      tenantId
+lib/pos/removeOrderModifier.js:166:      tenantId
+lib/pos/removeOrderModifier.js:184:        tenantId,
+lib/pos/updateOrderItemQuantity.js:4:  tenantId,
+lib/pos/updateOrderItemQuantity.js:11:  if (!tenantId) {
+lib/pos/updateOrderItemQuantity.js:12:    throw new Error('tenantId required')
+lib/pos/updateOrderItemQuantity.js:36:      tenantId
+lib/pos/updateOrderItemQuantity.js:82:      tenantId
+lib/pos/updateOrderItemQuantity.js:142:      tenantId
+lib/pos/updateOrderItemQuantity.js:162:      tenantId
+lib/pos/updateOrderItemQuantity.js:204:      tenantId
+lib/pos/updateOrderItemQuantity.js:222:        tenantId,
+lib/pos/createPayment.js:6:  tenantId,
+lib/pos/createPayment.js:13:  if (!tenantId) {
+lib/pos/createPayment.js:14:    throw new Error('tenantId required')
+lib/pos/createPayment.js:22:    tenantId,
+lib/pos/addOrderItem.js:10:  tenantId,
+lib/pos/addOrderItem.js:20:  if (!tenantId) throw new Error("tenantId required");
+lib/pos/addOrderItem.js:28:      tenant_id: tenantId,
+lib/pos/addOrderItem.js:48:      tenant_id: tenantId,
+lib/pos/addOrderItem.js:60:    tenantId,
+lib/pos/loadMenu.js:4:  tenantId
+lib/pos/loadMenu.js:9:    tenantId
+lib/pos/loadMenu.js:12:  if (!tenantId) {
+lib/pos/loadMenu.js:31:      tenantId
+lib/pos/waiter/loadWaiterData.js:3:export async function loadWaiterData(tenantId) {
+lib/pos/waiter/loadWaiterData.js:4:  if (!tenantId) {
+lib/pos/waiter/loadWaiterData.js:22:        .eq("tenant_id", tenantId)
+lib/pos/waiter/loadWaiterData.js:26:        `/api/pos/tables?tenant_id=${tenantId}`
+lib/pos/waiter/loadWaiterData.js:32:        .eq("tenant_id", tenantId)
+lib/pos/waiter/loadWaiterData.js:36:        `/api/pos/settings?tenantId=${tenantId}`
+lib/pos/waiter/loadWaiterData.js:47:    tenantId,
+lib/pos/addOrderModifier.js:4:  tenantId,
+lib/pos/addOrderModifier.js:12:  if (!tenantId) {
+lib/pos/addOrderModifier.js:13:    throw new Error('tenantId required')
+lib/pos/addOrderModifier.js:32:      tenantId
+lib/pos/addOrderModifier.js:72:        tenantId,
+lib/pos/addOrderModifier.js:131:      tenantId
+lib/pos/addOrderModifier.js:151:      tenantId
+lib/pos/addOrderModifier.js:182:      tenantId
+lib/pos/addOrderModifier.js:200:        tenantId,
+lib/pos/applyDiscount.js:7:  tenantId,
+lib/pos/applyDiscount.js:15:  if (!tenantId) {
+lib/pos/applyDiscount.js:16:    throw new Error('tenantId required')
+lib/pos/applyDiscount.js:26:      tenantId,
+lib/pos/applyDiscount.js:52:      tenantId
+lib/pos/applyDiscount.js:148:      tenantId
+lib/pos/applyDiscount.js:166:        tenantId,
+lib/pos/orders/autoCloseOrder.js:144:    tenantId:
+lib/pos/removeOrderItem.js:4:  tenantId,
+lib/pos/removeOrderItem.js:10:  if (!tenantId) {
+lib/pos/removeOrderItem.js:11:    throw new Error('tenantId required')
+lib/pos/removeOrderItem.js:26:      tenantId
+lib/pos/removeOrderItem.js:55:      tenantId
+lib/pos/removeOrderItem.js:73:      tenantId
+lib/pos/removeOrderItem.js:93:      tenantId
+lib/pos/removeOrderItem.js:135:      tenantId
+lib/pos/removeOrderItem.js:170:        tenantId
+lib/pos/removeOrderItem.js:190:        tenantId
+lib/pos/removeOrderItem.js:209:        tenantId,
+lib/pos/loadActiveOrders.js:5:  tenantId
+lib/pos/loadActiveOrders.js:19:      tenantId
+lib/pos/voidOrder.js:4:  tenantId,
+lib/pos/voidOrder.js:10:  if (!tenantId) {
+lib/pos/voidOrder.js:11:    throw new Error('tenantId required')
+lib/pos/voidOrder.js:26:      tenantId
+lib/pos/voidOrder.js:86:      tenantId
+lib/pos/voidOrder.js:112:      tenantId
+lib/pos/voidOrder.js:124:        tenantId,
+lib/pos/offline/useOfflineSync.js:7:export function useOfflineSync(tenantId) {
+lib/pos/offline/useOfflineSync.js:11:    if (!tenantId) return;
+lib/pos/offline/useOfflineSync.js:14:      syncOfflineOrders(tenantId);
+lib/pos/offline/useOfflineSync.js:26:  }, [tenantId]);
+lib/pos/offline/syncEngine.js:6:export async function syncOfflineOrders(tenantId) {
+lib/pos/offline/syncEngine.js:22:          tenantId,
+lib/audit/createAuditLog.js:5:  tenantId,
+lib/audit/createAuditLog.js:33:        tenantId,
+lib/procurement/purchase-orders/getNextPONumber.js:3:export async function getNextPONumber({ tenantId }) {
+lib/procurement/purchase-orders/getNextPONumber.js:7:    .eq("tenant_id", tenantId)
+lib/procurement/receiving/utils/getNextGRNNumber.js:5:  tenantId,
+lib/procurement/receiving/utils/getNextGRNNumber.js:19:      tenantId
+lib/procurement/receiving/receivePurchaseOrder.js:60:        tenantId: po.tenant_id,
+lib/procurement/receiving/receivePurchaseOrder.js:265:        tenantId:
+lib/procurement/receiving/receiveGoods.js:7:  tenantId,
+lib/procurement/receiving/receiveGoods.js:21:        tenant_id: tenantId,
+lib/procurement/receiving/receiveGoods.js:34:    tenantId,
+lib/procurement/receiving/receiveGoods.js:46:    tenantId,
+lib/procurement/events/registerProcurementEvents.js:47:        tenantId:
+lib/procurement/events/registerProcurementEvents.js:48:          payload.tenantId,
+lib/procurement/invoice-matching/runThreeWayMatch.js:4:  tenantId,
+lib/procurement/invoice-matching/runThreeWayMatch.js:55:        tenant_id: tenantId,
+lib/procurement/services/createPurchaseRequest.js:6:  tenantId,
+lib/procurement/services/createPurchaseRequest.js:10:  if (!tenantId || !ingredient) {
+lib/procurement/services/createPurchaseRequest.js:12:      'tenantId and ingredient required'
+lib/procurement/services/createPurchaseRequest.js:37:      tenantId,
+lib/ai/memory/getTopPerformingCampaigns.js:7:  tenantId,
+lib/ai/memory/getTopPerformingCampaigns.js:27:        tenantId
+lib/ai/logAIUsage.js:5:  tenantId = null,
+lib/ai/logAIUsage.js:82:            tenantId,
+lib/ai/prompts/buildPrompt.js:15:        tenantId:
+lib/ai/prompts/buildPrompt.js:16:          state.tenantId,
+lib/ai/profiles/resolveTenantIndustries.js:5:  tenantId,
+lib/ai/profiles/resolveTenantIndustries.js:22:      tenantId
+lib/ai/profiles/getOrCreateBusinessProfile.js:91:  tenantId,
+lib/ai/profiles/getOrCreateBusinessProfile.js:94:  if (!tenantId) {
+lib/ai/profiles/getOrCreateBusinessProfile.js:96:      "tenantId required"
+lib/ai/profiles/getOrCreateBusinessProfile.js:116:      tenantId
+lib/ai/profiles/getOrCreateBusinessProfile.js:140:      tenantId,
+lib/ai/profiles/getOrCreateBusinessProfile.js:168:        tenantId,
+lib/ai/assets/getTopPerformingAssets.js:7:  tenantId,
+lib/ai/assets/getTopPerformingAssets.js:45:          tenantId
+lib/ai/assets/buildAssetIntelligence.js:12:  tenantId,
+lib/ai/assets/buildAssetIntelligence.js:23:      tenantId,
+lib/ai/assets/buildAssetIntelligence.js:33:      tenantId,
+lib/ai/assets/buildAssetIntelligence.js:45:      tenantId,
+lib/ai/orchestrator/index.js:60:    tenantId: organization?.tenant_id,
+lib/hooks/useActiveOrganization.js:16:        tenantId: null,
+lib/hooks/useActiveOrganization.js:30:      tenantId: organization.tenant_id || organization.tenantId || null,
+lib/inventory/reconciliation/runInventoryReconciliation.js:4:  tenantId,
+lib/inventory/reconciliation/runInventoryReconciliation.js:14:      .eq("tenant_id", tenantId)
+lib/inventory/reconciliation/runInventoryReconciliation.js:47:        tenant_id: tenantId,
+lib/inventory/reconciliation/runTheoreticalVsActual.js:4:  tenantId,
+lib/inventory/reconciliation/runTheoreticalVsActual.js:15:      .eq("tenant_id", tenantId)
+lib/inventory/reconciliation/runTheoreticalVsActual.js:49:        tenant_id: tenantId,
+lib/inventory/reconciliation/runVarianceAnalysis.js:4:  tenantId,
+lib/inventory/reconciliation/runVarianceAnalysis.js:38:        tenant_id: tenantId,
+lib/inventory/costing/calculateRecipeCost.js:5:  tenantId,
+lib/inventory/costing/calculateRecipeCost.js:22:        .eq("tenant_id", tenantId)
+lib/inventory/costing/calculateRecipeCost.js:70:        tenant_id: tenantId,
+lib/inventory/costing/runWeightedAverageValuation.js:5:  tenantId,
+lib/inventory/costing/runWeightedAverageValuation.js:12:      .eq("tenant_id", tenantId)
+lib/inventory/costing/runWeightedAverageValuation.js:47:        tenant_id: tenantId,
+lib/inventory/costing/runFIFOConsumption.js:5:  tenantId,
+lib/inventory/costing/runFIFOConsumption.js:13:      .eq("tenant_id", tenantId)
+lib/inventory/movements/createInventoryMovement.js:4:  tenantId,
+lib/inventory/movements/createInventoryMovement.js:20:        tenant_id: tenantId,
+lib/inventory/movements/updateStockLedger.js:4:  tenantId,
+lib/inventory/movements/updateStockLedger.js:11:      .eq("tenant_id", tenantId)
+lib/inventory/movements/updateStockLedger.js:67:      .eq("tenant_id", tenantId)
+lib/inventory/movements/updateStockLedger.js:96:        tenant_id: tenantId,
+lib/inventory/stock-count/finalizeStockCount.js:7:  tenantId,
+lib/inventory/stock-count/finalizeStockCount.js:14:      .eq("tenant_id", tenantId)
+lib/inventory/stock-count/finalizeStockCount.js:39:          tenantId
+lib/inventory/stock-count/finalizeStockCount.js:55:      tenantId,
+lib/inventory/stock-count/finalizeStockCount.js:70:      tenantId,
+lib/inventory/services/checkLowStock.js:10:  tenantId,
+lib/inventory/services/checkLowStock.js:14:  if (!tenantId || !ingredientId) {
+lib/inventory/services/checkLowStock.js:17:      'tenantId and ingredientId required'
+lib/inventory/services/checkLowStock.js:29:      tenantId
+lib/inventory/services/checkLowStock.js:70:      tenantId,
+lib/inventory/services/checkLowStock.js:107:      tenantId,
+lib/orchestration/runShiftClosedFlow.js:8:  tenantId,
+lib/orchestration/runShiftClosedFlow.js:21:    tenantId,
+lib/orchestration/runShiftClosedFlow.js:33:    tenantId,
+lib/orchestration/runShiftClosedFlow.js:45:    tenantId,
+lib/orchestration/moveToDeadLetterQueue.js:4:  tenantId,
+lib/orchestration/moveToDeadLetterQueue.js:16:        tenant_id: tenantId,
+lib/orchestration/getRuleActions.js:4:  tenantId,
+lib/orchestration/getRuleActions.js:15:      .eq("tenant_id", tenantId)
+lib/orchestration/runDayClosedFlow.js:5:export async function runDayClosedFlow({ tenantId }) {
+lib/orchestration/runDayClosedFlow.js:10:  await runExecutiveKPIs({ tenantId });
+lib/orchestration/runDayClosedFlow.js:14:  await runCashFlowEngine({ tenantId });
+lib/orchestration/runDayClosedFlow.js:18:  await generateTrialBalance({ tenantId });
+lib/orchestration/retryFailedOrchestration.js:4:  tenantId,
+lib/orchestration/retryFailedOrchestration.js:12:      .eq("tenant_id", tenantId)
+lib/orchestration/retryFailedOrchestration.js:36:        tenant_id: tenantId,
+lib/orchestration/replayDeadLetterQueue.js:4:  tenantId,
+lib/orchestration/replayDeadLetterQueue.js:12:      .eq("tenant_id", tenantId)
+lib/orchestration/executeWorkflow.js:4:  tenantId,
+lib/orchestration/executeWorkflow.js:29:        tenant_id: tenantId,
+lib/orchestration/registerWorkflow.js:4:  tenantId,
+lib/orchestration/registerWorkflow.js:15:        tenant_id: tenantId,
+lib/orchestration/createRule.js:4:  tenantId,
+lib/orchestration/createRule.js:15:        tenant_id: tenantId,
+lib/orchestration/getWorkflowStatus.js:4:  tenantId,
+lib/orchestration/getWorkflowStatus.js:13:      .eq("tenant_id", tenantId)
+lib/orchestration/finance/runAutonomousCloseCycle.js:8:  tenantId,
+lib/orchestration/finance/runAutonomousCloseCycle.js:13:      tenantId,
+lib/orchestration/finance/runAutonomousCloseCycle.js:19:      tenantId,
+lib/orchestration/finance/runAutonomousCloseCycle.js:24:      tenantId,
+lib/orchestration/finance/runAutonomousCloseCycle.js:79:        tenant_id: tenantId,
+lib/orchestration/finance/runEventOrchestration.js:6:  tenantId,
+lib/orchestration/finance/runEventOrchestration.js:13:      .eq("tenant_id", tenantId)
+lib/orchestration/finance/runEventOrchestration.js:32:        tenantId,
+lib/orchestration/finance/runContinuousClose.js:4:  tenantId,
+lib/orchestration/finance/runContinuousClose.js:16:        tenant_id: tenantId,
+lib/orchestration/finance/runContinuousClose.js:29:      .eq("tenant_id", tenantId);
+lib/orchestration/finance/runContinuousClose.js:46:        tenant_id: tenantId,
+lib/orchestration/finance/runContinuousClose.js:66:      .eq("tenant_id", tenantId);
+lib/orchestration/finance/runContinuousClose.js:85:        tenant_id: tenantId,
+lib/orchestration/finance/runCloseChecklist.js:4:  tenantId,
+lib/orchestration/finance/runCloseChecklist.js:21:    tenant_id: tenantId,
+lib/orchestration/runStateTransition.js:6:  tenantId,
+lib/orchestration/runStateTransition.js:33:        tenant_id: tenantId,
+lib/orchestration/evaluateRules.js:4:  tenantId,
+lib/orchestration/evaluateRules.js:12:      .eq("tenant_id", tenantId)
+lib/orchestration/evaluateRules.js:52:        tenant_id: tenantId,
+lib/orchestration/getStateHistory.js:4:  tenantId,
+lib/orchestration/getStateHistory.js:14:      .eq("tenant_id", tenantId)
+lib/governance/finance/runComplianceScoring.js:4:  tenantId,
+lib/governance/finance/runComplianceScoring.js:12:      .eq("tenant_id", tenantId);
+lib/governance/finance/runComplianceScoring.js:27:        tenant_id: tenantId,
+lib/governance/finance/runComplianceValidation.js:4:  tenantId,
+lib/governance/finance/runComplianceValidation.js:12:      .eq("tenant_id", tenantId);
+lib/governance/finance/runComplianceValidation.js:35:        tenant_id: tenantId,
+lib/governance/finance/validateEventPolicy.js:4:  tenantId,
+lib/governance/finance/validateEventPolicy.js:14:      .eq("tenant_id", tenantId)
+lib/governance/finance/validateEventPolicy.js:37:          tenant_id: tenantId,
+lib/governance/finance/validateEventPolicy.js:64:          tenant_id: tenantId,
+lib/production/core/runMenuEngineering.js:4:  tenantId,
+lib/production/core/runMenuEngineering.js:14:      .eq("tenant_id", tenantId)
+lib/production/core/runMenuEngineering.js:57:        tenant_id: tenantId,
+lib/production/core/calculateRecipeCost.js:4:  tenantId,
+lib/production/core/calculateRecipeCost.js:19:      .eq("tenant_id", tenantId)
+lib/production/core/calculateRecipeCost.js:61:        tenant_id: tenantId,
+lib/production/core/runShiftProfitability.js:4:  tenantId,
+lib/production/core/runShiftProfitability.js:27:        tenant_id: tenantId,
+lib/production/waste/logWaste.js:6:  tenantId,
+lib/production/waste/logWaste.js:15:    tenantId || tenant_id;
+lib/production/waste/logWaste.js:18:    throw new Error("tenantId required");
+lib/production/waste/logWaste.js:115:    tenantId:
+lib/production/waste/logWaste.js:129:    tenantId:
+lib/marketing/repositories/uploadMarketingAsset.js:7:  tenantId,
+lib/marketing/repositories/uploadMarketingAsset.js:29:${tenantId}/
+lib/marketing/repositories/uploadMarketingAsset.js:87:          tenantId,
+lib/marketing/repositories/updateBusinessAIProfile.js:6:  tenantId,
+lib/marketing/repositories/updateBusinessAIProfile.js:29:        tenantId
+lib/marketing/repositories/updateBusinessAIProfile.js:247:          tenantId,
+lib/marketing/repositories/getMarketingAssetsClient.js:6:  tenantId,
+lib/marketing/repositories/getMarketingAssetsClient.js:20:        tenantId
+lib/marketing/repositories/savePromptHistory.js:7:  tenantId,
+lib/marketing/repositories/savePromptHistory.js:27:        tenantId,
+lib/marketing/repositories/uploadGeneratedImage.js:11:  tenantId,
+lib/marketing/repositories/uploadGeneratedImage.js:81:      `${tenantId}/full/${fileName}`;
+lib/marketing/repositories/uploadGeneratedImage.js:85:      `${tenantId}/thumbs/${fileName}`;
+lib/marketing/repositories/getQueuedCampaigns.js:5:  tenantId,
+lib/marketing/repositories/getQueuedCampaigns.js:30:        tenantId
+lib/marketing/repositories/getGenerationJobs.js:6:  tenantId,
+lib/marketing/repositories/getGenerationJobs.js:22:        tenantId
+lib/marketing/repositories/uploadCampaignImage.js:9:  tenantId,
+lib/marketing/repositories/uploadCampaignImage.js:13:    ${tenantId}/
+lib/marketing/repositories/getBestPromptHistory.js:6:  tenantId,
+lib/marketing/repositories/getBestPromptHistory.js:22:      tenantId
+lib/marketing/repositories/createGenerationJob.js:11:    tenantId,
+lib/marketing/repositories/createGenerationJob.js:28:      tenant_id: tenantId,
+lib/marketing/repositories/getMarketingAssets.js:9:  tenantId,
+lib/marketing/repositories/getMarketingAssets.js:23:        tenantId
+lib/marketing/repositories/saveCampaignMemory.js:9:  tenantId,
+lib/marketing/repositories/saveCampaignMemory.js:28:          tenantId,
+lib/marketing/repositories/saveCampaignAssetUsage.js:6:  tenantId,
+lib/marketing/repositories/saveCampaignAssetUsage.js:32:          tenantId,
+lib/marketing/repositories/queueCampaign.js:11:    tenantId,
+lib/marketing/repositories/queueCampaign.js:21:      tenant_id: tenantId,
+lib/marketing/repositories/getCampaignMemory.js:6:  tenantId,
+lib/marketing/repositories/getCampaignMemory.js:26:        tenantId
+lib/marketing/repositories/getMetaAccounts.js:6:  tenantId,
+lib/marketing/repositories/getMetaAccounts.js:22:        tenantId
+lib/marketing/repositories/saveMarketingAsset.js:8:  tenantId,
+lib/marketing/repositories/saveMarketingAsset.js:41:        tenantId,
+lib/marketing/ai/insights/getOperationalAlerts.js:7:  tenantId,
+lib/marketing/ai/insights/getOperationalAlerts.js:31:        tenantId
+lib/marketing/ai/insights/getOperationalAlerts.js:62:        tenantId
+lib/marketing/ai/insights/getOperationalAlerts.js:93:        tenantId
+lib/marketing/ai/insights/getOwnerInsight.js:7:  tenantId,
+lib/marketing/ai/insights/getOwnerInsight.js:31:        tenantId
+lib/marketing/ai/insights/getOwnerInsight.js:55:        tenantId
+lib/marketing/ai/insights/getOwnerInsight.js:92:        tenantId
+lib/marketing/ai/context/buildPrompt.js:15:        tenantId:
+lib/marketing/ai/context/buildPrompt.js:16:          state.tenantId,
+lib/marketing/ai/learning/updateEngineLearningMemory.js:6:  tenantId,
+lib/marketing/ai/learning/updateEngineLearningMemory.js:49:        tenantId,
+lib/marketing/ai/utils/getTopPerformingCampaigns.js:7:  tenantId,
+lib/marketing/ai/utils/getTopPerformingCampaigns.js:27:        tenantId
+lib/marketing/ai/recommendations/getBusinessRecommendations.js:7:  tenantId,
+lib/marketing/ai/recommendations/getBusinessRecommendations.js:27:        tenantId
+lib/marketing/ai/recommendations/getBusinessRecommendations.js:49:        tenantId
+lib/marketing/ai/recommendations/getBusinessRecommendations.js:84:        tenantId
+lib/marketing/ai/assets/getTopPerformingAssets.js:7:  tenantId,
+lib/marketing/ai/assets/getTopPerformingAssets.js:45:          tenantId
+lib/marketing/ai/assets/buildAssetIntelligence.js:12:  tenantId,
+lib/marketing/ai/assets/buildAssetIntelligence.js:23:      tenantId,
+lib/marketing/ai/assets/buildAssetIntelligence.js:33:      tenantId,
+lib/marketing/ai/assets/buildAssetIntelligence.js:45:      tenantId,
+lib/marketing/services/getEngineLearningMemory.js:5:  tenantId,
+lib/marketing/services/getEngineLearningMemory.js:20:        tenantId
+lib/marketing/services/getMarketingOperations.js:5:  tenantId,
+lib/marketing/services/getMarketingOperations.js:24:      tenantId
+lib/marketing/services/getMarketingOperations.js:60:      tenantId
+lib/marketing/services/getMarketingOperations.js:96:      tenantId
+lib/marketing/services/getMarketingOperations.js:132:      tenantId
+lib/marketing/services/getQueuedCampaigns.js:5:  tenantId,
+lib/marketing/services/getQueuedCampaigns.js:22:      tenantId
+lib/marketing/services/uploadMarketingAssetFlow.js:21:  tenantId,
+lib/marketing/services/uploadMarketingAssetFlow.js:44:        tenantId,
+lib/marketing/services/uploadMarketingAssetFlow.js:54:        tenantId,
+lib/marketing/services/uploadMarketingAssetFlow.js:175:        tenantId,
+lib/marketing/services/createCampaignFlow.js:63:  tenantId,
+lib/marketing/services/createCampaignFlow.js:82:    tenantId || null;
+lib/marketing/services/createCampaignFlow.js:151:      tenantId:
+lib/marketing/services/createCampaignFlow.js:381:        tenantId:
+lib/marketing/services/createCampaignFlow.js:431:        tenantId:
+lib/marketing/services/createCampaignFlow.js:506:    tenantId:
+lib/marketing/services/createCampaignFlow.js:704:      tenantId:
+lib/marketing/services/createCampaignFlow.js:779:      tenantId:
+lib/marketing/services/createCampaignFlow.js:858:    tenantId:
+lib/marketing/services/createCampaignFlow.js:879:      tenantId:
+lib/marketing/services/getMarketingCampaigns.js:5:  tenantId,
+lib/marketing/services/getMarketingCampaigns.js:22:      tenantId
+lib/marketing/services/runCampaignGeneration.js:47:  tenantId,
+lib/marketing/services/runCampaignGeneration.js:69:    tenantId,
+lib/marketing/services/runCampaignGeneration.js:83:    tenantId,
+lib/marketing/services/runCampaignGeneration.js:103:        tenantId,
+lib/marketing/services/runCampaignGeneration.js:113:      tenantId,
+lib/marketing/services/runCampaignGeneration.js:158:        tenantId,
+lib/marketing/services/runCampaignGeneration.js:215:        tenantId,
+lib/marketing/services/runCampaignGeneration.js:317:        tenantId,
+lib/marketing/services/runCampaignGeneration.js:340:  tenantId,
+lib/finance/revalueCurrencyBalances.js:5:  tenantId,
+lib/finance/revalueCurrencyBalances.js:17:      tenant_id: tenantId,
+lib/finance/accounting/createJournalEntry.js:10: *   tenantId,
+lib/finance/accounting/createJournalEntry.js:31:  const tenantId =
+lib/finance/accounting/createJournalEntry.js:32:    entry.tenantId ||
+lib/finance/accounting/createJournalEntry.js:81:  if (!tenantId) {
+lib/finance/accounting/createJournalEntry.js:82:    throw new Error("tenantId required");
+lib/finance/accounting/createJournalEntry.js:163:    tenantId,
+lib/finance/accounting/createJournalEntry.js:236:      tenant_id: tenantId,
+lib/finance/accounting/createJournalEntry.js:263:      tenant_id: tenantId,
+lib/finance/accounting/createJournalEntry.js:297:        tenantId,
+lib/finance/accounting/postPaymentToLedger.js:14:  tenantId,
+lib/finance/accounting/postPaymentToLedger.js:37:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postPaymentToLedger.js:59:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postPaymentToLedger.js:76:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postPaymentToLedger.js:102:    tenantId,
+lib/finance/accounting/utils/getNextJENumber.js:6:  tenantId,
+lib/finance/accounting/utils/getNextJENumber.js:20:      tenantId
+lib/finance/accounting/validateAccountingPeriod.js:4:  tenantId,
+lib/finance/accounting/postJournalEntrySafe.js:7:  tenantId,
+lib/finance/accounting/postJournalEntrySafe.js:33:    tenantId,
+lib/finance/accounting/postJournalEntrySafe.js:46:    tenant_id: tenantId,
+lib/finance/accounting/findAccount.js:5:  tenantId,
+lib/finance/accounting/findAccount.js:14:  if (tenantId) {
+lib/finance/accounting/findAccount.js:16:      `tenant_id.eq.${tenantId},tenant_id.is.null`
+lib/finance/accounting/postAutomaticJournal.js:6:  tenantId,
+lib/finance/accounting/postAutomaticJournal.js:18:    tenantId,
+lib/finance/accounting/postAutomaticJournal.js:23:    tenantId,
+lib/finance/accounting/postAutomaticJournal.js:32:    tenantId,
+lib/finance/accounting/emitAccountingEvent.js:8:  tenantId,
+lib/finance/accounting/emitAccountingEvent.js:17:      tenant_id: tenantId,
+lib/finance/accounting/postInvoiceToLedger.js:14:  tenantId,
+lib/finance/accounting/postInvoiceToLedger.js:37:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postInvoiceToLedger.js:59:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postInvoiceToLedger.js:76:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postInvoiceToLedger.js:102:    tenantId,
+lib/finance/accounting/processAccountingEvent.js:26:    tenantId:
+lib/finance/accounting/processAccountingEvent.js:38:    tenantId:
+lib/finance/accounting/processAccountingEvent.js:48:      tenantId:
+lib/finance/accounting/processAccountingEvent.js:103:      tenantId:
+lib/finance/accounting/processAccountingEvent.js:119:    tenantId:
+lib/finance/accounting/getPostingRule.js:5:  tenantId,
+lib/finance/accounting/getPostingRule.js:11:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postDepreciationToLedger.js:14:  tenantId,
+lib/finance/accounting/postDepreciationToLedger.js:29:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postDepreciationToLedger.js:57:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postDepreciationToLedger.js:66:    .eq("tenant_id", tenantId)
+lib/finance/accounting/postDepreciationToLedger.js:80:      tenantId,
+lib/finance/accounting/postDepreciationToLedger.js:158:    .eq("tenant_id", tenantId);
+lib/finance/accounting/emitInventoryWasteEvent.js:5:  tenantId,
+lib/finance/accounting/emitInventoryWasteEvent.js:13:    tenantId,
+lib/finance/createCogsEntry.js:6:  tenantId,
+lib/finance/createCogsEntry.js:14:    .eq("tenant_id", tenantId);
+lib/finance/createCogsEntry.js:32:  tenantId,
+lib/finance/createCogsEntry.js:41:    if (!tenantId || !dishId || !quantity) {
+lib/finance/createCogsEntry.js:51:        .eq("tenant_id", tenantId)
+lib/finance/createCogsEntry.js:61:        console.warn("NO_PRODUCTION_BATCH_FOUND", { tenantId, dishId });
+lib/finance/createCogsEntry.js:82:        .eq("tenant_id", tenantId)
+lib/finance/createCogsEntry.js:100:        tenant_id: tenantId,
+lib/finance/createCogsEntry.js:115:        tenantId,
+lib/finance/createCogsEntry.js:122:        tenantId,
+lib/finance/createCogsEntry.js:129:          tenantId,
+lib/finance/reporting/generateCashflow.js:5:  tenantId,
+lib/finance/reporting/generateCashflow.js:10:    .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateConsolidatedReport.js:15:  tenantIds,
+lib/finance/reporting/core/generateConsolidatedReport.js:21:  for (const tenantId of tenantIds) {
+lib/finance/reporting/core/generateConsolidatedReport.js:38:        tenantId
+lib/finance/reporting/core/generateFinancialStatementsFromLedger.js:15:  tenantId,
+lib/finance/reporting/core/generateFinancialStatementsFromLedger.js:21:      tenantId,
+lib/finance/reporting/core/generateBalanceSheet.js:5:  tenantId,
+lib/finance/reporting/core/generateBalanceSheet.js:14:      .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateBalanceSheet.js:22:      .eq("tenant_id", tenantId)
+lib/finance/reporting/core/generateBalanceSheet.js:33:      .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateBalanceSheet.js:41:      .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateBalanceSheet.js:86:        tenant_id: tenantId,
+lib/finance/reporting/core/generateFinancialStatements.js:5:  tenantId,
+lib/finance/reporting/core/generateFinancialStatements.js:14:      .eq("tenant_id", tenantId);
+lib/finance/reporting/core/generateFinancialStatements.js:43:        tenant_id: tenantId,
+lib/finance/reporting/generateTaxReport.js:9:  tenantId,
+lib/finance/reporting/generateTaxReport.js:15:  if (!tenantId || !organizationId) {
+lib/finance/reporting/generateTaxReport.js:34:    .eq("tenant_id", tenantId)
+lib/finance/reporting/generateTaxReport.js:54:      tenant_id: tenantId,
+lib/finance/reporting/runVATClose.js:9:    tenantId,
+lib/finance/reporting/runVATClose.js:19:    tenantId,
+lib/finance/reporting/runVATClose.js:30:      tenant_id: tenantId,
+lib/finance/reporting/runVATClose.js:54:    tenant_id: tenantId,
+lib/finance/reporting/runVATClose.js:67:    tenantId,
+lib/finance/reporting/calculateVATLiability.js:5:  tenantId,
+lib/finance/reporting/calculateVATLiability.js:11:      tenantId,
+lib/finance/reporting/calculateTax.js:9:  tenantId,
+lib/finance/reporting/calculateTax.js:15:  if (!tenantId) throw new Error("tenantId required");
+lib/finance/reporting/calculateTax.js:52:      tenant_id: tenantId,
+lib/finance/reporting/runCashFlowEngine.js:5:  tenantId,
+lib/finance/reporting/runCashFlowEngine.js:13:      .eq("tenant_id", tenantId);
+lib/finance/reporting/runCashFlowEngine.js:19:      .eq("tenant_id", tenantId);
+lib/finance/reporting/runCashFlowEngine.js:43:        tenant_id: tenantId,
+lib/finance/reporting/calculateRetainedEarnings.js:15:  tenantId,
+lib/finance/reporting/calculateRetainedEarnings.js:21:      tenantId,
+lib/finance/reporting/thailand/generatePP30.js:7:  tenantId,
+lib/finance/reporting/thailand/generatePP30.js:15:    .eq("tenant_id", tenantId)
+lib/finance/financeModule.js:11:  tenantId,
+lib/finance/financeModule.js:18:    tenantId,
+lib/finance/financeModule.js:24:    tenantId,
+lib/finance/payments/settleInvoice.js:7:  tenantId,
+lib/finance/payments/settleInvoice.js:14:    tenantId,
+lib/finance/payments/settleInvoice.js:33:        tenant_id: tenantId,
+lib/finance/payments/runPaymentPriorityQueue.js:5:  tenantId,
+lib/finance/payments/runPaymentPriorityQueue.js:24:        tenant_id: tenantId,
+lib/finance/runRiskAnalysis.js:5:  tenantId,
+lib/finance/runRiskAnalysis.js:9:      tenant_id: tenantId,
+lib/finance/runRiskAnalysis.js:15:      tenant_id: tenantId,
+lib/finance/profitability/calculateDepartmentProfitability.js:7:  tenantId,
+lib/finance/profitability/calculateDepartmentProfitability.js:32:      tenantId
+lib/finance/profitability/calculateDepartmentProfitability.js:68:      tenantId
+lib/finance/year-end/runYearEndClose.js:56:      tenantId: tenant_id,
+lib/finance/runRetainedEarnings.js:5:  tenantId,
+lib/finance/runRetainedEarnings.js:12:      tenant_id: tenantId,
+lib/finance/getExecutiveFinancialSummary.js:5:  tenantId,
+lib/finance/getExecutiveFinancialSummary.js:8:    tenant_id: tenantId,
+lib/finance/intercompany/runIntercompanyReconciliation.js:5:  tenantId,
+lib/finance/intercompany/runIntercompanyReconciliation.js:25:        tenant_id: tenantId,
+lib/finance/intercompany/runIntercompanyElimination.js:5:  tenantId,
+lib/finance/intercompany/runIntercompanyElimination.js:15:        tenant_id: tenantId,
+lib/finance/period-close/runRealTimeClose.js:5:  tenantId,
+lib/finance/period-close/runRealTimeClose.js:16:      .eq("tenant_id", tenantId);
+lib/finance/period-close/runRealTimeClose.js:37:      .eq("tenant_id", tenantId);
+lib/finance/period-close/runRealTimeClose.js:58:        tenant_id: tenantId,
+lib/finance/period-close/runRealTimeClose.js:82:          tenant_id: tenantId,
+lib/finance/period-close/approveRealTimeClose.js:5:  tenantId,
+lib/finance/period-close/approveRealTimeClose.js:16:        tenant_id: tenantId,
+lib/finance/period-close/getRealTimeCloseExceptions.js:5:  tenantId,
+lib/finance/period-close/getRealTimeCloseExceptions.js:13:      .eq("tenant_id", tenantId)
+lib/finance/period-close/lockAccountingPeriod.js:5:  tenantId,
+lib/finance/period-close/lockAccountingPeriod.js:15:        tenant_id: tenantId,
+lib/finance/general-ledger/getLedgerBalances.js:5:  tenantId,
+lib/finance/general-ledger/getLedgerBalances.js:23:    .eq("tenant_id", tenantId);
+lib/finance/general-ledger/postJournalToLedger.js:4:  tenantId,
+lib/finance/general-ledger/postJournalToLedger.js:9:  if (!tenantId) {
+lib/finance/general-ledger/postJournalToLedger.js:10:    throw new Error("tenantId required");
+lib/finance/general-ledger/postJournalToLedger.js:89:          tenant_id: tenantId,
+lib/finance/getAccountingKPIs.js:4:export async function getAccountingKPIs({ tenantId }) {
+lib/finance/getAccountingKPIs.js:14:      .eq("tenant_id", tenantId),
+lib/finance/getAccountingKPIs.js:19:      .eq("tenant_id", tenantId),
+lib/finance/getAccountingKPIs.js:24:      .eq("tenant_id", tenantId),
+lib/finance/getAccountingKPIs.js:29:      .eq("tenant_id", tenantId),
+lib/finance/runMonthEndClose.js:5:  tenantId,
+lib/finance/runMonthEndClose.js:10:      tenant_id: tenantId,
+lib/finance/runFraudDetection.js:5:  tenantId,
+lib/finance/runFraudDetection.js:9:      tenant_id: tenantId,
+lib/finance/runFraudDetection.js:16:      tenant_id: tenantId,
+lib/finance/integrations/postPayroll.js:5:  tenantId,
+lib/finance/integrations/postPayroll.js:11:    tenantId,
+lib/finance/integrations/postCOGS.js:5:  tenantId,
+lib/finance/integrations/postCOGS.js:11:    tenantId,
+lib/finance/integrations/postSupplierInvoice.js:5:  tenantId,
+lib/finance/integrations/postSupplierInvoice.js:12:    tenantId,
+lib/finance/master-data/getChartOfAccounts.js:5:  tenantId,
+lib/finance/master-data/getChartOfAccounts.js:10:    .eq("tenant_id", tenantId)
+lib/finance/master-data/seedChartOfAccounts.js:5:  tenantId,
+lib/finance/master-data/seedChartOfAccounts.js:8:    tenant_id: tenantId,
+lib/finance/statements/generateProfitAndLoss.js:8:  tenantId,
+lib/finance/statements/generateProfitAndLoss.js:22:      tenantId
+lib/finance/runForecasting.js:5:  tenantId,
+lib/finance/runForecasting.js:9:      tenant_id: tenantId,
+lib/finance/runForecasting.js:15:      tenant_id: tenantId,
+lib/finance/gl-posting/postVendorPaymentGL.js:13:      tenantId: tenant_id,
+lib/finance/workflow/approveTaxFiling.js:7:  tenantId,
+lib/finance/workflow/approveTaxFiling.js:20:    .eq("tenant_id", tenantId)
+lib/finance/workflow/retryFailedAccountingEvents.js:5:  tenantId,
+lib/finance/workflow/retryFailedAccountingEvents.js:13:      .eq("tenant_id", tenantId)
+lib/finance/workflow/lockTaxFiling.js:7:  tenantId,
+lib/finance/workflow/lockTaxFiling.js:18:    .eq("tenant_id", tenantId)
+lib/finance/getCashflowSummary.js:4:export async function getCashflowSummary({ tenantId }) {
+lib/finance/getCashflowSummary.js:8:    .eq("tenant_id", tenantId);
+lib/finance/automation/runMonthlyClose.js:9:  tenantId,
+lib/finance/automation/runMonthlyClose.js:20:    tenantId,
+lib/finance/automation/runMonthlyClose.js:32:    tenantId,
+lib/finance/automation/runMonthlyClose.js:41:      tenant_id: tenantId,
+lib/finance/automation/runMonthlyTaxClose.js:9:  tenantId,
+lib/finance/automation/runMonthlyTaxClose.js:19:    tenantId,
+lib/finance/automation/runMonthlyTaxClose.js:30:    tenantId,
+lib/finance/getGeneralLedger.js:5:  tenantId,
+lib/finance/getGeneralLedger.js:33:    .eq("tenant_id", tenantId);
+lib/finance/consolidation/runConsolidation.js:8:  tenantIds,
+lib/finance/consolidation/runConsolidation.js:15:      tenantIds,
+lib/finance/postAccountingEvent.js:7:  tenantId,
+lib/finance/postAccountingEvent.js:23:    tenantId: args.tenantId,
+lib/finance/runComplianceChecks.js:5:  tenantId,
+lib/finance/runComplianceChecks.js:29:    tenant_id: tenantId,
+lib/finance/onboarding/applyTaxSetup.js:9:  tenantId,
+lib/finance/onboarding/applyTaxSetup.js:13:  if (!organizationId || !tenantId) {
+lib/finance/createPaymentTransaction.js:7:  tenantId,
+lib/finance/createPaymentTransaction.js:50:        tenantId,
+lib/finance/runPeriodClose.js:5:  tenantId,
+lib/finance/runPeriodClose.js:12:      tenant_id: tenantId,
+lib/finance/analytics/runRiskScoring.js:5:  tenantId,
+lib/finance/analytics/runRiskScoring.js:13:      .eq("tenant_id", tenantId);
+lib/finance/analytics/runRiskScoring.js:21:      .eq("tenant_id", tenantId)
+lib/finance/analytics/runRiskScoring.js:67:        tenant_id: tenantId,
+lib/finance/analytics/getAPAging.js:4:export async function getAPAging({ tenantId }) {
+lib/finance/analytics/getAPAging.js:8:    .eq("tenant_id", tenantId);
+lib/finance/analytics/getARAging.js:4:export async function getARAging({ tenantId }) {
+lib/finance/analytics/getARAging.js:8:    .eq("tenant_id", tenantId);
+lib/finance/analytics/getLiquidityMetrics.js:5:  tenantId,
+lib/finance/analytics/getLiquidityMetrics.js:11:      tenantId,
+lib/finance/analytics/getFinanceSummary.js:40:  tenantId,
+lib/finance/analytics/getFinanceSummary.js:73:          tenantId
+lib/finance/analytics/getFinanceSummary.js:175:          tenantId
+lib/finance/strategy/runScenarioPlanning.js:5:  tenantId,
+lib/finance/strategy/runScenarioPlanning.js:9:      tenant_id: tenantId,
+lib/finance/strategy/runScenarioPlanning.js:16:      tenant_id: tenantId,
+lib/finance/strategy/runCostAllocation.js:5:  tenantId,
+lib/finance/strategy/runCostAllocation.js:9:      tenant_id: tenantId,
+lib/finance/strategy/runCostAllocation.js:16:      tenant_id: tenantId,
+lib/finance/strategy/getBoardReport.js:5:  tenantId,
+lib/finance/strategy/getBoardReport.js:8:    tenant_id: tenantId,
+lib/finance/executive/getForecastVsActual.js:5:  tenantId,
+lib/finance/executive/getForecastVsActual.js:10:    .eq("tenant_id", tenantId);
+lib/finance/executive/getWorkingCapital.js:5:  tenantId,
+lib/finance/executive/getWorkingCapital.js:11:      tenantId,
+lib/finance/runAutoPostingWorkflow.js:5:  tenantId,
+lib/finance/runAutoPostingWorkflow.js:10:      tenant_id: tenantId,
+lib/payroll/accounting/createPayrollLiabilityJournal.js:6:  tenantId,
+lib/payroll/accounting/createPayrollLiabilityJournal.js:12:  if (!tenantId) {
+lib/payroll/accounting/createPayrollLiabilityJournal.js:13:    throw new Error("tenantId required");
+lib/payroll/accounting/createPayrollLiabilityJournal.js:21:    tenantId,
+lib/payroll/payments/executePayrollPayment.js:9:  tenantId,
+lib/payroll/payments/executePayrollPayment.js:41:      tenantId
+lib/payroll/payments/executePayrollPayment.js:77:        tenantId,
+lib/payroll/payments/executePayrollPayment.js:111:    tenantId,
+lib/payroll/generatePayrollRecords.js:24:  tenantId,
+lib/payroll/generatePayrollRecords.js:35:      tenantId,
+lib/payroll/generatePayrollRecords.js:78:    .eq("tenant_id", tenantId);
+lib/payroll/generatePayrollRecords.js:215:          tenantId,
+lib/payroll/generatePayrollRecords.js:382:            tenantId,
+lib/payroll/core/allocateLaborCost.js:4:  tenantId,
+lib/payroll/core/allocateLaborCost.js:24:        tenant_id: tenantId,
+lib/payroll/core/checkInStaff.js:4:  tenantId,
+lib/payroll/core/checkInStaff.js:32:        tenant_id: tenantId,
+lib/payroll/core/distributeServiceCharge.js:4:  tenantId,
+lib/payroll/core/distributeServiceCharge.js:23:      tenantId
+lib/payroll/core/distributeServiceCharge.js:90:        tenantId,
+lib/payroll/core/calculateShiftPerformance.js:4:  tenantId,
+lib/payroll/core/calculateShiftPerformance.js:35:        tenant_id: tenantId,
+lib/payroll/snapshots/closePayrollPeriod.js:6:  tenantId,
+lib/payroll/snapshots/closePayrollPeriod.js:37:      tenantId
+lib/payroll/snapshots/rejectPayrollReopen.js:115:    tenantId:
+lib/payroll/snapshots/createPayrollSnapshot.js:9:  tenantId,
+lib/payroll/snapshots/createPayrollSnapshot.js:19:      tenantId
+lib/payroll/snapshots/createPayrollSnapshot.js:43:      tenantId
+lib/payroll/snapshots/createPayrollSnapshot.js:85:          tenantId,
+lib/payroll/snapshots/requestPayrollReopen.js:9:  tenantId,
+lib/payroll/snapshots/requestPayrollReopen.js:30:        tenantId,
+lib/payroll/snapshots/requestPayrollReopen.js:51:    tenantId,
+lib/payroll/snapshots/loadPayrollReopenRequests.js:5:  tenantId
+lib/payroll/snapshots/loadPayrollReopenRequests.js:21:      tenantId
+lib/payroll/snapshots/reopenPayrollPeriod.js:9:  tenantId,
+lib/payroll/snapshots/reopenPayrollPeriod.js:64:      tenantId
+lib/payroll/snapshots/reopenPayrollPeriod.js:78:    tenantId,
+lib/payroll/snapshots/approvePayrollReopen.js:116:    tenantId:
+lib/payroll/snapshots/approvePayrollReopen.js:138:    tenantId:
+lib/payroll/serviceCharge/calculateDailyPayouts.js:5:  tenantId,
+lib/payroll/serviceCharge/calculateDailyPayouts.js:15:      tenantId
+lib/payroll/serviceCharge/calculateDailyPayouts.js:28:        tenantId,
+lib/payroll/policies/loadTenantPayoutPolicy.js:4:  tenantId
+lib/payroll/policies/loadTenantPayoutPolicy.js:6:  console.log("LOAD POLICY", tenantId);
+lib/payroll/policies/loadTenantPayoutPolicy.js:14:    .eq("tenant_id", tenantId)
+lib/payroll/audit/createPayrollAuditLog.js:6:  tenantId,
+lib/payroll/audit/createPayrollAuditLog.js:31:        tenantId,
+lib/payroll/audit/loadPayrollAuditLogs.js:5:  tenantId
+lib/payroll/audit/loadPayrollAuditLogs.js:21:      tenantId
+lib/payroll/history/loadPayrollPeriods.js:5:  tenantId
+lib/payroll/history/loadPayrollPeriods.js:21:      tenantId
+lib/payroll/export/exportPayrollPeriod.js:6:  tenantId,
+lib/payroll/export/exportPayrollPeriod.js:29:      tenantId
+lib/payroll/consolidation/disputePayrollRecord.js:98:    tenantId:
+lib/payroll/consolidation/certifyPayrollRecord.js:127:    tenantId:
+lib/payroll/consolidation/recalculatePayrollRecord.js:222:    tenantId:
+lib/payroll/consolidation/processPayrollPayout.js:245:    tenantId:
+lib/payroll/consolidation/resolvePayrollDispute.js:121:    tenantId:
+lib/payroll/consolidation/approvePayrollRecord.js:159:    tenantId:
+lib/payroll/consolidation/acknowledgePayrollRecord.js:78:    tenantId:
+lib/payroll/consolidation/lockPayrollRecord.js:132:    tenantId:
+lib/payroll/consolidation/closePayrollAccountingPeriod.js:143:    tenantId:
+lib/payroll/consolidation/finalizePayrollRecord.js:147:    tenantId:
+lib/payroll/consolidation/generateMonthlyPayroll.js:61:  tenantId,
+lib/payroll/consolidation/generateMonthlyPayroll.js:64:  if (!tenantId) {
+lib/payroll/consolidation/generateMonthlyPayroll.js:65:    throw new Error("tenantId required");
+lib/payroll/consolidation/generateMonthlyPayroll.js:75:    tenantId,
+lib/payroll/consolidation/generateMonthlyPayroll.js:87:    .eq("tenant_id", tenantId)
+lib/payroll/consolidation/generateMonthlyPayroll.js:95:    .eq("tenant_id", tenantId)
+lib/payroll/consolidation/generateMonthlyPayroll.js:104:    .eq("tenant_id", tenantId)
+lib/payroll/consolidation/generateMonthlyPayroll.js:113:    .eq("tenant_id", tenantId)
+lib/payroll/consolidation/generateMonthlyPayroll.js:122:    .eq("tenant_id", tenantId)
+lib/payroll/consolidation/generateMonthlyPayroll.js:242:    tenantId,
+lib/payroll/consolidation/generateMonthlyPayroll.js:256:      .eq("tenant_id", tenantId)
+lib/payroll/consolidation/generateMonthlyPayroll.js:283:      .eq("tenant_id", tenantId)
+lib/payroll/consolidation/generateMonthlyPayroll.js:291:        .eq("tenant_id", tenantId)
+lib/payroll/consolidation/generateMonthlyPayroll.js:303:    tenantId,
+lib/payroll/consolidation/rejectPayrollRecord.js:139:    tenantId:
+lib/payroll/consolidation/archivePayrollRecord.js:112:    tenantId:
+lib/events/recordSystemEvent.js:6:  tenantId,
+lib/events/recordSystemEvent.js:23:      tenant_id: tenantId || null,
+lib/work-centers/getWorkCenterOrders.js:4:  tenantId,
+lib/work-centers/getWorkCenterOrders.js:7:  if (!tenantId) {
+lib/work-centers/getWorkCenterOrders.js:10:      error: "Missing tenantId",
+lib/work-centers/getWorkCenterOrders.js:18:    .eq("tenant_id", tenantId)
+lib/work-centers/getWorkCenterOrders.js:39:    tenantId
+lib/billing/optimizationEngine.js:16:        tenantId: tenant.tenantId,
+lib/billing/optimizationEngine.js:26:        tenantId: tenant.tenantId,
+lib/billing/usageLogger.js:9:  tenantId,
+lib/billing/usageLogger.js:15:  if (!tenantId) return;
+lib/billing/usageLogger.js:18:    tenant_id: tenantId,
+lib/billing/invoiceGenerator.js:8:export async function generateMonthlyInvoice(tenantId) {
+lib/billing/invoiceGenerator.js:12:    .eq("tenant_id", tenantId);
+lib/billing/invoiceGenerator.js:34:    tenantId,
+lib/onboarding/provisionOrganization.js:11:  const tenantId = payload?.tenantId;
+lib/onboarding/provisionOrganization.js:17:    tenantId,
+lib/onboarding/storeOnboardingResult.js:7:export function storeOnboardingResult(tenantId, result) {
+lib/onboarding/storeOnboardingResult.js:8:  if (!tenantId || !result) return;
+lib/onboarding/storeOnboardingResult.js:10:  setTenantConfig(tenantId, {
+lib/customer/ingestCustomer360.js:3:async function upsertCustomer(tenantId, source, sourceId, firstName, lastName, email, phone) {
+lib/customer/ingestCustomer360.js:7:    .eq("tenant_id", tenantId)
+lib/customer/ingestCustomer360.js:17:      tenant_id: tenantId,
+lib/customer/ingestCustomer360.js:38:export async function ingestCustomer360({ tenantId }) {
+lib/customer/ingestCustomer360.js:39:  if (!tenantId) throw new Error("tenantId required");
+lib/customer/ingestCustomer360.js:42:    supabaseAdmin.from("hotel_guests").select("*").eq("organization_id", tenantId),
+lib/customer/ingestCustomer360.js:43:    supabaseAdmin.from("healthcare_patients").select("*").eq("organization_id", tenantId),
+lib/customer/ingestCustomer360.js:44:    supabaseAdmin.from("accounting_client_profiles").select("*").eq("firm_organization_id", tenantId),
+lib/customer/ingestCustomer360.js:50:    const customer = await upsertCustomer(tenantId, "hotel", h.id, h.first_name, h.last_name, h.email, h.phone);
+lib/customer/ingestCustomer360.js:53:      tenant_id: tenantId,
+lib/customer/ingestCustomer360.js:64:    const customer = await upsertCustomer(tenantId, "healthcare", p.id, p.first_name, p.last_name, p.email, p.phone);
+lib/customer/ingestCustomer360.js:67:      tenant_id: tenantId,
+lib/customer/ingestCustomer360.js:78:    const customer = await upsertCustomer(tenantId, "accounting", c.client_organization_id, null, null, null, null);
+lib/customer/ingestCustomer360.js:81:      tenant_id: tenantId,
+lib/customer/runtime/createVIPCustomerEvent.js:7:  tenantId,
+lib/customer/runtime/createVIPCustomerEvent.js:32:        tenantId,
+lib/customer/processCustomerVisit.js:38:  tenantId,
+lib/customer/processCustomerVisit.js:41:  if (!tenantId || !customer?.id) {
+lib/customer/processCustomerVisit.js:54:    .eq("tenant_id", tenantId)
+lib/customer/processCustomerVisit.js:72:    .eq("tenant_id", tenantId)
+lib/customer/processCustomerVisit.js:82:    .eq("tenant_id", tenantId)
+lib/customer/processCustomerVisit.js:119:      tenant_id: tenantId,
+lib/customer/processCustomerVisit.js:139:  tenantId,
+lib/customer/processCustomerVisit.js:149:  if (!tenantId) {
+lib/customer/processCustomerVisit.js:150:    throw new Error("tenantId required");
+lib/customer/processCustomerVisit.js:171:      .eq("tenant_id", tenantId);
+lib/customer/processCustomerVisit.js:272:        tenant_id: tenantId,
+lib/customer/processCustomerVisit.js:298:      tenantId,
+lib/customer/processCustomerVisit.js:307:      tenantId,
+lib/customer/processCustomerVisit.js:328:    tenantId,
+lib/approval/runtime/createApprovalTask.js:7:  tenantId,
+lib/approval/runtime/createApprovalTask.js:32:        tenantId,
+lib/approval/runtime/loadApprovalTasks.js:6:  tenantId
+lib/approval/runtime/loadApprovalTasks.js:19:      tenantId
+lib/approval/runtime/loadRealtimeApprovals.js:6:  tenantId
+lib/approval/runtime/loadRealtimeApprovals.js:19:      tenantId
+lib/approval/events/registerApprovalEvents.js:31:          tenantId:
+lib/approval/events/registerApprovalEvents.js:32:            payload.tenantId,
+app/(system)/customers/page.jsx:15:  const tenantId = tenant?.id;
+app/(system)/customers/page.jsx:30:      body: JSON.stringify({ tenantId, customerPhone: customer.customer_phone })
+app/(system)/customers/page.jsx:38:    if (!tenantId) return;
+app/(system)/customers/page.jsx:44:        body: JSON.stringify({ tenantId, query: search })
+app/(system)/customers/page.jsx:54:  useEffect(() => { searchCustomers(""); }, [tenantId]);
+app/(system)/customers/page.jsx:63:        tenantId,
+app/(system)/settings/service-charge/page.jsx:22:  const tenantId =
+app/(system)/settings/service-charge/page.jsx:73:        tenantId
+app/(system)/settings/service-charge/page.jsx:103:          tenantId,
+app/(system)/settings/tables/page.jsx:19:  const tenantId =
+app/(system)/settings/tables/page.jsx:45:            tenantId:
+app/(system)/settings/tables/page.jsx:46:              tenantId,
+app/(system)/settings/tables/page.jsx:74:          tenantId:
+app/(system)/settings/tables/page.jsx:75:            tenantId,
+app/(system)/settings/system/page.jsx:19:  const tenantId =
+app/(system)/settings/system/page.jsx:36:      .eq("tenant_id", tenantId)
+app/(system)/settings/system/page.jsx:47:        tenant_id: tenantId,
+app/(system)/settings/pos/page.jsx:19:  const tenantId =
+app/(system)/settings/pos/page.jsx:45:            tenantId:
+app/(system)/settings/pos/page.jsx:46:              tenantId,
+app/(system)/settings/pos/page.jsx:74:          tenantId:
+app/(system)/settings/pos/page.jsx:75:            tenantId,
+app/(system)/settings/marketing/page.jsx:22:  const tenantId =
+app/(system)/settings/marketing/page.jsx:73:      !tenantId ||
+app/(system)/settings/marketing/page.jsx:82:    tenantId,
+app/(system)/settings/marketing/page.jsx:100:              tenantId,
+app/(system)/settings/marketing/page.jsx:146:            tenantId,
+app/(system)/settings/dishes/page.jsx:17:    tenantId,
+app/(system)/settings/dishes/page.jsx:82:  }, [tenantId])
+app/(system)/settings/dishes/page.jsx:86:    if (!tenantId) {
+app/(system)/settings/dishes/page.jsx:92:        `/api/dishes?tenant_id=${tenantId}`
+app/(system)/settings/dishes/page.jsx:121:                tenantId,
+app/(system)/settings/kitchen/page.jsx:19:  const tenantId =
+app/(system)/settings/kitchen/page.jsx:45:            tenantId:
+app/(system)/settings/kitchen/page.jsx:46:              tenantId,
+app/(system)/settings/kitchen/page.jsx:74:          tenantId:
+app/(system)/settings/kitchen/page.jsx:75:            tenantId,
+app/(system)/tables/page.jsx:34:  const tenantId =
+app/(system)/tables/page.jsx:52:    if (!tenantId) {
+app/(system)/tables/page.jsx:71:        tenantId
+app/(system)/tables/page.jsx:101:        tenantId
+app/(system)/tables/page.jsx:140:        tenantId
+app/(system)/tables/page.jsx:202:                      tenantId:
+app/(system)/tables/page.jsx:203:                        tenantId,
+app/(system)/management/schedule/page.jsx:25:  const tenantId =
+app/(system)/management/schedule/page.jsx:47:  }, [tenantId]);
+app/(system)/management/schedule/page.jsx:51:    if (!tenantId) {
+app/(system)/management/schedule/page.jsx:63:          tenantId
+app/(system)/management/schedule/page.jsx:73:          tenantId
+app/(system)/management/schedule/page.jsx:202:          tenantId,
+app/(system)/management/page.jsx:15:    tenantId,
+app/(system)/management/page.jsx:66:    if (!tenantId) {
+app/(system)/management/page.jsx:78:        tenantId
+app/(system)/management/page.jsx:103:        `/api/management/runtime?tenant_id=${tenantId}`
+app/(system)/management/page.jsx:181:    if (!tenantId) {
+app/(system)/management/page.jsx:187:  }, [tenantId]);
+app/(system)/management/performance/page.jsx:15:    tenantId,
+app/(system)/management/performance/page.jsx:88:  }, [tenantId])
+app/(system)/management/performance/page.jsx:92:    if (!tenantId) {
+app/(system)/management/performance/page.jsx:105:        tenantId
+app/(system)/management/performance/page.jsx:115:        tenantId
+app/(system)/operations/work-center/[workCenterId]/page.jsx:16:  const tenantId = tenant?.id;
+app/(system)/operations/work-center/[workCenterId]/page.jsx:26:    if (!tenantId || !workCenterId) return;
+app/(system)/operations/work-center/[workCenterId]/page.jsx:34:        tenantId,
+app/(system)/operations/work-center/[workCenterId]/page.jsx:54:  }, [tenantId, workCenterId]);
+app/(system)/operations/work-center/[workCenterId]/page.jsx:68:        tenantId,
+app/(system)/dashboard/page.jsx:169:  const tenantId =
+app/(system)/dashboard/page.jsx:193:      if (!tenantId) {
+app/(system)/dashboard/page.jsx:202:          tenantId,
+app/(system)/dashboard/page.jsx:563:                  dashboard?.runtime?.tenantId || ""
+app/(system)/components/marketing/studio/AssetUploadPanel.jsx:9:  tenantId,
+app/(system)/components/marketing/studio/AssetUploadPanel.jsx:106:        "tenantId",
+app/(system)/components/marketing/studio/AssetUploadPanel.jsx:107:        tenantId
+app/(system)/pos/payments/page.jsx:80:  const tenantId =
+app/(system)/pos/payments/page.jsx:145:            tenantId:
+app/(system)/pos/payments/page.jsx:146:              tenantId,
+app/(system)/pos/payments/page.jsx:288:              tenantId:
+app/(system)/pos/payments/page.jsx:289:                tenantId,
+app/(system)/pos/StationaryPOS_UI.jsx:20:  const tenantId =
+app/(system)/pos/StationaryPOS_UI.jsx:38:      !tenantId &&
+app/(system)/pos/StationaryPOS_UI.jsx:57:          tenantId
+app/(system)/pos/StationaryPOS_UI.jsx:85:    tenantId,
+app/(system)/pos/StationaryPOS_UI.jsx:140:          tenant_id: tenantId,
+app/(system)/pos/StationaryPOS_UI.jsx:167:        tenantId,
+app/(system)/pos/StationaryPOS_UI.jsx:173:          tenantId
+app/(system)/pos/StationaryPOS_UI.jsx:186:    if (tenantId) load();
+app/(system)/pos/StationaryPOS_UI.jsx:187:  }, [tenantId]);
+app/(system)/pos/StationaryPOS_UI.jsx:209:          tenant_id: tenantId,
+app/(system)/pos/StationaryPOS_UI.jsx:619:                          tenantId,
+app/(system)/pos/StationaryPOS_UI.jsx:634:                          tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:49:  const tenantId = tenant?.id;
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:169:    if (!tenantId) return;
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:171:    const loaded = await loadWaiterData(tenantId);
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:199:          tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:200:          tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:240:    if (!tenantId) return;
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:244:    loadWaiterData(tenantId).then((loaded) => {
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:264:  }, [tenantId]);
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:457:        tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:458:        tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:483:        tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:484:        tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:616:          tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:618:          tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:669:  tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.backup.jsx:680:          tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:112:  const tenantId = tenant?.id;
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:255:    if (!tenantId) return;
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:257:    const loaded = await loadWaiterData(tenantId);
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:314:          tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:315:          tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:339:        tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:356:  }, [tenantId]);
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:421:        tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:441:        tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:578:        tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.jsx:665:        tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:50:  const tenantId = tenant?.id;
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:172:    if (!tenantId) return;
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:174:    const loaded = await loadWaiterData(tenantId);
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:202:          tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:203:          tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:243:    if (!tenantId) return;
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:247:    loadWaiterData(tenantId).then((loaded) => {
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:267:  }, [tenantId]);
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:460:        tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:461:        tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:486:        tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:487:        tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:619:          tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:621:          tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:672:  tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:683:          tenant_id: tenantId,
+app/(system)/pos/waiter/POS_FINAL_UI.legacy.jsx:977:              tenantId,
+app/(system)/pos/history/page.jsx:14:    tenantId,
+app/(system)/pos/history/page.jsx:70:    if (!tenantId) {
+app/(system)/pos/history/page.jsx:78:        tenantId
+app/(system)/pos/history/page.jsx:93:    tenantId,
+app/(system)/pos/orders/page.jsx:13:  const tenantId = tenant?.id;
+app/(system)/pos/orders/page.jsx:22:    if (!tenantId) return;
+app/(system)/pos/orders/page.jsx:32:      .eq("tenant_id", tenantId)
+app/(system)/pos/orders/page.jsx:52:  }, [tenantId]);
+app/(system)/pos/orders/page.BROKEN.jsx:23:  const tenantId =
+app/(system)/pos/shifts/page.jsx:16:  const tenantId =
+app/(system)/pos/shifts/page.jsx:76:                tenantId,
+app/(system)/procurement/vendors/page.jsx:19:  const tenantId =
+app/(system)/procurement/vendors/page.jsx:82:                tenantId,
+app/(system)/procurement/vendors/page.jsx:129:                tenantId,
+app/(system)/procurement/vendors/page.jsx:190:    if (!tenantId) {
+app/(system)/procurement/vendors/page.jsx:196:  }, [tenantId]);
+app/(system)/procurement/purchase-orders/page.jsx:17:  const tenantId =
+app/(system)/procurement/purchase-orders/page.jsx:43:              tenantId,
+app/(system)/procurement/purchase-orders/page.jsx:103:            tenantId,
+app/(system)/procurement/replenishment/page.jsx:17:    tenantId,
+app/(system)/procurement/replenishment/page.jsx:73:  }, [tenantId])
+app/(system)/procurement/replenishment/page.jsx:77:    if (!tenantId) {
+app/(system)/procurement/replenishment/page.jsx:88:        tenantId
+app/(system)/procurement/replenishment/page.jsx:149:            tenantId,
+app/(system)/procurement/receiving/page.jsx:17:  const tenantId =
+app/(system)/procurement/receiving/page.jsx:42:              tenantId,
+app/(system)/inventory/ledger/page.jsx:17:    tenantId,
+app/(system)/inventory/ledger/page.jsx:73:  }, [tenantId])
+app/(system)/inventory/ledger/page.jsx:77:    if (!tenantId) {
+app/(system)/inventory/ledger/page.jsx:88:        tenantId
+app/(system)/inventory/ledger/page.jsx:101:        tenantId
+app/(system)/inventory/low-stock/page.jsx:17:    tenantId,
+app/(system)/inventory/low-stock/page.jsx:68:  }, [tenantId])
+app/(system)/inventory/low-stock/page.jsx:72:    if (!tenantId) {
+app/(system)/inventory/low-stock/page.jsx:83:        tenantId
+app/(system)/inventory/ingredients/page.jsx:17:    tenantId,
+app/(system)/inventory/ingredients/page.jsx:89:  }, [tenantId])
+app/(system)/inventory/ingredients/page.jsx:93:    if (!tenantId) {
+app/(system)/inventory/ingredients/page.jsx:104:        tenantId
+app/(system)/inventory/ingredients/page.jsx:145:            tenantId,
+app/(system)/inventory/ingredients/page.jsx:226:          tenantId,
+app/(system)/history/page.jsx:14:    tenantId,
+app/(system)/history/page.jsx:31:    if (!tenantId) {
+app/(system)/history/page.jsx:43:        tenantId
+app/(system)/history/page.jsx:122:    if (!tenantId) {
+app/(system)/history/page.jsx:128:  }, [tenantId]);
+app/(system)/production/costing/page.jsx:17:    tenantId,
+app/(system)/production/costing/page.jsx:73:  }, [tenantId])
+app/(system)/production/costing/page.jsx:77:    if (!tenantId) {
+app/(system)/production/costing/page.jsx:88:        tenantId
+app/(system)/production/costing/page.jsx:103:              tenantId,
+app/(system)/production/usage/page.jsx:17:    tenantId,
+app/(system)/production/usage/page.jsx:68:    if (!tenantId) {
+app/(system)/production/usage/page.jsx:74:        tenantId
+app/(system)/production/usage/page.jsx:85:    tenantId,
+app/(system)/production/usage/page.jsx:91:    if (!tenantId) {
+app/(system)/production/usage/page.jsx:120:    tenantId,
+app/(system)/production/logs/page.jsx:15:    tenantId,
+app/(system)/production/logs/page.jsx:78:    if (!tenantId) {
+app/(system)/production/logs/page.jsx:92:        tenantId
+app/(system)/production/logs/page.jsx:151:    tenantId,
+app/(system)/production/logs/page.jsx:157:    if (!tenantId) {
+app/(system)/production/logs/page.jsx:186:    tenantId,
+app/(system)/production/recipes/page.jsx:14:    tenantId,
+app/(system)/production/recipes/page.jsx:83:      if (!tenantId) {
+app/(system)/production/recipes/page.jsx:89:          `/api/dishes?tenant_id=${tenantId}`
+app/(system)/production/recipes/page.jsx:102:          tenantId
+app/(system)/production/recipes/page.jsx:118:    tenantId,
+app/(system)/production/recipes/page.jsx:169:                tenantId,
+app/(system)/production/performance/page.jsx:17:    tenantId,
+app/(system)/production/performance/page.jsx:68:    if (!tenantId) {
+app/(system)/production/performance/page.jsx:74:        tenantId
+app/(system)/production/performance/page.jsx:87:    tenantId,
+app/(system)/production/performance/page.jsx:93:    if (!tenantId) {
+app/(system)/production/performance/page.jsx:122:    tenantId,
+app/(system)/marketing/design/page.js:115:  const tenantId =
+app/(system)/marketing/design/page.js:117:    organization?.tenantId ||
+app/(system)/marketing/design/page.js:237:    if (!tenantId) {
+app/(system)/marketing/design/page.js:244:          tenantId,
+app/(system)/marketing/design/page.js:254:          tenantId,
+app/(system)/marketing/design/page.js:264:          tenantId,
+app/(system)/marketing/design/page.js:315:          tenantId,
+app/(system)/marketing/design/page.js:325:          tenantId,
+app/(system)/marketing/design/page.js:344:    tenantId,
+app/(system)/marketing/design/page.js:352:        tenantId,
+app/(system)/marketing/design/page.js:362:        tenantId,
+app/(system)/marketing/design/page.js:405:                tenantId,
+app/(system)/marketing/design/page.js:515:          tenantId,
+app/(system)/marketing/design/page.js:525:          tenantId,
+app/(system)/marketing/design/page.js:567:              tenantId,
+app/(system)/marketing/design/page.js:604:    !tenantId
+app/(system)/automation/live/page.jsx:24:    tenantId,
+app/(system)/automation/live/page.jsx:75:    if (!tenantId) {
+app/(system)/automation/live/page.jsx:81:        tenantId
+app/(system)/automation/live/page.jsx:92:    tenantId,
+app/(system)/automation/live/page.jsx:98:    if (!tenantId) {
+app/(system)/automation/live/page.jsx:106:          `workflow-runtime-${tenantId}`,
+app/(system)/automation/live/page.jsx:132:    tenantId,
+app/(system)/automation/approvals-center/page.jsx:17:      `/api/approval_requests?tenantId=${TENANT_ID}&status=pending`
+app/(system)/monitoring/live/page.jsx:21:    tenantId,
+app/(system)/monitoring/live/page.jsx:72:    if (!tenantId) {
+app/(system)/monitoring/live/page.jsx:78:        tenantId
+app/(system)/monitoring/live/page.jsx:89:    tenantId,
+app/(system)/monitoring/live/page.jsx:95:    if (!tenantId) {
+app/(system)/monitoring/live/page.jsx:103:          `monitoring-live-${tenantId}`,
+app/(system)/monitoring/live/page.jsx:139:    tenantId,
+app/(system)/payroll/page.jsx:13:  const [tenantId, setTenantId] = useState(null);
+app/(system)/payroll/page.jsx:69:        body: JSON.stringify({ tenantId, payrollMonth: "2026-06" }),
+app/(system)/payroll/live/page.jsx:17:    tenantId,
+app/(system)/payroll/live/page.jsx:68:    if (!tenantId) {
+app/(system)/payroll/live/page.jsx:74:        tenantId
+app/(system)/payroll/live/page.jsx:87:    tenantId,
+app/(system)/payroll/live/page.jsx:93:    if (!tenantId) {
+app/(system)/payroll/live/page.jsx:122:    tenantId,
+app/(system)/kitchen/expo/page.jsx:32:  const tenantId =
+app/(system)/kitchen/expo/page.jsx:48:    if (!tenantId) {
+app/(system)/kitchen/expo/page.jsx:68:        tenantId
+app/(system)/kitchen/expo/ack_patch.js:1:export async function acknowledgeOrder({ orderId, tenantId }) {
+app/(system)/kitchen/expo/ack_patch.js:11:        tenantId,
+app/(system)/timeline/page.jsx:13:      const res = await fetch("/api/timeline?tenantId=cbdc9308-5515-4d38-8e64-edae68dd5872");
+app/(system)/analytics/sales/page.jsx:25:    tenantId,
+app/(system)/analytics/sales/page.jsx:76:    if (!tenantId) {
+app/(system)/analytics/sales/page.jsx:82:        tenantId
+app/(system)/analytics/sales/page.jsx:95:    tenantId,
+app/(system)/analytics/sales/page.jsx:101:    if (!tenantId) {
+app/(system)/analytics/sales/page.jsx:130:    tenantId,
+app/(system)/analytics/live/page.jsx:17:    tenantId,
+app/(system)/analytics/live/page.jsx:68:    if (!tenantId) {
+app/(system)/analytics/live/page.jsx:74:        tenantId
+app/(system)/analytics/live/page.jsx:85:    tenantId,
+app/(system)/analytics/live/page.jsx:91:    if (!tenantId) {
+app/(system)/analytics/live/page.jsx:120:    tenantId,
+app/api/customers/upsert/route.js:30:    const tenantId =
+app/api/customers/upsert/route.js:31:      access.tenantId;
+app/api/customers/upsert/route.js:45:        .eq("tenant_id", tenantId);
+app/api/customers/upsert/route.js:107:          tenant_id: tenantId,
+app/api/customers/search/route.js:30:    const tenantId =
+app/api/customers/search/route.js:31:      access.tenantId;
+app/api/customers/search/route.js:40:        .eq("tenant_id", tenantId);
+app/api/customers/history/route.js:32:    const tenantId =
+app/api/customers/history/route.js:33:      access.tenantId;
+app/api/customers/history/route.js:44:      .eq("tenant_id", tenantId)
+app/api/organizations/create/route.js:28:        tenantId:
+app/api/organizations/create/route.js:29:          body.tenantId,
+app/api/settings/tables/load/route.js:15:      tenantId,
+app/api/settings/tables/load/route.js:21:        tenantId,
+app/api/settings/tables/save/route.js:12:      tenantId,
+app/api/settings/tables/save/route.js:19:        tenantId,
+app/api/settings/pos/load/route.js:12:      tenantId,
+app/api/settings/pos/load/route.js:18:        tenantId,
+app/api/settings/pos/save/route.js:12:      tenantId,
+app/api/settings/pos/save/route.js:19:        tenantId,
+app/api/settings/marketing/load/route.js:12:      tenantId,
+app/api/settings/marketing/load/route.js:32:        tenantId
+app/api/settings/marketing/save/route.js:12:      tenantId,
+app/api/settings/marketing/save/route.js:23:        tenantId,
+app/api/settings/operational/route.js:16:        tenantId:
+app/api/settings/operational/route.js:17:          body.tenantId,
+app/api/settings/payroll/load/route.js:42:    const tenantId =
+app/api/settings/payroll/load/route.js:43:      access.tenantId;
+app/api/settings/payroll/load/route.js:48:        tenantId,
+app/api/settings/payroll/save/route.js:42:    const tenantId =
+app/api/settings/payroll/save/route.js:43:      access.tenantId;
+app/api/settings/payroll/save/route.js:47:      tenantId,
+app/api/settings/kitchen/load/route.js:15:      tenantId,
+app/api/settings/kitchen/load/route.js:21:        tenantId,
+app/api/settings/kitchen/save/route.js:12:      tenantId,
+app/api/settings/kitchen/save/route.js:19:        tenantId,
+app/api/design/assets/route.js:11:    const tenantId =
+app/api/design/assets/route.js:12:      searchParams.get("tenantId");
+app/api/design/assets/route.js:17:    if (!tenantId) {
+app/api/design/assets/route.js:21:          error: "tenantId required",
+app/api/design/assets/route.js:29:        tenantId,
+app/api/owner/route.js:46:    const tenantId =
+app/api/owner/route.js:47:      access.tenantId;
+app/api/owner/route.js:49:    if (!tenantId) {
+app/api/owner/route.js:103:        tenantId
+app/api/owner/route.js:128:        tenantId
+app/api/owner/route.js:147:        tenantId
+app/api/owner/route.js:164:        tenantId
+app/api/owner/route.js:352:        tenantId
+app/api/invoices/update/route.js:54:    const tenantId = access.tenantId;
+app/api/invoices/review/update/route.js:54:    const tenantId = access.tenantId;
+app/api/invoices/review/update/route.js:65:      .eq("tenant_id", tenantId)
+app/api/invoices/list/route.js:45:    const tenantId =
+app/api/invoices/list/route.js:46:      access.tenantId;
+app/api/invoices/list/route.js:59:        tenantId
+app/api/healthcare/medical-records/route.js:20:  await medicalRecordTimeline({ tenantId: body.organization_id, medicalRecord: data });
+app/api/healthcare/medical-records/route.js:37:  await medicalRecordTimeline({ tenantId: body.organization_id, medicalRecord: data });
+app/api/healthcare/billing/route.js:20:  await billingTimeline({ tenantId: body.organization_id, billing: data });
+app/api/healthcare/billing/route.js:37:  await billingTimeline({ tenantId: body.organization_id, billing: data });
+app/api/workspace/command-center/route.js:82:    const tenantId =
+app/api/workspace/command-center/route.js:83:      access.tenantId;
+app/api/workspace/command-center/route.js:116:    if (!tenantId) {
+app/api/workspace/command-center/route.js:119:        error: "Missing tenantId",
+app/api/workspace/command-center/route.js:142:          .eq("tenant_id", tenantId)
+app/api/workspace/command-center/route.js:150:          .eq("tenant_id", tenantId)
+app/api/workspace/command-center/route.js:158:          .eq("tenant_id", tenantId)
+app/api/workspace/command-center/route.js:165:          .eq("tenant_id", tenantId)
+app/api/workspace/command-center/route.js:172:          .eq("tenant_id", tenantId)
+app/api/workspace/command-center/route.js:179:          .eq("tenant_id", tenantId)
+app/api/workspace/command-center/route.js:186:          .eq("tenant_id", tenantId)
+app/api/workspace/command-center/route.js:193:          .eq("tenant_id", tenantId)
+app/api/intake/classify/route.js:19:      tenantId,
+app/api/intake/classify/route.js:147:      tenantId,
+app/api/intake/classify/route.js:218:                tenantId,
+app/api/intake/classify/route.js:336:            tenantId,
+app/api/approval_requests/route.js:9:    const tenantId = searchParams.get("tenantId");
+app/api/approval_requests/route.js:12:    if (!tenantId) {
+app/api/approval_requests/route.js:16:          error: "tenantId required",
+app/api/approval_requests/route.js:36:      .eq("tenant_id", tenantId);
+app/api/pos/settings/route.js:12:    const tenantId =
+app/api/pos/settings/route.js:13:      searchParams.get("tenantId");
+app/api/pos/settings/route.js:15:    if (!tenantId) {
+app/api/pos/settings/route.js:19:          error: "tenantId required",
+app/api/pos/settings/route.js:29:        tenantId,
+app/api/pos/tables/move-seat/route.js:5:function scoped(query, { organizationId, tenantId }) {
+app/api/pos/tables/move-seat/route.js:7:  return query.eq("tenant_id", tenantId);
+app/api/pos/tables/move-seat/route.js:10:function scopedOrderItems(query, { tenantId }) {
+app/api/pos/tables/move-seat/route.js:11:  return query.eq("tenant_id", tenantId);
+app/api/pos/tables/move-seat/route.js:52:    const tenantId = body.tenantId || body.tenant_id || null;
+app/api/pos/tables/move-seat/route.js:60:    if (!tenantId && !organizationId) {
+app/api/pos/tables/move-seat/route.js:74:    const context = { tenantId, organizationId };
+app/api/pos/tables/move-seat/route.js:152:            tenant_id: tenantId,
+app/api/pos/tables/action/route.js:11:      payload.tenantId ||
+app/api/pos/payments/route.js:44:    const tenant_id = access.tenantId;
+app/api/pos/payments/route.js:78:      tenantId: tenant_id,
+app/api/pos/payments/route.js:96:        tenantId: tenant_id,
+app/api/pos/payments/create/route.js:22:        tenantId:
+app/api/pos/payments/create/route.js:23:          body.tenantId,
+app/api/pos/update-item-quantity/route.js:19:        tenantId:
+app/api/pos/update-item-quantity/route.js:20:          body.tenantId,
+app/api/pos/modifier-groups/create/route.js:47:      access.tenantId
+app/api/pos/partial-payment/route.js:19:        tenantId:
+app/api/pos/partial-payment/route.js:20:          body.tenantId,
+app/api/pos/payment/route.js:19:        tenantId:
+app/api/pos/payment/route.js:20:          body.tenantId,
+app/api/pos/customer-display/update/route.js:49:      access.tenantId
+app/api/pos/discounts/create/route.js:47:      access.tenantId
+app/api/pos/discount/route.js:19:        tenantId:
+app/api/pos/discount/route.js:20:          body.tenantId,
+app/api/pos/payment-state/route.js:14:        tenantId:
+app/api/pos/payment-state/route.js:15:          body.tenantId,
+app/api/pos/remove-item/route.js:19:        tenantId:
+app/api/pos/remove-item/route.js:20:          body.tenantId,
+app/api/pos/realtime/route.js:47:      access.tenantId;
+app/api/pos/remove-modifier/route.js:19:        tenantId:
+app/api/pos/remove-modifier/route.js:20:          body.tenantId,
+app/api/pos/move-items/route.js:19:        tenantId:
+app/api/pos/move-items/route.js:20:          body.tenantId,
+app/api/pos/void/route.js:19:        tenantId:
+app/api/pos/void/route.js:20:          body.tenantId,
+app/api/pos/history/route.js:7:    const { tenantId } = await req.json();
+app/api/pos/history/route.js:15:      .eq("tenant_id", tenantId)
+app/api/pos/history/route.js:24:      .eq("tenant_id", tenantId)
+app/api/pos/tips/add/route.js:47:      access.tenantId
+app/api/pos/orders/route.js:8:    const { tenantId } = await req.json();
+app/api/pos/orders/route.js:10:    const orders = await loadActiveOrders(tenantId);
+app/api/pos/orders/complete/route.js:48:      access.tenantId;
+app/api/pos/orders/ack/route.js:9:      tenantId,
+app/api/pos/orders/ack/route.js:17:        tenant_id: tenantId,
+app/api/pos/items/pay-group/route.js:98:        tenantId:
+app/api/pos/items/pay-group/route.js:125:      tenantId:
+app/api/pos/create/route.js:270:      tenantId: tenant_id,
+app/api/pos/reopen/route.js:19:        tenantId:
+app/api/pos/reopen/route.js:20:          body.tenantId,
+app/api/pos/shifts/route.js:47:      access.tenantId
+app/api/pos/add-modifier/route.js:19:        tenantId:
+app/api/pos/add-modifier/route.js:20:          body.tenantId,
+app/api/pos/refund/route.js:19:        tenantId:
+app/api/pos/refund/route.js:20:          body.tenantId,
+app/api/procurement/vendors/list/route.js:44:    const tenantId =
+app/api/procurement/vendors/list/route.js:45:      access.tenantId;
+app/api/procurement/vendors/list/route.js:76:      tenantId,
+app/api/procurement/purchase-orders/route.js:51:      access.tenantId;
+app/api/procurement/purchase-requests/create/route.js:12:        tenantId:
+app/api/procurement/purchase-requests/create/route.js:13:          body.tenantId,
+app/api/procurement/receiving/route.js:48:    const tenantId =
+app/api/procurement/receiving/route.js:49:      access.tenantId;
+app/api/procurement/receiving/route.js:55:          tenantId,
+app/api/procurement/goods-receipts/receive/route.js:12:        tenantId:
+app/api/procurement/goods-receipts/receive/route.js:13:          body.tenantId,
+app/api/procurement/three-way-match/run/route.js:12:        tenantId:
+app/api/procurement/three-way-match/run/route.js:13:          body.tenantId,
+app/api/ai/business-profile/route.js:20:    const tenantId =
+app/api/ai/business-profile/route.js:22:        "tenantId"
+app/api/ai/business-profile/route.js:25:    if (!tenantId) {
+app/api/ai/business-profile/route.js:31:            "tenantId required",
+app/api/ai/business-profile/route.js:43:        tenantId,
+app/api/inventory/stock-ledger/reconciliation/route.js:12:        tenantId:
+app/api/inventory/stock-ledger/reconciliation/route.js:13:          body.tenantId,
+app/api/inventory/stock-ledger/movement/route.js:13:        tenantId:
+app/api/inventory/stock-ledger/movement/route.js:14:          body.tenantId,
+app/api/inventory/stock-ledger/movement/route.js:31:        tenantId:
+app/api/inventory/stock-ledger/movement/route.js:32:          body.tenantId,
+app/api/inventory/stock-ledger/valuation/route.js:12:        tenantId:
+app/api/inventory/stock-ledger/valuation/route.js:13:          body.tenantId,
+app/api/inventory/theoretical-vs-actual/run/route.js:12:        tenantId:
+app/api/inventory/theoretical-vs-actual/run/route.js:13:          body.tenantId,
+app/api/inventory/stock-count/finalize/route.js:12:        tenantId:
+app/api/inventory/stock-count/finalize/route.js:13:          body.tenantId,
+app/api/inventory/monitoring/route.js:47:      access.tenantId;
+app/api/inventory/engine/consume/route.js:7:    const { tenantId, items } = await req.json();
+app/api/inventory/engine/consume/route.js:20:        .eq("tenant_id", tenantId)
+app/api/inventory/engine/consume/route.js:39:          tenant_id: tenantId,
+app/api/inventory/variance-analysis/run/route.js:12:        tenantId:
+app/api/inventory/variance-analysis/run/route.js:13:          body.tenantId,
+app/api/queue/retry/route.js:17:        tenantId:
+app/api/queue/retry/route.js:18:          body?.tenantId,
+app/api/orchestration/rules-engine/evaluate/route.js:12:        tenantId:
+app/api/orchestration/rules-engine/evaluate/route.js:13:          body.tenantId,
+app/api/orchestration/rules-engine/actions/route.js:12:        tenantId:
+app/api/orchestration/rules-engine/actions/route.js:13:          body.tenantId,
+app/api/orchestration/rules-engine/create/route.js:12:        tenantId:
+app/api/orchestration/rules-engine/create/route.js:13:          body.tenantId,
+app/api/orchestration/state-machine/transition/route.js:12:        tenantId:
+app/api/orchestration/state-machine/transition/route.js:13:          body.tenantId,
+app/api/orchestration/state-machine/history/route.js:12:        tenantId:
+app/api/orchestration/state-machine/history/route.js:13:          body.tenantId,
+app/api/orchestration/recovery/retry/route.js:12:        tenantId:
+app/api/orchestration/recovery/retry/route.js:13:          body.tenantId,
+app/api/orchestration/recovery/dead-letter/route.js:12:        tenantId:
+app/api/orchestration/recovery/dead-letter/route.js:13:          body.tenantId,
+app/api/orchestration/recovery/replay/route.js:12:        tenantId:
+app/api/orchestration/recovery/replay/route.js:13:          body.tenantId,
+app/api/orchestration/workflows/status/route.js:12:        tenantId:
+app/api/orchestration/workflows/status/route.js:13:          body.tenantId,
+app/api/orchestration/workflows/register/route.js:12:        tenantId:
+app/api/orchestration/workflows/register/route.js:13:          body.tenantId,
+app/api/orchestration/workflows/execute/route.js:12:        tenantId:
+app/api/orchestration/workflows/execute/route.js:13:          body.tenantId,
+app/api/orchestration/day-closed/route.js:12:        tenantId:
+app/api/orchestration/day-closed/route.js:13:          body.tenantId,
+app/api/orchestration/shift-closed/route.js:13:      .eq("tenant_id", body.tenantId)
+app/api/orchestration/shift-closed/route.js:24:      tenantId: body.tenantId,
+app/api/governance/deployment/request/route.js:47:      access.tenantId;
+app/api/governance/deployment/check/route.js:49:      access.tenantId;
+app/api/governance/automation/route.js:53:      access.tenantId;
+app/api/governance/automation/route.js:71:        tenantId:
+app/api/production/costing/route.js:7:    const { tenantId } = await req.json();
+app/api/production/costing/route.js:12:      .eq("tenant_id", tenantId)
+app/api/production/recipe-components/route.js:103:      access.tenantId;
+app/api/production/recipes/route.js:7:    const { tenantId } = await req.json();
+app/api/production/recipes/route.js:15:      .eq("tenant_id", tenantId);
+app/api/production/recipe-costing/calculate/route.js:12:        tenantId:
+app/api/production/recipe-costing/calculate/route.js:13:          body.tenantId,
+app/api/production/recipe-costing/shift-profitability/route.js:12:        tenantId:
+app/api/production/recipe-costing/shift-profitability/route.js:13:          body.tenantId,
+app/api/production/recipe-costing/menu-engineering/route.js:12:        tenantId:
+app/api/production/recipe-costing/menu-engineering/route.js:13:          body.tenantId,
+app/api/production/batches/route.js:7:    const { tenantId } = await req.json();
+app/api/production/batches/route.js:12:      .eq("tenant_id", tenantId)
+app/api/marketing/update-asset/route.js:21:    const tenantId =
+app/api/marketing/update-asset/route.js:23:        "tenantId"
+app/api/marketing/update-asset/route.js:50:    if (!tenantId) {
+app/api/marketing/update-asset/route.js:59:            "Missing tenantId",
+app/api/marketing/update-asset/route.js:153:        tenantId,
+app/api/marketing/sync-analytics/route.js:190:  tenantId:
+app/api/marketing/sync-analytics/route.js:253:            tenantId:
+app/api/marketing/owner-insights/route.js:44:    const tenantId =
+app/api/marketing/owner-insights/route.js:45:      access.tenantId;
+app/api/marketing/owner-insights/route.js:55:      tenantId,
+app/api/marketing/operations/route.js:44:    const tenantId =
+app/api/marketing/operations/route.js:45:      access.tenantId;
+app/api/marketing/operations/route.js:55:      tenantId,
+app/api/marketing/operational-alerts/route.js:44:    const tenantId =
+app/api/marketing/operational-alerts/route.js:45:      access.tenantId;
+app/api/marketing/operational-alerts/route.js:55:      tenantId,
+app/api/marketing/recommendations/route.js:44:    const tenantId =
+app/api/marketing/recommendations/route.js:45:      access.tenantId;
+app/api/marketing/recommendations/route.js:55:      tenantId,
+app/api/marketing/queue/route.js:44:    const tenantId =
+app/api/marketing/queue/route.js:45:      access.tenantId;
+app/api/marketing/queue/route.js:55:      tenantId,
+app/api/marketing/generate/route.js:27:      tenantId,
+app/api/marketing/generate/route.js:43:      tenantId,
+app/api/marketing/generate/route.js:56:        tenantId:
+app/api/marketing/generate/route.js:57:          tenantId || null,
+app/api/marketing/engine-learning/route.js:37:    const tenantId =
+app/api/marketing/engine-learning/route.js:38:      access.tenantId;
+app/api/marketing/engine-learning/route.js:48:      tenantId,
+app/api/marketing/campaigns/route.js:44:    const tenantId =
+app/api/marketing/campaigns/route.js:45:      access.tenantId;
+app/api/marketing/campaigns/route.js:55:      tenantId,
+app/api/marketing/process-generation-job/route.js:110:            tenantId:
+app/api/marketing/upload-asset/route.js:16:    const tenantId =
+app/api/marketing/upload-asset/route.js:17:      formData.get("tenantId");
+app/api/marketing/upload-asset/route.js:34:        tenantId,
+app/api/kpi/overview/route.js:31:      tenantId,
+app/api/kpi/overview/route.js:50:          tenantId
+app/api/kpi/overview/route.js:58:          tenantId
+app/api/finance/trial-balance/route.js:45:  const tenantId =
+app/api/finance/trial-balance/route.js:46:    access.tenantId;
+app/api/finance/trial-balance/route.js:67:      tenantId
+app/api/finance/trial-balance/route.js:204:    tenantId,
+app/api/finance/month-end/close-period/route.js:41:      access.tenantId;
+app/api/finance/reconciliation/route.js:43:      access.tenantId;
+app/api/finance/reconciliation/route.js:109:      access.tenantId;
+app/api/finance/insights/route.js:45:  const tenantId =
+app/api/finance/insights/route.js:46:    access.tenantId;
+app/api/finance/insights/route.js:68:      tenantId
+app/api/finance/insights/route.js:316:    tenantId,
+app/api/finance/periods/route.js:47:  const tenantId =
+app/api/finance/periods/route.js:48:    access.tenantId;
+app/api/finance/periods/route.js:61:      tenantId
+app/api/finance/periods/close/route.js:11:const tenantId = null;
+app/api/finance/periods/close/route.js:44:    const tenantId =
+app/api/finance/periods/close/route.js:45:      access.tenantId;
+app/api/finance/periods/close/route.js:87:        tenantId
+app/api/finance/periods/close/route.js:197:          tenantId,
+app/api/finance/periods/update-status/route.js:70:    const tenantId =
+app/api/finance/periods/update-status/route.js:71:      access.tenantId;
+app/api/finance/periods/update-status/route.js:93:        tenant_id: tenantId,
+app/api/finance/periods/open/route.js:11:const tenantId = null;
+app/api/finance/periods/open/route.js:44:    const tenantId =
+app/api/finance/periods/open/route.js:45:      access.tenantId;
+app/api/finance/periods/open/route.js:92:        tenantId
+app/api/finance/periods/open/route.js:135:          tenantId,
+app/api/finance/periods/open/route.js:183:          tenantId,
+app/api/finance/payments/route.js:7:    const { tenantId, tableNumber } = await req.json();
+app/api/finance/payments/route.js:12:      .eq("tenant_id", tenantId)
+app/api/finance/depreciation/run/route.js:68:    const tenantId =
+app/api/finance/depreciation/run/route.js:69:      access.tenantId;
+app/api/finance/depreciation/run/route.js:74:        tenantId,
+app/api/finance/year-end/close-fiscal-year/route.js:41:      access.tenantId;
+app/api/finance/fixed-assets/list/route.js:50:    const tenantId =
+app/api/finance/fixed-assets/list/route.js:51:      access.tenantId;
+app/api/finance/fixed-assets/list/route.js:81:        tenantId
+app/api/finance/executive-dashboard/alerts/route.js:12:        tenantId:
+app/api/finance/executive-dashboard/alerts/route.js:13:          body.tenantId,
+app/api/finance/executive-dashboard/entity-ranking/route.js:12:        tenantId:
+app/api/finance/executive-dashboard/entity-ranking/route.js:13:          body.tenantId,
+app/api/finance/executive-dashboard/kpi/route.js:12:        tenantId:
+app/api/finance/executive-dashboard/kpi/route.js:13:          body.tenantId,
+app/api/finance/module/route.js:6:  const tenantId = searchParams.get("tenantId");
+app/api/finance/module/route.js:11:  if (!tenantId) {
+app/api/finance/module/route.js:13:      { success: false, error: "Missing tenantId" },
+app/api/finance/module/route.js:19:    tenantId,
+app/api/finance/health/route.js:45:  const tenantId =
+app/api/finance/health/route.js:46:    access.tenantId;
+app/api/finance/health/route.js:95:      tenantId
+app/api/finance/health/route.js:237:      tenantId
+app/api/finance/health/route.js:292:    tenantId,
+app/api/finance/intercompany/reconcile/route.js:12:        tenantId:
+app/api/finance/intercompany/reconcile/route.js:13:          body.tenantId,
+app/api/finance/intercompany/runtime/route.js:50:    const tenantId =
+app/api/finance/intercompany/runtime/route.js:51:      access.tenantId;
+app/api/finance/intercompany/runtime/route.js:63:          tenantId
+app/api/finance/intercompany/runtime/route.js:93:          tenantId
+app/api/finance/intercompany/settle/route.js:50:    const tenantId =
+app/api/finance/intercompany/settle/route.js:51:      access.tenantId;
+app/api/finance/intercompany/settle/route.js:64:        tenantId
+app/api/finance/intercompany/eliminate/route.js:12:        tenantId:
+app/api/finance/intercompany/eliminate/route.js:13:          body.tenantId,
+app/api/finance/period-close/route.js:47:          access.tenantId,
+app/api/finance/period-close/route.js:92:          access.tenantId,
+app/api/finance/anomalies/route.js:45:  const tenantId =
+app/api/finance/anomalies/route.js:46:    access.tenantId;
+app/api/finance/anomalies/route.js:71:      tenantId
+app/api/finance/anomalies/route.js:212:    tenantId,
+app/api/finance/general-ledger/route.js:38:      tenantId:
+app/api/finance/general-ledger/route.js:39:        access.tenantId,
+app/api/finance/general-ledger/route.js:44:    tenantId:
+app/api/finance/general-ledger/route.js:45:      access.tenantId,
+app/api/finance/kpis/route.js:45:  const tenantId =
+app/api/finance/kpis/route.js:46:    access.tenantId;
+app/api/finance/kpis/route.js:66:      tenantId
+app/api/finance/kpis/route.js:256:    tenantId,
+app/api/finance/customer-payments/create/route.js:45:          access.tenantId,
+app/api/finance/real-time-close/exceptions/route.js:12:        tenantId:
+app/api/finance/real-time-close/exceptions/route.js:13:          body.tenantId,
+app/api/finance/real-time-close/run/route.js:12:        tenantId:
+app/api/finance/real-time-close/run/route.js:13:          body.tenantId,
+app/api/finance/real-time-close/approval/route.js:12:        tenantId:
+app/api/finance/real-time-close/approval/route.js:13:          body.tenantId,
+app/api/finance/journals/route.js:45:  const tenantId =
+app/api/finance/journals/route.js:46:    access.tenantId;
+app/api/finance/journals/route.js:70:      tenantId
+app/api/finance/journals/route.js:176:    tenantId,
+app/api/finance/journals/request-reversal/route.js:11:const tenantId = null;
+app/api/finance/journals/request-reversal/route.js:44:    const tenantId =
+app/api/finance/journals/request-reversal/route.js:45:      access.tenantId;
+app/api/finance/journals/request-reversal/route.js:90:        tenantId
+app/api/finance/journals/request-reversal/route.js:204:          tenantId,
+app/api/finance/journals/reverse/route.js:11:const tenantId = null;
+app/api/finance/journals/reverse/route.js:44:    const tenantId =
+app/api/finance/journals/reverse/route.js:45:      access.tenantId;
+app/api/finance/journals/reverse/route.js:85:        tenantId
+app/api/finance/journals/reverse/route.js:163:        tenantId
+app/api/finance/journals/reverse/route.js:254:          tenantId,
+app/api/finance/journals/reverse/route.js:312:          tenantId,
+app/api/finance/journals/reverse/route.js:393:          tenantId,
+app/api/finance/journals/[id]/route.js:11:const tenantId = null;
+app/api/finance/journals/[id]/route.js:50:  const tenantId =
+app/api/finance/journals/[id]/route.js:51:    access.tenantId;
+app/api/finance/journals/[id]/route.js:69:        tenantId
+app/api/finance/gl-posting/route.js:41:      access.tenantId;
+app/api/finance/customer-invoices/create/route.js:42:          access.tenantId,
+app/api/finance/cash-flow/route.js:45:  const tenantId =
+app/api/finance/cash-flow/route.js:46:    access.tenantId;
+app/api/finance/cash-flow/route.js:67:      tenantId
+app/api/finance/cash-flow/route.js:184:    tenantId,
+app/api/finance/cash-flow/run/route.js:12:        tenantId:
+app/api/finance/cash-flow/run/route.js:13:          body.tenantId,
+app/api/finance/accounts-payable/route.js:47:          access.tenantId,
+app/api/finance/audit-trail/anomaly-detection/route.js:12:        tenantId:
+app/api/finance/audit-trail/anomaly-detection/route.js:13:          body.tenantId,
+app/api/finance/audit-trail/entity-history/route.js:12:        tenantId:
+app/api/finance/audit-trail/entity-history/route.js:13:          body.tenantId,
+app/api/finance/audit-trail/log/route.js:12:        tenantId:
+app/api/finance/audit-trail/log/route.js:13:          body.tenantId,
+app/api/finance/budgeting/route.js:49:          access.tenantId,
+app/api/finance/budgeting/route.js:94:          access.tenantId,
+app/api/finance/budgeting/route.js:139:          access.tenantId,
+app/api/finance/budgeting/create/route.js:41:      access.tenantId
+app/api/finance/cost-centers/toggle/route.js:50:    const tenantId =
+app/api/finance/cost-centers/toggle/route.js:51:      access.tenantId;
+app/api/finance/cost-centers/toggle/route.js:64:        tenantId
+app/api/finance/cost-centers/list/route.js:50:    const tenantId =
+app/api/finance/cost-centers/list/route.js:51:      access.tenantId;
+app/api/finance/cost-centers/list/route.js:64:        tenantId
+app/api/finance/cost-centers/create/route.js:48:    const tenantId =
+app/api/finance/cost-centers/create/route.js:49:      access.tenantId;
+app/api/finance/cost-centers/create/route.js:55:          tenantId,
+app/api/finance/treasury/payment-priority/route.js:12:        tenantId:
+app/api/finance/treasury/payment-priority/route.js:13:          body.tenantId,
+app/api/finance/treasury/liquidity/route.js:12:        tenantId:
+app/api/finance/treasury/liquidity/route.js:13:          body.tenantId,
+app/api/finance/invoice-matching/create/route.js:48:    const tenantId =
+app/api/finance/invoice-matching/create/route.js:49:      access.tenantId;
+app/api/finance/invoice-matching/create/route.js:55:          tenantId,
+app/api/finance/cogs/route.js:7:    const { tenantId, batchId } = await req.json();
+app/api/finance/cogs/route.js:22:      .eq("tenant_id", tenantId)
+app/api/finance/cogs/route.js:39:        tenant_id: tenantId,
+app/api/finance/summary/route.js:40:    const tenantId =
+app/api/finance/summary/route.js:41:      access.tenantId;
+app/api/finance/summary/route.js:44:      tenantId,
+app/api/finance/legal-entities/toggle/route.js:50:    const tenantId =
+app/api/finance/legal-entities/toggle/route.js:51:      access.tenantId;
+app/api/finance/legal-entities/toggle/route.js:64:        tenantId
+app/api/finance/legal-entities/list/route.js:50:    const tenantId =
+app/api/finance/legal-entities/list/route.js:51:      access.tenantId;
+app/api/finance/legal-entities/list/route.js:64:        tenantId
+app/api/finance/legal-entities/create/route.js:48:    const tenantId =
+app/api/finance/legal-entities/create/route.js:49:      access.tenantId;
+app/api/finance/legal-entities/create/route.js:55:          tenantId,
+app/api/staff/route.js:156:    tenantId,
+app/api/staff/route.js:179:        .eq("tenant_id", tenantId)
+app/api/staff/route.js:259:      tenant_id: tenantId,
+app/api/staff/route.js:301:      .eq("tenant_id", tenantId)
+app/api/staff/ai-memory/route.js:20:          body.tenantId,
+app/api/staff/runtime/route.js:42:    const tenantId = searchParams.get("tenant_id");
+app/api/staff/runtime/route.js:62:    if (tenantId) {
+app/api/staff/runtime/route.js:63:      staffQuery = staffQuery.eq("tenant_id", tenantId);
+app/api/staff/runtime/route.js:79:      staffAccount?.tenant_id || tenantId;
+app/api/staff/runtime/route.js:138:        tenantId: resolvedTenantId,
+app/api/orders/update/route.js:59:    const tenantId =
+app/api/orders/update/route.js:60:      access.tenantId;
+app/api/orders/update/route.js:86:        tenantId
+app/api/payroll/attendance/check-in/route.js:12:        tenantId:
+app/api/payroll/attendance/check-in/route.js:13:          body.tenantId,
+app/api/payroll/service-charge/distribute/route.js:12:        tenantId:
+app/api/payroll/service-charge/distribute/route.js:13:          body.tenantId,
+app/api/payroll/shift-performance/calculate/route.js:12:        tenantId:
+app/api/payroll/shift-performance/calculate/route.js:13:          body.tenantId,
+app/api/payroll/labor-cost/allocation/route.js:12:        tenantId:
+app/api/payroll/labor-cost/allocation/route.js:13:          body.tenantId,
+app/api/payroll/generate/route.js:25:        tenantId:
+app/api/payroll/generate/route.js:26:          body.tenantId,
+app/api/payroll/export/route.js:19:        tenantId:
+app/api/payroll/export/route.js:20:          body.tenantId,
+app/api/performance/list/route.js:50:      access.tenantId;
+app/api/performance/list/today/route.js:52:      access.tenantId;
+app/api/performance/list/today/route.js:162:      tenantId: tenant_id,
+app/api/approvals/process/route.js:19:      tenantId: body.tenantId,  // tenantId is optional; can be derived from workflowRequest
+app/api/kitchen/orders/route.js:9:      tenantId: body.tenantId,
+app/api/forecasting/overview/route.js:21:    const tenantId =
+app/api/forecasting/overview/route.js:23:        'tenantId'
+app/api/forecasting/overview/route.js:26:    if (!tenantId) {
+app/api/forecasting/overview/route.js:32:            'tenantId required',
+app/api/forecasting/overview/route.js:53:        tenantId
+app/api/assets/upload-file/route.js:21:    const tenantId = formData.get("tenantId");
+app/api/assets/upload-file/route.js:30:    if (!organizationId || !tenantId) {
+app/api/assets/upload-file/route.js:32:        { success: false, error: "Missing organizationId or tenantId" },
+app/api/assets/upload-file/route.js:63:        tenant_id: tenantId,
+app/api/timeline/route.js:8:    const tenantId =
+app/api/timeline/route.js:9:      searchParams.get("tenantId");
+app/api/timeline/route.js:19:    if (!tenantId) {
+app/api/timeline/route.js:23:          error: "tenantId required",
+app/api/timeline/route.js:33:        .eq("tenant_id", tenantId);
+app/api/control/scan/route.js:58:    const tenantId =
+app/api/control/scan/route.js:59:      access.tenantId;
+app/api/control/scan/route.js:75:        tenantId
+app/api/work-centers/orders/route.js:11:      tenantId: body.tenantId,
+app/api/reviews/sync-facebook/route.js:8:    const { tenantId } = await req.json();
+app/api/reviews/sync-facebook/route.js:10:    if (!tenantId) {
+app/api/reviews/sync-facebook/route.js:11:      return NextResponse.json({ success: false, error: "Missing tenantId" }, { status: 400 });
+app/api/reviews/sync-facebook/route.js:17:      .eq("tenant_id", tenantId)
+app/api/reviews/sync-facebook/route.js:51:      tenant_id: tenantId,
+app/api/reviews/list/route.js:9:    const tenantId = body.tenantId;
+app/api/reviews/list/route.js:13:    if (!tenantId) {
+app/api/reviews/list/route.js:14:      return NextResponse.json({ success: false, error: "Missing tenantId" }, { status: 400 });
+app/api/reviews/list/route.js:20:      .eq("tenant_id", tenantId)
+app/api/reviews/sync-platforms/route.js:7:    const { tenantId } = await req.json();
+app/api/reviews/sync-platforms/route.js:9:    if (!tenantId) {
+app/api/reviews/sync-platforms/route.js:13:          error: "Missing tenantId",
+app/api/reviews/sync-platforms/route.js:45:                tenantId,
+app/api/reviews/sync-platforms/route.js:89:      tenantId,
+app/api/reviews/sync/route.js:8:    const tenantId = body.tenantId;
+app/api/reviews/sync/route.js:10:    if (!tenantId) {
+app/api/reviews/sync/route.js:11:      return NextResponse.json({ success: false, error: "Missing tenantId" }, { status: 400 });
+app/api/reviews/sync/route.js:26:          body: JSON.stringify({ tenantId }),
+app/api/reviews/sync-google/route.js:8:    const { tenantId } = await req.json();
+app/api/reviews/sync-google/route.js:10:    if (!tenantId) {
+app/api/reviews/sync-google/route.js:11:      return NextResponse.json({ success: false, error: "Missing tenantId" }, { status: 400 });
+app/api/reviews/sync-google/route.js:23:      .eq("tenant_id", tenantId)
+app/api/reviews/sync-google/route.js:46:      tenant_id: tenantId,
+app/(workforce)/workforce/page.jsx:65:        tenantId: staff.tenant_id,
+app/(workforce)/workforce/page.jsx:88:        tenantId: staff.tenant_id,
+app/(workforce)/workforce/upload/page.jsx:10:    tenantId,
+app/(workforce)/workforce/upload/page.jsx:49:        "tenantId",
+app/(workforce)/workforce/upload/page.jsx:50:        tenantId
+app/(workforce)/workforce/upload/page.jsx:89:              tenantId:
+app/(workforce)/workforce/upload/page.jsx:90:                tenantId,

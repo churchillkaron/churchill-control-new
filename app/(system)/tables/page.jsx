@@ -31,7 +31,7 @@ export default function TablesPage() {
   const tenant =
     useTenant();
 
-  const tenantId =
+  const organizationId =
     tenant?.id;
 
   const router =
@@ -49,7 +49,7 @@ export default function TablesPage() {
 
   async function loadTables() {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return;
     }
 
@@ -67,8 +67,8 @@ export default function TablesPage() {
       .select("*")
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organizationId
       )
 
       .order(
@@ -97,8 +97,8 @@ export default function TablesPage() {
       .select("*")
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organizationId
       )
 
       .in(
@@ -136,8 +136,8 @@ export default function TablesPage() {
       `)
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organizationId
       )
 
       .in(
@@ -199,8 +199,8 @@ export default function TablesPage() {
 
                     body: JSON.stringify({
 
-                      tenantId:
-                        tenantId,
+                      organizationId:
+                        organizationId,
 
                       tableNumber:
                         table.table_name,

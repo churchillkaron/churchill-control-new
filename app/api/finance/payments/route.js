@@ -4,12 +4,12 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 export async function POST(req) {
   try {
 
-    const { tenantId, tableNumber } = await req.json();
+    const { organizationId, tableNumber } = await req.json();
 
     const { data, error } = await supabaseAdmin
       .from('payment_transactions')
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .eq("table_number", tableNumber)
       .order("created_at", { ascending: false });
 

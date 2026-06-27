@@ -8,7 +8,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import runInventoryMonitoring from "@/lib/inventory/monitoring/runInventoryMonitoring";
+import runInventoryMonitoring from "@/lib/inventory/runtime/runInventoryMonitoring";
 
 export async function POST(req) {
 

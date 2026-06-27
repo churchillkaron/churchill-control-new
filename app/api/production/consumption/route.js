@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import processInventoryConsumption from "@/lib/production/consumption/processInventoryConsumption";
+import processInventoryConsumption from "@/lib/production/consumption/workflows/processInventoryConsumption";
 
 export async function POST(req) {
 

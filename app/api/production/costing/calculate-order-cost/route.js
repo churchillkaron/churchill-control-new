@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { calculateOrderCost } from '@/lib/production/costing/calculateOrderCost'
+import { calculateOrderCost } from '@/lib/production/costing/capabilities/calculateOrderCost'
 
 export async function POST(req) {
 

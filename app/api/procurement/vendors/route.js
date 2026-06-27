@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import createVendor from "@/lib/procurement/vendors/createVendor";
+import createVendor from "@/lib/procurement/suppliers/documents/createVendor";
 
 export async function POST(req) {
 

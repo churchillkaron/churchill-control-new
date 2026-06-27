@@ -6,17 +6,17 @@ import {
 } from "@/lib/restaurant/settings/KitchenSettingsRepository";
 import {
   getTicketPriority,
-} from "@/lib/restaurant/kitchen/utils/getTicketPriority";
+} from "@/lib/restaurant/kitchen/capabilities/getTicketPriority";
 
 import {
   getKitchenTimer,
-} from "@/lib/restaurant/kitchen/utils/getKitchenTimer";
+} from "@/lib/restaurant/kitchen/capabilities/getKitchenTimer";
 
 import {
   canStart,
   canReady,
   canComplete,
-} from "@/lib/restaurant/kitchen/domain/KitchenStatus";
+} from "@/lib/restaurant/kitchen/objects/KitchenStatus";
 
 export default function KitchenPage() {
 

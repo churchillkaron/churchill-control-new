@@ -4,7 +4,6 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
 
   const organizationId = searchParams.get("organizationId");
-  const organizationId = searchParams.get("organizationId");
   const periodStart = searchParams.get("periodStart");
   const periodEnd = searchParams.get("periodEnd");
 
@@ -16,7 +15,6 @@ export async function GET(req) {
   }
 
   const data = await financeModule({
-    organizationId,
     organizationId,
     periodStart,
     periodEnd

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   execute,
-} from "@/lib/restaurant/kitchen/Complete/execute";
+} from "@/lib/restaurant/kitchen/workflows/CompleteKitchenTicket";
 
 export async function POST(req) {
   try {

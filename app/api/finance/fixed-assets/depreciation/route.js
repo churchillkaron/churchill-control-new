@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
-import { calculateDepreciation } from '@/lib/finance/fixed-assets/calculateDepreciation'
+import { calculateDepreciation } from '@/lib/finance/fixed-assets/capabilities/calculateDepreciation'
 
 export async function GET() {
 

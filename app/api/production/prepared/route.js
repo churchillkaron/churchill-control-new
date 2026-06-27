@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import consumePreparedInventory from "@/lib/production/prepared/consumePreparedInventory";
+import consumePreparedInventory from "@/lib/production/prepared/capabilities/consumePreparedInventory";
 
 export async function POST(req) {
 

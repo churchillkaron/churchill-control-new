@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runCashFlowEngine } from "@/lib/finance/reporting/runCashFlowEngine";
+import { runCashFlowEngine } from "@/lib/finance/reporting/workflows/runCashFlowEngine";
 
 export async function POST(request) {
   try {

@@ -1,6 +1,7 @@
 create table if not exists vendors (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   vendor_name text not null,
   tax_number text,
   email text,
@@ -11,7 +12,8 @@ create table if not exists vendors (
 
 create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   customer_name text not null,
   tax_number text,
   email text,
@@ -22,7 +24,8 @@ create table if not exists customers (
 
 create table if not exists ap_invoices (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   vendor_id uuid references vendors(id),
   invoice_number text not null,
   invoice_date date not null,
@@ -34,7 +37,8 @@ create table if not exists ap_invoices (
 
 create table if not exists ar_invoices (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   customer_id uuid references customers(id),
   invoice_number text not null,
   invoice_date date not null,

@@ -6,7 +6,7 @@ import {
 
 import importBankStatement from "@/lib/finance/integrations/importBankStatement";
 
-import runBankReconciliation from "@/lib/finance/reconciliation/runBankReconciliation";
+import runBankReconciliation from "@/lib/finance/reconciliation/workflows/runBankReconciliation";
 
 export async function POST(req) {
 

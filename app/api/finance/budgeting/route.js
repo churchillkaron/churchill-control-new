@@ -4,11 +4,11 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import createBudget from "@/lib/finance/budgeting/createBudget";
+import createBudget from "@/lib/finance/budgeting/documents/createBudget";
 
-import generateFinancialForecast from "@/lib/finance/forecasting/generateFinancialForecast";
+import generateFinancialForecast from "@/lib/finance/budgeting/workflows/generateFinancialForecast";
 
-import runVarianceAnalysis from "@/lib/finance/variance-analysis/runVarianceAnalysis";
+import runVarianceAnalysis from "@/lib/finance/reporting/capabilities/runVarianceAnalysis";
 
 async function resolveTenant(body) {
   const access =

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
-import { calculateBudgetVariance } from '@/lib/finance/budgeting/calculateBudgetVariance'
+import { calculateBudgetVariance } from '@/lib/finance/budgeting/capabilities/calculateBudgetVariance'
 
 export async function GET() {
 

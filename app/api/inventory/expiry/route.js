@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import calculateExpiryDate from "@/lib/inventory/expiry/calculateExpiryDate";
+import calculateExpiryDate from "@/lib/inventory/prepared/capabilities/calculateExpiryDate";
 
 export async function POST(req) {
 

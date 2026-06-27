@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { createKitchenTransfer } from '@/lib/production/centralKitchen/createKitchenTransfer'
+import { createKitchenTransfer } from '@/lib/production/centralKitchen/documents/createKitchenTransfer'
 
 export async function POST(req) {
 

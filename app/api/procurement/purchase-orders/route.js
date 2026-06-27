@@ -10,9 +10,9 @@ import {
 
 import createPurchaseOrder from "@/lib/procurement/purchase-orders/createPurchaseOrder";
 
-import approvePurchaseOrder from "@/lib/procurement/approval/approvePurchaseOrder";
+import approvePurchaseOrder from "@/lib/procurement/purchase-orders/workflows/approvePurchaseOrder";
 
-import generateAutomaticPurchaseOrder from "@/lib/procurement/automation/generateAutomaticPurchaseOrder";
+import generateAutomaticPurchaseOrder from "@/lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder";
 
 export async function POST(req) {
 

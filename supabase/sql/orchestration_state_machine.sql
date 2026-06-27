@@ -1,6 +1,6 @@
 create table if not exists orchestration_state_transitions (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
   entity_type text not null,
   entity_id text not null,
   previous_state text,

@@ -1,6 +1,7 @@
 create table if not exists purchase_requests (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   requested_by text,
   department text,
   request_status text default 'pending',
@@ -10,7 +11,8 @@ create table if not exists purchase_requests (
 
 create table if not exists purchase_orders (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   purchase_request_id uuid,
   vendor_id text,
   po_status text default 'open',
@@ -20,7 +22,8 @@ create table if not exists purchase_orders (
 
 create table if not exists goods_receipts (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   purchase_order_id uuid,
   receipt_status text default 'received',
   receipt_total numeric(14,2) default 0,
@@ -29,7 +32,8 @@ create table if not exists goods_receipts (
 
 create table if not exists procurement_three_way_match (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   purchase_order_id uuid,
   goods_receipt_id uuid,
   invoice_reference text,

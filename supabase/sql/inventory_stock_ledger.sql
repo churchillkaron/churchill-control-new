@@ -1,6 +1,7 @@
 create table if not exists inventory_movements (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   item_id uuid not null,
   movement_type text not null,
   quantity numeric(14,4) not null default 0,
@@ -14,7 +15,8 @@ create table if not exists inventory_movements (
 
 create table if not exists inventory_stock_ledger (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   item_id uuid not null,
   quantity_on_hand numeric(14,4) default 0,
   inventory_value numeric(14,2) default 0,
@@ -24,7 +26,8 @@ create table if not exists inventory_stock_ledger (
 
 create table if not exists inventory_reconciliation_variances (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   item_id uuid not null,
   theoretical_quantity numeric(14,4) default 0,
   actual_quantity numeric(14,4) default 0,

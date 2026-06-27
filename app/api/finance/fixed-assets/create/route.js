@@ -6,7 +6,7 @@ import {
   requireAuth,
 } from "@/lib/shared/auth";
 
-import createFixedAsset from "@/lib/finance/fixed-assets/createFixedAsset";
+import createFixedAsset from "@/lib/finance/fixed-assets/documents/createFixedAsset";
 
 export async function POST(req) {
 

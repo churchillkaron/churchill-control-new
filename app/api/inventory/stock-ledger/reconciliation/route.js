@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runInventoryReconciliation } from "@/lib/inventory/reconciliation/runInventoryReconciliation";
+import { runInventoryReconciliation } from "@/lib/inventory/stock-count/workflows/runInventoryReconciliation";
 
 export async function POST(request) {
   try {

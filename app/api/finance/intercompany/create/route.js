@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import createIntercompanyTransaction from "@/lib/finance/intercompany/createIntercompanyTransaction";
+import createIntercompanyTransaction from "@/lib/finance/intercompany/documents/createIntercompanyTransaction";
 
 export async function POST(request) {
   try {

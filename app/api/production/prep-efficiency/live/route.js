@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
-import { calculatePrepEfficiency } from '@/lib/production/efficiency/calculatePrepEfficiency'
+import { calculatePrepEfficiency } from '@/lib/production/prep/capabilities/calculatePrepEfficiency'
 
 export async function GET() {
 

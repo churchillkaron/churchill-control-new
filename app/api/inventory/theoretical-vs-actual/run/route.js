@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runTheoreticalVsActual } from "@/lib/inventory/reconciliation/runTheoreticalVsActual";
+import { runTheoreticalVsActual } from "@/lib/inventory/stock-count/workflows/runTheoreticalVsActual";
 
 export async function POST(request) {
   try {

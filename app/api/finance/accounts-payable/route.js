@@ -4,9 +4,9 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import createVendorInvoice from "@/lib/finance/vendor-invoices/createVendorInvoice";
-import runThreeWayMatch from "@/lib/finance/invoice-matching/runThreeWayMatch";
-import createAccountsPayableEntry from "@/lib/finance/accounts-payable/createAccountsPayableEntry";
+import { createVendorInvoice } from "@/lib/finance/accounts-payable/documents/createVendorInvoice";
+import runThreeWayMatch from "@/lib/finance/accounts-payable/workflows/runThreeWayMatch";
+import createAccountsPayableEntry from "@/lib/finance/accounts-payable/capabilities/createAccountsPayableEntry";
 
 export async function POST(req) {
 

@@ -4,7 +4,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import postVendorPaymentGL from "@/lib/finance/gl-posting/postVendorPaymentGL";
+import postVendorPaymentGL from "@/lib/finance/general-ledger/capabilities/postVendorPaymentGL";
 
 export async function POST(req) {
 

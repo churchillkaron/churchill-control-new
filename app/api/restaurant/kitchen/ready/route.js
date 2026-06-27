@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   execute,
-} from "@/lib/restaurant/kitchen/MarkReady/execute";
+} from "@/lib/restaurant/kitchen/workflows/MarkReady";
 
 export async function POST(req) {
   try {

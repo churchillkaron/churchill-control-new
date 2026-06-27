@@ -4,7 +4,7 @@ import {
 
 import { NextResponse } from "next/server";
 
-import processVendorPayment from "@/lib/finance/payments/processVendorPayment";
+import processVendorPayment from "@/lib/finance/payments/capabilities/processVendorPayment";
 
 export async function POST(req) {
 

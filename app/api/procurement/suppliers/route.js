@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-import createSupplierPrice from "@/lib/procurement/suppliers/createSupplierPrice";
+import createSupplierPrice from "@/lib/procurement/suppliers/capabilities/createSupplierPrice";
 
-import getBestSupplierPrice from "@/lib/procurement/pricing/getBestSupplierPrice";
+import getBestSupplierPrice from "@/lib/procurement/pricing/capabilities/getBestSupplierPrice";
 
 export async function POST(req) {
 

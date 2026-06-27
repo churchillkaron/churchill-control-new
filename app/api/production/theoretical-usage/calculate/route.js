@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { calculateTheoreticalUsage } from '@/lib/production/theoretical/calculateTheoreticalUsage'
+import { calculateTheoreticalUsage } from '@/lib/production/yield/capabilities/calculateTheoreticalUsage'
 
 export async function POST(req) {
 

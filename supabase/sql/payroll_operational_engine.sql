@@ -1,6 +1,7 @@
 create table if not exists attendance_logs (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   staff_id uuid not null,
   shift_name text,
   check_in timestamptz,
@@ -12,7 +13,8 @@ create table if not exists attendance_logs (
 
 create table if not exists service_charge_distributions (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   distribution_period text not null,
   total_service_charge numeric(14,2) default 0,
   foh_amount numeric(14,2) default 0,
@@ -23,7 +25,8 @@ create table if not exists service_charge_distributions (
 
 create table if not exists labor_cost_allocations (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   shift_name text,
   department text,
   labor_cost numeric(14,2) default 0,
@@ -34,7 +37,8 @@ create table if not exists labor_cost_allocations (
 
 create table if not exists shift_performance_scores (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   shift_name text,
   department text,
   performance_score numeric(14,2) default 0,

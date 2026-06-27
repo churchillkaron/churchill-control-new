@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
-import { checkFinancePermission } from '@/lib/finance/permissions/checkFinancePermission'
+import { checkFinancePermission } from '@/lib/shared/auth/checkFinancePermission'
 
 export async function POST(req) {
 

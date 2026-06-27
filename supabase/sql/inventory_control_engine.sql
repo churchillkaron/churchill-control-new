@@ -1,6 +1,7 @@
 create table if not exists stock_count_sessions (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   count_name text not null,
   count_status text default 'open',
   counted_by text,
@@ -10,7 +11,8 @@ create table if not exists stock_count_sessions (
 
 create table if not exists stock_count_items (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   session_id uuid not null,
   item_id uuid not null,
   theoretical_quantity numeric(14,4) default 0,
@@ -22,7 +24,8 @@ create table if not exists stock_count_items (
 
 create table if not exists inventory_variance_analysis (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  organization_id uuid not null,
+  entity_id uuid not null,
   item_id uuid not null,
   variance_type text,
   variance_quantity numeric(14,4) default 0,

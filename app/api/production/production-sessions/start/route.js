@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { startProductionSession } from '@/lib/production/sessions/startProductionSession'
+import { startProductionSession } from '@/lib/production/runtime/startProductionSession'
 
 export async function POST(req) {
 

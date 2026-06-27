@@ -4,7 +4,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import runYearEndClose from '@/lib/finance/year-end/runYearEndClose'
+import runYearEndClose from '@/lib/finance/period-close/workflows/runYearEndClose'
 
 export async function POST(req) {
 

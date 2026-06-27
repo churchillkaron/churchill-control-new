@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { calculateVariance } from '@/lib/production/variance/calculateVariance'
+import { calculateVariance } from '@/lib/production/yield/capabilities/calculateVariance'
 
 export async function POST(req) {
 

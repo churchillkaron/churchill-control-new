@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runShiftProfitability } from "@/lib/production/core/runShiftProfitability";
+import { runShiftProfitability } from "@/lib/production/costing/capabilities/runShiftProfitability";
 
 export async function POST(request) {
   try {

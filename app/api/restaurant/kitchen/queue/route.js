@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   execute,
-} from "@/lib/restaurant/kitchen/queries/GetKitchenQueue";
+} from "@/lib/restaurant/kitchen/repositories/GetKitchenQueue";
 
 export async function POST(req) {
 

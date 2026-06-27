@@ -6,7 +6,7 @@ import {
 
 import closeFinancialPeriod from "@/lib/finance/period-close/closeFinancialPeriod";
 
-import runYearEndClose from "@/lib/finance/year-end/runYearEndClose";
+import runYearEndClose from "@/lib/finance/period-close/workflows/runYearEndClose";
 
 async function resolveTenant(body) {
   const access =

@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 import createCustomerInvoice
-from "@/lib/finance/accounts-receivable/createCustomerInvoice";
+from "@/lib/finance/accounts-receivable/documents/createCustomerInvoice";
 
 export async function POST(req) {
 

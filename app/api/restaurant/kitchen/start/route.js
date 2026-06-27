@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   execute,
-} from "@/lib/restaurant/kitchen/StartPreparation/execute";
+} from "@/lib/restaurant/kitchen/workflows/StartPreparation";
 
 export async function POST(req) {
   try {

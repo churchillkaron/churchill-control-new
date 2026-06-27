@@ -4,7 +4,7 @@ import { NextResponse }
 from "next/server";
 
 import { postDepreciationToLedger }
-from "@/lib/finance/accounting/postDepreciationToLedger";
+from "@/lib/finance/general-ledger/capabilities/postDepreciationToLedger";
 
 import {
   requireOrganizationAccess,

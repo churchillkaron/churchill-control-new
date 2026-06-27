@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 import createLegalEntity from "@/lib/finance/legal-entities/createLegalEntity";
-import createIntercompanyTransaction from "@/lib/finance/intercompany/createIntercompanyTransaction";
-import generateConsolidatedFinancials from "@/lib/finance/consolidation/generateConsolidatedFinancials";
+import createIntercompanyTransaction from "@/lib/finance/intercompany/documents/createIntercompanyTransaction";
+import generateConsolidatedFinancials from "@/lib/finance/intercompany/reports/generateConsolidatedFinancials";
 
 export async function POST(req) {
   try {

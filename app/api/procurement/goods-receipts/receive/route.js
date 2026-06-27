@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { receiveGoods } from "@/lib/procurement/receiving/receiveGoods";
+import receivePurchaseOrder from "@/lib/procurement/receiving/receivePurchaseOrder";
 
 export async function POST(request) {
   try {
@@ -8,7 +8,7 @@ export async function POST(request) {
       await request.json();
 
     const receipt =
-      await receiveGoods({
+      await receivePurchaseOrder({
         tenantId:
           body.tenantId,
         purchaseOrderId:

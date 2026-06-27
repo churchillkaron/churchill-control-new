@@ -1,4 +1,4 @@
-import { financeGateway } from "@/lib/finance/gateway/financeGateway";
+import { financeGateway } from "@/lib/finance/runtime/financeGateway";
 
 export default async function handler(req, res) {
   try {

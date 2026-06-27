@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { logWaste } from '@/lib/production/waste/logWaste'
+import { logWaste } from '@/lib/production/waste/workflows/logWaste'
 
 export async function POST(req) {
 

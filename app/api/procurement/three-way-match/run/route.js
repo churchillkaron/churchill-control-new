@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runThreeWayMatch } from "@/lib/procurement/invoice-matching/runThreeWayMatch";
+import runThreeWayMatch from "@/lib/finance/accounts-payable/workflows/runThreeWayMatch";
 
 export async function POST(request) {
   try {

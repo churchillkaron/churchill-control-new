@@ -4,7 +4,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import { closeMonthEndPeriod } from '@/lib/finance/monthEnd/closeMonthEndPeriod'
+import { closeMonthEndPeriod } from '@/lib/finance/period-close/workflows/closeMonthEndPeriod'
 
 export async function POST(req) {
 

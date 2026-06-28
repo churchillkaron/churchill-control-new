@@ -201,7 +201,7 @@ export default function ProductionPage() {
           </div>
 
           <Link
-            href="/production/live"
+            href="/operations/production/live"
             className="rounded-2xl border border-orange-500/20 bg-orange-500/10 px-5 py-4 text-sm font-medium text-orange-300 hover:bg-orange-500/20"
           >
 
@@ -273,7 +273,7 @@ export default function ProductionPage() {
           </div>
 
           <Link
-            href="/production/ai"
+            href="/operations/production/ai"
             className="rounded-2xl border border-orange-500/20 bg-black/30 px-5 py-3 text-sm text-orange-300"
           >
 

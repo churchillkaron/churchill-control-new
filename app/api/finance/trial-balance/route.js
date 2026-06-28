@@ -1,216 +1,62 @@
-import { NextResponse }
-from "next/server";
-
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
+import { NextResponse } from "next/server";
 
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
+import generateTrialBalance from "@/lib/finance/reporting/reports/generateTrialBalance";
+
 export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
 
-  const {
-    searchParams,
-  } = new URL(
-    request.url
-  );
+    const requestedOrganizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
 
-  const access =
-    await requireOrganizationAccess({
+    const entityId =
+      searchParams.get("entityId") ||
+      searchParams.get("entity_id");
 
-      organizationId:
-        searchParams.get(
-          "organizationId"
-        ),
+    if (!entityId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "entityId required",
+        },
+        { status: 400 }
+      );
+    }
 
+    const access = await requireOrganizationAccess({
+      organizationId: requestedOrganizationId,
     });
 
-  if (!access.success) {
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        { status: access.status }
+      );
+    }
 
+    const result = await generateTrialBalance({
+      organization_id: access.organizationId,
+      entity_id: entityId,
+      startDate: searchParams.get("startDate"),
+      endDate: searchParams.get("endDate"),
+    });
+
+    return NextResponse.json(result);
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          access.error,
+        error: error.message,
       },
-      {
-        status:
-          access.status,
-      }
+      { status: 500 }
     );
-
   }
-
-  const organizationId =
-    access.organizationId;
-
-  const {
-    data: ledger,
-    error,
-  } = await supabaseAdmin
-
-    .from("general_ledger")
-
-    .select(`
-      *,
-      chart_of_accounts!fk_general_ledger_account (
-        id,
-        code,
-        name,
-        category
-      )
-    `)
-
-    .eq(
-      "organization_id",
-      organizationId
-    )
-
-    .order(
-      "created_at",
-      { ascending: true }
-    )
-
-    .limit(10000);
-
-  if (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-
-      status: 500,
-
-    });
-
-  }
-
-  const accounts = {};
-
-  for (const line of ledger || []) {
-
-    const account =
-      Array.isArray(
-        line.chart_of_accounts
-      )
-        ? line.chart_of_accounts[0]
-        : line.chart_of_accounts;
-
-    const accountId =
-      account?.id;
-
-    if (!accountId) {
-      continue;
-    }
-
-    if (!accounts[accountId]) {
-
-      accounts[accountId] = {
-
-        account_id:
-          account.id,
-
-        code:
-          account.code,
-
-        name:
-          account.name,
-
-        category:
-          account.category,
-
-        total_debits: 0,
-
-        total_credits: 0,
-
-        balance: 0,
-
-      };
-
-    }
-
-    const debit =
-      Number(line.debit || 0);
-
-    const credit =
-      Number(line.credit || 0);
-
-    accounts[accountId]
-      .total_debits += debit;
-
-    accounts[accountId]
-      .total_credits += credit;
-
-    accounts[accountId]
-      .balance += (
-        debit - credit
-      );
-
-  }
-
-  const rows =
-    Object.values(accounts)
-
-      .sort((a, b) =>
-        String(a.code)
-          .localeCompare(
-            String(b.code)
-          )
-      );
-
-  const totalDebits =
-
-    rows.reduce(
-
-      (sum, row) =>
-
-        sum +
-        row.total_debits,
-
-      0
-
-    );
-
-  const totalCredits =
-
-    rows.reduce(
-
-      (sum, row) =>
-
-        sum +
-        row.total_credits,
-
-      0
-
-    );
-
-  const balanced =
-
-    Math.abs(
-      totalDebits -
-      totalCredits
-    ) < 0.01;
-
-  return NextResponse.json({
-
-    success: true,
-
-    organizationId,
-
-    rows,
-
-    totalDebits,
-
-    totalCredits,
-
-    balanced,
-
-  });
-
 }

@@ -1,16 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function TrialBalancePage({ params }) {
   const { organizationId } = params;
+
+  const searchParams = useSearchParams();
+
+  const entityId =
+    searchParams.get("entityId") ||
+    searchParams.get("entity_id") ||
+    organizationId;
 
   const [data, setData] = useState(null);
 
   useEffect(() => {
     async function load() {
       const res = await fetch(
-        `/api/finance/trial-balance?organizationId=${organizationId}`
+        `/api/finance/trial-balance?organizationId=${organizationId}&entityId=${entityId}`
       );
 
       const json = await res.json();
@@ -19,7 +27,7 @@ export default function TrialBalancePage({ params }) {
     }
 
     load();
-  }, [organizationId]);
+  }, [organizationId, entityId]);
 
   return (
     <div className="min-h-screen bg-[#030712] text-white p-8"><h1 className="text-4xl font-light mb-6">

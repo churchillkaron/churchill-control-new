@@ -316,7 +316,7 @@ export default function PaymentsPage() {
         ) <= 0 ||
         mode === "FULL"
       ) {
-        router.push("/tables");
+        router.push("/operations/tables");
 
         router.refresh();
         return;

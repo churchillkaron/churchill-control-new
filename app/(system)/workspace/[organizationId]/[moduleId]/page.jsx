@@ -1,97 +1,70 @@
-'use client';
+"use client";
 
-import { useOrganizationRuntime } from '@/lib/hooks/useOrganizationRuntime';
-import { getWorkspaceComponent } from '@/lib/workspace/runtime/getWorkspaceComponent';
+import { useParams } from "next/navigation";
+import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
+import WorkspaceModuleGrid from "@/components/workspace/WorkspaceModuleGrid";
+import {
+  getWorkspaceMeta,
+  getWorkspaceGroups,
+} from "@/lib/platform/registry/erpRegistry";
 
-const ROUTE_MODULES = {
-  finance: true,
-  accounting: true,
-  procurement: true,
-  ap: true,
-  ar: true,
-  payments: true,
-  reports: true,
-  tax: true,
-  filings: true,
-  close: true,
-};
+function titleFromId(value) {
+  return String(value || "Workspace")
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
-export default function OrganizationModulePage({ params }) {
-  const { runtime, loading, modules } = useOrganizationRuntime();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white p-10">
-        Loading module...
-      </div>
-    );
-  }
-
-  const moduleId =
-    String(params?.moduleId || "").toLowerCase();
+export default function OrganizationModulePage() {
+  const params = useParams();
 
   const organizationId =
     params?.organizationId;
 
-  if (ROUTE_MODULES[moduleId]) {
-    if (typeof window !== "undefined") {
-      const route =
-        moduleId === "procurement"
-          ? `/workspace/${organizationId}/finance/procure-to-pay`
-          : moduleId === "accounting"
-            ? `/workspace/${organizationId}/finance/accounting`
-            : moduleId === "finance"
-              ? `/workspace/${organizationId}/finance`
-              : `/workspace/${organizationId}/finance/${moduleId}`;
+  const moduleId =
+    String(params?.moduleId || "").toLowerCase();
 
-      window.location.replace(route);
-    }
+  const workspace =
+    getWorkspaceMeta(moduleId);
 
-    return (
-      <div className="min-h-screen bg-black text-white p-10">
-        Opening module...
-      </div>
-    );
-  }
+  const groups =
+    getWorkspaceGroups(moduleId);
 
-  const availableModules =
-    modules ||
-    runtime?.modules ||
-    [];
+  const title =
+    workspace?.title || titleFromId(moduleId);
 
-  const module = availableModules.find(
-    (m) =>
-      String(m.id || m.module_id || "").toLowerCase() ===
-      moduleId
-  );
-
-  if (!module) {
-    return (
-      <div className="min-h-screen bg-black text-white p-10">
-        Module not found
-      </div>
-    );
-  }
-
-  const ModuleComponent =
-    getWorkspaceComponent(module.id || module.module_id);
-
-  if (!ModuleComponent) {
-    return (
-      <div className="min-h-screen bg-[#030712] text-white p-10">
-        <h1 className="text-3xl font-light">
-          {module.name || moduleId}
-        </h1>
-        <p className="text-white/40 mt-4">
-          Runtime not implemented yet
-        </p>
-      </div>
-    );
-  }
+  const description =
+    workspace?.description ||
+    "This workspace is ready for registry-driven capabilities.";
 
   return (
-    <div className="min-h-screen bg-[#030712] text-white">
-      <ModuleComponent />
-    </div>
+    <>
+      <WorkspaceHeader
+        workspace={title}
+        title={title}
+        description={description}
+      />
+
+      {groups.length > 0 ? (
+        <WorkspaceModuleGrid
+          workspace={moduleId}
+          organizationId={organizationId}
+        />
+      ) : (
+        <section className="rounded-[32px] border border-white/10 bg-white/[0.035] p-8">
+          <div className="text-xs uppercase tracking-[0.32em] text-[#D6A66A]/70">
+            Workspace
+          </div>
+
+          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.035em] text-white">
+            {title}
+          </h2>
+
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">
+            No capabilities are configured for this workspace yet.
+            Add them to ERP_REGISTRY and they will appear here automatically.
+          </p>
+        </section>
+      )}
+    </>
   );
 }

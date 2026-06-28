@@ -32,15 +32,9 @@ import {
   getWorkspaceMeta,
 } from "@/lib/platform/registry/erpRegistry";
 
-function makeHref(organizationId, route) {
-  if (!organizationId || !route) return "#";
-
-  const clean = String(route).startsWith("/")
-    ? String(route)
-    : `/${route}`;
-
-  return `/workspace/${organizationId}${clean}`;
-}
+import {
+  resolveWorkspaceRoute,
+} from "@/lib/platform/routing/resolveWorkspaceRoute";
 
 function getIcon(item, group) {
   const id = `${item?.id || ""} ${group?.id || ""} ${item?.name || ""}`.toLowerCase();
@@ -159,17 +153,7 @@ export default function WorkspaceModuleGrid({
             Work Centers
           </div>
 
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-white">
-            {title ||
-              workspaceMeta?.title ||
-              "Workspace"}
-          </h2>
 
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-white/45">
-            {description ||
-              workspaceMeta?.description ||
-              "Open a business capability."}
-          </p>
         </div>
 
         <div className="flex w-full items-center rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-white/45 md:w-[360px]">
@@ -195,10 +179,11 @@ export default function WorkspaceModuleGrid({
             {favoriteItems.map((item) => (
               <Link
                 key={item.id}
-                href={makeHref(
-                  fallbackOrganizationId,
-                  item.route
-                )}
+                href={resolveWorkspaceRoute({
+                  organizationId: fallbackOrganizationId,
+                  moduleId: item.id,
+                  route: item.route,
+                })}
                 className="group flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-medium text-white/70 transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A]"
               >
                 <span>{item.name}</span>
@@ -252,10 +237,11 @@ export default function WorkspaceModuleGrid({
                   return (
                     <Link
                       key={item.id}
-                      href={makeHref(
-                        fallbackOrganizationId,
-                        item.route
-                      )}
+                      href={resolveWorkspaceRoute({
+                        organizationId: fallbackOrganizationId,
+                        moduleId: item.id,
+                        route: item.route,
+                      })}
                       className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-[#D6A66A]/40 hover:bg-[#D6A66A]/10"
                     >
                       <div className="flex items-start justify-between gap-4">

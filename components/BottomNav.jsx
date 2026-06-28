@@ -51,8 +51,8 @@ export default function BottomNav() {
   // =========================
   if (role === "foh") {
     links = [
-      { name: "Tables", href: "/tables" },
-      { name: "POS", href: "/pos" },
+      { name: "Tables", href: "/operations/tables" },
+      { name: "POS", href: "/operations/pos" },
       { name: "Pay", href: "/payments" },
     ];
   }
@@ -61,10 +61,10 @@ export default function BottomNav() {
   // KITCHEN
   // =========================
   else if (role === "kitchen") {
-    links = [{ name: "Kitchen", href: "/kitchen" }];
+    links = [{ name: "Kitchen", href: "/operations/kitchen" }];
 
     if (safeSettings.production_mode === "combined") {
-      links.push({ name: "Prod", href: "/production" });
+      links.push({ name: "Prod", href: "/operations/production" });
     }
   }
 

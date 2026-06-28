@@ -43,22 +43,22 @@ const navigation = {
 
       {
         name: "POS",
-        href: "/pos",
+        href: "/operations/pos",
       },
 
       {
         name: "Tables",
-        href: "/tables",
+        href: "/operations/tables",
       },
 
       {
         name: "Kitchen",
-        href: "/kitchen",
+        href: "/operations/kitchen",
       },
 
       {
         name: "Production",
-        href: "/production",
+        href: "/operations/production",
       },
 
     ],
@@ -141,22 +141,22 @@ const navigation = {
 
       {
         name: "POS",
-        href: "/pos",
+        href: "/operations/pos",
       },
 
       {
         name: "Tables",
-        href: "/tables",
+        href: "/operations/tables",
       },
 
       {
         name: "Kitchen",
-        href: "/kitchen",
+        href: "/operations/kitchen",
       },
 
       {
         name: "Production",
-        href: "/production",
+        href: "/operations/production",
       },
 
     ],
@@ -221,12 +221,12 @@ const navigation = {
 
         {
           name: "POS",
-          href: "/pos",
+          href: "/operations/pos",
         },
 
         {
           name: "Tables",
-          href: "/tables",
+          href: "/operations/tables",
         },
 
       ],
@@ -239,12 +239,12 @@ const navigation = {
 
         {
           name: "Kitchen",
-          href: "/kitchen",
+          href: "/operations/kitchen",
         },
 
         {
           name: "Production",
-          href: "/production",
+          href: "/operations/production",
         },
 
       ],
@@ -257,12 +257,12 @@ const navigation = {
 
         {
           name: "POS",
-          href: "/pos",
+          href: "/operations/pos",
         },
 
         {
           name: "Tables",
-          href: "/tables",
+          href: "/operations/tables",
         },
 
       ],
@@ -401,12 +401,12 @@ export default function AppShell({
 
     {
       name: "POS",
-      href: "/pos",
+      href: "/operations/pos",
     },
 
     {
       name: "Kitchen",
-      href: "/kitchen",
+      href: "/operations/kitchen",
     },
 
     {

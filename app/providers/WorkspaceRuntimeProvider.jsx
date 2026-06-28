@@ -93,7 +93,8 @@ export function WorkspaceRuntimeProvider({ children }) {
             runtime.activeOrganization || null,
           modules: runtime.modules || [],
           navigation: runtime.navigation || {
-            executive: [],
+            domains: [],
+            solutions: [],
             tree: [],
           },
           resolvedRuntime: runtime.resolvedRuntime || null,

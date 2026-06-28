@@ -1,9 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function JournalsPage({ params }) {
   const { organizationId } = params;
+
+  const searchParams = useSearchParams();
+
+  const entityId =
+    searchParams.get("entityId") ||
+    searchParams.get("entity_id") ||
+    organizationId;
 
   const [journals, setJournals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,7 +20,7 @@ export default function JournalsPage({ params }) {
     async function load() {
       try {
         const res = await fetch(
-          `/api/finance/journals?organizationId=${organizationId}`
+          `/api/finance/journals?organizationId=${organizationId}&entityId=${entityId}`
         );
 
         const json = await res.json();
@@ -26,7 +34,7 @@ export default function JournalsPage({ params }) {
     }
 
     load();
-  }, [organizationId]);
+  }, [organizationId, entityId]);
 
   return (
     <div className="min-h-screen bg-[#030712] text-white p-8"><h1 className="text-4xl font-light mb-6">

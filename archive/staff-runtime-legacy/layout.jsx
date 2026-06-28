@@ -61,13 +61,13 @@ export default function StaffLayout({
     {
       label: "POS",
       icon: Home,
-      href: "/pos",
+      href: "/operations/pos",
     },
 
     {
       label: "Tables",
       icon: Sparkles,
-      href: "/tables",
+      href: "/operations/tables",
     },
 
     {

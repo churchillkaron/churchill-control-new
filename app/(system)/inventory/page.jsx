@@ -91,7 +91,7 @@ const SECTIONS = [
       "Production usage, kitchen inventory and recipe stock coordination.",
     icon: Factory,
     items: [
-      { name: "Production Runtime", route: "/production" },
+      { name: "Production Runtime", route: "/operations/production" },
       { name: "Kitchen Inventory", route: "/inventory/kitchen" },
       { name: "Recipe Usage", route: "/inventory/recipes" },
       { name: "Prep Consumption", route: "/inventory/prep" },

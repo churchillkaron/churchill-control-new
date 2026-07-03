@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useMemo, useState, useEffect } from "react";
-import { loadWaiterData } from "@/lib/pos/waiter/loadWaiterData";
-import { useTenant } from "@/app/providers/TenantProvider";
+import { loadWaiterData } from "@/lib/restaurant/pos/waiter/loadWaiterData";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 
 
@@ -13,15 +13,11 @@ function money(value) {
 
 export default function StationaryPOSUI() {
 
-  const tenant = useTenant();
+  const businessContext = useBusinessContext();
 
 
 
-  const organizationId =
-    tenant?.activeOrganization ||
-    tenant?.active_organization_id ||
-    tenant?.organizationId ||
-    tenant?.organization_id;
+  const organizationId = organization?.id;
 
   const [zones, setZones] =
     useState([]);
@@ -57,7 +53,7 @@ export default function StationaryPOSUI() {
 
       const res =
         await fetch(
-          `/api/pos/tables?${params.toString()}`
+          `/api/restaurant/tables?${params.toString()}`
         );
 
       const json =
@@ -125,7 +121,7 @@ export default function StationaryPOSUI() {
 
   async function posAction(action, payload = {}) {
     try {
-      const res = await fetch("/api/pos/tables/action", {
+      const res = await fetch("/api/restaurant/tables/action", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -160,7 +156,6 @@ export default function StationaryPOSUI() {
   useEffect(() => {
     async function load() {
       console.log("POS TENANT DEBUG", {
-        tenant,
         organizationId,
         organizationId,
       });
@@ -195,7 +190,7 @@ export default function StationaryPOSUI() {
     });
 
     try {
-      const res = await fetch("/api/pos/tables/open", {
+      const res = await fetch("/api/restaurant/tables/open", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -608,7 +603,7 @@ onClick={() => openStationaryTable(table)}
                     }
 
                     if (action === "Transfer Table") {
-                      await fetch("/api/pos/tables/action", {
+                      await fetch("/api/restaurant/tables/action", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -623,7 +618,7 @@ onClick={() => openStationaryTable(table)}
                     }
 
                     if (action === "Close Table") {
-                      await fetch("/api/pos/tables/action", {
+                      await fetch("/api/restaurant/tables/action", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({

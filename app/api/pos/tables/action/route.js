@@ -20,7 +20,7 @@ export async function POST(req) {
 
     if (!organization_id) {
       return Response.json(
-        { success: false, error: "Missing organization/tenant context" },
+        { success: false, error: "Missing organization/organization context" },
         { status: 400 }
       );
     }

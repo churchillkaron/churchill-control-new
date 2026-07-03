@@ -1,11 +1,18 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 import Link from "next/link";
 
 export default function Page({ params }) {
 
-  const { organizationId } = params;
+  const {
+    organizationId,
+    financeGet,
+    loading: runtimeLoading,
+  } = useFinanceRuntime();
 
   const [invoices, setInvoices] =
     useState([]);
@@ -14,29 +21,19 @@ export default function Page({ params }) {
     useState(true);
 
   useEffect(() => {
-    loadInvoices();
-  }, []);
+    if (!runtimeLoading) {
+      loadInvoices();
+    }
+  }, [runtimeLoading]);
 
   async function loadInvoices() {
 
     try {
 
-      const res = await fetch(
-        "/api/finance/customer-invoices/list",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            organizationId,
-          }),
-        }
-      );
-
       const json =
-        await res.json();
+        await financeGet(
+          "/api/finance/customer-invoices/list"
+        );
 
       if (json.success) {
         setInvoices(

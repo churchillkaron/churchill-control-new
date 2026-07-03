@@ -55,7 +55,7 @@ export async function GET(request) {
       let approvalData = null;
 
       if (
-        req.reference_table ===
+        req.reference_serviceUnit ===
         "payroll_records"
       ) {
 

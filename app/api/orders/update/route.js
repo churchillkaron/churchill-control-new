@@ -56,8 +56,8 @@ export async function POST(req) {
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organization_id =
+      access.organization_id;
 
     const supabase =
       createServerSupabase();
@@ -82,8 +82,8 @@ export async function POST(req) {
       )
 
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organization_id
       )
 
       .select()

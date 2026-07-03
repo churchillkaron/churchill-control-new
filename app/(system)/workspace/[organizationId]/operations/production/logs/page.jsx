@@ -168,7 +168,7 @@ export default function ProductionLogsPage() {
           {
             event: "*",
             schema: "public",
-            table:
+            service_unit:
               "production_logs",
           },
           loadLogs

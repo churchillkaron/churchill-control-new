@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import {
@@ -22,7 +23,7 @@ export async function GET(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "entityId required",
+          error: "organizationId required",
         },
         { status: 400 }
       );

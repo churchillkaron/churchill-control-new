@@ -1,444 +1,47 @@
-import { NextResponse }
-from "next/server";
-
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-const organizationId = null;
+export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import createJournalReversal from "@/lib/finance/general-ledger/capabilities/createJournalReversal";
 
 export async function POST(request) {
-
   try {
-
-    const body =
-      await request.json();
+    const body = await request.json();
 
     const access =
       await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
+        organizationId: body.organizationId,
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
-    const organizationId =
-      access.organizationId;
-
-    const journalId =
-      body.journalId;
-
-    const reversalReason =
-      body.reason || "Manual reversal";
-
-    if (!journalId) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          "journalId required",
-
-      }, {
-
-        status: 400,
-
+    const result =
+      await createJournalReversal({
+        organizationId: access.organizationId,
+        journalEntryId: body.journalId,
+        reversalReason: body.reason || "Manual reversal",
+        reversedBy: body.reversedBy || body.requestedBy || "system",
       });
 
-    }
-
-    // -----------------------------------
-    // LOAD ORIGINAL JOURNAL
-    // -----------------------------------
-
-    const {
-      data: journal,
-      error: journalError,
-    } = await supabaseAdmin
-
-      .from("journal_entries")
-
-      .select("*")
-
-      .eq(
-        "organization_id",
-        organizationId
-      )
-
-      .eq(
-        "id",
-        journalId
-      )
-
-      .single();
-
-    if (
-      journalError ||
-      !journal
-    ) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          "Journal not found",
-
-      }, {
-
-        status: 404,
-
-      });
-
-    }
-
-    // -----------------------------------
-    // PREVENT DOUBLE REVERSAL
-    // -----------------------------------
-
-    if (
-      journal.reversed === true
-    ) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          "Journal already reversed",
-
-      }, {
-
-        status: 400,
-
-      });
-
-    }
-
-
-    // -----------------------------------
-    // PERIOD LOCK VALIDATION
-    // -----------------------------------
-
-    const entryDate =
-      new Date(
-        journal.entry_date
-      );
-
-    const isoDate =
-      entryDate
-        .toISOString()
-        .split("T")[0];
-
-    const {
-      data: lockedPeriod,
-    } = await supabaseAdmin
-
-      .from("accounting_periods")
-
-      .select("*")
-
-      .eq(
-        "organization_id",
-        organizationId
-      )
-
-      .eq(
-        "status",
-        "closed"
-      )
-
-      .lte(
-        "start_date",
-        isoDate
-      )
-
-      .gte(
-        "end_date",
-        isoDate
-      )
-
-      .maybeSingle();
-
-    if (lockedPeriod) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          "Journal belongs to a closed accounting period",
-
-      }, {
-
-        status: 400,
-
-      });
-
-    }
-
-
-
-    // -----------------------------------
-    // LOAD LINES
-    // -----------------------------------
-
-    const {
-      data: lines,
-      error: linesError,
-    } = await supabaseAdmin
-
-      .from("journal_entry_lines")
-
-      .select("*")
-
-      .eq(
-        "journal_entry_id",
-        journalId
-      );
-
-    if (linesError) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          linesError.message,
-
-      }, {
-
-        status: 500,
-
-      });
-
-    }
-
-    // -----------------------------------
-    // CREATE REVERSAL JOURNAL
-    // -----------------------------------
-
-    const reversalNumber =
-      `REV-${journal.entry_number}`;
-
-    const {
-      data: reversalJournal,
-      error: reversalError,
-    } = await supabaseAdmin
-
-      .from("journal_entries")
-
-      .insert([{
-
-        organization_id:
-          organizationId,
-
-        entry_number:
-          reversalNumber,
-
-        entry_date:
-          new Date()
-            .toISOString(),
-
-        description:
-          `Reversal of ${journal.entry_number} • ${reversalReason}`,
-
-        source_type:
-          "JOURNAL_REVERSAL",
-
-        source_id:
-          journal.id,
-
-        reversed:
-          false,
-
-        reversal_of:
-          journal.id,
-
-        status:
-          "posted",
-
-      }])
-
-      .select()
-
-      .single();
-
-    if (reversalError) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          reversalError.message,
-
-      }, {
-
-        status: 500,
-
-      });
-
-    }
-
-    // -----------------------------------
-    // REVERSE LINES
-    // -----------------------------------
-
-    const reversalLines =
-      lines.map((line) => ({
-
-        organization_id:
-          organizationId,
-
-        journal_entry_id:
-          reversalJournal.id,
-
-        account_id:
-          line.account_id,
-
-        debit:
-          line.credit || 0,
-
-        credit:
-          line.debit || 0,
-
-      }));
-
-    const {
-      error: insertLinesError,
-    } = await supabaseAdmin
-
-      .from("journal_entry_lines")
-
-      .insert(
-        reversalLines
-      );
-
-    if (insertLinesError) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          insertLinesError.message,
-
-      }, {
-
-        status: 500,
-
-      });
-
-    }
-
-    // -----------------------------------
-    // MARK ORIGINAL REVERSED
-    // -----------------------------------
-
-    await supabaseAdmin
-
-      .from("journal_entries")
-
-      .update({
-
-        reversed:
-          true,
-
-        reversed_at:
-          new Date()
-            .toISOString(),
-
-        reversal_journal_id:
-          reversalJournal.id,
-
-      })
-
-      .eq(
-        "id",
-        journal.id
-      );
-
-    // -----------------------------------
-    // AUDIT LOG
-    // -----------------------------------
-
-    await supabaseAdmin
-
-      .from("audit_logs")
-
-      .insert([{
-
-        organization_id:
-          organizationId,
-
-        action:
-          "JOURNAL_REVERSED",
-
-        entity_type:
-          "journal_entry",
-
-        entity_id:
-          journal.id,
-
-        metadata: {
-
-          original:
-            journal.entry_number,
-
-          reversal:
-            reversalJournal.entry_number,
-
-          reason:
-            reversalReason,
-
-        },
-
-      }]);
-
-    return NextResponse.json({
-
-      success: true,
-
-      reversalJournal,
-
-    });
-
+    return NextResponse.json(result);
   } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-
-      status: 500,
-
-    });
-
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
+    );
   }
-
 }

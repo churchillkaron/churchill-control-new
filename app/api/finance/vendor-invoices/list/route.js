@@ -1,33 +1,24 @@
-import {
-  NextResponse,
-} from "next/server";
+export const dynamic = "force-dynamic";
 
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
+import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/shared/auth";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-import {
-  supabaseAdmin,
-} from "@/lib/shared/supabase/admin";
-
-export async function POST(req) {
+export async function GET(req) {
 
   try {
 
     await requireAuth();
 
-    const body =
-      await req.json();
+    const { searchParams } =
+      new URL(req.url);
 
     const access =
       await requireOrganizationAccess({
 
         organizationId:
-          body.organizationId,
+          searchParams.get("organizationId"),
 
       });
 
@@ -35,66 +26,54 @@ export async function POST(req) {
 
       return NextResponse.json(
         {
-          success: false,
-          error: access.error,
+          success:false,
+          error:access.error,
         },
         {
-          status: access.status,
+          status:access.status,
         }
       );
 
     }
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-
-      .from("vendor_invoices")
-
-      .select(`
-        *,
-        vendors (
-          id,
-          display_name,
-          legal_name
+    const { data, error } =
+      await supabaseAdmin
+        .from("vendor_invoices")
+        .select(`
+          *,
+          vendors(
+            id,
+            display_name,
+            legal_name
+          )
+        `)
+        .eq(
+          "organization_id",
+          access.organizationId
         )
-      `)
+        .order(
+          "invoice_date",
+          {
+            ascending:false,
+          }
+        );
 
-      .eq(
-        "organization_id",
-        body.organizationId
-      )
-
-      .order(
-        "invoice_date",
-        {
-          ascending: false,
-        }
-      );
-
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return NextResponse.json({
-
-      success: true,
-
-      invoices:
-        data || [],
-
+      success:true,
+      invoices:data || [],
     });
 
   } catch (error) {
 
     return NextResponse.json(
       {
-        success: false,
-        error: error.message,
+        success:false,
+        error:error.message,
       },
       {
-        status: 500,
+        status:500,
       }
     );
 

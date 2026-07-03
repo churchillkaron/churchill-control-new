@@ -112,7 +112,7 @@ export default function AnalyticsSalesPage() {
           {
             event: "*",
             schema: "public",
-            table:
+            service_unit:
               "orders",
           },
           refresh

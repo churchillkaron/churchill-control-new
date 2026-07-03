@@ -4,12 +4,12 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTenant } from "@/app/providers/TenantProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { useOrganization } from "@/app/providers/OrganizationProvider";
 
 export default function KitchenCompatibilityPage() {
   const router = useRouter();
-  const tenant = useTenant();
+  const businessContext = useBusinessContext();
   const { organization } = useOrganization();
 
   const [error, setError] = useState(null);
@@ -18,8 +18,8 @@ export default function KitchenCompatibilityPage() {
     async function redirectToWorkCenter() {
       const organizationId =
         organization?.id ||
-        tenant?.activeOrganization ||
-        tenant?.staff?.active_organization_id;
+        businessContext?.organization ||
+        businessContext?.staff?.active_organization_id;
 
       if (!organizationId) return;
 

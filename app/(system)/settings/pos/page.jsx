@@ -6,18 +6,18 @@ import {
 } from "react";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 
 
 
 export default function POSSettingsPage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const tenantId =
-    tenant?.id;
+    businessContext?.organization?.id;
 
 
   const [

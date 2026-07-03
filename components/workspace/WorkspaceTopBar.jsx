@@ -6,25 +6,46 @@ import {
   Bell,
   Building2,
   Calendar,
+  CreditCard,
   ChevronDown,
+  Globe2,
   Search,
   Sparkles,
   UserCircle,
 } from "lucide-react";
 
-import { useWorkspaceRuntime } from "@/app/providers/WorkspaceRuntimeProvider";
-import { getErpDomains } from "@/lib/platform/registry/erpRegistry";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import {
+  getErpDomains,
+  getPlatformBrand,
+  getPlatformHeaderItems,
+} from "@/lib/platform/registry/erpRegistry";
+
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
 
-function isActive(pathname, organizationId, route) {
-  if (!route || !organizationId) return false;
 
-  const href = makeHref(organizationId, route);
+const ICONS = {
+  CreditCard,
+  Bell,
+  Globe2,
+  Search,
+  Sparkles,
+  UserCircle,
+};
 
-  return pathname === href || pathname.startsWith(href + "/");
+function platformHref(organizationId, route) {
+  if (!route) return "#";
+
+  if (!organizationId) return route;
+
+  return resolveWorkspaceRoute({
+    organizationId,
+    moduleId: route.replace("/", "") || "home",
+    route,
+  });
 }
 
-function ContextPill({ icon, label, value }) {
+function ContextPill({ icon, value }) {
   const Icon = icon;
 
   if (!value) return null;
@@ -42,35 +63,111 @@ function ContextPill({ icon, label, value }) {
   );
 }
 
-export default function WorkspaceTopBar() {
-  const { runtime, organization, ready } = useWorkspaceRuntime();
+function HeaderItem({ item, organizationId, userName }) {
+  const Icon = ICONS[item.icon] || Search;
 
+  if (item.type === "search") {
+    return (
+      <Link
+        href={platformHref(organizationId, item.route)}
+        title={item.name}
+        className="hidden h-9 w-full max-w-[520px] items-center rounded-full border border-white/5 bg-white/[0.018] px-4 text-white/35 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white xl:flex"
+      >
+        <Icon size={14} />
+
+        <span className="ml-3 truncate text-[12px] font-light tracking-[0.02em]">
+          Search anything...
+        </span>
+      </Link>
+    );
+  }
+
+  if (item.type === "user") {
+    return (
+      <Link
+        href={platformHref(organizationId, item.route)}
+        title={item.name}
+        className="flex h-9 max-w-[150px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-[12px] font-light text-white/65 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white"
+      >
+        <Icon size={16} className="shrink-0" />
+
+        <span className="truncate">
+          {userName}
+        </span>
+      </Link>
+    );
+  }
+
+  if (item.id === "network" || item.id === "services") {
+    return (
+      <Link
+        href={platformHref(organizationId, item.route)}
+        title={item.name}
+        className="flex h-9 items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-[12px] font-light uppercase tracking-[0.08em] text-white/60 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white"
+      >
+        <Icon size={15} />
+        <span className="hidden 2xl:inline">{item.name}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href={platformHref(organizationId, item.route)}
+      title={item.name}
+      className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.018] text-white/60 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white"
+    >
+      <Icon size={16} />
+    </Link>
+  );
+}
+
+export default function WorkspaceTopBar() {
+  const businessContext = useBusinessContext();
   const pathname = usePathname();
 
+  const ready =
+    businessContext?.ready || false;
+
+  const organization =
+    businessContext?.organization || null;
+
+  const entity =
+    businessContext?.entity || null;
+
+  const period =
+    businessContext?.period || null;
+
+  const staff =
+    businessContext?.staff || null;
+
   const organizationId =
-    organization?.id || runtime?.activeOrganization?.id;
+    businessContext?.organization_id ||
+    organization?.id ||
+    null;
 
   const companyName =
     organization?.name ||
-    runtime?.activeOrganization?.name ||
     "Workspace";
 
   const entityName =
-    runtime?.activeEntity?.name ||
-    runtime?.entity?.name ||
+    entity?.name ||
+    entity?.legal_name ||
     "";
 
   const periodName =
-    runtime?.activePeriod?.name ||
-    runtime?.period?.name ||
+    period?.name ||
+    period?.period_name ||
     "Current Period";
 
   const userName =
-    runtime?.access?.staff?.name ||
-    runtime?.access?.staff?.email ||
+    staff?.name ||
+    staff?.email ||
     "User";
 
+  const brand = getPlatformBrand();
   const domains = getErpDomains();
+  const headerItems = getPlatformHeaderItems();
 
   if (!ready) {
     return (
@@ -82,63 +179,49 @@ export default function WorkspaceTopBar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-black/92 backdrop-blur-2xl">
-      <div className="grid min-h-[58px] grid-cols-[240px_minmax(0,1fr)_220px] items-center gap-4 px-6 py-2 lg:px-8">
+      <div className="grid min-h-[58px] grid-cols-[240px_minmax(0,1fr)_minmax(260px,auto)] items-center gap-4 px-6 py-2 lg:px-8">
         <div className="min-w-0">
           <div className="truncate text-[22px] font-medium uppercase tracking-[0.08em] text-white">
-            Avantiqo
+            {brand.name}
           </div>
 
           <div className="mt-0.5 truncate text-[9px] font-light uppercase tracking-[0.30em] text-white/40">
-            Synthetic Intelligence OS
+            {brand.subtitle}
           </div>
         </div>
 
         <div className="flex min-w-0 items-center justify-center gap-3">
-          <ContextPill
-            icon={Building2}
-            label="Company"
-            value={companyName}
-          />
+          <ContextPill icon={Building2} value={companyName} />
 
           {entityName && entityName !== companyName && (
-            <ContextPill
-              icon={Building2}
-              label="Entity"
-              value={entityName}
-            />
+            <ContextPill icon={Building2} value={entityName} />
           )}
 
-          <ContextPill
-            icon={Calendar}
-            label="Period"
-            value={periodName}
-          />
+          <ContextPill icon={Calendar} value={periodName} />
 
-          <div className="hidden h-9 w-full max-w-[520px] items-center rounded-full border border-white/5 bg-white/[0.018] px-4 text-white/35 xl:flex">
-            <Search size={14} />
-
-            <span className="ml-3 truncate text-[12px] font-light tracking-[0.02em]">
-              Search anything...
-            </span>
-          </div>
+          {headerItems
+            .filter((item) => item.type === "search")
+            .map((item) => (
+              <HeaderItem
+                key={item.id}
+                item={item}
+                organizationId={organizationId}
+                userName={userName}
+              />
+            ))}
         </div>
 
-        <div className="flex min-w-0 items-center justify-end gap-2 text-white/60">
-          <button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.018] transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white">
-            <Sparkles size={16} />
-          </button>
-
-          <button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.018] transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white">
-            <Bell size={16} />
-          </button>
-
-          <div className="flex h-9 max-w-[150px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-[12px] font-light text-white/65">
-            <UserCircle size={16} className="shrink-0" />
-
-            <span className="truncate">
-              {userName}
-            </span>
-          </div>
+        <div className="flex min-w-0 items-center justify-end gap-2">
+          {headerItems
+            .filter((item) => item.type !== "search")
+            .map((item) => (
+              <HeaderItem
+                key={item.id}
+                item={item}
+                organizationId={organizationId}
+                userName={userName}
+              />
+            ))}
         </div>
       </div>
 
@@ -157,11 +240,7 @@ export default function WorkspaceTopBar() {
           return (
             <Link
               key={domain.id}
-              href={resolveWorkspaceRoute({
-                organizationId,
-                moduleId: domain.id,
-                route: domain.route,
-              })}
+              href={href}
               title={domain.description}
               className={
                 active

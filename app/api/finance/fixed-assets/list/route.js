@@ -1,131 +1,79 @@
-import {
-  NextResponse,
-} from "next/server";
+export const dynamic = "force-dynamic";
 
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
+import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/shared/auth";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-import {
-  supabaseAdmin,
-} from "@/lib/shared/supabase/admin";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-export async function POST(req) {
-
+export async function GET(req) {
   try {
-
     await requireAuth();
 
-    const body =
-      await req.json();
+    const { searchParams } = new URL(req.url);
 
     const access =
       await requireOrganizationAccess({
-
         organizationId:
-          body.organizationId,
-
+          searchParams.get("organizationId"),
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
     const organizationId =
       access.organizationId;
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-
-      .from("fixed_assets")
-
-      .select(`
-        *,
-        vendors (
-          id,
-          legal_name,
-          display_name
-        ),
-        legal_entities (
-          id,
-          legal_name,
-          code
-        ),
-        cost_centers (
-          id,
-          name,
-          code
+    const { data, error } =
+      await supabaseAdmin
+        .from("fixed_assets")
+        .select("*")
+        .eq(
+          "organization_id",
+          organizationId
         )
-      `)
-
-      .eq(
-        "organization_id",
-        organizationId
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      );
+        .order(
+          "created_at",
+          {
+            ascending: false,
+          }
+        );
 
     if (error) {
       throw error;
     }
 
-    const normalized =
-      (data || []).map(
-        asset => ({
-
-          ...asset,
-
-          calculated_book_value:
-            Math.max(
-              0,
-              Number(asset.purchase_cost || 0) -
-              Number(asset.accumulated_depreciation || 0)
-            ),
-
-        })
-      );
+    const assets =
+      (data || []).map(asset => ({
+        ...asset,
+        calculated_book_value:
+          Math.max(
+            0,
+            Number(asset.purchase_cost || 0) -
+            Number(asset.accumulated_depreciation || 0)
+          ),
+      }));
 
     return NextResponse.json({
-
       success: true,
-
-      assets:
-        normalized,
-
+      organizationId,
+      assets,
     });
 
   } catch (error) {
 
-    console.error(error);
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
@@ -133,5 +81,4 @@ export async function POST(req) {
     );
 
   }
-
 }

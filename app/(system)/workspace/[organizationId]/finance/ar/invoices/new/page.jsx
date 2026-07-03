@@ -1,15 +1,18 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState } from "react";
-import { useOrganization } from "@/app/providers/OrganizationProvider";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 
 export default function Page() {
 
-  const { organization } =
-    useOrganization();
-
-  const organizationId =
-    organization?.id;
+  const {
+    organizationId,
+    entityId,
+    financePost,
+    loading,
+  } = useFinanceRuntime();
 
   const [customerSearch, setCustomerSearch] =
     useState("");
@@ -38,7 +41,6 @@ export default function Page() {
   const [notes, setNotes] =
     useState("");
 
-
   async function createInvoice() {
 
     if (!selectedCustomer?.id) {
@@ -46,43 +48,31 @@ export default function Page() {
       return;
     }
 
-    const res =
-      await fetch(
+    const result =
+      await financePost(
         "/api/finance/customer-invoices/create",
         {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            organizationId,
+          customer_id:
+            selectedCustomer.id,
 
-            customer_id:
-              selectedCustomer.id,
+          invoice_number:
+            invoiceNumber,
 
-            invoice_number:
-              invoiceNumber,
+          invoice_date:
+            invoiceDate,
 
-            invoice_date:
-              invoiceDate,
+          due_date:
+            dueDate,
 
-            due_date:
-              dueDate,
+          subtotal:
+            Number(subtotal || 0),
 
-            subtotal:
-              Number(subtotal || 0),
+          tax_amount:
+            Number(taxAmount || 0),
 
-            tax_amount:
-              Number(taxAmount || 0),
-
-            notes,
-          }),
+          notes,
         }
       );
-
-    const result =
-      await res.json();
 
     if (!result.success) {
       alert(
@@ -97,25 +87,14 @@ export default function Page() {
 
   async function searchCustomers() {
 
-    const res =
-      await fetch(
+    const data =
+      await financePost(
         "/api/customers/search",
         {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            organizationId,
-            query:
-              customerSearch,
-          }),
+          query:
+            customerSearch,
         }
       );
-
-    const data =
-      await res.json();
 
     setCustomers(
       data.customers || []

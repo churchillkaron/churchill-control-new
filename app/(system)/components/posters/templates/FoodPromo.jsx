@@ -62,7 +62,7 @@ export default function TemplateName({
         bg-[radial-gradient(circle_at_bottom,rgba(255,140,0,0.08),transparent_45%)]
       " />
 
-      {/* TOP BAR */}
+      {/* TOP PRODUCTION */}
 
       <div className="
         absolute

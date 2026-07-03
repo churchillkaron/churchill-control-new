@@ -20,9 +20,9 @@ const staff = [
   { id: 1, name: "Sarah", role: "FOH", group: "SERVICE" },
   { id: 2, name: "Mia", role: "FOH", group: "SERVICE" },
   { id: 3, name: "Alex", role: "VIP", group: "SERVICE" },
-  { id: 4, name: "Emma", role: "BAR", group: "BAR" },
-  { id: 5, name: "Noah", role: "BAR", group: "BAR" },
-  { id: 6, name: "Mike", role: "KITCHEN", group: "KITCHEN" },
+  { id: 4, name: "Emma", role: "PRODUCTION", group: "PRODUCTION" },
+  { id: 5, name: "Noah", role: "PRODUCTION", group: "PRODUCTION" },
+  { id: 6, name: "Mike", role: "FULFILLMENT", group: "FULFILLMENT" },
   { id: 7, name: "Kai", role: "SECURITY", group: "SECURITY" },
   { id: 8, name: "Luna", role: "HOST", group: "SERVICE" },
 ];
@@ -35,7 +35,7 @@ const templates = {
   MID: { code: "MID", label: "Mid", time: "14-22", color: "bg-blue-500/80 text-white border-blue-300/40" },
   CLOSE: { code: "CLOSE", label: "Close", time: "18-02", color: "bg-fuchsia-500/80 text-white border-fuchsia-300/40" },
   VIP: { code: "VIP", label: "VIP", time: "20-03", color: "bg-amber-400/90 text-black border-amber-200/60" },
-  BAR: { code: "BAR", label: "Bar", time: "17-01", color: "bg-purple-500/80 text-white border-purple-300/40" },
+  PRODUCTION: { code: "PRODUCTION", label: "Bar", time: "17-01", color: "bg-purple-500/80 text-white border-purple-300/40" },
   KIT: { code: "KIT", label: "Kitchen", time: "16-00", color: "bg-sky-500/80 text-white border-sky-300/40" },
   SEC: { code: "SEC", label: "Security", time: "20-03", color: "bg-red-500/80 text-white border-red-300/40" },
 };
@@ -44,8 +44,8 @@ const initialRoster = {
   Sarah: { 1: "CLOSE", 2: "CLOSE", 5: "CLOSE", 6: "VIP", 8: "CLOSE", 12: "CLOSE", 13: "CLOSE", 16: "VIP", 19: "CLOSE", 20: "CLOSE", 23: "VIP", 27: "CLOSE", 30: "VIP" },
   Mia: { 1: "MID", 2: "CLOSE", 8: "MID", 9: "CLOSE", 15: "MID", 16: "CLOSE", 22: "MID", 23: "CLOSE", 29: "MID", 30: "CLOSE" },
   Alex: { 2: "VIP", 3: "VIP", 6: "VIP", 7: "VIP", 10: "VIP", 14: "VIP", 17: "VIP", 21: "VIP", 24: "VIP", 28: "VIP", 31: "VIP" },
-  Emma: { 1: "BAR", 4: "BAR", 5: "BAR", 8: "BAR", 11: "BAR", 12: "BAR", 15: "BAR", 18: "BAR", 19: "BAR", 22: "BAR", 25: "BAR", 26: "BAR", 29: "BAR" },
-  Noah: { 3: "BAR", 4: "BAR", 7: "BAR", 8: "BAR", 15: "BAR", 16: "BAR", 22: "BAR", 23: "BAR", 29: "BAR", 30: "BAR" },
+  Emma: { 1: "PRODUCTION", 4: "PRODUCTION", 5: "PRODUCTION", 8: "PRODUCTION", 11: "PRODUCTION", 12: "PRODUCTION", 15: "PRODUCTION", 18: "PRODUCTION", 19: "PRODUCTION", 22: "PRODUCTION", 25: "PRODUCTION", 26: "PRODUCTION", 29: "PRODUCTION" },
+  Noah: { 3: "PRODUCTION", 4: "PRODUCTION", 7: "PRODUCTION", 8: "PRODUCTION", 15: "PRODUCTION", 16: "PRODUCTION", 22: "PRODUCTION", 23: "PRODUCTION", 29: "PRODUCTION", 30: "PRODUCTION" },
   Mike: { 1: "KIT", 2: "KIT", 3: "KIT", 6: "KIT", 7: "KIT", 10: "KIT", 13: "KIT", 14: "KIT", 17: "KIT", 21: "KIT", 24: "KIT", 28: "KIT" },
   Kai: { 5: "SEC", 6: "SEC", 12: "SEC", 13: "SEC", 19: "SEC", 20: "SEC", 26: "SEC", 27: "SEC" },
   Luna: { 5: "VIP", 6: "VIP", 12: "VIP", 13: "VIP", 19: "VIP", 20: "VIP", 26: "VIP", 27: "VIP" },
@@ -66,8 +66,8 @@ export default function SchedulePage() {
     return {
       working: working.length,
       foh: (byRole.FOH || 0) + (byRole.VIP || 0) + (byRole.HOST || 0),
-      bar: byRole.BAR || 0,
-      kitchen: byRole.KITCHEN || 0,
+      bar: byRole.PRODUCTION || 0,
+      kitchen: byRole.FULFILLMENT || 0,
       security: byRole.SECURITY || 0,
     };
   }, [roster, selectedDay]);
@@ -277,7 +277,7 @@ export default function SchedulePage() {
 
               <div className="space-y-3">
                 <AIItem icon={<AlertTriangle size={15} />} text="May 5 has VIP load. Add one extra FOH from 20-03." />
-                <AIItem icon={<Clock3 size={15} />} text="Emma is near overtime if assigned another BAR shift." />
+                <AIItem icon={<Clock3 size={15} />} text="Emma is near overtime if assigned another PRODUCTION shift." />
                 <AIItem icon={<Users size={15} />} text="Kitchen coverage is low on May 10 and May 24." />
                 <AIItem icon={<Sparkles size={15} />} text="Best team combo for Saturday: Sarah, Alex, Emma, Mike, Kai." />
               </div>
@@ -292,8 +292,8 @@ export default function SchedulePage() {
 function roleAvatar(role) {
   if (role === "FOH") return "bg-gradient-to-br from-fuchsia-500 to-pink-600";
   if (role === "VIP") return "bg-gradient-to-br from-amber-400 to-orange-600 text-black";
-  if (role === "BAR") return "bg-gradient-to-br from-purple-500 to-violet-700";
-  if (role === "KITCHEN") return "bg-gradient-to-br from-sky-500 to-cyan-600";
+  if (role === "PRODUCTION") return "bg-gradient-to-br from-purple-500 to-violet-700";
+  if (role === "FULFILLMENT") return "bg-gradient-to-br from-sky-500 to-cyan-600";
   if (role === "SECURITY") return "bg-gradient-to-br from-red-500 to-zinc-700";
   if (role === "HOST") return "bg-gradient-to-br from-amber-400 to-orange-600 text-black";
   return "bg-white text-black";

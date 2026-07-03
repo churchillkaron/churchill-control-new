@@ -108,7 +108,7 @@ export default function AutomationLivePage() {
         subscriptions: [
 
           {
-            table:
+            service_unit:
               "workflow_logs",
           },
 

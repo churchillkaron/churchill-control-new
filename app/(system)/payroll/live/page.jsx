@@ -104,7 +104,7 @@ export default function PayrollLivePage() {
           {
             event: "*",
             schema: "public",
-            table:
+            service_unit:
               "orders",
           },
           refresh

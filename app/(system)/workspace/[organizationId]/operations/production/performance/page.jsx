@@ -104,7 +104,7 @@ export default function ProductionPerformancePage() {
           {
             event: "*",
             schema: "public",
-            table:
+            service_unit:
               "order_items",
           },
           refresh

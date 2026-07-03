@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import buildRevenueForecast from "@/lib/finance/budgeting/capabilities/buildRevenueForecast";

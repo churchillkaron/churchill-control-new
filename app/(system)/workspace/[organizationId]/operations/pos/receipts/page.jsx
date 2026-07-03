@@ -61,7 +61,7 @@ export default function ReceiptsPage() {
 
     const res =
       await fetch(
-        `/api/pos/receipts?order_id=${orderId}`
+        `/api/restaurant/receipts?order_id=${orderId}`
       );
 
     const json =
@@ -219,7 +219,7 @@ export default function ReceiptsPage() {
                   className="bg-violet-500 text-white rounded-2xl px-6 py-3 font-semibold"
                 >
 
-                  PDF EXPORT
+                  PDF DISPLAYRT
 
                 </button>
 

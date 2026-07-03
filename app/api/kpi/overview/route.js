@@ -110,7 +110,7 @@ export async function GET(req) {
         tables:
 
           tables.filter(
-            table =>
+            serviceUnit =>
               table.status === 'ACTIVE'
           ).length,
 
@@ -137,7 +137,7 @@ export async function GET(req) {
         activeTables:
 
           tables.filter(
-            table =>
+            serviceUnit =>
               table.status === 'ACTIVE'
           ).length,
 

@@ -4,12 +4,12 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTenant } from "@/app/providers/TenantProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { useOrganization } from "@/app/providers/OrganizationProvider";
 
 export default function BarCompatibilityPage() {
   const router = useRouter();
-  const tenant = useTenant();
+  const businessContext = useBusinessContext();
   const { organization } = useOrganization();
 
   const [message, setMessage] = useState(
@@ -20,8 +20,8 @@ export default function BarCompatibilityPage() {
     async function openWorkCenter() {
       const organizationId =
         organization?.id ||
-        tenant?.activeOrganization ||
-        tenant?.staff?.active_organization_id;
+        businessContext?.organization ||
+        businessContext?.staff?.active_organization_id;
 
       if (!organizationId) return;
 
@@ -42,12 +42,12 @@ export default function BarCompatibilityPage() {
         centers.find(
           center =>
             String(center.code || "")
-              .toUpperCase() === "BAR"
+              .toUpperCase() === "PRODUCTION"
         ) ||
         centers.find(
           center =>
             String(center.name || "")
-              .toUpperCase() === "BAR"
+              .toUpperCase() === "PRODUCTION"
         );
 
       if (!bar?.id) {

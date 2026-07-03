@@ -10,8 +10,8 @@ import {
 } from "react";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 
 import {
   CheckCircle2,
@@ -27,10 +27,10 @@ import { acknowledgeOrder } from "./ack_patch";
 export default function ExpoPage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const tenantId =
-    tenant?.id;
+    businessContext?.organization?.id;
 
 
   const [
@@ -105,7 +105,7 @@ export default function ExpoPage() {
           {
             event: "*",
             schema: "public",
-            table: "order_items",
+            service_unit: "order_items",
           },
           () => {
             loadExpo();
@@ -192,7 +192,7 @@ export default function ExpoPage() {
         const item of readyItems
       ) {
 
-        const table =
+        const serviceUnit =
           item.table_number;
 
         if (
@@ -358,19 +358,19 @@ export default function ExpoPage() {
 
                           )}
 
-                          {item.modifiers?.side && (
+                          {null && (
                             <div className="mt-1 text-xs text-cyan-300">
                               SIDE: {item.modifiers.side}
                             </div>
                           )}
 
-                          {item.modifiers?.sauce && (
+                          {null && (
                             <div className="mt-1 text-xs text-cyan-300">
                               SAUCE: {item.modifiers.sauce}
                             </div>
                           )}
 
-                          {item.modifiers?.spicy && (
+                          {null && (
                             <div className="mt-1 text-xs text-cyan-300">
                               SPICY: {item.modifiers.spicy}
                             </div>
@@ -422,10 +422,10 @@ export default function ExpoPage() {
 
 // AUTO ACK HOOK (SAFE)
 // NOTE: integrate inside loadKitchen() manually if needed
-  // ===== EVENT SYNC (EXPO) =====
+  // ===== EVENT SYNC (DISPLAY) =====
   useEffect(() => {
 
-    const unsub = subscribe("EXPO", () => {
+    const unsub = subscribe("DISPLAY", () => {
       loadExpo();
     });
 

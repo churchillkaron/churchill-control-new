@@ -1,144 +1,49 @@
-import {
-  NextResponse,
-} from "next/server";
+export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
 
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
+import { requireAuth } from "@/lib/shared/auth";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-import {
-  supabaseAdmin,
-} from "@/lib/shared/supabase/admin";
+import settleIntercompanyTransaction from "@/lib/finance/intercompany/capabilities/settleIntercompanyTransaction";
 
 export async function POST(req) {
-
   try {
-
     await requireAuth();
 
-    const body =
-      await req.json();
+    const body = await req.json();
 
     const access =
       await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
+        organizationId: body.organizationId,
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
-    const organizationId =
-      access.organizationId;
+    const result =
+      await settleIntercompanyTransaction({
+        organization_id: access.organizationId,
+        transaction_id: body.transaction_id,
+        settled_by: body.userId || "system",
+      });
 
-    const {
-      data: transaction,
-      error: loadError,
-    } = await supabaseAdmin
-
-      .from("intercompany_transactions")
-
-      .select("*")
-
-      .eq(
-        "organization_id",
-        organizationId
-      )
-
-      .eq(
-        "id",
-        body.transaction_id
-      )
-
-      .single();
-
-    if (loadError || !transaction) {
-      throw new Error(
-        "TRANSACTION_NOT_FOUND"
-      );
-    }
-
-    if (
-      transaction.status ===
-      "settled"
-    ) {
-
-      throw new Error(
-        "TRANSACTION_ALREADY_SETTLED"
-      );
-
-    }
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-
-      .from("intercompany_transactions")
-
-      .update({
-
-        status:
-          "settled",
-
-        settled_at:
-          new Date().toISOString(),
-
-        updated_at:
-          new Date().toISOString(),
-
-      })
-
-      .eq(
-        "id",
-        transaction.id
-      )
-
-      .select()
-
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return NextResponse.json({
-
-      success: true,
-
-      transaction:
-        data,
-
-    });
+    return NextResponse.json(result);
 
   } catch (error) {
-
-    console.error(error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
@@ -146,5 +51,4 @@ export async function POST(req) {
     );
 
   }
-
 }

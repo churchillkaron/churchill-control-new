@@ -1,10 +1,11 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import postVendorPaymentGL from "@/lib/finance/general-ledger/capabilities/postVendorPaymentGL";
+import { postVendorPaymentGL } from "@/lib/finance/general-ledger/capabilities/postVendorPaymentGL";
 
 export async function POST(req) {
 

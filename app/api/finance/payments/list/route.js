@@ -1,106 +1,81 @@
-import {
-  NextResponse,
-} from "next/server";
+export const dynamic = "force-dynamic";
 
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
+import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/shared/auth";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-import {
-  supabaseAdmin,
-} from "@/lib/shared/supabase/admin";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-export async function POST(req) {
+export async function GET(req) {
 
   try {
 
     await requireAuth();
 
-    const body =
-      await req.json();
+    const { searchParams } =
+      new URL(req.url);
 
     const access =
       await requireOrganizationAccess({
-
         organizationId:
-          body.organizationId,
-
+          searchParams.get("organizationId"),
       });
 
     if (!access.success) {
 
       return NextResponse.json(
         {
-          success: false,
-          error:
-            access.error,
+          success:false,
+          error:access.error,
         },
         {
-          status:
-            access.status,
+          status:access.status,
         }
       );
 
     }
 
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-
-      .from("accounts_payable")
-
-      .select(`
-        *,
-        vendors (
-          id,
-          display_name,
-          legal_name
+    const { data, error } =
+      await supabaseAdmin
+        .from("accounts_payable")
+        .select(`
+          *,
+          vendors(
+            id,
+            display_name,
+            legal_name
+          )
+        `)
+        .eq(
+          "organization_id",
+          access.organizationId
         )
-      `)
+        .eq(
+          "status",
+          "PENDING_PAYMENT"
+        )
+        .order(
+          "created_at",
+          {
+            ascending:false,
+          }
+        );
 
-      .eq(
-        "organization_id",
-        body.organizationId
-      )
-
-      .eq(
-        "status",
-        "PENDING_PAYMENT"
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      );
-
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return NextResponse.json({
-      success: true,
-      payables:
-        data || [],
+      success:true,
+      payables:data || [],
     });
 
   } catch (error) {
 
     return NextResponse.json(
       {
-        success: false,
-        error:
-          error.message,
+        success:false,
+        error:error.message,
       },
       {
-        status: 500,
+        status:500,
       }
     );
 

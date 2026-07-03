@@ -241,7 +241,7 @@ export default function InvoiceManagement() {
       const rows = data || [];
       setInvoices(rows);
 
-      const editable = {};
+      const ediserviceUnit = {};
 
       rows.forEach((inv) => {
         editable[inv.id] = {

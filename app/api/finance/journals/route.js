@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -22,7 +23,7 @@ export async function GET(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "entityId required",
+          error: "organizationId required",
         },
         { status: 400 }
       );
@@ -59,7 +60,7 @@ export async function GET(request) {
         )
       `)
       .eq("organization_id", organizationId)
-      .eq("entity_id", entityId)
+      .eq("legal_entity_id", entityId)
       .order("created_at", { ascending: false })
       .limit(500);
 

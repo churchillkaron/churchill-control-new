@@ -1,6 +1,10 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
+import { financeFetch } from "@/lib/finance/runtime/financeFetch";
 import { useParams, useSearchParams } from "next/navigation";
 import FinanceEntityScope from "@/components/finance/FinanceEntityScope";
 import { financeQuery, resolveFinanceScope } from "@/components/finance/financeScope";

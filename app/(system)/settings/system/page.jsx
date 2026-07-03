@@ -6,18 +6,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/shared/supabase/client";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 
 
 
 export default function SystemSettingsPage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const tenantId =
-    tenant?.id;
+    businessContext?.organization?.id;
 
   const [settings, setSettings] = useState({
     mode: "small",

@@ -1,133 +1,74 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 
-export default function PaymentsPage({ params }) {
+export const dynamic = "force-dynamic";
 
-  const { organizationId } = params;
+export default function Page({ params }) {
 
-  const [payables, setPayables] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [data,setData]=useState(null);
+  const {
+    financeGet,
+    loading: runtimeLoading,
+  } = useFinanceRuntime();
 
-  useEffect(() => {
-    loadPayments();
-  }, []);
+  const [loading,setLoading]=useState(true);
 
-  async function loadPayments() {
+  useEffect(()=>{
 
-    try {
-
-      const res = await fetch(
-        "/api/finance/payments/list",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            organizationId,
-          }),
-        }
-      );
-
-      const data = await res.json();
-
-      setPayables(
-        data.payables || []
-      );
-
-    } catch (err) {
-
-      console.error(err);
-
-    } finally {
-
-      setLoading(false);
-
+    if(runtimeLoading){
+      return;
     }
 
-  }
+    financeGet("/api/finance/payments/list")
 
-  return (
-    <div className="min-h-screen bg-[#030712] text-white p-8"><div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+      .then(d=>{
+        setData(d);
+        setLoading(false);
+      })
 
-        <h1 className="text-3xl font-light">
+      .catch(e=>{
+        setData({
+          success:false,
+          error:e.message
+        });
+        setLoading(false);
+      });
+
+  },[runtimeLoading]);
+
+  return(
+
+    <main className="min-h-screen p-8 text-white">
+
+      <div className="mx-auto max-w-7xl">
+
+        <h1 className="text-4xl font-light">
           Payments
         </h1>
 
-        <div className="mt-6 overflow-auto">
+        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
 
-          <table className="w-full">
+          {loading ? (
 
-            <thead>
-              <tr className="border-b border-white/10">
+            <div>Loading...</div>
 
-                <th className="p-3 text-left">
-                  Vendor
-                </th>
+          ) : (
 
-                <th className="p-3 text-left">
-                  Invoice
-                </th>
+            <pre className="overflow-auto text-xs whitespace-pre-wrap">
+{JSON.stringify(data,null,2)}
+            </pre>
 
-                <th className="p-3 text-left">
-                  Amount
-                </th>
-
-                <th className="p-3 text-left">
-                  Status
-                </th>
-
-              </tr>
-            </thead>
-
-            <tbody>
-
-              {!loading &&
-                payables.map((item) => (
-
-                  <tr
-                    key={item.id}
-                    className="border-b border-white/5"
-                  >
-
-                    <td className="p-3">
-                      {item.vendors?.display_name}
-                    </td>
-
-                    <td className="p-3">
-                      {item.vendor_invoice_id}
-                    </td>
-
-                    <td className="p-3">
-                      {Number(
-                        item.amount || 0
-                      ).toLocaleString()}
-                    </td>
-
-                    <td className="p-3">
-                      {item.status}
-                    </td>
-
-                  </tr>
-
-                ))}
-
-            </tbody>
-
-          </table>
-
-          {!loading &&
-            payables.length === 0 && (
-              <div className="py-10 text-white/40">
-                No payments pending
-              </div>
-            )}
+          )}
 
         </div>
 
       </div>
 
-    </div>
+    </main>
+
   );
+
 }

@@ -1,6 +1,9 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 
 export default function ReceivingPage({ params }) {
   const { organizationId } = params;
@@ -14,7 +17,7 @@ export default function ReceivingPage({ params }) {
 
   async function loadData() {
     try {
-      const res = await fetch(
+      const json = await financeGet(
         "/api/procurement/receiving/list",
         {
           method: "POST",

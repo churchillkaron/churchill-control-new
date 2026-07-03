@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { useTenant }
-from "@/app/providers/TenantProvider";
+import { useBusinessContext }
+from "@/app/providers/BusinessContextProvider";
 
 import {
   useOrganizationRuntime,
@@ -12,7 +12,7 @@ import {
 export default function MarketingSettingsPage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const {
     organization,
@@ -21,7 +21,7 @@ export default function MarketingSettingsPage() {
 
   const tenantId =
     organization?.tenant_id ||
-    tenant?.id;
+    businessContext?.organization?.id;
 
   const organizationId =
     organization?.id;

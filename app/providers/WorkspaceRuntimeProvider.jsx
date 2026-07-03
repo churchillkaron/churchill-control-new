@@ -1,13 +1,12 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "@/lib/shared/supabase/client";
-import { useTenant } from "@/app/providers/TenantProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 const WorkspaceRuntimeContext = createContext(null);
 
 export function WorkspaceRuntimeProvider({ children }) {
-  const tenant = useTenant();
+  const businessContext = useBusinessContext();
 
   const [state, setState] = useState({
     ready: false,
@@ -27,19 +26,26 @@ export function WorkspaceRuntimeProvider({ children }) {
   useEffect(() => {
     async function init() {
       try {
-        if (!tenant?.staff?.email) {
+        if (!businessContext?.ready) {
+          return;
+        }
+
+        if (!businessContext?.staff?.email) {
           setState(prev => ({
             ...prev,
             ready: true,
             loading: false,
-            error: tenant === null ? null : "Missing tenant staff email",
+            error:
+              businessContext === null
+                ? null
+                : "Missing business context staff email",
           }));
           return;
         }
 
-        const organizationId =
-          tenant.activeOrganization ||
-          tenant.staff?.active_organization_id ||
+        const organizationId = businessContext?.organization?.id;
+          businessContext?.organization?.id ||
+          businessContext.organization?.id ||
           null;
 
         if (!organizationId) {
@@ -53,7 +59,7 @@ export function WorkspaceRuntimeProvider({ children }) {
         }
 
         const res = await fetch(
-          `/api/workspace?organizationId=${organizationId}&userEmail=${encodeURIComponent(tenant.staff.email)}`,
+          `/api/workspace?organizationId=${organizationId}&userEmail=${encodeURIComponent(businessContext.staff.email)}`,
           {
             method: "GET",
             credentials: "include",
@@ -61,13 +67,6 @@ export function WorkspaceRuntimeProvider({ children }) {
         );
 
         const runtime = await res.json();
-
-        console.log(
-          "RUNTIME MODULES",
-          (runtime.modules || []).map(
-            m => m.id || m.module_id
-          )
-        );
 
         if (!runtime?.success) {
           setState(prev => ({
@@ -88,9 +87,11 @@ export function WorkspaceRuntimeProvider({ children }) {
           organizations: runtime.organizations || [],
           organizationTree: runtime.organizationTree || [],
           organization:
-            runtime.activeOrganization || null,
+            businessContext.organization ||
+            null,
           activeOrganization:
-            runtime.activeOrganization || null,
+            businessContext.organization ||
+            null,
           modules: runtime.modules || [],
           navigation: runtime.navigation || {
             domains: [],
@@ -114,7 +115,7 @@ export function WorkspaceRuntimeProvider({ children }) {
     }
 
     init();
-  }, [tenant]);
+  }, [businessContext]);
 
   return (
     <WorkspaceRuntimeContext.Provider value={state}>

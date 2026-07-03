@@ -1,13 +1,15 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { getOrganizationWorkspace } from "@/lib/organizations/getOrganizationWorkspace";
+import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    const organizationId = searchParams.get("organizationId");
-    const userEmail = searchParams.get("userEmail");
+    const organizationId =
+      searchParams.get("organizationId");
 
     if (!organizationId) {
       return NextResponse.json(
@@ -15,36 +17,50 @@ export async function GET(request) {
           success: false,
           error: "Missing organizationId",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    if (!userEmail) {
+    const user =
+      await getServerCurrentUser();
+
+    if (!user?.email) {
       return NextResponse.json(
         {
           success: false,
-          error: "Missing userEmail",
+          error: "Unauthorized",
         },
-        { status: 400 }
+        {
+          status: 401,
+        }
       );
     }
 
-    const workspace = await getOrganizationWorkspace({
-      userEmail,
-      organizationId,
-    });
+    const workspace =
+      await getOrganizationWorkspace({
+        userEmail: user.email,
+        organizationId,
+      });
 
     return NextResponse.json(workspace);
 
   } catch (error) {
-    console.error("workspace api error:", error);
+
+    console.error(
+      "workspace api error:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
         error: error.message,
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

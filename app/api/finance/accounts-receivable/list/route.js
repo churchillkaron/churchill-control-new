@@ -1,52 +1,32 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-
-import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function POST(req) {
-
+export async function GET(req) {
   try {
+    const { searchParams } = new URL(req.url);
 
-    await requireAuth();
-
-    const body = await req.json();
-
-    const access =
-      await requireOrganizationAccess({
-        organizationId: body.organizationId,
-      });
+    const access = await requireOrganizationAccess({
+      organizationId: searchParams.get("organizationId"),
+    });
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
-        {
-          status: access.status,
-        }
+        { success: false, error: access.error },
+        { status: access.status }
       );
     }
 
-    const { data, error } =
-      await supabaseAdmin
-        .from("accounts_receivable")
-        .select("*")
-        .eq(
-          "organization_id",
-          body.organizationId
-        )
-        .order(
-          "due_date",
-          {
-            ascending: true,
-          }
-        );
+    const organizationId = access.organizationId;
 
-    if (error) {
-      throw error;
-    }
+    const { data, error } = await supabaseAdmin
+      .from("accounts_receivable")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("due_date", { ascending: true });
+
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
@@ -54,17 +34,9 @@ export async function POST(req) {
     });
 
   } catch (error) {
-
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
+      { success: false, error: error.message },
+      { status: 500 }
     );
-
   }
-
 }

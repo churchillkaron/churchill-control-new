@@ -2,33 +2,24 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function POST(req) {
   try {
-
     const body = await req.json();
 
-    const access =
-      await requireOrganizationAccess({
-        organizationId:
-          body.organizationId,
-      });
+    const organizationId =
+      body.organizationId ||
+      body.organization_id;
 
-    if (!access.success) {
+    if (!organizationId) {
       return NextResponse.json(
         {
           success: false,
-          error: access.error,
+          error: "organizationId required",
         },
-        {
-          status: access.status,
-        }
+        { status: 400 }
       );
     }
-
-    const tenantId =
-      access.tenantId;
 
     const {
       customer_name,
@@ -38,41 +29,39 @@ export async function POST(req) {
       notes,
     } = body;
 
+    if (!customer_name) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "customer_name required",
+        },
+        { status: 400 }
+      );
+    }
+
     let query =
       supabaseAdmin
         .from("customer_loyalty_accounts")
         .select("*")
-        .eq("tenant_id", tenantId);
+        .eq("organization_id", organizationId);
 
     if (customer_phone) {
-
-      query =
-        query.eq(
-          "customer_phone",
-          customer_phone
-        );
-
+      query = query.eq("customer_phone", customer_phone);
+    } else if (customer_email) {
+      query = query.eq("customer_email", customer_email);
     } else {
-
-      query =
-        query.eq(
-          "customer_email",
-          customer_email
-        );
-
+      query = query.eq("customer_name", customer_name);
     }
 
-    const {
-      data: existing,
-    } =
+    const { data: existing, error: existingError } =
       await query.maybeSingle();
 
-    if (existing) {
+    if (existingError) {
+      throw existingError;
+    }
 
-      const {
-        data,
-        error,
-      } =
+    if (existing) {
+      const { data, error } =
         await supabaseAdmin
           .from("customer_loyalty_accounts")
           .update({
@@ -86,27 +75,19 @@ export async function POST(req) {
           .select()
           .single();
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       return NextResponse.json({
         success: true,
         customer: data,
       });
-
     }
 
-    const {
-      data,
-      error,
-    } =
+    const { data, error } =
       await supabaseAdmin
         .from("customer_loyalty_accounts")
         .insert({
-          tenant_id: tenantId,
-          organization_id:
-            body.organizationId,
+          organization_id: organizationId,
 
           customer_name,
           customer_phone,
@@ -122,26 +103,19 @@ export async function POST(req) {
         .select()
         .single();
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
       customer: data,
     });
-
   } catch (error) {
-
     return NextResponse.json(
       {
         success: false,
         error: error.message,
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
 }

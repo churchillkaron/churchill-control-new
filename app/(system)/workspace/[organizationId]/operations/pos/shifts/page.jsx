@@ -5,16 +5,16 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 
 export default function ShiftPage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const organizationId =
-    tenant?.id;
+    businessContext?.organization?.id;
 
 
   const [

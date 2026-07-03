@@ -1,7 +1,7 @@
 export async function acknowledgeOrder({ orderId, tenantId }) {
   try {
 
-    await fetch("/api/pos/orders/ack", {
+    await fetch("/api/restaurant/kitchen/ack", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -9,7 +9,7 @@ export async function acknowledgeOrder({ orderId, tenantId }) {
       body: JSON.stringify({
         orderId,
         tenantId,
-        acknowledgedBy: "KITCHEN"
+        acknowledgedBy: "FULFILLMENT"
       })
     });
 

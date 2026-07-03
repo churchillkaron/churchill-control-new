@@ -1,20 +1,21 @@
-import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 
+import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function POST(req) {
-
+export async function GET(req) {
   try {
 
     await requireAuth();
 
-    const body = await req.json();
+    const { searchParams } = new URL(req.url);
 
     const access =
       await requireOrganizationAccess({
-        organizationId: body.organizationId,
+        organizationId:
+          searchParams.get("organizationId"),
       });
 
     if (!access.success) {
@@ -35,7 +36,7 @@ export async function POST(req) {
         .select("*")
         .eq(
           "organization_id",
-          body.organizationId
+          access.organizationId
         )
         .order(
           "payment_date",
@@ -44,9 +45,7 @@ export async function POST(req) {
           }
         );
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
@@ -66,5 +65,4 @@ export async function POST(req) {
     );
 
   }
-
 }

@@ -9,18 +9,18 @@ import { supabase }
 from "@/lib/shared/supabase/client";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 
 
 
 export default function ServiceChargeSettingsPage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const tenantId =
-    tenant?.id;
+    businessContext?.organization?.id;
 
 
   const [
@@ -230,7 +230,7 @@ export default function ServiceChargeSettingsPage() {
 
             </Field>
 
-            <Field label="BAR %">
+            <Field label="PRODUCTION %">
 
               <input
                 type="number"
@@ -249,7 +249,7 @@ export default function ServiceChargeSettingsPage() {
 
             </Field>
 
-            <Field label="KITCHEN %">
+            <Field label="FULFILLMENT %">
 
               <input
                 type="number"

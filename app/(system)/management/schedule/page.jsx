@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 import { supabase } from "@/lib/supabase";
 
 const DAYS = [
@@ -20,10 +20,10 @@ const DAYS = [
 export default function ManagementSchedulePage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const tenantId =
-    tenant?.id;
+    businessContext?.organization?.id;
 
   const [staff, setStaff] =
     useState([]);

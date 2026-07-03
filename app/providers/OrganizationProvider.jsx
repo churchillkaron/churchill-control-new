@@ -1,30 +1,33 @@
 "use client";
 
 import { createContext, useContext, useMemo } from "react";
-import { useWorkspaceRuntime } from "@/app/providers/WorkspaceRuntimeProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 const OrganizationContext = createContext(null);
 
 export function OrganizationProvider({ children }) {
-  const runtime = useWorkspaceRuntime();
+  const businessContext = useBusinessContext();
 
   const value = useMemo(
     () => ({
       organization:
-        runtime?.activeOrganization ||
-        runtime?.organization ||
-        null,
+        businessContext?.organization || null,
 
       organizations:
-        runtime?.organizations || [],
+        businessContext?.organizations ||
+        (
+          businessContext?.organization
+            ? [businessContext.organization]
+            : []
+        ),
 
       setOrganization: () => {
         console.warn(
-          "setOrganization() is deprecated. Active organization is controlled by WorkspaceRuntime."
+          "setOrganization() is deprecated. Active organization is controlled by BusinessContext."
         );
       },
     }),
-    [runtime]
+    [businessContext]
   );
 
   return (

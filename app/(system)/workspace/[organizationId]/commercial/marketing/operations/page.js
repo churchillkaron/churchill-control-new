@@ -3,43 +3,43 @@
 export const dynamic = "force-dynamic";
 
 import OperationsCharts
-from "../../components/marketing/OperationsCharts";
+from "@/app/(system)/components/marketing/OperationsCharts";
 
 import { useMarketingOperations }
 from "@/hooks/useMarketingOperations";
 
 import OperationsHeader
-from "../../components/marketing/operations/OperationsHeader";
+from "@/app/(system)/components/marketing/operations/OperationsHeader";
 
 import OperationsJobStats
-from "../../components/marketing/operations/OperationsJobStats";
+from "@/app/(system)/components/marketing/operations/OperationsJobStats";
 
 import OperationsQueueStats
-from "../../components/marketing/operations/OperationsQueueStats";
+from "@/app/(system)/components/marketing/operations/OperationsQueueStats";
 
 import OperationsAlerts
-from "../../components/marketing/operations/OperationsAlerts";
+from "@/app/(system)/components/marketing/operations/OperationsAlerts";
 
 import OperationsRecommendations
-from "../../components/marketing/operations/OperationsRecommendations";
+from "@/app/(system)/components/marketing/operations/OperationsRecommendations";
 
 import OperationsInsights
-from "../../components/marketing/operations/OperationsInsights";
+from "@/app/(system)/components/marketing/operations/OperationsInsights";
 
 import OperationsCampaigns
-from "../../components/marketing/operations/OperationsCampaigns";
+from "@/app/(system)/components/marketing/operations/OperationsCampaigns";
 
 import OperationsExecutionFeed
-from "../../components/marketing/operations/OperationsExecutionFeed";
+from "@/app/(system)/components/marketing/operations/OperationsExecutionFeed";
 
 import OperationsEnginePerformance
-from "../../components/marketing/operations/OperationsEnginePerformance";
+from "@/app/(system)/components/marketing/operations/OperationsEnginePerformance";
 
 import { calculateEnginePerformance }
 from "@/lib/marketing/ai/performance/calculateEnginePerformance";
 
 import OperationsEngineStrategy
-from "../../components/marketing/operations/OperationsEngineStrategy";
+from "@/app/(system)/components/marketing/operations/OperationsEngineStrategy";
 
 import { analyzeEngineLearning }
 from "@/lib/marketing/ai/learning/analyzeEngineLearning";

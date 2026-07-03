@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useTenant } from "@/app/providers/TenantProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 export default function WorkCenterPage() {
   const params = useParams();
@@ -12,8 +12,8 @@ export default function WorkCenterPage() {
 
 
 
-  const tenant = useTenant();
-  const tenantId = tenant?.id;
+  const businessContext = useBusinessContext();
+  const tenantId = businessContext?.organization?.id;
 
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -205,9 +205,9 @@ function TicketCard({
           >
             <div>
 
-              {(item.seat_position || item.modifiers?.seat) && (
+              {(item.seat_position || item.seat_position) && (
                 <div className="mb-1 text-xs font-bold uppercase text-cyan-400">
-                  SEAT {item.seat_position || item.modifiers?.seat}
+                  SEAT {item.seat_position || item.seat_position}
                 </div>
               )}
 
@@ -225,19 +225,19 @@ function TicketCard({
                 </div>
               )}
 
-              {item.modifiers?.side && (
+              {null && (
                 <div className="text-xs text-cyan-300">
                   SIDE: {item.modifiers.side}
                 </div>
               )}
 
-              {item.modifiers?.sauce && (
+              {null && (
                 <div className="text-xs text-cyan-300">
                   SAUCE: {item.modifiers.sauce}
                 </div>
               )}
 
-              {item.modifiers?.spicy && (
+              {null && (
                 <div className="text-xs text-cyan-300">
                   SPICY: {item.modifiers.spicy}
                 </div>

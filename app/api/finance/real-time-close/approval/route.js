@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { approveRealTimeClose } from "@/lib/finance/period-close/approveRealTimeClose";

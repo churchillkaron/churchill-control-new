@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { useTenant } from "@/app/providers/TenantProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import {
   Users,
   CircleDollarSign,
@@ -11,8 +11,8 @@ import {
 } from "lucide-react";
 
 export default function CustomersPage() {
-  const tenant = useTenant();
-  const tenantId = tenant?.id;
+  const businessContext = useBusinessContext();
+  const tenantId = businessContext?.organization?.id;
 
   const [query, setQuery] = useState("");
   const [customers, setCustomers] = useState([]);

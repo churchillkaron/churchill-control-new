@@ -9,8 +9,8 @@ import {
 } from "react";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 
 import {
   useSearchParams,
@@ -75,10 +75,10 @@ function money(value) {
 export default function PaymentsPage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const organizationId =
-    tenant?.id;
+    businessContext?.organization?.id;
 
   const searchParams =
     useSearchParams();
@@ -125,7 +125,7 @@ export default function PaymentsPage() {
   ] = useState(false);
 
   async function loadPaymentState() {
-    if (!tableNumber) {
+    if (!organizationId || !tableNumber) {
       setLoading(false);
       return;
     }
@@ -170,7 +170,7 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     loadPaymentState();
-  }, [tableNumber]);
+  }, [organizationId, tableNumber]);
 
   const selectedNet =
     useMemo(() => {
@@ -276,8 +276,8 @@ export default function PaymentsPage() {
       const response =
         await fetch(
           mode === "FULL"
-            ? "/api/pos/payments/create"
-            : "/api/pos/partial-payment",
+            ? "/api/restaurant/payments/create"
+            : "/api/restaurant/payments/partial",
           {
             method: "POST",
             headers: {
@@ -316,7 +316,7 @@ export default function PaymentsPage() {
         ) <= 0 ||
         mode === "FULL"
       ) {
-        router.push("/operations/tables");
+        router.push(`/workspace/${organizationId}/operations/tables`);
 
         router.refresh();
         return;
@@ -467,19 +467,19 @@ export default function PaymentsPage() {
 
                   </div>
 
-                  {item.modifiers?.side && (
+                  {null && (
                     <div className="mt-1 text-xs text-cyan-300">
                       SIDE: {item.modifiers.side}
                     </div>
                   )}
 
-                  {item.modifiers?.sauce && (
+                  {null && (
                     <div className="mt-1 text-xs text-cyan-300">
                       SAUCE: {item.modifiers.sauce}
                     </div>
                   )}
 
-                  {item.modifiers?.spicy && (
+                  {null && (
                     <div className="mt-1 text-xs text-cyan-300">
                       SPICY: {item.modifiers.spicy}
                     </div>

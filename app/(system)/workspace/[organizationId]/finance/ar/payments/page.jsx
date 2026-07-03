@@ -1,11 +1,20 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 import Link from "next/link";
 
 export default function Page({ params }) {
 
-  const { organizationId } = params;
+  const {
+    organizationId,
+    entityId,
+    financeGet,
+    financePost,
+    loading: runtimeLoading,
+  } = useFinanceRuntime();
 
   const [payments, setPayments] =
     useState([]);
@@ -38,51 +47,28 @@ export default function Page({ params }) {
     useState("");
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!runtimeLoading) {
+      loadData();
+    }
+  }, [runtimeLoading]);
 
   async function loadData() {
 
     try {
 
-      const [paymentsRes, receivablesRes] =
+      const [paymentsJson, receivablesJson] =
         await Promise.all([
 
-          fetch(
-            "/api/finance/customer-payments/list",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                organizationId,
-              }),
-            }
+          financeGet(
+            "/api/finance/customer-payments/list"
           ),
 
-          fetch(
-            "/api/finance/accounts-receivable/list",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                organizationId,
-              }),
-            }
+          financeGet(
+            "/api/finance/accounts-receivable/list"
           ),
 
         ]);
 
-      const paymentsJson =
-        await paymentsRes.json();
-
-      const receivablesJson =
-        await receivablesRes.json();
 
       if (paymentsJson.success) {
 
@@ -132,48 +118,36 @@ export default function Page({ params }) {
 
     try {
 
-      const res =
-        await fetch(
+      const json =
+        await financePost(
           "/api/finance/customer-payments/create",
           {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
 
-              organizationId,
+            customer_id:
+              customerId,
 
-              customer_id:
-                customerId,
+            customer_invoice_id:
+              customerInvoiceId,
 
-              customer_invoice_id:
-                customerInvoiceId,
+            payment_date:
+              new Date()
+                .toISOString()
+                .slice(0,10),
 
-              payment_date:
-                new Date()
-                  .toISOString()
-                  .slice(0, 10),
+            amount:
+              Number(amount),
 
-              amount:
-                Number(amount),
+            payment_method:
+              paymentMethod,
 
-              payment_method:
-                paymentMethod,
+            reference_number:
+              referenceNumber,
 
-              reference_number:
-                referenceNumber,
+            paid_by:
+              paidBy,
 
-              paid_by:
-                paidBy,
-
-            }),
           }
         );
-
-      const json =
-        await res.json();
 
       if (!json.success) {
 

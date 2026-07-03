@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
@@ -11,7 +12,7 @@ export async function GET() {
       error,
     } = await supabaseAdmin
       .from(
-        'finance_audit_logs'
+        'audit_logs'
       )
       .select('*')
       .order(

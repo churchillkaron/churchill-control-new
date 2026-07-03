@@ -105,17 +105,17 @@ export default function MonitoringLivePage() {
         subscriptions: [
 
           {
-            table:
+            service_unit:
               "orders",
           },
 
           {
-            table:
+            service_unit:
               "table_sessions",
           },
 
           {
-            table:
+            service_unit:
               "order_items",
           },
 
@@ -235,7 +235,7 @@ export default function MonitoringLivePage() {
 
       </div>
 
-      {/* ===== KITCHEN ===== */}
+      {/* ===== FULFILLMENT ===== */}
       <div className="px-10 pb-10 grid grid-cols-3 gap-7">
 
         <div className="rounded-[40px] border border-red-500/20 bg-red-500/5 p-10">

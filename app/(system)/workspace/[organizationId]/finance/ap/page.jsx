@@ -1,11 +1,18 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 
 export default function AccountsPayablePage({
   params,
 }) {
-  const { organizationId } = params;
+  const {
+    organizationId,
+    financeGet,
+    loading: runtimeLoading,
+  } = useFinanceRuntime();
 
   const [loading, setLoading] =
     useState(true);
@@ -14,28 +21,18 @@ export default function AccountsPayablePage({
     useState([]);
 
   useEffect(() => {
-    loadPayables();
-  }, [organizationId]);
+    if (!runtimeLoading) {
+      loadPayables();
+    }
+  }, [runtimeLoading]);
 
   async function loadPayables() {
     try {
 
-      const res = await fetch(
-        "/api/finance/payments/list",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            organizationId,
-          }),
-        }
-      );
-
       const json =
-        await res.json();
+        await financeGet(
+          "/api/finance/payments/list"
+        );
 
       setPayables(
         json.payables || []

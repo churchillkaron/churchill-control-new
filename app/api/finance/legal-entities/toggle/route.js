@@ -1,128 +1,49 @@
-import {
-  NextResponse,
-} from "next/server";
+export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
 
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
+import { requireAuth } from "@/lib/shared/auth";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-import {
-  supabaseAdmin,
-} from "@/lib/shared/supabase/admin";
+import toggleLegalEntity from "@/lib/finance/legal-entities/capabilities/toggleLegalEntity";
 
 export async function POST(req) {
-
   try {
-
     await requireAuth();
 
-    const body =
-      await req.json();
+    const body = await req.json();
 
     const access =
       await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
+        organizationId: body.organizationId,
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
-    const organizationId =
-      access.organizationId;
+    const result =
+      await toggleLegalEntity({
+        organization_id: access.organizationId,
+        entity_id: body.entity_id,
+        updated_by: body.userId || "system",
+      });
 
-    const {
-      data: entity,
-      error: loadError,
-    } = await supabaseAdmin
-
-      .from("legal_entities")
-
-      .select("*")
-
-      .eq(
-        "organization_id",
-        organizationId
-      )
-
-      .eq(
-        "id",
-        body.entity_id
-      )
-
-      .single();
-
-    if (loadError || !entity) {
-      throw new Error("ENTITY_NOT_FOUND");
-    }
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-
-      .from("legal_entities")
-
-      .update({
-
-        is_active:
-          !entity.is_active,
-
-        updated_at:
-          new Date().toISOString(),
-
-      })
-
-      .eq(
-        "id",
-        entity.id
-      )
-
-      .select()
-
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return NextResponse.json({
-
-      success: true,
-
-      entity:
-        data,
-
-    });
+    return NextResponse.json(result);
 
   } catch (error) {
-
-    console.error(error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
@@ -130,5 +51,4 @@ export async function POST(req) {
     );
 
   }
-
 }

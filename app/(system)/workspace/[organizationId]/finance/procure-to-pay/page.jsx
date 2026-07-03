@@ -1,12 +1,18 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 
-export default function ProcureToPayPage({
-  params,
-}) {
-  const { organizationId } = params;
+export default function ProcureToPayPage() {
+
+  const {
+    organizationId,
+    financePost,
+    loading: runtimeLoading,
+  } = useFinanceRuntime();
 
   const [runtime, setRuntime] =
     useState({
@@ -22,20 +28,11 @@ export default function ProcureToPayPage({
   useEffect(() => {
     async function loadRuntime() {
       try {
-        const res = await fetch(
-          "/api/finance/procure-to-pay/runtime",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              organizationId,
-            }),
-          }
-        );
 
-        const json = await res.json();
+        const json =
+          await financePost(
+            "/api/finance/procure-to-pay/runtime"
+          );
 
         if (json.success) {
           setRuntime({
@@ -48,13 +45,18 @@ export default function ProcureToPayPage({
             payments: json.payments || 0,
           });
         }
+
       } catch (error) {
         console.error(error);
       }
     }
 
+    if (runtimeLoading) {
+      return;
+    }
+
     loadRuntime();
-  }, [organizationId]);
+  }, [organizationId, runtimeLoading]);
 
   const attentionItems = [
     {

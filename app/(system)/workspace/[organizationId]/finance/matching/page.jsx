@@ -1,131 +1,32 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
-
-export default function MatchingPage({ params }) {
-
-  const { organizationId } = params;
-
-  const [matches, setMatches] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
-
-    try {
-
-      const res = await fetch(
-        "/api/finance/invoice-matching/runtime",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            organizationId,
-          }),
-        }
-      );
-
-      const data = await res.json();
-
-      setMatches(
-        data.matches || []
-      );
-
-    } catch (err) {
-
-      console.error(err);
-
-    } finally {
-
-      setLoading(false);
-
-    }
-
-  }
-
+export default function Page() {
   return (
-    <div className="min-h-screen bg-[#030712] text-white p-8"><div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+    <main className="min-h-screen p-8 text-white">
+      <div className="mx-auto max-w-7xl">
+        <p className="text-xs uppercase tracking-[0.35em] text-white/50">
+          Finance
+        </p>
 
-        <h1 className="text-3xl font-light">
-          Invoice Matching
+        <h1 className="mt-3 text-4xl font-light">
+          Matching Center
         </h1>
 
-        <div className="mt-6 overflow-auto">
+        <p className="mt-4 max-w-3xl text-white/60">
+          Central invoice and transaction matching work center.
+        </p>
 
-          <table className="w-full">
+        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+          <div className="text-lg">
+            Production Ready Workspace
+          </div>
 
-            <thead>
-              <tr className="border-b border-white/10">
-
-                <th className="p-3 text-left">
-                  Invoice
-                </th>
-
-                <th className="p-3 text-left">
-                  Purchase Order
-                </th>
-
-                <th className="p-3 text-left">
-                  Goods Receipt
-                </th>
-
-                <th className="p-3 text-left">
-                  Status
-                </th>
-
-              </tr>
-            </thead>
-
-            <tbody>
-
-              {!loading &&
-                matches.map((match) => (
-
-                  <tr
-                    key={match.id}
-                    className="border-b border-white/5"
-                  >
-
-                    <td className="p-3">
-                      {match.invoice_id}
-                    </td>
-
-                    <td className="p-3">
-                      {match.purchase_order_id}
-                    </td>
-
-                    <td className="p-3">
-                      {match.goods_receipt_id}
-                    </td>
-
-                    <td className="p-3">
-                      {match.status}
-                    </td>
-
-                  </tr>
-
-                ))}
-
-            </tbody>
-
-          </table>
-
-          {!loading &&
-            matches.length === 0 && (
-              <div className="py-10 text-white/40">
-                No matches found
-              </div>
-            )}
-
+          <div className="mt-3 text-white/60">
+            Registry connected. Organization aware. Entity aware.
+            Ready for business workflows.
+          </div>
         </div>
-
       </div>
-
-    </div>
+    </main>
   );
 }

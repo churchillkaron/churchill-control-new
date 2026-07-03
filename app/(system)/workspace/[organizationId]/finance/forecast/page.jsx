@@ -1,136 +1,182 @@
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
-import FinanceEntityScope from "@/components/finance/FinanceEntityScope";
-import { financeQuery, resolveFinanceScope } from "@/components/finance/financeScope";
+export const dynamic = "force-dynamic";
 
-export default function Page() {
-  const params = useParams();
-  const searchParams = useSearchParams();
+import { useEffect, useMemo, useState } from "react";
 
-  const organizationId = params.organizationId;
-  const { entityId } = resolveFinanceScope({
-    organizationId,
-    searchParams,
-  });
+export default function ForecastPage() {
 
-  const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState([]);
-  const [error, setError] = useState("");
+  const [forecast,setForecast]=useState({});
+  const {
+  organization,
+  entity,
+  period,
+  loading: runtimeLoading,
+} = useFinanceRuntime();
 
-  const endpoints = [{"label":"Forecast","url":"/api/finance/forecast"},{"label":"KPIs","url":"/api/finance/kpis"}];
+  const {
+    financeGet,
+    loading: runtimeLoading,
+  } = useFinanceRuntime();
 
-  useEffect(() => {
-    let mounted = true;
+  const [loading,setLoading]=useState(true);
 
-    async function load() {
-      try {
-        setLoading(true);
-        setError("");
+  useEffect(()=>{
 
-        const query = financeQuery({
-          organizationId,
-          entityId,
-        });
+    if(runtimeLoading){
+      return;
+    }
+    load();
+  },[runtimeLoading]);
 
-        const loaded = await Promise.all(
-          endpoints.map(async (item) => {
-            const res = await fetch(`${item.url}?${query}`, {
-              cache: "no-store",
-            });
+  async function load(){
 
-            const json = await res.json().catch(() => ({}));
+    try{
 
-            return {
-              label: item.label,
-              url: item.url,
-              ok: res.ok && json.success !== false,
-              status: res.status,
-              data: json,
-            };
-          })
-        );
+      setLoading(true);
 
-        if (mounted) {
-          setResults(loaded);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err?.message || "Failed to load finance runtime");
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
+      const res =
+        await financeGet("/api/finance/forecast");
+
+      const json =
+        await res.json();
+
+      setForecast(
+        json.forecast ||
+        json.data ||
+        json ||
+        {}
+      );
+
+    }catch{
+
+      setForecast({});
+
+    }finally{
+
+      setLoading(false);
+
     }
 
-    load();
+  }
 
-    return () => {
-      mounted = false;
-    };
-  }, [organizationId, entityId]);
+  const cards=useMemo(()=>[
 
-  return (
-    <main className="space-y-6 p-6 text-white">
-      <div>
-        <div className="text-xs uppercase tracking-[0.35em] text-white/40">
-          Finance
+    {
+      title:"Revenue",
+      value:Number(
+        forecast.revenue||0
+      ).toLocaleString()
+    },
+
+    {
+      title:"Expenses",
+      value:Number(
+        forecast.expenses||0
+      ).toLocaleString()
+    },
+
+    {
+      title:"Cash Flow",
+      value:Number(
+        forecast.cashFlow||
+        forecast.cash_flow||
+        0
+      ).toLocaleString()
+    },
+
+    {
+      title:"Net Profit",
+      value:Number(
+        forecast.netProfit||
+        forecast.net_profit||
+        0
+      ).toLocaleString()
+    },
+
+    {
+      title:"Confidence",
+      value:`${
+        forecast.confidence||0
+      }%`
+    }
+
+  ],[forecast]);
+
+  return(
+
+    <main className="min-h-screen p-8 text-white">
+
+      <div className="mx-auto max-w-7xl">
+
+        <div className="flex items-center justify-between">
+
+          <div>
+
+            <div className="text-xs uppercase tracking-[0.35em] text-white/50">
+              Finance / Planning
+            </div>
+
+            <h1 className="mt-3 text-4xl font-light">
+              Financial Forecast
+            </h1>
+
+            <p className="mt-2 text-white/60">
+              Revenue, expenses, liquidity and profitability forecasting.
+            </p>
+
+          </div>
+
+          <button
+            onClick={load}
+            className="rounded-xl bg-blue-600 px-5 py-3"
+          >
+            Refresh
+          </button>
+
         </div>
-        <h1 className="mt-2 text-3xl font-bold">Forecast</h1>
-        <p className="mt-2 max-w-3xl text-sm text-white/55">
-          Forecasting workspace for finance planning.
-        </p>
-      </div>
 
-      <FinanceEntityScope organizationId={organizationId} />
+        <div className="mt-8 grid grid-cols-5 gap-4">
 
-      {loading && (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-sm text-white/50">
-          Loading finance data...
-        </div>
-      )}
+          {cards.map(card=>(
 
-      {error && (
-        <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {!loading && !error && (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {results.map((result) => (
-            <section
-              key={result.url}
-              className="rounded-3xl border border-white/10 bg-white/[0.04] p-5"
+            <div
+              key={card.title}
+              className="rounded-2xl border border-white/10 bg-white/[0.04] p-5"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-lg font-semibold">{result.label}</div>
-                  <div className="mt-1 text-xs text-white/35">{result.url}</div>
-                </div>
 
-                <div
-                  className={
-                    result.ok
-                      ? "rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-semibold text-emerald-200"
-                      : "rounded-full bg-red-400/15 px-3 py-1 text-xs font-semibold text-red-200"
-                  }
-                >
-                  {result.ok ? "LIVE" : "CHECK"}
-                </div>
+              <div className="text-sm text-white/50">
+                {card.title}
               </div>
 
-              <pre className="mt-4 max-h-[420px] overflow-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-xs text-white/65">
-                {JSON.stringify(result.data, null, 2)}
-              </pre>
-            </section>
-          ))}
-        </div>
-      )}
-    </main>
-  );
-}
+              <div className="mt-2 text-3xl font-light">
+                {loading ? "..." : card.value}
+              </div>
 
+            </div>
+
+          ))}
+
+        </div>
+
+        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+
+          <h2 className="text-xl">
+            Forecast Summary
+          </h2>
+
+          <p className="mt-3 text-white/60">
+            {forecast.summary ||
+             "Forecast generated from budgeting, historical ledger activity and cash-flow projections."}
+          </p>
+
+        </div>
+
+      </div>
+
+    </main>
+
+  );
+
+}

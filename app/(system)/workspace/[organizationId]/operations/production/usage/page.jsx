@@ -102,7 +102,7 @@ export default function ProductionUsagePage() {
           {
             event: "*",
             schema: "public",
-            table:
+            service_unit:
               "inventory_movements",
           },
           refresh

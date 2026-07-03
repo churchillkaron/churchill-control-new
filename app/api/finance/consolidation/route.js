@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import createLegalEntity from "@/lib/finance/legal-entities/createLegalEntity";

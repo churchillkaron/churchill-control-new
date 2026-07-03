@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTenant } from "@/app/providers/TenantProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { useWorkspaceRuntime } from "@/app/providers/WorkspaceRuntimeProvider";
-import { loadWaiterData } from "@/lib/pos/waiter/loadWaiterData";
-import { groupMenuByCategory } from "@/lib/pos/waiter/groupMenuByCategory";
-import { assignSeatToBillGroup } from "@/lib/pos/assignSeatToBillGroup";
+import { loadWaiterData } from "@/lib/restaurant/pos/waiter/loadWaiterData";
+import { groupMenuByCategory } from "@/lib/restaurant/pos/waiter/groupMenuByCategory";
+import { assignSeatToBillGroup } from "@/lib/restaurant/pos/tables/assignSeatToBillGroup";
 
 function tableId(table) {
   return table?.id || null;
@@ -103,18 +103,14 @@ function SmallTitle({ children }) {
 }
 
 export default function POSFinalUI() {
-  const tenant = useTenant();
+  const { organization, entity, period } = useBusinessContext();
+  const businessContext = { organization, entity, period };
   const { runtime: workspaceRuntime } = useWorkspaceRuntime();
 
   const waiterStaff =
     workspaceRuntime?.access?.staff || null;
 
-  const organizationId =
-    tenant?.activeOrganization ||
-    tenant?.active_organization_id ||
-    tenant?.organizationId ||
-    tenant?.organization_id ||
-    null;
+  const organizationId = organization?.id || null;
 
   const holdTimer = useRef(null);
   const longPressFired = useRef(false);

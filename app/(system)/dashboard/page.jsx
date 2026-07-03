@@ -37,8 +37,8 @@ import {
 } from "@/lib/dashboard/runtime/loadExecutiveDashboard";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 
 
 
@@ -164,10 +164,10 @@ function RuntimeRow({
 export default function ExecutiveDashboardPage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const tenantId =
-    tenant?.id;
+    businessContext?.organization?.id;
 
   const [
     dashboard,

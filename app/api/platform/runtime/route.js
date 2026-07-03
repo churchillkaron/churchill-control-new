@@ -1,19 +1,30 @@
 import { NextResponse } from "next/server";
-import { platformRuntime } from "@/lib/platform/runtime";
+
+import {
+  bootstrapPlatform,
+} from "@/lib/platform/bootstrap";
 
 export async function GET() {
 
-  const manifest =
-    platformRuntime.boot();
+  const platform =
+    bootstrapPlatform();
 
   return NextResponse.json({
 
     success: true,
 
-    started:
-      platformRuntime.isStarted(),
+    runtime: {
 
-    manifest,
+      providers:
+        platform.providers,
+
+      services: Object.keys(
+        platform.services
+      ),
+
+      network: !!platform.network,
+
+    },
 
   });
 

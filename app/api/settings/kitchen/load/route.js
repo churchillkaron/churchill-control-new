@@ -21,7 +21,7 @@ export async function POST(request) {
         tenantId,
 
         domain:
-          "KITCHEN",
+          "FULFILLMENT",
 
       });
 

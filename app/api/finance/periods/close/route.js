@@ -1,252 +1,46 @@
-import { NextResponse }
-from "next/server";
-
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-const organizationId = null;
+export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { runMonthEndClose } from "@/lib/finance/period-close/capabilities/MonthEndCloseEngine";
 
 export async function POST(request) {
-
   try {
-
-    const body =
-      await request.json();
+    const body = await request.json();
 
     const access =
       await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
+        organizationId: body.organizationId,
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
-    const organizationId =
-      access.organizationId;
-
-    const periodId =
-      body.periodId;
-
-    if (!periodId) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          "periodId required",
-
-      }, {
-
-        status: 400,
-
+    const result =
+      await runMonthEndClose({
+        organizationId: access.organizationId,
+        periodId: body.periodId,
+        closedBy: body.closedBy || body.userId || "system",
       });
 
-    }
-
-    // -----------------------------------
-    // LOAD PERIOD
-    // -----------------------------------
-
-    const {
-      data: period,
-      error: periodError,
-    } = await supabaseAdmin
-
-      .from("accounting_periods")
-
-      .select("*")
-
-      .eq(
-        "id",
-        periodId
-      )
-
-      .eq(
-        "organization_id",
-        organizationId
-      )
-
-      .single();
-
-    if (
-      periodError ||
-      !period
-    ) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          "Accounting period not found",
-
-      }, {
-
-        status: 404,
-
-      });
-
-    }
-
-    // -----------------------------------
-    // ALREADY CLOSED
-    // -----------------------------------
-
-    if (
-      period.status === "closed"
-    ) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          "Period already closed",
-
-      }, {
-
-        status: 400,
-
-      });
-
-    }
-
-    // -----------------------------------
-    // CLOSE PERIOD
-    // -----------------------------------
-
-    const {
-      data: updated,
-      error: updateError,
-    } = await supabaseAdmin
-
-      .from("accounting_periods")
-
-      .update({
-
-        status:
-          "closed",
-
-        closed_at:
-          new Date()
-            .toISOString(),
-
-        closed_by:
-          "system",
-
-      })
-
-      .eq(
-        "id",
-        periodId
-      )
-
-      .select()
-
-      .single();
-
-    if (updateError) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          updateError.message,
-
-      }, {
-
-        status: 500,
-
-      });
-
-    }
-
-    // -----------------------------------
-    // AUDIT LOG
-    // -----------------------------------
-
-    await supabaseAdmin
-
-      .from("audit_logs")
-
-      .insert([{
-
-        organization_id:
-          organizationId,
-
-        action:
-          "ACCOUNTING_PERIOD_CLOSED",
-
-        entity_type:
-          "accounting_period",
-
-        entity_id:
-          periodId,
-
-        metadata: {
-
-          period:
-            period.name,
-
-          start_date:
-            period.start_date,
-
-          end_date:
-            period.end_date,
-
-        },
-
-      }]);
-
-    return NextResponse.json({
-
-      success: true,
-
-      message:
-        "Accounting period closed successfully",
-
-      period:
-        updated,
-
-    });
-
+    return NextResponse.json(result);
   } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-
-      status: 500,
-
-    });
-
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
+    );
   }
-
 }

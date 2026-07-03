@@ -6,7 +6,7 @@ export async function POST(req) {
     const body = await req.json();
 
     const result = await getWorkCenterOrders({
-      tenantId: body.tenantId,
+      organization_id: body.organization_id,
       workCenterId: body.workCenterId || null,
     });
 

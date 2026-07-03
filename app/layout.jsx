@@ -15,8 +15,8 @@ import {
 } from "@/app/providers/WorkspaceRuntimeProvider";
 
 import {
-  TenantProvider,
-} from "@/app/providers/TenantProvider";
+  BusinessContextProvider,
+} from "@/app/providers/BusinessContextProvider";
 
 export const metadata = {
   title: "Churchill",
@@ -30,13 +30,13 @@ export default async function RootLayout({
     <html lang="en">
       <body>
         <PlatformProvider>
-          <TenantProvider>
+          <BusinessContextProvider>
             <WorkspaceRuntimeProvider>
               <OrganizationProvider>
                 {children}
               </OrganizationProvider>
             </WorkspaceRuntimeProvider>
-          </TenantProvider>
+          </BusinessContextProvider>
         </PlatformProvider>
       </body>
     </html>

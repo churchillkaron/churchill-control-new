@@ -102,7 +102,7 @@ export default function AnalyticsLivePage() {
           {
             event: "*",
             schema: "public",
-            table:
+            service_unit:
               "orders",
           },
           refresh

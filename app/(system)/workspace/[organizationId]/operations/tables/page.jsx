@@ -21,18 +21,18 @@ import { supabase }
 from "@/lib/shared/supabase/client";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 
 
 
 export default function TablesPage() {
 
   const tenant =
-    useTenant();
+    useBusinessContext();
 
   const organizationId =
-    tenant?.id;
+    businessContext?.organization?.id;
 
   const router =
     useRouter();
@@ -188,7 +188,7 @@ export default function TablesPage() {
 
               const response =
                 await fetch(
-                  "/api/pos/payment-state",
+                  "/api/restaurant/payments/state",
                   {
                     method: "POST",
 
@@ -266,7 +266,7 @@ useEffect(() => {
           {
             event: "*",
             schema: "public",
-            table: "table_sessions",
+            service_unit: "table_sessions",
           },
           loadTables
         )
@@ -276,7 +276,7 @@ useEffect(() => {
           {
             event: "*",
             schema: "public",
-            table: "order_items",
+            service_unit: "order_items",
           },
           loadTables
         )
@@ -297,7 +297,7 @@ useEffect(() => {
     useMemo(() => {
 
       return tables.map(
-        table => {
+        serviceUnit => {
 
           const activeOrders =
             (table.orders || [])
@@ -376,7 +376,7 @@ useEffect(() => {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
 
           {activeTables.map(
-            table => {
+            serviceUnit => {
 
               const occupied =
                 Boolean(

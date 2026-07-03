@@ -1,30 +1,31 @@
-import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 
+import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function POST(req) {
-
+export async function GET(req) {
   try {
 
     await requireAuth();
 
-    const body = await req.json();
+    const { searchParams } = new URL(req.url);
 
     const access =
       await requireOrganizationAccess({
-        organizationId: body.organizationId,
+        organizationId:
+          searchParams.get("organizationId"),
       });
 
     if (!access.success) {
       return NextResponse.json(
         {
-          success: false,
-          error: access.error,
+          success:false,
+          error:access.error,
         },
         {
-          status: access.status,
+          status:access.status,
         }
       );
     }
@@ -34,7 +35,7 @@ export async function POST(req) {
         .from("customer_invoices")
         .select(`
           *,
-          customer_loyalty_accounts (
+          customer_loyalty_accounts(
             id,
             customer_name,
             customer_phone,
@@ -43,36 +44,33 @@ export async function POST(req) {
         `)
         .eq(
           "organization_id",
-          body.organizationId
+          access.organizationId
         )
         .order(
           "invoice_date",
           {
-            ascending: false,
+            ascending:false,
           }
         );
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return NextResponse.json({
-      success: true,
-      invoices: data || [],
+      success:true,
+      invoices:data || [],
     });
 
   } catch (error) {
 
     return NextResponse.json(
       {
-        success: false,
-        error: error.message,
+        success:false,
+        error:error.message,
       },
       {
-        status: 500,
+        status:500,
       }
     );
 
   }
-
 }

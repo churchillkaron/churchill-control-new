@@ -2,15 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useOrganizationRuntime } from "@/app/providers/WorkspaceRuntimeProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { Bell } from "lucide-react";
 
 export default function PlatformHeader() {
   const pathname = usePathname();
-  const { activeOrganization, navigation } = useOrganizationRuntime();
+  const businessContext = useBusinessContext();
 
-  const orgName = activeOrganization?.name || "Workspace";
-  const userRole = "OWNER"; // replace with dynamic runtime user role if available
+  const organization =
+    businessContext?.organization || null;
+
+  const navigation =
+    businessContext?.navigation?.domains ||
+    businessContext?.navigation ||
+    [];
+
+  const orgName =
+    organization?.name || "Workspace";
+
+  const userRole =
+    businessContext?.role || "USER";
 
   // Determine active module from URL
   const activeModuleId = pathname?.split("/")[4];

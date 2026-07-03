@@ -1,15 +1,19 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-export async function POST(req) {
+export async function GET(req) {
   try {
 
-    const body = await req.json();
+    const { searchParams } =
+      new URL(req.url);
 
     const access =
       await requireOrganizationAccess({
-        organizationId: body.organizationId,
+        organizationId:
+          searchParams.get("organizationId"),
       });
 
     if (!access.success) {
@@ -25,7 +29,7 @@ export async function POST(req) {
     }
 
     const organizationId =
-      body.organizationId;
+      access.organizationId;
 
     const {
       data: reports,
@@ -60,51 +64,32 @@ export async function POST(req) {
     const totalTaxPayable =
       rows.reduce(
         (sum, r) =>
-          sum +
-          Number(
-            r.tax_payable || 0
-          ),
+          sum + Number(r.tax_payable || 0),
         0
       );
 
     const totalOutputTax =
       rows.reduce(
         (sum, r) =>
-          sum +
-          Number(
-            r.output_tax || 0
-          ),
+          sum + Number(r.output_tax || 0),
         0
       );
 
     const totalInputTax =
       rows.reduce(
         (sum, r) =>
-          sum +
-          Number(
-            r.input_tax || 0
-          ),
+          sum + Number(r.input_tax || 0),
         0
       );
 
     return NextResponse.json({
       success: true,
-
-      reports:
-        rows.length,
-
+      reports: rows.length,
       pendingFiling,
-
       reportsAwaitingReview,
-
-      taxPayable:
-        totalTaxPayable,
-
-      outputTax:
-        totalOutputTax,
-
-      inputTax:
-        totalInputTax,
+      taxPayable: totalTaxPayable,
+      outputTax: totalOutputTax,
+      inputTax: totalInputTax,
     });
 
   } catch (error) {

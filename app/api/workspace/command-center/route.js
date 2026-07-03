@@ -213,7 +213,7 @@ export async function GET(request) {
 
     const occupiedTables =
       (tables.data || []).filter(
-        table =>
+        serviceUnit =>
           ["OCCUPIED", "ACTIVE"].includes(
             String(table.status || "").toUpperCase()
           )

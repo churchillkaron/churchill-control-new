@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { financeModule } from "@/lib/finance/financeModule";
 
 export async function GET(req) {

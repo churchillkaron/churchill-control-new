@@ -41,8 +41,8 @@ export default function RestaurantWorkspacePage() {
 
   // Operational cards
   const operationCards = [
-    { title: "Orders", value: ordersToday, label: "Orders Today", href: `/workspace/${organizationId}/restaurant/pos` },
-    { title: "Tables", value: occupiedTables, label: "Occupied Tables", href: `/workspace/${organizationId}/restaurant/tables` },
+    { title: "Orders", value: ordersToday, label: "Orders Today", href: `/workspace/${organizationId}/operations/pos` },
+    { title: "Tables", value: occupiedTables, label: "Occupied Tables", href: `/workspace/${organizationId}/operations/tables` },
 
     ...workCenters.map(center => ({
       title: center.name,
@@ -52,9 +52,9 @@ export default function RestaurantWorkspacePage() {
     })),
 
     { title: "Dispatch", value: readyOrders, label: "Ready Orders", href: `/workspace/${organizationId}/kitchen/expo` },
-    { title: "Payments", value: 0, label: "Payments Pending", href: `/workspace/${organizationId}/restaurant/pos/payments` },
-    { title: "Inventory", value: 0, label: "Stock Alerts", href: `/workspace/${organizationId}/restaurant/inventory` },
-    { title: "Reservations", value: 0, label: "Today Arrivals", href: `/workspace/${organizationId}/restaurant/reservations` },
+    { title: "Payments", value: 0, label: "Payments Pending", href: `/workspace/${organizationId}/operations/pos/payments` },
+    { title: "Inventory", value: 0, label: "Stock Alerts", href: `/workspace/${organizationId}/operations/inventory` },
+    { title: "Reservations", value: 0, label: "Today Arrivals", href: `/workspace/${organizationId}/operations/reservations` },
   ];
 
   return (

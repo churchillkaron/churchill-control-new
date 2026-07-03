@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import calculateOrderTotals from "@/lib/pos/orders/calculateOrderTotals";
+import { calculateOrderTotal } from "@/lib/pos/calculateOrderTotal";
 
 export async function POST(req) {
   try {
@@ -109,24 +109,19 @@ export async function POST(req) {
         order => order.order_items || []
       );
 
-    const totals =
-      calculateOrderTotals({
-        items,
-        taxRate: 7,
-        serviceChargeRate: 5,
-      });
+    const subtotal = calculateOrderTotal(items);
 
-    const subtotal =
-      totals.subtotal;
+    const service = Number(
+      (subtotal * 0.05).toFixed(2)
+    );
 
-    const vat =
-      totals.tax;
+    const vat = Number(
+      ((subtotal + service) * 0.07).toFixed(2)
+    );
 
-    const service =
-      totals.service_charge;
-
-    const total =
-      totals.total;
+    const total = Number(
+      (subtotal + service + vat).toFixed(2)
+    );
 
     return Response.json({
       success: true,

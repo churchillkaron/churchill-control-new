@@ -1,56 +1,33 @@
-import { NextResponse } from 'next/server'
-
-import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
+import { grantPermission } from "@/lib/finance/security/runtime/FinanceSecurityApplicationService";
 
 export async function POST(req) {
-
   try {
+    const body = await req.json();
 
-    const body =
-      await req.json()
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from(
-        'finance_role_permissions'
-      )
-      .insert([
-        {
-          role:
-            body.role,
-
-          module:
-            body.module,
-
-          action:
-            body.action,
-        },
-      ])
-      .select()
-      .single()
-
-    if (error) {
-      throw error
-    }
+    const result = await grantPermission({
+      roleId: body.roleId || body.role_id || body.role,
+      permissionKey:
+        body.permissionKey ||
+        body.permission_key ||
+        `${body.module}.${body.action}`,
+      grantedBy: body.grantedBy || body.userId || "system",
+    });
 
     return NextResponse.json({
       success: true,
-      data,
-    })
-
+      data: result,
+    });
   } catch (error) {
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
       }
-    )
+    );
   }
 }

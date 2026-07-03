@@ -58,7 +58,7 @@ export async function POST(req) {
 
     if (!organizationId && !organizationId) {
       return Response.json(
-        { success: false, error: "Missing tenant/organization" },
+        { success: false, error: "Missing organization/organization" },
         { status: 400 }
       );
     }
@@ -127,6 +127,20 @@ export async function POST(req) {
           return String(seat) === String(seatPosition);
         });
 
+    console.log("SEAT SEARCH", {
+      seatPosition,
+      found: seatItems.length,
+      allItems: (sourceOrders || []).flatMap(order =>
+        (order.order_items || []).map(item => ({
+          id: item.id,
+          order: order.id,
+          seat_position: item.seat_position,
+          seat_number: item.seat_number,
+          modifiers: item.modifiers,
+        }))
+      ),
+    });
+
     if (seatItems.length) {
       let { data: targetOrder, error: targetOrderError } =
         await scoped(
@@ -171,16 +185,30 @@ export async function POST(req) {
 
       const itemIds = seatItems.map((item) => item.id);
 
-      const { error: moveError } = await scopedOrderItems(
+      console.log("MOVE SEAT", {
+        seatPosition,
+        seatItems: seatItems.length,
+        itemIds,
+        sourceOrders: [...new Set(seatItems.map(i => i.source_order_id))],
+        targetOrder: targetOrder.id,
+      });
+
+      const {
+        data: updatedRows,
+        error: moveError,
+      } = await scopedOrderItems(
         supabaseAdmin
           .from("order_items")
           .update({
             order_id: targetOrder.id,
             updated_at: new Date().toISOString(),
           })
-          .in("id", itemIds),
+          .in("id", itemIds)
+          .select("id, order_id, seat_position"),
         context
       );
+
+      console.log("UPDATED ROWS", updatedRows);
 
       if (moveError) throw moveError;
 
@@ -195,39 +223,12 @@ export async function POST(req) {
       await recalcOrder(targetOrder.id, context);
     }
 
-    const nextSourceGuests = Math.max(
-      0,
-      Number(sourceTable.current_guests || 0) - 1
-    );
-
-    const nextTargetGuests =
-      Number(targetTable.current_guests || 0) + 1;
-
-    await scoped(
-      supabaseAdmin
-        .from("restaurant_tables")
-        .update({
-          current_guests: nextSourceGuests,
-          status: nextSourceGuests > 0 ? "OCCUPIED" : "AVAILABLE",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", fromTableId),
-      context
-    );
-
-    await scoped(
-      supabaseAdmin
-        .from("restaurant_tables")
-        .update({
-          current_guests: nextTargetGuests,
-          status: "OCCUPIED",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", toTableId),
-      context
-    );
-
-    return Response.json({
+    
+    // Move Seat only moves order items.
+    // It must NOT modify restaurant_tables.current_guests.
+    // Guest counts are maintained by Session operations.
+    
+return Response.json({
       success: true,
       movedItems: seatItems.length,
       seatPosition,

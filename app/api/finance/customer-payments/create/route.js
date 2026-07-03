@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { financeGateway } from "@/lib/finance/runtime/financeGateway";
 
 export default async function handler(req, res) {

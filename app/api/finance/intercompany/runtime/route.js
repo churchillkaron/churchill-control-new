@@ -1,127 +1,76 @@
-import {
-  NextResponse,
-} from "next/server";
+export const dynamic = "force-dynamic";
 
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-import {
-  supabaseAdmin,
-} from "@/lib/shared/supabase/admin";
-
-export async function POST(req) {
-
+export async function GET(req) {
   try {
 
-    await requireAuth();
-
-    const body =
-      await req.json();
+    const { searchParams } =
+      new URL(req.url);
 
     const access =
       await requireOrganizationAccess({
-
         organizationId:
-          body.organizationId,
-
+          searchParams.get("organizationId"),
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
     const organizationId =
       access.organizationId;
 
-    const [
-      entitiesResult,
-      transactionsResult,
-    ] = await Promise.all([
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
+      .from("intercompany_transactions")
+      .select("*")
+      .eq(
+        "organization_id",
+        organizationId
+      )
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      );
 
-      supabaseAdmin
-        .from("legal_entities")
-        .select("*")
-        .eq(
-          "organization_id",
-          organizationId
-        )
-        .eq(
-          "is_active",
-          true
-        )
-        .order(
-          "legal_name",
-          {
-            ascending: true,
-          }
-        ),
+    if (error) {
+      throw error;
+    }
 
-      supabaseAdmin
-        .from("intercompany_transactions")
-        .select(`
-          *,
-          from_entity:from_legal_entity_id (
-            id,
-            legal_name,
-            code
-          ),
-          to_entity:to_legal_entity_id (
-            id,
-            legal_name,
-            code
-          )
-        `)
-        .eq(
-          "organization_id",
-          organizationId
-        )
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          }
-        ),
-
-    ]);
+    const rows = data || [];
 
     return NextResponse.json({
-
       success: true,
-
-      entities:
-        entitiesResult.data || [],
-
-      transactions:
-        transactionsResult.data || [],
-
+      transactions: rows,
+      pending:
+        rows.filter(r => r.status === "PENDING").length,
+      reconciled:
+        rows.filter(r => r.status === "RECONCILED").length,
+      settled:
+        rows.filter(r => r.status === "SETTLED").length,
     });
 
   } catch (error) {
 
-    console.error(error);
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
@@ -129,5 +78,4 @@ export async function POST(req) {
     );
 
   }
-
 }

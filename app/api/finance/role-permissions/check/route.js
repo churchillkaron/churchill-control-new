@@ -1,61 +1,33 @@
-import { NextResponse } from 'next/server'
-
-import { supabaseAdmin } from '@/lib/shared/supabase/admin'
-
-import { checkFinancePermission } from '@/lib/shared/auth/checkFinancePermission'
+export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
+import { checkPermission } from "@/lib/finance/security/runtime/FinanceSecurityApplicationService";
 
 export async function POST(req) {
-
   try {
+    const body = await req.json();
 
-    const body =
-      await req.json()
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from(
-        'finance_role_permissions'
-      )
-      .select('*')
-      .eq(
-        'role',
-        body.role
-      )
-
-    if (error) {
-      throw error
-    }
-
-    const result =
-      checkFinancePermission({
-        permissions:
-          data || [],
-
-        module:
-          body.module,
-
-        action:
-          body.action,
-      })
+    await checkPermission({
+      userId: body.userId || body.user_id || "system",
+      permissionKey:
+        body.permissionKey ||
+        body.permission_key ||
+        `${body.module}.${body.action}`,
+    });
 
     return NextResponse.json({
       success: true,
-      result,
-    })
-
+      allowed: true,
+    });
   } catch (error) {
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        allowed: false,
+        error: error.message,
       },
       {
-        status: 500,
+        status: 403,
       }
-    )
+    );
   }
 }

@@ -1,28 +1,31 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import createCustomerInvoice
-from "@/lib/finance/accounts-receivable/documents/createCustomerInvoice";
+import createCustomerInvoice from "@/lib/finance/accounts-receivable/documents/createCustomerInvoice";
 
 export async function POST(req) {
-
   try {
-
     await requireAuth();
 
-    const body =
-      await req.json();
+    const body = await req.json();
+
+    const organizationId =
+      body.organizationId ||
+      body.organization_id;
+
+    const entityId =
+      body.entityId ||
+      body.entity_id;
 
     const access =
       await requireOrganizationAccess({
-        organizationId:
-          body.organizationId,
+        organizationId,
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
@@ -32,58 +35,43 @@ export async function POST(req) {
           status: access.status,
         }
       );
+    }
 
+    if (!entityId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "entity_id required",
+        },
+        {
+          status: 400,
+        }
+      );
     }
 
     const result =
       await createCustomerInvoice({
-
-        organization_id:
-          access.organizationId,
-
-        organization_id:
-          body.organizationId,
-
-        customer_id:
-          body.customer_id,
-
-        invoice_number:
-          body.invoice_number,
-
-        invoice_date:
-          body.invoice_date,
-
-        due_date:
-          body.due_date,
-
-        subtotal:
-          body.subtotal,
-
-        tax_amount:
-          body.tax_amount,
-
-        notes:
-          body.notes,
-
+        organization_id: access.organizationId,
+        entity_id: entityId,
+        customer_id: body.customer_id,
+        invoice_number: body.invoice_number,
+        invoice_date: body.invoice_date,
+        due_date: body.due_date,
+        subtotal: body.subtotal,
+        tax_amount: body.tax_amount,
+        notes: body.notes,
       });
 
-    return NextResponse.json(
-      result
-    );
-
+    return NextResponse.json(result);
   } catch (error) {
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
       }
     );
-
   }
-
 }

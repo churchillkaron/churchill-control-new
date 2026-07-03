@@ -318,8 +318,8 @@ Password: ${data.password}`);
                 className="w-full p-2 bg-gray-800"
               >
                 <option value="FOH">FOH</option>
-                <option value="BAR">BAR</option>
-                <option value="KITCHEN">KITCHEN</option>
+                <option value="PRODUCTION">PRODUCTION</option>
+                <option value="FULFILLMENT">FULFILLMENT</option>
               </select>
             )}
 

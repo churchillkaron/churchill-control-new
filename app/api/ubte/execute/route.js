@@ -1,49 +1,40 @@
-import {
-  execute,
-} from "@/lib/ubte/runtime/ExecutionEngine";
+import { NextResponse } from "next/server";
+import { executeWorkspaceAction } from "@/lib/platform/runtime/WorkspaceActionRuntime";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
-    const body =
-      await req.json();
+    const body = await req.json();
 
-    const result =
-      await execute({
-        organizationId:
-          body.organizationId ||
-          body.organization_id,
-        domain:
-          body.domain,
-        capability:
-          body.capability,
-        action:
-          body.action,
-        payload:
-          body.payload || {},
-        actor:
-          body.actor || null,
-        runtime:
-          body.runtime || {},
-      });
+    const result = await executeWorkspaceAction({
+      actionId: body.action,
+      capability:
+        body.capability ||
+        body.capabilityName ||
+        null,
+      context: body.context || {},
+      payload: body.payload || {},
+    });
 
-    return Response.json(result);
+    return NextResponse.json({
+      success: true,
+      result,
+    });
+
   } catch (error) {
-    console.error(
-      "[UBTE_EXECUTE]",
-      error
-    );
 
-    return Response.json(
+    console.error(error);
+
+    return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
       }
     );
+
   }
 }

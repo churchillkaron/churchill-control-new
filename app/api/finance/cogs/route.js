@@ -1,64 +1,90 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { createCogsEntry } from "@/lib/finance/createCogsEntry";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function POST(req) {
   try {
+    const body = await req.json();
 
-    const { organizationId, batchId } = await req.json();
+    const access =
+      await requireOrganizationAccess({
+        organizationId: body.organizationId,
+      });
 
-    // 1. Get production batch
-    const { data: batch, error: batchError } = await supabaseAdmin
-      .from("production_batches")
-      .select("*")
-      .eq("id", batchId)
-      .single();
-
-    if (batchError) throw batchError;
-
-    // 2. Get inventory usage for batch
-    const { data: usage, error: usageError } = await supabaseAdmin
-      .from("inventory_movements")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .eq("reference_id", batchId)
-      .eq("type", "CONSUMPTION");
-
-    if (usageError) throw usageError;
-
-    // 3. Calculate total cost
-    let totalCost = 0;
-
-    for (const item of usage || []) {
-      totalCost += Math.abs(Number(item.cost || 0));
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
+      );
     }
 
-    // 4. Save COGS entry
-    const { data: cogs, error: cogsError } = await supabaseAdmin
-      .from("cogs_entries")
-      .insert({
-        organization_id: organizationId,
-        batch_id: batchId,
-        production_id: batch?.production_id,
-        total_cost: totalCost,
-        revenue: batch?.revenue || 0,
-        profit: (batch?.revenue || 0) - totalCost
-      })
-      .select()
-      .single();
+    const organizationId = access.organizationId;
 
-    if (cogsError) throw cogsError;
+    const { data: batch, error: batchError } =
+      await supabaseAdmin
+        .from("production_batches")
+        .select("*")
+        .eq("id", body.batchId)
+        .single();
+
+    if (batchError) {
+      throw batchError;
+    }
+
+    const { data: usage, error: usageError } =
+      await supabaseAdmin
+        .from("inventory_movements")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("reference_id", body.batchId)
+        .eq("type", "CONSUMPTION");
+
+    if (usageError) {
+      throw usageError;
+    }
+
+    const totalCost =
+      (usage || []).reduce(
+        (sum, item) =>
+          sum + Math.abs(Number(item.cost || 0)),
+        0
+      );
+
+    const event =
+      await createCogsEntry({
+        organization_id: organizationId,
+        entity_id: body.entityId,
+        batch_id: body.batchId,
+        production_id: batch.production_id,
+        amount: totalCost,
+        revenue: batch.revenue || 0,
+        sourceModule: "production",
+        sourceId: body.batchId,
+      });
 
     return NextResponse.json({
       success: true,
-      data: cogs
+      accountingEvent: event,
     });
 
-  } catch (err) {
+  } catch (error) {
 
-    return NextResponse.json({
-      success: false,
-      error: err.message
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
+    );
 
   }
 }

@@ -4,13 +4,13 @@ import { emitEvent } from "@/lib/pos/core/posEventEngine";
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { useTenant } from "@/app/providers/TenantProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { supabase } from "@/lib/shared/supabase/client";
 
 export default function POSOrdersPage() {
 
-  const tenant = useTenant();
-  const organizationId = tenant?.id;
+  const businessContext = useBusinessContext();
+  const organizationId = businessContext?.organization?.id;
 
   const [orders, setOrders] = useState([]);
   const [orderItems, setOrderItems] = useState({});

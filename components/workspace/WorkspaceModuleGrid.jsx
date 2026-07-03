@@ -26,7 +26,7 @@ import {
   Wrench,
 } from "lucide-react";
 
-import { useWorkspaceRuntime } from "@/app/providers/WorkspaceRuntimeProvider";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import {
   getWorkspaceGroups,
   getWorkspaceMeta,
@@ -62,14 +62,36 @@ function getIcon(item, group) {
 }
 
 function flattenGroups(groups) {
-  return groups.flatMap((group) =>
-    (group.items || []).map((item) => ({
-      ...item,
-      groupId: group.id,
-      groupName: group.name,
-      groupDescription: group.description,
-    }))
+
+  return groups.flatMap(
+
+    group =>
+
+      (group.items || []).map(
+
+        item => {
+
+          return {
+
+            ...item,
+
+            groupId:
+              group.id,
+
+            groupName:
+              group.name,
+
+            groupDescription:
+              group.description,
+
+          };
+
+        }
+
+      )
+
   );
+
 }
 
 export default function WorkspaceModuleGrid({
@@ -79,15 +101,16 @@ export default function WorkspaceModuleGrid({
   description,
   items,
 }) {
-  const {
-    organization,
-    runtime,
-  } = useWorkspaceRuntime();
+  const businessContext = useBusinessContext();
+
+  const organization =
+    businessContext?.organization || null;
 
   const fallbackOrganizationId =
     organizationId ||
+    businessContext?.organization_id ||
     organization?.id ||
-    runtime?.activeOrganization?.id;
+    null;
 
   const workspaceMeta =
     getWorkspaceMeta(workspace);
@@ -231,17 +254,34 @@ export default function WorkspaceModuleGrid({
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
-                {(group.items || []).map((item) => {
+                {(group.items || []).map((rawItem) => {
+
+                  const item = {
+
+                    ...rawItem,
+
+                  };
                   const Icon = getIcon(item, group);
 
                   return (
                     <Link
                       key={item.id}
-                      href={resolveWorkspaceRoute({
-                        organizationId: fallbackOrganizationId,
-                        moduleId: item.id,
-                        route: item.route,
-                      })}
+                      href={(() => {
+                        const href = resolveWorkspaceRoute({
+                          organizationId: fallbackOrganizationId,
+                          moduleId: item.id,
+                          route: item.route,
+                        });
+
+                        console.log("WORKSPACE LINK", {
+                          workspace,
+                          itemId: item.id,
+                          route: item.route,
+                          href,
+                        });
+
+                        return href;
+                      })()}
                       className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-[#D6A66A]/40 hover:bg-[#D6A66A]/10"
                     >
                       <div className="flex items-start justify-between gap-4">

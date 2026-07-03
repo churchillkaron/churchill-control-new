@@ -13,8 +13,8 @@ import {
 } from "next/navigation";
 
 import {
-  useTenant,
-} from "@/app/providers/TenantProvider";
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 
 import {
   useOrganizationRuntime,
@@ -24,16 +24,16 @@ import { usePosterState }
 from "@/hooks/usePosterState";
 
 import StudioTopBar
-from "../../components/marketing/studio/StudioTopBar";
+from "@/app/(system)/components/marketing/studio/StudioTopBar";
 
 import StudioLeftPanel
-from "../../components/marketing/studio/StudioLeftPanel";
+from "@/app/(system)/components/marketing/studio/StudioLeftPanel";
 
 import StudioCenterStage
-from "../../components/marketing/studio/StudioCenterStage";
+from "@/app/(system)/components/marketing/studio/StudioCenterStage";
 
 import StudioRightPanel
-from "../../components/marketing/studio/StudioRightPanel";
+from "@/app/(system)/components/marketing/studio/StudioRightPanel";
 
 import { getQueuedCampaigns }
 from "@/lib/marketing/repositories/getQueuedCampaigns";
@@ -57,7 +57,7 @@ import { engineCapabilities }
 from "@/lib/marketing/ai/router/engineCapabilities";
 
 export default function Page() {
-  const tenant = useTenant();
+  const businessContext = useBusinessContext();
 
   const searchParams =
     useSearchParams();
@@ -115,7 +115,7 @@ export default function Page() {
   const tenantId =
     organization?.tenant_id ||
     organization?.tenantId ||
-    tenant?.id ||
+    businessContext?.organization?.id ||
     null;
 
   const organizationId =

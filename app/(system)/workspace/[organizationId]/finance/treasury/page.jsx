@@ -1,136 +1,271 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
-import FinanceEntityScope from "@/components/finance/FinanceEntityScope";
-import { financeQuery, resolveFinanceScope } from "@/components/finance/financeScope";
+export const dynamic = "force-dynamic";
 
-export default function Page() {
-  const params = useParams();
-  const searchParams = useSearchParams();
+import { useEffect, useMemo, useState } from "react";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 
-  const organizationId = params.organizationId;
-  const { entityId } = resolveFinanceScope({
-    organizationId,
-    searchParams,
-  });
+export default function TreasuryPage() {
 
-  const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState([]);
-  const [error, setError] = useState("");
+  const {
+    financeGet,
+    loading: runtimeLoading,
+  } = useFinanceRuntime();
 
-  const endpoints = [{"label":"Liquidity","url":"/api/finance/treasury/liquidity"},{"label":"Payment Priority","url":"/api/finance/treasury/payment-priority"},{"label":"Cash Flow","url":"/api/finance/cash-flow"}];
+  const [liquidity,setLiquidity] = useState({});
+  const [payments,setPayments] = useState([]);
+  const [loading,setLoading] = useState(true);
 
-  useEffect(() => {
-    let mounted = true;
+  useEffect(()=>{
+    if(!runtimeLoading){
+      load();
+    }
+  },[runtimeLoading]);
 
-    async function load() {
-      try {
-        setLoading(true);
-        setError("");
+  async function load(){
 
-        const query = financeQuery({
-          organizationId,
-          entityId,
-        });
+    try{
 
-        const loaded = await Promise.all(
-          endpoints.map(async (item) => {
-            const res = await fetch(`${item.url}?${query}`, {
-              cache: "no-store",
-            });
+      setLoading(true);
 
-            const json = await res.json().catch(() => ({}));
+      const [l,p] = await Promise.all([
+        financeGet("/api/finance/treasury/liquidity"),
+        financeGet("/api/finance/payments/list")
+      ]);
 
-            return {
-              label: item.label,
-              url: item.url,
-              ok: res.ok && json.success !== false,
-              status: res.status,
-              data: json,
-            };
-          })
-        );
+      const liquidityJson = l;
+      const paymentJson = p;
 
-        if (mounted) {
-          setResults(loaded);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err?.message || "Failed to load finance runtime");
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
+      setLiquidity(
+        liquidityJson.data ||
+        liquidityJson ||
+        {}
+      );
+
+      setPayments(
+        paymentJson.payments ||
+        paymentJson.data ||
+        []
+      );
+
+    }catch{
+
+      setLiquidity({});
+      setPayments([]);
+
+    }finally{
+
+      setLoading(false);
+
     }
 
-    load();
+  }
 
-    return () => {
-      mounted = false;
-    };
-  }, [organizationId, entityId]);
+  const totals = useMemo(()=>({
+
+    queued:
+      payments.filter(x=>x.status==="PENDING").length,
+
+    approved:
+      payments.filter(x=>x.status==="APPROVED").length,
+
+    paid:
+      payments.filter(x=>x.status==="PAID").length,
+
+    amount:
+      payments.reduce(
+        (s,p)=>s+Number(p.amount||0),
+        0
+      )
+
+  }),[payments]);
 
   return (
-    <main className="space-y-6 p-6 text-white">
-      <div>
-        <div className="text-xs uppercase tracking-[0.35em] text-white/40">
-          Finance
+
+    <main className="min-h-screen p-8 text-white">
+
+      <div className="mx-auto max-w-7xl">
+
+        <div className="flex items-center justify-between">
+
+          <div>
+
+            <div className="text-xs uppercase tracking-[0.35em] text-white/50">
+              Finance / Treasury
+            </div>
+
+            <h1 className="mt-3 text-4xl font-light">
+              Treasury
+            </h1>
+
+            <p className="mt-2 text-white/60">
+              Liquidity, cash position, banking and payment management.
+            </p>
+
+          </div>
+
+          <button
+            onClick={load}
+            className="rounded-xl bg-blue-600 px-5 py-3"
+          >
+            Refresh
+          </button>
+
         </div>
-        <h1 className="mt-2 text-3xl font-bold">Treasury</h1>
-        <p className="mt-2 max-w-3xl text-sm text-white/55">
-          Liquidity, payment priority and cash planning.
-        </p>
+
+        <div className="mt-8 grid grid-cols-4 gap-4">
+
+          <Card
+            title="Available Liquidity"
+            value={Number(
+              liquidity.available ||
+              liquidity.available_liquidity ||
+              0
+            ).toLocaleString()}
+          />
+
+          <Card
+            title="Queued Payments"
+            value={totals.queued}
+          />
+
+          <Card
+            title="Paid Today"
+            value={totals.paid}
+          />
+
+          <Card
+            title="Payment Value"
+            value={totals.amount.toLocaleString()}
+          />
+
+        </div>
+
+        <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]">
+
+          <table className="w-full">
+
+            <thead className="border-b border-white/10">
+
+              <tr className="text-left text-sm text-white/60">
+
+                <th className="p-4">
+                  Vendor
+                </th>
+
+                <th className="p-4">
+                  Amount
+                </th>
+
+                <th className="p-4">
+                  Due
+                </th>
+
+                <th className="p-4">
+                  Status
+                </th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {loading && (
+
+                <tr>
+
+                  <td
+                    colSpan={4}
+                    className="p-8 text-center text-white/60"
+                  >
+                    Loading...
+                  </td>
+
+                </tr>
+
+              )}
+
+              {!loading &&
+               payments.length===0 && (
+
+                <tr>
+
+                  <td
+                    colSpan={4}
+                    className="p-8 text-center text-white/60"
+                  >
+                    No treasury activity.
+                  </td>
+
+                </tr>
+
+              )}
+
+              {payments.map((p,i)=>(
+
+                <tr
+                  key={p.id||i}
+                  className="border-t border-white/5"
+                >
+
+                  <td className="p-4">
+                    {p.vendor_name||
+                     p.vendor||
+                     "-"}
+                  </td>
+
+                  <td className="p-4">
+                    {Number(
+                      p.amount||0
+                    ).toLocaleString()}
+                  </td>
+
+                  <td className="p-4">
+                    {p.due_date||"-"}
+                  </td>
+
+                  <td className="p-4">
+                    {p.status||"-"}
+                  </td>
+
+                </tr>
+
+              ))}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
       </div>
 
-      <FinanceEntityScope organizationId={organizationId} />
-
-      {loading && (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-sm text-white/50">
-          Loading finance data...
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {!loading && !error && (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {results.map((result) => (
-            <section
-              key={result.url}
-              className="rounded-3xl border border-white/10 bg-white/[0.04] p-5"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-lg font-semibold">{result.label}</div>
-                  <div className="mt-1 text-xs text-white/35">{result.url}</div>
-                </div>
-
-                <div
-                  className={
-                    result.ok
-                      ? "rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-semibold text-emerald-200"
-                      : "rounded-full bg-red-400/15 px-3 py-1 text-xs font-semibold text-red-200"
-                  }
-                >
-                  {result.ok ? "LIVE" : "CHECK"}
-                </div>
-              </div>
-
-              <pre className="mt-4 max-h-[420px] overflow-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-xs text-white/65">
-                {JSON.stringify(result.data, null, 2)}
-              </pre>
-            </section>
-          ))}
-        </div>
-      )}
     </main>
+
   );
+
 }
 
+function Card({
+  title,
+  value,
+}){
+
+  return(
+
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+
+      <div className="text-sm text-white/50">
+        {title}
+      </div>
+
+      <div className="mt-2 text-3xl font-light">
+        {value}
+      </div>
+
+    </div>
+
+  );
+
+}

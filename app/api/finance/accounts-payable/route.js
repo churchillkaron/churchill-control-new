@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import {
@@ -40,26 +41,44 @@ export async function POST(req) {
     const result =
       await createVendorInvoice({
 
-        organization_id:
-          body.organizationId,
-
-        organization_id:
+        organizationId:
           access.organizationId,
 
-        vendor_id:
-          body.vendor_id,
+        entityId:
+          body.entityId,
 
-        invoice_number:
+        invoiceNumber:
           body.invoice_number,
 
-        invoice_date:
+        vendorId:
+          body.vendor_id,
+
+        invoiceDate:
           body.invoice_date,
 
-        total_amount:
+        dueDate:
+          body.due_date,
+
+        subtotal:
+          body.subtotal,
+
+        taxAmount:
+          body.tax_amount,
+
+        discountAmount:
+          body.discount_amount,
+
+        totalAmount:
           body.total_amount,
 
-        purchase_order_id:
-          body.purchase_order_id || null,
+        currencyCode:
+          body.currency_code,
+
+        exchangeRate:
+          body.exchange_rate,
+
+        createdBy:
+          body.created_by,
 
       });
 
@@ -128,6 +147,12 @@ export async function PUT(req) {
 
       const apResult =
         await createAccountsPayableEntry({
+
+          organization_id:
+            access.organizationId,
+
+          entity_id:
+            body.entityId,
 
           vendor_invoice_id:
             body.vendor_invoice_id,
@@ -200,6 +225,12 @@ export async function PATCH(req) {
 
     const result =
       await createAccountsPayableEntry({
+
+        organization_id:
+          access.organizationId,
+
+        entity_id:
+          body.entityId,
 
         vendor_invoice_id:
           body.vendor_invoice_id,

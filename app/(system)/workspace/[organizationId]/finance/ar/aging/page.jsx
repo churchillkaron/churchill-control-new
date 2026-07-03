@@ -1,31 +1,33 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
+import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 import Link from "next/link";
 
 export default function Page({ params }) {
-  const { organizationId } = params;
+  const {
+    organizationId,
+    financeGet,
+    loading: runtimeLoading,
+  } = useFinanceRuntime();
 
   const [aging, setAging] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadAging();
-  }, []);
+    if (!runtimeLoading) {
+      loadAging();
+    }
+  }, [runtimeLoading]);
 
   async function loadAging() {
     try {
-      const res = await fetch("/api/finance/ar/aging", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          organizationId,
-        }),
-      });
-
-      const json = await res.json();
+      const json =
+        await financeGet(
+          "/api/finance/ar/aging"
+        );
 
       if (json.success) {
         setAging(json.aging || []);

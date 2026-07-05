@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
-import { runEntityProfitabilityRanking } from "@/lib/intelligence/finance/runEntityProfitabilityRanking";
+import { getEntityRanking } from "@/lib/finance/reporting/reports/getEntityRanking";
 
 export async function POST(request) {
   try {
@@ -9,7 +9,7 @@ export async function POST(request) {
       await request.json();
 
     const rankings =
-      await runEntityProfitabilityRanking({
+      await getEntityRanking({
         organizationId:
           body.organizationId,
         entities:

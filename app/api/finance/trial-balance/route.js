@@ -1,10 +1,7 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import generateTrialBalance from "@/lib/finance/reporting/reports/generateTrialBalance";
 
 export async function GET(request) {
@@ -19,12 +16,16 @@ export async function GET(request) {
       searchParams.get("entityId") ||
       searchParams.get("entity_id");
 
+    if (!requestedOrganizationId) {
+      return NextResponse.json(
+        { success: false, error: "organizationId required" },
+        { status: 400 }
+      );
+    }
+
     if (!entityId) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "organizationId required",
-        },
+        { success: false, error: "entityId required" },
         { status: 400 }
       );
     }
@@ -35,10 +36,7 @@ export async function GET(request) {
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
+        { success: false, error: access.error },
         { status: access.status }
       );
     }
@@ -52,10 +50,15 @@ export async function GET(request) {
 
     return NextResponse.json(result);
   } catch (error) {
+    console.error("trial-balance GET", error);
+
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: error.message || "Trial balance failed",
+        details: error.details || null,
+        hint: error.hint || null,
+        code: error.code || null,
       },
       { status: 500 }
     );

@@ -15,20 +15,21 @@ import {
   supabaseAdmin,
 } from "@/lib/shared/supabase/admin";
 
-export async function POST(req) {
+export async function GET(request) {
 
   try {
 
     await requireAuth();
+    const { searchParams } = new URL(request.url);
 
-    const body =
-      await req.json();
+    const organizationId =
+      searchParams.get("organizationId");
 
     const access =
       await requireOrganizationAccess({
 
         organizationId:
-          body.organizationId,
+          organizationId,
 
       });
 
@@ -60,7 +61,7 @@ export async function POST(req) {
       supabaseAdmin
         .from("invoices")
         .select("*")
-        .eq("organization_id", body.organizationId)
+        .eq("organization_id", organizationId)
         .in("status", [
           "approved",
           "paid",
@@ -75,7 +76,7 @@ export async function POST(req) {
       supabaseAdmin
         .from("purchase_orders")
         .select("*")
-        .eq("organization_id", body.organizationId)
+        .eq("organization_id", organizationId)
         .order(
           "created_at",
           {
@@ -86,7 +87,7 @@ export async function POST(req) {
       supabaseAdmin
         .from("goods_receipts")
         .select("*")
-        .eq("organization_id", body.organizationId)
+        .eq("organization_id", organizationId)
         .order(
           "created_at",
           {
@@ -97,7 +98,7 @@ export async function POST(req) {
       supabaseAdmin
         .from("invoice_matches")
         .select("*")
-        .eq("organization_id", body.organizationId)
+        .eq("organization_id", organizationId)
         .order(
           "created_at",
           {

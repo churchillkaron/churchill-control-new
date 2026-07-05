@@ -1,54 +1,78 @@
 import { NextResponse } from "next/server";
 
 import { createInventoryMovement } from "@/lib/inventory/movements/createInventoryMovement";
-import { updateStockLedger } from "@/lib/inventory/ledger/capabilities/updateStockLedger";
 
 export async function POST(request) {
+
   try {
+
     const body =
       await request.json();
 
-    const movement =
+    const result =
       await createInventoryMovement({
-        tenantId:
-          body.tenantId,
-        itemId:
-          body.itemId,
+
+        organizationId:
+          body.organizationId,
+
+        entityId:
+          body.entityId,
+
+        ingredientId:
+          body.ingredientId,
+
         movementType:
           body.movementType,
+
         quantity:
           body.quantity,
+
         unitCost:
           body.unitCost,
+
         referenceType:
           body.referenceType,
+
         referenceId:
           body.referenceId,
-      });
 
-    const ledger =
-      await updateStockLedger({
-        tenantId:
-          body.tenantId,
-        itemId:
-          body.itemId,
+        sourceModule:
+          body.sourceModule,
+
+        sourceDocument:
+          body.sourceDocument,
+
+        sourceDocumentId:
+          body.sourceDocumentId,
+
+        notes:
+          body.notes,
+
+        createdBy:
+          body.createdBy,
+
+        postToFinance:
+          body.postToFinance,
+
       });
 
     return NextResponse.json({
       success: true,
-      movement,
-      ledger,
+      ...result,
     });
+
   } catch (error) {
+
     return NextResponse.json(
       {
         success: false,
-        message:
-          error.message,
+        message: error.message,
       },
       {
         status: 400,
       }
     );
+
   }
+
 }

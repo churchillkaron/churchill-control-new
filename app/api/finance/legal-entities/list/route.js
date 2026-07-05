@@ -103,3 +103,91 @@ export async function POST(req) {
   }
 
 }
+
+
+export async function GET(req) {
+
+  try {
+
+    await requireAuth();
+
+    const { searchParams } = new URL(req.url);
+
+    const access =
+      await requireOrganizationAccess({
+
+        organizationId:
+          searchParams.get("organizationId") ||
+          searchParams.get("organization_id"),
+
+      });
+
+    if (!access.success) {
+
+      return NextResponse.json(
+        {
+          success:false,
+          error:access.error,
+        },
+        {
+          status:access.status,
+        }
+      );
+
+    }
+
+    const organizationId =
+      access.organizationId;
+
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
+
+      .from("legal_entities")
+
+      .select("*")
+
+      .eq(
+        "organization_id",
+        organizationId
+      )
+
+      .order(
+        "created_at",
+        {
+          ascending:false,
+        }
+      );
+
+    if(error){
+      throw error;
+    }
+
+    return NextResponse.json({
+
+      success:true,
+
+      entities:data || [],
+
+      rows:data || [],
+
+    });
+
+  } catch(error) {
+
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success:false,
+        error:error.message,
+      },
+      {
+        status:500,
+      }
+    );
+
+  }
+
+}

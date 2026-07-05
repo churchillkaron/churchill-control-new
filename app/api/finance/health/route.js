@@ -157,7 +157,7 @@ export async function GET(request) {
           "UNBALANCED_JOURNAL",
 
         entry:
-          journal.entry_number,
+          journal.journal_number,
 
       });
 
@@ -183,7 +183,7 @@ export async function GET(request) {
 
     const key =
 
-      `${journal.entry_number}-${journal.description}`;
+      `${journal.journal_number}-${journal.description}`;
 
     if (
       seen.has(key)

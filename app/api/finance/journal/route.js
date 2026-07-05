@@ -43,9 +43,10 @@ export async function GET(request) {
         *,
         chart_of_accounts (
           id,
-          code,
-          name,
-          category
+          account_code,
+          account_name,
+          account_category,
+          account_type
         )
       )
     `)
@@ -136,11 +137,23 @@ export async function GET(request) {
       id:
         journal.id,
 
-      entry_number:
-        journal.entry_number,
+      journal_number:
+        journal.journal_number,
 
-      entry_date:
-        journal.entry_date,
+      posting_date:
+        journal.posting_date,
+
+      document_date:
+        journal.document_date,
+
+      reference:
+        journal.reference,
+
+      organization_id:
+        journal.organization_id,
+
+      entity_id:
+        journal.entity_id,
 
       description:
         journal.description,
@@ -187,13 +200,13 @@ export async function GET(request) {
                 line.chart_of_accounts?.id,
 
               code:
-                line.chart_of_accounts?.code,
+                line.chart_of_accounts?.account_code,
 
               name:
-                line.chart_of_accounts?.name,
+                line.chart_of_accounts?.account_name,
 
               category:
-                line.chart_of_accounts?.category,
+                line.chart_of_accounts?.account_category,
 
             },
 

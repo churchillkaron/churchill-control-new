@@ -26,8 +26,8 @@ export async function GET(request) {
       *,
       chart_of_accounts!fk_general_ledger_account (
         id,
-        code,
-        name,
+        account_code,
+        account_name,
         category
       )
     `)

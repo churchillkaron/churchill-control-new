@@ -25,7 +25,7 @@ export async function GET(request) {
     .select(`
       *,
       chart_of_accounts!fk_general_ledger_account (
-        id, code, name, category
+        id, account_code, account_name, account_category, account_type
       )
     `)
     .eq("organization_id", organizationId)

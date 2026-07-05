@@ -3,13 +3,16 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-export async function POST(req) {
+export async function GET(request) {
   try {
-    const body = await req.json();
+    const { searchParams } = new URL(request.url);
+
+    const organizationId =
+      searchParams.get("organizationId");
 
     const access =
       await requireOrganizationAccess({
-        organizationId: body.organizationId,
+        organizationId: organizationId,
       });
 
     if (!access.success) {
@@ -23,9 +26,6 @@ export async function POST(req) {
         }
       );
     }
-
-    const organizationId =
-      body.organizationId;
 
     const [
       vendors,

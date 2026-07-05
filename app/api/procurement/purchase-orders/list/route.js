@@ -100,3 +100,74 @@ export async function POST(req) {
   }
 
 }
+
+
+
+export async function GET(req) {
+
+  try {
+
+    const { searchParams } = new URL(req.url);
+
+    const organizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
+
+    const access =
+      await requireOrganizationAccess({
+        organizationId,
+      });
+
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
+      );
+    }
+
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
+      .from("purchase_orders")
+      .select(`
+        *,
+        vendors (
+          id,
+          display_name,
+          legal_name
+        )
+      `)
+      .eq("organization_id", access.organizationId)
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      purchaseOrders: data || [],
+      rows: data || [],
+    });
+
+  } catch (error) {
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
+    );
+
+  }
+
+}

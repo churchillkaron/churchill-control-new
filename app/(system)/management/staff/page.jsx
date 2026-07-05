@@ -124,7 +124,7 @@ const STAFF_SECTIONS = [
     items: [
       {
         name: "Payroll",
-        route: "/finance/payroll",
+        route: "/workspace/payroll",
       },
       {
         name: "Service Charge",
@@ -633,7 +633,7 @@ export default function StaffPage() {
         </Link>
 
         <Link
-          href="/finance/payroll"
+          href="/workspace/payroll"
           className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/5"
         >
 

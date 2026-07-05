@@ -9,8 +9,6 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-const organizationId = null;
-
 export async function GET(
   request,
   { params }
@@ -109,9 +107,10 @@ export async function GET(
         *,
         chart_of_accounts (
           id,
-          code,
-          name,
-          category
+          account_code,
+          account_name,
+          account_category,
+          account_type
         )
 
       `)

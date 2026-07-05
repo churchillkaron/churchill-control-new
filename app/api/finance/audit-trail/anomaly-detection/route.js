@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
-import { runFinanceAnomalyDetection } from "@/lib/intelligence/finance/runFinanceAnomalyDetection";
+import { getFinanceAnomalies } from "@/lib/finance/reporting/audit/getFinanceAnomalies";
 
 export async function POST(request) {
   try {
@@ -9,7 +9,7 @@ export async function POST(request) {
       await request.json();
 
     const anomalies =
-      await runFinanceAnomalyDetection({
+      await getFinanceAnomalies({
         organizationId:
           body.organizationId,
       });

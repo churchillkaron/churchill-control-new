@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+import { createInventoryMovement } from "@/lib/inventory/movements/createInventoryMovement";
 
 export async function POST(req) {
   try {
 
-    const { tenantId, items } = await req.json();
+    const {
+      organizationId,
+      entityId = null,
+      items,
+      referenceId = null,
+      sourceDocument = "inventory_engine",
+    } = await req.json();
+
+    if (!organizationId) {
+      throw new Error("organizationId required");
+    }
 
     if (!Array.isArray(items)) {
       throw new Error("Invalid items payload");
@@ -14,55 +25,70 @@ export async function POST(req) {
 
     for (const item of items) {
 
-      const { data: stock, error: stockError } = await supabaseAdmin
-        .from("inventory")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("ingredient_id", item.ingredient_id)
-        .single();
+      const movement =
+        await createInventoryMovement({
 
-      if (stockError) throw stockError;
+          organizationId,
 
-      const currentQty = Number(stock?.quantity || 0);
-      const newQty = currentQty - Number(item.quantity || 0);
+          entityId,
 
-      const { error: updateError } = await supabaseAdmin
-        .from("inventory")
-        .update({ quantity: newQty })
-        .eq("id", stock.id);
+          ingredientId:
+            item.ingredient_id,
 
-      if (updateError) throw updateError;
+          movementType:
+            "CONSUMPTION",
 
-      const { error: logError } = await supabaseAdmin
-        .from("inventory_movements")
-        .insert({
-          tenant_id: tenantId,
-          ingredient_id: item.ingredient_id,
-          change: -Number(item.quantity || 0),
-          type: "CONSUMPTION"
+          quantity:
+            Number(item.quantity || 0),
+
+          unitCost:
+            Number(item.unit_cost || 0),
+
+          referenceType:
+            "ORDER",
+
+          referenceId:
+            referenceId || item.reference_id,
+
+          sourceModule:
+            "inventory",
+
+          sourceDocument,
+
+          sourceDocumentId:
+            referenceId || item.reference_id,
+
+          notes:
+            item.notes || null,
+
+          createdBy:
+            item.created_by || "SYSTEM",
+
+          postToFinance:
+            Boolean(entityId),
+
         });
 
-      if (logError) throw logError;
-
-      results.push({
-        ingredient_id: item.ingredient_id,
-        before: currentQty,
-        after: newQty
-      });
+      results.push(movement);
 
     }
 
     return NextResponse.json({
       success: true,
-      data: results
+      movements: results,
     });
 
   } catch (err) {
 
-    return NextResponse.json({
-      success: false,
-      error: err.message
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: err.message,
+      },
+      {
+        status: 500,
+      }
+    );
 
   }
 }

@@ -105,3 +105,79 @@ export async function POST(req) {
   }
 
 }
+
+
+
+export async function GET(req) {
+
+  try {
+
+    const { searchParams } = new URL(req.url);
+
+    const organizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
+
+    const access =
+      await requireOrganizationAccess({
+        organizationId,
+      });
+
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
+      );
+    }
+
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
+      .from("goods_receipts")
+      .select(`
+        *,
+        vendors (
+          id,
+          display_name,
+          legal_name
+        ),
+        purchase_orders (
+          id,
+          po_number,
+          status
+        )
+      `)
+      .eq("organization_id", access.organizationId)
+      .order("received_date", {
+        ascending: false,
+      });
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      receipts: data || [],
+      rows: data || [],
+    });
+
+  } catch (error) {
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
+    );
+
+  }
+
+}

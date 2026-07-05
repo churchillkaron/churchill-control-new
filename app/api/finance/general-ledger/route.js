@@ -59,10 +59,16 @@ export async function GET(request) {
       rows,
     });
   } catch (error) {
+
+    console.error("general-ledger GET", error);
+
     return NextResponse.json(
       {
         success: false,
         error: error.message,
+        code: error.code || null,
+        details: error.details || null,
+        hint: error.hint || null,
       },
       { status: 500 }
     );

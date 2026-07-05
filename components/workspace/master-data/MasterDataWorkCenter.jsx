@@ -58,7 +58,6 @@ export default function MasterDataWorkCenter({
   getInitials,
   listMetrics = [],
   detailSections = [],
-  quickActions = [],
   menuActions = [],
   onCreate,
 }) {
@@ -146,7 +145,6 @@ export default function MasterDataWorkCenter({
 
     onRefresh?.();
 
-
   }
 
   const handleCreate = () => {
@@ -156,7 +154,6 @@ export default function MasterDataWorkCenter({
       createEngine.show();
     }
   };
-
 
   function resolveMenuHref(action, row) {
     if (!action || typeof action === "string") {
@@ -212,7 +209,6 @@ export default function MasterDataWorkCenter({
       onToggleMenu?.(null);
     }
   }
-
 
   return (
 

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
-import { runExecutiveAlerts } from "@/lib/intelligence/finance/runExecutiveAlerts";
+import { getExecutiveAlerts } from "@/lib/finance/reporting/alerts/getExecutiveAlerts";
 
 export async function POST(request) {
   try {
@@ -9,7 +9,7 @@ export async function POST(request) {
       await request.json();
 
     const alerts =
-      await runExecutiveAlerts({
+      await getExecutiveAlerts({
         organizationId:
           body.organizationId,
       });

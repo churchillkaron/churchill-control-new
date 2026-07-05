@@ -9,12 +9,12 @@ from "next/server";
 import {
   startVideoProject,
 }
-from "@/lib/video/projects/runtime/VideoProjectRuntime";
+from "@/lib/creative/projects/runtime/VideoProjectRuntime";
 
 import {
   listProjects,
 }
-from "@/lib/video/projects/services/VideoProjectService";
+from "@/lib/creative/projects/services/VideoProjectService";
 
 export async function GET(
   request

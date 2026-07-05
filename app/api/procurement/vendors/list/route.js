@@ -1,94 +1,69 @@
-import {
-  NextResponse,
-} from "next/server";
+export const dynamic = "force-dynamic";
 
-import {
-  supabaseAdmin,
-} from "@/lib/shared/supabase/admin";
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-export async function POST(req) {
-
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
 
-    const body =
-      await req.json();
+    const organizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
 
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
-      });
-
-    if (!access.success) {
-
+    if (!organizationId) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: "organizationId required",
+          vendors: [],
         },
-        {
-          status:
-            access.status,
-        }
+        { status: 400 }
       );
-
     }
 
-    const tenantId =
-      access.tenantId;
+    const access =
+      await requireOrganizationAccess({
+        organizationId,
+      });
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-
-      .from("vendors")
-
-      .select("*")
-
-      .eq(
-        "organization_id",
-        body.organizationId
-      )
-
-      .order(
-        "display_name",
+    if (!access.success) {
+      return NextResponse.json(
         {
-          ascending: true,
-        }
+          success: false,
+          error: access.error,
+          vendors: [],
+        },
+        { status: 403 }
       );
+    }
+
+    const { data, error } =
+      await supabaseAdmin
+        .from("vendors")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("display_name", {
+          ascending: true,
+        });
 
     if (error) {
       throw error;
     }
 
     return NextResponse.json({
-
       success: true,
-
-      tenantId,
-
-      vendors:
-        data || [],
-
+      vendors: data || [],
     });
 
   } catch (error) {
 
-    console.error(error);
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
+        vendors: [],
       },
       {
         status: 500,
@@ -96,5 +71,4 @@ export async function POST(req) {
     );
 
   }
-
 }

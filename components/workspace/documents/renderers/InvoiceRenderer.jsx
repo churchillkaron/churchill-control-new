@@ -542,15 +542,15 @@ export default function InvoiceRenderer({
                   </div>
 
                   <div>
-                    {brand.payment.bank_name}
+                    Bank: {brand.payment.bank_name}
                   </div>
 
                   <div>
-                    {brand.payment.account_name}
+                    Account Name: {brand.payment.account_name}
                   </div>
 
                   <div>
-                    {brand.payment.account_number}
+                    Account No: {brand.payment.account_number}
                   </div>
                 </>
 

@@ -1,35 +1,33 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 
-import buildRevenueForecast from "@/lib/finance/budgeting/capabilities/buildRevenueForecast";
+import {
+  buildRevenueForecastCommand,
+} from "@/lib/finance/reporting/runtime/ReportingApplicationService";
 
 export async function POST(req) {
-
   try {
 
     const body =
       await req.json();
 
     const result =
-      await buildRevenueForecast(
-        body
-      );
+      await buildRevenueForecastCommand(body);
 
-    return NextResponse.json(
-      result
-    );
+    return NextResponse.json(result);
 
   } catch (error) {
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
       }
     );
+
   }
 }

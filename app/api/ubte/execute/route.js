@@ -1,40 +1,84 @@
-import { NextResponse } from "next/server";
-import { executeWorkspaceAction } from "@/lib/platform/runtime/WorkspaceActionRuntime";
-
-export const dynamic = "force-dynamic";
+import { execute } from "@/lib/ubte/runtime/ExecutionEngine";
 
 export async function POST(req) {
+
   try {
-    const body = await req.json();
 
-    const result = await executeWorkspaceAction({
-      actionId: body.action,
-      capability:
-        body.capability ||
-        body.capabilityName ||
-        null,
-      context: body.context || {},
-      payload: body.payload || {},
-    });
+    const body =
+      await req.json();
 
-    return NextResponse.json({
-      success: true,
-      result,
-    });
 
-  } catch (error) {
+    const result =
+      await execute({
 
-    console.error(error);
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
 
-    return NextResponse.json(
+
+        domain:
+          body.domain,
+
+
+        capability:
+          body.capability,
+
+
+        action:
+          body.action,
+
+
+        payload:
+          body.payload || {},
+
+
+        actor:
+          body.actor || null,
+
+
+        runtime: {
+
+          entityId:
+            body.entity_id ||
+            body.entityId ||
+            null,
+
+
+          periodId:
+            body.period_id ||
+            body.periodId ||
+            null,
+
+
+          currency:
+            body.currency ||
+            null,
+
+        },
+
+      });
+
+
+    return Response.json(
+      result
+    );
+
+
+  } catch(error) {
+
+    return Response.json(
+
       {
-        success: false,
-        error: error.message,
+        success:false,
+        error:error.message,
       },
+
       {
-        status: 500,
+        status:500,
       }
+
     );
 
   }
+
 }

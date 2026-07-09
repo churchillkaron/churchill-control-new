@@ -10,11 +10,13 @@ import {
 
 export default function ShiftPage() {
 
-  const tenant =
-    useBusinessContext();
+  const businessContext =
+    useBusinessContext() || {};
 
   const organizationId =
-    businessContext?.organization?.id;
+    businessContext?.organization_id ||
+    businessContext?.organization?.id ||
+    null;
 
 
   const [

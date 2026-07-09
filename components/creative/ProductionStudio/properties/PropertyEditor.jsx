@@ -16,7 +16,7 @@ function Field({
       <input
         value={value ?? ""}
         onChange={e=>onChange(e.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 outline-none focus:border-cyan-400/40"
+        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 outline-none focus:border-[#c8a96a]/40"
       />
     </div>
   );
@@ -94,7 +94,7 @@ export default function PropertyEditor({
         onClick={()=>
           onSave(state)
         }
-        className="w-full rounded-xl bg-cyan-500 px-4 py-3 font-medium text-black"
+        className="w-full rounded-xl bg-[#b48a45] px-4 py-3 font-medium text-black"
       >
         Save
       </button>

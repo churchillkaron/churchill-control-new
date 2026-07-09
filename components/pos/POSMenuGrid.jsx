@@ -30,7 +30,7 @@ export default function POSMenuGrid({
     setActiveCategory,
   ] = useState("ALL");
 
-  console.log(
+  if (process.env.NODE_ENV !== "production") console.log(
     "POS GRID ITEMS:",
     items
   );

@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useMemo, useState, useEffect } from "react";
+import { useCallback, useRef, useMemo, useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { loadWaiterData } from "@/lib/restaurant/pos/waiter/loadWaiterData";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
@@ -11,74 +12,145 @@ function money(value) {
   return `฿${Number(value || 0).toLocaleString("en-US")}`;
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const DEMO_ZONES = [
+  {
+    id: "demo-main-floor",
+    name: "Main Floor",
+  },
+  {
+    id: "demo-terrace",
+    name: "Terrace",
+  },
+];
+
+const DEMO_TABLES = [
+  {
+    id: "demo-table-1",
+    zone_id: "demo-main-floor",
+    table_name: "Table 1",
+    status: "DINING",
+    waiter: "Maya",
+    current_guests: 4,
+    total: 2450,
+    openTime: "42m",
+  },
+  {
+    id: "demo-table-2",
+    zone_id: "demo-main-floor",
+    table_name: "Table 2",
+    status: "FOOD READY",
+    waiter: "Niran",
+    current_guests: 2,
+    total: 1320,
+    openTime: "18m",
+  },
+  {
+    id: "demo-table-3",
+    zone_id: "demo-main-floor",
+    table_name: "Table 3",
+    status: "AVAILABLE",
+    waiter: null,
+    current_guests: 0,
+    total: 0,
+    openTime: null,
+  },
+  {
+    id: "demo-table-4",
+    zone_id: "demo-terrace",
+    table_name: "Table 4",
+    status: "BILL REQUESTED",
+    waiter: "Anya",
+    current_guests: 3,
+    total: 3860,
+    openTime: "1h 06m",
+  },
+];
+
+const DEMO_TABLE_ORDERS = {
+  "demo-table-1": [
+    {
+      id: "demo-order-1",
+      item_name: "Truffle Pasta",
+      quantity: 2,
+      price: 690,
+    },
+    {
+      id: "demo-order-2",
+      item_name: "Sparkling Water",
+      quantity: 4,
+      price: 180,
+    },
+  ],
+  "demo-table-2": [
+    {
+      id: "demo-order-3",
+      item_name: "Sea Bass",
+      quantity: 2,
+      price: 660,
+    },
+  ],
+  "demo-table-4": [
+    {
+      id: "demo-order-4",
+      item_name: "Chef Tasting",
+      quantity: 3,
+      price: 1280,
+    },
+  ],
+};
+
+function isDatabaseOrganizationId(value) {
+  return typeof value === "string" && UUID_PATTERN.test(value);
+}
+
+function summarizeItems(items) {
+  const subtotal =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        Number(item.price || 0) *
+          Number(item.quantity || item.qty || 0),
+      0
+    );
+
+  const service =
+    Math.round(subtotal * 0.05);
+
+  const vat =
+    Math.round((subtotal + service) * 0.07);
+
+  return {
+    subtotal,
+    vat,
+    service,
+    total:
+      subtotal + service + vat,
+    item_count:
+      items.length,
+  };
+}
+
 export default function StationaryPOSUI() {
 
-  const businessContext = useBusinessContext();
+  const businessContext = useBusinessContext() || {};
+  const routeParams = useParams();
 
 
-
-  const organizationId = organization?.id;
+  const organizationId =
+    routeParams?.organizationId ||
+    businessContext.organization_id ||
+    businessContext.organization?.id ||
+    businessContext.staff?.active_organization_id ||
+    null;
 
   const [zones, setZones] =
     useState([]);
 
   const [tables, setTables] =
     useState([]);
-
-  useEffect(() => {
-
-    if (
-      !organizationId &&
-      !organizationId
-    ) {
-      return;
-    }
-
-    async function loadTables() {
-
-      const params =
-        new URLSearchParams();
-
-      if (organizationId) {
-        params.set(
-          "organization_id",
-          organizationId
-        );
-      } else {
-        params.set(
-          "organization_id",
-          organizationId
-        );
-      }
-
-      const res =
-        await fetch(
-          `/api/restaurant/tables?${params.toString()}`
-        );
-
-      const json =
-        await res.json();
-
-      if (json?.success) {
-        console.log(
-          "TABLES API",
-          json.tables
-        );
-
-        setTables(
-          json.tables || []
-        );
-      }
-
-    }
-
-    loadTables();
-
-  }, [
-    organizationId,
-    organizationId,
-  ]);
-
 
   const [activeSection, setActiveSection] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
@@ -119,18 +191,68 @@ export default function StationaryPOSUI() {
   const [received, setReceived] = useState("");
 
 
+  const refreshPOS = useCallback(async () => {
+    if (!organizationId) {
+      setZones([]);
+      setTables([]);
+      setActiveSection(null);
+      return;
+    }
+
+    if (!isDatabaseOrganizationId(organizationId)) {
+      setZones(DEMO_ZONES);
+      setTables(DEMO_TABLES);
+      setActiveSection(
+        current =>
+          current ||
+          DEMO_ZONES[0]?.id ||
+          null
+      );
+      return;
+    }
+
+    if (process.env.NODE_ENV !== "production") console.log("POS TENANT DEBUG", {
+      organizationId,
+    });
+
+    const data =
+      await loadWaiterData(
+        organizationId
+      );
+
+    if (process.env.NODE_ENV !== "production") console.log("POS ZONES", data?.zones);
+    setZones(data?.zones || []);
+    setTables(data?.tables || []);
+    setActiveSection(
+      current =>
+        current ||
+        data?.zones?.[0]?.id ||
+        null
+    );
+  }, [organizationId]);
+
   async function posAction(action, payload = {}) {
     try {
-      const res = await fetch("/api/restaurant/tables/action", {
+      if (!isDatabaseOrganizationId(organizationId)) {
+        return {
+          success: true,
+          demo: true,
+          action,
+          payload,
+        };
+      }
+
+      const res = await fetch("/api/pos/tables/action", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           action,
-          ...payload,
-          organization_id: organizationId,
-          organization_id: organizationId,
+          payload: {
+            ...payload,
+            organization_id: organizationId,
+          },
         }),
       });
 
@@ -139,8 +261,7 @@ export default function StationaryPOSUI() {
       if (!json.success) {
         throw new Error(json.error || "Action failed");
       }
-
-      await refreshPOS?.();
+      await refreshPOS();
       return json;
     } catch (err) {
       console.error("POS ACTION ERROR:", err);
@@ -154,29 +275,8 @@ export default function StationaryPOSUI() {
   
 
   useEffect(() => {
-    async function load() {
-      console.log("POS TENANT DEBUG", {
-        organizationId,
-        organizationId,
-      });
-
-      const data =
-        await loadWaiterData(
-          organizationId
-        );
-
-
-      console.log("POS ZONES", data?.zones);
-      setZones(data?.zones || []);
-      setTables(data?.tables || []);
-
-      if (!activeSection && data?.zones?.length) {
-        setActiveSection(data.zones[0].id);
-      }
-    }
-
-    if (organizationId) load();
-  }, [organizationId]);
+    refreshPOS();
+  }, [refreshPOS]);
 
   async function openStationaryTable(table) {
     setSelectedTable(table);
@@ -189,15 +289,25 @@ export default function StationaryPOSUI() {
       item_count: 0,
     });
 
+    if (!isDatabaseOrganizationId(organizationId)) {
+      const demoItems =
+        DEMO_TABLE_ORDERS[table.id] || [];
+
+      setTableOrders(demoItems);
+      setPaymentSummary(
+        summarizeItems(demoItems)
+      );
+      return;
+    }
+
     try {
-      const res = await fetch("/api/restaurant/tables/open", {
+      const res = await fetch("/api/pos/tables/open", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           tableId: table.id,
-          organization_id: organizationId,
           organization_id: organizationId,
         }),
       });
@@ -259,7 +369,7 @@ export default function StationaryPOSUI() {
         if (statusSort !== 0) return statusSort;
         return b.total - a.total;
       });
-  }, [activeSection]);
+  }, [activeSection, tables]);
 
   const subtotal =
     paymentSummary.subtotal || 0;
@@ -403,22 +513,15 @@ export default function StationaryPOSUI() {
 
             <div className="grid grid-cols-3 gap-4">
               {visibleTables.map((table) => {
-                console.log("TABLE CARD", table.table_name || table.table_number, "TOTAL:", table.total, table);
+                if (process.env.NODE_ENV !== "production") console.log("TABLE CARD", table.table_name || table.table_number, "TOTAL:", table.total, table);
 
                 return (
                 <button
                   key={table.id}
-                  onMouseDown={() => {
-  holdTimer.current = setTimeout(() => {
-    setTableActions(table);
-  }, 500);
-}}
-onMouseUp={() => clearTimeout(holdTimer.current)}
-onMouseLeave={() => clearTimeout(holdTimer.current)}
-onClick={() => openStationaryTable(table)}
-                  onMouseDown={() => startHold(table)}
-                  onMouseUp={cancelHold}
-                  onMouseLeave={cancelHold}
+	                  onMouseDown={() => startHold(table)}
+	                  onMouseUp={cancelHold}
+	                  onMouseLeave={cancelHold}
+	                  onClick={() => openStationaryTable(table)}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     setTableActions(table);
@@ -603,32 +706,20 @@ onClick={() => openStationaryTable(table)}
                     }
 
                     if (action === "Transfer Table") {
-                      await fetch("/api/restaurant/tables/action", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          action: "TRANSFER_TABLE",
-                          organizationId,
-                          fromTableId: selectedTable.id,
-                          toTableId: null
-                        })
-                      });
-                      setTableActions(null);
-                      return;
-                    }
+	                      await posAction("TRANSFER_TABLE", {
+	                        fromTableId: selectedTable.id,
+	                        toTableId: null,
+	                      });
+	                      setTableActions(null);
+	                      return;
+	                    }
 
-                    if (action === "Close Table") {
-                      await fetch("/api/restaurant/tables/action", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          action: "CLOSE_TABLE",
-                          organizationId,
-                          tableId: selectedTable.id
-                        })
-                      });
-                      setSelectedTable(null);
-                      setTableActions(null);
+	                    if (action === "Close Table") {
+	                      await posAction("CLOSE_TABLE", {
+	                        tableId: selectedTable.id,
+	                      });
+	                      setSelectedTable(null);
+	                      setTableActions(null);
                       return;
                     }
                   }}

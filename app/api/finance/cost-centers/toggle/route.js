@@ -1,10 +1,13 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import toggleCostCenter from "@/lib/finance/cost-centers/capabilities/toggleCostCenter";
+import {
+  toggleCostCenterCommand,
+} from "@/lib/finance/cost-centers/runtime/CostCenterApplicationService";
 
 export async function POST(req) {
   try {
@@ -30,7 +33,7 @@ export async function POST(req) {
     }
 
     const result =
-      await toggleCostCenter({
+      await toggleCostCenterCommand({
         organization_id: access.organizationId,
         cost_center_id: body.cost_center_id,
         updated_by: body.userId || "system",

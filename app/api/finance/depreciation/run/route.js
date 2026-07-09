@@ -1,114 +1,35 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { postDepreciationToLedgerCommand } from "@/lib/finance/general-ledger/runtime/GeneralLedgerApplicationService";
 
-import { postDepreciationToLedger }
-from "@/lib/finance/general-ledger/capabilities/postDepreciationToLedger";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-// =====================================
-// RUN DEPRECIATION
-// =====================================
-
-export async function POST(
-  req
-) {
-
+export async function POST(req) {
   try {
+    const body = await req.json();
 
-    const body =
-      await req.json();
-
-    const {
-      assetId,
-    } = body;
-
-    if (!assetId) {
-
-      return NextResponse.json(
-        {
-          error:
-            "Missing assetId",
-        },
-        {
-          status: 400,
-        }
-      );
-
-    }
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
-      });
-
-    if (!access.success) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            access.error,
-        },
-        {
-          status:
-            access.status,
-        }
-      );
-
-    }
-
-    const organizationId =
-      access.organizationId;
-
-    const result =
-      await postDepreciationToLedger({
-
-        organizationId,
-
-        assetId,
-
-        createdBy:
-          "system",
-
-      });
-
-    return NextResponse.json({
-
-      success: true,
-
-      result,
-
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId,
     });
 
-  } catch (err) {
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
 
-    console.error(
-      "DEPRECIATION ERROR:",
-      err
-    );
+    const result = await postDepreciationToLedgerCommand({
+      ...body,
+      organizationId: access.organizationId,
+    });
 
+    return NextResponse.json(result);
+
+  } catch (error) {
     return NextResponse.json(
-
-      {
-        success: false,
-        error:
-          err.message,
-      },
-
-      {
-        status: 500,
-      }
-
+      { success: false, error: error.message },
+      { status: 500 }
     );
-
   }
-
 }

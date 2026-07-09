@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 function Stat({ label, value }) {
   return (
@@ -32,7 +32,7 @@ function Shot({
       className={[
         "ml-8 w-full rounded-xl border p-4 text-left transition",
         selected?.data?.id === shot.id
-          ? "border-cyan-400/40 bg-cyan-500/10"
+          ? "border-[#c8a96a]/40 bg-[#c8a96a]/10"
           : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
       ].join(" ")}
     >
@@ -71,12 +71,12 @@ function Scene({
 
   return (
 
-    <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.05]">
+    <div className="rounded-2xl border border-[#c8a96a]/20 bg-[#c8a96a]/[0.05]">
 
       <div className="flex items-center">
 
         <button
-          className="px-5 text-cyan-300"
+          className="px-5 text-[#c8a96a]"
           onClick={() => setOpen(!open)}
         >
           {open ? "−" : "+"}
@@ -86,7 +86,7 @@ function Scene({
           className={[
             "flex-1 p-5 text-left",
             selected?.data?.id === scene.id
-              ? "bg-cyan-500/10"
+              ? "bg-[#c8a96a]/10"
               : ""
           ].join(" ")}
           onClick={() =>
@@ -97,7 +97,7 @@ function Scene({
           }
         >
 
-          <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+          <div className="text-xs uppercase tracking-[0.24em] text-[#c8a96a]">
             Scene {scene.scene_number}
           </div>
 
@@ -146,19 +146,19 @@ const setSelected =
     editor.setSelection;
 
   const scenes =
-    runtime.data.scenes || [];
+    runtime.sceneRuntime?.items || [];
 
   const shots =
-    runtime.data.shots || [];
+    runtime.shotRuntime?.items || [];
 
   const tasks =
-    runtime.data.tasks || [];
+    runtime.taskRuntime?.items || [];
 
   const assets =
-    runtime.data.assets || [];
+    runtime.assetRuntime?.items || [];
 
   const queue =
-    runtime.data.queue || {};
+    runtime.queueRuntime || {};
 
   const grouped =
     useMemo(() => {
@@ -182,7 +182,7 @@ const setSelected =
 
     <div className="space-y-6">
 
-      <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.05] p-4">
+      <div className="rounded-2xl border border-[#c8a96a]/20 bg-[#c8a96a]/[0.05] p-4">
 
         <div className="flex flex-wrap gap-4">
 

@@ -87,12 +87,12 @@ export default function RunProductionButton({
         className="
           rounded-xl
           border
-          border-cyan-400/30
-          bg-cyan-500/10
+          border-[#c8a96a]/30
+          bg-[#b48a45]/10
           px-5
           py-2
           font-medium
-          text-cyan-200
+          text-[#d8bd7a]
           disabled:opacity-50
         "
       >

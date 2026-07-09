@@ -1,7 +1,10 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 
-import { runCashFlowEngine } from "@/lib/finance/reporting/workflows/runCashFlowEngine";
+import {
+  runCashFlowCommand,
+} from "@/lib/finance/reporting/runtime/ReportingApplicationService";
 
 export async function POST(request) {
   try {
@@ -9,7 +12,7 @@ export async function POST(request) {
       await request.json();
 
     const cashFlow =
-      await runCashFlowEngine({
+      await runCashFlowCommand({
         organizationId:
           body.organizationId,
       });
@@ -18,16 +21,18 @@ export async function POST(request) {
       success: true,
       cashFlow,
     });
+
   } catch (error) {
+
     return NextResponse.json(
       {
         success: false,
-        message:
-          error.message,
+        message: error.message,
       },
       {
         status: 400,
       }
     );
+
   }
 }

@@ -76,7 +76,7 @@ export async function POST(req) {
     const containerData =
       await containerRes.json();
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "IG CONTAINER:",
       containerData
     );
@@ -120,7 +120,7 @@ export async function POST(req) {
     const publishData =
       await publishRes.json();
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "IG PUBLISH:",
       publishData
     );

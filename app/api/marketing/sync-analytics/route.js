@@ -84,7 +84,7 @@ export async function GET() {
           const igData =
             await igRes.json();
 
-          console.log(
+          if (process.env.NODE_ENV !== "production") console.log(
             "IG ANALYTICS:",
             igData
           );
@@ -187,8 +187,8 @@ const {
 
 await updateEngineLearningMemory({
 
-  tenantId:
-    campaign.tenant_id,
+  organizationId:
+    campaign.organization_id,
 
   pageId:
     campaign.page_id,
@@ -220,7 +220,7 @@ await updateEngineLearningMemory({
               await supabase
 
                 .from(
-                  "marketing_assets"
+                  "creative_assets"
                 )
 
                 .update({
@@ -250,8 +250,8 @@ await updateEngineLearningMemory({
 
           await updateBusinessAIProfile({
 
-            tenantId:
-              campaign.tenant_id,
+            organizationId:
+              campaign.organization_id,
 
             pageId:
               campaign.page_id,

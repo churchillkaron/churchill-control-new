@@ -1,37 +1,35 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { runIntercompanyEliminationCommand } from "@/lib/finance/intercompany/runtime/IntercompanyApplicationService";
 
-import { runIntercompanyElimination } from "@/lib/finance/intercompany/workflows/runIntercompanyElimination";
-
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body =
-      await request.json();
+    const body = await req.json();
 
-    const elimination =
-      await runIntercompanyElimination({
-        organizationId:
-          body.organizationId,
-        reconciliationId:
-          body.reconciliationId,
-        eliminationAmount:
-          body.eliminationAmount,
-      });
-
-    return NextResponse.json({
-      success: true,
-      elimination,
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId,
     });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
+
+    const result = await runIntercompanyEliminationCommand({
+      organizationId: access.organizationId,
+      reconciliationId: body.reconciliationId,
+      eliminationAmount: body.eliminationAmount,
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
-      {
-        success: false,
-        message:
-          error.message,
-      },
-      {
-        status: 400,
-      }
+      { success: false, error: error.message },
+      { status: 500 }
     );
   }
 }

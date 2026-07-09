@@ -432,7 +432,7 @@ export default function InternalMessageDialog({
 
               onClick={()=>{
 
-                console.log({
+                if (process.env.NODE_ENV !== "production") console.log({
 
                   payload,
 

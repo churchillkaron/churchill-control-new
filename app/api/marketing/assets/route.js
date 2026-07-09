@@ -16,7 +16,7 @@ export async function GET() {
     } = await supabase
 
       .from(
-        "marketing_assets"
+        "creative_assets"
       )
 
       .select("*")

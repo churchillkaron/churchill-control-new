@@ -1,49 +1,41 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from 'next/server'
 
-import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+import { NextResponse } from "next/server";
 
-import { calculateDepreciation } from '@/lib/finance/fixed-assets/capabilities/calculateDepreciation'
+import {
+  calculateDepreciationCommand,
+} from "@/lib/finance/fixed-assets/runtime/FixedAssetsApplicationService";
 
-export async function GET() {
+export async function GET(request) {
 
   try {
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from(
-        'finance_fixed_assets'
-      )
-      .select('*')
+    const { searchParams } =
+      new URL(request.url);
 
-    if (error) {
-      throw error
-    }
+    const organization_id =
+      searchParams.get("organization_id") ||
+      searchParams.get("organizationId");
 
-    const depreciation =
-      calculateDepreciation({
-        assets:
-          data || [],
-      })
+    const result =
+      await calculateDepreciationCommand({
+        organization_id,
+      });
 
-    return NextResponse.json({
-      success: true,
-      depreciation,
-    })
+    return NextResponse.json(result);
 
   } catch (error) {
 
     return NextResponse.json(
       {
-        success: false,
-        error:
-          error.message,
+        success:false,
+        error:error.message,
       },
       {
-        status: 500,
+        status:500,
       }
-    )
+    );
+
   }
+
 }

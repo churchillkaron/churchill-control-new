@@ -1,8 +1,9 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { logAIUsage } from "@/lib/ai/logAIUsage";
+import {
+  ServiceExecutionRuntime,
+} from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,50 +35,26 @@ export async function POST(req) {
       );
     }
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
 
-    const response =
-      await openai.responses.create({
-        model: "gpt-4.1",
-        temperature: 0,
-        input: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: `
+    const execution =
+      await ServiceExecutionRuntime.execute({
+
+        organization_id:
+          organizationId,
+
+        service_id:
+          "document.classify",
+
+        provider_id:
+          "openai",
+
+        input:{
+
+          prompt:
+`
 You are Churchill AI Intake.
 
 Classify the uploaded image by BUSINESS PURPOSE and WORKFLOW DESTINATION.
-
-Do not classify only by what objects are visible.
-Ask: Which Churchill module should receive this image?
-
-Important examples:
-
-- A visible receipt, tax invoice, supplier invoice, purchase receipt
-  -> ACCOUNTING / INVOICE or EXPENSE_RECEIPT
-
-- A supplier delivery, goods arrival, stock receiving photo
-  -> PROCUREMENT / DELIVERY
-
-- A branded business image, dashboard presentation, executive meeting, luxury business scene, marketing-quality render, venue atmosphere, food/drink photo, event photo
-  -> MARKETING / MARKETING_ASSET or SOCIAL_MEDIA_CONTENT
-
-- A dish, recipe sheet, ingredients, food preparation
-  -> PRODUCTION / RECIPE or FOOD_PREP
-
-- A broken item, leak, damaged furniture, damaged equipment
-  -> MAINTENANCE / DAMAGE
-
-- Cleaning proof, opening proof, closing proof, checklist photo
-  -> OPERATIONS / ROUTINE_CHECK
-
-- Safety issue, fight, theft, security problem
-  -> SECURITY / INCIDENT
 
 Return JSON ONLY:
 
@@ -88,89 +65,35 @@ Return JSON ONLY:
   "reason": ""
 }
 
-Valid modules and types:
-
-ACCOUNTING:
-INVOICE
-EXPENSE_RECEIPT
-CASH_PURCHASE
-FINANCIAL_DOCUMENT
-
-PROCUREMENT:
-DELIVERY
-PURCHASE_ORDER
-SUPPLIER_DOCUMENT
-
-MARKETING:
-MARKETING_ASSET
-EVENT_PHOTO
-SOCIAL_MEDIA_CONTENT
-MENU_PHOTO
-
-PRODUCTION:
-RECIPE
-INGREDIENT
-FOOD_PREP
-
-OPERATIONS:
-ROUTINE_CHECK
-QUALITY_CHECK
-OPENING_CHECK
-CLOSING_CHECK
-
-MAINTENANCE:
-DAMAGE
-REPAIR
-
-SECURITY:
-INCIDENT
-
-REVIEW:
-UNKNOWN
-
-Only classify as INVOICE when an actual invoice, receipt, supplier invoice, or tax invoice is visible.
-
-Do not classify office workers, accountants, paperwork, filing cabinets, spreadsheets, desks, or office environments as invoices.
+Only classify invoices when an actual invoice, receipt, supplier invoice, or tax invoice is visible.
 `,
-              },
-              {
-                type: "input_image",
-                image_url: image,
-              },
-            ],
-          },
-        ],
+
+          image,
+
+        },
+
+        metadata:{
+
+          module:
+            "INTAKE",
+
+          operation:
+            "CLASSIFY_UPLOAD",
+
+          uploadedBy,
+
+          documentId,
+
+        },
+
+        category:
+          "DOCUMENT",
+
       });
 
-    await logAIUsage({
-
-      tenantId,
-
-      userId:
-        uploadedBy,
-
-      module:
-        "INTAKE",
-
-      operation:
-        "CLASSIFY_UPLOAD",
-
-      provider:
-        "openai",
-
-      model:
-        "gpt-4.1",
-
-      promptTokens:
-        response?.usage?.input_tokens || 0,
-
-      completionTokens:
-        response?.usage?.output_tokens || 0,
-
-    });
 
     const text =
-      response.output_text ||
+      execution?.output?.text ||
       "";
 
     const match =
@@ -198,54 +121,79 @@ Do not classify office workers, accountants, paperwork, filing cabinets, spreads
 
       try {
 
-        const baseUrl =
-          process.env.NEXT_PUBLIC_SITE_URL ||
-          "http://localhost:3000";
+        const ocrExecution =
+          await ServiceExecutionRuntime.execute({
 
-        const ocrResponse =
-          await fetch(
-            `${baseUrl}/api/invoices/ocr`,
-            {
-              method: "POST",
+            organization_id:
+              organizationId,
 
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
+            service_id:
+              "document.ocr",
 
-              body: JSON.stringify({
-                image,
-                tenantId,
-              }),
+            provider_id:
+              "openai",
 
-            }
-          );
+            input:{
 
-        const rawOcrResponse =
-          await ocrResponse.text();
+              image,
 
-        console.log(
-          "OCR RAW RESPONSE",
-          rawOcrResponse
-        );
+              model:
+                "gpt-4.1-mini",
 
-        const ocr =
-          JSON.parse(
-            rawOcrResponse
-          );
+            },
 
-        console.log(
-          "OCR RESULT",
-          ocr
-        );
+            metadata:{
 
-        if (
-          ocr?.success &&
-          ocr?.invoice?.id
-        ) {
+              module:
+                "FINANCE",
 
-          destinationRecordId =
-            ocr.invoice.id;
+              operation:
+                "INVOICE_OCR",
+
+              documentId,
+
+            },
+
+            category:
+              "DOCUMENT",
+
+          });
+
+
+        const ocrText =
+          ocrExecution?.output?.text ||
+          "";
+
+
+        if (ocrText) {
+
+          const {
+            processInvoice,
+          } =
+            await import(
+              "@/lib/finance/invoice/processInvoice"
+            );
+
+
+          const invoiceResult =
+            await processInvoice({
+
+              ocrText,
+
+              organizationId,
+
+            });
+
+
+          if (
+            invoiceResult?.success
+          ) {
+
+            destinationRecordId =
+              invoiceResult.data?.id ||
+              null;
+
+          }
 
         }
 

@@ -1,107 +1,198 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function BriefWorkspace({
   runtime,
-  editor,
 }) {
 
-  const mission =
-    runtime?.missionRuntime?.mission;
+  const brief =
+    runtime.briefRuntime?.current || null;
 
   const [form, setForm] = useState({
-    objective: mission?.objective || "",
-    business_goal: mission?.business_goal || "",
-    audience: "",
-    channels: "",
-    budget: mission?.budget || 0,
+    title: "",
+    business_goal: "",
+    campaign_goal: "",
+    target_audience: "",
+    call_to_action: "",
+    tone: "professional",
+    emotion: "trust",
   });
+
+  useEffect(() => {
+
+    if (!brief) {
+      return;
+    }
+
+    setForm({
+
+      title:
+        brief.title || "",
+
+      business_goal:
+        brief.business_goal || "",
+
+      campaign_goal:
+        brief.campaign_goal || "",
+
+      target_audience:
+        typeof brief.target_audience === "string"
+          ? brief.target_audience
+          : JSON.stringify(
+              brief.target_audience || {},
+              null,
+              2,
+            ),
+
+      call_to_action:
+        brief.call_to_action || "",
+
+      tone:
+        brief.tone || "professional",
+
+      emotion:
+        brief.emotion || "trust",
+
+    });
+
+  }, [brief]);
+
+  function Field({
+    label,
+    value,
+    onChange,
+    textarea = false,
+  }) {
+
+    const cls =
+      "mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 outline-none";
+
+    return (
+
+      <div>
+
+        <div className="text-xs uppercase tracking-[0.22em] text-white/40">
+          {label}
+        </div>
+
+        {textarea ? (
+
+          <textarea
+            rows={5}
+            className={cls}
+            value={value}
+            onChange={onChange}
+          />
+
+        ) : (
+
+          <input
+            className={cls}
+            value={value}
+            onChange={onChange}
+          />
+
+        )}
+
+      </div>
+
+    );
+
+  }
 
   return (
 
-    <div className="h-full overflow-auto p-8 text-white">
+    <div className="h-full overflow-auto p-8">
 
-      {/* HEADER */}
       <div className="mb-8">
-        <div className="text-xs uppercase tracking-[0.3em] text-cyan-300">
+
+        <div className="text-xs uppercase tracking-[0.30em] text-[#c8a96a]">
           Creative Brief
         </div>
 
-        <h1 className="mt-2 text-3xl font-semibold">
-          Define Mission Direction
-        </h1>
+        <div className="mt-2 text-3xl font-semibold">
+          {form.title || "Creative Brief"}
+        </div>
 
-        <p className="mt-2 text-white/50">
-          This brief drives strategy, production and AI decisions.
-        </p>
       </div>
 
-      {/* FORM */}
       <div className="grid grid-cols-2 gap-6">
 
-        <div>
-          <label className="text-xs text-white/40">Business Goal</label>
-          <textarea
-            className="w-full mt-2 p-3 rounded-lg bg-white/5 border border-white/10"
-            value={form.business_goal}
-            onChange={(e) =>
-              setForm({ ...form, business_goal: e.target.value })
-            }
-          />
-        </div>
+        <Field
+          label="Business Goal"
+          textarea
+          value={form.business_goal}
+          onChange={e =>
+            setForm({
+              ...form,
+              business_goal: e.target.value,
+            })
+          }
+        />
 
-        <div>
-          <label className="text-xs text-white/40">Objective</label>
-          <textarea
-            className="w-full mt-2 p-3 rounded-lg bg-white/5 border border-white/10"
-            value={form.objective}
-            onChange={(e) =>
-              setForm({ ...form, objective: e.target.value })
-            }
-          />
-        </div>
+        <Field
+          label="Campaign Goal"
+          textarea
+          value={form.campaign_goal}
+          onChange={e =>
+            setForm({
+              ...form,
+              campaign_goal: e.target.value,
+            })
+          }
+        />
 
-        <div>
-          <label className="text-xs text-white/40">Target Audience</label>
-          <input
-            className="w-full mt-2 p-3 rounded-lg bg-white/5 border border-white/10"
-            value={form.audience}
-            onChange={(e) =>
-              setForm({ ...form, audience: e.target.value })
-            }
-          />
-        </div>
+        <Field
+          label="Target Audience"
+          textarea
+          value={form.target_audience}
+          onChange={e =>
+            setForm({
+              ...form,
+              target_audience: e.target.value,
+            })
+          }
+        />
 
-        <div>
-          <label className="text-xs text-white/40">Channels</label>
-          <input
-            className="w-full mt-2 p-3 rounded-lg bg-white/5 border border-white/10"
-            value={form.channels}
-            onChange={(e) =>
-              setForm({ ...form, channels: e.target.value })
-            }
-          />
-        </div>
+        <Field
+          label="Call To Action"
+          textarea
+          value={form.call_to_action}
+          onChange={e =>
+            setForm({
+              ...form,
+              call_to_action: e.target.value,
+            })
+          }
+        />
 
-      </div>
+        <Field
+          label="Tone"
+          value={form.tone}
+          onChange={e =>
+            setForm({
+              ...form,
+              tone: e.target.value,
+            })
+          }
+        />
 
-      {/* PREVIEW */}
-      <div className="mt-10 p-5 rounded-xl border border-white/10 bg-white/[0.03]">
-        <div className="text-sm text-white/50 mb-3">
-          Live Mission Preview
-        </div>
+        <Field
+          label="Emotion"
+          value={form.emotion}
+          onChange={e =>
+            setForm({
+              ...form,
+              emotion: e.target.value,
+            })
+          }
+        />
 
-        <div className="space-y-2">
-          <div><b>Goal:</b> {form.business_goal}</div>
-          <div><b>Objective:</b> {form.objective}</div>
-          <div><b>Audience:</b> {form.audience}</div>
-          <div><b>Channels:</b> {form.channels}</div>
-          <div><b>Budget:</b> {form.budget}</div>
-        </div>
       </div>
 
     </div>
 
   );
+
 }

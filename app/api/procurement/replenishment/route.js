@@ -12,8 +12,8 @@ export async function POST(req) {
     const result =
       await generatePurchaseRecommendation({
 
-        ingredient_id:
-          body.ingredient_id,
+        item_id:
+          body.item_id,
 
         days:
           body.days || 7,

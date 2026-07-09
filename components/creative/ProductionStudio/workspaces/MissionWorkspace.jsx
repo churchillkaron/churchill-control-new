@@ -12,22 +12,22 @@ export default function MissionWorkspace({
     runtime?.projectRuntime?.projects || [];
 
   const assets =
-    runtime.data.assets || [];
+    runtime.assetRuntime?.items || [];
 
   const scenes =
-    runtime.data.scenes || [];
+    runtime.sceneRuntime?.items || [];
 
   const tasks =
-    runtime.data.tasks || [];
+    runtime.taskRuntime?.items || [];
 
   return (
 
-    <div className="h-full overflow-auto p-8 text-white">
+    <div className="h-full min-h-0 overflow-auto p-8 text-white">
 
       {/* HEADER */}
       <div className="mb-8">
 
-        <div className="text-xs uppercase tracking-[0.3em] text-cyan-300">
+        <div className="text-xs uppercase tracking-[0.3em] text-[#c8a96a]">
           Mission Control
         </div>
 

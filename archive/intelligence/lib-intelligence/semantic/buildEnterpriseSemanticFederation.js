@@ -12,7 +12,7 @@ export default async function buildEnterpriseSemanticFederation() {
     ] = await Promise.all([
 
       supabaseAdmin
-        .from("tenants")
+        .from("organizations")
         .select(`
           id,
           name
@@ -65,7 +65,7 @@ export default async function buildEnterpriseSemanticFederation() {
       throw revenueResponse.error;
     }
 
-    const tenants =
+    const organizations =
       tenantsResponse.data || [];
 
     const campaigns =
@@ -79,20 +79,20 @@ export default async function buildEnterpriseSemanticFederation() {
 
     const federation = [];
 
-    for (const tenant of tenants) {
+    for (const organization of organizations) {
 
       const tenantCampaigns =
         campaigns.filter(
           (item) =>
             item.tenant_id ===
-            tenant.id
+            organization.id
         );
 
       const tenantAudits =
         audits.filter(
           (item) =>
             item.tenant_id ===
-            tenant.id
+            organization.id
         );
 
       const tenantRevenue =
@@ -100,7 +100,7 @@ export default async function buildEnterpriseSemanticFederation() {
           .filter(
             (item) =>
               item.tenant_id ===
-              tenant.id
+              organization.id
           )
           .reduce(
             (
@@ -176,10 +176,10 @@ export default async function buildEnterpriseSemanticFederation() {
       federation.push({
 
         tenant_id:
-          tenant.id,
+          organization.id,
 
         tenant_name:
-          tenant.name,
+          organization.name,
 
         revenue:
           Number(

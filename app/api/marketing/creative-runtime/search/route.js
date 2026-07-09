@@ -10,8 +10,8 @@ export async function POST(request) {
 
     const result =
       await CreativeSearchRuntime({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId,
         pageId:
           body.pageId,
         objective:

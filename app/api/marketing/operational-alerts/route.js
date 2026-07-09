@@ -41,8 +41,8 @@ export const POST = withApiHandler(
 
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
 
     const {
 
@@ -52,7 +52,7 @@ export const POST = withApiHandler(
 
     return await getOperationalAlerts({
 
-      tenantId,
+      organizationId,
 
       pageId,
 

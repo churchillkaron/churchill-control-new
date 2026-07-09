@@ -1,77 +1,20 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from 'next/server'
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+import { NextResponse } from "next/server";
+import { runMonthEndCloseCommand } from "@/lib/finance/period-close/runtime/PeriodCloseApplicationService";
 
-import { closeMonthEndPeriod } from '@/lib/finance/period-close/workflows/closeMonthEndPeriod'
-
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    const body = await request.json();
 
-    const body =
-      await req.json()
+    const result = await runMonthEndCloseCommand(body);
 
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
-      });
-
-    if (!access.success) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            access.error,
-        },
-        {
-          status:
-            access.status,
-        }
-      );
-
-    }
-
-    const organization_id =
-      access.organizationId;
-
-    const result =
-      await closeMonthEndPeriod({
-        organization_id:
-          organization_id,
-
-        month:
-          body.month,
-
-        year:
-          body.year,
-
-        closed_by:
-          body.closed_by,
-      })
-
-    return NextResponse.json({
-      success: true,
-      result,
-    })
+    return NextResponse.json(result);
 
   } catch (error) {
-
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-      },
-      {
-        status: 500,
-      }
-    )
+      { success: false, error: error.message },
+      { status: 500 }
+    );
   }
 }

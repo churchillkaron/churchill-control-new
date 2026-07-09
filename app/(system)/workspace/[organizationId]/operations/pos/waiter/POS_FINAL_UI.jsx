@@ -271,7 +271,7 @@ export default function POSFinalUI() {
           localStorage.getItem("userEmail")
         : null;
 
-    console.log("WAITER_EMAIL_CHECK", {
+    if (process.env.NODE_ENV !== "production") console.log("WAITER_EMAIL_CHECK", {
       staff_email:
         typeof window !== "undefined"
           ? localStorage.getItem("staff_email")
@@ -291,7 +291,7 @@ export default function POSFinalUI() {
     const result = await response.json();
 
     if (result?.success) {
-      console.log("WAITER_STAFF", result.staff);
+      if (process.env.NODE_ENV !== "production") console.log("WAITER_STAFF", result.staff);
       setStaff(result.staff);
     }
   }

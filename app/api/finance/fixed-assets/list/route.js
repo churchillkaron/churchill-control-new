@@ -3,7 +3,9 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  listFixedAssetsCommand,
+} from "@/lib/finance/fixed-assets/runtime/FixedAssetsApplicationService";
 
 export async function GET(req) {
   try {
@@ -32,27 +34,14 @@ export async function GET(req) {
     const organizationId =
       access.organizationId;
 
-    const { data, error } =
-      await supabaseAdmin
-        .from("fixed_assets")
-        .select("*")
-        .eq(
-          "organization_id",
-          organizationId
-        )
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          }
-        );
-
-    if (error) {
-      throw error;
-    }
+    const result =
+      await listFixedAssetsCommand({
+        organization_id:
+          organizationId,
+      });
 
     const assets =
-      (data || []).map(asset => ({
+      (result.assets || []).map(asset => ({
         ...asset,
         calculated_book_value:
           Math.max(

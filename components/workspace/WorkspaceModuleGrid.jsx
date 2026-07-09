@@ -273,7 +273,7 @@ export default function WorkspaceModuleGrid({
                           route: item.route,
                         });
 
-                        console.log("WORKSPACE LINK", {
+                        if (process.env.NODE_ENV !== "production") console.log("WORKSPACE LINK", {
                           workspace,
                           itemId: item.id,
                           route: item.route,

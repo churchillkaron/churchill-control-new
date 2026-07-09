@@ -32,8 +32,8 @@ export async function POST(req) {
 
           entityId,
 
-          ingredientId:
-            item.ingredient_id,
+          itemId:
+            item.item_id,
 
           movementType:
             "CONSUMPTION",

@@ -1,7 +1,10 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { runMonthEndClose } from "@/lib/finance/period-close/capabilities/MonthEndCloseEngine";
+import {
+  runMonthEndCloseCommand,
+} from "@/lib/finance/period-close/runtime/PeriodCloseApplicationService";
 
 export async function POST(request) {
   try {
@@ -25,14 +28,16 @@ export async function POST(request) {
     }
 
     const result =
-      await runMonthEndClose({
+      await runMonthEndCloseCommand({
         organizationId: access.organizationId,
         periodId: body.periodId,
         closedBy: body.closedBy || body.userId || "system",
       });
 
     return NextResponse.json(result);
+
   } catch (error) {
+
     return NextResponse.json(
       {
         success: false,
@@ -42,5 +47,6 @@ export async function POST(request) {
         status: 500,
       }
     );
+
   }
 }

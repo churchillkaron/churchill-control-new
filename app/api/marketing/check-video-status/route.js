@@ -12,7 +12,7 @@ export async function POST(
     const body =
       await request.json();
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "CHECK STATUS FULL BODY:",
       body
     );
@@ -22,12 +22,12 @@ export async function POST(
       videoJobId,
     } = body;
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "INCOMING campaignId:",
       campaignId
     );
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "INCOMING videoJobId:",
       videoJobId
     );
@@ -60,7 +60,7 @@ export async function POST(
     const result =
       await response.json();
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "RUNWAY STATUS CHECK:",
       result
     );
@@ -76,7 +76,7 @@ export async function POST(
       const videoUrl =
         result?.output?.[0] || null;
 
-      console.log(
+      if (process.env.NODE_ENV !== "production") console.log(
         "FINAL VIDEO URL:",
         videoUrl
       );
@@ -91,7 +91,7 @@ export async function POST(
       const assetById =
         await supabase
 
-          .from("marketing_assets")
+          .from("creative_assets")
 
           .select("*")
 
@@ -108,12 +108,12 @@ export async function POST(
       assetError =
         assetById.error;
 
-      console.log(
+      if (process.env.NODE_ENV !== "production") console.log(
         "ASSET BY ID:",
         asset
       );
 
-      console.log(
+      if (process.env.NODE_ENV !== "production") console.log(
         "ASSET BY ID ERROR:",
         assetError
       );
@@ -128,7 +128,7 @@ export async function POST(
         const assetByCampaignId =
           await supabase
 
-            .from("marketing_assets")
+            .from("creative_assets")
 
             .select("*")
 
@@ -155,12 +155,12 @@ export async function POST(
         assetError =
           assetByCampaignId.error;
 
-        console.log(
+        if (process.env.NODE_ENV !== "production") console.log(
           "ASSET BY CAMPAIGN ID:",
           asset
         );
 
-        console.log(
+        if (process.env.NODE_ENV !== "production") console.log(
           "ASSET BY CAMPAIGN ID ERROR:",
           assetError
         );
@@ -179,7 +179,7 @@ export async function POST(
 
         null;
 
-      console.log(
+      if (process.env.NODE_ENV !== "production") console.log(
         "REAL CAMPAIGN ID:",
         realCampaignId
       );
@@ -235,12 +235,12 @@ export async function POST(
 
           .maybeSingle();
 
-      console.log(
+      if (process.env.NODE_ENV !== "production") console.log(
         "VIDEO SAVE DATA:",
         campaignData
       );
 
-      console.log(
+      if (process.env.NODE_ENV !== "production") console.log(
         "VIDEO SAVE ERROR:",
         campaignError
       );
@@ -267,7 +267,7 @@ export async function POST(
         } =
           await supabase
 
-            .from("marketing_assets")
+            .from("creative_assets")
 
             .update({
 
@@ -295,12 +295,12 @@ export async function POST(
 
             .maybeSingle();
 
-        console.log(
+        if (process.env.NODE_ENV !== "production") console.log(
           "ASSET VIDEO SAVE DATA:",
           assetUpdateData
         );
 
-        console.log(
+        if (process.env.NODE_ENV !== "production") console.log(
           "ASSET VIDEO SAVE ERROR:",
           assetUpdateError
         );

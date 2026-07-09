@@ -1,32 +1,45 @@
+"use client";
+
 export default function Header({
   runtime,
 }) {
+  const commands =
+    runtime.commands || [];
 
   return (
+    <header className="border-b border-white/10 bg-[#080808]">
+      <div className="flex h-16 items-center justify-between px-6">
 
-    <header className="border-b border-white/10 bg-[#0d111b]">
+        <div className="min-w-0">
 
-      <div className="flex items-center justify-between px-8 py-5">
-
-        <div>
-
-          <div className="text-xs uppercase tracking-[0.3em] text-cyan-300">
-            Creative Production Studio
+          <div className="text-[11px] uppercase tracking-[0.30em] text-[#c8a96a]">
+            Creative Studio
           </div>
 
-          <h1 className="mt-2 text-3xl font-semibold">
-            {runtime.workspace.title}
-          </h1>
+          <div className="truncate text-xl font-semibold">
+            {runtime.workspace?.title || "Creative Workspace"}
+          </div>
 
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
 
-          {runtime.commands.map(command => (
+          {commands.map(command => (
 
             <button
               key={command.id}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 hover:bg-white/10"
+              onClick={command.onClick}
+              className="
+                rounded-lg
+                border
+                border-white/10
+                bg-white/5
+                px-4
+                py-2
+                text-sm
+                transition
+                hover:bg-white/10
+              "
             >
               {command.label}
             </button>
@@ -36,9 +49,6 @@ export default function Header({
         </div>
 
       </div>
-
     </header>
-
   );
-
 }

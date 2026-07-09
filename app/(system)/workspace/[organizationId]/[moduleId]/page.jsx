@@ -1,6 +1,8 @@
 "use client";
 
-import { useParams } from "next/navigation";
+export const dynamic = "force-dynamic";
+
+import { notFound, useParams } from "next/navigation";
 
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
 import WorkspaceModuleGrid from "@/components/workspace/WorkspaceModuleGrid";
@@ -10,7 +12,6 @@ import {
   getWorkspaceGroups,
 } from "@/lib/platform/registry/erpRegistry";
 
-
 function titleFromId(value) {
   return String(value || "Workspace")
     .replace(/[-_]/g, " ")
@@ -18,24 +19,26 @@ function titleFromId(value) {
 }
 
 export default function OrganizationModulePage() {
+  const params = useParams();
 
-  const params =
-    useParams();
+  const organizationId = params.organizationId;
 
-  const organizationId =
-    params.organizationId;
-
-  const moduleId =
-    String(params.moduleId || "").toLowerCase();
+  const moduleId = String(
+    params.moduleId || ""
+  ).toLowerCase();
 
   const workspace =
     getWorkspaceMeta(moduleId);
+
+  if (!workspace) {
+    notFound();
+  }
 
   const groups =
     getWorkspaceGroups(moduleId);
 
   const title =
-    workspace?.title ||
+    workspace.title ||
     titleFromId(moduleId);
 
   return (
@@ -44,17 +47,14 @@ export default function OrganizationModulePage() {
         workspace={title}
         title={title}
         description={
-          workspace?.description ||
-          ""
+          workspace.description || ""
         }
       />
 
       <WorkspaceModuleGrid
         workspace={moduleId}
         organizationId={organizationId}
-        capabilities={capabilities}
       />
     </>
   );
-
 }

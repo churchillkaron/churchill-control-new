@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/billing/stripe";
+import { getStripe } from "@/lib/billing/stripe";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function POST(req) {
   const body = await req.text();
   const sig = req.headers.get("stripe-signature");
+  const stripe = getStripe();
 
   let event;
 

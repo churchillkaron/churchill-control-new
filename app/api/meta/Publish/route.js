@@ -7,11 +7,11 @@ export async function POST(req) {
 
   try {
 
-    console.log("META PUBLISH START");
+    if (process.env.NODE_ENV !== "production") console.log("META PUBLISH START");
 
     const body = await req.json();
 
-    console.log("REQUEST BODY:", body);
+    if (process.env.NODE_ENV !== "production") console.log("REQUEST BODY:", body);
 
     const queueId = body.queueId;
 
@@ -31,11 +31,11 @@ export async function POST(req) {
       .eq("id", queueId)
       .single();
 
-    console.log("QUEUE:", queue);
+    if (process.env.NODE_ENV !== "production") console.log("QUEUE:", queue);
 
     if (queueError || !queue) {
 
-      console.log("QUEUE ERROR:", queueError);
+      if (process.env.NODE_ENV !== "production") console.log("QUEUE ERROR:", queueError);
 
       return NextResponse.json(
         { error: "Queue item not found" },
@@ -51,11 +51,11 @@ export async function POST(req) {
       .eq("id", queue.campaign_memory_id)
       .single();
 
-    console.log("CAMPAIGN:", campaign);
+    if (process.env.NODE_ENV !== "production") console.log("CAMPAIGN:", campaign);
 
     if (campaignError || !campaign) {
 
-      console.log("CAMPAIGN ERROR:", campaignError);
+      if (process.env.NODE_ENV !== "production") console.log("CAMPAIGN ERROR:", campaignError);
 
       return NextResponse.json(
         { error: "Campaign not found" },
@@ -71,11 +71,11 @@ export async function POST(req) {
       .eq("connected", true)
       .single();
 
-    console.log("META ACCOUNT:", account);
+    if (process.env.NODE_ENV !== "production") console.log("META ACCOUNT:", account);
 
     if (accountError || !account) {
 
-      console.log("META ACCOUNT ERROR:", accountError);
+      if (process.env.NODE_ENV !== "production") console.log("META ACCOUNT ERROR:", accountError);
 
       return NextResponse.json(
         { error: "No connected Meta account" },
@@ -85,7 +85,7 @@ export async function POST(req) {
 
     // VALIDATE IMAGE URL
 
-    console.log("IMAGE URL:", campaign.image_url);
+    if (process.env.NODE_ENV !== "production") console.log("IMAGE URL:", campaign.image_url);
 
     if (
       !campaign.image_url ||
@@ -109,7 +109,7 @@ ${campaign.caption || ""}
 ${campaign.hashtags || ""}
 `;
 
-    console.log("MESSAGE:", message);
+    if (process.env.NODE_ENV !== "production") console.log("MESSAGE:", message);
 
     // FACEBOOK PUBLISH
 
@@ -119,7 +119,7 @@ ${campaign.hashtags || ""}
       access_token: account.access_token,
     };
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "FACEBOOK PAYLOAD:",
       publishPayload
     );
@@ -137,7 +137,7 @@ ${campaign.hashtags || ""}
 
     const publishData = await publishRes.json();
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "FACEBOOK RESPONSE:",
       publishData
     );
@@ -166,7 +166,7 @@ ${campaign.hashtags || ""}
       })
       .eq("id", queueId);
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "QUEUE UPDATE ERROR:",
       queueUpdateError
     );
@@ -180,7 +180,7 @@ ${campaign.hashtags || ""}
       })
       .eq("id", campaign.id);
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "CAMPAIGN UPDATE ERROR:",
       campaignUpdateError
     );
@@ -193,7 +193,7 @@ ${campaign.hashtags || ""}
 
   } catch (err) {
 
-    console.log("META PUBLISH CRASH:", err);
+    if (process.env.NODE_ENV !== "production") console.log("META PUBLISH CRASH:", err);
 
     return NextResponse.json(
       {

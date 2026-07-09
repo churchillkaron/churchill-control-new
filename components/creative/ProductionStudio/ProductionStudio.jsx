@@ -2,6 +2,7 @@
 
 import { useCreativeEditor } from "./hooks/useCreativeEditor";
 
+import CreativeWorkspaceLayout from "./layout/CreativeWorkspaceLayout";
 import Header from "./layout/Header";
 import Sidebar from "./layout/Sidebar";
 import Canvas from "./layout/Canvas";
@@ -11,59 +12,47 @@ import BottomDock from "./layout/BottomDock";
 export default function ProductionStudio({
   runtime,
 }) {
-
   const editor =
     useCreativeEditor(runtime);
 
   const liveRuntime = {
     ...runtime,
-    refresh:
-      editor.refresh,
-    refreshing:
-      editor.refreshing,
+    refresh: editor.refresh,
+    refreshing: editor.refreshing,
   };
 
   return (
-
-    <main className="min-h-screen bg-[#05070d] text-white">
-
-      <Header
-        runtime={liveRuntime}
-        editor={editor}
-      />
-
-      <div
-        className="
-          grid
-          h-[calc(100vh-360px)]
-          grid-cols-[320px_minmax(0,1fr)_380px]
-        "
-      >
-
+    <CreativeWorkspaceLayout
+      header={
+        <Header
+          runtime={liveRuntime}
+          editor={editor}
+        />
+      }
+      sidebar={
         <Sidebar
           runtime={liveRuntime}
           editor={editor}
         />
-
+      }
+      canvas={
         <Canvas
           runtime={liveRuntime}
           editor={editor}
         />
-
+      }
+      inspector={
         <Inspector
           runtime={liveRuntime}
           editor={editor}
         />
-
-      </div>
-
-      <BottomDock
-        runtime={liveRuntime}
-        editor={editor}
-      />
-
-    </main>
-
+      }
+      dock={
+        <BottomDock
+          runtime={liveRuntime}
+          editor={editor}
+        />
+      }
+    />
   );
-
 }

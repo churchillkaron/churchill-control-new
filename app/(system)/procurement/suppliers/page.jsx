@@ -50,15 +50,13 @@ export default function SuppliersPage() {
       pricesRes,
     ] = await Promise.all([
 
-      supabase
-        .from("vendors")
-        .select("*")
-        .order(
-          "display_name",
-          {
-            ascending: true,
-          }
-        ),
+      fetch(
+        "/api/procurement/vendors/list"
+      )
+      .then(
+        async response =>
+          (await response.json()).vendors || []
+      ),
 
       supabase
         .from("ingredients")
@@ -90,7 +88,7 @@ export default function SuppliersPage() {
     ]);
 
     setVendors(
-      vendorsRes.data || []
+      vendorsRes || []
     );
 
     setIngredients(

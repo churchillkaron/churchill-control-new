@@ -1,55 +1,33 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from 'next/server'
 
-import { supabaseAdmin } from '@/lib/shared/supabase/admin'
+import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { calculateBudgetVarianceCommand } from "@/lib/finance/budgeting/runtime/BudgetApplicationService";
 
-import { calculateBudgetVariance } from '@/lib/finance/budgeting/capabilities/calculateBudgetVariance'
-
-export async function GET() {
-
+export async function GET(req) {
   try {
+    const { searchParams } = new URL(req.url);
 
-    const {
-      data: budgets,
-    } = await supabaseAdmin
-      .from(
-        'finance_budgets'
-      )
-      .select('*')
+    const access = await requireOrganizationAccess({
+      organizationId: searchParams.get("organizationId"),
+    });
 
-    const {
-      data: actuals,
-    } = await supabaseAdmin
-      .from(
-        'finance_actuals'
-      )
-      .select('*')
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
 
-    const variance =
-      calculateBudgetVariance({
-        budgets:
-          budgets || [],
+    const result = await calculateBudgetVarianceCommand({
+      organizationId: access.organizationId,
+    });
 
-        actuals:
-          actuals || [],
-      })
-
-    return NextResponse.json({
-      success: true,
-      variance,
-    })
-
+    return NextResponse.json(result);
   } catch (error) {
-
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-      },
-      {
-        status: 500,
-      }
-    )
+      { success: false, error: error.message },
+      { status: 500 }
+    );
   }
 }

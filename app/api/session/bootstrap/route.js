@@ -22,7 +22,7 @@ async function loadActivePeriod({ supabase, organizationId, entityId }) {
   if (!organizationId || !entityId) return null;
 
   const { data } = await supabase
-    .from("accounting_periods")
+    .from("financial_periods")
     .select("*")
     .eq("organization_id", organizationId)
     .eq("entity_id", entityId)

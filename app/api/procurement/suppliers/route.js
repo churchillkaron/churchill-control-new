@@ -48,8 +48,8 @@ export async function PUT(req) {
     const result =
       await getBestSupplierPrice({
 
-        ingredient_id:
-          body.ingredient_id,
+        item_id:
+          body.item_id,
       });
 
     return NextResponse.json(

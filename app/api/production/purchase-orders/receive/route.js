@@ -35,11 +35,11 @@ export async function POST(req) {
       const {
         data: ingredient,
       } = await supabaseAdmin
-        .from('ingredients')
+        .from('inventory_items')
         .select('*')
         .eq(
           'id',
-          item.ingredient_id
+          item.item_id
         )
         .single()
 
@@ -52,7 +52,7 @@ export async function POST(req) {
         )
 
       await supabaseAdmin
-        .from('ingredients')
+        .from('inventory_items')
         .update({
           stock:
             newStock,
@@ -68,7 +68,7 @@ export async function POST(req) {
         )
         .insert([
           {
-            ingredient_id:
+            item_id:
               ingredient.id,
 
             movement_type:

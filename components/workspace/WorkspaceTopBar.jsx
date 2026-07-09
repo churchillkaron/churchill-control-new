@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import {
   Bell,
   Building2,
@@ -124,6 +124,7 @@ function HeaderItem({ item, organizationId, userName }) {
 
 export default function WorkspaceTopBar() {
   const businessContext = useBusinessContext();
+  const params = useParams();
   const pathname = usePathname();
 
   const ready =
@@ -144,6 +145,8 @@ export default function WorkspaceTopBar() {
   const organizationId =
     businessContext?.organization_id ||
     organization?.id ||
+    params?.organizationId ||
+    (pathname === "/workspace" ? "demo" : null) ||
     null;
 
   const companyName =

@@ -96,8 +96,8 @@ function Clip({
       className={[
         "absolute top-2 rounded-xl border p-3 text-left transition",
         selected?.id === clip.id
-          ? "border-cyan-300 bg-cyan-500/20"
-          : "border-cyan-400/20 bg-cyan-500/10 hover:bg-cyan-500/15",
+          ? "border-[#c8a96a] bg-[#b48a45]/20"
+          : "border-[#c8a96a]/20 bg-[#b48a45]/10 hover:bg-[#b48a45]/15",
       ].join(" ")}
       style={{
         left:
@@ -180,13 +180,13 @@ export default function TimelinePanel({
     useState(null);
 
   const timeline =
-    runtime.data.timeline;
+    runtime.timelineRuntime;
 
   const clips =
-    runtime.data.clips || [];
+    runtime.timelineRuntime?.clips || [];
 
   const assets =
-    runtime.data.assets || [];
+    runtime.assetRuntime?.items || [];
 
   const tracks =
     timeline?.tracks || [];

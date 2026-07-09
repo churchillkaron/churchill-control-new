@@ -1,38 +1,35 @@
 "use client";
 
-import { useMemo } from "react";
-
 import ProjectTree from "../explorer/ProjectTree";
 
 function Section({
   title,
   items = [],
 }) {
-
-  if (!items.length) {
-    return null;
-  }
+  if (!items.length) return null;
 
   return (
+    <section className="mb-8">
 
-    <div className="mb-8">
-
-      <div className="mb-3 text-[11px] uppercase tracking-[0.28em] text-white/35">
+      <div className="mb-3 text-[11px] uppercase tracking-[0.28em] text-[#8f8f8f]">
         {title}
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-2">
 
-        {items.map((item) => (
+        {items.map(item => (
 
-          <a
+          <button
             key={item.id}
-            onClick={(e) => { e.preventDefault(); editor?.setActiveWorkspace?.(item.id); }}
+            type="button"
+            onClick={() =>
+              item.onClick?.()
+            }
             className={[
-              "block rounded-xl border px-4 py-3 transition",
+              "w-full rounded-xl border px-4 py-3 text-left transition",
               item.active
-                ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
-                : "border-white/5 bg-white/[0.03] text-white/65 hover:bg-white/[0.08]",
+                ? "border-[#c8a96a]/40 bg-[#c8a96a]/10"
+                : "border-white/5 bg-white/[0.03] hover:bg-white/[0.06]"
             ].join(" ")}
           >
 
@@ -41,88 +38,50 @@ function Section({
             </div>
 
             {item.description && (
-
-              <div className="mt-1 text-xs text-white/35">
+              <div className="mt-1 text-xs text-white/45">
                 {item.description}
               </div>
-
             )}
 
-          </a>
+          </button>
 
         ))}
 
       </div>
 
-    </div>
-
+    </section>
   );
-
 }
 
-export default function Sidebar({ editor, 
+export default function Sidebar({
   runtime,
+  editor,
 }) {
 
-  const projects =
-    runtime.projectRuntime?.projects || [];
-
-  const active =
-    runtime.projectRuntime?.project;
-
-  const explorer =
-    useMemo(() => {
-
-      return projects.map((project) => ({
-
-        id:
-          project.id,
-
-        href:
-          `/workspace/${runtime.organizationId}/commercial/design/production/${project.id}`,
-
-        name:
-          project.name || "Untitled Project",
-
-        description:
-          project.production_type ||
-          "Creative Project",
-
-        active:
-          project.id === active?.id,
-
-      }));
-
-    }, [
-      projects,
-      active,
-      runtime.organizationId,
-    ]);
+  const workspaces =
+    (runtime.workspaces || []).map(workspace => ({
+      ...workspace,
+      active:
+        workspace.id ===
+        editor.activeWorkspace,
+      onClick: () =>
+        editor.setActiveWorkspace(
+          workspace.id
+        ),
+    }));
 
   return (
+    <div className="h-full overflow-y-auto px-5 py-6">
 
-    <aside className="overflow-auto border-r border-white/10 bg-[#0b0f18]">
+      <ProjectTree
+        runtime={runtime}
+      />
 
-      <div className="p-6">
+      <Section
+        title="Workspace"
+        items={workspaces}
+      />
 
-        <ProjectTree
-          runtime={runtime}
-        />
-
-        <Section
-          title="Projects"
-          items={explorer}
-        />
-
-        <Section
-          title="Workspace"
-          items={runtime.workspaces || []}
-        />
-
-      </div>
-
-    </aside>
-
+    </div>
   );
-
 }

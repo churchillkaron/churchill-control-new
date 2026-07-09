@@ -43,9 +43,10 @@ export function WorkspaceRuntimeProvider({ children }) {
           return;
         }
 
-        const organizationId = businessContext?.organization?.id;
+        const organizationId =
+          businessContext?.organization_id ||
           businessContext?.organization?.id ||
-          businessContext.organization?.id ||
+          businessContext?.staff?.active_organization_id ||
           null;
 
         if (!organizationId) {

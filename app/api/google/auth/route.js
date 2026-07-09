@@ -15,8 +15,8 @@ export async function GET() {
       ],
     });
 
-    console.log("AUTH URL:", url);
-    console.log("Redirect URI:", oauth2Client.redirectUri);
+    if (process.env.NODE_ENV !== "production") console.log("AUTH URL:", url);
+    if (process.env.NODE_ENV !== "production") console.log("Redirect URI:", oauth2Client.redirectUri);
 
     return Response.redirect(url);
 

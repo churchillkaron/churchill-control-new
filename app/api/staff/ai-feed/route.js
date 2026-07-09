@@ -1,13 +1,9 @@
-import OpenAI from "openai";
-
 import { supabaseAdmin }
 from "@/lib/shared/supabase/admin";
 
-const openai =
-  new OpenAI({
-    apiKey:
-      process.env.OPENAI_API_KEY,
-  });
+import {
+  ServiceExecutionRuntime,
+} from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 
 export async function POST(req) {
 
@@ -53,17 +49,25 @@ export async function POST(req) {
 
       .limit(10);
 
-    const completion =
-      await openai.chat.completions.create({
+    const execution =
+      await ServiceExecutionRuntime.execute({
 
-        model: "gpt-4o-mini",
+        organization_id:
+          body.organizationId,
 
-        messages: [
+        service_id:
+          "ai.text.generate",
 
-          {
-            role: "system",
+        provider_id:
+          "openai",
 
-            content: `
+        input:{
+
+          model:
+            "gpt-4o-mini",
+
+          prompt:
+`
 You are Churchill AI.
 
 Generate a luxury hospitality realtime feed.
@@ -78,19 +82,6 @@ Tone:
 
 Return ONLY valid JSON array.
 
-Example:
-[
-  {
-    "text": "Emma reached #1 in champagne sales"
-  }
-]
-`,
-          },
-
-          {
-            role: "user",
-
-            content: `
 STAFF:
 ${staff?.name}
 
@@ -107,17 +98,30 @@ Generate:
 - nightlife luxury atmosphere
 - elite competition energy
 `,
-          },
+        },
 
-        ],
+        metadata:{
+
+          module:
+            "STAFF",
+
+          operation:
+            "AI_FEED",
+
+          staffId:
+            body.staffId,
+
+        },
+
+        category:
+          "AI",
 
       });
 
+
     const raw =
-      completion
-        .choices?.[0]
-        ?.message
-        ?.content || "[]";
+      execution?.output?.text ||
+      "[]";
 
     let items = [];
 

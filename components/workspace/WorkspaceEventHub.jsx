@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import ExportEngine from "./engines/ExportEngine";
 import ImportEngine from "./engines/ImportEngine";
+import ReportEngine from "./engines/ReportEngine";
 import { CommunicationEngine } from "./engines";
 import InternalMessageDialog from "./engines/InternalMessageDialog";
 
@@ -22,6 +23,9 @@ export default function WorkspaceEventHub({
   const [importAction,setImportAction]=
     useState(null);
 
+  const [reportAction,setReportAction]=
+    useState(null);
+
   const [communication,setCommunication]=
     useState(null);
 
@@ -32,6 +36,9 @@ export default function WorkspaceEventHub({
 
     const importHandler=e=>
       setImportAction(e.detail);
+
+    const reportHandler=e=>
+      setReportAction(e.detail);
 
     const communicationHandler=e=>
       setCommunication(e.detail);
@@ -44,6 +51,16 @@ export default function WorkspaceEventHub({
     window.addEventListener(
       "workspace:import",
       importHandler
+    );
+
+    window.addEventListener(
+      "workspace:report",
+      reportHandler
+    );
+
+    window.addEventListener(
+      "workspace:reports",
+      reportHandler
     );
 
     window.addEventListener(
@@ -61,6 +78,16 @@ export default function WorkspaceEventHub({
       window.removeEventListener(
         "workspace:import",
         importHandler
+      );
+
+      window.removeEventListener(
+        "workspace:report",
+        reportHandler
+      );
+
+      window.removeEventListener(
+        "workspace:reports",
+        reportHandler
       );
 
       window.removeEventListener(
@@ -98,7 +125,22 @@ export default function WorkspaceEventHub({
 
       )}
 
-      {importAction && (
+      
+      {reportAction && (
+
+        <ReportEngine
+
+          organizationId={organizationId}
+
+          entityId={entityId}
+
+          periodId={periodId}
+
+        />
+
+      )}
+
+{importAction && (
 
         <ImportEngine
 

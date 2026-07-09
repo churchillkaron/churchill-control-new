@@ -13,7 +13,7 @@ export async function POST(request) {
     const body =
       await request.json();
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "GENERATE BODY:",
       JSON.stringify(
         body,
@@ -23,9 +23,6 @@ export async function POST(request) {
     );
 
     const {
-
-      tenantId,
-
       pageId,
 
       prompt,
@@ -38,10 +35,7 @@ export async function POST(request) {
 
     } = body;
 
-    console.log({
-
-      tenantId,
-
+    if (process.env.NODE_ENV !== "production") console.log({
       pageId,
 
       selectedBusiness,
@@ -52,10 +46,6 @@ poster.selectedBusiness =
   
     const campaign =
       await createCampaignFlow({
-
-        tenantId:
-          tenantId || null,
-
         pageId:
           pageId || null,
 

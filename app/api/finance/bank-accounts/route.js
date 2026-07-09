@@ -1,7 +1,12 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { listBankAccounts } from "@/lib/finance/bank-accounts/repositories/bankAccountRepository";
+import {
+  listBankAccountsCommand,
+  exportBankAccountsCommand,
+  importBankAccountsCommand,
+  analyzeBankAccountsCommand,
+} from "@/lib/finance/bank-accounts/runtime/BankAccountsApplicationService";
 
 export async function GET(request) {
   try {
@@ -12,7 +17,7 @@ export async function GET(request) {
       searchParams.get("organizationId");
 
     const rows =
-      await listBankAccounts({
+      await listBankAccountsCommand({
         organization_id,
       });
 

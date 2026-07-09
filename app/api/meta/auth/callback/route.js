@@ -64,7 +64,7 @@ export async function GET(request) {
   const tokenData =
     await tokenRes.json();
 
-  console.log(
+  if (process.env.NODE_ENV !== "production") console.log(
     "TOKEN DATA:",
     JSON.stringify(
       tokenData,
@@ -94,7 +94,7 @@ export async function GET(request) {
   const pagesData =
     await pagesRes.json();
 
-  console.log(
+  if (process.env.NODE_ENV !== "production") console.log(
     "PAGES DATA:",
     JSON.stringify(
       pagesData,
@@ -132,7 +132,7 @@ export async function GET(request) {
     const igData =
       await igRes.json();
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "IG DATA:",
       JSON.stringify(
         igData,

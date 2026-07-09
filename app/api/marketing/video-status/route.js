@@ -71,7 +71,7 @@ export async function POST(
     const result =
       await response.json();
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "RUNWAY STATUS RESULT:",
       JSON.stringify(
         result,

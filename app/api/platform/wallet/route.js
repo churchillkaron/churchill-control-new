@@ -5,6 +5,21 @@ from "@/lib/platform/service-runtime/wallet/runtime/WalletRuntime";
 
 export const dynamic = "force-dynamic";
 
+function cleanValue(value) {
+  const normalized =
+    String(value ?? "").trim();
+
+  if (
+    !normalized ||
+    normalized === "undefined" ||
+    normalized === "null"
+  ) {
+    return null;
+  }
+
+  return normalized;
+}
+
 export async function GET(request) {
 
   try {
@@ -14,6 +29,11 @@ export async function GET(request) {
 
     const organizationId =
       searchParams.get("organization_id");
+
+    const currency =
+      cleanValue(
+        searchParams.get("currency")
+      );
 
     if (!organizationId) {
 
@@ -29,9 +49,12 @@ export async function GET(request) {
     }
 
     const wallet =
-      await WalletRuntime.getOrCreate(
-        organizationId
-      );
+      await WalletRuntime.getOrCreate({
+        organization_id:
+          organizationId,
+        currency:
+          currency || undefined,
+      });
 
     return NextResponse.json({
       success: true,

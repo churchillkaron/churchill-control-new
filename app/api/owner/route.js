@@ -137,7 +137,7 @@ export async function GET() {
       .select(`
         dish_id,
         recipe_items (
-          ingredient_id,
+          item_id,
           quantity
         )
       `)
@@ -206,7 +206,7 @@ export async function GET() {
 
         const ingredientCost =
           ingredientCostMap[
-            item.ingredient_id
+            item.item_id
           ] || 0;
 
         const recipeQty =

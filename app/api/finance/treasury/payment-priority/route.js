@@ -1,35 +1,34 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { runPaymentPriorityQueueCommand } from "@/lib/finance/payments/runtime/FinancePaymentApplicationService";
 
-import { runPaymentPriorityQueue } from "@/lib/finance/payments/workflows/runPaymentPriorityQueue";
-
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body =
-      await request.json();
+    const body = await req.json();
 
-    const queue =
-      await runPaymentPriorityQueue({
-        organizationId:
-          body.organizationId,
-        invoices:
-          body.invoices,
-      });
-
-    return NextResponse.json({
-      success: true,
-      queue,
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId,
     });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
+
+    const result = await runPaymentPriorityQueueCommand({
+      ...body,
+      organizationId: access.organizationId,
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
-      {
-        success: false,
-        message:
-          error.message,
-      },
-      {
-        status: 400,
-      }
+      { success: false, error: error.message },
+      { status: 500 }
     );
   }
 }

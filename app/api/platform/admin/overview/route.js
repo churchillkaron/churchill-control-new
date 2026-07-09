@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
  */
 
 export async function GET() {
-  const { data: tenants } = await supabaseAdmin
+  const { data: organizations } = await supabaseAdmin
     .from("organizations")
     .select("*");
 
@@ -20,7 +20,7 @@ export async function GET() {
     .select("*");
 
   return Response.json({
-    tenants: tenants || [],
+    organizations: organizations || [],
     recentEvents: events || [],
     modules: modules || [],
   });

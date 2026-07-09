@@ -45,12 +45,19 @@ export async function GET(request) {
       );
     }
 
-    const rows = await getGeneralLedger({
-      organizationId: access.organizationId,
-      entityId,
-      startDate: searchParams.get("startDate"),
-      endDate: searchParams.get("endDate"),
-    });
+    const rows =
+      await getGeneralLedger({
+        organizationId:
+          access.organizationId,
+
+        entityId,
+
+        startDate:
+          searchParams.get("startDate"),
+
+        endDate:
+          searchParams.get("endDate"),
+      });
 
     return NextResponse.json({
       success: true,

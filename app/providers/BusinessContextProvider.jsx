@@ -53,6 +53,16 @@ export function BusinessContextProvider({ children }) {
 
         const data = await res.json();
 
+        console.log(
+          "BOOTSTRAP BUSINESS CONTEXT",
+          {
+            entity: data.entity,
+            entity_id: data.entity_id,
+            active_entity_id: data.active_entity_id,
+            organization_id: data.organization_id,
+          }
+        );
+
         if (!data?.success) {
           setState(prev => ({
             ...prev,

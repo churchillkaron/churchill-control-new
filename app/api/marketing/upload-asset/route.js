@@ -13,8 +13,8 @@ export async function POST(request) {
     const formData =
       await request.formData();
 
-    const tenantId =
-      formData.get("tenantId");
+    const organizationId =
+      formData.get("organizationId");
 
     const pageId =
       formData.get("pageId");
@@ -31,7 +31,7 @@ export async function POST(request) {
     const result =
       await uploadMarketingAssetFlow({
 
-        tenantId,
+        organizationId,
 
         pageId,
 

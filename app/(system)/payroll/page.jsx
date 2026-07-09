@@ -70,7 +70,7 @@ export default function PayrollPage() {
       });
 
       const result = await response.json();
-      console.log("PAYROLL_GENERATE_RESULT", result);
+      if (process.env.NODE_ENV !== "production") console.log("PAYROLL_GENERATE_RESULT", result);
       alert(result.success ? "Payroll generated" : result.error);
     } catch (error) {
       console.error(error);

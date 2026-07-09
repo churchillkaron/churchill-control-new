@@ -4,7 +4,9 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import createCustomerInvoice from "@/lib/finance/accounts-receivable/documents/createCustomerInvoice";
+import {
+  createCustomerInvoiceCommand,
+} from "@/lib/finance/accounts-receivable/runtime/AccountsReceivableApplicationService";
 
 export async function POST(req) {
   try {
@@ -50,7 +52,7 @@ export async function POST(req) {
     }
 
     const result =
-      await createCustomerInvoice({
+      await createCustomerInvoiceCommand({
         organization_id: access.organizationId,
         entity_id: entityId,
         customer_id: body.customer_id,

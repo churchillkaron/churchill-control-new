@@ -120,7 +120,6 @@ const SECTIONS = [
     icon: Brain,
     items: [
       { name: "Marketing AI", route: "/marketing/ai" },
-      { name: "AI Recommendations", route: "/marketing/recommendations" },
       { name: "Automation Runtime", route: "/marketing/automation" },
       { name: "Growth Forecasting", route: "/marketing/forecasting" },
       { name: "Optimization Center", route: "/marketing/optimization" },

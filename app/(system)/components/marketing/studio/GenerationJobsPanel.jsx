@@ -41,7 +41,7 @@ export default function GenerationJobsPanel({
 
     try {
       const { error } = await supabase
-        .from("marketing_assets")
+        .from("creative_assets")
         .delete()
         .eq("id", id);
 

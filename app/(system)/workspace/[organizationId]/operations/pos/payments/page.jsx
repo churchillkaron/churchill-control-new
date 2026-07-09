@@ -74,11 +74,13 @@ function money(value) {
 
 export default function PaymentsPage() {
 
-  const tenant =
-    useBusinessContext();
+  const businessContext =
+    useBusinessContext() || {};
 
   const organizationId =
-    businessContext?.organization?.id;
+    businessContext?.organization_id ||
+    businessContext?.organization?.id ||
+    null;
 
   const searchParams =
     useSearchParams();

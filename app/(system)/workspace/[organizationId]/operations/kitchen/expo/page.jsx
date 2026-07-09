@@ -26,11 +26,13 @@ import { acknowledgeOrder } from "./ack_patch";
 
 export default function ExpoPage() {
 
-  const tenant =
-    useBusinessContext();
+  const businessContext =
+    useBusinessContext() || {};
 
   const tenantId =
-    businessContext?.organization?.id;
+    businessContext?.organization_id ||
+    businessContext?.organization?.id ||
+    null;
 
 
   const [
@@ -46,6 +48,8 @@ export default function ExpoPage() {
   async function loadExpo() {
 
     if (!tenantId) {
+      setOrders([]);
+      setLoading(false);
       return;
     }
 
@@ -95,6 +99,10 @@ export default function ExpoPage() {
 
     loadExpo();
 
+    if (!tenantId) {
+      return;
+    }
+
     const channel =
       supabase
 
@@ -122,7 +130,7 @@ export default function ExpoPage() {
 
     };
 
-  }, []);
+  }, [tenantId]);
 
   async function serveTable(
     items
@@ -196,14 +204,14 @@ export default function ExpoPage() {
           item.table_number;
 
         if (
-          !grouped[table]
+          !grouped[serviceUnit]
         ) {
 
-          grouped[table] = [];
+          grouped[serviceUnit] = [];
 
         }
 
-        grouped[table].push(
+        grouped[serviceUnit].push(
           item
         );
 
@@ -418,18 +426,3 @@ export default function ExpoPage() {
   );
 
 }
-
-
-// AUTO ACK HOOK (SAFE)
-// NOTE: integrate inside loadKitchen() manually if needed
-  // ===== EVENT SYNC (DISPLAY) =====
-  useEffect(() => {
-
-    const unsub = subscribe("DISPLAY", () => {
-      loadExpo();
-    });
-
-    return () => unsub();
-
-  }, []);
-

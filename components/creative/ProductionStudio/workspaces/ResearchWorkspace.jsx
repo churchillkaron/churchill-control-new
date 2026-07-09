@@ -2,57 +2,79 @@
 
 export default function ResearchWorkspace({
   runtime,
-  editor,
 }) {
+
+  const reports =
+    runtime.researchRuntime?.items || [];
 
   return (
 
-    <div
-      className="
-        flex
-        h-full
-        items-center
-        justify-center
-        rounded-2xl
-        border
-        border-white/10
-        bg-white/[0.03]
-      "
-    >
+    <div className="h-full overflow-auto p-8">
 
-      <div className="text-center">
+      <div className="mb-8">
 
-        <div
-          className="
-            text-xs
-            uppercase
-            tracking-[0.30em]
-            text-cyan-300
-          "
-        >
-          Creative Studio
+        <div className="text-xs uppercase tracking-[0.30em] text-[#c8a96a]">
+          Research
         </div>
 
-        <h2
-          className="
-            mt-4
-            text-3xl
-            font-semibold
-          "
-        >
-          ResearchWorkspace
-        </h2>
-
-        <p
-          className="
-            mt-3
-            text-white/50
-          "
-        >
-          Workspace ready.
-        </p>
+        <div className="mt-2 text-3xl font-semibold">
+          Market Intelligence
+        </div>
 
       </div>
+
+      {!reports.length ? (
+
+        <div className="text-white/40">
+          No research reports available.
+        </div>
+
+      ) : (
+
+        <div className="space-y-4">
+
+          {reports.map(report => (
+
+            <div
+              key={report.id}
+              className="rounded-xl border border-white/10 bg-white/[0.03] p-6"
+            >
+
+              <div className="flex justify-between">
+
+                <div>
+
+                  <div className="font-semibold">
+                    {report.title || "Research Report"}
+                  </div>
+
+                  <div className="mt-2 text-sm text-white/50">
+                    {report.summary}
+                  </div>
+
+                </div>
+
+                <div className="text-right">
+
+                  <div>
+                    {report.status}
+                  </div>
+
+                  <div className="mt-1 text-xs text-white/40">
+                    {report.created_at}
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          ))}
+
+        </div>
+
+      )}
 
     </div>
 

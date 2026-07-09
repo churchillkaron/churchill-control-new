@@ -3,10 +3,12 @@ export const dynamic = "force-dynamic";
 import { NextResponse }
 from "next/server";
 
-import OpenAI from "openai";
-
 import { businessProfiles }
 from "@/lib/business/config/businessProfiles";
+
+import {
+  ServiceExecutionRuntime,
+} from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 
 const sanitize = (text = "") =>
 
@@ -14,15 +16,6 @@ const sanitize = (text = "") =>
     .replace(/abba/gi, "retro disco")
     .replace(/taylor swift/gi, "pop concert")
     .replace(/beyonce/gi, "live music event");
-
-
-const openai =
-  new OpenAI({
-
-    apiKey:
-      process.env.OPENAI_API_KEY,
-
-  });
 
 
 export async function POST(
@@ -114,33 +107,48 @@ Return ONLY valid JSON:
 
 `;
 
-    const completion =
-      await openai.chat.completions.create({
+    const execution =
+      await ServiceExecutionRuntime.execute({
 
-        model:
-          "gpt-4.1-mini",
+        organization_id:
+          body.organizationId,
 
-        messages: [
+        service_id:
+          "ai.text.generate",
 
-          {
+        provider_id:
+          "openai",
 
-            role: "user",
+        input:{
 
-            content: prompt,
+          prompt,
 
-          },
+          model:
+            "gpt-4.1-mini",
 
-        ],
+        },
 
-        temperature: 0.8,
+        metadata:{
+
+          module:
+            "MARKETING",
+
+          operation:
+            "BUILD_CAPTION",
+
+        },
+
+        category:
+          "AI",
 
       });
 
-    const raw =
-      completion.choices?.[0]
-        ?.message?.content;
 
-    console.log(
+    const raw =
+      execution?.output?.text ||
+      "";
+
+    if (process.env.NODE_ENV !== "production") console.log(
       "CAPTION RAW:",
       raw
     );

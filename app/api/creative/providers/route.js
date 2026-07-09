@@ -1,70 +1,13 @@
-export const dynamic = "force-dynamic";
-
-import { NextResponse } from "next/server";
-
-import {
-  CreativeProviderRuntime,
-} from "@/lib/creative/providers/runtime/CreativeProviderRuntime";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+import { execute } from "@/lib/ubte";
 
 export async function POST(req) {
-  try {
-    const body =
-      await req.json();
+  const task = await req.json();
 
-    const organizationId =
-      body.organization_id ||
-      body.organizationId;
+  const result = await execute({
+    capability: task.capability,
+    context: task.context,
+    payload: task.payload
+  });
 
-    const access =
-      await requireOrganizationAccess({
-        organizationId,
-      });
-
-    if (!access.success) {
-      return NextResponse.json(
-        access,
-        { status: access.status }
-      );
-    }
-
-    const task = {
-      ...(body.task || body),
-      organization_id:
-        organizationId,
-    };
-
-    const capability =
-      CreativeProviderRuntime.resolveCapability(
-        task
-      );
-
-    const providers =
-      CreativeProviderRuntime.listProvidersForTask(
-        task
-      );
-
-    const selected =
-      CreativeProviderRuntime.chooseProvider({
-        task,
-        strategy:
-          body.strategy ||
-          "cost_optimized",
-      });
-
-    return NextResponse.json({
-      success: true,
-      capability,
-      selected,
-      providers,
-    });
-  } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: error.message,
-    }, { status: 500 });
-  }
+  return Response.json({ success: true, result });
 }

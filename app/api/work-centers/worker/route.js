@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { processWorkCenterEvents } from "@/lib/workers/work-centers/processWorkCenterEvents";
 
 export async function GET() {

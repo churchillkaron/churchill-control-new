@@ -33,15 +33,7 @@ export async function GET(req) {
     const { data, error } =
       await supabaseAdmin
         .from("customer_invoices")
-        .select(`
-          *,
-          customer_loyalty_accounts(
-            id,
-            customer_name,
-            customer_phone,
-            customer_email
-          )
-        `)
+        .select("*")
         .eq(
           "organization_id",
           access.organizationId
@@ -53,7 +45,15 @@ export async function GET(req) {
           }
         );
 
-    if (error) throw error;
+    if (error) {
+
+      console.log(
+        "CUSTOMER INVOICE SUPABASE ERROR",
+        error
+      );
+
+      throw error;
+    }
 
     return NextResponse.json({
       success:true,
@@ -61,6 +61,11 @@ export async function GET(req) {
     });
 
   } catch (error) {
+
+    if (process.env.NODE_ENV !== "production") console.log(
+      "CUSTOMER INVOICE LIST ERROR",
+      error
+    );
 
     return NextResponse.json(
       {

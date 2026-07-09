@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import generateTrialBalance from "@/lib/finance/reporting/reports/generateTrialBalance";
+import { run as ReportingApplicationService } from "@/lib/finance/reporting/runtime/ReportingApplicationService";
 
 export async function GET(request) {
   try {
@@ -41,7 +41,7 @@ export async function GET(request) {
       );
     }
 
-    const result = await generateTrialBalance({
+    const result = await ReportingApplicationService("trial_balance", {
       organization_id: access.organizationId,
       entity_id: entityId,
       startDate: searchParams.get("startDate"),

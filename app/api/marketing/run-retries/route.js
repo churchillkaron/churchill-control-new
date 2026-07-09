@@ -10,7 +10,7 @@ export async function GET() {
 
   try {
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "RUN RETRIES START"
     );
 
@@ -25,7 +25,7 @@ export async function GET() {
     const data =
       await response.json();
 
-    console.log(
+    if (process.env.NODE_ENV !== "production") console.log(
       "RUN RETRIES RESULT:",
       data
     );

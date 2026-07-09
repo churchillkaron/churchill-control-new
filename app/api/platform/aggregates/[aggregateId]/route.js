@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { AggregateRegistry } from "@/lib/aggregate-registry";
 
 export async function GET(
   request,

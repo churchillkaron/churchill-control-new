@@ -1,17 +1,11 @@
-import { NextResponse } from "next/server";
-import { platformRuntime } from "@/lib/platform/runtime";
+import { execute } from "@/lib/ubte";
 
-export async function POST() {
+export async function POST(req) {
+  const body = await req.json();
 
-  const manifest =
-    platformRuntime.reload();
-
-  return NextResponse.json({
-
-    success: true,
-
-    manifest,
-
+  return execute({
+    capability: body.capability,
+    context: body.context,
+    payload: body.payload
   });
-
 }

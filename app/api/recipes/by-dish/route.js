@@ -16,7 +16,7 @@ export async function POST(req) {
     const { data, error } = await supabase
       .from('recipe_items')
       .select(`
-        ingredient_id,
+        item_id,
         quantity,
         ingredients (name, cost)
       `)
@@ -28,7 +28,7 @@ export async function POST(req) {
     }
 
     const formatted = (data || []).map(i => ({
-      ingredient_id: i.ingredient_id,
+      item_id: i.item_id,
       quantity: Number(i.quantity || 0),
       name: i.ingredients?.name || 'Unknown',
       cost: Number(i.ingredients?.cost || 0)

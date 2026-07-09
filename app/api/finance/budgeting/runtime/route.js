@@ -1,96 +1,37 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { listBudgetsCommand } from "@/lib/finance/budgeting/runtime/BudgetApplicationService";
 
 export async function GET(request) {
-
   try {
+    const { searchParams } = new URL(request.url);
 
-    const { searchParams } =
-      new URL(request.url);
-
-    const access =
-      await requireOrganizationAccess({
-        organizationId:
-          searchParams.get("organizationId"),
-      });
+    const access = await requireOrganizationAccess({
+      organizationId: searchParams.get("organizationId"),
+    });
 
     if (!access.success) {
-
       return NextResponse.json(
-        {
-          success:false,
-          error:access.error,
-        },
-        {
-          status:access.status,
-        }
+        { success: false, error: access.error },
+        { status: access.status }
       );
-
     }
 
-    const organizationId =
-      access.organizationId;
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from("finance_budgets")
-      .select("*")
-      .eq(
-        "organization_id",
-        organizationId
-      )
-      .order(
-        "created_at",
-        {
-          ascending:false,
-        }
-      );
-
-    if (error) throw error;
-
-    const rows =
-      data || [];
+    const result = await listBudgetsCommand({
+      organization_id: access.organizationId,
+    });
 
     return NextResponse.json({
-
-      success:true,
-
-      budgets:rows,
-
-      active:
-        rows.filter(
-          r => r.status === "ACTIVE"
-        ).length,
-
-      draft:
-        rows.filter(
-          r => r.status === "DRAFT"
-        ).length,
-
-      approved:
-        rows.filter(
-          r => r.status === "APPROVED"
-        ).length,
-
+      success: true,
+      budgets: result.data,
     });
 
   } catch (error) {
-
     return NextResponse.json(
-      {
-        success:false,
-        error:error.message,
-      },
-      {
-        status:500,
-      }
+      { success: false, error: error.message },
+      { status: 500 }
     );
-
   }
-
 }

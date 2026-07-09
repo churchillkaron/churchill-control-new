@@ -42,10 +42,10 @@ export default function CreateButtons({
     runtime.projectRuntime?.project;
 
   const scenes =
-    runtime.data.scenes || [];
+    runtime.sceneRuntime?.items || [];
 
   const shots =
-    runtime.data.shots || [];
+    runtime.shotRuntime?.items || [];
 
   const selected =
     runtime.editor?.selection || null;

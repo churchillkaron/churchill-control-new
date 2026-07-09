@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Building2, Boxes, ArrowUpRight, Users } from "lucide-react";
-import { getIndustryRuntime } from "@/lib/platform/runtime/getIndustryRuntime";
 
 export default function PlatformIndustryPage() {
   const params = useParams();
@@ -87,7 +86,6 @@ export default function PlatformIndustryPage() {
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
             <Boxes className="mb-4 h-5 w-5 text-violet-300" />
             <div className="text-4xl font-light">
-              {getIndustryRuntime(industryId)?.dashboards?.length || 0}
             </div>
             <div className="mt-2 text-white/50">Dashboards</div>
           </div>

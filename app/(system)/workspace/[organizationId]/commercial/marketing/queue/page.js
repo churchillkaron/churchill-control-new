@@ -150,7 +150,7 @@ export default function Page() {
       const data =
         await res.json();
 
-      console.log(data);
+      if (process.env.NODE_ENV !== "production") console.log(data);
 
       await loadCampaigns();
 
@@ -198,7 +198,7 @@ async function deletePost(
     const data =
       await res.json();
 
-    console.log(data);
+    if (process.env.NODE_ENV !== "production") console.log(data);
 
     await loadCampaigns();
 

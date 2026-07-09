@@ -1,55 +1,24 @@
-# SYSTEM RULES
+# AVANTIQO SYSTEM RULES (HARD LOCK)
 
-## ARCHITECTURE
+## 1. Execution
+- ONLY UBTE can execute capabilities
+- No runtime engines allowed
 
-- app/ = routes and UI only
-- lib/services = orchestration only
-- lib/engines = business logic engines
-- lib/shared = shared utilities only
-- lib/marketing = marketing domain only
-- lib/finance = finance domain only
-- lib/staff = staff domain only
-- lib/operations = operations domain only
-- lib/production = production domain only
+## 2. Billing
+- ALL billable actions go through WalletRuntime
+- No bypass allowed
 
----
+## 3. Architecture
+- No ProviderRegistry systems
+- No SaaS reactor systems
+- No custom runtime engines
 
-## DATABASE
+## 4. Source of Truth
+- Execution → UBTE
+- Money → WalletRuntime
+- Structure → ERP_REGISTRY
 
-- No direct database calls inside pages
-- Use service layer
-- Use shared Supabase clients only
-
----
-
-## AI
-
-- One AI architecture only
-- No duplicate prompt systems
-- No duplicate engines
-- No duplicate providers
-
----
-
-## ROUTES
-
-- One source of truth per route
-- No duplicate pages
-- No abandoned routes
-
----
-
-## FILE STRUCTURE
-
-- No random root lib files
-- No backup files
-- No old/final/test copies
-
----
-
-## DEVELOPMENT
-
-- One change at a time
-- Full file replacements only
-- Never break working systems
-- Fix root cause only
+## 5. Forbidden
+- Any new runtime layer
+- Any provider abstraction system
+- Any execution router outside UBTE

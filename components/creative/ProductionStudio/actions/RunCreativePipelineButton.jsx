@@ -47,7 +47,7 @@ export default function RunCreativePipelineButton({
     <button
       onClick={run}
       disabled={loading}
-      className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-50"
+      className="rounded-xl border border-[#c8a96a]/30 bg-[#b48a45]/10 px-4 py-2 text-sm text-[#d8bd7a] transition hover:bg-[#b48a45]/20 disabled:opacity-50"
     >
       {loading ? "Running..." : "Run AI Pipeline"}
     </button>

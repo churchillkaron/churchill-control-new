@@ -1,39 +1,36 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { runIntercompanyReconciliationCommand } from "@/lib/finance/intercompany/runtime/IntercompanyApplicationService";
 
-import { runIntercompanyReconciliation } from "@/lib/finance/intercompany/workflows/runIntercompanyReconciliation";
-
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body =
-      await request.json();
+    const body = await req.json();
 
-    const reconciliation =
-      await runIntercompanyReconciliation({
-        organizationId:
-          body.organizationId,
-        transactionId:
-          body.transactionId,
-        sourceBalance:
-          body.sourceBalance,
-        targetBalance:
-          body.targetBalance,
-      });
-
-    return NextResponse.json({
-      success: true,
-      reconciliation,
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId,
     });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
+
+    const result = await runIntercompanyReconciliationCommand({
+      organizationId: access.organizationId,
+      transactionId: body.transactionId,
+      sourceBalance: body.sourceBalance,
+      targetBalance: body.targetBalance,
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
-      {
-        success: false,
-        message:
-          error.message,
-      },
-      {
-        status: 400,
-      }
+      { success: false, error: error.message },
+      { status: 500 }
     );
   }
 }

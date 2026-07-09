@@ -18,9 +18,9 @@ export async function POST(
     const formData =
       await request.formData();
 
-    const tenantId =
+    const organizationId =
       formData.get(
-        "tenantId"
+        "organizationId"
       );
 
     const pageId =
@@ -47,7 +47,7 @@ export async function POST(
     // VALIDATION
     // =====================================
 
-    if (!tenantId) {
+    if (!organizationId) {
 
       return NextResponse.json(
 
@@ -56,7 +56,7 @@ export async function POST(
           success: false,
 
           error:
-            "Missing tenantId",
+            "Missing organizationId",
 
         },
 
@@ -150,7 +150,7 @@ export async function POST(
     const result =
       await uploadMarketingAssetFlow({
 
-        tenantId,
+        organizationId,
 
         pageId,
 

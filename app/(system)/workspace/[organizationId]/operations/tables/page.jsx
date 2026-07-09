@@ -28,11 +28,13 @@ import {
 
 export default function TablesPage() {
 
-  const tenant =
-    useBusinessContext();
+  const businessContext =
+    useBusinessContext() || {};
 
   const organizationId =
-    businessContext?.organization?.id;
+    businessContext?.organization_id ||
+    businessContext?.organization?.id ||
+    null;
 
   const router =
     useRouter();
@@ -50,6 +52,8 @@ export default function TablesPage() {
   async function loadTables() {
 
     if (!organizationId) {
+      setTables([]);
+      setLoading(false);
       return;
     }
 

@@ -38,7 +38,7 @@ export async function GET(request) {
     ] = await Promise.all([
 
       supabaseAdmin
-        .from("vendors")
+        .from("supplier_profiles")
         .select("*", {
           count: "exact",
           head: true,

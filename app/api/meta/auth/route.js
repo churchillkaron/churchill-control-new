@@ -10,7 +10,7 @@ export async function GET() {
 
   try {
 
-    console.log("META AUTH START");
+    if (process.env.NODE_ENV !== "production") console.log("META AUTH START");
 
     const state = crypto.randomUUID();
 

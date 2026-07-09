@@ -7,7 +7,9 @@ import {
   requireAuth,
 } from "@/lib/shared/auth";
 
-import createFixedAsset from "@/lib/finance/fixed-assets/documents/createFixedAsset";
+import {
+  createFixedAssetCommand,
+} from "@/lib/finance/fixed-assets/runtime/FixedAssetsApplicationService";
 
 export async function POST(req) {
 
@@ -19,7 +21,7 @@ export async function POST(req) {
       await req.json();
 
     const result =
-      await createFixedAsset(body);
+      await createFixedAssetCommand(body);
 
     return NextResponse.json(
       result

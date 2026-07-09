@@ -1,47 +1,35 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import requestJournalReversal from "@/lib/finance/general-ledger/capabilities/requestJournalReversal";
+import { requestJournalReversalCommand } from "@/lib/finance/general-ledger/runtime/GeneralLedgerApplicationService";
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
+    const body = await req.json();
 
-    const access =
-      await requireOrganizationAccess({
-        organizationId: body.organizationId,
-      });
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId,
+    });
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
-        {
-          status: access.status,
-        }
+        { success: false, error: access.error },
+        { status: access.status }
       );
     }
 
-    const result =
-      await requestJournalReversal({
-        organizationId: access.organizationId,
-        journalId: body.journalId,
-        reason: body.reason,
-        requestedBy: body.requestedBy || "system",
-      });
+    const result = await requestJournalReversalCommand({
+      ...body,
+      organizationId: access.organizationId,
+    });
 
     return NextResponse.json(result);
+
   } catch (error) {
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
+      { success: false, error: error.message },
+      { status: 500 }
     );
   }
 }

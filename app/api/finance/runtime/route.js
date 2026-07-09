@@ -1,137 +1,65 @@
-export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { execute } from "@/lib/ubte/runtime/ExecutionEngine";
 
 export async function POST(req) {
+
+  const body = await req.json();
+
   try {
 
-    const body = await req.json();
+    const result =
+      await execute({
 
-    const access =
-      await requireOrganizationAccess({
-        organizationId: body.organizationId,
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+
+        domain:
+          "finance",
+
+        capability:
+          body.capability,
+
+        action:
+          body.action,
+
+        payload:
+          body.payload || {},
+
+        actor:
+          body.actor || null,
+
+        runtime:
+          {
+            entityId:
+              body.entity_id ||
+              body.entityId,
+
+            periodId:
+              body.period_id ||
+              body.periodId,
+
+            currency:
+              body.currency,
+
+          },
+
       });
 
-    if (!access.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
-        {
-          status: access.status,
-        }
-      );
-    }
 
-    const organizationId =
-      body.organizationId;
-
-    const [
-      purchaseOrders,
-      journalEntries,
-      taxReports,
-      accountingPeriods,
-      lockExceptions,
-    ] = await Promise.all([
-
-      supabaseAdmin
-        .from("purchase_orders")
-        .select("*", {
-          count: "exact",
-          head: true,
-        })
-        .eq(
-          "organization_id",
-          organizationId
-        ),
-
-      supabaseAdmin
-        .from("journal_entries")
-        .select("*", {
-          count: "exact",
-          head: true,
-        })
-        .eq(
-          "organization_id",
-          organizationId
-        ),
-
-      supabaseAdmin
-        .from("finance_tax_reports")
-        .select("*", {
-          count: "exact",
-          head: true,
-        })
-        .eq(
-          "organization_id",
-          organizationId
-        ),
-
-      supabaseAdmin
-        .from("accounting_periods")
-        .select("*", {
-          count: "exact",
-          head: true,
-        }),
-
-      supabaseAdmin
-        .from("period_lock_exceptions")
-        .select("*", {
-          count: "exact",
-          head: true,
-        }),
-
-    ]);
-
-    return NextResponse.json({
-      success: true,
-
-      procureToPay:
-        purchaseOrders.count || 0,
-
-      accounting:
-        journalEntries.count || 0,
-
-      tax:
-        taxReports.count || 0,
-
-      close:
-        accountingPeriods.count || 0,
-
-      purchaseOrders:
-        purchaseOrders.count || 0,
-
-      journals:
-        journalEntries.count || 0,
-
-      taxReports:
-        taxReports.count || 0,
-
-      accountingPeriods:
-        accountingPeriods.count || 0,
-
-      lockExceptions:
-        lockExceptions.count || 0,
-
-      closeReadiness:
-        (lockExceptions.count || 0) > 0
-          ? "ATTENTION"
-          : "READY",
-    });
+    return Response.json(result);
 
   } catch (error) {
 
-    return NextResponse.json(
+    return Response.json(
       {
-        success: false,
-        error: error.message,
+        success:false,
+        error:error.message,
       },
       {
-        status: 500,
+        status:500,
       }
     );
 
   }
+
 }

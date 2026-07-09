@@ -5,80 +5,127 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 export async function POST(req) {
+
   try {
 
-    const body = await req.json();
+    const body =
+      await req.json();
+
+
+    console.log(
+      "CUSTOMER SEARCH BODY",
+      body
+    );
+
+    const organizationId =
+      body.organizationId ||
+      body.organization_id;
+
 
     const access =
       await requireOrganizationAccess({
-        organizationId:
-          body.organizationId,
+        organizationId,
       });
 
+
     if (!access.success) {
+
       return NextResponse.json(
         {
-          success: false,
-          error: access.error,
+          success:false,
+          error:access.error,
         },
         {
-          status: access.status,
+          status:access.status,
         }
       );
+
     }
 
-    const tenantId =
-      access.tenantId;
 
     const query =
       String(body.query || "").trim();
 
+
     let db =
       supabaseAdmin
-        .from("customer_loyalty_accounts")
-        .select("*")
-        .eq("tenant_id", tenantId);
+        .from("party_relationships")
+        .select(`
+          party_id,
+          parties(
+            id,
+            display_name,
+            party_type,
+            email,
+            phone
+          )
+        `)
+        .eq(
+          "organization_id",
+          organizationId
+        )
+        .eq(
+          "relationship_type",
+          "customer"
+        );
+
 
     if (query) {
-      db = db.or(
-        `customer_name.ilike.%${query}%,customer_phone.ilike.%${query}%,customer_email.ilike.%${query}%`
-      );
+
+      db =
+        db.ilike(
+          "parties.display_name",
+          `%${query}%`
+        );
+
     }
 
-    const { data, error } =
+
+    const {
+      data,
+      error,
+    } =
       await db
-        .order(
-          "last_visit_at",
-          {
-            ascending: false,
-          }
-        )
-        .limit(
-          query ? 10 : 100
-        );
+        .limit(20);
+
 
     if (error) {
       throw error;
     }
 
+
+    const customers =
+      (data || [])
+        .map(row => row.parties)
+        .filter(Boolean);
+
+
     return NextResponse.json({
-      success: true,
-      customers:
-        data || [],
+
+      success:true,
+
+      customers
+
     });
 
-  } catch (error) {
+
+  } catch(error) {
+
+    console.error(
+      "CUSTOMER SEARCH ERROR",
+      error
+    );
 
     return NextResponse.json(
       {
-        success: false,
-        error:
-          error.message,
+        success:false,
+        error:error.message,
       },
       {
-        status: 500,
+        status:500,
       }
     );
 
   }
+
 }

@@ -1,117 +1,165 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 
 export default function StrategyWorkspace({
   runtime,
 }) {
 
-  const mission =
-    runtime?.missionRuntime?.mission;
+  const strategy =
+    runtime.strategyRuntime?.current || null;
 
-  const brief =
-    {
-      objective: mission?.objective,
-      business_goal: mission?.business_goal,
-      budget: mission?.budget,
-      audience: mission?.audience,
-      channels: mission?.channels,
-    };
+  const [form, setForm] = useState({
+    positioning: "",
+    audience_strategy: "",
+    messaging: "",
+    channels: "",
+    budget_strategy: "",
+    success_metrics: "",
+  });
 
-  const strategy = useMemo(() => {
+  useEffect(() => {
 
-    if (!brief.business_goal) {
-      return null;
-    }
+    if (!strategy) return;
 
-    return {
+    setForm({
+
       positioning:
-        `Focus on ${brief.business_goal} with high emotional clarity.`,
+        strategy.positioning || "",
 
       audience_strategy:
-        brief.audience
-          ? `Target: ${brief.audience}`
-          : "Define target audience",
+        strategy.audience_strategy || "",
 
-      channel_strategy:
-        brief.channels
-          ? `Distribute via: ${brief.channels}`
-          : "Define channels",
+      messaging:
+        strategy.messaging || "",
 
-      production_direction:
-        "Create high-impact visual storytelling with modular scenes",
+      channels:
+        Array.isArray(strategy.channels)
+          ? strategy.channels.join(", ")
+          : strategy.channels || "",
 
-      budget_logic:
-        brief.budget > 0
-          ? `Optimize within budget ${brief.budget}`
-          : "No budget constraint defined",
+      budget_strategy:
+        strategy.budget_strategy || "",
 
-      ai_director_notes:
-        "Prioritize engagement, clarity, and conversion signals",
-    };
+      success_metrics:
+        strategy.success_metrics || "",
 
-  }, [brief]);
+    });
 
-  return (
+  }, [strategy]);
 
-    <div className="h-full overflow-auto p-8 text-white">
+  function Field({
+    label,
+    value,
+    onChange,
+  }) {
 
-      {/* HEADER */}
-      <div className="mb-8">
+    return (
 
-        <div className="text-xs uppercase tracking-[0.3em] text-cyan-300">
-          Strategy Engine
+      <div>
+
+        <div className="mb-2 text-xs uppercase tracking-[0.24em] text-white/40">
+          {label}
         </div>
 
-        <h1 className="mt-2 text-3xl font-semibold">
-          AI Production Strategy
-        </h1>
-
-        <p className="mt-2 text-white/50">
-          Converts mission brief into execution logic.
-        </p>
+        <textarea
+          rows={5}
+          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 outline-none"
+          value={value}
+          onChange={onChange}
+        />
 
       </div>
 
-      {!strategy ? (
-        <div className="text-white/40">
-          No brief defined yet. Fill Mission Brief first.
+    );
+
+  }
+
+  return (
+
+    <div className="h-full overflow-auto p-8">
+
+      <div className="mb-8">
+
+        <div className="text-xs uppercase tracking-[0.30em] text-[#c8a96a]">
+          Creative Strategy
         </div>
-      ) : (
-        <div className="space-y-4">
 
-          <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03]">
-            <div className="text-xs text-white/40 mb-1">Positioning</div>
-            <div>{strategy.positioning}</div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03]">
-            <div className="text-xs text-white/40 mb-1">Audience Strategy</div>
-            <div>{strategy.audience_strategy}</div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03]">
-            <div className="text-xs text-white/40 mb-1">Channel Strategy</div>
-            <div>{strategy.channel_strategy}</div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03]">
-            <div className="text-xs text-white/40 mb-1">Production Direction</div>
-            <div>{strategy.production_direction}</div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03]">
-            <div className="text-xs text-white/40 mb-1">Budget Logic</div>
-            <div>{strategy.budget_logic}</div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03]">
-            <div className="text-xs text-white/40 mb-1">AI Director Notes</div>
-            <div>{strategy.ai_director_notes}</div>
-          </div>
-
+        <div className="mt-2 text-3xl font-semibold">
+          Strategic Direction
         </div>
-      )}
+
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+
+        <Field
+          label="Positioning"
+          value={form.positioning}
+          onChange={e =>
+            setForm({
+              ...form,
+              positioning: e.target.value,
+            })
+          }
+        />
+
+        <Field
+          label="Audience Strategy"
+          value={form.audience_strategy}
+          onChange={e =>
+            setForm({
+              ...form,
+              audience_strategy: e.target.value,
+            })
+          }
+        />
+
+        <Field
+          label="Messaging"
+          value={form.messaging}
+          onChange={e =>
+            setForm({
+              ...form,
+              messaging: e.target.value,
+            })
+          }
+        />
+
+        <Field
+          label="Channels"
+          value={form.channels}
+          onChange={e =>
+            setForm({
+              ...form,
+              channels: e.target.value,
+            })
+          }
+        />
+
+        <Field
+          label="Budget Strategy"
+          value={form.budget_strategy}
+          onChange={e =>
+            setForm({
+              ...form,
+              budget_strategy: e.target.value,
+            })
+          }
+        />
+
+        <Field
+          label="Success Metrics"
+          value={form.success_metrics}
+          onChange={e =>
+            setForm({
+              ...form,
+              success_metrics: e.target.value,
+            })
+          }
+        />
+
+      </div>
 
     </div>
 

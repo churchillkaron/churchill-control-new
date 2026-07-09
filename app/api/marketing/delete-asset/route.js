@@ -54,7 +54,7 @@ export async function POST(
     } = await supabase
 
       .from(
-        "marketing_assets"
+        "creative_assets"
       )
 
       .select("*")
@@ -133,7 +133,7 @@ export async function POST(
     } = await supabase
 
       .from(
-        "marketing_assets"
+        "creative_assets"
       )
 
       .delete()

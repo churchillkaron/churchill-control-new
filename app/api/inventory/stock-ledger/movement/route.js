@@ -18,8 +18,8 @@ export async function POST(request) {
         entityId:
           body.entityId,
 
-        ingredientId:
-          body.ingredientId,
+        itemId:
+          body.itemId,
 
         movementType:
           body.movementType,

@@ -127,7 +127,7 @@ export async function POST(req) {
           return String(seat) === String(seatPosition);
         });
 
-    console.log("SEAT SEARCH", {
+    if (process.env.NODE_ENV !== "production") console.log("SEAT SEARCH", {
       seatPosition,
       found: seatItems.length,
       allItems: (sourceOrders || []).flatMap(order =>
@@ -185,7 +185,7 @@ export async function POST(req) {
 
       const itemIds = seatItems.map((item) => item.id);
 
-      console.log("MOVE SEAT", {
+      if (process.env.NODE_ENV !== "production") console.log("MOVE SEAT", {
         seatPosition,
         seatItems: seatItems.length,
         itemIds,
@@ -208,7 +208,7 @@ export async function POST(req) {
         context
       );
 
-      console.log("UPDATED ROWS", updatedRows);
+      if (process.env.NODE_ENV !== "production") console.log("UPDATED ROWS", updatedRows);
 
       if (moveError) throw moveError;
 

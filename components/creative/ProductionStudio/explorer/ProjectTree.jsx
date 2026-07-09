@@ -29,7 +29,7 @@ function Project({
       className={[
         "mb-2 block rounded-xl border p-4",
         active
-          ? "border-cyan-400/30 bg-cyan-500/10"
+          ? "border-[#c8a96a]/30 bg-[#b48a45]/10"
           : "border-white/10 bg-white/[0.03]"
       ].join(" ")}
     >

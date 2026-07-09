@@ -51,7 +51,7 @@ export async function GET() {
 
     const optimization =
       optimizeSaaSBusiness({
-        tenants: results,
+        organizations: results,
       });
 
     return NextResponse.json({

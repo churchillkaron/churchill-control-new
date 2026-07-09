@@ -1,8 +1,11 @@
 export const dynamic = "force-dynamic";
 
-import { listBankAccounts } from "@/lib/finance/bank-accounts/repositories/bankAccountRepository";
+import {
+  exportBankAccountsCommand,
+} from "@/lib/finance/bank-accounts/runtime/BankAccountsApplicationService";
 
 function toCsv(rows) {
+
   const headers = [
     "id",
     "bank_name",
@@ -24,31 +27,36 @@ function toCsv(rows) {
 }
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
+
+  const { searchParams } =
+    new URL(request.url);
 
   const organization_id =
     searchParams.get("organization_id") ||
     searchParams.get("organizationId");
 
   const format =
-    searchParams.get("format") || "csv";
+    searchParams.get("format") ||
+    "csv";
 
-  const rows =
-    await listBankAccounts({
+  const result =
+    await exportBankAccountsCommand({
       organization_id,
     });
 
   if (format === "json") {
-    return Response.json({
-      success: true,
-      rows,
-    });
+    return Response.json(result);
   }
 
-  return new Response(toCsv(rows), {
-    headers: {
-      "Content-Type": "text/csv",
-      "Content-Disposition": 'attachment; filename="bank-accounts.csv"',
-    },
-  });
+  return new Response(
+    toCsv(result.rows || []),
+    {
+      headers: {
+        "Content-Type": "text/csv",
+        "Content-Disposition":
+          'attachment; filename="bank-accounts.csv"',
+      },
+    }
+  );
+
 }

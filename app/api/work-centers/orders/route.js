@@ -5,7 +5,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    console.log("WORK_CENTER_API", body);
+    if (process.env.NODE_ENV !== "production") console.log("WORK_CENTER_API", body);
 
 const result = await getWorkCenterOrders({
       tenantId: body.tenantId,
@@ -13,7 +13,7 @@ const result = await getWorkCenterOrders({
     });
 
     
-console.log(
+if (process.env.NODE_ENV !== "production") console.log(
   "WORK_CENTER_RESULT",
   {
     success: result?.success,

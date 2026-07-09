@@ -12,9 +12,25 @@ export default function CreateEngine({
   children,
   onClose,
   onSave,
+  onPreview,
   saving = false,
+
+  organizationId,
+  entityId,
+  moduleKey,
+  action,
 }) {
   if (!open) return null;
+
+  console.log(
+    "CREATE ENGINE CONTEXT",
+    {
+      organizationId,
+      entityId,
+      moduleKey,
+      action,
+    }
+  );
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -41,11 +57,15 @@ export default function CreateEngine({
 
         <div className="max-h-[70vh] overflow-auto p-6">
 
-          {schema.length>0 ? (
+          {Array.isArray(schema) && schema.length>0 ? (
             <DynamicForm
               schema={schema}
               values={values}
               onChange={onChange}
+              organizationId={organizationId}
+              entityId={entityId}
+              moduleKey={moduleKey}
+              action={action}
             />
           ) : (
             children
@@ -60,6 +80,15 @@ export default function CreateEngine({
           >
             Cancel
           </button>
+
+          {onPreview ? (
+            <button
+              onClick={onPreview}
+              className="rounded-xl border border-amber-300/30 px-5 py-3 text-sm text-amber-200"
+            >
+              Preview
+            </button>
+          ) : null}
 
           <button
             onClick={onSave}

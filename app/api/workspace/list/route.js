@@ -1,29 +1,36 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { loadPlatformWorkspaceRuntime } from "@/lib/platform/runtime/loadPlatformWorkspaceRuntime";
+
+import {
+  getErpDomains,
+  getErpSolutions,
+} from "@/lib/platform/registry/erpRegistry";
 
 export async function GET() {
-  try {
-    const workspace =
-      await loadPlatformWorkspaceRuntime();
-
-    return NextResponse.json(
-      workspace
-    );
-  } catch (err) {
-    console.error(
-      "Platform workspace API error:",
-      err
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          err.message,
+  const industries =
+    getErpSolutions().map((solution) => ({
+      industry_id: solution.id,
+      name: solution.name,
+      route: solution.route,
+      runtime: {
+        modules: [],
       },
-      {
-        status: 500,
-      }
-    );
-  }
+    }));
+
+  const modules =
+    getErpDomains().map((domain) => ({
+      id: domain.id,
+      name: domain.name,
+      route: domain.route || null,
+      type: domain.type,
+      description: domain.description,
+    }));
+
+  return NextResponse.json({
+    success: true,
+    organizations: [],
+    industries,
+    modules,
+  });
 }

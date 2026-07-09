@@ -3,188 +3,152 @@ export const dynamic = "force-dynamic";
 import { createServerSupabase }
 from "@/lib/shared/supabase/server";
 
-const supabase =
-  createServerSupabase();
+import {
+  ServiceExecutionRuntime,
+} from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 
-import engineRouter
-from "@/lib/marketing/ai/router/engineRouter";
-
-import { runFullAIEngine }
-from "@/lib/marketing/ai/engines/runFullAIEngine";
-
-import { runFluxEnhanceEngine }
-from "@/lib/marketing/ai/engines/runFluxEnhanceEngine";
-
-import { runCompositeEngine }
-from "@/lib/marketing/ai/engines/runCompositeEngine";
-
-import { runVideoEngine }
-from "@/lib/marketing/ai/engines/runVideoEngine";
 
 const MAX_RETRIES = 3;
+
+
+function resolveCapability(engine) {
+
+  switch (engine) {
+
+    case "video":
+      return "ai.video.generate";
+
+    case "enhance":
+      return "ai.image.upscale";
+
+    case "composite":
+      return "ai.image.generate";
+
+    case "full-ai":
+    default:
+      return "ai.image.generate";
+
+  }
+
+}
+
 
 export async function POST(
   request
 ) {
 
+  const supabase =
+    createServerSupabase();
+
+
   let body = null;
+
 
   try {
 
     body =
       await request.json();
 
+
     const {
       jobId,
     } = body;
 
+
     const {
-
       data: job,
-
       error,
+    } =
+      await supabase
+        .from("generation_jobs")
+        .select("*")
+        .eq("id", jobId)
+        .single();
 
-    } = await supabase
-
-      .from("generation_jobs")
-
-      .select("*")
-
-      .eq("id", jobId)
-
-      .single();
 
     if (error || !job) {
 
       return Response.json({
 
-        success: false,
+        success:false,
 
-        error:
-          "Job not found",
+        error:"Job not found",
 
       });
 
     }
 
-    const engine =
-      engineRouter(
-        job.engine
-      );
-
-    console.log(
-      "PROCESSING ENGINE:",
-      engine
-    );
 
     await supabase
-
       .from("generation_jobs")
-
       .update({
 
-        status:
-          "processing",
+        status:"processing",
 
         started_at:
           new Date()
             .toISOString(),
 
       })
+      .eq(
+        "id",
+        jobId
+      );
 
-      .eq("id", jobId);
 
-    let engineResult = null;
+    const capability =
+      resolveCapability(
+        job.engine
+      );
 
-    switch (job.engine) {
 
-      case "full-ai":
+    const engineResult =
+      await ServiceExecutionRuntime.execute({
 
-        engineResult =
+        organization_id:
+          job.organization_id ||
+          job.organization_id,
 
-         await runFullAIEngine({
 
-            prompt:
-              job.prompt,
+        service_id:
+          capability,
 
-            tenantId:
-              job.tenant_id,
 
-          });
+        input:{
 
-        break;
+          prompt:
+            job.prompt,
 
-      case "enhance":
+          assets:
+            job.input,
 
-        engineResult =
+          campaign_id:
+            job.campaign_id,
 
-          await runFluxEnhanceEngine({
+        },
 
-    prompt:
-    campaign.prompt,
 
-    poster:
-    campaign,
+        metadata:{
 
-   assets:
-    campaign.selected_assets,
+          generation_job_id:
+            jobId,
 
-    });
+          engine:
+            job.engine,
 
-        break;
+        },
 
-      case "composite":
+      });
 
-        engineResult =
-
-          await runCompositeEngine({
-
-            prompt:
-              job.prompt,
-
-            assets:
-              job.input,
-
-          });
-
-        break;
-
-      case "video":
-
-        engineResult =
-
-          await runVideoEngine({
-
-            prompt:
-              job.prompt,
-
-            assets:
-              job.input,
-
-          });
-
-        break;
-
-      default:
-
-        throw new Error(
-          `Unknown engine: ${job.engine}`
-        );
-
-    }
-
-    // UPDATE CAMPAIGN
 
     if (
       engineResult?.output?.image_url
     ) {
 
       await supabase
-
         .from(
           "marketing_campaigns"
         )
-
         .update({
 
           image_url:
@@ -198,7 +162,6 @@ export async function POST(
               .toISOString(),
 
         })
-
         .eq(
           "id",
           job.campaign_id
@@ -206,12 +169,9 @@ export async function POST(
 
     }
 
-    // COMPLETE JOB
 
     await supabase
-
       .from("generation_jobs")
-
       .update({
 
         status:
@@ -220,130 +180,104 @@ export async function POST(
         output:
           engineResult?.output || {},
 
+
         provider:
           engineResult?.provider || "",
 
+
         model:
           engineResult?.model || "",
+
 
         completed_at:
           new Date()
             .toISOString(),
 
       })
+      .eq(
+        "id",
+        jobId
+      );
 
-      .eq("id", jobId);
 
     return Response.json({
 
-      success: true,
+      success:true,
 
       engineResult,
 
     });
 
-  } catch (err) {
+
+  } catch(err) {
+
 
     console.error(
       "PROCESS GENERATION JOB ERROR:",
       err
     );
 
-    // LOAD CURRENT JOB
 
     if (body?.jobId) {
 
+
       const {
         data: currentJob,
-      } = await supabase
+      } =
+        await supabase
+          .from("generation_jobs")
+          .select("*")
+          .eq(
+            "id",
+            body.jobId
+          )
+          .single();
 
-        .from("generation_jobs")
-
-        .select("*")
-
-        .eq(
-          "id",
-          body.jobId
-        )
-
-        .single();
 
       const retryCount =
         currentJob?.retry_count || 0;
 
+
       const nextRetry =
         retryCount + 1;
 
-      // PERMANENT FAILURE
 
-      if (
-        nextRetry >=
-        MAX_RETRIES
-      ) {
+      await supabase
+        .from("generation_jobs")
+        .update({
 
-        await supabase
+          status:
+            nextRetry >= MAX_RETRIES
+              ? "permanently_failed"
+              : "retrying",
 
-          .from("generation_jobs")
 
-          .update({
+          retry_count:
+            nextRetry,
 
-            status:
-              "permanently_failed",
 
-            retry_count:
-              nextRetry,
+          error_text:
+            err.message,
 
-            error_text:
-              err.message,
 
-            failed_at:
-              new Date()
-                .toISOString(),
+          failed_at:
+            nextRetry >= MAX_RETRIES
+              ? new Date()
+                  .toISOString()
+              : null,
 
-          })
-
-          .eq(
-            "id",
-            body.jobId
-          );
-
-      } else {
-
-        // RETRYABLE FAILURE
-
-        await supabase
-
-          .from("generation_jobs")
-
-          .update({
-
-            status:
-              "retrying",
-
-            retry_count:
-              nextRetry,
-
-            error_text:
-              err.message,
-
-            updated_at:
-              new Date()
-                .toISOString(),
-
-          })
-
-          .eq(
-            "id",
-            body.jobId
-          );
-
-      }
+        })
+        .eq(
+          "id",
+          body.jobId
+        );
 
     }
 
+
     return Response.json({
 
-      success: false,
+      success:false,
 
       error:
         err.message,

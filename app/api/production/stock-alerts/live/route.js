@@ -12,7 +12,7 @@ export async function GET() {
       data,
       error,
     } = await supabaseAdmin
-      .from('ingredients')
+      .from('inventory_items')
       .select('*')
       .order(
         'name'

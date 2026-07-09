@@ -14,7 +14,7 @@ export async function POST(req) {
         recipe_items (
           id,
           quantity,
-          ingredient_id,
+          item_id,
           ingredients (
             id,
             name,

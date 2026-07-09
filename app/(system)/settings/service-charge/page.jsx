@@ -63,7 +63,7 @@ export default function ServiceChargeSettingsPage() {
     } = await supabase
 
       .from(
-        "tenant_payout_policies"
+        "organization_payout_policies"
       )
 
       .select("*")
@@ -94,7 +94,7 @@ export default function ServiceChargeSettingsPage() {
     await supabase
 
       .from(
-        "tenant_payout_policies"
+        "organization_payout_policies"
       )
 
       .upsert({

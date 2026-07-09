@@ -1,35 +1,34 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import createIntercompanyTransaction from "@/lib/finance/intercompany/documents/createIntercompanyTransaction";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { createIntercompanyTransactionCommand } from "@/lib/finance/intercompany/runtime/IntercompanyApplicationService";
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
+    const body = await req.json();
 
-    const result =
-      await createIntercompanyTransaction({
-        organization_id: body.organization_id,
-        from_legal_entity_id: body.from_legal_entity_id,
-        to_legal_entity_id: body.to_legal_entity_id,
-        transaction_type: body.transaction_type,
-        reference_number: body.reference_number,
-        description: body.description,
-        amount: body.amount,
-        currency: body.currency,
-        due_date: body.due_date,
-        created_by: body.created_by,
-      });
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId,
+    });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
+
+    const result = await createIntercompanyTransactionCommand({
+      ...body,
+      organization_id: access.organizationId,
+    });
 
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 400,
-      }
+      { success: false, error: error.message },
+      { status: 500 }
     );
   }
 }

@@ -1,10 +1,13 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import toggleLegalEntity from "@/lib/finance/legal-entities/capabilities/toggleLegalEntity";
+import {
+  toggleLegalEntityCommand,
+} from "@/lib/finance/legal-entities/runtime/LegalEntityApplicationService";
 
 export async function POST(req) {
   try {
@@ -30,7 +33,7 @@ export async function POST(req) {
     }
 
     const result =
-      await toggleLegalEntity({
+      await toggleLegalEntityCommand({
         organization_id: access.organizationId,
         entity_id: body.entity_id,
         updated_by: body.userId || "system",

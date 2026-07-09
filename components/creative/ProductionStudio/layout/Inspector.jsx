@@ -2,35 +2,38 @@
 
 import PropertyEditor from "../properties/PropertyEditor";
 
-
 function Row({
   label,
   value,
 }) {
   return (
     <div className="flex items-center justify-between border-b border-white/5 py-3">
+
       <div className="text-sm text-white/45">
         {label}
       </div>
 
-      <div className="text-right font-medium text-white">
+      <div className="font-medium">
         {value ?? "-"}
       </div>
+
     </div>
   );
 }
 
-function Section({
+function Card({
   title,
   children,
 }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <div className="mb-5 text-xs uppercase tracking-[0.25em] text-white/40">
+
+      <div className="mb-5 text-[11px] uppercase tracking-[0.26em] text-[#c8a96a]">
         {title}
       </div>
 
       {children}
+
     </section>
   );
 }
@@ -40,173 +43,40 @@ export default function Inspector({
   editor,
 }) {
 
-  const project =
-    runtime.projectRuntime?.project;
-
-  const queue =
-    runtime.data.queue || {};
-
-  const scenes =
-    runtime.data.scenes || [];
-
-  const shots =
-    runtime.data.shots || [];
-
-  const tasks =
-    runtime.data.tasks || [];
-
-  const assets =
-    runtime.data.assets || [];
+  const selection =
+    editor.selection?.data || {};
 
   return (
+    <div className="h-full overflow-y-auto p-5 space-y-5">
 
-    <aside className="overflow-auto border-l border-white/10 bg-[#0b0f18]">
+      <Card title="Selection">
 
-      <div className="space-y-5 p-6">
+        <Row
+          label="Type"
+          value={editor.selection?.type}
+        />
 
-        <Section title="Project">
+        <Row
+          label="Title"
+          value={selection.title}
+        />
 
-          <Row
-            label="Name"
-            value={project?.name}
-          />
+        <Row
+          label="Status"
+          value={selection.status}
+        />
 
-          <Row
-            label="Status"
-            value={project?.status}
-          />
+      </Card>
 
-          <Row
-            label="Budget"
-            value={project?.budget_profile}
-          />
+      <Card title="Properties">
 
-          <Row
-            label="Quality"
-            value={project?.quality_profile}
-          />
+        <PropertyEditor
+          item={selection}
+          onSave={editor.save}
+        />
 
-        </Section>
+      </Card>
 
-        <Section title="Production">
-
-          <Row
-            label="Scenes"
-            value={scenes.length}
-          />
-
-          <Row
-            label="Shots"
-            value={shots.length}
-          />
-
-          <Row
-            label="Tasks"
-            value={tasks.length}
-          />
-
-          <Row
-            label="Assets"
-            value={assets.length}
-          />
-
-        </Section>
-
-        <Section title="Queue">
-
-          <Row
-            label="Waiting"
-            value={queue.waiting?.length || 0}
-          />
-
-          <Row
-            label="Ready"
-            value={queue.ready?.length || 0}
-          />
-
-          <Row
-            label="Running"
-            value={queue.running?.length || 0}
-          />
-
-          <Row
-            label="Review"
-            value={queue.review?.length || 0}
-          />
-
-          <Row
-            label="Completed"
-            value={queue.completed?.length || 0}
-          />
-
-        </Section>
-
-        <Section title="AI Director">
-
-          <div className="space-y-3 text-sm text-white/70">
-
-            <p>
-              Project intelligence will appear here.
-            </p>
-
-            <ul className="list-disc space-y-2 pl-5">
-
-              <li>Recommend reusable assets</li>
-
-              <li>Select best AI provider</li>
-
-              <li>Estimate production cost</li>
-
-              <li>Optimize render pipeline</li>
-
-              <li>Suggest scene improvements</li>
-
-            </ul>
-
-          </div>
-
-        </Section>
-
-      
-
-        <Section title="Selected">
-
-          <Row
-            label="Type"
-            value={editor.selection?.type}
-          />
-
-          <Row
-            label="Title"
-            value={editor.selection?.data?.title}
-          />
-
-          <Row
-            label="Status"
-            value={editor.selection?.data?.status}
-          />
-
-          <Row
-            label="Duration"
-            value={editor.selection?.data?.duration_seconds}
-          />
-
-        </Section>
-
-        <Section title="Editor">
-
-          <PropertyEditor
-            item={editor.selection?.data}
-            onSave={editor.save}
-          />
-
-        </Section>
-
-
-      </div>
-
-    </aside>
-
+    </div>
   );
-
 }

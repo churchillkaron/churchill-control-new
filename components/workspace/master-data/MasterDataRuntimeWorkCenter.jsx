@@ -2,11 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { notFound } from "next/navigation";
+import {
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
+
+import {
+  useBusinessContext,
+} from "@/app/providers/BusinessContextProvider";
 import MasterDataWorkCenter, {
   formatMoney,
   initials,
 } from "@/components/workspace/master-data/MasterDataWorkCenter";
-import { useFinanceRuntime } from "@/lib/finance/runtime/useFinanceRuntime";
 import {
   getWorkspaceItemByWorkspace,
 } from "@/lib/platform/registry/erpRegistry";
@@ -165,19 +171,54 @@ export default function MasterDataRuntimeWorkCenter({
   moduleKey,
   capability,
   eyebrow,
+
+  organizationId,
+  entityId,
+  legalEntityId,
+  periodId,
+
 }) {
   if (!workspaceId) {
     throw new Error("workspaceId is required");
   }
 
-  const {
-    organizationId,
-    entityId,
-    legalEntityId,
-    periodId,
-    financeGet,
-    loading: runtimeLoading,
-  } = useFinanceRuntime();
+  const runtime =
+    useOrganizationRuntime();
+
+  const businessContext =
+    useBusinessContext() || {};
+
+  const resolvedOrganizationId =
+    organizationId ||
+    runtime.organization_id ||
+    runtime.organization?.id ||
+    null;
+
+  const resolvedEntityId =
+    entityId ||
+    runtime.entity_id ||
+    runtime.entity?.id ||
+    businessContext.entity_id ||
+    businessContext.entity?.id ||
+    null;
+
+  const resolvedPeriodId =
+    periodId ||
+    runtime.period_id ||
+    runtime.period?.id ||
+    null;
+
+  console.log(
+    "MASTER DATA CONTEXT",
+    {
+      organizationId,
+      resolvedOrganizationId,
+      entityId,
+      resolvedEntityId,
+      periodId,
+      resolvedPeriodId,
+    }
+  );
 
   const resolvedCapability =
     capability ||
@@ -233,19 +274,72 @@ export default function MasterDataRuntimeWorkCenter({
           return;
         }
 
-        const json =
-          await financeGet(
+        const url =
+          new URL(
             config.api,
+            window.location.origin
+          );
+
+
+        url.searchParams.set(
+          "organizationId",
+          resolvedOrganizationId
+        );
+
+
+        if (resolvedEntityId || legalEntityId) {
+
+          url.searchParams.set(
+            "entityId",
+            resolvedEntityId || legalEntityId
+          );
+
+        }
+
+
+        if (resolvedPeriodId) {
+
+          url.searchParams.set(
+            "periodId",
+            resolvedPeriodId
+          );
+
+        }
+
+
+        url.searchParams.set(
+          "workspaceId",
+          workspaceId
+        );
+
+
+        url.searchParams.set(
+          "capabilityId",
+          normalizedKey
+        );
+
+
+        const res =
+          await fetch(
+            url.toString(),
             {
-              organization_id: organizationId,
-              entity_id: entityId || legalEntityId,
-              legal_entity_id: entityId || legalEntityId,
-              period_id: periodId,
-              workspace_id: workspaceId,
-              capability_id: normalizedKey,
-              module_key: normalizedKey,
+              cache:"no-store",
             }
           );
+
+
+        const json =
+          await res.json();
+
+
+        if (!res.ok) {
+
+          throw new Error(
+            json?.error ||
+            "Load failed"
+          );
+
+        }
 
         if (!active) {
           return;
@@ -275,8 +369,7 @@ export default function MasterDataRuntimeWorkCenter({
     }
 
     if (
-      !runtimeLoading &&
-      organizationId
+      resolvedOrganizationId
     ) {
       load();
     }
@@ -292,10 +385,8 @@ export default function MasterDataRuntimeWorkCenter({
     workspaceId,
     normalizedKey,
     refresh,
-    runtimeLoading,
     config.api,
     config.rowsKey,
-    financeGet,
   ]);
 
   const filteredRows =
@@ -393,18 +484,28 @@ export default function MasterDataRuntimeWorkCenter({
       };
     });
 
+  console.log(
+    "MASTER DATA SEND CONTEXT",
+    {
+      resolvedOrganizationId,
+      resolvedEntityId,
+      legalEntityId,
+      resolvedPeriodId,
+    }
+  );
+
   return (
     <MasterDataWorkCenter
       workspaceId={workspaceId}
       moduleKey={normalizedKey}
-      organizationId={organizationId}
-      entityId={entityId || legalEntityId}
-      legalEntityId={entityId || legalEntityId}
-      periodId={periodId}
+      organizationId={resolvedOrganizationId}
+      entityId={resolvedEntityId || legalEntityId}
+      legalEntityId={resolvedEntityId || legalEntityId}
+      periodId={resolvedPeriodId}
       context={{
-        organization_id: organizationId,
-        entity_id: entityId || legalEntityId,
-        period_id: periodId,
+        organization_id: resolvedOrganizationId,
+        entity_id: resolvedEntityId || legalEntityId,
+        period_id: resolvedPeriodId,
         workspace_id: workspaceId,
         capability_id: normalizedKey,
       }}
@@ -415,8 +516,27 @@ export default function MasterDataRuntimeWorkCenter({
       title={resolvedCapability.name}
       description={resolvedCapability.description}
       primaryActionLabel={
-        config.primaryActionLabel ||
-        (config.allowCreate === false ? "" : "+ New")
+        (
+          resolvedCapability.create?.enabled === true ||
+          config.create?.enabled === true
+        )
+          ? (
+              resolvedCapability.create?.label ||
+              config.create?.label ||
+              resolvedCapability.create?.title ||
+              config.create?.title ||
+              "+ New"
+            )
+          : ""
+      }
+      primaryAction={
+        (
+          resolvedCapability.create?.enabled === true
+            ? resolvedCapability.create
+            : config.create?.enabled === true
+              ? config.create
+              : null
+        )
       }
       rows={filteredRows}
       loading={loading}
@@ -455,7 +575,16 @@ export default function MasterDataRuntimeWorkCenter({
           ? config.detailSections
           : defaultDetailSections(selected)
       }
+      topMenuActions={
+        resolvedCapability.topMenu ||
+        config.topMenu ||
+        resolvedCapability.capabilities?.topMenu ||
+        config.capabilities?.topMenu ||
+        []
+      }
       menuActions={
+        resolvedCapability.rowMenu ||
+        config.rowMenu ||
         resolvedCapability.actions ||
         config.actions ||
         []

@@ -46,10 +46,10 @@ export default function AssetBrowser({
 }) {
 
   const assets =
-    runtime.data.assets || [];
+    runtime.assetRuntime?.items || [];
 
   const timeline =
-    runtime.data.timeline;
+    runtime.timelineRuntime;
 
   const track =
     timeline?.tracks?.[0];

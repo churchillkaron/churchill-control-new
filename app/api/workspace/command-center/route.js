@@ -174,7 +174,7 @@ export async function GET(request) {
 
       safeQuery(
         supabaseAdmin
-          .from("ingredients")
+          .from("inventory_items")
           .select("*")
           .eq("tenant_id", tenantId)
       ),

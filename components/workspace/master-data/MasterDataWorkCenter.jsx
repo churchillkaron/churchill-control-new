@@ -9,7 +9,12 @@ import { getWorkspaceItemAction } from "@/lib/platform/registry/erpRegistry";
 import { getForm } from "@/lib/platform/forms";
 import { useRouter } from "next/navigation";
 import MasterActionMenu from "@/components/workspace/actions/MasterActionMenu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import CapabilityActionResolver from "./CapabilityActionResolver";
+
+import {
+  mapCustomerInvoiceFormPayload,
+} from "@/lib/finance/accounts-receivable/mappers/customerInvoiceMapper";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -33,6 +38,10 @@ function initials(name) {
 export default function MasterDataWorkCenter({
 
   organizationId,
+  entityId,
+  periodId,
+  country,
+  currency,
   workspaceId,
   moduleKey,
   onRefresh,
@@ -40,7 +49,8 @@ export default function MasterDataWorkCenter({
   eyebrow = "Workspace",
   title = "Records",
   description = "",
-  primaryActionLabel = "+ New",
+  primaryActionLabel = "",
+  primaryAction = null,
   rows = [],
   loading = false,
   error = "",
@@ -58,14 +68,52 @@ export default function MasterDataWorkCenter({
   getInitials,
   listMetrics = [],
   detailSections = [],
+  topMenuActions = [],
   menuActions = [],
   onCreate,
 }) {
   const router = useRouter();
   const createEngine = useCreateEngine();
 
+
+  const [activeEngine,setActiveEngine] =
+    useState(null);
+
+
+  useEffect(()=>{
+
+    function handler(event){
+
+      setActiveEngine(
+        event.detail
+      );
+
+    }
+
+
+    window.addEventListener(
+      "workspace:engine",
+      handler
+    );
+
+
+    return ()=>{
+
+      window.removeEventListener(
+        "workspace:engine",
+        handler
+      );
+
+    };
+
+  },[]);
+
   const createAction =
-    getWorkspaceItemAction(workspaceId, moduleKey, "create");
+    primaryAction;
+
+  const hasCreateAction =
+    !!createAction &&
+    createAction.enabled !== false;
 
   const importAction =
     getWorkspaceItemAction(workspaceId, moduleKey, "import");
@@ -80,6 +128,15 @@ export default function MasterDataWorkCenter({
     createAction?.schema ||
     getForm(createAction?.form || moduleKey);
 
+  console.log(
+    "CREATE DEBUG",
+    {
+      moduleKey,
+      createAction,
+      schema,
+    }
+  );
+
   const [form,setForm] = useState({});
 
   function updateForm(name,value){
@@ -91,10 +148,6 @@ export default function MasterDataWorkCenter({
 
   async function saveForm(){
 
-    const endpoint =
-      createAction?.endpoint ||
-      "/api/workspace/create";
-
     if(!createAction){
 
       alert("Create action not configured for " + moduleKey);
@@ -103,31 +156,108 @@ export default function MasterDataWorkCenter({
 
     }
 
+    const isCapability =
+      !!createAction?.capability &&
+      !!createAction?.action;
+
+
+    const endpoint =
+      isCapability
+        ? "/api/ubte/execute"
+        : createAction?.endpoint ||
+          "/api/workspace/create";
+
+
+    console.log(
+      "INVOICE FORM BEFORE SAVE",
+      {
+        moduleKey,
+        form,
+      }
+    );
+
+
+    console.log(
+      "INVOICE FORM BEFORE SAVE",
+      form
+    );
+
+
     const payload = {
 
       organizationId,
-      organization_id: organizationId,
-      module: moduleKey,
-      action: createAction,
-      capability: createAction?.capability,
+
+      organization_id:
+        organizationId,
+
+      module:
+        moduleKey,
+
+      action:
+        createAction,
+
+      capability:
+        createAction?.capability,
 
       ...form,
 
     };
 
-    const res = await fetch(endpoint,{
 
-      method:"POST",
+    const requestBody = isCapability
+      ? {
 
-      headers:{
-        "Content-Type":"application/json",
-      },
+          organizationId,
 
-      body:JSON.stringify(payload),
+          entity_id:
+            payload.entity_id ||
+            entityId ||
+            null,
 
-    });
+          period_id:
+            payload.period_id ||
+            periodId ||
+            null,
 
-    const json = await res.json();
+          currency:
+            payload.currency ||
+            "THB",
+
+          domain:
+            createAction.domain,
+
+          capability:
+            createAction.capability,
+
+          action:
+            createAction.action,
+
+          payload:
+
+            form,
+
+        }
+      : payload;
+
+
+    const res =
+      await fetch(endpoint,{
+
+        method:"POST",
+
+        headers:{
+          "Content-Type":"application/json",
+        },
+
+        body:
+          JSON.stringify(requestBody),
+
+      });
+
+
+    const json =
+      await res.json();
+
 
     if(!json.success){
 
@@ -136,6 +266,7 @@ export default function MasterDataWorkCenter({
       throw new Error(json.error);
 
     }
+
 
     alert("Created successfully.");
 
@@ -147,13 +278,108 @@ export default function MasterDataWorkCenter({
 
   }
 
+
   const handleCreate = () => {
+
     if (onCreate) {
       onCreate(createEngine);
-    } else {
-      createEngine.show();
+      return;
     }
+
+
+    if (moduleKey === "customer_invoices") {
+
+      const today =
+        new Date()
+          .toISOString()
+          .slice(0,10);
+
+
+      setForm({
+        invoice_date: today,
+        due_date: today,
+        lines: [
+          {
+            description: "",
+            quantity: 1,
+            unit_price: 0,
+          }
+        ],
+      });
+
+    }
+
+
+    createEngine.show();
+
   };
+
+
+  const handlePreview = () => {
+
+    const action = {
+
+      id:"preview",
+
+      type:"preview",
+
+      engine:"preview",
+
+      title:
+        primaryAction?.title ||
+        "Preview",
+
+    };
+
+
+    window.dispatchEvent(
+
+      new CustomEvent(
+        "workspace:engine",
+        {
+
+          detail:{
+
+            Engine:
+              null,
+
+            props:{
+
+              action,
+
+              payload:
+                moduleKey === "customer_invoices"
+                  ? mapCustomerInvoiceFormPayload({
+                      payload: form,
+                    })
+                  : form,
+
+            },
+
+            context:{
+
+              organizationId,
+
+              entityId,
+
+              periodId,
+
+              workspaceId,
+
+              moduleKey,
+
+            },
+
+          },
+
+        }
+
+      )
+
+    );
+
+  };
+
 
   function resolveMenuHref(action, row) {
     if (!action || typeof action === "string") {
@@ -254,12 +480,45 @@ export default function MasterDataWorkCenter({
               className="h-9 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] px-4 text-[12px] text-amber-200 backdrop-blur-2xl transition hover:bg-amber-300/[0.12]"
             />
 
-            <button
-              onClick={handleCreate}
-              className="h-9 rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-200 to-amber-500 px-4 text-[12px] font-semibold text-black shadow-[0_0_34px_rgba(245,158,11,0.22)] transition hover:scale-[1.01]"
-            >
-              {primaryActionLabel}
-            </button>
+            {topMenuActions.length ? (
+              <div className="relative">
+                <button
+                  onClick={() =>
+                    onToggleMenu?.(
+                      menuId === "__top__" ? null : "__top__"
+                    )
+                  }
+                  className="h-9 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 text-[12px] text-white/58 backdrop-blur-2xl transition hover:bg-white/[0.07]"
+                >
+                  ...
+                </button>
+
+                {menuId === "__top__" ? (
+                  <div className="absolute right-0 top-11 z-40 w-72 overflow-hidden rounded-2xl border border-white/[0.09] bg-[#111]/95 p-2 shadow-2xl shadow-black/80 backdrop-blur-3xl">
+                    <MasterActionMenu
+                      actions={topMenuActions}
+                      row={selected}
+                      organizationId={organizationId}
+                      workspaceId={workspaceId}
+                      moduleKey={moduleKey}
+                      onSelect={onSelect}
+                      onCreate={handleCreate}
+                      onClose={() => onToggleMenu?.(null)}
+                      onRefresh={onRefresh}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {hasCreateAction && primaryActionLabel ? (
+              <button
+                onClick={handleCreate}
+                className="h-9 rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-200 to-amber-500 px-4 text-[12px] font-semibold text-black shadow-[0_0_34px_rgba(245,158,11,0.22)] transition hover:scale-[1.01]"
+              >
+                {primaryActionLabel}
+              </button>
+            ) : null}
 
           </div>
         </header>
@@ -460,15 +719,65 @@ export default function MasterDataWorkCenter({
         </div>
       </div>
 
-      <CreateEngine
+      {activeEngine ? (() => {
+
+        let Engine =
+          activeEngine.Engine;
+
+
+        if (!Engine && activeEngine.action?.engine === "preview") {
+
+          Engine =
+            require("@/components/workspace/engines/PreviewEngine")
+              .default;
+
+        }
+
+
+        if (!Engine) {
+          return null;
+        }
+
+
+        return (
+
+          <Engine
+
+            {...activeEngine.props}
+
+            {...activeEngine.context}
+
+            onClose={() =>
+              setActiveEngine(null)
+            }
+
+          />
+
+        );
+
+      })() : null}
+
+
+
+      <CapabilityActionResolver
         open={createEngine.open}
         saving={createEngine.saving}
-        title={primaryActionLabel.replace("+ ","")}
+        action={primaryAction}
+        fallbackLabel={primaryActionLabel}
         schema={schema}
         values={form}
         onChange={updateForm}
         onClose={createEngine.hide}
+        onPreview={handlePreview}
         onSave={() => createEngine.save(saveForm)}
+        organizationId={organizationId}
+        entityId={entityId || selected?.entity_id || null}
+        partyId={selected?.party_id || null}
+        periodId={periodId || selected?.period_id || null}
+        country={country}
+        currency={currency}
+        moduleKey={moduleKey}
+        onComplete={onRefresh}
       />
 
     </main>

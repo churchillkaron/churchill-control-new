@@ -21,7 +21,6 @@ export default function InvoiceRenderer({
 
 
   console.log(
-    "INVOICE TEMPLATE DEBUG",
     {
       template,
       document,

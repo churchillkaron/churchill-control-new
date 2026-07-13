@@ -31,14 +31,25 @@ export async function POST(request) {
 
       metadata = {},
 
-      poster,
-
-      selectedAssets,
-
-      selectedBusiness,
-
     } = body;
 
+
+    if (!organizationId) {
+
+      throw new Error(
+        "organizationId required"
+      );
+
+    }
+
+
+    if (!capability) {
+
+      throw new Error(
+        "generation capability required"
+      );
+
+    }
 
 
     const job =
@@ -56,21 +67,9 @@ export async function POST(request) {
         mission_id:
           missionId || null,
 
-        capability:
-          capability ||
-          "creative.image.generate",
+        capability,
 
-        input:{
-
-          poster,
-
-          selectedAssets,
-
-          selectedBusiness,
-
-          ...input,
-
-        },
+        input,
 
         metadata,
 
@@ -84,8 +83,6 @@ export async function POST(request) {
 
       job,
 
-      migrated:true,
-
     });
 
 
@@ -93,7 +90,7 @@ export async function POST(request) {
 
 
     console.error(
-      "MARKETING GENERATE COMPATIBILITY ERROR:",
+      "CREATIVE GENERATION ERROR:",
       error
     );
 
@@ -101,8 +98,12 @@ export async function POST(request) {
     return NextResponse.json(
 
       {
+
         success:false,
-        error:error.message,
+
+        error:
+          error.message,
+
       },
 
       {

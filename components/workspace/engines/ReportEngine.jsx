@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 
 import ReportFilterPanel from "@/components/workspace/reports/ReportFilterPanel";
 
-import PreviewEngine from "@/components/workspace/engines/PreviewEngine";
-
 export default function ReportEngine({
   organizationId,
   entityId,
@@ -183,7 +181,36 @@ export default function ReportEngine({
       } else {
         setResult(json);
 
-        setPreviewOpen(true);
+
+        window.dispatchEvent(
+          new CustomEvent(
+            "workspace:preview",
+            {
+              detail: {
+
+                action:
+                  payload.action,
+
+                documentType:
+                  "FinancialReport",
+
+                payload: {
+
+                  document:
+                    json.document
+
+                },
+
+                organizationId,
+
+                entityId,
+
+                periodId,
+
+              }
+            }
+          )
+        );
       }
 
     } catch (err) {
@@ -225,36 +252,6 @@ export default function ReportEngine({
           <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</div>
         ) : null}
 
-        {previewOpen && result?.document ? (
-
-          <PreviewEngine
-
-            action={
-              payload.action
-            }
-
-            documentType="FinancialReport"
-
-            payload={{
-              document:
-                result.document
-            }}
-
-            organizationId={
-              organizationId
-            }
-
-            entityId={
-              entityId
-            }
-
-            onClose={() =>
-              setPreviewOpen(false)
-            }
-
-          />
-
-        ) : null}
 
         <div className="mt-8 flex justify-end gap-3">
 

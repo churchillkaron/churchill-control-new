@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ExportEngine from "./engines/ExportEngine";
 import ImportEngine from "./engines/ImportEngine";
 import ReportEngine from "./engines/ReportEngine";
+import PreviewEngine from "./engines/PreviewEngine";
 import { CommunicationEngine } from "./engines";
 import InternalMessageDialog from "./engines/InternalMessageDialog";
 
@@ -26,6 +27,9 @@ export default function WorkspaceEventHub({
   const [reportAction,setReportAction]=
     useState(null);
 
+  const [preview,setPreview]=
+    useState(null);
+
   const [communication,setCommunication]=
     useState(null);
 
@@ -39,6 +43,9 @@ export default function WorkspaceEventHub({
 
     const reportHandler=e=>
       setReportAction(e.detail);
+
+    const previewHandler=e=>
+      setPreview(e.detail);
 
     const communicationHandler=e=>
       setCommunication(e.detail);
@@ -61,6 +68,11 @@ export default function WorkspaceEventHub({
     window.addEventListener(
       "workspace:reports",
       reportHandler
+    );
+
+    window.addEventListener(
+      "workspace:preview",
+      previewHandler
     );
 
     window.addEventListener(
@@ -88,6 +100,11 @@ export default function WorkspaceEventHub({
       window.removeEventListener(
         "workspace:reports",
         reportHandler
+      );
+
+      window.removeEventListener(
+        "workspace:preview",
+        previewHandler
       );
 
       window.removeEventListener(
@@ -126,6 +143,21 @@ export default function WorkspaceEventHub({
       )}
 
       
+      {preview && (
+
+        <PreviewEngine
+
+          {...preview}
+
+          onClose={() =>
+            setPreview(null)
+          }
+
+        />
+
+      )}
+
+
       {reportAction && (
 
         <ReportEngine

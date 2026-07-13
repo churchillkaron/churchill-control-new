@@ -46,20 +46,31 @@ export default function FinancialReportRenderer({
     ];
 
 
-  const lines =
-    document.lines || [];
+  const sections =
+    document.sections || [];
 
 
-  const subtotal =
-    lines.reduce(
-      (sum,line)=>
-        sum +
-        (
-          Number(line.quantity || 0) *
-          Number(line.unit_price || 0)
-        ),
-      0
+  const summary =
+    document.summary || {};
+
+
+  function money(value){
+
+    return new Intl.NumberFormat(
+      "en-US",
+      {
+        style:"currency",
+        currency:
+          document.currency?.code ||
+          "THB",
+        maximumFractionDigits:2,
+      }
+    )
+    .format(
+      Number(value || 0)
     );
+
+  }
 
 
   function renderBlock(block){
@@ -130,7 +141,8 @@ export default function FinancialReportRenderer({
     }
 
 
-    if(block === "invoice_info"){
+
+    if(block === "report_info"){
 
       return (
 
@@ -144,11 +156,11 @@ export default function FinancialReportRenderer({
             <div className="flex justify-between">
 
               <span>
-                Invoice No:
+                Entity:
               </span>
 
               <span className="font-semibold">
-                {document.invoice_number || "-"}
+                {document.entity?.name || "-"}
               </span>
 
             </div>
@@ -157,11 +169,11 @@ export default function FinancialReportRenderer({
             <div className="mt-2 flex justify-between">
 
               <span>
-                Invoice Date:
+                Period:
               </span>
 
               <span>
-                {document.invoice_date || "-"}
+                {document.period?.name || "-"}
               </span>
 
             </div>
@@ -170,15 +182,16 @@ export default function FinancialReportRenderer({
             <div className="mt-2 flex justify-between">
 
               <span>
-                Due Date:
+                Currency:
               </span>
 
               <span>
-                {document.due_date || "-"}
+                {document.currency?.code || "-"}
               </span>
 
             </div>
 
+
           </div>
 
         </div>
@@ -188,278 +201,111 @@ export default function FinancialReportRenderer({
     }
 
 
-    if(
-      block === "party" ||
-      block === "customer"
-    ){
+
+    if(block === "sections"){
 
       return (
 
-        <div key={block} className="mt-10 border-t pt-6">
-
-          <div className="text-sm text-gray-500">
-            Bill To
-          </div>
-
-          <div className="mt-2 text-xl font-semibold">
-            {party.display_name || "Customer"}
-          </div>
-
-          {
-            party.email ? (
-              <div className="text-sm">
-                {party.email}
-              </div>
-            ) : null
-          }
-
-          {
-            party.phone ? (
-              <div className="text-sm">
-                {party.phone}
-              </div>
-            ) : null
-          }
-
-        </div>
-
-      );
-
-    }
-
-
-    if(block === "issuer"){
-
-      return (
-
-        <div key={block} className="mt-6 text-sm">
-
-          <div className="font-semibold">
-            From
-          </div>
-
-          <div>
-            {brand.name || "Company"}
-          </div>
-
-          {
-            brand.legal?.legal_name ? (
-              <div>
-                {brand.legal.legal_name}
-              </div>
-            ) : null
-          }
-
-        </div>
-
-      );
-
-    }
-
-
-    if(block === "billing_period"){
-
-      return (
-
-        <div key={block} className="mt-6">
-
-          <div className="text-sm text-gray-500">
-            Billing Period
-          </div>
-
-          <div>
-            {
-              document.billing_period ||
-              document.period ||
-              "-"
-            }
-          </div>
-
-        </div>
-
-      );
-
-    }
-
-
-    if(
-      block === "service_lines" ||
-      block === "usage" ||
-      block === "charges"
-    ){
-
-      return (
-
-        <table
+        <div
           key={block}
-          className="mt-10 w-full"
+          className="mt-10"
         >
 
-          <tbody>
-
           {
-            lines.map((line,index)=>(
+            sections.map(section => (
 
-              <tr key={index} className="border-b">
+              <div
+                key={section.title}
+                className="mb-8"
+              >
 
-                <td className="py-3">
-                  {line.description}
-                </td>
+                <div className="border-b pb-2 font-semibold">
 
-                <td className="text-right">
-                  {
-                    Number(line.quantity || 0) *
-                    Number(line.unit_price || 0)
-                  }
-                </td>
+                  {section.title}
 
-              </tr>
+                </div>
+
+
+                {
+                  (section.rows || [])
+                  .map(row => (
+
+                    <div
+                      key={row.label}
+                      className="mt-2 flex justify-between text-sm"
+                    >
+
+                      <span>
+                        {row.label}
+                      </span>
+
+
+                      <span>
+                        {money(row.amount)}
+                      </span>
+
+
+                    </div>
+
+                  ))
+                }
+
+
+                {
+                  section.total !== undefined ? (
+
+                    <div
+                      className="
+                        mt-3
+                        flex
+                        justify-between
+                        border-t
+                        pt-2
+                        font-semibold
+                      "
+                    >
+
+                      <span>
+                        Total
+                      </span>
+
+                      <span>
+                        {money(section.total)}
+                      </span>
+
+                    </div>
+
+                  ) : null
+                }
+
+
+              </div>
 
             ))
           }
 
-          </tbody>
-
-        </table>
-
-      );
-
-    }
-
-
-    if(block === "subscription"){
-
-      return (
-
-        <div key={block} className="mt-6">
-
-          <div className="font-semibold">
-            Subscription
-          </div>
-
-          <div>
-            {
-              document.subscription_name ||
-              document.plan_name ||
-              "-"
-            }
-          </div>
-
         </div>
 
       );
 
     }
 
-    if(block === "lines"){
+
+
+    if(block === "summary"){
 
       return (
 
-        <table
+        <div
           key={block}
-          className="mt-10 w-full"
+          className="mt-8 border-t pt-5 text-right"
         >
 
-          <thead>
+          <div className="text-2xl font-bold">
 
-            <tr className="border-b">
-
-              <th className="py-3 text-left">
-                Description
-              </th>
-
-              <th>
-                Qty
-              </th>
-
-              <th>
-                Price
-              </th>
-
-              <th>
-                Total
-              </th>
-
-            </tr>
-
-          </thead>
-
-
-          <tbody>
-
-            {lines.map((line,index)=>(
-
-              <tr
-                key={index}
-                className="border-b"
-              >
-
-                <td className="py-3">
-                  {line.description}
-                </td>
-
-                <td className="text-center">
-                  {line.quantity}
-                </td>
-
-                <td className="text-center">
-                  {line.unit_price}
-                </td>
-
-                <td className="text-right">
-                  {
-                    Number(line.quantity || 0) *
-                    Number(line.unit_price || 0)
-                  }
-                </td>
-
-              </tr>
-
-            ))}
-
-          </tbody>
-
-        </table>
-
-      );
-
-    }
-
-
-    if(block === "tax"){
-
-      return (
-
-        <div key={block} className="mt-4 text-right">
-
-          VAT:
-          {" "}
-          0
-
-        </div>
-
-      );
-
-    }
-
-
-    if(block === "totals"){
-
-      return (
-
-        <div key={block} className="mt-6 text-right">
-
-          <div>
-            Subtotal:
+            Net Profit:
             {" "}
-            {document.totals?.subtotal || subtotal}
-          </div>
-
-          <div className="mt-2 text-2xl font-bold">
-
-            Total:
-            {" "}
-            {document.totals?.total_amount || subtotal}
+            {money(summary.netProfit)}
 
           </div>
 
@@ -469,22 +315,6 @@ export default function FinancialReportRenderer({
 
     }
 
-
-    if(block === "payment"){
-
-      return (
-
-        <div key={block} className="mt-8 text-sm">
-
-          Payment Terms:
-          {" "}
-          30 days
-
-        </div>
-
-      );
-
-    }
 
 
     if(block === "footer"){

@@ -83,7 +83,8 @@ export default function ChannelConnectionWorkCenter({
 
   },[
     organizationId,
-    category
+    category,
+    connectionStatus
   ]);
 
 
@@ -151,10 +152,52 @@ export default function ChannelConnectionWorkCenter({
 
       getSubtitle={
         row =>
-          row.category
+          row.assets?.length
+            ? `${row.category} • ${row.assets.length} assets`
+            : row.category
       }
 
       searchPlaceholder="Search channels..."
+
+      detailSections={[
+
+        {
+          title:"Connection Details",
+
+          fields:[
+
+            {
+              label:"Status",
+              value:
+                row =>
+                  row.status || "-"
+            },
+
+            {
+              label:"Runtime",
+              value:
+                row =>
+                  row.runtime || "-"
+            },
+
+            {
+              label:"Assets",
+              value:
+                row =>
+                  (row.assets || [])
+                    .map(
+                      asset =>
+                        `${asset.name} (${asset.asset_type})`
+                    )
+                    .join(", ") || "-"
+            },
+
+          ],
+
+        },
+
+      ]}
+
 
       listMetrics={[
 
@@ -172,6 +215,13 @@ export default function ChannelConnectionWorkCenter({
               row.connected
                 ? "YES"
                 : "NO"
+        },
+
+        {
+          label:"Assets",
+          value:
+            row =>
+              row.assets?.length || 0
         },
 
       ]}

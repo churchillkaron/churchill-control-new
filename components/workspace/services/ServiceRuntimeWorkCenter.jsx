@@ -51,7 +51,9 @@ function serviceStatusLabel(row) {
 function capabilitySummary(row) {
 
   const capabilities =
-    row?.capabilities || [];
+    Array.isArray(row?.capabilities)
+      ? row.capabilities
+      : [];
 
 
   if (!capabilities.length) {

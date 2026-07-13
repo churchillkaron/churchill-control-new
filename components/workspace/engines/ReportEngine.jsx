@@ -15,9 +15,6 @@ export default function ReportEngine({
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
 
-  const [previewOpen, setPreviewOpen] =
-    useState(false);
-
   const [error, setError] = useState("");
 
   const [filters, setFilters] = useState({

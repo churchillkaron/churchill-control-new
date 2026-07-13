@@ -26,8 +26,7 @@ export default function ChannelConnectionWorkCenter({
 
 
   const connectionStatus =
-    searchParams.get("facebook") ||
-    searchParams.get("error");
+    searchParams.get("status");
 
 
   const [rows,setRows] =

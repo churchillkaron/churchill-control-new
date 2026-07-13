@@ -388,20 +388,16 @@ export default function ReportRenderer({
 
   return (
 
-    <>
+    <div className="rounded-3xl bg-white p-10 text-black">
 
       {
         blocks
-        .filter(
-          block =>
-            block !== "header"
-        )
         .map(
           renderBlock
         )
       }
 
-    </>
+    </div>
 
   );
 

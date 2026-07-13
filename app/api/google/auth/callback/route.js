@@ -34,7 +34,7 @@ export async function GET(request) {
     if (!code) {
 
       return NextResponse.redirect(
-        `${BASE_URL}/settings/connections/business-profiles?error=no_code`
+        `${BASE_URL}/settings/connections/business-profiles?status=error`
       );
     }
 
@@ -50,7 +50,7 @@ export async function GET(request) {
 
     const response =
       NextResponse.redirect(
-        `${BASE_URL}/settings/connections/business-profiles`
+        `${BASE_URL}/settings/connections/business-profiles?status=connected`
       );
 
     const credential =
@@ -154,7 +154,7 @@ export async function GET(request) {
     console.error(error);
 
     return NextResponse.redirect(
-      `${BASE_URL}/settings/connections/business-profiles?error=oauth_failed`
+      `${BASE_URL}/settings/connections/business-profiles?status=error`
     );
   }
 }

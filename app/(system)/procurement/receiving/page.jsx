@@ -11,11 +11,16 @@ import {
 
 export default function ReceivingPage() {
 
-  const tenant =
+  const businessContext =
     useBusinessContext();
 
-  const tenantId =
+  const organizationId =
+    businessContext?.organization_id ||
     businessContext?.organization?.id;
+
+  const entityId =
+    businessContext?.entity_id ||
+    businessContext?.entity?.id;
 
   const [
     purchaseOrders,
@@ -38,8 +43,11 @@ export default function ReceivingPage() {
 
           body: JSON.stringify({
 
-            tenant_id:
-              tenantId,
+            organization_id:
+              organizationId,
+
+            entity_id:
+              entityId,
 
           }),
 
@@ -73,6 +81,12 @@ export default function ReceivingPage() {
 
           purchase_order_id:
             id,
+
+          organization_id:
+            organizationId,
+
+          entity_id:
+            entityId,
 
           received_by:
             "WAREHOUSE",

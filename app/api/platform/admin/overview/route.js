@@ -10,7 +10,7 @@ export async function GET() {
     .select("*");
 
   const { data: events } = await supabaseAdmin
-    .from("tenant_events")
+    .from("organization_events")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(100);

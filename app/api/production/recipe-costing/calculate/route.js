@@ -9,10 +9,16 @@ export async function POST(request) {
 
     const result =
       await calculateRecipeCost({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+        entityId:
+          body.entityId ||
+          body.entity_id ||
+          null,
         recipeId:
-          body.recipeId,
+          body.recipeId ||
+          body.recipe_id,
         laborCost:
           body.laborCost,
         overheadCost:

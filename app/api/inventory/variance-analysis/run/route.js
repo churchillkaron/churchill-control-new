@@ -9,14 +9,21 @@ export async function POST(request) {
 
     const analysis =
       await runVarianceAnalysis({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+        entityId:
+          body.entityId ||
+          body.entity_id,
         itemId:
-          body.itemId,
+          body.itemId ||
+          body.item_id,
         varianceQuantity:
-          body.varianceQuantity,
+          body.varianceQuantity ||
+          body.variance_quantity,
         varianceValue:
-          body.varianceValue,
+          body.varianceValue ||
+          body.variance_value,
       });
 
     return NextResponse.json({

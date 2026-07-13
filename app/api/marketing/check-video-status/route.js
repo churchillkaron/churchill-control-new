@@ -36,29 +36,10 @@ export async function POST(
     // GET RUNWAY STATUS
     // =====================================
 
-    const response =
-      await fetch(
-
-        `https://api.dev.runwayml.com/v1/tasks/${videoJobId}`,
-
-        {
-
-          headers: {
-
-            Authorization:
-              `Bearer ${process.env.RUNWAY_API_KEY}`,
-
-            "X-Runway-Version":
-              "2024-11-06",
-
-          },
-
-        }
-
-      );
-
     const result =
-      await response.json();
+      await getRunwayTaskStatus(
+        videoJobId
+      );
 
     if (process.env.NODE_ENV !== "production") console.log(
       "RUNWAY STATUS CHECK:",

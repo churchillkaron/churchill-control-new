@@ -12,6 +12,22 @@ export const dynamic =
   "force-dynamic";
 
 
+function cleanValue(value){
+  const normalized =
+    String(value ?? "").trim();
+
+  if (
+    !normalized ||
+    normalized === "undefined" ||
+    normalized === "null"
+  ) {
+    return null;
+  }
+
+  return normalized;
+}
+
+
 export async function POST(request){
 
   try {
@@ -19,22 +35,47 @@ export async function POST(request){
     const body =
       await request.json();
 
+    const organizationId =
+      cleanValue(
+        body.organization_id ||
+        body.organizationId
+      );
+
+    if (!organizationId) {
+      return NextResponse.json(
+        {
+          success:false,
+          error:"organization_id required",
+        },
+        {
+          status:400,
+        }
+      );
+    }
+
 
     const payment =
       await PaymentExecutionRuntime
         .createPayment({
 
           organizationId:
-            body.organization_id,
+            organizationId,
 
           entityId:
-            body.entity_id,
+            cleanValue(
+              body.entity_id ||
+              body.entityId
+            ),
 
           partyId:
-            body.party_id,
+            cleanValue(
+              body.party_id ||
+              body.partyId
+            ),
 
           method:
-            body.payment_method,
+            body.payment_method ||
+            body.paymentMethod,
 
           country:
             body.country,

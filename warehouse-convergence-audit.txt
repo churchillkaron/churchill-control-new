@@ -1,0 +1,152 @@
+====================================================================
+WAREHOUSE CONVERGENCE AUDIT
+====================================================================
+
+================ WAREHOUSE TABLES ====================
+app/api/inventory/warehouses/route.js:23:      .from("inventory_warehouses")
+app/api/inventory/warehouses/route.js:70:      .from("inventory_warehouses")
+app/api/inventory/locations/route.js:23:      .from("inventory_locations")
+app/api/inventory/locations/route.js:70:      .from("inventory_locations")
+
+================ INVENTORY MOVEMENTS ====================
+lib/inventory/ledger/capabilities/createInventoryMovement.js:1:export function createInventoryMovement() {
+lib/inventory/ledger/capabilities/updateStockLedger.js:35:export async function updateStockLedger({
+lib/inventory/ledger/capabilities/updateStockLedger.js:68:      .from("inventory_movements")
+lib/inventory/ledger/capabilities/updateStockLedger.js:127:      .from("inventory_ledger")
+lib/inventory/movements/createInventoryMovement.js:3:import { updateStockLedger } from "@/lib/inventory/ledger/capabilities/updateStockLedger";
+lib/inventory/movements/createInventoryMovement.js:37:export async function createInventoryMovement({
+lib/inventory/movements/createInventoryMovement.js:135:      .from("inventory_movements")
+lib/inventory/movements/createInventoryMovement.js:190:    await updateStockLedger({
+lib/inventory/spoilage/workflows/processAutoSpoilage.js:106:          "inventory_ledger"
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js:28:        "inventory_ledger"
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:29:        "inventory_ledger"
+lib/inventory/stock-count/finalizeStockCount.js:2:import { createInventoryMovement } from "@/lib/inventory/movements/createInventoryMovement";
+lib/inventory/stock-count/finalizeStockCount.js:76:      await createInventoryMovement({
+lib/procurement/replenishment/capabilities/generateConsumptionForecast.js:48:        "inventory_ledger"
+lib/procurement/receiving/receivePurchaseOrder.js:5:import { createInventoryMovement } from "@/lib/inventory/movements/createInventoryMovement";
+lib/procurement/receiving/receivePurchaseOrder.js:118:          await createInventoryMovement({
+lib/procurement/receiving/receivePurchaseOrder.js:155:      inventory_movements: movements,
+app/api/inventory/stock-ledger/movement/route.js:3:import { createInventoryMovement } from "@/lib/inventory/movements/createInventoryMovement";
+app/api/inventory/stock-ledger/movement/route.js:13:      await createInventoryMovement({
+app/api/inventory/stock-ledger/valuation/route.js:3:import { updateStockLedger } from "@/lib/inventory/ledger/capabilities/updateStockLedger";
+app/api/inventory/stock-ledger/valuation/route.js:11:      await updateStockLedger({
+app/api/inventory/engine/consume/route.js:3:import { createInventoryMovement } from "@/lib/inventory/movements/createInventoryMovement";
+app/api/inventory/engine/consume/route.js:29:        await createInventoryMovement({
+
+================ RECEIVING ====================
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:47:    .from("goods_receipts")
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:51:      goods_receipt_items (*)
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:75:      receipt.goods_receipt_items || []
+lib/procurement/receiving/index.js:1:export * from "./receivePurchaseOrder";
+lib/procurement/receiving/utils/getNextGRNNumber.js:19:    .from("goods_receipts")
+lib/procurement/receiving/receivePurchaseOrder.js:7:export default async function receivePurchaseOrder({
+lib/procurement/receiving/receivePurchaseOrder.js:53:        .from("goods_receipts")
+lib/procurement/receiving/receivePurchaseOrder.js:90:          .from("goods_receipt_items")
+lib/procurement/receiving/receivePurchaseOrder.js:128:            sourceDocument: "goods_receipts",
+app/api/procurement/receiving/route.js:13:import receivePurchaseOrder from "@/lib/procurement/receiving/receivePurchaseOrder";
+app/api/procurement/receiving/route.js:49:      await receivePurchaseOrder({
+app/api/procurement/receiving/list/route.js:51:      .from("goods_receipts")
+app/api/procurement/receiving/list/route.js:155:      .from("goods_receipts")
+app/api/procurement/goods-receipts/receive/route.js:3:import receivePurchaseOrder from "@/lib/procurement/receiving/receivePurchaseOrder";
+app/api/procurement/goods-receipts/receive/route.js:11:      await receivePurchaseOrder({
+
+================ STOCK COUNT ====================
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js:48:  const variance =
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js:52:  const varianceValue =
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js:53:    variance *
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js:62:        "inventory_reconciliation_variances"
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js:72:        variance_quantity:
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js:73:          variance,
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js:74:        variance_value:
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js:75:          varianceValue,
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:56:  const variance =
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:60:  const varianceValue =
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:61:    variance * averageCost;
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:65:      .from("stock_count_items")
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:75:        variance_quantity:
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:76:          variance,
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:77:        variance_value:
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:78:          varianceValue,
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:9:  varianceQuantity,
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:10:  varianceValue,
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:30:      Number(varianceValue || 0)
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:38:      Number(varianceValue || 0)
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:45:    varianceQuantity > 0
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:52:        "inventory_variance_analysis"
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:58:        variance_type: type,
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:59:        variance_quantity:
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:60:          varianceQuantity,
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:61:        variance_value:
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js:62:          varianceValue,
+lib/inventory/stock-count/finalizeStockCount.js:32:      .from("stock_count_items")
+lib/inventory/stock-count/finalizeStockCount.js:45:    const varianceQuantity =
+lib/inventory/stock-count/finalizeStockCount.js:46:      Number(item.variance_quantity || 0);
+lib/inventory/stock-count/finalizeStockCount.js:48:    if (varianceQuantity === 0) {
+lib/inventory/stock-count/finalizeStockCount.js:53:      varianceQuantity > 0
+lib/inventory/stock-count/finalizeStockCount.js:59:        .from("inventory_valuation_snapshots")
+lib/inventory/stock-count/finalizeStockCount.js:81:        quantity: Math.abs(varianceQuantity),
+lib/inventory/stock-count/finalizeStockCount.js:86:        sourceDocument: "stock_count_sessions",
+lib/inventory/stock-count/finalizeStockCount.js:98:      .from("stock_count_sessions")
+lib/inventory/valuation/capabilities/calculateRecipeCost.js:36:          "inventory_valuation_snapshots"
+lib/inventory/valuation/capabilities/runWeightedAverageValuation.js:65:      .from("inventory_valuation_snapshots")
+app/api/inventory/variance-analysis/run/route.js:21:        varianceQuantity:
+app/api/inventory/variance-analysis/run/route.js:22:          body.varianceQuantity ||
+app/api/inventory/variance-analysis/run/route.js:23:          body.variance_quantity,
+app/api/inventory/variance-analysis/run/route.js:24:        varianceValue:
+app/api/inventory/variance-analysis/run/route.js:25:          body.varianceValue ||
+app/api/inventory/variance-analysis/run/route.js:26:          body.variance_value,
+
+================ TRANSFER ====================
+
+================ ITEM MASTER ====================
+lib/procurement/replenishment/workflows/analyzeReplenishmentNeeds.js:29:      data: inventory_items,
+lib/procurement/replenishment/workflows/analyzeReplenishmentNeeds.js:32:      .from("inventory_items")
+lib/procurement/replenishment/workflows/analyzeReplenishmentNeeds.js:52:    for (const item of inventory_items || []) {
+lib/procurement/recommendations/capabilities/generatePurchaseRecommendation.js:34:      .from("inventory_items")
+lib/inventory/ledger/capabilities/updateStockLedger.js:106:      .from("inventory_items")
+lib/inventory/ledger/capabilities/updateStockLedger.js:119:    .from("inventory_items")
+lib/inventory/runtime/generateInventoryAlerts.js:19:      .from("inventory_items")
+lib/inventory/runtime/generateInventoryAlerts.js:32:      data: inventory_items,
+lib/inventory/runtime/generateInventoryAlerts.js:68:    for (const item of inventory_items || []) {
+lib/inventory/movements/capabilities/checkLowStock.js:25:    .from('inventory_items')
+lib/inventory/valuation/capabilities/calculateRecipeCost.js:11:  inventory_items,
+lib/inventory/valuation/capabilities/calculateRecipeCost.js:32:  for (const item of inventory_items || []) {
+lib/production/createRecipe.js:43:    .from('inventory_items')
+lib/production/waste/workflows/logWaste.js:37:    .from("inventory_items")
+lib/production/batches/documents/createBatchProduction.js:73:          .from("inventory_items")
+app/api/inventory/units/route.js:23:      .from("inventory_units")
+app/api/inventory/units/route.js:70:      .from("inventory_units")
+app/api/inventory/items/route.js:23:      .from("inventory_items")
+app/api/inventory/items/route.js:73:      .from("inventory_items")
+app/api/inventory/categories/route.js:23:      .from("inventory_categories")
+app/api/inventory/categories/route.js:70:      .from("inventory_categories")
+
+================ ROUTES ====================
+app/api/inventory/categories/route.js
+app/api/inventory/engine/consume/route.js
+app/api/inventory/expiry/route.js
+app/api/inventory/items/route.js
+app/api/inventory/locations/route.js
+app/api/inventory/monitoring/route.js
+app/api/inventory/stock-count/finalize/route.js
+app/api/inventory/stock-ledger/movement/route.js
+app/api/inventory/stock-ledger/reconciliation/route.js
+app/api/inventory/stock-ledger/valuation/route.js
+app/api/inventory/theoretical-vs-actual/run/route.js
+app/api/inventory/units/route.js
+app/api/inventory/variance-analysis/run/route.js
+app/api/inventory/warehouses/route.js
+app/api/procurement/goods-receipts/receive/route.js
+app/api/procurement/purchase-orders/list/route.js
+app/api/procurement/purchase-orders/route.js
+app/api/procurement/purchase-requests/create/route.js
+app/api/procurement/receipts/update-status/route.js
+app/api/procurement/receiving/list/route.js
+app/api/procurement/receiving/route.js
+app/api/procurement/receiving/update-status/route.js
+app/api/procurement/replenishment/route.js
+app/api/procurement/request/create/route.js
+app/api/procurement/suppliers/route.js
+app/api/procurement/three-way-match/run/route.js
+app/api/procurement/vendors/list/route.js
+app/api/procurement/vendors/route.js

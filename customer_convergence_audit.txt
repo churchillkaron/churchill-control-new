@@ -1,0 +1,1049 @@
+========================================
+CUSTOMER CONVERGENCE AUDIT
+========================================
+
+1. CUSTOMER REGISTRY
+========================================
+152-        {
+153-          id: "sales",
+154-          name: "Sales",
+155-          description: "Orders, quotes, contracts, pricing and pipeline execution.",
+156-          order: 10,
+157-          items: [
+158-            { id: "sales_orders", name: "Sales Orders", route: "/commercial/sales/orders", description: "Create and manage customer orders.", order: 10, status: "planned" },
+159-            { id: "quotes", name: "Quotes", route: "/commercial/sales/quotes", description: "Prepare and track customer quotes.", order: 20, status: "planned" },
+160-            { id: "contracts", name: "Contracts", route: "/commercial/sales/contracts", description: "Manage customer contracts and commercial terms.", order: 30, status: "planned" },
+161-            { id: "pricing", name: "Pricing", route: "/commercial/sales/pricing", description: "Maintain prices, discounts and commercial rules.", order: 40, status: "planned" },
+162-            { id: "opportunities", name: "Opportunities", route: "/commercial/sales/opportunities", description: "Manage pipeline and opportunities.", order: 50, status: "planned" },
+163-          ],
+164-        },
+165-        {
+166-          id: "customer_management",
+167-          name: "Customer Management",
+168-          description: "Customer records, relationships, timeline and communication.",
+169-          order: 20,
+170-          items: [
+171-            { 
+172:  id: "customers",
+173-  name: "Customers",
+174-  route: "/commercial/customers",
+175-  description: "Manage customer records.",
+176-  order: 10,
+177-  status: "active",
+178-  type:"business-workspace",
+179-  document:"Customer",
+180-
+181-  create:{
+182-    enabled:true,
+183-    type:"document",
+184-    engine:"create",
+185-    id:"customer",
+186-    capability:"customer",
+187-    action:"createCustomer",
+188-    form:"customer",
+189-    label:"+ Customer",
+190-    title:"Customer"
+191-  },
+192-
+193-  runtime:{
+194-    renderer:"MasterDataRuntimeWorkCenter",
+195-    listApi:"/api/finance/customers"
+196-  },
+197-
+198-  data:{
+199-    capability:"customer",
+200-    repository:"CustomerRepository",
+201-    applicationService:"createCustomer"
+202-  },
+203-
+204-  ui:{
+205-    api:"/api/finance/customers",
+206-    rowsKey:"customers",
+207-    search:[
+208-      "customer_name",
+209-      "customer_email",
+210-      "customer_phone",
+211-      "tax_id"
+212-    ]
+213-  }
+214-},
+215-            { id: "accounts", name: "Accounts", route: "/commercial/customers/accounts", description: "Manage customer accounts.", order: 20, status: "planned" },
+216-            { id: "contacts", name: "Contacts", route: "/commercial/customers/contacts", description: "Manage contacts and profiles.", order: 30, status: "planned" },
+217-            { id: "leads", name: "Leads", route: "/commercial/customers/leads", description: "Track leads and opportunities.", order: 40, status: "planned" },
+218-            { id: "loyalty", name: "Loyalty", route: "/commercial/customers/loyalty", description: "Manage loyalty programs.", order: 50, status: "planned" },
+219-            { id: "cases", name: "Cases", route: "/commercial/customers/cases", description: "Manage customer support cases.", order: 60, status: "planned" },
+220-          ],
+221-        },
+222-        {
+223-          id: "marketing",
+224-          name: "Marketing",
+225-          description: "Campaigns, assets, publishing, queue and growth execution.",
+226-          order: 30,
+227-          items: [
+228-            { id: "campaigns", name: "Campaigns", route: "/commercial/marketing", description: "Plan and run marketing campaigns.", order: 10, status: "active" },
+229-            { id: "marketing_dashboard", name: "Dashboard", route: "/commercial/marketing/dashboard", description: "Review marketing performance.", order: 20, status: "active" },
+230-            {
+231-              id: "design_studio",
+232-              name: "Design Studio",
+233-              route: "/commercial/design",
+234-              description: "Creative operating system for missions, briefs, research, strategy, concepts, storyboards, scenes, timeline, rendering and publishing.",
+235-              order: 30,
+236-              status: "active",
+237-              type: "operational-workspace",
+238-              layout: "studio",
+239-              renderer: "CreativeWorkspaceRenderer",
+240-              runtime: "resolveCreativeStudioRuntime",
+241-              document: "CreativeMission",
+242-              defaultWorkspace: "mission_control",
+243-              widgets: [
+244-                "mission_overview",
+245-                "mission_lifecycle",
+246-                "project_pipeline",
+247-                "cost_control",
+248-                "production_queue",
+249-                "production_monitor",
+250-                "ai_director",
+251-                "recent_assets",
+252-                "render_queue",
+--
+1506-              ],
+1507-rowMenu:[
+1508-                { id: "open", type: "open" },
+1509-                { id: "edit", type: "edit" },
+1510-                { id: "duplicate", type: "duplicate" },
+1511-                { id: "history", type: "history" },
+1512-                { id: "attachments", type: "attachments" },
+1513-                { id: "delete", type: "delete" }
+1514-              ],
+1515- api: "/api/finance/dimensions/runtime", rowsKey: "costCenters",  search: ["name","code","type"], name: r => r.name || "Unnamed Dimension", subtitle: r => [r.type || "-", r.code || "-"] }, runtime:{renderer:"MasterDataRuntimeWorkCenter",listApi:"/api/finance/dimensions/runtime"}, data:{capability:"cost_center"} },
+1516-            { id: "opening_balances", name: "Opening Balances", route: "/finance/opening-balances", description: "Load opening balances for new entities and clients.", order: 70, type: "business-workspace", document: "OpeningBalance", status: "planned" },
+1517-            { id: "recurring_journals", name: "Recurring Journals", route: "/finance/recurring-journals", description: "Manage recurring journals and scheduled postings.", order: 80, type: "business-workspace", document: "RecurringJournal", status: "planned" }
+1518-          ],
+1519-        },
+1520-        {
+1521-          id: "order_to_cash",
+1522-          name: "Order to Cash",
+1523-          description: "Customers, invoices, receivables, collections and revenue.",
+1524-          order: 20,
+1525-          items: [
+1526:            { id: "customers", name: "Customers", route: "/finance/customers", description: "Manage finance customer records.", order: 10, type: "business-workspace", document: "Customer", create:{
+1527-enabled:true,
+1528-type:"document",
+1529-engine:"create",
+1530-id:"customer",
+1531-capability:"customer",
+1532-action:"createCustomer",
+1533-form:"customer",
+1534-label:"+ Customer",
+1535-title:"Customer"
+1536-},
+1537-ui:{
+1538-topMenu:[
+1539-                { id: "new", type: "create" },
+1540-                { id: "reports", type: "reports" },
+1541-                { id: "export", type: "export" },
+1542-                { id: "import", type: "import" },
+1543-                { id: "automation", type: "automation" },
+1544-                { id: "ai", type: "ai" },
+1545-                { id: "settings", type: "settings" }
+1546-              ],
+1547-rowMenu:[
+1548-                { id: "open", type: "open" },
+1549-                { id: "edit", type: "edit" },
+1550-                { id: "duplicate", type: "duplicate" },
+1551-                { id: "history", type: "history" },
+1552-                { id: "attachments", type: "attachments" },
+1553-                { id: "delete", type: "delete" }
+1554-              ],
+1555- api: "/api/finance/customers", rowsKey: "customers",  search: ["customer_name","customer_email","customer_phone","tax_id","tier","status"], name: r => r.customer_name || r.name || "Unnamed Customer", subtitle: r => [r.customer_email || r.email || "-", r.customer_phone || r.phone || "-"] },
+1556-
+1557-runtime:{
+1558-  renderer:"MasterDataRuntimeWorkCenter",
+1559-  listApi:"/api/finance/customers"
+1560-},
+1561-
+1562-data:{
+1563-  capability:"customer",
+1564-  repository:"CustomerRepository",
+1565-  applicationService:"createCustomer"
+1566-},
+1567-
+1568-actions: [
+1569-  {
+1570-    type:"capability",
+1571-    label:"Create Invoice",
+1572-    capability:"accounts_receivable",
+1573-    action:"CreateCustomerInvoice",
+1574-    form:"customer-invoice"
+1575-  },
+1576-  {
+1577-    type:"capability",
+1578-    label:"Create Payment",
+1579-    capability:"accounts_receivable",
+1580-    action:"postCustomerPayment"
+1581-  },
+1582-  {
+1583-    type:"capability",
+1584-    label:"View Statement",
+1585-    capability:"finance.customer_statement.view"
+1586-  },
+1587-  {
+1588-    type:"edit",
+1589-    label:"Edit Customer"
+1590-  },
+1591-  {
+1592-    type:"archive",
+1593-    label:"Archive Customer"
+1594-  }
+1595-] },
+1596-            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices.", order: 20, type: "business-workspace", document: "CustomerInvoice", launchFrom: ["customers","accounts_receivable","commercial/customers"], create:{
+1597-  enabled:true,
+1598-
+1599-  engine:"create",
+1600-
+1601-  id:"customer_invoice",
+1602-
+1603-  label:"+ Invoice",
+1604-
+1605-  title:"Invoice",
+1606-
+
+2. CUSTOMER CAPABILITIES
+========================================
+lib/capability-registry/capabilities/customer.js:20:      "customer.create",
+lib/capability-registry/capabilities/customer.js:21:      "customer.update"
+lib/platform/forms/FormRegistry.js:205:  "customer-invoice": {
+lib/platform/registry/erpRegistry.before-create-contract.js:277:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/ar/invoices", description: "Create and review customer invoices.", order: 20, status: "active" },
+lib/platform/registry/erpRegistry.before-create-contract.js:278:            { id: "customer_payments", name: "Customer Payments", route: "/finance/ar/payments", description: "Receive and allocate customer payments.", order: 30, status: "active" },
+lib/platform/registry/erpRegistry.before-create-contract.js:979:                }, search: ["customer_name","customer_email","customer_phone","tax_id","tier","status"], name: r => r.customer_name || r.name || "Unnamed Customer", subtitle: r => [r.customer_email || r.email || "-", r.customer_phone || r.phone || "-"] }, actions: [ { type: "section", label: "Sales" }, { label: "New Invoice", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/customer-invoices/new?customerId=${row.id}` }, { label: "Invoices", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/customer-invoices?customerId=${row.id}` }, { label: "New Payment", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/customer-payments/new?customerId=${row.id}` }, { type: "section", label: "Accounting" }, { label: "Statement", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/customer-statements?customerId=${row.id}` }, { label: "Collections", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/collections?customerId=${row.id}` }, { type: "section", label: "Maintenance" }, { label: "Edit Customer", type: "select" }, { label: "Archive Customer", danger: true } ] },
+lib/platform/registry/erpRegistry.before-create-contract.js:980:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices.", order: 20, type: "business-workspace", document: "CustomerInvoice", launchFrom: ["customers","accounts_receivable","commercial/customers"], ui:{ api: "/api/finance/customer-invoices/list", rowsKey: "invoices", primaryAction: {
+lib/platform/registry/erpRegistry.before-create-contract.js:991:            { id: "customer_payments", name: "Customer Payments", route: "/finance/customer-payments", description: "Receive and allocate customer payments.", order: 40, type: "business-workspace", document: "CustomerPayment", launchFrom: ["customers","accounts_receivable"], ui:{ api: "/api/finance/customer-payments/list", rowsKey: "payments", primaryAction: {
+lib/platform/registry/erpRegistry.js:320:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/ar/invoices", description: "Create and review customer invoices.", order: 20, status: "active" },
+lib/platform/registry/erpRegistry.js:321:            { id: "customer_payments", name: "Customer Payments", route: "/finance/ar/payments", description: "Receive and allocate customer payments.", order: 30, status: "active" },
+lib/platform/registry/erpRegistry.js:1574:    form:"customer-invoice"
+lib/platform/registry/erpRegistry.js:1596:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices.", order: 20, type: "business-workspace", document: "CustomerInvoice", launchFrom: ["customers","accounts_receivable","commercial/customers"], create:{
+lib/platform/registry/erpRegistry.js:1601:  id:"customer_invoice",
+lib/platform/registry/erpRegistry.js:1613:  form:"customer-invoice"
+lib/platform/registry/erpRegistry.js:1641: api: "/api/finance/customer-invoices/list", rowsKey: "invoices",  search: ["invoice_number","customer_name","status","due_date"], name: r => r.invoice_number || "Customer Invoice", subtitle: r => [r.customer_name || "-", r.status || "-"] } },
+lib/platform/registry/erpRegistry.js:1672:            { id: "customer_payments", name: "Customer Payments", route: "/finance/customer-payments", description: "Receive and allocate customer payments.", order: 40, type: "business-workspace", document: "CustomerPayment", launchFrom: ["customers","accounts_receivable"], create:{
+lib/platform/registry/erpRegistry.js:1695: api: "/api/finance/customer-payments/list", rowsKey: "payments",  search: ["payment_number","customer_name","status","method"], name: r => r.payment_number || "Customer Payment", subtitle: r => [r.customer_name || "-", r.status || "-"] } },
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:28:        .from("customer_invoices")
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:62:        .from("customer_invoice_lines")
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:65:          "customer_invoice_id",
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:144:          payload.customer.payment_terms || null,
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:11:  customer_invoice_id,
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:28:  if (!customer_invoice_id) {
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:29:    throw new Error("customer_invoice_id required");
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:47:    .eq("customer_invoice_id", customer_invoice_id)
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:70:    .from("customer_payments")
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:75:      customer_invoice_id,
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:108:    .from("customer_invoices")
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:113:    .eq("id", customer_invoice_id)
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:146:        "customer_payment",
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:109:      .from("customer_invoices")
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:155:      customer_invoice_id:
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:177:      .from("customer_invoice_lines")
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:200:        customer_invoice_id:
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:246:        "customer_invoice",
+lib/finance/runtime/financeCapabilityRegistry.js:8:      "customer_invoice",
+lib/finance/runtime/financeCapabilityRegistry.js:9:      "customer_payment",
+lib/finance/runtime/financeCapabilityRegistry.js:39:      "customer_payment",
+lib/finance/documents/financeDocumentRegistry.js:22:    id: "customer_invoice",
+lib/finance/documents/financeDocumentRegistry.js:42:    id: "customer_payment",
+lib/customer/processCustomerVisit.js:335:      customer_created: created,
+app/api/finance/customer-payments/list/route.js:35:        .from("customer_payments")
+app/api/finance/customer-invoices/route.js:16:      .from("customer_invoices")
+app/api/finance/customer-invoices/list/route.js:35:        .from("customer_invoices")
+app/api/finance/ar/runtime/route.js:41:        .from("customer_invoices")
+app/api/finance/ar/runtime/route.js:63:        .from("customer_payments")
+components/workspace/master-data/MasterDataWorkCenter.jsx:293:    if (moduleKey === "customer_invoices") {
+components/workspace/master-data/MasterDataWorkCenter.jsx:354:                moduleKey === "customer_invoices"
+components/workspace/engines/DynamicCustomerField.jsx:179:          customer.payment_terms ||
+
+3. CUSTOMER FORMS
+========================================
+lib/platform/workspaces/restaurantWorkspace.js:11:      "Monitor revenue, orders, customer activity, service performance, stock, payroll and operational risk across the restaurant.",
+lib/platform/registry/erpRegistry.before-create-contract.js:1343:          description: "CRM, ecommerce, accounting and customer platforms.",
+lib/platform/registry/erpRegistry.js:3467:          description: "CRM, ecommerce, accounting and customer platforms.",
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:6:  mapCustomerInvoiceFormPayload,
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:176:    mapCustomerInvoiceFormPayload({
+lib/finance/accounts-receivable/mappers/customerInvoiceMapper.js:1:export function mapCustomerInvoiceFormPayload({
+app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx:132:  const [customerForm, setCustomerForm] = useState({
+app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx:377:    setCustomerForm({ name: "", phone: "", email: "" });
+app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx:979:                setCustomerForm({
+app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx:991:                setCustomerForm({
+app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx:1003:                setCustomerForm({
+components/workspace/master-data/MasterDataWorkCenter.jsx:18:  mapCustomerInvoiceFormPayload,
+components/workspace/master-data/MasterDataWorkCenter.jsx:355:                  ? mapCustomerInvoiceFormPayload({
+
+4. CUSTOMER ACTIONS
+========================================
+lib/platform/registry/erpRegistry.before-create-contract.js:979:                }, search: ["customer_name","customer_email","customer_phone","tax_id","tier","status"], name: r => r.customer_name || r.name || "Unnamed Customer", subtitle: r => [r.customer_email || r.email || "-", r.customer_phone || r.phone || "-"] }, actions: [ { type: "section", label: "Sales" }, { label: "New Invoice", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/customer-invoices/new?customerId=${row.id}` }, { label: "Invoices", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/customer-invoices?customerId=${row.id}` }, { label: "New Payment", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/customer-payments/new?customerId=${row.id}` }, { type: "section", label: "Accounting" }, { label: "Statement", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/customer-statements?customerId=${row.id}` }, { label: "Collections", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/collections?customerId=${row.id}` }, { type: "section", label: "Maintenance" }, { label: "Edit Customer", type: "select" }, { label: "Archive Customer", danger: true } ] },
+lib/platform/registry/erpRegistry.before-create-contract.js:1013:                }, search: ["vendor_name","name","legal_name","vendor_email","email","vendor_phone","phone","tax_id","category","payment_terms","status"], name: r => r.vendor_name || r.name || r.legal_name || "Unnamed Vendor", subtitle: r => [r.vendor_code || r.code || "-", r.vendor_email || r.email || "-", r.vendor_phone || r.phone || "-"] }, actions: [ { type: "section", label: "Purchasing" }, { label: "New Bill", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/vendor-bills/new?vendorId=${row.id}` }, { label: "New Payment", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/vendor-payments/new?vendorId=${row.id}` }, { label: "Statement", href: ({ organizationId, row }) => `/workspace/${organizationId}/finance/vendor-statements?vendorId=${row.id}` }, { type: "section", label: "Maintenance" }, { label: "Edit Vendor", type: "select" }, { label: "Archive Vendor", danger: true } ] },
+lib/platform/registry/erpRegistry.js:1589:    label:"Edit Customer"
+lib/platform/registry/erpRegistry.js:1593:    label:"Archive Customer"
+app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx:971:            Create Customer
+
+5. FINANCE CUSTOMER API
+========================================
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+
+  const organizationId =
+    searchParams.get("organizationId") ||
+    searchParams.get("organization_id");
+
+  const { data, error } = await supabaseAdmin
+    .from("customer_loyalty_accounts")
+    .select("*")
+    .eq("organization_id", organizationId);
+
+  return NextResponse.json({
+    success: !error,
+    organizationIdReceived: organizationId,
+    rowCount: data?.length || 0,
+    rows: data || [],
+    error,
+  });
+}
+
+6. COMMERCIAL CUSTOMER API
+========================================
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+import {
+  CustomerIdentityRuntime,
+} from "@/lib/platform/service-runtime/identity/runtime/CustomerIdentityRuntime";
+
+export async function POST(req) {
+  try {
+    const body = await req.json();
+
+    const organizationId =
+      body.organizationId ||
+      body.organization_id;
+
+    if (!organizationId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "organizationId required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const {
+      customer_name,
+      customer_phone,
+      customer_email,
+      birthday,
+      notes,
+
+      provider_id,
+
+      external_id,
+
+      identity_type,
+
+    } = body;
+
+    if (!customer_name) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "customer_name required",
+        },
+        { status: 400 }
+      );
+    }
+
+    let query =
+      supabaseAdmin
+        .from("customer_loyalty_accounts")
+        .select("*")
+        .eq("organization_id", organizationId);
+
+    if (customer_phone) {
+      query = query.eq("customer_phone", customer_phone);
+    } else if (customer_email) {
+      query = query.eq("customer_email", customer_email);
+    } else {
+      query = query.eq("customer_name", customer_name);
+    }
+
+    const { data: existing, error: existingError } =
+      await query.maybeSingle();
+
+    if (existingError) {
+      throw existingError;
+    }
+
+    if (existing) {
+      const { data, error } =
+        await supabaseAdmin
+          .from("customer_loyalty_accounts")
+          .update({
+            customer_name,
+            customer_phone,
+            customer_email,
+            birthday,
+            notes,
+          })
+          .eq("id", existing.id)
+          .select()
+          .single();
+
+      if (error) throw error;
+
+      if (
+        provider_id &&
+        external_id
+      ) {
+
+        await CustomerIdentityRuntime.link({
+
+          organization_id:
+            organizationId,
+
+          customer_id:
+            data.id,
+
+          provider_id,
+
+          external_id,
+
+          identity_type:
+            identity_type ||
+            "CUSTOMER",
+
+        }).catch(() => null);
+
+      }
+
+
+      return NextResponse.json({
+        success: true,
+        customer: data,
+      });
+    }
+
+    const { data, error } =
+      await supabaseAdmin
+        .from("customer_loyalty_accounts")
+        .insert({
+          organization_id: organizationId,
+
+          customer_name,
+          customer_phone,
+          customer_email,
+          birthday,
+          notes,
+
+          loyalty_points: 0,
+          total_spent: 0,
+          visit_count: 0,
+          tier: "REGULAR",
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    if (
+      provider_id &&
+      external_id
+    ) {
+
+      await CustomerIdentityRuntime.link({
+
+        organization_id:
+          organizationId,
+
+        customer_id:
+          data.id,
+
+        provider_id,
+
+        external_id,
+
+        identity_type:
+          identity_type ||
+          "CUSTOMER",
+
+      }).catch(() => null);
+
+    }
+
+
+    return NextResponse.json({
+      success: true,
+      customer: data,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+7. CUSTOMER DATABASE REFERENCES
+========================================
+lib/restaurant/workflows/RestaurantService/execute.js:32:          payload.customerId || payload.customer_id || null,
+lib/restaurant/workflows/RestaurantService/execute.js:62:          session.customer_id || session.customerId || null,
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:60:          customer_id: state.customerId || state.customer_id || null,
+lib/restaurant/repositories/orders/RestaurantOrderRepository.js:94:          customer_id: state.customerId || null,
+lib/restaurant/orders/UpdateQuantity/execute.js:24:    customerId: order.customer_id,
+lib/restaurant/orders/RemoveItem/execute.js:24:    customerId: order.customer_id,
+lib/restaurant/orders/ApplyDiscount/execute.js:24:    customerId: order.customer_id,
+lib/restaurant/orders/repositories/RestaurantOrderMapper.js:18:    customerId: order.customer_id,
+lib/restaurant/orders/CreateRestaurantOrder/rules.js:21:      payload.customer_id ||
+lib/restaurant/orders/SendToKitchen/rules.js:21:      payload.customer_id ||
+lib/restaurant/events/handlers/PaymentEventHandler.js:37:        customer_id:
+lib/restaurant/events/handlers/PaymentEventHandler.js:38:          payload.customer_id ||
+lib/restaurant/services/openTableSession.js:39:        customer_id: customerId ?? existing.customer_id,
+lib/restaurant/services/openTableSession.js:90:      customer_id: customerId,
+lib/restaurant/session/ChangeCustomer/rules.js:11:    payload.customer_id ||
+lib/restaurant/session/ChangeCustomer/repository.js:7:      customer_id: payload.customerId,
+lib/restaurant/session/OpenSession/audit.js:19:        customer_id: result?.customer_id || null,
+lib/restaurant/session/OpenSession/repository.js:8:    customerId: payload.customerId || payload.customer_id || null,
+lib/platform/orgScope.js:4: * Ensures full isolation across SaaS customers
+lib/platform/forms/FormRegistry.js:175:        name: "supplier_party_id",
+lib/platform/service-runtime/identity/runtime/CustomerIdentityRuntime.js:17:    customer_id = null,
+lib/platform/service-runtime/identity/runtime/CustomerIdentityRuntime.js:36:      customer_id,
+lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime.js:28:        Number(channel.customers || 0) > 0
+lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime.js:40:            `${channel.provider} generated ${channel.customers} customers and ${channel.revenue} revenue. Consider increasing investment.`,
+lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime.js:49:        Number(channel.customers || 0) === 0
+lib/platform/service-runtime/intelligence/runtime/ROIIntelligenceRuntime.js:52:          customers:
+lib/platform/service-runtime/intelligence/runtime/ROIIntelligenceRuntime.js:76:        event.customer_id
+lib/platform/service-runtime/intelligence/runtime/ROIIntelligenceRuntime.js:79:        summary[key].customers += 1;
+lib/platform/service-runtime/usage/documents/ServiceUsageRecord.js:35:    party_id:
+lib/platform/service-runtime/usage/documents/ServiceUsageRecord.js:36:      data.party_id || null,
+lib/platform/service-runtime/execution/ServiceExecutionRuntime.js:35:    party_id = null,
+lib/platform/service-runtime/execution/ServiceExecutionRuntime.js:126:      party_id,
+lib/platform/service-runtime/execution/ServiceExecutionRuntime.js:201:          party_id,
+lib/platform/service-runtime/attribution/runtime/AttributionRuntime.js:24:    customer_id = null,
+lib/platform/service-runtime/attribution/runtime/AttributionRuntime.js:57:      customer_id,
+lib/platform/service-runtime/wallet/documents/WalletTransaction.js:16:    party_id: data.party_id || null,
+lib/platform/service-runtime/events/runtime/ProviderEventRuntime.js:116:      customer_id:
+lib/platform/service-runtime/events/runtime/ProviderEventRuntime.js:117:        identity?.customer_id ||
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:95:      party_id:
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:96:        usage.party_id || null,
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:235:        party_id:
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:236:          usage.party_id || null,
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:342:        party_id:
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:343:          usage.party_id || null,
+lib/platform/industries/runtime/retail.js:14:    { id: "customers", name: "Customers" }
+lib/platform/industries/runtime/pestControl.js:13:    { id: "customers", name: "Customers" },
+lib/platform/read-model/resolveDetailReadModel.js:75:          "id,party_id"
+lib/platform/read-model/resolveDetailReadModel.js:86:          item => item.party_id
+lib/platform/read-model/resolveDetailReadModel.js:127:              partyMap[item.party_id] ||
+lib/platform/assignment/documents/Assignment.js:30:    assigned_party_id:
+lib/platform/workspaces/pestControlWorkspace.js:49:    "customers",
+lib/platform/workspaces/restaurantWorkspace.js:30:    "customers",
+lib/platform/registry/erpRegistry.before-create-contract.js:150:      description: "Manage sales, customers, marketing, reviews and revenue activity.",
+lib/platform/registry/erpRegistry.before-create-contract.js:171:            { id: "customers", name: "Customers", route: "/commercial/customers", description: "Manage customer records.", order: 10, status: "active" },
+lib/platform/registry/erpRegistry.before-create-contract.js:172:            { id: "accounts", name: "Accounts", route: "/commercial/customers/accounts", description: "Manage customer accounts.", order: 20, status: "planned" },
+lib/platform/registry/erpRegistry.before-create-contract.js:173:            { id: "contacts", name: "Contacts", route: "/commercial/customers/contacts", description: "Manage contacts and profiles.", order: 30, status: "planned" },
+lib/platform/registry/erpRegistry.before-create-contract.js:174:            { id: "leads", name: "Leads", route: "/commercial/customers/leads", description: "Track leads and opportunities.", order: 40, status: "planned" },
+lib/platform/registry/erpRegistry.before-create-contract.js:175:            { id: "loyalty", name: "Loyalty", route: "/commercial/customers/loyalty", description: "Manage loyalty programs.", order: 50, status: "planned" },
+lib/platform/registry/erpRegistry.before-create-contract.js:176:            { id: "cases", name: "Cases", route: "/commercial/customers/cases", description: "Manage customer support cases.", order: 60, status: "planned" },
+lib/platform/registry/erpRegistry.before-create-contract.js:974:            { id: "customers", name: "Customers", route: "/finance/customers", description: "Manage finance customer records.", order: 10, type: "business-workspace", document: "Customer", ui:{ api: "/api/finance/customers", rowsKey: "customers", primaryAction: {
+lib/platform/registry/erpRegistry.before-create-contract.js:980:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices.", order: 20, type: "business-workspace", document: "CustomerInvoice", launchFrom: ["customers","accounts_receivable","commercial/customers"], ui:{ api: "/api/finance/customer-invoices/list", rowsKey: "invoices", primaryAction: {
+lib/platform/registry/erpRegistry.before-create-contract.js:991:            { id: "customer_payments", name: "Customer Payments", route: "/finance/customer-payments", description: "Receive and allocate customer payments.", order: 40, type: "business-workspace", document: "CustomerPayment", launchFrom: ["customers","accounts_receivable"], ui:{ api: "/api/finance/customer-payments/list", rowsKey: "payments", primaryAction: {
+lib/platform/registry/erpRegistry.before-create-contract.js:1612:  if (id === "customers" || id === "crm") return "commercial";
+lib/platform/registry/erpRegistry.js:150:      description: "Manage sales, customers, marketing, reviews and revenue activity.",
+lib/platform/registry/erpRegistry.js:172:  id: "customers",
+lib/platform/registry/erpRegistry.js:174:  route: "/commercial/customers",
+lib/platform/registry/erpRegistry.js:195:    listApi:"/api/finance/customers"
+lib/platform/registry/erpRegistry.js:205:    api:"/api/finance/customers",
+lib/platform/registry/erpRegistry.js:206:    rowsKey:"customers",
+lib/platform/registry/erpRegistry.js:215:            { id: "accounts", name: "Accounts", route: "/commercial/customers/accounts", description: "Manage customer accounts.", order: 20, status: "planned" },
+lib/platform/registry/erpRegistry.js:216:            { id: "contacts", name: "Contacts", route: "/commercial/customers/contacts", description: "Manage contacts and profiles.", order: 30, status: "planned" },
+lib/platform/registry/erpRegistry.js:217:            { id: "leads", name: "Leads", route: "/commercial/customers/leads", description: "Track leads and opportunities.", order: 40, status: "planned" },
+lib/platform/registry/erpRegistry.js:218:            { id: "loyalty", name: "Loyalty", route: "/commercial/customers/loyalty", description: "Manage loyalty programs.", order: 50, status: "planned" },
+lib/platform/registry/erpRegistry.js:219:            { id: "cases", name: "Cases", route: "/commercial/customers/cases", description: "Manage customer support cases.", order: 60, status: "planned" },
+lib/platform/registry/erpRegistry.js:1526:            { id: "customers", name: "Customers", route: "/finance/customers", description: "Manage finance customer records.", order: 10, type: "business-workspace", document: "Customer", create:{
+lib/platform/registry/erpRegistry.js:1555: api: "/api/finance/customers", rowsKey: "customers",  search: ["customer_name","customer_email","customer_phone","tax_id","tier","status"], name: r => r.customer_name || r.name || "Unnamed Customer", subtitle: r => [r.customer_email || r.email || "-", r.customer_phone || r.phone || "-"] },
+lib/platform/registry/erpRegistry.js:1559:  listApi:"/api/finance/customers"
+lib/platform/registry/erpRegistry.js:1596:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices.", order: 20, type: "business-workspace", document: "CustomerInvoice", launchFrom: ["customers","accounts_receivable","commercial/customers"], create:{
+lib/platform/registry/erpRegistry.js:1672:            { id: "customer_payments", name: "Customer Payments", route: "/finance/customer-payments", description: "Receive and allocate customer payments.", order: 40, type: "business-workspace", document: "CustomerPayment", launchFrom: ["customers","accounts_receivable"], create:{
+lib/platform/registry/erpRegistry.js:3736:  if (id === "customers" || id === "crm") return "commercial";
+lib/platform/registry/business-services/BusinessServiceRegistry.js:117:        description: "LINE messaging for customers, staff, and local market workflows.",
+lib/platform/registry/business-services/BusinessServiceRegistry.js:270:        description: "Sync customers, contacts, leads, and CRM activities.",
+lib/platform/payment-runtime/execution/PaymentExecutionRuntime.js:56:      party_id:
+lib/platform/payment-runtime/documents/PaymentTransaction.js:7:  party_id = null,
+lib/platform/payment-runtime/documents/PaymentTransaction.js:29:    party_id,
+lib/platform/documents/context/DocumentContextResolver.js:46:  if(data.party_id){
+lib/platform/documents/context/DocumentContextResolver.js:57:          data.party_id
+lib/platform/documents/context/DocumentContextResolver.js:74:    data.customer_id
+lib/platform/documents/context/DocumentContextResolver.js:83:        .select("party_id")
+lib/platform/documents/context/DocumentContextResolver.js:86:          data.customer_id
+lib/platform/documents/context/DocumentContextResolver.js:93:      customer?.party_id
+lib/platform/documents/context/DocumentContextResolver.js:105:            customer.party_id
+lib/platform/documents/context/DocumentContextResolver.js:125:      customer_id: data.customer_id,
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:98:    invoice.customer_id
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:107:          party_id
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:111:          invoice.customer_id
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:116:    if(customer?.party_id){
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:126:            customer.party_id
+lib/platform/routing/resolveWorkspaceRoute.js:98:    customers: "customers",
+lib/platform/modules/moduleRegistry.js:154:    description: "External portal for customers to access services and history.",
+lib/workspace/engines/createRepositoryMap.js:3:  customers: {
+lib/workspace/engines/createRepositoryMap.js:4:    table: "customers",
+lib/workspace/engines/createRegistry.js:3:  customers: {
+lib/workspace/engines/createRegistry.js:4:    endpoint: "/api/finance/customers/upsert",
+lib/workspace/engines/createSchemas.js:3:  customers: [
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:56:        supplier.best_supplier.supplier_party_id;
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:84:          supplier_party_id:
+lib/procurement/purchase-orders/createPurchaseOrder.js:8:  supplier_party_id,
+lib/procurement/purchase-orders/createPurchaseOrder.js:33:    if (!supplier_party_id) {
+lib/procurement/purchase-orders/createPurchaseOrder.js:34:      throw new Error("supplier_party_id required");
+lib/procurement/purchase-orders/createPurchaseOrder.js:63:        supplier_party_id,
+lib/procurement/suppliers/capabilities/createSupplierPrice.js:8:  supplier_party_id,
+lib/procurement/suppliers/capabilities/createSupplierPrice.js:29:    if (!supplier_party_id) {
+lib/procurement/suppliers/capabilities/createSupplierPrice.js:30:      throw new Error("supplier_party_id required");
+lib/procurement/suppliers/capabilities/createSupplierPrice.js:49:        supplier_party_id,
+lib/procurement/suppliers/documents/createVendor.js:138:        party_id:
+lib/procurement/suppliers/documents/createVendor.js:187:        party_id:
+lib/procurement/receiving/receivePurchaseOrder.js:60:          supplier_party_id: po.supplier_party_id,
+lib/ai/ceo/ceoDashboardEngine.js:72:      Number(channel.customers || 0) > 0
+lib/ai/ceo/ceoDashboardEngine.js:81:          `${channel.provider} generated ${channel.customers} customers and ${channel.revenue} revenue`
+lib/finance/payments/capabilities/processVendorPayment.js:58:          vendor_party_id: ap.vendor_party_id,
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:20:    payload.customer_id;
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:24:    payload.party_id || null;
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:47:              "party_id",
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:195:    party_id:
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:10:  customer_id,
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:74:      customer_id,
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:134:      party_id:
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:135:        customer_id,
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:137:      customer_id,
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:5:  party_id,
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:9:  if (!party_id) {
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:10:    throw new Error("party_id required");
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:24:      .select("id, party_id")
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:26:        "party_id",
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:27:        party_id
+lib/finance/accounts-receivable/mappers/customerInvoiceMapper.js:13:    customer_id:
+lib/finance/accounts-receivable/mappers/customerInvoiceMapper.js:15:      payload.customer_id ||
+lib/finance/accounts-receivable/mappers/customerInvoiceMapper.js:16:      payload.party_id ||
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:14:  customer_id,
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:33:  if (!customer_id) {
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:34:    throw new Error("customer_id required");
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:116:        customer_id,
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:198:        customer_id,
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:234:      party_id:
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:235:        customer_id,
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:237:      customer_id,
+lib/finance/fixed-assets/documents/createFixedAsset.js:14:  supplier_party_id = null,
+lib/finance/fixed-assets/documents/createFixedAsset.js:72:          supplier_party_id,
+lib/finance/createCustomer.js:161:        "party_id",
+lib/finance/createCustomer.js:189:          party_id:
+lib/finance/createCustomer.js:219:        "party_id",
+lib/finance/createCustomer.js:239:    party_id:
+lib/finance/accounts-payable/capabilities/createAccountsPayableEntry.js:69:          vendor_party_id: invoice.vendor_party_id,
+lib/finance/accounts-payable/documents/createVendorInvoice.js:68:        vendor_party_id:
+lib/finance/accounts-payable/documents/createVendorInvoice.js:172:      party_id:
+lib/finance/accounts-payable/documents/createVendorInvoice.js:175:      vendor_party_id:
+lib/staff/migration/previewStaffPartyMigration.js:57:      .is("party_id", null);
+lib/staff/migration/migrateStaffAccountsToParty.js:59:      .is("party_id", null);
+lib/staff/migration/migrateStaffAccountsToParty.js:162:          party_id:
+lib/staff/migration/migrateStaffAccountsToParty.js:188:            party_id:
+lib/staff/migration/migrateStaffAccountsToParty.js:230:          party_id:
+lib/staff/migration/migrateStaffAccountsToParty.js:250:      party_id:
+lib/warehouse/tasks/assignWarehouseTask.js:40:        "id, party_id"
+lib/warehouse/tasks/assignWarehouseTask.js:54:  if (!staff.party_id) {
+lib/warehouse/tasks/assignWarehouseTask.js:74:        staff.party_id,
+lib/customer/ingestCustomer360.js:54:      customer_id: customer.id,
+lib/customer/ingestCustomer360.js:68:      customer_id: customer.id,
+lib/customer/ingestCustomer360.js:82:      customer_id: customer.id,
+lib/customer/runtime/createVIPCustomerEvent.js:34:      customer_id:
+lib/customer/processCustomerVisit.js:311:        customer_id:
+lib/customer/processCustomerVisit.js:331:      customer_id: customer.id,
+lib/approval/events/registerApprovalEvents.js:69:          supplier_party_id:
+lib/approval/events/registerApprovalEvents.js:70:            request.supplier_party_id,
+app/(mobile)/executive/page.jsx:93:                dashboard?.customers || 0
+app/(system)/workspace/[organizationId]/customers/page.jsx:21:  const [customers, setCustomers] = useState([]);
+app/(system)/workspace/[organizationId]/customers/page.jsx:30:    const response = await fetch("/api/customers/history", {
+app/(system)/workspace/[organizationId]/customers/page.jsx:44:      const response = await fetch("/api/customers/search", {
+app/(system)/workspace/[organizationId]/customers/page.jsx:50:      setCustomers(result.customers || []);
+app/(system)/workspace/[organizationId]/customers/page.jsx:62:    await fetch("/api/customers/upsert", {
+app/(system)/workspace/[organizationId]/customers/page.jsx:94:          customers.map(customer => (
+app/(system)/workspace/[organizationId]/pest_control/page.jsx:8:  { name: "Customers", href: "customers" },
+app/(system)/workspace/[organizationId]/network/page.jsx:28:          Connect companies, suppliers, customers and service providers.
+app/(system)/workspace/[organizationId]/retail/page.jsx:11:  { name: "Customers", href: "customers" },
+app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx:410:    const response = await fetch("/api/customers/search", {
+app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx:425:      setCustomerResults(result.customers || []);
+app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx:430:    const response = await fetch("/api/customers/upsert", {
+app/(system)/workspace/[organizationId]/commercial/customers/page.jsx:22:        "/commercial/customers"
+app/(system)/workspace/[organizationId]/commercial/customers/page.jsx:35:      capabilityId="customers"
+app/(system)/workspace/[organizationId]/commercial/customers/page.jsx:40:            "/commercial/customers"
+app/(system)/procurement/suppliers/page.jsx:36:    supplier_party_id: "",
+app/(system)/procurement/suppliers/page.jsx:185:              value={form.supplier_party_id}
+app/(system)/procurement/suppliers/page.jsx:191:                  supplier_party_id:
+app/api/customers/upsert/route.js:101:          customer_id:
+app/api/customers/upsert/route.js:155:        customer_id:
+app/api/customers/search/route.js:54:          party_id,
+app/api/customers/search/route.js:97:    const customers =
+app/api/customers/search/route.js:101:          party_id:
+app/api/customers/search/route.js:102:            row.party_id,
+app/api/customers/search/route.js:110:        customers.map(async(customer)=>{
+app/api/customers/search/route.js:119:                party_id,
+app/api/customers/search/route.js:141:                "party_id",
+app/api/customers/search/route.js:142:                customer.party_id
+app/api/customers/search/route.js:155:            customer_id:
+app/api/customers/search/route.js:237:      customers:
+app/api/customers/timeline/route.js:8:  const { data: customers, error: cErr } = await supabaseAdmin
+app/api/customers/timeline/route.js:17:  for (const customer of customers) {
+app/api/customers/timeline/route.js:22:      supabaseAdmin.from("invoices").select("*").eq("customer_id", customer.source_id),
+app/api/customers/timeline/route.js:23:      supabaseAdmin.from('payment_transactions').select("*").eq("customer_id", customer.source_id),
+app/api/platform/payment/create/route.js:72:              body.party_id ||
+app/api/platform/users/assignable/route.js:72:          party_id
+app/api/platform/users/assignable/route.js:91:        .map(user => user.party_id)
+app/api/platform/users/assignable/route.js:133:          party_id:
+app/api/platform/users/assignable/route.js:134:            user.party_id,
+app/api/platform/users/assignable/route.js:137:            partyMap[user.party_id] ||
+app/api/workspace/export/route.js:21:    customers:
+app/api/workspace/export/route.js:22:      "/api/customers/export",
+app/api/workspace/import/route.js:34:      customers:
+app/api/workspace/import/route.js:35:        "/api/customers/import",
+app/api/pos/create/route.js:66:      customerId: body.customerId || body.customer_id || null,
+app/api/pos/create/route.js:109:          customer_id: body.customerId || body.customer_id || null,
+app/api/procurement/vendors/list/route.js:81:            row.party_id,
+app/api/procurement/purchase-orders/route.js:61:          supplier_party_id:
+app/api/procurement/purchase-orders/route.js:62:            body.supplier_party_id ||
+app/api/procurement/purchase-orders/route.js:63:            body.vendor_party_id ||
+app/api/procurement/purchase-orders/route.js:64:            body.party_id,
+app/api/finance/vendors/route.js:66:            row.party_id,
+app/api/finance/customer-invoices/create/route.js:58:        customer_id: body.customer_id,
+components/workspace/master-data/MasterDataRuntimeWorkCenter.jsx:190:      customer_id:
+components/workspace/master-data/MasterDataRuntimeWorkCenter.jsx:193:      vendor_party_id:
+components/workspace/master-data/MasterDataRuntimeWorkCenter.jsx:238:    "party_id",
+components/workspace/master-data/MasterDataWorkCenter.jsx:1047:        partyId={selected?.party_id || null}
+components/workspace/engines/DynamicCustomerField.jsx:58:        "/api/customers/search",
+components/workspace/engines/DynamicCustomerField.jsx:82:        json.customers || []
+components/workspace/engines/DynamicCustomerField.jsx:109:        party_id:
+components/workspace/engines/DynamicCustomerField.jsx:110:          customer.party_id,
+components/workspace/engines/DynamicCustomerField.jsx:112:        customer_id:
+components/workspace/engines/DynamicCustomerField.jsx:113:          customer.customer_id,
+components/workspace/engines/DynamicForm.jsx:209:        "/api/customers/search",
+components/workspace/engines/DynamicForm.jsx:233:        json.customers || []
+components/workspace/engines/WalletTopUpEngine.jsx:401:            party_id:
+supabase/sql/accounting_accounts_receivable.sql:9:    customer_id uuid not null,
+supabase/sql/accounting_accounts_receivable.sql:42:    customer_id
+supabase/sql/ap_ar_foundation.sql:13:create table if not exists customers (
+supabase/sql/ap_ar_foundation.sql:42:  customer_id uuid references customers(id),
+supabase/sql/accounting_subledgers.sql:18:  customer_id uuid,
+
+8. PARTY / IDENTITY CONNECTION
+========================================
+lib/platform/forms/FormRegistry.js:175:        name: "supplier_party_id",
+lib/platform/service-runtime/identity/runtime/CustomerIdentityRuntime.js:7:} from "../repositories/CustomerIdentityRepository";
+lib/platform/service-runtime/identity/runtime/CustomerIdentityRuntime.js:10:export const CustomerIdentityRuntime = {
+lib/platform/service-runtime/usage/documents/ServiceUsageRecord.js:35:    party_id:
+lib/platform/service-runtime/usage/documents/ServiceUsageRecord.js:36:      data.party_id || null,
+lib/platform/service-runtime/execution/ServiceExecutionRuntime.js:35:    party_id = null,
+lib/platform/service-runtime/execution/ServiceExecutionRuntime.js:126:      party_id,
+lib/platform/service-runtime/execution/ServiceExecutionRuntime.js:201:          party_id,
+lib/platform/service-runtime/wallet/documents/WalletTransaction.js:16:    party_id: data.party_id || null,
+lib/platform/service-runtime/events/runtime/ProviderEventRuntime.js:18:  CustomerIdentityRuntime,
+lib/platform/service-runtime/events/runtime/ProviderEventRuntime.js:20:} from "@/lib/platform/service-runtime/identity/runtime/CustomerIdentityRuntime";
+lib/platform/service-runtime/events/runtime/ProviderEventRuntime.js:84:        await CustomerIdentityRuntime.resolve({
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:95:      party_id:
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:96:        usage.party_id || null,
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:235:        party_id:
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:236:          usage.party_id || null,
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:342:        party_id:
+lib/platform/service-runtime/billing/runtime/BillingRuntime.js:343:          usage.party_id || null,
+lib/platform/read-model/resolveDetailReadModel.js:75:          "id,party_id"
+lib/platform/read-model/resolveDetailReadModel.js:83:    const partyIds =
+lib/platform/read-model/resolveDetailReadModel.js:86:          item => item.party_id
+lib/platform/read-model/resolveDetailReadModel.js:94:      partyIds.length
+lib/platform/read-model/resolveDetailReadModel.js:102:              partyIds
+lib/platform/read-model/resolveDetailReadModel.js:109:    const partyMap =
+lib/platform/read-model/resolveDetailReadModel.js:113:            party => [
+lib/platform/read-model/resolveDetailReadModel.js:114:              party.id,
+lib/platform/read-model/resolveDetailReadModel.js:115:              party.display_name,
+lib/platform/read-model/resolveDetailReadModel.js:127:              partyMap[item.party_id] ||
+lib/platform/assignment/runtime/assignRecord.js:14:  assignedPartyId,
+lib/platform/assignment/runtime/assignRecord.js:32:    assignedPartyId,
+lib/platform/assignment/documents/Assignment.js:9:  assignedPartyId = null,
+lib/platform/assignment/documents/Assignment.js:30:    assigned_party_id:
+lib/platform/assignment/documents/Assignment.js:31:      assignedPartyId,
+lib/platform/payment-runtime/execution/PaymentExecutionRuntime.js:21:  partyId = null,
+lib/platform/payment-runtime/execution/PaymentExecutionRuntime.js:56:      party_id:
+lib/platform/payment-runtime/execution/PaymentExecutionRuntime.js:57:        partyId,
+lib/platform/payment-runtime/documents/PaymentTransaction.js:7:  party_id = null,
+lib/platform/payment-runtime/documents/PaymentTransaction.js:29:    party_id,
+lib/platform/documents/context/DocumentContextResolver.js:29:    party:null,
+lib/platform/documents/context/DocumentContextResolver.js:46:  if(data.party_id){
+lib/platform/documents/context/DocumentContextResolver.js:49:      data:party,
+lib/platform/documents/context/DocumentContextResolver.js:57:          data.party_id
+lib/platform/documents/context/DocumentContextResolver.js:64:      context.party =
+lib/platform/documents/context/DocumentContextResolver.js:65:        party;
+lib/platform/documents/context/DocumentContextResolver.js:73:    !context.party &&
+lib/platform/documents/context/DocumentContextResolver.js:83:        .select("party_id")
+lib/platform/documents/context/DocumentContextResolver.js:93:      customer?.party_id
+lib/platform/documents/context/DocumentContextResolver.js:97:        data:party,
+lib/platform/documents/context/DocumentContextResolver.js:98:        error:partyError,
+lib/platform/documents/context/DocumentContextResolver.js:105:            customer.party_id
+lib/platform/documents/context/DocumentContextResolver.js:110:      if(!partyError){
+lib/platform/documents/context/DocumentContextResolver.js:112:        context.party =
+lib/platform/documents/context/DocumentContextResolver.js:113:          party;
+lib/platform/documents/context/DocumentContextResolver.js:126:      party: context.party,
+lib/platform/documents/context/DocumentContextResolver.js:135:      party: context.party,
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:91:  let party =
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:92:    context.party ||
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:97:    !party &&
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:107:          party_id
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:116:    if(customer?.party_id){
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:119:        data:partyData,
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:126:            customer.party_id
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:131:      party =
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:132:        partyData || null;
+lib/platform/documents/builders/CustomerInvoiceBuilder.js:171:    party,
+lib/business/config/businessProfiles.js:65:        "party language",
+lib/business/config/businessProfiles.js:86:        "party language",
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:55:      const supplierPartyId =
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:56:        supplier.best_supplier.supplier_party_id;
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:58:      if (!groupedBySupplier[supplierPartyId]) {
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:59:        groupedBySupplier[supplierPartyId] = [];
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:62:      groupedBySupplier[supplierPartyId].push({
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:76:    for (const supplierPartyId of Object.keys(groupedBySupplier)) {
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:84:          supplier_party_id:
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:85:            supplierPartyId,
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:87:            groupedBySupplier[supplierPartyId],
+lib/procurement/purchase-orders/createPurchaseOrder.js:8:  supplier_party_id,
+lib/procurement/purchase-orders/createPurchaseOrder.js:33:    if (!supplier_party_id) {
+lib/procurement/purchase-orders/createPurchaseOrder.js:34:      throw new Error("supplier_party_id required");
+lib/procurement/purchase-orders/createPurchaseOrder.js:63:        supplier_party_id,
+lib/procurement/suppliers/capabilities/createSupplierPrice.js:8:  supplier_party_id,
+lib/procurement/suppliers/capabilities/createSupplierPrice.js:29:    if (!supplier_party_id) {
+lib/procurement/suppliers/capabilities/createSupplierPrice.js:30:      throw new Error("supplier_party_id required");
+lib/procurement/suppliers/capabilities/createSupplierPrice.js:49:        supplier_party_id,
+lib/procurement/suppliers/documents/createVendor.js:75:    1. Create party master record
+lib/procurement/suppliers/documents/createVendor.js:79:    data: party,
+lib/procurement/suppliers/documents/createVendor.js:80:    error: partyError,
+lib/procurement/suppliers/documents/createVendor.js:89:        party_type:
+lib/procurement/suppliers/documents/createVendor.js:119:  if (partyError) {
+lib/procurement/suppliers/documents/createVendor.js:121:    throw partyError;
+lib/procurement/suppliers/documents/createVendor.js:135:      .from("party_relationships")
+lib/procurement/suppliers/documents/createVendor.js:138:        party_id:
+lib/procurement/suppliers/documents/createVendor.js:139:          party.id,
+lib/procurement/suppliers/documents/createVendor.js:187:        party_id:
+lib/procurement/suppliers/documents/createVendor.js:188:          party.id,
+lib/procurement/suppliers/documents/createVendor.js:229:      party.id,
+lib/procurement/suppliers/documents/createVendor.js:231:    party,
+lib/procurement/receiving/receivePurchaseOrder.js:60:          supplier_party_id: po.supplier_party_id,
+lib/finance/payments/capabilities/processVendorPayment.js:58:          vendor_party_id: ap.vendor_party_id,
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:23:  let partyId =
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:24:    payload.party_id || null;
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:31:  if (!customerId && partyId) {
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:47:              "party_id",
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:48:              partyId
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:160:    partyId =
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:161:      customer.party.id;
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:195:    party_id:
+lib/finance/accounts-receivable/CreateCustomerInvoice/execute.js:196:      partyId,
+lib/finance/accounts-receivable/capabilities/postCustomerPayment.js:134:      party_id:
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:4:export async function findCustomerByParty({
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:5:  party_id,
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:9:  if (!party_id) {
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:10:    throw new Error("party_id required");
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:24:      .select("id, party_id")
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:26:        "party_id",
+lib/finance/accounts-receivable/repositories/CustomerRepository.js:27:        party_id
+lib/finance/accounts-receivable/mappers/customerInvoiceMapper.js:16:      payload.party_id ||
+lib/finance/accounts-receivable/documents/createCustomerInvoice.js:234:      party_id:
+lib/finance/fixed-assets/documents/createFixedAsset.js:14:  supplier_party_id = null,
+lib/finance/fixed-assets/documents/createFixedAsset.js:72:          supplier_party_id,
+lib/finance/createCustomer.js:47:    1. Resolve existing party
+lib/finance/createCustomer.js:50:  let partyQuery =
+lib/finance/createCustomer.js:62:    partyQuery =
+lib/finance/createCustomer.js:63:      partyQuery.eq(
+lib/finance/createCustomer.js:70:    partyQuery =
+lib/finance/createCustomer.js:71:      partyQuery.eq(
+lib/finance/createCustomer.js:78:    partyQuery =
+lib/finance/createCustomer.js:79:      partyQuery.eq(
+lib/finance/createCustomer.js:88:    data: existingParty,
+lib/finance/createCustomer.js:89:    error: partyError,
+lib/finance/createCustomer.js:91:    await partyQuery.maybeSingle();
+lib/finance/createCustomer.js:94:  if (partyError) {
+lib/finance/createCustomer.js:95:    throw partyError;
+lib/finance/createCustomer.js:99:  let party =
+lib/finance/createCustomer.js:100:    existingParty;
+lib/finance/createCustomer.js:104:    2. Create party if missing
+lib/finance/createCustomer.js:107:  if (!party) {
+lib/finance/createCustomer.js:119:          party_type:
+lib/finance/createCustomer.js:144:    party = data;
+lib/finance/createCustomer.js:158:      .from("party_relationships")
+lib/finance/createCustomer.js:161:        "party_id",
+lib/finance/createCustomer.js:162:        party.id
+lib/finance/createCustomer.js:186:        .from("party_relationships")
+lib/finance/createCustomer.js:189:          party_id:
+lib/finance/createCustomer.js:190:            party.id,
+lib/finance/createCustomer.js:219:        "party_id",
+lib/finance/createCustomer.js:220:        party.id
+lib/finance/createCustomer.js:239:    party_id:
+lib/finance/createCustomer.js:240:      party.id,
+lib/finance/createCustomer.js:346:    party,
+lib/finance/accounts-payable/capabilities/createAccountsPayableEntry.js:69:          vendor_party_id: invoice.vendor_party_id,
+lib/finance/accounts-payable/documents/createVendorInvoice.js:16:  vendorPartyId = null,
+lib/finance/accounts-payable/documents/createVendorInvoice.js:68:        vendor_party_id:
+lib/finance/accounts-payable/documents/createVendorInvoice.js:69:          vendorPartyId,
+lib/finance/accounts-payable/documents/createVendorInvoice.js:172:      party_id:
+lib/finance/accounts-payable/documents/createVendorInvoice.js:173:        vendorPartyId,
+lib/finance/accounts-payable/documents/createVendorInvoice.js:175:      vendor_party_id:
+lib/finance/accounts-payable/documents/createVendorInvoice.js:176:        vendorPartyId,
+lib/staff/migration/previewStaffPartyMigration.js:48:export async function previewStaffPartyMigration() {
+lib/staff/migration/previewStaffPartyMigration.js:57:      .is("party_id", null);
+lib/staff/migration/previewStaffPartyMigration.js:91:        party_type:
+lib/staff/migration/migrateStaffAccountsToParty.js:50:export async function migrateStaffAccountsToParty() {
+lib/staff/migration/migrateStaffAccountsToParty.js:59:      .is("party_id", null);
+lib/staff/migration/migrateStaffAccountsToParty.js:89:    let party = null;
+lib/staff/migration/migrateStaffAccountsToParty.js:93:      data: existingParty,
+lib/staff/migration/migrateStaffAccountsToParty.js:94:      error: existingPartyError,
+lib/staff/migration/migrateStaffAccountsToParty.js:106:    if (existingPartyError) {
+lib/staff/migration/migrateStaffAccountsToParty.js:107:      throw existingPartyError;
+lib/staff/migration/migrateStaffAccountsToParty.js:111:    if (existingParty) {
+lib/staff/migration/migrateStaffAccountsToParty.js:113:      party = existingParty;
+lib/staff/migration/migrateStaffAccountsToParty.js:118:        data: createdParty,
+lib/staff/migration/migrateStaffAccountsToParty.js:119:        error: partyError,
+lib/staff/migration/migrateStaffAccountsToParty.js:128:            party_type:
+lib/staff/migration/migrateStaffAccountsToParty.js:145:      if (partyError) {
+lib/staff/migration/migrateStaffAccountsToParty.js:146:        throw partyError;
+lib/staff/migration/migrateStaffAccountsToParty.js:150:      party = createdParty;
+lib/staff/migration/migrateStaffAccountsToParty.js:159:        .from("party_person_profiles")
+lib/staff/migration/migrateStaffAccountsToParty.js:162:          party_id:
+lib/staff/migration/migrateStaffAccountsToParty.js:163:            party.id,
+lib/staff/migration/migrateStaffAccountsToParty.js:185:          .from("party_relationships")
+lib/staff/migration/migrateStaffAccountsToParty.js:188:            party_id:
+lib/staff/migration/migrateStaffAccountsToParty.js:189:              party.id,
+lib/staff/migration/migrateStaffAccountsToParty.js:230:          party_id:
+lib/staff/migration/migrateStaffAccountsToParty.js:231:            party.id,
+lib/staff/migration/migrateStaffAccountsToParty.js:250:      party_id:
+lib/staff/migration/migrateStaffAccountsToParty.js:251:        party.id,
+lib/warehouse/tasks/assignWarehouseTask.js:40:        "id, party_id"
+lib/warehouse/tasks/assignWarehouseTask.js:54:  if (!staff.party_id) {
+lib/warehouse/tasks/assignWarehouseTask.js:56:      "Assigned staff has no party identity"
+lib/warehouse/tasks/assignWarehouseTask.js:73:      assignedPartyId:
+lib/warehouse/tasks/assignWarehouseTask.js:74:        staff.party_id,
+lib/approval/events/registerApprovalEvents.js:69:          supplier_party_id:
+lib/approval/events/registerApprovalEvents.js:70:            request.supplier_party_id,
+app/(system)/components/marketing/studio/StudioLeftPanel.jsx:5:const directions = ["Luxury", "Elegant", "Party", "Romantic", "Family"];
+app/(system)/procurement/suppliers/page.jsx:36:    supplier_party_id: "",
+app/(system)/procurement/suppliers/page.jsx:185:              value={form.supplier_party_id}
+app/(system)/procurement/suppliers/page.jsx:191:                  supplier_party_id:
+app/api/customers/upsert/route.js:7:  CustomerIdentityRuntime,
+app/api/customers/upsert/route.js:8:} from "@/lib/platform/service-runtime/identity/runtime/CustomerIdentityRuntime";
+app/api/customers/upsert/route.js:96:        await CustomerIdentityRuntime.link({
+app/api/customers/upsert/route.js:150:      await CustomerIdentityRuntime.link({
+app/api/customers/search/route.js:52:        .from("party_relationships")
+app/api/customers/search/route.js:54:          party_id,
+app/api/customers/search/route.js:58:            party_type,
+app/api/customers/search/route.js:101:          party_id:
+app/api/customers/search/route.js:102:            row.party_id,
+app/api/customers/search/route.js:119:                party_id,
+app/api/customers/search/route.js:141:                "party_id",
+app/api/customers/search/route.js:142:                customer.party_id
+app/api/customers/search/route.js:179:                customer.party_type === "organization"
+app/api/platform/payment/create/route.js:70:          partyId:
+app/api/platform/payment/create/route.js:72:              body.party_id ||
+app/api/platform/payment/create/route.js:73:              body.partyId
+app/api/platform/users/assignable/route.js:72:          party_id
+app/api/platform/users/assignable/route.js:89:    const partyIds =
+app/api/platform/users/assignable/route.js:91:        .map(user => user.party_id)
+app/api/platform/users/assignable/route.js:98:      partyIds.length
+app/api/platform/users/assignable/route.js:106:              partyIds
+app/api/platform/users/assignable/route.js:113:    const partyMap =
+app/api/platform/users/assignable/route.js:133:          party_id:
+app/api/platform/users/assignable/route.js:134:            user.party_id,
+app/api/platform/users/assignable/route.js:137:            partyMap[user.party_id] ||
+app/api/procurement/vendors/list/route.js:81:            row.party_id,
+app/api/procurement/purchase-orders/route.js:61:          supplier_party_id:
+app/api/procurement/purchase-orders/route.js:62:            body.supplier_party_id ||
+app/api/procurement/purchase-orders/route.js:63:            body.vendor_party_id ||
+app/api/procurement/purchase-orders/route.js:64:            body.party_id,
+app/api/finance/vendors/route.js:66:            row.party_id,
+app/api/staff/migration-preview/route.js:4:  previewStaffPartyMigration,
+app/api/staff/migration-preview/route.js:5:} from "@/lib/staff/migration/previewStaffPartyMigration";
+app/api/staff/migration-preview/route.js:13:      await previewStaffPartyMigration();
+app/api/staff/migration-run/route.js:4:  migrateStaffAccountsToParty,
+app/api/staff/migration-run/route.js:5:} from "@/lib/staff/migration/migrateStaffAccountsToParty";
+app/api/staff/migration-run/route.js:13:      await migrateStaffAccountsToParty();
+components/workspace/master-data/CapabilityActionResolver.jsx:26:  partyId,
+components/workspace/master-data/CapabilityActionResolver.jsx:99:    partyId,
+components/workspace/master-data/MasterDataRuntimeWorkCenter.jsx:193:      vendor_party_id:
+components/workspace/master-data/MasterDataRuntimeWorkCenter.jsx:238:    "party_id",
+components/workspace/master-data/MasterDataWorkCenter.jsx:1047:        partyId={selected?.party_id || null}
+components/workspace/engines/DynamicCustomerField.jsx:109:        party_id:
+components/workspace/engines/DynamicCustomerField.jsx:110:          customer.party_id,
+components/workspace/engines/DynamicForm.jsx:302:                {item.party_type}
+components/workspace/engines/WalletTopUpEngine.jsx:401:            party_id:
+components/workspace/engines/WalletTopUpEngine.jsx:402:              context.partyId,
+components/workspace/documents/renderers/InvoiceRenderer.jsx:19:  const party =
+components/workspace/documents/renderers/InvoiceRenderer.jsx:20:    data.party || {};
+components/workspace/documents/renderers/InvoiceRenderer.jsx:194:      block === "party" ||
+components/workspace/documents/renderers/InvoiceRenderer.jsx:207:            {party.display_name || "Customer"}
+components/workspace/documents/renderers/InvoiceRenderer.jsx:211:            party.email ? (
+components/workspace/documents/renderers/InvoiceRenderer.jsx:213:                {party.email}
+components/workspace/documents/renderers/InvoiceRenderer.jsx:219:            party.phone ? (
+components/workspace/documents/renderers/InvoiceRenderer.jsx:221:                {party.phone}
+
+9. TENANT CHECK
+========================================
+app/api/customers/history/route.js:32:    const tenantId =
+app/api/customers/history/route.js:33:      access.tenantId;
+app/api/customers/history/route.js:44:      .eq("tenant_id", tenantId)
+lib/customer/ingestCustomer360.js:3:async function upsertCustomer(tenantId, source, sourceId, firstName, lastName, email, phone) {
+lib/customer/ingestCustomer360.js:7:    .eq("tenant_id", tenantId)
+lib/customer/ingestCustomer360.js:17:      tenant_id: tenantId,
+lib/customer/ingestCustomer360.js:38:export async function ingestCustomer360({ tenantId }) {
+lib/customer/ingestCustomer360.js:39:  if (!tenantId) throw new Error("tenantId required");
+lib/customer/ingestCustomer360.js:42:    supabaseAdmin.from("hotel_guests").select("*").eq("organization_id", tenantId),
+lib/customer/ingestCustomer360.js:43:    supabaseAdmin.from("healthcare_patients").select("*").eq("organization_id", tenantId),
+lib/customer/ingestCustomer360.js:44:    supabaseAdmin.from("accounting_client_profiles").select("*").eq("firm_organization_id", tenantId),
+lib/customer/ingestCustomer360.js:50:    const customer = await upsertCustomer(tenantId, "hotel", h.id, h.first_name, h.last_name, h.email, h.phone);
+lib/customer/ingestCustomer360.js:53:      tenant_id: tenantId,
+lib/customer/ingestCustomer360.js:64:    const customer = await upsertCustomer(tenantId, "healthcare", p.id, p.first_name, p.last_name, p.email, p.phone);
+lib/customer/ingestCustomer360.js:67:      tenant_id: tenantId,
+lib/customer/ingestCustomer360.js:78:    const customer = await upsertCustomer(tenantId, "accounting", c.client_organization_id, null, null, null, null);
+lib/customer/ingestCustomer360.js:81:      tenant_id: tenantId,
+lib/customer/loadCustomerFlow.js:4:  tenant_id
+lib/customer/loadCustomerFlow.js:7:  if (!tenant_id) {
+lib/customer/loadCustomerFlow.js:18:      "tenant_id",
+lib/customer/loadCustomerFlow.js:19:      tenant_id
+lib/customer/runtime/createVIPCustomerEvent.js:7:  tenantId,
+lib/customer/runtime/createVIPCustomerEvent.js:31:      tenant_id:
+lib/customer/runtime/createVIPCustomerEvent.js:32:        tenantId,
+lib/customer/processCustomerVisit.js:38:  tenantId,
+lib/customer/processCustomerVisit.js:41:  if (!tenantId || !customer?.id) {
+lib/customer/processCustomerVisit.js:54:    .eq("tenant_id", tenantId)
+lib/customer/processCustomerVisit.js:72:    .eq("tenant_id", tenantId)
+lib/customer/processCustomerVisit.js:82:    .eq("tenant_id", tenantId)
+lib/customer/processCustomerVisit.js:119:      tenant_id: tenantId,
+lib/customer/processCustomerVisit.js:139:  tenantId,
+lib/customer/processCustomerVisit.js:149:  if (!tenantId) {
+lib/customer/processCustomerVisit.js:150:    throw new Error("tenantId required");
+lib/customer/processCustomerVisit.js:171:      .eq("tenant_id", tenantId);
+lib/customer/processCustomerVisit.js:272:        tenant_id: tenantId,
+lib/customer/processCustomerVisit.js:298:      tenantId,
+lib/customer/processCustomerVisit.js:307:      tenantId,
+lib/customer/processCustomerVisit.js:328:    tenantId,
+
+========================================
+CUSTOMER AUDIT COMPLETE
+========================================

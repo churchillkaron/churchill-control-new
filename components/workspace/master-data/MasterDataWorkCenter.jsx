@@ -7,10 +7,14 @@ import AIEngine from "@/components/workspace/engines/AIEngine";
 import useCreateEngine from "@/components/workspace/engines/useCreateEngine";
 import { getWorkspaceItemAction } from "@/lib/platform/registry/erpRegistry";
 import { getForm } from "@/lib/platform/forms";
+import { getClientEngine } from "@/lib/platform/engines/ClientEngineRegistry";
 import { useRouter } from "next/navigation";
 import MasterActionMenu from "@/components/workspace/actions/MasterActionMenu";
 import { useState, useEffect } from "react";
 import CapabilityActionResolver from "./CapabilityActionResolver";
+import RowActionEngine from "@/components/workspace/engines/RowActionEngine";
+import { resolveFinanceActionPresentation } from "@/lib/platform/actions/resolveFinanceAction";
+import WorkspaceEventHub from "@/components/workspace/WorkspaceEventHub";
 
 import {
   mapCustomerInvoiceFormPayload,
@@ -59,6 +63,7 @@ export default function MasterDataWorkCenter({
   selected,
   selectedId,
   onSelect,
+  onRowSelect,
   menuId,
   onToggleMenu,
   kpis = [],
@@ -156,16 +161,22 @@ export default function MasterDataWorkCenter({
 
     }
 
+    const directEndpoint =
+      createAction?.endpoint ||
+      createAction?.api ||
+      null;
+
     const isCapability =
       !!createAction?.capability &&
-      !!createAction?.action;
+      !!createAction?.action &&
+      !directEndpoint;
 
 
     const endpoint =
-      isCapability
+      directEndpoint ||
+      (isCapability
         ? "/api/ubte/execute"
-        : createAction?.endpoint ||
-          "/api/workspace/create";
+        : "/api/workspace/create");
 
 
     console.log(
@@ -390,6 +401,14 @@ export default function MasterDataWorkCenter({
       return action.href({
         row,
         organizationId,
+        entityId:
+          row?.entity_id ||
+          entityId ||
+          null,
+        periodId:
+          row?.period_id ||
+          periodId ||
+          null,
         moduleKey,
         workspaceId,
       });
@@ -398,18 +417,226 @@ export default function MasterDataWorkCenter({
     return action.href || null;
   }
 
-  function handleMenuAction(action, row) {
+  function resolveActionKind(action) {
+    const inferredKinds = [
+      "archive",
+      "delete",
+      "duplicate",
+      "history",
+      "attachments",
+      "edit",
+      "approve",
+      "reject",
+      "post",
+      "reverse",
+      "reconcile",
+      "assign",
+      "complete",
+      "lock",
+      "unlock",
+      "create",
+      "open",
+      "view",
+      "select",
+      "close",
+      "submit",
+      "restore",
+      "merge",
+      "split",
+      "sync",
+      "publish",
+      "print",
+      "download",
+      "upload",
+      "attach",
+      "email",
+      "sms",
+      "whatsapp",
+    ];
+
+    const direct =
+      action?.action ||
+      action?.type ||
+      action?.id ||
+      "";
+
+    if (direct) {
+      const normalized =
+        String(direct)
+        .toLowerCase()
+        .replace(/-/g, "_");
+
+      return (
+        inferredKinds.find(kind => normalized.includes(kind)) ||
+        normalized
+      );
+    }
+
+    const label =
+      String(action?.label || action?.title || "")
+        .toLowerCase();
+
+    for (const kind of inferredKinds) {
+      if (label.includes(kind)) {
+        return kind;
+      }
+    }
+
+    return "";
+  }
+
+  function handleMenuAction(input, fallbackRow) {
+
+    console.log(
+      "HANDLE MENU ACTION INPUT",
+      input
+    );
+
+    const rawAction =
+      input?.action && input?.row !== undefined
+        ? input.action
+        : input;
+
+    const action = workspaceId === "finance"
+      ? resolveFinanceActionPresentation(rawAction)
+      : rawAction;
+
+    console.log(
+      "HANDLE MENU ACTION RESOLVED",
+      {
+        action,
+        fallbackRow,
+      }
+    );
+
+    const row =
+      input?.row !== undefined
+        ? input.row
+        : fallbackRow;
+
     if (typeof action === "string") {
       return;
     }
 
-    if (action.type === "select") {
+    const kind =
+      resolveActionKind(action);
+
+    if (action.type === "warehouse_complete") {
+
+      fetch(
+        "/api/inventory/warehouse/tasks/complete",
+        {
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json",
+          },
+          body:JSON.stringify({
+
+            organization_id:
+              organizationId,
+
+            entity_id:
+              row.entity_id,
+
+            task_id:
+              row.id,
+
+            location_id:
+              row.location_id ||
+              null,
+
+          }),
+        }
+      )
+      .then(async (res) => {
+
+        const json =
+          await res.json()
+            .catch(() => ({}));
+
+        if (!res.ok) {
+          throw new Error(
+            json?.error ||
+            json?.message ||
+            "Warehouse task completion failed"
+          );
+        }
+
+        onRefresh?.();
+
+      })
+      .catch(error => {
+
+        console.error(
+          "WAREHOUSE COMPLETE ERROR",
+          error
+        );
+
+      });
+
+      onToggleMenu?.(null);
+
+      return;
+    }
+
+
+    const financeHref = resolveMenuHref(action, row);
+    if (financeHref) {
+      router.push(financeHref);
+      onToggleMenu?.(null);
+      return;
+    }
+
+    if (action?.type === "report" || action?.type === "reports") {
+      window.dispatchEvent(new CustomEvent("workspace:report", {
+        detail: { action, row, organizationId, entityId, periodId, workspaceId, moduleKey },
+      }));
+      onToggleMenu?.(null);
+      return;
+    }
+
+    if (action?.type === "import" || action?.type === "export") {
+      window.dispatchEvent(new CustomEvent(`workspace:${action.type}`, {
+        detail: { action, row, organizationId, entityId, periodId, workspaceId, moduleKey },
+      }));
+      onToggleMenu?.(null);
+      return;
+    }
+
+    if (action?.capability) {
+      setActiveEngine({
+        Engine: RowActionEngine,
+        props: {
+          action,
+          row,
+          organizationId,
+          entityId: row?.entity_id || entityId || null,
+          periodId: row?.period_id || periodId || null,
+          workspaceId,
+          moduleKey,
+          onComplete: onRefresh,
+        },
+        context: {},
+      });
+      onToggleMenu?.(null);
+      return;
+    }
+
+
+    if (
+      kind === "select" ||
+      kind === "open" ||
+      kind === "view"
+    ) {
       onSelect?.(row.id);
       onToggleMenu?.(null);
       return;
     }
 
-    if (action.type === "create") {
+    if (
+      kind === "create" ||
+      kind === "create_record"
+    ) {
       handleCreate();
       onToggleMenu?.(null);
       return;
@@ -419,6 +646,11 @@ export default function MasterDataWorkCenter({
       action.onClick({
         row,
         organizationId,
+        entityId:
+          row?.entity_id ||
+          entityId ||
+          null,
+        periodId,
         moduleKey,
         workspaceId,
         router,
@@ -433,7 +665,81 @@ export default function MasterDataWorkCenter({
     if (href) {
       router.push(href);
       onToggleMenu?.(null);
+      return;
     }
+
+    const engineName =
+      action?.engine ||
+      (
+        kind === "assign"
+          ? "assign"
+          : null
+      );
+
+    const Engine =
+      engineName
+        ? getClientEngine(engineName)
+        : null;
+
+    if (Engine) {
+      setActiveEngine({
+        Engine,
+        action: {
+          ...action,
+          engine:
+            engineName,
+        },
+        props: {
+          action: {
+            ...action,
+            engine:
+              engineName,
+          },
+          row,
+          organizationId,
+          entityId:
+            row?.entity_id ||
+            entityId ||
+            null,
+          periodId:
+            row?.period_id ||
+            periodId ||
+            null,
+          workspaceId,
+          moduleKey,
+          onComplete:
+            onRefresh,
+        },
+        context: {},
+      });
+
+      onToggleMenu?.(null);
+      return;
+    }
+
+    setActiveEngine({
+      Engine: RowActionEngine,
+      props: {
+        action,
+        row,
+        organizationId,
+        entityId:
+          row?.entity_id ||
+          entityId ||
+          null,
+        periodId:
+          row?.period_id ||
+          periodId ||
+          null,
+        workspaceId,
+        moduleKey,
+        onComplete:
+          onRefresh,
+      },
+      context: {},
+    });
+
+    onToggleMenu?.(null);
   }
 
   return (
@@ -499,10 +805,13 @@ export default function MasterDataWorkCenter({
                       actions={topMenuActions}
                       row={selected}
                       organizationId={organizationId}
+                      entityId={entityId}
+                      periodId={periodId}
                       workspaceId={workspaceId}
                       moduleKey={moduleKey}
                       onSelect={onSelect}
                       onCreate={handleCreate}
+                      onAction={handleMenuAction}
                       onClose={() => onToggleMenu?.(null)}
                       onRefresh={onRefresh}
                     />
@@ -587,8 +896,25 @@ export default function MasterDataWorkCenter({
 
                   return (
                     <div key={row.id} className="relative">
-                      <button
-                        onClick={() => onSelect?.(row.id)}
+                      <div
+                        onClick={() => {
+
+                          onSelect?.(row.id);
+                          onRowSelect?.(row);
+
+                        }}
+                        onKeyDown={event => {
+                          if (
+                            event.key === "Enter" ||
+                            event.key === " "
+                          ) {
+                            event.preventDefault();
+                            onSelect?.(row.id);
+                            onRowSelect?.(row);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
                         className={cx(
                           "group grid w-full grid-cols-1 gap-4 px-5 py-5 text-left transition duration-200 lg:grid-cols-[1fr_460px_88px]",
                           active
@@ -629,28 +955,39 @@ export default function MasterDataWorkCenter({
 
                         <div className="flex items-center justify-end gap-2">
 
-                          <span
+                          <button
+                            type="button"
                             onClick={event => {
                               event.stopPropagation();
-                              onToggleMenu?.(open ? null : row.id);
+
+                              onToggleMenu?.(
+                                open ? null : row.id
+                              );
                             }}
-                            className="rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2 text-[15px] text-white/50 transition hover:bg-white/[0.07]"
+                            className="relative z-50 rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2 text-[15px] text-white/50 transition hover:bg-white/[0.07]"
                           >
                             ...
-                          </span>
+                          </button>
                         </div>
-                      </button>
+                      </div>
 
                       {open && (
                         <div className="absolute right-5 top-16 z-30 w-64 overflow-hidden rounded-2xl border border-white/[0.09] bg-[#111]/95 p-2 shadow-2xl shadow-black/80 backdrop-blur-3xl">
                           <MasterActionMenu
-                            actions={menuActions}
+                            actions={
+                              typeof menuActions === "function"
+                                ? menuActions(row)
+                                : menuActions
+                            }
                             row={row}
                             organizationId={organizationId}
+                            entityId={entityId}
+                            periodId={periodId}
                             workspaceId={workspaceId}
                             moduleKey={moduleKey}
                             onSelect={onSelect}
                             onCreate={handleCreate}
+                            onAction={handleMenuAction}
                             onClose={() => onToggleMenu?.(null)}
                             onRefresh={onRefresh}
                           />
@@ -725,6 +1062,14 @@ export default function MasterDataWorkCenter({
           activeEngine.Engine;
 
 
+        if (!Engine && activeEngine.action?.engine) {
+
+          Engine =
+            getClientEngine(activeEngine.action.engine);
+
+        }
+
+
         if (!Engine && activeEngine.action?.engine === "preview") {
 
           Engine =
@@ -778,6 +1123,12 @@ export default function MasterDataWorkCenter({
         currency={currency}
         moduleKey={moduleKey}
         onComplete={onRefresh}
+      />
+
+      <WorkspaceEventHub
+        organizationId={organizationId}
+        entityId={entityId}
+        periodId={periodId}
       />
 
     </main>

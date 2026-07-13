@@ -45,31 +45,10 @@ export async function POST(
     // RUNWAY STATUS REQUEST
     // =====================================
 
-    const response =
-      await fetch(
-
-        `https://api.dev.runwayml.com/v1/tasks/${jobId}`,
-
-        {
-
-          method: "GET",
-
-          headers: {
-
-            Authorization:
-              `Bearer ${process.env.RUNWAY_API_KEY}`,
-
-            "X-Runway-Version":
-              "2024-11-06",
-
-          },
-
-        }
-
-      );
-
     const result =
-      await response.json();
+      await getRunwayTaskStatus(
+        jobId
+      );
 
     if (process.env.NODE_ENV !== "production") console.log(
       "RUNWAY STATUS RESULT:",

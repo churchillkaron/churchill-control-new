@@ -36,7 +36,7 @@ export default function InventoryMonitoringPage() {
 
             body: JSON.stringify({
 
-              tenant_id:
+              organization_id:
                 "demo",
             }),
           }

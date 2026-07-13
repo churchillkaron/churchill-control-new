@@ -7,6 +7,9 @@ import {
 } from "@/lib/platform/documents/client/DocumentRendererRegistry";
 
 
+import DocumentHeader from "@/components/workspace/documents/DocumentHeader";
+
+
 export default function PreviewEngine({
 
   action,
@@ -40,6 +43,12 @@ export default function PreviewEngine({
 
 
   const [renderedDocument,setRenderedDocument] =
+    useState(null);
+
+  const [renderedBrand,setRenderedBrand] =
+    useState(null);
+
+  const [renderedData,setRenderedData] =
     useState(null);
 
 
@@ -117,6 +126,15 @@ export default function PreviewEngine({
           );
 
         }
+
+
+        setRenderedBrand(
+          json.rendered.brand
+        );
+
+        setRenderedData(
+          json.rendered.data
+        );
 
 
         setRenderedDocument(
@@ -199,7 +217,11 @@ export default function PreviewEngine({
 
           ) : (
 
-            renderedDocument
+            <div className="rounded-3xl bg-white p-10 text-black">
+
+              {renderedDocument}
+
+            </div>
 
           )}
 

@@ -51,8 +51,8 @@ export default function PreparedInventoryPage() {
 
         body: JSON.stringify({
 
-          tenant_id:
-            item.tenant_id,
+          organization_id:
+            item.organization_id,
 
           prepared_item_name:
             item.item_name,

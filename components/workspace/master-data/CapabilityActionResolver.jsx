@@ -31,13 +31,53 @@ export default function CapabilityActionResolver({
   onComplete,
 }) {
 
-  const resolvedAction =
-    action || {
-      id: "create",
-      type: "create",
-      engine: "create",
-      title: cleanTitle(fallbackLabel),
-    };
+  const resolvedAction = {
+
+    id:
+      action?.id ||
+      action?.action ||
+      "create",
+
+    type:
+      action?.type ||
+      (
+        action?.capability
+          ? "capability"
+          : "create"
+      ),
+
+    engine:
+      action?.engine ||
+      (
+        action?.capability
+          ? "create"
+          : "create"
+      ),
+
+    title:
+      action?.title ||
+      action?.label ||
+      cleanTitle(fallbackLabel),
+
+    capability:
+      action?.capability ||
+      null,
+
+    action:
+      action?.action ||
+      null,
+
+    form:
+      action?.form ||
+      null,
+
+    endpoint:
+      action?.endpoint ||
+      null,
+
+    ...action,
+
+  };
 
 
   if (resolvedAction.enabled === false) {

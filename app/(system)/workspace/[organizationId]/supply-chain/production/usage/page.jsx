@@ -14,8 +14,8 @@ import { loadIngredientUsage } from "@/lib/production/loadIngredientUsage";
 export default function ProductionUsagePage() {
 
   const [
-    tenantId,
-    setTenantId,
+    organizationId,
+    setOrganizationId,
   ] = useState(null);
 
   const [
@@ -26,7 +26,7 @@ export default function ProductionUsagePage() {
   // ===== TENANT =====
   useEffect(() => {
 
-    async function loadTenant() {
+    async function loadOrganization() {
 
       const {
         data: { user },
@@ -49,29 +49,29 @@ export default function ProductionUsagePage() {
         .single();
 
       if (
-        data?.tenant_id
+        data?.organization_id
       ) {
 
-        setTenantId(
-          data.tenant_id
+        setOrganizationId(
+          data.organization_id
         );
       }
     }
 
-    loadTenant();
+    loadOrganization();
 
   }, []);
 
   // ===== LOAD =====
   async function refresh() {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return;
     }
 
     const data =
       await loadIngredientUsage(
-        tenantId
+        organizationId
       );
 
     setUsage(data);
@@ -82,13 +82,13 @@ export default function ProductionUsagePage() {
     refresh();
 
   }, [
-    tenantId,
+    organizationId,
   ]);
 
   // ===== REALTIME =====
   useEffect(() => {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return;
     }
 
@@ -117,7 +117,7 @@ export default function ProductionUsagePage() {
     };
 
   }, [
-    tenantId,
+    organizationId,
   ]);
 
   return (

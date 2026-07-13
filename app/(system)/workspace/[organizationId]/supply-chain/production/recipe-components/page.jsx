@@ -103,7 +103,7 @@ export default function RecipeComponentsPage() {
 
         body: JSON.stringify({
 
-          tenant_id:
+          organization_id:
             "demo",
 
           ...form,

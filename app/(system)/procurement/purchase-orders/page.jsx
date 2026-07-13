@@ -11,11 +11,16 @@ import {
 
 export default function PurchaseOrdersPage() {
 
-  const tenant =
+  const businessContext =
     useBusinessContext();
 
-  const tenantId =
+  const organizationId =
+    businessContext?.organization_id ||
     businessContext?.organization?.id;
+
+  const entityId =
+    businessContext?.entity_id ||
+    businessContext?.entity?.id;
 
 
   const [
@@ -39,8 +44,11 @@ export default function PurchaseOrdersPage() {
 
           body: JSON.stringify({
 
-            tenant_id:
-              tenantId,
+            organization_id:
+              organizationId,
+
+            entity_id:
+              entityId,
 
           }),
 
@@ -77,6 +85,9 @@ export default function PurchaseOrdersPage() {
 
           approved_by:
             "MANAGER",
+
+          organization_id:
+            organizationId,
         }),
       }
     );
@@ -99,8 +110,11 @@ export default function PurchaseOrdersPage() {
 
         body: JSON.stringify({
 
-          tenant_id:
-            tenantId,
+          organization_id:
+            organizationId,
+
+          entity_id:
+            entityId,
         }),
       }
     );

@@ -9,10 +9,15 @@ export async function POST(request) {
 
     const result =
       await finalizeStockCount({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+        entityId:
+          body.entityId ||
+          body.entity_id,
         sessionId:
-          body.sessionId,
+          body.sessionId ||
+          body.session_id,
       });
 
     return NextResponse.json({

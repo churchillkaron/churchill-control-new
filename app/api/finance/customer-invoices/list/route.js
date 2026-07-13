@@ -43,6 +43,18 @@ export async function GET(req) {
           {
             ascending:false,
           }
+        )
+        .order(
+          "created_at",
+          {
+            ascending:false,
+          }
+        )
+        .order(
+          "invoice_number",
+          {
+            ascending:false,
+          }
         );
 
     if (error) {

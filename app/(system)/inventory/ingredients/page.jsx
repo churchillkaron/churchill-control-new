@@ -14,8 +14,8 @@ import { supabase } from '@/lib/shared/supabase/client'
 export default function IngredientsPage() {
 
   const [
-    tenantId,
-    setTenantId,
+    organizationId,
+    setOrganizationId,
   ] = useState(null)
 
   const [
@@ -46,7 +46,7 @@ export default function IngredientsPage() {
 
   useEffect(() => {
 
-    async function loadTenant() {
+    async function loadOrganization() {
 
       const {
         data: { user },
@@ -69,16 +69,16 @@ export default function IngredientsPage() {
         .single()
 
       if (
-        data?.tenant_id
+        data?.organization_id
       ) {
 
-        setTenantId(
-          data.tenant_id
+        setOrganizationId(
+          data.organization_id
         )
       }
     }
 
-    loadTenant()
+    loadOrganization()
 
   }, [])
 
@@ -86,11 +86,11 @@ export default function IngredientsPage() {
 
     loadIngredients()
 
-  }, [tenantId])
+  }, [organizationId])
 
   async function loadIngredients() {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return
     }
 
@@ -100,8 +100,8 @@ export default function IngredientsPage() {
       .from('ingredients')
       .select('*')
       .eq(
-        'tenant_id',
-        tenantId
+        'organization_id',
+        organizationId
       )
       .order('name')
 
@@ -141,8 +141,8 @@ export default function IngredientsPage() {
           department:
             form.department,
 
-          tenant_id:
-            tenantId,
+          organization_id:
+            organizationId,
         })
 
       if (error) {
@@ -222,8 +222,8 @@ export default function IngredientsPage() {
       )
       .insert({
 
-        tenant_id:
-          tenantId,
+        organization_id:
+          organizationId,
 
         ingredient_id:
           ingredient.id,

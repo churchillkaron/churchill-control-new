@@ -1,121 +1,180 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+import {
+  createCustomer,
+} from "@/lib/finance/createCustomer";
+
+import {
+  CustomerIdentityRuntime,
+} from "@/lib/platform/service-runtime/identity/runtime/CustomerIdentityRuntime";
+
 
 export async function POST(req) {
+
   try {
-    const body = await req.json();
 
-    const organizationId =
-      body.organizationId ||
-      body.organization_id;
+    const body =
+      await req.json();
 
-    if (!organizationId) {
+
+    const organization_id =
+      body.organization_id ||
+      body.organizationId;
+
+
+    if (!organization_id) {
+
       return NextResponse.json(
         {
-          success: false,
-          error: "organizationId required",
+          success:false,
+          error:"organization_id required",
         },
-        { status: 400 }
-      );
-    }
-
-    const {
-      customer_name,
-      customer_phone,
-      customer_email,
-      birthday,
-      notes,
-    } = body;
-
-    if (!customer_name) {
-      return NextResponse.json(
         {
-          success: false,
-          error: "customer_name required",
-        },
-        { status: 400 }
+          status:400,
+        }
       );
+
     }
 
-    let query =
-      supabaseAdmin
-        .from("customer_loyalty_accounts")
-        .select("*")
-        .eq("organization_id", organizationId);
 
-    if (customer_phone) {
-      query = query.eq("customer_phone", customer_phone);
-    } else if (customer_email) {
-      query = query.eq("customer_email", customer_email);
-    } else {
-      query = query.eq("customer_name", customer_name);
-    }
+    const customer =
+      await createCustomer({
 
-    const { data: existing, error: existingError } =
-      await query.maybeSingle();
+        organization_id,
 
-    if (existingError) {
-      throw existingError;
-    }
+        entity_id:
+          body.entity_id ||
+          null,
 
-    if (existing) {
-      const { data, error } =
-        await supabaseAdmin
-          .from("customer_loyalty_accounts")
-          .update({
-            customer_name,
-            customer_phone,
-            customer_email,
-            birthday,
-            notes,
-          })
-          .eq("id", existing.id)
-          .select()
-          .single();
+        customer_name:
+          body.customer_name,
 
-      if (error) throw error;
+        customer_phone:
+          body.customer_phone ||
+          null,
 
-      return NextResponse.json({
-        success: true,
-        customer: data,
+        customer_email:
+          body.customer_email ||
+          null,
+
+        customer_type:
+          body.customer_type ||
+          "PERSON",
+
+        company_name:
+          body.company_name ||
+          null,
+
+        tax_number:
+          body.tax_number ||
+          null,
+
+        billing_address:
+          body.billing_address ||
+          null,
+
+        shipping_address:
+          body.shipping_address ||
+          null,
+
+        city:
+          body.city ||
+          null,
+
+        state:
+          body.state ||
+          null,
+
+        postal_code:
+          body.postal_code ||
+          null,
+
+        country:
+          body.country ||
+          null,
+
+        preferred_language:
+          body.preferred_language ||
+          null,
+
+        preferred_currency:
+          body.preferred_currency ||
+          null,
+
+        credit_limit:
+          body.credit_limit ||
+          null,
+
+        payment_terms:
+          body.payment_terms ||
+          null,
+
+        birthday:
+          body.birthday ||
+          null,
+
+        notes:
+          body.notes ||
+          null,
+
       });
+
+
+    if (
+      body.provider_id &&
+      body.external_id &&
+      customer?.id
+    ) {
+
+      await CustomerIdentityRuntime.link({
+
+        organization_id,
+
+        customer_id:
+          customer.id,
+
+        provider_id:
+          body.provider_id,
+
+        external_id:
+          body.external_id,
+
+        identity_type:
+          body.identity_type ||
+          "CUSTOMER",
+
+      }).catch(() => null);
+
     }
 
-    const { data, error } =
-      await supabaseAdmin
-        .from("customer_loyalty_accounts")
-        .insert({
-          organization_id: organizationId,
-
-          customer_name,
-          customer_phone,
-          customer_email,
-          birthday,
-          notes,
-
-          loyalty_points: 0,
-          total_spent: 0,
-          visit_count: 0,
-          tier: "REGULAR",
-        })
-        .select()
-        .single();
-
-    if (error) throw error;
 
     return NextResponse.json({
-      success: true,
-      customer: data,
+
+      success:true,
+
+      customer,
+
     });
-  } catch (error) {
+
+
+  } catch(error) {
+
+
     return NextResponse.json(
+
       {
-        success: false,
-        error: error.message,
+        success:false,
+        error:error.message,
       },
-      { status: 500 }
+
+      {
+        status:500,
+      }
+
     );
+
   }
+
 }

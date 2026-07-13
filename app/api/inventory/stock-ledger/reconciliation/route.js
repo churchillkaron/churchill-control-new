@@ -9,12 +9,18 @@ export async function POST(request) {
 
     const reconciliation =
       await runInventoryReconciliation({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+        entityId:
+          body.entityId ||
+          body.entity_id,
         itemId:
-          body.itemId,
+          body.itemId ||
+          body.item_id,
         actualQuantity:
-          body.actualQuantity,
+          body.actualQuantity ||
+          body.actual_quantity,
       });
 
     return NextResponse.json({

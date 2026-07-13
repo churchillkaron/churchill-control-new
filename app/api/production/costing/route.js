@@ -4,12 +4,17 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 export async function POST(req) {
   try {
 
-    const { tenantId } = await req.json();
+    const body =
+      await req.json();
+
+    const organizationId =
+      body.organizationId ||
+      body.organization_id;
 
     const { data, error } = await supabaseAdmin
       .from("production_costs")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;

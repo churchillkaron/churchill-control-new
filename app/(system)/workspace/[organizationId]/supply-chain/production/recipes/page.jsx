@@ -11,8 +11,8 @@ import { supabase } from '@/lib/shared/supabase/client'
 export default function RecipesPage() {
 
   const [
-    tenantId,
-    setTenantId,
+    organizationId,
+    setOrganizationId,
   ] = useState(null)
 
   const [
@@ -42,7 +42,7 @@ export default function RecipesPage() {
 
   useEffect(() => {
 
-    async function loadTenant() {
+    async function loadOrganization() {
 
       const {
         data: { user },
@@ -63,16 +63,16 @@ export default function RecipesPage() {
         .single()
 
       if (
-        data?.tenant_id
+        data?.organization_id
       ) {
 
-        setTenantId(
-          data.tenant_id
+        setOrganizationId(
+          data.organization_id
         )
       }
     }
 
-    loadTenant()
+    loadOrganization()
 
   }, [])
 
@@ -80,13 +80,13 @@ export default function RecipesPage() {
 
     async function loadData() {
 
-      if (!tenantId) {
+      if (!organizationId) {
         return
       }
 
       const dishesResponse =
         await fetch(
-          `/api/dishes?tenant_id=${tenantId}`
+          `/api/dishes?organization_id=${organizationId}`
         )
 
       const dishesResult =
@@ -98,8 +98,8 @@ export default function RecipesPage() {
         .from('ingredients')
         .select('*')
         .eq(
-          'tenant_id',
-          tenantId
+          'organization_id',
+          organizationId
         )
         .order('name')
 
@@ -115,7 +115,7 @@ export default function RecipesPage() {
     loadData()
 
   }, [
-    tenantId,
+    organizationId,
   ])
 
   function addIngredientRow() {
@@ -165,8 +165,8 @@ export default function RecipesPage() {
             body: JSON.stringify({
               dish_id:
                 selectedDish,
-              tenant_id:
-                tenantId,
+              organization_id:
+                organizationId,
               items:
                 recipeItems,
             }),

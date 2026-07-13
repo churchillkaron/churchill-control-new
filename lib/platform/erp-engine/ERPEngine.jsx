@@ -19,6 +19,14 @@ export default function ERPEngine({
 
   renderer,
 
+  capability,
+
+  organizationId,
+
+  entityId,
+
+  periodId,
+
   children,
 
 }) {
@@ -74,6 +82,26 @@ export default function ERPEngine({
         context={context}
 
         workspace={workspace}
+
+        capability={capability}
+
+        workspaceActions={
+          workspace?.actions || []
+        }
+
+        topMenuActions={
+          workspace?.topMenu || []
+        }
+
+        workspaceUi={
+          workspace?.ui || null
+        }
+
+        organizationId={organizationId}
+
+        entityId={entityId}
+
+        periodId={periodId}
 
       />
 

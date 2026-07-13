@@ -12,8 +12,8 @@ import { supabase } from "@/lib/shared/supabase/client";
 export default function ProductionLogsPage() {
 
   const [
-    tenantId,
-    setTenantId,
+    organizationId,
+    setOrganizationId,
   ] = useState(null);
 
   const [
@@ -36,7 +36,7 @@ export default function ProductionLogsPage() {
   // ===== TENANT =====
   useEffect(() => {
 
-    async function loadTenant() {
+    async function loadOrganization() {
 
       const {
         data: { user },
@@ -59,23 +59,23 @@ export default function ProductionLogsPage() {
         .single();
 
       if (
-        data?.tenant_id
+        data?.organization_id
       ) {
 
-        setTenantId(
-          data.tenant_id
+        setOrganizationId(
+          data.organization_id
         );
       }
     }
 
-    loadTenant();
+    loadOrganization();
 
   }, []);
 
   // ===== LOAD =====
   async function loadLogs() {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return;
     }
 
@@ -88,8 +88,8 @@ export default function ProductionLogsPage() {
       )
       .select("*")
       .eq(
-        "tenant_id",
-        tenantId
+        "organization_id",
+        organizationId
       )
       .order(
         "created_at",
@@ -148,13 +148,13 @@ export default function ProductionLogsPage() {
     loadLogs();
 
   }, [
-    tenantId,
+    organizationId,
   ]);
 
   // ===== REALTIME =====
   useEffect(() => {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return;
     }
 
@@ -183,7 +183,7 @@ export default function ProductionLogsPage() {
     };
 
   }, [
-    tenantId,
+    organizationId,
   ]);
 
   return (

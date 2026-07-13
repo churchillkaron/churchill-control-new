@@ -6,6 +6,14 @@ import { NextResponse } from "next/server";
 import { supabase }
 from "@/lib/shared/supabase/client";
 
+import {
+  ChannelConnectionRuntime,
+} from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+
+import {
+  resolveChannelCredential,
+} from "@/lib/platform/channels/helpers/resolveChannelCredential";
+
 export async function POST(req) {
 
   try {
@@ -44,38 +52,41 @@ export async function POST(req) {
 
     }
 
-    // LOAD META ACCOUNT
+    // LOAD META PROVIDER CONNECTION
 
-    const {
-      data: account,
-      error: accountError,
-    } = await supabase
-      .from("meta_accounts")
-      .select("*")
-      .eq(
-        "page_id",
-        campaign.page_id
-      )
-      .single();
+    const connection =
+      await ChannelConnectionRuntime.get({
 
-    if (
-      accountError ||
-      !account
-    ) {
+        organization_id:
+          campaign.organization_id,
+
+        provider_id:
+          "meta",
+
+      });
+
+
+    if (!connection) {
 
       return NextResponse.json(
         {
-          success: false,
+          success:false,
+
           error:
-            "Meta account not found",
+            "Meta provider connection not found",
         },
-        { status: 404 }
+        {
+          status:404,
+        }
       );
 
     }
 
+
     const access_token =
-      account.access_token;
+      await resolveChannelCredential(
+        connection
+      );
 
     // DELETE FACEBOOK POST
 
@@ -83,14 +94,20 @@ export async function POST(req) {
       campaign.facebook_post_id
     ) {
 
-      await fetch(
-        `https://graph.facebook.com/v23.0/${campaign.facebook_post_id}?access_token=${access_token}`,
-        {
-          method: "DELETE",
-        }
-      );
+      await MetaProvider.execute({
+
+        capability:
+          "marketing.social.delete",
+
+        page_id:
+          campaign.facebook_post_id,
+
+        access_token,
+
+      });
 
     }
+
 
     // DELETE INSTAGRAM POST
 
@@ -98,12 +115,17 @@ export async function POST(req) {
       campaign.instagram_post_id
     ) {
 
-      await fetch(
-        `https://graph.facebook.com/v23.0/${campaign.instagram_post_id}?access_token=${access_token}`,
-        {
-          method: "DELETE",
-        }
-      );
+      await MetaProvider.execute({
+
+        capability:
+          "marketing.social.delete",
+
+        page_id:
+          campaign.instagram_post_id,
+
+        access_token,
+
+      });
 
     }
 

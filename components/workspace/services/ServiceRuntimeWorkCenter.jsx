@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import MasterDataWorkCenter from "@/components/workspace/master-data/MasterDataWorkCenter";
 import {
@@ -23,6 +24,77 @@ function cleanValue(value) {
   return normalized;
 }
 
+function serviceStatusLabel(row) {
+
+  const status =
+    String(
+      row?.status ||
+      ""
+    ).toUpperCase();
+
+  if (
+    status === "ACTIVE" ||
+    status === "AVAILABLE"
+  ) {
+    return "Available";
+  }
+
+  if (
+    status === "INCLUDED"
+  ) {
+    return "Included";
+  }
+
+  return status || "Unavailable";
+}
+
+function capabilitySummary(row) {
+
+  const capabilities =
+    row?.capabilities || [];
+
+
+  if (!capabilities.length) {
+    return "-";
+  }
+
+
+  return capabilities
+    .map(item => {
+
+      if (
+        typeof item === "string"
+      ) {
+        return item;
+      }
+
+
+      return (
+        item.business ||
+        item.name ||
+        "-"
+      );
+
+    })
+    .join(", ");
+
+}
+
+
+function formatCapabilities(capabilities = []) {
+
+  return capabilities
+    .map(
+      item =>
+        typeof item === "string"
+          ? item
+          : item.business || item.name || "-"
+    )
+    .join(", ");
+
+}
+
+
 
 export default function ServiceRuntimeWorkCenter({
   workspaceId,
@@ -31,12 +103,32 @@ export default function ServiceRuntimeWorkCenter({
   eyebrow,
 }) {
 
+  const router =
+    useRouter();
+
+  if (!capability) {
+
+    return (
+      <div className="rounded-[32px] border border-red-400/30 bg-red-500/10 p-6 text-red-100">
+        Missing service capability
+      </div>
+    );
+
+  }
+
   const [data,setData] = useState([]);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
 
   const [query,setQuery] = useState("");
   const [selectedId,setSelectedId] = useState(null);
+
+  const [economics,setEconomics] =
+    useState({
+      usage:0,
+      cost:0,
+      executions:0,
+    });
 
   const businessContext =
     useBusinessContext() || {};
@@ -99,6 +191,8 @@ export default function ServiceRuntimeWorkCenter({
 
         if (runtime === "wallet") {
 
+          setProviderDetails(null);
+
           setData(
             json.wallet
               ? [
@@ -124,8 +218,14 @@ export default function ServiceRuntimeWorkCenter({
 
         } else {
 
+          const rowsKey =
+            capability?.ui?.rowsKey ||
+            "rows";
+
+
           setData(
-            json.usage || []
+            json[rowsKey] ||
+            []
           );
 
         }
@@ -162,6 +262,79 @@ export default function ServiceRuntimeWorkCenter({
     runtime,
     contextCurrency,
   ]);
+
+
+  useEffect(()=>{
+
+    async function loadEconomics(){
+
+      if (!organizationId) {
+        return;
+      }
+
+
+      const params =
+        new URLSearchParams({
+
+          organization_id:
+            organizationId,
+
+        });
+
+
+      if (
+        runtime === "service_domains"
+      ) {
+
+        params.set(
+          "domain",
+          capability.name.toLowerCase()
+        );
+
+      }
+
+
+      if (
+        runtime === "service_domain_detail"
+      ) {
+
+        params.set(
+          "domain",
+          capability.domainId
+        );
+
+      }
+
+      const res =
+        await fetch(
+          `/api/platform/services/economics?${params.toString()}`
+        );
+
+
+      const json =
+        await res.json();
+
+
+      if (json.success) {
+
+        setEconomics(
+          json.economics
+        );
+
+      }
+
+    }
+
+
+    loadEconomics();
+
+
+  },[
+    organizationId,
+    runtime,
+    capability,
+  ]);
+
 
 
   const filteredRows =
@@ -214,6 +387,7 @@ export default function ServiceRuntimeWorkCenter({
 
 
   const kpis =
+
     runtime === "wallet"
 
       ? [
@@ -252,33 +426,35 @@ export default function ServiceRuntimeWorkCenter({
 
         ]
 
-      : [
+      : runtime === "usage"
+
+      ? [
 
           {
             label:"Executions",
             value:
               data.length,
             hint:
-              "Service usage records",
+              "Service executions",
           },
 
           {
-            label:"Supplier Cost",
+            label:"Usage Volume",
             value:
               data.reduce(
                 (sum,row)=>
                   sum +
                   Number(
-                    row.supplier_cost || 0
+                    row.quantity || 0
                   ),
                 0
               ),
             hint:
-              "Provider cost",
+              "Total usage",
           },
 
           {
-            label:"Customer Price",
+            label:"Customer Charges",
             value:
               data.reduce(
                 (sum,row)=>
@@ -293,14 +469,185 @@ export default function ServiceRuntimeWorkCenter({
           },
 
           {
-            label:"Margin",
+            label:"Last Activity",
             value:
-              "-",
+              data[0]?.created_at || "-",
             hint:
-              "Calculated margin",
+              "Latest execution",
+          },
+
+        ]
+
+      : runtime === "service_domains"
+
+      ? [
+
+          {
+            label:"Services",
+            value:
+              data.reduce(
+                (sum,row)=>
+                  sum +
+                  Number(
+                    row.services || 0
+                  ),
+                0
+              ),
+            hint:
+              "Avantiqo services",
+          },
+
+          {
+            label:"Capabilities",
+            value:
+              data.reduce(
+                (sum,row)=>
+                  sum +
+                  Number(
+                    row.capabilities || 0
+                  ),
+                0
+              ),
+            hint:
+              "Available capabilities",
+          },
+
+          {
+            label:"Usage",
+            value:
+              data.reduce(
+                (sum,row)=>
+                  sum +
+                  Number(
+                    row.usage || 0
+                  ),
+                0
+              ),
+            hint:
+              "Service executions",
+          },
+
+          {
+            label:"Cost",
+            value:
+              data.reduce(
+                (sum,row)=>
+                  sum +
+                  Number(
+                    row.cost || 0
+                  ),
+                0
+              ),
+            hint:
+              "Customer consumption",
+          },
+
+        ]
+
+      : runtime === "service_domain_detail"
+
+      ? [
+
+          {
+            label:"Services",
+            value:
+              data.length,
+            hint:
+              "Available services",
+          },
+
+          {
+            label:"Capabilities",
+            value:
+              data.reduce(
+                (sum,row)=>
+                  sum +
+                  (row.capabilities?.length || 0),
+                0
+              ),
+            hint:
+              "Available capabilities",
+          },
+
+          {
+            label:"Usage",
+            value:
+              data.reduce(
+                (sum,row)=>
+                  sum +
+                  Number(
+                    row.usage || 0
+                  ),
+                0
+              ),
+            hint:
+              "Service usage",
+          },
+
+          {
+            label:"Cost",
+            value:
+              data.reduce(
+                (sum,row)=>
+                  sum +
+                  Number(
+                    row.cost || 0
+                  ),
+                0
+              ),
+            hint:
+              "Customer consumption",
+          },
+
+        ]
+      : [
+
+          {
+            label:"Services",
+            value:
+              data.length,
+            hint:
+              "Available services",
+          },
+
+          {
+            label:"Capabilities",
+            value:
+              data.reduce(
+                (sum,row)=>
+                  sum +
+                  (row.capabilities?.length || 0),
+                0
+              ),
+            hint:
+              "Available business functions",
+          },
+
+          {
+            label:"Active",
+            value:
+              data.filter(
+                row =>
+                  row.status === "ACTIVE"
+              ).length,
+            hint:
+              "Active services",
+          },
+
+          {
+            label:"Available",
+            value:
+              data.filter(
+                row =>
+                  row.status === "ACTIVE" ||
+                  row.status === "AVAILABLE"
+              ).length,
+            hint:
+              "Available services",
           },
 
         ];
+
 
 
   return (
@@ -385,8 +732,42 @@ export default function ServiceRuntimeWorkCenter({
         setSelectedId
       }
 
+      onRowSelect={
+
+        runtime === "service_domains"
+
+          ? row => {
+
+              router.push(
+                `/workspace/${organizationId}/services/connected-services/${row.id}`
+              );
+
+            }
+
+
+        : runtime === "service_domain_detail"
+
+          ? row => {
+
+              router.push(
+                `/workspace/${organizationId}/services/connected-services/${capability.domainId}/${row.id}`
+              );
+
+            }
+
+
+        : undefined
+
+      }
+
       kpis={
         kpis
+      }
+
+
+
+      menuActions={
+        []
       }
 
       searchPlaceholder={
@@ -396,7 +777,7 @@ export default function ServiceRuntimeWorkCenter({
       getName={
         row =>
           row.name ||
-          row.provider ||
+          row.name ||
           row.capability ||
           row.operation ||
           capability.name
@@ -404,29 +785,116 @@ export default function ServiceRuntimeWorkCenter({
 
       getSubtitle={
         row =>
+
           runtime === "wallet"
 
-            ? [
-                row.display_status ||
-                row.status,
+          ? [
+              row.display_status ||
+              row.status,
 
-                row.currency,
+              row.currency,
 
-                row.billing_policy,
-              ].filter(Boolean)
+              row.billing_policy,
+            ].filter(Boolean)
 
-            : [
-                row.status,
-                row.capability,
-                row.operation,
-              ].filter(Boolean)
+          : runtime === "usage"
+
+          ? [
+              row.status,
+              row.capability,
+              row.operation,
+            ].filter(Boolean)
+
+          : runtime === "service_domains"
+
+          ? [
+              `${row.capabilities || 0} capabilities`,
+              `${row.capabilities || 0} capabilities`,
+            ].filter(Boolean)
+
+          : runtime === "service_domain_detail"
+
+          ? [
+              ...(row.capabilities || [])
+                .map(
+                  item =>
+                    typeof item === "string"
+                      ? item
+                      : item.business || item.name
+                )
+            ].filter(Boolean)
+
+          : runtime === "service_domain_detail"
+
+          ? [
+              {
+                title:"Service Details",
+                fields: selected
+                  ? [
+                      {
+                        label:"Service",
+                        value:()=>String(selected.name || "-"),
+                      },
+                      {
+                        label:"Capabilities",
+                        value:()=>(
+                          formatCapabilities(
+                            selected.capabilities || []
+                          )
+                        ),
+                      },
+                      {
+                        label:"Status",
+                        value:()=>String(selected.status || "-"),
+                      },
+                      {
+                        label:"Service Status",
+                        value:()=>serviceStatusLabel(selected),
+                      },
+                      {
+                        label:"Health",
+                        value:()=>String(selected.availability || "-"),
+                      },
+
+                      {
+                        label:"Usage",
+                        value:()=>String(
+                          economics.usage || 0
+                        ),
+                      },
+
+                      {
+                        label:"Customer Cost",
+                        value:()=>String(
+                          economics.cost || 0
+                        ),
+                      },
+
+                      {
+                        label:"Executions",
+                        value:()=>String(
+                          economics.executions || 0
+                        ),
+                      },
+
+                    ]
+                  : [],
+              },
+            ]
+
+          : [
+              row.category,
+              row.status,
+              serviceStatusLabel(row),
+            ].filter(Boolean)
+
       }
 
       getInitials={
         row =>
           String(
             row.name ||
-            row.provider ||
+            row.name ||
             capability.name
           )
           .slice(0,2)
@@ -465,20 +933,20 @@ export default function ServiceRuntimeWorkCenter({
               },
             ]
 
-          : [
+          : runtime === "usage"
+
+          ? [
               {
-                label:"Provider",
+                label:"Service",
                 value:
                   row =>
-                    row.provider ||
-                    "-",
+                    row.name || "-",
               },
               {
                 label:"Capability",
                 value:
                   row =>
-                    row.capability ||
-                    "-",
+                    row.capability || "-",
               },
               {
                 label:"Cost",
@@ -495,6 +963,109 @@ export default function ServiceRuntimeWorkCenter({
                     row.customer_price ??
                     row.price ??
                     "-",
+              },
+            ]
+
+          : runtime === "service_domains"
+
+          ? [
+
+              {
+                label:"Capabilities",
+                value:
+                  row =>
+                    formatCapabilities(
+                      row.capabilities || []
+                    ),
+              },
+
+              {
+                label:"Services",
+                value:
+                  row =>
+                    formatCapabilities(
+                      row.capabilities || []
+                    ),
+              },
+
+              {
+                label:"Usage",
+                value:
+                  row =>
+                    row.usage || 0,
+              },
+
+              {
+                label:"Cost",
+                value:
+                  row =>
+                    row.cost || 0,
+              },
+
+            ]
+
+          : runtime === "service_domain_detail"
+
+          ? [
+
+              {
+                label:"Capabilities",
+                value:
+                  row =>
+                    formatCapabilities(
+                      row.capabilities || []
+                    ) || "-",
+              },
+
+              {
+                label:"Status",
+                value:
+                  row =>
+                    row.status || "-",
+              },
+
+              {
+                label:"Active",
+                value:
+                  row =>
+                    row.status === "ACTIVE"
+                      ? "YES"
+                      : "NO",
+              },
+
+              {
+                label:"Health",
+                value:
+                  row =>
+                    row.availability || "-",
+              },
+
+            ]
+
+          : [
+              {
+                label:"Category",
+                value:
+                  row =>
+                    row.category || "-",
+              },
+              {
+                label:"Capabilities",
+                value:
+                  row =>
+                    capabilitySummary(row),
+              },
+              {
+                label:"Status",
+                value:
+                  row =>
+                    row.status || "-",
+              },
+              {
+                label:"Service Status",
+                value:
+                  row =>
+                    serviceStatusLabel(row),
               },
             ]
       }
@@ -546,6 +1117,42 @@ export default function ServiceRuntimeWorkCenter({
                       {
                         label:"Updated",
                         value:()=>String(selected.updated_at || "-"),
+                      },
+                    ]
+                  : [],
+              },
+            ]
+
+          : runtime === "services"
+
+          ? [
+              {
+                title:"Service Details",
+                fields: selected
+                  ? [
+                      {
+                        label:"Service",
+                        value:()=>String(selected.name || selected.name || "-"),
+                      },
+                      {
+                        label:"Category",
+                        value:()=>String(selected.category || "-"),
+                      },
+                      {
+                        label:"Capabilities",
+                        value:()=>capabilitySummary(selected),
+                      },
+                      {
+                        label:"Status",
+                        value:()=>String(selected.status || "-"),
+                      },
+                      {
+                        label:"Service Status",
+                        value:()=>serviceStatusLabel(selected),
+                      },
+                      {
+                        label:"Health",
+                        value:()=>String(selected.availability || "-"),
                       },
                     ]
                   : [],

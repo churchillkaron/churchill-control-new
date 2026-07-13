@@ -33,8 +33,8 @@ export default function GoodsReceiptsPage() {
         .from("purchase_orders")
         .select(`
           *,
-          vendors (
-            legal_name
+          parties (
+            display_name
           )
         `)
         .neq("status", "closed")
@@ -182,7 +182,7 @@ export default function GoodsReceiptsPage() {
 
                 {po.po_number}
                 {" — "}
-                {po.vendors?.legal_name}
+                {po.parties?.display_name}
 
               </option>
 

@@ -41,9 +41,10 @@ export async function GET(request) {
       );
     }
 
-    const result = await ReportingApplicationService("trial_balance", {
-      organization_id: access.organizationId,
-      entity_id: entityId,
+    const result = await ReportingApplicationService({
+      type:"trial_balance",
+      organizationId: access.organizationId,
+      entityId: entityId,
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),
     });

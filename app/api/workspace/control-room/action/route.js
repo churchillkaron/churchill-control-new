@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
+import {
+  executeWorkspaceAction,
+} from "@/lib/platform/erp-engine/actions/ActionExecutor";
+
 /**
  * CONTROL ROOM ACTION EXECUTOR
  * Human-in-the-loop override system
@@ -34,9 +38,56 @@ export async function POST(req) {
         })
         .eq("id", approvalId);
 
+      const {
+        data: approvedAction,
+      } =
+        await supabaseAdmin
+          .from("ai_approval_queue")
+          .select("*")
+          .eq(
+            "id",
+            approvalId
+          )
+          .single();
+
+
+      let execution =
+        null;
+
+
+      if (
+        approvedAction?.payload?.action
+      ) {
+
+        execution =
+          executeWorkspaceAction({
+
+            action:
+              approvedAction.payload.action,
+
+            context: {
+
+              organizationId,
+
+              source:
+                "AI_APPROVED",
+
+            },
+
+          });
+
+      }
+
+
       return NextResponse.json({
+
         success: true,
-        message: "Action approved",
+
+        message:
+          "Action approved",
+
+        execution,
+
       });
     }
 

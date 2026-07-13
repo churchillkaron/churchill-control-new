@@ -21,9 +21,9 @@ export async function POST(req) {
 
     const result = await runIntercompanyReconciliationCommand({
       organizationId: access.organizationId,
-      transactionId: body.transactionId,
-      sourceBalance: body.sourceBalance,
-      targetBalance: body.targetBalance,
+      transactionId: body.transactionId || body.transaction_id,
+      sourceBalance: body.sourceBalance ?? body.source_balance,
+      targetBalance: body.targetBalance ?? body.target_balance,
     });
 
     return NextResponse.json(result);

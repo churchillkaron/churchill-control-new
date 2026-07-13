@@ -3,6 +3,22 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/shared/supabase/client";
 
+import {
+  ChannelConnectionRuntime,
+} from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+
+import {
+  ChannelAssetRuntime,
+} from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+
+import {
+  resolveChannelCredential,
+} from "@/lib/platform/channels/helpers/resolveChannelCredential";
+
+import {
+  MetaProvider,
+} from "@/lib/platform/service-runtime/providers/meta/MetaProvider";
+
 export async function POST(req) {
 
   try {
@@ -63,24 +79,71 @@ export async function POST(req) {
       );
     }
 
-    // LOAD META ACCOUNT
+    // LOAD META PROVIDER CONNECTION
 
-    const { data: account, error: accountError } = await supabase
-      .from("meta_accounts")
-      .select("*")
-      .eq("connected", true)
-      .single();
+    const connection =
+      await ChannelConnectionRuntime.get({
 
-    if (process.env.NODE_ENV !== "production") console.log("META ACCOUNT:", account);
+        organization_id:
+          campaign.organization_id,
 
-    if (accountError || !account) {
+        provider:
+          "meta",
 
-      if (process.env.NODE_ENV !== "production") console.log("META ACCOUNT ERROR:", accountError);
+      });
+
+
+    if (!connection) {
 
       return NextResponse.json(
-        { error: "No connected Meta account" },
-        { status: 404 }
+        {
+          error:
+            "No connected Meta provider",
+        },
+        {
+          status:404,
+        }
       );
+
+    }
+
+
+    const asset =
+      await ChannelAssetRuntime.find({
+
+        organization_id:
+          campaign.organization_id,
+
+        provider:
+          "meta",
+
+        asset_type:
+          "facebook_page",
+
+        external_id:
+          connection.metadata?.page_id,
+
+      });
+
+
+    const access_token =
+      await resolveChannelCredential(
+        connection
+      );
+
+
+    if (!access_token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Meta credential missing",
+        },
+        {
+          status:404,
+        }
+      );
+
     }
 
     // VALIDATE IMAGE URL
@@ -111,31 +174,30 @@ ${campaign.hashtags || ""}
 
     if (process.env.NODE_ENV !== "production") console.log("MESSAGE:", message);
 
-    // FACEBOOK PUBLISH
+    // FACEBOOK PUBLISH THROUGH SERVICE PROVIDER
 
-    const publishPayload = {
-      url: campaign.image_url,
-      caption: message,
-      access_token: account.access_token,
-    };
+    const publishData =
+      await MetaProvider.execute({
 
-    if (process.env.NODE_ENV !== "production") console.log(
-      "FACEBOOK PAYLOAD:",
-      publishPayload
-    );
+        capability:
+          "marketing.facebook.publish",
 
-    const publishRes = await fetch(
-      `https://graph.facebook.com/v23.0/${account.page_id}/photos`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(publishPayload),
-      }
-    );
+        organization_id:
+          campaign.organization_id,
 
-    const publishData = await publishRes.json();
+        page_id:
+          connection.metadata?.page_id,
+
+        access_token:
+          access_token,
+
+        message,
+
+        image_url:
+          campaign.image_url,
+
+      });
+
 
     if (process.env.NODE_ENV !== "production") console.log(
       "FACEBOOK RESPONSE:",

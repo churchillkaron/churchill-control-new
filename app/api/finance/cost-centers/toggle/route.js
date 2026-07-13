@@ -35,7 +35,7 @@ export async function POST(req) {
     const result =
       await toggleCostCenterCommand({
         organization_id: access.organizationId,
-        cost_center_id: body.cost_center_id,
+        cost_center_id: body.cost_center_id || body.id,
         updated_by: body.userId || "system",
       });
 

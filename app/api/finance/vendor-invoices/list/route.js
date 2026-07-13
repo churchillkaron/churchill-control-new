@@ -41,10 +41,9 @@ export async function GET(req) {
         .from("vendor_invoices")
         .select(`
           *,
-          vendors(
+          parties(
             id,
-            display_name,
-            legal_name
+            display_name
           )
         `)
         .eq(

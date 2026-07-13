@@ -21,7 +21,8 @@ export async function POST(req) {
       await requireOrganizationAccess({
 
         organizationId:
-          body.organizationId,
+          body.organizationId ||
+          body.organization_id,
 
       });
 
@@ -41,26 +42,38 @@ export async function POST(req) {
 
     }
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
+    const entityId =
+      body.entityId ||
+      body.entity_id ||
+      null;
 
+    let query = supabaseAdmin
       .from("purchase_orders")
-
       .select(`
         *,
-        vendors (
+        parties (
           id,
-          display_name,
-          legal_name
+          display_name
         )
       `)
 
       .eq(
         "organization_id",
-        body.organizationId
-      )
+        access.organizationId
+      );
+
+    if (entityId) {
+      query =
+        query.eq(
+          "entity_id",
+          entityId
+        );
+    }
+
+    const {
+      data,
+      error,
+    } = await query
 
       .order(
         "created_at",
@@ -137,10 +150,9 @@ export async function GET(req) {
       .from("purchase_orders")
       .select(`
         *,
-        vendors (
+        parties (
           id,
-          display_name,
-          legal_name
+          display_name
         )
       `)
       .eq("organization_id", access.organizationId)

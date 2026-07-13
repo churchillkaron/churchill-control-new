@@ -71,6 +71,14 @@ export async function GET(request) {
           legal_name:
             row.parties?.legal_name,
 
+          vendor_name:
+            row.parties?.display_name ||
+            row.parties?.legal_name,
+
+          name:
+            row.parties?.display_name ||
+            row.parties?.legal_name,
+
           display_name:
             row.parties?.display_name,
 
@@ -80,7 +88,13 @@ export async function GET(request) {
           email:
             row.parties?.email,
 
+          vendor_email:
+            row.parties?.email,
+
           phone:
+            row.parties?.phone,
+
+          vendor_phone:
             row.parties?.phone,
 
           address:

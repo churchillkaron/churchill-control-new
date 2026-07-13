@@ -9,10 +9,15 @@ export async function POST(request) {
 
     const valuation =
       await updateStockLedger({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+        entityId:
+          body.entityId ||
+          body.entity_id,
         itemId:
-          body.itemId,
+          body.itemId ||
+          body.item_id,
       });
 
     return NextResponse.json({

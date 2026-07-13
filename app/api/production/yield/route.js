@@ -11,7 +11,16 @@ export async function POST(req) {
 
     const result =
       await processYieldCalculation(
-        body
+        {
+          ...body,
+          organization_id:
+            body.organization_id ||
+            body.organizationId,
+          entity_id:
+            body.entity_id ||
+            body.entityId ||
+            null,
+        }
       );
 
     return NextResponse.json(

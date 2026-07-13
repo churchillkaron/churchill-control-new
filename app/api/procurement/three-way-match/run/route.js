@@ -9,16 +9,11 @@ export async function POST(request) {
 
     const match =
       await runThreeWayMatch({
-        tenantId:
-          body.tenantId,
-        purchaseOrderId:
-          body.purchaseOrderId,
-        goodsReceiptId:
-          body.goodsReceiptId,
-        invoiceReference:
-          body.invoiceReference,
-        invoiceTotal:
-          body.invoiceTotal,
+        vendor_invoice_id:
+          body.vendor_invoice_id ||
+          body.vendorInvoiceId ||
+          body.invoice_id ||
+          body.invoiceId,
       });
 
     return NextResponse.json({

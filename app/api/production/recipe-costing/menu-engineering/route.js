@@ -9,12 +9,19 @@ export async function POST(request) {
 
     const result =
       await runMenuEngineering({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+        entityId:
+          body.entityId ||
+          body.entity_id ||
+          null,
         recipeId:
-          body.recipeId,
+          body.recipeId ||
+          body.recipe_id,
         popularityScore:
-          body.popularityScore,
+          body.popularityScore ||
+          body.popularity_score,
       });
 
     return NextResponse.json({

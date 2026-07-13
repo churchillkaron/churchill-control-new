@@ -9,16 +9,20 @@ export async function POST(request) {
 
     const receipt =
       await receivePurchaseOrder({
-        tenantId:
-          body.tenantId,
-        purchaseOrderId:
+        organization_id:
+          body.organization_id ||
+          body.organizationId,
+        entity_id:
+          body.entity_id ||
+          body.entityId ||
+          null,
+        purchase_order_id:
+          body.purchase_order_id ||
           body.purchaseOrderId,
-        itemId:
-          body.itemId,
-        quantity:
-          body.quantity,
-        unitCost:
-          body.unitCost,
+        received_by:
+          body.received_by ||
+          body.receivedBy ||
+          "WAREHOUSE",
       });
 
     return NextResponse.json({

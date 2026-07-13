@@ -16,7 +16,29 @@ function titleFromAction(action) {
 }
 
 function resolveKind(action) {
-  return action?.action || action?.type || "";
+
+  if (action?.capability && action?.action) {
+    return action.action;
+  }
+
+
+  if (action?.action) {
+    return action.action;
+  }
+
+
+  if (action?.type) {
+    return action.type;
+  }
+
+
+  if (action?.id) {
+    return action.id;
+  }
+
+
+  return "";
+
 }
 
 function resolveHref(action, context) {
@@ -41,24 +63,49 @@ export default function MasterActionMenu({
   actions = [],
   row = null,
   organizationId,
+  entityId,
+  periodId,
   workspaceId,
   moduleKey,
   variant = "dropdown",
   onSelect,
   onCreate,
+  onAction,
   onClose,
   onRefresh,
 }) {
   const router = useRouter();
 
   function execute(action) {
+
+    console.log(
+      "MASTER ACTION CLICK",
+      action
+    );
+
     if (!action || action.type === "section") return;
 
     const kind = resolveKind(action);
 
+    console.log(
+      "MASTER ACTION KIND",
+      {
+        kind,
+        action,
+      }
+    );
+
     const context = {
       row,
       organizationId,
+      entityId:
+        row?.entity_id ||
+        entityId ||
+        null,
+      periodId:
+        row?.period_id ||
+        periodId ||
+        null,
       workspaceId,
       moduleKey,
       router,
@@ -66,21 +113,19 @@ export default function MasterActionMenu({
       action,
     };
 
+    const href = resolveHref(action, context);
+
+    if (href) {
+      router.push(href);
+      onClose?.();
+      return;
+    }
+
     if (
       action?.engine &&
       action.type !== "capability" &&
       action.type !== "document"
     ) {
-
-      console.log(
-        "ROW PREVIEW ACTION",
-        {
-          row,
-          action,
-        }
-      );
-
-
       window.dispatchEvent(
         new CustomEvent(
           "workspace:engine",
@@ -126,7 +171,13 @@ export default function MasterActionMenu({
       return;
     }
 
-    if (kind === "create" || kind === "create_record") {
+    if (
+      (kind === "create" || kind === "create_record") &&
+      !(
+        action?.capability &&
+        action?.action
+      )
+    ) {
       onCreate?.();
       onClose?.();
       return;
@@ -154,18 +205,31 @@ export default function MasterActionMenu({
         "reverse",
         "reconcile",
         "close",
+        "submit",
+        "assign",
+        "complete",
+        "restore",
+        "merge",
+        "split",
+        "sync",
+        "publish",
         "lock",
         "unlock",
+        "print",
+        "download",
+        "upload",
+        "attach",
+        "email",
+        "sms",
+        "whatsapp",
         "communication",
       ].includes(kind)
     ) {
-      emitWorkspaceEvent(kind, {
-        row,
-        moduleKey,
-        workspaceId,
-        organizationId,
-        action,
-      });
+      if (onAction) {
+        onAction(context);
+      } else {
+        emitWorkspaceEvent(kind, context);
+      }
 
       onClose?.();
 
@@ -191,11 +255,12 @@ export default function MasterActionMenu({
       return;
     }
 
-    const href = resolveHref(action, context);
 
-    if (href) {
-      router.push(href);
+    if (onAction) {
+      onAction(context);
+
       onClose?.();
+
       return;
     }
 
@@ -206,6 +271,12 @@ export default function MasterActionMenu({
   if (!actions.length) return null;
 
   const renderAction = (action, index) => {
+
+    console.log(
+      "MASTER MENU RENDER ACTION",
+      action
+    );
+
     if (action.type === "section") {
       return (
         <div

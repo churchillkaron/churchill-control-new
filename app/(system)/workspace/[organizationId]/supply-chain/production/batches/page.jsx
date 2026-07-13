@@ -73,7 +73,7 @@ export default function ProductionBatchPage() {
 
     const payload = {
 
-      tenant_id:
+      organization_id:
         "demo",
 
       batch_name:

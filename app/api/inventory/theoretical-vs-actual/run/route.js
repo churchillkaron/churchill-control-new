@@ -9,14 +9,21 @@ export async function POST(request) {
 
     const result =
       await runTheoreticalVsActual({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+        entityId:
+          body.entityId ||
+          body.entity_id,
         sessionId:
-          body.sessionId,
+          body.sessionId ||
+          body.session_id,
         itemId:
-          body.itemId,
+          body.itemId ||
+          body.item_id,
         actualQuantity:
-          body.actualQuantity,
+          body.actualQuantity ||
+          body.actual_quantity,
       });
 
     return NextResponse.json({

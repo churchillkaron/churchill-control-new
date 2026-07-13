@@ -136,6 +136,10 @@ export default function WorkspaceEventHub({
 
           periodId={periodId}
 
+          initialPayload={reportAction}
+
+          onClose={() => setReportAction(null)}
+
         />
 
       )}

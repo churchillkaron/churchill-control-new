@@ -35,7 +35,7 @@ export async function POST(req) {
     const result =
       await toggleLegalEntityCommand({
         organization_id: access.organizationId,
-        entity_id: body.entity_id,
+        entity_id: body.entity_id || body.id,
         updated_by: body.userId || "system",
       });
 

@@ -14,8 +14,8 @@ import { loadKitchenPerformance } from "@/lib/production/loadKitchenPerformance"
 export default function ProductionPerformancePage() {
 
   const [
-    tenantId,
-    setTenantId,
+    organizationId,
+    setOrganizationId,
   ] = useState(null);
 
   const [
@@ -26,7 +26,7 @@ export default function ProductionPerformancePage() {
   // ===== LOAD TENANT =====
   useEffect(() => {
 
-    async function loadTenant() {
+    async function loadOrganization() {
 
       const {
         data: { user },
@@ -49,29 +49,29 @@ export default function ProductionPerformancePage() {
         .single();
 
       if (
-        data?.tenant_id
+        data?.organization_id
       ) {
 
-        setTenantId(
-          data.tenant_id
+        setOrganizationId(
+          data.organization_id
         );
       }
     }
 
-    loadTenant();
+    loadOrganization();
 
   }, []);
 
   // ===== LOAD =====
   async function refresh() {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return;
     }
 
     const data =
       await loadKitchenPerformance(
-        tenantId
+        organizationId
       );
 
     setStations(
@@ -84,13 +84,13 @@ export default function ProductionPerformancePage() {
     refresh();
 
   }, [
-    tenantId,
+    organizationId,
   ]);
 
   // ===== REALTIME =====
   useEffect(() => {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return;
     }
 
@@ -119,7 +119,7 @@ export default function ProductionPerformancePage() {
     };
 
   }, [
-    tenantId,
+    organizationId,
   ]);
 
   return (

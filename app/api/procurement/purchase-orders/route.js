@@ -27,7 +27,8 @@ export async function POST(req) {
       await requireOrganizationAccess({
 
         organizationId:
-          body.organizationId,
+          body.organizationId ||
+          body.organization_id,
 
       });
 
@@ -47,12 +48,21 @@ export async function POST(req) {
 
     }
 
-    const tenant_id =
-      access.tenantId;
-
     const result =
       await createPurchaseOrder(
-        body
+        {
+          ...body,
+          organization_id:
+            access.organizationId,
+          entity_id:
+            body.entity_id ||
+            body.entityId ||
+            null,
+          supplier_party_id:
+            body.supplier_party_id ||
+            body.vendor_party_id ||
+            body.party_id,
+        }
       );
 
     return NextResponse.json(
@@ -84,11 +94,36 @@ export async function PUT(req) {
     const body =
       await req.json();
 
+    await requireAuth();
+
+    const access =
+      await requireOrganizationAccess({
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+      });
+
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
+      );
+    }
+
     const result =
       await approvePurchaseOrder({
 
+        organization_id:
+          access.organizationId,
+
         purchase_order_id:
-          body.purchase_order_id,
+          body.purchase_order_id ||
+          body.purchaseOrderId,
 
         approved_by:
           body.approved_by,
@@ -123,11 +158,37 @@ export async function PATCH(req) {
     const body =
       await req.json();
 
+    await requireAuth();
+
+    const access =
+      await requireOrganizationAccess({
+        organizationId:
+          body.organization_id ||
+          body.organizationId,
+      });
+
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
+      );
+    }
+
     const result =
       await generateAutomaticPurchaseOrder({
 
-        tenant_id:
-          body.tenant_id,
+        organization_id:
+          access.organizationId,
+
+        entity_id:
+          body.entity_id ||
+          body.entityId ||
+          null,
       });
 
     return NextResponse.json(

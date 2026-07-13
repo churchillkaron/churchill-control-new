@@ -15,6 +15,18 @@ from "@/lib/marketing/repositories/updateBusinessAIProfile";
 import { updateEngineLearningMemory }
 from "@/lib/marketing/ai/learning/updateEngineLearningMemory";
 
+import {
+  MetaProvider,
+} from "@/lib/platform/service-runtime/providers/meta/MetaProvider";
+
+import {
+  ChannelConnectionRuntime,
+} from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+
+import {
+  resolveChannelCredential,
+} from "@/lib/platform/channels/helpers/resolveChannelCredential";
+
 export async function GET() {
 
   try {
@@ -46,22 +58,19 @@ export async function GET() {
 
       try {
 
-        const {
-          data: account,
-        } = await supabase
+        const connection =
+          await ChannelConnectionRuntime.get({
 
-          .from("meta_accounts")
+            organization_id:
+              campaign.organization_id,
 
-          .select("*")
+            provider_id:
+              "meta",
 
-          .eq(
-            "page_id",
-            campaign.page_id
-          )
+          });
 
-          .single();
 
-        if (!account) {
+        if (!connection) {
 
           continue;
 
@@ -73,16 +82,21 @@ export async function GET() {
           campaign.instagram_post_id
         ) {
 
-          const igRes =
-
-            await fetch(
-
-              `https://graph.facebook.com/v23.0/${campaign.instagram_post_id}/insights?metric=likes,comments,shares,reach,impressions,saved&access_token=${account.access_token}`
-
-            );
-
           const igData =
-            await igRes.json();
+            await MetaProvider.execute({
+
+              capability:
+                "marketing.social.analytics",
+
+              page_id:
+                campaign.instagram_post_id,
+
+              access_token:
+                await resolveChannelCredential(
+                  connection
+                ),
+
+            });
 
           if (process.env.NODE_ENV !== "production") console.log(
             "IG ANALYTICS:",

@@ -23,7 +23,8 @@ export async function POST(req) {
       await requireOrganizationAccess({
 
         organizationId:
-          body.organizationId,
+          body.organizationId ||
+          body.organization_id,
 
       });
 
@@ -43,16 +44,21 @@ export async function POST(req) {
 
     }
 
-    const tenant_id =
-      access.tenantId;
+    const organizationId =
+      access.organizationId;
+
+    const entityId =
+      body.entityId ||
+      body.entity_id ||
+      null;
 
 
-    if (!tenant_id) {
+    if (!organizationId) {
 
       return NextResponse.json(
         {
           success: false,
-          error: "Missing tenant context",
+          error: "Missing organization context",
         },
         {
           status: 400,
@@ -64,8 +70,8 @@ export async function POST(req) {
     const result =
       await runInventoryMonitoring({
 
-        tenant_id:
-          tenant_id,
+        organizationId,
+        entityId,
       });
 
     return NextResponse.json(

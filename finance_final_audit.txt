@@ -1,0 +1,436 @@
+======================================
+FINANCE FINAL CONVERGENCE AUDIT
+======================================
+
+FINANCE REGISTRY ITEMS
+======================================
+53:      id: "finance",
+126:            { id: "accounting_firm", name: "Accounting Firm", route: "/finance/accounting-firm", order: 80 },
+158:            { id: "sales_orders", name: "Sales Orders", route: "/commercial/sales/orders", description: "Create and manage customer orders.", order: 10, status: "planned" },
+159:            { id: "quotes", name: "Quotes", route: "/commercial/sales/quotes", description: "Prepare and track customer quotes.", order: 20, status: "planned" },
+160:            { id: "contracts", name: "Contracts", route: "/commercial/sales/contracts", description: "Manage customer contracts and commercial terms.", order: 30, status: "planned" },
+166:          id: "customer_management",
+172:  id: "customers",
+244:            { id: "accounts", name: "Accounts", route: "/commercial/customers/accounts", description: "Manage customer accounts.", order: 20, status: "planned" },
+245:            { id: "contacts", name: "Contacts", route: "/commercial/customers/contacts", description: "Manage contacts and profiles.", order: 30, status: "planned" },
+246:            { id: "leads", name: "Leads", route: "/commercial/customers/leads", description: "Track leads and opportunities.", order: 40, status: "planned" },
+247:            { id: "loyalty", name: "Loyalty", route: "/commercial/customers/loyalty", description: "Manage loyalty programs.", order: 50, status: "planned" },
+248:            { id: "cases", name: "Cases", route: "/commercial/customers/cases", description: "Manage customer support cases.", order: 60, status: "planned" },
+288:                { id: "open_assets", label: "Assets", route: "assets" },
+327:            { id: "assets", name: "Assets", route: "/commercial/marketing/assets", description: "Manage marketing assets.", order: 40, status: "active" },
+349:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/ar/invoices", description: "Create and review customer invoices.", order: 20, status: "active" },
+350:            { id: "customer_payments", name: "Customer Payments", route: "/finance/ar/payments", description: "Receive and allocate customer payments.", order: 30, status: "active" },
+474:                  id: "vendor-master",
+697:            { id: "vendor_performance", name: "Vendor Performance", route: "/procurement/vendor-performance", order: 70 },
+709:            { id: "invoice_matching", name: "Invoice Matching", route: "/finance/invoice-matching", order: 40 },
+710:            { id: "returns_to_vendor", name: "Returns to Vendor", route: "/receiving/vendor-returns", order: 50 },
+1334:          id: "accounting",
+1339:            { id: "chart_of_accounts", name: "Chart of Accounts", route: "/finance/chart-of-accounts", description: "Maintain account structure.", order: 10, type: "business-workspace", document: "Account", create:{
+1342:                  id: "account",
+1386:            { id: "general_ledger", name: "General Ledger", route: "/finance/ledger", description: "Review ledger activity and balances.", order: 20, type: "business-workspace", document: "LedgerEntry", 
+1422:            { id: "journals", name: "Journals", route: "/finance/journals", description: "Create, review and reverse journal entries.", order: 30, type: "business-workspace", document: "JournalEntry", create:{
+1471:            { id: "trial_balance", name: "Trial Balance", route: "/finance/trial-balance", description: "Review trial balance by period.", order: 40, type: "business-workspace", document: "TrialBalanceLine", 
+1507:            { id: "fiscal_periods", name: "Fiscal Periods", route: "/finance/fiscal-periods", description: "Manage fiscal periods and locks.", order: 50, type: "business-workspace", document: "FiscalPeriod", create:{
+1530:            { id: "dimensions", name: "Dimensions", route: "/finance/dimensions", description: "Manage departments, cost centers and reporting dimensions.", order: 60, type: "business-workspace", document: "Dimension", create:{
+1552:            { id: "opening_balances", name: "Opening Balances", route: "/finance/opening-balances", description: "Load opening balances for new entities and clients.", order: 70, type: "business-workspace", document: "OpeningBalance", status: "planned" },
+1553:            { id: "recurring_journals", name: "Recurring Journals", route: "/finance/recurring-journals", description: "Manage recurring journals and scheduled postings.", order: 80, type: "business-workspace", document: "RecurringJournal", status: "planned" }
+1562:            { id: "customers", name: "Customers", route: "/finance/customers", description: "Manage finance customer records.", order: 10, type: "business-workspace", document: "Customer", create:{
+1633:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices.", order: 20, type: "business-workspace", document: "CustomerInvoice", launchFrom: ["customers","accounts_receivable","commercial/customers"], create:{
+1679:            { id: "accounts_receivable", name: "Accounts Receivable", route: "/finance/ar", description: "Review receivable balances and activity.", order: 30, type: "business-workspace", document: "Receivable", 
+1683:                  id: "payment",
+1709:            { id: "customer_payments", name: "Customer Payments", route: "/finance/customer-payments", description: "Receive and allocate customer payments.", order: 40, type: "business-workspace", document: "CustomerPayment", launchFrom: ["customers","accounts_receivable"], create:{
+1733:            { id: "collections", name: "Collections", route: "/finance/collections", description: "Manage collections and overdue balances.", order: 50, type: "business-workspace", document: "CollectionCase", status: "planned" },
+1734:            { id: "customer_statements", name: "Customer Statements", route: "/finance/customer-statements", description: "Generate and review customer statements.", order: 60, type: "business-workspace", document: "CustomerStatement", status: "planned" },
+1735:            { id: "revenue_recognition", name: "Revenue Recognition", route: "/finance/revenue-recognition", description: "Recognize revenue according to rules.", order: 70, type: "business-workspace", document: "RevenueRecognitionSchedule", status: "planned" }
+1744:            { id: "vendors", name: "Vendors", route: "/finance/vendors", description: "Manage vendor finance records.", order: 10, type: "business-workspace", document: "Vendor", create:{
+1747:                  id: "vendor",
+1830:            { id: "purchase_orders", name: "Purchase Orders", route: "/finance/purchase-orders", description: "Review purchase commitments.", order: 20, type: "business-workspace", document: "PurchaseOrder", create:{
+1856:            { id: "goods_receipts", name: "Goods Receipts", route: "/finance/goods-receipts", description: "Review received goods.", order: 30, type: "business-workspace", document: "GoodsReceipt", create:{
+1882:            { id: "vendor_bills", name: "Vendor Bills", route: "/finance/vendor-bills", description: "Manage vendor bills and supplier invoices.", order: 40, type: "business-workspace", document: "VendorBill", create:{
+1885:                  id: "vendor_bill",
+1912:            { id: "invoice_matching", name: "Invoice Matching", route: "/finance/invoice-matching", description: "Match invoices, purchase orders and goods receipts.", order: 50, type: "business-workspace", document: "InvoiceMatch", 
+1916:                  id: "payment_run",
+1942:            { id: "accounts_payable", name: "Accounts Payable", route: "/finance/ap", description: "Manage payables and vendor balances.", order: 60, type: "business-workspace", document: "Payable", 
+1967:            { id: "vendor_payments", name: "Vendor Payments", route: "/finance/vendor-payments", description: "Prepare and execute vendor payments.", order: 70, type: "business-workspace", document: "VendorPayment", launchFrom: ["vendors","accounts_payable"], create:{
+1971:            { id: "vendor_statements", name: "Vendor Statements", route: "/finance/vendor-statements", description: "Generate and review vendor statements.", order: 80, type: "business-workspace", document: "VendorStatement", status: "planned" }
+1980:            { id: "bank_accounts", name: "Bank Accounts", route: "/finance/bank-accounts", description: "Manage bank accounts.", order: 10, type: "business-workspace", document: "BankAccount", create:{
+1983:                  id: "bank_account",
+2061:            { id: "cash_management", name: "Cash Management", route: "/finance/cash-management", description: "Manage cash positions and liquidity.", order: 20, type: "business-workspace", document: "CashPosition", status: "planned" },
+2062:            { id: "bank_statements", name: "Bank Statements", route: "/finance/bank-statements", description: "Import and review bank statements.", order: 30, type: "business-workspace", document: "BankStatement", status: "planned" },
+2063:            { id: "cash_flow", name: "Cash Flow", route: "/finance/cash-flow", description: "Monitor cash inflows and outflows.", order: 40, type: "business-workspace", document: "CashFlowLine", 
+2067:                  id: "payment",
+2093:            { id: "bank_reconciliation", name: "Bank Reconciliation", route: "/finance/bank-reconciliation", description: "Reconcile bank statements.", order: 50, type: "business-workspace", document: "BankReconciliation", status: "planned" },
+2094:            { id: "payments", name: "Payments", route: "/finance/payments", description: "Manage outgoing and incoming payments.", order: 60, type: "business-workspace", document: "Payment", create:{
+2098:            { id: "fx_revaluation", name: "FX Revaluation", route: "/finance/fx-revaluation", description: "Run and review foreign exchange revaluation.", order: 70, type: "business-workspace", document: "FXRevaluation", status: "planned" }
+2107:            { id: "tax", name: "Tax", route: "/finance/tax", description: "Manage VAT, tax balances and tax work.", order: 10, type: "business-workspace", document: "TaxWorkItem", create:{
+2110:                  id: "tax_work",
+2133:            { id: "vat_returns", name: "VAT Returns", route: "/finance/vat-returns", description: "Prepare, submit and track VAT returns.", order: 20, type: "business-workspace", document: "VATReturn", status: "planned" },
+2134:            { id: "tax_codes", name: "Tax Codes", route: "/finance/tax-codes", description: "Manage tax codes.", order: 30, type: "business-workspace", document: "TaxCode", create:{
+2137:                  id: "tax_code",
+2188:            { id: "fixed_assets", name: "Fixed Assets", route: "/finance/fixed-assets", description: "Manage fixed assets.", order: 40, type: "business-workspace", document: "FixedAsset", create:{
+2191:                  id: "asset",
+2243:            { id: "depreciation", name: "Depreciation", route: "/finance/depreciation", description: "Run and review depreciation.", order: 50, type: "business-workspace", document: "DepreciationRun", status: "planned" },
+2244:            { id: "audit_trail", name: "Audit Trail", route: "/finance/audit-trail", description: "Review finance audit history.", order: 60, type: "business-workspace", document: "AuditEvent", 
+2274:            { id: "period_close", name: "Period Close", route: "/finance/close", description: "Run month-end and year-end close.", order: 70, type: "business-workspace", document: "PeriodClose",
+2317:            { id: "year_end", name: "Year End", route: "/finance/year-end", description: "Prepare year-end processing.", order: 80, type: "business-workspace", document: "YearEndClose", 
+2362:            { id: "statutory_filings", name: "Statutory Filings", route: "/finance/statutory-filings", description: "Prepare and track statutory reports and government submissions.", order: 90, type: "business-workspace", document: "StatutoryFiling", status: "planned" }
+2371:            { id: "legal_entities", name: "Legal Entities", route: "/finance/legal-entities", description: "Manage legal entities.", order: 10, type: "business-workspace", document: "LegalEntity", create:{
+2409:            { id: "cost_centers", name: "Cost Centers", route: "/finance/cost-centers", description: "Manage cost centers.", order: 20, type: "business-workspace", document: "CostCenter", create:{
+2463:            { id: "currencies", name: "Currencies", route: "/finance/currencies", description: "Manage currencies.", order: 30, type: "business-workspace", document: "Currency", create:{
+2514:            { id: "intercompany", name: "Intercompany", route: "/finance/intercompany", description: "Manage intercompany activity.", order: 40, type: "business-workspace", document: "IntercompanyTransaction", create:{
+2571:            { id: "payment_terms", name: "Payment Terms", route: "/finance/payment-terms", description: "Manage payment terms.", order: 50, type: "business-workspace", document: "PaymentTerm", create:{
+2574:                  id: "payment_term",
+2625:            { id: "consolidation", name: "Consolidation", route: "/finance/consolidation", description: "Consolidate financial results.", order: 60, type: "business-workspace", document: "ConsolidationRun", create:{
+2674:            { id: "budgeting", name: "Budgeting", route: "/finance/budgeting", description: "Manage budgets.", order: 10, type: "business-workspace", document: "Budget",
+2755:            { id: "forecasting", name: "Forecasting", route: "/finance/forecast", description: "Prepare forecasts.", order: 20, type: "business-workspace", document: "Forecast",
+2812:            { id: "finance_kpis", name: "KPIs", route: "/finance/kpis", description: "Review finance KPIs.", order: 30, type: "business-workspace", document: "FinanceKPI",
+2884:            { id: "executive_dashboard", name: "Executive Dashboard", route: "/finance/executive-dashboard", description: "Open finance executive reporting.", order: 40, type: "business-workspace", document: "ExecutiveDashboard",
+2958:            { id: "financial_health", name: "Financial Health", route: "/finance/health", description: "Validate accounting integrity and finance health.", order: 50, type: "business-workspace", document: "FinanceHealthCheck",
+3027:            { id: "ai_insights", name: "AI Insights", route: "/finance/insights", description: "AI-assisted finance insights and recommendations.", order: 60, type: "business-workspace", document: "FinanceInsight",
+3103:            { id: "financial_statements", name: "Financial Statements", route: "/finance/statements", description: "Balance sheet, P&L and cash flow.", order: 10, type: "business-workspace", document: "FinancialStatement",
+3184:            { id: "management_reports", name: "Management Reports", route: "/finance/management-reports", description: "Operational management reports.", order: 20, type: "business-workspace", document: "ManagementReport", status: "active",
+3190:            { id: "finance_analytics", name: "Analytics", route: "/finance/reports", description: "Analyze finance performance.", order: 30, type: "business-workspace", document: "FinanceAnalytics", status: "active",
+3196:            { id: "report_builder", name: "Report Builder", route: "/finance/report-builder", description: "Build custom finance reports.", order: 40, type: "business-workspace", document: "ReportTemplate", status: "planned" },
+3197:            { id: "scheduled_reports", name: "Scheduled Reports", route: "/finance/scheduled-reports", description: "Schedule recurring finance reports.", order: 50, type: "business-workspace", document: "ScheduledReport", status: "planned" }
+3206:            { id: "organization_profile", name: "Organization Profile", route: "/finance/organization-profile", description: "Configure client/company accounting profile.", order: 10, type: "business-workspace", document: "FinanceOrganizationProfile", status: "planned" },
+3207:            { id: "accounting_settings", name: "Accounting Settings", route: "/finance/accounting-settings", description: "Configure accounting behavior for this organization.", order: 20, type: "business-workspace", document: "AccountingSettings", status: "planned" },
+3208:            { id: "number_sequences", name: "Number Sequences", route: "/finance/number-sequences", description: "Configure document numbering.", order: 30, type: "business-workspace", document: "NumberSequence", status: "planned" },
+3209:            { id: "posting_rules", name: "Posting Rules", route: "/finance/posting-rules", description: "Configure posting and automation rules.", order: 40, type: "business-workspace", document: "PostingRule", status: "planned" },
+3210:            { id: "approval_workflows", name: "Approval Workflows", route: "/finance/approval-workflows", description: "Configure approvals and controls.", order: 50, type: "business-workspace", document: "ApprovalWorkflow", status: "planned" },
+3211:            { id: "government_connections", name: "Government Connections", route: "/finance/government-connections", description: "Connect tax authorities, VAT submission and statutory portals.", order: 60, type: "business-workspace", document: "GovernmentConnection", status: "planned" },
+3212:            { id: "banking_integrations", name: "Banking Integrations", route: "/finance/banking-integrations", description: "Connect banking APIs and statement feeds.", order: 70, type: "business-workspace", document: "BankingIntegration", status: "planned" },
+3213:            { id: "exchange_rates", name: "Exchange Rates", route: "/finance/exchange-rates", description: "Manage exchange rate sources and rates.", order: 80, type: "business-workspace", document: "ExchangeRate", status: "planned" },
+3214:            { id: "e_invoicing", name: "E-Invoicing", route: "/finance/e-invoicing", description: "Configure e-invoicing networks and rules.", order: 90, type: "business-workspace", document: "EInvoicingSettings", status: "planned" },
+3215:            { id: "document_templates", name: "Document Templates", route: "/finance/document-templates", description: "Configure finance document templates.", order: 100, type: "business-workspace", document: "DocumentTemplate", status: "planned" },
+3216:            { id: "finance_permissions", name: "Finance Permissions", route: "/finance/permissions", description: "Manage finance roles and access.", order: 110, type: "business-workspace", document: "FinancePermission",
+3557:          id: "assets",
+3562:            { id: "vehicles", name: "Vehicles", route: "/compliance/assets/vehicles", description: "Cars, trucks, motorcycles, trailers and fleet records.", order: 10 },
+3563:            { id: "equipment", name: "Equipment", route: "/compliance/assets/equipment", description: "Machines, tools, devices and operational equipment.", order: 20 },
+3564:            { id: "properties", name: "Properties", route: "/compliance/assets/properties", description: "Buildings, leases, locations and property obligations.", order: 30 },
+3565:            { id: "digital_assets", name: "Digital Assets", route: "/compliance/assets/digital-assets", description: "Domains, SSL certificates, software accounts and digital renewals.", order: 40 },
+3580:            { id: "warranties", name: "Warranties", route: "/compliance/obligations/warranties", description: "Warranty coverage, claims, expiry and related assets.", order: 70 },
+3660:            { id: "finance_ai", name: "Finance AI", route: "/intelligence/finance", description: "Analyze finance and accounting.", order: 20 },
+3704:            { id: "customer_portal", name: "Customer Portal", route: "/settings/channels/customer-portal", order: 30 },
+
+CREATE ACTIONS
+======================================
+184-    engine:"create",
+186-    capability:"customer",
+187-    action:"createCustomer",
+188-    form:"customer",
+1339:            { id: "chart_of_accounts", name: "Chart of Accounts", route: "/finance/chart-of-accounts", description: "Maintain account structure.", order: 10, type: "business-workspace", document: "Account", create:{
+1343-                  engine:"create",
+1344-                  capability:"account",
+1345-                  action:"upsertAccount",
+1346-                  form:"chart-of-account",
+1422:            { id: "journals", name: "Journals", route: "/finance/journals", description: "Create, review and reverse journal entries.", order: 30, type: "business-workspace", document: "JournalEntry", create:{
+1425-engine:"create",
+1427-form:"journal-entry",
+1428-api:"/api/finance/journals/create",
+1507:            { id: "fiscal_periods", name: "Fiscal Periods", route: "/finance/fiscal-periods", description: "Manage fiscal periods and locks.", order: 50, type: "business-workspace", document: "FiscalPeriod", create:{
+1512- api: "/api/finance/periods", rowsKey: "periods",  search: ["period_name","status"], name: r => r.period_name || "Unnamed Period", subtitle: r => [r.start_date || "-", r.end_date || "-"] },
+1530:            { id: "dimensions", name: "Dimensions", route: "/finance/dimensions", description: "Manage departments, cost centers and reporting dimensions.", order: 60, type: "business-workspace", document: "Dimension", create:{
+1562:            { id: "customers", name: "Customers", route: "/finance/customers", description: "Manage finance customer records.", order: 10, type: "business-workspace", document: "Customer", create:{
+1565-engine:"create",
+1567-capability:"customer",
+1568-action:"createCustomer",
+1569-form:"customer",
+1633:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices.", order: 20, type: "business-workspace", document: "CustomerInvoice", launchFrom: ["customers","accounts_receivable","commercial/customers"], create:{
+1636-  engine:"create",
+1709:            { id: "customer_payments", name: "Customer Payments", route: "/finance/customer-payments", description: "Receive and allocate customer payments.", order: 40, type: "business-workspace", document: "CustomerPayment", launchFrom: ["customers","accounts_receivable"], create:{
+1744:            { id: "vendors", name: "Vendors", route: "/finance/vendors", description: "Manage vendor finance records.", order: 10, type: "business-workspace", document: "Vendor", create:{
+1748-                  engine:"create",
+1749-                  capability:"vendor",
+1750-                  form:"vendor-master",
+1751-                  api:"/api/finance/vendors/upsert",
+1830:            { id: "purchase_orders", name: "Purchase Orders", route: "/finance/purchase-orders", description: "Review purchase commitments.", order: 20, type: "business-workspace", document: "PurchaseOrder", create:{
+1856:            { id: "goods_receipts", name: "Goods Receipts", route: "/finance/goods-receipts", description: "Review received goods.", order: 30, type: "business-workspace", document: "GoodsReceipt", create:{
+1882:            { id: "vendor_bills", name: "Vendor Bills", route: "/finance/vendor-bills", description: "Manage vendor bills and supplier invoices.", order: 40, type: "business-workspace", document: "VendorBill", create:{
+1886-                  engine:"create",
+1887-                  capability:"accounts_payable",
+1888-                  action:"createVendorInvoiceCommand",
+1889-                  form:"vendor-bill",
+1967:            { id: "vendor_payments", name: "Vendor Payments", route: "/finance/vendor-payments", description: "Prepare and execute vendor payments.", order: 70, type: "business-workspace", document: "VendorPayment", launchFrom: ["vendors","accounts_payable"], create:{
+1970-ui:{ api: "/api/finance/payments/list", rowsKey: "payables", search: ["reference_number","vendor_name","status"], name: r => r.reference_number || "Vendor Payment", subtitle: r => [r.vendor_name || "-", r.status || "-"] } },
+1971-            { id: "vendor_statements", name: "Vendor Statements", route: "/finance/vendor-statements", description: "Generate and review vendor statements.", order: 80, type: "business-workspace", document: "VendorStatement", status: "planned" }
+1980:            { id: "bank_accounts", name: "Bank Accounts", route: "/finance/bank-accounts", description: "Manage bank accounts.", order: 10, type: "business-workspace", document: "BankAccount", create:{
+1984-                  engine:"create",
+1985-                  capability:"bank_account",
+1986-                  action:"upsertBankAccountCommand",
+1987-                  form:"bank-account",
+1988-                  api:"/api/finance/bank-accounts/upsert",
+2094:            { id: "payments", name: "Payments", route: "/finance/payments", description: "Manage outgoing and incoming payments.", order: 60, type: "business-workspace", document: "Payment", create:{
+2097-ui:{ api: "/api/finance/payments/list", rowsKey: "payables", search: ["reference_number","vendor_name","invoice_number","status"], name: r => r.reference_number || "Payment", subtitle: r => [r.vendor_name || "-", r.status || "-"] } },
+2098-            { id: "fx_revaluation", name: "FX Revaluation", route: "/finance/fx-revaluation", description: "Run and review foreign exchange revaluation.", order: 70, type: "business-workspace", document: "FXRevaluation", status: "planned" }
+2107:            { id: "tax", name: "Tax", route: "/finance/tax", description: "Manage VAT, tax balances and tax work.", order: 10, type: "business-workspace", document: "TaxWorkItem", create:{
+2134:            { id: "tax_codes", name: "Tax Codes", route: "/finance/tax-codes", description: "Manage tax codes.", order: 30, type: "business-workspace", document: "TaxCode", create:{
+2138-                  engine:"create",
+2139-                  capability:"tax_code",
+2140-                  action:"upsertTaxCode",
+2141-                  form:"tax-code",
+2142-                  api:"/api/finance/tax-codes/upsert",
+2188:            { id: "fixed_assets", name: "Fixed Assets", route: "/finance/fixed-assets", description: "Manage fixed assets.", order: 40, type: "business-workspace", document: "FixedAsset", create:{
+2192-                  engine:"create",
+2193-                  capability:"fixed_asset",
+2194-                  action:"createFixedAssetCommand",
+2195-                  form:"fixed-asset",
+2196-                  api:"/api/finance/fixed-assets/create",
+2281- api:"/api/finance/close/runtime",
+2371:            { id: "legal_entities", name: "Legal Entities", route: "/finance/legal-entities", description: "Manage legal entities.", order: 10, type: "business-workspace", document: "LegalEntity", create:{
+2374-engine:"create",
+2375-capability:"legal_entity",
+2376-action:"createLegalEntity",
+2377-form:"legal-entity",
+2378-api:"/api/finance/legal-entities/create",
+2409:            { id: "cost_centers", name: "Cost Centers", route: "/finance/cost-centers", description: "Manage cost centers.", order: 20, type: "business-workspace", document: "CostCenter", create:{
+2413-                  engine:"create",
+2414-                  capability:"cost_center",
+2415-                  action:"createCostCenter",
+2416-                  form:"cost-center",
+2417-                  api:"/api/finance/cost-centers/create",
+2463:            { id: "currencies", name: "Currencies", route: "/finance/currencies", description: "Manage currencies.", order: 30, type: "business-workspace", document: "Currency", create:{
+2467-                  engine:"create",
+2468-                  capability:"currency",
+2469-                  action:"upsertCurrency",
+2470-                  form:"currency",
+2514:            { id: "intercompany", name: "Intercompany", route: "/finance/intercompany", description: "Manage intercompany activity.", order: 40, type: "business-workspace", document: "IntercompanyTransaction", create:{
+2517-engine:"create",
+2518-capability:"intercompany",
+2519-action:"createIntercompanyTransactionCommand",
+2520-form:"intercompany",
+2521-api:"/api/finance/intercompany/create",
+2571:            { id: "payment_terms", name: "Payment Terms", route: "/finance/payment-terms", description: "Manage payment terms.", order: 50, type: "business-workspace", document: "PaymentTerm", create:{
+2575-                  engine:"create",
+2576-                  capability:"payment_term",
+2577-                  action:"upsertPaymentTerm",
+2578-                  form:"payment-term",
+2579-                  api:"/api/finance/payment-terms/upsert",
+2625:            { id: "consolidation", name: "Consolidation", route: "/finance/consolidation", description: "Consolidate financial results.", order: 60, type: "business-workspace", document: "ConsolidationRun", create:{
+2679-engine:"create",
+2681-form:"budget",
+2682-api:"/api/finance/budgeting/create",
+2762-  api:"/api/finance/forecast",
+3186-              ui:{ api:"/api/finance/management-reports", rowsKey:"rows", search:["period","status"], name:r=>r.name||r.title||"Management Report", subtitle:r=>[r.period||"-",r.status||"Generated"] },
+3187-              actions:[{ id:"management_report", type:"report", label:"Open Management Report", api:"/api/finance/management-reports" }],
+3190-            { id: "finance_analytics", name: "Analytics", route: "/finance/reports", description: "Analyze finance performance.", order: 30, type: "business-workspace", document: "FinanceAnalytics", status: "active",
+3192-              ui:{ api:"/api/finance/reports/profit-loss", rowsKey:"rows", search:["account_name","account_code","period"], name:r=>r.account_name||r.name||"Finance Result", subtitle:r=>[r.account_code||"-",r.period||"-"] },
+3193-              actions:[{ id:"profit_loss", type:"report", label:"Profit & Loss", api:"/api/finance/reports/profit-loss" }],
+3196-            { id: "report_builder", name: "Report Builder", route: "/finance/report-builder", description: "Build custom finance reports.", order: 40, type: "business-workspace", document: "ReportTemplate", status: "planned" },
+3197-            { id: "scheduled_reports", name: "Scheduled Reports", route: "/finance/scheduled-reports", description: "Schedule recurring finance reports.", order: 50, type: "business-workspace", document: "ScheduledReport", status: "planned" }
+
+FINANCE FORMS
+======================================
+30:  "customer": {
+33:        name: "customer_name",
+38:        name: "customer_phone",
+42:        name: "customer_email",
+46:        name: "customer_type",
+54:        name: "tax_number",
+91:        name: "payment_terms",
+107:  "vendor-master": {
+110:        name: "vendor_code",
+123:        name: "tax_id",
+139:        name: "payment_terms",
+205:  "customer-invoice": {
+210:        name: "customer",
+212:        type: "customer",
+217:        name: "invoice_date",
+258:  "customer-payment": {
+260:      { name: "customer", label: "Customer", type: "customer", required: true },
+261:      { name: "customer_invoice_id", label: "Invoice", required: true },
+263:      { name: "payment_date", label: "Payment Date", type: "date", required: true },
+264:      { name: "payment_method", label: "Payment Method", required: true },
+270:  "vendor-payment": {
+272:      { name: "vendor", label: "Vendor", type: "vendor", required: true },
+273:      { name: "invoice_id", label: "Vendor Bill" },
+275:      { name: "payment_date", label: "Payment Date", type: "date", required: true },
+276:      { name: "payment_method", label: "Payment Method", required: true },
+277:      { name: "bank_account_id", label: "Bank Account" },
+282:  "journal-reversal": {
+284:      { name: "journal_id", label: "Journal", required: true },
+290:  "journal-entry": {
+294:      { name: "journal_type", label: "Journal Type", required: true },
+338:      { name: "bank_account_id", label: "Bank Account" },
+396:        name: "asset_number",
+424:  "budget": {
+485:  "tax-code": {
+525:  "payment-term": {
+594:        name: "tax_number",
+605:  "bank-account": {
+608:        name: "bank_name",
+635:  "vendor-bill": {
+638:        name: "vendor",
+640:        type: "vendor",
+644:        name: "invoice_date",
+655:        name: "invoice_number",
+700:        name: "payment_method",
+
+FINANCE CAPABILITIES
+======================================
+lib/capability-registry/capabilities/customer.js:14:      "create_payment",
+lib/finance/runtime/financeComplianceGateway.js:8:export async function financeComplianceGateway(payload) {
+lib/finance/runtime/financeComplianceGateway.js:11:    journalEntries,
+lib/finance/runtime/financeComplianceGateway.js:19:    journalEntries,
+lib/finance/runtime/financeFetch.js:1:export async function financeFetch({
+lib/finance/runtime/index.js:1:export * from "./financeCapabilityRegistry";
+lib/finance/runtime/financeGateway.js:1:import { assertFinanceGatewayOnly } from "./financeEntryLock.js";
+lib/finance/runtime/financeGateway.js:2:import { emitAccountingEvent } from "@/lib/finance/general-ledger/events/emitAccountingEvent";
+lib/finance/runtime/financeGateway.js:4:export async function financeGateway(event) {
+lib/finance/runtime/financeGateway.js:13:    throw new Error("financeGateway event type required");
+lib/finance/runtime/financeGateway.js:59:          "finance",
+lib/finance/runtime/financeGateway.js:71:      throw new Error(`Unknown finance event type: ${type}`);
+lib/finance/runtime/FinanceCore.js:6:import { financeGateway } from "@/lib/finance/runtime/financeGateway";
+lib/finance/runtime/FinanceCore.js:9:  return await financeGateway(event);
+lib/finance/runtime/financeCapabilityRegistry.js:8:      "customer_invoice",
+lib/finance/runtime/financeCapabilityRegistry.js:9:      "customer_payment",
+lib/finance/runtime/financeCapabilityRegistry.js:18:      "vendor_invoice",
+lib/finance/runtime/financeCapabilityRegistry.js:19:      "vendor_payment",
+lib/finance/runtime/financeCapabilityRegistry.js:28:      "journal_entry",
+lib/finance/runtime/financeCapabilityRegistry.js:38:      "vendor_payment",
+lib/finance/runtime/financeCapabilityRegistry.js:39:      "customer_payment",
+lib/finance/runtime/financeCapabilityRegistry.js:44:    id: "fixed_assets",
+lib/finance/runtime/financeCapabilityRegistry.js:48:      "fixed_asset",
+lib/finance/runtime/financeCapabilityRegistry.js:49:      "journal_entry",
+lib/finance/runtime/financeCapabilityRegistry.js:68:      "journal_entry",
+lib/finance/runtime/financeCapabilityRegistry.js:78:      "journal_entry",
+lib/finance/runtime/financeCapabilityRegistry.js:87:      "journal_entry",
+lib/finance/runtime/financeCapabilityRegistry.js:96:      "journal_entry",
+lib/finance/runtime/DistributedLedgerSync.js:3: * Ensures all finance nodes agree on state
+lib/finance/runtime/financeGateway.guard.js:1:import { financeGateway } from "./financeGateway";
+lib/finance/runtime/financeGateway.guard.js:5: * Prevents direct finance execution bypass
+lib/finance/runtime/financeGateway.guard.js:17:  return await financeGateway(event);
+lib/finance/runtime/FinanceEntryLock.js:2:  if (!context || context.__source !== "financeGateway") {
+lib/finance/runtime/FinanceEntryLock.js:4:      "FINANCE LOCK VIOLATION: Only financeGateway is allowed to initiate financial execution"
+lib/finance/runtime/FinanceIdentity.js:16:  // 🔥 HARD RULE: entity is required for finance
+lib/finance/runtime/useFinanceRuntime.js:24:  const financeGet = useCallback(
+lib/finance/runtime/useFinanceRuntime.js:71:  const financePost = useCallback(
+lib/finance/runtime/useFinanceRuntime.js:115:    financeGet,
+lib/finance/runtime/useFinanceRuntime.js:116:    financePost,
+lib/finance/runtime/FinanceExecutionSandbox.js:11:  if (context.__source !== "financeGateway") {
+lib/finance/runtime/FinanceExecutionSandbox.js:13:      "FINANCE VIOLATION: direct finance execution blocked (must use financeGateway)"
+lib/finance/runtime/ComplianceExportEngine.js:10:  journalEntries = [],
+lib/finance/runtime/ComplianceExportEngine.js:20:    journal_entries: journalEntries,
+lib/finance/runtime/ComplianceExportEngine.js:33:      journal_count: journalEntries.length,
+lib/finance/runtime/FinanceEnforcementGuard.js:3: * Blocks illegal finance entry paths
+lib/finance/runtime/FinanceEnforcementGuard.js:7:  if (!context || context.__source !== "financeGateway") {
+lib/finance/runtime/FinanceEnforcementGuard.js:9:      "FINANCE LOCK: only financeGateway can execute financial operations"
+
+FINANCE API ROUTES
+======================================
+app/api/finance/forecast/route.js
+app/api/finance/journal/route.js
+app/api/finance/customers/route.js
+app/api/finance/trial-balance/route.js
+app/api/finance/accounting/runtime/route.js
+app/api/finance/management-reports/route.js
+app/api/finance/month-end/close-period/route.js
+app/api/finance/month-end/status/route.js
+app/api/finance/reconciliation/route.js
+app/api/finance/reconciliation/runtime/route.js
+app/api/finance/insights/route.js
+app/api/finance/vendors/route.js
+app/api/finance/vendors/upsert/route.js
+app/api/finance/periods/route.js
+app/api/finance/periods/close/route.js
+app/api/finance/periods/update-status/route.js
+app/api/finance/periods/open/route.js
+app/api/finance/payments/route.js
+app/api/finance/payments/list/route.js
+app/api/finance/chart-of-accounts/route.js
+app/api/finance/currencies/route.js
+app/api/finance/accounts-receivable/list/route.js
+app/api/finance/accounts-receivable/summary/route.js
+app/api/finance/close/runtime/route.js
+app/api/finance/depreciation/run/route.js
+app/api/finance/year-end/status/route.js
+app/api/finance/year-end/close-fiscal-year/route.js
+app/api/finance/fixed-assets/archive/route.js
+app/api/finance/fixed-assets/update/route.js
+app/api/finance/fixed-assets/depreciation/route.js
+app/api/finance/fixed-assets/list/route.js
+app/api/finance/fixed-assets/create/route.js
+app/api/finance/executive-dashboard/alerts/route.js
+app/api/finance/executive-dashboard/entity-ranking/route.js
+app/api/finance/executive-dashboard/kpi/route.js
+app/api/finance/module/route.js
+app/api/finance/health/route.js
+app/api/finance/intercompany/reconcile/route.js
+app/api/finance/intercompany/runtime/route.js
+app/api/finance/intercompany/settle/route.js
+app/api/finance/intercompany/eliminate/route.js
+app/api/finance/intercompany/create/route.js
+app/api/finance/period-close/route.js
+app/api/finance/runtime/route.js
+app/api/finance/anomalies/route.js
+app/api/finance/general-ledger/route.js
+app/api/finance/kpis/route.js
+app/api/finance/tax/runtime/route.js
+app/api/finance/tax-codes/route.js
+app/api/finance/tax-codes/upsert/route.js
+app/api/finance/role-permissions/create/route.js
+app/api/finance/role-permissions/check/route.js
+app/api/finance/customer-payments/list/route.js
+app/api/finance/customer-payments/create/route.js
+app/api/finance/real-time-close/exceptions/route.js
+app/api/finance/real-time-close/run/route.js
+app/api/finance/real-time-close/approval/route.js
+app/api/finance/journals/route.js
+app/api/finance/journals/request-reversal/route.js
+app/api/finance/journals/reverse/route.js
+app/api/finance/journals/[id]/route.js
+app/api/finance/journals/create/route.js
+app/api/finance/gl-posting/route.js
+app/api/finance/customer-invoices/route.js
+app/api/finance/customer-invoices/list/route.js
+app/api/finance/customer-invoices/create/route.js
+app/api/finance/cash-flow/route.js
+app/api/finance/cash-flow/run/route.js
+app/api/finance/journal-chain/route.js
+app/api/finance/accounts-payable/route.js
+app/api/finance/accounts-payable/pay/route.js
+app/api/finance/accounts-payable/aging-report/route.js
+app/api/finance/audit-trail/route.js
+app/api/finance/audit-trail/anomaly-detection/route.js
+app/api/finance/audit-trail/entity-history/route.js
+app/api/finance/audit-trail/live/route.js
+app/api/finance/audit-trail/log/route.js
+app/api/finance/ar/runtime/route.js
+app/api/finance/ar/aging/route.js
+app/api/finance/payment-terms/route.js
+app/api/finance/payment-terms/upsert/route.js
+app/api/finance/budgeting/variance/route.js
+app/api/finance/budgeting/runtime/route.js
+app/api/finance/budgeting/create/route.js
+app/api/finance/bank-accounts/route.js
+app/api/finance/bank-accounts/upsert/route.js
+app/api/finance/bank-accounts/ai/route.js
+app/api/finance/bank-accounts/export/route.js
+app/api/finance/bank-accounts/import/route.js
+app/api/finance/documents/route.js
+app/api/finance/cost-centers/toggle/route.js
+app/api/finance/cost-centers/list/route.js
+app/api/finance/cost-centers/create/route.js
+app/api/finance/procure-to-pay/runtime/route.js
+app/api/finance/treasury/payment-priority/route.js
+app/api/finance/treasury/liquidity/route.js
+app/api/finance/dimensions/runtime/route.js
+app/api/finance/consolidation/route.js
+app/api/finance/invoice-matching/runtime/route.js
+app/api/finance/cogs/route.js
+app/api/finance/summary/route.js
+app/api/finance/legal-entities/toggle/route.js
+app/api/finance/legal-entities/list/route.js
+app/api/finance/legal-entities/create/route.js
+app/api/finance/reports/profit-loss/route.js
+app/api/finance/vendor-invoices/list/route.js
+
+MISSING ACTION SURFACE CHECK
+======================================
+349:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/ar/invoices", description: "Create and review customer invoices.", order: 20, status: "active" },
+350:            { id: "customer_payments", name: "Customer Payments", route: "/finance/ar/payments", description: "Receive and allocate customer payments.", order: 30, status: "active" },
+3184:            { id: "management_reports", name: "Management Reports", route: "/finance/management-reports", description: "Operational management reports.", order: 20, type: "business-workspace", document: "ManagementReport", status: "active",
+3190:            { id: "finance_analytics", name: "Analytics", route: "/finance/reports", description: "Analyze finance performance.", order: 30, type: "business-workspace", document: "FinanceAnalytics", status: "active",
+
+======================================
+AUDIT COMPLETE
+======================================

@@ -10,7 +10,16 @@ export async function POST(req) {
       await req.json()
 
     const result =
-      await createPurchaseOrder(body)
+      await createPurchaseOrder({
+        ...body,
+        organization_id:
+          body.organization_id ||
+          body.organizationId,
+        entity_id:
+          body.entity_id ||
+          body.entityId ||
+          null,
+      })
 
     return NextResponse.json({
       success: true,

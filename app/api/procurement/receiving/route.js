@@ -45,17 +45,20 @@ export async function POST(req) {
 
     }
 
-    const tenantId =
-      access.tenantId;
-
     const result =
       await receivePurchaseOrder({
 
-        tenant_id:
-          tenantId,
+        organization_id:
+          access.organizationId,
+
+        entity_id:
+          body.entity_id ||
+          body.entityId ||
+          null,
 
         purchase_order_id:
-          body.purchase_order_id,
+          body.purchase_order_id ||
+          body.purchaseOrderId,
 
         received_by:
           body.received_by ||

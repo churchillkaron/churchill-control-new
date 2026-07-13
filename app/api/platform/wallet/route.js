@@ -28,7 +28,10 @@ export async function GET(request) {
       new URL(request.url);
 
     const organizationId =
-      searchParams.get("organization_id");
+      cleanValue(
+        searchParams.get("organization_id") ||
+        searchParams.get("organizationId")
+      );
 
     const currency =
       cleanValue(

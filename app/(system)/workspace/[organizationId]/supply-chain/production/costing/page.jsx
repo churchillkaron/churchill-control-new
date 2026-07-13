@@ -14,8 +14,8 @@ import { supabase } from '@/lib/shared/supabase/client'
 export default function ProductionCostingPage() {
 
   const [
-    tenantId,
-    setTenantId,
+    organizationId,
+    setOrganizationId,
   ] = useState(null)
 
   const [
@@ -30,7 +30,7 @@ export default function ProductionCostingPage() {
 
   useEffect(() => {
 
-    async function loadTenant() {
+    async function loadOrganization() {
 
       const {
         data: { user },
@@ -53,16 +53,16 @@ export default function ProductionCostingPage() {
         .single()
 
       if (
-        data?.tenant_id
+        data?.organization_id
       ) {
 
-        setTenantId(
-          data.tenant_id
+        setOrganizationId(
+          data.organization_id
         )
       }
     }
 
-    loadTenant()
+    loadOrganization()
 
   }, [])
 
@@ -70,11 +70,11 @@ export default function ProductionCostingPage() {
 
     loadData()
 
-  }, [tenantId])
+  }, [organizationId])
 
   async function loadData() {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return
     }
 
@@ -84,8 +84,8 @@ export default function ProductionCostingPage() {
       .from('dishes')
       .select('*')
       .eq(
-        'tenant_id',
-        tenantId
+        'organization_id',
+        organizationId
       )
       .order('name')
 
@@ -99,8 +99,8 @@ export default function ProductionCostingPage() {
               'application/json',
           },
           body: JSON.stringify({
-            tenant_id:
-              tenantId,
+            organization_id:
+              organizationId,
           }),
         }
       )

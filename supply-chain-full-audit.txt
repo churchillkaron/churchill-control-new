@@ -1,0 +1,205 @@
+====================================================================
+SUPPLY CHAIN DOMAIN AUDIT
+====================================================================
+
+================ PROCUREMENT ====================
+lib/procurement/purchase-orders/capabilities/createPurchaseRequest.js
+lib/procurement/purchase-orders/getNextPONumber.js
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js
+lib/procurement/purchase-orders/workflows/approvePurchaseOrder.js
+lib/procurement/purchase-orders/index.js
+lib/procurement/purchase-orders/createPurchaseOrder.js
+lib/procurement/suppliers/capabilities/createSupplierPrice.js
+lib/procurement/suppliers/documents/createVendor.js
+lib/procurement/runtime/registerProcurementEvents.js
+lib/procurement/replenishment/capabilities/generateConsumptionForecast.js
+lib/procurement/replenishment/workflows/analyzeReplenishmentNeeds.js
+lib/procurement/index.js
+lib/procurement/recommendations/capabilities/generatePurchaseRecommendation.js
+lib/procurement/receiving/capabilities/postGoodsReceiptAccounting.js
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js
+lib/procurement/receiving/index.js
+lib/procurement/receiving/utils/getNextGRNNumber.js
+lib/procurement/receiving/receivePurchaseOrder.js
+lib/procurement/pricing/capabilities/getBestSupplierPrice.js
+
+================ INVENTORY ====================
+lib/inventory/ledger/capabilities/createInventoryMovement.js
+lib/inventory/ledger/capabilities/updateStockLedger.js
+lib/inventory/prepared/capabilities/calculateExpiryDate.js
+lib/inventory/costing/index.js
+lib/inventory/runtime/generateInventoryAlerts.js
+lib/inventory/runtime/runInventoryMonitoring.js
+lib/inventory/index.js
+lib/inventory/alerts/index.js
+lib/inventory/movements/capabilities/checkLowStock.js
+lib/inventory/movements/repositories/loadLowStockItems.js
+lib/inventory/movements/createInventoryMovement.js
+lib/inventory/spoilage/processSpoilage.js
+lib/inventory/spoilage/workflows/processAutoSpoilage.js
+lib/inventory/spoilage/index.js
+lib/inventory/stock-count/workflows/runInventoryReconciliation.js
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js
+lib/inventory/stock-count/workflows/runVarianceAnalysis.js
+lib/inventory/stock-count/finalizeStockCount.js
+lib/inventory/monitoring/index.js
+lib/inventory/valuation/capabilities/calculateRecipeCost.js
+lib/inventory/valuation/capabilities/runWeightedAverageValuation.js
+lib/inventory/valuation/capabilities/runFIFOConsumption.js
+lib/inventory/valuation/index.js
+lib/inventory/services/index.js
+
+================ AP ====================
+lib/finance/accounts-payable/capabilities/createAccountsPayableEntry.js
+lib/finance/accounts-payable/runtime/AccountsPayableRuntime.js
+lib/finance/accounts-payable/runtime/AccountsPayableApplicationService.js
+lib/finance/accounts-payable/workflows/runThreeWayMatch.js
+lib/finance/accounts-payable/index.js
+lib/finance/accounts-payable/documents/createVendorInvoice.js
+
+================ API ====================
+app/api/procurement/receipts/update-status/route.js
+app/api/procurement/vendors/route.js
+app/api/procurement/vendors/list/route.js
+app/api/procurement/purchase-orders/route.js
+app/api/procurement/purchase-orders/list/route.js
+app/api/procurement/suppliers/route.js
+app/api/procurement/purchase-requests/create/route.js
+app/api/procurement/replenishment/route.js
+app/api/procurement/receiving/route.js
+app/api/procurement/receiving/update-status/route.js
+app/api/procurement/receiving/list/route.js
+app/api/procurement/request/create/route.js
+app/api/procurement/goods-receipts/receive/route.js
+app/api/procurement/three-way-match/run/route.js
+app/api/inventory/stock-ledger/reconciliation/route.js
+app/api/inventory/stock-ledger/movement/route.js
+app/api/inventory/stock-ledger/valuation/route.js
+app/api/inventory/warehouses/route.js
+app/api/inventory/units/route.js
+app/api/inventory/theoretical-vs-actual/run/route.js
+app/api/inventory/locations/route.js
+app/api/inventory/stock-count/finalize/route.js
+app/api/inventory/expiry/route.js
+app/api/inventory/monitoring/route.js
+app/api/inventory/items/route.js
+app/api/inventory/engine/consume/route.js
+app/api/inventory/variance-analysis/run/route.js
+app/api/inventory/categories/route.js
+
+================ WORKSPACE ====================
+app/(system)/workspace/[organizationId]/healthcare/pharmacy/inventory/page.jsx
+app/(system)/workspace/[organizationId]/operations/pos/receipts/page.jsx
+
+================ DATABASE ====================
+lib/procurement/purchase-orders/capabilities/createPurchaseRequest.js:68:    .from("purchase_requests")
+lib/procurement/purchase-orders/getNextPONumber.js:19:    .from("purchase_orders")
+lib/procurement/purchase-orders/workflows/approvePurchaseOrder.js:23:      .from("purchase_orders")
+lib/procurement/purchase-orders/createPurchaseOrder.js:56:      .from("purchase_orders")
+lib/procurement/purchase-orders/createPurchaseOrder.js:104:      .from("purchase_order_items")
+lib/procurement/suppliers/capabilities/createSupplierPrice.js:45:      .from("supplier_prices")
+lib/procurement/suppliers/documents/createVendor.js:83:      .from("parties")
+lib/procurement/suppliers/documents/createVendor.js:135:      .from("party_relationships")
+lib/procurement/suppliers/documents/createVendor.js:181:      .from("supplier_profiles")
+lib/procurement/replenishment/workflows/analyzeReplenishmentNeeds.js:32:      .from("inventory_items")
+lib/procurement/recommendations/capabilities/generatePurchaseRecommendation.js:34:      .from("inventory_items")
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:23:    .from("purchase_order_items")
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:47:    .from("goods_receipts")
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:153:    .from("purchase_orders")
+lib/procurement/receiving/utils/getNextGRNNumber.js:19:    .from("goods_receipts")
+lib/procurement/receiving/receivePurchaseOrder.js:20:        .from("purchase_orders")
+lib/procurement/receiving/receivePurchaseOrder.js:53:        .from("goods_receipts")
+lib/procurement/receiving/receivePurchaseOrder.js:90:          .from("goods_receipt_items")
+lib/procurement/receiving/receivePurchaseOrder.js:108:          .from("purchase_order_items")
+lib/procurement/pricing/capabilities/getBestSupplierPrice.js:34:      .from("supplier_prices")
+lib/inventory/ledger/capabilities/updateStockLedger.js:68:      .from("inventory_movements")
+lib/inventory/ledger/capabilities/updateStockLedger.js:106:      .from("inventory_items")
+lib/inventory/ledger/capabilities/updateStockLedger.js:119:    .from("inventory_items")
+lib/inventory/ledger/capabilities/updateStockLedger.js:127:      .from("inventory_ledger")
+lib/inventory/runtime/generateInventoryAlerts.js:19:      .from("inventory_items")
+lib/inventory/runtime/generateInventoryAlerts.js:42:      .from("prepared_inventory")
+lib/inventory/movements/repositories/loadLowStockItems.js:15:    .from("dishes")
+lib/inventory/movements/createInventoryMovement.js:108:      .from("inventory_documents")
+lib/inventory/movements/createInventoryMovement.js:135:      .from("inventory_movements")
+lib/inventory/movements/createInventoryMovement.js:164:        .from("inventory_cost_layers")
+lib/inventory/movements/createInventoryMovement.js:221:      .from("inventory_documents")
+lib/inventory/stock-count/workflows/runTheoreticalVsActual.js:65:      .from("stock_count_items")
+lib/inventory/stock-count/finalizeStockCount.js:32:      .from("stock_count_items")
+lib/inventory/stock-count/finalizeStockCount.js:59:        .from("inventory_valuation_snapshots")
+lib/inventory/stock-count/finalizeStockCount.js:98:      .from("stock_count_sessions")
+lib/inventory/valuation/capabilities/runWeightedAverageValuation.js:34:      .from("inventory_cost_layers")
+lib/inventory/valuation/capabilities/runWeightedAverageValuation.js:65:      .from("inventory_valuation_snapshots")
+lib/inventory/valuation/capabilities/runFIFOConsumption.js:20:    .from("inventory_cost_layers")
+lib/inventory/valuation/capabilities/runFIFOConsumption.js:59:      .from("inventory_cost_layers")
+lib/finance/accounts-payable/capabilities/createAccountsPayableEntry.js:21:      .from("vendor_invoices")
+lib/finance/accounts-payable/capabilities/createAccountsPayableEntry.js:45:      .from("accounts_payable")
+lib/finance/accounts-payable/capabilities/createAccountsPayableEntry.js:64:      .from("accounts_payable")
+lib/finance/accounts-payable/workflows/runThreeWayMatch.js:13:      .from("vendor_invoices")
+lib/finance/accounts-payable/workflows/runThreeWayMatch.js:29:      .from("purchase_orders")
+lib/finance/accounts-payable/workflows/runThreeWayMatch.js:45:      .from("goods_receipts")
+lib/finance/accounts-payable/workflows/runThreeWayMatch.js:64:      .from("purchase_order_items")
+lib/finance/accounts-payable/workflows/runThreeWayMatch.js:138:      .from("invoice_matches")
+lib/finance/accounts-payable/workflows/runThreeWayMatch.js:168:      .from("invoice_matches")
+lib/finance/accounts-payable/workflows/runThreeWayMatch.js:223:      .from("vendor_invoices")
+lib/finance/accounts-payable/documents/createVendorInvoice.js:58:      .from("vendor_invoices")
+app/api/procurement/vendors/list/route.js:44:        .from("supplier_profiles")
+app/api/procurement/purchase-orders/list/route.js:51:      .from("purchase_orders")
+app/api/procurement/purchase-orders/list/route.js:150:      .from("purchase_orders")
+app/api/procurement/receiving/list/route.js:51:      .from("goods_receipts")
+app/api/procurement/receiving/list/route.js:155:      .from("goods_receipts")
+app/api/inventory/warehouses/route.js:23:      .from("inventory_warehouses")
+app/api/inventory/warehouses/route.js:70:      .from("inventory_warehouses")
+app/api/inventory/units/route.js:23:      .from("inventory_units")
+app/api/inventory/units/route.js:70:      .from("inventory_units")
+app/api/inventory/locations/route.js:23:      .from("inventory_locations")
+app/api/inventory/locations/route.js:70:      .from("inventory_locations")
+app/api/inventory/items/route.js:23:      .from("inventory_items")
+app/api/inventory/items/route.js:73:      .from("inventory_items")
+app/api/inventory/categories/route.js:23:      .from("inventory_categories")
+app/api/inventory/categories/route.js:70:      .from("inventory_categories")
+
+================ EVENTS ====================
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:1:import analyzeReplenishmentNeeds from "@/lib/procurement/replenishment/workflows/analyzeReplenishmentNeeds";
+lib/procurement/runtime/registerProcurementEvents.js:50:        workflowType:
+lib/procurement/receiving/capabilities/postGoodsReceiptAccounting.js:1:import { financeGateway } from "@/lib/finance/runtime/financeGateway";
+lib/inventory/runtime/runInventoryMonitoring.js:1:import processAutoSpoilage from "@/lib/inventory/spoilage/workflows/processAutoSpoilage";
+lib/inventory/runtime/runInventoryMonitoring.js:3:import generateInventoryAlerts from "@/lib/inventory/runtime/generateInventoryAlerts";
+lib/inventory/movements/createInventoryMovement.js:2:import { financeGateway } from "@/lib/finance/runtime/financeGateway";
+lib/inventory/movements/createInventoryMovement.js:202:      await financeGateway({
+lib/finance/accounts-payable/runtime/AccountsPayableApplicationService.js:2:import runThreeWayMatch from "../workflows/runThreeWayMatch";
+lib/finance/accounts-payable/documents/createVendorInvoice.js:7:} from "@/lib/finance/runtime/financeGateway";
+lib/finance/accounts-payable/documents/createVendorInvoice.js:159:  await financeGateway({
+
+================ DOCUMENTS ====================
+lib/procurement/purchase-orders/capabilities/createPurchaseRequest.js:5:export async function createPurchaseRequest({
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:3:import createPurchaseOrder from "@/lib/procurement/purchase-orders/createPurchaseOrder";
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:5:export default async function generateAutomaticPurchaseOrder({
+lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder.js:79:        await createPurchaseOrder({
+lib/procurement/purchase-orders/workflows/approvePurchaseOrder.js:3:export default async function approvePurchaseOrder({
+lib/procurement/purchase-orders/index.js:1:export * from "./createPurchaseOrder";
+lib/procurement/purchase-orders/createPurchaseOrder.js:3:export default async function createPurchaseOrder({
+lib/procurement/receiving/capabilities/postGoodsReceiptAccounting.js:3:export async function postGoodsReceiptAccounting(payload) {
+lib/procurement/receiving/updatePurchaseOrderReceiptStatus.js:8:export async function updatePurchaseOrderReceiptStatus({
+lib/procurement/receiving/index.js:1:export * from "./receivePurchaseOrder";
+lib/procurement/receiving/index.js:2:export * from "./updatePurchaseOrderReceiptStatus";
+lib/procurement/receiving/receivePurchaseOrder.js:4:import { updatePurchaseOrderReceiptStatus } from "@/lib/procurement/receiving/updatePurchaseOrderReceiptStatus";
+lib/procurement/receiving/receivePurchaseOrder.js:5:import { createInventoryMovement } from "@/lib/inventory/movements/createInventoryMovement";
+lib/procurement/receiving/receivePurchaseOrder.js:7:export default async function receivePurchaseOrder({
+lib/procurement/receiving/receivePurchaseOrder.js:118:          await createInventoryMovement({
+lib/procurement/receiving/receivePurchaseOrder.js:148:    await updatePurchaseOrderReceiptStatus({
+lib/inventory/ledger/capabilities/createInventoryMovement.js:1:export function createInventoryMovement() {
+lib/inventory/movements/capabilities/checkLowStock.js:4:  createPurchaseRequest,
+lib/inventory/movements/capabilities/checkLowStock.js:5:} from '@/lib/procurement/services/createPurchaseRequest'
+lib/inventory/movements/capabilities/checkLowStock.js:109:    await createPurchaseRequest({
+lib/inventory/movements/createInventoryMovement.js:37:export async function createInventoryMovement({
+lib/inventory/stock-count/finalizeStockCount.js:2:import { createInventoryMovement } from "@/lib/inventory/movements/createInventoryMovement";
+lib/inventory/stock-count/finalizeStockCount.js:76:      await createInventoryMovement({
+lib/finance/accounts-payable/runtime/AccountsPayableRuntime.js:1:import { createVendorInvoice } from "../documents/createVendorInvoice.js";
+lib/finance/accounts-payable/runtime/AccountsPayableRuntime.js:8:  async createVendorInvoiceCommand(input) {
+lib/finance/accounts-payable/runtime/AccountsPayableRuntime.js:9:    return createVendorInvoice(input);
+lib/finance/accounts-payable/runtime/AccountsPayableRuntime.js:27:    const invoice = await createVendorInvoice(input);
+lib/finance/accounts-payable/runtime/AccountsPayableApplicationService.js:1:import { createVendorInvoice } from "../documents/createVendorInvoice";
+lib/finance/accounts-payable/runtime/AccountsPayableApplicationService.js:11:      return await createVendorInvoice(payload);
+lib/finance/accounts-payable/documents/createVendorInvoice.js:10:export async function createVendorInvoice({
+
+================ HARDCODED ====================

@@ -10,6 +10,10 @@ import {
   getWorkspaceItemByRoute,
 } from "@/lib/platform/registry/erpRegistry";
 
+import {
+  serializeCapability,
+} from "@/lib/platform/registry/serializeCapability";
+
 
 export default function ServicesDynamicCapabilityPage() {
 
@@ -26,8 +30,10 @@ export default function ServicesDynamicCapabilityPage() {
 
 
   const capability =
-    getWorkspaceItemByRoute(
-      route
+    serializeCapability(
+      getWorkspaceItemByRoute(
+        route
+      )
     );
 
 

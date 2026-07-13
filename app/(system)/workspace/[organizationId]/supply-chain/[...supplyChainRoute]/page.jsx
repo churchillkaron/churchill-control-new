@@ -20,8 +20,18 @@ export default function SupplyChainDynamicCapabilityPage() {
       routeParts.join("/")
     }`;
 
+  console.log(
+    "SUPPLY CHAIN ROUTE DEBUG",
+    route
+  );
+
   const capability =
     getWorkspaceItemByRoute(route);
+
+  console.log(
+    "SUPPLY CHAIN CAPABILITY DEBUG",
+    capability
+  );
 
   if (!capability) {
     notFound();
@@ -30,6 +40,7 @@ export default function SupplyChainDynamicCapabilityPage() {
   return (
     <MasterDataRuntimeWorkCenter
       workspaceId="supply-chain"
+      organizationId={params.organizationId}
       capability={capability}
       eyebrow={`Supply Chain / ${capability.groupName || "Workspace"}`}
     />

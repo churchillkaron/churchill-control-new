@@ -270,6 +270,7 @@ export default function WorkspaceModuleGrid({
                         const href = resolveWorkspaceRoute({
                           organizationId: fallbackOrganizationId,
                           moduleId: item.id,
+                          workspaceId: workspace,
                           route: item.route,
                         });
 

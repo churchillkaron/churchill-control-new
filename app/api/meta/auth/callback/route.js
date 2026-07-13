@@ -27,7 +27,7 @@ export async function GET(request) {
   ) {
 
     return NextResponse.redirect(
-      `${BASE_URL}/marketing?facebook=error`
+      `${BASE_URL}/settings/connections/social?facebook=error`
     );
 
   }
@@ -178,7 +178,7 @@ export async function GET(request) {
 
   const response =
     NextResponse.redirect(
-      `${BASE_URL}/marketing?facebook=connected`
+      `${BASE_URL}/settings/connections/social?facebook=connected`
     );
 
   // USE FIRST PAGE TOKEN

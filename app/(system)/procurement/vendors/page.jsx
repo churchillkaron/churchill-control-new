@@ -13,10 +13,11 @@ import {
 
 export default function VendorsPage() {
 
-  const tenant =
+  const businessContext =
     useBusinessContext();
 
-  const tenantId =
+  const organizationId =
+    businessContext?.organization_id ||
     businessContext?.organization?.id;
 
   const [
@@ -65,25 +66,15 @@ export default function VendorsPage() {
 
       setLoading(true);
 
+      const params =
+        new URLSearchParams({
+          organization_id:
+            organizationId,
+        });
+
       const response =
         await fetch(
-          "/api/procurement/vendors/list",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-
-              tenant_id:
-                tenantId,
-
-            }),
-
-          }
+          `/api/procurement/vendors/list?${params.toString()}`
         );
 
       const result =
@@ -125,8 +116,8 @@ export default function VendorsPage() {
 
             body: JSON.stringify({
 
-              tenant_id:
-                tenantId,
+              organization_id:
+                organizationId,
 
               ...form,
 
@@ -187,13 +178,13 @@ export default function VendorsPage() {
 
   useEffect(() => {
 
-    if (!tenantId) {
+    if (!organizationId) {
       return;
     }
 
     loadVendors();
 
-  }, [tenantId]);
+  }, [organizationId]);
 
   return (
 

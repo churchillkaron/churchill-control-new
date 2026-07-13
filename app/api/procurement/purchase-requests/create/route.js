@@ -9,14 +9,27 @@ export async function POST(request) {
 
     const requestData =
       await createPurchaseRequest({
-        tenantId:
-          body.tenantId,
-        requestedBy:
-          body.requestedBy,
-        department:
-          body.department,
-        requestTotal:
-          body.requestTotal,
+        organization_id:
+          body.organization_id ||
+          body.organizationId,
+        entity_id:
+          body.entity_id ||
+          body.entityId ||
+          null,
+        item:
+          body.item || {
+            id:
+              body.item_id ||
+              body.itemId,
+            name:
+              body.item_name ||
+              body.itemName,
+            quantity:
+              body.quantity,
+            reorder_level:
+              body.reorder_level ||
+              body.reorderLevel,
+          },
       });
 
     return NextResponse.json({

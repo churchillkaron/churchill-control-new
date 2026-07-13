@@ -1,0 +1,40 @@
+SERVICE DOMAIN FINAL STATUS
+
+Configuration:
+- OrganizationServiceRuntime
+- OrganizationServiceResolver
+- OrganizationServiceProviderRepository
+
+Execution:
+- ServiceExecutionRuntime
+
+Provider:
+- ProviderRegistry
+- ProviderResolver
+- ProviderExecutor
+
+Credentials:
+- CredentialRuntime
+
+Usage:
+- UsageRuntime
+
+Commercial:
+- WalletRuntime
+- BillingRuntime
+- Finance integration
+
+Provider integrations:
+- OpenAI
+- Flux
+- Runway
+- Meta
+- Google
+- WhatsApp
+- LINE
+- LinkedIn
+
+Status:
+FROZEN
+
+Future changes only allowed when a real business requirement exposes a runtime gap.

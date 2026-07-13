@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import MasterDataRuntimeWorkCenter from "@/components/workspace/master-data/MasterDataRuntimeWorkCenter";
 
+
 import {
   getWorkspaceItemByRoute,
 } from "@/lib/platform/registry/erpRegistry";
@@ -27,6 +28,7 @@ export default function FinanceDynamicCapabilityPage({
   const businessContext =
     useBusinessContext() || {};
 
+ 
 
   const routeParts =
     params.financeRoute || [];
@@ -83,5 +85,4 @@ export default function FinanceDynamicCapabilityPage({
     />
 
   );
-
 }

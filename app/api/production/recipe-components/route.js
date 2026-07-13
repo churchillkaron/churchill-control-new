@@ -10,14 +10,20 @@ import {
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function GET() {
+export async function GET(req) {
 
   try {
-
     const {
-      data,
-      error,
-    } = await supabaseAdmin
+      searchParams,
+    } =
+      new URL(req.url);
+
+    const organizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
+
+    let query =
+      supabaseAdmin
       .from(
         "recipe_prepared_items"
       )
@@ -35,6 +41,19 @@ export async function GET() {
           ascending: false,
         }
       );
+
+    if (organizationId) {
+      query =
+        query.eq(
+          "organization_id",
+          organizationId
+        );
+    }
+
+    const {
+      data,
+      error,
+    } = await query;
 
     if (error) {
       throw error;
@@ -99,8 +118,13 @@ export async function POST(req) {
 
     }
 
-    const tenant_id =
-      access.tenantId;
+    const organization_id =
+      access.organizationId;
+
+    const entity_id =
+      body.entity_id ||
+      body.entityId ||
+      null;
 
     const {
       data,
@@ -112,8 +136,11 @@ export async function POST(req) {
       .insert([
         {
 
-          tenant_id:
-            tenant_id,
+          organization_id:
+            organization_id,
+
+          entity_id:
+            entity_id,
 
           dish_id:
             body.dish_id,

@@ -92,37 +92,102 @@ export default function DynamicCustomerField({
     setResults([]);
 
     setSearch(
-      customer.display_name || ""
+      customer.customer_name ||
+      customer.display_name ||
+      ""
     );
 
+    onChange(
+      field.name,
+      {
 
-    update(
-      "party_id",
-      customer.id
-    );
+        ...value,
 
+        existing_customer:
+          true,
 
-    update(
-      "customer_name",
-      customer.display_name || ""
-    );
+        party_id:
+          customer.party_id,
 
+        customer_id:
+          customer.customer_id,
 
-    update(
-      "customer_email",
-      customer.email || ""
-    );
+        customer_name:
+          customer.customer_name ||
+          customer.display_name ||
+          "",
 
+        customer_email:
+          customer.customer_email ||
+          customer.email ||
+          "",
 
-    update(
-      "customer_phone",
-      customer.phone || ""
-    );
+        customer_phone:
+          customer.customer_phone ||
+          customer.phone ||
+          "",
 
+        customer_type:
+          customer.customer_type ||
+          "PERSON",
 
-    update(
-      "existing_customer",
-      true
+        company_name:
+          customer.company_name ||
+          "",
+
+        tax_number:
+          customer.tax_number ||
+          "",
+
+        billing_address:
+          customer.billing_address ||
+          "",
+
+        shipping_address:
+          customer.shipping_address ||
+          "",
+
+        city:
+          customer.city ||
+          "",
+
+        state:
+          customer.state ||
+          "",
+
+        postal_code:
+          customer.postal_code ||
+          "",
+
+        country:
+          customer.country ||
+          "",
+
+        preferred_language:
+          customer.preferred_language ||
+          "",
+
+        preferred_currency:
+          customer.preferred_currency ||
+          "",
+
+        credit_limit:
+          customer.credit_limit ||
+          0,
+
+        payment_terms:
+          customer.payment_terms ||
+          "",
+
+        birthday:
+          customer.birthday ||
+          "",
+
+        notes:
+          customer.notes ||
+          "",
+
+      }
     );
 
   }

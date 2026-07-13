@@ -9,8 +9,8 @@ import { supabase } from "@/lib/shared/supabase/client";
 export default function SuppliersPage() {
 
   const [
-    vendors,
-    setVendors,
+    suppliers,
+    setSuppliers,
   ] = useState([]);
 
   const [
@@ -33,7 +33,7 @@ export default function SuppliersPage() {
     setForm,
   ] = useState({
 
-    vendor_id: "",
+    supplier_party_id: "",
 
     ingredient_id: "",
 
@@ -45,7 +45,7 @@ export default function SuppliersPage() {
   async function loadData() {
 
     const [
-      vendorsRes,
+      suppliersRes,
       ingredientsRes,
       pricesRes,
     ] = await Promise.all([
@@ -55,7 +55,7 @@ export default function SuppliersPage() {
       )
       .then(
         async response =>
-          (await response.json()).vendors || []
+          (await response.json()).suppliers || []
       ),
 
       supabase
@@ -72,7 +72,7 @@ export default function SuppliersPage() {
         .from("supplier_prices")
         .select(`
           *,
-          vendors (
+          parties (
             display_name
           ),
           ingredients (
@@ -87,8 +87,8 @@ export default function SuppliersPage() {
         ),
     ]);
 
-    setVendors(
-      vendorsRes || []
+    setSuppliers(
+      suppliersRes || []
     );
 
     setIngredients(
@@ -115,7 +115,7 @@ export default function SuppliersPage() {
 
         body: JSON.stringify({
 
-          tenant_id:
+          organization_id:
             "demo",
 
           ...form,
@@ -182,13 +182,13 @@ export default function SuppliersPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 
             <select
-              value={form.vendor_id}
+              value={form.supplier_party_id}
               onChange={(e) =>
                 setForm({
 
                   ...form,
 
-                  vendor_id:
+                  supplier_party_id:
                     e.target.value,
                 })
               }
@@ -199,7 +199,7 @@ export default function SuppliersPage() {
                 Vendor
               </option>
 
-              {vendors.map(
+              {suppliers.map(
                 (
                   vendor
                 ) => (
@@ -292,7 +292,7 @@ export default function SuppliersPage() {
 
             <div className="mt-4">
               {
-                bestPrice.vendors
+                bestPrice.parties
                   ?.display_name
               }
             </div>
@@ -332,7 +332,7 @@ export default function SuppliersPage() {
 
                     <div className="text-zinc-500 mt-2">
                       {
-                        item.vendors
+                        item.parties
                           ?.display_name
                       }
                     </div>

@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 
 import { getExecutiveAlerts } from "@/lib/finance/reporting/alerts/getExecutiveAlerts";
 
+import {
+  BusinessIntelligenceRuntime,
+} from "@/lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime";
+
 export async function POST(request) {
   try {
     const body =
@@ -14,9 +18,48 @@ export async function POST(request) {
           body.organizationId,
       });
 
+
+    const intelligence =
+      await BusinessIntelligenceRuntime
+        .analyzeOrganization(
+          body.organizationId
+        )
+        .catch(
+          () => null
+        );
+
+
+    const aiAlerts =
+      (
+        intelligence?.recommendations ||
+        []
+      )
+      .map(
+        item => ({
+
+          severity:
+            "info",
+
+          message:
+            item.message,
+
+          source:
+            item.provider,
+
+        })
+      );
+
+
     return NextResponse.json({
       success: true,
-      alerts,
+
+      alerts: [
+        ...(alerts || []),
+        ...aiAlerts,
+      ],
+
+      intelligence,
+
     });
   } catch (error) {
     return NextResponse.json(

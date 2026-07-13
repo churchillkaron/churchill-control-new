@@ -5,7 +5,9 @@ export async function POST(req) {
   try {
     const body = await req.json()
 
-    const { tenant_id } = body
+    const organization_id =
+      body.organization_id ||
+      body.organizationId
 
     const { data, error } = await supabaseAdmin
       .from('dishes')
@@ -23,7 +25,7 @@ export async function POST(req) {
           )
         )
       `)
-      .eq('tenant_id', tenant_id)
+      .eq('organization_id', organization_id)
       .order('name')
 
     if (error) {

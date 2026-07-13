@@ -1,0 +1,275 @@
+================================
+FINANCE CONTRACT AUDIT
+================================
+
+REPORT ACTIONS
+================================
+2721:    type:"report",
+2722-    label:"Variance Analysis",
+2723-    api:"/api/finance/budgeting/variance"
+2724-  },
+2725-  {
+2726-    type:"workflow",
+2727-    label:"Generate Forecast",
+2728-    workflow:"runForecasting",
+2729-    capability:"buildRevenueForecast"
+2730-  } 
+2731-],
+--
+2857:    type:"report",
+2858-    report:"getExecutiveKPIs"
+2859-  }
+2860-},
+2861-
+2862-data:{
+2863-  report:"getAccountingKPIs"
+2864-},
+2865-
+2866-analytics:{
+2867-  reports:[
+--
+3144:    type:"report",
+3145-    api:"/api/finance/reports/profit-loss"
+3146-  },
+3147-  balanceSheet:{
+3148:    type:"report",
+3149-    api:"/api/finance/reports/balance-sheet"
+3150-  },
+3151-  cashFlow:{
+3152:    type:"report",
+3153-    api:"/api/finance/reports/cash-flow"
+3154-  }
+3155-},
+3156-
+3157-data:{
+3158-  statements:[
+3159-    "ProfitLoss",
+3160-    "BalanceSheet",
+3161-    "CashFlow"
+3162-  ]
+--
+3187:              actions:[{ id:"management_report", type:"report", label:"Open Management Report", api:"/api/finance/management-reports" }],
+3188-              analytics:{ reports:["Management Report"] }
+3189-            },
+3190-            { id: "finance_analytics", name: "Analytics", route: "/finance/reports", description: "Analyze finance performance.", order: 30, type: "business-workspace", document: "FinanceAnalytics", status: "active",
+3191-              create:{ enabled:false },
+3192-              ui:{ api:"/api/finance/reports/profit-loss", rowsKey:"rows", search:["account_name","account_code","period"], name:r=>r.account_name||r.name||"Finance Result", subtitle:r=>[r.account_code||"-",r.period||"-"] },
+3193:              actions:[{ id:"profit_loss", type:"report", label:"Profit & Loss", api:"/api/finance/reports/profit-loss" }],
+3194-              analytics:{ reports:["Profit & Loss"] }
+3195-            },
+3196-            { id: "report_builder", name: "Report Builder", route: "/finance/report-builder", description: "Build custom finance reports.", order: 40, type: "business-workspace", document: "ReportTemplate", status: "planned" },
+3197-            { id: "scheduled_reports", name: "Scheduled Reports", route: "/finance/scheduled-reports", description: "Schedule recurring finance reports.", order: 50, type: "business-workspace", document: "ScheduledReport", status: "planned" }
+3198-          ],
+3199-        },
+3200-        {
+3201-          id: "administration",
+3202-          name: "Finance Administration",
+3203-          description: "Client setup, posting rules, tax settings, integrations and governance.",
+
+CREATE WITHOUT FORM
+================================
+181:  create:{
+182-    enabled:true,
+183-    type:"document",
+184-    engine:"create",
+185-    id:"customer",
+186-    capability:"customer",
+187-    action:"createCustomer",
+188-    form:"customer",
+189-    label:"+ Customer",
+--
+--
+1339:            { id: "chart_of_accounts", name: "Chart of Accounts", route: "/finance/chart-of-accounts", description: "Maintain account structure.", order: 10, type: "business-workspace", document: "Account", create:{
+1340-enabled:true,
+1341-  type: "document",
+1342-                  id: "account",
+1343-                  engine:"create",
+1344-                  capability:"account",
+1345-                  action:"upsertAccount",
+1346-                  form:"chart-of-account",
+1347-                  label: "+ Account",
+1348-                  title: "Account"
+--
+1399-              ],
+--
+1422:            { id: "journals", name: "Journals", route: "/finance/journals", description: "Create, review and reverse journal entries.", order: 30, type: "business-workspace", document: "JournalEntry", create:{
+1423-enabled:true,
+1424-type:"document",
+1425-engine:"create",
+1426-id:"journal_entry",
+1427-form:"journal-entry",
+1428-api:"/api/finance/journals/create",
+1429-label:"+ Journal",
+1430-title:"New Journal Entry"
+--
+1542-              ],
+--
+1562:            { id: "customers", name: "Customers", route: "/finance/customers", description: "Manage finance customer records.", order: 10, type: "business-workspace", document: "Customer", create:{
+1563-enabled:true,
+1564-type:"document",
+1565-engine:"create",
+1566-id:"customer",
+1567-capability:"customer",
+1568-action:"createCustomer",
+1569-form:"customer",
+1570-api:"/api/customers/upsert",
+--
+1574-ui:{
+--
+1633:            { id: "customer_invoices", name: "Customer Invoices", route: "/finance/customer-invoices", description: "Create, review, post and send customer invoices.", order: 20, type: "business-workspace", document: "CustomerInvoice", launchFrom: ["customers","accounts_receivable","commercial/customers"], create:{
+1634-  enabled:true,
+1635-
+1636-  engine:"create",
+1637-
+1638-  id:"customer_invoice",
+1639-
+1640-  label:"+ Invoice",
+1641-
+--
+--
+1744:            { id: "vendors", name: "Vendors", route: "/finance/vendors", description: "Manage vendor finance records.", order: 10, type: "business-workspace", document: "Vendor", create:{
+1745-enabled:true,
+1746-  type: "document",
+1747-                  id: "vendor",
+1748-                  engine:"create",
+1749-                  capability:"vendor",
+1750-                  form:"vendor-master",
+1751-                  api:"/api/finance/vendors/upsert",
+1752-                  label: "+ Vendor",
+1753-                  title: "Vendor"
+--
+--
+1882:            { id: "vendor_bills", name: "Vendor Bills", route: "/finance/vendor-bills", description: "Manage vendor bills and supplier invoices.", order: 40, type: "business-workspace", document: "VendorBill", create:{
+1883-enabled:true,
+1884-  type: "document",
+1885-                  id: "vendor_bill",
+1886-                  engine:"create",
+1887-                  capability:"accounts_payable",
+1888-                  action:"createVendorInvoiceCommand",
+1889-                  form:"vendor-bill",
+1890-                  label: "+ Vendor Bill",
+1891-                  title: "Vendor Bill"
+--
+1979-          items: [
+1980:            { id: "bank_accounts", name: "Bank Accounts", route: "/finance/bank-accounts", description: "Manage bank accounts.", order: 10, type: "business-workspace", document: "BankAccount", create:{
+1981-enabled:true,
+1982-  type: "document",
+1983-                  id: "bank_account",
+1984-                  engine:"create",
+1985-                  capability:"bank_account",
+1986-                  action:"upsertBankAccountCommand",
+1987-                  form:"bank-account",
+1988-                  api:"/api/finance/bank-accounts/upsert",
+1989-                  label: "+ Bank Account",
+--
+--
+2134:            { id: "tax_codes", name: "Tax Codes", route: "/finance/tax-codes", description: "Manage tax codes.", order: 30, type: "business-workspace", document: "TaxCode", create:{
+2135-enabled:true,
+2136-  type: "document",
+2137-                  id: "tax_code",
+2138-                  engine:"create",
+2139-                  capability:"tax_code",
+2140-                  action:"upsertTaxCode",
+2141-                  form:"tax-code",
+2142-                  api:"/api/finance/tax-codes/upsert",
+2143-                  label: "+ Tax Code",
+--
+--
+2188:            { id: "fixed_assets", name: "Fixed Assets", route: "/finance/fixed-assets", description: "Manage fixed assets.", order: 40, type: "business-workspace", document: "FixedAsset", create:{
+2189-enabled:true,
+2190-  type: "document",
+2191-                  id: "asset",
+2192-                  engine:"create",
+2193-                  capability:"fixed_asset",
+2194-                  action:"createFixedAssetCommand",
+2195-                  form:"fixed-asset",
+2196-                  api:"/api/finance/fixed-assets/create",
+2197-                  label: "+ Asset",
+--
+2330-                { id: "settings", type: "settings" }
+--
+2371:            { id: "legal_entities", name: "Legal Entities", route: "/finance/legal-entities", description: "Manage legal entities.", order: 10, type: "business-workspace", document: "LegalEntity", create:{
+2372-enabled:true,
+2373-type:"document",
+2374-engine:"create",
+2375-capability:"legal_entity",
+2376-action:"createLegalEntity",
+2377-form:"legal-entity",
+2378-api:"/api/finance/legal-entities/create",
+2379-id:"legal_entity",
+--
+--
+2409:            { id: "cost_centers", name: "Cost Centers", route: "/finance/cost-centers", description: "Manage cost centers.", order: 20, type: "business-workspace", document: "CostCenter", create:{
+2410-enabled:true,
+2411-  type: "document",
+2412-                  id: "cost_center",
+2413-                  engine:"create",
+2414-                  capability:"cost_center",
+2415-                  action:"createCostCenter",
+2416-                  form:"cost-center",
+2417-                  api:"/api/finance/cost-centers/create",
+2418-                  label: "+ Cost Center",
+--
+--
+2463:            { id: "currencies", name: "Currencies", route: "/finance/currencies", description: "Manage currencies.", order: 30, type: "business-workspace", document: "Currency", create:{
+2464-enabled:true,
+2465-  type: "document",
+2466-                  id: "currency",
+2467-                  engine:"create",
+2468-                  capability:"currency",
+2469-                  action:"upsertCurrency",
+2470-                  form:"currency",
+2471-                  label: "+ Currency",
+2472-                  title: "Currency"
+--
+2475-topMenu:[
+--
+2514:            { id: "intercompany", name: "Intercompany", route: "/finance/intercompany", description: "Manage intercompany activity.", order: 40, type: "business-workspace", document: "IntercompanyTransaction", create:{
+2515-enabled:true,
+2516-type:"document",
+2517-engine:"create",
+2518-capability:"intercompany",
+2519-action:"createIntercompanyTransactionCommand",
+2520-form:"intercompany",
+2521-api:"/api/finance/intercompany/create",
+2522-id:"intercompany",
+--
+--
+2571:            { id: "payment_terms", name: "Payment Terms", route: "/finance/payment-terms", description: "Manage payment terms.", order: 50, type: "business-workspace", document: "PaymentTerm", create:{
+2572-enabled:true,
+2573-  type: "document",
+2574-                  id: "payment_term",
+2575-                  engine:"create",
+2576-                  capability:"payment_term",
+2577-                  action:"upsertPaymentTerm",
+2578-                  form:"payment-term",
+2579-                  api:"/api/finance/payment-terms/upsert",
+2580-                  label: "+ Payment Term",
+--
+2637-              ],
+--
+2676:create:{
+2677-enabled:true,
+2678-type:"wizard",
+2679-engine:"create",
+2680-id:"budget",
+2681-form:"budget",
+2682-api:"/api/finance/budgeting/create",
+2683-label:"+ Budget",
+2684-title:"New Budget"
+
+REPORT ENGINE
+================================
+components/workspace/WorkspaceEventHub.jsx:6:import ReportEngine from "./engines/ReportEngine";
+components/workspace/WorkspaceEventHub.jsx:131:        <ReportEngine
+components/workspace/engines/ReportEngine.jsx:5:export default function ReportEngine({
+lib/finance/reporting/runtime/ReportingApplicationService.js:42:      throw new Error("Unknown report type: " + type);
+lib/finance/tax/workflows/runVATClose.js:69:    reportType: "VAT_RETURN"
+lib/finance/tax/workflows/runMonthlyTaxClose.js:30:    reportType: "MONTHLY_CLOSE",
+lib/finance/tax/reports/generateTaxReport.js:11:  reportType = "VAT_RETURN"
+lib/finance/tax/reports/generateTaxReport.js:57:      report_type: reportType,
+
+FORMS
+================================
+
+DONE

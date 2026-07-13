@@ -1,67 +1,97 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
-import { createServerSupabase } from "@/lib/shared/supabase/server";
+import {
+  ChannelAssetRuntime,
+} from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
 
-const supabase = createServerSupabase();
 
-export async function GET() {
+export async function GET(request) {
 
   try {
 
-    const {
-      data,
-      error,
-    } = await supabase
+    const url =
+      new URL(request.url);
 
-      .from("meta_accounts")
 
-      .select("*")
+    const organization_id =
+      url.searchParams.get(
+        "organization_id"
+      );
 
-      .order(
-        "created_at",
+
+    if (!organization_id) {
+
+      return NextResponse.json(
         {
-          ascending: false,
+          success:false,
+          error:
+            "organization_id required",
+        },
+        {
+          status:400,
         }
       );
 
-    if (error) {
+    }
 
-      throw error;
+
+    const assets = [];
+
+
+    const page =
+      await ChannelAssetRuntime.find({
+
+        organization_id,
+
+        provider:
+          "meta",
+
+        asset_type:
+          "facebook_page",
+
+        external_id:
+          url.searchParams.get(
+            "page_id"
+          ),
+
+      }).catch(
+        () => null
+      );
+
+
+    if (page) {
+
+      assets.push(page);
 
     }
 
+
     return NextResponse.json({
 
-      success: true,
+      success:true,
 
       accounts:
-        data || [],
+        assets,
 
     });
 
-  } catch (err) {
 
-    console.error(
-      "META ACCOUNTS API ERROR:",
-      err
-    );
+  } catch(error) {
 
     return NextResponse.json(
 
       {
-
-        success: false,
+        success:false,
 
         error:
-          err.message,
+          error.message,
 
       },
 
       {
-        status: 500,
+        status:500,
       }
 
     );

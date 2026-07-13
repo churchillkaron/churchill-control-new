@@ -5,6 +5,22 @@ import { NextResponse } from "next/server";
 import { supabase }
 from "@/lib/shared/supabase/client";
 
+import {
+  MetaProvider,
+} from "@/lib/platform/service-runtime/providers/meta/MetaProvider";
+
+import {
+  ChannelAssetRuntime,
+} from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+
+import {
+  ChannelConnectionRuntime,
+} from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+
+import {
+  resolveChannelCredential,
+} from "@/lib/platform/channels/helpers/resolveChannelCredential";
+
 export async function POST(req) {
 
   try {
@@ -16,121 +32,123 @@ export async function POST(req) {
       caption,
       image_url,
       page_id,
+      organization_id,
     } = body;
 
-    // GET ACCOUNT
 
-    const {
-      data: account,
-      error: accountError,
-    } = await supabase
-      .from("meta_accounts")
-      .select("*")
-      .eq("page_id", page_id)
-      .single();
+    const asset =
+      await ChannelAssetRuntime.find({
 
-    if (
-      accountError ||
-      !account
-    ) {
+        organization_id,
+
+        provider:
+          "meta",
+
+        asset_type:
+          "facebook_page",
+
+        external_id:
+          page_id,
+
+      });
+
+
+    if (!asset) {
 
       return NextResponse.json(
         {
-          success: false,
+          success:false,
+
           error:
-            "Meta account not found",
+            "Meta provider asset not found",
         },
-        { status: 500 }
+        {
+          status:404,
+        }
       );
 
     }
+
+
+    const connection =
+      await ChannelConnectionRuntime.get({
+
+        organization_id,
+
+        provider:
+          "meta",
+
+      });
+
+
+    if (!connection) {
+
+      return NextResponse.json(
+        {
+          success:false,
+
+          error:
+            "Meta provider connection not found",
+        },
+        {
+          status:404,
+        }
+      );
+
+    }
+
 
     const instagram_business_id =
-      account.instagram_business_id;
+      asset.metadata?.instagram_business_id;
+
 
     const access_token =
-      account.access_token;
-
-    // STEP 1
-    // CREATE MEDIA CONTAINER
-
-    const containerRes =
-      await fetch(
-        `https://graph.facebook.com/v23.0/${instagram_business_id}/media`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            image_url,
-            caption,
-            access_token,
-          }),
-        }
+      await resolveChannelCredential(
+        connection
       );
 
-    const containerData =
-      await containerRes.json();
+    const result =
+      await MetaProvider.execute({
 
-    if (process.env.NODE_ENV !== "production") console.log(
-      "IG CONTAINER:",
-      containerData
-    );
+        capability:
+          "marketing.instagram.publish",
 
-    if (!containerData.id) {
+        organization_id,
+
+        instagram_business_id,
+
+        access_token,
+
+        message:
+          caption,
+
+        image_url,
+
+      });
+
+
+    if (!result?.success) {
 
       return NextResponse.json(
         {
-          success: false,
+          success:false,
           error:
-            containerData,
+            result,
         },
-        { status: 500 }
+        {
+          status:500,
+        }
       );
 
     }
 
-    // STEP 2
-    // PUBLISH POST
-
-    const publishRes =
-      await fetch(
-        `https://graph.facebook.com/v23.0/${instagram_business_id}/media_publish`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            creation_id:
-              containerData.id,
-
-            access_token,
-          }),
-        }
-      );
-
-    const publishData =
-      await publishRes.json();
-
-    if (process.env.NODE_ENV !== "production") console.log(
-      "IG PUBLISH:",
-      publishData
-    );
 
     return NextResponse.json({
-      success: true,
-      container:
-        containerData,
-      publish:
-        publishData,
+
+      success:true,
+
+      result,
+
     });
 
   } catch (err) {

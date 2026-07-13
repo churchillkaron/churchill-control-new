@@ -2,6 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
+import {
+  BusinessIntelligenceRuntime,
+} from "@/lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime";
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -61,11 +65,30 @@ export async function GET(request) {
           result?.items ||
           [];
 
+    const intelligence =
+      await BusinessIntelligenceRuntime
+        .analyzeOrganization(
+          organizationId
+        )
+        .catch(
+          () => null
+        );
+
+
     return NextResponse.json({
       success: true,
+
       kpis,
+
       rows: kpis,
-      summary: result?.summary || result || {},
+
+      summary:
+        result?.summary ||
+        result ||
+        {},
+
+      intelligence,
+
     });
   } catch (error) {
     console.error("executive-dashboard/kpi GET", error);

@@ -9,10 +9,16 @@ export async function POST(request) {
 
     const result =
       await runShiftProfitability({
-        tenantId:
-          body.tenantId,
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+        entityId:
+          body.entityId ||
+          body.entity_id ||
+          null,
         shiftName:
-          body.shiftName,
+          body.shiftName ||
+          body.shift_name,
         revenue:
           body.revenue,
         foodCost:

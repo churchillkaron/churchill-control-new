@@ -1,404 +1,77 @@
 "use client";
 
+export default function ReportRenderer({ data = {}, brand = {} }) {
+  const document = data.document || data.data?.document || data.data || {};
+  const sections = document.sections || [];
+  const currency = document.currency?.code || "THB";
 
-
-export default function ReportRenderer({
-
-  data = {},
-
-  brand = {},
-
-}) {
-
-
-  const document =
-    data.document ||
-    data.data?.document ||
-    data.data ||
-    {};
-
-
-  const sections =
-    document.sections || [];
-
-
-
-  function money(value){
-
-    return new Intl.NumberFormat(
-      "en-US",
-      {
-        style:"currency",
-        currency:
-          document.currency?.code ||
-          "THB",
-        maximumFractionDigits:2,
-      }
-    )
-    .format(
-      Number(value || 0)
-    );
-
+  function formatValue(value) {
+    if (typeof value !== "number") return value ?? "-";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2,
+    }).format(value);
   }
-
-
-
-  function renderBlock(block){
-
-
-    if(block === "header"){
-
-      return (
-
-        <div
-          key={block}
-          className="flex justify-between"
-        >
-
-          <div>
-
-            {
-              brand.logo_url ? (
-
-                <img
-
-                  src={brand.logo_url}
-
-                  alt="Logo"
-
-                  className="
-                    mb-4
-                    h-16
-                    object-contain
-                  "
-
-                />
-
-              ) : null
-            }
-
-
-            <h1 className="text-3xl font-bold">
-
-              {
-                brand.name ||
-                document.organization?.name ||
-                "Company"
-              }
-
-            </h1>
-
-
-            {
-              brand.legal?.legal_name ? (
-
-                <div className="mt-2 text-sm">
-
-                  {brand.legal.legal_name}
-
-                </div>
-
-              ) : null
-            }
-
-
-            {
-              brand.legal?.tax_id ? (
-
-                <div className="mt-1 text-sm">
-
-                  Tax ID:
-                  {" "}
-                  {brand.legal.tax_id}
-
-                </div>
-
-              ) : null
-            }
-
-
-          </div>
-
-
-          <div className="text-right">
-
-            <div className="text-3xl font-bold">
-
-              {
-                document.title ||
-                "Financial Report"
-              }
-
-            </div>
-
-
-          </div>
-
-
-        </div>
-
-      );
-
-    }
-
-
-
-    if(block === "report_info"){
-
-      return (
-
-        <div
-
-          key={block}
-
-          className="
-            mt-8
-            border-t
-            pt-6
-            text-sm
-          "
-
-        >
-
-          <div className="flex justify-between">
-
-            <span>
-              Entity
-            </span>
-
-            <span className="font-semibold">
-
-              {
-                document.entity?.name ||
-                "-"
-              }
-
-            </span>
-
-          </div>
-
-
-          <div className="mt-2 flex justify-between">
-
-            <span>
-              Period
-            </span>
-
-            <span>
-
-              {
-                document.period?.name ||
-                "-"
-              }
-
-            </span>
-
-          </div>
-
-
-          <div className="mt-2 flex justify-between">
-
-            <span>
-              Currency
-            </span>
-
-            <span>
-
-              {
-                document.currency?.code ||
-                "-"
-              }
-
-            </span>
-
-          </div>
-
-
-        </div>
-
-      );
-
-    }
-
-
-
-    if(block === "sections"){
-
-      return (
-
-        <div
-          key={block}
-          className="mt-10 space-y-8"
-        >
-
-          {
-            sections.map(section => (
-
-              <div key={section.title}>
-
-
-                <div
-
-                  className="
-                    border-b
-                    pb-2
-                    text-sm
-                    font-bold
-                    uppercase
-                  "
-
-                >
-
-                  {section.title}
-
-                </div>
-
-
-                {
-                  (section.rows || [])
-                  .map(row => (
-
-                    <div
-
-                      key={row.label}
-
-                      className="
-                        mt-2
-                        flex
-                        justify-between
-                        text-sm
-                      "
-
-                    >
-
-                      <span>
-                        {row.label}
-                      </span>
-
-
-                      <span>
-
-                        {
-                          money(row.amount)
-                        }
-
-                      </span>
-
-
-                    </div>
-
-                  ))
-                }
-
-
-                {
-                  section.total !== undefined ? (
-
-                    <div
-
-                      className="
-                        mt-3
-                        flex
-                        justify-between
-                        border-t
-                        pt-3
-                        font-semibold
-                      "
-
-                    >
-
-                      <span>
-                        Total
-                      </span>
-
-
-                      <span>
-
-                        {
-                          money(section.total)
-                        }
-
-                      </span>
-
-
-                    </div>
-
-                  ) : null
-                }
-
-
-              </div>
-
-            ))
-          }
-
-
-        </div>
-
-      );
-
-    }
-
-
-
-    if(block === "footer"){
-
-      return (
-
-        <div
-
-          key={block}
-
-          className="
-            mt-16
-            border-t
-            pt-4
-            text-xs
-            text-gray-500
-          "
-
-        >
-
-          Generated by Avantiqo
-
-        </div>
-
-      );
-
-    }
-
-
-    return null;
-
-  }
-
-
-
-  const blocks = [
-
-    "report_info",
-
-    "sections",
-
-    "footer",
-
-  ];
-
-
 
   return (
-
     <div className="rounded-3xl bg-white p-10 text-black">
+      <div className="flex justify-between">
+        <div>
+          {brand.logo_url ? (
+            <img src={brand.logo_url} alt="Logo" className="mb-4 h-16 object-contain" />
+          ) : null}
+          <h1 className="text-3xl font-bold">{brand.name || document.organization?.name || "Company Name"}</h1>
+          <div className="mt-2 text-sm">{brand.legal?.legal_name || ""}</div>
+          {brand.legal?.tax_id ? <div className="mt-1 text-sm">Tax ID: {brand.legal.tax_id}</div> : null}
+        </div>
+        <div className="max-w-[55%] text-right text-4xl font-bold">{document.title || "REPORT"}</div>
+      </div>
 
-      {
-        blocks
-        .map(
-          renderBlock
-        )
-      }
+      <div className="mt-8 flex justify-end border-t pt-6">
+        <div className="w-64 text-sm">
+          <div className="flex justify-between"><span>Entity:</span><span className="font-semibold">{document.entity?.name || "-"}</span></div>
+          <div className="mt-2 flex justify-between"><span>Period:</span><span>{document.period?.name || document.period?.label || "-"}</span></div>
+          <div className="mt-2 flex justify-between"><span>Currency:</span><span>{currency}</span></div>
+          {document.generated_at ? <div className="mt-2 flex justify-between"><span>Generated:</span><span>{document.generated_at}</span></div> : null}
+        </div>
+      </div>
 
+      <div className="mt-10 space-y-8">
+        {sections.map((section, sectionIndex) => (
+          <section key={`${section.title || "Section"}-${sectionIndex}`}>
+            <div className="border-b pb-2 font-semibold">{section.title || "Details"}</div>
+            {(section.rows || []).map((row, rowIndex) => (
+              <div key={`${row.label || "Row"}-${rowIndex}`} className="mt-2 flex justify-between gap-8 text-sm">
+                <span>{row.label || "-"}</span>
+                <span className="text-right">{formatValue(row.amount ?? row.value)}</span>
+              </div>
+            ))}
+            {section.total !== undefined ? (
+              <div className="mt-3 flex justify-between border-t pt-2 font-semibold">
+                <span>{section.totalLabel || "Total"}</span>
+                <span>{formatValue(section.total)}</span>
+              </div>
+            ) : null}
+          </section>
+        ))}
+      </div>
+
+      {document.summary?.label || document.summary?.value !== undefined ? (
+        <div className="mt-8 border-t pt-5 text-right text-2xl font-bold">
+          {document.summary.label || "Total"}: {formatValue(document.summary.value)}
+        </div>
+      ) : null}
+
+      <div className="mt-12 grid grid-cols-2 gap-8 border-t pt-5 text-sm text-gray-500">
+        <div>
+          <div className="mb-2 font-semibold">Company</div>
+          {brand.legal?.address ? <div>{brand.legal.address}</div> : null}
+          {brand.legal?.email ? <div>{brand.legal.email}</div> : null}
+          {brand.website ? <div>{brand.website}</div> : null}
+        </div>
+        <div className="text-right">Generated by Avantiqo</div>
+      </div>
     </div>
-
   );
-
 }

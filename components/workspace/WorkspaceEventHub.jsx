@@ -44,8 +44,16 @@ export default function WorkspaceEventHub({
     const reportHandler=e=>
       setReportAction(e.detail);
 
-    const previewHandler=e=>
+    const previewHandler=e=>{
+
+      console.log(
+        "WORKSPACE PREVIEW RECEIVED",
+        e.detail
+      );
+
       setPreview(e.detail);
+
+    };
 
     const communicationHandler=e=>
       setCommunication(e.detail);
@@ -169,6 +177,18 @@ export default function WorkspaceEventHub({
           periodId={periodId}
 
           initialPayload={reportAction}
+
+          onPreview={(payload) => {
+
+            console.log(
+              "WORKSPACE RECEIVED PREVIEW CALLBACK",
+              payload
+            );
+
+            setReportAction(null);
+            setPreview(payload);
+
+          }}
 
           onClose={() => setReportAction(null)}
 

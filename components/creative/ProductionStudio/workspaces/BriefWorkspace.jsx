@@ -12,7 +12,7 @@ export default function BriefWorkspace({
   const [form, setForm] = useState({
     title: "",
     business_goal: "",
-    campaign_goal: "",
+    creative_objective: "",
     target_audience: "",
     call_to_action: "",
     tone: "professional",
@@ -33,8 +33,11 @@ export default function BriefWorkspace({
       business_goal:
         brief.business_goal || "",
 
-      campaign_goal:
-        brief.campaign_goal || "",
+      creative_objective:
+        brief.creative_objective ||
+        brief.creative_objective ||
+        brief.campaign_goal ||
+        "",
 
       target_audience:
         typeof brief.target_audience === "string"
@@ -132,13 +135,13 @@ export default function BriefWorkspace({
         />
 
         <Field
-          label="Campaign Goal"
+          label="Creative Objective"
           textarea
-          value={form.campaign_goal}
+          value={form.creative_objective}
           onChange={e =>
             setForm({
               ...form,
-              campaign_goal: e.target.value,
+              creative_objective: e.target.value,
             })
           }
         />

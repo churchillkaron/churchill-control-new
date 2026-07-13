@@ -52,7 +52,7 @@ function capabilitySummary(row) {
 
   const capabilities =
     Array.isArray(row?.capabilities)
-      ? row.capabilities
+      ? row.capability_names
       : [];
 
 
@@ -72,8 +72,8 @@ function capabilitySummary(row) {
 
 
       return (
-        item.business ||
-        item.name ||
+        item?.business ||
+        item?.name ||
         "-"
       );
 
@@ -85,12 +85,18 @@ function capabilitySummary(row) {
 
 function formatCapabilities(capabilities = []) {
 
-  return capabilities
+  const normalized =
+    Array.isArray(capabilities)
+      ? capabilities
+      : [];
+
+
+  return normalized
     .map(
       item =>
         typeof item === "string"
           ? item
-          : item.business || item.name || "-"
+          : item?.business || item?.name || "-"
     )
     .join(", ");
 
@@ -302,7 +308,7 @@ export default function ServiceRuntimeWorkCenter({
 
         params.set(
           "domain",
-          capability.domainId
+          capability.id
         );
 
       }
@@ -491,7 +497,11 @@ export default function ServiceRuntimeWorkCenter({
                 (sum,row)=>
                   sum +
                   Number(
-                    row.services || 0
+                    (
+                      Array.isArray(row.services)
+                        ? row.services.length
+                        : row.service_count || 0
+                    )
                   ),
                 0
               ),
@@ -506,7 +516,11 @@ export default function ServiceRuntimeWorkCenter({
                 (sum,row)=>
                   sum +
                   Number(
-                    row.capabilities || 0
+                    (
+                      Array.isArray(row.capability_names)
+                        ? row.capability_names.length
+                        : row.capability_count || 0
+                    )
                   ),
                 0
               ),
@@ -564,7 +578,7 @@ export default function ServiceRuntimeWorkCenter({
               data.reduce(
                 (sum,row)=>
                   sum +
-                  (row.capabilities?.length || 0),
+                  (row.capability_names?.length || 0),
                 0
               ),
             hint:
@@ -618,7 +632,7 @@ export default function ServiceRuntimeWorkCenter({
               data.reduce(
                 (sum,row)=>
                   sum +
-                  (row.capabilities?.length || 0),
+                  (row.capability_names?.length || 0),
                 0
               ),
             hint:
@@ -751,8 +765,18 @@ export default function ServiceRuntimeWorkCenter({
 
           ? row => {
 
+              const domainId =
+                String(
+                  capability.id || ""
+                )
+                .replace(
+                  "connected_services_",
+                  ""
+                );
+
+
               router.push(
-                `/workspace/${organizationId}/services/connected-services/${capability.domainId}/${row.id}`
+                `/workspace/${organizationId}/services/connected-services/${domainId}/${row.id}`
               );
 
             }
@@ -810,239 +834,26 @@ export default function ServiceRuntimeWorkCenter({
           : runtime === "service_domains"
 
           ? [
-              `${row.capabilities || 0} capabilities`,
-              `${row.capabilities || 0} capabilities`,
+              `${(
+                      Array.isArray(row.capability_names)
+                        ? row.capability_names.length
+                        : row.capability_count || 0
+                    )} capabilities`,
+              `${(
+                      Array.isArray(row.capability_names)
+                        ? row.capability_names.length
+                        : row.capability_count || 0
+                    )} capabilities`,
             ].filter(Boolean)
 
           : runtime === "service_domain_detail"
 
-          ? [
-              ...(row.capabilities || [])
-                .map(
-                  item =>
-                    typeof item === "string"
-                      ? item
-                      : item.business || item.name
-                )
-            ].filter(Boolean)
-
-          : runtime === "service_domain_detail"
-
-          ? [
-              {
-                title:"Service Details",
-                fields: selected
-                  ? [
-                      {
-                        label:"Service",
-                        value:()=>String(selected.name || "-"),
-                      },
-                      {
-                        label:"Capabilities",
-                        value:()=>(
-                          formatCapabilities(
-                            selected.capabilities || []
-                          )
-                        ),
-                      },
-                      {
-                        label:"Status",
-                        value:()=>String(selected.status || "-"),
-                      },
-                      {
-                        label:"Service Status",
-                        value:()=>serviceStatusLabel(selected),
-                      },
-                      {
-                        label:"Health",
-                        value:()=>String(selected.availability || "-"),
-                      },
-
-                      {
-                        label:"Usage",
-                        value:()=>String(
-                          economics.usage || 0
-                        ),
-                      },
-
-                      {
-                        label:"Customer Cost",
-                        value:()=>String(
-                          economics.cost || 0
-                        ),
-                      },
-
-                      {
-                        label:"Executions",
-                        value:()=>String(
-                          economics.executions || 0
-                        ),
-                      },
-
-                    ]
-                  : [],
-              },
-            ]
-
-          : [
-              row.category,
-              row.status,
-              serviceStatusLabel(row),
-            ].filter(Boolean)
-
-      }
-
-      getInitials={
-        row =>
-          String(
-            row.name ||
-            row.name ||
-            capability.name
-          )
-          .slice(0,2)
-          .toUpperCase()
-      }
-
-      listMetrics={
-        runtime === "wallet"
-
-          ? [
-              {
-                label:"Balance",
-                value:
-                  row =>
-                    row.balance ?? 0,
-              },
-              {
-                label:"Reserved",
-                value:
-                  row =>
-                    row.reserved ?? 0,
-              },
-              {
-                label:"Currency",
-                value:
-                  row =>
-                    row.currency || "-",
-              },
-              {
-                label:"Status",
-                value:
-                  row =>
-                    row.display_status ||
-                    row.status ||
-                    "-",
-              },
-            ]
-
-          : runtime === "usage"
-
-          ? [
-              {
-                label:"Service",
-                value:
-                  row =>
-                    row.name || "-",
-              },
-              {
-                label:"Capability",
-                value:
-                  row =>
-                    row.capability || "-",
-              },
-              {
-                label:"Cost",
-                value:
-                  row =>
-                    row.supplier_cost ??
-                    row.cost ??
-                    "-",
-              },
-              {
-                label:"Price",
-                value:
-                  row =>
-                    row.customer_price ??
-                    row.price ??
-                    "-",
-              },
-            ]
-
-          : runtime === "service_domains"
-
-          ? [
-
-              {
-                label:"Capabilities",
-                value:
-                  row =>
-                    formatCapabilities(
-                      row.capabilities || []
-                    ),
-              },
-
-              {
-                label:"Services",
-                value:
-                  row =>
-                    formatCapabilities(
-                      row.capabilities || []
-                    ),
-              },
-
-              {
-                label:"Usage",
-                value:
-                  row =>
-                    row.usage || 0,
-              },
-
-              {
-                label:"Cost",
-                value:
-                  row =>
-                    row.cost || 0,
-              },
-
-            ]
-
-          : runtime === "service_domain_detail"
-
-          ? [
-
-              {
-                label:"Capabilities",
-                value:
-                  row =>
-                    formatCapabilities(
-                      row.capabilities || []
-                    ) || "-",
-              },
-
-              {
-                label:"Status",
-                value:
-                  row =>
-                    row.status || "-",
-              },
-
-              {
-                label:"Active",
-                value:
-                  row =>
-                    row.status === "ACTIVE"
-                      ? "YES"
-                      : "NO",
-              },
-
-              {
-                label:"Health",
-                value:
-                  row =>
-                    row.availability || "-",
-              },
-
-            ]
+          ? (
+              Array.isArray(row.capability_names)
+                ? row.capability_names
+                : []
+            )
+              .join(", ")
 
           : [
               {

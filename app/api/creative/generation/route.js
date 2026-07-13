@@ -21,8 +21,6 @@ export async function POST(request) {
 
       entityId,
 
-      campaignId,
-
       missionId,
 
       capability,
@@ -61,8 +59,8 @@ export async function POST(request) {
         entity_id:
           entityId || null,
 
-        campaign_id:
-          campaignId || null,
+        creative_mission_id:
+          missionId || null,
 
         mission_id:
           missionId || null,

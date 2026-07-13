@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import ReportEngine from "@/components/workspace/engines/ReportEngine";
+import PreviewEngine from "@/components/workspace/engines/PreviewEngine";
 
 function reportActions(capability){
 
@@ -52,6 +53,9 @@ export default function ReportWorkCenter({
 
   const [open,setOpen] =
     useState(false);
+
+  const [preview,setPreview] =
+    useState(null);
 
 
   return (
@@ -165,6 +169,26 @@ export default function ReportWorkCenter({
 
           onClose={() =>
             setOpen(false)
+          }
+
+          onPreview={(previewPayload) => {
+            setOpen(false);
+            setPreview(previewPayload);
+          }}
+
+        />
+
+      )}
+
+
+      {preview && (
+
+        <PreviewEngine
+
+          {...preview}
+
+          onClose={() =>
+            setPreview(null)
           }
 
         />

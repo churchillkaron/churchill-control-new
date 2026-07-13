@@ -105,7 +105,7 @@ export default function StrategyWorkspace({
         />
 
         <Field
-          label="Audience Strategy"
+          label="Stakeholder Strategy"
           value={form.audience_strategy}
           onChange={e =>
             setForm({

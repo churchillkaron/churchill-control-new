@@ -1,17 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  useRouter,
+} from "next/navigation";
 
 import MasterDataWorkCenter from "@/components/workspace/master-data/MasterDataWorkCenter";
+
 import {
   useBusinessContext,
 } from "@/app/providers/BusinessContextProvider";
 
 
 function cleanValue(value) {
+
   const normalized =
     String(value ?? "").trim();
+
 
   if (
     !normalized ||
@@ -21,16 +31,164 @@ function cleanValue(value) {
     return "";
   }
 
+
   return normalized;
+
 }
 
-function serviceStatusLabel(row) {
+
+function safeArray(value) {
+
+  return Array.isArray(value)
+    ? value
+    : [];
+
+}
+
+
+function safeNumber(value) {
+
+  const number =
+    Number(value || 0);
+
+
+  return Number.isFinite(number)
+    ? number
+    : 0;
+
+}
+
+
+function formatList(values) {
+
+  return safeArray(values)
+    .map(value => {
+
+      if (
+        typeof value === "string"
+      ) {
+        return value;
+      }
+
+
+      return (
+        value?.name ||
+        value?.label ||
+        value?.business ||
+        value?.id ||
+        "-"
+      );
+
+    })
+    .filter(Boolean)
+    .join(", ");
+
+}
+
+
+function titleCase(value) {
+
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase());
+
+}
+
+
+
+function serviceCount(row) {
+
+  if (
+    Number.isFinite(
+      Number(row?.service_count)
+    )
+  ) {
+    return Number(
+      row.service_count
+    );
+  }
+
+
+  if (
+    Array.isArray(row?.service_names)
+  ) {
+    return row.service_names.length;
+  }
+
+
+  if (
+    Array.isArray(row?.services)
+  ) {
+    return row.services.length;
+  }
+
+
+  return 0;
+
+}
+
+
+function capabilityCount(row) {
+
+  if (
+    Number.isFinite(
+      Number(row?.capability_count)
+    )
+  ) {
+    return Number(
+      row.capability_count
+    );
+  }
+
+
+  if (
+    Array.isArray(row?.capability_names)
+  ) {
+    return row.capability_names.length;
+  }
+
+
+  if (
+    Array.isArray(row?.capabilities)
+  ) {
+    return row.capabilities.length;
+  }
+
+
+  return 0;
+
+}
+
+
+function serviceNames(row) {
+
+  if (
+    Array.isArray(row?.service_names)
+  ) {
+    return row.service_names;
+  }
+
+
+  return safeArray(
+    row?.services
+  )
+    .map(service =>
+      typeof service === "string"
+        ? service
+        : service?.name
+    )
+    .filter(Boolean);
+
+}
+
+
+function serviceStatus(row) {
 
   const status =
     String(
-      row?.status ||
-      ""
+      row?.status || ""
     ).toUpperCase();
+
 
   if (
     status === "ACTIVE" ||
@@ -39,107 +197,56 @@ function serviceStatusLabel(row) {
     return "Available";
   }
 
+
   if (
     status === "INCLUDED"
   ) {
     return "Included";
   }
 
+
   return status || "Unavailable";
-}
-
-function capabilitySummary(row) {
-
-  const capabilities =
-    Array.isArray(row?.capabilities)
-      ? row.capability_names
-      : [];
-
-
-  if (!capabilities.length) {
-    return "-";
-  }
-
-
-  return capabilities
-    .map(item => {
-
-      if (
-        typeof item === "string"
-      ) {
-        return item;
-      }
-
-
-      return (
-        item?.business ||
-        item?.name ||
-        "-"
-      );
-
-    })
-    .join(", ");
 
 }
 
 
-function formatCapabilities(capabilities = []) {
+function sumRows(
+  rows,
+  field
+) {
 
-  const normalized =
-    Array.isArray(capabilities)
-      ? capabilities
-      : [];
-
-
-  return normalized
-    .map(
-      item =>
-        typeof item === "string"
-          ? item
-          : item?.business || item?.name || "-"
-    )
-    .join(", ");
+  return rows.reduce(
+    (sum,row) =>
+      sum +
+      safeNumber(
+        row?.[field]
+      ),
+    0
+  );
 
 }
-
 
 
 export default function ServiceRuntimeWorkCenter({
+
   workspaceId,
+
   capability,
+
   organizationId,
+
   eyebrow,
+
 }) {
+
 
   const router =
     useRouter();
 
-  if (!capability) {
-
-    return (
-      <div className="rounded-[32px] border border-red-400/30 bg-red-500/10 p-6 text-red-100">
-        Missing service capability
-      </div>
-    );
-
-  }
-
-  const [data,setData] = useState([]);
-  const [loading,setLoading] = useState(true);
-  const [error,setError] = useState("");
-
-  const [query,setQuery] = useState("");
-  const [selectedId,setSelectedId] = useState(null);
-
-  const [economics,setEconomics] =
-    useState({
-      usage:0,
-      cost:0,
-      executions:0,
-    });
 
   const businessContext =
-    useBusinessContext() || {};
+    useBusinessContext() ||
+    {};
 
 
   const runtime =
@@ -149,6 +256,27 @@ export default function ServiceRuntimeWorkCenter({
   const api =
     capability?.ui?.api;
 
+
+  const [rows,setRows] =
+    useState([]);
+
+
+  const [loading,setLoading] =
+    useState(true);
+
+
+  const [error,setError] =
+    useState("");
+
+
+  const [query,setQuery] =
+    useState("");
+
+
+  const [selectedId,setSelectedId] =
+    useState(null);
+
+
   const contextCurrency =
     cleanValue(
       businessContext.currency ||
@@ -157,51 +285,102 @@ export default function ServiceRuntimeWorkCenter({
     );
 
 
+  const entityId =
+    businessContext.entity_id ||
+    businessContext.active_entity_id ||
+    businessContext.entity?.id ||
+    null;
+
+
+  const country =
+    businessContext.country ||
+    businessContext.entity?.country ||
+    businessContext.organization?.country ||
+    null;
+
+
   useEffect(()=>{
 
+    let cancelled =
+      false;
+
+
     async function load(){
+
+      if (
+        !organizationId ||
+        !api
+      ) {
+
+        setRows([]);
+        setLoading(false);
+
+        return;
+
+      }
+
+
+      setLoading(true);
+      setError("");
+
 
       try {
 
         const params =
           new URLSearchParams({
+
             organization_id:
               organizationId,
+
           });
 
-        if (contextCurrency) {
+
+        if (
+          contextCurrency
+        ) {
+
           params.set(
             "currency",
             contextCurrency
           );
+
         }
 
-        const endpoint =
-          `${api}?${params.toString()}`;
 
-
-        const res =
-          await fetch(endpoint);
+        const response =
+          await fetch(
+            `${api}?${params.toString()}`
+          );
 
 
         const json =
-          await res.json();
+          await response.json()
+            .catch(() => ({}));
 
 
-        if (!json.success) {
+        if (
+          !response.ok ||
+          !json.success
+        ) {
 
           throw new Error(
-            json.error || "Load failed"
+            json.error ||
+            json.message ||
+            "Service data load failed"
           );
 
         }
 
 
-        if (runtime === "wallet") {
+        let nextRows =
+          [];
 
-          setProviderDetails(null);
 
-          setData(
+        if (
+          runtime === "wallet"
+        ) {
+
+          nextRows =
             json.wallet
               ? [
                   {
@@ -218,11 +397,9 @@ export default function ServiceRuntimeWorkCenter({
 
                     display_status:
                       json.wallet.status,
-
-                  }
+                  },
                 ]
-              : []
-          );
+              : [];
 
         } else {
 
@@ -231,439 +408,1176 @@ export default function ServiceRuntimeWorkCenter({
             "rows";
 
 
-          setData(
-            json[rowsKey] ||
-            []
-          );
+          nextRows =
+            safeArray(
+              json[rowsKey]
+            );
 
         }
 
 
-      } catch(err) {
+        if (
+          cancelled
+        ) {
+          return;
+        }
 
+
+        setRows(
+          nextRows
+        );
+
+
+        setSelectedId(
+          current => {
+
+            if (
+              current &&
+              nextRows.some(
+                row =>
+                  row.id === current
+              )
+            ) {
+              return current;
+            }
+
+
+            return (
+              nextRows[0]?.id ||
+              null
+            );
+
+          }
+        );
+
+
+      } catch(loadError) {
+
+        if (
+          cancelled
+        ) {
+          return;
+        }
+
+
+        setRows([]);
         setError(
-          err.message
+          loadError.message
         );
 
       } finally {
 
-        setLoading(false);
+        if (
+          !cancelled
+        ) {
+          setLoading(false);
+        }
 
       }
 
     }
 
 
-    if (
-      organizationId &&
-      api
-    ) {
+    load();
 
-      load();
 
-    }
+    return ()=>{
 
+      cancelled =
+        true;
+
+    };
 
   },[
     organizationId,
     api,
     runtime,
     contextCurrency,
+    capability?.ui?.rowsKey,
   ]);
-
-
-  useEffect(()=>{
-
-    async function loadEconomics(){
-
-      if (!organizationId) {
-        return;
-      }
-
-
-      const params =
-        new URLSearchParams({
-
-          organization_id:
-            organizationId,
-
-        });
-
-
-      if (
-        runtime === "service_domains"
-      ) {
-
-        params.set(
-          "domain",
-          capability.name.toLowerCase()
-        );
-
-      }
-
-
-      if (
-        runtime === "service_domain_detail"
-      ) {
-
-        params.set(
-          "domain",
-          capability.id
-        );
-
-      }
-
-      const res =
-        await fetch(
-          `/api/platform/services/economics?${params.toString()}`
-        );
-
-
-      const json =
-        await res.json();
-
-
-      if (json.success) {
-
-        setEconomics(
-          json.economics
-        );
-
-      }
-
-    }
-
-
-    loadEconomics();
-
-
-  },[
-    organizationId,
-    runtime,
-    capability,
-  ]);
-
 
 
   const filteredRows =
     useMemo(()=>{
 
-      if (!query) {
-        return data;
+      const normalizedQuery =
+        query
+          .trim()
+          .toLowerCase();
+
+
+      if (
+        !normalizedQuery
+      ) {
+        return rows;
       }
 
 
-      return data.filter(row =>
-        JSON.stringify(row)
-          .toLowerCase()
-          .includes(
-            query.toLowerCase()
-          )
-      );
+      return rows.filter(row => {
+
+        const searchable =
+          [
+            row?.name,
+            row?.description,
+            row?.status,
+            row?.package,
+            ...serviceNames(row),
+          ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+
+        return searchable.includes(
+          normalizedQuery
+        );
+
+      });
 
     },[
-      data,
+      rows,
       query,
     ]);
 
 
   const selected =
     filteredRows.find(
-      row => row.id === selectedId
+      row =>
+        row.id === selectedId
     )
     ||
     filteredRows[0]
     ||
     null;
 
-  const resolvedEntityId =
-    businessContext.entity_id ||
-    businessContext.active_entity_id ||
-    businessContext.entity?.id ||
-    null;
 
-  const resolvedCountry =
-    businessContext.country ||
-    businessContext.entity?.country ||
-    businessContext.organization?.country ||
-    null;
+  const isDomains =
+    runtime ===
+    "service_domains";
 
-  const resolvedCurrency =
-    contextCurrency ||
-    selected?.currency ||
-    null;
+
+  const isServiceDetail =
+    runtime ===
+    "service_domain_detail";
+
+
+  const isWallet =
+    runtime ===
+    "wallet";
+
+
+  const isUsage =
+    runtime ===
+    "usage";
 
 
   const kpis =
-
-    runtime === "wallet"
+    isWallet
 
       ? [
 
           {
-            label:"Available Balance",
+            label:
+              "Available Balance",
+
             value:
-              data[0]?.available_balance || 0,
+              safeNumber(
+                rows[0]?.available_balance
+              ),
+
             hint:
-              data[0]?.currency || "",
+              rows[0]?.currency ||
+              "",
           },
 
           {
-            label:"Reserved",
+            label:
+              "Reserved",
+
             value:
-              data[0]?.reserved_balance || 0,
+              safeNumber(
+                rows[0]?.reserved_balance
+              ),
+
             hint:
               "Reserved funds",
           },
 
           {
-            label:"Currency",
+            label:
+              "Currency",
+
             value:
-              data[0]?.currency || "-",
+              rows[0]?.currency ||
+              "-",
+
             hint:
               "Wallet currency",
           },
 
           {
-            label:"Status",
+            label:
+              "Status",
+
             value:
-              data[0]?.status || "-",
+              rows[0]?.status ||
+              "-",
+
             hint:
               "Wallet status",
           },
 
         ]
 
-      : runtime === "usage"
+      : isUsage
 
       ? [
 
           {
-            label:"Executions",
+            label:
+              "Executions",
+
             value:
-              data.length,
+              rows.length,
+
             hint:
               "Service executions",
           },
 
           {
-            label:"Usage Volume",
+            label:
+              "Usage",
+
             value:
-              data.reduce(
-                (sum,row)=>
-                  sum +
-                  Number(
-                    row.quantity || 0
-                  ),
-                0
+              sumRows(
+                rows,
+                "quantity"
               ),
+
             hint:
               "Total usage",
           },
 
           {
-            label:"Customer Charges",
+            label:
+              "Charges",
+
             value:
-              data.reduce(
-                (sum,row)=>
-                  sum +
-                  Number(
-                    row.customer_price || 0
-                  ),
-                0
+              sumRows(
+                rows,
+                "customer_price"
               ),
+
             hint:
-              "Charged amount",
+              "Customer charges",
           },
 
           {
-            label:"Last Activity",
+            label:
+              "Last Activity",
+
             value:
-              data[0]?.created_at || "-",
+              rows[0]?.created_at ||
+              "-",
+
             hint:
               "Latest execution",
           },
 
         ]
 
-      : runtime === "service_domains"
+      : isDomains
 
       ? [
 
           {
-            label:"Services",
+            label:
+              "Service Categories",
+
             value:
-              data.reduce(
-                (sum,row)=>
-                  sum +
-                  Number(
-                    (
-                      Array.isArray(row.services)
-                        ? row.services.length
-                        : row.service_count || 0
-                    )
-                  ),
-                0
-              ),
+              rows.length,
+
             hint:
-              "Avantiqo services",
+              "Available categories",
           },
 
           {
-            label:"Capabilities",
+            label:
+              "Services",
+
             value:
-              data.reduce(
-                (sum,row)=>
+              rows.reduce(
+                (sum,row) =>
                   sum +
-                  Number(
-                    (
-                      Array.isArray(row.capability_names)
-                        ? row.capability_names.length
-                        : row.capability_count || 0
-                    )
-                  ),
+                  serviceCount(row),
                 0
               ),
-            hint:
-              "Available capabilities",
-          },
 
-          {
-            label:"Usage",
-            value:
-              data.reduce(
-                (sum,row)=>
-                  sum +
-                  Number(
-                    row.usage || 0
-                  ),
-                0
-              ),
-            hint:
-              "Service executions",
-          },
-
-          {
-            label:"Cost",
-            value:
-              data.reduce(
-                (sum,row)=>
-                  sum +
-                  Number(
-                    row.cost || 0
-                  ),
-                0
-              ),
-            hint:
-              "Customer consumption",
-          },
-
-        ]
-
-      : runtime === "service_domain_detail"
-
-      ? [
-
-          {
-            label:"Services",
-            value:
-              data.length,
             hint:
               "Available services",
           },
 
           {
-            label:"Capabilities",
-            value:
-              data.reduce(
-                (sum,row)=>
-                  sum +
-                  (row.capability_names?.length || 0),
-                0
-              ),
-            hint:
-              "Available capabilities",
-          },
+            label:
+              "Usage",
 
-          {
-            label:"Usage",
             value:
-              data.reduce(
-                (sum,row)=>
-                  sum +
-                  Number(
-                    row.usage || 0
-                  ),
-                0
+              sumRows(
+                rows,
+                "usage"
               ),
+
             hint:
               "Service usage",
           },
 
           {
-            label:"Cost",
+            label:
+              "Cost",
+
             value:
-              data.reduce(
-                (sum,row)=>
-                  sum +
-                  Number(
-                    row.cost || 0
-                  ),
-                0
+              sumRows(
+                rows,
+                "cost"
               ),
+
             hint:
               "Customer consumption",
           },
 
         ]
+
       : [
 
           {
-            label:"Services",
+            label:
+              "Services",
+
             value:
-              data.length,
+              rows.length,
+
             hint:
               "Available services",
           },
 
           {
-            label:"Capabilities",
-            value:
-              data.reduce(
-                (sum,row)=>
-                  sum +
-                  (row.capability_names?.length || 0),
-                0
-              ),
-            hint:
-              "Available business functions",
-          },
+            label:
+              "Active",
 
-          {
-            label:"Active",
             value:
-              data.filter(
+              rows.filter(
                 row =>
-                  row.status === "ACTIVE"
+                  row.status ===
+                  "ACTIVE"
               ).length,
+
             hint:
               "Active services",
           },
 
           {
-            label:"Available",
+            label:
+              "Usage",
+
             value:
-              data.filter(
-                row =>
-                  row.status === "ACTIVE" ||
-                  row.status === "AVAILABLE"
-              ).length,
+              sumRows(
+                rows,
+                "usage"
+              ),
+
             hint:
-              "Available services",
+              "Service usage",
+          },
+
+          {
+            label:
+              "Cost",
+
+            value:
+              sumRows(
+                rows,
+                "cost"
+              ),
+
+            hint:
+              "Customer consumption",
           },
 
         ];
 
+
+  const getSubtitle =
+    row => {
+
+      if (
+        isWallet
+      ) {
+
+        return [
+
+          row.display_status ||
+          row.status,
+
+          row.currency,
+
+          row.billing_policy,
+
+        ].filter(Boolean);
+
+      }
+
+
+      if (
+        isUsage
+      ) {
+
+        return [
+
+          row.status,
+
+          row.capability,
+
+          row.operation,
+
+        ].filter(Boolean);
+
+      }
+
+
+      if (
+        isDomains
+      ) {
+
+        return [
+
+          `${serviceCount(row)} services`,
+
+        ];
+
+      }
+
+
+      if (
+        isServiceDetail
+      ) {
+
+        return [];
+
+      }
+
+
+      return [
+
+        row.category,
+
+        row.status,
+
+        serviceStatus(row),
+
+      ].filter(Boolean);
+
+    };
+
+
+  const listMetrics =
+    isWallet
+
+      ? [
+
+          {
+            label:
+              "Balance",
+
+            value:
+              row =>
+                row.balance ??
+                0,
+          },
+
+          {
+            label:
+              "Reserved",
+
+            value:
+              row =>
+                row.reserved ??
+                0,
+          },
+
+          {
+            label:
+              "Currency",
+
+            value:
+              row =>
+                row.currency ||
+                "-",
+          },
+
+          {
+            label:
+              "Status",
+
+            value:
+              row =>
+                row.display_status ||
+                row.status ||
+                "-",
+          },
+
+        ]
+
+      : isUsage
+
+      ? [
+
+          {
+            label:
+              "Service",
+
+            value:
+              row =>
+                row.name ||
+                "-",
+          },
+
+          {
+            label:
+              "Capability",
+
+            value:
+              row =>
+                row.capability ||
+                "-",
+          },
+
+          {
+            label:
+              "Cost",
+
+            value:
+              row =>
+                row.supplier_cost ??
+                row.cost ??
+                "-",
+          },
+
+          {
+            label:
+              "Price",
+
+            value:
+              row =>
+                row.customer_price ??
+                row.price ??
+                "-",
+          },
+
+        ]
+
+      : isDomains
+
+      ? [
+
+          {
+            label:
+              "Services",
+
+            value:
+              row =>
+                formatList(
+                  serviceNames(row)
+                ) ||
+                "-",
+          },
+
+          {
+            label:
+              "Usage",
+
+            value:
+              row =>
+                safeNumber(
+                  row.usage
+                ),
+          },
+
+          {
+            label:
+              "Cost",
+
+            value:
+              row =>
+                safeNumber(
+                  row.cost
+                ),
+          },
+
+        ]
+
+      : isServiceDetail
+
+      ? [
+
+          {
+            label:
+              "Package",
+
+            value:
+              row =>
+                titleCase(
+                  row.package
+                ) ||
+                "-",
+          },
+
+          {
+            label:
+              "Status",
+
+            value:
+              row =>
+                row.status ||
+                "-",
+          },
+
+          {
+            label:
+              "Usage",
+
+            value:
+              row =>
+                safeNumber(
+                  row.usage
+                ),
+          },
+
+          {
+            label:
+              "Cost",
+
+            value:
+              row =>
+                safeNumber(
+                  row.cost
+                ),
+          },
+
+        ]
+
+      : [
+
+          {
+            label:
+              "Category",
+
+            value:
+              row =>
+                row.category ||
+                "-",
+          },
+
+          {
+            label:
+              "Status",
+
+            value:
+              row =>
+                row.status ||
+                "-",
+          },
+
+          {
+            label:
+              "Health",
+
+            value:
+              row =>
+                row.availability ||
+                "-",
+          },
+
+        ];
+
+
+  const detailSections =
+    isWallet
+
+      ? [
+
+          {
+            title:
+              "Wallet Information",
+
+            fields:
+              selected
+
+                ? [
+
+                    {
+                      label:
+                        "Wallet ID",
+
+                      value:
+                        () =>
+                          String(
+                            selected.id ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Currency",
+
+                      value:
+                        () =>
+                          String(
+                            selected.currency ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Balance",
+
+                      value:
+                        () =>
+                          String(
+                            selected.balance ??
+                            selected.available_balance ??
+                            0
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Reserved",
+
+                      value:
+                        () =>
+                          String(
+                            selected.reserved ??
+                            selected.reserved_balance ??
+                            0
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Billing Policy",
+
+                      value:
+                        () =>
+                          String(
+                            selected.billing_policy ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Status",
+
+                      value:
+                        () =>
+                          String(
+                            selected.display_status ||
+                            selected.status ||
+                            "-"
+                          ),
+                    },
+
+                  ]
+
+                : [],
+          },
+
+        ]
+
+      : isDomains
+
+      ? [
+
+          {
+            title:
+              "Domain Details",
+
+            fields:
+              selected
+
+                ? [
+
+                    {
+                      label:
+                        "Domain",
+
+                      value:
+                        () =>
+                          String(
+                            selected.name ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Description",
+
+                      value:
+                        () =>
+                          String(
+                            selected.description ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Services",
+
+                      value:
+                        () =>
+                          formatList(
+                            serviceNames(
+                              selected
+                            )
+                          ) ||
+                          "-",
+                    },
+
+                    {
+                      label:
+                        "Service Count",
+
+                      value:
+                        () =>
+                          String(
+                            serviceCount(
+                              selected
+                            )
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Usage",
+
+                      value:
+                        () =>
+                          String(
+                            safeNumber(
+                              selected.usage
+                            )
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Cost",
+
+                      value:
+                        () =>
+                          String(
+                            safeNumber(
+                              selected.cost
+                            )
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Status",
+
+                      value:
+                        () =>
+                          String(
+                            selected.status ||
+                            "AVAILABLE"
+                          ),
+                    },
+
+                  ]
+
+                : [],
+          },
+
+        ]
+
+      : isServiceDetail
+
+      ? [
+
+          {
+            title:
+              "Service Details",
+
+            fields:
+              selected
+
+                ? [
+
+                    {
+                      label:
+                        "Service",
+
+                      value:
+                        () =>
+                          String(
+                            selected.name ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Description",
+
+                      value:
+                        () =>
+                          String(
+                            selected.description ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Package",
+
+                      value:
+                        () =>
+                          String(
+                            titleCase(
+                              selected.package
+                            ) ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Status",
+
+                      value:
+                        () =>
+                          String(
+                            selected.status ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Availability",
+
+                      value:
+                        () =>
+                          serviceStatus(
+                            selected
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Usage",
+
+                      value:
+                        () =>
+                          String(
+                            safeNumber(
+                              selected.usage
+                            )
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Cost",
+
+                      value:
+                        () =>
+                          String(
+                            safeNumber(
+                              selected.cost
+                            )
+                          ),
+                    },
+
+                  ]
+
+                : [],
+          },
+
+        ]
+
+      : isUsage
+
+      ? [
+
+          {
+            title:
+              "Usage Details",
+
+            fields:
+              selected
+
+                ? [
+
+                    {
+                      label:
+                        "Service",
+
+                      value:
+                        () =>
+                          String(
+                            selected.name ||
+                            selected.service_id ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Capability",
+
+                      value:
+                        () =>
+                          String(
+                            selected.capability ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Quantity",
+
+                      value:
+                        () =>
+                          String(
+                            safeNumber(
+                              selected.quantity
+                            )
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Cost",
+
+                      value:
+                        () =>
+                          String(
+                            safeNumber(
+                              selected.customer_price ??
+                              selected.cost
+                            )
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Status",
+
+                      value:
+                        () =>
+                          String(
+                            selected.status ||
+                            "-"
+                          ),
+                    },
+
+                  ]
+
+                : [],
+          },
+
+        ]
+
+      : [
+
+          {
+            title:
+              "Service Details",
+
+            fields:
+              selected
+
+                ? [
+
+                    {
+                      label:
+                        "Service",
+
+                      value:
+                        () =>
+                          String(
+                            selected.name ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Category",
+
+                      value:
+                        () =>
+                          String(
+                            selected.category ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Status",
+
+                      value:
+                        () =>
+                          String(
+                            selected.status ||
+                            "-"
+                          ),
+                    },
+
+                    {
+                      label:
+                        "Health",
+
+                      value:
+                        () =>
+                          String(
+                            selected.availability ||
+                            "-"
+                          ),
+                    },
+
+                  ]
+
+                : [],
+          },
+
+        ];
+
+
+  if (
+    !capability
+  ) {
+
+    return (
+
+      <div className="rounded-[32px] border border-red-400/30 bg-red-500/10 p-6 text-red-100">
+
+        Missing service capability
+
+      </div>
+
+    );
+
+  }
 
 
   return (
@@ -675,15 +1589,17 @@ export default function ServiceRuntimeWorkCenter({
       }
 
       entityId={
-        resolvedEntityId
+        entityId
       }
 
       country={
-        resolvedCountry
+        country
       }
 
       currency={
-        resolvedCurrency
+        contextCurrency ||
+        selected?.currency ||
+        null
       }
 
       workspaceId={
@@ -750,7 +1666,7 @@ export default function ServiceRuntimeWorkCenter({
 
       onRowSelect={
 
-        runtime === "service_domains"
+        isDomains
 
           ? row => {
 
@@ -760,37 +1676,23 @@ export default function ServiceRuntimeWorkCenter({
 
             }
 
-
-        : runtime === "service_domain_detail"
+          : isServiceDetail
 
           ? row => {
 
-              const domainId =
-                String(
-                  capability.id || ""
-                )
-                .replace(
-                  "connected_services_",
-                  ""
-                );
-
-
-              router.push(
-                `/workspace/${organizationId}/services/connected-services/${domainId}/${row.id}`
+              setSelectedId(
+                row.id
               );
 
             }
 
-
-        : undefined
+          : undefined
 
       }
 
       kpis={
         kpis
       }
-
-
 
       menuActions={
         []
@@ -803,189 +1705,32 @@ export default function ServiceRuntimeWorkCenter({
       getName={
         row =>
           row.name ||
-          row.name ||
           row.capability ||
           row.operation ||
           capability.name
       }
 
       getSubtitle={
+        getSubtitle
+      }
+
+      getInitials={
         row =>
+          String(
+            row.name ||
+            row.capability ||
+            capability.name
+          )
+          .slice(0,2)
+          .toUpperCase()
+      }
 
-          runtime === "wallet"
-
-          ? [
-              row.display_status ||
-              row.status,
-
-              row.currency,
-
-              row.billing_policy,
-            ].filter(Boolean)
-
-          : runtime === "usage"
-
-          ? [
-              row.status,
-              row.capability,
-              row.operation,
-            ].filter(Boolean)
-
-          : runtime === "service_domains"
-
-          ? [
-              `${(
-                      Array.isArray(row.capability_names)
-                        ? row.capability_names.length
-                        : row.capability_count || 0
-                    )} capabilities`,
-              `${(
-                      Array.isArray(row.capability_names)
-                        ? row.capability_names.length
-                        : row.capability_count || 0
-                    )} capabilities`,
-            ].filter(Boolean)
-
-          : runtime === "service_domain_detail"
-
-          ? (
-              Array.isArray(row.capability_names)
-                ? row.capability_names
-                : []
-            )
-              .join(", ")
-
-          : [
-              {
-                label:"Category",
-                value:
-                  row =>
-                    row.category || "-",
-              },
-              {
-                label:"Capabilities",
-                value:
-                  row =>
-                    capabilitySummary(row),
-              },
-              {
-                label:"Status",
-                value:
-                  row =>
-                    row.status || "-",
-              },
-              {
-                label:"Service Status",
-                value:
-                  row =>
-                    serviceStatusLabel(row),
-              },
-            ]
+      listMetrics={
+        listMetrics
       }
 
       detailSections={
-        runtime === "wallet"
-
-          ? [
-              {
-                title:"Wallet Information",
-                fields: selected
-                  ? [
-                      {
-                        label:"Wallet ID",
-                        value:()=>String(selected.id || "-"),
-                      },
-                      {
-                        label:"Organization ID",
-                        value:()=>String(selected.organization_id || "-"),
-                      },
-                      {
-                        label:"Currency",
-                        value:()=>String(selected.currency || "-"),
-                      },
-                      {
-                        label:"Balance",
-                        value:()=>String(selected.balance ?? selected.available_balance ?? 0),
-                      },
-                      {
-                        label:"Reserved Balance",
-                        value:()=>String(selected.reserved ?? selected.reserved_balance ?? 0),
-                      },
-                      {
-                        label:"Billing Policy",
-                        value:()=>String(selected.billing_policy || "-"),
-                      },
-                      {
-                        label:"Auto Top Up",
-                        value:()=>String(selected.auto_topup ?? false),
-                      },
-                      {
-                        label:"Status",
-                        value:()=>String(selected.display_status || selected.status || "-"),
-                      },
-                      {
-                        label:"Created",
-                        value:()=>String(selected.created_at || "-"),
-                      },
-                      {
-                        label:"Updated",
-                        value:()=>String(selected.updated_at || "-"),
-                      },
-                    ]
-                  : [],
-              },
-            ]
-
-          : runtime === "services"
-
-          ? [
-              {
-                title:"Service Details",
-                fields: selected
-                  ? [
-                      {
-                        label:"Service",
-                        value:()=>String(selected.name || selected.name || "-"),
-                      },
-                      {
-                        label:"Category",
-                        value:()=>String(selected.category || "-"),
-                      },
-                      {
-                        label:"Capabilities",
-                        value:()=>capabilitySummary(selected),
-                      },
-                      {
-                        label:"Status",
-                        value:()=>String(selected.status || "-"),
-                      },
-                      {
-                        label:"Service Status",
-                        value:()=>serviceStatusLabel(selected),
-                      },
-                      {
-                        label:"Health",
-                        value:()=>String(selected.availability || "-"),
-                      },
-                    ]
-                  : [],
-              },
-            ]
-
-          : [
-              {
-                title:"Details",
-                fields:
-                  selected
-                    ? Object.entries(selected)
-                        .slice(0,20)
-                        .map(([key,value])=>({
-                          label:key,
-                          value:()=>String(value ?? "")
-                        }))
-                    : [],
-              },
-            ]
+        detailSections
       }
 
     />

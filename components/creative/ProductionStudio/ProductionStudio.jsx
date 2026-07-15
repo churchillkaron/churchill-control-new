@@ -1,6 +1,9 @@
 "use client";
 
 import { useCreativeEditor } from "./hooks/useCreativeEditor";
+import {
+  resolveCreativeCommands,
+} from "@/lib/creative/studio/commands/CreativeCommandResolver";
 
 import CreativeWorkspaceLayout from "./layout/CreativeWorkspaceLayout";
 import Header from "./layout/Header";
@@ -17,6 +20,14 @@ export default function ProductionStudio({
 
   const liveRuntime = {
     ...runtime,
+    commands: resolveCreativeCommands({
+      commands: runtime.commands || [],
+      runtime: {
+        ...runtime,
+        refresh: editor.refresh,
+      },
+      editor,
+    }),
     refresh: editor.refresh,
     refreshing: editor.refreshing,
   };

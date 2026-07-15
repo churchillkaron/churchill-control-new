@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import processYieldCalculation from "@/lib/production/yield/processYieldCalculation";
+import processYieldCalculation from "@/lib/inventory/production/yield/processYieldCalculation";
 
 export async function POST(req) {
 

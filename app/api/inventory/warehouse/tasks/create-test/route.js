@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import {
   createWarehouseTask,
-} from "@/lib/warehouse/tasks/createWarehouseTask";
+} from "@/lib/operations/tasks/createWarehouseTask";
 
 
 export async function POST(req) {

@@ -9,7 +9,7 @@ import {
 
 import { supabase } from "@/lib/shared/supabase/client";
 
-import { loadKitchenPerformance } from "@/lib/production/loadKitchenPerformance";
+import { loadKitchenPerformance } from "@/lib/inventory/production/loadKitchenPerformance";
 
 export default function ProductionPerformancePage() {
 

@@ -7,7 +7,12 @@ import CapabilityActionResolver from "@/components/workspace/master-data/Capabil
 import {
   resolveRowAction,
 } from "@/lib/platform/actions/resolveRowAction";
+
+import {
+  resolveInventoryRowAction,
+} from "@/lib/inventory/actions/resolveInventoryRowAction";
 import { getForm } from "@/lib/platform/forms";
+
 
 function titleFromAction(action) {
   return (
@@ -178,8 +183,14 @@ export default function RowActionEngine({
     resolveKind(action);
 
   const resolvedAction =
-    resolveRowAction({
+    resolveInventoryRowAction({
       moduleKey,
+      kind,
+      row,
+      organizationId,
+      entityId,
+    }) ||
+    resolveRowAction({
       action,
       row,
       organizationId,
@@ -409,6 +420,24 @@ export default function RowActionEngine({
       setBusy(false);
     }
   }
+
+  if (
+    kind === "open" ||
+    kind === "view"
+  ) {
+
+    console.log(
+      "OPEN DOCUMENT DEBUG",
+      {
+        kind,
+        action,
+        document: action?.document,
+        row,
+      }
+    );
+
+  }
+
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur">

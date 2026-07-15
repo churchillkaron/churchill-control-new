@@ -165,7 +165,39 @@ export default function MasterActionMenu({
     }
 
 
-    if (kind === "select" || kind === "open" || kind === "view") {
+    if (kind === "open" || kind === "view") {
+
+      if (onAction) {
+
+        onAction({
+          row,
+          organizationId,
+          entityId:
+            row?.entity_id ||
+            entityId ||
+            null,
+          periodId,
+          workspaceId,
+          moduleKey,
+          action: {
+            ...action,
+          },
+        });
+
+      } else {
+
+        emitWorkspaceEvent(
+          "open",
+          context
+        );
+
+      }
+
+      onClose?.();
+      return;
+    }
+
+    if (kind === "select") {
       onSelect?.(row?.id);
       onClose?.();
       return;
@@ -249,11 +281,19 @@ export default function MasterActionMenu({
       return;
     }
 
-    if (typeof action.onClick === "function") {
-      action.onClick(context);
-      onClose?.();
+    
+    if (action?.handler) {
+
+      console.warn(
+        "Legacy action handler:",
+        action.handler
+      );
+
+      onToggleMenu?.(null);
       return;
+
     }
+
 
 
     if (onAction) {
@@ -274,7 +314,11 @@ export default function MasterActionMenu({
 
     console.log(
       "MASTER MENU RENDER ACTION",
-      action
+      {
+        action,
+        actionsLength: actions.length,
+        row,
+      }
     );
 
     if (action.type === "section") {

@@ -1,6 +1,6 @@
 "use client";
 
-import ProjectTree from "../explorer/ProjectTree";
+import MissionExplorer from "../explorer/MissionExplorer";
 
 function Section({
   title,
@@ -33,8 +33,24 @@ function Section({
             ].join(" ")}
           >
 
-            <div className="font-medium">
-              {item.title || item.name || item.id}
+            <div className="flex items-center justify-between font-medium">
+
+              <span>
+                {item.title || item.name || item.id}
+              </span>
+
+              {item.completed && (
+                <span className="text-xs text-[#c8a96a]">
+                  ✓
+                </span>
+              )}
+
+              {item.stageActive && (
+                <span className="text-xs text-[#c8a96a]">
+                  ●
+                </span>
+              )}
+
             </div>
 
             {item.description && (
@@ -58,22 +74,80 @@ export default function Sidebar({
   editor,
 }) {
 
+  const currentStage =
+    runtime.stateRuntime?.current?.stage ||
+    null;
+
+  const stageMap = {
+    mission: "MISSION_CREATED",
+    brief: "UNDERSTANDING",
+    research: "RESEARCHING",
+    strategy: "BUILDING_STRATEGY",
+    concept: "BUILDING_CONCEPT",
+    storyboard: "BUILDING_STORYBOARD",
+    production: "PRODUCING",
+    render: "RENDERING",
+    publishing: "PUBLISHING",
+    learning: "LEARNING",
+  };
+
+  const pipelineStages = [
+    "MISSION_CREATED",
+    "UNDERSTANDING",
+    "RESEARCHING",
+    "BUILDING_STRATEGY",
+    "BUILDING_CONCEPT",
+    "BUILDING_STORYBOARD",
+    "PRODUCING",
+    "RENDERING",
+    "PUBLISHING",
+    "LEARNING",
+  ];
+
+  const currentIndex =
+    pipelineStages.indexOf(
+      currentStage
+    );
+
   const workspaces =
-    (runtime.workspaces || []).map(workspace => ({
-      ...workspace,
-      active:
-        workspace.id ===
-        editor.activeWorkspace,
-      onClick: () =>
-        editor.setActiveWorkspace(
-          workspace.id
-        ),
-    }));
+    (runtime.workspaces || []).map(workspace => {
+
+      const workspaceStage =
+        stageMap[workspace.id];
+
+      const stageIndex =
+        pipelineStages.indexOf(
+          workspaceStage
+        );
+
+      return {
+        ...workspace,
+
+        active:
+          workspace.id ===
+          editor.activeWorkspace,
+
+        stageActive:
+          workspaceStage ===
+          currentStage,
+
+        completed:
+          stageIndex >= 0 &&
+          currentIndex >= 0 &&
+          stageIndex < currentIndex,
+
+        onClick: () =>
+          editor.setActiveWorkspace(
+            workspace.id
+          ),
+      };
+
+    });
 
   return (
     <div className="h-full overflow-y-auto px-5 py-6">
 
-      <ProjectTree
+      <MissionExplorer
         runtime={runtime}
       />
 

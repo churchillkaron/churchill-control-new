@@ -272,6 +272,19 @@ function defaultDetailSections(selected) {
       .slice(0, 18);
 
 
+  const collections =
+    Object.entries(selected)
+      .filter(([key, value]) =>
+        Array.isArray(value) &&
+        value.length &&
+        key !== "permissions"
+      )
+      .map(([key, value]) => ({
+        key,
+        value,
+      }));
+
+
   return [
     {
       title:"Details",
@@ -292,6 +305,18 @@ function defaultDetailSections(selected) {
         })),
 
     },
+
+    ...collections.map(collection => ({
+      title:
+        label(collection.key),
+
+      collection:
+        collection.key,
+
+      rows:
+        collection.value,
+
+    })),
   ];
 
 }
@@ -308,7 +333,10 @@ function resolveMenuActions(capability, config, workspaceId) {
     actionList(capability?.rowMenu);
 
   const configRowMenu =
-    actionList(config?.rowMenu);
+    actionList(
+      config?.rowMenu ||
+      config?.ui?.rowMenu
+    );
 
   const capabilityActions =
     actionList(capability?.actions);
@@ -333,6 +361,18 @@ function resolveMenuActions(capability, config, workspaceId) {
     ...businessActions,
     ...defaultActions,
   ];
+
+  console.log(
+    "RESOLVED ROW MENU",
+    {
+      workspaceId,
+      capability,
+      config,
+      businessActions,
+      defaultActions,
+      merged,
+    }
+  );
 
 
   const seen = new Set();
@@ -1139,8 +1179,11 @@ export default function MasterDataRuntimeWorkCenter({
       onSelect={setSelectedId}
 
       onRowSelect={
-        row =>
-          startWarehouseTask(row)
+        moduleKey === "warehouse" ||
+        moduleKey === "warehouse_tasks"
+          ? row =>
+              startWarehouseTask(row)
+          : undefined
       }
 
       menuId={menuId}

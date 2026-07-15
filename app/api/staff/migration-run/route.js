@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   migrateStaffAccountsToParty,
-} from "@/lib/staff/migration/migrateStaffAccountsToParty";
+} from "/lib/people/employees/migration/migrateStaffAccountsToParty";
 
 
 export async function GET() {

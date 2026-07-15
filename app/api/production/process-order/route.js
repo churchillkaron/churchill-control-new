@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { processOrderProduction } from '@/lib/production/processOrderProduction'
+import { processOrderProduction } from '@/lib/inventory/production/processOrderProduction'
 
 export async function POST(req) {
   try {

@@ -10,6 +10,11 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
+import {
+  CreativeStateEngine,
+  PIPELINE_STAGES,
+} from "@/lib/creative/state/CreativeStateEngine";
+
 export async function GET(req) {
 
   try {
@@ -155,6 +160,38 @@ export async function PATCH(req) {
             access.status,
         },
       );
+
+    if (body.action === "approve") {
+
+      const brief =
+        await CreativeBriefRuntime.update(
+          body.id,
+          {
+            status:
+              "APPROVED",
+          },
+        );
+
+      await CreativeStateEngine.advance(
+        {
+          organization_id:
+            body.organization_id,
+
+          creative_mission_id:
+            body.creative_mission_id,
+
+          mission_id:
+            body.creative_mission_id,
+        },
+        PIPELINE_STAGES.BUILDING_STRATEGY,
+      );
+
+      return NextResponse.json({
+        success: true,
+        brief,
+      });
+
+    }
 
     const brief =
       await CreativeBriefRuntime.update(

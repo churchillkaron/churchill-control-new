@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
-import { buildStockAlerts } from '@/lib/production/runtime/buildStockAlerts'
+import { buildStockAlerts } from '@/lib/inventory/production/runtime/buildStockAlerts'
 
 export async function GET() {
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runMenuEngineering } from "@/lib/production/costing/capabilities/runMenuEngineering";
+import { runMenuEngineering } from "@/lib/inventory/production/costing/capabilities/runMenuEngineering";
 
 export async function POST(request) {
   try {

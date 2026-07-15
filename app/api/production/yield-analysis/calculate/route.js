@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { calculateYieldAnalysis } from '@/lib/production/yield/calculateYieldAnalysis'
+import { calculateYieldAnalysis } from '@/lib/inventory/production/yield/calculateYieldAnalysis'
 
 export async function POST(req) {
 

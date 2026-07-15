@@ -8,11 +8,11 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import createPurchaseOrder from "@/lib/procurement/purchase-orders/createPurchaseOrder";
+import createPurchaseOrder from "@/lib/inventory/procurement/purchase-orders/createPurchaseOrder";
 
-import approvePurchaseOrder from "@/lib/procurement/purchase-orders/workflows/approvePurchaseOrder";
+import approvePurchaseOrder from "@/lib/inventory/procurement/purchase-orders/workflows/approvePurchaseOrder";
 
-import generateAutomaticPurchaseOrder from "@/lib/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder";
+import generateAutomaticPurchaseOrder from "@/lib/inventory/procurement/purchase-orders/workflows/generateAutomaticPurchaseOrder";
 
 export async function POST(req) {
 

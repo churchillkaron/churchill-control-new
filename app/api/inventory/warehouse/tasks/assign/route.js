@@ -12,7 +12,7 @@ import {
 
 import {
   assignWarehouseTask,
-} from "@/lib/warehouse/tasks/assignWarehouseTask";
+} from "@/lib/operations/tasks/assignWarehouseTask";
 
 
 export async function POST(req) {

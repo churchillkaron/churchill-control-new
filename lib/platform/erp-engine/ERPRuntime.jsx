@@ -70,6 +70,11 @@ export default function ERPEngine({
 
     );
 
+  const workspaceRuntime =
+    typeof workspace?.runtime === "function"
+      ? workspace.runtime(context)
+      : workspace?.runtime || null;
+
   const Renderer =
     resolveRenderer(renderer);
 
@@ -81,7 +86,10 @@ export default function ERPEngine({
 
         context={context}
 
-        workspace={workspace}
+        workspace={{
+          ...workspace,
+          runtime: workspaceRuntime,
+        }}
 
         capability={capability}
 

@@ -5,7 +5,7 @@ import {
 } from "next/server";
 
 
-import { createVendor } from "@/lib/procurement/suppliers/documents/createVendor";
+import { createVendor } from "@/lib/inventory/procurement/suppliers/documents/createVendor";
 
 
 

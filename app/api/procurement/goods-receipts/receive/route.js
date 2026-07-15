@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import receivePurchaseOrder from "@/lib/procurement/receiving/receivePurchaseOrder";
+import receivePurchaseOrder from "@/lib/inventory/procurement/receiving/receivePurchaseOrder";
 
 export async function POST(request) {
   try {

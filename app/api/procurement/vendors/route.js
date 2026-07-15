@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { createVendor } from "@/lib/procurement/suppliers/documents/createVendor";
+import { createVendor } from "@/lib/inventory/procurement/suppliers/documents/createVendor";
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { createPrepBatch } from '@/lib/production/prep/documents/createPrepBatch'
+import { createPrepBatch } from '@/lib/inventory/production/prep/documents/createPrepBatch'
 
 export async function POST(req) {
 

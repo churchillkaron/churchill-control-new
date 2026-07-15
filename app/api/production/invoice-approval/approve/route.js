@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { approveSupplierInvoice } from '@/lib/production/purchasing/workflows/approveSupplierInvoice'
+import { approveSupplierInvoice } from '@/lib/inventory/production/purchasing/workflows/approveSupplierInvoice'
 
 export async function POST(req) {
 

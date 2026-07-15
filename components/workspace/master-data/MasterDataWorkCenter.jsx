@@ -13,7 +13,7 @@ import MasterActionMenu from "@/components/workspace/actions/MasterActionMenu";
 import { useState, useEffect } from "react";
 import CapabilityActionResolver from "./CapabilityActionResolver";
 import RowActionEngine from "@/components/workspace/engines/RowActionEngine";
-import { resolveFinanceActionPresentation } from "@/lib/platform/actions/resolveFinanceAction";
+import { resolveFinanceActionPresentation } from "@/lib/finance/actions/resolveFinanceAction";
 import WorkspaceEventHub from "@/components/workspace/WorkspaceEventHub";
 
 import {
@@ -493,7 +493,7 @@ export default function MasterDataWorkCenter({
     return "";
   }
 
-  function handleMenuAction(input, fallbackRow) {
+  async function handleMenuAction(input, fallbackRow) {
 
     console.log(
       "HANDLE MENU ACTION INPUT",
@@ -505,7 +505,7 @@ export default function MasterDataWorkCenter({
         ? input.action
         : input;
 
-    const action = workspaceId === "finance"
+    let action = workspaceId === "finance"
       ? resolveFinanceActionPresentation(rawAction)
       : rawAction;
 
@@ -528,6 +528,15 @@ export default function MasterDataWorkCenter({
 
     const kind =
       resolveActionKind(action);
+
+    console.log(
+      "MENU ACTION KIND DEBUG",
+      {
+        kind,
+        action,
+        row,
+      }
+    );
 
     if (action.type === "warehouse_complete") {
 
@@ -611,7 +620,11 @@ export default function MasterDataWorkCenter({
       return;
     }
 
-    if (action?.capability) {
+    if (
+      action?.capability &&
+      kind !== "open" &&
+      kind !== "view"
+    ) {
       setActiveEngine({
         Engine: RowActionEngine,
         props: {
@@ -632,10 +645,81 @@ export default function MasterDataWorkCenter({
 
 
     if (
-      kind === "select" ||
       kind === "open" ||
       kind === "view"
     ) {
+
+      console.log(
+        "OPEN BRANCH REACHED",
+        {
+          kind,
+          action,
+          row,
+        }
+      );
+
+      let detailRow = row;
+
+      if (
+        row?.journal_number &&
+        moduleKey === "finance"
+      ) {
+
+        const response =
+          await fetch(
+            `/api/finance/journals/${row.id}?organizationId=${organizationId}`
+          );
+
+        const json =
+          await response.json();
+
+        if (
+          json?.success &&
+          json?.journal
+        ) {
+
+          detailRow = {
+            ...json.journal,
+            lines:
+              json.lines || [],
+          };
+
+        }
+
+      }
+
+      setActiveEngine({
+        Engine: RowActionEngine,
+        props: {
+          action: {
+            ...action,
+            document:
+              detailRow?.journal_number
+                ? "JournalEntry"
+                : action?.document,
+          },
+          row: detailRow,
+          organizationId,
+          entityId:
+            detailRow?.entity_id ||
+            entityId ||
+            null,
+          periodId:
+            detailRow?.period_id ||
+            periodId ||
+            null,
+          workspaceId,
+          moduleKey,
+          onComplete: onRefresh,
+        },
+        context: {},
+      });
+
+      onToggleMenu?.(null);
+      return;
+    }
+
+    if (kind === "select") {
       onSelect?.(row.id);
       onToggleMenu?.(null);
       return;
@@ -650,23 +734,19 @@ export default function MasterDataWorkCenter({
       return;
     }
 
-    if (typeof action.onClick === "function") {
-      action.onClick({
-        row,
-        organizationId,
-        entityId:
-          row?.entity_id ||
-          entityId ||
-          null,
-        periodId,
-        moduleKey,
-        workspaceId,
-        router,
-        refresh: onRefresh,
-      });
+    
+    if (action?.handler) {
+
+      console.warn(
+        "Legacy action handler:",
+        action.handler
+      );
+
       onToggleMenu?.(null);
       return;
+
     }
+
 
     const href = resolveMenuHref(action, row);
 
@@ -921,8 +1001,6 @@ export default function MasterDataWorkCenter({
                             onRowSelect?.(row);
                           }
                         }}
-                        role="button"
-                        tabIndex={0}
                         className={cx(
                           "group grid w-full grid-cols-1 gap-4 px-5 py-5 text-left transition duration-200 lg:grid-cols-[1fr_460px_88px]",
                           active
@@ -966,6 +1044,12 @@ export default function MasterDataWorkCenter({
                           <button
                             type="button"
                             onClick={event => {
+
+                              console.log(
+                                "ROW MENU BUTTON CLICK",
+                                row.id
+                              );
+
                               event.stopPropagation();
 
                               onToggleMenu?.(
@@ -983,9 +1067,21 @@ export default function MasterDataWorkCenter({
                         <div className="absolute right-5 top-16 z-30 w-64 overflow-hidden rounded-2xl border border-white/[0.09] bg-[#111]/95 p-2 shadow-2xl shadow-black/80 backdrop-blur-3xl">
                           <MasterActionMenu
                             actions={
-                              typeof menuActions === "function"
-                                ? menuActions(row)
-                                : menuActions
+                              (() => {
+
+                                const actions =
+                                  typeof menuActions === "function"
+                                    ? menuActions(row)
+                                    : menuActions;
+
+                                console.log(
+                                  "WORKCENTER MENU ACTIONS",
+                                  actions
+                                );
+
+                                return actions;
+
+                              })()
                             }
                             row={row}
                             organizationId={organizationId}

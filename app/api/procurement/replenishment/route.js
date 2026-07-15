@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import generatePurchaseRecommendation from "@/lib/procurement/recommendations/capabilities/generatePurchaseRecommendation";
+import generatePurchaseRecommendation from "@/lib/inventory/procurement/recommendations/capabilities/generatePurchaseRecommendation";
 
 export async function POST(req) {
 

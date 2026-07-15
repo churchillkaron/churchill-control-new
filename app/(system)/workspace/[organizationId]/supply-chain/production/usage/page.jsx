@@ -9,7 +9,7 @@ import {
 
 import { supabase } from "@/lib/shared/supabase/client";
 
-import { loadIngredientUsage } from "@/lib/production/loadIngredientUsage";
+import { loadIngredientUsage } from "@/lib/inventory/production/loadIngredientUsage";
 
 export default function ProductionUsagePage() {
 

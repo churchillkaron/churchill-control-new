@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/shared/supabase/admin'
 
-import { buildSupplierPerformance } from '@/lib/production/purchasing/capabilities/buildSupplierPerformance'
+import { buildSupplierPerformance } from '@/lib/inventory/production/purchasing/capabilities/buildSupplierPerformance'
 
 export async function GET() {
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { loadLookup } from "@/lib/platform/erp-engine/lookups";
 
 import DynamicCustomerField from "./DynamicCustomerField";
 import DynamicTableField from "./DynamicTableField";
@@ -327,17 +326,45 @@ function LookupField({
       return;
     }
 
-    loadLookup({
+    fetch(
 
-      lookup:
+      `/api/platform/lookups?lookup=${encodeURIComponent(
         field.lookup ||
-        field.source,
+        field.source
+      )}&organizationId=${organizationId || ""}&entityId=${entityId || ""}`
 
-      organizationId,
+    )
 
-      entityId,
+    .then(r=>r.json())
 
-    }).then(setOptions);
+    .then(data=>{
+
+      if(Array.isArray(data))
+        setOptions(data);
+
+      else{
+
+        console.error(
+          "LOOKUP ERROR",
+          data
+        );
+
+        setOptions([]);
+
+      }
+
+    })
+
+    .catch(error=>{
+
+      console.error(
+        "LOOKUP FETCH",
+        error
+      );
+
+      setOptions([]);
+
+    });
 
   }, [
     field,

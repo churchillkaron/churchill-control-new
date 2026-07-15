@@ -10,7 +10,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import receivePurchaseOrder from "@/lib/procurement/receiving/receivePurchaseOrder";
+import receivePurchaseOrder from "@/lib/inventory/procurement/receiving/receivePurchaseOrder";
 
 export async function POST(req) {
 

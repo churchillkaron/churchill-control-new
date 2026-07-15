@@ -40,6 +40,11 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
+    console.log(
+      "MISSION POST BODY",
+      body
+    );
+
     if (!body.organization_id) {
       return NextResponse.json(
         { error: "organization_id required" },

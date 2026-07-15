@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createRecipe } from '@/lib/production/createRecipe'
+import { createRecipe } from '@/lib/inventory/production/createRecipe'
 
 export async function POST(req) {
   try {

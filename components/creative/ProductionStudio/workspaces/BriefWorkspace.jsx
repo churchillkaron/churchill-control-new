@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function BriefWorkspace({
   runtime,
@@ -18,6 +18,133 @@ export default function BriefWorkspace({
     tone: "professional",
     emotion: "trust",
   });
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const creatingRef =
+    useRef(false);
+
+  async function saveBrief() {
+
+    if (!brief?.id) {
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+
+      await fetch(
+        "/api/creative/brief",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+
+            id:
+              brief.id,
+
+            organization_id:
+              runtime.organizationId,
+
+            ...form,
+
+          }),
+        }
+      );
+
+      runtime.refresh?.();
+
+    }
+    finally {
+
+      setSaving(false);
+
+    }
+
+  }
+
+  useEffect(() => {
+
+    async function ensureBrief() {
+
+      if (brief) {
+        setForm({
+          title:
+            brief.title || "",
+
+          business_goal:
+            brief.business_goal || "",
+
+          creative_objective:
+            brief.creative_objective || "",
+
+          target_audience:
+            typeof brief.target_audience === "string"
+              ? brief.target_audience
+              : JSON.stringify(
+                  brief.target_audience || {},
+                  null,
+                  2,
+                ),
+
+          call_to_action:
+            brief.call_to_action || "",
+
+          tone:
+            brief.tone || "professional",
+
+          emotion:
+            brief.emotion || "trust",
+        });
+
+        return;
+      }
+
+      if (!runtime.organizationId || creatingRef.current) {
+        return;
+      }
+
+      creatingRef.current = true;
+
+      await fetch(
+        "/api/creative/brief",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            organization_id:
+              runtime.organizationId,
+
+            title:
+              runtime.missionRuntime?.current?.title ||
+              runtime.missionRuntime?.current?.business_goal ||
+              "Creative Brief",
+
+            business_goal:
+              runtime.missionRuntime?.current?.business_goal ||
+              "",
+
+            creative_mission_id:
+              runtime.missionRuntime?.current?.id,
+          }),
+        }
+      );
+
+      runtime.refresh?.();
+
+    }
+
+    ensureBrief();
+
+  }, [
+    brief,
+  ]);
 
   useEffect(() => {
 
@@ -104,6 +231,41 @@ export default function BriefWorkspace({
 
   }
 
+  async function completeBrief() {
+
+    if (!brief?.id) {
+      return;
+    }
+
+    await fetch(
+      "/api/creative/brief",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+
+          action:
+            "approve",
+
+          id:
+            brief.id,
+
+          organization_id:
+            runtime.organizationId,
+
+          creative_mission_id:
+            runtime.missionRuntime?.current?.id,
+
+        }),
+      }
+    );
+
+    runtime.refresh?.();
+
+  }
+
   return (
 
     <div className="h-full overflow-auto p-8">
@@ -117,6 +279,45 @@ export default function BriefWorkspace({
         <div className="mt-2 text-3xl font-semibold">
           {form.title || "Creative Brief"}
         </div>
+
+      </div>
+
+      <div className="mb-6 flex justify-end gap-3">
+
+        <button
+          type="button"
+          onClick={completeBrief}
+          className="
+            rounded-xl
+            border
+            border-[#c8a96a]/40
+            bg-[#c8a96a]/10
+            px-5
+            py-3
+            text-sm
+            text-[#c8a96a]
+          "
+        >
+          Complete Brief
+        </button>
+
+        <button
+          type="button"
+          onClick={saveBrief}
+          disabled={saving}
+          className="
+            rounded-xl
+            border
+            border-[#c8a96a]/40
+            bg-[#c8a96a]/10
+            px-5
+            py-3
+            text-sm
+            text-[#c8a96a]
+          "
+        >
+          {saving ? "Saving..." : "Save Brief"}
+        </button>
 
       </div>
 

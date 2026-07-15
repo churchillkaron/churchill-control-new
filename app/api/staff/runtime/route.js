@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/shared/supabase/server";
-import buildStaffRuntime from "@/lib/runtime/core/buildStaffRuntime";
+import buildPeopleRuntime from "@/lib/people/runtime/PeopleRuntime";
 
 function formatDuration(clockIn) {
   if (!clockIn) return "00:00";
@@ -119,7 +119,7 @@ export async function GET(request) {
 
 
 
-    const runtime = buildStaffRuntime({
+    const runtime = buildPeopleRuntime({
       staff: staffAccount || {
         name: resolvedStaffName,
       },

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-import createSupplierPrice from "@/lib/procurement/suppliers/capabilities/createSupplierPrice";
+import createSupplierPrice from "@/lib/inventory/procurement/suppliers/capabilities/createSupplierPrice";
 
-import getBestSupplierPrice from "@/lib/procurement/pricing/capabilities/getBestSupplierPrice";
+import getBestSupplierPrice from "@/lib/inventory/procurement/pricing/capabilities/getBestSupplierPrice";
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 

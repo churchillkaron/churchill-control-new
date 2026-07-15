@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import CreativeWorkspaceRenderer from "@/components/creative/runtime/CreativeWorkspaceRenderer";
 import { resolveCreativeStudioRuntime } from "@/lib/creative/studio/CreativeStudioRuntime";
 

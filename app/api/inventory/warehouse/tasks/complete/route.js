@@ -8,7 +8,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 
 import {
   completeWarehouseTask,
-} from "@/lib/warehouse/tasks/completeWarehouseTask";
+} from "@/lib/operations/tasks/completeWarehouseTask";
 
 
 export async function POST(req) {

@@ -1,6 +1,6 @@
 import {
   updatePurchaseOrderReceiptStatus,
-} from "@/lib/procurement/receiving/updatePurchaseOrderReceiptStatus";
+} from "@/lib/inventory/procurement/receiving/updatePurchaseOrderReceiptStatus";
 
 export async function POST(request) {
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   previewStaffPartyMigration,
-} from "@/lib/staff/migration/previewStaffPartyMigration";
+} from "/lib/people/employees/migration/previewStaffPartyMigration";
 
 
 export async function GET() {

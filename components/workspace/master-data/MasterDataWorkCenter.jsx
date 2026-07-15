@@ -1134,18 +1134,66 @@ export default function MasterDataWorkCenter({
                       </div>
 
                       <div className="mt-3 rounded-2xl border border-white/[0.07] bg-black/24 p-4">
-                        <div className="grid grid-cols-2 gap-3 text-[12px]">
-                          {section.fields.map(field => (
-                            <div key={field.label}>
-                              <div className="text-white/30">
-                                {field.label}
+
+                        {section.collection ? (
+
+                          <div className="space-y-2">
+
+                            {section.rows.map((item, index) => (
+
+                              <div
+                                key={item.id || index}
+                                className="grid grid-cols-3 gap-3 rounded-xl border border-white/[0.08] p-3 text-[12px]"
+                              >
+
+                                <div>
+                                  {item.account?.code || "-"}
+                                  {" "}
+                                  {item.account?.name || ""}
+                                </div>
+
+                                <div>
+                                  Debit:
+                                  {" "}
+                                  {item.debit || 0}
+                                </div>
+
+                                <div>
+                                  Credit:
+                                  {" "}
+                                  {item.credit || 0}
+                                </div>
+
                               </div>
-                              <div className="mt-1 text-white/75">
-                                {field.value(selected)}
+
+                            ))}
+
+                          </div>
+
+                        ) : (
+
+                          <div className="grid grid-cols-2 gap-3 text-[12px]">
+
+                            {section.fields.map(field => (
+
+                              <div key={field.label}>
+
+                                <div className="text-white/30">
+                                  {field.label}
+                                </div>
+
+                                <div className="mt-1 text-white/75">
+                                  {field.value(selected)}
+                                </div>
+
                               </div>
-                            </div>
-                          ))}
-                        </div>
+
+                            ))}
+
+                          </div>
+
+                        )}
+
                       </div>
                     </section>
                   ))}

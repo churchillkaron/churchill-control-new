@@ -7,8 +7,12 @@ import StrategyWorkspace from "../workspaces/StrategyWorkspace";
 import ConceptWorkspace from "../workspaces/ConceptWorkspace";
 import StoryboardWorkspace from "../workspaces/StoryboardWorkspace";
 import ProductionWorkspace from "../workspaces/ProductionWorkspace";
+import AssetsWorkspace from "../workspaces/AssetsWorkspace";
+import TimelineWorkspace from "../workspaces/TimelineWorkspace";
+import LearningWorkspace from "../workspaces/LearningWorkspace";
 import RenderWorkspace from "../workspaces/RenderWorkspace";
 import PublishingWorkspace from "../workspaces/PublishingWorkspace";
+import DocumentsWorkspace from "../workspaces/DocumentsWorkspace";
 
 const WORKSPACES = {
   mission: MissionWorkspace,
@@ -18,7 +22,11 @@ const WORKSPACES = {
   concept: ConceptWorkspace,
   storyboard: StoryboardWorkspace,
   production: ProductionWorkspace,
+  assets: AssetsWorkspace,
+  timeline: TimelineWorkspace,
+  learning: LearningWorkspace,
   render: RenderWorkspace,
+  documents: DocumentsWorkspace,
   publishing: PublishingWorkspace,
 };
 

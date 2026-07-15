@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import checkPermission from "@/lib/permissions/checkPermission";
+import { checkPermission } from "@/lib/platform/administration/identity/runtime/IdentityRuntime";
 
 export async function POST(req) {
   try {

@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { notFound, useParams } from "next/navigation";
-import MasterDataRuntimeWorkCenter from "@/components/workspace/master-data/MasterDataRuntimeWorkCenter";
+import ERPEngine from "@/lib/platform/erp-engine/ERPRuntime";
 import {
   getWorkspaceItemByRoute,
 } from "@/lib/platform/registry/erpRegistry";
@@ -38,11 +38,19 @@ export default function SupplyChainDynamicCapabilityPage() {
   }
 
   return (
-    <MasterDataRuntimeWorkCenter
-      workspaceId="supply-chain"
-      organizationId={params.organizationId}
+    <ERPEngine
+
+      renderer={
+        capability?.runtime?.renderer ||
+        capability?.renderer
+      }
+
       capability={capability}
-      eyebrow={`Supply Chain / ${capability.groupName || "Workspace"}`}
+
+      organizationId={
+        params.organizationId
+      }
+
     />
   );
 

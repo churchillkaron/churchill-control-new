@@ -20,8 +20,10 @@ export default function Canvas({
             </div>
 
             <div className="mt-2 text-2xl font-semibold">
-              {runtime.projectRuntime?.project?.name ||
-                "No Project Selected"}
+              {runtime.missionRuntime?.current?.business_goal ||
+                runtime.missionRuntime?.current?.title ||
+                runtime.missionRuntime?.current?.name ||
+                "No Mission Selected"}
             </div>
 
           </div>

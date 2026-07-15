@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getOrganizationWorkspace } from "@/lib/organizations/getOrganizationWorkspace";
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
+import { getOrganizationWorkspace } from "@/lib/platform/administration/runtime/AdministrationRuntime";
+import { getServerCurrentUser } from "@/lib/platform/administration/identity/runtime/IdentityRuntime";
 
 export async function GET(request) {
   try {

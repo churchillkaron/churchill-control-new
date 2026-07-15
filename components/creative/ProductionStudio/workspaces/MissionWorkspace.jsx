@@ -6,10 +6,10 @@ export default function MissionWorkspace({
 }) {
 
   const mission =
-    runtime?.missionRuntime?.mission;
+    runtime?.missionRuntime?.current;
 
   const projects =
-    runtime?.projectRuntime?.projects || [];
+    runtime?.projectRuntime?.items || [];
 
   const assets =
     runtime.assetRuntime?.items || [];
@@ -45,7 +45,7 @@ export default function MissionWorkspace({
       <div className="grid grid-cols-4 gap-4 mb-8">
 
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="text-xs text-white/50">Projects</div>
+          <div className="text-xs text-white/50">Deliverables</div>
           <div className="text-2xl font-bold">{projects.length}</div>
         </div>
 
@@ -103,7 +103,7 @@ export default function MissionWorkspace({
       <div className="mt-10">
 
         <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
-          Mission Projects
+          Deliverables
         </div>
 
         <div className="space-y-2">

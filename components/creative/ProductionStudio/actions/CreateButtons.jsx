@@ -39,7 +39,7 @@ export default function CreateButtons({
   const router = useRouter();
 
   const project =
-    runtime.projectRuntime?.project;
+    runtime.projectRuntime?.current;
 
   const scenes =
     runtime.sceneRuntime?.items || [];
@@ -92,7 +92,7 @@ export default function CreateButtons({
           runtime.organizationId,
 
         creative_mission_id:
-          runtime.missionRuntime?.mission?.id || null,
+          runtime.missionRuntime?.current?.id || null,
 
         creative_project_id:
           project.id,
@@ -130,7 +130,7 @@ export default function CreateButtons({
           runtime.organizationId,
 
         creative_mission_id:
-          runtime.missionRuntime?.mission?.id || null,
+          runtime.missionRuntime?.current?.id || null,
 
         creative_project_id:
           project.id,
@@ -169,7 +169,7 @@ export default function CreateButtons({
           runtime.organizationId,
 
         creative_mission_id:
-          runtime.missionRuntime?.mission?.id || null,
+          runtime.missionRuntime?.current?.id || null,
 
         creative_project_id:
           project.id,
@@ -234,7 +234,7 @@ export default function CreateButtons({
           runtime.organizationId,
 
         creative_mission_id:
-          runtime.missionRuntime?.mission?.id || null,
+          runtime.missionRuntime?.current?.id || null,
 
         creative_project_id:
           project.id,

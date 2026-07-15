@@ -25,7 +25,7 @@ export default function RunCreativePipelineButton({
             organization_id:
               runtime.organizationId,
             creative_project_id:
-              runtime.projectRuntime?.project?.id,
+              runtime.projectRuntime?.current?.id,
             brief:
               runtime.projectRuntime?.documents?.CreativeBrief ||
               {},

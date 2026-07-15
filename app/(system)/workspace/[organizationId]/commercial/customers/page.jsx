@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import ERPEngine from "@/lib/platform/erp-engine/ERPEngine.jsx";
+import ERPEngine from "@/lib/platform/erp-engine/ERPRuntime";
 import {
   getWorkspaceItemByRoute,
 } from "@/lib/platform/registry/erpRegistry";

@@ -17,8 +17,8 @@ import { resolveFinanceActionPresentation } from "@/lib/platform/actions/resolve
 import WorkspaceEventHub from "@/components/workspace/WorkspaceEventHub";
 
 import {
-  mapCustomerInvoiceFormPayload,
-} from "@/lib/finance/accounts-receivable/mappers/customerInvoiceMapper";
+  resolvePayloadMapper,
+} from "@/lib/platform/payload-mappers/PayloadMapperRegistry";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -358,12 +358,20 @@ export default function MasterDataWorkCenter({
 
               action,
 
-              payload:
-                moduleKey === "customer_invoices"
-                  ? mapCustomerInvoiceFormPayload({
+              payload: (() => {
+
+                const mapper =
+                  resolvePayloadMapper(
+                    createAction?.payloadMapper
+                  );
+
+                return mapper
+                  ? mapper({
                       payload: form,
                     })
-                  : form,
+                  : form;
+
+              })(),
 
             },
 

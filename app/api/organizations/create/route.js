@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   createOrganization,
-} from "@/lib/organizations/createOrganization";
+} from "@/lib/platform/administration/runtime/AdministrationRuntime";
 
 export async function POST(
   request

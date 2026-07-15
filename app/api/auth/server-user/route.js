@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   getServerCurrentUser,
-} from "@/lib/auth/getServerCurrentUser";
+} from "@/lib/platform/administration/identity/runtime/IdentityRuntime";
 
 export const dynamic =
   "force-dynamic";

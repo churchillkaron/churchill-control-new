@@ -21,6 +21,9 @@ export default function ProductionStudio({
     refreshing: editor.refreshing,
   };
 
+  const layout =
+    runtime.workspace?.layout || {};
+
   return (
     <CreativeWorkspaceLayout
       header={
@@ -40,6 +43,12 @@ export default function ProductionStudio({
           runtime={liveRuntime}
           editor={editor}
         />
+      }
+      showInspector={
+        layout.inspector !== false
+      }
+      showDock={
+        layout.dock === true
       }
       inspector={
         <Inspector

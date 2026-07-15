@@ -61,7 +61,7 @@ export default function AssetBrowser({
         runtime.organizationId,
 
       projectId:
-        runtime.projectRuntime?.project?.id,
+        runtime.projectRuntime?.current?.id,
 
       timelineId:
         timeline?.id,

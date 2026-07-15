@@ -38,7 +38,7 @@ export default function RunProductionButton({
                 runtime.organizationId,
 
               creative_project_id:
-                runtime.projectRuntime?.project?.id,
+                runtime.projectRuntime?.current?.id,
 
             }),
           }

@@ -20,7 +20,7 @@ function Project({
 }) {
 
   const active =
-    runtime.projectRuntime?.project?.id === project.id;
+    runtime.projectRuntime?.current?.id === project.id;
 
   return (
 
@@ -68,7 +68,7 @@ export default function ProjectTree({
 }) {
 
   const projects =
-    runtime.projectRuntime?.projects || [];
+    runtime.projectRuntime?.items || [];
 
   return (
 

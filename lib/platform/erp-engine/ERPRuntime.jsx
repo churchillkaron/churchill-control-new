@@ -85,6 +85,15 @@ export default function ERPEngine({
 
         capability={capability}
 
+        workspaceId={
+          workspace?.id ||
+          workspace?.meta?.id ||
+          context.workspace ||
+          params.moduleId ||
+          params.domain ||
+          "finance"
+        }
+
         workspaceActions={
           workspace?.actions || []
         }

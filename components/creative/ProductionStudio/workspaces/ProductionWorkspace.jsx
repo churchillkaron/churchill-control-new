@@ -28,7 +28,7 @@ export default function ProductionWorkspace({
     runtime.productionRuntime?.current;
 
   const project =
-    runtime.projectRuntime?.project;
+    runtime.projectRuntime?.current;
 
   const tasks =
     runtime.taskRuntime?.items || [];

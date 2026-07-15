@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useParams } from "next/navigation";
-import ERPEngine from "@/lib/platform/erp-engine/ERPEngine.jsx";
+import ERPEngine from "@/lib/platform/erp-engine/ERPRuntime";
 
 import {
   getWorkspaceItemByRoute,

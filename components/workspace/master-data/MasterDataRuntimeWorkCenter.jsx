@@ -337,8 +337,8 @@ function resolveMenuActions(capability, config, workspaceId) {
 
   const seen = new Set();
 
-  const financeCreate =
-    workspaceId === "finance" && capability?.create?.enabled === true
+  const runtimeCreate =
+    capability?.create?.enabled === true
       ? capability.create
       : null;
 
@@ -347,13 +347,13 @@ function resolveMenuActions(capability, config, workspaceId) {
     .filter(action => {
 
       if (
-        workspaceId === "finance" &&
+        runtimeCreate &&
         ["edit", "duplicate", "delete", "archive"].includes(action?.type) &&
         !action?.endpoint &&
         !action?.api &&
         !action?.capability &&
         !(
-          financeCreate?.form &&
+          runtimeCreate?.form &&
           ["edit", "duplicate"].includes(action?.type)
         )
       ) {
@@ -388,9 +388,9 @@ function resolveMenuActions(capability, config, workspaceId) {
 
     })
     .map(action => {
-      if (financeCreate?.form && action?.type === "edit") {
+      if (runtimeCreate?.form && action?.type === "edit") {
         return {
-          ...financeCreate,
+          ...runtimeCreate,
           ...action,
           id: "edit",
           type: "capability",
@@ -400,9 +400,9 @@ function resolveMenuActions(capability, config, workspaceId) {
         };
       }
 
-      if (financeCreate?.form && action?.type === "duplicate") {
+      if (runtimeCreate?.form && action?.type === "duplicate") {
         return {
-          ...financeCreate,
+          ...runtimeCreate,
           ...action,
           id: "duplicate",
           type: "capability",
@@ -437,7 +437,15 @@ function resolveTopMenuActions(capability, config, workspaceId) {
     ...actionList(config?.topMenu),
   ];
 
-  if (workspaceId !== "finance") return configured;
+  const runtimeEnabled =
+    capability?.create?.enabled ||
+    capability?.actions ||
+    capability?.analytics ||
+    capability?.runtime;
+
+  if (!runtimeEnabled) {
+    return configured;
+  }
 
   const additions = [];
   const pageActions = actionList(capability?.actions)

@@ -6,6 +6,8 @@ export default function CreativeWorkspaceLayout({
   canvas,
   inspector,
   dock,
+  showInspector = true,
+  showDock = true,
 }) {
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050505] text-white">
@@ -23,14 +25,18 @@ export default function CreativeWorkspaceLayout({
             {canvas}
           </div>
 
-          <div className="h-[220px] shrink-0 overflow-hidden border-t border-white/10">
-            {dock}
-          </div>
+          {showDock && (
+            <div className="h-[220px] shrink-0 overflow-hidden border-t border-white/10">
+              {dock}
+            </div>
+          )}
         </section>
 
-        <aside className="w-[300px] shrink-0 overflow-y-auto border-l border-white/10 bg-[#080808]">
-          {inspector}
-        </aside>
+        {showInspector && (
+          <aside className="w-[300px] shrink-0 overflow-y-auto border-l border-white/10 bg-[#080808]">
+            {inspector}
+          </aside>
+        )}
       </section>
     </main>
   );

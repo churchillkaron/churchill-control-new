@@ -34,7 +34,7 @@ function Section({
           >
 
             <div className="font-medium">
-              {item.name}
+              {item.title || item.name || item.id}
             </div>
 
             {item.description && (
@@ -78,7 +78,7 @@ export default function Sidebar({
       />
 
       <Section
-        title="Workspace"
+        title="Mission Pipeline"
         items={workspaces}
       />
 

@@ -1,12 +1,13 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { listAccountsCommand } from "@/lib/finance/chart-of-accounts/runtime/AccountApplicationService";
 
-export async function GET(req) {
+export async function GET(request) {
   try {
-
-    const { searchParams } = new URL(req.url);
+    const { searchParams } =
+      new URL(request.url);
 
     const organizationId =
       searchParams.get("organizationId") ||
@@ -14,67 +15,39 @@ export async function GET(req) {
 
     const entityId =
       searchParams.get("entityId") ||
-      searchParams.get("entity_id");
+      searchParams.get("entity_id") ||
+      null;
 
-    if (!organizationId) {
+    const access =
+      await requireOrganizationAccess({
+        organizationId,
+      });
+
+    if (!access.success) {
       return NextResponse.json(
         {
           success: false,
-          error: "organizationId required",
+          error: access.error,
         },
         {
-          status: 400,
+          status: access.status,
         }
       );
     }
 
-    let query =
-      supabaseAdmin
-        .from("chart_of_accounts")
-        .select("*")
-        .eq(
-          "organization_id",
-          organizationId
-        );
-
-    if (entityId) {
-      query =
-        query.eq(
-          "entity_id",
-          entityId
-        );
-    }
-
-    query =
-      query.order(
-        "account_code",
-        {
-          ascending: true,
-        }
-      );
-
-    const {
-      data,
-      error,
-    } = await query;
-
-    if (error) {
-      throw error;
-    }
+    const accounts =
+      await listAccountsCommand({
+        organizationId:
+          access.organizationId,
+        entityId,
+      });
 
     return NextResponse.json({
       success: true,
-      accounts: data || [],
-      rows: data || [],
+      accounts,
+      rows: accounts,
     });
-
   } catch (error) {
-
-    console.error(
-      "chart-of-accounts GET",
-      error
-    );
-
     return NextResponse.json(
       {
         success: false,
@@ -86,6 +59,5 @@ export async function GET(req) {
         status: 500,
       }
     );
-
   }
 }

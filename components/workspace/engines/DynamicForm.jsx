@@ -1,318 +1,446 @@
 "use client";
 
-import { useState } from "react";
-import DynamicTableField from "./DynamicTableField";
+import { useEffect, useMemo, useState } from "react";
+import { loadLookup } from "@/lib/platform/erp-engine/lookups";
+
 import DynamicCustomerField from "./DynamicCustomerField";
+import DynamicTableField from "./DynamicTableField";
+
+const FIELD_CLASS =
+  "h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-white outline-none";
+
+const TEXTAREA_CLASS =
+  "w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none";
+
+const LABEL_CLASS =
+  "mb-2 block text-xs uppercase tracking-[0.25em] text-white/40";
+
+function getWidthClass(width) {
+  switch (width) {
+    case "full":
+      return "md:col-span-2";
+    case "1/3":
+      return "md:col-span-1";
+    case "1/2":
+    default:
+      return "md:col-span-1";
+  }
+}
 
 export default function DynamicForm({
   schema = [],
   values = {},
   onChange,
-
   organizationId,
   entityId,
 }) {
+  const fields = useMemo(
+    () => schema.filter(Boolean),
+    [schema]
+  );
 
   return (
-
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
-      {schema.map(field => (
-
-        <FieldRenderer
+      {fields.map(field => (
+        <div
           key={field.name}
-          field={field}
-          value={values[field.name]}
-          onChange={onChange}
-          organizationId={organizationId}
-          entityId={entityId}
-        />
-
+          className={getWidthClass(field.width)}
+        >
+          <FieldRenderer
+            field={field}
+            value={values[field.name]}
+            values={values}
+            onChange={onChange}
+            organizationId={organizationId}
+            entityId={entityId}
+          />
+        </div>
       ))}
 
     </div>
-
   );
-
 }
-
 
 function FieldRenderer({
   field,
   value,
+  values,
   onChange,
   organizationId,
   entityId,
 }) {
 
+  switch (field.type) {
 
-  if (field.type === "customer") {
-
-    return (
-
-      <DynamicCustomerField
-
-        field={field}
-
-        value={value}
-
-        onChange={onChange}
-
-        organizationId={organizationId}
-
-      />
-
-    );
-
-  }
-
-
-  if (field.type === "table") {
-
-    return (
-
-      <DynamicTableField
-
-        field={field}
-
-        value={value}
-
-        onChange={onChange}
-
-      />
-
-    );
-
-  }
-
-
-  if (field.type === "reference") {
-
-    return (
-
-      <ReferenceField
-
-        field={field}
-
-        value={value}
-
-        onChange={onChange}
-
-        organizationId={organizationId}
-
-        entityId={entityId}
-
-      />
-
-    );
-
-  }
-
-
-  return (
-
-    <div>
-
-      <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-white/40">
-
-        {field.label}
-
-      </label>
-
-
-      {field.type === "textarea" ? (
-
-        <textarea
-
-          rows={4}
-
-          value={value || ""}
-
-          onChange={e =>
-            onChange(
-              field.name,
-              e.target.value
-            )
-          }
-
-          className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none"
-
+    case "customer":
+      return (
+        <DynamicCustomerField
+          field={field}
+          value={value}
+          onChange={onChange}
+          organizationId={organizationId}
         />
+      );
 
-      ) : (
-
-        <input
-
-          type={field.type || "text"}
-
-          value={value || ""}
-
-          onChange={e =>
-            onChange(
-              field.name,
-              e.target.value
-            )
-          }
-
-          className="h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-white outline-none"
-
+    case "table":
+      return (
+        <DynamicTableField
+          field={field}
+          value={value}
+          onChange={onChange}
         />
+      );
 
+    default:
+      return (
+        <PrimitiveField
+          field={field}
+          value={value}
+          values={values}
+          onChange={onChange}
+          organizationId={organizationId}
+          entityId={entityId}
+        />
+      );
+  }
+
+}
+
+function PrimitiveField({
+  field,
+  value,
+  values,
+  onChange,
+  organizationId,
+  entityId,
+}) {
+
+  const label = (
+    <label className={LABEL_CLASS}>
+      {field.label}
+      {field.required && (
+        <span className="ml-1 text-orange-400">*</span>
       )}
-
-    </div>
-
+    </label>
   );
+
+  switch (field.type) {
+
+    case "textarea":
+      return (
+        <>
+          {label}
+          <textarea
+            rows={field.rows || 4}
+            value={value || ""}
+            placeholder={field.placeholder || ""}
+            disabled={field.disabled}
+            readOnly={field.readOnly}
+            onChange={e =>
+              onChange(field.name, e.target.value)
+            }
+            className={TEXTAREA_CLASS}
+          />
+        </>
+      );
+
+    case "select":
+      if (field.source || field.lookup) {
+        return (
+          <LookupField
+            field={field}
+            value={value}
+            onChange={onChange}
+            organizationId={organizationId}
+            entityId={entityId}
+          />
+        );
+      }
+
+      return (
+        <>
+          {label}
+          <select
+            value={value || ""}
+            disabled={field.disabled}
+            onChange={e =>
+              onChange(field.name, e.target.value)
+            }
+            className={FIELD_CLASS}
+          >
+            <option value="">
+              Select...
+            </option>
+
+            {(field.options || []).map(option => {
+
+              const item =
+                typeof option === "string"
+                  ? {
+                      value: option,
+                      label: option,
+                    }
+                  : option;
+
+              return (
+                <option
+                  key={item.value}
+                  value={item.value}
+                >
+                  {item.label}
+                </option>
+              );
+
+            })}
+
+          </select>
+        </>
+      );
+
+    case "lookup":
+      return (
+        <LookupField
+          field={field}
+          value={value}
+          onChange={onChange}
+          organizationId={organizationId}
+          entityId={entityId}
+        />
+      );
+
+    case "currency":
+      return (
+        <CurrencyField
+          field={field}
+          value={value}
+          onChange={onChange}
+        />
+      );
+
+    case "boolean":
+      return (
+        <>
+          {label}
+
+          <label className="flex h-11 items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-4">
+
+            <input
+              type="checkbox"
+              checked={!!value}
+              onChange={e =>
+                onChange(
+                  field.name,
+                  e.target.checked
+                )
+              }
+            />
+
+            <span className="text-sm text-white">
+              {value ? "Enabled" : "Disabled"}
+            </span>
+
+          </label>
+        </>
+      );
+
+    case "number":
+      return (
+        <>
+          {label}
+          <input
+            type="number"
+            value={value ?? ""}
+            placeholder={field.placeholder || ""}
+            onChange={e =>
+              onChange(
+                field.name,
+                e.target.value === ""
+                  ? ""
+                  : Number(e.target.value)
+              )
+            }
+            className={FIELD_CLASS}
+          />
+        </>
+      );
+
+    case "date":
+
+    case "datetime-local":
+
+    case "email":
+
+    case "password":
+
+    case "text":
+
+    default:
+
+      return (
+        <>
+          {label}
+
+          <input
+            type={field.type || "text"}
+            value={value || ""}
+            placeholder={field.placeholder || ""}
+            disabled={field.disabled}
+            readOnly={field.readOnly}
+            onChange={e =>
+              onChange(field.name, e.target.value)
+            }
+            className={FIELD_CLASS}
+          />
+
+        </>
+      );
+
+  }
 
 }
 
 
 
-function ReferenceField({
+
+
+
+function LookupField({
   field,
   value,
   onChange,
   organizationId,
+  entityId,
 }) {
 
-  const [query,setQuery] =
-    useState("");
-
-  const [results,setResults] =
-    useState([]);
-
-
-  async function search(text){
-
-    console.log(
-      "CUSTOMER SEARCH CONTEXT",
-      {
-        organizationId,
-        text,
-      }
+  const [options,setOptions] =
+    useState(
+      field.options || []
     );
 
-    setQuery(text);
+  useEffect(() => {
 
-
-    if(!text){
-
-      setResults([]);
-
+    if (
+      field.options ||
+      (!field.lookup && !field.source)
+    ) {
       return;
-
     }
 
+    loadLookup({
 
-    const res =
-      await fetch(
-        "/api/customers/search",
-        {
-          method:"POST",
-          headers:{
-            "Content-Type":"application/json",
-          },
-          body:JSON.stringify({
+      lookup:
+        field.lookup ||
+        field.source,
 
-            organizationId,
+      organizationId,
 
-            query:text,
+      entityId,
 
-          }),
-        }
-      );
+    }).then(setOptions);
 
-
-    const json =
-      await res.json();
-
-
-    if(json.success){
-
-      setResults(
-        json.customers || []
-      );
-
-    }
-
-  }
+  }, [
+    field,
+    organizationId,
+    entityId,
+  ]);
 
 
   return (
-
-    <div className="relative">
-
-      <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-white/40">
-
+    <>
+      <label className={LABEL_CLASS}>
         {field.label}
-
       </label>
 
-
-      <input
-
-        value={query}
-
+      <select
+        value={value || ""}
         onChange={e =>
-          search(e.target.value)
+          onChange(
+            field.name,
+            e.target.value
+          )
         }
+        className={FIELD_CLASS}
+      >
+        <option value="">
+          Select {field.label}
+        </option>
 
-        placeholder="Search..."
+        {options.map(option => {
 
-        className="h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-white outline-none"
+          const item =
+            typeof option === "string"
+              ? {
+                  value: option,
+                  label: option,
+                }
+              : option;
 
-      />
-
-
-      {results.length > 0 && (
-
-        <div className="absolute z-50 mt-2 w-full rounded-xl border border-white/10 bg-[#111] p-2">
-
-          {results.map(item => (
-
-            <button
-
-              key={item.id}
-
-              type="button"
-
-              onClick={() => {
-
-                onChange(
-                  field.name,
-                  item.id
-                );
-
-                setQuery(
-                  item.display_name
-                );
-
-                setResults([]);
-
-              }}
-
-              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10"
-
+          return (
+            <option
+              key={item.value}
+              value={item.value}
             >
+              {item.label}
+            </option>
+          );
 
-              {item.display_name}
+        })}
 
-              <span className="ml-2 text-xs text-white/40">
+      </select>
 
-                {item.party_type}
-
-              </span>
-
-            </button>
-
-          ))}
-
-        </div>
-
-      )}
-
-    </div>
-
+    </>
   );
 
 }
+
+
+function CurrencyField({
+  field,
+  value,
+  onChange,
+}) {
+
+  const currencies =
+    field.options || [
+      { value: "THB", label: "Thai Baht (THB)" },
+      { value: "USD", label: "US Dollar (USD)" },
+      { value: "EUR", label: "Euro (EUR)" },
+      { value: "GBP", label: "British Pound (GBP)" },
+    ];
+
+  return (
+    <>
+      <label className={LABEL_CLASS}>
+        {field.label}
+      </label>
+
+      <select
+        value={value || "THB"}
+        onChange={e =>
+          onChange(
+            field.name,
+            e.target.value
+          )
+        }
+        className={FIELD_CLASS}
+      >
+
+        {currencies.map(currency => (
+
+          <option
+            key={currency.value}
+            value={currency.value}
+          >
+            {currency.label}
+          </option>
+
+        ))}
+
+      </select>
+
+    </>
+  );
+
+}
+

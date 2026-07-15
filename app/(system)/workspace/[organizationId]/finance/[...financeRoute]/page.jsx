@@ -2,7 +2,7 @@
 
 import { notFound } from "next/navigation";
 
-import MasterDataRuntimeWorkCenter from "@/components/workspace/master-data/MasterDataRuntimeWorkCenter";
+import ERPEngine from "@/lib/platform/erp-engine/ERPRuntime";
 
 
 import {
@@ -53,11 +53,16 @@ export default function FinanceDynamicCapabilityPage({
 
   return (
 
-    <MasterDataRuntimeWorkCenter
+    <ERPEngine
 
-      workspaceId="finance"
+      renderer={
+        capability?.runtime?.renderer ||
+        capability?.renderer
+      }
 
       capability={capability}
+
+      workspaceId="finance"
 
       organizationId={
         businessContext.organization_id ||
@@ -76,10 +81,6 @@ export default function FinanceDynamicCapabilityPage({
         businessContext.period_id ||
         businessContext.period?.id ||
         null
-      }
-
-      eyebrow={
-        `Finance / ${capability.groupName || "Workspace"}`
       }
 
     />

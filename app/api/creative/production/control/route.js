@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
@@ -9,6 +10,14 @@ import {
 import {
   CreativeProductionControlRuntime,
 } from "@/lib/creative/production/control/CreativeProductionControlRuntime";
+
+import {
+  ProductionTaskRuntime,
+} from "@/lib/operations/tasks/runtime/ProductionTaskRuntime";
+
+import {
+  CreativeAssetGraphRuntime,
+} from "@/lib/creative/assets/graph/runtime/CreativeAssetGraphRuntime";
 
 function identifiers(source = {}) {
   return {
@@ -49,11 +58,17 @@ export async function GET(req) {
 
     if (authorization.response) return authorization.response;
 
-    const control = await CreativeProductionControlRuntime.snapshot(input);
+    const [control, tasks, assets] = await Promise.all([
+      CreativeProductionControlRuntime.snapshot(input),
+      ProductionTaskRuntime.list(input),
+      CreativeAssetGraphRuntime.list(input),
+    ]);
 
     return NextResponse.json({
       success: true,
       control,
+      tasks,
+      assets,
     });
   } catch (error) {
     return NextResponse.json({

@@ -16,12 +16,14 @@ export default function RunCreativePipelineButton({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   async function run() {
     if (loading) return;
 
     setLoading(true);
     setError("");
+    setMessage("");
 
     try {
       const project = runtime.projectRuntime?.current || {};
@@ -29,6 +31,10 @@ export default function RunCreativePipelineButton({
         runtime.projectRuntime?.documents?.CreativeBrief ||
         project.brief ||
         {};
+
+      if (!project.id) {
+        throw new Error("Select a Creative project before production.");
+      }
 
       const response = await fetch(
         "/api/creative/director/execute",
@@ -80,6 +86,7 @@ export default function RunCreativePipelineButton({
               project.budget_mode ||
               brief.budget_mode ||
               "quality-first",
+            max_cycles: 1,
           }),
         },
       );
@@ -93,6 +100,18 @@ export default function RunCreativePipelineButton({
           "Creative production failed",
         );
       }
+
+      setMessage(
+        "Production plan created. Open Production to monitor and continue each controlled pass.",
+      );
+
+      window.dispatchEvent(
+        new CustomEvent("creative-production-started", {
+          detail: {
+            creative_project_id: project.id,
+          },
+        }),
+      );
 
       if (typeof runtime.refresh === "function") {
         await runtime.refresh();
@@ -108,19 +127,25 @@ export default function RunCreativePipelineButton({
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex max-w-md flex-col items-end gap-2">
       <button
         onClick={run}
         disabled={loading}
         className="rounded-xl border border-[#c8a96a]/30 bg-[#b48a45]/10 px-4 py-2 text-sm text-[#d8bd7a] transition hover:bg-[#b48a45]/20 disabled:opacity-50"
       >
         {loading
-          ? "Directing production..."
+          ? "Building production plan..."
           : "Run Film Production"}
       </button>
 
+      {message ? (
+        <p className="text-right text-xs text-emerald-300/80">
+          {message}
+        </p>
+      ) : null}
+
       {error ? (
-        <p className="max-w-md text-right text-xs text-red-300">
+        <p className="text-right text-xs text-red-300">
           {error}
         </p>
       ) : null}

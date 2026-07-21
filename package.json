@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@fal-ai/client": "1.10.1",
     "@google-cloud/vision": "^5.3.5",
     "@radix-ui/react-slot": "^1.2.4",
     "@sentry/nextjs": "^10.53.1",

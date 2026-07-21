@@ -4,6 +4,16 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { postJournalEntrySafe } from "@/lib/finance/general-ledger/capabilities/postJournalEntrySafe";
 
+function required(value, field) {
+  const normalized = String(value || "").trim();
+
+  if (!normalized) {
+    throw new Error(`${field} is required`);
+  }
+
+  return normalized;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -26,7 +36,10 @@ export async function POST(request) {
       journalType: body.journal_type || "GENERAL",
       reference: body.reference,
       description: body.description,
-      currencyCode: body.currency_code || "THB",
+      currencyCode: required(
+        body.currency_code || body.currencyCode,
+        "currency_code"
+      ).toUpperCase(),
       exchangeRate: Number(body.exchange_rate || 1),
       lines: body.lines || [],
       createdBy: access.user?.id || null,
@@ -34,10 +47,12 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
+    const message = error.message || "Journal creation failed";
+    const status = message.endsWith(" is required") ? 400 : 500;
+
     return NextResponse.json(
-      { success: false, error: error.message || "Journal creation failed" },
-      { status: 500 }
+      { success: false, error: message },
+      { status }
     );
   }
 }
-

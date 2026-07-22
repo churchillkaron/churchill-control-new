@@ -7,22 +7,26 @@ import {
   useState,
 } from "react";
 
-function assetUrl(asset = {}) {
+function assetUrl(asset) {
+  const source = asset || {};
+
   return (
-    asset.url ||
-    asset.image_url ||
-    asset.thumbnail_url ||
-    asset.file_url ||
+    source.url ||
+    source.image_url ||
+    source.thumbnail_url ||
+    source.file_url ||
     ""
   );
 }
 
-function isVideo(asset = {}) {
-  const url = assetUrl(asset).toLowerCase();
+function isVideo(asset) {
+  const source = asset || {};
+  const url = assetUrl(source).toLowerCase();
+
   return (
-    asset.type === "VIDEO" ||
-    asset.type === "FINAL_RENDER" ||
-    String(asset.asset_type || "").toLowerCase().includes("video") ||
+    source.type === "VIDEO" ||
+    source.type === "FINAL_RENDER" ||
+    String(source.asset_type || "").toLowerCase().includes("video") ||
     url.includes(".mp4") ||
     url.includes(".mov") ||
     url.includes(".webm")
@@ -65,7 +69,11 @@ function Metric({ label, value }) {
 export default function ProductionWorkspaceCompact({ runtime }) {
   const project = runtime.projectRuntime?.current || null;
   const organizationId = runtime.organizationId;
-  const projectId = project?.id || null;
+  const projectId =
+    project?.creative_project_id ||
+    project?.project_id ||
+    project?.id ||
+    null;
 
   const [control, setControl] = useState(null);
   const [tasks, setTasks] = useState(runtime.taskRuntime?.items || []);
@@ -95,8 +103,8 @@ export default function ProductionWorkspaceCompact({ runtime }) {
     }
 
     setControl(result.control || null);
-    setTasks(result.tasks || []);
-    setAssets(result.assets || []);
+    setTasks(Array.isArray(result.tasks) ? result.tasks.filter(Boolean) : []);
+    setAssets(Array.isArray(result.assets) ? result.assets.filter(Boolean) : []);
     setBudgetMaximum((current) => (
       current ||
       (result.control?.budget?.maximum
@@ -111,21 +119,25 @@ export default function ProductionWorkspaceCompact({ runtime }) {
     });
   }, [load]);
 
-  const selectedAsset = useMemo(() => (
-    assets.find((asset) => asset.id === selectedAssetId) ||
-    assets.find((asset) => asset.type === "FINAL_RENDER") ||
-    assets[0] ||
-    null
-  ), [assets, selectedAssetId]);
+  const selectedAsset = useMemo(() => {
+    const safeAssets = assets.filter(Boolean);
+
+    return (
+      safeAssets.find((asset) => asset.id === selectedAssetId) ||
+      safeAssets.find((asset) => asset.type === "FINAL_RENDER") ||
+      safeAssets[0] ||
+      null
+    );
+  }, [assets, selectedAssetId]);
 
   const activeTasks = tasks.filter((task) =>
-    ["PLANNED", "WAITING", "READY", "RUNNING", "REVIEW"].includes(task.status),
+    task && ["PLANNED", "WAITING", "READY", "RUNNING", "REVIEW"].includes(task.status),
   );
   const failedTasks = tasks.filter((task) =>
-    ["FAILED", "REJECTED"].includes(task.status),
+    task && ["FAILED", "REJECTED"].includes(task.status),
   );
   const completedTasks = tasks.filter((task) =>
-    ["COMPLETED", "APPROVED"].includes(task.status),
+    task && ["COMPLETED", "APPROVED"].includes(task.status),
   );
 
   async function post(body) {
@@ -229,12 +241,12 @@ export default function ProductionWorkspaceCompact({ runtime }) {
               Production Control
             </div>
             <div className="mt-1 truncate text-base font-medium text-white/90">
-              {project.name || "Film Production"}
+              {project?.name || "Film Production"}
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Pill>{control?.project_status || project.status || "DRAFT"}</Pill>
+            <Pill>{control?.project_status || project?.status || "DRAFT"}</Pill>
             <button
               type="button"
               onClick={() => load().catch((loadError) => setError(loadError.message))}
@@ -258,10 +270,7 @@ export default function ProductionWorkspaceCompact({ runtime }) {
           <Metric label="Active" value={activeTasks.length} />
           <Metric label="Completed" value={completedTasks.length} />
           <Metric label="Failed" value={failedTasks.length} />
-          <Metric
-            label="Projected"
-            value={amount(budget.projected_cost, budget.currency)}
-          />
+          <Metric label="Projected" value={amount(budget.projected_cost, budget.currency)} />
         </div>
 
         {error ? (
@@ -282,11 +291,7 @@ export default function ProductionWorkspaceCompact({ runtime }) {
           <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
             {previewUrl ? (
               isVideo(selectedAsset) ? (
-                <video
-                  src={previewUrl}
-                  controls
-                  className="h-[310px] w-full object-contain"
-                />
+                <video src={previewUrl} controls className="h-[310px] w-full object-contain" />
               ) : (
                 <img
                   src={previewUrl}
@@ -301,19 +306,15 @@ export default function ProductionWorkspaceCompact({ runtime }) {
             )}
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.20em] text-white/30">
-                Atomic Shot Pipeline
-              </div>
-              <div className="mt-1 text-sm text-white/70">
-                {tasks.length ? `${tasks.length} production tasks` : "No production queue yet"}
-              </div>
-            </div>
+          <div className="mt-4 text-[10px] uppercase tracking-[0.20em] text-white/30">
+            Atomic Shot Pipeline
+          </div>
+          <div className="mt-1 text-sm text-white/70">
+            {tasks.length ? `${tasks.length} production tasks` : "No production queue yet"}
           </div>
 
           <div className="mt-3 space-y-2">
-            {tasks.slice(0, 12).map((task) => (
+            {tasks.slice(0, 12).filter(Boolean).map((task) => (
               <div
                 key={task.id}
                 className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2"
@@ -378,7 +379,7 @@ export default function ProductionWorkspaceCompact({ runtime }) {
             </div>
 
             <div className="mt-2 space-y-2">
-              {assets.map((asset) => (
+              {assets.filter(Boolean).map((asset) => (
                 <button
                   type="button"
                   key={asset.id}

@@ -107,6 +107,35 @@ function projectPayload({
   };
 }
 
+function assertProductionReadyBlueprint(blueprint = {}) {
+  if (blueprint.composition_source !== "AI_DIRECTOR") {
+    const error = new Error(
+      blueprint.fallback_reason ||
+      "CREATIVE_AI_DIRECTOR_REQUIRED",
+    );
+    error.code = "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT";
+    throw error;
+  }
+
+  if (blueprint.fallback_reason) {
+    const error = new Error(blueprint.fallback_reason);
+    error.code = "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT";
+    throw error;
+  }
+
+  if (Number(blueprint.confidence || 0) < 70) {
+    const error = new Error("CREATIVE_AI_DIRECTOR_CONFIDENCE_TOO_LOW");
+    error.code = "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT";
+    throw error;
+  }
+
+  if (!Array.isArray(blueprint.deliverables) || !blueprint.deliverables.length) {
+    const error = new Error("CREATIVE_AI_DIRECTOR_DELIVERABLES_REQUIRED");
+    error.code = "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT";
+    throw error;
+  }
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -157,6 +186,8 @@ export async function POST(request) {
         business_truth: businessTruth,
       },
     });
+
+    assertProductionReadyBlueprint(blueprint);
 
     const mission = await CreativeMissionRuntime.create({
       organization_id,
@@ -235,13 +266,23 @@ export async function POST(request) {
   } catch (error) {
     console.error("creative mission composition failed", error);
 
+    const invalidDirector =
+      error?.code === "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT" ||
+      String(error?.message || "").startsWith("OPENAI_STRUCTURED_JSON_") ||
+      String(error?.message || "").startsWith("AI_DIRECTOR_");
+
     return NextResponse.json(
       {
         error:
           error?.message ||
           "Creative mission composition failed",
+        code:
+          error?.code ||
+          (invalidDirector
+            ? "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT"
+            : "CREATIVE_MISSION_COMPOSITION_FAILED"),
       },
-      { status: 500 },
+      { status: invalidDirector ? 422 : 500 },
     );
   }
 }

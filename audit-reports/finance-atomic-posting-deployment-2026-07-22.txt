@@ -1,0 +1,2787 @@
+AVANTIQO FINANCE ATOMIC POSTING DEPLOYMENT
+Generated: 2026-07-22 11:35:21 +0700
+Branch: finance-full-audit-20260721
+Head before evidence: 50e1a1770e30306c74635565e1e14dc448363bb8
+Migration: supabase/migrations/20260722120000_finance_atomic_journal_posting.sql
+Migration SHA256: 0533d1a0d50f8484d934d82a3e0c4c41fcfa2048e96072b0f6834f242ab12f58
+
+LIVE_DATABASE_CHANGED=YES
+APPLY_STATUS=0
+BASELINE_LINT_STATUS=1
+POST_LINT_STATUS=1
+LINT_DELTA_STATUS=0
+RPC_PROBE_STATUS=0
+
+================ PREFLIGHT ================
+JOURNAL_ROWS=9
+JOURNAL_LINE_ROWS=19
+LEDGER_ROWS=19
+DUPLICATE_JOURNAL_NUMBERS=0
+DUPLICATE_JOURNAL_LINES=0
+DUPLICATE_LEDGER_LINES=0
+ATOMIC_DUPLICATE_PREFLIGHT=PASS
+PREFLIGHT_CREATED_DATA=NO
+
+================ ISOLATED HISTORY ================
+Initialising login role...
+Connecting to remote database...
+
+  
+   Local            | Remote           | Time (UTC)            
+  ------------------|------------------|-----------------------
+   `20260719160000` | `20260719160000` | `2026-07-19 16:00:00` 
+   `20260719171000` | `20260719171000` | `2026-07-19 17:10:00` 
+   `20260719175000` | `20260719175000` | `2026-07-19 17:50:00` 
+   `20260719204500` | `20260719204500` | `2026-07-19 20:45:00` 
+   `20260719220000` | `20260719220000` | `2026-07-19 22:00:00` 
+   `20260719231500` | `20260719231500` | `2026-07-19 23:15:00` 
+   `20260719235900` | `20260719235900` | `2026-07-19 23:59:00` 
+   `20260720003000` | `20260720003000` | `2026-07-20 00:30:00` 
+   `20260720113000` | `20260720113000` | `2026-07-20 11:30:00` 
+   `20260720210000` | `20260720210000` | `2026-07-20 21:00:00` 
+   `20260720213000` | `20260720213000` | `2026-07-20 21:30:00` 
+   `20260721103000` | `20260721103000` | `2026-07-21 10:30:00` 
+   `20260722033000` | `20260722033000` | `2026-07-22 03:30:00` 
+   `20260722043000` | `20260722043000` | `2026-07-22 04:30:00` 
+   `20260722050000` | `20260722050000` | `2026-07-22 05:00:00` 
+   `20260722050500` | `20260722050500` | `2026-07-22 05:05:00` 
+   `20260722051000` | `20260722051000` | `2026-07-22 05:10:00` 
+   `20260722120000` | ` `              | `2026-07-22 12:00:00` 
+
+
+================ DRY RUN ================
+Using workdir /tmp/avantiqo-finance-deploy.7jPDIY/project
+WARN: config section [inbucket] is deprecated. Please use [local_smtp] instead.
+Initialising login role...
+DRY RUN: migrations will *not* be pushed to the database.
+Connecting to remote database...
+Would push these migrations:
+ • 20260722120000_finance_atomic_journal_posting.sql
+Finished supabase db push.
+
+================ APPLY ================
+Using workdir /tmp/avantiqo-finance-deploy.7jPDIY/project
+WARN: config section [inbucket] is deprecated. Please use [local_smtp] instead.
+Initialising login role...
+Connecting to remote database...
+Do you want to push these migrations to the remote database?
+ • 20260722120000_finance_atomic_journal_posting.sql
+
+ [Y/n] y
+Applying migration 20260722120000_finance_atomic_journal_posting.sql...
+Finished supabase db push.
+
+================ POST HISTORY ================
+Initialising login role...
+Connecting to remote database...
+
+  
+   Local            | Remote           | Time (UTC)            
+  ------------------|------------------|-----------------------
+   `20260719160000` | `20260719160000` | `2026-07-19 16:00:00` 
+   `20260719171000` | `20260719171000` | `2026-07-19 17:10:00` 
+   `20260719175000` | `20260719175000` | `2026-07-19 17:50:00` 
+   `20260719204500` | `20260719204500` | `2026-07-19 20:45:00` 
+   `20260719220000` | `20260719220000` | `2026-07-19 22:00:00` 
+   `20260719231500` | `20260719231500` | `2026-07-19 23:15:00` 
+   `20260719235900` | `20260719235900` | `2026-07-19 23:59:00` 
+   `20260720003000` | `20260720003000` | `2026-07-20 00:30:00` 
+   `20260720113000` | `20260720113000` | `2026-07-20 11:30:00` 
+   `20260720210000` | `20260720210000` | `2026-07-20 21:00:00` 
+   `20260720213000` | `20260720213000` | `2026-07-20 21:30:00` 
+   `20260721103000` | `20260721103000` | `2026-07-21 10:30:00` 
+   `20260722033000` | `20260722033000` | `2026-07-22 03:30:00` 
+   `20260722043000` | `20260722043000` | `2026-07-22 04:30:00` 
+   `20260722050000` | `20260722050000` | `2026-07-22 05:00:00` 
+   `20260722050500` | `20260722050500` | `2026-07-22 05:05:00` 
+   `20260722051000` | `20260722051000` | `2026-07-22 05:10:00` 
+   `20260722120000` | `20260722120000` | `2026-07-22 12:00:00` 
+
+
+================ BASELINE LINT ================
+Initialising login role...
+Connecting to remote database...
+Linting schema: public
+[
+  {
+    "function": "public.disconnect_websocket_session",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "96",
+          "text": "update public.websocket_sessions\n  set\n    active = false,\n    disconnected_at = now()\n  where tenant_id = public.get_my_tenant_id()\n  and connection_id = p_connection_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_dish_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "61",
+          "text": "update dish_stock\n  set quantity = quantity - p_qty\n  where tenant_id = p_tenant_id\n  and dish_id = p_dish_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_ingredient_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"ingredient_stock\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "8",
+          "text": "UPDATE ingredient_stock\n  SET quantity = quantity - p_quantity\n  WHERE ingredient_id = p_item_id\n  AND tenant_id = p_tenant_id"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_dish_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "92",
+          "text": "UPDATE dish_stock\n  SET quantity = quantity - p_quantity\n  WHERE dish_id = p_item_id\n  AND tenant_id = p_tenant_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.log_security_event",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"security_events\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.security_events (\n\n    tenant_id,\n    event_type,\n    severity,\n    user_id,\n    ip_address,\n    event_details\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_event_type,\n    p_severity,\n    auth.uid(),\n    p_ip_address,\n    p_event_details\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.request_approval",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "113",
+          "text": "select id\n                        from public.approval_workflows\n\n  where workflow_type = p_workflow_type\n  and tenant_id = public.get_my_tenant_id()\n  and active = true\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.calculate_kitchen_station_performance",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"public.kitchen_station_performance\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "13",
+          "text": "insert into public.kitchen_station_performance (\n\n    tenant_id,\n    kitchen_station_id,\n    staff_id,\n    total_orders,\n    completed_orders,\n    average_completion_minutes,\n    delayed_orders,\n    performance_score,\n    snapshot_date\n\n  )\n\n  select\n\n    kso.tenant_id,\n\n    kso.kitchen_station_id,\n\n    kso.assigned_to,\n\n    count(*) as total_orders,\n\n    count(*) filter (\n      where kso.status = 'completed'\n    ) as completed_orders,\n\n    coalesce(\n\n      avg(\n\n        extract(\n          epoch from (\n            kso.completed_at - kso.started_at\n          )\n        ) / 60\n\n      ),\n\n      0\n\n    ) as average_completion_minutes,\n\n    count(*) filter (\n\n      where\n        kso.completed_at is not null\n        and kso.started_at is not null\n        and (\n          extract(\n            epoch from (\n              kso.completed_at - kso.started_at\n            )\n          ) / 60\n        ) \u003e 30\n\n    ) as delayed_orders,\n\n    greatest(\n\n      0,\n\n      100 -\n\n      (\n        count(*) filter (\n\n          where\n            kso.completed_at is not null\n            and kso.started_at is not null\n            and (\n              extract(\n                epoch from (\n                  kso.completed_at - kso.started_at\n                )\n              ) / 60\n            ) \u003e 30\n\n        ) * 5\n      )\n\n    ) as performance_score,\n\n    current_date\n\n  from public.kitchen_station_orders kso\n\n  where kso.tenant_id =\n    public.get_my_tenant_id()\n\n  and kso.created_at::date =\n    current_date\n\n  group by\n\n    kso.tenant_id,\n    kso.kitchen_station_id,\n    kso.assigned_to"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.create_backup_job",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"backup_jobs\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "39",
+          "text": "insert into public.backup_jobs (\n\n    tenant_id,\n    backup_type,\n    backup_scope,\n    backup_status,\n    storage_location,\n    started_at,\n    initiated_by\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_backup_type,\n    p_backup_scope,\n    'running',\n    p_storage_location,\n    now(),\n    auth.uid()\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.mark_websocket_event_delivered",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "91",
+          "text": "select *\n                 from public.websocket_event_queue\n  where id = p_queue_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.apply_dynamic_pricing",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "70",
+          "text": "select *\n                 from public.dynamic_pricing_rules\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and active = true\n\n  and (\n    target_category is null\n    or target_category = p_target_category\n  )\n\n  and (\n    starts_at is null\n    or starts_at \u003c= now()\n  )\n\n  and (\n    ends_at is null\n    or ends_at \u003e= now()\n  )\n\n  order by created_at desc\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_approval",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "91",
+          "text": "select *\n                   from public.approval_requests\n  where id = p_request_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.run_enterprise_health_checks",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_health_checks\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_health_checks (\n\n    tenant_id,\n    check_name,\n    check_category,\n    status,\n    message,\n    metadata\n\n  )\n\n  select\n\n    public.get_my_tenant_id(),\n\n    'inventory_low_stock_check',\n\n    'inventory',\n\n    case\n      when count(*) \u003e 0\n      then 'warning'\n      else 'healthy'\n    end,\n\n    case\n      when count(*) \u003e 0\n      then 'Low stock items detected'\n      else 'Inventory healthy'\n    end,\n\n    jsonb_build_object(\n      'low_stock_count',\n      count(*)\n    )\n\n  from public.ingredients\n\n  where tenant_id =\n    public.get_my_tenant_id()\n\n  and current_stock \u003c= minimum_stock"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.retry_failed_websocket_events",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "146",
+          "text": "update public.websocket_event_queue\n  set\n    retry_count = retry_count + 1,\n    last_retry_at = now(),\n    delivery_status = 'retrying'\n  where tenant_id = public.get_my_tenant_id()\n  and delivery_status in ('failed', 'retrying')\n  and retry_count \u003c 5"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_labor_shift_forecasts",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "298",
+          "text": "select\n    coalesce(avg(daily_orders), 0),\n    coalesce(avg(daily_revenue), 0)\n\n                                              from (\n\n    select\n\n      created_at::date as business_date,\n\n      count(*) as daily_orders,\n\n      sum(total_amount) as daily_revenue\n\n    from public.orders\n\n    where tenant_id = public.get_my_tenant_id()\n    and status = 'paid'\n    and created_at \u003e= now() - interval '30 days'\n\n    group by created_at::date\n\n  ) forecast_data"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.mark_announcement_as_read",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_announcement_reads\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.enterprise_announcement_reads (\n\n    tenant_id,\n    announcement_id,\n    user_id\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_announcement_id,\n    auth.uid()\n\n  )\n\n  on conflict (\n\n    tenant_id,\n    announcement_id,\n    user_id\n\n  )\n\n  do update set\n\n    read_at = now()\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.run_production_atomic",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "8",
+          "text": "IF"
+        },
+        "query": {
+          "position": "55",
+          "text": "NOT EXISTS (\n    SELECT 1 FROM recipe_items\n    WHERE tenant_id = p_tenant_id\n    AND dish_id = p_dish_id\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.is_period_open",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "76",
+          "text": "select exists (\n\n    select 1\n    from public.financial_periods\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and p_date between start_date and end_date\n\n    and status = 'open'\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_enterprise_audit_summary",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_audit_summary\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_audit_summary (\n\n    tenant_id,\n    audit_date,\n    total_api_requests,\n    failed_api_requests,\n    total_security_events,\n    critical_security_events,\n    total_notifications,\n    unresolved_notifications,\n    total_backup_jobs,\n    failed_backup_jobs,\n    system_health_status\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n\n    current_date,\n\n    (\n      select count(*)\n      from public.api_access_logs\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.api_access_logs\n      where tenant_id = public.get_my_tenant_id()\n      and response_status \u003e= 400\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.security_events\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.security_events\n      where tenant_id = public.get_my_tenant_id()\n      and severity = 'critical'\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.enterprise_notifications\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.enterprise_notifications\n      where tenant_id = public.get_my_tenant_id()\n      and read = false\n    ),\n\n    (\n      select count(*)\n      from public.backup_jobs\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.backup_jobs\n      where tenant_id = public.get_my_tenant_id()\n      and backup_status = 'failed'\n      and created_at::date = current_date\n    ),\n\n    case\n\n      when exists (\n        select 1\n        from public.security_events\n        where tenant_id = public.get_my_tenant_id()\n        and severity = 'critical'\n        and created_at::date = current_date\n      )\n\n      then 'critical'\n\n      when exists (\n        select 1\n        from public.enterprise_health_checks\n        where tenant_id = public.get_my_tenant_id()\n        and status in ('warning', 'critical')\n        and checked_at::date = current_date\n      )\n\n      then 'warning'\n\n      else 'healthy'\n\n    end\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.close_financial_period",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "143",
+          "text": "update public.financial_periods\n  set\n    status = 'closed',\n    closed_by = auth.uid(),\n    closed_at = now()\n  where id = p_period_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_ai_business_insights",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_business_insights\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "48",
+          "text": "insert into public.ai_business_insights (\n\n    tenant_id,\n    insight_type,\n    category,\n    title,\n    description,\n    severity,\n    recommendation\n\n  )\n\n  select\n\n    i.tenant_id,\n\n    'inventory',\n\n    'stock',\n\n    'Low Inventory Risk',\n\n    'Ingredient \"' || i.name || '\" is below minimum stock level.',\n\n    'high',\n\n    'Restock ingredient immediately to avoid production disruption.'\n\n  from public.ingredients i\n\n  where i.tenant_id =\n    public.get_my_tenant_id()\n\n  and i.current_stock \u003c= i.minimum_stock"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.assign_customer_segments",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"customer_segment_memberships\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "56",
+          "text": "insert into public.customer_segment_memberships (\n\n    tenant_id,\n    customer_loyalty_account_id,\n    customer_segment_id,\n    assigned_at,\n    active,\n    metadata\n\n  )\n\n  select\n\n    cla.tenant_id,\n\n    cla.id,\n\n    cs.id,\n\n    now(),\n\n    true,\n\n    jsonb_build_object(\n\n      'assigned_by', 'automatic_segmentation_engine',\n      'customer_total_spent', cla.total_spent,\n      'customer_visit_count', cla.visit_count,\n      'customer_tier', cla.tier\n\n    )\n\n  from public.customer_loyalty_accounts cla\n\n  join public.customer_segments cs\n\n    on cs.tenant_id = cla.tenant_id\n\n  where cla.tenant_id =\n    public.get_my_tenant_id()\n\n  and cs.active = true\n\n  and cla.total_spent \u003e= cs.minimum_spend\n\n  and cla.visit_count \u003e= cs.minimum_visits\n\n  and (\n    cs.loyalty_tier is null\n    or cs.loyalty_tier = cla.tier\n  )\n\n  and not exists (\n\n    select 1\n    from public.customer_segment_memberships csm\n\n    where csm.tenant_id = cla.tenant_id\n    and csm.customer_loyalty_account_id = cla.id\n    and csm.customer_segment_id = cs.id\n    and csm.active = true\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.get_ai_agent_memory",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column aam.tenant_id does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "RETURN QUERY"
+        },
+        "query": {
+          "position": "192",
+          "text": "select\n\n    aam.id,\n    aam.memory_type,\n    aam.memory_key,\n    aam.memory_value,\n    aam.relevance_score,\n    aam.expires_at,\n    aam.updated_at\n\n  from public.ai_agent_memory aam\n\n  where aam.tenant_id =\n    public.get_my_tenant_id()\n\n  and aam.agent_name =\n    p_agent_name\n\n  and (\n    p_memory_type is null\n    or aam.memory_type = p_memory_type\n  )\n\n  and (\n    aam.expires_at is null\n    or aam.expires_at \u003e now()\n  )\n\n  order by\n\n    aam.relevance_score desc,\n    aam.updated_at desc\n\n  limit p_limit"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.execute_enterprise_workflow_steps",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "17",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "108",
+          "text": "select *\n                        from public.enterprise_workflow_runs\n  where id = p_workflow_run_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.publish_realtime_event",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"realtime_events\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.realtime_events (\n\n    tenant_id,\n    event_type,\n    event_category,\n    reference_table,\n    reference_id,\n    payload\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_event_type,\n    p_event_category,\n    p_reference_table,\n    p_reference_id,\n    p_payload\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.update_realtime_presence",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"realtime_presence\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "45",
+          "text": "insert into public.realtime_presence (\n\n    tenant_id,\n    user_id,\n    connection_id,\n    presence_channel,\n    status,\n    last_seen_at,\n    metadata\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    auth.uid(),\n    p_connection_id,\n    p_presence_channel,\n    p_status,\n    now(),\n    p_metadata\n\n  )\n\n  on conflict (\n    tenant_id,\n    user_id,\n    connection_id\n  )\n\n  do update set\n\n    status = excluded.status,\n    last_seen_at = now(),\n    metadata = excluded.metadata\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_ai_recommendations",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_recommendations\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "46",
+          "text": "insert into public.ai_recommendations (\n\n    tenant_id,\n    recommendation_type,\n    target_area,\n    recommendation,\n    expected_impact,\n    priority\n\n  )\n\n  select\n\n    i.tenant_id,\n\n    'inventory_optimization',\n\n    'inventory',\n\n    'Increase reorder quantity for \"' || i.name || '\" to avoid shortages.',\n\n    'Reduce stockout risk and improve kitchen continuity.',\n\n    'high'\n\n  from public.ingredients i\n\n  where i.tenant_id =\n    public.get_my_tenant_id()\n\n  and i.current_stock \u003c= i.minimum_stock"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.cleanup_stale_presence",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "70",
+          "text": "update public.realtime_presence\n  set\n    status = 'offline'\n  where tenant_id = public.get_my_tenant_id()\n  and status != 'offline'\n  and last_seen_at \u003c now() - interval '5 minutes'"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_pending_ai_agent_tasks",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "52",
+          "text": "select *\n    from public.ai_agent_tasks\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and task_status = 'pending'\n\n    and (\n      scheduled_at is null\n      or scheduled_at \u003c= now()\n    )\n\n    order by\n\n      case priority\n        when 'critical' then 1\n        when 'high' then 2\n        when 'medium' then 3\n        when 'low' then 4\n        else 5\n      end,\n\n      created_at asc"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.consume_inventory_fifo",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "59",
+          "text": "select *\n    from public.inventory_cost_layers\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and ingredient_id = p_ingredient_id\n\n    and quantity_remaining \u003e 0\n\n    order by received_at asc"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_executive_dashboard_snapshot",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"executive_dashboard_snapshots\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.executive_dashboard_snapshots (\n\n    tenant_id,\n    snapshot_date,\n    total_revenue,\n    total_orders,\n    average_order_value,\n    total_payroll_cost,\n    total_inventory_value,\n    low_stock_items,\n    negative_feedback_count,\n    kitchen_performance_score\n\n  )\n\n  select\n\n    public.get_my_tenant_id(),\n\n    current_date,\n\n    coalesce((\n      select sum(total_amount)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and status = 'paid'\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select count(*)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select avg(total_amount)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and status = 'paid'\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select sum(amount)\n      from public.payroll_payouts\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select sum(quantity_remaining * unit_cost)\n      from public.inventory_cost_layers\n      where tenant_id = public.get_my_tenant_id()\n    ), 0),\n\n    coalesce((\n      select count(*)\n      from public.ingredients\n      where tenant_id = public.get_my_tenant_id()\n      and current_stock \u003c= minimum_stock\n    ), 0),\n\n    coalesce((\n      select count(*)\n      from public.customer_feedback\n      where tenant_id = public.get_my_tenant_id()\n      and sentiment = 'negative'\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select avg(performance_score)\n      from public.kitchen_station_performance\n      where tenant_id = public.get_my_tenant_id()\n      and snapshot_date = current_date\n    ), 100)"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_cross_location_consolidation",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"cross_location_consolidations\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.cross_location_consolidations (\n\n    tenant_id,\n    consolidation_date,\n    total_revenue,\n    total_orders,\n    total_payroll_cost,\n    total_inventory_value,\n    total_locations,\n    average_order_value,\n    overall_performance_score,\n    metadata\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n\n    current_date,\n\n    (\n      select coalesce(sum(total_amount), 0)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and status = 'paid'\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select coalesce(sum(amount), 0)\n      from public.payroll_payouts\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select coalesce(\n        sum(quantity_remaining * unit_cost),\n        0\n      )\n      from public.inventory_cost_layers\n      where tenant_id = public.get_my_tenant_id()\n    ),\n\n    (\n      select count(*)\n      from public.warehouse_locations\n      where tenant_id = public.get_my_tenant_id()\n      and active = true\n    ),\n\n    (\n      select coalesce(avg(total_amount), 0)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and status = 'paid'\n      and created_at::date = current_date\n    ),\n\n    (\n      select coalesce(avg(performance_score), 100)\n      from public.kitchen_station_performance\n      where tenant_id = public.get_my_tenant_id()\n      and snapshot_date = current_date\n    ),\n\n    jsonb_build_object(\n\n      'generated_at', now(),\n      'source', 'enterprise_consolidation_engine'\n\n    )\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.cleanup_expired_ai_agent_memory",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "45",
+          "text": "delete from public.ai_agent_memory\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and expires_at is not null\n\n  and expires_at \u003c= now()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_scheduled_integrations",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "61",
+          "text": "select *\n    from public.enterprise_integrations\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and active = true\n\n    and (\n      next_sync_at is null\n      or next_sync_at \u003c= now()\n    )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_production_run",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "13",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "50",
+          "text": "select *\n    from public.recipe_items\n\n    where tenant_id = public.get_my_tenant_id()\n    and dish_id = p_dish_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_ai_forecasts",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "199",
+          "text": "select coalesce(avg(daily_total), 0)\n                              from (\n\n    select\n      created_at::date as order_date,\n      sum(total_amount) as daily_total\n\n    from public.orders\n\n    where tenant_id = public.get_my_tenant_id()\n    and status = 'paid'\n    and created_at \u003e= now() - interval '30 days'\n\n    group by created_at::date\n\n  ) revenue_data"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.execute_approval",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"approval_logs\" does not exist",
+        "statement": {
+          "lineNumber": "21",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "34",
+          "text": "INSERT INTO approval_logs (\n\n    tenant_id,\n\n    entity_type,\n    entity_id,\n\n    from_status,\n    to_status,\n\n    acted_by,\n    role,\n    notes,\n\n    created_at\n\n  )\n\n  VALUES (\n\n    p_tenant_id,\n\n    p_entity_type,\n    p_entity_id,\n\n    p_from_status,\n    p_to_status,\n\n    p_acted_by,\n    p_role,\n    p_notes,\n\n    NOW()\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.execute_approval",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"expenses\" does not exist",
+        "statement": {
+          "lineNumber": "69",
+          "text": "EXECUTE"
+        },
+        "query": {
+          "position": "8",
+          "text": "UPDATE expenses\n     SET status = $1,\n         updated_at = NOW()\n     WHERE id = $2"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_inventory_snapshot",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"inventory_valuation_snapshots\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.inventory_valuation_snapshots (\n\n    tenant_id,\n    snapshot_date,\n    ingredient_id,\n    quantity_on_hand,\n    inventory_value,\n    average_unit_cost\n\n  )\n\n  select\n\n    public.get_my_tenant_id(),\n\n    current_date,\n\n    icl.ingredient_id,\n\n    sum(icl.quantity_remaining),\n\n    sum(\n      icl.quantity_remaining * icl.unit_cost\n    ),\n\n    case\n      when sum(icl.quantity_remaining) \u003e 0\n      then\n        sum(\n          icl.quantity_remaining * icl.unit_cost\n        ) / sum(icl.quantity_remaining)\n      else 0\n    end\n\n  from public.inventory_cost_layers icl\n\n  where icl.tenant_id =\n    public.get_my_tenant_id()\n\n  group by icl.ingredient_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_enterprise_notification",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_notifications\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_notifications (\n\n    tenant_id,\n    notification_type,\n    category,\n    title,\n    message,\n    severity,\n    target_role,\n    target_user_id\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_notification_type,\n    p_category,\n    p_title,\n    p_message,\n    p_severity,\n    p_target_role,\n    p_target_user_id\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.cleanup_expired_rate_limit_logs",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "56",
+          "text": "delete from public.enterprise_rate_limit_logs\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and expires_at \u003c= now()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.check_inventory_alerts",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"inventory_alerts\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "44",
+          "text": "insert into public.inventory_alerts (\n\n    tenant_id,\n    ingredient_id,\n    alert_type,\n    current_quantity,\n    minimum_quantity,\n    message\n\n  )\n\n  select\n\n    i.tenant_id,\n\n    i.id,\n\n    'low_stock',\n\n    i.current_stock,\n\n    i.minimum_stock,\n\n    'Inventory below minimum threshold'\n\n  from public.ingredients i\n\n  where i.tenant_id =\n    public.get_my_tenant_id()\n\n  and i.current_stock \u003c= i.minimum_stock\n\n  and not exists (\n\n    select 1\n    from public.inventory_alerts ia\n\n    where ia.tenant_id = i.tenant_id\n    and ia.ingredient_id = i.id\n    and ia.alert_type = 'low_stock'\n    and ia.resolved = false\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.approve_enterprise_document",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "16",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "187",
+          "text": "update public.enterprise_documents\n  set\n    document_status = 'approved',\n    approved_by = auth.uid(),\n    approved_at = now(),\n    updated_at = now()\n  where id = p_document_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.revoke_enterprise_api_key",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "120",
+          "text": "update public.enterprise_api_keys\n  set\n\n    revoked = true,\n\n    revoked_at = now()\n\n  where id = p_api_key_id\n\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_warehouse_transfer",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "95",
+          "text": "select *\n                    from public.warehouse_transfers\n  where id = p_transfer_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_automated_notifications",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_notifications\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_notifications (\n\n    tenant_id,\n    notification_type,\n    category,\n    title,\n    message,\n    severity,\n    target_role\n\n  )\n\n  select\n\n    i.tenant_id,\n\n    'inventory_alert',\n\n    'inventory',\n\n    'Low Stock Warning',\n\n    'Ingredient \"' || i.name ||\n    '\" is below minimum stock level.',\n\n    'high',\n\n    'manager'\n\n  from public.ingredients i\n\n  where i.tenant_id =\n    public.get_my_tenant_id()\n\n  and i.current_stock \u003c= i.minimum_stock"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_ingredient_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "75",
+          "text": "update ingredients\n  set quantity = greatest(quantity - p_qty, 0)\n  where tenant_id = p_tenant_id\n    and id = p_ingredient_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"ingredient_id\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "55",
+          "text": "update inventory\n  set stock = stock - amount\n  where ingredient_id = ing_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.log_api_access",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"api_access_logs\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.api_access_logs (\n\n    tenant_id,\n    user_id,\n    endpoint,\n    request_method,\n    response_status,\n    ip_address,\n    user_agent,\n    request_duration_ms\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    auth.uid(),\n    p_endpoint,\n    p_request_method,\n    p_response_status,\n    p_ip_address,\n    p_user_agent,\n    p_request_duration_ms\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.register_websocket_session",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"websocket_sessions\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "46",
+          "text": "insert into public.websocket_sessions (\n\n    tenant_id,\n    user_id,\n    connection_id,\n    channel_name,\n    subscribed_events,\n    metadata\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    auth.uid(),\n    p_connection_id,\n    p_channel_name,\n    p_subscribed_events,\n    p_metadata\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.trigger_event_workflows",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "58",
+          "text": "select *\n    from public.enterprise_workflows\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and active = true\n\n    and workflow_status = 'active'\n\n    and trigger_event = p_event_name"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.launch_marketing_campaign",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "95",
+          "text": "select *\n                    from public.marketing_campaigns\n  where id = p_campaign_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_marketing_campaign_analytics",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"marketing_campaign_analytics\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "56",
+          "text": "insert into public.marketing_campaign_analytics (\n\n    tenant_id,\n    marketing_campaign_id,\n    analytics_date,\n    impressions,\n    opens,\n    clicks,\n    conversions,\n    revenue_generated,\n    conversion_rate,\n    roi_percent,\n    engagement_score,\n    metadata\n\n  )\n\n  select\n\n    mc.tenant_id,\n\n    mc.id,\n\n    current_date,\n\n    coalesce(mcd.delivered_count, 0),\n\n    coalesce(mcd.opened_count, 0),\n\n    coalesce(mcd.clicked_count, 0),\n\n    coalesce(mcd.conversion_count, 0),\n\n    coalesce(mcd.revenue_generated, 0),\n\n    case\n      when coalesce(mcd.delivered_count, 0) \u003e 0\n      then (\n        coalesce(mcd.conversion_count, 0)::numeric /\n        mcd.delivered_count::numeric\n      ) * 100\n      else 0\n    end,\n\n    case\n      when mc.budget \u003e 0\n      then (\n        (\n          coalesce(mcd.revenue_generated, 0) -\n          mc.budget\n        ) / mc.budget\n      ) * 100\n      else 0\n    end,\n\n    (\n      (\n        coalesce(mcd.opened_count, 0) * 0.3\n      ) +\n      (\n        coalesce(mcd.clicked_count, 0) * 0.4\n      ) +\n      (\n        coalesce(mcd.conversion_count, 0) * 0.3\n      )\n    ),\n\n    jsonb_build_object(\n\n      'campaign_name', mc.campaign_name,\n      'campaign_type', mc.campaign_type,\n      'generated_at', now()\n\n    )\n\n  from public.marketing_campaigns mc\n\n  left join public.marketing_campaign_deliveries mcd\n    on mcd.marketing_campaign_id = mc.id\n\n  where mc.tenant_id =\n    public.get_my_tenant_id()\n\n  and mc.campaign_status = 'launched'"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_ai_campaign_recommendations",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_campaign_recommendations\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "55",
+          "text": "insert into public.ai_campaign_recommendations (\n\n    tenant_id,\n    recommendation_type,\n    target_segment_id,\n    recommended_campaign_type,\n    recommended_channel,\n    recommendation_reason,\n    predicted_engagement_score,\n    predicted_conversion_rate,\n    predicted_revenue,\n    metadata\n\n  )\n\n  select\n\n    cs.tenant_id,\n\n    'customer_retention',\n\n    cs.id,\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 'exclusive_offer'\n\n      when cs.segment_type = 'inactive'\n      then 'reactivation_campaign'\n\n      else 'promotional_campaign'\n\n    end,\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 'personalized_sms'\n\n      when cs.segment_type = 'inactive'\n      then 'email'\n\n      else 'social_media'\n\n    end,\n\n    'AI-generated campaign recommendation based on customer segment behavior and loyalty metrics.',\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 92\n\n      when cs.segment_type = 'inactive'\n      then 68\n\n      else 80\n\n    end,\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 35\n\n      when cs.segment_type = 'inactive'\n      then 12\n\n      else 20\n\n    end,\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 150000\n\n      when cs.segment_type = 'inactive'\n      then 30000\n\n      else 75000\n\n    end,\n\n    jsonb_build_object(\n\n      'generated_at', now(),\n      'source', 'ai_campaign_engine',\n      'segment_name', cs.segment_name\n\n    )\n\n  from public.customer_segments cs\n\n  where cs.tenant_id =\n    public.get_my_tenant_id()\n\n  and cs.active = true"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_ai_agent_task",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_agent_tasks\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "42",
+          "text": "insert into public.ai_agent_tasks (\n\n    tenant_id,\n    task_type,\n    task_category,\n    priority,\n    assigned_agent,\n    reference_table,\n    reference_id,\n    task_payload,\n    scheduled_at,\n    created_by\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_task_type,\n    p_task_category,\n    p_priority,\n    p_assigned_agent,\n    p_reference_table,\n    p_reference_id,\n    p_task_payload,\n    p_scheduled_at,\n    auth.uid()\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_ai_agent_task",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "82",
+          "text": "select *\n                from public.ai_agent_tasks\n  where id = p_task_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.upsert_ai_agent_memory",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_agent_memory\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.ai_agent_memory (\n\n    tenant_id,\n    agent_name,\n    memory_type,\n    memory_key,\n    memory_value,\n    relevance_score,\n    expires_at,\n    updated_at\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_agent_name,\n    p_memory_type,\n    p_memory_key,\n    p_memory_value,\n    p_relevance_score,\n    p_expires_at,\n    now()\n\n  )\n\n  on conflict (\n\n    tenant_id,\n    agent_name,\n    memory_type,\n    memory_key\n\n  )\n\n  do update set\n\n    memory_value = excluded.memory_value,\n    relevance_score = excluded.relevance_score,\n    expires_at = excluded.expires_at,\n    updated_at = now()\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_enterprise_document",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_documents\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "48",
+          "text": "insert into public.enterprise_documents (\n\n    tenant_id,\n    document_type,\n    document_name,\n    reference_table,\n    reference_id,\n    storage_path,\n    file_size_bytes,\n    mime_type,\n    generated_by,\n    metadata,\n    created_by\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_document_type,\n    p_document_name,\n    p_reference_table,\n    p_reference_id,\n    p_storage_path,\n    p_file_size_bytes,\n    p_mime_type,\n    p_generated_by,\n    p_metadata,\n    auth.uid()\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_enterprise_document_version",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "13",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "96",
+          "text": "select *\n                    from public.enterprise_documents\n  where id = p_document_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.log_enterprise_document_access",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_document_access_logs\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "59",
+          "text": "insert into public.enterprise_document_access_logs (\n\n    tenant_id,\n    enterprise_document_id,\n    accessed_by,\n    access_type,\n    ip_address,\n    user_agent,\n    metadata\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_document_id,\n    auth.uid(),\n    p_access_type,\n    p_ip_address,\n    p_user_agent,\n    p_metadata\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.run_system_job",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "89",
+          "text": "update public.system_jobs\n  set\n    status = 'running',\n    last_run_at = now()\n  where tenant_id = public.get_my_tenant_id()\n  and job_name = p_job_name"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.execute_enterprise_workflow",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "17",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "96",
+          "text": "select *\n                    from public.enterprise_workflows\n  where id = p_workflow_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.sync_enterprise_integration",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "105",
+          "text": "select *\n                       from public.enterprise_integrations\n  where id = p_integration_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.register_enterprise_api_key",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_api_keys\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "47",
+          "text": "insert into public.enterprise_api_keys (\n\n    tenant_id,\n    key_name,\n    api_provider,\n    api_key_hash,\n    key_prefix,\n    permissions,\n    expires_at,\n    created_by\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_key_name,\n    p_api_provider,\n    p_api_key_hash,\n    p_key_prefix,\n    p_permissions,\n    p_expires_at,\n    auth.uid()\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_pending_webhook_deliveries",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "67",
+          "text": "select *\n    from public.enterprise_webhook_deliveries\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and delivery_status in ('pending', 'retrying')\n\n    and (\n      next_retry_at is null\n      or next_retry_at \u003c= now()\n    )\n\n    order by created_at asc"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.queue_notification_from_template",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "109",
+          "text": "select *\n                    from public.enterprise_notification_templates\n  where id = p_template_id\n  and tenant_id = public.get_my_tenant_id()\n  and active = true"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_notification_queue",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "67",
+          "text": "select *\n    from public.enterprise_notification_queue\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and delivery_status in ('pending', 'retrying')\n\n    and scheduled_at \u003c= now()\n\n    order by scheduled_at asc"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_enterprise_audit_event",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "71",
+          "text": "select *\n                 from public.enterprise_audit_rules\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and active = true\n\n  and monitored_table = p_event_table\n\n  and monitored_action = p_event_action\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_security_incident",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_security_incidents\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.enterprise_security_incidents (\n\n    tenant_id,\n    incident_type,\n    incident_category,\n    severity,\n    source_system,\n    reference_table,\n    reference_id,\n    detected_by,\n    incident_summary,\n    incident_details\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_incident_type,\n    p_incident_category,\n    p_severity,\n    p_source_system,\n    p_reference_table,\n    p_reference_id,\n    'system',\n    p_incident_summary,\n    p_incident_details\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_system_health_snapshot",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "72",
+          "text": "select count(*)\n                       from public.system_jobs\n  where tenant_id = public.get_my_tenant_id()\n  and status = 'failed'"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.detect_suspicious_api_key_activity",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "57",
+          "text": "select *\n    from public.enterprise_api_keys\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and revoked = false\n\n    and expires_at is not null\n\n    and expires_at \u003c= now()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.is_feature_enabled",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "76",
+          "text": "select *\n                    from public.enterprise_feature_flags\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and feature_key = p_feature_key\n\n  and environment = p_environment\n\n  and enabled = true\n\n  and (\n    starts_at is null\n    or starts_at \u003c= now()\n  )\n\n  and (\n    ends_at is null\n    or ends_at \u003e= now()\n  )\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.set_feature_flag",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_feature_flags\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_feature_flags (\n\n    tenant_id,\n    feature_key,\n    feature_name,\n    feature_category,\n    enabled,\n    rollout_percentage,\n    feature_config,\n    environment,\n    starts_at,\n    ends_at,\n    created_by,\n    updated_at\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_feature_key,\n    p_feature_name,\n    p_feature_category,\n    p_enabled,\n    p_rollout_percentage,\n    p_feature_config,\n    p_environment,\n    p_starts_at,\n    p_ends_at,\n    auth.uid(),\n    now()\n\n  )\n\n  on conflict (\n\n    tenant_id,\n    feature_key,\n    environment\n\n  )\n\n  do update set\n\n    feature_name = excluded.feature_name,\n    feature_category = excluded.feature_category,\n    enabled = excluded.enabled,\n    rollout_percentage = excluded.rollout_percentage,\n    feature_config = excluded.feature_config,\n    starts_at = excluded.starts_at,\n    ends_at = excluded.ends_at,\n    updated_at = now()\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.check_rate_limit",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "17",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "72",
+          "text": "select *\n                  from public.enterprise_rate_limits\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and limit_key = p_limit_key\n\n  and active = true\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.publish_realtime_event",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"realtime_events\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.realtime_events (\n\n    tenant_id,\n    event_type,\n    event_category,\n    reference_table,\n    reference_id,\n    payload\n\n  )\n\n  values (\n\n    p_tenant_id,\n    p_event_type,\n    p_event_category,\n    p_reference_table,\n    p_reference_id,\n    p_payload\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  }
+]
+[31mfail-on is set to error, non-zero exit[39m
+Try rerunning the command with --debug to troubleshoot the error.
+
+================ POST LINT ================
+Initialising login role...
+Connecting to remote database...
+Linting schema: public
+[
+  {
+    "function": "public.disconnect_websocket_session",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "96",
+          "text": "update public.websocket_sessions\n  set\n    active = false,\n    disconnected_at = now()\n  where tenant_id = public.get_my_tenant_id()\n  and connection_id = p_connection_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_dish_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "61",
+          "text": "update dish_stock\n  set quantity = quantity - p_qty\n  where tenant_id = p_tenant_id\n  and dish_id = p_dish_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_ingredient_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"ingredient_stock\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "8",
+          "text": "UPDATE ingredient_stock\n  SET quantity = quantity - p_quantity\n  WHERE ingredient_id = p_item_id\n  AND tenant_id = p_tenant_id"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_dish_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "92",
+          "text": "UPDATE dish_stock\n  SET quantity = quantity - p_quantity\n  WHERE dish_id = p_item_id\n  AND tenant_id = p_tenant_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.log_security_event",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"security_events\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.security_events (\n\n    tenant_id,\n    event_type,\n    severity,\n    user_id,\n    ip_address,\n    event_details\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_event_type,\n    p_severity,\n    auth.uid(),\n    p_ip_address,\n    p_event_details\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.request_approval",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "113",
+          "text": "select id\n                        from public.approval_workflows\n\n  where workflow_type = p_workflow_type\n  and tenant_id = public.get_my_tenant_id()\n  and active = true\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.calculate_kitchen_station_performance",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"public.kitchen_station_performance\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "13",
+          "text": "insert into public.kitchen_station_performance (\n\n    tenant_id,\n    kitchen_station_id,\n    staff_id,\n    total_orders,\n    completed_orders,\n    average_completion_minutes,\n    delayed_orders,\n    performance_score,\n    snapshot_date\n\n  )\n\n  select\n\n    kso.tenant_id,\n\n    kso.kitchen_station_id,\n\n    kso.assigned_to,\n\n    count(*) as total_orders,\n\n    count(*) filter (\n      where kso.status = 'completed'\n    ) as completed_orders,\n\n    coalesce(\n\n      avg(\n\n        extract(\n          epoch from (\n            kso.completed_at - kso.started_at\n          )\n        ) / 60\n\n      ),\n\n      0\n\n    ) as average_completion_minutes,\n\n    count(*) filter (\n\n      where\n        kso.completed_at is not null\n        and kso.started_at is not null\n        and (\n          extract(\n            epoch from (\n              kso.completed_at - kso.started_at\n            )\n          ) / 60\n        ) \u003e 30\n\n    ) as delayed_orders,\n\n    greatest(\n\n      0,\n\n      100 -\n\n      (\n        count(*) filter (\n\n          where\n            kso.completed_at is not null\n            and kso.started_at is not null\n            and (\n              extract(\n                epoch from (\n                  kso.completed_at - kso.started_at\n                )\n              ) / 60\n            ) \u003e 30\n\n        ) * 5\n      )\n\n    ) as performance_score,\n\n    current_date\n\n  from public.kitchen_station_orders kso\n\n  where kso.tenant_id =\n    public.get_my_tenant_id()\n\n  and kso.created_at::date =\n    current_date\n\n  group by\n\n    kso.tenant_id,\n    kso.kitchen_station_id,\n    kso.assigned_to"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.create_backup_job",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"backup_jobs\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "39",
+          "text": "insert into public.backup_jobs (\n\n    tenant_id,\n    backup_type,\n    backup_scope,\n    backup_status,\n    storage_location,\n    started_at,\n    initiated_by\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_backup_type,\n    p_backup_scope,\n    'running',\n    p_storage_location,\n    now(),\n    auth.uid()\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.mark_websocket_event_delivered",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "91",
+          "text": "select *\n                 from public.websocket_event_queue\n  where id = p_queue_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.apply_dynamic_pricing",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "70",
+          "text": "select *\n                 from public.dynamic_pricing_rules\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and active = true\n\n  and (\n    target_category is null\n    or target_category = p_target_category\n  )\n\n  and (\n    starts_at is null\n    or starts_at \u003c= now()\n  )\n\n  and (\n    ends_at is null\n    or ends_at \u003e= now()\n  )\n\n  order by created_at desc\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_approval",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "91",
+          "text": "select *\n                   from public.approval_requests\n  where id = p_request_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.run_enterprise_health_checks",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_health_checks\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_health_checks (\n\n    tenant_id,\n    check_name,\n    check_category,\n    status,\n    message,\n    metadata\n\n  )\n\n  select\n\n    public.get_my_tenant_id(),\n\n    'inventory_low_stock_check',\n\n    'inventory',\n\n    case\n      when count(*) \u003e 0\n      then 'warning'\n      else 'healthy'\n    end,\n\n    case\n      when count(*) \u003e 0\n      then 'Low stock items detected'\n      else 'Inventory healthy'\n    end,\n\n    jsonb_build_object(\n      'low_stock_count',\n      count(*)\n    )\n\n  from public.ingredients\n\n  where tenant_id =\n    public.get_my_tenant_id()\n\n  and current_stock \u003c= minimum_stock"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.retry_failed_websocket_events",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "146",
+          "text": "update public.websocket_event_queue\n  set\n    retry_count = retry_count + 1,\n    last_retry_at = now(),\n    delivery_status = 'retrying'\n  where tenant_id = public.get_my_tenant_id()\n  and delivery_status in ('failed', 'retrying')\n  and retry_count \u003c 5"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_labor_shift_forecasts",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "298",
+          "text": "select\n    coalesce(avg(daily_orders), 0),\n    coalesce(avg(daily_revenue), 0)\n\n                                              from (\n\n    select\n\n      created_at::date as business_date,\n\n      count(*) as daily_orders,\n\n      sum(total_amount) as daily_revenue\n\n    from public.orders\n\n    where tenant_id = public.get_my_tenant_id()\n    and status = 'paid'\n    and created_at \u003e= now() - interval '30 days'\n\n    group by created_at::date\n\n  ) forecast_data"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.mark_announcement_as_read",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_announcement_reads\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.enterprise_announcement_reads (\n\n    tenant_id,\n    announcement_id,\n    user_id\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_announcement_id,\n    auth.uid()\n\n  )\n\n  on conflict (\n\n    tenant_id,\n    announcement_id,\n    user_id\n\n  )\n\n  do update set\n\n    read_at = now()\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.run_production_atomic",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "8",
+          "text": "IF"
+        },
+        "query": {
+          "position": "55",
+          "text": "NOT EXISTS (\n    SELECT 1 FROM recipe_items\n    WHERE tenant_id = p_tenant_id\n    AND dish_id = p_dish_id\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.is_period_open",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "76",
+          "text": "select exists (\n\n    select 1\n    from public.financial_periods\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and p_date between start_date and end_date\n\n    and status = 'open'\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_enterprise_audit_summary",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_audit_summary\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_audit_summary (\n\n    tenant_id,\n    audit_date,\n    total_api_requests,\n    failed_api_requests,\n    total_security_events,\n    critical_security_events,\n    total_notifications,\n    unresolved_notifications,\n    total_backup_jobs,\n    failed_backup_jobs,\n    system_health_status\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n\n    current_date,\n\n    (\n      select count(*)\n      from public.api_access_logs\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.api_access_logs\n      where tenant_id = public.get_my_tenant_id()\n      and response_status \u003e= 400\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.security_events\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.security_events\n      where tenant_id = public.get_my_tenant_id()\n      and severity = 'critical'\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.enterprise_notifications\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.enterprise_notifications\n      where tenant_id = public.get_my_tenant_id()\n      and read = false\n    ),\n\n    (\n      select count(*)\n      from public.backup_jobs\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.backup_jobs\n      where tenant_id = public.get_my_tenant_id()\n      and backup_status = 'failed'\n      and created_at::date = current_date\n    ),\n\n    case\n\n      when exists (\n        select 1\n        from public.security_events\n        where tenant_id = public.get_my_tenant_id()\n        and severity = 'critical'\n        and created_at::date = current_date\n      )\n\n      then 'critical'\n\n      when exists (\n        select 1\n        from public.enterprise_health_checks\n        where tenant_id = public.get_my_tenant_id()\n        and status in ('warning', 'critical')\n        and checked_at::date = current_date\n      )\n\n      then 'warning'\n\n      else 'healthy'\n\n    end\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.close_financial_period",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "143",
+          "text": "update public.financial_periods\n  set\n    status = 'closed',\n    closed_by = auth.uid(),\n    closed_at = now()\n  where id = p_period_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_ai_business_insights",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_business_insights\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "48",
+          "text": "insert into public.ai_business_insights (\n\n    tenant_id,\n    insight_type,\n    category,\n    title,\n    description,\n    severity,\n    recommendation\n\n  )\n\n  select\n\n    i.tenant_id,\n\n    'inventory',\n\n    'stock',\n\n    'Low Inventory Risk',\n\n    'Ingredient \"' || i.name || '\" is below minimum stock level.',\n\n    'high',\n\n    'Restock ingredient immediately to avoid production disruption.'\n\n  from public.ingredients i\n\n  where i.tenant_id =\n    public.get_my_tenant_id()\n\n  and i.current_stock \u003c= i.minimum_stock"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.assign_customer_segments",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"customer_segment_memberships\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "56",
+          "text": "insert into public.customer_segment_memberships (\n\n    tenant_id,\n    customer_loyalty_account_id,\n    customer_segment_id,\n    assigned_at,\n    active,\n    metadata\n\n  )\n\n  select\n\n    cla.tenant_id,\n\n    cla.id,\n\n    cs.id,\n\n    now(),\n\n    true,\n\n    jsonb_build_object(\n\n      'assigned_by', 'automatic_segmentation_engine',\n      'customer_total_spent', cla.total_spent,\n      'customer_visit_count', cla.visit_count,\n      'customer_tier', cla.tier\n\n    )\n\n  from public.customer_loyalty_accounts cla\n\n  join public.customer_segments cs\n\n    on cs.tenant_id = cla.tenant_id\n\n  where cla.tenant_id =\n    public.get_my_tenant_id()\n\n  and cs.active = true\n\n  and cla.total_spent \u003e= cs.minimum_spend\n\n  and cla.visit_count \u003e= cs.minimum_visits\n\n  and (\n    cs.loyalty_tier is null\n    or cs.loyalty_tier = cla.tier\n  )\n\n  and not exists (\n\n    select 1\n    from public.customer_segment_memberships csm\n\n    where csm.tenant_id = cla.tenant_id\n    and csm.customer_loyalty_account_id = cla.id\n    and csm.customer_segment_id = cs.id\n    and csm.active = true\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.get_ai_agent_memory",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column aam.tenant_id does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "RETURN QUERY"
+        },
+        "query": {
+          "position": "192",
+          "text": "select\n\n    aam.id,\n    aam.memory_type,\n    aam.memory_key,\n    aam.memory_value,\n    aam.relevance_score,\n    aam.expires_at,\n    aam.updated_at\n\n  from public.ai_agent_memory aam\n\n  where aam.tenant_id =\n    public.get_my_tenant_id()\n\n  and aam.agent_name =\n    p_agent_name\n\n  and (\n    p_memory_type is null\n    or aam.memory_type = p_memory_type\n  )\n\n  and (\n    aam.expires_at is null\n    or aam.expires_at \u003e now()\n  )\n\n  order by\n\n    aam.relevance_score desc,\n    aam.updated_at desc\n\n  limit p_limit"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.execute_enterprise_workflow_steps",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "17",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "108",
+          "text": "select *\n                        from public.enterprise_workflow_runs\n  where id = p_workflow_run_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.publish_realtime_event",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"realtime_events\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.realtime_events (\n\n    tenant_id,\n    event_type,\n    event_category,\n    reference_table,\n    reference_id,\n    payload\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_event_type,\n    p_event_category,\n    p_reference_table,\n    p_reference_id,\n    p_payload\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.update_realtime_presence",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"realtime_presence\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "45",
+          "text": "insert into public.realtime_presence (\n\n    tenant_id,\n    user_id,\n    connection_id,\n    presence_channel,\n    status,\n    last_seen_at,\n    metadata\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    auth.uid(),\n    p_connection_id,\n    p_presence_channel,\n    p_status,\n    now(),\n    p_metadata\n\n  )\n\n  on conflict (\n    tenant_id,\n    user_id,\n    connection_id\n  )\n\n  do update set\n\n    status = excluded.status,\n    last_seen_at = now(),\n    metadata = excluded.metadata\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_ai_recommendations",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_recommendations\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "46",
+          "text": "insert into public.ai_recommendations (\n\n    tenant_id,\n    recommendation_type,\n    target_area,\n    recommendation,\n    expected_impact,\n    priority\n\n  )\n\n  select\n\n    i.tenant_id,\n\n    'inventory_optimization',\n\n    'inventory',\n\n    'Increase reorder quantity for \"' || i.name || '\" to avoid shortages.',\n\n    'Reduce stockout risk and improve kitchen continuity.',\n\n    'high'\n\n  from public.ingredients i\n\n  where i.tenant_id =\n    public.get_my_tenant_id()\n\n  and i.current_stock \u003c= i.minimum_stock"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.cleanup_stale_presence",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "70",
+          "text": "update public.realtime_presence\n  set\n    status = 'offline'\n  where tenant_id = public.get_my_tenant_id()\n  and status != 'offline'\n  and last_seen_at \u003c now() - interval '5 minutes'"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_pending_ai_agent_tasks",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "52",
+          "text": "select *\n    from public.ai_agent_tasks\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and task_status = 'pending'\n\n    and (\n      scheduled_at is null\n      or scheduled_at \u003c= now()\n    )\n\n    order by\n\n      case priority\n        when 'critical' then 1\n        when 'high' then 2\n        when 'medium' then 3\n        when 'low' then 4\n        else 5\n      end,\n\n      created_at asc"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.consume_inventory_fifo",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "59",
+          "text": "select *\n    from public.inventory_cost_layers\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and ingredient_id = p_ingredient_id\n\n    and quantity_remaining \u003e 0\n\n    order by received_at asc"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_executive_dashboard_snapshot",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"executive_dashboard_snapshots\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.executive_dashboard_snapshots (\n\n    tenant_id,\n    snapshot_date,\n    total_revenue,\n    total_orders,\n    average_order_value,\n    total_payroll_cost,\n    total_inventory_value,\n    low_stock_items,\n    negative_feedback_count,\n    kitchen_performance_score\n\n  )\n\n  select\n\n    public.get_my_tenant_id(),\n\n    current_date,\n\n    coalesce((\n      select sum(total_amount)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and status = 'paid'\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select count(*)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select avg(total_amount)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and status = 'paid'\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select sum(amount)\n      from public.payroll_payouts\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select sum(quantity_remaining * unit_cost)\n      from public.inventory_cost_layers\n      where tenant_id = public.get_my_tenant_id()\n    ), 0),\n\n    coalesce((\n      select count(*)\n      from public.ingredients\n      where tenant_id = public.get_my_tenant_id()\n      and current_stock \u003c= minimum_stock\n    ), 0),\n\n    coalesce((\n      select count(*)\n      from public.customer_feedback\n      where tenant_id = public.get_my_tenant_id()\n      and sentiment = 'negative'\n      and created_at::date = current_date\n    ), 0),\n\n    coalesce((\n      select avg(performance_score)\n      from public.kitchen_station_performance\n      where tenant_id = public.get_my_tenant_id()\n      and snapshot_date = current_date\n    ), 100)"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_cross_location_consolidation",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"cross_location_consolidations\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.cross_location_consolidations (\n\n    tenant_id,\n    consolidation_date,\n    total_revenue,\n    total_orders,\n    total_payroll_cost,\n    total_inventory_value,\n    total_locations,\n    average_order_value,\n    overall_performance_score,\n    metadata\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n\n    current_date,\n\n    (\n      select coalesce(sum(total_amount), 0)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and status = 'paid'\n      and created_at::date = current_date\n    ),\n\n    (\n      select count(*)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select coalesce(sum(amount), 0)\n      from public.payroll_payouts\n      where tenant_id = public.get_my_tenant_id()\n      and created_at::date = current_date\n    ),\n\n    (\n      select coalesce(\n        sum(quantity_remaining * unit_cost),\n        0\n      )\n      from public.inventory_cost_layers\n      where tenant_id = public.get_my_tenant_id()\n    ),\n\n    (\n      select count(*)\n      from public.warehouse_locations\n      where tenant_id = public.get_my_tenant_id()\n      and active = true\n    ),\n\n    (\n      select coalesce(avg(total_amount), 0)\n      from public.orders\n      where tenant_id = public.get_my_tenant_id()\n      and status = 'paid'\n      and created_at::date = current_date\n    ),\n\n    (\n      select coalesce(avg(performance_score), 100)\n      from public.kitchen_station_performance\n      where tenant_id = public.get_my_tenant_id()\n      and snapshot_date = current_date\n    ),\n\n    jsonb_build_object(\n\n      'generated_at', now(),\n      'source', 'enterprise_consolidation_engine'\n\n    )\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.cleanup_expired_ai_agent_memory",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "45",
+          "text": "delete from public.ai_agent_memory\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and expires_at is not null\n\n  and expires_at \u003c= now()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_scheduled_integrations",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "61",
+          "text": "select *\n    from public.enterprise_integrations\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and active = true\n\n    and (\n      next_sync_at is null\n      or next_sync_at \u003c= now()\n    )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_production_run",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "13",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "50",
+          "text": "select *\n    from public.recipe_items\n\n    where tenant_id = public.get_my_tenant_id()\n    and dish_id = p_dish_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_ai_forecasts",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "199",
+          "text": "select coalesce(avg(daily_total), 0)\n                              from (\n\n    select\n      created_at::date as order_date,\n      sum(total_amount) as daily_total\n\n    from public.orders\n\n    where tenant_id = public.get_my_tenant_id()\n    and status = 'paid'\n    and created_at \u003e= now() - interval '30 days'\n\n    group by created_at::date\n\n  ) revenue_data"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.execute_approval",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"approval_logs\" does not exist",
+        "statement": {
+          "lineNumber": "21",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "34",
+          "text": "INSERT INTO approval_logs (\n\n    tenant_id,\n\n    entity_type,\n    entity_id,\n\n    from_status,\n    to_status,\n\n    acted_by,\n    role,\n    notes,\n\n    created_at\n\n  )\n\n  VALUES (\n\n    p_tenant_id,\n\n    p_entity_type,\n    p_entity_id,\n\n    p_from_status,\n    p_to_status,\n\n    p_acted_by,\n    p_role,\n    p_notes,\n\n    NOW()\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.execute_approval",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"expenses\" does not exist",
+        "statement": {
+          "lineNumber": "69",
+          "text": "EXECUTE"
+        },
+        "query": {
+          "position": "8",
+          "text": "UPDATE expenses\n     SET status = $1,\n         updated_at = NOW()\n     WHERE id = $2"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_inventory_snapshot",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"inventory_valuation_snapshots\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.inventory_valuation_snapshots (\n\n    tenant_id,\n    snapshot_date,\n    ingredient_id,\n    quantity_on_hand,\n    inventory_value,\n    average_unit_cost\n\n  )\n\n  select\n\n    public.get_my_tenant_id(),\n\n    current_date,\n\n    icl.ingredient_id,\n\n    sum(icl.quantity_remaining),\n\n    sum(\n      icl.quantity_remaining * icl.unit_cost\n    ),\n\n    case\n      when sum(icl.quantity_remaining) \u003e 0\n      then\n        sum(\n          icl.quantity_remaining * icl.unit_cost\n        ) / sum(icl.quantity_remaining)\n      else 0\n    end\n\n  from public.inventory_cost_layers icl\n\n  where icl.tenant_id =\n    public.get_my_tenant_id()\n\n  group by icl.ingredient_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_enterprise_notification",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_notifications\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_notifications (\n\n    tenant_id,\n    notification_type,\n    category,\n    title,\n    message,\n    severity,\n    target_role,\n    target_user_id\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_notification_type,\n    p_category,\n    p_title,\n    p_message,\n    p_severity,\n    p_target_role,\n    p_target_user_id\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.cleanup_expired_rate_limit_logs",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "56",
+          "text": "delete from public.enterprise_rate_limit_logs\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and expires_at \u003c= now()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.check_inventory_alerts",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"inventory_alerts\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "44",
+          "text": "insert into public.inventory_alerts (\n\n    tenant_id,\n    ingredient_id,\n    alert_type,\n    current_quantity,\n    minimum_quantity,\n    message\n\n  )\n\n  select\n\n    i.tenant_id,\n\n    i.id,\n\n    'low_stock',\n\n    i.current_stock,\n\n    i.minimum_stock,\n\n    'Inventory below minimum threshold'\n\n  from public.ingredients i\n\n  where i.tenant_id =\n    public.get_my_tenant_id()\n\n  and i.current_stock \u003c= i.minimum_stock\n\n  and not exists (\n\n    select 1\n    from public.inventory_alerts ia\n\n    where ia.tenant_id = i.tenant_id\n    and ia.ingredient_id = i.id\n    and ia.alert_type = 'low_stock'\n    and ia.resolved = false\n\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.approve_enterprise_document",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "16",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "187",
+          "text": "update public.enterprise_documents\n  set\n    document_status = 'approved',\n    approved_by = auth.uid(),\n    approved_at = now(),\n    updated_at = now()\n  where id = p_document_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.revoke_enterprise_api_key",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "120",
+          "text": "update public.enterprise_api_keys\n  set\n\n    revoked = true,\n\n    revoked_at = now()\n\n  where id = p_api_key_id\n\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_warehouse_transfer",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "95",
+          "text": "select *\n                    from public.warehouse_transfers\n  where id = p_transfer_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_automated_notifications",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_notifications\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_notifications (\n\n    tenant_id,\n    notification_type,\n    category,\n    title,\n    message,\n    severity,\n    target_role\n\n  )\n\n  select\n\n    i.tenant_id,\n\n    'inventory_alert',\n\n    'inventory',\n\n    'Low Stock Warning',\n\n    'Ingredient \"' || i.name ||\n    '\" is below minimum stock level.',\n\n    'high',\n\n    'manager'\n\n  from public.ingredients i\n\n  where i.tenant_id =\n    public.get_my_tenant_id()\n\n  and i.current_stock \u003c= i.minimum_stock"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_ingredient_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "75",
+          "text": "update ingredients\n  set quantity = greatest(quantity - p_qty, 0)\n  where tenant_id = p_tenant_id\n    and id = p_ingredient_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.decrement_stock",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"ingredient_id\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "55",
+          "text": "update inventory\n  set stock = stock - amount\n  where ingredient_id = ing_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.log_api_access",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"api_access_logs\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.api_access_logs (\n\n    tenant_id,\n    user_id,\n    endpoint,\n    request_method,\n    response_status,\n    ip_address,\n    user_agent,\n    request_duration_ms\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    auth.uid(),\n    p_endpoint,\n    p_request_method,\n    p_response_status,\n    p_ip_address,\n    p_user_agent,\n    p_request_duration_ms\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.register_websocket_session",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"websocket_sessions\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "46",
+          "text": "insert into public.websocket_sessions (\n\n    tenant_id,\n    user_id,\n    connection_id,\n    channel_name,\n    subscribed_events,\n    metadata\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    auth.uid(),\n    p_connection_id,\n    p_channel_name,\n    p_subscribed_events,\n    p_metadata\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.trigger_event_workflows",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "58",
+          "text": "select *\n    from public.enterprise_workflows\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and active = true\n\n    and workflow_status = 'active'\n\n    and trigger_event = p_event_name"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.launch_marketing_campaign",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "95",
+          "text": "select *\n                    from public.marketing_campaigns\n  where id = p_campaign_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_marketing_campaign_analytics",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"marketing_campaign_analytics\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "56",
+          "text": "insert into public.marketing_campaign_analytics (\n\n    tenant_id,\n    marketing_campaign_id,\n    analytics_date,\n    impressions,\n    opens,\n    clicks,\n    conversions,\n    revenue_generated,\n    conversion_rate,\n    roi_percent,\n    engagement_score,\n    metadata\n\n  )\n\n  select\n\n    mc.tenant_id,\n\n    mc.id,\n\n    current_date,\n\n    coalesce(mcd.delivered_count, 0),\n\n    coalesce(mcd.opened_count, 0),\n\n    coalesce(mcd.clicked_count, 0),\n\n    coalesce(mcd.conversion_count, 0),\n\n    coalesce(mcd.revenue_generated, 0),\n\n    case\n      when coalesce(mcd.delivered_count, 0) \u003e 0\n      then (\n        coalesce(mcd.conversion_count, 0)::numeric /\n        mcd.delivered_count::numeric\n      ) * 100\n      else 0\n    end,\n\n    case\n      when mc.budget \u003e 0\n      then (\n        (\n          coalesce(mcd.revenue_generated, 0) -\n          mc.budget\n        ) / mc.budget\n      ) * 100\n      else 0\n    end,\n\n    (\n      (\n        coalesce(mcd.opened_count, 0) * 0.3\n      ) +\n      (\n        coalesce(mcd.clicked_count, 0) * 0.4\n      ) +\n      (\n        coalesce(mcd.conversion_count, 0) * 0.3\n      )\n    ),\n\n    jsonb_build_object(\n\n      'campaign_name', mc.campaign_name,\n      'campaign_type', mc.campaign_type,\n      'generated_at', now()\n\n    )\n\n  from public.marketing_campaigns mc\n\n  left join public.marketing_campaign_deliveries mcd\n    on mcd.marketing_campaign_id = mc.id\n\n  where mc.tenant_id =\n    public.get_my_tenant_id()\n\n  and mc.campaign_status = 'launched'"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_ai_campaign_recommendations",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_campaign_recommendations\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "55",
+          "text": "insert into public.ai_campaign_recommendations (\n\n    tenant_id,\n    recommendation_type,\n    target_segment_id,\n    recommended_campaign_type,\n    recommended_channel,\n    recommendation_reason,\n    predicted_engagement_score,\n    predicted_conversion_rate,\n    predicted_revenue,\n    metadata\n\n  )\n\n  select\n\n    cs.tenant_id,\n\n    'customer_retention',\n\n    cs.id,\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 'exclusive_offer'\n\n      when cs.segment_type = 'inactive'\n      then 'reactivation_campaign'\n\n      else 'promotional_campaign'\n\n    end,\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 'personalized_sms'\n\n      when cs.segment_type = 'inactive'\n      then 'email'\n\n      else 'social_media'\n\n    end,\n\n    'AI-generated campaign recommendation based on customer segment behavior and loyalty metrics.',\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 92\n\n      when cs.segment_type = 'inactive'\n      then 68\n\n      else 80\n\n    end,\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 35\n\n      when cs.segment_type = 'inactive'\n      then 12\n\n      else 20\n\n    end,\n\n    case\n\n      when cs.segment_type = 'vip'\n      then 150000\n\n      when cs.segment_type = 'inactive'\n      then 30000\n\n      else 75000\n\n    end,\n\n    jsonb_build_object(\n\n      'generated_at', now(),\n      'source', 'ai_campaign_engine',\n      'segment_name', cs.segment_name\n\n    )\n\n  from public.customer_segments cs\n\n  where cs.tenant_id =\n    public.get_my_tenant_id()\n\n  and cs.active = true"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_ai_agent_task",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_agent_tasks\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "42",
+          "text": "insert into public.ai_agent_tasks (\n\n    tenant_id,\n    task_type,\n    task_category,\n    priority,\n    assigned_agent,\n    reference_table,\n    reference_id,\n    task_payload,\n    scheduled_at,\n    created_by\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_task_type,\n    p_task_category,\n    p_priority,\n    p_assigned_agent,\n    p_reference_table,\n    p_reference_id,\n    p_task_payload,\n    p_scheduled_at,\n    auth.uid()\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_ai_agent_task",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "82",
+          "text": "select *\n                from public.ai_agent_tasks\n  where id = p_task_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.upsert_ai_agent_memory",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"ai_agent_memory\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.ai_agent_memory (\n\n    tenant_id,\n    agent_name,\n    memory_type,\n    memory_key,\n    memory_value,\n    relevance_score,\n    expires_at,\n    updated_at\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_agent_name,\n    p_memory_type,\n    p_memory_key,\n    p_memory_value,\n    p_relevance_score,\n    p_expires_at,\n    now()\n\n  )\n\n  on conflict (\n\n    tenant_id,\n    agent_name,\n    memory_type,\n    memory_key\n\n  )\n\n  do update set\n\n    memory_value = excluded.memory_value,\n    relevance_score = excluded.relevance_score,\n    expires_at = excluded.expires_at,\n    updated_at = now()\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_enterprise_document",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_documents\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "48",
+          "text": "insert into public.enterprise_documents (\n\n    tenant_id,\n    document_type,\n    document_name,\n    reference_table,\n    reference_id,\n    storage_path,\n    file_size_bytes,\n    mime_type,\n    generated_by,\n    metadata,\n    created_by\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_document_type,\n    p_document_name,\n    p_reference_table,\n    p_reference_id,\n    p_storage_path,\n    p_file_size_bytes,\n    p_mime_type,\n    p_generated_by,\n    p_metadata,\n    auth.uid()\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_enterprise_document_version",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "13",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "96",
+          "text": "select *\n                    from public.enterprise_documents\n  where id = p_document_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.log_enterprise_document_access",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_document_access_logs\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "59",
+          "text": "insert into public.enterprise_document_access_logs (\n\n    tenant_id,\n    enterprise_document_id,\n    accessed_by,\n    access_type,\n    ip_address,\n    user_agent,\n    metadata\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_document_id,\n    auth.uid(),\n    p_access_type,\n    p_ip_address,\n    p_user_agent,\n    p_metadata\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.run_system_job",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "89",
+          "text": "update public.system_jobs\n  set\n    status = 'running',\n    last_run_at = now()\n  where tenant_id = public.get_my_tenant_id()\n  and job_name = p_job_name"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.execute_enterprise_workflow",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "17",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "96",
+          "text": "select *\n                    from public.enterprise_workflows\n  where id = p_workflow_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.sync_enterprise_integration",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "105",
+          "text": "select *\n                       from public.enterprise_integrations\n  where id = p_integration_id\n  and tenant_id = public.get_my_tenant_id()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.register_enterprise_api_key",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_api_keys\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "47",
+          "text": "insert into public.enterprise_api_keys (\n\n    tenant_id,\n    key_name,\n    api_provider,\n    api_key_hash,\n    key_prefix,\n    permissions,\n    expires_at,\n    created_by\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_key_name,\n    p_api_provider,\n    p_api_key_hash,\n    p_key_prefix,\n    p_permissions,\n    p_expires_at,\n    auth.uid()\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_pending_webhook_deliveries",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "67",
+          "text": "select *\n    from public.enterprise_webhook_deliveries\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and delivery_status in ('pending', 'retrying')\n\n    and (\n      next_retry_at is null\n      or next_retry_at \u003c= now()\n    )\n\n    order by created_at asc"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.queue_notification_from_template",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "109",
+          "text": "select *\n                    from public.enterprise_notification_templates\n  where id = p_template_id\n  and tenant_id = public.get_my_tenant_id()\n  and active = true"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.process_notification_queue",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "67",
+          "text": "select *\n    from public.enterprise_notification_queue\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and delivery_status in ('pending', 'retrying')\n\n    and scheduled_at \u003c= now()\n\n    order by scheduled_at asc"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_enterprise_audit_event",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "71",
+          "text": "select *\n                 from public.enterprise_audit_rules\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and active = true\n\n  and monitored_table = p_event_table\n\n  and monitored_action = p_event_action\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.create_security_incident",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_security_incidents\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "57",
+          "text": "insert into public.enterprise_security_incidents (\n\n    tenant_id,\n    incident_type,\n    incident_category,\n    severity,\n    source_system,\n    reference_table,\n    reference_id,\n    detected_by,\n    incident_summary,\n    incident_details\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_incident_type,\n    p_incident_category,\n    p_severity,\n    p_source_system,\n    p_reference_table,\n    p_reference_id,\n    'system',\n    p_incident_summary,\n    p_incident_details\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.generate_system_health_snapshot",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "15",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "72",
+          "text": "select count(*)\n                       from public.system_jobs\n  where tenant_id = public.get_my_tenant_id()\n  and status = 'failed'"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.detect_suspicious_api_key_activity",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "FOR over SELECT rows"
+        },
+        "query": {
+          "position": "57",
+          "text": "select *\n    from public.enterprise_api_keys\n\n    where tenant_id = public.get_my_tenant_id()\n\n    and revoked = false\n\n    and expires_at is not null\n\n    and expires_at \u003c= now()"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.is_feature_enabled",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "76",
+          "text": "select *\n                    from public.enterprise_feature_flags\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and feature_key = p_feature_key\n\n  and environment = p_environment\n\n  and enabled = true\n\n  and (\n    starts_at is null\n    or starts_at \u003c= now()\n  )\n\n  and (\n    ends_at is null\n    or ends_at \u003e= now()\n  )\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.set_feature_flag",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"enterprise_feature_flags\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "52",
+          "text": "insert into public.enterprise_feature_flags (\n\n    tenant_id,\n    feature_key,\n    feature_name,\n    feature_category,\n    enabled,\n    rollout_percentage,\n    feature_config,\n    environment,\n    starts_at,\n    ends_at,\n    created_by,\n    updated_at\n\n  )\n\n  values (\n\n    public.get_my_tenant_id(),\n    p_feature_key,\n    p_feature_name,\n    p_feature_category,\n    p_enabled,\n    p_rollout_percentage,\n    p_feature_config,\n    p_environment,\n    p_starts_at,\n    p_ends_at,\n    auth.uid(),\n    now()\n\n  )\n\n  on conflict (\n\n    tenant_id,\n    feature_key,\n    environment\n\n  )\n\n  do update set\n\n    feature_name = excluded.feature_name,\n    feature_category = excluded.feature_category,\n    enabled = excluded.enabled,\n    rollout_percentage = excluded.rollout_percentage,\n    feature_config = excluded.feature_config,\n    starts_at = excluded.starts_at,\n    ends_at = excluded.ends_at,\n    updated_at = now()\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.check_rate_limit",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" does not exist",
+        "statement": {
+          "lineNumber": "17",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "72",
+          "text": "select *\n                  from public.enterprise_rate_limits\n\n  where tenant_id = public.get_my_tenant_id()\n\n  and limit_key = p_limit_key\n\n  and active = true\n\n  limit 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.publish_realtime_event",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"tenant_id\" of relation \"realtime_events\" does not exist",
+        "statement": {
+          "lineNumber": "9",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "43",
+          "text": "insert into public.realtime_events (\n\n    tenant_id,\n    event_type,\n    event_category,\n    reference_table,\n    reference_id,\n    payload\n\n  )\n\n  values (\n\n    p_tenant_id,\n    p_event_type,\n    p_event_category,\n    p_reference_table,\n    p_reference_id,\n    p_payload\n\n  )\n\n  returning id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  }
+]
+[31mfail-on is set to error, non-zero exit[39m
+Try rerunning the command with --debug to troubleshoot the error.
+
+================ RPC PROBE ================
+IDEMPOTENCY_COLUMN=PASS
+ATOMIC_RPC_RESOLUTION=PASS
+RPC_PROBE_CREATED_DATA=NO
+

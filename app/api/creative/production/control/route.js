@@ -112,7 +112,6 @@ export async function POST(req) {
             authorization.access?.user?.id ||
             null,
           maximum: body.maximum,
-          currency: body.currency || "USD",
         });
         break;
 

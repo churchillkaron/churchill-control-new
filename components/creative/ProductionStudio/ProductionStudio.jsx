@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { useCreativeEditor } from "./hooks/useCreativeEditor";
 import {
   resolveCreativeCommands,
@@ -18,12 +20,27 @@ export default function ProductionStudio({
   const editor =
     useCreativeEditor(runtime);
 
+  const activeWorkspace = useMemo(() => (
+    (runtime.workspaces || []).find(
+      (workspace) =>
+        workspace.id === editor.activeWorkspace,
+    ) ||
+    runtime.workspace ||
+    null
+  ), [
+    editor.activeWorkspace,
+    runtime.workspace,
+    runtime.workspaces,
+  ]);
+
   const liveRuntime = {
     ...runtime,
+    workspace: activeWorkspace,
     commands: resolveCreativeCommands({
       commands: runtime.commands || [],
       runtime: {
         ...runtime,
+        workspace: activeWorkspace,
         refresh: editor.refresh,
       },
       editor,
@@ -33,7 +50,7 @@ export default function ProductionStudio({
   };
 
   const layout =
-    runtime.workspace?.layout || {};
+    activeWorkspace?.layout || {};
 
   return (
     <CreativeWorkspaceLayout

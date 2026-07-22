@@ -3,7 +3,7 @@
 import MissionExplorer from "../explorer/MissionExplorer";
 
 import {
-  resolveCreativeProductDefinition,
+  resolveCreativeMissionDefinition,
 } from "@/lib/creative/products/CreativeProductRegistry";
 
 function Section({
@@ -32,20 +32,14 @@ function Section({
             ].join(" ")}
           >
             <div className="flex items-center justify-between font-medium">
-              <span>
-                {item.title || item.name || item.id}
-              </span>
+              <span>{item.title || item.name || item.id}</span>
 
               {item.completed ? (
-                <span className="text-xs text-[#c8a96a]">
-                  ✓
-                </span>
+                <span className="text-xs text-[#c8a96a]">✓</span>
               ) : null}
 
               {item.stageActive ? (
-                <span className="text-xs text-[#c8a96a]">
-                  ●
-                </span>
+                <span className="text-xs text-[#c8a96a]">●</span>
               ) : null}
             </div>
 
@@ -61,21 +55,6 @@ function Section({
   );
 }
 
-function resolveProductType(runtime) {
-  const project = runtime.projectRuntime?.current || {};
-  const mission = runtime.missionRuntime?.current || {};
-
-  return (
-    project.product_type ||
-    project.deliverable_type ||
-    project.metadata?.product_type ||
-    project.metadata?.deliverable_type ||
-    mission.product_type ||
-    mission.metadata?.product_type ||
-    "FILM"
-  );
-}
-
 export default function Sidebar({
   runtime,
   editor,
@@ -83,79 +62,71 @@ export default function Sidebar({
   const currentStage =
     runtime.stateRuntime?.current?.stage ||
     null;
-  const product = resolveCreativeProductDefinition(
-    resolveProductType(runtime),
-  );
+  const missionDefinition = resolveCreativeMissionDefinition(runtime);
   const availableWorkspaces = new Map(
     (runtime.workspaces || []).map((workspace) => [
       workspace.id,
       workspace,
     ]),
   );
-  const configuredWorkflow = product.workflow || [];
-  const workflow = configuredWorkflow
+  const workflow = (missionDefinition.workflow || [])
     .map((definition) => {
-      const available = availableWorkspaces.get(definition.id);
+      const workspaceId =
+        definition.workspace_id ||
+        definition.id;
+      const available = availableWorkspaces.get(workspaceId);
 
       if (!available) return null;
 
       return {
         ...available,
         ...definition,
+        id: workspaceId,
+        workspace_id: workspaceId,
         title: definition.title || available.title,
         description:
-          available.description ||
           definition.description ||
+          available.description ||
           null,
       };
     })
     .filter(Boolean);
-  const fallbackWorkflow = runtime.workspaces || [];
   const resolvedWorkflow = workflow.length
     ? workflow
-    : fallbackWorkflow;
-  const pipelineStages = resolvedWorkflow
-    .map((workspace) => workspace.stage)
-    .filter(Boolean);
-  const currentIndex = pipelineStages.indexOf(currentStage);
+    : runtime.workspaces || [];
+  const currentIndex = resolvedWorkflow.findIndex(
+    (workspace) => workspace.stage === currentStage,
+  );
 
-  const workspaces = resolvedWorkflow.map((workspace) => {
-    const stageIndex = pipelineStages.indexOf(workspace.stage);
-
-    return {
-      ...workspace,
-      active:
-        workspace.id ===
-        editor.activeWorkspace,
-      stageActive:
-        Boolean(workspace.stage) &&
-        workspace.stage === currentStage,
-      completed:
-        stageIndex >= 0 &&
-        currentIndex >= 0 &&
-        stageIndex < currentIndex,
-      onClick: () =>
-        editor.setActiveWorkspace(
-          workspace.id,
-        ),
-    };
-  });
+  const workspaces = resolvedWorkflow.map((workspace, index) => ({
+    ...workspace,
+    active: workspace.id === editor.activeWorkspace,
+    stageActive:
+      Boolean(workspace.stage) &&
+      workspace.stage === currentStage,
+    completed:
+      currentIndex >= 0 &&
+      index < currentIndex,
+    onClick: () => editor.setActiveWorkspace(workspace.id),
+  }));
 
   return (
     <div className="h-full overflow-y-auto px-5 py-6">
       <MissionExplorer runtime={runtime} />
 
-      <div className="mb-5 rounded-xl border border-white/5 bg-white/[0.025] px-4 py-3">
-        <div className="text-[10px] uppercase tracking-[0.24em] text-white/30">
-          Creative Product
+      {missionDefinition.creative_thesis ? (
+        <div className="mb-5 rounded-xl border border-white/5 bg-white/[0.025] px-4 py-3">
+          <div className="text-[10px] uppercase tracking-[0.24em] text-white/30">
+            Creative Thesis
+          </div>
+          <div className="mt-2 text-sm leading-6 text-white/70">
+            {missionDefinition.creative_thesis}
+          </div>
         </div>
-        <div className="mt-1 text-sm font-medium text-white/75">
-          {product.title}
-        </div>
-      </div>
+      ) : null}
 
       <Section
-        title={`${product.title} Workflow`}
+        title="Mission Workflow"
         items={workspaces}
       />
     </div>

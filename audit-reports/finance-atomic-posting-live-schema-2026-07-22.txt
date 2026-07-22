@@ -1,0 +1,3354 @@
+AVANTIQO FINANCE ATOMIC POSTING LIVE SCHEMA
+Generated: 2026-07-22 10:52:18 +0700
+Branch: finance-full-audit-20260721
+Head before report: c8ee374cc883f028fa76e033d5b4aac1b6d17d88
+
+LIVE_SCHEMA_DUMP=PASS
+
+This report supersedes the unsuccessful Docker-free dump recorded in:
+audit-reports/finance-atomic-posting-schema-2026-07-22.txt
+
+================ MIGRATION STATE ================
+Initialising login role...
+Connecting to remote database...
+
+  
+   Local      | Remote           | Time (UTC)            
+  ------------|------------------|-----------------------
+   `20260517` | ` `              | `20260517`            
+   `20260518` | ` `              | `20260518`            
+   `20260519` | ` `              | `20260519`            
+   `20260519` | ` `              | `20260519`            
+   `20260519` | ` `              | `20260519`            
+   `20260519` | ` `              | `20260519`            
+   `20260523` | ` `              | `20260523`            
+   `20260523` | ` `              | `20260523`            
+   `20260602` | ` `              | `20260602`            
+   `20260701` | ` `              | `20260701`            
+   `20260701` | ` `              | `20260701`            
+   `20260707` | ` `              | `20260707`            
+   `20260710` | ` `              | `20260710`            
+   `20260714` | ` `              | `20260714`            
+   ` `        | `20260719160000` | `2026-07-19 16:00:00` 
+   ` `        | `20260719171000` | `2026-07-19 17:10:00` 
+   ` `        | `20260719175000` | `2026-07-19 17:50:00` 
+   ` `        | `20260719204500` | `2026-07-19 20:45:00` 
+   ` `        | `20260719220000` | `2026-07-19 22:00:00` 
+   ` `        | `20260719231500` | `2026-07-19 23:15:00` 
+   ` `        | `20260719235900` | `2026-07-19 23:59:00` 
+   ` `        | `20260720003000` | `2026-07-20 00:30:00` 
+   ` `        | `20260720113000` | `2026-07-20 11:30:00` 
+   ` `        | `20260720210000` | `2026-07-20 21:00:00` 
+   ` `        | `20260720213000` | `2026-07-20 21:30:00` 
+   ` `        | `20260721103000` | `2026-07-21 10:30:00` 
+
+
+================ LIVE TABLE: journal_entries ================
+8966-    "created_at" timestamp with time zone DEFAULT "now"(),
+8967-    "organization_id" "uuid"
+8968-);
+8969-
+8970-
+8971-ALTER TABLE "public"."campaigns" OWNER TO "postgres";
+8972-
+8973-
+8974:CREATE TABLE IF NOT EXISTS "public"."journal_entries" (
+8975-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8976-    "journal_number" "text" NOT NULL,
+8977-    "entry_date" "date" NOT NULL,
+8978-    "description" "text",
+8979-    "source_type" "text",
+8980-    "source_id" "uuid",
+8981-    "status" "text" DEFAULT 'posted'::"text",
+8982-    "created_by" "text",
+8983-    "created_at" timestamp with time zone DEFAULT "now"(),
+8984-    "updated_at" timestamp with time zone DEFAULT "now"(),
+8985-    "legal_entity_id" "uuid",
+8986-    "reversed_journal_entry_id" "uuid",
+8987-    "reversal_reason" "text",
+8988-    "reversal_created_at" timestamp with time zone,
+8989-    "organization_id" "uuid" NOT NULL,
+8990-    "approved_by" "text",
+8991-    "approved_at" timestamp with time zone,
+8992-    "posting_date" "date" NOT NULL,
+8993-    "document_date" "date",
+8994-    "journal_type" "text",
+8995-    "source_module" "text",
+8996-    "source_document" "text",
+8997-    "source_document_id" "uuid",
+8998-    "currency_code" "text" DEFAULT 'THB'::"text",
+8999-    "exchange_rate" numeric DEFAULT 1,
+9000-    "entity_id" "uuid" NOT NULL,
+9001-    "reference" "text",
+9002-    "entry_number" "text",
+9003-    "period_id" "uuid",
+9004-    "reversed" boolean DEFAULT false,
+9005-    "reversal_status" "text",
+9006-    "reversal_requested_by" "text",
+9007-    "reversal_requested_at" timestamp with time zone,
+9008-    "reversal_journal_id" "uuid",
+9009-    "reversed_at" timestamp with time zone,
+9010-    "reversed_by" "text"
+9011-);
+9012-
+9013-
+9014:ALTER TABLE "public"."journal_entries" OWNER TO "postgres";
+9015-
+9016-
+9017-CREATE OR REPLACE VIEW "public"."cashflow_view" AS
+9018- SELECT "je"."entry_date",
+9019-    "coa"."account_code" AS "code",
+9020-    "coa"."account_name" AS "name",
+9021-    "coa"."account_category" AS "category",
+9022-    "sum"("jel"."debit") AS "total_debits",
+9023-    "sum"("jel"."credit") AS "total_credits",
+9024-    "sum"(("jel"."debit" - "jel"."credit")) AS "net_cashflow"
+9025-   FROM (("public"."journal_entry_lines" "jel"
+9026-     JOIN "public"."journal_entries" "je" ON (("jel"."journal_entry_id" = "je"."id")))
+9027-     JOIN "public"."chart_of_accounts" "coa" ON (("jel"."account_id" = "coa"."id")))
+9028-  WHERE ("coa"."account_code" = ANY (ARRAY['1000'::"text", '1100'::"text"]))
+9029-  GROUP BY "je"."entry_date", "coa"."account_code", "coa"."account_name", "coa"."account_category"
+9030-  ORDER BY "je"."entry_date";
+9031-
+9032-
+9033-ALTER VIEW "public"."cashflow_view" OWNER TO "postgres";
+9034-
+9035-
+9036-CREATE TABLE IF NOT EXISTS "public"."cogs_entries" (
+9037-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+9038-    "order_id" "uuid",
+9039-    "dish_id" "uuid" NOT NULL,
+9040-    "quantity" numeric NOT NULL,
+9041-    "cost_amount" numeric NOT NULL,
+9042-    "revenue_amount" numeric DEFAULT 0,
+9043-    "profit_amount" numeric DEFAULT 0,
+9044-    "created_at" timestamp without time zone DEFAULT "now"(),
+9045-    "organization_id" "uuid"
+9046-);
+9047-
+9048-
+9049-ALTER TABLE "public"."cogs_entries" OWNER TO "postgres";
+9050-
+9051-
+9052-CREATE TABLE IF NOT EXISTS "public"."configuration_groups" (
+9053-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+9054-    "organization_id" "uuid" NOT NULL,
+9055-    "object_scope" "text" DEFAULT 'business_object'::"text" NOT NULL,
+9056-    "name" "text" NOT NULL,
+9057-    "key" "text",
+9058-    "required" boolean DEFAULT false NOT NULL,
+9059-    "multi_select" boolean DEFAULT false NOT NULL,
+9060-    "max_select" integer DEFAULT 1 NOT NULL,
+9061-    "sort_order" integer DEFAULT 0 NOT NULL,
+9062-    "is_active" boolean DEFAULT true NOT NULL,
+9063-    "metadata" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+9064-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+9065-    "updated_at" timestamp with time zone DEFAULT "now"()
+9066-);
+9067-
+9068-
+9069-ALTER TABLE "public"."configuration_groups" OWNER TO "postgres";
+9070-
+9071-
+9072-CREATE TABLE IF NOT EXISTS "public"."configuration_options" (
+9073-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+9074-    "organization_id" "uuid" NOT NULL,
+9075-    "configuration_group_id" "uuid" NOT NULL,
+9076-    "name" "text" NOT NULL,
+9077-    "value" "text",
+9078-    "description" "text",
+9079-    "price_delta" numeric(12,2) DEFAULT 0 NOT NULL,
+9080-    "sort_order" integer DEFAULT 0 NOT NULL,
+9081-    "is_default" boolean DEFAULT false NOT NULL,
+9082-    "is_active" boolean DEFAULT true NOT NULL,
+9083-    "metadata" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+9084-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+9085-    "updated_at" timestamp with time zone DEFAULT "now"()
+9086-);
+9087-
+9088-
+9089-ALTER TABLE "public"."configuration_options" OWNER TO "postgres";
+9090-
+9091-
+9092-CREATE OR REPLACE VIEW "public"."consolidated_trial_balance_view" AS
+9093- SELECT "le"."id" AS "legal_entity_id",
+9094-    "le"."code" AS "legal_entity_code",
+9095-    "le"."legal_name",
+9096-    "coa"."account_code",
+9097-    "coa"."account_name",
+9098-    "coa"."account_category" AS "category",
+9099-    "sum"("jel"."debit") AS "total_debits",
+9100-    "sum"("jel"."credit") AS "total_credits",
+9101-    "sum"(("jel"."debit" - "jel"."credit")) AS "balance"
+9102-   FROM ((("public"."journal_entry_lines" "jel"
+9103-     JOIN "public"."journal_entries" "je" ON (("jel"."journal_entry_id" = "je"."id")))
+9104-     JOIN "public"."chart_of_accounts" "coa" ON (("jel"."account_id" = "coa"."id")))
+9105-     LEFT JOIN "public"."legal_entities" "le" ON (("je"."legal_entity_id" = "le"."id")))
+9106-  GROUP BY "le"."id", "le"."code", "le"."legal_name", "coa"."account_code", "coa"."account_name", "coa"."account_category"
+9107-  ORDER BY "le"."code", "coa"."account_code";
+9108-
+9109-
+9110-ALTER VIEW "public"."consolidated_trial_balance_view" OWNER TO "postgres";
+9111-
+9112-
+9113-CREATE TABLE IF NOT EXISTS "public"."cost_centers" (
+9114-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+9115-    "code" "text" NOT NULL,
+9116-    "name" "text" NOT NULL,
+9117-    "type" "text",
+9118-    "parent_cost_center_id" "uuid",
+9119-    "manager" "text",
+9120-    "is_active" boolean DEFAULT true,
+9121-    "created_at" timestamp with time zone DEFAULT "now"(),
+9122-    "updated_at" timestamp with time zone DEFAULT "now"(),
+9123-    "organization_id" "uuid",
+9124-    "entity_id" "uuid"
+9125-);
+9126-
+9127-
+9128-ALTER TABLE "public"."cost_centers" OWNER TO "postgres";
+9129-
+9130-
+9131-CREATE TABLE IF NOT EXISTS "public"."creative_ai_director_decisions" (
+9132-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+9133-    "organization_id" "uuid" NOT NULL,
+9134-    "campaign_id" "uuid",
+9135-    "production_graph_id" "uuid",
+9136-    "decision_type" "text",
+9137-    "confidence" numeric DEFAULT 0,
+9138-    "reasoning" "jsonb" DEFAULT '{}'::"jsonb",
+9139-    "recommendation" "jsonb" DEFAULT '{}'::"jsonb",
+9140-    "metadata" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+9141-    "created_at" timestamp with time zone DEFAULT "now"()
+9142-);
+9143-
+9144-
+9145-ALTER TABLE "public"."creative_ai_director_decisions" OWNER TO "postgres";
+9146-
+9147-
+9148-COMMENT ON COLUMN "public"."creative_ai_director_decisions"."metadata" IS 'Lossless AI Director scope, decision payload and provider provenance.';
+9149-
+9150-
+9151-
+9152-CREATE TABLE IF NOT EXISTS "public"."creative_asset_intelligence" (
+9153-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+9154-    "organization_id" "uuid" NOT NULL,
+9155-    "asset_id" "uuid" NOT NULL,
+9156-    "content_hash" "text" NOT NULL,
+9157-    "analysis_version" "text" DEFAULT 'creative-asset-v29.1'::"text" NOT NULL,
+9158-    "status" "text" DEFAULT 'PENDING'::"text" NOT NULL,
+9159-    "priority" integer DEFAULT 100 NOT NULL,
+9160-    "attempts" integer DEFAULT 0 NOT NULL,
+9161-    "source_fingerprint" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+9162-    "visual_truth" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+9163-    "production_intelligence" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+9164-    "search_document" "text" DEFAULT ''::"text" NOT NULL,
+9165-    "provider" "text",
+9166-    "model" "text",
+9167-    "usage_id" "uuid",
+9168-    "error" "text",
+9169-    "locked_at" timestamp with time zone,
+9170-    "analyzed_at" timestamp with time zone,
+9171-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+9172-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+9173-    CONSTRAINT "creative_asset_intelligence_status_check" CHECK (("status" = ANY (ARRAY['PENDING'::"text", 'RUNNING'::"text", 'COMPLETED'::"text", 'FAILED'::"text"])))
+9174-);
+9175-
+9176-
+9177-ALTER TABLE "public"."creative_asset_intelligence" OWNER TO "postgres";
+9178-
+9179-
+9180-CREATE TABLE IF NOT EXISTS "public"."creative_asset_nodes" (
+9181-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+9182-    "organization_id" "uuid" NOT NULL,
+9183-    "campaign_id" "uuid",
+9184-    "production_task_id" "uuid",
+9185-    "type" "text" DEFAULT 'IMAGE'::"text",
+9186-    "title" "text" DEFAULT ''::"text",
+9187-    "uri" "text",
+9188-    "storage_path" "text",
+9189-    "lineage" "jsonb" DEFAULT '{}'::"jsonb",
+9190-    "intelligence" "jsonb" DEFAULT '{}'::"jsonb",
+9191-    "review" "jsonb" DEFAULT '{}'::"jsonb",
+9192-    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+9193-    "created_at" timestamp with time zone DEFAULT "now"(),
+9194-    "updated_at" timestamp with time zone DEFAULT "now"(),
+--
+17942-
+17943-
+17944-
+17945-ALTER TABLE ONLY "public"."item_learning"
+17946-    ADD CONSTRAINT "item_learning_pkey" PRIMARY KEY ("id");
+17947-
+17948-
+17949-
+17950:ALTER TABLE ONLY "public"."journal_entries"
+17951-    ADD CONSTRAINT "journal_entries_pkey" PRIMARY KEY ("id");
+17952-
+17953-
+17954-
+17955-ALTER TABLE "public"."journal_entry_lines"
+17956-    ADD CONSTRAINT "journal_entry_lines_nonnegative_amounts" CHECK (((COALESCE("debit", (0)::numeric) >= (0)::numeric) AND (COALESCE("credit", (0)::numeric) >= (0)::numeric))) NOT VALID;
+17957-
+17958-
+17959-
+17960-ALTER TABLE "public"."journal_entry_lines"
+17961-    ADD CONSTRAINT "journal_entry_lines_one_side" CHECK ((NOT ((COALESCE("debit", (0)::numeric) > (0)::numeric) AND (COALESCE("credit", (0)::numeric) > (0)::numeric)))) NOT VALID;
+17962-
+17963-
+17964-
+17965-ALTER TABLE ONLY "public"."journal_entry_lines"
+17966-    ADD CONSTRAINT "journal_entry_lines_pkey" PRIMARY KEY ("id");
+17967-
+17968-
+17969-
+17970-ALTER TABLE ONLY "public"."kernel_snapshots"
+17971-    ADD CONSTRAINT "kernel_snapshots_pkey" PRIMARY KEY ("id");
+17972-
+17973-
+17974-
+17975-ALTER TABLE ONLY "public"."labor_shift_forecasts"
+17976-    ADD CONSTRAINT "labor_shift_forecasts_pkey" PRIMARY KEY ("id");
+17977-
+17978-
+17979-
+17980-ALTER TABLE ONLY "public"."legal_entities"
+17981-    ADD CONSTRAINT "legal_entities_pkey" PRIMARY KEY ("id");
+17982-
+17983-
+17984-
+17985-ALTER TABLE ONLY "public"."locations"
+17986-    ADD CONSTRAINT "locations_pkey" PRIMARY KEY ("id");
+17987-
+17988-
+17989-
+17990-ALTER TABLE ONLY "public"."marketing_ai_profiles"
+17991-    ADD CONSTRAINT "marketing_ai_profiles_pkey" PRIMARY KEY ("id");
+17992-
+17993-
+17994-
+17995-ALTER TABLE ONLY "public"."marketing_attribution"
+17996-    ADD CONSTRAINT "marketing_attribution_pkey" PRIMARY KEY ("id");
+17997-
+17998-
+17999-
+18000-ALTER TABLE ONLY "public"."marketing_brand_profiles"
+18001-    ADD CONSTRAINT "marketing_brand_profiles_pkey" PRIMARY KEY ("id");
+18002-
+18003-
+18004-
+18005-ALTER TABLE ONLY "public"."marketing_campaign_analytics"
+18006-    ADD CONSTRAINT "marketing_campaign_analytics_pkey" PRIMARY KEY ("id");
+18007-
+18008-
+18009-
+18010-ALTER TABLE ONLY "public"."marketing_campaign_deliveries"
+18011-    ADD CONSTRAINT "marketing_campaign_deliveries_pkey" PRIMARY KEY ("id");
+18012-
+18013-
+18014-
+18015-ALTER TABLE ONLY "public"."marketing_campaign_queue"
+18016-    ADD CONSTRAINT "marketing_campaign_queue_pkey" PRIMARY KEY ("id");
+18017-
+18018-
+18019-
+18020-ALTER TABLE ONLY "public"."marketing_campaigns"
+18021-    ADD CONSTRAINT "marketing_campaigns_pkey" PRIMARY KEY ("id");
+18022-
+18023-
+18024-
+18025-ALTER TABLE ONLY "public"."marketing_prompt_history"
+18026-    ADD CONSTRAINT "marketing_prompt_history_pkey" PRIMARY KEY ("id");
+18027-
+18028-
+18029-
+18030-ALTER TABLE ONLY "public"."message_participants"
+18031-    ADD CONSTRAINT "message_participants_pkey" PRIMARY KEY ("id");
+18032-
+18033-
+18034-
+18035-ALTER TABLE ONLY "public"."message_reactions"
+18036-    ADD CONSTRAINT "message_reactions_pkey" PRIMARY KEY ("id");
+18037-
+18038-
+18039-
+18040-ALTER TABLE ONLY "public"."message_reads"
+18041-    ADD CONSTRAINT "message_reads_pkey" PRIMARY KEY ("id");
+18042-
+18043-
+18044-
+18045-ALTER TABLE ONLY "public"."message_reports"
+18046-    ADD CONSTRAINT "message_reports_pkey" PRIMARY KEY ("id");
+18047-
+18048-
+18049-
+18050-ALTER TABLE ONLY "public"."message_threads"
+18051-    ADD CONSTRAINT "message_threads_pkey" PRIMARY KEY ("id");
+18052-
+18053-
+18054-
+18055-ALTER TABLE ONLY "public"."message_typing"
+18056-    ADD CONSTRAINT "message_typing_pkey" PRIMARY KEY ("id");
+18057-
+18058-
+18059-
+18060-ALTER TABLE ONLY "public"."message_typing"
+18061-    ADD CONSTRAINT "message_typing_thread_id_staff_id_key" UNIQUE ("thread_id", "staff_id");
+18062-
+18063-
+18064-
+18065-ALTER TABLE ONLY "public"."messages"
+18066-    ADD CONSTRAINT "messages_pkey" PRIMARY KEY ("id");
+18067-
+18068-
+18069-
+18070-ALTER TABLE ONLY "public"."meta_accounts"
+18071-    ADD CONSTRAINT "meta_accounts_page_id_key" UNIQUE ("page_id");
+18072-
+18073-
+18074-
+18075-ALTER TABLE ONLY "public"."meta_accounts"
+18076-    ADD CONSTRAINT "meta_accounts_pkey" PRIMARY KEY ("id");
+18077-
+18078-
+18079-
+18080-ALTER TABLE ONLY "public"."modifier_group_options"
+18081-    ADD CONSTRAINT "modifier_group_options_pkey" PRIMARY KEY ("id");
+18082-
+18083-
+18084-
+18085-ALTER TABLE ONLY "public"."modifier_groups"
+18086-    ADD CONSTRAINT "modifier_groups_pkey" PRIMARY KEY ("id");
+18087-
+18088-
+18089-
+18090-ALTER TABLE ONLY "public"."modifiers"
+18091-    ADD CONSTRAINT "modifiers_pkey" PRIMARY KEY ("id");
+18092-
+18093-
+18094-
+18095-ALTER TABLE ONLY "public"."object_configuration_groups"
+18096-    ADD CONSTRAINT "object_configuration_groups_organization_id_object_type_obj_key" UNIQUE ("organization_id", "object_type", "object_id", "configuration_group_id");
+18097-
+18098-
+18099-
+18100-ALTER TABLE ONLY "public"."object_configuration_groups"
+18101-    ADD CONSTRAINT "object_configuration_groups_pkey" PRIMARY KEY ("id");
+18102-
+18103-
+18104-
+18105-ALTER TABLE ONLY "public"."operational_settings"
+18106-    ADD CONSTRAINT "operational_settings_pkey" PRIMARY KEY ("id");
+18107-
+18108-
+18109-
+18110-ALTER TABLE ONLY "public"."order_acknowledgements"
+18111-    ADD CONSTRAINT "order_acknowledgements_pkey" PRIMARY KEY ("id");
+18112-
+18113-
+18114-
+18115-ALTER TABLE ONLY "public"."order_events"
+18116-    ADD CONSTRAINT "order_events_pkey" PRIMARY KEY ("id");
+18117-
+18118-
+18119-
+18120-ALTER TABLE ONLY "public"."order_item_modifiers"
+18121-    ADD CONSTRAINT "order_item_modifiers_pkey" PRIMARY KEY ("id");
+18122-
+18123-
+18124-
+18125-ALTER TABLE ONLY "public"."order_items"
+18126-    ADD CONSTRAINT "order_items_pkey" PRIMARY KEY ("id");
+18127-
+18128-
+18129-
+18130-ALTER TABLE ONLY "public"."orders"
+--
+21525-
+21526-
+21527-
+21528-ALTER TABLE ONLY "public"."invoices"
+21529-    ADD CONSTRAINT "invoices_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "public"."vendors"("id");
+21530-
+21531-
+21532-
+21533:ALTER TABLE ONLY "public"."journal_entries"
+21534-    ADD CONSTRAINT "journal_entries_legal_entity_id_fkey" FOREIGN KEY ("legal_entity_id") REFERENCES "public"."legal_entities"("id");
+21535-
+21536-
+21537-
+21538:ALTER TABLE ONLY "public"."journal_entries"
+21539-    ADD CONSTRAINT "journal_entries_period_id_fkey" FOREIGN KEY ("period_id") REFERENCES "public"."accounting_periods"("id");
+21540-
+21541-
+21542-
+21543-ALTER TABLE ONLY "public"."journal_entry_lines"
+21544-    ADD CONSTRAINT "journal_entry_lines_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "public"."chart_of_accounts"("id");
+21545-
+21546-
+21547-
+21548-ALTER TABLE ONLY "public"."journal_entry_lines"
+21549-    ADD CONSTRAINT "journal_entry_lines_cost_center_id_fkey" FOREIGN KEY ("cost_center_id") REFERENCES "public"."cost_centers"("id");
+21550-
+21551-
+21552-
+21553-ALTER TABLE ONLY "public"."journal_entry_lines"
+21554-    ADD CONSTRAINT "journal_entry_lines_journal_entry_id_fkey" FOREIGN KEY ("journal_entry_id") REFERENCES "public"."journal_entries"("id") ON DELETE CASCADE;
+21555-
+21556-
+21557-
+21558-ALTER TABLE ONLY "public"."journal_entry_lines"
+21559-    ADD CONSTRAINT "journal_entry_lines_period_id_fkey" FOREIGN KEY ("period_id") REFERENCES "public"."accounting_periods"("id");
+21560-
+21561-
+21562-
+21563-ALTER TABLE ONLY "public"."legal_entities"
+21564-    ADD CONSTRAINT "legal_entities_parent_entity_id_fkey" FOREIGN KEY ("parent_entity_id") REFERENCES "public"."legal_entities"("id");
+21565-
+21566-
+21567-
+21568-ALTER TABLE ONLY "public"."marketing_campaign_analytics"
+21569-    ADD CONSTRAINT "marketing_campaign_analytics_marketing_campaign_id_fkey" FOREIGN KEY ("marketing_campaign_id") REFERENCES "public"."marketing_campaigns"("id");
+21570-
+21571-
+21572-
+21573-ALTER TABLE ONLY "public"."marketing_campaign_deliveries"
+21574-    ADD CONSTRAINT "marketing_campaign_deliveries_customer_segment_id_fkey" FOREIGN KEY ("customer_segment_id") REFERENCES "public"."customer_segments"("id");
+21575-
+21576-
+21577-
+21578-ALTER TABLE ONLY "public"."marketing_campaign_deliveries"
+21579-    ADD CONSTRAINT "marketing_campaign_deliveries_marketing_campaign_id_fkey" FOREIGN KEY ("marketing_campaign_id") REFERENCES "public"."marketing_campaigns"("id");
+21580-
+21581-
+21582-
+21583-ALTER TABLE ONLY "public"."marketing_campaigns"
+21584-    ADD CONSTRAINT "marketing_campaigns_target_segment_id_fkey" FOREIGN KEY ("target_segment_id") REFERENCES "public"."customer_segments"("id");
+21585-
+21586-
+21587-
+21588-ALTER TABLE ONLY "public"."message_participants"
+21589-    ADD CONSTRAINT "message_participants_thread_id_fkey" FOREIGN KEY ("thread_id") REFERENCES "public"."message_threads"("id") ON DELETE CASCADE;
+21590-
+21591-
+21592-
+21593-ALTER TABLE ONLY "public"."message_reactions"
+21594-    ADD CONSTRAINT "message_reactions_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE CASCADE;
+21595-
+21596-
+21597-
+21598-ALTER TABLE ONLY "public"."message_reads"
+21599-    ADD CONSTRAINT "message_reads_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE CASCADE;
+21600-
+21601-
+21602-
+21603-ALTER TABLE ONLY "public"."message_reports"
+21604-    ADD CONSTRAINT "message_reports_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE CASCADE;
+21605-
+21606-
+21607-
+21608-ALTER TABLE ONLY "public"."messages"
+21609-    ADD CONSTRAINT "messages_thread_id_fkey" FOREIGN KEY ("thread_id") REFERENCES "public"."message_threads"("id") ON DELETE CASCADE;
+21610-
+21611-
+21612-
+21613-ALTER TABLE ONLY "public"."modifier_group_options"
+21614-    ADD CONSTRAINT "modifier_group_options_modifier_group_id_fkey" FOREIGN KEY ("modifier_group_id") REFERENCES "public"."modifier_groups"("id") ON DELETE CASCADE;
+21615-
+21616-
+21617-
+21618-ALTER TABLE ONLY "public"."modifier_group_options"
+21619-    ADD CONSTRAINT "modifier_group_options_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21620-
+21621-
+21622-
+21623-ALTER TABLE ONLY "public"."modifier_groups"
+21624-    ADD CONSTRAINT "modifier_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21625-
+21626-
+21627-
+21628-ALTER TABLE ONLY "public"."modifiers"
+21629-    ADD CONSTRAINT "modifiers_modifier_group_id_fkey" FOREIGN KEY ("modifier_group_id") REFERENCES "public"."modifier_groups"("id") ON DELETE CASCADE;
+21630-
+21631-
+21632-
+21633-ALTER TABLE ONLY "public"."modifiers"
+21634-    ADD CONSTRAINT "modifiers_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21635-
+21636-
+21637-
+21638-ALTER TABLE ONLY "public"."object_configuration_groups"
+21639-    ADD CONSTRAINT "object_configuration_groups_configuration_group_id_fkey" FOREIGN KEY ("configuration_group_id") REFERENCES "public"."configuration_groups"("id") ON DELETE CASCADE;
+21640-
+21641-
+21642-
+21643-ALTER TABLE ONLY "public"."object_configuration_groups"
+21644-    ADD CONSTRAINT "object_configuration_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21645-
+21646-
+21647-
+21648-ALTER TABLE ONLY "public"."order_item_modifiers"
+21649-    ADD CONSTRAINT "order_item_modifiers_modifier_id_fkey" FOREIGN KEY ("modifier_id") REFERENCES "public"."modifiers"("id") ON DELETE CASCADE;
+21650-
+21651-
+21652-
+21653-ALTER TABLE ONLY "public"."order_items"
+21654-    ADD CONSTRAINT "order_items_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE CASCADE;
+21655-
+21656-
+21657-
+21658-ALTER TABLE ONLY "public"."orders"
+21659-    ADD CONSTRAINT "orders_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21660-
+21661-
+21662-
+21663-ALTER TABLE ONLY "public"."organization_accounting_profiles"
+21664-    ADD CONSTRAINT "organization_accounting_profiles_consolidation_parent_id_fkey" FOREIGN KEY ("consolidation_parent_id") REFERENCES "public"."organizations"("id");
+21665-
+21666-
+21667-
+21668-ALTER TABLE ONLY "public"."organization_accounting_profiles"
+21669-    ADD CONSTRAINT "organization_accounting_profiles_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21670-
+21671-
+21672-
+21673-ALTER TABLE ONLY "public"."organization_audit_logs"
+21674-    ADD CONSTRAINT "organization_audit_logs_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21675-
+21676-
+21677-
+21678-ALTER TABLE ONLY "public"."organization_clients"
+21679-    ADD CONSTRAINT "organization_clients_client_organization_id_fkey" FOREIGN KEY ("client_organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21680-
+21681-
+21682-
+21683-ALTER TABLE ONLY "public"."organization_clients"
+21684-    ADD CONSTRAINT "organization_clients_firm_organization_id_fkey" FOREIGN KEY ("firm_organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21685-
+21686-
+21687-
+21688-ALTER TABLE ONLY "public"."organization_dish_modifier_groups"
+21689-    ADD CONSTRAINT "organization_dish_modifier_groups_modifier_group_id_fkey" FOREIGN KEY ("modifier_group_id") REFERENCES "public"."organization_modifier_groups"("id");
+21690-
+21691-
+21692-
+21693-ALTER TABLE ONLY "public"."organization_dish_modifier_groups"
+21694-    ADD CONSTRAINT "organization_dish_modifier_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21695-
+21696-
+21697-
+21698-ALTER TABLE ONLY "public"."organization_industries"
+21699-    ADD CONSTRAINT "organization_industries_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21700-
+21701-
+21702-
+21703-ALTER TABLE ONLY "public"."organization_modifier_groups"
+21704-    ADD CONSTRAINT "organization_modifier_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21705-
+21706-
+21707-
+21708-ALTER TABLE ONLY "public"."organization_modifiers"
+21709-    ADD CONSTRAINT "organization_modifiers_modifier_group_id_fkey" FOREIGN KEY ("modifier_group_id") REFERENCES "public"."organization_modifier_groups"("id");
+21710-
+21711-
+21712-
+21713-ALTER TABLE ONLY "public"."organization_modifiers"
+21714-    ADD CONSTRAINT "organization_modifiers_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21715-
+21716-
+21717-
+21718-ALTER TABLE ONLY "public"."organization_modules"
+--
+22733-
+22734-
+22735-ALTER TABLE "public"."invoices" ENABLE ROW LEVEL SECURITY;
+22736-
+22737-
+22738-ALTER TABLE "public"."item_learning" ENABLE ROW LEVEL SECURITY;
+22739-
+22740-
+22741:ALTER TABLE "public"."journal_entries" ENABLE ROW LEVEL SECURITY;
+22742-
+22743-
+22744-ALTER TABLE "public"."journal_entry_lines" ENABLE ROW LEVEL SECURITY;
+22745-
+22746-
+22747-ALTER TABLE "public"."labor_shift_forecasts" ENABLE ROW LEVEL SECURITY;
+22748-
+22749-
+22750-ALTER TABLE "public"."legal_entities" ENABLE ROW LEVEL SECURITY;
+22751-
+22752-
+22753-ALTER TABLE "public"."locations" ENABLE ROW LEVEL SECURITY;
+22754-
+22755-
+22756-CREATE POLICY "manager_delete_staff_accounts" ON "public"."staff_accounts" FOR DELETE USING ("public"."can_manage_role"("role"));
+22757-
+22758-
+22759-
+22760-CREATE POLICY "manager_update_staff_accounts" ON "public"."staff_accounts" FOR UPDATE USING ("public"."can_manage_role"("role"));
+22761-
+22762-
+22763-
+22764-ALTER TABLE "public"."marketing_ai_profiles" ENABLE ROW LEVEL SECURITY;
+22765-
+22766-
+22767-ALTER TABLE "public"."marketing_attribution" ENABLE ROW LEVEL SECURITY;
+22768-
+22769-
+22770-ALTER TABLE "public"."marketing_brand_profiles" ENABLE ROW LEVEL SECURITY;
+22771-
+22772-
+22773-ALTER TABLE "public"."marketing_campaign_analytics" ENABLE ROW LEVEL SECURITY;
+22774-
+22775-
+22776-ALTER TABLE "public"."marketing_campaign_deliveries" ENABLE ROW LEVEL SECURITY;
+22777-
+22778-
+22779-ALTER TABLE "public"."marketing_campaign_queue" ENABLE ROW LEVEL SECURITY;
+22780-
+22781-
+22782-ALTER TABLE "public"."marketing_campaigns" ENABLE ROW LEVEL SECURITY;
+22783-
+22784-
+22785-ALTER TABLE "public"."marketing_prompt_history" ENABLE ROW LEVEL SECURITY;
+22786-
+22787-
+22788-ALTER TABLE "public"."message_participants" ENABLE ROW LEVEL SECURITY;
+22789-
+22790-
+22791-ALTER TABLE "public"."message_reactions" ENABLE ROW LEVEL SECURITY;
+22792-
+22793-
+22794-ALTER TABLE "public"."message_reads" ENABLE ROW LEVEL SECURITY;
+22795-
+22796-
+22797-ALTER TABLE "public"."message_reports" ENABLE ROW LEVEL SECURITY;
+22798-
+22799-
+22800-ALTER TABLE "public"."message_threads" ENABLE ROW LEVEL SECURITY;
+22801-
+22802-
+22803-ALTER TABLE "public"."message_typing" ENABLE ROW LEVEL SECURITY;
+22804-
+22805-
+22806-ALTER TABLE "public"."messages" ENABLE ROW LEVEL SECURITY;
+22807-
+22808-
+22809-ALTER TABLE "public"."meta_accounts" ENABLE ROW LEVEL SECURITY;
+22810-
+22811-
+22812-ALTER TABLE "public"."modifier_group_options" ENABLE ROW LEVEL SECURITY;
+22813-
+22814-
+22815-CREATE POLICY "modifier_group_options_delete" ON "public"."modifier_group_options" FOR DELETE USING (true);
+22816-
+22817-
+22818-
+22819-CREATE POLICY "modifier_group_options_insert" ON "public"."modifier_group_options" FOR INSERT WITH CHECK (true);
+22820-
+22821-
+22822-
+22823-CREATE POLICY "modifier_group_options_select" ON "public"."modifier_group_options" FOR SELECT USING (true);
+22824-
+22825-
+22826-
+22827-CREATE POLICY "modifier_group_options_update" ON "public"."modifier_group_options" FOR UPDATE USING (true);
+22828-
+22829-
+22830-
+22831-ALTER TABLE "public"."modifier_groups" ENABLE ROW LEVEL SECURITY;
+22832-
+22833-
+22834-ALTER TABLE "public"."modifiers" ENABLE ROW LEVEL SECURITY;
+22835-
+22836-
+22837-ALTER TABLE "public"."object_configuration_groups" ENABLE ROW LEVEL SECURITY;
+22838-
+22839-
+22840-ALTER TABLE "public"."operational_settings" ENABLE ROW LEVEL SECURITY;
+22841-
+22842-
+22843-ALTER TABLE "public"."order_acknowledgements" ENABLE ROW LEVEL SECURITY;
+22844-
+22845-
+22846-ALTER TABLE "public"."order_events" ENABLE ROW LEVEL SECURITY;
+22847-
+22848-
+22849-ALTER TABLE "public"."order_item_modifiers" ENABLE ROW LEVEL SECURITY;
+22850-
+22851-
+22852-ALTER TABLE "public"."order_items" ENABLE ROW LEVEL SECURITY;
+22853-
+22854-
+22855-ALTER TABLE "public"."organization_accounting_profiles" ENABLE ROW LEVEL SECURITY;
+22856-
+22857-
+22858-ALTER TABLE "public"."organization_audit_logs" ENABLE ROW LEVEL SECURITY;
+22859-
+22860-
+22861-ALTER TABLE "public"."organization_channel_assets" ENABLE ROW LEVEL SECURITY;
+22862-
+22863-
+22864-ALTER TABLE "public"."organization_channel_connections" ENABLE ROW LEVEL SECURITY;
+22865-
+22866-
+22867-ALTER TABLE "public"."organization_clients" ENABLE ROW LEVEL SECURITY;
+22868-
+22869-
+22870-ALTER TABLE "public"."organization_dish_modifier_groups" ENABLE ROW LEVEL SECURITY;
+22871-
+22872-
+22873-ALTER TABLE "public"."organization_documents" ENABLE ROW LEVEL SECURITY;
+22874-
+22875-
+22876-ALTER TABLE "public"."organization_leads" ENABLE ROW LEVEL SECURITY;
+22877-
+22878-
+22879-ALTER TABLE "public"."organization_modifier_groups" ENABLE ROW LEVEL SECURITY;
+22880-
+22881-
+22882-ALTER TABLE "public"."organization_modifiers" ENABLE ROW LEVEL SECURITY;
+22883-
+22884-
+22885-ALTER TABLE "public"."organization_payment_config" ENABLE ROW LEVEL SECURITY;
+22886-
+22887-
+22888-ALTER TABLE "public"."organization_payout_policies" ENABLE ROW LEVEL SECURITY;
+22889-
+22890-
+22891-ALTER TABLE "public"."organization_policies" ENABLE ROW LEVEL SECURITY;
+22892-
+22893-
+22894-ALTER TABLE "public"."organization_relationships" ENABLE ROW LEVEL SECURITY;
+22895-
+22896-
+22897-ALTER TABLE "public"."organization_services" ENABLE ROW LEVEL SECURITY;
+22898-
+22899-
+22900-ALTER TABLE "public"."organization_template_assignments" ENABLE ROW LEVEL SECURITY;
+22901-
+22902-
+22903-ALTER TABLE "public"."organization_users" ENABLE ROW LEVEL SECURITY;
+22904-
+22905-
+22906-ALTER TABLE "public"."organization_wallets" ENABLE ROW LEVEL SECURITY;
+22907-
+22908-
+22909-ALTER TABLE "public"."organization_workspace_settings" ENABLE ROW LEVEL SECURITY;
+22910-
+22911-
+22912-ALTER TABLE "public"."parties" ENABLE ROW LEVEL SECURITY;
+22913-
+22914-
+22915-ALTER TABLE "public"."party_company_profiles" ENABLE ROW LEVEL SECURITY;
+22916-
+22917-
+22918-ALTER TABLE "public"."party_person_profiles" ENABLE ROW LEVEL SECURITY;
+22919-
+22920-
+22921-ALTER TABLE "public"."party_relationships" ENABLE ROW LEVEL SECURITY;
+
+================ LIVE TABLE: journal_entry_lines ================
+8604-    "entity_id" "uuid" NOT NULL,
+8605-    "currency_code" "text" DEFAULT 'THB'::"text"
+8606-);
+8607-
+8608-
+8609-ALTER TABLE "public"."chart_of_accounts" OWNER TO "postgres";
+8610-
+8611-
+8612:CREATE TABLE IF NOT EXISTS "public"."journal_entry_lines" (
+8613-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8614-    "journal_entry_id" "uuid",
+8615-    "account_id" "uuid",
+8616-    "debit" numeric DEFAULT 0,
+8617-    "credit" numeric DEFAULT 0,
+8618-    "description" "text",
+8619-    "created_at" timestamp with time zone DEFAULT "now"(),
+8620-    "cost_center_id" "uuid",
+8621-    "organization_id" "uuid" NOT NULL,
+8622-    "created_by" "text",
+8623-    "legal_entity_id" "uuid",
+8624-    "line_number" integer,
+8625-    "department_id" "uuid",
+8626-    "currency_code" "text" DEFAULT 'THB'::"text",
+8627-    "exchange_rate" numeric DEFAULT 1,
+8628-    "entity_id" "uuid" NOT NULL,
+8629-    "party_id" "uuid",
+8630-    "period_id" "uuid",
+8631-    "project_id" "uuid"
+8632-);
+8633-
+8634-
+8635:ALTER TABLE "public"."journal_entry_lines" OWNER TO "postgres";
+8636-
+8637-
+8638-CREATE OR REPLACE VIEW "public"."balance_sheet_view" AS
+8639- SELECT "coa"."account_category" AS "category",
+8640-    "coa"."account_code" AS "code",
+8641-    "coa"."account_name" AS "name",
+8642-    "sum"("jel"."debit") AS "total_debits",
+8643-    "sum"("jel"."credit") AS "total_credits",
+8644-        CASE
+8645-            WHEN ("coa"."account_category" = 'Assets'::"text") THEN "sum"(("jel"."debit" - "jel"."credit"))
+8646-            ELSE "sum"(("jel"."credit" - "jel"."debit"))
+8647-        END AS "balance"
+8648-   FROM ("public"."chart_of_accounts" "coa"
+8649-     LEFT JOIN "public"."journal_entry_lines" "jel" ON (("coa"."id" = "jel"."account_id")))
+8650-  GROUP BY "coa"."account_category", "coa"."account_code", "coa"."account_name"
+8651- HAVING ("coa"."account_category" = ANY (ARRAY['Assets'::"text", 'Liabilities'::"text", 'Equity'::"text"]))
+8652-  ORDER BY "coa"."account_code";
+8653-
+8654-
+8655-ALTER VIEW "public"."balance_sheet_view" OWNER TO "postgres";
+8656-
+8657-
+8658-CREATE TABLE IF NOT EXISTS "public"."bank_accounts" (
+8659-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8660-    "organization_id" "uuid" NOT NULL,
+8661-    "entity_id" "uuid" NOT NULL,
+8662-    "bank_name" "text" NOT NULL,
+8663-    "account_name" "text" NOT NULL,
+8664-    "account_number" "text",
+8665-    "currency" "text" DEFAULT 'THB'::"text",
+8666-    "created_at" timestamp with time zone DEFAULT "now"(),
+8667-    "branch_name" "text",
+8668-    "iban" "text",
+8669-    "swift_bic" "text",
+8670-    "account_type" "text",
+8671-    "currency_code" "text",
+8672-    "is_default" boolean DEFAULT false,
+8673-    "active" boolean DEFAULT true,
+8674-    "updated_at" timestamp with time zone DEFAULT "now"()
+8675-);
+8676-
+8677-
+8678-ALTER TABLE "public"."bank_accounts" OWNER TO "postgres";
+8679-
+8680-
+8681-CREATE TABLE IF NOT EXISTS "public"."bank_ledger" (
+8682-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8683-    "transaction_type" "text",
+8684-    "reference_id" "uuid",
+8685-    "amount" numeric DEFAULT 0,
+8686-    "direction" "text",
+8687-    "created_at" timestamp with time zone DEFAULT "now"(),
+8688-    "organization_id" "uuid"
+8689-);
+8690-
+8691-
+8692-ALTER TABLE "public"."bank_ledger" OWNER TO "postgres";
+8693-
+8694-
+8695-CREATE TABLE IF NOT EXISTS "public"."bank_statements" (
+8696-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8697-    "transaction_date" "date",
+8698-    "description" "text",
+8699-    "amount" numeric DEFAULT 0,
+8700-    "direction" "text",
+8701-    "reference_number" "text",
+8702-    "matched" boolean,
+8703-    "matched_at" timestamp with time zone,
+8704-    "ledger_reference_id" "uuid",
+8705-    "created_at" timestamp with time zone DEFAULT "now"(),
+8706-    "organization_id" "uuid"
+8707-);
+8708-
+8709-
+8710-ALTER TABLE "public"."bank_statements" OWNER TO "postgres";
+8711-
+8712-
+8713-CREATE TABLE IF NOT EXISTS "public"."bank_transactions" (
+8714-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8715-    "organization_id" "uuid" NOT NULL,
+8716-    "entity_id" "uuid" NOT NULL,
+8717-    "bank_account_id" "uuid",
+8718-    "transaction_date" "date" NOT NULL,
+8719-    "description" "text",
+8720-    "reference" "text",
+8721-    "amount" numeric(14,2) NOT NULL,
+8722-    "type" "text",
+8723-    "reconciled" boolean DEFAULT false,
+8724-    "created_at" timestamp with time zone DEFAULT "now"(),
+8725-    CONSTRAINT "bank_transactions_type_check" CHECK (("type" = ANY (ARRAY['deposit'::"text", 'withdrawal'::"text"])))
+8726-);
+8727-
+8728-
+8729-ALTER TABLE "public"."bank_transactions" OWNER TO "postgres";
+8730-
+8731-
+8732-CREATE TABLE IF NOT EXISTS "public"."billing_invoice_lines" (
+8733-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8734-    "organization_id" "uuid" NOT NULL,
+8735-    "bill_to_organization_id" "uuid" NOT NULL,
+8736-    "entity_id" "uuid",
+8737-    "party_id" "uuid",
+8738-    "invoice_id" "uuid",
+8739-    "usage_id" "uuid",
+8740-    "service_id" "text",
+8741-    "provider_id" "text",
+8742-    "description" "text",
+8743-    "quantity" numeric(18,6) DEFAULT 1,
+8744-    "unit" "text" DEFAULT 'request'::"text",
+8745-    "unit_price" numeric(18,6) DEFAULT 0,
+8746-    "supplier_cost" numeric(18,6) DEFAULT 0,
+8747-    "platform_markup" numeric(18,6) DEFAULT 0,
+8748-    "line_total" numeric(18,6) DEFAULT 0,
+8749-    "currency" "text" DEFAULT 'USD'::"text",
+8750-    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+8751-    "created_at" timestamp with time zone DEFAULT "now"(),
+8752-    "updated_at" timestamp with time zone DEFAULT "now"()
+8753-);
+8754-
+8755-
+8756-ALTER TABLE "public"."billing_invoice_lines" OWNER TO "postgres";
+8757-
+8758-
+8759-CREATE TABLE IF NOT EXISTS "public"."billing_invoices" (
+8760-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8761-    "invoice_number" "text",
+8762-    "company" "text",
+8763-    "email" "text",
+8764-    "currency" "text",
+8765-    "amount" numeric DEFAULT 0,
+8766-    "status" "text" DEFAULT 'draft'::"text",
+8767-    "due_date" "date",
+8768-    "created_at" timestamp with time zone DEFAULT "now"(),
+8769-    "organization_id" "uuid",
+8770-    "bill_to_organization_id" "uuid",
+8771-    "entity_id" "uuid",
+8772-    "party_id" "uuid",
+8773-    "invoice_type" "text" DEFAULT 'SERVICE_USAGE'::"text",
+8774-    "source" "text" DEFAULT 'SERVICE_RUNTIME'::"text",
+8775-    "subtotal" numeric(18,6) DEFAULT 0,
+8776-    "tax_amount" numeric(18,6) DEFAULT 0,
+8777-    "total_amount" numeric(18,6) DEFAULT 0,
+8778-    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+8779-    "updated_at" timestamp with time zone DEFAULT "now"()
+8780-);
+8781-
+8782-
+8783-ALTER TABLE "public"."billing_invoices" OWNER TO "postgres";
+8784-
+8785-
+8786-CREATE TABLE IF NOT EXISTS "public"."budgets" (
+8787-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8788-    "fiscal_year" "text",
+8789-    "department" "text",
+8790-    "account_name" "text",
+8791-    "budget_amount" numeric DEFAULT 0,
+8792-    "created_at" timestamp with time zone DEFAULT "now"(),
+8793-    "organization_id" "uuid"
+8794-);
+8795-
+8796-
+8797-ALTER TABLE "public"."budgets" OWNER TO "postgres";
+8798-
+8799-
+8800-CREATE TABLE IF NOT EXISTS "public"."business_entities" (
+8801-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8802-    "parent_entity_id" "uuid",
+8803-    "entity_name" "text",
+8804-    "entity_code" "text",
+8805-    "country" "text",
+8806-    "currency" "text" DEFAULT 'THB'::"text",
+8807-    "created_at" timestamp with time zone DEFAULT "now"()
+8808-);
+8809-
+8810-
+8811-ALTER TABLE "public"."business_entities" OWNER TO "postgres";
+8812-
+8813-
+8814-CREATE TABLE IF NOT EXISTS "public"."business_locations" (
+8815-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+--
+17947-
+17948-
+17949-
+17950-ALTER TABLE ONLY "public"."journal_entries"
+17951-    ADD CONSTRAINT "journal_entries_pkey" PRIMARY KEY ("id");
+17952-
+17953-
+17954-
+17955:ALTER TABLE "public"."journal_entry_lines"
+17956-    ADD CONSTRAINT "journal_entry_lines_nonnegative_amounts" CHECK (((COALESCE("debit", (0)::numeric) >= (0)::numeric) AND (COALESCE("credit", (0)::numeric) >= (0)::numeric))) NOT VALID;
+17957-
+17958-
+17959-
+17960:ALTER TABLE "public"."journal_entry_lines"
+17961-    ADD CONSTRAINT "journal_entry_lines_one_side" CHECK ((NOT ((COALESCE("debit", (0)::numeric) > (0)::numeric) AND (COALESCE("credit", (0)::numeric) > (0)::numeric)))) NOT VALID;
+17962-
+17963-
+17964-
+17965:ALTER TABLE ONLY "public"."journal_entry_lines"
+17966-    ADD CONSTRAINT "journal_entry_lines_pkey" PRIMARY KEY ("id");
+17967-
+17968-
+17969-
+17970-ALTER TABLE ONLY "public"."kernel_snapshots"
+17971-    ADD CONSTRAINT "kernel_snapshots_pkey" PRIMARY KEY ("id");
+17972-
+17973-
+17974-
+17975-ALTER TABLE ONLY "public"."labor_shift_forecasts"
+17976-    ADD CONSTRAINT "labor_shift_forecasts_pkey" PRIMARY KEY ("id");
+17977-
+17978-
+17979-
+17980-ALTER TABLE ONLY "public"."legal_entities"
+17981-    ADD CONSTRAINT "legal_entities_pkey" PRIMARY KEY ("id");
+17982-
+17983-
+17984-
+17985-ALTER TABLE ONLY "public"."locations"
+17986-    ADD CONSTRAINT "locations_pkey" PRIMARY KEY ("id");
+17987-
+17988-
+17989-
+17990-ALTER TABLE ONLY "public"."marketing_ai_profiles"
+17991-    ADD CONSTRAINT "marketing_ai_profiles_pkey" PRIMARY KEY ("id");
+17992-
+17993-
+17994-
+17995-ALTER TABLE ONLY "public"."marketing_attribution"
+17996-    ADD CONSTRAINT "marketing_attribution_pkey" PRIMARY KEY ("id");
+17997-
+17998-
+17999-
+18000-ALTER TABLE ONLY "public"."marketing_brand_profiles"
+18001-    ADD CONSTRAINT "marketing_brand_profiles_pkey" PRIMARY KEY ("id");
+18002-
+18003-
+18004-
+18005-ALTER TABLE ONLY "public"."marketing_campaign_analytics"
+18006-    ADD CONSTRAINT "marketing_campaign_analytics_pkey" PRIMARY KEY ("id");
+18007-
+18008-
+18009-
+18010-ALTER TABLE ONLY "public"."marketing_campaign_deliveries"
+18011-    ADD CONSTRAINT "marketing_campaign_deliveries_pkey" PRIMARY KEY ("id");
+18012-
+18013-
+18014-
+18015-ALTER TABLE ONLY "public"."marketing_campaign_queue"
+18016-    ADD CONSTRAINT "marketing_campaign_queue_pkey" PRIMARY KEY ("id");
+18017-
+18018-
+18019-
+18020-ALTER TABLE ONLY "public"."marketing_campaigns"
+18021-    ADD CONSTRAINT "marketing_campaigns_pkey" PRIMARY KEY ("id");
+18022-
+18023-
+18024-
+18025-ALTER TABLE ONLY "public"."marketing_prompt_history"
+18026-    ADD CONSTRAINT "marketing_prompt_history_pkey" PRIMARY KEY ("id");
+18027-
+18028-
+18029-
+18030-ALTER TABLE ONLY "public"."message_participants"
+18031-    ADD CONSTRAINT "message_participants_pkey" PRIMARY KEY ("id");
+18032-
+18033-
+18034-
+18035-ALTER TABLE ONLY "public"."message_reactions"
+18036-    ADD CONSTRAINT "message_reactions_pkey" PRIMARY KEY ("id");
+18037-
+18038-
+18039-
+18040-ALTER TABLE ONLY "public"."message_reads"
+18041-    ADD CONSTRAINT "message_reads_pkey" PRIMARY KEY ("id");
+18042-
+18043-
+18044-
+18045-ALTER TABLE ONLY "public"."message_reports"
+18046-    ADD CONSTRAINT "message_reports_pkey" PRIMARY KEY ("id");
+18047-
+18048-
+18049-
+18050-ALTER TABLE ONLY "public"."message_threads"
+18051-    ADD CONSTRAINT "message_threads_pkey" PRIMARY KEY ("id");
+18052-
+18053-
+18054-
+18055-ALTER TABLE ONLY "public"."message_typing"
+18056-    ADD CONSTRAINT "message_typing_pkey" PRIMARY KEY ("id");
+18057-
+18058-
+18059-
+18060-ALTER TABLE ONLY "public"."message_typing"
+18061-    ADD CONSTRAINT "message_typing_thread_id_staff_id_key" UNIQUE ("thread_id", "staff_id");
+18062-
+18063-
+18064-
+18065-ALTER TABLE ONLY "public"."messages"
+18066-    ADD CONSTRAINT "messages_pkey" PRIMARY KEY ("id");
+18067-
+18068-
+18069-
+18070-ALTER TABLE ONLY "public"."meta_accounts"
+18071-    ADD CONSTRAINT "meta_accounts_page_id_key" UNIQUE ("page_id");
+18072-
+18073-
+18074-
+18075-ALTER TABLE ONLY "public"."meta_accounts"
+18076-    ADD CONSTRAINT "meta_accounts_pkey" PRIMARY KEY ("id");
+18077-
+18078-
+18079-
+18080-ALTER TABLE ONLY "public"."modifier_group_options"
+18081-    ADD CONSTRAINT "modifier_group_options_pkey" PRIMARY KEY ("id");
+18082-
+18083-
+18084-
+18085-ALTER TABLE ONLY "public"."modifier_groups"
+18086-    ADD CONSTRAINT "modifier_groups_pkey" PRIMARY KEY ("id");
+18087-
+18088-
+18089-
+18090-ALTER TABLE ONLY "public"."modifiers"
+18091-    ADD CONSTRAINT "modifiers_pkey" PRIMARY KEY ("id");
+18092-
+18093-
+18094-
+18095-ALTER TABLE ONLY "public"."object_configuration_groups"
+18096-    ADD CONSTRAINT "object_configuration_groups_organization_id_object_type_obj_key" UNIQUE ("organization_id", "object_type", "object_id", "configuration_group_id");
+18097-
+18098-
+18099-
+18100-ALTER TABLE ONLY "public"."object_configuration_groups"
+18101-    ADD CONSTRAINT "object_configuration_groups_pkey" PRIMARY KEY ("id");
+18102-
+18103-
+18104-
+18105-ALTER TABLE ONLY "public"."operational_settings"
+18106-    ADD CONSTRAINT "operational_settings_pkey" PRIMARY KEY ("id");
+18107-
+18108-
+18109-
+18110-ALTER TABLE ONLY "public"."order_acknowledgements"
+18111-    ADD CONSTRAINT "order_acknowledgements_pkey" PRIMARY KEY ("id");
+18112-
+18113-
+18114-
+18115-ALTER TABLE ONLY "public"."order_events"
+18116-    ADD CONSTRAINT "order_events_pkey" PRIMARY KEY ("id");
+18117-
+18118-
+18119-
+18120-ALTER TABLE ONLY "public"."order_item_modifiers"
+18121-    ADD CONSTRAINT "order_item_modifiers_pkey" PRIMARY KEY ("id");
+18122-
+18123-
+18124-
+18125-ALTER TABLE ONLY "public"."order_items"
+18126-    ADD CONSTRAINT "order_items_pkey" PRIMARY KEY ("id");
+18127-
+18128-
+18129-
+18130-ALTER TABLE ONLY "public"."orders"
+18131-    ADD CONSTRAINT "orders_pkey" PRIMARY KEY ("id");
+18132-
+18133-
+18134-
+18135-ALTER TABLE ONLY "public"."organization_accounting_profiles"
+18136-    ADD CONSTRAINT "organization_accounting_profiles_pkey" PRIMARY KEY ("id");
+18137-
+18138-
+18139-
+18140-ALTER TABLE ONLY "public"."organization_audit_logs"
+18141-    ADD CONSTRAINT "organization_audit_logs_pkey" PRIMARY KEY ("id");
+18142-
+18143-
+18144-
+18145-ALTER TABLE ONLY "public"."organization_channel_assets"
+--
+21535-
+21536-
+21537-
+21538-ALTER TABLE ONLY "public"."journal_entries"
+21539-    ADD CONSTRAINT "journal_entries_period_id_fkey" FOREIGN KEY ("period_id") REFERENCES "public"."accounting_periods"("id");
+21540-
+21541-
+21542-
+21543:ALTER TABLE ONLY "public"."journal_entry_lines"
+21544-    ADD CONSTRAINT "journal_entry_lines_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "public"."chart_of_accounts"("id");
+21545-
+21546-
+21547-
+21548:ALTER TABLE ONLY "public"."journal_entry_lines"
+21549-    ADD CONSTRAINT "journal_entry_lines_cost_center_id_fkey" FOREIGN KEY ("cost_center_id") REFERENCES "public"."cost_centers"("id");
+21550-
+21551-
+21552-
+21553:ALTER TABLE ONLY "public"."journal_entry_lines"
+21554-    ADD CONSTRAINT "journal_entry_lines_journal_entry_id_fkey" FOREIGN KEY ("journal_entry_id") REFERENCES "public"."journal_entries"("id") ON DELETE CASCADE;
+21555-
+21556-
+21557-
+21558:ALTER TABLE ONLY "public"."journal_entry_lines"
+21559-    ADD CONSTRAINT "journal_entry_lines_period_id_fkey" FOREIGN KEY ("period_id") REFERENCES "public"."accounting_periods"("id");
+21560-
+21561-
+21562-
+21563-ALTER TABLE ONLY "public"."legal_entities"
+21564-    ADD CONSTRAINT "legal_entities_parent_entity_id_fkey" FOREIGN KEY ("parent_entity_id") REFERENCES "public"."legal_entities"("id");
+21565-
+21566-
+21567-
+21568-ALTER TABLE ONLY "public"."marketing_campaign_analytics"
+21569-    ADD CONSTRAINT "marketing_campaign_analytics_marketing_campaign_id_fkey" FOREIGN KEY ("marketing_campaign_id") REFERENCES "public"."marketing_campaigns"("id");
+21570-
+21571-
+21572-
+21573-ALTER TABLE ONLY "public"."marketing_campaign_deliveries"
+21574-    ADD CONSTRAINT "marketing_campaign_deliveries_customer_segment_id_fkey" FOREIGN KEY ("customer_segment_id") REFERENCES "public"."customer_segments"("id");
+21575-
+21576-
+21577-
+21578-ALTER TABLE ONLY "public"."marketing_campaign_deliveries"
+21579-    ADD CONSTRAINT "marketing_campaign_deliveries_marketing_campaign_id_fkey" FOREIGN KEY ("marketing_campaign_id") REFERENCES "public"."marketing_campaigns"("id");
+21580-
+21581-
+21582-
+21583-ALTER TABLE ONLY "public"."marketing_campaigns"
+21584-    ADD CONSTRAINT "marketing_campaigns_target_segment_id_fkey" FOREIGN KEY ("target_segment_id") REFERENCES "public"."customer_segments"("id");
+21585-
+21586-
+21587-
+21588-ALTER TABLE ONLY "public"."message_participants"
+21589-    ADD CONSTRAINT "message_participants_thread_id_fkey" FOREIGN KEY ("thread_id") REFERENCES "public"."message_threads"("id") ON DELETE CASCADE;
+21590-
+21591-
+21592-
+21593-ALTER TABLE ONLY "public"."message_reactions"
+21594-    ADD CONSTRAINT "message_reactions_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE CASCADE;
+21595-
+21596-
+21597-
+21598-ALTER TABLE ONLY "public"."message_reads"
+21599-    ADD CONSTRAINT "message_reads_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE CASCADE;
+21600-
+21601-
+21602-
+21603-ALTER TABLE ONLY "public"."message_reports"
+21604-    ADD CONSTRAINT "message_reports_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE CASCADE;
+21605-
+21606-
+21607-
+21608-ALTER TABLE ONLY "public"."messages"
+21609-    ADD CONSTRAINT "messages_thread_id_fkey" FOREIGN KEY ("thread_id") REFERENCES "public"."message_threads"("id") ON DELETE CASCADE;
+21610-
+21611-
+21612-
+21613-ALTER TABLE ONLY "public"."modifier_group_options"
+21614-    ADD CONSTRAINT "modifier_group_options_modifier_group_id_fkey" FOREIGN KEY ("modifier_group_id") REFERENCES "public"."modifier_groups"("id") ON DELETE CASCADE;
+21615-
+21616-
+21617-
+21618-ALTER TABLE ONLY "public"."modifier_group_options"
+21619-    ADD CONSTRAINT "modifier_group_options_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21620-
+21621-
+21622-
+21623-ALTER TABLE ONLY "public"."modifier_groups"
+21624-    ADD CONSTRAINT "modifier_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21625-
+21626-
+21627-
+21628-ALTER TABLE ONLY "public"."modifiers"
+21629-    ADD CONSTRAINT "modifiers_modifier_group_id_fkey" FOREIGN KEY ("modifier_group_id") REFERENCES "public"."modifier_groups"("id") ON DELETE CASCADE;
+21630-
+21631-
+21632-
+21633-ALTER TABLE ONLY "public"."modifiers"
+21634-    ADD CONSTRAINT "modifiers_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21635-
+21636-
+21637-
+21638-ALTER TABLE ONLY "public"."object_configuration_groups"
+21639-    ADD CONSTRAINT "object_configuration_groups_configuration_group_id_fkey" FOREIGN KEY ("configuration_group_id") REFERENCES "public"."configuration_groups"("id") ON DELETE CASCADE;
+21640-
+21641-
+21642-
+21643-ALTER TABLE ONLY "public"."object_configuration_groups"
+21644-    ADD CONSTRAINT "object_configuration_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21645-
+21646-
+21647-
+21648-ALTER TABLE ONLY "public"."order_item_modifiers"
+21649-    ADD CONSTRAINT "order_item_modifiers_modifier_id_fkey" FOREIGN KEY ("modifier_id") REFERENCES "public"."modifiers"("id") ON DELETE CASCADE;
+21650-
+21651-
+21652-
+21653-ALTER TABLE ONLY "public"."order_items"
+21654-    ADD CONSTRAINT "order_items_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE CASCADE;
+21655-
+21656-
+21657-
+21658-ALTER TABLE ONLY "public"."orders"
+21659-    ADD CONSTRAINT "orders_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21660-
+21661-
+21662-
+21663-ALTER TABLE ONLY "public"."organization_accounting_profiles"
+21664-    ADD CONSTRAINT "organization_accounting_profiles_consolidation_parent_id_fkey" FOREIGN KEY ("consolidation_parent_id") REFERENCES "public"."organizations"("id");
+21665-
+21666-
+21667-
+21668-ALTER TABLE ONLY "public"."organization_accounting_profiles"
+21669-    ADD CONSTRAINT "organization_accounting_profiles_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21670-
+21671-
+21672-
+21673-ALTER TABLE ONLY "public"."organization_audit_logs"
+21674-    ADD CONSTRAINT "organization_audit_logs_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21675-
+21676-
+21677-
+21678-ALTER TABLE ONLY "public"."organization_clients"
+21679-    ADD CONSTRAINT "organization_clients_client_organization_id_fkey" FOREIGN KEY ("client_organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21680-
+21681-
+21682-
+21683-ALTER TABLE ONLY "public"."organization_clients"
+21684-    ADD CONSTRAINT "organization_clients_firm_organization_id_fkey" FOREIGN KEY ("firm_organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21685-
+21686-
+21687-
+21688-ALTER TABLE ONLY "public"."organization_dish_modifier_groups"
+21689-    ADD CONSTRAINT "organization_dish_modifier_groups_modifier_group_id_fkey" FOREIGN KEY ("modifier_group_id") REFERENCES "public"."organization_modifier_groups"("id");
+21690-
+21691-
+21692-
+21693-ALTER TABLE ONLY "public"."organization_dish_modifier_groups"
+21694-    ADD CONSTRAINT "organization_dish_modifier_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21695-
+21696-
+21697-
+21698-ALTER TABLE ONLY "public"."organization_industries"
+21699-    ADD CONSTRAINT "organization_industries_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21700-
+21701-
+21702-
+21703-ALTER TABLE ONLY "public"."organization_modifier_groups"
+21704-    ADD CONSTRAINT "organization_modifier_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21705-
+21706-
+21707-
+21708-ALTER TABLE ONLY "public"."organization_modifiers"
+21709-    ADD CONSTRAINT "organization_modifiers_modifier_group_id_fkey" FOREIGN KEY ("modifier_group_id") REFERENCES "public"."organization_modifier_groups"("id");
+21710-
+21711-
+21712-
+21713-ALTER TABLE ONLY "public"."organization_modifiers"
+21714-    ADD CONSTRAINT "organization_modifiers_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21715-
+21716-
+21717-
+21718-ALTER TABLE ONLY "public"."organization_modules"
+21719-    ADD CONSTRAINT "organization_modules_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21720-
+21721-
+21722-
+21723-ALTER TABLE ONLY "public"."organization_payout_policies"
+21724-    ADD CONSTRAINT "organization_payout_policies_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21725-
+21726-
+21727-
+21728-ALTER TABLE ONLY "public"."organization_policies"
+21729-    ADD CONSTRAINT "organization_policies_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21730-
+21731-
+21732-
+21733-ALTER TABLE ONLY "public"."organization_users"
+21734-    ADD CONSTRAINT "organization_users_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21735-
+21736-
+21737-
+21738-ALTER TABLE ONLY "public"."organizations"
+--
+22736-
+22737-
+22738-ALTER TABLE "public"."item_learning" ENABLE ROW LEVEL SECURITY;
+22739-
+22740-
+22741-ALTER TABLE "public"."journal_entries" ENABLE ROW LEVEL SECURITY;
+22742-
+22743-
+22744:ALTER TABLE "public"."journal_entry_lines" ENABLE ROW LEVEL SECURITY;
+22745-
+22746-
+22747-ALTER TABLE "public"."labor_shift_forecasts" ENABLE ROW LEVEL SECURITY;
+22748-
+22749-
+22750-ALTER TABLE "public"."legal_entities" ENABLE ROW LEVEL SECURITY;
+22751-
+22752-
+22753-ALTER TABLE "public"."locations" ENABLE ROW LEVEL SECURITY;
+22754-
+22755-
+22756-CREATE POLICY "manager_delete_staff_accounts" ON "public"."staff_accounts" FOR DELETE USING ("public"."can_manage_role"("role"));
+22757-
+22758-
+22759-
+22760-CREATE POLICY "manager_update_staff_accounts" ON "public"."staff_accounts" FOR UPDATE USING ("public"."can_manage_role"("role"));
+22761-
+22762-
+22763-
+22764-ALTER TABLE "public"."marketing_ai_profiles" ENABLE ROW LEVEL SECURITY;
+22765-
+22766-
+22767-ALTER TABLE "public"."marketing_attribution" ENABLE ROW LEVEL SECURITY;
+22768-
+22769-
+22770-ALTER TABLE "public"."marketing_brand_profiles" ENABLE ROW LEVEL SECURITY;
+22771-
+22772-
+22773-ALTER TABLE "public"."marketing_campaign_analytics" ENABLE ROW LEVEL SECURITY;
+22774-
+22775-
+22776-ALTER TABLE "public"."marketing_campaign_deliveries" ENABLE ROW LEVEL SECURITY;
+22777-
+22778-
+22779-ALTER TABLE "public"."marketing_campaign_queue" ENABLE ROW LEVEL SECURITY;
+22780-
+22781-
+22782-ALTER TABLE "public"."marketing_campaigns" ENABLE ROW LEVEL SECURITY;
+22783-
+22784-
+22785-ALTER TABLE "public"."marketing_prompt_history" ENABLE ROW LEVEL SECURITY;
+22786-
+22787-
+22788-ALTER TABLE "public"."message_participants" ENABLE ROW LEVEL SECURITY;
+22789-
+22790-
+22791-ALTER TABLE "public"."message_reactions" ENABLE ROW LEVEL SECURITY;
+22792-
+22793-
+22794-ALTER TABLE "public"."message_reads" ENABLE ROW LEVEL SECURITY;
+22795-
+22796-
+22797-ALTER TABLE "public"."message_reports" ENABLE ROW LEVEL SECURITY;
+22798-
+22799-
+22800-ALTER TABLE "public"."message_threads" ENABLE ROW LEVEL SECURITY;
+22801-
+22802-
+22803-ALTER TABLE "public"."message_typing" ENABLE ROW LEVEL SECURITY;
+22804-
+22805-
+22806-ALTER TABLE "public"."messages" ENABLE ROW LEVEL SECURITY;
+22807-
+22808-
+22809-ALTER TABLE "public"."meta_accounts" ENABLE ROW LEVEL SECURITY;
+22810-
+22811-
+22812-ALTER TABLE "public"."modifier_group_options" ENABLE ROW LEVEL SECURITY;
+22813-
+22814-
+22815-CREATE POLICY "modifier_group_options_delete" ON "public"."modifier_group_options" FOR DELETE USING (true);
+22816-
+22817-
+22818-
+22819-CREATE POLICY "modifier_group_options_insert" ON "public"."modifier_group_options" FOR INSERT WITH CHECK (true);
+22820-
+22821-
+22822-
+22823-CREATE POLICY "modifier_group_options_select" ON "public"."modifier_group_options" FOR SELECT USING (true);
+22824-
+22825-
+22826-
+22827-CREATE POLICY "modifier_group_options_update" ON "public"."modifier_group_options" FOR UPDATE USING (true);
+22828-
+22829-
+22830-
+22831-ALTER TABLE "public"."modifier_groups" ENABLE ROW LEVEL SECURITY;
+22832-
+22833-
+22834-ALTER TABLE "public"."modifiers" ENABLE ROW LEVEL SECURITY;
+22835-
+22836-
+22837-ALTER TABLE "public"."object_configuration_groups" ENABLE ROW LEVEL SECURITY;
+22838-
+22839-
+22840-ALTER TABLE "public"."operational_settings" ENABLE ROW LEVEL SECURITY;
+22841-
+22842-
+22843-ALTER TABLE "public"."order_acknowledgements" ENABLE ROW LEVEL SECURITY;
+22844-
+22845-
+22846-ALTER TABLE "public"."order_events" ENABLE ROW LEVEL SECURITY;
+22847-
+22848-
+22849-ALTER TABLE "public"."order_item_modifiers" ENABLE ROW LEVEL SECURITY;
+22850-
+22851-
+22852-ALTER TABLE "public"."order_items" ENABLE ROW LEVEL SECURITY;
+22853-
+22854-
+22855-ALTER TABLE "public"."organization_accounting_profiles" ENABLE ROW LEVEL SECURITY;
+22856-
+22857-
+22858-ALTER TABLE "public"."organization_audit_logs" ENABLE ROW LEVEL SECURITY;
+22859-
+22860-
+22861-ALTER TABLE "public"."organization_channel_assets" ENABLE ROW LEVEL SECURITY;
+22862-
+22863-
+22864-ALTER TABLE "public"."organization_channel_connections" ENABLE ROW LEVEL SECURITY;
+22865-
+22866-
+22867-ALTER TABLE "public"."organization_clients" ENABLE ROW LEVEL SECURITY;
+22868-
+22869-
+22870-ALTER TABLE "public"."organization_dish_modifier_groups" ENABLE ROW LEVEL SECURITY;
+22871-
+22872-
+22873-ALTER TABLE "public"."organization_documents" ENABLE ROW LEVEL SECURITY;
+22874-
+22875-
+22876-ALTER TABLE "public"."organization_leads" ENABLE ROW LEVEL SECURITY;
+22877-
+22878-
+22879-ALTER TABLE "public"."organization_modifier_groups" ENABLE ROW LEVEL SECURITY;
+22880-
+22881-
+22882-ALTER TABLE "public"."organization_modifiers" ENABLE ROW LEVEL SECURITY;
+22883-
+22884-
+22885-ALTER TABLE "public"."organization_payment_config" ENABLE ROW LEVEL SECURITY;
+22886-
+22887-
+22888-ALTER TABLE "public"."organization_payout_policies" ENABLE ROW LEVEL SECURITY;
+22889-
+22890-
+22891-ALTER TABLE "public"."organization_policies" ENABLE ROW LEVEL SECURITY;
+22892-
+22893-
+22894-ALTER TABLE "public"."organization_relationships" ENABLE ROW LEVEL SECURITY;
+22895-
+22896-
+22897-ALTER TABLE "public"."organization_services" ENABLE ROW LEVEL SECURITY;
+22898-
+22899-
+22900-ALTER TABLE "public"."organization_template_assignments" ENABLE ROW LEVEL SECURITY;
+22901-
+22902-
+22903-ALTER TABLE "public"."organization_users" ENABLE ROW LEVEL SECURITY;
+22904-
+22905-
+22906-ALTER TABLE "public"."organization_wallets" ENABLE ROW LEVEL SECURITY;
+22907-
+22908-
+22909-ALTER TABLE "public"."organization_workspace_settings" ENABLE ROW LEVEL SECURITY;
+22910-
+22911-
+22912-ALTER TABLE "public"."parties" ENABLE ROW LEVEL SECURITY;
+22913-
+22914-
+22915-ALTER TABLE "public"."party_company_profiles" ENABLE ROW LEVEL SECURITY;
+22916-
+22917-
+22918-ALTER TABLE "public"."party_person_profiles" ENABLE ROW LEVEL SECURITY;
+22919-
+22920-
+22921-ALTER TABLE "public"."party_relationships" ENABLE ROW LEVEL SECURITY;
+22922-
+22923-
+22924-ALTER TABLE "public"."payment_terms" ENABLE ROW LEVEL SECURITY;
+
+================ LIVE TABLE: general_ledger ================
+12033-    "organization_id" "uuid",
+12034-    "legal_entity_id" "uuid"
+12035-);
+12036-
+12037-
+12038-ALTER TABLE "public"."fixed_assets" OWNER TO "postgres";
+12039-
+12040-
+12041:CREATE TABLE IF NOT EXISTS "public"."general_ledger" (
+12042-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12043-    "account_name" "text",
+12044-    "entry_type" "text",
+12045-    "amount" numeric DEFAULT 0,
+12046-    "reference_type" "text",
+12047-    "reference_id" "uuid",
+12048-    "created_at" timestamp with time zone DEFAULT "now"(),
+12049-    "journal_entry_id" "uuid",
+12050-    "journal_entry_line_id" "uuid",
+12051-    "account_id" "uuid",
+12052-    "entity_id" "uuid",
+12053-    "department_id" "uuid",
+12054-    "cost_center_id" "uuid",
+12055-    "debit" numeric DEFAULT 0,
+12056-    "credit" numeric DEFAULT 0,
+12057-    "currency" "text" DEFAULT 'THB'::"text",
+12058-    "exchange_rate" numeric DEFAULT 1,
+12059-    "transaction_date" "date",
+12060-    "posting_period" "text",
+12061-    "created_by" "text",
+12062-    "organization_id" "uuid",
+12063-    "approved_by" "text",
+12064-    "approved_at" timestamp with time zone,
+12065-    "posting_date" "date",
+12066-    "currency_code" "text",
+12067-    "balance" numeric DEFAULT 0,
+12068-    "party_id" "uuid",
+12069-    "period_id" "uuid",
+12070-    "project_id" "uuid",
+12071-    "description" "text"
+12072-);
+12073-
+12074-
+12075:ALTER TABLE "public"."general_ledger" OWNER TO "postgres";
+12076-
+12077-
+12078-CREATE TABLE IF NOT EXISTS "public"."generation_jobs" (
+12079-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12080-    "campaign_id" "uuid",
+12081-    "engine" "text",
+12082-    "provider" "text",
+12083-    "prompt" "text",
+12084-    "status" "text" DEFAULT 'queued'::"text",
+12085-    "input" "jsonb",
+12086-    "output" "jsonb",
+12087-    "error" "text",
+12088-    "created_at" timestamp with time zone DEFAULT "now"(),
+12089-    "started_at" timestamp with time zone,
+12090-    "completed_at" timestamp with time zone,
+12091-    "updated_at" timestamp with time zone DEFAULT "now"(),
+12092-    "page_id" "text",
+12093-    "model" "text",
+12094-    "image_url" "text",
+12095-    "source_image_url" "text",
+12096-    "selected_assets" "jsonb" DEFAULT '[]'::"jsonb",
+12097-    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+12098-    "retry_count" integer DEFAULT 0,
+12099-    "queue_position" integer DEFAULT 0,
+12100-    "duration_ms" integer DEFAULT 0,
+12101-    "failed_at" timestamp with time zone,
+12102-    "organization_id" "uuid",
+12103-    "asset_id" "uuid",
+12104-    "source_type" "text" DEFAULT 'design'::"text"
+12105-);
+12106-
+12107-
+12108-ALTER TABLE "public"."generation_jobs" OWNER TO "postgres";
+12109-
+12110-
+12111-CREATE TABLE IF NOT EXISTS "public"."goods_receipt_items" (
+12112-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12113-    "goods_receipt_id" "uuid",
+12114-    "purchase_order_item_id" "uuid",
+12115-    "item_name" "text",
+12116-    "ordered_qty" numeric DEFAULT 0,
+12117-    "received_qty" numeric DEFAULT 0,
+12118-    "damaged_qty" numeric DEFAULT 0,
+12119-    "accepted_qty" numeric DEFAULT 0,
+12120-    "created_at" timestamp with time zone DEFAULT "now"(),
+12121-    "organization_id" "uuid",
+12122-    "entity_id" "uuid",
+12123-    "item_id" "uuid"
+12124-);
+12125-
+12126-
+12127-ALTER TABLE "public"."goods_receipt_items" OWNER TO "postgres";
+12128-
+12129-
+12130-CREATE TABLE IF NOT EXISTS "public"."goods_receipts" (
+12131-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12132-    "grn_number" "text",
+12133-    "purchase_order_id" "uuid",
+12134-    "supplier_party_id" "uuid",
+12135-    "received_by" "text",
+12136-    "status" "text" DEFAULT 'received'::"text",
+12137-    "received_date" "date" DEFAULT "now"(),
+12138-    "notes" "text",
+12139-    "created_at" timestamp with time zone DEFAULT "now"(),
+12140-    "updated_at" timestamp with time zone DEFAULT "now"(),
+12141-    "organization_id" "uuid",
+12142-    "entity_id" "uuid",
+12143-    "warehouse_id" "uuid"
+12144-);
+12145-
+12146-
+12147-ALTER TABLE "public"."goods_receipts" OWNER TO "postgres";
+12148-
+12149-
+12150-CREATE TABLE IF NOT EXISTS "public"."governance_audit" (
+12151-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12152-    "action_type" "text",
+12153-    "execution_result" "text",
+12154-    "metadata" "jsonb",
+12155-    "created_at" timestamp with time zone DEFAULT "now"()
+12156-);
+12157-
+12158-
+12159-ALTER TABLE "public"."governance_audit" OWNER TO "postgres";
+12160-
+12161-
+12162-CREATE TABLE IF NOT EXISTS "public"."healthcare_admissions" (
+12163-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12164-    "organization_id" "uuid" NOT NULL,
+12165-    "patient_id" "uuid" NOT NULL,
+12166-    "admission_date" timestamp with time zone,
+12167-    "discharge_date" timestamp with time zone,
+12168-    "attending_doctor_id" "uuid",
+12169-    "admission_reason" "text",
+12170-    "status" "text" DEFAULT 'ADMITTED'::"text",
+12171-    "created_at" timestamp with time zone DEFAULT "now"(),
+12172-    "updated_at" timestamp with time zone DEFAULT "now"()
+12173-);
+12174-
+12175-
+12176-ALTER TABLE "public"."healthcare_admissions" OWNER TO "postgres";
+12177-
+12178-
+12179-CREATE TABLE IF NOT EXISTS "public"."healthcare_appointments" (
+12180-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12181-    "organization_id" "uuid" NOT NULL,
+12182-    "patient_id" "uuid" NOT NULL,
+12183-    "doctor_id" "uuid",
+12184-    "appointment_datetime" timestamp with time zone,
+12185-    "appointment_type" "text",
+12186-    "reason" "text",
+12187-    "status" "text" DEFAULT 'SCHEDULED'::"text",
+12188-    "created_at" timestamp with time zone DEFAULT "now"(),
+12189-    "updated_at" timestamp with time zone DEFAULT "now"()
+12190-);
+12191-
+12192-
+12193-ALTER TABLE "public"."healthcare_appointments" OWNER TO "postgres";
+12194-
+12195-
+12196-CREATE TABLE IF NOT EXISTS "public"."healthcare_beds" (
+12197-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12198-    "organization_id" "uuid" NOT NULL,
+12199-    "room_id" "uuid",
+12200-    "bed_number" "text",
+12201-    "status" "text" DEFAULT 'AVAILABLE'::"text",
+12202-    "created_at" timestamp with time zone DEFAULT "now"(),
+12203-    "updated_at" timestamp with time zone DEFAULT "now"()
+12204-);
+12205-
+12206-
+12207-ALTER TABLE "public"."healthcare_beds" OWNER TO "postgres";
+12208-
+12209-
+12210-CREATE TABLE IF NOT EXISTS "public"."healthcare_billing" (
+12211-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12212-    "organization_id" "uuid" NOT NULL,
+12213-    "patient_id" "uuid" NOT NULL,
+12214-    "invoice_number" "text",
+12215-    "subtotal" numeric DEFAULT 0,
+12216-    "tax_amount" numeric DEFAULT 0,
+12217-    "total_amount" numeric DEFAULT 0,
+12218-    "billing_status" "text" DEFAULT 'PENDING'::"text",
+12219-    "created_at" timestamp with time zone DEFAULT "now"(),
+12220-    "updated_at" timestamp with time zone DEFAULT "now"()
+12221-);
+12222-
+12223-
+12224-ALTER TABLE "public"."healthcare_billing" OWNER TO "postgres";
+12225-
+12226-
+12227-CREATE TABLE IF NOT EXISTS "public"."healthcare_departments" (
+12228-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12229-    "organization_id" "uuid" NOT NULL,
+12230-    "department_code" "text",
+12231-    "department_name" "text" NOT NULL,
+12232-    "status" "text" DEFAULT 'ACTIVE'::"text",
+12233-    "created_at" timestamp with time zone DEFAULT "now"(),
+12234-    "updated_at" timestamp with time zone DEFAULT "now"()
+12235-);
+12236-
+12237-
+12238-ALTER TABLE "public"."healthcare_departments" OWNER TO "postgres";
+12239-
+12240-
+12241-CREATE TABLE IF NOT EXISTS "public"."healthcare_insurance_claims" (
+12242-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+12243-    "organization_id" "uuid" NOT NULL,
+12244-    "patient_id" "uuid" NOT NULL,
+12245-    "insurance_provider" "text",
+12246-    "policy_number" "text",
+12247-    "claim_amount" numeric,
+12248-    "claim_status" "text" DEFAULT 'SUBMITTED'::"text",
+12249-    "created_at" timestamp with time zone DEFAULT "now"(),
+12250-    "updated_at" timestamp with time zone DEFAULT "now"()
+12251-);
+12252-
+12253-
+12254-ALTER TABLE "public"."healthcare_insurance_claims" OWNER TO "postgres";
+12255-
+--
+17667-
+17668-
+17669-
+17670-ALTER TABLE ONLY "public"."fixed_assets"
+17671-    ADD CONSTRAINT "fixed_assets_pkey" PRIMARY KEY ("id");
+17672-
+17673-
+17674-
+17675:ALTER TABLE "public"."general_ledger"
+17676-    ADD CONSTRAINT "general_ledger_nonnegative_amounts" CHECK (((COALESCE("debit", (0)::numeric) >= (0)::numeric) AND (COALESCE("credit", (0)::numeric) >= (0)::numeric))) NOT VALID;
+17677-
+17678-
+17679-
+17680:ALTER TABLE ONLY "public"."general_ledger"
+17681-    ADD CONSTRAINT "general_ledger_pkey" PRIMARY KEY ("id");
+17682-
+17683-
+17684-
+17685-ALTER TABLE ONLY "public"."generation_jobs"
+17686-    ADD CONSTRAINT "generation_jobs_pkey" PRIMARY KEY ("id");
+17687-
+17688-
+17689-
+17690-ALTER TABLE ONLY "public"."goods_receipt_items"
+17691-    ADD CONSTRAINT "goods_receipt_items_pkey" PRIMARY KEY ("id");
+17692-
+17693-
+17694-
+17695-ALTER TABLE ONLY "public"."goods_receipts"
+17696-    ADD CONSTRAINT "goods_receipts_grn_number_key" UNIQUE ("grn_number");
+17697-
+17698-
+17699-
+17700-ALTER TABLE ONLY "public"."goods_receipts"
+17701-    ADD CONSTRAINT "goods_receipts_pkey" PRIMARY KEY ("id");
+17702-
+17703-
+17704-
+17705-ALTER TABLE ONLY "public"."governance_audit"
+17706-    ADD CONSTRAINT "governance_audit_pkey" PRIMARY KEY ("id");
+17707-
+17708-
+17709-
+17710-ALTER TABLE ONLY "public"."healthcare_admissions"
+17711-    ADD CONSTRAINT "healthcare_admissions_pkey" PRIMARY KEY ("id");
+17712-
+17713-
+17714-
+17715-ALTER TABLE ONLY "public"."healthcare_appointments"
+17716-    ADD CONSTRAINT "healthcare_appointments_pkey" PRIMARY KEY ("id");
+17717-
+17718-
+17719-
+17720-ALTER TABLE ONLY "public"."healthcare_beds"
+17721-    ADD CONSTRAINT "healthcare_beds_pkey" PRIMARY KEY ("id");
+17722-
+17723-
+17724-
+17725-ALTER TABLE ONLY "public"."healthcare_billing"
+17726-    ADD CONSTRAINT "healthcare_billing_pkey" PRIMARY KEY ("id");
+17727-
+17728-
+17729-
+17730-ALTER TABLE ONLY "public"."healthcare_departments"
+17731-    ADD CONSTRAINT "healthcare_departments_pkey" PRIMARY KEY ("id");
+17732-
+17733-
+17734-
+17735-ALTER TABLE ONLY "public"."healthcare_insurance_claims"
+17736-    ADD CONSTRAINT "healthcare_insurance_claims_pkey" PRIMARY KEY ("id");
+17737-
+17738-
+17739-
+17740-ALTER TABLE ONLY "public"."healthcare_medical_records"
+17741-    ADD CONSTRAINT "healthcare_medical_records_pkey" PRIMARY KEY ("id");
+17742-
+17743-
+17744-
+17745-ALTER TABLE ONLY "public"."healthcare_patients"
+17746-    ADD CONSTRAINT "healthcare_patients_pkey" PRIMARY KEY ("id");
+17747-
+17748-
+17749-
+17750-ALTER TABLE ONLY "public"."healthcare_pharmacy_inventory"
+17751-    ADD CONSTRAINT "healthcare_pharmacy_inventory_pkey" PRIMARY KEY ("id");
+17752-
+17753-
+17754-
+17755-ALTER TABLE ONLY "public"."healthcare_prescriptions"
+17756-    ADD CONSTRAINT "healthcare_prescriptions_pkey" PRIMARY KEY ("id");
+17757-
+17758-
+17759-
+17760-ALTER TABLE ONLY "public"."healthcare_rooms"
+17761-    ADD CONSTRAINT "healthcare_rooms_pkey" PRIMARY KEY ("id");
+17762-
+17763-
+17764-
+17765-ALTER TABLE ONLY "public"."healthcare_staff"
+17766-    ADD CONSTRAINT "healthcare_staff_pkey" PRIMARY KEY ("id");
+17767-
+17768-
+17769-
+17770-ALTER TABLE ONLY "public"."history_days"
+17771-    ADD CONSTRAINT "history_days_pkey" PRIMARY KEY ("id");
+17772-
+17773-
+17774-
+17775-ALTER TABLE ONLY "public"."hotel_bookings"
+17776-    ADD CONSTRAINT "hotel_bookings_booking_reference_key" UNIQUE ("booking_reference");
+17777-
+17778-
+17779-
+17780-ALTER TABLE ONLY "public"."hotel_bookings"
+17781-    ADD CONSTRAINT "hotel_bookings_pkey" PRIMARY KEY ("id");
+17782-
+17783-
+17784-
+17785-ALTER TABLE ONLY "public"."hotel_concierge_requests"
+17786-    ADD CONSTRAINT "hotel_concierge_requests_pkey" PRIMARY KEY ("id");
+17787-
+17788-
+17789-
+17790-ALTER TABLE ONLY "public"."hotel_guest_requests"
+17791-    ADD CONSTRAINT "hotel_guest_requests_pkey" PRIMARY KEY ("id");
+17792-
+17793-
+17794-
+17795-ALTER TABLE ONLY "public"."hotel_guests"
+17796-    ADD CONSTRAINT "hotel_guests_pkey" PRIMARY KEY ("id");
+17797-
+17798-
+17799-
+17800-ALTER TABLE ONLY "public"."hotel_housekeeping_tasks"
+17801-    ADD CONSTRAINT "hotel_housekeeping_tasks_pkey" PRIMARY KEY ("id");
+17802-
+17803-
+17804-
+17805-ALTER TABLE ONLY "public"."hotel_maintenance_requests"
+17806-    ADD CONSTRAINT "hotel_maintenance_requests_pkey" PRIMARY KEY ("id");
+17807-
+17808-
+17809-
+17810-ALTER TABLE ONLY "public"."hotel_maintenance_tasks"
+17811-    ADD CONSTRAINT "hotel_maintenance_tasks_pkey" PRIMARY KEY ("id");
+17812-
+17813-
+17814-
+17815-ALTER TABLE ONLY "public"."hotel_properties"
+17816-    ADD CONSTRAINT "hotel_properties_pkey" PRIMARY KEY ("id");
+17817-
+17818-
+17819-
+17820-ALTER TABLE ONLY "public"."hotel_rooms"
+17821-    ADD CONSTRAINT "hotel_rooms_organization_id_room_number_key" UNIQUE ("organization_id", "room_number");
+17822-
+17823-
+17824-
+17825-ALTER TABLE ONLY "public"."hotel_rooms"
+17826-    ADD CONSTRAINT "hotel_rooms_pkey" PRIMARY KEY ("id");
+17827-
+17828-
+17829-
+17830-ALTER TABLE ONLY "public"."industries"
+17831-    ADD CONSTRAINT "industries_name_key" UNIQUE ("name");
+17832-
+17833-
+17834-
+17835-ALTER TABLE ONLY "public"."industries"
+17836-    ADD CONSTRAINT "industries_pkey" PRIMARY KEY ("id");
+17837-
+17838-
+17839-
+17840-ALTER TABLE ONLY "public"."ingredient_suppliers"
+17841-    ADD CONSTRAINT "ingredient_suppliers_pkey" PRIMARY KEY ("id");
+17842-
+17843-
+17844-
+17845-ALTER TABLE ONLY "public"."ingredients"
+17846-    ADD CONSTRAINT "ingredients_pkey" PRIMARY KEY ("id");
+17847-
+17848-
+17849-
+17850-ALTER TABLE ONLY "public"."integration_connections"
+17851-    ADD CONSTRAINT "integration_connections_organization_id_provider_key" UNIQUE ("organization_id", "provider");
+17852-
+17853-
+17854-
+17855-ALTER TABLE ONLY "public"."integration_connections"
+17856-    ADD CONSTRAINT "integration_connections_pkey" PRIMARY KEY ("id");
+17857-
+17858-
+17859-
+17860-ALTER TABLE ONLY "public"."intercompany_transactions"
+--
+21325-
+21326-
+21327-
+21328-ALTER TABLE ONLY "public"."ai_intake_submissions"
+21329-    ADD CONSTRAINT "fk_ai_intake_document" FOREIGN KEY ("organization_document_id") REFERENCES "public"."organization_documents"("id");
+21330-
+21331-
+21332-
+21333:ALTER TABLE ONLY "public"."general_ledger"
+21334-    ADD CONSTRAINT "fk_general_ledger_account" FOREIGN KEY ("account_id") REFERENCES "public"."chart_of_accounts"("id");
+21335-
+21336-
+21337-
+21338:ALTER TABLE ONLY "public"."general_ledger"
+21339-    ADD CONSTRAINT "fk_general_ledger_journal" FOREIGN KEY ("journal_entry_id") REFERENCES "public"."journal_entries"("id");
+21340-
+21341-
+21342-
+21343:ALTER TABLE ONLY "public"."general_ledger"
+21344-    ADD CONSTRAINT "fk_general_ledger_journal_line" FOREIGN KEY ("journal_entry_line_id") REFERENCES "public"."journal_entry_lines"("id");
+21345-
+21346-
+21347-
+21348-ALTER TABLE ONLY "public"."inventory_cost_layers"
+21349-    ADD CONSTRAINT "fk_inventory_cost_layers_document" FOREIGN KEY ("document_id") REFERENCES "public"."inventory_documents"("id") ON DELETE CASCADE;
+21350-
+21351-
+21352-
+21353-ALTER TABLE ONLY "public"."inventory_cost_layers"
+21354-    ADD CONSTRAINT "fk_inventory_cost_layers_movement" FOREIGN KEY ("movement_id") REFERENCES "public"."inventory_movements"("id") ON DELETE CASCADE;
+21355-
+21356-
+21357-
+21358-ALTER TABLE ONLY "public"."inventory_documents"
+21359-    ADD CONSTRAINT "fk_inventory_documents_journal" FOREIGN KEY ("journal_entry_id") REFERENCES "public"."journal_entries"("id") ON DELETE SET NULL;
+21360-
+21361-
+21362-
+21363-ALTER TABLE ONLY "public"."inventory_ledger"
+21364-    ADD CONSTRAINT "fk_inventory_ledger_document" FOREIGN KEY ("document_id") REFERENCES "public"."inventory_documents"("id") ON DELETE CASCADE;
+21365-
+21366-
+21367-
+21368-ALTER TABLE ONLY "public"."inventory_ledger"
+21369-    ADD CONSTRAINT "fk_inventory_ledger_movement" FOREIGN KEY ("movement_id") REFERENCES "public"."inventory_movements"("id") ON DELETE CASCADE;
+21370-
+21371-
+21372-
+21373-ALTER TABLE ONLY "public"."inventory_movements"
+21374-    ADD CONSTRAINT "fk_inventory_movements_document" FOREIGN KEY ("document_id") REFERENCES "public"."inventory_documents"("id") ON DELETE CASCADE;
+21375-
+21376-
+21377-
+21378-ALTER TABLE ONLY "public"."orders"
+21379-    ADD CONSTRAINT "fk_orders_table" FOREIGN KEY ("table_id") REFERENCES "public"."restaurant_tables"("id");
+21380-
+21381-
+21382-
+21383-ALTER TABLE ONLY "public"."organization_users"
+21384-    ADD CONSTRAINT "fk_organization_users_staff" FOREIGN KEY ("staff_account_id") REFERENCES "public"."staff_accounts"("id");
+21385-
+21386-
+21387-
+21388-ALTER TABLE ONLY "public"."recipe_items"
+21389-    ADD CONSTRAINT "fk_recipe_dish" FOREIGN KEY ("dish_id") REFERENCES "public"."dishes"("id") ON DELETE CASCADE;
+21390-
+21391-
+21392-
+21393-ALTER TABLE ONLY "public"."work_center_routes"
+21394-    ADD CONSTRAINT "fk_work_center_routes_work_center" FOREIGN KEY ("work_center_id") REFERENCES "public"."work_centers"("id") ON DELETE CASCADE;
+21395-
+21396-
+21397-
+21398-ALTER TABLE ONLY "public"."work_center_ticket_items"
+21399-    ADD CONSTRAINT "fk_work_center_ticket_items_work_center" FOREIGN KEY ("work_center_id") REFERENCES "public"."work_centers"("id");
+21400-
+21401-
+21402-
+21403-ALTER TABLE ONLY "public"."work_center_tickets"
+21404-    ADD CONSTRAINT "fk_work_center_tickets_work_center" FOREIGN KEY ("work_center_id") REFERENCES "public"."work_centers"("id");
+21405-
+21406-
+21407-
+21408:ALTER TABLE ONLY "public"."general_ledger"
+21409-    ADD CONSTRAINT "general_ledger_journal_entry_fkey" FOREIGN KEY ("journal_entry_id") REFERENCES "public"."journal_entries"("id") NOT VALID;
+21410-
+21411-
+21412-
+21413:ALTER TABLE ONLY "public"."general_ledger"
+21414-    ADD CONSTRAINT "general_ledger_journal_line_fkey" FOREIGN KEY ("journal_entry_line_id") REFERENCES "public"."journal_entry_lines"("id") NOT VALID;
+21415-
+21416-
+21417-
+21418:ALTER TABLE ONLY "public"."general_ledger"
+21419-    ADD CONSTRAINT "general_ledger_period_id_fkey" FOREIGN KEY ("period_id") REFERENCES "public"."accounting_periods"("id");
+21420-
+21421-
+21422-
+21423-ALTER TABLE ONLY "public"."goods_receipt_items"
+21424-    ADD CONSTRAINT "goods_receipt_items_goods_receipt_id_fkey" FOREIGN KEY ("goods_receipt_id") REFERENCES "public"."goods_receipts"("id") ON DELETE CASCADE;
+21425-
+21426-
+21427-
+21428-ALTER TABLE ONLY "public"."goods_receipt_items"
+21429-    ADD CONSTRAINT "goods_receipt_items_purchase_order_item_id_fkey" FOREIGN KEY ("purchase_order_item_id") REFERENCES "public"."purchase_order_items"("id");
+21430-
+21431-
+21432-
+21433-ALTER TABLE ONLY "public"."goods_receipts"
+21434-    ADD CONSTRAINT "goods_receipts_purchase_order_id_fkey" FOREIGN KEY ("purchase_order_id") REFERENCES "public"."purchase_orders"("id");
+21435-
+21436-
+21437-
+21438-ALTER TABLE ONLY "public"."goods_receipts"
+21439-    ADD CONSTRAINT "goods_receipts_vendor_id_fkey" FOREIGN KEY ("supplier_party_id") REFERENCES "public"."vendors"("id");
+21440-
+21441-
+21442-
+21443-ALTER TABLE ONLY "public"."hotel_bookings"
+21444-    ADD CONSTRAINT "hotel_bookings_guest_id_fkey" FOREIGN KEY ("guest_id") REFERENCES "public"."hotel_guests"("id") ON DELETE SET NULL;
+21445-
+21446-
+21447-
+21448-ALTER TABLE ONLY "public"."hotel_bookings"
+21449-    ADD CONSTRAINT "hotel_bookings_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "public"."hotel_rooms"("id") ON DELETE SET NULL;
+21450-
+21451-
+21452-
+21453-ALTER TABLE ONLY "public"."hotel_concierge_requests"
+21454-    ADD CONSTRAINT "hotel_concierge_requests_property_id_fkey" FOREIGN KEY ("property_id") REFERENCES "public"."hotel_properties"("id") ON DELETE CASCADE;
+21455-
+21456-
+21457-
+21458-ALTER TABLE ONLY "public"."hotel_guest_requests"
+21459-    ADD CONSTRAINT "hotel_guest_requests_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "public"."hotel_bookings"("id") ON DELETE CASCADE;
+21460-
+21461-
+21462-
+21463-ALTER TABLE ONLY "public"."hotel_guest_requests"
+21464-    ADD CONSTRAINT "hotel_guest_requests_guest_id_fkey" FOREIGN KEY ("guest_id") REFERENCES "public"."hotel_guests"("id") ON DELETE SET NULL;
+21465-
+21466-
+21467-
+21468-ALTER TABLE ONLY "public"."hotel_housekeeping_tasks"
+21469-    ADD CONSTRAINT "hotel_housekeeping_tasks_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "public"."hotel_rooms"("id") ON DELETE CASCADE;
+21470-
+21471-
+21472-
+21473-ALTER TABLE ONLY "public"."hotel_maintenance_requests"
+21474-    ADD CONSTRAINT "hotel_maintenance_requests_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "public"."hotel_rooms"("id") ON DELETE SET NULL;
+21475-
+21476-
+21477-
+21478-ALTER TABLE ONLY "public"."hotel_maintenance_tasks"
+21479-    ADD CONSTRAINT "hotel_maintenance_tasks_property_id_fkey" FOREIGN KEY ("property_id") REFERENCES "public"."hotel_properties"("id") ON DELETE CASCADE;
+21480-
+21481-
+21482-
+21483-ALTER TABLE ONLY "public"."ingredients"
+21484-    ADD CONSTRAINT "ingredients_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21485-
+21486-
+21487-
+21488-ALTER TABLE ONLY "public"."intercompany_transactions"
+21489-    ADD CONSTRAINT "intercompany_transactions_from_legal_entity_id_fkey" FOREIGN KEY ("from_legal_entity_id") REFERENCES "public"."legal_entities"("id");
+21490-
+21491-
+21492-
+21493-ALTER TABLE ONLY "public"."intercompany_transactions"
+21494-    ADD CONSTRAINT "intercompany_transactions_to_legal_entity_id_fkey" FOREIGN KEY ("to_legal_entity_id") REFERENCES "public"."legal_entities"("id");
+21495-
+21496-
+21497-
+21498-ALTER TABLE ONLY "public"."inventory_ledger"
+21499-    ADD CONSTRAINT "inventory_ledger_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "public"."inventory_documents"("id");
+21500-
+21501-
+21502-
+21503-ALTER TABLE ONLY "public"."inventory_ledger"
+21504-    ADD CONSTRAINT "inventory_ledger_movement_id_fkey" FOREIGN KEY ("movement_id") REFERENCES "public"."inventory_movements"("id");
+21505-
+21506-
+21507-
+21508-ALTER TABLE ONLY "public"."inventory_movements"
+21509-    ADD CONSTRAINT "inventory_movements_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "public"."inventory_documents"("id");
+21510-
+21511-
+21512-
+21513-ALTER TABLE ONLY "public"."invoice_matches"
+21514-    ADD CONSTRAINT "invoice_matches_goods_receipt_id_fkey" FOREIGN KEY ("goods_receipt_id") REFERENCES "public"."goods_receipts"("id");
+21515-
+21516-
+21517-
+21518-ALTER TABLE ONLY "public"."invoice_matches"
+21519-    ADD CONSTRAINT "invoice_matches_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "public"."invoices"("id");
+21520-
+21521-
+21522-
+21523-ALTER TABLE ONLY "public"."invoice_matches"
+21524-    ADD CONSTRAINT "invoice_matches_purchase_order_id_fkey" FOREIGN KEY ("purchase_order_id") REFERENCES "public"."purchase_orders"("id");
+21525-
+21526-
+21527-
+21528-ALTER TABLE ONLY "public"."invoices"
+21529-    ADD CONSTRAINT "invoices_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "public"."vendors"("id");
+21530-
+21531-
+21532-
+21533-ALTER TABLE ONLY "public"."journal_entries"
+21534-    ADD CONSTRAINT "journal_entries_legal_entity_id_fkey" FOREIGN KEY ("legal_entity_id") REFERENCES "public"."legal_entities"("id");
+21535-
+21536-
+21537-
+21538-ALTER TABLE ONLY "public"."journal_entries"
+21539-    ADD CONSTRAINT "journal_entries_period_id_fkey" FOREIGN KEY ("period_id") REFERENCES "public"."accounting_periods"("id");
+21540-
+21541-
+21542-
+21543-ALTER TABLE ONLY "public"."journal_entry_lines"
+21544-    ADD CONSTRAINT "journal_entry_lines_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "public"."chart_of_accounts"("id");
+21545-
+21546-
+21547-
+21548-ALTER TABLE ONLY "public"."journal_entry_lines"
+21549-    ADD CONSTRAINT "journal_entry_lines_cost_center_id_fkey" FOREIGN KEY ("cost_center_id") REFERENCES "public"."cost_centers"("id");
+21550-
+21551-
+21552-
+21553-ALTER TABLE ONLY "public"."journal_entry_lines"
+21554-    ADD CONSTRAINT "journal_entry_lines_journal_entry_id_fkey" FOREIGN KEY ("journal_entry_id") REFERENCES "public"."journal_entries"("id") ON DELETE CASCADE;
+21555-
+21556-
+21557-
+21558-ALTER TABLE ONLY "public"."journal_entry_lines"
+21559-    ADD CONSTRAINT "journal_entry_lines_period_id_fkey" FOREIGN KEY ("period_id") REFERENCES "public"."accounting_periods"("id");
+21560-
+21561-
+21562-
+21563-ALTER TABLE ONLY "public"."legal_entities"
+21564-    ADD CONSTRAINT "legal_entities_parent_entity_id_fkey" FOREIGN KEY ("parent_entity_id") REFERENCES "public"."legal_entities"("id");
+21565-
+21566-
+21567-
+21568-ALTER TABLE ONLY "public"."marketing_campaign_analytics"
+21569-    ADD CONSTRAINT "marketing_campaign_analytics_marketing_campaign_id_fkey" FOREIGN KEY ("marketing_campaign_id") REFERENCES "public"."marketing_campaigns"("id");
+21570-
+21571-
+21572-
+21573-ALTER TABLE ONLY "public"."marketing_campaign_deliveries"
+21574-    ADD CONSTRAINT "marketing_campaign_deliveries_customer_segment_id_fkey" FOREIGN KEY ("customer_segment_id") REFERENCES "public"."customer_segments"("id");
+21575-
+21576-
+21577-
+21578-ALTER TABLE ONLY "public"."marketing_campaign_deliveries"
+21579-    ADD CONSTRAINT "marketing_campaign_deliveries_marketing_campaign_id_fkey" FOREIGN KEY ("marketing_campaign_id") REFERENCES "public"."marketing_campaigns"("id");
+21580-
+21581-
+21582-
+21583-ALTER TABLE ONLY "public"."marketing_campaigns"
+21584-    ADD CONSTRAINT "marketing_campaigns_target_segment_id_fkey" FOREIGN KEY ("target_segment_id") REFERENCES "public"."customer_segments"("id");
+21585-
+21586-
+21587-
+21588-ALTER TABLE ONLY "public"."message_participants"
+21589-    ADD CONSTRAINT "message_participants_thread_id_fkey" FOREIGN KEY ("thread_id") REFERENCES "public"."message_threads"("id") ON DELETE CASCADE;
+21590-
+21591-
+21592-
+21593-ALTER TABLE ONLY "public"."message_reactions"
+21594-    ADD CONSTRAINT "message_reactions_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE CASCADE;
+21595-
+21596-
+21597-
+21598-ALTER TABLE ONLY "public"."message_reads"
+--
+22625-
+22626-
+22627-ALTER TABLE "public"."financial_periods" ENABLE ROW LEVEL SECURITY;
+22628-
+22629-
+22630-ALTER TABLE "public"."fixed_assets" ENABLE ROW LEVEL SECURITY;
+22631-
+22632-
+22633:ALTER TABLE "public"."general_ledger" ENABLE ROW LEVEL SECURITY;
+22634-
+22635-
+22636-ALTER TABLE "public"."generation_jobs" ENABLE ROW LEVEL SECURITY;
+22637-
+22638-
+22639-ALTER TABLE "public"."healthcare_admissions" ENABLE ROW LEVEL SECURITY;
+22640-
+22641-
+22642-ALTER TABLE "public"."healthcare_appointments" ENABLE ROW LEVEL SECURITY;
+22643-
+22644-
+22645-ALTER TABLE "public"."healthcare_beds" ENABLE ROW LEVEL SECURITY;
+22646-
+22647-
+22648-ALTER TABLE "public"."healthcare_billing" ENABLE ROW LEVEL SECURITY;
+22649-
+22650-
+22651-ALTER TABLE "public"."healthcare_departments" ENABLE ROW LEVEL SECURITY;
+22652-
+22653-
+22654-ALTER TABLE "public"."healthcare_insurance_claims" ENABLE ROW LEVEL SECURITY;
+22655-
+22656-
+22657-ALTER TABLE "public"."healthcare_medical_records" ENABLE ROW LEVEL SECURITY;
+22658-
+22659-
+22660-ALTER TABLE "public"."healthcare_patients" ENABLE ROW LEVEL SECURITY;
+22661-
+22662-
+22663-ALTER TABLE "public"."healthcare_pharmacy_inventory" ENABLE ROW LEVEL SECURITY;
+22664-
+22665-
+22666-ALTER TABLE "public"."healthcare_prescriptions" ENABLE ROW LEVEL SECURITY;
+22667-
+22668-
+22669-ALTER TABLE "public"."healthcare_rooms" ENABLE ROW LEVEL SECURITY;
+22670-
+22671-
+22672-ALTER TABLE "public"."healthcare_staff" ENABLE ROW LEVEL SECURITY;
+22673-
+22674-
+22675-ALTER TABLE "public"."history_days" ENABLE ROW LEVEL SECURITY;
+22676-
+22677-
+22678-ALTER TABLE "public"."hotel_guest_requests" ENABLE ROW LEVEL SECURITY;
+22679-
+22680-
+22681-ALTER TABLE "public"."hotel_maintenance_requests" ENABLE ROW LEVEL SECURITY;
+22682-
+22683-
+22684-ALTER TABLE "public"."industries" ENABLE ROW LEVEL SECURITY;
+22685-
+22686-
+22687-ALTER TABLE "public"."ingredient_suppliers" ENABLE ROW LEVEL SECURITY;
+22688-
+22689-
+22690-ALTER TABLE "public"."ingredients" ENABLE ROW LEVEL SECURITY;
+22691-
+22692-
+22693-ALTER TABLE "public"."integration_connections" ENABLE ROW LEVEL SECURITY;
+22694-
+22695-
+22696-ALTER TABLE "public"."inventory" ENABLE ROW LEVEL SECURITY;
+22697-
+22698-
+22699-ALTER TABLE "public"."inventory_alerts" ENABLE ROW LEVEL SECURITY;
+22700-
+22701-
+22702-ALTER TABLE "public"."inventory_categories" ENABLE ROW LEVEL SECURITY;
+22703-
+22704-
+22705-ALTER TABLE "public"."inventory_cost_layers" ENABLE ROW LEVEL SECURITY;
+22706-
+22707-
+22708-ALTER TABLE "public"."inventory_documents" ENABLE ROW LEVEL SECURITY;
+22709-
+22710-
+22711-ALTER TABLE "public"."inventory_items" ENABLE ROW LEVEL SECURITY;
+22712-
+22713-
+22714-ALTER TABLE "public"."inventory_locations" ENABLE ROW LEVEL SECURITY;
+22715-
+22716-
+22717-ALTER TABLE "public"."inventory_movements" ENABLE ROW LEVEL SECURITY;
+22718-
+22719-
+22720-ALTER TABLE "public"."inventory_transactions" ENABLE ROW LEVEL SECURITY;
+22721-
+22722-
+22723-ALTER TABLE "public"."inventory_uoms" ENABLE ROW LEVEL SECURITY;
+22724-
+22725-
+22726-ALTER TABLE "public"."inventory_valuation_snapshots" ENABLE ROW LEVEL SECURITY;
+22727-
+22728-
+22729-ALTER TABLE "public"."inventory_warehouses" ENABLE ROW LEVEL SECURITY;
+22730-
+22731-
+22732-ALTER TABLE "public"."invoice_matches" ENABLE ROW LEVEL SECURITY;
+22733-
+22734-
+22735-ALTER TABLE "public"."invoices" ENABLE ROW LEVEL SECURITY;
+22736-
+22737-
+22738-ALTER TABLE "public"."item_learning" ENABLE ROW LEVEL SECURITY;
+22739-
+22740-
+22741-ALTER TABLE "public"."journal_entries" ENABLE ROW LEVEL SECURITY;
+22742-
+22743-
+22744-ALTER TABLE "public"."journal_entry_lines" ENABLE ROW LEVEL SECURITY;
+22745-
+22746-
+22747-ALTER TABLE "public"."labor_shift_forecasts" ENABLE ROW LEVEL SECURITY;
+22748-
+22749-
+22750-ALTER TABLE "public"."legal_entities" ENABLE ROW LEVEL SECURITY;
+22751-
+22752-
+22753-ALTER TABLE "public"."locations" ENABLE ROW LEVEL SECURITY;
+22754-
+22755-
+22756-CREATE POLICY "manager_delete_staff_accounts" ON "public"."staff_accounts" FOR DELETE USING ("public"."can_manage_role"("role"));
+22757-
+22758-
+22759-
+22760-CREATE POLICY "manager_update_staff_accounts" ON "public"."staff_accounts" FOR UPDATE USING ("public"."can_manage_role"("role"));
+22761-
+22762-
+22763-
+22764-ALTER TABLE "public"."marketing_ai_profiles" ENABLE ROW LEVEL SECURITY;
+22765-
+22766-
+22767-ALTER TABLE "public"."marketing_attribution" ENABLE ROW LEVEL SECURITY;
+22768-
+22769-
+22770-ALTER TABLE "public"."marketing_brand_profiles" ENABLE ROW LEVEL SECURITY;
+22771-
+22772-
+22773-ALTER TABLE "public"."marketing_campaign_analytics" ENABLE ROW LEVEL SECURITY;
+22774-
+22775-
+22776-ALTER TABLE "public"."marketing_campaign_deliveries" ENABLE ROW LEVEL SECURITY;
+22777-
+22778-
+22779-ALTER TABLE "public"."marketing_campaign_queue" ENABLE ROW LEVEL SECURITY;
+22780-
+22781-
+22782-ALTER TABLE "public"."marketing_campaigns" ENABLE ROW LEVEL SECURITY;
+22783-
+22784-
+22785-ALTER TABLE "public"."marketing_prompt_history" ENABLE ROW LEVEL SECURITY;
+22786-
+22787-
+22788-ALTER TABLE "public"."message_participants" ENABLE ROW LEVEL SECURITY;
+22789-
+22790-
+22791-ALTER TABLE "public"."message_reactions" ENABLE ROW LEVEL SECURITY;
+22792-
+22793-
+22794-ALTER TABLE "public"."message_reads" ENABLE ROW LEVEL SECURITY;
+22795-
+22796-
+22797-ALTER TABLE "public"."message_reports" ENABLE ROW LEVEL SECURITY;
+22798-
+22799-
+22800-ALTER TABLE "public"."message_threads" ENABLE ROW LEVEL SECURITY;
+22801-
+22802-
+22803-ALTER TABLE "public"."message_typing" ENABLE ROW LEVEL SECURITY;
+22804-
+22805-
+22806-ALTER TABLE "public"."messages" ENABLE ROW LEVEL SECURITY;
+22807-
+22808-
+22809-ALTER TABLE "public"."meta_accounts" ENABLE ROW LEVEL SECURITY;
+22810-
+22811-
+22812-ALTER TABLE "public"."modifier_group_options" ENABLE ROW LEVEL SECURITY;
+22813-
+
+================ LIVE TABLE: accounting_periods ================
+7875-    "accounting_standard" "text" DEFAULT 'TFRS'::"text",
+7876-    "year_end_date" "date"
+7877-);
+7878-
+7879-
+7880-ALTER TABLE "public"."accounting_engagements" OWNER TO "postgres";
+7881-
+7882-
+7883:CREATE TABLE IF NOT EXISTS "public"."accounting_periods" (
+7884-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+7885-    "legal_entity_id" "uuid",
+7886-    "fiscal_year" integer NOT NULL,
+7887-    "fiscal_month" integer NOT NULL,
+7888-    "start_date" "date" NOT NULL,
+7889-    "end_date" "date" NOT NULL,
+7890-    "status" "text" DEFAULT 'open'::"text",
+7891-    "closed_at" timestamp with time zone,
+7892-    "closed_by" "text",
+7893-    "notes" "text",
+7894-    "created_at" timestamp with time zone DEFAULT "now"(),
+7895-    "updated_at" timestamp with time zone DEFAULT "now"(),
+7896-    "organization_id" "uuid",
+7897-    "entity_id" "uuid",
+7898-    "period_name" "text",
+7899-    "period_number" integer
+7900-);
+7901-
+7902-
+7903:ALTER TABLE "public"."accounting_periods" OWNER TO "postgres";
+7904-
+7905-
+7906-CREATE TABLE IF NOT EXISTS "public"."accounting_product_mappings" (
+7907-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+7908-    "name_thai" "text",
+7909-    "name_english" "text",
+7910-    "account_type" "text",
+7911-    "department" "text",
+7912-    "natural_account" "text",
+7913-    "created_at" timestamp with time zone DEFAULT "now"(),
+7914-    "organization_id" "uuid"
+7915-);
+7916-
+7917-
+7918-ALTER TABLE "public"."accounting_product_mappings" OWNER TO "postgres";
+7919-
+7920-
+7921-CREATE TABLE IF NOT EXISTS "public"."accounting_standards" (
+7922-    "code" "text" NOT NULL,
+7923-    "name" "text" NOT NULL
+7924-);
+7925-
+7926-
+7927-ALTER TABLE "public"."accounting_standards" OWNER TO "postgres";
+7928-
+7929-
+7930-CREATE TABLE IF NOT EXISTS "public"."accounts_payable" (
+7931-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+7932-    "vendor_party_id" "uuid",
+7933-    "vendor_invoice_id" "uuid",
+7934-    "amount" numeric DEFAULT 0,
+7935-    "status" "text" DEFAULT 'PENDING_PAYMENT'::"text",
+7936-    "payment_date" timestamp with time zone,
+7937-    "created_at" timestamp with time zone DEFAULT "now"(),
+7938-    "organization_id" "uuid",
+7939-    "entity_id" "uuid"
+7940-);
+7941-
+7942-
+7943-ALTER TABLE "public"."accounts_payable" OWNER TO "postgres";
+7944-
+7945-
+7946-CREATE TABLE IF NOT EXISTS "public"."accounts_receivable" (
+7947-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+7948-    "organization_id" "uuid" NOT NULL,
+7949-    "customer_id" "uuid" NOT NULL,
+7950-    "customer_invoice_id" "uuid" NOT NULL,
+7951-    "amount" numeric(18,2) NOT NULL,
+7952-    "outstanding_balance" numeric(18,2) NOT NULL,
+7953-    "status" "text" DEFAULT 'OPEN'::"text" NOT NULL,
+7954-    "due_date" "date" NOT NULL,
+7955-    "created_at" timestamp with time zone DEFAULT "now"(),
+7956-    "updated_at" timestamp with time zone DEFAULT "now"(),
+7957-    "entity_id" "uuid",
+7958-    "period_id" "uuid"
+7959-);
+7960-
+7961-
+7962-ALTER TABLE "public"."accounts_receivable" OWNER TO "postgres";
+7963-
+7964-
+7965-CREATE TABLE IF NOT EXISTS "public"."actions" (
+7966-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+7967-    "type" "text",
+7968-    "ref_id" "uuid",
+7969-    "payload" "jsonb",
+7970-    "status" "text",
+7971-    "created_at" timestamp without time zone DEFAULT "now"(),
+7972-    "organization_id" "uuid"
+7973-);
+7974-
+7975-
+7976-ALTER TABLE "public"."actions" OWNER TO "postgres";
+7977-
+7978-
+7979-CREATE TABLE IF NOT EXISTS "public"."ai_agent_memory" (
+7980-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+7981-    "agent_name" "text" NOT NULL,
+7982-    "memory_type" "text" NOT NULL,
+7983-    "memory_key" "text" NOT NULL,
+7984-    "memory_value" "jsonb" DEFAULT '{}'::"jsonb",
+7985-    "relevance_score" numeric DEFAULT 0,
+7986-    "expires_at" timestamp with time zone,
+7987-    "created_at" timestamp with time zone DEFAULT "now"(),
+7988-    "updated_at" timestamp with time zone DEFAULT "now"(),
+7989-    "organization_id" "uuid"
+7990-);
+7991-
+7992-
+7993-ALTER TABLE "public"."ai_agent_memory" OWNER TO "postgres";
+7994-
+7995-
+7996-CREATE TABLE IF NOT EXISTS "public"."ai_agent_tasks" (
+7997-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+7998-    "task_type" "text" NOT NULL,
+7999-    "task_category" "text" NOT NULL,
+8000-    "task_status" "text" DEFAULT 'pending'::"text",
+8001-    "priority" "text" DEFAULT 'medium'::"text",
+8002-    "assigned_agent" "text",
+8003-    "reference_table" "text",
+8004-    "reference_id" "uuid",
+8005-    "task_payload" "jsonb" DEFAULT '{}'::"jsonb",
+8006-    "result_payload" "jsonb" DEFAULT '{}'::"jsonb",
+8007-    "error_message" "text",
+8008-    "scheduled_at" timestamp with time zone,
+8009-    "started_at" timestamp with time zone,
+8010-    "completed_at" timestamp with time zone,
+8011-    "created_by" "uuid",
+8012-    "created_at" timestamp with time zone DEFAULT "now"(),
+8013-    "organization_id" "uuid"
+8014-);
+8015-
+8016-
+8017-ALTER TABLE "public"."ai_agent_tasks" OWNER TO "postgres";
+8018-
+8019-
+8020-CREATE TABLE IF NOT EXISTS "public"."ai_business_insights" (
+8021-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8022-    "insight_type" "text" NOT NULL,
+8023-    "category" "text" NOT NULL,
+8024-    "title" "text" NOT NULL,
+8025-    "description" "text" NOT NULL,
+8026-    "severity" "text" DEFAULT 'info'::"text",
+8027-    "recommendation" "text",
+8028-    "generated_at" timestamp with time zone DEFAULT "now"(),
+8029-    "resolved" boolean DEFAULT false,
+8030-    "resolved_at" timestamp with time zone,
+8031-    "created_at" timestamp with time zone DEFAULT "now"(),
+8032-    "organization_id" "uuid"
+8033-);
+8034-
+8035-
+8036-ALTER TABLE "public"."ai_business_insights" OWNER TO "postgres";
+8037-
+8038-
+8039-CREATE TABLE IF NOT EXISTS "public"."ai_business_profiles" (
+8040-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8041-    "profile" "jsonb" DEFAULT '{}'::"jsonb",
+8042-    "updated_at" timestamp with time zone DEFAULT "now"(),
+8043-    "organization_id" "uuid"
+8044-);
+8045-
+8046-
+8047-ALTER TABLE "public"."ai_business_profiles" OWNER TO "postgres";
+8048-
+8049-
+8050-CREATE TABLE IF NOT EXISTS "public"."ai_campaign_recommendations" (
+8051-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8052-    "recommendation_type" "text" NOT NULL,
+8053-    "target_segment_id" "uuid",
+8054-    "recommended_campaign_type" "text" NOT NULL,
+8055-    "recommended_channel" "text" NOT NULL,
+8056-    "recommendation_reason" "text",
+8057-    "predicted_engagement_score" numeric DEFAULT 0,
+8058-    "predicted_conversion_rate" numeric DEFAULT 0,
+8059-    "predicted_revenue" numeric DEFAULT 0,
+8060-    "recommendation_status" "text" DEFAULT 'pending'::"text",
+8061-    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+8062-    "created_at" timestamp with time zone DEFAULT "now"(),
+8063-    "organization_id" "uuid"
+8064-);
+8065-
+8066-
+8067-ALTER TABLE "public"."ai_campaign_recommendations" OWNER TO "postgres";
+8068-
+8069-
+8070-CREATE TABLE IF NOT EXISTS "public"."ai_context_profiles" (
+8071-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+8072-    "organization_id" "uuid" NOT NULL,
+8073-    "context_type" "text" NOT NULL,
+8074-    "name" "text" NOT NULL,
+8075-    "description" "text",
+8076-    "profile" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+8077-    "status" "text" DEFAULT 'active'::"text" NOT NULL,
+8078-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+8079-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+8080-);
+8081-
+8082-
+8083-ALTER TABLE "public"."ai_context_profiles" OWNER TO "postgres";
+--
+16682-
+16683-
+16684-
+16685-ALTER TABLE ONLY "public"."accounting_engagements"
+16686-    ADD CONSTRAINT "accounting_engagements_pkey" PRIMARY KEY ("id");
+16687-
+16688-
+16689-
+16690:ALTER TABLE ONLY "public"."accounting_periods"
+16691-    ADD CONSTRAINT "accounting_periods_pkey" PRIMARY KEY ("id");
+16692-
+16693-
+16694-
+16695-ALTER TABLE ONLY "public"."accounting_product_mappings"
+16696-    ADD CONSTRAINT "accounting_product_mappings_pkey" PRIMARY KEY ("id");
+16697-
+16698-
+16699-
+16700-ALTER TABLE ONLY "public"."accounting_standards"
+16701-    ADD CONSTRAINT "accounting_standards_pkey" PRIMARY KEY ("code");
+16702-
+16703-
+16704-
+16705-ALTER TABLE ONLY "public"."accounts_payable"
+16706-    ADD CONSTRAINT "accounts_payable_pkey" PRIMARY KEY ("id");
+16707-
+16708-
+16709-
+16710-ALTER TABLE ONLY "public"."accounts_receivable"
+16711-    ADD CONSTRAINT "accounts_receivable_pkey" PRIMARY KEY ("id");
+16712-
+16713-
+16714-
+16715-ALTER TABLE ONLY "public"."actions"
+16716-    ADD CONSTRAINT "actions_pkey" PRIMARY KEY ("id");
+16717-
+16718-
+16719-
+16720-ALTER TABLE ONLY "public"."ai_agent_memory"
+16721-    ADD CONSTRAINT "ai_agent_memory_pkey" PRIMARY KEY ("id");
+16722-
+16723-
+16724-
+16725-ALTER TABLE ONLY "public"."ai_agent_tasks"
+16726-    ADD CONSTRAINT "ai_agent_tasks_pkey" PRIMARY KEY ("id");
+16727-
+16728-
+16729-
+16730-ALTER TABLE ONLY "public"."ai_business_insights"
+16731-    ADD CONSTRAINT "ai_business_insights_pkey" PRIMARY KEY ("id");
+16732-
+16733-
+16734-
+16735-ALTER TABLE ONLY "public"."ai_business_profiles"
+16736-    ADD CONSTRAINT "ai_business_profiles_pkey" PRIMARY KEY ("id");
+16737-
+16738-
+16739-
+16740-ALTER TABLE ONLY "public"."ai_campaign_recommendations"
+16741-    ADD CONSTRAINT "ai_campaign_recommendations_pkey" PRIMARY KEY ("id");
+16742-
+16743-
+16744-
+16745-ALTER TABLE ONLY "public"."ai_context_profiles"
+16746-    ADD CONSTRAINT "ai_context_profiles_pkey" PRIMARY KEY ("id");
+16747-
+16748-
+16749-
+16750-ALTER TABLE ONLY "public"."ai_decisions"
+16751-    ADD CONSTRAINT "ai_decisions_pkey" PRIMARY KEY ("id");
+16752-
+16753-
+16754-
+16755-ALTER TABLE ONLY "public"."ai_finance_memory"
+16756-    ADD CONSTRAINT "ai_finance_memory_pkey" PRIMARY KEY ("id");
+16757-
+16758-
+16759-
+16760-ALTER TABLE ONLY "public"."ai_forecasts"
+16761-    ADD CONSTRAINT "ai_forecasts_pkey" PRIMARY KEY ("id");
+16762-
+16763-
+16764-
+16765-ALTER TABLE ONLY "public"."ai_intake_submissions"
+16766-    ADD CONSTRAINT "ai_intake_submissions_pkey" PRIMARY KEY ("id");
+16767-
+16768-
+16769-
+16770-ALTER TABLE ONLY "public"."ai_memory"
+16771-    ADD CONSTRAINT "ai_memory_pkey" PRIMARY KEY ("id");
+16772-
+16773-
+16774-
+16775-ALTER TABLE ONLY "public"."provider_pricing"
+16776-    ADD CONSTRAINT "ai_model_pricing_pkey" PRIMARY KEY ("id");
+16777-
+16778-
+16779-
+16780-ALTER TABLE ONLY "public"."ai_operations_memory"
+16781-    ADD CONSTRAINT "ai_operations_memory_pkey" PRIMARY KEY ("id");
+16782-
+16783-
+16784-
+16785-ALTER TABLE ONLY "public"."ai_procurement_memory"
+16786-    ADD CONSTRAINT "ai_procurement_memory_pkey" PRIMARY KEY ("id");
+16787-
+16788-
+16789-
+16790-ALTER TABLE ONLY "public"."ai_recommendations"
+16791-    ADD CONSTRAINT "ai_recommendations_pkey" PRIMARY KEY ("id");
+16792-
+16793-
+16794-
+16795-ALTER TABLE ONLY "public"."ai_staff_memory"
+16796-    ADD CONSTRAINT "ai_staff_memory_pkey" PRIMARY KEY ("id");
+16797-
+16798-
+16799-
+16800-ALTER TABLE ONLY "public"."ai_usage_logs"
+16801-    ADD CONSTRAINT "ai_usage_logs_pkey" PRIMARY KEY ("id");
+16802-
+16803-
+16804-
+16805-ALTER TABLE ONLY "public"."alerts"
+16806-    ADD CONSTRAINT "alerts_pkey" PRIMARY KEY ("id");
+16807-
+16808-
+16809-
+16810-ALTER TABLE ONLY "public"."api_access_logs"
+16811-    ADD CONSTRAINT "api_access_logs_pkey" PRIMARY KEY ("id");
+16812-
+16813-
+16814-
+16815-ALTER TABLE ONLY "public"."approval_logs"
+16816-    ADD CONSTRAINT "approval_logs_pkey" PRIMARY KEY ("id");
+16817-
+16818-
+16819-
+16820-ALTER TABLE ONLY "public"."approval_requests"
+16821-    ADD CONSTRAINT "approval_requests_pkey" PRIMARY KEY ("id");
+16822-
+16823-
+16824-
+16825-ALTER TABLE ONLY "public"."approval_workflows"
+16826-    ADD CONSTRAINT "approval_workflows_pkey" PRIMARY KEY ("id");
+16827-
+16828-
+16829-
+16830-ALTER TABLE ONLY "public"."assets"
+16831-    ADD CONSTRAINT "assets_pkey" PRIMARY KEY ("id");
+16832-
+16833-
+16834-
+16835-ALTER TABLE ONLY "public"."assignments"
+16836-    ADD CONSTRAINT "assignments_pkey" PRIMARY KEY ("id");
+16837-
+16838-
+16839-
+16840-ALTER TABLE ONLY "public"."attribution_events"
+16841-    ADD CONSTRAINT "attribution_events_pkey" PRIMARY KEY ("id");
+16842-
+16843-
+16844-
+16845-ALTER TABLE ONLY "public"."audit_logs"
+16846-    ADD CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id");
+16847-
+16848-
+16849-
+16850-ALTER TABLE ONLY "public"."backup_jobs"
+16851-    ADD CONSTRAINT "backup_jobs_pkey" PRIMARY KEY ("id");
+16852-
+16853-
+16854-
+16855-ALTER TABLE ONLY "public"."bank_accounts"
+16856-    ADD CONSTRAINT "bank_accounts_pkey" PRIMARY KEY ("id");
+16857-
+16858-
+16859-
+16860-ALTER TABLE ONLY "public"."bank_ledger"
+16861-    ADD CONSTRAINT "bank_ledger_pkey" PRIMARY KEY ("id");
+16862-
+16863-
+16864-
+16865-ALTER TABLE ONLY "public"."bank_statements"
+16866-    ADD CONSTRAINT "bank_statements_pkey" PRIMARY KEY ("id");
+16867-
+16868-
+16869-
+16870-ALTER TABLE ONLY "public"."bank_transactions"
+--
+21050-CREATE OR REPLACE TRIGGER "validate_period_payments" BEFORE INSERT OR UPDATE ON "public"."payments" FOR EACH ROW EXECUTE FUNCTION "public"."validate_period_open"();
+21051-
+21052-
+21053-
+21054-CREATE OR REPLACE TRIGGER "validate_period_payroll_records" BEFORE INSERT OR UPDATE ON "public"."payroll_records" FOR EACH ROW EXECUTE FUNCTION "public"."validate_period_open"();
+21055-
+21056-
+21057-
+21058:ALTER TABLE ONLY "public"."accounting_periods"
+21059-    ADD CONSTRAINT "accounting_periods_legal_entity_id_fkey" FOREIGN KEY ("legal_entity_id") REFERENCES "public"."legal_entities"("id");
+21060-
+21061-
+21062-
+21063-ALTER TABLE ONLY "public"."accounts_payable"
+21064-    ADD CONSTRAINT "accounts_payable_vendor_id_fkey" FOREIGN KEY ("vendor_party_id") REFERENCES "public"."vendors"("id") ON DELETE CASCADE;
+21065-
+21066-
+21067-
+21068-ALTER TABLE ONLY "public"."accounts_payable"
+21069-    ADD CONSTRAINT "accounts_payable_vendor_invoice_id_fkey" FOREIGN KEY ("vendor_invoice_id") REFERENCES "public"."vendor_invoices"("id") ON DELETE CASCADE;
+21070-
+21071-
+21072-
+21073-ALTER TABLE ONLY "public"."accounts_receivable"
+21074-    ADD CONSTRAINT "accounts_receivable_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customer_loyalty_accounts"("id");
+21075-
+21076-
+21077-
+21078-ALTER TABLE ONLY "public"."accounts_receivable"
+21079-    ADD CONSTRAINT "accounts_receivable_customer_invoice_id_fkey" FOREIGN KEY ("customer_invoice_id") REFERENCES "public"."customer_invoices"("id");
+21080-
+21081-
+21082-
+21083-ALTER TABLE ONLY "public"."ai_campaign_recommendations"
+21084-    ADD CONSTRAINT "ai_campaign_recommendations_target_segment_id_fkey" FOREIGN KEY ("target_segment_id") REFERENCES "public"."customer_segments"("id");
+21085-
+21086-
+21087-
+21088-ALTER TABLE ONLY "public"."approval_requests"
+21089-    ADD CONSTRAINT "approval_requests_workflow_id_fkey" FOREIGN KEY ("workflow_id") REFERENCES "public"."approval_workflows"("id");
+21090-
+21091-
+21092-
+21093-ALTER TABLE ONLY "public"."bank_transactions"
+21094-    ADD CONSTRAINT "bank_transactions_bank_account_id_fkey" FOREIGN KEY ("bank_account_id") REFERENCES "public"."bank_accounts"("id");
+21095-
+21096-
+21097-
+21098-ALTER TABLE ONLY "public"."billing_invoice_lines"
+21099-    ADD CONSTRAINT "billing_invoice_lines_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "public"."billing_invoices"("id") ON DELETE CASCADE;
+21100-
+21101-
+21102-
+21103-ALTER TABLE ONLY "public"."business_entities"
+21104-    ADD CONSTRAINT "business_entities_parent_entity_id_fkey" FOREIGN KEY ("parent_entity_id") REFERENCES "public"."business_entities"("id") ON DELETE SET NULL;
+21105-
+21106-
+21107-
+21108-ALTER TABLE ONLY "public"."business_locations"
+21109-    ADD CONSTRAINT "business_locations_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21110-
+21111-
+21112-
+21113-ALTER TABLE ONLY "public"."campaign_publish_queue"
+21114-    ADD CONSTRAINT "campaign_publish_queue_campaign_memory_id_fkey" FOREIGN KEY ("campaign_memory_id") REFERENCES "public"."campaign_memory"("id") ON DELETE CASCADE;
+21115-
+21116-
+21117-
+21118-ALTER TABLE ONLY "public"."chart_of_accounts"
+21119-    ADD CONSTRAINT "chart_of_accounts_parent_account_id_fkey" FOREIGN KEY ("parent_account_id") REFERENCES "public"."chart_of_accounts"("id");
+21120-
+21121-
+21122-
+21123-ALTER TABLE ONLY "public"."configuration_groups"
+21124-    ADD CONSTRAINT "configuration_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21125-
+21126-
+21127-
+21128-ALTER TABLE ONLY "public"."configuration_options"
+21129-    ADD CONSTRAINT "configuration_options_configuration_group_id_fkey" FOREIGN KEY ("configuration_group_id") REFERENCES "public"."configuration_groups"("id") ON DELETE CASCADE;
+21130-
+21131-
+21132-
+21133-ALTER TABLE ONLY "public"."configuration_options"
+21134-    ADD CONSTRAINT "configuration_options_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+21135-
+21136-
+21137-
+21138-ALTER TABLE ONLY "public"."cost_centers"
+21139-    ADD CONSTRAINT "cost_centers_parent_cost_center_id_fkey" FOREIGN KEY ("parent_cost_center_id") REFERENCES "public"."cost_centers"("id");
+21140-
+21141-
+21142-
+21143-ALTER TABLE ONLY "public"."creative_asset_intelligence"
+21144-    ADD CONSTRAINT "creative_asset_intelligence_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "public"."creative_assets"("id") ON DELETE CASCADE;
+21145-
+21146-
+21147-
+21148-ALTER TABLE ONLY "public"."customer_invoice_lines"
+21149-    ADD CONSTRAINT "customer_invoice_lines_customer_invoice_id_fkey" FOREIGN KEY ("customer_invoice_id") REFERENCES "public"."customer_invoices"("id") ON DELETE CASCADE;
+21150-
+21151-
+21152-
+21153-ALTER TABLE ONLY "public"."customer_invoices"
+21154-    ADD CONSTRAINT "customer_invoices_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customer_loyalty_accounts"("id");
+21155-
+21156-
+21157-
+21158-ALTER TABLE ONLY "public"."customer_invoices"
+21159-    ADD CONSTRAINT "customer_invoices_payment_term_scope_fkey" FOREIGN KEY ("organization_id", "payment_term_id") REFERENCES "public"."payment_terms"("organization_id", "id") ON DELETE RESTRICT;
+21160-
+21161-
+21162-
+21163-ALTER TABLE ONLY "public"."customer_loyalty_accounts"
+21164-    ADD CONSTRAINT "customer_loyalty_accounts_party_id_fkey" FOREIGN KEY ("party_id") REFERENCES "public"."parties"("id");
+21165-
+21166-
+21167-
+21168-ALTER TABLE ONLY "public"."customer_payments"
+21169-    ADD CONSTRAINT "customer_payments_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customer_loyalty_accounts"("id");
+21170-
+21171-
+21172-
+21173-ALTER TABLE ONLY "public"."customer_payments"
+21174-    ADD CONSTRAINT "customer_payments_customer_invoice_id_fkey" FOREIGN KEY ("customer_invoice_id") REFERENCES "public"."customer_invoices"("id");
+21175-
+21176-
+21177-
+21178-ALTER TABLE ONLY "public"."customer_profiles"
+21179-    ADD CONSTRAINT "customer_profiles_party_id_fkey" FOREIGN KEY ("party_id") REFERENCES "public"."parties"("id") ON DELETE CASCADE;
+21180-
+21181-
+21182-
+21183-ALTER TABLE ONLY "public"."customer_segment_memberships"
+21184-    ADD CONSTRAINT "customer_segment_memberships_customer_loyalty_account_id_fkey" FOREIGN KEY ("customer_loyalty_account_id") REFERENCES "public"."customer_loyalty_accounts"("id");
+21185-
+21186-
+21187-
+21188-ALTER TABLE ONLY "public"."customer_segment_memberships"
+21189-    ADD CONSTRAINT "customer_segment_memberships_customer_segment_id_fkey" FOREIGN KEY ("customer_segment_id") REFERENCES "public"."customer_segments"("id");
+21190-
+21191-
+21192-
+21193-ALTER TABLE ONLY "public"."daily_sales_items"
+21194-    ADD CONSTRAINT "daily_sales_items_batch_id_fkey" FOREIGN KEY ("batch_id") REFERENCES "public"."daily_sales_batches"("id") ON DELETE CASCADE;
+21195-
+21196-
+21197-
+21198-ALTER TABLE ONLY "public"."daily_sales_items"
+21199-    ADD CONSTRAINT "daily_sales_items_dish_id_fkey" FOREIGN KEY ("dish_id") REFERENCES "public"."dishes"("id");
+21200-
+21201-
+21202-
+21203-ALTER TABLE ONLY "public"."depreciation_entries"
+21204-    ADD CONSTRAINT "depreciation_entries_fixed_asset_id_fkey" FOREIGN KEY ("fixed_asset_id") REFERENCES "public"."fixed_assets"("id");
+21205-
+21206-
+21207-
+21208-ALTER TABLE ONLY "public"."depreciation_entries"
+21209-    ADD CONSTRAINT "depreciation_entries_journal_entry_id_fkey" FOREIGN KEY ("journal_entry_id") REFERENCES "public"."journal_entries"("id");
+21210-
+21211-
+21212-
+21213-ALTER TABLE ONLY "public"."dish_modifier_groups"
+21214-    ADD CONSTRAINT "dish_modifier_groups_modifier_group_id_fkey" FOREIGN KEY ("modifier_group_id") REFERENCES "public"."modifier_groups"("id") ON DELETE CASCADE;
+21215-
+21216-
+21217-
+21218-ALTER TABLE ONLY "public"."dish_modifier_groups"
+21219-    ADD CONSTRAINT "dish_modifier_groups_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+21220-
+21221-
+21222-
+21223-ALTER TABLE ONLY "public"."dynamic_price_adjustments"
+21224-    ADD CONSTRAINT "dynamic_price_adjustments_pricing_rule_id_fkey" FOREIGN KEY ("pricing_rule_id") REFERENCES "public"."dynamic_pricing_rules"("id");
+21225-
+21226-
+21227-
+21228-ALTER TABLE ONLY "public"."enterprise_announcement_reads"
+21229-    ADD CONSTRAINT "enterprise_announcement_reads_announcement_id_fkey" FOREIGN KEY ("announcement_id") REFERENCES "public"."enterprise_announcements"("id");
+21230-
+21231-
+21232-
+21233-ALTER TABLE ONLY "public"."enterprise_audit_events"
+21234-    ADD CONSTRAINT "enterprise_audit_events_enterprise_audit_rule_id_fkey" FOREIGN KEY ("enterprise_audit_rule_id") REFERENCES "public"."enterprise_audit_rules"("id");
+21235-
+21236-
+21237-
+21238-ALTER TABLE ONLY "public"."enterprise_document_access_logs"
+
+================ JOURNAL AND LEDGER CONSTRAINTS ================
+
+================ EXISTING POSTING FUNCTIONS ================
+
+================ CURRENT APPLICATION POSTING ================
+import { validateJournalIntegrity } from "../guards/validateJournalIntegrity.js";
+import { validatePostingPeriod } from "../guards/validatePostingPeriod.js";
+import { validateAccountingPeriod } from "../workflows/validateAccountingPeriod";
+import { getNextJENumber } from "../repositories/getNextJENumber";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { postJournalToLedger } from "@/lib/finance/general-ledger/postJournalToLedger";
+
+export async function postJournalEntrySafe({
+  organizationId,
+  entityId,
+  postingDate,
+  documentDate,
+  journalType = "GENERAL",
+  reference,
+  sourceModule = "finance",
+  sourceDocument = null,
+  sourceDocumentId = null,
+  description,
+  currencyCode = "THB",
+  exchangeRate = 1,
+  lines = [],
+  createdBy = null,
+}) {
+  if (!organizationId) throw new Error("organizationId required");
+
+  const resolvedEntityId = entityId;
+
+  if (!resolvedEntityId) {
+    throw new Error("entityId required");
+  }
+
+  validateJournalIntegrity(lines);
+  validatePostingPeriod(postingDate);
+
+  await validateAccountingPeriod({
+    organizationId,
+    entityId: resolvedEntityId,
+    postingDate,
+  });
+
+  const entryNumber = await getNextJENumber({
+    organizationId,
+    entityId: resolvedEntityId,
+  });
+
+  const { data: journal, error } = await supabaseAdmin
+    .from("journal_entries")
+    .insert({
+      organization_id: organizationId,
+      entity_id: resolvedEntityId,
+      journal_number: entryNumber,
+
+      entry_date:
+        postingDate,
+
+      posting_date:
+        postingDate,
+
+      document_date:
+        documentDate || postingDate,
+      journal_type: journalType,
+      reference,
+      source_module: sourceModule,
+      source_document: sourceDocument,
+      source_document_id: sourceDocumentId,
+      description,
+      currency_code: currencyCode,
+      exchange_rate: exchangeRate,
+      status: "POSTED",
+      created_by: createdBy,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  const entries = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    const { data: entry, error: lineError } = await supabaseAdmin
+      .from("journal_entry_lines")
+      .insert({
+        organization_id: organizationId,
+        entity_id: resolvedEntityId,
+        journal_entry_id: journal.id,
+        line_number: i + 1,
+        account_id: line.account_id,
+        department_id: line.department_id || null,
+        cost_center_id: line.cost_center_id || null,
+        description: line.description || null,
+        currency_code: currencyCode,
+        exchange_rate: exchangeRate,
+        debit: Number(line.debit || 0),
+        credit: Number(line.credit || 0),
+        created_by: createdBy,
+      })
+      .select()
+      .single();
+
+    if (lineError) throw lineError;
+
+    entries.push(entry);
+  }
+
+  const ledger = await postJournalToLedger({
+    organizationId,
+    journalEntryId: journal.id,
+    createdBy,
+  });
+
+  return {
+    journal,
+    entries,
+    ledger,
+  };
+}
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export async function postJournalToLedger({
+  organizationId,
+  journalEntryId,
+  createdBy = null,
+}) {
+  if (!organizationId) throw new Error("organizationId required");
+
+  const { data: journal, error } = await supabaseAdmin
+    .from("journal_entries")
+    .select(`
+      *,
+      journal_entry_lines(*)
+    `)
+    .eq("id", journalEntryId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (error) throw error;
+
+  const postingDate =
+    journal.posting_date ||
+    journal.posting_date ||
+    new Date().toISOString().slice(0, 10);
+
+  const period = String(postingDate).slice(0, 7);
+
+  for (const line of journal.journal_entry_lines || []) {
+    const debit = Number(line.debit || 0);
+    const credit = Number(line.credit || 0);
+    const balance = debit - credit;
+
+    const { error: ledgerError } = await supabaseAdmin
+      .from("general_ledger")
+      .insert({
+        organization_id: organizationId,
+        entity_id: journal.entity_id,
+        journal_entry_id: journal.id,
+        journal_entry_line_id: line.id,
+        account_id: line.account_id,
+        department_id: line.department_id || null,
+        cost_center_id: line.cost_center_id || null,
+        debit,
+        credit,
+        balance,
+        amount: Math.abs(balance),
+        entry_type: debit >= credit ? "debit" : "credit",
+        currency: journal.currency_code || "THB",
+        currency_code: journal.currency_code || "THB",
+        exchange_rate: journal.exchange_rate || 1,
+        transaction_date: postingDate,
+        posting_date: postingDate,
+        posting_period: period,
+        reference_type: journal.source_module || journal.source_type,
+        reference_id: journal.source_document_id || journal.source_id,
+        created_by: createdBy || journal.created_by,
+      });
+
+    if (ledgerError) throw ledgerError;
+  }
+
+  return {
+    success: true,
+    journalEntryId: journal.id,
+    ledgerLines: journal.journal_entry_lines?.length || 0,
+  };
+}
+
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export async function getNextJENumber({
+  organizationId,
+  entityId,
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("journal_entries")
+    .select("journal_number")
+    .eq("organization_id", organizationId)
+    .eq("entity_id", entityId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const last =
+    data?.journal_number?.match(/\d+$/)?.[0] || "0";
+
+  const next = String(Number(last) + 1).padStart(8, "0");
+
+  return `JE-${next}`;
+}

@@ -4,6 +4,9 @@ import {
   CreativeMissionComposerRuntime,
 } from "@/lib/creative/intent/CreativeMissionComposerRuntime";
 import {
+  CreativeSystemKnowledgeRuntime,
+} from "@/lib/creative/knowledge/CreativeSystemKnowledgeRuntime";
+import {
   CreativeMissionRuntime,
 } from "@/lib/creative/missions/runtime/CreativeMissionRuntime";
 import {
@@ -18,6 +21,7 @@ function projectPayload({
   mission,
   deliverable,
   blueprint,
+  knowledge,
 }) {
   return {
     organization_id,
@@ -45,6 +49,8 @@ function projectPayload({
       source_request:
         mission.metadata?.source_request ||
         blueprint.objective,
+      knowledge_policy: knowledge.source_policy,
+      canonical_source_ids: (knowledge.sources || []).map((source) => source.id),
     },
   };
 }
@@ -73,10 +79,19 @@ export async function POST(request) {
 
     await requireOrganizationAccess({ organization_id });
 
+    const knowledge = CreativeSystemKnowledgeRuntime.resolve({
+      organization_id,
+      entity_id: body.entity_id || null,
+      period_id: body.period_id || null,
+    });
+
     const blueprint = await CreativeMissionComposerRuntime.compose({
       organization_id,
       request: creativeRequest,
-      context: body.context || {},
+      context: {
+        ...(body.context || {}),
+        system_knowledge: knowledge,
+      },
     });
 
     const mission = await CreativeMissionRuntime.create({
@@ -98,7 +113,9 @@ export async function POST(request) {
         assumptions: blueprint.assumptions || [],
         blocking_questions: blueprint.blocking_questions || [],
         composition_confidence: blueprint.confidence,
-        composition_mode: "OPEN_CREATIVE_MISSION_V1",
+        composition_mode: "OPEN_CREATIVE_MISSION_V2",
+        knowledge_policy: knowledge.source_policy,
+        canonical_source_ids: (knowledge.sources || []).map((source) => source.id),
       },
     });
 
@@ -112,6 +129,7 @@ export async function POST(request) {
           mission,
           deliverable,
           blueprint,
+          knowledge,
         }),
       );
       projects.push(project);
@@ -125,6 +143,10 @@ export async function POST(request) {
       },
       projects,
       blueprint,
+      knowledge: {
+        source_count: knowledge.sources.length,
+        source_policy: knowledge.source_policy,
+      },
     });
   } catch (error) {
     console.error("creative mission composition failed", error);

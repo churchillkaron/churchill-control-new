@@ -1,0 +1,350 @@
+AVANTIQO FINANCE ATOMIC POSTING SCHEMA AUDIT
+Generated: 2026-07-22 10:47:47 +0700
+Branch: finance-full-audit-20260721
+Head: 690f4ebefe568b734230c59c807bd2d16fe01e56
+
+================ SUPABASE MIGRATION STATE ================
+[31mCannot find project ref. Have you run supabase link?[39m
+Try rerunning the command with --debug to troubleshoot the error.
+
+================ DATABASE DUMP STATUS ================
+DUMP_STATUS=1
+[31mCannot find project ref. Have you run supabase link?[39m
+Try rerunning the command with --debug to troubleshoot the error.
+
+================ LOCAL MIGRATION REFERENCES ================
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:16:ALTER TABLE journal_entries
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:26:ALTER TABLE journal_entry_lines
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:33:ALTER TABLE general_ledger
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:38:UPDATE journal_entries
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:42:UPDATE journal_entries
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:46:UPDATE journal_entries
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:50:UPDATE general_ledger
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:54:UPDATE general_ledger
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:58:UPDATE general_ledger
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:64:  FROM journal_entries
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:68:  FROM general_ledger
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:96:UPDATE journal_entries je
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:103:UPDATE journal_entry_lines jel
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:105:FROM journal_entries je
+supabase/migrations/20260701_finance_gl_schema_convergence.sql:109:UPDATE general_ledger gl
+supabase/migrations/20260517_baseline_schema.sql:6977:CREATE TABLE IF NOT EXISTS "public"."accounting_periods" (
+supabase/migrations/20260517_baseline_schema.sql:6994:ALTER TABLE "public"."accounting_periods" OWNER TO "postgres";
+supabase/migrations/20260517_baseline_schema.sql:7322:CREATE TABLE IF NOT EXISTS "public"."journal_entry_lines" (
+supabase/migrations/20260517_baseline_schema.sql:7335:ALTER TABLE "public"."journal_entry_lines" OWNER TO "postgres";
+supabase/migrations/20260517_baseline_schema.sql:7349:     LEFT JOIN "public"."journal_entry_lines" "jel" ON (("coa"."id" = "jel"."account_id")))
+supabase/migrations/20260517_baseline_schema.sql:7508:CREATE TABLE IF NOT EXISTS "public"."journal_entries" (
+supabase/migrations/20260517_baseline_schema.sql:7524:ALTER TABLE "public"."journal_entries" OWNER TO "postgres";
+supabase/migrations/20260517_baseline_schema.sql:7535:   FROM (("public"."journal_entry_lines" "jel"
+supabase/migrations/20260517_baseline_schema.sql:7536:     JOIN "public"."journal_entries" "je" ON (("jel"."journal_entry_id" = "je"."id")))
+supabase/migrations/20260517_baseline_schema.sql:7596:   FROM ((("public"."journal_entry_lines" "jel"
+supabase/migrations/20260517_baseline_schema.sql:7597:     JOIN "public"."journal_entries" "je" ON (("jel"."journal_entry_id" = "je"."id")))
+supabase/migrations/20260517_baseline_schema.sql:9451:     LEFT JOIN "public"."journal_entry_lines" "jel" ON (("coa"."id" = "jel"."account_id")))
+supabase/migrations/20260517_baseline_schema.sql:10200:     LEFT JOIN "public"."journal_entry_lines" "jel" ON (("coa"."id" = "jel"."account_id")))
+supabase/migrations/20260517_baseline_schema.sql:10373:ALTER TABLE ONLY "public"."accounting_periods"
+supabase/migrations/20260517_baseline_schema.sql:10374:    ADD CONSTRAINT "accounting_periods_pkey" PRIMARY KEY ("id");
+supabase/migrations/20260517_baseline_schema.sql:10863:ALTER TABLE ONLY "public"."journal_entries"
+supabase/migrations/20260517_baseline_schema.sql:10864:    ADD CONSTRAINT "journal_entries_entry_number_key" UNIQUE ("entry_number");
+supabase/migrations/20260517_baseline_schema.sql:10868:ALTER TABLE ONLY "public"."journal_entries"
+supabase/migrations/20260517_baseline_schema.sql:10869:    ADD CONSTRAINT "journal_entries_pkey" PRIMARY KEY ("id");
+supabase/migrations/20260517_baseline_schema.sql:10873:ALTER TABLE ONLY "public"."journal_entry_lines"
+supabase/migrations/20260517_baseline_schema.sql:10874:    ADD CONSTRAINT "journal_entry_lines_pkey" PRIMARY KEY ("id");
+supabase/migrations/20260517_baseline_schema.sql:11309:CREATE INDEX "idx_accounting_periods_tenant_id" ON "public"."accounting_periods" USING "btree" ("tenant_id");
+supabase/migrations/20260517_baseline_schema.sql:12361:CREATE INDEX "idx_journal_entries_tenant_id" ON "public"."journal_entries" USING "btree" ("tenant_id");
+supabase/migrations/20260517_baseline_schema.sql:12365:CREATE INDEX "idx_journal_entry_lines_tenant_id" ON "public"."journal_entry_lines" USING "btree" ("tenant_id");
+supabase/migrations/20260517_baseline_schema.sql:13256:ALTER TABLE ONLY "public"."accounting_periods"
+supabase/migrations/20260517_baseline_schema.sql:13257:    ADD CONSTRAINT "accounting_periods_legal_entity_id_fkey" FOREIGN KEY ("legal_entity_id") REFERENCES "public"."legal_entities"("id");
+supabase/migrations/20260517_baseline_schema.sql:13322:    ADD CONSTRAINT "depreciation_entries_journal_entry_id_fkey" FOREIGN KEY ("journal_entry_id") REFERENCES "public"."journal_entries"("id");
+supabase/migrations/20260517_baseline_schema.sql:13481:ALTER TABLE ONLY "public"."journal_entries"
+supabase/migrations/20260517_baseline_schema.sql:13482:    ADD CONSTRAINT "journal_entries_legal_entity_id_fkey" FOREIGN KEY ("legal_entity_id") REFERENCES "public"."legal_entities"("id");
+supabase/migrations/20260517_baseline_schema.sql:13486:ALTER TABLE ONLY "public"."journal_entry_lines"
+supabase/migrations/20260517_baseline_schema.sql:13487:    ADD CONSTRAINT "journal_entry_lines_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "public"."chart_of_accounts"("id");
+supabase/migrations/20260517_baseline_schema.sql:13491:ALTER TABLE ONLY "public"."journal_entry_lines"
+supabase/migrations/20260517_baseline_schema.sql:13492:    ADD CONSTRAINT "journal_entry_lines_cost_center_id_fkey" FOREIGN KEY ("cost_center_id") REFERENCES "public"."cost_centers"("id");
+supabase/migrations/20260517_baseline_schema.sql:13496:ALTER TABLE ONLY "public"."journal_entry_lines"
+supabase/migrations/20260517_baseline_schema.sql:13497:    ADD CONSTRAINT "journal_entry_lines_journal_entry_id_fkey" FOREIGN KEY ("journal_entry_id") REFERENCES "public"."journal_entries"("id") ON DELETE CASCADE;
+supabase/migrations/20260517_baseline_schema.sql:13779:ALTER TABLE "public"."accounting_periods" ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20260517_baseline_schema.sql:14067:ALTER TABLE "public"."journal_entries" ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20260517_baseline_schema.sql:14070:ALTER TABLE "public"."journal_entry_lines" ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20260517_baseline_schema.sql:16937:GRANT ALL ON TABLE "public"."accounting_periods" TO "anon";
+supabase/migrations/20260517_baseline_schema.sql:16938:GRANT ALL ON TABLE "public"."accounting_periods" TO "authenticated";
+supabase/migrations/20260517_baseline_schema.sql:16939:GRANT ALL ON TABLE "public"."accounting_periods" TO "service_role";
+supabase/migrations/20260517_baseline_schema.sql:17050:GRANT ALL ON TABLE "public"."journal_entry_lines" TO "anon";
+supabase/migrations/20260517_baseline_schema.sql:17051:GRANT ALL ON TABLE "public"."journal_entry_lines" TO "authenticated";
+supabase/migrations/20260517_baseline_schema.sql:17052:GRANT ALL ON TABLE "public"."journal_entry_lines" TO "service_role";
+supabase/migrations/20260517_baseline_schema.sql:17097:GRANT ALL ON TABLE "public"."journal_entries" TO "anon";
+supabase/migrations/20260517_baseline_schema.sql:17098:GRANT ALL ON TABLE "public"."journal_entries" TO "authenticated";
+supabase/migrations/20260517_baseline_schema.sql:17099:GRANT ALL ON TABLE "public"."journal_entries" TO "service_role";
+supabase/sql/accounting_accounts_payable.sql:26:        references journal_entries(id),
+supabase/sql/accounting_accounts_payable.sql:56:        references journal_entries(id),
+supabase/sql/accounting_accounts_receivable.sql:26:        references journal_entries(id),
+supabase/sql/accounting_core_ledger.sql:1:create table if not exists general_ledger (
+supabase/sql/accounting_core_ledger.sql:10:        references journal_entries(id)
+supabase/sql/accounting_core_ledger.sql:14:        references journal_entry_lines(id)
+supabase/sql/accounting_core_ledger.sql:41:on general_ledger(
+supabase/sql/accounting_core_ledger.sql:47:on general_ledger(
+supabase/sql/accounting_core_ledger.sql:52:on general_ledger(
+supabase/sql/accounting_core_ledger.sql:57:on general_ledger(
+supabase/sql/accounting_core_ledger.sql:62:on general_ledger(
+supabase/sql/accounting_foundation.sql:25:create table if not exists accounting_periods (
+supabase/sql/accounting_foundation.sql:75:create table if not exists journal_entries (
+supabase/sql/accounting_foundation.sql:110:create table if not exists journal_entry_lines (
+supabase/sql/accounting_foundation.sql:116:    journal_entry_id uuid not null references journal_entries(id) on delete cascade,
+supabase/sql/accounting_foundation.sql:143:on journal_entries(
+supabase/sql/accounting_foundation.sql:149:on journal_entry_lines(
+supabase/sql/accounting_governance.sql:26:create table if not exists accounting_periods (
+supabase/sql/accounting_payment_engine.sql:29:        references journal_entries(id),
+supabase/sql/accounting_event_engine.sql:19:        references journal_entries(id),
+
+================ CURRENT POSTING IMPLEMENTATION ================
+import { validateJournalIntegrity } from "../guards/validateJournalIntegrity.js";
+import { validatePostingPeriod } from "../guards/validatePostingPeriod.js";
+import { validateAccountingPeriod } from "../workflows/validateAccountingPeriod";
+import { getNextJENumber } from "../repositories/getNextJENumber";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { postJournalToLedger } from "@/lib/finance/general-ledger/postJournalToLedger";
+
+export async function postJournalEntrySafe({
+  organizationId,
+  entityId,
+  postingDate,
+  documentDate,
+  journalType = "GENERAL",
+  reference,
+  sourceModule = "finance",
+  sourceDocument = null,
+  sourceDocumentId = null,
+  description,
+  currencyCode = "THB",
+  exchangeRate = 1,
+  lines = [],
+  createdBy = null,
+}) {
+  if (!organizationId) throw new Error("organizationId required");
+
+  const resolvedEntityId = entityId;
+
+  if (!resolvedEntityId) {
+    throw new Error("entityId required");
+  }
+
+  validateJournalIntegrity(lines);
+  validatePostingPeriod(postingDate);
+
+  await validateAccountingPeriod({
+    organizationId,
+    entityId: resolvedEntityId,
+    postingDate,
+  });
+
+  const entryNumber = await getNextJENumber({
+    organizationId,
+    entityId: resolvedEntityId,
+  });
+
+  const { data: journal, error } = await supabaseAdmin
+    .from("journal_entries")
+    .insert({
+      organization_id: organizationId,
+      entity_id: resolvedEntityId,
+      journal_number: entryNumber,
+
+      entry_date:
+        postingDate,
+
+      posting_date:
+        postingDate,
+
+      document_date:
+        documentDate || postingDate,
+      journal_type: journalType,
+      reference,
+      source_module: sourceModule,
+      source_document: sourceDocument,
+      source_document_id: sourceDocumentId,
+      description,
+      currency_code: currencyCode,
+      exchange_rate: exchangeRate,
+      status: "POSTED",
+      created_by: createdBy,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  const entries = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    const { data: entry, error: lineError } = await supabaseAdmin
+      .from("journal_entry_lines")
+      .insert({
+        organization_id: organizationId,
+        entity_id: resolvedEntityId,
+        journal_entry_id: journal.id,
+        line_number: i + 1,
+        account_id: line.account_id,
+        department_id: line.department_id || null,
+        cost_center_id: line.cost_center_id || null,
+        description: line.description || null,
+        currency_code: currencyCode,
+        exchange_rate: exchangeRate,
+        debit: Number(line.debit || 0),
+        credit: Number(line.credit || 0),
+        created_by: createdBy,
+      })
+      .select()
+      .single();
+
+    if (lineError) throw lineError;
+
+    entries.push(entry);
+  }
+
+  const ledger = await postJournalToLedger({
+    organizationId,
+    journalEntryId: journal.id,
+    createdBy,
+  });
+
+  return {
+    journal,
+    entries,
+    ledger,
+  };
+}
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export async function postJournalToLedger({
+  organizationId,
+  journalEntryId,
+  createdBy = null,
+}) {
+  if (!organizationId) throw new Error("organizationId required");
+
+  const { data: journal, error } = await supabaseAdmin
+    .from("journal_entries")
+    .select(`
+      *,
+      journal_entry_lines(*)
+    `)
+    .eq("id", journalEntryId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (error) throw error;
+
+  const postingDate =
+    journal.posting_date ||
+    journal.posting_date ||
+    new Date().toISOString().slice(0, 10);
+
+  const period = String(postingDate).slice(0, 7);
+
+  for (const line of journal.journal_entry_lines || []) {
+    const debit = Number(line.debit || 0);
+    const credit = Number(line.credit || 0);
+    const balance = debit - credit;
+
+    const { error: ledgerError } = await supabaseAdmin
+      .from("general_ledger")
+      .insert({
+        organization_id: organizationId,
+        entity_id: journal.entity_id,
+        journal_entry_id: journal.id,
+        journal_entry_line_id: line.id,
+        account_id: line.account_id,
+        department_id: line.department_id || null,
+        cost_center_id: line.cost_center_id || null,
+        debit,
+        credit,
+        balance,
+        amount: Math.abs(balance),
+        entry_type: debit >= credit ? "debit" : "credit",
+        currency: journal.currency_code || "THB",
+        currency_code: journal.currency_code || "THB",
+        exchange_rate: journal.exchange_rate || 1,
+        transaction_date: postingDate,
+        posting_date: postingDate,
+        posting_period: period,
+        reference_type: journal.source_module || journal.source_type,
+        reference_id: journal.source_document_id || journal.source_id,
+        created_by: createdBy || journal.created_by,
+      });
+
+    if (ledgerError) throw ledgerError;
+  }
+
+  return {
+    success: true,
+    journalEntryId: journal.id,
+    ledgerLines: journal.journal_entry_lines?.length || 0,
+  };
+}
+
+import { getPostingRule } from "@/lib/finance/general-ledger/repositories/getPostingRule";
+import { postJournalEntrySafe } from "@/lib/finance/general-ledger/capabilities/postJournalEntrySafe";
+import { buildJournalFromEvent } from "./buildJournalFromEvent";
+
+export async function processAccountingEvent({ event }) {
+
+  const rule = await getPostingRule({
+    organizationId: event.organization_id,
+    entityId: event.entity_id,
+    eventType: event.event_type,
+  });
+
+  const lines = buildJournalFromEvent({ event, rule });
+
+  const payload = event.payload || {};
+
+  const journal = await postJournalEntrySafe({
+    organizationId: event.organization_id,
+    entityId: event.entity_id,
+    postingDate: payload.entryDate || new Date().toISOString().slice(0, 10),
+    description: payload.description || event.event_type,
+    reference: `${event.source_module}:${event.source_id}`,
+    lines,
+  });
+
+  return journal;
+}
+
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export async function getNextJENumber({
+  organizationId,
+  entityId,
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("journal_entries")
+    .select("journal_number")
+    .eq("organization_id", organizationId)
+    .eq("entity_id", entityId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const last =
+    data?.journal_number?.match(/\d+$/)?.[0] || "0";
+
+  const next = String(Number(last) + 1).padStart(8, "0");
+
+  return `JE-${next}`;
+}
+
+================ HARDCODED POSTING DEFAULTS ================
+lib/finance/general-ledger/capabilities/createJournalReversal.js:73:        originalEntry.currency_code || "THB",
+lib/finance/general-ledger/capabilities/createJournalReversal.js:75:        originalEntry.exchange_rate || 1,
+lib/finance/general-ledger/capabilities/postJournalEntrySafe.js:19:  currencyCode = "THB",
+lib/finance/general-ledger/capabilities/postJournalEntrySafe.js:20:  exchangeRate = 1,
+lib/finance/general-ledger/postJournalToLedger.js:49:        currency: journal.currency_code || "THB",
+lib/finance/general-ledger/postJournalToLedger.js:50:        currency_code: journal.currency_code || "THB",
+lib/finance/general-ledger/postJournalToLedger.js:51:        exchange_rate: journal.exchange_rate || 1,
+app/api/finance/journals/create/route.js:43:      exchangeRate: Number(body.exchange_rate || 1),

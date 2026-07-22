@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
 import {
   CreativeDirectorJobRuntime,
 } from "@/lib/creative/director/runtime/CreativeDirectorJobRuntime";
@@ -21,6 +23,348 @@ import {
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+
+const DIRECTOR_JOBS = "creative_director_jobs";
+
+function list(value) {
+  if (!value) return [];
+  return Array.isArray(value)
+    ? value.filter(Boolean)
+    : [value];
+}
+
+function object(value) {
+  return value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+    ? value
+    : {};
+}
+
+function unique(values = []) {
+  return [
+    ...new Set(
+      values
+        .filter(Boolean)
+        .map(String),
+    ),
+  ];
+}
+
+function referenceIdentifier(value) {
+  if (
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+    const identifier = String(value).trim();
+    return identifier || null;
+  }
+
+  const source = object(value);
+
+  const identifier =
+    source.id ||
+    source.asset_id ||
+    source.reference_asset_id ||
+    source.identity_reference_asset_id ||
+    source.canonical_reference_asset_id ||
+    source.selected_reference_asset_id ||
+    null;
+
+  return identifier
+    ? String(identifier)
+    : null;
+}
+
+function referenceIdentifiers(values = []) {
+  return unique(
+    list(values)
+      .map(referenceIdentifier)
+      .filter(Boolean),
+  );
+}
+
+function nestedReferenceIdentifiers(values = []) {
+  return unique(
+    list(values).flatMap((value) => {
+      const source = object(value);
+
+      return referenceIdentifiers([
+        ...list(source.reference_asset_ids),
+        ...list(source.identity_reference_asset_ids),
+        ...list(source.canonical_reference_asset_ids),
+        ...list(source.selected_reference_asset_ids),
+        ...list(source.assets),
+        source.reference_asset_id,
+        source.identity_reference_asset_id,
+        source.canonical_reference_asset_id,
+        source.selected_reference_asset_id,
+        source.asset_id,
+      ]);
+    }),
+  );
+}
+
+function assignedShotReferenceIds(shot = {}) {
+  const source = object(shot);
+  const masterStill = object(source.master_still_contract);
+
+  return unique([
+    ...referenceIdentifiers(source.reference_asset_ids),
+    ...referenceIdentifiers(source.assets),
+    ...referenceIdentifiers(masterStill.reference_asset_ids),
+    ...nestedReferenceIdentifiers(source.actors),
+    ...nestedReferenceIdentifiers(source.subjects),
+    ...nestedReferenceIdentifiers(source.objects_products),
+    ...nestedReferenceIdentifiers(source.objects),
+    ...nestedReferenceIdentifiers(source.products),
+  ]);
+}
+
+function sameIdentifierSet(left = [], right = []) {
+  const leftSet = new Set(unique(left));
+  const rightSet = new Set(unique(right));
+
+  if (leftSet.size !== rightSet.size) return false;
+
+  return [...leftSet].every((value) =>
+    rightSet.has(value),
+  );
+}
+
+function numberedEntry(values, number, field) {
+  const entries = list(values);
+
+  return (
+    entries.find((value) =>
+      Number(object(value)[field]) === Number(number),
+    ) ||
+    entries[Number(number) - 1] ||
+    null
+  );
+}
+
+function temporalFailure(job = {}) {
+  const failedStep = list(job.steps).find((step) =>
+    step?.step_key === "temporal_shot_direction" &&
+    step?.status === "FAILED",
+  );
+
+  return object(
+    failedStep?.error ||
+    job.error,
+  );
+}
+
+async function materializeFailedTemporalReferences({
+  jobId,
+  organizationId,
+}) {
+  const hydrated = await CreativeDirectorJobRuntime.get({
+    job_id: jobId,
+    organization_id: organizationId,
+    include_plan: true,
+  });
+
+  const failure = temporalFailure(hydrated);
+
+  if (
+    failure.code !==
+    "CREATIVE_TEMPORAL_MASTER_STILL_REFERENCE_SET_INVALID"
+  ) {
+    return {
+      applied: false,
+      reason: "NO_RECOVERABLE_REFERENCE_FAILURE",
+    };
+  }
+
+  const details = object(failure.details);
+  const expected = referenceIdentifiers(details.expected);
+  const received = referenceIdentifiers(details.received);
+
+  if (expected.length || !received.length) {
+    return {
+      applied: false,
+      reason: "REFERENCE_FAILURE_REQUIRES_HUMAN_REVIEW",
+      expected,
+      received,
+    };
+  }
+
+  const { data: row, error } = await supabaseAdmin
+    .from(DIRECTOR_JOBS)
+    .select(
+      "id,organization_id,current_plan,asset_snapshot,pipeline_result",
+    )
+    .eq("id", jobId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (error) throw error;
+
+  const available = new Set(
+    list(row.asset_snapshot)
+      .map((asset) =>
+        referenceIdentifier(asset),
+      )
+      .filter(Boolean),
+  );
+
+  const unknown = received.filter((id) =>
+    !available.has(id),
+  );
+
+  if (unknown.length) {
+    const recoveryError = new Error(
+      "CREATIVE_TEMPORAL_REFERENCE_RECOVERY_UNKNOWN_ASSET",
+    );
+
+    recoveryError.code =
+      "CREATIVE_TEMPORAL_REFERENCE_RECOVERY_UNKNOWN_ASSET";
+
+    recoveryError.details = {
+      job_id: jobId,
+      unknown_asset_ids: unknown,
+      canonical_asset_ids: [...available],
+    };
+
+    throw recoveryError;
+  }
+
+  const sceneNumber = Number(details.scene_number);
+  const shotNumber = Number(details.shot_number);
+
+  const plan = JSON.parse(
+    JSON.stringify(object(row.current_plan)),
+  );
+
+  const scene = numberedEntry(
+    plan.scenes,
+    sceneNumber,
+    "scene_number",
+  );
+
+  const shot = numberedEntry(
+    object(scene).shots,
+    shotNumber,
+    "shot_number",
+  );
+
+  if (!scene || !shot) {
+    const recoveryError = new Error(
+      "CREATIVE_TEMPORAL_REFERENCE_RECOVERY_SHOT_NOT_FOUND",
+    );
+
+    recoveryError.code =
+      "CREATIVE_TEMPORAL_REFERENCE_RECOVERY_SHOT_NOT_FOUND";
+
+    recoveryError.details = {
+      job_id: jobId,
+      scene_number: sceneNumber,
+      shot_number: shotNumber,
+    };
+
+    throw recoveryError;
+  }
+
+  const assigned = assignedShotReferenceIds(shot);
+
+  if (
+    assigned.length &&
+    !sameIdentifierSet(assigned, received)
+  ) {
+    return {
+      applied: false,
+      reason: "ASSIGNED_REFERENCE_SET_CONFLICT",
+      assigned,
+      received,
+      scene_number: sceneNumber,
+      shot_number: shotNumber,
+    };
+  }
+
+  shot.reference_asset_ids = received;
+  shot.assets = received;
+
+  const pipeline = object(row.pipeline_result);
+  const temporal = object(pipeline.temporal_direction);
+
+  const partialShots = list(
+    temporal.partial_shots,
+  ).map((partialValue) => {
+    const partial = object(partialValue);
+
+    if (
+      Number(partial.scene_number) !== sceneNumber ||
+      Number(partial.shot_number) !== shotNumber
+    ) {
+      return partialValue;
+    }
+
+    const masterStill = object(
+      partial.master_still_contract,
+    );
+
+    return {
+      ...partial,
+      reference_asset_ids: received,
+      master_still_contract:
+        Object.keys(masterStill).length
+          ? {
+              ...masterStill,
+              reference_asset_ids: received,
+            }
+          : masterStill,
+      reference_recovered_at:
+        new Date().toISOString(),
+    };
+  });
+
+  const nextPipeline = {
+    ...pipeline,
+    temporal_direction: {
+      ...temporal,
+      partial_shots: partialShots,
+      active_address:
+        `${sceneNumber}:${shotNumber}`,
+      active_scene_number: sceneNumber,
+      active_shot_number: shotNumber,
+      active_phase:
+        "REFERENCE_SET_RECOVERED",
+      recovered_reference_asset_ids:
+        received,
+      reference_recovered_at:
+        new Date().toISOString(),
+      activity_updated_at:
+        new Date().toISOString(),
+    },
+  };
+
+  const { error: updateError } = await supabaseAdmin
+    .from(DIRECTOR_JOBS)
+    .update({
+      current_plan: plan,
+      pipeline_result: nextPipeline,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("organization_id", organizationId);
+
+  if (updateError) throw updateError;
+
+  return {
+    applied: true,
+    scene_number: sceneNumber,
+    shot_number: shotNumber,
+    reference_asset_ids: received,
+    validation: {
+      canonical_asset_snapshot_checked: true,
+      assigned_reference_conflict_checked: true,
+      production_bible_materialized: true,
+      partial_checkpoint_materialized: true,
+    },
+  };
+}
 
 function projectBrief(project = {}, mission = {}, body = {}) {
   const specifications = project.metadata?.specifications || {};
@@ -277,6 +621,17 @@ export async function POST(req) {
         }, { status: 400 });
       }
 
+      const referenceRecovery =
+        body.retry_failed === true
+          ? await materializeFailedTemporalReferences({
+              jobId: body.job_id,
+              organizationId,
+            })
+          : {
+              applied: false,
+              reason: "RETRY_NOT_REQUESTED",
+            };
+
       const job = await CreativeDirectorJobRuntime.advance({
         job_id: body.job_id,
         organization_id: organizationId,
@@ -289,6 +644,7 @@ export async function POST(req) {
         production_dispatched: false,
         image_generation_started: false,
         video_generation_started: false,
+        reference_recovery: referenceRecovery,
         job,
       });
     }

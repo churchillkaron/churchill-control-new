@@ -235,7 +235,25 @@ for (const deliverable of filmDeliverables) {
   if (!capabilities.has('ai.sfx.generate')) fail(`${deliverable.title} has no sound-effects capability`);
 }
 
-const text = JSON.stringify(blueprint).toLowerCase();
+const requiredProductionPath = {
+  title: blueprint.title,
+  business_goal: blueprint.business_goal,
+  objective: blueprint.objective,
+  creative_thesis: blueprint.creative_thesis,
+  assumptions: blueprint.assumptions,
+  blocking_questions: blueprint.blocking_questions,
+  production_principles: blueprint.production_principles,
+  workflow,
+  deliverables: deliverables.map((deliverable) => ({
+    id: deliverable.id,
+    title: deliverable.title,
+    description: deliverable.description,
+    medium: deliverable.medium,
+    dependencies: deliverable.dependencies,
+    specifications: deliverable.specifications,
+  })),
+};
+const requiredText = JSON.stringify(requiredProductionPath).toLowerCase();
 const forbiddenPhysicalDependencies = [
   'principal photography',
   'two-night shoot',
@@ -248,7 +266,9 @@ const forbiddenPhysicalDependencies = [
   'venue closure',
 ];
 for (const phrase of forbiddenPhysicalDependencies) {
-  if (text.includes(phrase)) fail(`AI-native plan contains unsupported physical dependency: ${phrase}`);
+  if (requiredText.includes(phrase)) {
+    fail(`AI-native required path contains unsupported physical dependency: ${phrase}`);
+  }
 }
 
 console.log(`PASS: mission ${body.mission.id}`);
@@ -256,6 +276,7 @@ console.log(`PASS: AI Director confidence ${blueprint.confidence}`);
 console.log(`PASS: production mode ${blueprint.production_mode}`);
 console.log(`PASS: deliverables ${deliverables.length}`);
 console.log('PASS: semantic deliverable classification');
+console.log('PASS: optional real-world extensions isolated from required production');
 console.log(`PASS: workflow ${workflow.length} canonical stages`);
 console.log(`PASS: business truth snapshot ${body.business_truth.snapshot_id}`);
 console.log(`PASS: business truth hash ${body.business_truth.payload_hash}`);

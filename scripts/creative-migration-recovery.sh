@@ -38,6 +38,14 @@ process.stdout.write([...new Set(rows)].join('\n'));
 NODE
 }
 
+migration_fetch() {
+  if supabase migration fetch --help 2>&1 | grep -q -- '--linked'; then
+    supabase migration fetch --linked
+  else
+    supabase migration fetch
+  fi
+}
+
 section "AVANTIQO CREATIVE MIGRATION RECOVERY"
 printf 'Repository: %s\n' "$ROOT"
 printf 'Backup: %s\n' "$BACKUP_ROOT"
@@ -70,12 +78,29 @@ section "BACKUP"
 cp -R supabase/migrations "$BACKUP_ROOT/migrations-before"
 printf 'PASS: local migration directory backed up\n'
 
-if supabase db dump --linked --schema public > "$BACKUP_ROOT/remote-public-schema.sql"; then
-  printf 'PASS: remote public schema backed up\n'
+SCHEMA_BACKUP_STATUS="SKIPPED"
+if [ -n "${CREATIVE_REMOTE_DATABASE_URL:-}" ] && command -v pg_dump >/dev/null 2>&1; then
+  if pg_dump --schema-only --no-owner --no-privileges \
+    "$CREATIVE_REMOTE_DATABASE_URL" \
+    > "$BACKUP_ROOT/remote-public-schema.sql"; then
+    SCHEMA_BACKUP_STATUS="DIRECT_PG_DUMP"
+    printf 'PASS: remote schema backed up with pg_dump\n'
+  else
+    printf 'WARN: direct pg_dump failed; migration recovery will remain non-destructive\n'
+  fi
+elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  if supabase db dump --linked --schema public \
+    > "$BACKUP_ROOT/remote-public-schema.sql"; then
+    SCHEMA_BACKUP_STATUS="SUPABASE_DOCKER_DUMP"
+    printf 'PASS: remote public schema backed up with Supabase CLI\n'
+  else
+    printf 'WARN: Supabase schema dump failed; migration recovery will remain non-destructive\n'
+  fi
 else
-  printf 'FAIL: unable to back up remote public schema\n'
-  exit 1
+  printf 'WARN: Docker is not running and no CREATIVE_REMOTE_DATABASE_URL was supplied.\n'
+  printf 'WARN: remote schema dump skipped; only non-destructive migration fetch and dry-run are allowed.\n'
 fi
+printf '%s\n' "$SCHEMA_BACKUP_STATUS" > "$BACKUP_ROOT/schema-backup-status.txt"
 
 if supabase migration list --linked > "$BACKUP_ROOT/migration-list-before.txt"; then
   cat "$BACKUP_ROOT/migration-list-before.txt"
@@ -95,7 +120,7 @@ if [ -z "$REMOTE_ONLY_BEFORE" ]; then
 else
   section "NON-DESTRUCTIVE REMOTE MIGRATION FETCH"
   printf 'Fetching recorded migration statements from the linked Supabase project.\n'
-  if supabase migration fetch --linked; then
+  if migration_fetch; then
     printf 'PASS: migration fetch command completed\n'
   else
     printf 'FAIL: migration fetch failed\n'
@@ -117,9 +142,9 @@ LOCAL_ONLY_AFTER="$(extract_versions local-only < "$BACKUP_ROOT/migration-list-a
 
 if [ -n "$REMOTE_ONLY_AFTER" ]; then
   printf '\nFAIL: remote-only migrations remain after non-destructive fetch:\n%s\n' "$REMOTE_ONLY_AFTER"
-  printf '\nDo not run migration repair --status reverted yet.\n'
-  printf 'The schema and migration backup are preserved at:\n%s\n' "$BACKUP_ROOT"
-  printf 'A controlled history rebase must be reviewed before changing production tracking records.\n'
+  printf '\nDo not run migration repair --status reverted.\n'
+  printf 'The local migration backup and history reports are preserved at:\n%s\n' "$BACKUP_ROOT"
+  printf 'A controlled migration-history recovery must be reviewed before changing production tracking records.\n'
   exit 2
 fi
 
@@ -148,6 +173,7 @@ fi
 
 section "FINAL"
 supabase migration list --linked
+printf 'Schema backup status: %s\n' "$SCHEMA_BACKUP_STATUS"
 printf 'Recovery report: %s\n' "$REPORT"
 printf 'Backup directory: %s\n' "$BACKUP_ROOT"
 printf 'CREATIVE_MIGRATION_RECOVERY=PASS\n'

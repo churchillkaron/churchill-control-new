@@ -32,7 +32,7 @@ printf 'AVANTIQO CREATIVE LIVE MISSION SMOKE\n'
 printf '============================================================\n'
 printf 'App URL: %s\n' "$APP_URL"
 printf 'Organization: %s\n' "$ORGANIZATION_ID"
-printf 'Started: %s\n' "$(date -Iseconds)"
+printf 'Started: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')"
 printf 'Report: %s\n' "$REPORT"
 
 HEALTH_STATUS="$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL" || true)"
@@ -95,22 +95,117 @@ node - "$RESPONSE_FILE" <<'NODE'
 const fs = require('fs');
 const file = process.argv[2];
 const body = JSON.parse(fs.readFileSync(file, 'utf8'));
-const projectCount = Array.isArray(body.blueprint?.deliverables)
-  ? body.blueprint.deliverables.length
-  : 0;
+const blueprint = body.blueprint || {};
+const deliverables = Array.isArray(blueprint.deliverables)
+  ? blueprint.deliverables
+  : [];
+const workflow = Array.isArray(blueprint.workflow)
+  ? blueprint.workflow
+  : [];
+const sourceFailures = Array.isArray(body.business_truth?.source_failures)
+  ? body.business_truth.source_failures
+  : [];
 
-if (!body.success) throw new Error('success flag is false');
-if (!body.mission?.id) throw new Error('mission id is missing');
-if (!projectCount) throw new Error('no deliverables were produced');
-if (!body.business_truth?.snapshot_id) throw new Error('business truth snapshot id is missing');
-if (!body.business_truth?.payload_hash) throw new Error('business truth payload hash is missing');
+function fail(message) {
+  throw new Error(message);
+}
+
+if (!body.success) fail('success flag is false');
+if (!body.mission?.id) fail('mission id is missing');
+if (!deliverables.length) fail('no deliverables were produced');
+if (!body.business_truth?.snapshot_id) fail('business truth snapshot id is missing');
+if (!body.business_truth?.payload_hash) fail('business truth payload hash is missing');
+if (sourceFailures.length) fail(`business truth has ${sourceFailures.length} source failure(s)`);
+if (blueprint.composition_source !== 'AI_DIRECTOR') fail('AI Director was not used');
+if (blueprint.fallback_reason) fail(`AI Director fallback: ${blueprint.fallback_reason}`);
+if (Number(blueprint.confidence || 0) < 70) fail('AI Director confidence is below 70');
+if (blueprint.production_mode !== 'AI_NATIVE') fail(`production mode is ${blueprint.production_mode || 'missing'}, expected AI_NATIVE`);
+if (!blueprint.quality_policy || Array.isArray(blueprint.quality_policy) || typeof blueprint.quality_policy !== 'object') {
+  fail('quality policy is not a structured object');
+}
+if (blueprint.quality_policy.regenerate_when_below_standard !== true) {
+  fail('quality policy does not require regeneration below standard');
+}
+if (blueprint.quality_policy.full_output_review_required !== true) {
+  fail('quality policy does not require full-output review');
+}
+
+const expectedWorkspaces = [
+  'mission', 'brief', 'research', 'strategy', 'concept', 'assets',
+  'storyboard', 'production', 'timeline', 'documents', 'render',
+  'publishing', 'learning',
+];
+const actualWorkspaces = workflow.map((item) => item.workspace_id);
+const uniqueWorkspaces = new Set(actualWorkspaces);
+if (uniqueWorkspaces.size !== actualWorkspaces.length) fail('workflow contains duplicate workspaces');
+for (const workspace of expectedWorkspaces) {
+  if (!uniqueWorkspaces.has(workspace)) fail(`workflow is missing ${workspace}`);
+}
+for (const item of workflow) {
+  if (!item.title || !item.description) fail(`workflow ${item.workspace_id} is incomplete`);
+}
+
+for (const [index, deliverable] of deliverables.entries()) {
+  const label = `deliverable ${index + 1}`;
+  if (!deliverable.title || /^deliverable\s*\d*$/i.test(deliverable.title)) fail(`${label} has a generic title`);
+  if (!deliverable.description) fail(`${label} has no description`);
+  if (!deliverable.medium || String(deliverable.medium).toUpperCase() === 'OPEN') fail(`${label} has no concrete medium`);
+  if (!Array.isArray(deliverable.formats) || !deliverable.formats.length) fail(`${label} has no formats`);
+  if (!Array.isArray(deliverable.channels) || !deliverable.channels.length) fail(`${label} has no channels`);
+  if (!Array.isArray(deliverable.execution_capabilities) || !deliverable.execution_capabilities.length) {
+    fail(`${label} has no canonical execution capabilities`);
+  }
+  if (deliverable.execution_capabilities.some((capability) => !String(capability).includes('.'))) {
+    fail(`${label} has noncanonical execution capabilities`);
+  }
+  if (!Array.isArray(deliverable.success_criteria) || !deliverable.success_criteria.length) {
+    fail(`${label} has no success criteria`);
+  }
+  if (!deliverable.specifications || typeof deliverable.specifications !== 'object' || Array.isArray(deliverable.specifications)) {
+    fail(`${label} specifications are invalid`);
+  }
+}
+
+const filmDeliverables = deliverables.filter((deliverable) => /film|video|movie|cinema|trailer|reel|cutdown|episode/i.test(deliverable.medium));
+if (!filmDeliverables.length) fail('no film/video deliverable was produced');
+for (const deliverable of filmDeliverables) {
+  const capabilities = new Set(deliverable.execution_capabilities || []);
+  if (!capabilities.has('ai.video.image_to_video') && !capabilities.has('ai.video.generate')) {
+    fail(`${deliverable.title} has no video generation capability`);
+  }
+  if (!capabilities.has('ai.image.generate')) fail(`${deliverable.title} has no master-still generation capability`);
+  if (!capabilities.has('ai.image.analyze')) fail(`${deliverable.title} has no visual QA capability`);
+  if (!capabilities.has('ai.music.generate')) fail(`${deliverable.title} has no music capability`);
+  if (!capabilities.has('ai.sfx.generate')) fail(`${deliverable.title} has no sound-effects capability`);
+}
+
+const text = JSON.stringify(blueprint).toLowerCase();
+const forbiddenPhysicalDependencies = [
+  'principal photography',
+  'two-night shoot',
+  'two night shoot',
+  'actors to be cast',
+  'external production crew',
+  'fire marshal',
+  'fire marshals',
+  'location permit',
+  'venue closure',
+];
+for (const phrase of forbiddenPhysicalDependencies) {
+  if (text.includes(phrase)) fail(`AI-native plan contains unsupported physical dependency: ${phrase}`);
+}
 
 console.log(`PASS: mission ${body.mission.id}`);
-console.log(`PASS: deliverables ${projectCount}`);
+console.log(`PASS: AI Director confidence ${blueprint.confidence}`);
+console.log(`PASS: production mode ${blueprint.production_mode}`);
+console.log(`PASS: deliverables ${deliverables.length}`);
+console.log(`PASS: workflow ${workflow.length} canonical stages`);
 console.log(`PASS: business truth snapshot ${body.business_truth.snapshot_id}`);
 console.log(`PASS: business truth hash ${body.business_truth.payload_hash}`);
+console.log('PASS: business truth source failures 0');
+console.log('PASS: AI-native production contract');
 NODE
 
 printf 'CREATIVE_LIVE_MISSION_SMOKE=PASS\n'
-printf 'Finished: %s\n' "$(date -Iseconds)"
+printf 'Finished: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')"
 printf 'Report: %s\n' "$REPORT"

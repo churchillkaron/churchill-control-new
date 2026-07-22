@@ -175,10 +175,14 @@ async function resolvePlanningAssets({
 }
 
 function errorStatus(error = {}) {
-  const code = String(error.code || error.message || "");
+  const code = String(
+    error.code ||
+    error.message ||
+    "",
+  ).toUpperCase();
 
   if (
-    code.includes("required") ||
+    code.includes("REQUIRED") ||
     code.includes("INVALID")
   ) {
     return 400;

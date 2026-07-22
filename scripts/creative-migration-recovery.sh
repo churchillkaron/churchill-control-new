@@ -9,6 +9,8 @@ BACKUP_ROOT="${CREATIVE_MIGRATION_BACKUP_DIR:-$ROOT/.avantiqo-backups/creative-m
 REPORT="${CREATIVE_MIGRATION_REPORT:-$ROOT/creative-migration-recovery-$STAMP.txt}"
 EXPECTED_PROJECT_REF="${CREATIVE_SUPABASE_PROJECT_REF:-vfsjqabpkcbiuerhzugk}"
 MIGRATION_DIR="$ROOT/supabase/migrations"
+FETCH_ROOT="$BACKUP_ROOT/isolated-fetch"
+FETCH_MIGRATION_DIR="$FETCH_ROOT/supabase/migrations"
 
 REMOTE_ONLY=()
 LOCAL_ONLY=()
@@ -90,16 +92,21 @@ print_versions_or_none() {
   fi
 }
 
-find_local_file() {
-  local version="$1"
+find_version_file() {
+  local directory="$1"
+  local version="$2"
   local candidate
-  for candidate in "$MIGRATION_DIR/${version}_"*.sql; do
+  for candidate in "$directory/${version}_"*.sql; do
     if [ -f "$candidate" ]; then
       printf '%s\n' "$candidate"
       return 0
     fi
   done
   return 1
+}
+
+find_local_file() {
+  find_version_file "$MIGRATION_DIR" "$1"
 }
 
 restore_from_git() {
@@ -134,17 +141,67 @@ restore_from_backups() {
   printf 'RESTORED_FROM_BACKUP: %s\n' "$source"
 }
 
-run_fetch() {
-  if supabase migration fetch --help 2>&1 | grep -q -- '--linked'; then
-    supabase migration fetch --linked
-  else
-    supabase migration fetch
+prepare_isolated_fetch() {
+  rm -rf "$FETCH_ROOT"
+  mkdir -p "$FETCH_ROOT/supabase"
+
+  if [ ! -f "$ROOT/supabase/config.toml" ]; then
+    printf 'FAIL: supabase/config.toml is required for isolated fetch\n'
+    return 1
   fi
+
+  cp "$ROOT/supabase/config.toml" "$FETCH_ROOT/supabase/config.toml"
+
+  if [ -d "$ROOT/supabase/.temp" ]; then
+    cp -R "$ROOT/supabase/.temp" "$FETCH_ROOT/supabase/.temp"
+  fi
+
+  mkdir -p "$FETCH_MIGRATION_DIR"
+  printf 'PASS: isolated Supabase fetch workspace prepared at %s\n' "$FETCH_ROOT"
 }
 
-run_latest_fetch() {
+run_isolated_fetch() {
+  (
+    cd "$FETCH_ROOT"
+    if supabase migration fetch --help 2>&1 | grep -q -- '--linked'; then
+      printf 'y\n' | supabase migration fetch --linked
+    else
+      printf 'y\n' | supabase migration fetch
+    fi
+  )
+}
+
+run_latest_isolated_fetch() {
   command -v npx >/dev/null 2>&1 || return 1
-  npx --yes supabase@latest migration fetch
+  (
+    cd "$FETCH_ROOT"
+    printf 'y\n' | npx --yes supabase@latest migration fetch --linked
+  )
+}
+
+copy_isolated_migrations() {
+  local version source
+  for version in "${REMOTE_ONLY[@]}"; do
+    [ -n "$version" ] || continue
+    if find_local_file "$version" >/dev/null 2>&1; then
+      continue
+    fi
+    source="$(find_version_file "$FETCH_MIGRATION_DIR" "$version" || true)"
+    if [ -n "$source" ]; then
+      cp "$source" "$MIGRATION_DIR/$(basename "$source")"
+      printf 'RESTORED_FROM_ISOLATED_FETCH: %s\n' "$(basename "$source")"
+    fi
+  done
+}
+
+count_missing_remote_files() {
+  local version count=0
+  for version in "${REMOTE_ONLY[@]}"; do
+    if ! find_local_file "$version" >/dev/null 2>&1; then
+      count=$((count + 1))
+    fi
+  done
+  printf '%s\n' "$count"
 }
 
 section "AVANTIQO CREATIVE MIGRATION RECOVERY"
@@ -212,28 +269,27 @@ for version in "${REMOTE_ONLY[@]}"; do
   printf 'UNRESOLVED_BEFORE_FETCH: %s\n' "$version"
 done
 
-if [ "${#REMOTE_ONLY[@]}" -gt 0 ]; then
-  section "SUPABASE MIGRATION FETCH"
-  if run_fetch; then
-    printf 'PASS: installed Supabase CLI fetch completed\n'
+if [ "$(count_missing_remote_files)" -gt 0 ]; then
+  section "ISOLATED SUPABASE MIGRATION FETCH"
+  prepare_isolated_fetch
+
+  if run_isolated_fetch; then
+    printf 'PASS: installed Supabase CLI fetch completed in isolation\n'
   else
-    printf 'WARN: installed Supabase CLI fetch failed\n'
+    printf 'WARN: installed Supabase CLI isolated fetch failed\n'
   fi
+  copy_isolated_migrations
 
-  MISSING_AFTER_INSTALLED=0
-  for version in "${REMOTE_ONLY[@]}"; do
-    if ! find_local_file "$version" >/dev/null 2>&1; then
-      MISSING_AFTER_INSTALLED=$((MISSING_AFTER_INSTALLED + 1))
-    fi
-  done
-
-  if [ "$MISSING_AFTER_INSTALLED" -gt 0 ]; then
-    printf 'WARN: retrying migration fetch with latest Supabase CLI\n'
-    if run_latest_fetch; then
-      printf 'PASS: latest Supabase CLI fetch completed\n'
+  if [ "$(count_missing_remote_files)" -gt 0 ]; then
+    printf 'WARN: retrying isolated migration fetch with latest Supabase CLI\n'
+    rm -rf "$FETCH_MIGRATION_DIR"
+    mkdir -p "$FETCH_MIGRATION_DIR"
+    if run_latest_isolated_fetch; then
+      printf 'PASS: latest Supabase CLI fetch completed in isolation\n'
     else
-      printf 'WARN: latest Supabase CLI fetch failed\n'
+      printf 'WARN: latest Supabase CLI isolated fetch failed\n'
     fi
+    copy_isolated_migrations
   fi
 fi
 

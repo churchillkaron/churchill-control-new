@@ -21,7 +21,7 @@ import {
 
 function projectProductionType(medium = "") {
   const value = String(medium).trim().toUpperCase();
-  if (/FILM|VIDEO|MOVIE|TRAILER|REEL|CUTDOWN/.test(value)) return "VIDEO";
+  if (/FILM|VIDEO|MOVIE|TRAILER|REEL|CUTDOWN|EPISODE/.test(value)) return "VIDEO";
   if (/IMAGE|PHOTO|POSTER|BANNER|KEY ART|STILL/.test(value)) return "IMAGE";
   if (/WEBSITE|WEBPAGE|LANDING|WEB EXPERIENCE/.test(value)) return "WEBSITE";
   if (/MENU/.test(value)) return "MENU";
@@ -78,6 +78,7 @@ function projectPayload({
       creative_medium: deliverable.medium,
       formats: deliverable.formats || [],
       capabilities: deliverable.capabilities || [],
+      execution_capabilities: deliverable.execution_capabilities || [],
       dependencies: deliverable.dependencies || [],
       success_criteria: deliverable.success_criteria || [],
       specifications: deliverable.specifications || {},
@@ -85,6 +86,10 @@ function projectPayload({
       mission_workflow: blueprint.workflow || [],
       mission_departments: blueprint.departments || [],
       creative_thesis: blueprint.creative_thesis,
+      production_mode: blueprint.production_mode,
+      decision_gates: blueprint.decision_gates || [],
+      optional_real_world_extensions:
+        blueprint.optional_real_world_extensions || [],
       quality_policy: blueprint.quality_policy || {},
       composition_source: blueprint.composition_source,
       composition_confidence: blueprint.confidence,
@@ -169,6 +174,10 @@ export async function POST(request) {
         production_principles:
           blueprint.production_principles || [],
         quality_policy: blueprint.quality_policy || {},
+        production_mode: blueprint.production_mode,
+        decision_gates: blueprint.decision_gates || [],
+        optional_real_world_extensions:
+          blueprint.optional_real_world_extensions || [],
         assumptions: blueprint.assumptions || [],
         blocking_questions: blueprint.blocking_questions || [],
         composition_confidence: blueprint.confidence,

@@ -11,12 +11,22 @@ EXPECTED_PROJECT_REF="${CREATIVE_SUPABASE_PROJECT_REF:-vfsjqabpkcbiuerhzugk}"
 MIGRATION_DIR="$ROOT/supabase/migrations"
 FETCH_ROOT="$BACKUP_ROOT/isolated-fetch"
 FETCH_MIGRATION_DIR="$FETCH_ROOT/supabase/migrations"
+PUSH_ROOT="$BACKUP_ROOT/isolated-push"
+PUSH_MIGRATION_DIR="$PUSH_ROOT/supabase/migrations"
 
 REMOTE_ONLY=()
 LOCAL_ONLY=()
 REMOTE_ONLY_AFTER=()
 LOCAL_ONLY_AFTER=()
+REMOTE_VERSIONS=()
 UNRESOLVED=()
+CREATIVE_PENDING_VERSIONS=(
+  "20260722033000"
+  "20260722043000"
+  "20260722050000"
+  "20260722050500"
+  "20260722051000"
+)
 
 mkdir -p "$BACKUP_ROOT"
 exec > >(tee "$REPORT") 2>&1
@@ -39,49 +49,35 @@ extract_versions() {
       if (length(remote_version) != 14) remote_version="";
       if (mode == "remote-only" && local_version == "" && remote_version != "") print remote_version;
       if (mode == "local-only" && local_version != "" && remote_version == "") print local_version;
-      if (mode == "matched" && local_version != "" && local_version == remote_version) print local_version;
+      if (mode == "remote" && remote_version != "") print remote_version;
     }
   ' "$file" | sort -u
 }
 
-load_remote_only() {
-  local file="$1"
+load_versions() {
+  local target="$1"
+  local mode="$2"
+  local file="$3"
   local version
-  REMOTE_ONLY=()
-  while IFS= read -r version; do
-    [ -n "$version" ] || continue
-    REMOTE_ONLY+=("$version")
-  done < <(extract_versions remote-only "$file")
-}
 
-load_local_only() {
-  local file="$1"
-  local version
-  LOCAL_ONLY=()
-  while IFS= read -r version; do
-    [ -n "$version" ] || continue
-    LOCAL_ONLY+=("$version")
-  done < <(extract_versions local-only "$file")
-}
+  case "$target" in
+    remote-only) REMOTE_ONLY=() ;;
+    local-only) LOCAL_ONLY=() ;;
+    remote-only-after) REMOTE_ONLY_AFTER=() ;;
+    local-only-after) LOCAL_ONLY_AFTER=() ;;
+    remote) REMOTE_VERSIONS=() ;;
+  esac
 
-load_remote_only_after() {
-  local file="$1"
-  local version
-  REMOTE_ONLY_AFTER=()
   while IFS= read -r version; do
     [ -n "$version" ] || continue
-    REMOTE_ONLY_AFTER+=("$version")
-  done < <(extract_versions remote-only "$file")
-}
-
-load_local_only_after() {
-  local file="$1"
-  local version
-  LOCAL_ONLY_AFTER=()
-  while IFS= read -r version; do
-    [ -n "$version" ] || continue
-    LOCAL_ONLY_AFTER+=("$version")
-  done < <(extract_versions local-only "$file")
+    case "$target" in
+      remote-only) REMOTE_ONLY+=("$version") ;;
+      local-only) LOCAL_ONLY+=("$version") ;;
+      remote-only-after) REMOTE_ONLY_AFTER+=("$version") ;;
+      local-only-after) LOCAL_ONLY_AFTER+=("$version") ;;
+      remote) REMOTE_VERSIONS+=("$version") ;;
+    esac
+  done < <(extract_versions "$mode" "$file")
 }
 
 print_versions_or_none() {
@@ -90,6 +86,16 @@ print_versions_or_none() {
   else
     printf '%s\n' "$@"
   fi
+}
+
+contains_version() {
+  local wanted="$1"
+  shift
+  local candidate
+  for candidate in "$@"; do
+    [ "$candidate" = "$wanted" ] && return 0
+  done
+  return 1
 }
 
 find_version_file() {
@@ -141,26 +147,25 @@ restore_from_backups() {
   printf 'RESTORED_FROM_BACKUP: %s\n' "$source"
 }
 
-prepare_isolated_fetch() {
-  rm -rf "$FETCH_ROOT"
-  mkdir -p "$FETCH_ROOT/supabase"
+copy_supabase_link() {
+  local destination="$1"
+  rm -rf "$destination"
+  mkdir -p "$destination/supabase"
 
-  if [ ! -f "$ROOT/supabase/config.toml" ]; then
-    printf 'FAIL: supabase/config.toml is required for isolated fetch\n'
+  [ -f "$ROOT/supabase/config.toml" ] || {
+    printf 'FAIL: supabase/config.toml is required\n'
     return 1
-  fi
+  }
 
-  cp "$ROOT/supabase/config.toml" "$FETCH_ROOT/supabase/config.toml"
-
+  cp "$ROOT/supabase/config.toml" "$destination/supabase/config.toml"
   if [ -d "$ROOT/supabase/.temp" ]; then
-    cp -R "$ROOT/supabase/.temp" "$FETCH_ROOT/supabase/.temp"
+    cp -R "$ROOT/supabase/.temp" "$destination/supabase/.temp"
   fi
-
-  mkdir -p "$FETCH_MIGRATION_DIR"
-  printf 'PASS: isolated Supabase fetch workspace prepared at %s\n' "$FETCH_ROOT"
+  mkdir -p "$destination/supabase/migrations"
 }
 
 run_isolated_fetch() {
+  copy_supabase_link "$FETCH_ROOT"
   (
     cd "$FETCH_ROOT"
     if supabase migration fetch --help 2>&1 | grep -q -- '--linked'; then
@@ -173,6 +178,7 @@ run_isolated_fetch() {
 
 run_latest_isolated_fetch() {
   command -v npx >/dev/null 2>&1 || return 1
+  copy_supabase_link "$FETCH_ROOT"
   (
     cd "$FETCH_ROOT"
     printf 'y\n' | npx --yes supabase@latest migration fetch --linked
@@ -202,6 +208,49 @@ count_missing_remote_files() {
     fi
   done
   printf '%s\n' "$count"
+}
+
+prepare_isolated_push() {
+  local version source
+  copy_supabase_link "$PUSH_ROOT"
+
+  printf 'Staging remote migration history:\n'
+  for version in "${REMOTE_VERSIONS[@]}"; do
+    source="$(find_local_file "$version" || true)"
+    if [ -z "$source" ]; then
+      printf 'FAIL: remote migration %s has no exact local SQL file\n' "$version"
+      return 1
+    fi
+    cp "$source" "$PUSH_MIGRATION_DIR/$(basename "$source")"
+    printf '  REMOTE: %s -> %s\n' "$version" "$(basename "$source")"
+  done
+
+  printf 'Staging approved Creative migrations:\n'
+  for version in "${CREATIVE_PENDING_VERSIONS[@]}"; do
+    source="$(find_local_file "$version" || true)"
+    if [ -z "$source" ]; then
+      printf 'FAIL: approved Creative migration %s is missing\n' "$version"
+      return 1
+    fi
+    cp "$source" "$PUSH_MIGRATION_DIR/$(basename "$source")"
+    printf '  PENDING: %s -> %s\n' "$version" "$(basename "$source")"
+  done
+
+  printf 'PASS: isolated canonical push chain prepared at %s\n' "$PUSH_ROOT"
+}
+
+run_isolated_push_dry_run() {
+  (
+    cd "$PUSH_ROOT"
+    supabase db push --linked --dry-run
+  )
+}
+
+run_isolated_push() {
+  (
+    cd "$PUSH_ROOT"
+    supabase db push --linked
+  )
 }
 
 section "AVANTIQO CREATIVE MIGRATION RECOVERY"
@@ -245,8 +294,9 @@ else
   exit 1
 fi
 
-load_remote_only "$BACKUP_ROOT/migration-list-before.txt"
-load_local_only "$BACKUP_ROOT/migration-list-before.txt"
+load_versions remote-only remote-only "$BACKUP_ROOT/migration-list-before.txt"
+load_versions local-only local-only "$BACKUP_ROOT/migration-list-before.txt"
+load_versions remote remote "$BACKUP_ROOT/migration-list-before.txt"
 
 printf '\nRemote-only versions before recovery:\n'
 print_versions_or_none "${REMOTE_ONLY[@]}"
@@ -271,8 +321,6 @@ done
 
 if [ "$(count_missing_remote_files)" -gt 0 ]; then
   section "ISOLATED SUPABASE MIGRATION FETCH"
-  prepare_isolated_fetch
-
   if run_isolated_fetch; then
     printf 'PASS: installed Supabase CLI fetch completed in isolation\n'
   else
@@ -282,8 +330,6 @@ if [ "$(count_missing_remote_files)" -gt 0 ]; then
 
   if [ "$(count_missing_remote_files)" -gt 0 ]; then
     printf 'WARN: retrying isolated migration fetch with latest Supabase CLI\n'
-    rm -rf "$FETCH_MIGRATION_DIR"
-    mkdir -p "$FETCH_MIGRATION_DIR"
     if run_latest_isolated_fetch; then
       printf 'PASS: latest Supabase CLI fetch completed in isolation\n'
     else
@@ -320,8 +366,9 @@ section "VERIFY MIGRATION HISTORY"
 supabase migration list --linked > "$BACKUP_ROOT/migration-list-after.txt"
 cat "$BACKUP_ROOT/migration-list-after.txt"
 
-load_remote_only_after "$BACKUP_ROOT/migration-list-after.txt"
-load_local_only_after "$BACKUP_ROOT/migration-list-after.txt"
+load_versions remote-only-after remote-only "$BACKUP_ROOT/migration-list-after.txt"
+load_versions local-only-after local-only "$BACKUP_ROOT/migration-list-after.txt"
+load_versions remote remote "$BACKUP_ROOT/migration-list-after.txt"
 
 if [ "${#REMOTE_ONLY_AFTER[@]}" -gt 0 ]; then
   printf 'FAIL: remote-only migration rows remain:\n'
@@ -330,21 +377,35 @@ if [ "${#REMOTE_ONLY_AFTER[@]}" -gt 0 ]; then
 fi
 
 printf 'PASS: local migration files cover every remote migration version\n'
-printf '\nPending local versions:\n'
+printf '\nRepository local-only versions:\n'
 print_versions_or_none "${LOCAL_ONLY_AFTER[@]}"
 
-section "DRY RUN"
-if supabase db push --linked --dry-run; then
-  printf 'PASS: Supabase db push dry-run\n'
+printf '\nApproved pending Creative versions:\n'
+print_versions_or_none "${CREATIVE_PENDING_VERSIONS[@]}"
+
+printf '\nLegacy local-only versions excluded from execution:\n'
+LEGACY_COUNT=0
+for version in "${LOCAL_ONLY_AFTER[@]}"; do
+  if ! contains_version "$version" "${CREATIVE_PENDING_VERSIONS[@]}"; then
+    printf '%s\n' "$version"
+    LEGACY_COUNT=$((LEGACY_COUNT + 1))
+  fi
+done
+[ "$LEGACY_COUNT" -gt 0 ] || printf 'none\n'
+
+section "ISOLATED CANONICAL DRY RUN"
+prepare_isolated_push
+if run_isolated_push_dry_run; then
+  printf 'PASS: isolated Supabase db push dry-run\n'
 else
-  printf 'FAIL: dry-run rejected the recovered migration chain\n'
+  printf 'FAIL: isolated dry-run rejected the canonical migration chain\n'
   exit 1
 fi
 
 if [ "${APPLY_CREATIVE_MIGRATIONS:-0}" = "1" ]; then
-  section "APPLY PENDING MIGRATIONS"
-  supabase db push --linked
-  printf 'PASS: pending migrations applied\n'
+  section "APPLY APPROVED CREATIVE MIGRATIONS"
+  run_isolated_push
+  printf 'PASS: approved Creative migrations applied\n'
 else
   printf '\nWARN: dry-run only. Set APPLY_CREATIVE_MIGRATIONS=1 after reviewing this report.\n'
 fi
@@ -353,4 +414,5 @@ section "FINAL"
 supabase migration list --linked
 printf 'Recovery report: %s\n' "$REPORT"
 printf 'Backup directory: %s\n' "$BACKUP_ROOT"
+printf 'Canonical push workspace: %s\n' "$PUSH_ROOT"
 printf 'CREATIVE_MIGRATION_RECOVERY=PASS\n'

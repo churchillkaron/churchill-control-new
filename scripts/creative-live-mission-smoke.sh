@@ -110,6 +110,10 @@ function fail(message) {
   throw new Error(message);
 }
 
+function identity(deliverable = {}) {
+  return `${deliverable.id || ''} ${deliverable.title || ''}`.toLowerCase();
+}
+
 if (!body.success) fail('success flag is false');
 if (!body.mission?.id) fail('mission id is missing');
 if (!deliverables.length) fail('no deliverables were produced');
@@ -147,7 +151,7 @@ for (const item of workflow) {
 
 for (const [index, deliverable] of deliverables.entries()) {
   const label = `deliverable ${index + 1}`;
-  if (!deliverable.title || /^deliverable\s*\d*$/i.test(deliverable.title)) fail(`${label} has a generic title`);
+  if (!deliverable.title || /^(?:creative\s+)?(?:deliverable|output)\s*\d*$/i.test(deliverable.title)) fail(`${label} has a generic title`);
   if (!deliverable.description) fail(`${label} has no description`);
   if (!deliverable.medium || String(deliverable.medium).toUpperCase() === 'OPEN') fail(`${label} has no concrete medium`);
   if (!Array.isArray(deliverable.formats) || !deliverable.formats.length) fail(`${label} has no formats`);
@@ -164,9 +168,32 @@ for (const [index, deliverable] of deliverables.entries()) {
   if (!deliverable.specifications || typeof deliverable.specifications !== 'object' || Array.isArray(deliverable.specifications)) {
     fail(`${label} specifications are invalid`);
   }
+
+  const itemIdentity = identity(deliverable);
+  const medium = String(deliverable.medium).toUpperCase();
+  const capabilities = new Set(deliverable.execution_capabilities || []);
+
+  if (/cutdown|reel|short|hero.*film|film.*hero/.test(itemIdentity) && medium !== 'FILM') {
+    fail(`${deliverable.title} is video-shaped but classified as ${medium}`);
+  }
+  if (/still|keyframe|key art|approval frame/.test(itemIdentity) && medium !== 'IMAGE') {
+    fail(`${deliverable.title} is image-shaped but classified as ${medium}`);
+  }
+  if (/sound|audio|music|stem/.test(itemIdentity) && !/cutdown|film|reel/.test(itemIdentity) && medium !== 'AUDIO') {
+    fail(`${deliverable.title} is audio-shaped but classified as ${medium}`);
+  }
+  if (/typograph|endcard|motion graphic/.test(itemIdentity) && medium !== 'MULTIMEDIA') {
+    fail(`${deliverable.title} is multimedia-shaped but classified as ${medium}`);
+  }
+  if (medium === 'FILM' && !capabilities.has('ai.video.image_to_video') && !capabilities.has('ai.video.generate')) {
+    fail(`${deliverable.title} has no video generation capability`);
+  }
+  if (medium === 'IMAGE' && capabilities.has('ai.video.image_to_video')) {
+    fail(`${deliverable.title} image deliverable unexpectedly requires video generation`);
+  }
 }
 
-const filmDeliverables = deliverables.filter((deliverable) => /film|video|movie|cinema|trailer|reel|cutdown|episode/i.test(deliverable.medium));
+const filmDeliverables = deliverables.filter((deliverable) => String(deliverable.medium).toUpperCase() === 'FILM');
 if (!filmDeliverables.length) fail('no film/video deliverable was produced');
 for (const deliverable of filmDeliverables) {
   const capabilities = new Set(deliverable.execution_capabilities || []);
@@ -199,6 +226,7 @@ console.log(`PASS: mission ${body.mission.id}`);
 console.log(`PASS: AI Director confidence ${blueprint.confidence}`);
 console.log(`PASS: production mode ${blueprint.production_mode}`);
 console.log(`PASS: deliverables ${deliverables.length}`);
+console.log(`PASS: semantic deliverable classification`);
 console.log(`PASS: workflow ${workflow.length} canonical stages`);
 console.log(`PASS: business truth snapshot ${body.business_truth.snapshot_id}`);
 console.log(`PASS: business truth hash ${body.business_truth.payload_hash}`);

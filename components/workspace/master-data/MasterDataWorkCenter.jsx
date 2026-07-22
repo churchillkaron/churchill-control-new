@@ -144,6 +144,19 @@ export default function MasterDataWorkCenter({
 
   const [form,setForm] = useState({});
 
+  const [
+    submissionIdempotencyKey,
+    setSubmissionIdempotencyKey,
+  ] = useState(null);
+
+  function createIdempotencyKey() {
+    return (
+      globalThis.crypto
+        ?.randomUUID?.() ||
+      `${Date.now()}-${Math.random()}`
+    );
+  }
+
   function updateForm(name,value){
     setForm(prev=>({
       ...prev,
@@ -270,8 +283,23 @@ export default function MasterDataWorkCenter({
       currency ||
       null;
 
+    const resolvedIdempotencyKey =
+      submissionIdempotencyKey ||
+      createIdempotencyKey();
+
+    if (!submissionIdempotencyKey) {
+      setSubmissionIdempotencyKey(
+        resolvedIdempotencyKey
+      );
+    }
+
     const payload = {
       ...form,
+
+      idempotencyKey:
+        resolvedIdempotencyKey,
+      idempotency_key:
+        resolvedIdempotencyKey,
 
       organizationId,
       organization_id:
@@ -371,6 +399,7 @@ export default function MasterDataWorkCenter({
     createEngine.hide();
 
     setForm({});
+    setSubmissionIdempotencyKey(null);
 
     onRefresh?.();
 
@@ -378,6 +407,10 @@ export default function MasterDataWorkCenter({
 
 
   const handleCreate = () => {
+
+    setSubmissionIdempotencyKey(
+      createIdempotencyKey()
+    );
 
     if (onCreate) {
       onCreate(createEngine);

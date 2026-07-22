@@ -5,54 +5,168 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { postJournalEntrySafe } from "@/lib/finance/general-ledger/capabilities/postJournalEntrySafe";
 
 function required(value, field) {
-  const normalized = String(value || "").trim();
+  const normalized =
+    String(value || "").trim();
 
   if (!normalized) {
-    throw new Error(`${field} is required`);
+    throw new Error(
+      `${field} is required`
+    );
   }
 
   return normalized;
 }
 
+function positiveNumber(value, field) {
+  const number =
+    Number(value);
+
+  if (
+    !Number.isFinite(number) ||
+    number <= 0
+  ) {
+    throw new Error(
+      `${field} must be positive`
+    );
+  }
+
+  return number;
+}
+
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const access = await requireOrganizationAccess({
-      organizationId: body.organizationId || body.organization_id,
-    });
+    const body =
+      await request.json();
+
+    const access =
+      await requireOrganizationAccess({
+        organizationId:
+          body.organizationId ||
+          body.organization_id,
+      });
 
     if (!access.success) {
       return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status }
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
       );
     }
 
-    const result = await postJournalEntrySafe({
-      organizationId: access.organizationId,
-      entityId: body.entityId || body.entity_id,
-      postingDate: body.posting_date,
-      documentDate: body.document_date,
-      journalType: body.journal_type || "GENERAL",
-      reference: body.reference,
-      description: body.description,
-      currencyCode: required(
-        body.currency_code || body.currencyCode,
-        "currency_code"
-      ).toUpperCase(),
-      exchangeRate: Number(body.exchange_rate || 1),
-      lines: body.lines || [],
-      createdBy: access.user?.id || null,
-    });
+    const idempotencyKey =
+      required(
+        body.idempotency_key ||
+        body.idempotencyKey ||
+        request.headers.get(
+          "idempotency-key"
+        ),
+        "idempotency_key"
+      );
 
-    return NextResponse.json({ success: true, data: result });
+    const result =
+      await postJournalEntrySafe({
+        organizationId:
+          access.organizationId,
+
+        entityId:
+          required(
+            body.entityId ||
+            body.entity_id,
+            "entity_id"
+          ),
+
+        postingDate:
+          required(
+            body.posting_date ||
+            body.postingDate,
+            "posting_date"
+          ),
+
+        documentDate:
+          body.document_date ||
+          body.documentDate ||
+          null,
+
+        journalType:
+          body.journal_type ||
+          body.journalType ||
+          "GENERAL",
+
+        reference:
+          body.reference ||
+          null,
+
+        sourceModule:
+          body.source_module ||
+          body.sourceModule ||
+          "finance",
+
+        sourceDocument:
+          body.source_document ||
+          body.sourceDocument ||
+          "manual_journal",
+
+        sourceDocumentId:
+          body.source_document_id ||
+          body.sourceDocumentId ||
+          null,
+
+        description:
+          body.description ||
+          null,
+
+        currencyCode:
+          required(
+            body.currency_code ||
+            body.currencyCode ||
+            body.currency,
+            "currency_code"
+          ).toUpperCase(),
+
+        exchangeRate:
+          positiveNumber(
+            body.exchange_rate ??
+            body.exchangeRate,
+            "exchange_rate"
+          ),
+
+        lines:
+          body.lines || [],
+
+        createdBy:
+          access.user?.id ||
+          null,
+
+        idempotencyKey,
+      });
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+    });
   } catch (error) {
-    const message = error.message || "Journal creation failed";
-    const status = message.endsWith(" is required") ? 400 : 500;
+    const message =
+      error.message ||
+      "Journal creation failed";
+
+    const status =
+      /required|positive|invalid|unbalanced|period/i
+        .test(message)
+        ? 400
+        : 500;
 
     return NextResponse.json(
-      { success: false, error: message },
-      { status }
+      {
+        success: false,
+        error: message,
+      },
+      {
+        status,
+      }
     );
   }
 }

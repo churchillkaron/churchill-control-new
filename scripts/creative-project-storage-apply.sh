@@ -130,7 +130,7 @@ printf '============================================================\n'
 (
   cd "$WORK_ROOT"
   supabase db push --linked --dry-run --include-all
-) | tee "$DRY_RUN_REPORT"
+) 2>&1 | tee "$DRY_RUN_REPORT"
 
 if ! grep -q "$(basename "$TARGET_FILE")" "$DRY_RUN_REPORT"; then
   printf 'FAIL: dry run did not include the target migration\n'

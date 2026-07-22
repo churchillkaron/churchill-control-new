@@ -10,6 +10,12 @@ REPORT="${CREATIVE_MIGRATION_REPORT:-$ROOT/creative-migration-recovery-$STAMP.tx
 EXPECTED_PROJECT_REF="${CREATIVE_SUPABASE_PROJECT_REF:-vfsjqabpkcbiuerhzugk}"
 MIGRATION_DIR="$ROOT/supabase/migrations"
 
+REMOTE_ONLY=()
+LOCAL_ONLY=()
+REMOTE_ONLY_AFTER=()
+LOCAL_ONLY_AFTER=()
+UNRESOLVED=()
+
 mkdir -p "$BACKUP_ROOT"
 exec > >(tee "$REPORT") 2>&1
 
@@ -24,21 +30,76 @@ extract_versions() {
   local file="$2"
   awk -F'|' -v mode="$mode" '
     {
-      local=$1; remote=$2;
-      gsub(/[^0-9]/, "", local);
-      gsub(/[^0-9]/, "", remote);
-      if (length(local) != 14) local="";
-      if (length(remote) != 14) remote="";
-      if (mode == "remote-only" && local == "" && remote != "") print remote;
-      if (mode == "local-only" && local != "" && remote == "") print local;
-      if (mode == "matched" && local != "" && local == remote) print local;
+      local_version=$1; remote_version=$2;
+      gsub(/[^0-9]/, "", local_version);
+      gsub(/[^0-9]/, "", remote_version);
+      if (length(local_version) != 14) local_version="";
+      if (length(remote_version) != 14) remote_version="";
+      if (mode == "remote-only" && local_version == "" && remote_version != "") print remote_version;
+      if (mode == "local-only" && local_version != "" && remote_version == "") print local_version;
+      if (mode == "matched" && local_version != "" && local_version == remote_version) print local_version;
     }
   ' "$file" | sort -u
 }
 
+load_remote_only() {
+  local file="$1"
+  local version
+  REMOTE_ONLY=()
+  while IFS= read -r version; do
+    [ -n "$version" ] || continue
+    REMOTE_ONLY+=("$version")
+  done < <(extract_versions remote-only "$file")
+}
+
+load_local_only() {
+  local file="$1"
+  local version
+  LOCAL_ONLY=()
+  while IFS= read -r version; do
+    [ -n "$version" ] || continue
+    LOCAL_ONLY+=("$version")
+  done < <(extract_versions local-only "$file")
+}
+
+load_remote_only_after() {
+  local file="$1"
+  local version
+  REMOTE_ONLY_AFTER=()
+  while IFS= read -r version; do
+    [ -n "$version" ] || continue
+    REMOTE_ONLY_AFTER+=("$version")
+  done < <(extract_versions remote-only "$file")
+}
+
+load_local_only_after() {
+  local file="$1"
+  local version
+  LOCAL_ONLY_AFTER=()
+  while IFS= read -r version; do
+    [ -n "$version" ] || continue
+    LOCAL_ONLY_AFTER+=("$version")
+  done < <(extract_versions local-only "$file")
+}
+
+print_versions_or_none() {
+  if [ "$#" -eq 0 ]; then
+    printf 'none\n'
+  else
+    printf '%s\n' "$@"
+  fi
+}
+
 find_local_file() {
   local version="$1"
-  find "$MIGRATION_DIR" -maxdepth 1 -type f -name "${version}_*.sql" -print -quit
+  local candidate
+  for candidate in "$MIGRATION_DIR/${version}_"*.sql; do
+    if [ -f "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
 }
 
 restore_from_git() {
@@ -59,8 +120,15 @@ restore_from_git() {
 
 restore_from_backups() {
   local version="$1"
-  local source
-  source="$(find "$ROOT/.avantiqo-backups" "$HOME/Downloads" -type f -name "${version}_*.sql" 2>/dev/null | head -n 1 || true)"
+  local source=""
+  local search_root
+
+  for search_root in "$ROOT/.avantiqo-backups" "$HOME/Downloads"; do
+    [ -d "$search_root" ] || continue
+    source="$(find "$search_root" -type f -name "${version}_*.sql" -print 2>/dev/null | head -n 1 || true)"
+    [ -n "$source" ] && break
+  done
+
   [ -n "$source" ] || return 1
   cp "$source" "$MIGRATION_DIR/$(basename "$source")"
   printf 'RESTORED_FROM_BACKUP: %s\n' "$source"
@@ -84,6 +152,7 @@ printf 'Repository: %s\n' "$ROOT"
 printf 'Backup: %s\n' "$BACKUP_ROOT"
 printf 'Report: %s\n' "$REPORT"
 printf 'Expected Supabase ref: %s\n' "$EXPECTED_PROJECT_REF"
+printf 'Bash: %s\n' "${BASH_VERSION:-unknown}"
 printf 'Started: %s\n' "$(date -Iseconds)"
 
 for command in git awk supabase; do
@@ -119,18 +188,18 @@ else
   exit 1
 fi
 
-mapfile -t REMOTE_ONLY < <(extract_versions remote-only "$BACKUP_ROOT/migration-list-before.txt")
-mapfile -t LOCAL_ONLY < <(extract_versions local-only "$BACKUP_ROOT/migration-list-before.txt")
+load_remote_only "$BACKUP_ROOT/migration-list-before.txt"
+load_local_only "$BACKUP_ROOT/migration-list-before.txt"
 
 printf '\nRemote-only versions before recovery:\n'
-printf '%s\n' "${REMOTE_ONLY[@]:-none}"
+print_versions_or_none "${REMOTE_ONLY[@]}"
 printf '\nLocal-only versions before recovery:\n'
-printf '%s\n' "${LOCAL_ONLY[@]:-none}"
+print_versions_or_none "${LOCAL_ONLY[@]}"
 
 section "RESTORE EXACT LOCAL MIGRATIONS"
 for version in "${REMOTE_ONLY[@]}"; do
   [ -n "$version" ] || continue
-  if [ -n "$(find_local_file "$version")" ]; then
+  if find_local_file "$version" >/dev/null 2>&1; then
     printf 'PASS: %s already exists locally\n' "$version"
     continue
   fi
@@ -153,7 +222,9 @@ if [ "${#REMOTE_ONLY[@]}" -gt 0 ]; then
 
   MISSING_AFTER_INSTALLED=0
   for version in "${REMOTE_ONLY[@]}"; do
-    [ -n "$(find_local_file "$version")" ] || MISSING_AFTER_INSTALLED=$((MISSING_AFTER_INSTALLED + 1))
+    if ! find_local_file "$version" >/dev/null 2>&1; then
+      MISSING_AFTER_INSTALLED=$((MISSING_AFTER_INSTALLED + 1))
+    fi
   done
 
   if [ "$MISSING_AFTER_INSTALLED" -gt 0 ]; then
@@ -170,7 +241,7 @@ section "STRICT FILE VERIFICATION"
 UNRESOLVED=()
 for version in "${REMOTE_ONLY[@]}"; do
   [ -n "$version" ] || continue
-  file="$(find_local_file "$version")"
+  file="$(find_local_file "$version" || true)"
   if [ -n "$file" ]; then
     printf 'PASS: %s -> %s\n' "$version" "$(basename "$file")"
   else
@@ -193,8 +264,8 @@ section "VERIFY MIGRATION HISTORY"
 supabase migration list --linked > "$BACKUP_ROOT/migration-list-after.txt"
 cat "$BACKUP_ROOT/migration-list-after.txt"
 
-mapfile -t REMOTE_ONLY_AFTER < <(extract_versions remote-only "$BACKUP_ROOT/migration-list-after.txt")
-mapfile -t LOCAL_ONLY_AFTER < <(extract_versions local-only "$BACKUP_ROOT/migration-list-after.txt")
+load_remote_only_after "$BACKUP_ROOT/migration-list-after.txt"
+load_local_only_after "$BACKUP_ROOT/migration-list-after.txt"
 
 if [ "${#REMOTE_ONLY_AFTER[@]}" -gt 0 ]; then
   printf 'FAIL: remote-only migration rows remain:\n'
@@ -204,7 +275,7 @@ fi
 
 printf 'PASS: local migration files cover every remote migration version\n'
 printf '\nPending local versions:\n'
-printf '%s\n' "${LOCAL_ONLY_AFTER[@]:-none}"
+print_versions_or_none "${LOCAL_ONLY_AFTER[@]}"
 
 section "DRY RUN"
 if supabase db push --linked --dry-run; then

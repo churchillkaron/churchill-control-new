@@ -114,6 +114,10 @@ function identity(deliverable = {}) {
   return `${deliverable.id || ''} ${deliverable.title || ''}`.toLowerCase();
 }
 
+function hasToken(text, token) {
+  return new RegExp(`(?:^|[^a-z0-9])${token}(?:[^a-z0-9]|$)`, 'i').test(text);
+}
+
 if (!body.success) fail('success flag is false');
 if (!body.mission?.id) fail('mission id is missing');
 if (!deliverables.length) fail('no deliverables were produced');
@@ -172,17 +176,42 @@ for (const [index, deliverable] of deliverables.entries()) {
   const itemIdentity = identity(deliverable);
   const medium = String(deliverable.medium).toUpperCase();
   const capabilities = new Set(deliverable.execution_capabilities || []);
+  const videoShaped =
+    hasToken(itemIdentity, 'film') ||
+    hasToken(itemIdentity, 'video') ||
+    hasToken(itemIdentity, 'cutdown') ||
+    hasToken(itemIdentity, 'reel') ||
+    hasToken(itemIdentity, 'short') ||
+    hasToken(itemIdentity, 'trailer') ||
+    hasToken(itemIdentity, 'episode');
+  const imageShaped =
+    hasToken(itemIdentity, 'still') ||
+    hasToken(itemIdentity, 'stills') ||
+    hasToken(itemIdentity, 'keyframe') ||
+    hasToken(itemIdentity, 'keyframes') ||
+    /key art|approval frame/.test(itemIdentity);
+  const multimediaShaped =
+    /typograph|endcard|motion graphic/.test(itemIdentity);
+  const audioShaped =
+    !videoShaped &&
+    !multimediaShaped &&
+    (
+      hasToken(itemIdentity, 'sound') ||
+      hasToken(itemIdentity, 'audio') ||
+      hasToken(itemIdentity, 'music') ||
+      hasToken(itemIdentity, 'stem')
+    );
 
-  if (/cutdown|reel|short|hero.*film|film.*hero/.test(itemIdentity) && medium !== 'FILM') {
+  if (videoShaped && medium !== 'FILM') {
     fail(`${deliverable.title} is video-shaped but classified as ${medium}`);
   }
-  if (/still|keyframe|key art|approval frame/.test(itemIdentity) && medium !== 'IMAGE') {
+  if (imageShaped && medium !== 'IMAGE') {
     fail(`${deliverable.title} is image-shaped but classified as ${medium}`);
   }
-  if (/sound|audio|music|stem/.test(itemIdentity) && !/cutdown|film|reel/.test(itemIdentity) && medium !== 'AUDIO') {
+  if (audioShaped && medium !== 'AUDIO') {
     fail(`${deliverable.title} is audio-shaped but classified as ${medium}`);
   }
-  if (/typograph|endcard|motion graphic/.test(itemIdentity) && medium !== 'MULTIMEDIA') {
+  if (multimediaShaped && medium !== 'MULTIMEDIA') {
     fail(`${deliverable.title} is multimedia-shaped but classified as ${medium}`);
   }
   if (medium === 'FILM' && !capabilities.has('ai.video.image_to_video') && !capabilities.has('ai.video.generate')) {
@@ -226,7 +255,7 @@ console.log(`PASS: mission ${body.mission.id}`);
 console.log(`PASS: AI Director confidence ${blueprint.confidence}`);
 console.log(`PASS: production mode ${blueprint.production_mode}`);
 console.log(`PASS: deliverables ${deliverables.length}`);
-console.log(`PASS: semantic deliverable classification`);
+console.log('PASS: semantic deliverable classification');
 console.log(`PASS: workflow ${workflow.length} canonical stages`);
 console.log(`PASS: business truth snapshot ${body.business_truth.snapshot_id}`);
 console.log(`PASS: business truth hash ${body.business_truth.payload_hash}`);

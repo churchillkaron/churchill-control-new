@@ -15,6 +15,36 @@ import {
   CreativeMasterStillPilotRepairRuntime,
 } from "@/lib/creative/production/pilot/CreativeMasterStillPilotRepairRuntime";
 
+import {
+  calibrateMasterStillQualityReview,
+} from "@/lib/creative/quality/runtime/CreativeMasterStillQualityCalibration";
+
+function calibratePilotResult(result = {}) {
+  const qualityReview = result.quality_review;
+  if (!qualityReview) return result;
+
+  const calibrated = calibrateMasterStillQualityReview(
+    qualityReview,
+    {
+      minimum_score: qualityReview.minimum_score || 90,
+    },
+  );
+  const success =
+    result.success === true &&
+    calibrated.passed === true;
+
+  return {
+    ...result,
+    success,
+    quality_review: calibrated,
+    next_gate: success
+      ? "MASTER_STILL_PILOT_APPROVED"
+      : result.next_gate === "MASTER_STILL_PILOT_APPROVED"
+        ? "MASTER_STILL_MANUAL_REVIEW_REQUIRED"
+        : result.next_gate,
+  };
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -53,12 +83,13 @@ export async function POST(req) {
       }, { status: 404 });
     }
 
-    const result = await CreativeMasterStillPilotRepairRuntime.run({
+    const rawResult = await CreativeMasterStillPilotRepairRuntime.run({
       organization_id: organizationId,
       creative_project_id: projectId,
       scene_number: Number(body.scene_number || 1),
       shot_number: Number(body.shot_number || 1),
     });
+    const result = calibratePilotResult(rawResult);
 
     return NextResponse.json({
       success: result.success,

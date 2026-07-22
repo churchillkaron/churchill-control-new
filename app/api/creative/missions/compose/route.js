@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
 import {
+  enforceCreativeDeliverableContract,
+} from "@/lib/creative/intent/CreativeDeliverableContract";
+import {
   CreativeMissionComposerRuntime,
 } from "@/lib/creative/intent/CreativeMissionComposerRuntime";
 import {
@@ -36,6 +39,7 @@ function durationSeconds(specifications = {}, fallback = 30) {
     specifications.duration_seconds,
     specifications.target_duration,
     specifications.duration,
+    specifications.max_duration,
   ];
 
   for (const candidate of candidates) {
@@ -43,7 +47,9 @@ function durationSeconds(specifications = {}, fallback = 30) {
       return Math.round(Number(candidate));
     }
 
-    const match = String(candidate || "").match(/(\d+(?:\.\d+)?)(?:\s*[-–]\s*(\d+(?:\.\d+)?))?\s*(?:seconds?|secs?|s)\b/i);
+    const match = String(candidate || "").match(
+      /(\d+(?:\.\d+)?)(?:\s*[-–]\s*(\d+(?:\.\d+)?))?\s*(?:seconds?|secs?|s)\b/i,
+    );
     if (match) {
       const lower = Number(match[1]);
       const upper = Number(match[2] || match[1]);
@@ -94,8 +100,7 @@ function projectPayload({
       composition_source: blueprint.composition_source,
       composition_confidence: blueprint.confidence,
       source_request:
-        mission.metadata?.source_request ||
-        blueprint.objective,
+        mission.metadata?.source_request || blueprint.objective,
       knowledge_policy: knowledge.source_policy,
       canonical_source_ids: (knowledge.sources || []).map((source) => source.id),
       business_truth_snapshot_id: businessTruth.snapshot_id,
@@ -110,8 +115,7 @@ function projectPayload({
 function assertProductionReadyBlueprint(blueprint = {}) {
   if (blueprint.composition_source !== "AI_DIRECTOR") {
     const error = new Error(
-      blueprint.fallback_reason ||
-      "CREATIVE_AI_DIRECTOR_REQUIRED",
+      blueprint.fallback_reason || "CREATIVE_AI_DIRECTOR_REQUIRED",
     );
     error.code = "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT";
     throw error;
@@ -131,6 +135,12 @@ function assertProductionReadyBlueprint(blueprint = {}) {
 
   if (!Array.isArray(blueprint.deliverables) || !blueprint.deliverables.length) {
     const error = new Error("CREATIVE_AI_DIRECTOR_DELIVERABLES_REQUIRED");
+    error.code = "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT";
+    throw error;
+  }
+
+  if (!blueprint.deliverables.some((deliverable) => deliverable.medium === "FILM")) {
+    const error = new Error("CREATIVE_AI_DIRECTOR_FILM_DELIVERABLE_REQUIRED");
     error.code = "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT";
     throw error;
   }
@@ -177,7 +187,7 @@ export async function POST(request) {
       persist: true,
     });
 
-    const blueprint = await CreativeMissionComposerRuntime.compose({
+    const composedBlueprint = await CreativeMissionComposerRuntime.compose({
       organization_id,
       request: creativeRequest,
       context: {
@@ -186,6 +196,7 @@ export async function POST(request) {
         business_truth: businessTruth,
       },
     });
+    const blueprint = enforceCreativeDeliverableContract(composedBlueprint);
 
     assertProductionReadyBlueprint(blueprint);
 

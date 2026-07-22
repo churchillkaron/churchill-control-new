@@ -11,7 +11,10 @@ TARGET_VERSION="20260722054500"
 TARGET_FILE="supabase/migrations/20260722054500_creative_projects_canonical_storage.sql"
 WORK_ROOT="$ROOT/.avantiqo-backups/creative-project-storage-$STAMP"
 WORK_MIGRATIONS="$WORK_ROOT/supabase/migrations"
+FETCH_ROOT="$WORK_ROOT/isolated-fetch"
+FETCH_MIGRATIONS="$FETCH_ROOT/supabase/migrations"
 REPORT="$ROOT/creative-project-storage-$STAMP.txt"
+DRY_RUN_REPORT="$WORK_ROOT/dry-run.txt"
 
 exec > >(tee "$REPORT") 2>&1
 
@@ -56,14 +59,58 @@ MIGRATION_LIST="$WORK_ROOT/migration-list-before.txt"
 supabase migration list --linked > "$MIGRATION_LIST"
 cat "$MIGRATION_LIST"
 
-printf '\nStaging remote migration history:\n'
+REMOTE_VERSIONS_FILE="$WORK_ROOT/remote-versions.txt"
 awk -F'|' '
   {
     remote=$2;
     gsub(/[^0-9]/, "", remote);
     if (length(remote) == 14) print remote;
   }
-' "$MIGRATION_LIST" | sort -u | while IFS= read -r version; do
+' "$MIGRATION_LIST" | sort -u > "$REMOTE_VERSIONS_FILE"
+
+MISSING_REMOTE_FILE="$WORK_ROOT/missing-remote-versions.txt"
+: > "$MISSING_REMOTE_FILE"
+while IFS= read -r version; do
+  [ -n "$version" ] || continue
+  source_file="$(find supabase/migrations -type f -name "${version}_*.sql" -print | head -n 1 || true)"
+  if [ -z "$source_file" ]; then
+    printf '%s\n' "$version" >> "$MISSING_REMOTE_FILE"
+  fi
+done < "$REMOTE_VERSIONS_FILE"
+
+if [ -s "$MISSING_REMOTE_FILE" ]; then
+  printf '\nRemote migrations missing locally:\n'
+  cat "$MISSING_REMOTE_FILE"
+  printf '\nFetching exact remote migration statements in isolation...\n'
+
+  mkdir -p "$FETCH_ROOT/supabase"
+  cp supabase/config.toml "$FETCH_ROOT/supabase/config.toml"
+  cp -R supabase/.temp "$FETCH_ROOT/supabase/.temp"
+  mkdir -p "$FETCH_MIGRATIONS"
+
+  (
+    cd "$FETCH_ROOT"
+    if supabase migration fetch --help 2>&1 | grep -q -- '--linked'; then
+      printf 'y\n' | supabase migration fetch --linked
+    else
+      printf 'y\n' | supabase migration fetch
+    fi
+  )
+
+  while IFS= read -r version; do
+    [ -n "$version" ] || continue
+    fetched_file="$(find "$FETCH_MIGRATIONS" -type f -name "${version}_*.sql" -print | head -n 1 || true)"
+    [ -n "$fetched_file" ] || {
+      printf 'FAIL: Supabase fetch did not return remote migration %s\n' "$version"
+      exit 1
+    }
+    cp "$fetched_file" "supabase/migrations/$(basename "$fetched_file")"
+    printf 'RESTORED_FROM_SUPABASE: %s\n' "$(basename "$fetched_file")"
+  done < "$MISSING_REMOTE_FILE"
+fi
+
+printf '\nStaging remote migration history:\n'
+while IFS= read -r version; do
   [ -n "$version" ] || continue
   source_file="$(find supabase/migrations -type f -name "${version}_*.sql" -print | head -n 1 || true)"
   [ -n "$source_file" ] || {
@@ -72,7 +119,7 @@ awk -F'|' '
   }
   cp "$source_file" "$WORK_MIGRATIONS/$(basename "$source_file")"
   printf '  REMOTE: %s\n' "$(basename "$source_file")"
-done
+done < "$REMOTE_VERSIONS_FILE"
 
 cp "$TARGET_FILE" "$WORK_MIGRATIONS/$(basename "$TARGET_FILE")"
 printf '  PENDING: %s\n' "$(basename "$TARGET_FILE")"
@@ -82,9 +129,21 @@ printf 'DRY RUN\n'
 printf '============================================================\n'
 (
   cd "$WORK_ROOT"
-  supabase db push --linked --dry-run
-)
-printf 'PASS: isolated dry run\n'
+  supabase db push --linked --dry-run --include-all
+) | tee "$DRY_RUN_REPORT"
+
+if ! grep -q "$(basename "$TARGET_FILE")" "$DRY_RUN_REPORT"; then
+  printf 'FAIL: dry run did not include the target migration\n'
+  exit 1
+fi
+
+UNEXPECTED_PUSHES="$(awk '/^ • / {print $2}' "$DRY_RUN_REPORT" | grep -v "^$(basename "$TARGET_FILE")$" || true)"
+if [ -n "$UNEXPECTED_PUSHES" ]; then
+  printf 'FAIL: dry run contains unexpected migrations:\n%s\n' "$UNEXPECTED_PUSHES"
+  exit 1
+fi
+
+printf 'PASS: isolated dry run contains only the target migration\n'
 
 if [ "${APPLY_CREATIVE_PROJECT_STORAGE:-0}" != "1" ]; then
   printf 'WARN: dry-run only; set APPLY_CREATIVE_PROJECT_STORAGE=1 to apply\n'
@@ -97,7 +156,7 @@ printf 'APPLY\n'
 printf '============================================================\n'
 (
   cd "$WORK_ROOT"
-  supabase db push --linked --yes
+  supabase db push --linked --include-all --yes
 )
 
 FINAL_LIST="$WORK_ROOT/migration-list-after.txt"

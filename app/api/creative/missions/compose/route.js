@@ -7,6 +7,9 @@ import {
   CreativeSystemKnowledgeRuntime,
 } from "@/lib/creative/knowledge/CreativeSystemKnowledgeRuntime";
 import {
+  CreativeBusinessTruthRuntime,
+} from "@/lib/creative/knowledge/CreativeBusinessTruthRuntime";
+import {
   CreativeMissionRuntime,
 } from "@/lib/creative/missions/runtime/CreativeMissionRuntime";
 import {
@@ -22,6 +25,7 @@ function projectPayload({
   deliverable,
   blueprint,
   knowledge,
+  businessTruth,
 }) {
   return {
     organization_id,
@@ -51,6 +55,11 @@ function projectPayload({
         blueprint.objective,
       knowledge_policy: knowledge.source_policy,
       canonical_source_ids: (knowledge.sources || []).map((source) => source.id),
+      business_truth_snapshot_id: businessTruth.snapshot_id,
+      business_truth_payload_hash: businessTruth.payload_hash,
+      business_truth_schema_version: businessTruth.schema_version,
+      business_truth_record_counts: businessTruth.record_counts,
+      business_truth_source_manifest: businessTruth.source_manifest,
     },
   };
 }
@@ -77,12 +86,23 @@ export async function POST(request) {
       );
     }
 
-    await requireOrganizationAccess({ organization_id });
-
+    const access = await requireOrganizationAccess({ organization_id });
+    const entity_id = body.entity_id || null;
+    const period_id = body.period_id || null;
     const knowledge = CreativeSystemKnowledgeRuntime.resolve({
       organization_id,
-      entity_id: body.entity_id || null,
-      period_id: body.period_id || null,
+      entity_id,
+      period_id,
+    });
+    const businessTruth = await CreativeBusinessTruthRuntime.hydrate({
+      organization_id,
+      entity_id,
+      period_id,
+      captured_by:
+        access?.user?.id ||
+        access?.user_id ||
+        null,
+      persist: true,
     });
 
     const blueprint = await CreativeMissionComposerRuntime.compose({
@@ -91,6 +111,7 @@ export async function POST(request) {
       context: {
         ...(body.context || {}),
         system_knowledge: knowledge,
+        business_truth: businessTruth,
       },
     });
 
@@ -113,9 +134,14 @@ export async function POST(request) {
         assumptions: blueprint.assumptions || [],
         blocking_questions: blueprint.blocking_questions || [],
         composition_confidence: blueprint.confidence,
-        composition_mode: "OPEN_CREATIVE_MISSION_V2",
+        composition_mode: "OPEN_CREATIVE_MISSION_V3_BUSINESS_TRUTH",
         knowledge_policy: knowledge.source_policy,
         canonical_source_ids: (knowledge.sources || []).map((source) => source.id),
+        business_truth_snapshot_id: businessTruth.snapshot_id,
+        business_truth_payload_hash: businessTruth.payload_hash,
+        business_truth_schema_version: businessTruth.schema_version,
+        business_truth_record_counts: businessTruth.record_counts,
+        business_truth_source_manifest: businessTruth.source_manifest,
       },
     });
 
@@ -130,6 +156,7 @@ export async function POST(request) {
           deliverable,
           blueprint,
           knowledge,
+          businessTruth,
         }),
       );
       projects.push(project);
@@ -146,6 +173,14 @@ export async function POST(request) {
       knowledge: {
         source_count: knowledge.sources.length,
         source_policy: knowledge.source_policy,
+      },
+      business_truth: {
+        snapshot_id: businessTruth.snapshot_id,
+        payload_hash: businessTruth.payload_hash,
+        schema_version: businessTruth.schema_version,
+        record_counts: businessTruth.record_counts,
+        source_manifest: businessTruth.source_manifest,
+        source_failures: businessTruth.source_failures,
       },
     });
   } catch (error) {

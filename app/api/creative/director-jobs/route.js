@@ -41,6 +41,12 @@ function object(value) {
     : {};
 }
 
+function clone(value) {
+  return JSON.parse(
+    JSON.stringify(value ?? null),
+  );
+}
+
 function unique(values = []) {
   return [
     ...new Set(
@@ -49,6 +55,29 @@ function unique(values = []) {
         .map(String),
     ),
   ];
+}
+
+function meaningfulState(value) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return Boolean(value.trim());
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  if (typeof value === "object") {
+    return Object.keys(value).length > 0;
+  }
+
+  return true;
 }
 
 function referenceIdentifier(value) {
@@ -156,6 +185,40 @@ function temporalFailure(job = {}) {
   );
 }
 
+async function directorJobRow({
+  jobId,
+  organizationId,
+}) {
+  const { data, error } = await supabaseAdmin
+    .from(DIRECTOR_JOBS)
+    .select(
+      "id,organization_id,current_plan,asset_snapshot,pipeline_result",
+    )
+    .eq("id", jobId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function persistDirectorJobRecovery({
+  jobId,
+  organizationId,
+  values,
+}) {
+  const { error } = await supabaseAdmin
+    .from(DIRECTOR_JOBS)
+    .update({
+      ...values,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("organization_id", organizationId);
+
+  if (error) throw error;
+}
+
 async function materializeFailedTemporalReferences({
   jobId,
   organizationId,
@@ -191,22 +254,14 @@ async function materializeFailedTemporalReferences({
     };
   }
 
-  const { data: row, error } = await supabaseAdmin
-    .from(DIRECTOR_JOBS)
-    .select(
-      "id,organization_id,current_plan,asset_snapshot,pipeline_result",
-    )
-    .eq("id", jobId)
-    .eq("organization_id", organizationId)
-    .single();
-
-  if (error) throw error;
+  const row = await directorJobRow({
+    jobId,
+    organizationId,
+  });
 
   const available = new Set(
     list(row.asset_snapshot)
-      .map((asset) =>
-        referenceIdentifier(asset),
-      )
+      .map(referenceIdentifier)
       .filter(Boolean),
   );
 
@@ -234,9 +289,7 @@ async function materializeFailedTemporalReferences({
   const sceneNumber = Number(details.scene_number);
   const shotNumber = Number(details.shot_number);
 
-  const plan = JSON.parse(
-    JSON.stringify(object(row.current_plan)),
-  );
+  const plan = clone(object(row.current_plan));
 
   const scene = numberedEntry(
     plan.scenes,
@@ -320,6 +373,8 @@ async function materializeFailedTemporalReferences({
     };
   });
 
+  const recoveredAt = new Date().toISOString();
+
   const nextPipeline = {
     ...pipeline,
     temporal_direction: {
@@ -334,23 +389,20 @@ async function materializeFailedTemporalReferences({
       recovered_reference_asset_ids:
         received,
       reference_recovered_at:
-        new Date().toISOString(),
+        recoveredAt,
       activity_updated_at:
-        new Date().toISOString(),
+        recoveredAt,
     },
   };
 
-  const { error: updateError } = await supabaseAdmin
-    .from(DIRECTOR_JOBS)
-    .update({
+  await persistDirectorJobRecovery({
+    jobId,
+    organizationId,
+    values: {
       current_plan: plan,
       pipeline_result: nextPipeline,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", jobId)
-    .eq("organization_id", organizationId);
-
-  if (updateError) throw updateError;
+    },
+  });
 
   return {
     applied: true,
@@ -362,6 +414,390 @@ async function materializeFailedTemporalReferences({
       assigned_reference_conflict_checked: true,
       production_bible_materialized: true,
       partial_checkpoint_materialized: true,
+    },
+  };
+}
+
+function keyframeStateFailureAddress(value) {
+  const match = String(value || "").match(
+    /^scene\s+(\d+)\s+shot\s+(\d+)\s+([a-z_]+)\s+track\s+(\d+):\s+keyframe state missing at\s+(\d+)ms$/i,
+  );
+
+  if (!match) return null;
+
+  return {
+    scene_number: Number(match[1]),
+    shot_number: Number(match[2]),
+    department: String(match[3]).toLowerCase(),
+    track_number: Number(match[4]),
+    at_ms: Number(match[5]),
+  };
+}
+
+function deterministicInterpolatedState({
+  track,
+  keyframe,
+  durationMs,
+}) {
+  const atMs = Number(keyframe.at_ms);
+  const progress = durationMs > 0
+    ? Math.max(
+        0,
+        Math.min(1, atMs / durationMs),
+      )
+    : 0;
+
+  return {
+    kind: "INTERPOLATED_TRACK_STATE",
+    derivation:
+      "LOCKED_ENDPOINT_INTERPOLATION",
+    owner: track.owner || null,
+    subject: track.subject || null,
+    property: track.property || null,
+    from_state: clone(track.initial_state),
+    to_state: clone(track.final_state),
+    at_ms: atMs,
+    duration_ms: durationMs,
+    progress: Math.round(progress * 1000000) / 1000000,
+    interpolation:
+      keyframe.interpolation ||
+      track.interpolation ||
+      "linear",
+  };
+}
+
+async function materializeFailedTemporalKeyframeStates({
+  jobId,
+  organizationId,
+}) {
+  const hydrated = await CreativeDirectorJobRuntime.get({
+    job_id: jobId,
+    organization_id: organizationId,
+    include_plan: true,
+  });
+
+  const failure = temporalFailure(hydrated);
+
+  if (
+    failure.code !==
+    "CREATIVE_TEMPORAL_DEPARTMENT_REJECTED"
+  ) {
+    return {
+      applied: false,
+      reason: "NO_RECOVERABLE_KEYFRAME_STATE_FAILURE",
+    };
+  }
+
+  const details = object(failure.details);
+  const addresses = list(details.failures)
+    .map(keyframeStateFailureAddress);
+
+  if (
+    !addresses.length ||
+    addresses.some((address) => !address)
+  ) {
+    return {
+      applied: false,
+      reason: "DEPARTMENT_FAILURE_REQUIRES_REASONING_REPAIR",
+      failures: list(details.failures),
+    };
+  }
+
+  const sceneNumber = Number(details.scene_number);
+  const shotNumber = Number(details.shot_number);
+  const department = String(details.department || "").toLowerCase();
+
+  const addressMismatch = addresses.some((address) =>
+    address.scene_number !== sceneNumber ||
+    address.shot_number !== shotNumber ||
+    address.department !== department,
+  );
+
+  if (addressMismatch) {
+    return {
+      applied: false,
+      reason: "KEYFRAME_FAILURE_ADDRESS_MISMATCH",
+      scene_number: sceneNumber,
+      shot_number: shotNumber,
+      department,
+      addresses,
+    };
+  }
+
+  const row = await directorJobRow({
+    jobId,
+    organizationId,
+  });
+
+  const pipeline = object(row.pipeline_result);
+  const temporal = object(pipeline.temporal_direction);
+  let recoveredCount = 0;
+  const recoveredAddresses = [];
+
+  const partialShots = list(
+    temporal.partial_shots,
+  ).map((partialValue) => {
+    const partial = object(partialValue);
+
+    if (
+      Number(partial.scene_number) !== sceneNumber ||
+      Number(partial.shot_number) !== shotNumber
+    ) {
+      return partialValue;
+    }
+
+    const temporalContract = clone(
+      object(partial.temporal_contract),
+    );
+
+    const departmentContract = object(
+      temporalContract[department],
+    );
+
+    const durationMs = Number(
+      temporalContract.duration_ms ||
+      object(partial.master_still_contract).duration_ms ||
+      0,
+    );
+
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      const recoveryError = new Error(
+        "CREATIVE_TEMPORAL_KEYFRAME_RECOVERY_DURATION_REQUIRED",
+      );
+
+      recoveryError.code =
+        "CREATIVE_TEMPORAL_KEYFRAME_RECOVERY_DURATION_REQUIRED";
+
+      recoveryError.details = {
+        job_id: jobId,
+        scene_number: sceneNumber,
+        shot_number: shotNumber,
+        department,
+        received_duration_ms: durationMs,
+      };
+
+      throw recoveryError;
+    }
+
+    const tracks = list(
+      departmentContract.tracks,
+    ).map((trackValue, trackIndex) => {
+      const track = object(trackValue);
+      const trackNumber = Number(
+        track.track_number ||
+        trackIndex + 1,
+      );
+
+      const requiredTimes = new Set(
+        addresses
+          .filter((address) =>
+            address.track_number === trackNumber,
+          )
+          .map((address) => address.at_ms),
+      );
+
+      if (!requiredTimes.size) return trackValue;
+
+      if (
+        !meaningfulState(track.initial_state) ||
+        !meaningfulState(track.final_state)
+      ) {
+        const recoveryError = new Error(
+          "CREATIVE_TEMPORAL_KEYFRAME_RECOVERY_ENDPOINTS_REQUIRED",
+        );
+
+        recoveryError.code =
+          "CREATIVE_TEMPORAL_KEYFRAME_RECOVERY_ENDPOINTS_REQUIRED";
+
+        recoveryError.details = {
+          job_id: jobId,
+          scene_number: sceneNumber,
+          shot_number: shotNumber,
+          department,
+          track_number: trackNumber,
+          initial_state_present:
+            meaningfulState(track.initial_state),
+          final_state_present:
+            meaningfulState(track.final_state),
+        };
+
+        throw recoveryError;
+      }
+
+      const keyframes = list(
+        track.keyframes,
+      ).map((keyframeValue) => {
+        const keyframe = object(keyframeValue);
+        const atMs = Number(keyframe.at_ms);
+
+        if (!requiredTimes.has(atMs)) {
+          return keyframeValue;
+        }
+
+        if (
+          atMs <= 0 ||
+          atMs >= durationMs
+        ) {
+          const recoveryError = new Error(
+            "CREATIVE_TEMPORAL_KEYFRAME_RECOVERY_INTERMEDIATE_ONLY",
+          );
+
+          recoveryError.code =
+            "CREATIVE_TEMPORAL_KEYFRAME_RECOVERY_INTERMEDIATE_ONLY";
+
+          recoveryError.details = {
+            job_id: jobId,
+            scene_number: sceneNumber,
+            shot_number: shotNumber,
+            department,
+            track_number: trackNumber,
+            at_ms: atMs,
+            duration_ms: durationMs,
+          };
+
+          throw recoveryError;
+        }
+
+        if (meaningfulState(keyframe.state)) {
+          requiredTimes.delete(atMs);
+          return keyframeValue;
+        }
+
+        const state = deterministicInterpolatedState({
+          track,
+          keyframe,
+          durationMs,
+        });
+
+        recoveredCount += 1;
+        recoveredAddresses.push({
+          scene_number: sceneNumber,
+          shot_number: shotNumber,
+          department,
+          track_number: trackNumber,
+          at_ms: atMs,
+          progress: state.progress,
+        });
+
+        requiredTimes.delete(atMs);
+
+        return {
+          ...keyframe,
+          state,
+          state_source:
+            "LOCKED_ENDPOINT_INTERPOLATION",
+          state_recovered_at:
+            new Date().toISOString(),
+        };
+      });
+
+      if (requiredTimes.size) {
+        const recoveryError = new Error(
+          "CREATIVE_TEMPORAL_KEYFRAME_RECOVERY_ADDRESS_NOT_FOUND",
+        );
+
+        recoveryError.code =
+          "CREATIVE_TEMPORAL_KEYFRAME_RECOVERY_ADDRESS_NOT_FOUND";
+
+        recoveryError.details = {
+          job_id: jobId,
+          scene_number: sceneNumber,
+          shot_number: shotNumber,
+          department,
+          track_number: trackNumber,
+          missing_at_ms: [...requiredTimes],
+        };
+
+        throw recoveryError;
+      }
+
+      return {
+        ...track,
+        keyframes,
+      };
+    });
+
+    temporalContract[department] = {
+      ...departmentContract,
+      tracks,
+    };
+
+    return {
+      ...partial,
+      temporal_contract: temporalContract,
+      keyframe_state_recovery: {
+        department,
+        recovered_count: recoveredCount,
+        recovered_addresses: recoveredAddresses,
+        method:
+          "LOCKED_ENDPOINT_INTERPOLATION",
+        recovered_at:
+          new Date().toISOString(),
+      },
+      updated_at:
+        new Date().toISOString(),
+    };
+  });
+
+  if (recoveredCount !== addresses.length) {
+    return {
+      applied: false,
+      reason: "KEYFRAME_RECOVERY_COUNT_MISMATCH",
+      expected_count: addresses.length,
+      recovered_count: recoveredCount,
+      recovered_addresses: recoveredAddresses,
+    };
+  }
+
+  const recoveredAt = new Date().toISOString();
+
+  const nextPipeline = {
+    ...pipeline,
+    temporal_direction: {
+      ...temporal,
+      partial_shots: partialShots,
+      active_address:
+        `${sceneNumber}:${shotNumber}`,
+      active_scene_number: sceneNumber,
+      active_shot_number: shotNumber,
+      active_phase:
+        `DEPARTMENT_${department}_KEYFRAME_STATES_RECOVERED`,
+      keyframe_state_recovery: {
+        scene_number: sceneNumber,
+        shot_number: shotNumber,
+        department,
+        recovered_count: recoveredCount,
+        recovered_addresses: recoveredAddresses,
+        method:
+          "LOCKED_ENDPOINT_INTERPOLATION",
+        recovered_at: recoveredAt,
+      },
+      activity_updated_at: recoveredAt,
+    },
+  };
+
+  await persistDirectorJobRecovery({
+    jobId,
+    organizationId,
+    values: {
+      pipeline_result: nextPipeline,
+    },
+  });
+
+  return {
+    applied: true,
+    scene_number: sceneNumber,
+    shot_number: shotNumber,
+    department,
+    recovered_count: recoveredCount,
+    recovered_addresses: recoveredAddresses,
+    validation: {
+      exact_failure_addresses_required: true,
+      intermediate_keyframes_only: true,
+      initial_state_required: true,
+      final_state_required: true,
+      endpoint_decisions_preserved: true,
+      validator_unchanged: true,
     },
   };
 }
@@ -621,21 +1057,33 @@ export async function POST(req) {
         }, { status: 400 });
       }
 
-      const referenceRecovery =
-        body.retry_failed === true
-          ? await materializeFailedTemporalReferences({
-              jobId: body.job_id,
-              organizationId,
-            })
-          : {
-              applied: false,
-              reason: "RETRY_NOT_REQUESTED",
-            };
+      const retryRequested =
+        body.retry_failed === true;
+
+      const referenceRecovery = retryRequested
+        ? await materializeFailedTemporalReferences({
+            jobId: body.job_id,
+            organizationId,
+          })
+        : {
+            applied: false,
+            reason: "RETRY_NOT_REQUESTED",
+          };
+
+      const keyframeStateRecovery = retryRequested
+        ? await materializeFailedTemporalKeyframeStates({
+            jobId: body.job_id,
+            organizationId,
+          })
+        : {
+            applied: false,
+            reason: "RETRY_NOT_REQUESTED",
+          };
 
       const job = await CreativeDirectorJobRuntime.advance({
         job_id: body.job_id,
         organization_id: organizationId,
-        retry_failed: body.retry_failed === true,
+        retry_failed: retryRequested,
       });
 
       return NextResponse.json({
@@ -644,7 +1092,11 @@ export async function POST(req) {
         production_dispatched: false,
         image_generation_started: false,
         video_generation_started: false,
-        reference_recovery: referenceRecovery,
+        temporal_recovery: {
+          reference: referenceRecovery,
+          keyframe_states:
+            keyframeStateRecovery,
+        },
         job,
       });
     }

@@ -52,6 +52,9 @@ export default function ProductionStudio({
   const layout =
     activeWorkspace?.layout || {};
 
+  const isProduction =
+    activeWorkspace?.id === "production";
+
   return (
     <CreativeWorkspaceLayout
       header={
@@ -73,10 +76,14 @@ export default function ProductionStudio({
         />
       }
       showInspector={
-        layout.inspector !== false
+        isProduction
+          ? false
+          : layout.inspector !== false
       }
       showDock={
-        layout.dock === true
+        isProduction
+          ? true
+          : layout.dock === true
       }
       inspector={
         <Inspector

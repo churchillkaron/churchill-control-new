@@ -12,8 +12,8 @@ import {
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 
 import {
-  CreativeMasterStillPilotRuntime,
-} from "@/lib/creative/production/pilot/CreativeMasterStillPilotRuntime";
+  CreativeMasterStillPilotRepairRuntime,
+} from "@/lib/creative/production/pilot/CreativeMasterStillPilotRepairRuntime";
 
 export async function POST(req) {
   try {
@@ -53,7 +53,7 @@ export async function POST(req) {
       }, { status: 404 });
     }
 
-    const result = await CreativeMasterStillPilotRuntime.run({
+    const result = await CreativeMasterStillPilotRepairRuntime.run({
       organization_id: organizationId,
       creative_project_id: projectId,
       scene_number: Number(body.scene_number || 1),

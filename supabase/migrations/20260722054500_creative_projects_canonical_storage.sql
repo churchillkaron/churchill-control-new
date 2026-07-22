@@ -79,6 +79,10 @@ revoke all on table public.creative_projects
 grant select, insert, update, delete on table public.creative_projects
   to service_role;
 
-select public.attach_creative_version_trigger('creative_projects', 'PROJECT');
+drop trigger if exists capture_creative_projects_version
+  on public.creative_projects;
+create trigger capture_creative_projects_version
+  before update or delete on public.creative_projects
+  for each row execute function public.capture_creative_artifact_version('PROJECT');
 
 commit;

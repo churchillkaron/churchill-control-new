@@ -19,6 +19,41 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
+function projectProductionType(medium = "") {
+  const value = String(medium).trim().toUpperCase();
+  if (/FILM|VIDEO|MOVIE|TRAILER|REEL|CUTDOWN/.test(value)) return "VIDEO";
+  if (/IMAGE|PHOTO|POSTER|BANNER|KEY ART|STILL/.test(value)) return "IMAGE";
+  if (/WEBSITE|WEBPAGE|LANDING|WEB EXPERIENCE/.test(value)) return "WEBSITE";
+  if (/MENU/.test(value)) return "MENU";
+  if (/AUDIO|MUSIC|VOICE|SOUND/.test(value)) return "AUDIO";
+  if (/DOCUMENT|COPY|SCRIPT/.test(value)) return "DOCUMENT";
+  if (/PRESENTATION|DECK/.test(value)) return "PRESENTATION";
+  return "MULTIMEDIA";
+}
+
+function durationSeconds(specifications = {}, fallback = 30) {
+  const candidates = [
+    specifications.duration_seconds,
+    specifications.target_duration,
+    specifications.duration,
+  ];
+
+  for (const candidate of candidates) {
+    if (Number.isFinite(Number(candidate)) && Number(candidate) > 0) {
+      return Math.round(Number(candidate));
+    }
+
+    const match = String(candidate || "").match(/(\d+(?:\.\d+)?)(?:\s*[-–]\s*(\d+(?:\.\d+)?))?\s*(?:seconds?|secs?|s)\b/i);
+    if (match) {
+      const lower = Number(match[1]);
+      const upper = Number(match[2] || match[1]);
+      if (lower > 0 && upper > 0) return Math.round(Math.max(lower, upper));
+    }
+  }
+
+  return fallback;
+}
+
 function projectPayload({
   organization_id,
   mission,
@@ -33,9 +68,10 @@ function projectPayload({
     name: deliverable.title,
     description: deliverable.description,
     objective: deliverable.description || blueprint.objective,
-    production_type: "MULTIMEDIA",
+    production_type: projectProductionType(deliverable.medium),
     target_channels: deliverable.channels || [],
     target_languages: blueprint.languages || [],
+    target_duration: durationSeconds(deliverable.specifications, 30),
     quality_profile: "WORLD_CLASS",
     budget_profile: "MISSION_CONTROLLED",
     metadata: {
@@ -50,6 +86,8 @@ function projectPayload({
       mission_departments: blueprint.departments || [],
       creative_thesis: blueprint.creative_thesis,
       quality_policy: blueprint.quality_policy || {},
+      composition_source: blueprint.composition_source,
+      composition_confidence: blueprint.confidence,
       source_request:
         mission.metadata?.source_request ||
         blueprint.objective,
@@ -134,6 +172,8 @@ export async function POST(request) {
         assumptions: blueprint.assumptions || [],
         blocking_questions: blueprint.blocking_questions || [],
         composition_confidence: blueprint.confidence,
+        composition_source: blueprint.composition_source,
+        fallback_reason: blueprint.fallback_reason,
         composition_mode: "OPEN_CREATIVE_MISSION_V3_BUSINESS_TRUTH",
         knowledge_policy: knowledge.source_policy,
         canonical_source_ids: (knowledge.sources || []).map((source) => source.id),

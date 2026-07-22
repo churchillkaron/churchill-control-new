@@ -428,7 +428,7 @@ export default function DynamicCustomerField({
           placeholder="Country"
 
           value={
-            value.country || "Thailand"
+            value.country || ""
           }
 
           onChange={e =>

@@ -14,6 +14,10 @@ import {
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 
 import {
+  CreativeMasterStillPilotAssetHydrationRuntime,
+} from "@/lib/creative/production/pilot/CreativeMasterStillPilotAssetHydrationRuntime";
+
+import {
   CreativeMasterStillPilotAggressiveRecoveryRuntime,
 } from "@/lib/creative/production/pilot/CreativeMasterStillPilotAggressiveRecoveryRuntime";
 
@@ -28,6 +32,14 @@ export async function POST(req) {
       body.creative_project_id ||
       body.creativeProjectId ||
       body.project_id ||
+      null;
+    const masterTaskId =
+      body.master_task_id ||
+      body.masterTaskId ||
+      null;
+    const qaTaskId =
+      body.qa_task_id ||
+      body.qaTaskId ||
       null;
 
     const access = await requireOrganizationAccess({
@@ -63,18 +75,19 @@ export async function POST(req) {
       });
     }
 
+    const hydration =
+      await CreativeMasterStillPilotAssetHydrationRuntime.hydrate({
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        master_task_id: masterTaskId,
+      });
+
     const result =
       await CreativeMasterStillPilotAggressiveRecoveryRuntime.run({
         organization_id: organizationId,
         creative_project_id: projectId,
-        master_task_id:
-          body.master_task_id ||
-          body.masterTaskId ||
-          null,
-        qa_task_id:
-          body.qa_task_id ||
-          body.qaTaskId ||
-          null,
+        master_task_id: masterTaskId,
+        qa_task_id: qaTaskId,
         scene_number: Number(body.scene_number || 1),
         shot_number: Number(body.shot_number || 1),
         currency: body.currency || null,
@@ -85,7 +98,11 @@ export async function POST(req) {
 
     return NextResponse.json({
       success: result.success,
-      result,
+      result: {
+        ...result,
+        dynamic_reference_hydration:
+          hydration.references,
+      },
     }, {
       status: result.success ? 200 : 422,
     });

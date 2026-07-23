@@ -49,6 +49,9 @@ const RECOVERABLE_DIRECTOR_PATCH_CODES = [
   "CREATIVE_DIRECTOR_JOB_SCENE_PATCH_EMPTY",
   "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_EMPTY",
   "CREATIVE_DIRECTOR_JOB_PATCH_REQUIRED",
+  "CREATIVE_DIRECTOR_JOB_TOP_LEVEL_SCENES_FORBIDDEN",
+  "CREATIVE_DIRECTOR_JOB_STRUCTURE_CHANGE_FORBIDDEN",
+  "CREATIVE_DIRECTOR_JOB_PLAN_SCENES_REQUIRED",
 ];
 
 function text(value) {
@@ -320,8 +323,9 @@ function compactAssetResolution(value = {}) {
       resolution.mission_asset_count ?? null,
     organization_asset_count:
       resolution.organization_asset_count ?? null,
-    canonical_asset_ids:
-      assets.slice(0, 50).map((asset) => asset?.id).filter(Boolean),
+    canonical_asset_id_count: assets.length,
+    canonical_asset_ids_sample:
+      assets.slice(0, 8).map((asset) => asset?.id).filter(Boolean),
   };
 }
 
@@ -388,7 +392,7 @@ async function runDirectorCanaryWithRecovery({
           previous_error_code: priorFailure.error_code,
           previous_error_details: priorFailure.error_details,
           mandatory_instruction:
-            "The previous specialist output returned an empty placeholder patch. Inspect the complete production bible again. Return at least one substantive, mission-specific patch when correction is required. When the current plan genuinely requires no change, return plan_patch.no_change_required=true and do not include empty scene or shot patch entries. Never return no_change_required=false with an empty patch.",
+            "The previous specialist output violated the semantic patch contract. Re-read the complete production bible and return contract-valid JSON. For a complete narrative or scene-structure change, place the full corrected plan only in plan_patch.production_bible. Never put scenes inside plan_patch.top_level or plan_patch.plan. For focused changes, use plan_patch.scenes with correctly addressed scene and shot patches. Return at least one substantive mission-specific patch when correction is required. When no correction is genuinely required, set plan_patch.no_change_required=true and omit empty scene and shot patch entries. Never return no_change_required=false with an empty patch.",
           preserve_canonical_asset_ids: true,
           preserve_factual_truth: true,
           production_dispatch_forbidden: true,

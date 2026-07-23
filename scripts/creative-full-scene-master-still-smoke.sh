@@ -86,27 +86,36 @@ const payload = {
 fs.writeFileSync(process.argv[2], JSON.stringify(payload));
 NODE
 
-AUTH_ARGS=()
-if [ -n "${CREATIVE_TEST_BEARER_TOKEN:-}" ]; then
-  AUTH_ARGS=(-H "Authorization: Bearer ${CREATIVE_TEST_BEARER_TOKEN}")
-  pass "optional bearer authentication configured"
-elif [ -n "${CREATIVE_TEST_COOKIE:-}" ]; then
-  AUTH_ARGS=(-H "Cookie: ${CREATIVE_TEST_COOKIE}")
-  pass "optional cookie authentication configured"
-else
-  pass "local organization-scoped execution requires no bearer token"
-fi
-
 section "GREENFIELD EXECUTION"
 printf '%s\n' "Avantiqo will create a new mission and project, hydrate business truth, invent the story, run director repairs and final audit, select the proof shot, bind evidence, and prepare the full-scene master still."
 
-HTTP_STATUS="$(curl -sS \
-  -X POST "$APP_URL/api/creative/production/autonomous-greenfield-proof" \
-  -H 'Content-Type: application/json' \
-  "${AUTH_ARGS[@]}" \
-  --data-binary "@$PAYLOAD_FILE" \
-  -o "$RESPONSE_FILE" \
-  -w '%{http_code}' || true)"
+if [ -n "${CREATIVE_TEST_BEARER_TOKEN:-}" ]; then
+  pass "optional bearer authentication configured"
+  HTTP_STATUS="$(curl -sS \
+    -X POST "$APP_URL/api/creative/production/autonomous-greenfield-proof" \
+    -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer ${CREATIVE_TEST_BEARER_TOKEN}" \
+    --data-binary "@$PAYLOAD_FILE" \
+    -o "$RESPONSE_FILE" \
+    -w '%{http_code}' || true)"
+elif [ -n "${CREATIVE_TEST_COOKIE:-}" ]; then
+  pass "optional cookie authentication configured"
+  HTTP_STATUS="$(curl -sS \
+    -X POST "$APP_URL/api/creative/production/autonomous-greenfield-proof" \
+    -H 'Content-Type: application/json' \
+    -H "Cookie: ${CREATIVE_TEST_COOKIE}" \
+    --data-binary "@$PAYLOAD_FILE" \
+    -o "$RESPONSE_FILE" \
+    -w '%{http_code}' || true)"
+else
+  pass "local organization-scoped execution requires no bearer token"
+  HTTP_STATUS="$(curl -sS \
+    -X POST "$APP_URL/api/creative/production/autonomous-greenfield-proof" \
+    -H 'Content-Type: application/json' \
+    --data-binary "@$PAYLOAD_FILE" \
+    -o "$RESPONSE_FILE" \
+    -w '%{http_code}' || true)"
+fi
 
 cat "$RESPONSE_FILE"
 printf '\nHTTP status: %s\n' "$HTTP_STATUS"

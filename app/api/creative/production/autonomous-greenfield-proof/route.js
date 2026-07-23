@@ -44,7 +44,7 @@ const MISSION_COMPOSITION_RECOVERY_DIRECTIVES = [
   },
 ];
 
-const RECOVERABLE_DIRECTOR_PATCH_CODES = [
+const RECOVERABLE_DIRECTOR_FAILURE_CODES = [
   "CREATIVE_DIRECTOR_JOB_PATCH_EMPTY",
   "CREATIVE_DIRECTOR_JOB_SCENE_PATCH_EMPTY",
   "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_EMPTY",
@@ -52,6 +52,13 @@ const RECOVERABLE_DIRECTOR_PATCH_CODES = [
   "CREATIVE_DIRECTOR_JOB_TOP_LEVEL_SCENES_FORBIDDEN",
   "CREATIVE_DIRECTOR_JOB_STRUCTURE_CHANGE_FORBIDDEN",
   "CREATIVE_DIRECTOR_JOB_PLAN_SCENES_REQUIRED",
+  "CREATIVE_DIRECTOR_FINAL_AUDIT_REJECTED",
+];
+
+const RECOVERABLE_DIRECTOR_ENVELOPES = [
+  "CREATIVE_CANARY_V2_UNSUPPORTED_FAILED_STEP",
+  "CREATIVE_CANARY_V2_CYCLE_LIMIT_REACHED",
+  "CREATIVE_DIRECTOR_JOB_FAILED_STEP_RETRY_REQUIRED",
 ];
 
 function text(value) {
@@ -257,6 +264,10 @@ function directorFailure(invocation = {}) {
   const details = object(payload.details);
   const stepError = object(details.step_error);
   const job = object(payload.job);
+  const jobError = object(job.error);
+  const jobErrorDetails = object(jobError.details);
+  const failedError = object(jobErrorDetails.failed_error);
+  const failedErrorDetails = object(failedError.details);
 
   return {
     job_id:
@@ -266,25 +277,37 @@ function directorFailure(invocation = {}) {
     step_key:
       details.step_key ||
       job.current_step_key ||
+      jobErrorDetails.failed_step_key ||
+      failedErrorDetails.audit_step ||
       null,
     step_status:
       details.step_status ||
-      null,
+      (job.status === "FAILED" ? "FAILED" : null),
     error:
       payload.error ||
+      jobError.code ||
       null,
     error_code:
       stepError.code ||
+      failedError.code ||
+      jobError.code ||
       payload.code ||
       payload.error ||
       null,
     error_message:
       stepError.message ||
+      failedError.message ||
+      jobError.message ||
       payload.error ||
       null,
     error_details:
       stepError.details ||
+      failedError.details ||
+      jobErrorDetails ||
       details.runtime_details ||
+      null,
+    envelope_error:
+      payload.error ||
       null,
   };
 }
@@ -295,21 +318,67 @@ function recoverableDirectorFailure(invocation = {}) {
   const failure = directorFailure(invocation);
   const marker = JSON.stringify({
     error: failure.error,
+    envelope_error: failure.envelope_error,
     error_code: failure.error_code,
     step_key: failure.step_key,
   }).toUpperCase();
-
-  return Boolean(
-    marker.includes("CREATIVE_CANARY_V2_UNSUPPORTED_FAILED_STEP") &&
-    RECOVERABLE_DIRECTOR_PATCH_CODES.some((code) =>
+  const recoverableEnvelope =
+    RECOVERABLE_DIRECTOR_ENVELOPES.some((code) =>
       marker.includes(code),
-    ),
-  );
+    );
+  const recoverableFailure =
+    RECOVERABLE_DIRECTOR_FAILURE_CODES.some((code) =>
+      marker.includes(code),
+    );
+
+  return Boolean(recoverableEnvelope && recoverableFailure);
+}
+
+function exactAuditFailures(failure = {}) {
+  const details = object(failure.error_details);
+  const storyboard = object(details.storyboard);
+
+  return list(details.failures).length
+    ? list(details.failures).map(String)
+    : list(storyboard.failures).map(String);
+}
+
+function directorRecoveryInstruction(failure = {}) {
+  const code = String(failure.error_code || "").toUpperCase();
+
+  if (code === "CREATIVE_DIRECTOR_FINAL_AUDIT_REJECTED") {
+    const failures = exactAuditFailures(failure);
+
+    return [
+      "The previous plan-only director job reached the final audit after temporal direction passed, but final release was rejected for the exact remaining storyboard failures supplied below.",
+      "Rebuild the production bible from the original business truth while preserving the approved story intent, exact duration, canonical reference safety and frame-governing temporal discipline.",
+      "The IDENTITY_REFERENCE_CONTINUITY_REALITY department must explicitly define every required physical_reality category on every affected shot.",
+      "For any shot depicting people, physical_reality.human must be concrete and independently executable: anatomy and hand integrity, body posture and balance, eye line, facial and breath progression, contact with objects and other people, gravity and momentum, wardrobe persistence, crowd individuality, no cloning, no looping and no impossible occlusion or reflection behavior.",
+      "Patch the exact addressed scene and shot fields; do not satisfy the audit with generic language, empty objects or unrelated rewrites.",
+      "All production dispatch, image generation and video generation remain forbidden.",
+      `EXACT FINAL AUDIT FAILURES: ${JSON.stringify(failures)}`,
+    ].join(" ");
+  }
+
+  return [
+    "The previous specialist output violated the semantic patch contract.",
+    "Re-read the complete production bible and return contract-valid JSON.",
+    "For a complete narrative or scene-structure change, place the full corrected plan only in plan_patch.production_bible.",
+    "Never put scenes inside plan_patch.top_level or plan_patch.plan.",
+    "For focused changes, use plan_patch.scenes with correctly addressed scene and shot patches.",
+    "Return at least one substantive mission-specific patch when correction is required.",
+    "When no correction is genuinely required, set plan_patch.no_change_required=true and omit empty scene and shot patch entries.",
+    "Never return no_change_required=false with an empty patch.",
+  ].join(" ");
 }
 
 function compactAssetResolution(value = {}) {
   const resolution = object(value);
   const assets = list(resolution.assets);
+  const explicitIds = list(resolution.canonical_asset_ids);
+  const ids = explicitIds.length
+    ? explicitIds.map(String)
+    : assets.map((asset) => asset?.id).filter(Boolean);
 
   return {
     source: resolution.source || null,
@@ -323,9 +392,8 @@ function compactAssetResolution(value = {}) {
       resolution.mission_asset_count ?? null,
     organization_asset_count:
       resolution.organization_asset_count ?? null,
-    canonical_asset_id_count: assets.length,
-    canonical_asset_ids_sample:
-      assets.slice(0, 8).map((asset) => asset?.id).filter(Boolean),
+    canonical_asset_id_count: ids.length,
+    canonical_asset_ids_sample: ids.slice(0, 8),
   };
 }
 
@@ -392,9 +460,10 @@ async function runDirectorCanaryWithRecovery({
           previous_error_code: priorFailure.error_code,
           previous_error_details: priorFailure.error_details,
           mandatory_instruction:
-            "The previous specialist output violated the semantic patch contract. Re-read the complete production bible and return contract-valid JSON. For a complete narrative or scene-structure change, place the full corrected plan only in plan_patch.production_bible. Never put scenes inside plan_patch.top_level or plan_patch.plan. For focused changes, use plan_patch.scenes with correctly addressed scene and shot patches. Return at least one substantive mission-specific patch when correction is required. When no correction is genuinely required, set plan_patch.no_change_required=true and omit empty scene and shot patch entries. Never return no_change_required=false with an empty patch.",
+            directorRecoveryInstruction(priorFailure),
           preserve_canonical_asset_ids: true,
           preserve_factual_truth: true,
+          preserve_temporal_discipline: true,
           production_dispatch_forbidden: true,
         }
       : null;
@@ -442,7 +511,12 @@ async function runDirectorCanaryWithRecovery({
       recoverable,
       failed_step_key: failure.step_key,
       error: failure.error,
+      envelope_error: failure.envelope_error,
       error_code: failure.error_code,
+      exact_audit_failures:
+        failure.error_code === "CREATIVE_DIRECTOR_FINAL_AUDIT_REJECTED"
+          ? exactAuditFailures(failure)
+          : [],
     });
 
     if (passed) {

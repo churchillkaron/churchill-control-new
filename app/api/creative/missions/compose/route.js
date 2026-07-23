@@ -19,6 +19,9 @@ import {
   CreativeProjectRuntime,
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 import {
+  CreativeAssetGraphRuntime,
+} from "@/lib/creative/assets/graph/runtime/CreativeAssetGraphRuntime";
+import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
@@ -67,6 +70,7 @@ function projectPayload({
   blueprint,
   knowledge,
   businessTruth,
+  masterProjectId = null,
 }) {
   return {
     organization_id,
@@ -88,7 +92,21 @@ function projectPayload({
       dependencies: deliverable.dependencies || [],
       success_criteria: deliverable.success_criteria || [],
       specifications: deliverable.specifications || {},
-      deliverable_metadata: deliverable.metadata || {},
+      deliverable_metadata:
+        deliverable.metadata || {},
+      production_role:
+        deliverable.metadata?.production_role ||
+        "INDEPENDENT",
+      master_project_id:
+        deliverable.metadata?.production_role ===
+        "CUTDOWN"
+          ? masterProjectId
+          : null,
+      derivative_policy:
+        deliverable.metadata?.production_role ===
+        "CUTDOWN"
+          ? "DERIVE_FROM_APPROVED_MASTER_TIMELINE"
+          : null,
       mission_workflow: blueprint.workflow || [],
       mission_departments: blueprint.departments || [],
       creative_thesis: blueprint.creative_thesis,
@@ -196,7 +214,31 @@ export async function POST(request) {
         business_truth: businessTruth,
       },
     });
-    const blueprint = enforceCreativeDeliverableContract(composedBlueprint);
+    const blueprint =
+      enforceCreativeDeliverableContract(
+        composedBlueprint,
+      );
+
+    if (
+      businessTruth.locations_grounding
+        ?.requires_release_verification === true &&
+      !(blueprint.decision_gates || []).some(
+        (gate) =>
+          gate?.id ===
+          "location_grounding_gate",
+      )
+    ) {
+      blueprint.decision_gates = [
+        ...(blueprint.decision_gates || []),
+        {
+          id: "location_grounding_gate",
+          title:
+            "Verify venue location evidence before release",
+          description:
+            "No structured business location record was available. Ground production in approved organization address evidence and uploaded venue references, then verify final venue identity before release.",
+        },
+      ];
+    }
 
     assertProductionReadyBlueprint(blueprint);
 
@@ -239,39 +281,213 @@ export async function POST(request) {
     await CreativeMissionRuntime.start(mission.id);
 
     const projects = [];
-    for (const deliverable of blueprint.deliverables || []) {
-      const project = await CreativeProjectRuntime.create(
-        projectPayload({
-          organization_id,
-          mission,
-          deliverable,
-          blueprint,
-          knowledge,
-          businessTruth,
-        }),
-      );
+    let masterProjectId = null;
+
+    const orderedDeliverables = [
+      ...(blueprint.deliverables || []).filter(
+        (deliverable) =>
+          deliverable.metadata
+            ?.production_role === "MASTER",
+      ),
+      ...(blueprint.deliverables || []).filter(
+        (deliverable) =>
+          deliverable.metadata
+            ?.production_role !== "MASTER",
+      ),
+    ];
+
+    for (const deliverable of orderedDeliverables) {
+      const project =
+        await CreativeProjectRuntime.create(
+          projectPayload({
+            organization_id,
+            mission,
+            deliverable,
+            blueprint,
+            knowledge,
+            businessTruth,
+            masterProjectId,
+          }),
+        );
+
+      if (
+        deliverable.metadata
+          ?.production_role === "MASTER"
+      ) {
+        masterProjectId = project.id;
+      }
+
       projects.push(project);
     }
+
+    const evidenceProjectId =
+      masterProjectId ||
+      projects[0]?.id ||
+      null;
+
+    let evidenceNodes = [];
+
+    if (evidenceProjectId) {
+      const references =
+        businessTruth.assets
+          ?.uploaded_references || [];
+
+      evidenceNodes = await Promise.all(
+        references.slice(0, 40).map(
+          (asset) =>
+            CreativeAssetGraphRuntime.create({
+              organization_id,
+              creative_project_id:
+                evidenceProjectId,
+              creative_asset_id:
+                asset.id,
+              type:
+                String(
+                  asset.type || "IMAGE",
+                ).toUpperCase(),
+              status: "IMPORTED",
+              name:
+                asset.name ||
+                "Imported Reference",
+              description:
+                asset.description ||
+                "Organization-scoped production reference",
+              url:
+                asset.url ||
+                asset.thumbnail_url ||
+                null,
+              lineage: {
+                source: "creative_assets",
+                provider_id: null,
+                capability:
+                  "creative.reference.import",
+                generation_version: 1,
+              },
+              intelligence: {
+                quality_score:
+                  Number(
+                    asset.analysis
+                      ?.quality_score || 0,
+                  ),
+                tags:
+                  asset.tags || [],
+              },
+              reuse: {
+                reusable: true,
+                approved_for_reuse:
+                  false,
+              },
+              review: {
+                ai_reviewed: false,
+                human_reviewed: false,
+                approved: false,
+                notes:
+                  "Imported as production evidence. Rights and reuse approval remain separate gates.",
+              },
+              metadata: {
+                evidence_role:
+                  "MISSION_REFERENCE",
+                source_asset_id:
+                  asset.id,
+                rights_status:
+                  "UNVERIFIED",
+              },
+            }),
+        ),
+      );
+    }
+
+    const finalBusinessTruth =
+      await CreativeBusinessTruthRuntime.hydrate({
+        organization_id,
+        entity_id,
+        period_id,
+        creative_mission_id:
+          mission.id,
+        creative_project_id:
+          evidenceProjectId,
+        captured_by:
+          access?.user?.id ||
+          access?.user_id ||
+          null,
+        persist: true,
+      });
+
+    const finalizedProjects =
+      await Promise.all(
+        projects.map((project) =>
+          CreativeProjectRuntime.update(
+            project.id,
+            {
+              metadata: {
+                ...(project.metadata || {}),
+                business_truth_snapshot_id:
+                  finalBusinessTruth.snapshot_id,
+                business_truth_payload_hash:
+                  finalBusinessTruth.payload_hash,
+                business_truth_schema_version:
+                  finalBusinessTruth.schema_version,
+                business_truth_record_counts:
+                  finalBusinessTruth.record_counts,
+                business_truth_source_manifest:
+                  finalBusinessTruth.source_manifest,
+              },
+            },
+          ),
+        ),
+      );
+
+    const updatedMission =
+      await CreativeMissionRuntime.update(
+        mission.id,
+        {
+          metadata: {
+            ...(mission.metadata || {}),
+            business_truth_snapshot_id:
+              finalBusinessTruth.snapshot_id,
+            business_truth_payload_hash:
+              finalBusinessTruth.payload_hash,
+            business_truth_schema_version:
+              finalBusinessTruth.schema_version,
+            business_truth_record_counts:
+              finalBusinessTruth.record_counts,
+            business_truth_source_manifest:
+              finalBusinessTruth.source_manifest,
+          },
+        },
+      );
 
     return NextResponse.json({
       success: true,
       mission: {
-        ...mission,
+        ...updatedMission,
         status: "active",
       },
-      projects,
+      projects: finalizedProjects,
       blueprint,
       knowledge: {
-        source_count: knowledge.sources.length,
-        source_policy: knowledge.source_policy,
+        source_count:
+          knowledge.sources.length,
+        source_policy:
+          knowledge.source_policy,
       },
       business_truth: {
-        snapshot_id: businessTruth.snapshot_id,
-        payload_hash: businessTruth.payload_hash,
-        schema_version: businessTruth.schema_version,
-        record_counts: businessTruth.record_counts,
-        source_manifest: businessTruth.source_manifest,
-        source_failures: businessTruth.source_failures,
+        snapshot_id:
+          finalBusinessTruth.snapshot_id,
+        payload_hash:
+          finalBusinessTruth.payload_hash,
+        schema_version:
+          finalBusinessTruth.schema_version,
+        record_counts:
+          finalBusinessTruth.record_counts,
+        source_manifest:
+          finalBusinessTruth.source_manifest,
+        source_failures:
+          finalBusinessTruth.source_failures,
+        locations_grounding:
+          finalBusinessTruth.locations_grounding,
+        evidence_node_count:
+          evidenceNodes.length,
       },
     });
   } catch (error) {

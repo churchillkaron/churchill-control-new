@@ -105,6 +105,11 @@ const workflow = Array.isArray(blueprint.workflow)
 const sourceFailures = Array.isArray(body.business_truth?.source_failures)
   ? body.business_truth.source_failures
   : [];
+const recordCounts =
+  body.business_truth?.record_counts || {};
+const projects = Array.isArray(body.projects)
+  ? body.projects
+  : [];
 
 function fail(message) {
   throw new Error(message);
@@ -124,6 +129,23 @@ if (!deliverables.length) fail('no deliverables were produced');
 if (!body.business_truth?.snapshot_id) fail('business truth snapshot id is missing');
 if (!body.business_truth?.payload_hash) fail('business truth payload hash is missing');
 if (sourceFailures.length) fail(`business truth has ${sourceFailures.length} source failure(s)`);
+if (Number(recordCounts.asset_nodes || 0) < 1) {
+  fail('business truth has no project-scoped asset evidence nodes');
+}
+const assumptionText = JSON.stringify(
+  blueprint.assumptions || [],
+);
+if (/(rights?[- ]?cleared|royalty[- ]?free|licensed(?: for)?|all rights secured|commercial rights secured|permission secured|cleared for campaign use)/i.test(assumptionText)) {
+  fail('blueprint contains an unsupported rights-clearance assumption');
+}
+if (
+  Number(recordCounts.locations || 0) === 0 &&
+  !(blueprint.decision_gates || []).some(
+    (gate) => gate?.id === 'location_grounding_gate',
+  )
+) {
+  fail('missing structured location data has no release verification gate');
+}
 if (blueprint.composition_source !== 'AI_DIRECTOR') fail('AI Director was not used');
 if (blueprint.fallback_reason) fail(`AI Director fallback: ${blueprint.fallback_reason}`);
 if (Number(blueprint.confidence || 0) < 70) fail('AI Director confidence is below 70');
@@ -224,6 +246,60 @@ for (const [index, deliverable] of deliverables.entries()) {
 
 const filmDeliverables = deliverables.filter((deliverable) => String(deliverable.medium).toUpperCase() === 'FILM');
 if (!filmDeliverables.length) fail('no film/video deliverable was produced');
+
+const masterFilms = filmDeliverables.filter(
+  (deliverable) =>
+    deliverable.metadata?.production_role === 'MASTER',
+);
+const cutdownFilms = filmDeliverables.filter(
+  (deliverable) =>
+    deliverable.metadata?.production_role === 'CUTDOWN',
+);
+
+if (masterFilms.length !== 1) {
+  fail(`expected exactly one master film, received ${masterFilms.length}`);
+}
+if (/cutdown|reel|short/i.test(masterFilms[0].title || '')) {
+  fail('master film is mislabeled as a cutdown');
+}
+
+for (const cutdown of cutdownFilms) {
+  if (
+    cutdown.metadata?.derivative_policy !==
+    'DERIVE_FROM_APPROVED_MASTER_TIMELINE'
+  ) {
+    fail(`${cutdown.title} is not bound to the approved master timeline`);
+  }
+}
+
+const masterProjects = projects.filter(
+  (project) =>
+    project.metadata?.production_role === 'MASTER',
+);
+const cutdownProjects = projects.filter(
+  (project) =>
+    project.metadata?.production_role === 'CUTDOWN',
+);
+
+if (masterProjects.length !== 1) {
+  fail(`expected exactly one master project, received ${masterProjects.length}`);
+}
+
+for (const project of cutdownProjects) {
+  if (
+    project.metadata?.master_project_id !==
+    masterProjects[0].id
+  ) {
+    fail(`${project.name} is not linked to the master project`);
+  }
+  if (
+    project.metadata?.derivative_policy !==
+    'DERIVE_FROM_APPROVED_MASTER_TIMELINE'
+  ) {
+    fail(`${project.name} has no master-derived cutdown policy`);
+  }
+}
+
 for (const deliverable of filmDeliverables) {
   const capabilities = new Set(deliverable.execution_capabilities || []);
   if (!capabilities.has('ai.video.image_to_video') && !capabilities.has('ai.video.generate')) {
@@ -280,6 +356,10 @@ console.log('PASS: optional real-world extensions isolated from required product
 console.log(`PASS: workflow ${workflow.length} canonical stages`);
 console.log(`PASS: business truth snapshot ${body.business_truth.snapshot_id}`);
 console.log(`PASS: business truth hash ${body.business_truth.payload_hash}`);
+console.log(`PASS: project-scoped asset evidence nodes ${recordCounts.asset_nodes}`);
+console.log('PASS: master and cutdown lineage contract');
+console.log('PASS: rights assumptions are evidence-safe');
+console.log('PASS: location grounding release contract');
 console.log('PASS: business truth source failures 0');
 console.log('PASS: AI-native production contract');
 NODE

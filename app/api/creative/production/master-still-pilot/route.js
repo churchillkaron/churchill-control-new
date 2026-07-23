@@ -12,8 +12,8 @@ import {
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 
 import {
-  CreativeMasterStillPilotRepairSafeRuntime,
-} from "@/lib/creative/production/pilot/CreativeMasterStillPilotRepairSafeRuntime";
+  CreativeMasterStillPilotReferenceDeliveryRecoveryRuntime,
+} from "@/lib/creative/production/pilot/CreativeMasterStillPilotReferenceDeliveryRecoveryRuntime";
 
 import {
   calibrateMasterStillQualityReview,
@@ -84,7 +84,7 @@ export async function POST(req) {
     }
 
     const rawResult =
-      await CreativeMasterStillPilotRepairSafeRuntime.run({
+      await CreativeMasterStillPilotReferenceDeliveryRecoveryRuntime.run({
         organization_id: organizationId,
         creative_project_id: projectId,
         scene_number: Number(body.scene_number || 1),

@@ -12,8 +12,8 @@ import {
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 
 import {
-  CreativeMasterStillPilotRepairRuntime,
-} from "@/lib/creative/production/pilot/CreativeMasterStillPilotRepairRuntime";
+  CreativeMasterStillPilotRepairSafeRuntime,
+} from "@/lib/creative/production/pilot/CreativeMasterStillPilotRepairSafeRuntime";
 
 import {
   calibrateMasterStillQualityReview,
@@ -83,14 +83,15 @@ export async function POST(req) {
       }, { status: 404 });
     }
 
-    const rawResult = await CreativeMasterStillPilotRepairRuntime.run({
-      organization_id: organizationId,
-      creative_project_id: projectId,
-      scene_number: Number(body.scene_number || 1),
-      shot_number: Number(body.shot_number || 1),
-      retry_preflight_blocked:
-        body.retry_preflight_blocked === true,
-    });
+    const rawResult =
+      await CreativeMasterStillPilotRepairSafeRuntime.run({
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        scene_number: Number(body.scene_number || 1),
+        shot_number: Number(body.shot_number || 1),
+        retry_preflight_blocked:
+          body.retry_preflight_blocked === true,
+      });
     const result = calibratePilotResult(rawResult);
 
     return NextResponse.json({

@@ -55,6 +55,7 @@ const RECOVERABLE_DIRECTOR_FAILURE_CODES = [
   "CREATIVE_DIRECTOR_JOB_TOP_LEVEL_SCENES_FORBIDDEN",
   "CREATIVE_DIRECTOR_JOB_STRUCTURE_CHANGE_FORBIDDEN",
   "CREATIVE_DIRECTOR_JOB_PLAN_SCENES_REQUIRED",
+  "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_NUMBER_INVALID",
   "CREATIVE_DIRECTOR_FINAL_AUDIT_REJECTED",
   "CREATIVE_DIRECTOR_DURATION_RECONCILIATION_IMPOSSIBLE",
 ];
@@ -109,6 +110,19 @@ function directorDurationContract(durationSeconds) {
     exact_duration_sum_required: true,
     filler_or_padding_forbidden: true,
     every_shot_requires_distinct_story_or_editorial_purpose: true,
+  };
+}
+
+function directorPatchContract() {
+  return {
+    focused_patch_existing_addresses_only: true,
+    focused_patch_path: "plan_patch.scenes",
+    structural_change_path: "plan_patch.production_bible",
+    new_scene_or_shot_requires_complete_production_bible: true,
+    shot_number_must_exist_in_target_scene_for_focused_patch: true,
+    scene_number_must_exist_for_focused_patch: true,
+    scenes_forbidden_in_top_level_patch: true,
+    empty_patch_forbidden_unless_no_change_required: true,
   };
 }
 
@@ -221,6 +235,8 @@ async function composeMissionWithRecovery({
             durationSeconds,
           director_duration_contract:
             directorDurationContract(durationSeconds),
+          director_patch_contract:
+            directorPatchContract(),
           production_ambition:
             "WORLD_CLASS_CINEMATIC_ADVERTISING",
           autonomous_story_required: true,
@@ -384,6 +400,28 @@ function exactAuditFailures(failure = {}) {
 function directorRecoveryInstruction(failure = {}) {
   const code = String(failure.error_code || "").toUpperCase();
 
+  if (code === "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_NUMBER_INVALID") {
+    const details = object(failure.error_details);
+    const sceneNumber = finiteNumber(details.scene_number, null);
+    const receivedShotNumber = finiteNumber(details.received, null);
+    const expectedCount = Math.max(
+      0,
+      finiteNumber(details.expected_count, 0),
+    );
+
+    return [
+      "The previous specialist attempted to address a shot number that does not exist in the current scene.",
+      `Scene ${sceneNumber ?? "unknown"} currently contains ${expectedCount} addressable shot(s), but the patch attempted shot ${receivedShotNumber ?? "unknown"}.`,
+      "Focused plan_patch.scenes entries may patch only scene and shot addresses that already exist in the supplied production bible.",
+      "Never use a focused patch to append, insert, renumber or create a new shot.",
+      "When the narrative or duration correction requires a different scene count, shot count, shot order or any new address, return the entire corrected plan only in plan_patch.production_bible, including every preserved and new scene and shot.",
+      "Do not place scenes in plan_patch.top_level or plan_patch.plan.",
+      "When no structural change is required, target only existing shot numbers from 1 through the supplied expected count and omit all invented addresses.",
+      "Preserve exact duration, canonical references, business truth and all valid existing direction.",
+      "All production dispatch, image generation and video generation remain forbidden.",
+    ].join(" ");
+  }
+
   if (code === "CREATIVE_DIRECTOR_DURATION_RECONCILIATION_IMPOSSIBLE") {
     const details = object(failure.error_details);
     const targetDurationSeconds = Math.max(
@@ -423,7 +461,8 @@ function directorRecoveryInstruction(failure = {}) {
       `Use a dynamic story-led scene and shot structure containing at least ${minimumRequiredShotCount} shots because fewer shots cannot mathematically cover the requested duration.`,
       "Do not create filler, frozen padding, repeated actions, artificially prolonged holds or a single oversized shot merely to reach the duration.",
       "Every shot must carry a distinct narrative, emotional, visual or editorial purpose and must hand off coherently to the next shot.",
-      "Return a complete, contract-valid production bible with exact scene and shot durations before specialist direction begins.",
+      "Return the complete corrected plan only in plan_patch.production_bible whenever scene or shot structure changes are required.",
+      "Do not attempt to add new shot numbers through plan_patch.scenes focused patches.",
       "All production dispatch, image generation and video generation remain forbidden.",
     ].join(" ");
   }
@@ -445,9 +484,10 @@ function directorRecoveryInstruction(failure = {}) {
   return [
     "The previous specialist output violated the semantic patch contract.",
     "Re-read the complete production bible and return contract-valid JSON.",
-    "For a complete narrative or scene-structure change, place the full corrected plan only in plan_patch.production_bible.",
+    "For any scene-count, shot-count, shot-order or new-address change, place the full corrected plan only in plan_patch.production_bible.",
+    "Never create a new scene or shot address through plan_patch.scenes.",
     "Never put scenes inside plan_patch.top_level or plan_patch.plan.",
-    "For focused changes, use plan_patch.scenes with correctly addressed scene and shot patches.",
+    "For focused changes to existing addresses only, use plan_patch.scenes with correctly addressed scene and shot patches.",
     "Return at least one substantive mission-specific patch when correction is required.",
     "When no correction is genuinely required, set plan_patch.no_change_required=true and omit empty scene and shot patch entries.",
     "Never return no_change_required=false with an empty patch.",
@@ -551,6 +591,7 @@ async function runDirectorCanaryWithRecovery({
       : null;
     const durationContract =
       directorDurationContract(durationSeconds);
+    const patchContract = directorPatchContract();
 
     const invocation = await invoke({
       handler: directorCanaryPost,
@@ -571,6 +612,7 @@ async function runDirectorCanaryWithRecovery({
             image_generation_forbidden: true,
             video_generation_forbidden: true,
             duration_contract: durationContract,
+            patch_contract: patchContract,
           },
           ...(semanticRecovery
             ? {
@@ -613,6 +655,11 @@ async function runDirectorCanaryWithRecovery({
       duration_failure_details:
         failure.error_code ===
           "CREATIVE_DIRECTOR_DURATION_RECONCILIATION_IMPOSSIBLE"
+          ? failure.error_details
+          : null,
+      structural_address_failure_details:
+        failure.error_code ===
+          "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_NUMBER_INVALID"
           ? failure.error_details
           : null,
     });

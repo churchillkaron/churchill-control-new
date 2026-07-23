@@ -8,8 +8,8 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 import {
-  CreativeDetailedStorySemanticRevalidationRuntimeV2,
-} from "@/lib/creative/production/story/CreativeDetailedStorySemanticRevalidationRuntimeV2";
+  CreativeDetailedStorySemanticRevalidationRuntimeV3,
+} from "@/lib/creative/production/story/CreativeDetailedStorySemanticRevalidationRuntimeV3";
 
 export async function POST(req) {
   try {
@@ -53,7 +53,7 @@ export async function POST(req) {
     }
 
     const result =
-      await CreativeDetailedStorySemanticRevalidationRuntimeV2.run({
+      await CreativeDetailedStorySemanticRevalidationRuntimeV3.run({
         organization_id: organizationId,
         creative_project_id: projectId,
         repaired_result: repairedResult,
@@ -74,6 +74,7 @@ export async function POST(req) {
       review_only: true,
       preview_only: true,
       dynamic_contract: true,
+      contextual_validation: true,
       media_generation_dispatched: false,
       image_generation_dispatched: false,
       video_generation_dispatched: false,

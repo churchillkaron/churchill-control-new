@@ -88,6 +88,8 @@ export async function POST(req) {
       creative_project_id: projectId,
       scene_number: Number(body.scene_number || 1),
       shot_number: Number(body.shot_number || 1),
+      retry_preflight_blocked:
+        body.retry_preflight_blocked === true,
     });
     const result = calibratePilotResult(rawResult);
 

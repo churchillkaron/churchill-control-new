@@ -135,9 +135,33 @@ if (Number(recordCounts.asset_nodes || 0) < 1) {
 const assumptionText = JSON.stringify(
   blueprint.assumptions || [],
 );
-if (/(rights?[- ]?cleared|royalty[- ]?free|licensed(?: for)?|all rights secured|commercial rights secured|permission secured|cleared for campaign use)/i.test(assumptionText)) {
-  fail('blueprint contains an unsupported rights-clearance assumption');
+
+if (
+  /(rights?[- ]?cleared|royalty[- ]?free|licensed(?: for)?|all rights secured|commercial rights secured|permission secured|cleared for campaign use)/i.test(
+    assumptionText,
+  )
+) {
+  fail(
+    "blueprint contains an unsupported rights-clearance assumption",
+  );
 }
+
+const unsafeEvidenceText = JSON.stringify({
+  decision_gates:
+    blueprint.decision_gates || [],
+  deliverables,
+});
+
+if (
+  /assumed\s+(?:to\s+be\s+)?cleared|approved\s+score|brand[- ]owned|\[object Object\]/i.test(
+    unsafeEvidenceText,
+  )
+) {
+  fail(
+    "blueprint contains unsafe rights wording or malformed structured data",
+  );
+}
+
 if (
   Number(recordCounts.locations || 0) === 0 &&
   !(blueprint.decision_gates || []).some(
@@ -190,6 +214,17 @@ for (const [index, deliverable] of deliverables.entries()) {
   }
   if (!Array.isArray(deliverable.success_criteria) || !deliverable.success_criteria.length) {
     fail(`${label} has no success criteria`);
+  }
+  if (!Array.isArray(deliverable.dependencies)) {
+    fail(`${label} dependencies are not an array`);
+  }
+  if (
+    deliverable.dependencies.some(
+      (dependency) =>
+        String(dependency).includes('[object Object]'),
+    )
+  ) {
+    fail(`${label} contains malformed object dependencies`);
   }
   if (!deliverable.specifications || typeof deliverable.specifications !== 'object' || Array.isArray(deliverable.specifications)) {
     fail(`${label} specifications are invalid`);

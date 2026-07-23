@@ -8,8 +8,8 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 import {
-  CreativeDetailedStoryRepairRuntime,
-} from "@/lib/creative/production/story/CreativeDetailedStoryRepairRuntime";
+  CreativeDetailedStoryRepairRuntimeV2,
+} from "@/lib/creative/production/story/CreativeDetailedStoryRepairRuntimeV2";
 
 export async function POST(req) {
   try {
@@ -27,7 +27,6 @@ export async function POST(req) {
     const access = await requireOrganizationAccess({
       organizationId,
     });
-
     if (!access.success) {
       return NextResponse.json(access, {
         status: access.status,
@@ -41,7 +40,7 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    const result = await CreativeDetailedStoryRepairRuntime.run({
+    const result = await CreativeDetailedStoryRepairRuntimeV2.run({
       organization_id: organizationId,
       creative_project_id: projectId,
     });

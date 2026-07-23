@@ -137,7 +137,7 @@ const assumptionText = JSON.stringify(
 );
 
 if (
-  /(rights?[- ]?cleared|royalty[- ]?free|licensed(?: for)?|all rights secured|commercial rights secured|permission secured|cleared for campaign use)/i.test(
+  /(rights?[- ]?cleared|reference[- ]?cleared|full[- ]?rights|royalty[- ]?free|licensed(?: for)?|all rights secured|commercial rights secured|permission secured|cleared for campaign use)/i.test(
     assumptionText,
   )
 ) {
@@ -146,19 +146,36 @@ if (
   );
 }
 
-const unsafeEvidenceText = JSON.stringify({
-  decision_gates:
-    blueprint.decision_gates || [],
-  deliverables,
-});
+const unsafeEvidenceText =
+  JSON.stringify({
+    business_goal:
+      blueprint.business_goal,
+    objective:
+      blueprint.objective,
+    creative_thesis:
+      blueprint.creative_thesis,
+    decision_gates:
+      blueprint.decision_gates || [],
+    deliverables,
+  });
 
 if (
-  /assumed\s+(?:to\s+be\s+)?cleared|approved\s+score|brand[- ]owned|\[object Object\]/i.test(
+  /assumed\s+(?:to\s+be\s+)?cleared|reference[- ]?cleared|full[- ]?rights|approved_assets_used|approved visual,\s*music,?\s*and voice assets|\[object Object\]/i.test(
     unsafeEvidenceText,
   )
 ) {
   fail(
     "blueprint contains unsafe rights wording or malformed structured data",
+  );
+}
+
+if (
+  /"omitted_nested_value"\s*:\s*true/i.test(
+    unsafeEvidenceText,
+  )
+) {
+  fail(
+    "AI Director production details were truncated by the service-runtime metadata sanitizer",
   );
 }
 
@@ -271,6 +288,15 @@ for (const [index, deliverable] of deliverables.entries()) {
   if (multimediaShaped && medium !== 'MULTIMEDIA') {
     fail(`${deliverable.title} is multimedia-shaped but classified as ${medium}`);
   }
+  if (
+    medium === 'AUDIO' &&
+    [...capabilities].some(
+      (capability) =>
+        String(capability).startsWith('ai.video.'),
+    )
+  ) {
+    fail(`${deliverable.title} audio deliverable unexpectedly requires video generation`);
+  }
   if (medium === 'FILM' && !capabilities.has('ai.video.image_to_video') && !capabilities.has('ai.video.generate')) {
     fail(`${deliverable.title} has no video generation capability`);
   }
@@ -282,56 +308,125 @@ for (const [index, deliverable] of deliverables.entries()) {
 const filmDeliverables = deliverables.filter((deliverable) => String(deliverable.medium).toUpperCase() === 'FILM');
 if (!filmDeliverables.length) fail('no film/video deliverable was produced');
 
-const masterFilms = filmDeliverables.filter(
-  (deliverable) =>
-    deliverable.metadata?.production_role === 'MASTER',
-);
-const cutdownFilms = filmDeliverables.filter(
-  (deliverable) =>
-    deliverable.metadata?.production_role === 'CUTDOWN',
-);
+const masterFilms =
+  filmDeliverables.filter(
+    (deliverable) =>
+      deliverable.metadata
+        ?.production_role === 'MASTER',
+  );
+
+const cutdownFilms =
+  filmDeliverables.filter(
+    (deliverable) =>
+      deliverable.metadata
+        ?.production_role === 'CUTDOWN',
+  );
 
 if (masterFilms.length !== 1) {
-  fail(`expected exactly one master film, received ${masterFilms.length}`);
+  fail(
+    `expected exactly one master film, received ${masterFilms.length}`,
+  );
 }
-if (/cutdown|reel|short/i.test(masterFilms[0].title || '')) {
-  fail('master film is mislabeled as a cutdown');
+
+if (
+  /cutdown|reel|short|feed/i.test(
+    masterFilms[0].title || '',
+  )
+) {
+  fail(
+    'master film is mislabeled as a cutdown',
+  );
+}
+
+for (
+  const deliverable
+  of filmDeliverables
+) {
+  if (deliverable === masterFilms[0]) {
+    continue;
+  }
+
+  const derivativeText =
+    JSON.stringify({
+      dependencies:
+        deliverable.dependencies || [],
+      specifications:
+        deliverable.specifications || {},
+      metadata:
+        deliverable.metadata || {},
+      channels:
+        deliverable.channels || [],
+      formats:
+        deliverable.formats || [],
+    }).toLowerCase();
+
+  const isMasterDerivative =
+    /master[_\s-]*(film|timeline|edit|project)|derived?\s+from\s+(the\s+)?master|adapted\s+from\s+(the\s+)?master|source.*master/.test(
+      derivativeText,
+    );
+
+  if (
+    isMasterDerivative &&
+    deliverable.metadata
+      ?.production_role !== 'CUTDOWN'
+  ) {
+    fail(
+      `${deliverable.title} depends on the master but is not classified as CUTDOWN`,
+    );
+  }
 }
 
 for (const cutdown of cutdownFilms) {
   if (
-    cutdown.metadata?.derivative_policy !==
+    cutdown.metadata
+      ?.derivative_policy !==
     'DERIVE_FROM_APPROVED_MASTER_TIMELINE'
   ) {
-    fail(`${cutdown.title} is not bound to the approved master timeline`);
+    fail(
+      `${cutdown.title} is not bound to the approved master timeline`,
+    );
   }
 }
 
-const masterProjects = projects.filter(
-  (project) =>
-    project.metadata?.production_role === 'MASTER',
-);
-const cutdownProjects = projects.filter(
-  (project) =>
-    project.metadata?.production_role === 'CUTDOWN',
-);
+const masterProjects =
+  projects.filter(
+    (project) =>
+      project.metadata
+        ?.production_role === 'MASTER',
+  );
+
+const cutdownProjects =
+  projects.filter(
+    (project) =>
+      project.metadata
+        ?.production_role === 'CUTDOWN',
+  );
 
 if (masterProjects.length !== 1) {
-  fail(`expected exactly one master project, received ${masterProjects.length}`);
+  fail(
+    `expected exactly one master project, received ${masterProjects.length}`,
+  );
 }
 
 for (const project of cutdownProjects) {
   if (
-    project.metadata?.master_project_id !==
+    project.metadata
+      ?.master_project_id !==
     masterProjects[0].id
   ) {
-    fail(`${project.name} is not linked to the master project`);
+    fail(
+      `${project.name} is not linked to the master project`,
+    );
   }
+
   if (
-    project.metadata?.derivative_policy !==
+    project.metadata
+      ?.derivative_policy !==
     'DERIVE_FROM_APPROVED_MASTER_TIMELINE'
   ) {
-    fail(`${project.name} has no master-derived cutdown policy`);
+    fail(
+      `${project.name} has no master-derived cutdown policy`,
+    );
   }
 }
 
@@ -393,6 +488,8 @@ console.log(`PASS: business truth snapshot ${body.business_truth.snapshot_id}`);
 console.log(`PASS: business truth hash ${body.business_truth.payload_hash}`);
 console.log(`PASS: project-scoped asset evidence nodes ${recordCounts.asset_nodes}`);
 console.log('PASS: master and cutdown lineage contract');
+console.log('PASS: complete nested Director production detail preserved');
+console.log('PASS: medium-specific titles and capabilities');
 console.log('PASS: rights assumptions are evidence-safe');
 console.log('PASS: location grounding release contract');
 console.log('PASS: business truth source failures 0');

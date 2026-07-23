@@ -37,26 +37,70 @@ function projectProductionType(medium = "") {
   return "MULTIMEDIA";
 }
 
-function durationSeconds(specifications = {}, fallback = 30) {
-  const candidates = [
+function durationSeconds(
+  specifications = {},
+  fallback = 30,
+) {
+  const candidateGroups = [
     specifications.duration_seconds,
     specifications.target_duration,
+    specifications.runtime,
     specifications.duration,
+    specifications.durations,
     specifications.max_duration,
   ];
 
-  for (const candidate of candidates) {
-    if (Number.isFinite(Number(candidate)) && Number(candidate) > 0) {
-      return Math.round(Number(candidate));
+  for (
+    const candidateGroup
+    of candidateGroups
+  ) {
+    const candidates =
+      Array.isArray(candidateGroup)
+        ? candidateGroup
+        : [candidateGroup];
+
+    const parsed = [];
+
+    for (const candidate of candidates) {
+      if (
+        Number.isFinite(
+          Number(candidate),
+        ) &&
+        Number(candidate) > 0
+      ) {
+        parsed.push(
+          Math.round(Number(candidate)),
+        );
+        continue;
+      }
+
+      const match = String(
+        candidate || "",
+      ).match(
+        /(\d+(?:\.\d+)?)(?:\s*[-–—]\s*(\d+(?:\.\d+)?))?\s*(?:seconds?|secs?|s)\b/i,
+      );
+
+      if (match) {
+        const lower = Number(match[1]);
+        const upper = Number(
+          match[2] || match[1],
+        );
+
+        if (
+          lower > 0 &&
+          upper > 0
+        ) {
+          parsed.push(
+            Math.round(
+              Math.max(lower, upper),
+            ),
+          );
+        }
+      }
     }
 
-    const match = String(candidate || "").match(
-      /(\d+(?:\.\d+)?)(?:\s*[-–]\s*(\d+(?:\.\d+)?))?\s*(?:seconds?|secs?|s)\b/i,
-    );
-    if (match) {
-      const lower = Number(match[1]);
-      const upper = Number(match[2] || match[1]);
-      if (lower > 0 && upper > 0) return Math.round(Math.max(lower, upper));
+    if (parsed.length) {
+      return Math.max(...parsed);
     }
   }
 

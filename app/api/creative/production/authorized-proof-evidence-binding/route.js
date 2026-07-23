@@ -8,8 +8,8 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 import {
-  CreativeAuthorizedProofEvidenceBindingRuntime,
-} from "@/lib/creative/production/approval/CreativeAuthorizedProofEvidenceBindingRuntime";
+  CreativeAuthorizedProofEvidenceBindingRuntimeV2,
+} from "@/lib/creative/production/approval/CreativeAuthorizedProofEvidenceBindingRuntimeV2";
 
 export async function POST(req) {
   try {
@@ -42,7 +42,7 @@ export async function POST(req) {
     }
 
     const result =
-      await CreativeAuthorizedProofEvidenceBindingRuntime.bind({
+      await CreativeAuthorizedProofEvidenceBindingRuntimeV2.bind({
         organization_id: organizationId,
         creative_project_id: projectId,
         approval_candidate:

@@ -44,8 +44,26 @@ const MISSION_COMPOSITION_RECOVERY_DIRECTIVES = [
   },
 ];
 
+const RECOVERABLE_DIRECTOR_PATCH_CODES = [
+  "CREATIVE_DIRECTOR_JOB_PATCH_EMPTY",
+  "CREATIVE_DIRECTOR_JOB_SCENE_PATCH_EMPTY",
+  "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_EMPTY",
+  "CREATIVE_DIRECTOR_JOB_PATCH_REQUIRED",
+];
+
 function text(value) {
   return String(value || "").trim();
+}
+
+function list(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value.filter(Boolean) : [value];
+}
+
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
 }
 
 function headersFrom(req) {
@@ -231,6 +249,233 @@ async function composeMissionWithRecovery({
   };
 }
 
+function directorFailure(invocation = {}) {
+  const payload = object(invocation.payload);
+  const details = object(payload.details);
+  const stepError = object(details.step_error);
+  const job = object(payload.job);
+
+  return {
+    job_id:
+      details.job_id ||
+      job.id ||
+      null,
+    step_key:
+      details.step_key ||
+      job.current_step_key ||
+      null,
+    step_status:
+      details.step_status ||
+      null,
+    error:
+      payload.error ||
+      null,
+    error_code:
+      stepError.code ||
+      payload.code ||
+      payload.error ||
+      null,
+    error_message:
+      stepError.message ||
+      payload.error ||
+      null,
+    error_details:
+      stepError.details ||
+      details.runtime_details ||
+      null,
+  };
+}
+
+function recoverableDirectorFailure(invocation = {}) {
+  if (invocation.ok) return false;
+
+  const failure = directorFailure(invocation);
+  const marker = JSON.stringify({
+    error: failure.error,
+    error_code: failure.error_code,
+    step_key: failure.step_key,
+  }).toUpperCase();
+
+  return Boolean(
+    marker.includes("CREATIVE_CANARY_V2_UNSUPPORTED_FAILED_STEP") &&
+    RECOVERABLE_DIRECTOR_PATCH_CODES.some((code) =>
+      marker.includes(code),
+    ),
+  );
+}
+
+function compactAssetResolution(value = {}) {
+  const resolution = object(value);
+  const assets = list(resolution.assets);
+
+  return {
+    source: resolution.source || null,
+    asset_count:
+      Number.isFinite(Number(resolution.asset_count))
+        ? Number(resolution.asset_count)
+        : assets.length,
+    project_asset_count:
+      resolution.project_asset_count ?? null,
+    mission_asset_count:
+      resolution.mission_asset_count ?? null,
+    organization_asset_count:
+      resolution.organization_asset_count ?? null,
+    canonical_asset_ids:
+      assets.slice(0, 50).map((asset) => asset?.id).filter(Boolean),
+  };
+}
+
+function compactDirectorPayload(payload = {}) {
+  const source = object(payload);
+  const job = object(source.job);
+  const created = object(source.created);
+
+  return {
+    success: source.success === true,
+    error: source.error || null,
+    details: source.details || null,
+    verdict: source.verdict || null,
+    thresholds: source.thresholds || null,
+    provenance: source.provenance || null,
+    event_count: list(source.events).length,
+    created: {
+      asset_count: created.asset_count ?? null,
+      asset_resolution:
+        compactAssetResolution(created.asset_resolution),
+    },
+    job: job.id
+      ? {
+          id: job.id,
+          status: job.status || null,
+          current_step_key: job.current_step_key || null,
+          current_step_index: job.current_step_index ?? null,
+          completed_steps: job.completed_steps ?? null,
+          total_steps: job.total_steps ?? null,
+          progress_percent: job.progress_percent ?? null,
+          error: job.error || null,
+        }
+      : null,
+  };
+}
+
+async function runDirectorCanaryWithRecovery({
+  req,
+  organizationId,
+  missionId,
+  projectId,
+  durationSeconds,
+  objective,
+  maxTemporalAttempts,
+  maxRecoveryHandlerCalls,
+  maximumAttempts = 3,
+}) {
+  const attempts = [];
+  const boundedAttempts = Math.max(
+    1,
+    Math.min(3, Math.round(Number(maximumAttempts || 3))),
+  );
+  let priorFailure = null;
+  let lastInvocation = null;
+
+  for (let index = 0; index < boundedAttempts; index += 1) {
+    const semanticRecovery = priorFailure
+      ? {
+          enabled: true,
+          attempt: index + 1,
+          maximum_attempts: boundedAttempts,
+          previous_job_id: priorFailure.job_id,
+          failed_step_key: priorFailure.step_key,
+          previous_error_code: priorFailure.error_code,
+          previous_error_details: priorFailure.error_details,
+          mandatory_instruction:
+            "The previous specialist output returned an empty placeholder patch. Inspect the complete production bible again. Return at least one substantive, mission-specific patch when correction is required. When the current plan genuinely requires no change, return plan_patch.no_change_required=true and do not include empty scene or shot patch entries. Never return no_change_required=false with an empty patch.",
+          preserve_canonical_asset_ids: true,
+          preserve_factual_truth: true,
+          production_dispatch_forbidden: true,
+        }
+      : null;
+
+    const invocation = await invoke({
+      handler: directorCanaryPost,
+      req,
+      pathname: "/api/creative/director-jobs/canary-v2",
+      body: {
+        organization_id: organizationId,
+        creative_mission_id: missionId,
+        creative_project_id: projectId,
+        duration_seconds: durationSeconds,
+        objective,
+        max_temporal_attempts: maxTemporalAttempts,
+        max_recovery_handler_calls: maxRecoveryHandlerCalls,
+        brief: semanticRecovery
+          ? {
+              autonomous_director_semantic_recovery:
+                semanticRecovery,
+            }
+          : {},
+      },
+    });
+
+    lastInvocation = invocation;
+    const failure = directorFailure(invocation);
+    const passed = Boolean(
+      invocation.ok &&
+      invocation.payload?.success === true &&
+      invocation.payload?.verdict
+        ?.plan_only_canary_passed === true,
+    );
+    const recoverable =
+      !passed && recoverableDirectorFailure(invocation);
+
+    attempts.push({
+      attempt: index + 1,
+      job_id:
+        invocation.payload?.job?.id ||
+        failure.job_id ||
+        null,
+      status: invocation.status,
+      passed,
+      recoverable,
+      failed_step_key: failure.step_key,
+      error: failure.error,
+      error_code: failure.error_code,
+    });
+
+    if (passed) {
+      return {
+        ...invocation,
+        recovery: {
+          attempted: index > 0,
+          recovered: index > 0,
+          attempt_count: index + 1,
+          attempts,
+        },
+      };
+    }
+
+    if (!recoverable) break;
+    priorFailure = failure;
+  }
+
+  return {
+    ...(lastInvocation || {
+      ok: false,
+      status: 500,
+      payload: {
+        success: false,
+        error:
+          "CREATIVE_GREENFIELD_DIRECTOR_NOT_EXECUTED",
+      },
+    }),
+    recovery: {
+      attempted: attempts.length > 1,
+      recovered: false,
+      attempt_count: attempts.length,
+      attempts,
+    },
+  };
+}
+
 function masterFilmProject(projects = []) {
   return (
     projects.find((project) =>
@@ -378,23 +623,22 @@ export async function POST(req) {
       }, { status: 422 });
     }
 
-    const directorInvocation = await invoke({
-      handler: directorCanaryPost,
-      req,
-      pathname: "/api/creative/director-jobs/canary-v2",
-      body: {
-        organization_id: organizationId,
-        creative_mission_id: mission.id,
-        creative_project_id: project.id,
-        duration_seconds:
+    const directorInvocation =
+      await runDirectorCanaryWithRecovery({
+        req,
+        organizationId,
+        missionId: mission.id,
+        projectId: project.id,
+        durationSeconds:
           Number(project.target_duration || durationSeconds),
         objective,
-        max_temporal_attempts:
+        maxTemporalAttempts:
           Number(body.max_temporal_attempts || 6),
-        max_recovery_handler_calls:
+        maxRecoveryHandlerCalls:
           Number(body.max_recovery_handler_calls || 6),
-      },
-    });
+        maximumAttempts:
+          Number(body.max_director_attempts || 3),
+      });
 
     director = directorInvocation.payload;
 
@@ -407,7 +651,7 @@ export async function POST(req) {
         error:
           director?.error ||
           "CREATIVE_GREENFIELD_DIRECTOR_CANARY_FAILED",
-        details: director,
+        details: compactDirectorPayload(director),
         mission: {
           id: mission.id,
           title: mission.title || null,
@@ -418,7 +662,10 @@ export async function POST(req) {
         },
         mission_composition_recovery:
           missionInvocation.recovery,
+        autonomous_director_recovery:
+          directorInvocation.recovery,
         paid_execution_started: false,
+        video_generation_started: false,
       }, { status: directorInvocation.status || 422 });
     }
 
@@ -429,9 +676,11 @@ export async function POST(req) {
         success: false,
         stage: "AUTONOMOUS_DIRECTOR",
         error: "CREATIVE_GREENFIELD_DIRECTOR_JOB_ID_MISSING",
-        details: director,
+        details: compactDirectorPayload(director),
         mission_composition_recovery:
           missionInvocation.recovery,
+        autonomous_director_recovery:
+          directorInvocation.recovery,
         paid_execution_started: false,
       }, { status: 500 });
     }
@@ -458,6 +707,8 @@ export async function POST(req) {
       paid_execution_started: executePaid,
       mission_composition_recovery:
         missionInvocation.recovery,
+      autonomous_director_recovery:
+        directorInvocation.recovery,
       mission: {
         id: mission.id,
         title: mission.title || null,
@@ -477,7 +728,10 @@ export async function POST(req) {
         verdict: director.verdict,
         provenance: director.provenance,
         event_count: director.events?.length || 0,
-        asset_resolution: director.created?.asset_resolution || null,
+        asset_resolution:
+          compactAssetResolution(
+            director.created?.asset_resolution,
+          ),
       },
       proof,
     }, {

@@ -1066,22 +1066,73 @@ export async function POST(req) {
       });
     }
 
+    const fps = Math.max(
+      1,
+      Math.round(
+        Number(input.fps || 30),
+      ),
+    );
+    const targetDuration = Number(
+      input.target_duration_seconds ||
+      planDuration(plan),
+    );
+    const plannedDuration =
+      planDuration(plan);
+    const expectedShotCount =
+      list(plan.scenes).reduce(
+        (total, scene) =>
+          total + list(scene.shots).length,
+        0,
+      );
+    const expectedTotalFrames =
+      Math.round(targetDuration * fps);
+    const durationMatches =
+      Math.abs(
+        plannedDuration - targetDuration,
+      ) <= 0.1;
+    const shotCoverageMatches =
+      audit.temporal.shot_count ===
+      expectedShotCount;
+    const frameCoverageMatches =
+      audit.temporal.total_frames ===
+      expectedTotalFrames;
+
     if (
-      audit.temporal.shot_count !== 6 ||
-      audit.temporal.total_frames !== 900
+      !durationMatches ||
+      !shotCoverageMatches ||
+      !frameCoverageMatches
     ) {
       return safeResponse({
         success: false,
         status: 422,
         error:
-          "CREATIVE_FINAL_STORYBOARD_TEMPORAL_COVERAGE_UNEXPECTED",
+          "CREATIVE_FINAL_STORYBOARD_STRUCTURAL_REPLAN_REQUIRED",
         details: {
-          expected_shot_count: 6,
+          reason:
+            "The accepted production bible does not cover the mission duration and cannot be repaired by the final shot-summary evidence pass.",
+          repair_scope_required:
+            "STRUCTURE_AND_DURATION",
+          current_repair_scope:
+            "SHOT_SUMMARY_EVIDENCE",
+          target_duration_seconds:
+            targetDuration,
+          planned_duration_seconds:
+            plannedDuration,
+          fps,
+          expected_shot_count:
+            expectedShotCount,
           received_shot_count:
             audit.temporal.shot_count,
-          expected_total_frames: 900,
+          expected_total_frames:
+            expectedTotalFrames,
           received_total_frames:
             audit.temporal.total_frames,
+          duration_matches:
+            durationMatches,
+          shot_coverage_matches:
+            shotCoverageMatches,
+          frame_coverage_matches:
+            frameCoverageMatches,
         },
         audit,
         convergence,

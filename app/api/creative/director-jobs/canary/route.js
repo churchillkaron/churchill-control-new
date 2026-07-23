@@ -33,7 +33,7 @@ import {
 } from "../converge-storyboard-final/route";
 
 const JOBS = "creative_director_jobs";
-const MAX_CYCLES = 80;
+const MAX_CYCLES = 24;
 
 function list(value) {
   if (!value) return [];
@@ -80,6 +80,50 @@ function currentStep(job = {}) {
       step?.step_key ===
       job.current_step_key,
   ) || null;
+}
+
+function stableValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(stableValue);
+  }
+
+  if (
+    value &&
+    typeof value === "object"
+  ) {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [
+          key,
+          stableValue(value[key]),
+        ]),
+    );
+  }
+
+  return value;
+}
+
+function progressSignature(job = {}) {
+  const step = currentStep(job);
+
+  return JSON.stringify(
+    stableValue({
+      job_status: job.status || null,
+      current_step_key:
+        job.current_step_key || null,
+      current_step_index:
+        job.current_step_index ?? null,
+      completed_steps:
+        job.completed_steps ?? null,
+      progress_percent:
+        job.progress_percent ?? null,
+      step_status: step?.status || null,
+      step_attempt: step?.attempt ?? null,
+      step_error: step?.error || null,
+      job_error: job.error || null,
+    }),
+  );
 }
 
 function headersFrom(req) {
@@ -653,13 +697,70 @@ export async function POST(req) {
         }),
       );
 
+      const afterStep =
+        currentStep(after);
+
+      if (
+        invocation.payload?.error ===
+        "CREATIVE_FINAL_STORYBOARD_STRUCTURAL_REPLAN_REQUIRED"
+      ) {
+        return canaryResponse({
+          success: false,
+          status: 422,
+          error:
+            "CREATIVE_FINAL_STORYBOARD_STRUCTURAL_REPLAN_REQUIRED",
+          details: {
+            handler_payload:
+              invocation.payload,
+            step_key:
+              after.current_step_key,
+            step_status:
+              afterStep?.status || null,
+          },
+          events,
+          thresholds,
+          created,
+          job: after,
+        });
+      }
+
+      if (
+        stepStatus === "FAILED" &&
+        afterStep?.status === "FAILED" &&
+        progressSignature(before) ===
+          progressSignature(after)
+      ) {
+        return canaryResponse({
+          success: false,
+          status: 422,
+          error:
+            "CREATIVE_CANARY_NO_PROGRESS",
+          details: {
+            reason:
+              "The recovery handler returned without changing the failed job state. Automatic retry was stopped to prevent a non-mutating loop.",
+            cycle,
+            handler_kind: kind,
+            handler_payload:
+              invocation.payload,
+            step_key: stepKey,
+            step_status:
+              afterStep?.status || null,
+            step_attempt:
+              afterStep?.attempt ?? null,
+            state_signature:
+              progressSignature(after),
+          },
+          events,
+          thresholds,
+          created,
+          job: after,
+        });
+      }
+
       if (
         !invocation.ok &&
         after.status !== "COMPLETED"
       ) {
-        const afterStep =
-          currentStep(after);
-
         if (
           afterStep?.status !== "FAILED"
         ) {

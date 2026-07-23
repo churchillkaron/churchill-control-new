@@ -48,7 +48,16 @@ function statusTone(status) {
     return "border-red-400/25 bg-red-400/10 text-red-200";
   }
 
-  if (["RUNNING", "PROCESSING", "PRODUCING"].includes(value)) {
+  if ([
+    "RUNNING",
+    "PROCESSING",
+    "PRODUCING",
+    "PRODUCTION_QUEUED",
+    "PRODUCING_MASTER_STILLS",
+    "PRODUCING_MOTION",
+    "EDITING_AND_AUDIO",
+    "FINAL_QA",
+  ].includes(value)) {
     return "border-amber-300/25 bg-amber-300/10 text-amber-100";
   }
 
@@ -355,6 +364,8 @@ export default function ProductionWorkspace({
 
   const budget = control?.budget || {};
   const release = control?.release || {};
+  const lifecycle = control?.lifecycle || {};
+  const lifecycleProgress = lifecycle.progress || {};
   const previewUrl = assetUrl(selectedAsset);
 
   return (
@@ -370,13 +381,18 @@ export default function ProductionWorkspace({
                 {project.name || "Film Production"}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <StatusPill value={control?.project_status || "DRAFT"} />
+                <StatusPill value={lifecycle.status || control?.project_status || "DRAFT"} />
                 <span className="text-xs text-white/35">
                   {lastUpdated
                     ? `Updated ${lastUpdated.toLocaleTimeString()}`
                     : "Loading live production status"}
                 </span>
               </div>
+              {lifecycle.description ? (
+                <div className="mt-3 max-w-3xl text-sm text-white/50">
+                  {lifecycle.description}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -418,7 +434,7 @@ export default function ProductionWorkspace({
           <Metric
             label="Production Tasks"
             value={control?.tasks?.total || tasks.length}
-            note={`${activeTasks.length} active`}
+            note={`${lifecycleProgress.active_tasks ?? activeTasks.length} active · ${lifecycleProgress.total_shots || 0} shots`}
           />
           <Metric
             label="Completed"
@@ -426,7 +442,12 @@ export default function ProductionWorkspace({
               (control?.tasks?.by_status?.COMPLETED || 0) +
               (control?.tasks?.by_status?.APPROVED || 0)
             }
-            note={`${failedTasks.length} failed`}
+            note={`${lifecycleProgress.progress_percent ?? 0}% complete · ${lifecycleProgress.failed_tasks ?? failedTasks.length} failed`}
+          />
+          <Metric
+            label="Master Stills"
+            value={`${lifecycleProgress.master_stills?.completed || 0}/${lifecycleProgress.master_stills?.total || 0}`}
+            note={`${lifecycleProgress.motion_clips?.completed || 0}/${lifecycleProgress.motion_clips?.total || 0} motion clips`}
           />
           <Metric
             label="Creative Assets"

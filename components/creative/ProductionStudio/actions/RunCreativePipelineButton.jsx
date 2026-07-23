@@ -102,13 +102,16 @@ export default function RunCreativePipelineButton({
       }
 
       setMessage(
-        "Production plan created. Open Production to monitor and continue each controlled pass.",
+        result.autonomous_handoff?.approval_required
+          ? "Production is queued and waiting for the required budget approval."
+          : "Production is queued and will continue automatically. Open Production to monitor live shot progress.",
       );
 
       window.dispatchEvent(
         new CustomEvent("creative-production-started", {
           detail: {
             creative_project_id: project.id,
+            autonomous: true,
           },
         }),
       );
@@ -134,8 +137,8 @@ export default function RunCreativePipelineButton({
         className="rounded-xl border border-[#c8a96a]/30 bg-[#b48a45]/10 px-4 py-2 text-sm text-[#d8bd7a] transition hover:bg-[#b48a45]/20 disabled:opacity-50"
       >
         {loading
-          ? "Building production plan..."
-          : "Run Film Production"}
+          ? "Planning and queueing production..."
+          : "Approve & Start Production"}
       </button>
 
       {message ? (

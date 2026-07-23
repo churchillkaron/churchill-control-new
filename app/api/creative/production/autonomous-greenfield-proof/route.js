@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 600;
 
 import { NextResponse } from "next/server";
 
@@ -19,6 +19,30 @@ import {
 import {
   POST as directorCanaryPost,
 } from "@/app/api/creative/director-jobs/canary-v2/route";
+
+const MISSION_COMPOSITION_RECOVERY_DIRECTIVES = [
+  {
+    mode: "STRICT_COMPACT_JSON",
+    instruction:
+      "Return one compact strict JSON object only. Keep all required fields, limit the mission to the strongest production-ready master campaign system, use no prose outside JSON, and keep every array concise.",
+    maximum_deliverables: 5,
+    maximum_workflow_items: 13,
+  },
+  {
+    mode: "STRICT_MINIMAL_JSON_REPAIR",
+    instruction:
+      "A previous structured response was invalid or incomplete. Recompose from the original request and supplied business truth. Return valid compact JSON only, with one master FILM deliverable plus only essential supporting deliverables. Never use markdown or commentary.",
+    maximum_deliverables: 4,
+    maximum_workflow_items: 13,
+  },
+  {
+    mode: "FAILSAFE_PRODUCTION_BLUEPRINT",
+    instruction:
+      "Produce the smallest complete production-ready JSON blueprint that satisfies the contract. Include one master FILM deliverable, one IMAGE proof system, one AUDIO system, the complete canonical workflow, explicit quality policy, decision gates, and integer confidence. JSON only.",
+    maximum_deliverables: 3,
+    maximum_workflow_items: 13,
+  },
+];
 
 function text(value) {
   return String(value || "").trim();
@@ -67,6 +91,143 @@ async function invoke({ handler, req, pathname, body }) {
     ok: response.ok,
     status: response.status,
     payload,
+  };
+}
+
+function missionCompositionFailureMarker(invocation = {}) {
+  return JSON.stringify({
+    status: invocation.status || null,
+    error: invocation.payload?.error || null,
+    code: invocation.payload?.code || null,
+    details: invocation.payload?.details || null,
+  }).toUpperCase();
+}
+
+function recoverableMissionCompositionFailure(invocation = {}) {
+  if (invocation.ok) return false;
+
+  const marker = missionCompositionFailureMarker(invocation);
+
+  return (
+    marker.includes("OPENAI_STRUCTURED_JSON_INVALID") ||
+    marker.includes("OPENAI_STRUCTURED_JSON_") ||
+    marker.includes("AI_DIRECTOR_INVALID_JSON") ||
+    marker.includes("CREATIVE_AI_DIRECTOR_INVALID_OUTPUT") ||
+    marker.includes("AI_DIRECTOR_EXECUTION_FAILED") ||
+    marker.includes("CREATIVE_INTERNAL_RESPONSE_INVALID")
+  );
+}
+
+async function composeMissionWithRecovery({
+  req,
+  organizationId,
+  entityId,
+  periodId,
+  objective,
+  durationSeconds,
+  context,
+  maximumAttempts = 3,
+}) {
+  const attempts = [];
+  const boundedAttempts = Math.max(
+    1,
+    Math.min(
+      MISSION_COMPOSITION_RECOVERY_DIRECTIVES.length,
+      Math.round(Number(maximumAttempts || 3)),
+    ),
+  );
+  let lastInvocation = null;
+
+  for (let index = 0; index < boundedAttempts; index += 1) {
+    const directive =
+      MISSION_COMPOSITION_RECOVERY_DIRECTIVES[index];
+    const invocation = await invoke({
+      handler: composeMissionPost,
+      req,
+      pathname: "/api/creative/missions/compose",
+      body: {
+        organization_id: organizationId,
+        entity_id: entityId,
+        period_id: periodId,
+        request: objective,
+        context: {
+          ...(context || {}),
+          greenfield_reality_test: true,
+          requested_master_duration_seconds:
+            durationSeconds,
+          production_ambition:
+            "WORLD_CLASS_CINEMATIC_ADVERTISING",
+          autonomous_story_required: true,
+          full_scene_reference_synthesis_required: true,
+          mask_composition_forbidden: true,
+          mission_composition_recovery: {
+            enabled: true,
+            attempt: index + 1,
+            maximum_attempts: boundedAttempts,
+            mode: directive.mode,
+            instruction: directive.instruction,
+            maximum_deliverables:
+              directive.maximum_deliverables,
+            maximum_workflow_items:
+              directive.maximum_workflow_items,
+            preserve_original_business_truth: true,
+            preserve_original_request: true,
+            strict_json_only: true,
+          },
+        },
+      },
+    });
+
+    lastInvocation = invocation;
+    attempts.push({
+      attempt: index + 1,
+      mode: directive.mode,
+      status: invocation.status,
+      success:
+        invocation.ok &&
+        invocation.payload?.success !== false,
+      error: invocation.payload?.error || null,
+      code: invocation.payload?.code || null,
+      recoverable:
+        recoverableMissionCompositionFailure(invocation),
+    });
+
+    if (
+      invocation.ok &&
+      invocation.payload?.success !== false
+    ) {
+      return {
+        ...invocation,
+        recovery: {
+          attempted: index > 0,
+          recovered: index > 0,
+          attempt_count: index + 1,
+          attempts,
+        },
+      };
+    }
+
+    if (!recoverableMissionCompositionFailure(invocation)) {
+      break;
+    }
+  }
+
+  return {
+    ...(lastInvocation || {
+      ok: false,
+      status: 500,
+      payload: {
+        success: false,
+        error:
+          "CREATIVE_GREENFIELD_MISSION_COMPOSITION_NOT_EXECUTED",
+      },
+    }),
+    recovery: {
+      attempted: attempts.length > 1,
+      recovered: false,
+      attempt_count: attempts.length,
+      attempts,
+    },
   };
 }
 
@@ -166,28 +327,18 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    const missionInvocation = await invoke({
-      handler: composeMissionPost,
-      req,
-      pathname: "/api/creative/missions/compose",
-      body: {
-        organization_id: organizationId,
-        entity_id: body.entity_id || null,
-        period_id: body.period_id || null,
-        request: objective,
-        context: {
-          ...(body.context || {}),
-          greenfield_reality_test: true,
-          requested_master_duration_seconds:
-            durationSeconds,
-          production_ambition:
-            "WORLD_CLASS_CINEMATIC_ADVERTISING",
-          autonomous_story_required: true,
-          full_scene_reference_synthesis_required: true,
-          mask_composition_forbidden: true,
-        },
-      },
-    });
+    const missionInvocation =
+      await composeMissionWithRecovery({
+        req,
+        organizationId,
+        entityId: body.entity_id || null,
+        periodId: body.period_id || null,
+        objective,
+        durationSeconds,
+        context: body.context || {},
+        maximumAttempts:
+          body.max_mission_composition_attempts || 3,
+      });
 
     if (!missionInvocation.ok ||
       missionInvocation.payload?.success === false) {
@@ -198,7 +349,10 @@ export async function POST(req) {
           missionInvocation.payload?.error ||
           "CREATIVE_GREENFIELD_MISSION_COMPOSITION_FAILED",
         details: missionInvocation.payload,
+        mission_composition_recovery:
+          missionInvocation.recovery,
         paid_execution_started: false,
+        video_generation_started: false,
       }, { status: missionInvocation.status || 422 });
     }
 
@@ -218,6 +372,8 @@ export async function POST(req) {
           project_count:
             missionInvocation.payload.projects?.length || 0,
         },
+        mission_composition_recovery:
+          missionInvocation.recovery,
         paid_execution_started: false,
       }, { status: 422 });
     }
@@ -260,6 +416,8 @@ export async function POST(req) {
           id: project.id,
           name: project.name || null,
         },
+        mission_composition_recovery:
+          missionInvocation.recovery,
         paid_execution_started: false,
       }, { status: directorInvocation.status || 422 });
     }
@@ -272,6 +430,8 @@ export async function POST(req) {
         stage: "AUTONOMOUS_DIRECTOR",
         error: "CREATIVE_GREENFIELD_DIRECTOR_JOB_ID_MISSING",
         details: director,
+        mission_composition_recovery:
+          missionInvocation.recovery,
         paid_execution_started: false,
       }, { status: 500 });
     }
@@ -296,6 +456,8 @@ export async function POST(req) {
       full_scene_only: true,
       masked_composition_allowed: false,
       paid_execution_started: executePaid,
+      mission_composition_recovery:
+        missionInvocation.recovery,
       mission: {
         id: mission.id,
         title: mission.title || null,

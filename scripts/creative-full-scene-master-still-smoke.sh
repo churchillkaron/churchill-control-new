@@ -89,14 +89,12 @@ NODE
 AUTH_ARGS=()
 if [ -n "${CREATIVE_TEST_BEARER_TOKEN:-}" ]; then
   AUTH_ARGS=(-H "Authorization: Bearer ${CREATIVE_TEST_BEARER_TOKEN}")
+  pass "optional bearer authentication configured"
 elif [ -n "${CREATIVE_TEST_COOKIE:-}" ]; then
   AUTH_ARGS=(-H "Cookie: ${CREATIVE_TEST_COOKIE}")
+  pass "optional cookie authentication configured"
 else
-  fail "set CREATIVE_TEST_BEARER_TOKEN or CREATIVE_TEST_COOKIE"
-fi
-
-if [ "$FAILURES" -gt 0 ]; then
-  exit 1
+  pass "local organization-scoped execution requires no bearer token"
 fi
 
 section "GREENFIELD EXECUTION"

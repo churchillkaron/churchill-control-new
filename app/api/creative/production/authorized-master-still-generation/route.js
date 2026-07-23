@@ -8,8 +8,8 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 import {
-  CreativeAuthorizedMasterStillGenerationRuntime,
-} from "@/lib/creative/production/approval/CreativeAuthorizedMasterStillGenerationRuntime";
+  CreativeAuthorizedFullSceneMasterStillRuntime,
+} from "@/lib/creative/production/approval/CreativeAuthorizedFullSceneMasterStillRuntime";
 
 export async function POST(req) {
   try {
@@ -42,7 +42,7 @@ export async function POST(req) {
     }
 
     const result =
-      await CreativeAuthorizedMasterStillGenerationRuntime.run({
+      await CreativeAuthorizedFullSceneMasterStillRuntime.run({
         organization_id: organizationId,
         creative_project_id: projectId,
         approval_candidate:
@@ -78,6 +78,8 @@ export async function POST(req) {
       error: error.message,
       code: error.code || null,
       details: error.details || null,
+      full_scene_only: true,
+      masked_composition_allowed: false,
       paid_execution_dispatched: false,
       image_generation_dispatched: false,
       video_generation_dispatched: false,

@@ -7,11 +7,18 @@ cd "$ROOT" || exit 1
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
 APP_URL="${CREATIVE_TEST_APP_URL:-http://localhost:3000}"
-REPORT="${CREATIVE_TEST_REPORT:-$ROOT/creative-full-scene-smoke-$STAMP.txt}"
-BUNDLE_FILE="${CREATIVE_TEST_BUNDLE_FILE:-}"
+ORGANIZATION_ID="${CREATIVE_TEST_ORGANIZATION_ID:-}"
+ENTITY_ID="${CREATIVE_TEST_ENTITY_ID:-}"
+PERIOD_ID="${CREATIVE_TEST_PERIOD_ID:-}"
+OBJECTIVE="${CREATIVE_TEST_OBJECTIVE:-Create an original world-class cinematic advertising film for this organization. Research the business from its connected data and approved assets, invent the complete story, direct every scene and shot, and prepare one evidence-grounded full-scene master still as the production proof.}"
+DURATION="${CREATIVE_TEST_DURATION_SECONDS:-30}"
 EXECUTE_PAID="${CREATIVE_EXECUTE_PAID_MASTER_STILL:-0}"
+REPORT="${CREATIVE_TEST_REPORT:-$ROOT/creative-greenfield-full-scene-$STAMP.txt}"
+RESPONSE_FILE="$(mktemp)"
+PAYLOAD_FILE="$(mktemp)"
 FAILURES=0
 
+trap 'rm -f "$RESPONSE_FILE" "$PAYLOAD_FILE"' EXIT
 exec > >(tee "$REPORT") 2>&1
 
 section() {
@@ -37,138 +44,12 @@ require_command() {
   fi
 }
 
-request() {
-  local endpoint="$1"
-  local payload_file="$2"
-  local output_file="$3"
-  local auth_args=()
-
-  if [ -n "${CREATIVE_TEST_BEARER_TOKEN:-}" ]; then
-    auth_args=(-H "Authorization: Bearer ${CREATIVE_TEST_BEARER_TOKEN}")
-  elif [ -n "${CREATIVE_TEST_COOKIE:-}" ]; then
-    auth_args=(-H "Cookie: ${CREATIVE_TEST_COOKIE}")
-  fi
-
-  curl -sS \
-    -X POST "$APP_URL$endpoint" \
-    -H 'Content-Type: application/json' \
-    "${auth_args[@]}" \
-    --data-binary "@$payload_file" \
-    -o "$output_file" \
-    -w '%{http_code}'
-}
-
-validate_preflight() {
-  node - "$1" <<'NODE'
-const fs = require('fs');
-const file = process.argv[2];
-const body = JSON.parse(fs.readFileSync(file, 'utf8'));
-const result = body.result || {};
-const failures = [];
-const assert = (value, message) => {
-  if (!value) failures.push(message);
-};
-
-assert(body.success === true, `response success false: ${body.error || body.code || 'unknown'}`);
-assert(result.success === true, 'preflight result unsuccessful');
-assert(result.prepared_only === true, 'preflight was not preparation-only');
-assert(result.full_scene_only === true, 'full_scene_only missing');
-assert(result.composition_mode === 'FULL_SCENE_REFERENCE_SYNTHESIS', 'composition mode is not full-scene');
-assert(result.masked_composition_allowed === false, 'masked composition remains allowed');
-assert(result.provider_dispatched === false, 'provider dispatched during zero-spend preflight');
-assert(result.usage_created === false, 'usage created during zero-spend preflight');
-assert(result.wallet_reserved === false, 'wallet reserved during zero-spend preflight');
-assert(result.wallet_charged === false, 'wallet charged during zero-spend preflight');
-assert(Boolean(result.evidence_binding_hash), 'evidence binding hash missing');
-
-for (const [name, task] of Object.entries({
-  master_task: result.master_task || {},
-  qa_task: result.qa_task || {},
-})) {
-  assert(Boolean(task.id), `${name} id missing`);
-  assert(task.composition_mode === 'FULL_SCENE_REFERENCE_SYNTHESIS', `${name} not full-scene`);
-  assert(task.evidence_binding_hash === result.evidence_binding_hash, `${name} evidence hash mismatch`);
-  assert(task.provider_dispatched === false, `${name} provider already dispatched`);
-  assert(task.usage_created === false, `${name} usage already created`);
-  assert(task.wallet_reserved === false, `${name} wallet already reserved`);
-  assert(Number(task.actual_cost || 0) === 0, `${name} already has actual cost`);
-}
-
-if (failures.length) {
-  console.error(failures.join('\n'));
-  process.exit(1);
-}
-
-console.log(JSON.stringify({
-  verdict: 'FULL_SCENE_ZERO_SPEND_PREFLIGHT_PASS',
-  execution_plan_id: result.execution_plan_id,
-  evidence_binding_hash: result.evidence_binding_hash,
-  master_task_id: result.master_task.id,
-  qa_task_id: result.qa_task.id,
-  next_gate: result.next_gate,
-}, null, 2));
-NODE
-}
-
-validate_paid() {
-  node - "$1" <<'NODE'
-const fs = require('fs');
-const file = process.argv[2];
-const body = JSON.parse(fs.readFileSync(file, 'utf8'));
-const result = body.result || {};
-const review = result.quality_review || {};
-const authorization = review.authorization || {};
-const failures = [];
-const assert = (value, message) => {
-  if (!value) failures.push(message);
-};
-
-assert(body.success === true, `response success false: ${body.error || body.code || 'unknown'}`);
-assert(result.success === true, 'paid master still execution unsuccessful');
-assert(result.full_scene_only === true, 'paid result is not full-scene only');
-assert(result.composition_mode === 'FULL_SCENE_REFERENCE_SYNTHESIS', 'paid result composition mode invalid');
-assert(result.masked_composition_allowed === false, 'masked composition allowed in paid result');
-assert(result.paid_execution_explicitly_confirmed === true, 'paid confirmation missing');
-assert(result.image_generation_limit === 1, 'image generation limit is not one');
-assert(result.video_generation_allowed === false, 'video generation allowed');
-assert(Number(result.video_tasks_materialized || 0) === 0, 'video tasks materialized');
-assert(Number(result.video_tasks_dispatched || 0) === 0, 'video tasks dispatched');
-assert(Boolean(result.master_still?.authorization?.id), 'master still task missing');
-assert(Boolean(authorization.id), 'QA task missing');
-assert(authorization.composition_mode === 'FULL_SCENE_REFERENCE_SYNTHESIS', 'QA task full-scene lock missing');
-
-const passed = review.passed === true;
-const score = Number(review.overall_score || 0);
-const minimum = Number(review.minimum_score || 90);
-const critical = Array.isArray(review.critical_failures)
-  ? review.critical_failures
-  : [];
-assert(passed, 'strict visual QA did not pass');
-assert(score >= minimum, `QA score ${score} below ${minimum}`);
-assert(critical.length === 0, `critical QA failures: ${critical.join(', ')}`);
-
-if (failures.length) {
-  console.error(failures.join('\n'));
-  process.exit(1);
-}
-
-console.log(JSON.stringify({
-  verdict: 'ONE_FULL_SCENE_MASTER_STILL_AND_QA_PASS',
-  master_task_id: result.master_still.authorization.id,
-  qa_task_id: authorization.id,
-  quality_score: score,
-  minimum_score: minimum,
-  next_gate: result.next_gate,
-  video_tasks_materialized: result.video_tasks_materialized,
-  video_tasks_dispatched: result.video_tasks_dispatched,
-}, null, 2));
-NODE
-}
-
-section "AVANTIQO FULL-SCENE MASTER STILL SMOKE"
+section "AVANTIQO AUTONOMOUS GREENFIELD CREATIVE TEST"
 printf 'Application: %s\n' "$APP_URL"
-printf 'Bundle: %s\n' "${BUNDLE_FILE:-NOT_SET}"
-printf 'Paid execution: %s\n' "$EXECUTE_PAID"
+printf 'Organization: %s\n' "${ORGANIZATION_ID:-NOT_SET}"
+printf 'Objective: %s\n' "$OBJECTIVE"
+printf 'Duration: %s seconds\n' "$DURATION"
+printf 'Paid master still: %s\n' "$EXECUTE_PAID"
 printf 'Report: %s\n' "$REPORT"
 printf 'Started: %s\n' "$(date -Iseconds)"
 
@@ -176,126 +57,151 @@ section "TOOLCHAIN"
 require_command curl
 require_command node
 
+if [ -z "$ORGANIZATION_ID" ]; then
+  fail "set CREATIVE_TEST_ORGANIZATION_ID"
+fi
+
+if [ "$EXECUTE_PAID" != "0" ] && [ "$EXECUTE_PAID" != "1" ]; then
+  fail "CREATIVE_EXECUTE_PAID_MASTER_STILL must be 0 or 1"
+fi
+
 if [ "$FAILURES" -gt 0 ]; then
   exit 1
 fi
 
-section "INPUT CONTRACT"
-if [ -z "$BUNDLE_FILE" ]; then
-  fail "set CREATIVE_TEST_BUNDLE_FILE to a JSON bundle"
-elif [ ! -f "$BUNDLE_FILE" ]; then
-  fail "bundle file does not exist: $BUNDLE_FILE"
-elif node - "$BUNDLE_FILE" <<'NODE'
+node - "$PAYLOAD_FILE" <<'NODE'
+const fs = require('fs');
+const duration = Number(process.env.CREATIVE_TEST_DURATION_SECONDS || 30);
+const paid = process.env.CREATIVE_EXECUTE_PAID_MASTER_STILL === '1';
+const payload = {
+  organization_id: process.env.CREATIVE_TEST_ORGANIZATION_ID,
+  entity_id: process.env.CREATIVE_TEST_ENTITY_ID || null,
+  period_id: process.env.CREATIVE_TEST_PERIOD_ID || null,
+  objective: process.env.CREATIVE_TEST_OBJECTIVE ||
+    'Create an original world-class cinematic advertising film for this organization. Research the business from its connected data and approved assets, invent the complete story, direct every scene and shot, and prepare one evidence-grounded full-scene master still as the production proof.',
+  duration_seconds: Number.isFinite(duration) && duration > 0 ? duration : 30,
+  execute_paid_master_still: paid,
+  accept_paid_execution: paid,
+};
+fs.writeFileSync(process.argv[2], JSON.stringify(payload));
+NODE
+
+AUTH_ARGS=()
+if [ -n "${CREATIVE_TEST_BEARER_TOKEN:-}" ]; then
+  AUTH_ARGS=(-H "Authorization: Bearer ${CREATIVE_TEST_BEARER_TOKEN}")
+elif [ -n "${CREATIVE_TEST_COOKIE:-}" ]; then
+  AUTH_ARGS=(-H "Cookie: ${CREATIVE_TEST_COOKIE}")
+else
+  fail "set CREATIVE_TEST_BEARER_TOKEN or CREATIVE_TEST_COOKIE"
+fi
+
+if [ "$FAILURES" -gt 0 ]; then
+  exit 1
+fi
+
+section "GREENFIELD EXECUTION"
+printf '%s\n' "Avantiqo will create a new mission and project, hydrate business truth, invent the story, run director repairs and final audit, select the proof shot, bind evidence, and prepare the full-scene master still."
+
+HTTP_STATUS="$(curl -sS \
+  -X POST "$APP_URL/api/creative/production/autonomous-greenfield-proof" \
+  -H 'Content-Type: application/json' \
+  "${AUTH_ARGS[@]}" \
+  --data-binary "@$PAYLOAD_FILE" \
+  -o "$RESPONSE_FILE" \
+  -w '%{http_code}' || true)"
+
+cat "$RESPONSE_FILE"
+printf '\nHTTP status: %s\n' "$HTTP_STATUS"
+
+section "REALITY VALIDATION"
+if [ "$HTTP_STATUS" != "200" ]; then
+  fail "greenfield endpoint returned HTTP $HTTP_STATUS"
+else
+  if node - "$RESPONSE_FILE" <<'NODE'
 const fs = require('fs');
 const body = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const required = [
-  'organization_id',
-  'creative_project_id',
-  'approval_candidate',
-  'proof_authorization',
-  'authorized_preparation',
-];
-const missing = required.filter((key) => !body[key]);
-if (missing.length) {
-  console.error(`missing: ${missing.join(', ')}`);
+const proof = body.proof || {};
+const preflight = proof.full_scene_preflight || {};
+const paid = proof.paid_execution || null;
+const failures = [];
+const assert = (condition, message) => {
+  if (!condition) failures.push(message);
+};
+
+assert(body.success === true, `response unsuccessful: ${body.error || body.code || 'unknown'}`);
+assert(body.greenfield_test === true, 'greenfield marker missing');
+assert(body.mission_created === true && Boolean(body.mission?.id), 'new mission not created');
+assert(body.project_created === true && Boolean(body.project?.id), 'new master project not created');
+assert(body.business_truth?.snapshot_id, 'business-truth snapshot missing');
+assert(body.director_completed === true, 'director did not complete');
+assert(body.final_story_audit_passed === true, 'final story audit did not pass');
+assert(body.director?.verdict?.plan_only_canary_passed === true, 'director canary failed');
+assert(body.director?.verdict?.final_failure_count === 0, 'director final audit contains failures');
+assert(proof.autonomous_story_created === true, 'story was not autonomously created');
+assert(Number(proof.story_scene_count || 0) > 0, 'story has no scenes');
+assert(Number(proof.story_shot_count || 0) > 0, 'story has no shots');
+assert(Boolean(proof.selected_proof_shot?.key), 'proof shot was not selected');
+assert((proof.selected_proof_shot?.reference_asset_ids || []).length > 0, 'proof shot has no references');
+assert(Boolean(proof.approval_candidate_hash), 'approval candidate hash missing');
+assert(Boolean(proof.proof_authorization?.authorization_hash), 'proof authorization missing');
+assert(Boolean(proof.authorized_preparation?.preparation?.execution_plan?.id), 'authorized preparation missing');
+assert(Boolean(proof.evidence_audit?.evidence_role_manifest), 'evidence audit missing');
+assert(Boolean(proof.final_full_scene_binding?.binding_hash), 'full-scene evidence binding missing');
+assert(proof.final_full_scene_binding?.composition_plan?.mode === 'FULL_SCENE_REFERENCE_SYNTHESIS', 'binding is not full-scene');
+assert(body.masked_composition_allowed === false, 'masked composition remains allowed');
+assert(preflight.success === true && preflight.prepared_only === true, 'full-scene zero-spend preflight failed');
+assert(preflight.composition_mode === 'FULL_SCENE_REFERENCE_SYNTHESIS', 'preflight composition mode invalid');
+assert(Number(preflight.video_tasks_materialized || 0) === 0, 'video tasks materialized during proof preflight');
+assert(Number(preflight.video_tasks_dispatched || 0) === 0, 'video tasks dispatched during proof preflight');
+
+if (process.env.CREATIVE_EXECUTE_PAID_MASTER_STILL === '1') {
+  assert(body.paid_execution_started === true, 'paid execution was requested but not started');
+  assert(Boolean(paid), 'paid execution result missing');
+  assert(paid.success === true, 'paid master still failed');
+  assert(paid.full_scene_only === true, 'paid output is not full-scene only');
+  assert(paid.composition_mode === 'FULL_SCENE_REFERENCE_SYNTHESIS', 'paid composition mode invalid');
+  assert(Number(paid.video_tasks_materialized || 0) === 0, 'video tasks materialized during paid proof');
+  assert(Number(paid.video_tasks_dispatched || 0) === 0, 'video tasks dispatched during paid proof');
+  const qa = paid.quality_review || {};
+  assert(qa.passed === true, 'strict image QA did not pass');
+  assert(Number(qa.overall_score || 0) >= Number(qa.minimum_score || 90), 'strict QA score below minimum');
+  assert((qa.critical_failures || []).length === 0, 'critical QA failures remain');
+} else {
+  assert(body.paid_execution_started === false, 'provider spend started during zero-spend test');
+  assert(paid === null, 'paid execution object exists during zero-spend test');
+  assert(preflight.provider_dispatched === false, 'provider dispatched during zero-spend preflight');
+  assert(preflight.wallet_reserved === false, 'wallet reserved during zero-spend preflight');
+  assert(preflight.usage_created === false, 'usage created during zero-spend preflight');
+}
+
+if (failures.length) {
+  console.error(failures.join('\n'));
   process.exit(1);
 }
-if (body.accept_paid_execution === true || body.explicit_confirmation) {
-  console.error('bundle must not embed paid execution acceptance or confirmation');
-  process.exit(2);
-}
+
 console.log(JSON.stringify({
-  organization_id: body.organization_id,
-  creative_project_id: body.creative_project_id,
-  proof_shot: body.proof_authorization?.proof_shot || null,
+  verdict: process.env.CREATIVE_EXECUTE_PAID_MASTER_STILL === '1'
+    ? 'AUTONOMOUS_GREENFIELD_FULL_SCENE_MASTER_STILL_PASS'
+    : 'AUTONOMOUS_GREENFIELD_ZERO_SPEND_PREFLIGHT_PASS',
+  mission_id: body.mission.id,
+  project_id: body.project.id,
+  director_job_id: body.director.job_id,
+  scene_count: proof.story_scene_count,
+  shot_count: proof.story_shot_count,
+  selected_proof_shot: proof.selected_proof_shot,
+  evidence_binding_hash: proof.final_full_scene_binding.binding_hash,
+  master_task_id: preflight.master_task?.id || null,
+  qa_task_id: preflight.qa_task?.id || null,
+  paid_execution_started: body.paid_execution_started,
+  qa_score: paid?.quality_review?.overall_score || null,
+  next_gate: proof.next_gate,
 }, null, 2));
 NODE
-then
-  pass "bundle contains the approved story, authorization and preparation"
-else
-  fail "bundle contract invalid"
-fi
-
-if [ "$FAILURES" -gt 0 ]; then
-  exit 1
-fi
-
-PREFLIGHT_PAYLOAD="$(mktemp)"
-PREFLIGHT_RESPONSE="$(mktemp)"
-PAID_PAYLOAD="$(mktemp)"
-PAID_RESPONSE="$(mktemp)"
-trap 'rm -f "$PREFLIGHT_PAYLOAD" "$PREFLIGHT_RESPONSE" "$PAID_PAYLOAD" "$PAID_RESPONSE"' EXIT
-
-node - "$BUNDLE_FILE" "$PREFLIGHT_PAYLOAD" <<'NODE'
-const fs = require('fs');
-const source = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const payload = {
-  organization_id: source.organization_id,
-  creative_project_id: source.creative_project_id,
-  approval_candidate: source.approval_candidate,
-  proof_authorization: source.proof_authorization,
-  authorized_preparation: source.authorized_preparation,
-};
-fs.writeFileSync(process.argv[3], JSON.stringify(payload));
-NODE
-
-section "ZERO-SPEND FULL-SCENE PREFLIGHT"
-PREFLIGHT_STATUS="$(request \
-  '/api/creative/production/authorized-full-scene-preflight' \
-  "$PREFLIGHT_PAYLOAD" \
-  "$PREFLIGHT_RESPONSE" || true)"
-cat "$PREFLIGHT_RESPONSE"
-printf '\nHTTP status: %s\n' "$PREFLIGHT_STATUS"
-
-if [ "$PREFLIGHT_STATUS" = "200" ] && validate_preflight "$PREFLIGHT_RESPONSE"; then
-  pass "full-scene task and QA binding verified without provider spend"
-else
-  fail "full-scene zero-spend preflight failed"
-fi
-
-if [ "$FAILURES" -gt 0 ]; then
-  section "RESULT"
-  printf 'CREATIVE_FULL_SCENE_SMOKE=FAIL\n'
-  printf 'Report: %s\n' "$REPORT"
-  exit 1
-fi
-
-if [ "$EXECUTE_PAID" != "1" ]; then
-  section "RESULT"
-  pass "preflight complete; paid generation intentionally skipped"
-  printf 'Set CREATIVE_EXECUTE_PAID_MASTER_STILL=1 to generate exactly one full-scene master still and run strict QA.\n'
-  printf 'CREATIVE_FULL_SCENE_SMOKE=PREFLIGHT_PASS\n'
-  printf 'Report: %s\n' "$REPORT"
-  exit 0
-fi
-
-section "EXPLICIT ONE-IMAGE PAID EXECUTION"
-node - "$BUNDLE_FILE" "$PAID_PAYLOAD" <<'NODE'
-const fs = require('fs');
-const source = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const payload = {
-  organization_id: source.organization_id,
-  creative_project_id: source.creative_project_id,
-  approval_candidate: source.approval_candidate,
-  proof_authorization: source.proof_authorization,
-  authorized_preparation: source.authorized_preparation,
-  explicit_confirmation: 'GENERATE_AUTHORIZED_MASTER_STILL_PROOF',
-  accept_paid_execution: true,
-};
-fs.writeFileSync(process.argv[3], JSON.stringify(payload));
-NODE
-
-PAID_STATUS="$(request \
-  '/api/creative/production/authorized-master-still-generation' \
-  "$PAID_PAYLOAD" \
-  "$PAID_RESPONSE" || true)"
-cat "$PAID_RESPONSE"
-printf '\nHTTP status: %s\n' "$PAID_STATUS"
-
-if [ "$PAID_STATUS" = "200" ] && validate_paid "$PAID_RESPONSE"; then
-  pass "one full-scene master still generated and strict QA passed"
-else
-  fail "paid full-scene master still smoke failed"
+  then
+    pass "autonomous greenfield chain passed"
+  else
+    fail "autonomous greenfield chain failed validation"
+  fi
 fi
 
 section "RESULT"
@@ -304,9 +210,15 @@ printf 'Finished: %s\n' "$(date -Iseconds)"
 printf 'Report: %s\n' "$REPORT"
 
 if [ "$FAILURES" -gt 0 ]; then
-  printf 'CREATIVE_FULL_SCENE_SMOKE=FAIL\n'
+  printf 'CREATIVE_GREENFIELD_REALITY_TEST=FAIL\n'
   exit 1
 fi
 
-printf 'CREATIVE_FULL_SCENE_SMOKE=PASS\n'
+if [ "$EXECUTE_PAID" = "1" ]; then
+  printf 'CREATIVE_GREENFIELD_REALITY_TEST=FULL_SCENE_MASTER_STILL_PASS\n'
+else
+  printf 'CREATIVE_GREENFIELD_REALITY_TEST=ZERO_SPEND_PREFLIGHT_PASS\n'
+  printf 'To generate exactly one full-scene master still, rerun with CREATIVE_EXECUTE_PAID_MASTER_STILL=1.\n'
+fi
+
 exit 0

@@ -1,0 +1,51 @@
+name: Creative Strict Reasoning Schema
+
+on:
+  push:
+    branches:
+      - agent/creative-shot-production-convergence
+    paths:
+      - scripts/creative-strict-reasoning-schema-20260723.py
+
+permissions:
+  contents: write
+
+jobs:
+  converge:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out convergence branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/creative-shot-production-convergence
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Apply strict schema convergence
+        run: python3 scripts/creative-strict-reasoning-schema-20260723.py
+
+      - name: Validate JavaScript
+        run: |
+          node --check lib/creative/reasoning/CreativeStructuredOutputContract.js
+          node --check lib/creative/reasoning/CreativeReasoningService.js
+          node --check lib/platform/service-runtime/providers/openai/OpenAIProvider.js
+          git diff --check
+
+      - name: Commit strict schema convergence
+        run: |
+          git config user.name "Avantiqo Creative Repair"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            lib/creative/reasoning/CreativeStructuredOutputContract.js \
+            lib/creative/reasoning/CreativeReasoningService.js \
+            lib/platform/service-runtime/providers/openai/OpenAIProvider.js
+          git rm \
+            scripts/creative-strict-reasoning-schema-20260723.py \
+            .github/workflows/creative-strict-reasoning-schema-20260723.yml
+          git commit -m "Enforce strict Creative reasoning schemas"
+          git push origin HEAD:agent/creative-shot-production-convergence

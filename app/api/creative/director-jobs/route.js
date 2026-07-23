@@ -1049,6 +1049,34 @@ export async function POST(req) {
     const checked = await accessFor(organizationId);
     if (checked.response) return checked.response;
 
+    if (action === "replan_structure") {
+      if (!body.job_id) {
+        return NextResponse.json({
+          success: false,
+          error: "job_id required",
+        }, { status: 400 });
+      }
+
+      const job =
+        await CreativeDirectorJobRuntime
+          .replanStructure({
+            job_id: body.job_id,
+            organization_id:
+              organizationId,
+            reason: body.reason || null,
+          });
+
+      return NextResponse.json({
+        success: true,
+        plan_only: true,
+        production_dispatched: false,
+        image_generation_started: false,
+        video_generation_started: false,
+        structural_replan_applied: true,
+        job,
+      });
+    }
+
     if (action === "advance") {
       if (!body.job_id) {
         return NextResponse.json({
@@ -1105,7 +1133,11 @@ export async function POST(req) {
       return NextResponse.json({
         success: false,
         error: "Unsupported action",
-        supported_actions: ["create", "advance"],
+        supported_actions: [
+          "create",
+          "advance",
+          "replan_structure",
+        ],
       }, { status: 400 });
     }
 

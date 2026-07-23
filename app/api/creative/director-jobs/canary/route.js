@@ -704,24 +704,55 @@ export async function POST(req) {
         invocation.payload?.error ===
         "CREATIVE_FINAL_STORYBOARD_STRUCTURAL_REPLAN_REQUIRED"
       ) {
-        return canaryResponse({
-          success: false,
-          status: 422,
-          error:
-            "CREATIVE_FINAL_STORYBOARD_STRUCTURAL_REPLAN_REQUIRED",
-          details: {
-            handler_payload:
+        const replanInvocation = await invoke({
+          handler: directorJobPost,
+          req,
+          pathname:
+            "/api/creative/director-jobs",
+          body: {
+            organization_id:
+              organizationId,
+            job_id: jobId,
+            action: "replan_structure",
+            reason:
               invocation.payload,
-            step_key:
-              after.current_step_key,
-            step_status:
-              afterStep?.status || null,
           },
-          events,
-          thresholds,
-          created,
-          job: after,
         });
+
+        const replanned = await getJob({
+          jobId,
+          organizationId,
+        });
+
+        events.push(
+          event({
+            cycle,
+            kind: "STRUCTURAL_REPLAN",
+            before: after,
+            invocation: replanInvocation,
+            after: replanned,
+          }),
+        );
+
+        if (!replanInvocation.ok) {
+          return canaryResponse({
+            success: false,
+            status:
+              replanInvocation.status,
+            error:
+              replanInvocation.payload
+                ?.error ||
+              "CREATIVE_STRUCTURAL_REPLAN_FAILED",
+            details:
+              replanInvocation.payload,
+            events,
+            thresholds,
+            created,
+            job: replanned,
+          });
+        }
+
+        continue;
       }
 
       if (

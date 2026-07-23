@@ -12,8 +12,8 @@ import {
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 
 import {
-  CreativeMasterStillPilotReferenceDeliveryRecoveryRuntime,
-} from "@/lib/creative/production/pilot/CreativeMasterStillPilotReferenceDeliveryRecoveryRuntime";
+  CreativeMasterStillPilotQaEvidenceRecoveryRuntime,
+} from "@/lib/creative/production/pilot/CreativeMasterStillPilotQaEvidenceRecoveryRuntime";
 
 import {
   calibrateMasterStillQualityReview,
@@ -84,7 +84,7 @@ export async function POST(req) {
     }
 
     const rawResult =
-      await CreativeMasterStillPilotReferenceDeliveryRecoveryRuntime.run({
+      await CreativeMasterStillPilotQaEvidenceRecoveryRuntime.run({
         organization_id: organizationId,
         creative_project_id: projectId,
         scene_number: Number(body.scene_number || 1),

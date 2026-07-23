@@ -14,6 +14,10 @@ import {
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 
 import {
+  CreativeOrganizationReferenceSupplementRuntime,
+} from "@/lib/creative/production/pilot/CreativeOrganizationReferenceSupplementRuntime";
+
+import {
   CreativeMasterStillPilotAssetHydrationRuntime,
 } from "@/lib/creative/production/pilot/CreativeMasterStillPilotAssetHydrationRuntime";
 
@@ -41,6 +45,9 @@ export async function POST(req) {
       body.qa_task_id ||
       body.qaTaskId ||
       null;
+    const hydrateOnly =
+      body.hydrate_only === true ||
+      body.hydrateOnly === true;
 
     const access = await requireOrganizationAccess({
       organizationId,
@@ -75,12 +82,33 @@ export async function POST(req) {
       });
     }
 
+    const supplement =
+      await CreativeOrganizationReferenceSupplementRuntime.supplement({
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        master_task_id: masterTaskId,
+      });
+
     const hydration =
       await CreativeMasterStillPilotAssetHydrationRuntime.hydrate({
         organization_id: organizationId,
         creative_project_id: projectId,
         master_task_id: masterTaskId,
       });
+
+    if (hydrateOnly) {
+      return NextResponse.json({
+        success: true,
+        hydrate_only: true,
+        provider_dispatched: false,
+        image_generation_started: false,
+        video_execution_authorized: false,
+        organization_reference_supplement:
+          supplement.references,
+        dynamic_reference_hydration:
+          hydration.references,
+      });
+    }
 
     const result =
       await CreativeMasterStillPilotAggressiveRecoveryRuntime.run({
@@ -100,6 +128,8 @@ export async function POST(req) {
       success: result.success,
       result: {
         ...result,
+        organization_reference_supplement:
+          supplement.references,
         dynamic_reference_hydration:
           hydration.references,
       },

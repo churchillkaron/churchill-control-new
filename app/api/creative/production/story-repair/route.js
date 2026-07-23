@@ -8,8 +8,8 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 import {
-  CreativeDetailedStoryRepairRuntimeV2,
-} from "@/lib/creative/production/story/CreativeDetailedStoryRepairRuntimeV2";
+  CreativeDetailedStorySnapshotRepairRuntime,
+} from "@/lib/creative/production/story/CreativeDetailedStorySnapshotRepairRuntime";
 
 export async function POST(req) {
   try {
@@ -22,6 +22,12 @@ export async function POST(req) {
       body.creative_project_id ||
       body.creativeProjectId ||
       body.project_id ||
+      null;
+    const sourceResult =
+      body.source_result ||
+      body.sourceResult ||
+      body.preview_result ||
+      body.previewResult ||
       null;
 
     const access = await requireOrganizationAccess({
@@ -40,10 +46,26 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    const result = await CreativeDetailedStoryRepairRuntimeV2.run({
-      organization_id: organizationId,
-      creative_project_id: projectId,
-    });
+    if (!sourceResult) {
+      return NextResponse.json({
+        success: false,
+        error: "source_result required",
+        code: "CREATIVE_STORY_PREVIEW_SNAPSHOT_REQUIRED",
+        preview_only: true,
+        media_generation_dispatched: false,
+        image_generation_dispatched: false,
+        video_generation_dispatched: false,
+        production_tasks_created: 0,
+        assets_created: 0,
+      }, { status: 400 });
+    }
+
+    const result =
+      await CreativeDetailedStorySnapshotRepairRuntime.run({
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        source_result: sourceResult,
+      });
 
     return NextResponse.json({
       success: result.success,

@@ -13,6 +13,10 @@ import {
 } from "@/lib/creative/director/runtime/CreativeRepairProvenanceContract";
 
 import {
+  classifyCreativeJobFailure,
+} from "@/lib/creative/director/runtime/CreativeFailureRouter";
+
+import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
@@ -612,53 +616,17 @@ export async function POST(req) {
       };
 
       if (stepStatus === "FAILED") {
-        if (
-          stepKey ===
-          "temporal_shot_direction"
-        ) {
-          kind = "TEMPORAL_CONVERGENCE";
-          handler = convergeTemporalPost;
-          pathname =
-            "/api/creative/director-jobs/converge-temporal";
-          payload = {
-            organization_id:
-              organizationId,
-            job_id: jobId,
-          };
-        } else if (
-          stepKey === "targeted_repair_1"
-        ) {
-          kind =
-            "STORYBOARD_CONVERGENCE_1";
-          handler = convergeStoryboardPost;
-          pathname =
-            "/api/creative/director-jobs/converge-storyboard";
-          payload = {
-            organization_id:
-              organizationId,
-            job_id: jobId,
-          };
-        } else if (
-          stepKey === "targeted_repair_2"
-        ) {
-          kind =
-            "STORYBOARD_CONVERGENCE_2";
-          handler =
-            convergeFinalStoryboardPost;
-          pathname =
-            "/api/creative/director-jobs/converge-storyboard-final";
-          payload = {
-            organization_id:
-              organizationId,
-            job_id: jobId,
-          };
-        } else {
+        const routing =
+          classifyCreativeJobFailure(before);
+
+        if (!routing.retryable) {
           return canaryResponse({
             success: false,
             status: 422,
             error:
-              "CREATIVE_CANARY_UNSUPPORTED_FAILED_STEP",
+              "CREATIVE_CANARY_FAILURE_REQUIRES_REVIEW",
             details: {
+              routing,
               job_id: jobId,
               step_key: stepKey,
               step_status: stepStatus,
@@ -672,6 +640,82 @@ export async function POST(req) {
             created,
             job: before,
           });
+        }
+
+        if (
+          routing.route ===
+          "STRUCTURAL_REPLAN"
+        ) {
+          kind = "STRUCTURAL_REPLAN";
+          handler = directorJobPost;
+          pathname =
+            "/api/creative/director-jobs";
+          payload = {
+            organization_id:
+              organizationId,
+            job_id: jobId,
+            action: "replan_structure",
+            reason:
+              step?.error ||
+              before.error ||
+              routing,
+          };
+        } else if (
+          routing.route ===
+          "TEMPORAL_REFERENCE_RECOVERY" ||
+          routing.route ===
+          "TEMPORAL_CONVERGENCE"
+        ) {
+          kind = routing.route;
+          handler = convergeTemporalPost;
+          pathname =
+            "/api/creative/director-jobs/converge-temporal";
+          payload = {
+            organization_id:
+              organizationId,
+            job_id: jobId,
+          };
+        } else if (
+          routing.route ===
+          "TARGETED_STORYBOARD_REPAIR"
+        ) {
+          kind =
+            "STORYBOARD_CONVERGENCE_1";
+          handler = convergeStoryboardPost;
+          pathname =
+            "/api/creative/director-jobs/converge-storyboard";
+          payload = {
+            organization_id:
+              organizationId,
+            job_id: jobId,
+          };
+        } else if (
+          routing.route ===
+          "FINAL_EVIDENCE_REPAIR"
+        ) {
+          kind =
+            "STORYBOARD_CONVERGENCE_2";
+          handler =
+            convergeFinalStoryboardPost;
+          pathname =
+            "/api/creative/director-jobs/converge-storyboard-final";
+          payload = {
+            organization_id:
+              organizationId,
+            job_id: jobId,
+          };
+        } else {
+          kind = "RETRY_FAILED_STEP";
+          handler = directorJobPost;
+          pathname =
+            "/api/creative/director-jobs";
+          payload = {
+            organization_id:
+              organizationId,
+            job_id: jobId,
+            action: "advance",
+            retry_failed: true,
+          };
         }
       }
 

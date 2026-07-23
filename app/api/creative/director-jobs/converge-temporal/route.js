@@ -11,6 +11,10 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 import {
+  classifyCreativeJobFailure,
+} from "@/lib/creative/director/runtime/CreativeFailureRouter";
+
+import {
   POST as advanceDirectorJob,
 } from "../route";
 
@@ -350,14 +354,45 @@ export async function POST(req) {
       const code = String(
         beforeFailure.code || "",
       );
+      const routing =
+        classifyCreativeJobFailure(before);
 
-      if (!SUPPORTED_FAILURES.has(code)) {
+      if (
+        routing.route ===
+        "STRUCTURAL_REPLAN"
+      ) {
+        return safeResponse({
+          success: false,
+          status: 422,
+          error:
+            "CREATIVE_FINAL_STORYBOARD_STRUCTURAL_REPLAN_REQUIRED",
+          details: {
+            routing,
+            current_failure:
+              beforeFailure,
+          },
+          recoveries,
+          job: before,
+          stage:
+            "STRUCTURAL_REPLAN_REQUIRED",
+          cycle,
+        });
+      }
+
+      if (
+        !routing.retryable ||
+        !SUPPORTED_FAILURES.has(code)
+      ) {
         return safeResponse({
           success: false,
           status: 422,
           error:
             "CREATIVE_TEMPORAL_CONVERGENCE_UNSUPPORTED_FAILURE",
-          details: beforeFailure,
+          details: {
+            routing,
+            current_failure:
+              beforeFailure,
+          },
           recoveries,
           job: before,
           stage:

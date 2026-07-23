@@ -20,6 +20,9 @@ import {
   POST as directorCanaryPost,
 } from "@/app/api/creative/director-jobs/canary-v2/route";
 
+const DIRECTOR_MAXIMUM_SHOT_DURATION_SECONDS = 15;
+const DIRECTOR_MINIMUM_SHOT_DURATION_SECONDS = 0.1;
+
 const MISSION_COMPOSITION_RECOVERY_DIRECTIVES = [
   {
     mode: "STRICT_COMPACT_JSON",
@@ -53,6 +56,7 @@ const RECOVERABLE_DIRECTOR_FAILURE_CODES = [
   "CREATIVE_DIRECTOR_JOB_STRUCTURE_CHANGE_FORBIDDEN",
   "CREATIVE_DIRECTOR_JOB_PLAN_SCENES_REQUIRED",
   "CREATIVE_DIRECTOR_FINAL_AUDIT_REJECTED",
+  "CREATIVE_DIRECTOR_DURATION_RECONCILIATION_IMPOSSIBLE",
 ];
 
 const RECOVERABLE_DIRECTOR_ENVELOPES = [
@@ -74,6 +78,38 @@ function object(value) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value
     : {};
+}
+
+function finiteNumber(value, fallback = null) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function directorDurationContract(durationSeconds) {
+  const targetDurationSeconds = Math.max(
+    DIRECTOR_MINIMUM_SHOT_DURATION_SECONDS,
+    finiteNumber(durationSeconds, 30),
+  );
+  const minimumShotCount = Math.max(
+    1,
+    Math.ceil(
+      targetDurationSeconds /
+      DIRECTOR_MAXIMUM_SHOT_DURATION_SECONDS,
+    ),
+  );
+
+  return {
+    exact_total_duration_seconds: targetDurationSeconds,
+    minimum_shot_duration_seconds:
+      DIRECTOR_MINIMUM_SHOT_DURATION_SECONDS,
+    maximum_shot_duration_seconds:
+      DIRECTOR_MAXIMUM_SHOT_DURATION_SECONDS,
+    minimum_required_shot_count: minimumShotCount,
+    dynamic_scene_and_shot_count_required: true,
+    exact_duration_sum_required: true,
+    filler_or_padding_forbidden: true,
+    every_shot_requires_distinct_story_or_editorial_purpose: true,
+  };
 }
 
 function headersFrom(req) {
@@ -183,6 +219,8 @@ async function composeMissionWithRecovery({
           greenfield_reality_test: true,
           requested_master_duration_seconds:
             durationSeconds,
+          director_duration_contract:
+            directorDurationContract(durationSeconds),
           production_ambition:
             "WORLD_CLASS_CINEMATIC_ADVERTISING",
           autonomous_story_required: true,
@@ -346,6 +384,50 @@ function exactAuditFailures(failure = {}) {
 function directorRecoveryInstruction(failure = {}) {
   const code = String(failure.error_code || "").toUpperCase();
 
+  if (code === "CREATIVE_DIRECTOR_DURATION_RECONCILIATION_IMPOSSIBLE") {
+    const details = object(failure.error_details);
+    const targetDurationSeconds = Math.max(
+      DIRECTOR_MINIMUM_SHOT_DURATION_SECONDS,
+      finiteNumber(
+        details.target_duration_seconds,
+        30,
+      ),
+    );
+    const maximumShotDurationSeconds = Math.max(
+      DIRECTOR_MINIMUM_SHOT_DURATION_SECONDS,
+      finiteNumber(
+        details.maximum_shot_duration_seconds,
+        DIRECTOR_MAXIMUM_SHOT_DURATION_SECONDS,
+      ),
+    );
+    const minimumShotDurationSeconds = Math.max(
+      0,
+      finiteNumber(
+        details.minimum_shot_duration_seconds,
+        DIRECTOR_MINIMUM_SHOT_DURATION_SECONDS,
+      ),
+    );
+    const minimumRequiredShotCount = Math.max(
+      1,
+      Math.ceil(
+        targetDurationSeconds /
+        maximumShotDurationSeconds,
+      ),
+    );
+
+    return [
+      "The previous initial director created a story structure whose shot durations could not satisfy the runtime duration contract.",
+      "Originate a new complete production bible from the original business truth and campaign objective.",
+      `The exact film duration is ${targetDurationSeconds} seconds and the sum of all shot durations must equal it exactly.`,
+      `Every shot duration must be at least ${minimumShotDurationSeconds} seconds and no more than ${maximumShotDurationSeconds} seconds.`,
+      `Use a dynamic story-led scene and shot structure containing at least ${minimumRequiredShotCount} shots because fewer shots cannot mathematically cover the requested duration.`,
+      "Do not create filler, frozen padding, repeated actions, artificially prolonged holds or a single oversized shot merely to reach the duration.",
+      "Every shot must carry a distinct narrative, emotional, visual or editorial purpose and must hand off coherently to the next shot.",
+      "Return a complete, contract-valid production bible with exact scene and shot durations before specialist direction begins.",
+      "All production dispatch, image generation and video generation remain forbidden.",
+    ].join(" ");
+  }
+
   if (code === "CREATIVE_DIRECTOR_FINAL_AUDIT_REJECTED") {
     const failures = exactAuditFailures(failure);
 
@@ -467,6 +549,8 @@ async function runDirectorCanaryWithRecovery({
           production_dispatch_forbidden: true,
         }
       : null;
+    const durationContract =
+      directorDurationContract(durationSeconds);
 
     const invocation = await invoke({
       handler: directorCanaryPost,
@@ -480,12 +564,21 @@ async function runDirectorCanaryWithRecovery({
         objective,
         max_temporal_attempts: maxTemporalAttempts,
         max_recovery_handler_calls: maxRecoveryHandlerCalls,
-        brief: semanticRecovery
-          ? {
-              autonomous_director_semantic_recovery:
-                semanticRecovery,
-            }
-          : {},
+        brief: {
+          greenfield_director_constraints: {
+            plan_only: true,
+            production_dispatch_forbidden: true,
+            image_generation_forbidden: true,
+            video_generation_forbidden: true,
+            duration_contract: durationContract,
+          },
+          ...(semanticRecovery
+            ? {
+                autonomous_director_semantic_recovery:
+                  semanticRecovery,
+              }
+            : {}),
+        },
       },
     });
 
@@ -517,6 +610,11 @@ async function runDirectorCanaryWithRecovery({
         failure.error_code === "CREATIVE_DIRECTOR_FINAL_AUDIT_REJECTED"
           ? exactAuditFailures(failure)
           : [],
+      duration_failure_details:
+        failure.error_code ===
+          "CREATIVE_DIRECTOR_DURATION_RECONCILIATION_IMPOSSIBLE"
+          ? failure.error_details
+          : null,
     });
 
     if (passed) {

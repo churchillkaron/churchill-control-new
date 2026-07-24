@@ -27,6 +27,66 @@ function normalizeReleaseMode(value) {
     : "MANUAL";
 }
 
+function summarizeUnsuccessfulResult({
+  result,
+  organization_id,
+  creative_project_id,
+  universal,
+  release_mode,
+}) {
+  const production = result?.production || null;
+  const failedTasks = Array.isArray(production?.tasks)
+    ? production.tasks.filter((task) =>
+        ["FAILED", "SKIPPED", "REJECTED", "BLOCKED"].includes(
+          String(task?.status || "").toUpperCase(),
+        ),
+      )
+    : [];
+
+  return {
+    event: "CREATIVE_DIRECTOR_EXECUTION_UNSUCCESSFUL",
+    organization_id,
+    creative_project_id,
+    universal,
+    release_mode,
+    result_success: result?.success ?? null,
+    reason: result?.reason || result?.error || null,
+    code: result?.code || null,
+    details: result?.details || null,
+    production: production
+      ? {
+          complete: production.complete ?? null,
+          failed: production.failed ?? null,
+          blocked: production.blocked ?? null,
+          tasks_materialized: production.tasks_materialized ?? null,
+          lifecycle: production.lifecycle || null,
+          queue: production.queue || null,
+          failures: production.failures || null,
+          blocked_tasks: production.blocked_tasks || null,
+          failed_tasks: failedTasks,
+        }
+      : null,
+    pipeline: result?.pipeline
+      ? {
+          creative_mission_id:
+            result.pipeline.creative_mission_id || null,
+          creative_project_id:
+            result.pipeline.creative_project_id || creative_project_id,
+          storyboard_contract:
+            result.pipeline.storyboard_contract || null,
+          production_graph_id:
+            result.pipeline.graph?.id ||
+            result.pipeline.production_graph?.id ||
+            null,
+          execution_id: result.pipeline.execution?.id || null,
+          production_lifecycle:
+            result.pipeline.production_lifecycle || null,
+        }
+      : null,
+    observed_at: new Date().toISOString(),
+  };
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -117,6 +177,23 @@ export async function POST(req) {
     }
 
     const success = result?.success !== false;
+    if (!success) {
+      console.error(
+        "creative director execution returned unsuccessful result",
+        JSON.stringify(
+          summarizeUnsuccessfulResult({
+            result,
+            organization_id,
+            creative_project_id,
+            universal,
+            release_mode,
+          }),
+          null,
+          2,
+        ),
+      );
+    }
+
     return NextResponse.json(
       {
         success,
@@ -128,7 +205,20 @@ export async function POST(req) {
       { status: success ? 200 : 422 },
     );
   } catch (error) {
-    console.error("creative director execution failed", error);
+    console.error(
+      "creative director execution failed",
+      JSON.stringify(
+        {
+          message: error?.message || "Creative production failed",
+          code: error?.code || null,
+          details: error?.details || null,
+          stack: error?.stack || null,
+          observed_at: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+    );
     return NextResponse.json(
       {
         success: false,

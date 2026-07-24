@@ -28,11 +28,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply audited Creative repair bundle
+      - name: Materialize audited Creative source
         shell: bash
         run: |
-          if compgen -G "scripts/.creative-repair-parts/part-*" > /dev/null; then
+          set -euo pipefail
+          if compgen -G "scripts/.creative-repair-parts-v2/part-*" > /dev/null; then
+            cat scripts/.creative-repair-parts-v2/part-* | base64 --decode > /tmp/creative-universal-repair.tar.gz
+            gzip -t /tmp/creative-universal-repair.tar.gz
+            tar -xzf /tmp/creative-universal-repair.tar.gz
+            rm -rf scripts/.creative-repair-parts-v2 scripts/.creative-repair-parts
+          elif compgen -G "scripts/.creative-repair-parts/part-*" > /dev/null; then
             cat scripts/.creative-repair-parts/part-* > /tmp/creative-universal-repair.tar.gz
+            gzip -t /tmp/creative-universal-repair.tar.gz
             tar -xzf /tmp/creative-universal-repair.tar.gz
             rm -rf scripts/.creative-repair-parts
           fi
@@ -46,7 +53,7 @@ jobs:
       - name: Regenerate canonical npm lockfile
         run: npm install --package-lock-only --ignore-scripts
 
-      - name: Commit audited repair and canonical lockfile
+      - name: Commit materialized source and canonical lockfile
         if: github.event_name == 'push' && startsWith(github.ref_name, 'agent/creative-')
         shell: bash
         run: |
@@ -54,7 +61,6 @@ jobs:
             echo "Creative repair and package lock are already canonical"
             exit 0
           fi
-
           git config user.name "avantiqo-reality-gate[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -86,11 +92,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           ! grep -RIn --exclude-dir=node_modules --exclude-dir=.git \
             'CREATIVE_AI_DIRECTOR_FILM_DELIVERABLE_REQUIRED\|Churchill Cinematic Hero Film' \
             app/api/creative lib/creative components/creative
-
           grep -q 'CREATIVE_PRODUCTION_LIFECYCLE_V2_UNIVERSAL' \
             lib/creative/production/runtime/CreativeProductionLifecycleRuntime.js
           grep -q 'universal_deliverable_v1' \

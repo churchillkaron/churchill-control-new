@@ -1,20 +1,20 @@
 {
   "crons": [
-
+    {
+      "path": "/api/creative/worker/autonomous",
+      "schedule": "* * * * *"
+    },
     {
       "path": "/api/marketing/process-queue",
       "schedule": "*/5 * * * *"
     },
-
     {
       "path": "/api/marketing/retry-generation-jobs",
       "schedule": "*/3 * * * *"
     },
-
     {
       "path": "/api/marketing/sync-analytics",
       "schedule": "0 */6 * * *"
     }
-
   ]
 }

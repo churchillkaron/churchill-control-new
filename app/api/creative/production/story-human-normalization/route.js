@@ -1,0 +1,95 @@
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+import { NextResponse } from "next/server";
+
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
+import {
+  CreativeDetailedStoryHumanNormalizationRuntime,
+} from "@/lib/creative/production/story/CreativeDetailedStoryHumanNormalizationRuntime";
+
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    const organizationId =
+      body.organization_id ||
+      body.organizationId ||
+      null;
+    const projectId =
+      body.creative_project_id ||
+      body.creativeProjectId ||
+      body.project_id ||
+      null;
+    const finalTargetedResult =
+      body.final_targeted_result ||
+      body.finalTargetedResult ||
+      null;
+    const normalizationDirectives =
+      body.normalization_directives ||
+      body.normalizationDirectives ||
+      null;
+
+    const access = await requireOrganizationAccess({
+      organizationId,
+    });
+
+    if (!access.success) {
+      return NextResponse.json(access, {
+        status: access.status,
+      });
+    }
+
+    if (!projectId) {
+      return NextResponse.json({
+        success: false,
+        error: "creative_project_id required",
+      }, { status: 400 });
+    }
+
+    if (!finalTargetedResult) {
+      return NextResponse.json({
+        success: false,
+        error: "final_targeted_result required",
+      }, { status: 400 });
+    }
+
+    if (!normalizationDirectives) {
+      return NextResponse.json({
+        success: false,
+        error: "normalization_directives required",
+      }, { status: 400 });
+    }
+
+    const result =
+      await CreativeDetailedStoryHumanNormalizationRuntime.run({
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        final_targeted_result: finalTargetedResult,
+        normalization_directives: normalizationDirectives,
+      });
+
+    return NextResponse.json({
+      success: result.success,
+      result,
+    }, {
+      status: result.success ? 200 : 422,
+    });
+  } catch (error) {
+    return NextResponse.json({
+      success: false,
+      error: error.message,
+      code: error.code || null,
+      details: error.details || null,
+      review_only: true,
+      preview_only: true,
+      media_generation_dispatched: false,
+      image_generation_dispatched: false,
+      video_generation_dispatched: false,
+      production_tasks_created: 0,
+      assets_created: 0,
+    }, { status: 500 });
+  }
+}

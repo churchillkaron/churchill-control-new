@@ -34,7 +34,6 @@ export default function WorkspaceCanvasRouter({
   runtime,
   editor,
 }) {
-
   const workspaceId =
     editor.activeWorkspace ||
     runtime.workspace?.id ||

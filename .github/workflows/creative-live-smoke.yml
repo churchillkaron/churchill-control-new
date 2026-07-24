@@ -1,6 +1,9 @@
 name: Creative Live Production Smoke
 
 on:
+  push:
+    branches:
+      - "agent/creative-*"
   workflow_dispatch:
     inputs:
       app_url:
@@ -47,19 +50,20 @@ concurrency:
 
 jobs:
   provider-backed-production:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[creative-live-smoke]')
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     env:
-      CREATIVE_TEST_APP_URL: ${{ inputs.app_url }}
+      CREATIVE_TEST_APP_URL: ${{ inputs.app_url || 'https://churchill-control-new-kgl1-git-e30a03-patrics-projects-3ec66dc7.vercel.app' }}
       CREATIVE_TEST_ORGANIZATION_ID: ${{ secrets.CREATIVE_TEST_ORGANIZATION_ID }}
       CREATIVE_TEST_AUTH_TOKEN: ${{ secrets.CREATIVE_TEST_AUTH_TOKEN }}
       CREATIVE_TEST_COOKIE: ${{ secrets.CREATIVE_TEST_COOKIE }}
       CREATIVE_TEST_WORKER_SECRET: ${{ secrets.CREATIVE_TEST_WORKER_SECRET }}
-      CREATIVE_TEST_MEDIUM: ${{ inputs.medium }}
-      CREATIVE_TEST_REQUEST: ${{ inputs.request }}
-      CREATIVE_TEST_MAX_POLLS: ${{ inputs.max_polls }}
-      CREATIVE_TEST_POLL_SECONDS: ${{ inputs.poll_seconds }}
+      CREATIVE_TEST_MEDIUM: ${{ inputs.medium || 'FILM' }}
+      CREATIVE_TEST_REQUEST: ${{ inputs.request || 'Create a premium cinematic entrance-and-staff brand film. Begin outside the venue, establish the entrance and atmosphere, follow a natural guest arrival, introduce the real staff through purposeful service actions and human reactions, preserve spatial continuity and brand truth, and finish with a polished release-ready master film and supporting delivery package.' }}
+      CREATIVE_TEST_MAX_POLLS: ${{ inputs.max_polls || '120' }}
+      CREATIVE_TEST_POLL_SECONDS: ${{ inputs.poll_seconds || '10' }}
       CREATIVE_TEST_REPORT: /tmp/creative-live-smoke-report.json
 
     steps:

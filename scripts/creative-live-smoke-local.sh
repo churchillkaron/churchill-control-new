@@ -38,6 +38,36 @@ header() {
   echo "============================================================"
 }
 
+postgrest_get() {
+  local url="$1"
+  local output_file="$2"
+  local label="$3"
+  local status
+
+  status="$(
+    curl -sS \
+      -o "$output_file" \
+      -w '%{http_code}' \
+      "$url" \
+      -H "apikey: $SERVICE_ROLE_KEY" \
+      -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+      2>"$output_file.curl-error" || true
+  )"
+
+  if [ "$status" != "200" ]; then
+    echo "$label request failed with HTTP $status"
+    cat "$output_file" 2>/dev/null || true
+    cat "$output_file.curl-error" 2>/dev/null || true
+    fail "$label could not be read from Supabase"
+  fi
+
+  if ! jq -e 'type == "array"' "$output_file" >/dev/null 2>&1; then
+    echo "$label returned an unexpected payload:"
+    cat "$output_file" 2>/dev/null || true
+    fail "$label response was not a JSON array"
+  fi
+}
+
 header "AVANTIQO CREATIVE LIVE ENTRANCE + STAFF SMOKE"
 echo "Output: $OUTPUT_DIR"
 
@@ -69,42 +99,78 @@ SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}"
 SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}"
 [ -n "$SUPABASE_URL" ] || fail "NEXT_PUBLIC_SUPABASE_URL is missing"
 [ -n "$SERVICE_ROLE_KEY" ] || fail "SUPABASE_SERVICE_ROLE_KEY is missing"
+SUPABASE_URL="${SUPABASE_URL%/}"
 
 ORGANIZATION_JSON="$OUTPUT_DIR/churchill-organization.json"
 ENTITY_JSON="$OUTPUT_DIR/churchill-legal-entities.json"
 
-curl -sS \
+echo "Validating Churchill organization and currency configuration..."
+postgrest_get \
   "$SUPABASE_URL/rest/v1/organizations?id=eq.$TARGET_ORGANIZATION_ID&select=*" \
-  -H "apikey: $SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
-  > "$ORGANIZATION_JSON"
+  "$ORGANIZATION_JSON" \
+  "Churchill organization"
 
-curl -sS \
-  "$SUPABASE_URL/rest/v1/legal_entities?organization_id=eq.$TARGET_ORGANIZATION_ID&select=id,name,currency" \
-  -H "apikey: $SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
-  > "$ENTITY_JSON"
+postgrest_get \
+  "$SUPABASE_URL/rest/v1/legal_entities?organization_id=eq.$TARGET_ORGANIZATION_ID&select=organization_id,currency" \
+  "$ENTITY_JSON" \
+  "Churchill legal entities"
 
-ORGANIZATION_NAME="$(jq -r '.[0].name // .[0].legal_name // .[0].display_name // empty' "$ORGANIZATION_JSON")"
+ORGANIZATION_NAME="$(
+  jq -r '
+    first(
+      .[]?
+      | objects
+      | .name // .legal_name // .display_name // empty
+    ) // empty
+  ' "$ORGANIZATION_JSON"
+)"
 [ -n "$ORGANIZATION_NAME" ] || fail "Churchill organization was not found"
 
-ORGANIZATION_CURRENCY="$(jq -r '
-  .[0].default_currency //
-  .[0].currency //
-  .[0].base_currency //
-  .[0].functional_currency //
-  .[0].metadata.currency //
-  .[0].settings.currency //
-  empty
-' "$ORGANIZATION_JSON" | tr '[:lower:]' '[:upper:]')"
+ORGANIZATION_CURRENCY="$(
+  jq -r '
+    first(
+      .[]?
+      | objects
+      | .default_currency //
+        .currency //
+        .base_currency //
+        .functional_currency //
+        .metadata.currency //
+        .settings.currency //
+        empty
+    ) // empty
+  ' "$ORGANIZATION_JSON" |
+    tr '[:lower:]' '[:upper:]'
+)"
 CURRENCY_SOURCE="organizations"
 
 if ! printf '%s' "$ORGANIZATION_CURRENCY" | grep -Eq '^[A-Z]{3}$'; then
-  ORGANIZATION_CURRENCY="$(jq -r '[.[].currency | select(type == "string") | ascii_upcase | select(test("^[A-Z]{3}$"))] | unique | if length == 1 then .[0] else empty end' "$ENTITY_JSON")"
+  ORGANIZATION_CURRENCY="$(
+    jq -r '
+      [
+        .[]?
+        | objects
+        | .currency?
+        | select(type == "string")
+        | ascii_upcase
+        | select(test("^[A-Z]{3}$"))
+      ]
+      | unique
+      | if length == 1 then .[0] else empty end
+    ' "$ENTITY_JSON"
+  )"
   CURRENCY_SOURCE="legal_entities"
 fi
 
-[ -n "$ORGANIZATION_CURRENCY" ] || fail "Churchill has no unambiguous organization or legal-entity currency"
+[ -n "$ORGANIZATION_CURRENCY" ] || {
+  echo "Churchill organization payload:"
+  cat "$ORGANIZATION_JSON" || true
+  echo
+  echo "Churchill legal-entity payload:"
+  cat "$ENTITY_JSON" || true
+  echo
+  fail "Churchill has no unambiguous organization or legal-entity currency"
+}
 
 WORKER_SECRET="${CREATIVE_TEST_WORKER_SECRET:-${CRON_SECRET:-${AVANTIQO_INTERNAL_WORKER_SECRET:-}}}"
 if [ -z "$WORKER_SECRET" ]; then
@@ -113,7 +179,9 @@ fi
 export AVANTIQO_INTERNAL_WORKER_SECRET="$WORKER_SECRET"
 export CRON_SECRET="$WORKER_SECRET"
 
-while lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; do PORT=$((PORT + 1)); done
+while lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; do
+  PORT=$((PORT + 1))
+done
 APP_URL="http://127.0.0.1:$PORT"
 
 echo "Installing exact branch dependencies..."
@@ -126,7 +194,10 @@ SERVER_PID=$!
 READY=0
 for _attempt in $(seq 1 120); do
   HTTP_STATUS="$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' "$APP_URL" 2>/dev/null || true)"
-  if [ -n "$HTTP_STATUS" ] && [ "$HTTP_STATUS" != "000" ]; then READY=1; break; fi
+  if [ -n "$HTTP_STATUS" ] && [ "$HTTP_STATUS" != "000" ]; then
+    READY=1
+    break
+  fi
   if ! kill -0 "$SERVER_PID" >/dev/null 2>&1; then
     tail -n 160 "$OUTPUT_DIR/server.log" || true
     fail "Creative Studio server stopped during startup"

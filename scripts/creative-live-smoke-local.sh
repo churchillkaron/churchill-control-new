@@ -12,6 +12,7 @@ TEMP_ROOT="$(mktemp -d /tmp/avantiqo-creative-live-smoke.XXXXXX)"
 WORKTREE="$TEMP_ROOT/repository"
 SERVER_PID=""
 PORT="${CREATIVE_SMOKE_PORT:-3017}"
+HISTORY_MIGRATION_COPIED=0
 mkdir -p "$OUTPUT_DIR"
 
 cleanup() {
@@ -20,6 +21,11 @@ cleanup() {
   if [ -n "${SERVER_PID:-}" ]; then
     kill "$SERVER_PID" >/dev/null 2>&1 || true
     wait "$SERVER_PID" >/dev/null 2>&1 || true
+  fi
+
+  if [ "$HISTORY_MIGRATION_COPIED" -eq 1 ]; then
+    rm -f "$REPO_ROOT/supabase/migrations/$MIGRATION_NAME"
+    HISTORY_MIGRATION_COPIED=0
   fi
 
   cd "$REPO_ROOT" >/dev/null 2>&1 || true
@@ -132,6 +138,30 @@ remote_migration_is_applied() {
     "$migration_list_file" >/dev/null 2>&1
 }
 
+prepare_history_migration_file() {
+  local source_migration="$1"
+  local linked_migration="$REPO_ROOT/supabase/migrations/$MIGRATION_NAME"
+
+  mkdir -p "$REPO_ROOT/supabase/migrations"
+
+  if [ -f "$linked_migration" ]; then
+    if ! cmp -s "$source_migration" "$linked_migration"; then
+      fail "Linked checkout contains a different migration with version $MIGRATION_VERSION"
+    fi
+    return
+  fi
+
+  cp "$source_migration" "$linked_migration"
+  HISTORY_MIGRATION_COPIED=1
+}
+
+remove_history_migration_file() {
+  if [ "$HISTORY_MIGRATION_COPIED" -eq 1 ]; then
+    rm -f "$REPO_ROOT/supabase/migrations/$MIGRATION_NAME"
+    HISTORY_MIGRATION_COPIED=0
+  fi
+}
+
 apply_duration_migration() {
   local source_migration="$WORKTREE/supabase/migrations/$MIGRATION_NAME"
   local migration_list_before="$OUTPUT_DIR/supabase-migration-list-before.txt"
@@ -217,6 +247,9 @@ SQL
     echo "Verifying Creative duration schema..."
     run_linked_sql_file "$verification_sql" "$verification_log"
 
+    echo "Preparing exact migration file for history registration..."
+    prepare_history_migration_file "$source_migration"
+
     echo "Recording only migration version $MIGRATION_VERSION..."
     set +e
     (
@@ -233,6 +266,8 @@ SQL
       cat "$repair_log" || true
       fail "Duration schema changed correctly, but migration history repair failed"
     fi
+
+    remove_history_migration_file
   fi
 
   echo "Verifying final Creative duration schema..."

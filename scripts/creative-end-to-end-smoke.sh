@@ -12,6 +12,8 @@ REQUEST="${CREATIVE_TEST_REQUEST:-Create one original premium image and a comple
 MAX_POLLS="${CREATIVE_TEST_MAX_POLLS:-40}"
 POLL_SECONDS="${CREATIVE_TEST_POLL_SECONDS:-5}"
 REPORT="${CREATIVE_TEST_REPORT:-/tmp/creative-end-to-end-smoke.json}"
+ARTIFACT_DIR="${CREATIVE_TEST_ARTIFACT_DIR:-$(dirname "$REPORT")/creative-smoke-evidence}"
+mkdir -p "$ARTIFACT_DIR"
 
 fail() {
   echo "CREATIVE_END_TO_END_SMOKE=FAIL"
@@ -19,7 +21,43 @@ fail() {
   if [ -f "$REPORT" ]; then
     echo "REPORT=$REPORT"
   fi
+  echo "EVIDENCE_DIRECTORY=$ARTIFACT_DIR"
   exit 1
+}
+
+persist_json() {
+  local source="$1"
+  local name="$2"
+
+  [ -f "$source" ] || return 0
+  cp "$source" "$ARTIFACT_DIR/$name"
+
+  if jq -e . "$source" >/dev/null 2>&1; then
+    jq . "$source" > "$ARTIFACT_DIR/${name%.json}.pretty.json"
+  fi
+}
+
+write_failure_summary() {
+  local phase="$1"
+  local status="$2"
+  local body_file="$3"
+
+  jq -n \
+    --arg phase "$phase" \
+    --arg http_status "$status" \
+    --arg project_id "${PROJECT_ID:-}" \
+    --arg mission_id "${MISSION_ID:-}" \
+    --arg evidence_directory "$ARTIFACT_DIR" \
+    --slurpfile body "$body_file" \
+    '{
+      result:"FAIL",
+      phase:$phase,
+      http_status:($http_status | tonumber? // $http_status),
+      mission_id:$mission_id,
+      project_id:$project_id,
+      response:($body[0] // null),
+      evidence_directory:$evidence_directory
+    }' > "$REPORT" 2>/dev/null || true
 }
 
 command -v curl >/dev/null 2>&1 || fail "curl required"
@@ -72,13 +110,16 @@ COMPOSE_STATUS="$(
       "${AUTH_HEADERS[@]}" \
       --data-binary @-
 )" || fail "mission compose request failed"
+persist_json "$COMPOSE_BODY" "compose.json"
 
 if [ "$COMPOSE_STATUS" -lt 200 ] || [ "$COMPOSE_STATUS" -ge 300 ]; then
   cat "$COMPOSE_BODY"
+  write_failure_summary "MISSION_COMPOSE" "$COMPOSE_STATUS" "$COMPOSE_BODY"
   fail "mission compose returned HTTP $COMPOSE_STATUS"
 fi
 jq -e '.success == true' "$COMPOSE_BODY" >/dev/null || {
   cat "$COMPOSE_BODY"
+  write_failure_summary "MISSION_COMPOSE_RESPONSE" "$COMPOSE_STATUS" "$COMPOSE_BODY"
   fail "mission compose did not return success"
 }
 
@@ -94,6 +135,7 @@ PROJECT_ID="$(
 [ -n "$MISSION_ID" ] || fail "compose response missing mission id"
 [ -n "$PROJECT_ID" ] || {
   jq '{deliverables:.blueprint.deliverables,projects:.projects}' "$COMPOSE_BODY"
+  write_failure_summary "PROJECT_SELECTION" "$COMPOSE_STATUS" "$COMPOSE_BODY"
   fail "compose response missing requested $PROJECT_TYPE project"
 }
 
@@ -118,18 +160,22 @@ EXECUTE_STATUS="$(
       "${AUTH_HEADERS[@]}" \
       --data-binary @-
 )" || fail "director execute request failed"
+persist_json "$EXECUTE_BODY" "execute.json"
 
 if [ "$EXECUTE_STATUS" -lt 200 ] || [ "$EXECUTE_STATUS" -ge 300 ]; then
   cat "$EXECUTE_BODY"
+  write_failure_summary "DIRECTOR_EXECUTE" "$EXECUTE_STATUS" "$EXECUTE_BODY"
   fail "director execute returned HTTP $EXECUTE_STATUS"
 fi
 jq -e '.success == true' "$EXECUTE_BODY" >/dev/null || {
   cat "$EXECUTE_BODY"
+  write_failure_summary "DIRECTOR_EXECUTE_RESPONSE" "$EXECUTE_STATUS" "$EXECUTE_BODY"
   fail "director execute did not return success"
 }
 TASKS_MATERIALIZED="$(jq -r '.production.tasks_materialized // 0' "$EXECUTE_BODY")"
 [ "$TASKS_MATERIALIZED" -gt 0 ] || {
   cat "$EXECUTE_BODY"
+  write_failure_summary "PRODUCTION_TASK_MATERIALIZATION" "$EXECUTE_STATUS" "$EXECUTE_BODY"
   fail "production materialized zero tasks"
 }
 
@@ -145,9 +191,11 @@ while [ "$attempt" -lt "$MAX_POLLS" ]; do
       -H 'Content-Type: application/json' \
       --data '{"project_limit":100,"max_dispatches_per_project":100,"lease_seconds":180}'
   )" || fail "autonomous worker request failed"
+  persist_json "$WORKER_BODY" "worker-poll-$attempt.json"
 
   if [ "$WORKER_STATUS" -lt 200 ] || [ "$WORKER_STATUS" -ge 300 ]; then
     cat "$WORKER_BODY"
+    write_failure_summary "AUTONOMOUS_WORKER" "$WORKER_STATUS" "$WORKER_BODY"
     fail "autonomous worker returned HTTP $WORKER_STATUS"
   fi
 
@@ -156,9 +204,11 @@ while [ "$attempt" -lt "$MAX_POLLS" ]; do
       -X GET "$APP_URL/api/creative/production/control?organization_id=$ORGANIZATION_ID&creative_project_id=$PROJECT_ID" \
       "${AUTH_HEADERS[@]}"
   )" || fail "production control request failed"
+  persist_json "$CONTROL_BODY" "control-poll-$attempt.json"
 
   if [ "$CONTROL_STATUS" -lt 200 ] || [ "$CONTROL_STATUS" -ge 300 ]; then
     cat "$CONTROL_BODY"
+    write_failure_summary "PRODUCTION_CONTROL" "$CONTROL_STATUS" "$CONTROL_BODY"
     fail "production control returned HTTP $CONTROL_STATUS"
   fi
 
@@ -182,6 +232,7 @@ while [ "$attempt" -lt "$MAX_POLLS" ]; do
       --slurpfile worker "$WORKER_BODY" \
       --slurpfile control "$CONTROL_BODY" \
       --arg project_id "$PROJECT_ID" \
+      --arg evidence_directory "$ARTIFACT_DIR" \
       '{
         result:"PASS",
         mission:$compose[0].mission,
@@ -190,7 +241,8 @@ while [ "$attempt" -lt "$MAX_POLLS" ]; do
         worker:$worker[0],
         control:$control[0].control,
         tasks:$control[0].tasks,
-        assets:$control[0].assets
+        assets:$control[0].assets,
+        evidence_directory:$evidence_directory
       }' > "$REPORT"
 
     echo "CREATIVE_END_TO_END_SMOKE=PASS"
@@ -200,6 +252,7 @@ while [ "$attempt" -lt "$MAX_POLLS" ]; do
     echo "TASKS=$TOTAL"
     echo "RELEASABLE_DELIVERABLES=$RELEASABLE"
     echo "REPORT=$REPORT"
+    echo "EVIDENCE_DIRECTORY=$ARTIFACT_DIR"
     exit 0
   fi
 

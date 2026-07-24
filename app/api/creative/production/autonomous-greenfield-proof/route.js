@@ -55,6 +55,7 @@ const RECOVERABLE_DIRECTOR_FAILURE_CODES = [
   "CREATIVE_DIRECTOR_JOB_TOP_LEVEL_SCENES_FORBIDDEN",
   "CREATIVE_DIRECTOR_JOB_STRUCTURE_CHANGE_FORBIDDEN",
   "CREATIVE_DIRECTOR_JOB_PLAN_SCENES_REQUIRED",
+  "CREATIVE_DIRECTOR_JOB_SCENE_PATCH_NUMBER_INVALID",
   "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_NUMBER_INVALID",
   "CREATIVE_DIRECTOR_FINAL_AUDIT_REJECTED",
   "CREATIVE_DIRECTOR_DURATION_RECONCILIATION_IMPOSSIBLE",
@@ -65,6 +66,12 @@ const RECOVERABLE_DIRECTOR_ENVELOPES = [
   "CREATIVE_CANARY_V2_CYCLE_LIMIT_REACHED",
   "CREATIVE_DIRECTOR_JOB_FAILED_STEP_RETRY_REQUIRED",
 ];
+
+const EMPTY_DIRECTOR_PATCH_CODES = new Set([
+  "CREATIVE_DIRECTOR_JOB_PATCH_EMPTY",
+  "CREATIVE_DIRECTOR_JOB_SCENE_PATCH_EMPTY",
+  "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_EMPTY",
+]);
 
 function text(value) {
   return String(value || "").trim();
@@ -122,6 +129,9 @@ function directorPatchContract() {
     shot_number_must_exist_in_target_scene_for_focused_patch: true,
     scene_number_must_exist_for_focused_patch: true,
     scenes_forbidden_in_top_level_patch: true,
+    schema_placeholder_entries_forbidden: true,
+    empty_scene_entries_must_be_omitted: true,
+    empty_shot_entries_must_be_omitted: true,
     empty_patch_forbidden_unless_no_change_required: true,
   };
 }
@@ -400,6 +410,30 @@ function exactAuditFailures(failure = {}) {
 function directorRecoveryInstruction(failure = {}) {
   const code = String(failure.error_code || "").toUpperCase();
 
+  if (EMPTY_DIRECTOR_PATCH_CODES.has(code)) {
+    const details = object(failure.error_details);
+    const sceneNumber = finiteNumber(details.scene_number, null);
+    const shotNumber = finiteNumber(details.shot_number, null);
+    const failedAddress = [
+      sceneNumber !== null ? `scene ${sceneNumber}` : null,
+      shotNumber !== null ? `shot ${shotNumber}` : null,
+    ].filter(Boolean).join(" ");
+
+    return [
+      `The previous specialist returned an empty schema-placeholder patch${failedAddress ? ` for ${failedAddress}` : ""}.`,
+      "Never copy example placeholder entries from the output schema into the result.",
+      "Never return a scene entry whose scene patch is empty and whose shots array contains no substantive shot patch.",
+      "Never return a shot entry with patch {}, shot_patch {}, or no substantive fields.",
+      "Omit every unmodified scene and shot from plan_patch.scenes entirely.",
+      "When one or more existing fields genuinely require correction, return only those concrete mission-specific fields at their exact existing addresses.",
+      "When the editorial decision changes scene count, shot count, order, duration distribution or introduces any new address, return the entire corrected plan only in plan_patch.production_bible and set plan_patch.scenes to an empty array.",
+      "When this department genuinely requires no correction, set plan_patch.no_change_required=true, set plan_patch.scenes to an empty array, keep plan_patch.top_level empty and omit production_bible.",
+      "Never set no_change_required=false unless at least one substantive patch or a complete production_bible is present.",
+      "Preserve canonical references, exact duration, factual truth and all valid decisions.",
+      "All production dispatch, image generation and video generation remain forbidden.",
+    ].join(" ");
+  }
+
   if (code === "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_NUMBER_INVALID") {
     const details = object(failure.error_details);
     const sceneNumber = finiteNumber(details.scene_number, null);
@@ -415,9 +449,29 @@ function directorRecoveryInstruction(failure = {}) {
       "Focused plan_patch.scenes entries may patch only scene and shot addresses that already exist in the supplied production bible.",
       "Never use a focused patch to append, insert, renumber or create a new shot.",
       "When the narrative or duration correction requires a different scene count, shot count, shot order or any new address, return the entire corrected plan only in plan_patch.production_bible, including every preserved and new scene and shot.",
+      "Set plan_patch.scenes to an empty array when returning production_bible; do not include schema-placeholder scene or shot entries beside it.",
       "Do not place scenes in plan_patch.top_level or plan_patch.plan.",
       "When no structural change is required, target only existing shot numbers from 1 through the supplied expected count and omit all invented addresses.",
       "Preserve exact duration, canonical references, business truth and all valid existing direction.",
+      "All production dispatch, image generation and video generation remain forbidden.",
+    ].join(" ");
+  }
+
+  if (code === "CREATIVE_DIRECTOR_JOB_SCENE_PATCH_NUMBER_INVALID") {
+    const details = object(failure.error_details);
+    const receivedSceneNumber = finiteNumber(details.received, null);
+    const expectedCount = Math.max(
+      0,
+      finiteNumber(details.expected_count, 0),
+    );
+
+    return [
+      "The previous specialist attempted to address a scene number that does not exist in the current production bible.",
+      `The current plan contains ${expectedCount} addressable scene(s), but the patch attempted scene ${receivedSceneNumber ?? "unknown"}.`,
+      "Focused plan_patch.scenes entries may patch only scene addresses that already exist.",
+      "Any new scene, removed scene, reordered scene or changed scene count requires the complete corrected plan in plan_patch.production_bible.",
+      "Set plan_patch.scenes to an empty array when returning production_bible and omit all placeholder entries.",
+      "Preserve exact duration, canonical references, business truth and every valid existing decision.",
       "All production dispatch, image generation and video generation remain forbidden.",
     ].join(" ");
   }
@@ -462,6 +516,7 @@ function directorRecoveryInstruction(failure = {}) {
       "Do not create filler, frozen padding, repeated actions, artificially prolonged holds or a single oversized shot merely to reach the duration.",
       "Every shot must carry a distinct narrative, emotional, visual or editorial purpose and must hand off coherently to the next shot.",
       "Return the complete corrected plan only in plan_patch.production_bible whenever scene or shot structure changes are required.",
+      "Set plan_patch.scenes to an empty array and omit all schema-placeholder entries when returning production_bible.",
       "Do not attempt to add new shot numbers through plan_patch.scenes focused patches.",
       "All production dispatch, image generation and video generation remain forbidden.",
     ].join(" ");
@@ -476,6 +531,7 @@ function directorRecoveryInstruction(failure = {}) {
       "The IDENTITY_REFERENCE_CONTINUITY_REALITY department must explicitly define every required physical_reality category on every affected shot.",
       "For any shot depicting people, physical_reality.human must be concrete and independently executable: anatomy and hand integrity, body posture and balance, eye line, facial and breath progression, contact with objects and other people, gravity and momentum, wardrobe persistence, crowd individuality, no cloning, no looping and no impossible occlusion or reflection behavior.",
       "Patch the exact addressed scene and shot fields; do not satisfy the audit with generic language, empty objects or unrelated rewrites.",
+      "Omit all unmodified and empty scene or shot patch entries.",
       "All production dispatch, image generation and video generation remain forbidden.",
       `EXACT FINAL AUDIT FAILURES: ${JSON.stringify(failures)}`,
     ].join(" ");
@@ -488,8 +544,9 @@ function directorRecoveryInstruction(failure = {}) {
     "Never create a new scene or shot address through plan_patch.scenes.",
     "Never put scenes inside plan_patch.top_level or plan_patch.plan.",
     "For focused changes to existing addresses only, use plan_patch.scenes with correctly addressed scene and shot patches.",
+    "Omit every unchanged scene and shot. Never return empty schema-placeholder entries.",
     "Return at least one substantive mission-specific patch when correction is required.",
-    "When no correction is genuinely required, set plan_patch.no_change_required=true and omit empty scene and shot patch entries.",
+    "When no correction is genuinely required, set plan_patch.no_change_required=true, set plan_patch.scenes to an empty array and omit production_bible.",
     "Never return no_change_required=false with an empty patch.",
   ].join(" ");
 }
@@ -658,8 +715,14 @@ async function runDirectorCanaryWithRecovery({
           ? failure.error_details
           : null,
       structural_address_failure_details:
-        failure.error_code ===
-          "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_NUMBER_INVALID"
+        [
+          "CREATIVE_DIRECTOR_JOB_SCENE_PATCH_NUMBER_INVALID",
+          "CREATIVE_DIRECTOR_JOB_SHOT_PATCH_NUMBER_INVALID",
+        ].includes(failure.error_code)
+          ? failure.error_details
+          : null,
+      empty_patch_failure_details:
+        EMPTY_DIRECTOR_PATCH_CODES.has(failure.error_code)
           ? failure.error_details
           : null,
     });

@@ -87,6 +87,11 @@ jobs:
 
       - name: Production build
         shell: bash
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test
+          SUPABASE_SERVICE_ROLE_KEY: test
+          OPENAI_API_KEY: test
         run: |
           set -o pipefail
           npm run build > /tmp/creative-build.log 2>&1

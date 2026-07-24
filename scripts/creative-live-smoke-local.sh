@@ -5,27 +5,27 @@ REPO_ROOT="${AVANTIQO_REPO_ROOT:-$HOME/Projects/churchill-control-new}"
 BRANCH="${AVANTIQO_CREATIVE_BRANCH:-agent/creative-universal-reality-repair-20260724}"
 TARGET_ORGANIZATION_ID="${CREATIVE_TEST_ORGANIZATION_ID:-33336a72-acb5-474e-856b-8be0269360e2}"
 MIGRATION_NAME="20260724145500_creative_project_duration_semantics.sql"
+MIGRATION_VERSION="${MIGRATION_NAME%%_*}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 OUTPUT_DIR="${CREATIVE_SMOKE_OUTPUT_DIR:-$HOME/Downloads/AVANTIQO_CREATIVE_LIVE_SMOKE_$STAMP}"
 TEMP_ROOT="$(mktemp -d /tmp/avantiqo-creative-live-smoke.XXXXXX)"
 WORKTREE="$TEMP_ROOT/repository"
 SERVER_PID=""
 PORT="${CREATIVE_SMOKE_PORT:-3017}"
-MIGRATION_COPIED=0
 mkdir -p "$OUTPUT_DIR"
 
 cleanup() {
   local status=$?
+
   if [ -n "${SERVER_PID:-}" ]; then
     kill "$SERVER_PID" >/dev/null 2>&1 || true
     wait "$SERVER_PID" >/dev/null 2>&1 || true
   fi
-  if [ "$MIGRATION_COPIED" -eq 1 ]; then
-    rm -f "$REPO_ROOT/supabase/migrations/$MIGRATION_NAME"
-  fi
+
   cd "$REPO_ROOT" >/dev/null 2>&1 || true
   git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
   rm -rf "$TEMP_ROOT"
+
   return "$status"
 }
 trap cleanup EXIT INT TERM
@@ -41,6 +41,14 @@ header() {
   echo "============================================================"
   echo "$*"
   echo "============================================================"
+}
+
+run_supabase() {
+  if command -v supabase >/dev/null 2>&1; then
+    supabase "$@"
+  else
+    npx --yes supabase "$@"
+  fi
 }
 
 postgrest_get() {
@@ -73,77 +81,182 @@ postgrest_get() {
   fi
 }
 
-run_supabase() {
-  if command -v supabase >/dev/null 2>&1; then
-    supabase "$@"
-  else
-    npx --yes supabase "$@"
+run_linked_sql_file() {
+  local sql_file="$1"
+  local output_file="$2"
+  local query_help
+
+  query_help="$(
+    cd "$REPO_ROOT" &&
+      run_supabase db query --help 2>&1 || true
+  )"
+
+  if ! printf '%s\n' "$query_help" | grep -q -- '--linked'; then
+    printf '%s\n' "$query_help" > "$OUTPUT_DIR/supabase-db-query-help.txt"
+    fail "Installed Supabase CLI does not support linked db query"
   fi
+
+  set +e
+
+  if printf '%s\n' "$query_help" | grep -q -- '--file'; then
+    (
+      cd "$REPO_ROOT" &&
+        run_supabase db query --linked --file "$sql_file"
+    ) >"$output_file" 2>&1
+  elif printf '%s\n' "$query_help" | grep -Eq '(^|[[:space:]])-f([,[:space:]]|$)'; then
+    (
+      cd "$REPO_ROOT" &&
+        run_supabase db query --linked -f "$sql_file"
+    ) >"$output_file" 2>&1
+  else
+    (
+      cd "$REPO_ROOT" &&
+        run_supabase db query --linked < "$sql_file"
+    ) >"$output_file" 2>&1
+  fi
+
+  local query_status=$?
+  set -e
+
+  if [ "$query_status" -ne 0 ]; then
+    cat "$output_file" || true
+    fail "Linked SQL execution failed for $(basename "$sql_file")"
+  fi
+}
+
+remote_migration_is_applied() {
+  local migration_list_file="$1"
+
+  grep -E \
+    "^[^│|]*[│|][[:space:]]*$MIGRATION_VERSION[[:space:]]*[│|]" \
+    "$migration_list_file" >/dev/null 2>&1
 }
 
 apply_duration_migration() {
   local source_migration="$WORKTREE/supabase/migrations/$MIGRATION_NAME"
-  local target_migration="$REPO_ROOT/supabase/migrations/$MIGRATION_NAME"
-  local dry_run_log="$OUTPUT_DIR/supabase-duration-dry-run.log"
-  local push_log="$OUTPUT_DIR/supabase-duration-push.log"
-  local pending_file="$OUTPUT_DIR/pending-migrations.txt"
+  local migration_list_before="$OUTPUT_DIR/supabase-migration-list-before.txt"
+  local migration_list_after="$OUTPUT_DIR/supabase-migration-list-after.txt"
+  local execution_log="$OUTPUT_DIR/supabase-duration-single-query.log"
+  local repair_log="$OUTPUT_DIR/supabase-duration-history-repair.log"
+  local verification_sql="$OUTPUT_DIR/verify-creative-duration-semantics.sql"
+  local verification_log="$OUTPUT_DIR/verify-creative-duration-semantics.log"
 
   [ -f "$source_migration" ] || fail "Required migration missing: $source_migration"
 
-  if [ ! -f "$target_migration" ]; then
-    cp "$source_migration" "$target_migration"
-    MIGRATION_COPIED=1
-  elif ! cmp -s "$source_migration" "$target_migration"; then
-    fail "Local migration with the same version has different content: $target_migration"
+  cat > "$verification_sql" <<'SQL'
+do $$
+declare
+  duration_nullable text;
+  duration_default text;
+  duration_constraint text;
+begin
+  select
+    is_nullable,
+    column_default
+  into
+    duration_nullable,
+    duration_default
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'creative_projects'
+    and column_name = 'target_duration';
+
+  if duration_nullable is distinct from 'YES' then
+    raise exception 'CREATIVE_TARGET_DURATION_MUST_BE_NULLABLE';
+  end if;
+
+  if duration_default is not null then
+    raise exception 'CREATIVE_TARGET_DURATION_DEFAULT_MUST_BE_NULL';
+  end if;
+
+  select pg_get_constraintdef(oid)
+  into duration_constraint
+  from pg_constraint
+  where conrelid = 'public.creative_projects'::regclass
+    and conname = 'creative_projects_target_duration_check';
+
+  if duration_constraint is null
+     or position('VIDEO' in duration_constraint) = 0
+     or position('AUDIO' in duration_constraint) = 0
+     or position('target_duration IS NULL' in duration_constraint) = 0
+     or position('target_duration > 0' in duration_constraint) = 0 then
+    raise exception 'CREATIVE_TARGET_DURATION_CONSTRAINT_INVALID: %', duration_constraint;
+  end if;
+end;
+$$;
+
+select
+  production_type,
+  target_duration,
+  count(*) as project_count
+from public.creative_projects
+group by production_type, target_duration
+order by production_type, target_duration;
+SQL
+
+  echo "Checking remote migration history..."
+  set +e
+  (
+    cd "$REPO_ROOT" &&
+      run_supabase migration list --linked
+  ) >"$migration_list_before" 2>&1
+  local list_status=$?
+  set -e
+
+  if [ "$list_status" -ne 0 ]; then
+    cat "$migration_list_before" || true
+    fail "Could not read linked Supabase migration history"
   fi
 
-  echo "Checking remote Creative duration migration..."
+  if remote_migration_is_applied "$migration_list_before"; then
+    echo "Creative duration migration is already recorded remotely."
+  else
+    echo "Executing only $MIGRATION_NAME..."
+    run_linked_sql_file "$source_migration" "$execution_log"
+
+    echo "Verifying Creative duration schema..."
+    run_linked_sql_file "$verification_sql" "$verification_log"
+
+    echo "Recording only migration version $MIGRATION_VERSION..."
+    set +e
+    (
+      cd "$REPO_ROOT" &&
+        run_supabase migration repair \
+          "$MIGRATION_VERSION" \
+          --status applied \
+          --linked
+    ) >"$repair_log" 2>&1
+    local repair_status=$?
+    set -e
+
+    if [ "$repair_status" -ne 0 ]; then
+      cat "$repair_log" || true
+      fail "Duration schema changed correctly, but migration history repair failed"
+    fi
+  fi
+
+  echo "Verifying final Creative duration schema..."
+  run_linked_sql_file "$verification_sql" "$verification_log"
 
   set +e
   (
     cd "$REPO_ROOT" &&
-    run_supabase db push --dry-run --include-all
-  ) >"$dry_run_log" 2>&1
-  local dry_status=$?
+      run_supabase migration list --linked
+  ) >"$migration_list_after" 2>&1
+  local final_list_status=$?
   set -e
 
-  if [ "$dry_status" -ne 0 ]; then
-    cat "$dry_run_log" || true
-    fail "Supabase migration dry-run failed"
+  if [ "$final_list_status" -ne 0 ]; then
+    cat "$migration_list_after" || true
+    fail "Could not verify final linked migration history"
   fi
 
-  grep -Eo '[0-9]{14}_[A-Za-z0-9_]+\.sql' "$dry_run_log" |
-    sort -u > "$pending_file" || true
-
-  if [ -s "$pending_file" ]; then
-    local unrelated
-    unrelated="$(grep -v "^$MIGRATION_NAME$" "$pending_file" || true)"
-    if [ -n "$unrelated" ]; then
-      echo "Unrelated pending migrations detected:"
-      printf '%s\n' "$unrelated"
-      fail "Refusing to push unrelated migrations"
-    fi
+  if ! remote_migration_is_applied "$migration_list_after"; then
+    cat "$migration_list_after" || true
+    fail "Migration version $MIGRATION_VERSION is not recorded remotely"
   fi
 
-  if grep -qx "$MIGRATION_NAME" "$pending_file"; then
-    echo "Applying guarded Creative duration migration..."
-    set +e
-    (
-      cd "$REPO_ROOT" &&
-      run_supabase db push --include-all --yes
-    ) >"$push_log" 2>&1
-    local push_status=$?
-    set -e
-
-    if [ "$push_status" -ne 0 ]; then
-      cat "$push_log" || true
-      fail "Creative duration migration push failed"
-    fi
-
-    echo "Creative duration migration applied."
-  else
-    echo "Creative duration migration is already applied."
-  fi
+  echo "Creative duration migration verified."
 }
 
 header "AVANTIQO CREATIVE LIVE ENTRANCE + STAFF SMOKE"
@@ -152,6 +265,7 @@ echo "Output: $OUTPUT_DIR"
 for command_name in git node npm curl jq lsof; do
   command -v "$command_name" >/dev/null 2>&1 || fail "$command_name is required"
 done
+
 [ -d "$REPO_ROOT/.git" ] || fail "Repository not found at $REPO_ROOT"
 [ -f "$REPO_ROOT/.env.local" ] || fail "$REPO_ROOT/.env.local was not found"
 

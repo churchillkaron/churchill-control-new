@@ -87,22 +87,18 @@ postgrest_get() {
   fi
 }
 
-run_linked_sql_file() {
+is_transient_linked_sql_failure() {
+  local log_file="$1"
+
+  grep -Eqi \
+    'unexpected login role status (429|5[0-9]{2})|error code:[[:space:]]*(429|5[0-9]{2})|bad gateway|service unavailable|gateway timeout|temporar(y|ily)|connection reset|connection refused|connection closed|network is unreachable|timed out|timeout|eof' \
+    "$log_file"
+}
+
+execute_linked_sql_once() {
   local sql_file="$1"
   local output_file="$2"
-  local query_help
-
-  query_help="$(
-    cd "$REPO_ROOT" &&
-      run_supabase db query --help 2>&1 || true
-  )"
-
-  if ! printf '%s\n' "$query_help" | grep -q -- '--linked'; then
-    printf '%s\n' "$query_help" > "$OUTPUT_DIR/supabase-db-query-help.txt"
-    fail "Installed Supabase CLI does not support linked db query"
-  fi
-
-  set +e
+  local query_help="$3"
 
   if printf '%s\n' "$query_help" | grep -q -- '--file'; then
     (
@@ -120,14 +116,72 @@ run_linked_sql_file() {
         run_supabase db query --linked < "$sql_file"
     ) >"$output_file" 2>&1
   fi
+}
 
-  local query_status=$?
-  set -e
+run_linked_sql_file() {
+  local sql_file="$1"
+  local output_file="$2"
+  local query_help
+  local max_attempts="${SUPABASE_LINKED_SQL_MAX_ATTEMPTS:-5}"
+  local retry_seconds="${SUPABASE_LINKED_SQL_RETRY_SECONDS:-6}"
+  local attempt
+  local attempt_log
+  local query_status
 
-  if [ "$query_status" -ne 0 ]; then
-    cat "$output_file" || true
-    fail "Linked SQL execution failed for $(basename "$sql_file")"
+  query_help="$(
+    cd "$REPO_ROOT" &&
+      run_supabase db query --help 2>&1 || true
+  )"
+
+  if ! printf '%s\n' "$query_help" | grep -q -- '--linked'; then
+    printf '%s\n' "$query_help" > "$OUTPUT_DIR/supabase-db-query-help.txt"
+    fail "Installed Supabase CLI does not support linked db query"
   fi
+
+  : > "$output_file"
+
+  for attempt in $(seq 1 "$max_attempts"); do
+    attempt_log="$output_file.attempt-$attempt"
+
+    set +e
+    execute_linked_sql_once \
+      "$sql_file" \
+      "$attempt_log" \
+      "$query_help"
+    query_status=$?
+    set -e
+
+    {
+      echo "===== LINKED SQL ATTEMPT $attempt/$max_attempts ====="
+      cat "$attempt_log" 2>/dev/null || true
+      echo
+    } >> "$output_file"
+
+    if [ "$query_status" -eq 0 ]; then
+      rm -f "$attempt_log"
+      return 0
+    fi
+
+    if is_transient_linked_sql_failure "$attempt_log" && [ "$attempt" -lt "$max_attempts" ]; then
+      local delay=$((retry_seconds * attempt))
+      echo "Transient Supabase linked-database failure on attempt $attempt/$max_attempts; retrying in ${delay}s..."
+      rm -f "$attempt_log"
+      sleep "$delay"
+      continue
+    fi
+
+    cat "$attempt_log" 2>/dev/null || cat "$output_file" || true
+    rm -f "$attempt_log"
+
+    if is_transient_linked_sql_failure "$output_file"; then
+      fail "Supabase linked-database verification remained unavailable after $attempt attempt(s)"
+    fi
+
+    fail "Linked SQL execution failed for $(basename "$sql_file")"
+  done
+
+  cat "$output_file" || true
+  fail "Supabase linked-database verification remained unavailable after $max_attempts attempts"
 }
 
 remote_migration_is_applied() {

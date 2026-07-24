@@ -17,8 +17,19 @@ import {
   CreativeProjectRuntime,
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 import {
+  CreativeAssetGraphRuntime,
+} from "@/lib/creative/assets/graph/runtime/CreativeAssetGraphRuntime";
+import {
+  CreativeAssetsRuntime,
+} from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
+import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+
+function list(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value.filter(Boolean) : [value];
+}
 
 function normalizeReleaseMode(value) {
   const mode = String(value || "MANUAL").trim().toUpperCase();
@@ -27,12 +38,131 @@ function normalizeReleaseMode(value) {
     : "MANUAL";
 }
 
+function assetUrl(asset = {}) {
+  return (
+    asset.image_url ||
+    asset.file_url ||
+    asset.url ||
+    asset.thumbnail_url ||
+    null
+  );
+}
+
+function isImageEvidence(asset = {}) {
+  const type = String(
+    asset.type ||
+    asset.asset_type ||
+    asset.metadata?.asset_type ||
+    "",
+  ).toUpperCase();
+  const mime = String(
+    asset.mime_type ||
+    asset.technical?.mime_type ||
+    asset.metadata?.mime_type ||
+    "",
+  ).toLowerCase();
+
+  if (asset.isVideo === true) return false;
+  if (mime.startsWith("video/") || mime.startsWith("audio/")) return false;
+  if (["VIDEO", "AUDIO", "VOICE", "MUSIC", "SFX"].includes(type)) {
+    return false;
+  }
+
+  return Boolean(assetUrl(asset));
+}
+
+function normalizeDirectorEvidence(asset = {}) {
+  const url = assetUrl(asset);
+  const intelligence = asset.intelligence || {};
+  const metadata = asset.metadata || {};
+
+  return {
+    ...asset,
+    id: asset.id || asset.asset_id || asset.creative_asset_id || null,
+    asset_id: asset.asset_id || asset.id || asset.creative_asset_id || null,
+    image_url: asset.image_url || url,
+    file_url: asset.file_url || url,
+    thumbnail_url: asset.thumbnail_url || url,
+    url,
+    tags: list(asset.tags).length
+      ? list(asset.tags)
+      : list(intelligence.tags),
+    analysis: {
+      ...(intelligence || {}),
+      ...(asset.analysis || {}),
+    },
+    reference_roles: [
+      ...new Set([
+        ...list(asset.reference_roles),
+        ...list(asset.reference_role),
+        ...list(metadata.reference_roles),
+        ...list(metadata.reference_role),
+        ...list(metadata.evidence_roles),
+        ...list(metadata.evidence_role),
+      ].filter(Boolean).map(String)),
+    ],
+    approved_reference:
+      asset.approved_reference === true ||
+      asset.review?.approved === true ||
+      String(asset.status || "").toUpperCase() === "APPROVED",
+    metadata: {
+      ...metadata,
+      project_evidence_hydrated: true,
+      project_evidence_source:
+        metadata.reference_source ||
+        metadata.evidence_role ||
+        "CREATIVE_ASSET_NODE",
+    },
+  };
+}
+
+async function resolveProjectEvidence({
+  organization_id,
+  creative_project_id,
+  supplied_assets = [],
+}) {
+  const supplied = list(supplied_assets)
+    .map(normalizeDirectorEvidence)
+    .filter(isImageEvidence);
+
+  if (supplied.length) return supplied;
+
+  const nodes = await CreativeAssetGraphRuntime.list({
+    organization_id,
+    creative_project_id,
+  });
+  const hydrated = await Promise.all(
+    list(nodes).map(async (node) => {
+      try {
+        return await CreativeAssetsRuntime.get(node.id);
+      } catch {
+        return node;
+      }
+    }),
+  );
+
+  const evidence = hydrated
+    .filter(Boolean)
+    .map(normalizeDirectorEvidence)
+    .filter(isImageEvidence);
+  const unique = new Map();
+
+  for (const asset of evidence) {
+    const key = String(asset.id || asset.asset_id || asset.url || "");
+    if (!key || unique.has(key)) continue;
+    unique.set(key, asset);
+  }
+
+  return [...unique.values()];
+}
+
 function summarizeUnsuccessfulResult({
   result,
   organization_id,
   creative_project_id,
   universal,
   release_mode,
+  evidence_assets,
 }) {
   const production = result?.production || null;
   const failedTasks = Array.isArray(production?.tasks)
@@ -49,6 +179,10 @@ function summarizeUnsuccessfulResult({
     creative_project_id,
     universal,
     release_mode,
+    evidence_asset_count: evidence_assets.length,
+    evidence_asset_ids: evidence_assets
+      .map((asset) => asset.id || asset.asset_id)
+      .filter(Boolean),
     result_success: result?.success ?? null,
     reason: result?.reason || result?.error || null,
     code: result?.code || null,
@@ -131,6 +265,11 @@ export async function POST(req) {
     const release_mode = normalizeReleaseMode(
       body.release_mode || body.releaseMode,
     );
+    const evidence_assets = await resolveProjectEvidence({
+      organization_id,
+      creative_project_id,
+      supplied_assets: body.assets || body.reference_assets || [],
+    });
     const executionInput = {
       ...body,
       organization_id,
@@ -141,6 +280,8 @@ export async function POST(req) {
         project.creative_mission_id ||
         project.id,
       project,
+      assets: evidence_assets,
+      reference_assets: evidence_assets,
       release_mode,
     };
 
@@ -187,6 +328,7 @@ export async function POST(req) {
             creative_project_id,
             universal,
             release_mode,
+            evidence_assets,
           }),
           null,
           2,
@@ -200,6 +342,7 @@ export async function POST(req) {
         ...result,
         universal,
         release_mode,
+        evidence_asset_count: evidence_assets.length,
         autonomous_handoff,
       },
       { status: success ? 200 : 422 },

@@ -1,13 +1,9 @@
 #!/usr/bin/env node
 
-const fs = require("fs");
-const path = require("path");
-
 const baseUrl = String(
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "",
 ).replace(/\/$/, "");
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const outputDir = process.env.CREATIVE_SMOKE_OUTPUT_DIR || "/tmp";
 
 if (!baseUrl || !key) {
   throw new Error("Supabase URL and service-role key are required");
@@ -71,36 +67,36 @@ function organizationCurrency(row = {}) {
     "base_currency",
     "functional_currency",
   ]) {
-    const value = validCurrency(row[field]);
-    if (value) return value;
+    const currency = validCurrency(row[field]);
+    if (currency) return currency;
   }
   return nestedCurrency(row);
 }
 
 function organizationId(row = {}) {
-  return String(
-    row.organization_id || row.organisation_id || row.org_id || "",
-  ).trim() || null;
+  return (
+    String(
+      row.organization_id || row.organisation_id || row.org_id || "",
+    ).trim() || null
+  );
 }
 
 function rowCurrencies(row = {}) {
   const currencies = new Set();
   for (const field of currencyFields) {
-    const value = validCurrency(row[field]);
-    if (value) currencies.add(value);
+    const currency = validCurrency(row[field]);
+    if (currency) currencies.add(currency);
   }
   const nested = nestedCurrency(row);
   if (nested) currencies.add(nested);
   return [...currencies];
 }
 
-async function request(resource, options = {}) {
+async function request(resource) {
   const response = await fetch(`${baseUrl}/rest/v1/${resource}`, {
-    ...options,
     headers: {
       apikey: key,
       Authorization: `Bearer ${key}`,
-      ...(options.headers || {}),
     },
   });
   const text = await response.text();
@@ -108,9 +104,13 @@ async function request(resource, options = {}) {
   try {
     body = JSON.parse(text || "null");
   } catch {
-    body = text;
+    body = null;
   }
-  return { ok: response.ok, status: response.status, body };
+  return {
+    ok: response.ok,
+    status: response.status,
+    body,
+  };
 }
 
 async function rows(resource) {
@@ -123,10 +123,10 @@ function timeValue(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function evidenceFor(map, organizationId, currency, source, kind, weight) {
-  if (!organizationId || !currency) return;
-  const byCurrency = map.get(organizationId) || new Map();
-  const item = byCurrency.get(currency) || {
+function addEvidence(map, id, currency, source, kind, weight) {
+  if (!id || !currency) return;
+  const byCurrency = map.get(id) || new Map();
+  const current = byCurrency.get(currency) || {
     currency,
     score: 0,
     rows: 0,
@@ -134,12 +134,12 @@ function evidenceFor(map, organizationId, currency, source, kind, weight) {
     operational_sources: new Set(),
     sources: new Set(),
   };
-  item.score += weight;
-  item.rows += 1;
-  item.sources.add(source);
-  item[`${kind}_sources`].add(source);
-  byCurrency.set(currency, item);
-  map.set(organizationId, byCurrency);
+  current.score += weight;
+  current.rows += 1;
+  current.sources.add(source);
+  current[`${kind}_sources`].add(source);
+  byCurrency.set(currency, current);
+  map.set(id, byCurrency);
 }
 
 function serializeEvidence(item) {
@@ -153,124 +153,62 @@ function serializeEvidence(item) {
   };
 }
 
-function inferCurrency(evidence, organizationId) {
-  const values = [...(evidence.get(organizationId)?.values() || [])]
+function summarizeEvidence(evidence, id) {
+  return [...(evidence.get(id)?.values() || [])]
     .map(serializeEvidence)
     .sort(
-      (a, b) =>
-        b.configuration_sources.length - a.configuration_sources.length ||
-        b.score - a.score ||
-        b.rows - a.rows ||
-        a.currency.localeCompare(b.currency),
+      (left, right) =>
+        right.configuration_sources.length -
+          left.configuration_sources.length ||
+        right.score - left.score ||
+        right.rows - left.rows ||
+        left.currency.localeCompare(right.currency),
     );
+}
 
-  const configured = values.filter(
-    (value) => value.configuration_sources.length > 0,
-  );
-
-  if (configured.length === 1) {
-    return {
-      currency: configured[0].currency,
-      confidence: "CONFIGURATION_EVIDENCE",
-      reason: "ONE_CONFIGURED_CURRENCY",
-      evidence: values,
-    };
-  }
-  if (configured.length > 1) {
-    return {
-      currency: null,
-      confidence: "CONFLICT",
-      reason: "MULTIPLE_CONFIGURED_CURRENCIES",
-      evidence: values,
-    };
-  }
-  if (values.length === 1) {
-    const strong = values[0].sources.length >= 2 || values[0].rows >= 2;
-    return {
-      currency: values[0].currency,
-      confidence: strong
-        ? "CONSISTENT_OPERATIONAL_EVIDENCE"
-        : "SINGLE_OPERATIONAL_EVIDENCE",
-      reason: "ONE_OPERATIONAL_CURRENCY",
-      evidence: values,
-    };
-  }
+function legalEntityCurrency(entities = []) {
+  const currencies = [
+    ...new Set(entities.map((row) => validCurrency(row.currency)).filter(Boolean)),
+  ];
   return {
-    currency: null,
-    confidence: values.length ? "CONFLICT" : "NONE",
-    reason: values.length
-      ? "MULTIPLE_OPERATIONAL_CURRENCIES"
-      : "NO_CURRENCY_EVIDENCE",
-    evidence: values,
+    currency: currencies.length === 1 ? currencies[0] : null,
+    currencies,
+    conflict: currencies.length > 1,
   };
 }
 
-function currencyPatch(organization, currency) {
-  for (const field of [
-    "default_currency",
-    "currency",
-    "base_currency",
-    "functional_currency",
-  ]) {
-    if (Object.prototype.hasOwnProperty.call(organization, field)) {
-      return { target: field, payload: { [field]: currency } };
-    }
-  }
-
-  if (Object.prototype.hasOwnProperty.call(organization, "metadata")) {
-    return {
-      target: "metadata.currency",
-      payload: {
-        metadata: {
-          ...(organization.metadata && typeof organization.metadata === "object"
-            ? organization.metadata
-            : {}),
-          currency,
-          currency_configuration_source:
-            "EXISTING_ORGANIZATION_DATA_EVIDENCE",
-        },
-      },
-    };
-  }
-
-  if (Object.prototype.hasOwnProperty.call(organization, "settings")) {
-    return {
-      target: "settings.currency",
-      payload: {
-        settings: {
-          ...(organization.settings && typeof organization.settings === "object"
-            ? organization.settings
-            : {}),
-          currency,
-          currency_configuration_source:
-            "EXISTING_ORGANIZATION_DATA_EVIDENCE",
-        },
-      },
-    };
-  }
-
-  return null;
-}
-
 (async () => {
-  const [organizations, projects, missions, assets] = await Promise.all([
-    rows("organizations?select=*&limit=1000"),
-    rows(
-      "creative_projects?select=organization_id,created_at&not.organization_id=is.null&order=created_at.desc&limit=2000",
-    ),
-    rows(
-      "creative_missions?select=organization_id,created_at&not.organization_id=is.null&order=created_at.desc&limit=2000",
-    ),
-    rows(
-      "creative_assets?select=organization_id,created_at&not.organization_id=is.null&order=created_at.desc&limit=5000",
-    ),
-  ]);
+  const [organizations, legalEntities, projects, missions, assets] =
+    await Promise.all([
+      rows("organizations?select=*&limit=1000"),
+      rows(
+        "legal_entities?select=organization_id,currency&not.organization_id=is.null&limit=5000",
+      ),
+      rows(
+        "creative_projects?select=organization_id,created_at&not.organization_id=is.null&order=created_at.desc&limit=2000",
+      ),
+      rows(
+        "creative_missions?select=organization_id,created_at&not.organization_id=is.null&order=created_at.desc&limit=2000",
+      ),
+      rows(
+        "creative_assets?select=organization_id,created_at&not.organization_id=is.null&order=created_at.desc&limit=5000",
+      ),
+    ]);
 
   const organizationById = new Map(
     organizations
       .map((row) => [String(row.id || "").trim(), row])
       .filter(([id]) => id),
   );
+
+  const entitiesByOrganization = new Map();
+  for (const entity of legalEntities) {
+    const id = organizationId(entity);
+    if (!id) continue;
+    const list = entitiesByOrganization.get(id) || [];
+    list.push(entity);
+    entitiesByOrganization.set(id, list);
+  }
 
   const activity = new Map();
   function addActivity(records, type, baseScore) {
@@ -305,13 +243,14 @@ function currencyPatch(organization, currency) {
     for (const row of records) {
       const id = organizationId(row);
       for (const currency of rowCurrencies(row)) {
-        evidenceFor(evidence, id, currency, table, kind, weight);
+        addEvidence(evidence, id, currency, table, kind, weight);
       }
     }
   }
 
   const ids = new Set([
     ...organizationById.keys(),
+    ...entitiesByOrganization.keys(),
     ...activity.keys(),
     ...evidence.keys(),
   ]);
@@ -319,8 +258,11 @@ function currencyPatch(organization, currency) {
   const candidates = [...ids]
     .map((id) => {
       const organization = organizationById.get(id) || {};
-      const configured = organizationCurrency(organization);
-      const inference = inferCurrency(evidence, id);
+      const organizationConfiguredCurrency = organizationCurrency(organization);
+      const entityResolution = legalEntityCurrency(
+        entitiesByOrganization.get(id) || [],
+      );
+      const currencyEvidence = summarizeEvidence(evidence, id);
       const creative = activity.get(id) || {
         score: 0,
         projects: 0,
@@ -328,10 +270,19 @@ function currencyPatch(organization, currency) {
         assets: 0,
         latest_activity: 0,
       };
-      const eligible = Boolean(configured) || [
-        "CONFIGURATION_EVIDENCE",
-        "CONSISTENT_OPERATIONAL_EVIDENCE",
-      ].includes(inference.confidence);
+      const configuredCurrency =
+        organizationConfiguredCurrency || entityResolution.currency;
+      const currencySource = organizationConfiguredCurrency
+        ? "organizations"
+        : entityResolution.currency
+          ? "legal_entities"
+          : null;
+      const topEvidence = currencyEvidence[0] || {
+        score: 0,
+        rows: 0,
+        sources: [],
+      };
+
       return {
         organization_id: id,
         organization_name:
@@ -339,110 +290,65 @@ function currencyPatch(organization, currency) {
           organization.legal_name ||
           organization.display_name ||
           null,
-        configured_currency: configured,
-        inferred_currency: inference.currency,
-        inference_confidence: inference.confidence,
-        inference_reason: inference.reason,
-        currency_evidence: inference.evidence,
-        eligible,
+        configured_currency: configuredCurrency,
+        organization_currency: organizationConfiguredCurrency,
+        legal_entity_currency: entityResolution.currency,
+        legal_entity_currencies: entityResolution.currencies,
+        currency_source: currencySource,
+        runtime_ready: Boolean(configuredCurrency) && !entityResolution.conflict,
+        currency_conflict: entityResolution.conflict,
+        evidence_score: topEvidence.score,
+        evidence_rows: topEvidence.rows,
+        currency_evidence: currencyEvidence,
         ...creative,
       };
     })
     .sort(
-      (a, b) =>
-        Number(b.eligible) - Number(a.eligible) ||
-        b.score - a.score ||
-        b.latest_activity - a.latest_activity ||
-        b.assets - a.assets ||
-        a.organization_id.localeCompare(b.organization_id),
+      (left, right) =>
+        Number(right.runtime_ready) - Number(left.runtime_ready) ||
+        right.score - left.score ||
+        right.latest_activity - left.latest_activity ||
+        right.evidence_score - left.evidence_score ||
+        right.evidence_rows - left.evidence_rows ||
+        right.assets - left.assets ||
+        String(left.organization_name || left.organization_id).localeCompare(
+          String(right.organization_name || right.organization_id),
+        ),
     );
 
   const selected =
     candidates.find(
       (candidate) =>
-        candidate.eligible &&
+        candidate.runtime_ready &&
         (candidate.projects || candidate.missions || candidate.assets),
-    ) || candidates.find((candidate) => candidate.eligible) || null;
+    ) || candidates.find((candidate) => candidate.runtime_ready) || null;
 
   const result = {
     selected,
     candidates,
     inspected: {
       organizations: organizations.length,
+      legal_entities: legalEntities.length,
       creative_projects: projects.length,
       creative_missions: missions.length,
       creative_assets: assets.length,
       evidence_tables: tableInspection,
     },
-    repair: null,
+    repair: selected
+      ? {
+          attempted: false,
+          success: true,
+          reason:
+            selected.currency_source === "organizations"
+              ? "RUNTIME_CURRENCY_RESOLVED_FROM_ORGANIZATION"
+              : "RUNTIME_CURRENCY_RESOLVED_FROM_LEGAL_ENTITY",
+        }
+      : {
+          attempted: false,
+          success: false,
+          reason: "NO_RUNTIME_RESOLVABLE_ORGANIZATION_CURRENCY",
+        },
   };
-
-  if (!selected) {
-    process.stdout.write(JSON.stringify(result, null, 2));
-    return;
-  }
-
-  const organization = organizationById.get(selected.organization_id) || {};
-  if (selected.configured_currency) {
-    selected.currency_source = "existing_organization_configuration";
-    result.repair = {
-      attempted: false,
-      success: true,
-      reason: "CURRENCY_ALREADY_CONFIGURED",
-    };
-    process.stdout.write(JSON.stringify(result, null, 2));
-    return;
-  }
-
-  const currency = validCurrency(selected.inferred_currency);
-  const patch = currencyPatch(organization, currency);
-  const backupPath = path.join(
-    outputDir,
-    `organization-${selected.organization_id}-before-currency-repair.json`,
-  );
-  fs.writeFileSync(backupPath, JSON.stringify(organization, null, 2));
-
-  if (!patch) {
-    result.repair = {
-      attempted: false,
-      success: false,
-      reason: "NO_SUPPORTED_CURRENCY_CONFIGURATION_FIELD",
-      backup_path: backupPath,
-    };
-    process.stdout.write(JSON.stringify(result, null, 2));
-    return;
-  }
-
-  const repair = await request(
-    `organizations?id=eq.${encodeURIComponent(selected.organization_id)}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify(patch.payload),
-    },
-  );
-
-  const repaired =
-    repair.ok && Array.isArray(repair.body) ? repair.body[0] || {} : {};
-  const verifiedCurrency = organizationCurrency(repaired);
-
-  result.repair = {
-    attempted: true,
-    success: repair.ok && verifiedCurrency === currency,
-    status: repair.status,
-    target: patch.target,
-    currency,
-    backup_path: backupPath,
-    response: repair.body,
-  };
-
-  if (result.repair.success) {
-    selected.configured_currency = verifiedCurrency;
-    selected.currency_source = patch.target;
-  }
 
   process.stdout.write(JSON.stringify(result, null, 2));
 })().catch((error) => {

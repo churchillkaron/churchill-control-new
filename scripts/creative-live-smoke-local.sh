@@ -4,12 +4,14 @@ set -euo pipefail
 REPO_ROOT="${AVANTIQO_REPO_ROOT:-$HOME/Projects/churchill-control-new}"
 BRANCH="${AVANTIQO_CREATIVE_BRANCH:-agent/creative-universal-reality-repair-20260724}"
 TARGET_ORGANIZATION_ID="${CREATIVE_TEST_ORGANIZATION_ID:-33336a72-acb5-474e-856b-8be0269360e2}"
+MIGRATION_NAME="20260724145500_creative_project_duration_semantics.sql"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 OUTPUT_DIR="${CREATIVE_SMOKE_OUTPUT_DIR:-$HOME/Downloads/AVANTIQO_CREATIVE_LIVE_SMOKE_$STAMP}"
 TEMP_ROOT="$(mktemp -d /tmp/avantiqo-creative-live-smoke.XXXXXX)"
 WORKTREE="$TEMP_ROOT/repository"
 SERVER_PID=""
 PORT="${CREATIVE_SMOKE_PORT:-3017}"
+MIGRATION_COPIED=0
 mkdir -p "$OUTPUT_DIR"
 
 cleanup() {
@@ -17,6 +19,9 @@ cleanup() {
   if [ -n "${SERVER_PID:-}" ]; then
     kill "$SERVER_PID" >/dev/null 2>&1 || true
     wait "$SERVER_PID" >/dev/null 2>&1 || true
+  fi
+  if [ "$MIGRATION_COPIED" -eq 1 ]; then
+    rm -f "$REPO_ROOT/supabase/migrations/$MIGRATION_NAME"
   fi
   cd "$REPO_ROOT" >/dev/null 2>&1 || true
   git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
@@ -68,6 +73,79 @@ postgrest_get() {
   fi
 }
 
+run_supabase() {
+  if command -v supabase >/dev/null 2>&1; then
+    supabase "$@"
+  else
+    npx --yes supabase "$@"
+  fi
+}
+
+apply_duration_migration() {
+  local source_migration="$WORKTREE/supabase/migrations/$MIGRATION_NAME"
+  local target_migration="$REPO_ROOT/supabase/migrations/$MIGRATION_NAME"
+  local dry_run_log="$OUTPUT_DIR/supabase-duration-dry-run.log"
+  local push_log="$OUTPUT_DIR/supabase-duration-push.log"
+  local pending_file="$OUTPUT_DIR/pending-migrations.txt"
+
+  [ -f "$source_migration" ] || fail "Required migration missing: $source_migration"
+
+  if [ ! -f "$target_migration" ]; then
+    cp "$source_migration" "$target_migration"
+    MIGRATION_COPIED=1
+  elif ! cmp -s "$source_migration" "$target_migration"; then
+    fail "Local migration with the same version has different content: $target_migration"
+  fi
+
+  echo "Checking remote Creative duration migration..."
+
+  set +e
+  (
+    cd "$REPO_ROOT" &&
+    run_supabase db push --dry-run --include-all
+  ) >"$dry_run_log" 2>&1
+  local dry_status=$?
+  set -e
+
+  if [ "$dry_status" -ne 0 ]; then
+    cat "$dry_run_log" || true
+    fail "Supabase migration dry-run failed"
+  fi
+
+  grep -Eo '[0-9]{14}_[A-Za-z0-9_]+\.sql' "$dry_run_log" |
+    sort -u > "$pending_file" || true
+
+  if [ -s "$pending_file" ]; then
+    local unrelated
+    unrelated="$(grep -v "^$MIGRATION_NAME$" "$pending_file" || true)"
+    if [ -n "$unrelated" ]; then
+      echo "Unrelated pending migrations detected:"
+      printf '%s\n' "$unrelated"
+      fail "Refusing to push unrelated migrations"
+    fi
+  fi
+
+  if grep -qx "$MIGRATION_NAME" "$pending_file"; then
+    echo "Applying guarded Creative duration migration..."
+    set +e
+    (
+      cd "$REPO_ROOT" &&
+      run_supabase db push --include-all --yes
+    ) >"$push_log" 2>&1
+    local push_status=$?
+    set -e
+
+    if [ "$push_status" -ne 0 ]; then
+      cat "$push_log" || true
+      fail "Creative duration migration push failed"
+    fi
+
+    echo "Creative duration migration applied."
+  else
+    echo "Creative duration migration is already applied."
+  fi
+}
+
 header "AVANTIQO CREATIVE LIVE ENTRANCE + STAFF SMOKE"
 echo "Output: $OUTPUT_DIR"
 
@@ -100,6 +178,8 @@ SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}"
 [ -n "$SUPABASE_URL" ] || fail "NEXT_PUBLIC_SUPABASE_URL is missing"
 [ -n "$SERVICE_ROLE_KEY" ] || fail "SUPABASE_SERVICE_ROLE_KEY is missing"
 SUPABASE_URL="${SUPABASE_URL%/}"
+
+apply_duration_migration
 
 ORGANIZATION_JSON="$OUTPUT_DIR/churchill-organization.json"
 ENTITY_JSON="$OUTPUT_DIR/churchill-legal-entities.json"

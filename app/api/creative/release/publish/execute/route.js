@@ -13,13 +13,15 @@ export async function POST(request) {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
     const publishCommandAssetNodeId =
-      body.publish_command_asset_node_id || body.publishCommandAssetNodeId;
+      body.publish_command_asset_node_id ||
+      body.publishCommandAssetNodeId;
 
     if (!organizationId || !publishCommandAssetNodeId) {
       return Response.json(
         {
           success: false,
-          error: "organization_id and publish_command_asset_node_id required",
+          error:
+            "organization_id and publish_command_asset_node_id required",
         },
         { status: 400 },
       );
@@ -41,14 +43,27 @@ export async function POST(request) {
         user_id: access.userId,
         staff_account_id: access.staff?.id,
       },
-      force: body.force === true,
     });
+    const status = result.execution?.metadata?.execution_status || null;
 
-    return Response.json({ success: true, ...result });
+    return Response.json({
+      success: true,
+      publication_executed: status === "COMPLETED",
+      publication_pending: status === "PENDING_PROVIDER",
+      reconciliation_required:
+        result.reconciliation_required === true ||
+        status === "RECONCILIATION_REQUIRED",
+      ...result,
+    });
   } catch (error) {
+    const conflict = new Set([
+      "PUBLISH_COMMAND_ALREADY_CLAIMED",
+      "PENDING_PUBLISH_COMMAND_REQUIRED",
+    ]).has(error.message);
+
     return Response.json(
       { success: false, error: error.message },
-      { status: 500 },
+      { status: conflict ? 409 : 500 },
     );
   }
 }

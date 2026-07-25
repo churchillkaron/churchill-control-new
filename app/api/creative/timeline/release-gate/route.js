@@ -23,6 +23,24 @@ function sanitizePolicy(value = {}) {
   );
 }
 
+function trackAssetIds(value = {}) {
+  const ids = [];
+  const subtitleId =
+    value.subtitle_asset_node_id ||
+    value.subtitleAssetNodeId;
+  if (subtitleId) ids.push(subtitleId);
+
+  for (const track of Array.isArray(value.audio) ? value.audio : []) {
+    const id = track.asset_node_id || track.assetNodeId;
+    if (id) ids.push(id);
+  }
+  for (const overlay of Array.isArray(value.overlays) ? value.overlays : []) {
+    const id = overlay.asset_node_id || overlay.assetNodeId;
+    if (id) ids.push(id);
+  }
+  return [...new Set(ids)];
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -49,6 +67,7 @@ export async function POST(request) {
     const result = await CreativeReleaseGateRuntime.evaluate({
       organization_id: organizationId,
       timeline_asset_node_id: timelineAssetNodeId,
+      asset_node_ids: trackAssetIds(body.tracks || {}),
       policy: sanitizePolicy(body.policy || {}),
       force: body.force === true,
     });

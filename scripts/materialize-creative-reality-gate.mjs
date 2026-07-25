@@ -137,6 +137,28 @@ const layers = [
       ],
     ],
   },
+  {
+    name: "V8_DIRECTOR_STRUCTURED_OUTPUT",
+    script: "scripts/apply-creative-director-structured-output-v8.mjs",
+    markers: [
+      [
+        "lib/platform/service-runtime/providers/openai/OpenAIProvider.js",
+        "CREATIVE_OPENAI_STRUCTURED_RECOVERY_V8",
+      ],
+      [
+        "lib/creative/intent/CreativeMissionComposerRuntime.js",
+        "CREATIVE_MISSION_DIRECTOR_SCHEMA_V8",
+      ],
+      [
+        "lib/creative/intent/CreativeMissionComposerRuntime.js",
+        "CREATIVE_MISSION_DIRECTOR_CONTEXT_BUDGET_V8",
+      ],
+      [
+        "app/api/creative/missions/compose/route.js",
+        "CREATIVE_DIRECTOR_DIAGNOSTICS_V8",
+      ],
+    ],
+  },
 ];
 
 for (const layer of layers) {

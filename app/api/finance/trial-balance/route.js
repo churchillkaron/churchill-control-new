@@ -1,52 +1,32 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { run as ReportingApplicationService } from "@/lib/finance/reporting/runtime/ReportingApplicationService";
+import {
+  run as runReport,
+} from "@/lib/finance/reporting/runtime/ReportingApplicationService";
+import {
+  resolveReportRequestContext,
+} from "@/lib/finance/reporting/runtime/resolveReportRequestContext";
 
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);
+    const context = await resolveReportRequestContext(
+      new URL(request.url).searchParams
+    );
 
-    const requestedOrganizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
-
-    const entityId =
-      searchParams.get("entityId") ||
-      searchParams.get("entity_id");
-
-    if (!requestedOrganizationId) {
+    if (!context.success) {
       return NextResponse.json(
-        { success: false, error: "organizationId required" },
-        { status: 400 }
+        { success: false, error: context.error },
+        { status: context.status || 400 }
       );
     }
 
-    if (!entityId) {
-      return NextResponse.json(
-        { success: false, error: "entityId required" },
-        { status: 400 }
-      );
-    }
-
-    const access = await requireOrganizationAccess({
-      organizationId: requestedOrganizationId,
-    });
-
-    if (!access.success) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status }
-      );
-    }
-
-    const result = await ReportingApplicationService({
-      type:"trial_balance",
-      organizationId: access.organizationId,
-      entityId: entityId,
-      startDate: searchParams.get("startDate"),
-      endDate: searchParams.get("endDate"),
+    const result = await runReport("trial_balance", {
+      organizationId: context.organizationId,
+      entityId: context.entityId,
+      periodId: context.periodId,
+      startDate: context.startDate,
+      endDate: context.endDate,
     });
 
     return NextResponse.json(result);

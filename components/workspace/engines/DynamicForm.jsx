@@ -426,48 +426,22 @@ function CurrencyField({
   field,
   value,
   onChange,
+  organizationId,
+  entityId,
 }) {
-
-  const currencies =
-    field.options || [
-      { value: "THB", label: "Thai Baht (THB)" },
-      { value: "USD", label: "US Dollar (USD)" },
-      { value: "EUR", label: "Euro (EUR)" },
-      { value: "GBP", label: "British Pound (GBP)" },
-    ];
-
   return (
-    <>
-      <label className={LABEL_CLASS}>
-        {field.label}
-      </label>
-
-      <select
-        value={value || "THB"}
-        onChange={e =>
-          onChange(
-            field.name,
-            e.target.value
-          )
-        }
-        className={FIELD_CLASS}
-      >
-
-        {currencies.map(currency => (
-
-          <option
-            key={currency.value}
-            value={currency.value}
-          >
-            {currency.label}
-          </option>
-
-        ))}
-
-      </select>
-
-    </>
+    <LookupField
+      field={{
+        ...field,
+        lookup:
+          field.lookup ||
+          field.source ||
+          "currencies",
+      }}
+      value={value}
+      onChange={onChange}
+      organizationId={organizationId}
+      entityId={entityId}
+    />
   );
-
 }
-

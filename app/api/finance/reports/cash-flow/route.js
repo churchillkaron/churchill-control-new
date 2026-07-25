@@ -1,12 +1,33 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { run } from "@/lib/finance/reporting/runtime/ReportingApplicationService";
+import { resolveReportRequestContext } from "@/lib/finance/reporting/runtime/resolveReportRequestContext";
 
 export async function GET(request) {
   try {
-    const p = new URL(request.url).searchParams;
-    return NextResponse.json(await run("cash_flow", { organizationId: p.get("organizationId"), entityId: p.get("entityId"), periodId: p.get("periodId") }));
+    const context = await resolveReportRequestContext(
+      new URL(request.url).searchParams
+    );
+
+    if (!context.success) {
+      return NextResponse.json(
+        { success: false, error: context.error },
+        { status: context.status || 400 }
+      );
+    }
+
+    return NextResponse.json(await run("cash_flow", {
+      organizationId: context.organizationId,
+      entityId: context.entityId,
+      periodId: context.periodId,
+      startDate: context.startDate,
+      endDate: context.endDate,
+    }));
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message || "Cash flow failed" },
+      { status: 500 }
+    );
   }
 }

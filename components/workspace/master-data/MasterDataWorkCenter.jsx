@@ -144,6 +144,19 @@ export default function MasterDataWorkCenter({
 
   const [form,setForm] = useState({});
 
+  const [
+    submissionIdempotencyKey,
+    setSubmissionIdempotencyKey,
+  ] = useState(null);
+
+  function createIdempotencyKey() {
+    return (
+      globalThis.crypto
+        ?.randomUUID?.() ||
+      `${Date.now()}-${Math.random()}`
+    );
+  }
+
   function updateForm(name,value){
     setForm(prev=>({
       ...prev,
@@ -159,6 +172,64 @@ export default function MasterDataWorkCenter({
 
       return;
 
+    }
+
+    const contextValues = {
+      organizationId,
+      organization_id: organizationId,
+      entityId,
+      entity_id: entityId,
+      periodId,
+      period_id: periodId,
+      currency,
+      currency_code: currency,
+    };
+
+    const missingRequiredFields =
+      (schema || [])
+        .filter(field => {
+          if (!field?.required) {
+            return false;
+          }
+
+          const value =
+            form[field.name] ??
+            contextValues[field.name];
+
+          if (
+            value === undefined ||
+            value === null ||
+            value === ""
+          ) {
+            return true;
+          }
+
+          if (Array.isArray(value)) {
+            return value.length === 0;
+          }
+
+          if (
+            typeof value === "object" &&
+            Object.keys(value).length === 0
+          ) {
+            return true;
+          }
+
+          return false;
+        })
+        .map(field =>
+          field.label ||
+          field.name
+        );
+
+    if (missingRequiredFields.length) {
+      alert(
+        `Complete required fields: ${
+          missingRequiredFields.join(", ")
+        }`
+      );
+
+      return;
     }
 
     const directEndpoint =
@@ -194,12 +265,60 @@ export default function MasterDataWorkCenter({
     );
 
 
+    const resolvedEntityId =
+      form.entity_id ||
+      form.entityId ||
+      entityId ||
+      null;
+
+    const resolvedPeriodId =
+      form.period_id ||
+      form.periodId ||
+      periodId ||
+      null;
+
+    const resolvedCurrency =
+      form.currency_code ||
+      form.currency ||
+      currency ||
+      null;
+
+    const resolvedIdempotencyKey =
+      submissionIdempotencyKey ||
+      createIdempotencyKey();
+
+    if (!submissionIdempotencyKey) {
+      setSubmissionIdempotencyKey(
+        resolvedIdempotencyKey
+      );
+    }
+
     const payload = {
+      ...form,
+
+      idempotencyKey:
+        resolvedIdempotencyKey,
+      idempotency_key:
+        resolvedIdempotencyKey,
 
       organizationId,
-
       organization_id:
         organizationId,
+
+      entityId:
+        resolvedEntityId,
+      entity_id:
+        resolvedEntityId,
+
+      periodId:
+        resolvedPeriodId,
+      period_id:
+        resolvedPeriodId,
+
+      currency:
+        resolvedCurrency,
+      currency_code:
+        resolvedCurrency,
 
       module:
         moduleKey,
@@ -209,30 +328,29 @@ export default function MasterDataWorkCenter({
 
       capability:
         createAction?.capability,
-
-      ...form,
-
     };
 
 
     const requestBody = isCapability
       ? {
-
           organizationId,
+          organization_id:
+            organizationId,
 
+          entityId:
+            resolvedEntityId,
           entity_id:
-            payload.entity_id ||
-            entityId ||
-            null,
+            resolvedEntityId,
 
+          periodId:
+            resolvedPeriodId,
           period_id:
-            payload.period_id ||
-            periodId ||
-            null,
+            resolvedPeriodId,
 
           currency:
-            payload.currency ||
-            "THB",
+            resolvedCurrency,
+          currency_code:
+            resolvedCurrency,
 
           domain:
             createAction.domain,
@@ -243,10 +361,7 @@ export default function MasterDataWorkCenter({
           action:
             createAction.action,
 
-          payload:
-
-            form,
-
+          payload,
         }
       : payload;
 
@@ -284,6 +399,7 @@ export default function MasterDataWorkCenter({
     createEngine.hide();
 
     setForm({});
+    setSubmissionIdempotencyKey(null);
 
     onRefresh?.();
 
@@ -291,6 +407,10 @@ export default function MasterDataWorkCenter({
 
 
   const handleCreate = () => {
+
+    setSubmissionIdempotencyKey(
+      createIdempotencyKey()
+    );
 
     if (onCreate) {
       onCreate(createEngine);
@@ -1213,16 +1333,26 @@ export default function MasterDataWorkCenter({
         let Engine =
           activeEngine.Engine;
 
+        const engineAction =
+          activeEngine.action ||
+          activeEngine.props?.action ||
+          null;
 
-        if (!Engine && activeEngine.action?.engine) {
+
+        if (!Engine && engineAction?.engine) {
 
           Engine =
-            getClientEngine(activeEngine.action.engine);
+            getClientEngine(
+              engineAction.engine
+            );
 
         }
 
 
-        if (!Engine && activeEngine.action?.engine === "preview") {
+        if (
+          !Engine &&
+          engineAction?.engine === "preview"
+        ) {
 
           Engine =
             require("@/components/workspace/engines/PreviewEngine")

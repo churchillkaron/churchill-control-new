@@ -1,61 +1,81 @@
 import { NextResponse } from "next/server";
-import { getLookupOptions } from "@/lib/platform/erp-engine/lookups/LookupRuntime";
+
+import {
+  getLookupOptions,
+} from "@/lib/platform/erp-engine/lookups/LookupRuntime";
+
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
+function accessError(access) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: access.error,
+    },
+    {
+      status: access.status,
+    }
+  );
+}
 
 export async function GET(request) {
-
-  const { searchParams } =
-    new URL(request.url);
-
   try {
+    const { searchParams } = new URL(request.url);
 
-    console.log("LOOKUP",{
-lookup: searchParams.get("lookup"),
-organizationId: searchParams.get("organizationId"),
-entityId: searchParams.get("entityId"),
-});
+    const requestedOrganizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
 
-const options =
-      await getLookupOptions({
+    const access = await requireOrganizationAccess({
+      organizationId: requestedOrganizationId,
+    });
 
-        lookup:
-          searchParams.get("lookup"),
+    if (!access.success) {
+      return accessError(access);
+    }
 
-        query:
-          searchParams.get("query") || "",
+    const lookup = String(
+      searchParams.get("lookup") || ""
+    ).trim();
 
-        context: {
-
-          organizationId:
-            searchParams.get("organizationId"),
-
-          entityId:
-            searchParams.get("entityId"),
-
+    if (!lookup) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "lookup required",
         },
+        {
+          status: 400,
+        }
+      );
+    }
 
-      });
+    const options = await getLookupOptions({
+      lookup,
+      query: searchParams.get("query") || "",
+      context: {
+        organizationId: access.organizationId,
+        entityId:
+          searchParams.get("entityId") ||
+          searchParams.get("entity_id") ||
+          null,
+      },
+    });
 
-    return NextResponse.json(
-      options || []
-    );
-
+    return NextResponse.json(options || []);
   } catch (error) {
-
-    console.error(
-      "LOOKUP API ERROR",
-      error
-    );
+    console.error("LOOKUP API ERROR", error);
 
     return NextResponse.json(
       {
-        error:
-          error.message,
+        success: false,
+        error: error.message || "Lookup failed",
       },
       {
         status: 500,
       }
     );
-
   }
-
 }

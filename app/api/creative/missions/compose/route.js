@@ -172,6 +172,8 @@ function assertProductionReadyBlueprint(blueprint = {}) {
       blueprint.fallback_reason || "CREATIVE_AI_DIRECTOR_REQUIRED",
     );
     error.code = "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT";
+    // CREATIVE_DIRECTOR_DIAGNOSTICS_V8
+    error.details = blueprint.fallback_details || null;
     throw error;
   }
 
@@ -576,7 +578,7 @@ export async function POST(request) {
           (invalidDirector
             ? "CREATIVE_AI_DIRECTOR_INVALID_OUTPUT"
             : "CREATIVE_MISSION_COMPOSITION_FAILED"),
-        details: error?.details || null,
+        details: error?.details || error?.provider_response || null,
       },
       { status: invalidDirector ? 422 : 500 },
     );

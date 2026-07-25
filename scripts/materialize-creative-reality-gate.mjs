@@ -123,6 +123,15 @@ const layers = [
       ["scripts/creative-end-to-end-smoke.sh", "CREATIVE_PRE_SPEND_BOOLEAN_AND_PROVENANCE_V9"],
     ],
   },
+  {
+    name: "V10_DETERMINISTIC_IMAGE_QUALITY",
+    script: "scripts/apply-creative-deterministic-quality-v10.mjs",
+    markers: [
+      ["lib/creative/production/quality/CreativeDeterministicImageQualityRuntime.js", "CREATIVE_DETERMINISTIC_MASTER_STILL_DUPLICATE_GATE_V10"],
+      ["lib/operations/tasks/runtime/ProductionTaskRuntime.js", "CREATIVE_DETERMINISTIC_IMAGE_QUALITY_V10"],
+      ["lib/creative/production-graph/planner/ProductionGraphPlanner.js", "CREATIVE_BOUND_EVIDENCE_QUALITY_REQUIREMENTS_V10"],
+    ],
+  },
 ];
 
 for (const layer of layers) {

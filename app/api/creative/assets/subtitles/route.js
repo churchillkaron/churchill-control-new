@@ -13,8 +13,7 @@ export async function POST(request) {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
     const transcriptAssetNodeId =
-      body.transcript_asset_node_id ||
-      body.transcriptAssetNodeId;
+      body.transcript_asset_node_id || body.transcriptAssetNodeId;
 
     if (!organizationId || !transcriptAssetNodeId) {
       return Response.json(
@@ -26,7 +25,11 @@ export async function POST(request) {
       );
     }
 
-    const access = await requireOrganizationAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredPermission: "creative.media.transform",
+    });
     if (!access.success) {
       return Response.json(access, { status: access.status });
     }
@@ -39,8 +42,7 @@ export async function POST(request) {
         name: body.name || null,
         description: body.description || null,
         include_speakers:
-          body.include_speakers === true ||
-          body.includeSpeakers === true,
+          body.include_speakers === true || body.includeSpeakers === true,
         tags: Array.isArray(body.tags) ? body.tags : [],
         version: body.version || 1,
       },
@@ -48,16 +50,10 @@ export async function POST(request) {
       force: body.force === true,
     });
 
-    return Response.json({
-      success: true,
-      subtitles: results,
-    });
+    return Response.json({ success: true, subtitles: results });
   } catch (error) {
     return Response.json(
-      {
-        success: false,
-        error: error.message,
-      },
+      { success: false, error: error.message },
       { status: 500 },
     );
   }

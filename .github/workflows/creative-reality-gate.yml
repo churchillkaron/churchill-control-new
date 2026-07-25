@@ -52,6 +52,10 @@ jobs:
             node scripts/apply-creative-live-smoke-hardening-v2.mjs
             node --check scripts/apply-creative-evidence-binding-v3.mjs
             node scripts/apply-creative-evidence-binding-v3.mjs
+            node --check scripts/apply-creative-mission-evidence-selection-v4.mjs
+            node scripts/apply-creative-mission-evidence-selection-v4.mjs
+            node --check scripts/apply-creative-evidence-fidelity-v5.mjs
+            node scripts/apply-creative-evidence-fidelity-v5.mjs
           } > /tmp/creative-materializer.log 2>&1
 
       - name: Upload Creative materializer log
@@ -100,11 +104,15 @@ jobs:
         run: |
           node --check app/api/creative/missions/compose/route.js
           node --check app/api/creative/director/execute/route.js
+          node --check lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
+          node --check lib/creative/knowledge/CreativeBusinessTruthRuntime.js
           node --check lib/creative/intent/CreativeDeliverableContract.js
           node --check lib/creative/director/runtime/CreativeDirectorRuntime.js
           node --check lib/creative/storyboard/runtime/CreativeStoryboardExecutionContractConvergence.js
           node --check lib/creative/production-graph/planner/ProductionGraphPlanner.js
           node --check lib/creative/production/contracts/CreativeImagePromptBudgetRuntime.js
+          node --check lib/creative/production/contracts/CreativeProviderInputRuntime.js
+          node --check lib/creative/production/contracts/CreativeShotDirectionEnrichmentRuntime.js
           node --check lib/operations/tasks/runtime/ProductionTaskRuntime.js
           node --check lib/platform/service-runtime/providers/openai/OpenAIProvider.js
           node --check lib/creative/production/runtime/CreativeUniversalProductionRuntime.js
@@ -143,6 +151,9 @@ jobs:
           ! grep -RIn --exclude-dir=node_modules --exclude-dir=.git \
             'CREATIVE_AI_DIRECTOR_FILM_DELIVERABLE_REQUIRED\|Churchill Cinematic Hero Film' \
             app/api/creative lib/creative components/creative
+          ! grep -RIn --exclude-dir=node_modules --exclude-dir=.git \
+            '\brestaurant\b\|\bbar\b\|\bwaiter\b\|\bchef\b\|\bhotel\b\|\bretail\b' \
+            lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
           grep -q 'CREATIVE_PRODUCTION_LIFECYCLE_V3_PROJECT_STATUS_SEPARATION' \
             lib/creative/production/runtime/CreativeProductionLifecycleRuntime.js
           grep -q 'universal_deliverable_v1' \
@@ -155,6 +166,22 @@ jobs:
             lib/platform/service-runtime/providers/openai/OpenAIProvider.js
           grep -q 'CREATIVE_STORYBOARD_EVIDENCE_BINDING_V3' \
             lib/creative/storyboard/runtime/CreativeStoryboardExecutionContractConvergence.js
+          grep -q 'CREATIVE_MISSION_RELEVANT_EVIDENCE_IMPORT_V4' \
+            app/api/creative/missions/compose/route.js
+          grep -q 'CREATIVE_UPLOADED_REFERENCE_APPROVAL_V2' \
+            lib/creative/knowledge/CreativeBusinessTruthRuntime.js
+          grep -q 'CREATIVE_MISSION_EVIDENCE_SELECTION_V4' \
+            lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
+          grep -q 'CREATIVE_CANONICAL_EVIDENCE_ACTOR_MERGE_V5' \
+            lib/creative/production/contracts/CreativeShotDirectionEnrichmentRuntime.js
+          grep -q 'CREATIVE_GENERATED_FRAME_QA_AND_CORRECTION_LOOP_V5' \
+            lib/operations/tasks/runtime/ProductionTaskRuntime.js
+          grep -q 'CREATIVE_VISUAL_EVIDENCE_COMPARISON_QA_V5' \
+            lib/platform/service-runtime/providers/openai/OpenAIProvider.js
+          grep -q 'CREATIVE_EXACT_EVIDENCE_RENDERING_POLICY_V5' \
+            lib/creative/production/contracts/CreativeProviderInputRuntime.js
+          grep -q 'CREATIVE_MASTER_STILL_FIDELITY_AND_DIVERSITY_GATE_V5' \
+            lib/creative/production-graph/planner/ProductionGraphPlanner.js
           grep -q 'Automatic after AI quality' \
             components/creative/ProductionStudio/actions/RunCreativePipelineButton.jsx
           grep -q 'CREATIVE_END_TO_END_SMOKE=PASS' \

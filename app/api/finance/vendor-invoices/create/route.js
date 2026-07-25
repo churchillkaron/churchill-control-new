@@ -46,17 +46,20 @@ export async function POST(request) {
       body.entityId || body.entity_id,
       "entity_id"
     );
-
     const vendorPartyId = required(
       body.vendor_party_id || body.vendor,
       "vendor_party_id"
     );
-
     const currencyCode = required(
       body.currency_code || body.currencyCode,
       "currency_code"
     ).toUpperCase();
-
+    const idempotencyKey = required(
+      body.idempotency_key ||
+      body.idempotencyKey ||
+      request.headers.get("idempotency-key"),
+      "idempotency_key"
+    );
     const lines = Array.isArray(body.lines)
       ? body.lines
       : [];
@@ -72,13 +75,15 @@ export async function POST(request) {
           Number(line.unit_price || 0),
       0
     );
-
     const taxAmount = Number(body.tax_amount || 0);
 
     const result = await createVendorInvoice({
       organizationId: access.organizationId,
       entityId,
       vendorPartyId,
+      purchaseOrderId: body.purchase_order_id || null,
+      goodsReceiptId: body.goods_receipt_id || null,
+      documentId: body.document_id || null,
       invoiceNumber: required(
         body.invoice_number,
         "invoice_number"
@@ -89,9 +94,19 @@ export async function POST(request) {
       ),
       dueDate: body.due_date || null,
       currencyCode,
+      exchangeRate: body.exchange_rate ?? 1,
       subtotal,
       taxAmount,
-      totalAmount: subtotal + taxAmount,
+      discountAmount: Number(body.discount_amount || 0),
+      totalAmount:
+        subtotal +
+        taxAmount -
+        Number(body.discount_amount || 0),
+      source: body.source || "manual",
+      aiExtracted: Boolean(body.ai_extracted),
+      ocrConfidence: Number(body.ocr_confidence || 0),
+      createdBy: access.user?.id || null,
+      idempotencyKey,
     });
 
     return NextResponse.json({
@@ -110,7 +125,9 @@ export async function POST(request) {
       },
       {
         status:
-          message.endsWith(" required")
+          message.endsWith(" required") ||
+          message.includes("must be") ||
+          message.includes("Idempotency key")
             ? 400
             : 500,
       }

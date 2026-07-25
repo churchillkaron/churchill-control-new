@@ -24,6 +24,20 @@ function statusFor(message) {
     : 500;
 }
 
+function resolveCustomerId(body) {
+  const customer = body.customer;
+
+  return (
+    body.customer_id ||
+    body.customerId ||
+    customer?.customer_id ||
+    customer?.customerId ||
+    customer?.party_id ||
+    customer?.partyId ||
+    null
+  );
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -65,6 +79,10 @@ export async function POST(request) {
       access.user?.id,
       "authenticated user"
     );
+    const customerId = required(
+      resolveCustomerId(body),
+      "customer_id"
+    );
     const allocations = Array.isArray(body.allocations)
       ? body.allocations
       : body.customer_invoice_id || body.customerInvoiceId
@@ -80,8 +98,7 @@ export async function POST(request) {
     const result = await postCustomerPaymentCommand({
       organization_id: access.organizationId,
       entity_id: entity.id,
-      customer_id:
-        body.customer_id || body.customerId,
+      customer_id: customerId,
       customer_invoice_id:
         body.customer_invoice_id || body.customerInvoiceId || null,
       allocations,

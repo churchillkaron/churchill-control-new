@@ -25,11 +25,8 @@ function sanitizePolicy(value = {}) {
 
 function trackAssetIds(value = {}) {
   const ids = [];
-  const subtitleId =
-    value.subtitle_asset_node_id ||
-    value.subtitleAssetNodeId;
+  const subtitleId = value.subtitle_asset_node_id || value.subtitleAssetNodeId;
   if (subtitleId) ids.push(subtitleId);
-
   for (const track of Array.isArray(value.audio) ? value.audio : []) {
     const id = track.asset_node_id || track.assetNodeId;
     if (id) ids.push(id);
@@ -46,8 +43,7 @@ export async function POST(request) {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
     const timelineAssetNodeId =
-      body.timeline_asset_node_id ||
-      body.timelineAssetNodeId;
+      body.timeline_asset_node_id || body.timelineAssetNodeId;
 
     if (!organizationId || !timelineAssetNodeId) {
       return Response.json(
@@ -59,7 +55,11 @@ export async function POST(request) {
       );
     }
 
-    const access = await requireOrganizationAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredPermission: "creative.quality.evaluate",
+    });
     if (!access.success) {
       return Response.json(access, { status: access.status });
     }

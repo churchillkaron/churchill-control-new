@@ -5,42 +5,97 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { runConsolidation } from "@/lib/finance/intercompany/workflows/runConsolidation";
 
+function organizationIdFrom(value = {}) {
+  return value.organizationId || value.organization_id || null;
+}
+
+function entityIdsFrom(value = {}) {
+  const raw = value.entityIds || value.entity_ids || [];
+
+  return Array.isArray(raw)
+    ? raw
+    : String(raw || "")
+        .split(",")
+        .map(item => item.trim())
+        .filter(Boolean);
+}
+
 export async function GET(request) {
   try {
-    const organizationId = new URL(request.url).searchParams.get("organizationId");
-    const access = await requireOrganizationAccess({ organizationId });
-    if (!access.success) return NextResponse.json({ success: false, error: access.error }, { status: access.status });
+    const searchParams = new URL(request.url).searchParams;
+    const access = await requireOrganizationAccess({
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
+    });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
+
     const { data, error } = await supabaseAdmin
       .from("consolidation_runs")
       .select("*")
       .eq("parent_organization_id", access.organizationId)
       .order("created_at", { ascending: false });
-    if (error) throw error;
-    return NextResponse.json({ success: true, rows: data || [] });
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({
+      success: true,
+      rows: data || [],
+    });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const access = await requireOrganizationAccess({ organizationId: body.organizationId || body.organization_id });
-    if (!access.success) return NextResponse.json({ success: false, error: access.error }, { status: access.status });
-    const result = await runConsolidation({
-      parentOrganizationId: access.organizationId,
-      organizationIds: Array.isArray(body.organization_ids || body.organizationIds)
-        ? (body.organization_ids || body.organizationIds)
-        : String(body.organization_ids || body.organizationIds || access.organizationId)
-            .split(",")
-            .map(value => value.trim())
-            .filter(Boolean),
-      reportingPeriod: body.reporting_period || body.period_id,
-      startDate: body.start_date,
-      endDate: body.end_date,
+    const access = await requireOrganizationAccess({
+      organizationId: organizationIdFrom(body),
     });
-    return NextResponse.json({ success: true, data: result });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
+
+    const result = await runConsolidation({
+      organizationId: access.organizationId,
+      entityIds: entityIdsFrom(body),
+      periodId: body.periodId || body.period_id || null,
+      reportingPeriod:
+        body.reportingPeriod || body.reporting_period || null,
+      startDate: body.startDate || body.start_date || null,
+      endDate: body.endDate || body.end_date || null,
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+    });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const status = /required|outside|cannot|must|requires/i.test(
+      String(error.message || "")
+    )
+      ? 400
+      : 500;
+
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status }
+    );
   }
 }

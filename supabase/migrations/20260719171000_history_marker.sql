@@ -1,0 +1,3 @@
+-- Historical migration marker.
+-- This migration was already applied to the linked remote database before the repository history was consolidated.
+-- It is intentionally a no-op so Supabase migration history remains aligned without replaying retired SQL.

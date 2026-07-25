@@ -48,8 +48,7 @@ export async function POST(request) {
     const ffprobePath = process.env.CREATIVE_MEDIA_FFPROBE_PATH;
     const credentialReadiness = providerCredentialReadiness();
     const workerSecretConfigured = configured(
-      process.env.AVANTIQO_INTERNAL_WORKER_SECRET ||
-      process.env.CRON_SECRET,
+      process.env.AVANTIQO_INTERNAL_WORKER_SECRET || process.env.CRON_SECRET,
     );
 
     const checks = [
@@ -77,6 +76,11 @@ export async function POST(request) {
         id: "provider_credential_environment_valid",
         required: true,
         passed: credentialReadiness.environment_valid,
+      },
+      {
+        id: "provider_asset_hosts_configured",
+        required: true,
+        passed: configured(process.env.CREATIVE_PROVIDER_ASSET_HOSTS),
       },
       {
         id: "worker_secret_configured",
@@ -123,6 +127,11 @@ export async function POST(request) {
         required: false,
         passed: configured(process.env.CREATIVE_MEDIA_RENDER_CACHE_CONTROL),
       },
+      {
+        id: "provider_asset_size_limit_configured",
+        required: false,
+        passed: configured(process.env.CREATIVE_PROVIDER_ASSET_MAX_BYTES),
+      },
     ];
     const blocking = checks.filter((check) => check.required && !check.passed);
 
@@ -134,10 +143,8 @@ export async function POST(request) {
       blocking_checks: blocking.map((check) => check.id),
       credential_source: {
         configured: credentialReadiness.configured,
-        registered_resolver_count:
-          credentialReadiness.registered_resolver_count,
-        environment_configured:
-          credentialReadiness.environment_configured,
+        registered_resolver_count: credentialReadiness.registered_resolver_count,
+        environment_configured: credentialReadiness.environment_configured,
       },
       evaluated_at: new Date().toISOString(),
     });

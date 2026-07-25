@@ -28,23 +28,41 @@ This audit evaluates whether the Creative Studio backend is safe and truthful en
 
 ## Confirmed findings
 
-### CRITICAL — Wallet settlement is not atomic
+### CRITICAL — Wallet settlement was not atomic
 
-`WalletRuntime.reserve`, `charge` and `release` perform independent operations:
+The merged baseline performed wallet settlement as independent read, update and insert operations. Transaction idempotency was also check-then-insert. Concurrent requests or retries could race, overwrite balances, duplicate settlements or leave balances changed without a matching transaction row.
 
-1. Read wallet/transaction state.
-2. Update wallet balances.
-3. Insert a wallet transaction.
+Additional defects found during the same audit:
 
-The transaction idempotency guard is also implemented as check-then-insert. Concurrent requests or retries can therefore race, overwrite balances, duplicate settlements or leave balances changed without a matching transaction row.
+- `WalletTransaction.js` called `crypto.randomUUID()` without importing `crypto`.
+- `OrganizationWallet.js` called `crypto.randomUUID()` without importing `crypto`.
+- Both wallet factories silently defaulted currency to USD instead of requiring configured organisation currency.
 
-**Required before paid live smoke:**
+### Repair committed on audit branch
 
-- Add database-side atomic settlement functions or a serialised transaction boundary.
-- Lock the organisation wallet row during settlement.
-- Enforce unique database constraints for settlement identities.
-- Make balance mutation and transaction insertion one atomic operation.
-- Verify reserve → charge and reserve → release under concurrent retries.
+Migration `20260725134500_service_wallet_atomic_settlement.sql` now:
+
+- rejects duplicate organisation wallets before adding a unique constraint;
+- enforces one wallet per organisation;
+- adds mandatory transaction idempotency keys;
+- enforces unique `(organization_id, idempotency_key)` settlement identity;
+- serialises each settlement identity with a transaction-scoped advisory lock;
+- locks the organisation wallet row;
+- mutates balance and inserts transaction evidence in one PostgreSQL function;
+- prevents reserve below available balance;
+- prevents charge/release above reserved balance;
+- rejects currency mismatch rather than silently changing wallet currency;
+- exposes the function only to `service_role`.
+
+The JavaScript wallet repository/runtime now routes ensure, reserve, charge, release and top-up through this RPC. Document factories import `node:crypto` and require explicit currency.
+
+**Still required before paid live smoke:**
+
+- apply the migration to the linked Supabase project;
+- verify current production data has no duplicate organisation wallets;
+- verify referenced column types match live schema;
+- run concurrent reserve/retry, charge/retry and release/retry validation;
+- verify wallet balances and transaction evidence remain exactly-once.
 
 ### HIGH — Previous preflight could report false readiness
 
@@ -95,10 +113,12 @@ The merged backend foundation does not itself prove that production tasks are le
   - worker secret
   - provider callback signing secret
   - existing Supabase, render bucket, FFmpeg and FFprobe gates
+- Added database-atomic wallet settlement with exactly-once idempotency constraints.
+- Removed missing `crypto` imports and fabricated USD wallet defaults.
 
 ## End-to-end test is blocked until
 
-- [ ] Wallet settlement is database-atomic and concurrency-tested.
+- [ ] Atomic wallet migration is applied and concurrency-tested against live schema.
 - [ ] Live Supabase schema and migration history match merged source.
 - [ ] Required Creative tables, columns, constraints and RLS are verified.
 - [ ] Organisation staff permissions include every required Creative permission.
@@ -116,8 +136,8 @@ The merged backend foundation does not itself prove that production tasks are le
 
 ## Next audit sequence
 
-1. Live schema/migration contract audit.
-2. Wallet atomicity repair and database constraints.
+1. Validate audit-branch build and migration syntax.
+2. Live schema/migration contract audit.
 3. Worker/task lease and retry audit.
 4. Storage privacy and signed URL audit.
 5. Provider output/callback settlement audit.

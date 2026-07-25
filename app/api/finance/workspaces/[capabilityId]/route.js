@@ -13,6 +13,17 @@ const MISSING_RELATION_CODES = new Set([
   "PGRST205",
 ]);
 
+const PERIOD_SCOPED_TABLES = new Set([
+  "finance_opening_balance_batches",
+  "finance_fx_revaluation_runs",
+  "finance_depreciation_runs",
+]);
+
+const IDEMPOTENT_TABLES = new Set([
+  "finance_opening_balance_batches",
+  "finance_recurring_journal_templates",
+]);
+
 function queryValue(searchParams, camel, snake) {
   return searchParams.get(camel) || searchParams.get(snake) || null;
 }
@@ -272,11 +283,17 @@ export async function POST(request, { params }) {
       record.entity_id = entityId;
     }
 
-    if (body.period_id || body.periodId) {
+    if (
+      PERIOD_SCOPED_TABLES.has(contract.table) &&
+      (body.period_id || body.periodId)
+    ) {
       record.period_id = body.period_id || body.periodId;
     }
 
-    if (body.idempotency_key || body.idempotencyKey) {
+    if (
+      IDEMPOTENT_TABLES.has(contract.table) &&
+      (body.idempotency_key || body.idempotencyKey)
+    ) {
       record.idempotency_key =
         body.idempotency_key || body.idempotencyKey;
     }

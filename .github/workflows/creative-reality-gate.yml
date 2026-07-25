@@ -100,6 +100,7 @@ jobs:
           node --check scripts/apply-creative-pre-spend-evidence-gate-v7.mjs
           node --check scripts/apply-creative-director-structured-output-v8.mjs
           node --check scripts/apply-creative-director-escape-fix-v8-1.mjs
+          node --check scripts/apply-creative-director-list-helper-v8-2.mjs
           node --check app/api/creative/missions/compose/route.js
           node --check app/api/creative/director/execute/route.js
           node --check lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
@@ -179,6 +180,8 @@ jobs:
           grep -q 'CREATIVE_MISSION_DIRECTOR_CONTEXT_BUDGET_V8' lib/creative/intent/CreativeMissionComposerRuntime.js
           grep -q 'CREATIVE_DIRECTOR_DIAGNOSTICS_V8' app/api/creative/missions/compose/route.js
           grep -q 'CREATIVE_OPENAI_STRUCTURED_RECOVERY_ESCAPE_V8_1' lib/platform/service-runtime/providers/openai/OpenAIProvider.js
+          grep -q 'CREATIVE_MISSION_DIRECTOR_LIST_HELPER_V8_2' lib/creative/intent/CreativeMissionComposerRuntime.js
+          grep -q 'function list(value)' lib/creative/intent/CreativeMissionComposerRuntime.js
           grep -q 'CREATIVE_REALITY_GATE_MATERIALIZATION=PASS' /tmp/creative-materializer.log
           grep -q 'Automatic after AI quality' components/creative/ProductionStudio/actions/RunCreativePipelineButton.jsx
           grep -q 'CREATIVE_END_TO_END_SMOKE=PASS' scripts/creative-end-to-end-smoke.sh

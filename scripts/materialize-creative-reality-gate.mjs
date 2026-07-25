@@ -102,6 +102,16 @@ const layers = [
       ["lib/creative/intent/CreativeMissionComposerRuntime.js", "CREATIVE_MISSION_DIRECTOR_LIST_HELPER_V8_2"],
     ],
   },
+  {
+    name: "V9_SOURCE_EVIDENCE_PROVENANCE",
+    script: "scripts/apply-creative-source-evidence-provenance-v9.mjs",
+    markers: [
+      ["lib/creative/knowledge/CreativeBusinessTruthRuntime.js", "CREATIVE_ASSET_PROVENANCE_CLASSIFICATION_V9"],
+      ["lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js", "CREATIVE_SOURCE_ONLY_MISSION_EVIDENCE_V9"],
+      ["app/api/creative/missions/compose/route.js", "CREATIVE_REQUIRED_EVIDENCE_ROLE_HANDOFF_V9"],
+      ["scripts/creative-end-to-end-smoke.sh", "CREATIVE_PRE_SPEND_BOOLEAN_AND_PROVENANCE_V9"],
+    ],
+  },
 ];
 
 for (const layer of layers) {

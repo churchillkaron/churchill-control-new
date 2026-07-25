@@ -15,13 +15,9 @@ function transcriptionInput(body = {}) {
     prompt: body.prompt || null,
     response_format: body.response_format || body.responseFormat || null,
     timestamp_granularities:
-      body.timestamp_granularities ||
-      body.timestampGranularities ||
-      null,
+      body.timestamp_granularities || body.timestampGranularities || null,
     chunking_strategy:
-      body.chunking_strategy ||
-      body.chunkingStrategy ||
-      null,
+      body.chunking_strategy || body.chunkingStrategy || null,
     temperature: body.temperature ?? null,
     name: body.name || null,
     description: body.description || null,
@@ -35,8 +31,7 @@ export async function POST(request) {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
     const parentAssetNodeId =
-      body.parent_asset_node_id ||
-      body.parentAssetNodeId;
+      body.parent_asset_node_id || body.parentAssetNodeId;
 
     if (!organizationId || !parentAssetNodeId) {
       return Response.json(
@@ -48,7 +43,11 @@ export async function POST(request) {
       );
     }
 
-    const access = await requireOrganizationAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredPermission: "creative.media.transcribe",
+    });
     if (!access.success) {
       return Response.json(access, { status: access.status });
     }
@@ -60,16 +59,10 @@ export async function POST(request) {
       force: body.force === true,
     });
 
-    return Response.json({
-      success: true,
-      ...result,
-    });
+    return Response.json({ success: true, ...result });
   } catch (error) {
     return Response.json(
-      {
-        success: false,
-        error: error.message,
-      },
+      { success: false, error: error.message },
       { status: 500 },
     );
   }

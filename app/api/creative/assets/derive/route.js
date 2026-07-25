@@ -10,48 +10,14 @@ import {
 } from "@/lib/creative/media/runtime/CreativeMediaDerivativeRuntime";
 
 const PROFILE_FIELDS = new Set([
-  "id",
-  "name",
-  "description",
-  "kind",
-  "operation",
-  "engine",
-  "asset_type",
-  "assetType",
-  "extension",
-  "format",
-  "output_format",
-  "outputFormat",
-  "mime_type",
-  "mimeType",
-  "width",
-  "height",
-  "fit",
-  "position",
-  "background",
-  "without_enlargement",
-  "withoutEnlargement",
-  "animated",
-  "resize",
-  "format_options",
-  "formatOptions",
-  "video_codec",
-  "audio_codec",
-  "video_bitrate",
-  "audio_bitrate",
-  "sample_rate",
-  "channels",
-  "frame_rate",
-  "scale",
-  "pixel_format",
-  "movable_metadata",
-  "cache_control",
-  "cacheControl",
-  "timeout_ms",
-  "timeoutMs",
-  "capability",
-  "version",
-  "tags",
+  "id", "name", "description", "kind", "operation", "engine",
+  "asset_type", "assetType", "extension", "format", "output_format",
+  "outputFormat", "mime_type", "mimeType", "width", "height", "fit",
+  "position", "background", "without_enlargement", "withoutEnlargement",
+  "animated", "resize", "format_options", "formatOptions", "video_codec",
+  "audio_codec", "video_bitrate", "audio_bitrate", "sample_rate", "channels",
+  "frame_rate", "scale", "pixel_format", "movable_metadata", "cache_control",
+  "cacheControl", "timeout_ms", "timeoutMs", "capability", "version", "tags",
 ]);
 
 function sanitizeProfile(profile = {}) {
@@ -65,8 +31,7 @@ export async function POST(request) {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
     const parentAssetNodeId =
-      body.parent_asset_node_id ||
-      body.parentAssetNodeId;
+      body.parent_asset_node_id || body.parentAssetNodeId;
 
     if (!organizationId || !parentAssetNodeId) {
       return Response.json(
@@ -80,6 +45,8 @@ export async function POST(request) {
 
     const access = await requireOrganizationAccess({
       organizationId,
+      request,
+      requiredPermission: "creative.media.transform",
     });
     if (!access.success) {
       return Response.json(access, { status: access.status });
@@ -94,16 +61,10 @@ export async function POST(request) {
       policy: {},
     });
 
-    return Response.json({
-      success: true,
-      derivatives,
-    });
+    return Response.json({ success: true, derivatives });
   } catch (error) {
     return Response.json(
-      {
-        success: false,
-        error: error.message,
-      },
+      { success: false, error: error.message },
       { status: 500 },
     );
   }

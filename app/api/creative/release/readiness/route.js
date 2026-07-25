@@ -13,8 +13,7 @@ export async function POST(request) {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
     const creativeProjectId =
-      body.creative_project_id ||
-      body.creativeProjectId;
+      body.creative_project_id || body.creativeProjectId;
 
     if (!organizationId || !creativeProjectId) {
       return Response.json(
@@ -26,7 +25,11 @@ export async function POST(request) {
       );
     }
 
-    const access = await requireOrganizationAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredPermission: "creative.quality.evaluate",
+    });
     if (!access.success) {
       return Response.json(access, { status: access.status });
     }
@@ -35,13 +38,9 @@ export async function POST(request) {
       organization_id: organizationId,
       creative_project_id: creativeProjectId,
       timeline_asset_node_id:
-        body.timeline_asset_node_id ||
-        body.timelineAssetNodeId ||
-        null,
+        body.timeline_asset_node_id || body.timelineAssetNodeId || null,
       final_render_asset_node_id:
-        body.final_render_asset_node_id ||
-        body.finalRenderAssetNodeId ||
-        null,
+        body.final_render_asset_node_id || body.finalRenderAssetNodeId || null,
       force: body.force === true,
     });
 

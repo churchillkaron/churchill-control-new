@@ -7,10 +7,8 @@ import DynamicTableField from "./DynamicTableField";
 
 const FIELD_CLASS =
   "h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-white outline-none";
-
 const TEXTAREA_CLASS =
   "w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none";
-
 const LABEL_CLASS =
   "mb-2 block text-xs uppercase tracking-[0.25em] text-white/40";
 
@@ -40,7 +38,6 @@ export default function DynamicForm({
 
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-
       {fields.map(field => (
         <div
           key={field.name}
@@ -56,7 +53,6 @@ export default function DynamicForm({
           />
         </div>
       ))}
-
     </div>
   );
 }
@@ -69,9 +65,7 @@ function FieldRenderer({
   organizationId,
   entityId,
 }) {
-
   switch (field.type) {
-
     case "customer":
       return (
         <DynamicCustomerField
@@ -88,6 +82,8 @@ function FieldRenderer({
           field={field}
           value={value}
           onChange={onChange}
+          organizationId={organizationId}
+          entityId={entityId}
         />
       );
 
@@ -103,18 +99,15 @@ function FieldRenderer({
         />
       );
   }
-
 }
 
 function PrimitiveField({
   field,
   value,
-  values,
   onChange,
   organizationId,
   entityId,
 }) {
-
   const label = (
     <label className={LABEL_CLASS}>
       {field.label}
@@ -125,7 +118,6 @@ function PrimitiveField({
   );
 
   switch (field.type) {
-
     case "textarea":
       return (
         <>
@@ -136,8 +128,9 @@ function PrimitiveField({
             placeholder={field.placeholder || ""}
             disabled={field.disabled}
             readOnly={field.readOnly}
-            onChange={e =>
-              onChange(field.name, e.target.value)
+            required={field.required}
+            onChange={event =>
+              onChange(field.name, event.target.value)
             }
             className={TEXTAREA_CLASS}
           />
@@ -163,36 +156,24 @@ function PrimitiveField({
           <select
             value={value || ""}
             disabled={field.disabled}
-            onChange={e =>
-              onChange(field.name, e.target.value)
+            required={field.required}
+            onChange={event =>
+              onChange(field.name, event.target.value)
             }
             className={FIELD_CLASS}
           >
-            <option value="">
-              Select...
-            </option>
-
+            <option value="">Select...</option>
             {(field.options || []).map(option => {
-
-              const item =
-                typeof option === "string"
-                  ? {
-                      value: option,
-                      label: option,
-                    }
-                  : option;
+              const item = typeof option === "string"
+                ? { value: option, label: option }
+                : option;
 
               return (
-                <option
-                  key={item.value}
-                  value={item.value}
-                >
+                <option key={item.value} value={item.value}>
                   {item.label}
                 </option>
               );
-
             })}
-
           </select>
         </>
       );
@@ -214,6 +195,8 @@ function PrimitiveField({
           field={field}
           value={value}
           onChange={onChange}
+          organizationId={organizationId}
+          entityId={entityId}
         />
       );
 
@@ -221,24 +204,17 @@ function PrimitiveField({
       return (
         <>
           {label}
-
           <label className="flex h-11 items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-4">
-
             <input
               type="checkbox"
               checked={!!value}
-              onChange={e =>
-                onChange(
-                  field.name,
-                  e.target.checked
-                )
+              onChange={event =>
+                onChange(field.name, event.target.checked)
               }
             />
-
             <span className="text-sm text-white">
               {value ? "Enabled" : "Disabled"}
             </span>
-
           </label>
         </>
       );
@@ -251,12 +227,18 @@ function PrimitiveField({
             type="number"
             value={value ?? ""}
             placeholder={field.placeholder || ""}
-            onChange={e =>
+            disabled={field.disabled}
+            readOnly={field.readOnly}
+            required={field.required}
+            min={field.min}
+            max={field.max}
+            step={field.step || "any"}
+            onChange={event =>
               onChange(
                 field.name,
-                e.target.value === ""
+                event.target.value === ""
                   ? ""
-                  : Number(e.target.value)
+                  : Number(event.target.value)
               )
             }
             className={FIELD_CLASS}
@@ -265,44 +247,30 @@ function PrimitiveField({
       );
 
     case "date":
-
     case "datetime-local":
-
     case "email":
-
     case "password":
-
     case "text":
-
     default:
-
       return (
         <>
           {label}
-
           <input
             type={field.type || "text"}
             value={value || ""}
             placeholder={field.placeholder || ""}
             disabled={field.disabled}
             readOnly={field.readOnly}
-            onChange={e =>
-              onChange(field.name, e.target.value)
+            required={field.required}
+            onChange={event =>
+              onChange(field.name, event.target.value)
             }
             className={FIELD_CLASS}
           />
-
         </>
       );
-
   }
-
 }
-
-
-
-
-
 
 function LookupField({
   field,
@@ -311,116 +279,95 @@ function LookupField({
   organizationId,
   entityId,
 }) {
-
-  const [options,setOptions] =
-    useState(
-      field.options || []
-    );
+  const [options, setOptions] = useState(
+    Array.isArray(field.options) ? field.options : []
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    let active = true;
 
-    if (
-      field.options ||
-      (!field.lookup && !field.source)
-    ) {
-      return;
+    if (Array.isArray(field.options) || (!field.lookup && !field.source)) {
+      return undefined;
     }
 
-    fetch(
+    setLoading(true);
+    setError("");
 
-      `/api/platform/lookups?lookup=${encodeURIComponent(
-        field.lookup ||
-        field.source
-      )}&organizationId=${organizationId || ""}&entityId=${entityId || ""}`
-
-    )
-
-    .then(r=>r.json())
-
-    .then(data=>{
-
-      if(Array.isArray(data))
-        setOptions(data);
-
-      else{
-
-        console.error(
-          "LOOKUP ERROR",
-          data
-        );
-
-        setOptions([]);
-
-      }
-
-    })
-
-    .catch(error=>{
-
-      console.error(
-        "LOOKUP FETCH",
-        error
-      );
-
-      setOptions([]);
-
+    const params = new URLSearchParams({
+      lookup: field.lookup || field.source,
+      organizationId: organizationId || "",
+      entityId: entityId || "",
     });
 
-  }, [
-    field,
-    organizationId,
-    entityId,
-  ]);
+    fetch(`/api/platform/lookups?${params.toString()}`, {
+      cache: "no-store",
+    })
+      .then(response => response.json())
+      .then(payload => {
+        if (!active) return;
 
+        if (Array.isArray(payload)) {
+          setOptions(payload);
+          return;
+        }
+
+        setOptions([]);
+        setError(payload?.error || "Lookup could not be loaded");
+      })
+      .catch(loadError => {
+        if (!active) return;
+        setOptions([]);
+        setError(loadError?.message || "Lookup could not be loaded");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [field.lookup, field.source, field.options, organizationId, entityId]);
 
   return (
     <>
       <label className={LABEL_CLASS}>
         {field.label}
+        {field.required ? (
+          <span className="ml-1 text-orange-400">*</span>
+        ) : null}
       </label>
-
       <select
         value={value || ""}
-        onChange={e =>
-          onChange(
-            field.name,
-            e.target.value
-          )
+        disabled={loading || field.disabled}
+        required={field.required}
+        onChange={event =>
+          onChange(field.name, event.target.value)
         }
         className={FIELD_CLASS}
       >
         <option value="">
-          Select {field.label}
+          {loading ? "Loading..." : `Select ${field.label}`}
         </option>
-
         {options.map(option => {
-
-          const item =
-            typeof option === "string"
-              ? {
-                  value: option,
-                  label: option,
-                }
-              : option;
+          const item = typeof option === "string"
+            ? { value: option, label: option }
+            : option;
 
           return (
-            <option
-              key={item.value}
-              value={item.value}
-            >
+            <option key={item.value} value={item.value}>
               {item.label}
             </option>
           );
-
         })}
-
       </select>
-
+      {error ? (
+        <div className="mt-2 text-xs text-red-300">{error}</div>
+      ) : null}
     </>
   );
-
 }
-
 
 function CurrencyField({
   field,

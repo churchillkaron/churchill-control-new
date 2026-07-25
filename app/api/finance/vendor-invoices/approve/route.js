@@ -1,6 +1,8 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 
-import runThreeWayMatch from "@/lib/finance/accounts-payable/workflows/runThreeWayMatch";
+import approveVendorInvoice from "@/lib/finance/accounts-payable/workflows/approveVendorInvoice";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
@@ -21,8 +23,9 @@ function statusFor(message) {
   if (
     normalized.includes("required") ||
     normalized.includes("not found") ||
-    normalized.includes("outside") ||
-    normalized.includes("mismatch")
+    normalized.includes("prevent") ||
+    normalized.includes("match") ||
+    normalized.includes("idempotency")
   ) {
     return 400;
   }
@@ -42,11 +45,14 @@ export async function POST(request) {
       "entity_id"
     );
     const vendorInvoiceId = required(
-      body.vendor_invoice_id ||
-        body.vendorInvoiceId ||
-        body.invoice_id ||
-        body.invoiceId,
+      body.vendor_invoice_id || body.vendorInvoiceId,
       "vendor_invoice_id"
+    );
+    const idempotencyKey = required(
+      body.idempotency_key ||
+        body.idempotencyKey ||
+        request.headers.get("idempotency-key"),
+      "idempotency_key"
     );
 
     const access = await requireOrganizationAccess({
@@ -66,23 +72,29 @@ export async function POST(request) {
       );
     }
 
-    const match = await runThreeWayMatch({
+    const result = await approveVendorInvoice({
       organization_id: access.organizationId,
       entity_id: entityId,
       vendor_invoice_id: vendorInvoiceId,
-      matched_by: access.user?.id,
+      approved_by: access.user?.id,
+      decision_reason:
+        body.decision_reason || body.reason || null,
+      idempotency_key: idempotencyKey,
     });
 
-    if (match?.success === false) {
-      throw new Error(match.error || "Three-way match failed");
+    if (result?.success === false) {
+      throw new Error(
+        result.error || "Vendor invoice approval failed"
+      );
     }
 
     return NextResponse.json({
       success: true,
-      match,
+      data: result,
     });
   } catch (error) {
-    const message = error.message || "Three-way match failed";
+    const message =
+      error.message || "Vendor invoice approval failed";
 
     return NextResponse.json(
       {

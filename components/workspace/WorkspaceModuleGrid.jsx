@@ -27,13 +27,9 @@ import {
 } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
-import {
-  getWorkspaceGroups,
-} from "@/lib/platform/registry/erpRegistry";
-
-import {
-  resolveWorkspaceRoute,
-} from "@/lib/platform/routing/resolveWorkspaceRoute";
+import { getWorkspaceGroups } from "@/lib/platform/registry/erpRegistry";
+import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
+import { getFinanceWorkspaceContract } from "@/lib/finance/workspaces/FinanceWorkspaceContracts";
 
 const DISABLED_STATUSES = new Set([
   "planned",
@@ -43,19 +39,29 @@ const DISABLED_STATUSES = new Set([
   "coming_soon",
 ]);
 
-function getItemStatus(item) {
-  if (item?.hidden === true) {
-    return "hidden";
+function normalizeItemForWorkspace(item, workspace) {
+  if (
+    String(workspace || "").toLowerCase() === "finance" &&
+    getFinanceWorkspaceContract(item?.id)
+  ) {
+    return {
+      ...item,
+      status: "active",
+      disabled: false,
+    };
   }
+
+  return item;
+}
+
+function getItemStatus(item) {
+  if (item?.hidden === true) return "hidden";
 
   const status = String(item?.status || "")
     .trim()
     .toLowerCase();
 
-  if (!status && item?.disabled === true) {
-    return "disabled";
-  }
-
+  if (!status && item?.disabled === true) return "disabled";
   return status;
 }
 
@@ -64,32 +70,19 @@ function isHiddenItem(item) {
 }
 
 function isDisabledItem(item) {
-  return DISABLED_STATUSES.has(
-    getItemStatus(item)
-  );
+  return DISABLED_STATUSES.has(getItemStatus(item));
 }
 
 function getStatusLabel(item) {
   const status = getItemStatus(item);
 
-  if (
-    status === "coming-soon" ||
-    status === "coming_soon"
-  ) {
+  if (status === "coming-soon" || status === "coming_soon") {
     return "Coming soon";
   }
-
-  if (status === "planned") {
-    return "Planned";
-  }
-
-  if (
-    status === "disabled" ||
-    status === "unavailable"
-  ) {
+  if (status === "planned") return "Planned";
+  if (status === "disabled" || status === "unavailable") {
     return "Unavailable";
   }
-
   return "";
 }
 
@@ -114,21 +107,17 @@ function getIcon(item, group) {
   if (id.includes("commercial") || id.includes("sales") || id.includes("quote") || id.includes("order")) return BriefcaseBusiness;
   if (id.includes("chart") || id.includes("statement")) return LineChart;
   if (id.includes("entity") || id.includes("organization")) return Building2;
-
   return FileText;
 }
 
 function flattenGroups(groups) {
-  return groups.flatMap(
-    group =>
-      (group.items || []).map(
-        item => ({
-          ...item,
-          groupId: group.id,
-          groupName: group.name,
-          groupDescription: group.description,
-        })
-      )
+  return groups.flatMap(group =>
+    (group.items || []).map(item => ({
+      ...item,
+      groupId: group.id,
+      groupName: group.name,
+      groupDescription: group.description,
+    }))
   );
 }
 
@@ -140,51 +129,36 @@ export default function WorkspaceModuleGrid({
   items,
 }) {
   const businessContext = useBusinessContext();
-
-  const organization =
-    businessContext?.organization || null;
-
+  const organization = businessContext?.organization || null;
   const fallbackOrganizationId =
     organizationId ||
     businessContext?.organization_id ||
     organization?.id ||
     null;
 
-  const registryGroups =
-    getWorkspaceGroups(workspace);
-
-  const rawGroups =
-    items
-      ? [
-          {
-            id: "workspace",
-            name: title || "Workspace",
-            description:
-              description || "Open a work center.",
-            order: 10,
-            items,
-          },
-        ]
-      : registryGroups;
+  const registryGroups = getWorkspaceGroups(workspace);
+  const rawGroups = items
+    ? [{
+        id: "workspace",
+        name: title || "Workspace",
+        description: description || "Open a work center.",
+        order: 10,
+        items,
+      }]
+    : registryGroups;
 
   const groups = rawGroups
     .map(group => ({
       ...group,
-      items: (group.items || []).filter(
-        item => !isHiddenItem(item)
-      ),
+      items: (group.items || [])
+        .map(item => normalizeItemForWorkspace(item, workspace))
+        .filter(item => !isHiddenItem(item)),
     }))
     .filter(group => group.items.length > 0);
 
   const [query, setQuery] = useState("");
-
-  const allItems = useMemo(
-    () => flattenGroups(groups),
-    [groups]
-  );
-
-  const normalizedQuery =
-    query.trim().toLowerCase();
+  const allItems = useMemo(() => flattenGroups(groups), [groups]);
+  const normalizedQuery = query.trim().toLowerCase();
 
   const visibleGroups = useMemo(() => {
     if (!normalizedQuery) return groups;
@@ -210,31 +184,21 @@ export default function WorkspaceModuleGrid({
       .filter(group => group.items.length > 0);
   }, [groups, normalizedQuery]);
 
-  const favoriteItems =
-    allItems
-      .filter(
-        item =>
-          item.favorite &&
-          !isDisabledItem(item)
-      )
-      .slice(0, 6);
+  const favoriteItems = allItems
+    .filter(item => item.favorite && !isDisabledItem(item))
+    .slice(0, 6);
 
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-[0.32em] text-[#D6A66A]/70">
-            Work Centers
-          </div>
+        <div className="text-xs uppercase tracking-[0.32em] text-[#D6A66A]/70">
+          Work Centers
         </div>
-
         <div className="flex w-full items-center rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-white/45 md:w-[360px]">
           <Search size={16} />
           <input
             value={query}
-            onChange={event =>
-              setQuery(event.target.value)
-            }
+            onChange={event => setQuery(event.target.value)}
             placeholder="Search this workspace..."
             className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/35"
           />
@@ -246,7 +210,6 @@ export default function WorkspaceModuleGrid({
           <div className="mb-4 text-xs uppercase tracking-[0.28em] text-[#D6A66A]">
             Favorites
           </div>
-
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {favoriteItems.map(item => (
               <Link
@@ -254,15 +217,13 @@ export default function WorkspaceModuleGrid({
                 href={resolveWorkspaceRoute({
                   organizationId: fallbackOrganizationId,
                   moduleId: item.id,
+                  workspaceId: workspace,
                   route: item.route,
                 })}
                 className="group flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-medium text-white/70 transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A]"
               >
                 <span>{item.name}</span>
-                <ArrowRight
-                  size={16}
-                  className="text-white/25 transition group-hover:translate-x-1 group-hover:text-[#D6A66A]"
-                />
+                <ArrowRight size={16} className="text-white/25 transition group-hover:translate-x-1 group-hover:text-[#D6A66A]" />
               </Link>
             ))}
           </div>
@@ -280,14 +241,8 @@ export default function WorkspaceModuleGrid({
       ) : (
         <div className="grid gap-5 xl:grid-cols-2">
           {visibleGroups.map(group => {
-            const disabledCount =
-              (group.items || []).filter(
-                isDisabledItem
-              ).length;
-
-            const activeCount =
-              (group.items || []).length -
-              disabledCount;
+            const disabledCount = (group.items || []).filter(isDisabledItem).length;
+            const activeCount = (group.items || []).length - disabledCount;
 
             return (
               <section
@@ -299,14 +254,12 @@ export default function WorkspaceModuleGrid({
                     <h3 className="text-lg font-semibold tracking-[-0.025em] text-white">
                       {group.name}
                     </h3>
-
                     {group.description && (
                       <p className="mt-1 max-w-2xl text-sm leading-6 text-white/42">
                         {group.description}
                       </p>
                     )}
                   </div>
-
                   <div className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs text-white/35">
                     {disabledCount > 0
                       ? `${activeCount} active · ${disabledCount} planned`
@@ -315,57 +268,29 @@ export default function WorkspaceModuleGrid({
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  {(group.items || []).map(rawItem => {
-                    const item = {
-                      ...rawItem,
-                    };
+                  {(group.items || []).map(item => {
                     const Icon = getIcon(item, group);
-                    const disabled =
-                      isDisabledItem(item);
-                    const statusLabel =
-                      getStatusLabel(item);
-
+                    const disabled = isDisabledItem(item);
+                    const statusLabel = getStatusLabel(item);
                     const cardContent = (
                       <>
                         <div className="flex items-start justify-between gap-4">
-                          <div className={[
-                            "rounded-2xl border border-white/10 bg-black/30 p-2.5",
-                            disabled
-                              ? "text-white/25"
-                              : "text-[#D6A66A]",
-                          ].join(" ")}>
+                          <div className={`rounded-2xl border border-white/10 bg-black/30 p-2.5 ${disabled ? "text-white/25" : "text-[#D6A66A]"}`}>
                             <Icon size={19} />
                           </div>
-
                           {disabled ? (
                             <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/35">
                               {statusLabel}
                             </span>
                           ) : (
-                            <ArrowRight
-                              size={17}
-                              className="mt-2 text-white/22 transition group-hover:translate-x-1 group-hover:text-[#D6A66A]"
-                            />
+                            <ArrowRight size={17} className="mt-2 text-white/22 transition group-hover:translate-x-1 group-hover:text-[#D6A66A]" />
                           )}
                         </div>
-
-                        <div className={[
-                          "mt-4 text-sm font-semibold",
-                          disabled
-                            ? "text-white/38"
-                            : "text-white",
-                        ].join(" ")}>
+                        <div className={`mt-4 text-sm font-semibold ${disabled ? "text-white/38" : "text-white"}`}>
                           {item.name}
                         </div>
-
-                        <div className={[
-                          "mt-1.5 text-xs leading-5",
-                          disabled
-                            ? "text-white/25"
-                            : "text-white/40",
-                        ].join(" ")}>
-                          {item.description ||
-                            "Open this capability."}
+                        <div className={`mt-1.5 text-xs leading-5 ${disabled ? "text-white/25" : "text-white/40"}`}>
+                          {item.description || "Open this capability."}
                         </div>
                       </>
                     );

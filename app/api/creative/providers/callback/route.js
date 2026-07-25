@@ -7,48 +7,81 @@ import { NextResponse } from "next/server";
 import {
   CreativeProviderCompletionRuntime,
 } from "@/lib/creative/providers/runtime/CreativeProviderCompletionRuntime";
-
 import {
   ProductionTaskRuntime,
 } from "@/lib/operations/tasks/runtime/ProductionTaskRuntime";
+
+const MAX_CALLBACK_AGE_SECONDS = 300;
 
 function signatureValue(request) {
   const value =
     request.headers.get("x-avantiqo-signature") ||
     request.headers.get("x-provider-signature") ||
     "";
-
-  return value.startsWith("sha256=")
-    ? value.slice("sha256=".length)
-    : value;
+  return value.startsWith("sha256=") ? value.slice("sha256=".length) : value;
 }
 
-function verifySignature(rawBody, suppliedSignature) {
-  const secret = process.env.CREATIVE_PROVIDER_CALLBACK_SECRET;
-  if (!secret) {
-    throw new Error("CREATIVE_PROVIDER_CALLBACK_SECRET_REQUIRED");
-  }
+function timestampValue(request) {
+  return String(
+    request.headers.get("x-avantiqo-timestamp") ||
+    request.headers.get("x-provider-timestamp") ||
+    "",
+  ).trim();
+}
 
-  if (!suppliedSignature) return false;
+function validTimestamp(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || !Number.isInteger(seconds) || seconds <= 0) {
+    return false;
+  }
+  const now = Math.floor(Date.now() / 1000);
+  return Math.abs(now - seconds) <= MAX_CALLBACK_AGE_SECONDS;
+}
+
+function verifySignature(rawBody, suppliedSignature, timestamp) {
+  const secret = process.env.CREATIVE_PROVIDER_CALLBACK_SECRET;
+  if (!secret) throw new Error("CREATIVE_PROVIDER_CALLBACK_SECRET_REQUIRED");
+  if (!suppliedSignature || !validTimestamp(timestamp)) return false;
 
   const expected = crypto
     .createHmac("sha256", secret)
-    .update(rawBody)
+    .update(`${timestamp}.${rawBody}`)
     .digest("hex");
-
   const supplied = Buffer.from(suppliedSignature, "utf8");
   const calculated = Buffer.from(expected, "utf8");
-
   return supplied.length === calculated.length &&
     crypto.timingSafeEqual(supplied, calculated);
+}
+
+function safeTask(task) {
+  return {
+    id: task?.id || null,
+    organization_id: task?.organization_id || null,
+    creative_project_id: task?.creative_project_id || null,
+    status: task?.status || null,
+    provider_id: task?.provider_id || null,
+    provider_job_id: task?.output?.provider_job_id || null,
+    asset_node_id: task?.output?.asset_node_id || null,
+    storage_path:
+      task?.output?.storage_path ||
+      task?.output?.output?.storage_path ||
+      null,
+    settlement: task?.output?.settlement || null,
+    error: task?.error || null,
+  };
 }
 
 export async function POST(request) {
   try {
     const rawBody = await request.text();
-    const signature = signatureValue(request);
-
-    if (!verifySignature(rawBody, signature)) {
+    const timestamp = timestampValue(request);
+    if (!validTimestamp(timestamp)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid or expired callback timestamp" },
+        { status: 401 },
+      );
+    }
+    if (!verifySignature(rawBody, signatureValue(request), timestamp)) {
       return NextResponse.json(
         { success: false, error: "Invalid callback signature" },
         { status: 401 },
@@ -57,10 +90,21 @@ export async function POST(request) {
 
     const body = JSON.parse(rawBody || "{}");
     const taskId = body.task_id || body.taskId;
+    const organizationId = body.organization_id || body.organizationId;
+    const callbackProvider = String(
+      body.provider || body.provider_id || "",
+    ).trim().toLowerCase();
+    const callbackJobId = String(
+      body.provider_job_id || body.job_id || body.jobId || "",
+    ).trim();
 
-    if (!taskId) {
+    if (!taskId || !organizationId || !callbackProvider || !callbackJobId) {
       return NextResponse.json(
-        { success: false, error: "task_id required" },
+        {
+          success: false,
+          error:
+            "task_id, organization_id, provider and provider_job_id required",
+        },
         { status: 400 },
       );
     }
@@ -73,27 +117,21 @@ export async function POST(request) {
       );
     }
 
-    const callbackProvider = body.provider || body.provider_id || null;
-    if (
-      callbackProvider &&
-      task.provider_id &&
-      callbackProvider !== task.provider_id
-    ) {
+    if (task.organization_id !== organizationId) {
+      return NextResponse.json(
+        { success: false, error: "Organization does not match production task" },
+        { status: 409 },
+      );
+    }
+
+    if (String(task.provider_id || "").trim().toLowerCase() !== callbackProvider) {
       return NextResponse.json(
         { success: false, error: "Provider does not match production task" },
         { status: 409 },
       );
     }
 
-    const callbackJobId =
-      body.provider_job_id ||
-      body.job_id ||
-      body.jobId ||
-      body.id ||
-      null;
-    const taskJobId = task.output?.provider_job_id || null;
-
-    if (callbackJobId && taskJobId && callbackJobId !== taskJobId) {
+    if (String(task.output?.provider_job_id || "").trim() !== callbackJobId) {
       return NextResponse.json(
         { success: false, error: "Provider job does not match production task" },
         { status: 409 },
@@ -107,7 +145,8 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      task: result,
+      callback_timestamp: timestamp,
+      task: safeTask(result),
     });
   } catch (error) {
     return NextResponse.json(

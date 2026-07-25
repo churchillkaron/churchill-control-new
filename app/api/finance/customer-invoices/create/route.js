@@ -95,6 +95,10 @@ export async function POST(req) {
       currency_code: currencyCode,
       exchange_rate: body.exchange_rate ?? 1,
       lines: Array.isArray(body.lines) ? body.lines : [],
+      tax_amount:
+        body.tax_amount === undefined
+          ? null
+          : body.tax_amount,
       notes: body.notes,
       created_by: user?.id || null,
     });

@@ -14,6 +14,24 @@ import {
 } from "@/lib/creative/assets/graph/documents/CreativeAssetNode";
 
 const MAX_CLOCK_SKEW_SECONDS = 300;
+const TERMINAL_STATUSES = new Set([
+  "success",
+  "succeeded",
+  "complete",
+  "completed",
+  "done",
+  "published",
+  "failed",
+  "error",
+  "cancelled",
+  "canceled",
+  "rejected",
+  "expired",
+]);
+
+function text(value) {
+  return String(value || "").trim();
+}
 
 function signatureValue(request) {
   const value =
@@ -24,11 +42,10 @@ function signatureValue(request) {
 }
 
 function timestampValue(request) {
-  return String(
+  return text(
     request.headers.get("x-avantiqo-timestamp") ||
-    request.headers.get("x-provider-timestamp") ||
-    "",
-  ).trim();
+    request.headers.get("x-provider-timestamp"),
+  );
 }
 
 function verifySignature(rawBody, timestamp, suppliedSignature) {
@@ -53,6 +70,26 @@ function verifySignature(rawBody, timestamp, suppliedSignature) {
   const calculated = Buffer.from(expected, "utf8");
   return supplied.length === calculated.length &&
     crypto.timingSafeEqual(supplied, calculated);
+}
+
+function terminalEvidence(body = {}) {
+  const output = body.output?.output || body.output || body.result || body;
+  const status = text(
+    body.provider_status ||
+    body.status ||
+    output.status ||
+    output.state ||
+    output.phase,
+  ).toLowerCase();
+  const publicationId = text(
+    output.id ||
+    output.post_id ||
+    output.publication_id ||
+    output.media_id ||
+    output.name,
+  );
+  const error = text(body.error?.message || body.error || output.error || output.failure_reason);
+  return Boolean(publicationId || error || TERMINAL_STATUSES.has(status));
 }
 
 function safeExecution(execution) {
@@ -91,19 +128,17 @@ export async function POST(request) {
       body.publishExecutionAssetNodeId ||
       body.execution_id ||
       body.executionId;
-    const provider = String(body.provider || body.provider_id || "")
-      .trim()
-      .toLowerCase();
-    const providerJobId = String(
-      body.provider_job_id || body.job_id || body.jobId || "",
-    ).trim();
+    const provider = text(body.provider || body.provider_id).toLowerCase();
+    const providerJobId = text(
+      body.provider_job_id || body.job_id || body.jobId,
+    ) || null;
 
-    if (!organizationId || !executionId || !provider || !providerJobId) {
+    if (!organizationId || !executionId || !provider) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "organization_id, publish_execution_asset_node_id, provider and provider_job_id required",
+            "organization_id, publish_execution_asset_node_id and provider required",
         },
         { status: 400 },
       );
@@ -120,26 +155,39 @@ export async function POST(request) {
         { status: 404 },
       );
     }
-    if (
-      String(execution.metadata?.provider_id || "").trim().toLowerCase() !==
-      provider
-    ) {
+    if (text(execution.metadata?.provider_id).toLowerCase() !== provider) {
       return NextResponse.json(
         { success: false, error: "Provider does not match publish execution" },
         { status: 409 },
       );
     }
-    if (
-      String(execution.metadata?.provider_job_id || "").trim() !==
-      providerJobId
-    ) {
+
+    const storedJobId = text(execution.metadata?.provider_job_id) || null;
+    if (storedJobId && storedJobId !== providerJobId) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Provider job does not match publish execution",
-        },
+        { success: false, error: "Provider job does not match publish execution" },
         { status: 409 },
       );
+    }
+    if (!storedJobId) {
+      if (providerJobId) {
+        return NextResponse.json(
+          { success: false, error: "Unexpected provider job identity" },
+          { status: 409 },
+        );
+      }
+      if (execution.metadata?.execution_status !== "RECONCILIATION_REQUIRED") {
+        return NextResponse.json(
+          { success: false, error: "Jobless reconciliation is not allowed" },
+          { status: 409 },
+        );
+      }
+      if (!terminalEvidence(body)) {
+        return NextResponse.json(
+          { success: false, error: "Terminal publication evidence required" },
+          { status: 400 },
+        );
+      }
     }
 
     const result = await CreativePublishReconciliationRuntime.complete({

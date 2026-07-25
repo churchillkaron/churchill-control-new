@@ -13,8 +13,7 @@ export async function POST(request) {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
     const renderAssetNodeId =
-      body.render_asset_node_id ||
-      body.renderAssetNodeId;
+      body.render_asset_node_id || body.renderAssetNodeId;
 
     if (!organizationId || !renderAssetNodeId) {
       return Response.json(
@@ -26,7 +25,11 @@ export async function POST(request) {
       );
     }
 
-    const access = await requireOrganizationAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredPermission: "creative.repair.plan",
+    });
     if (!access.success) {
       return Response.json(access, { status: access.status });
     }

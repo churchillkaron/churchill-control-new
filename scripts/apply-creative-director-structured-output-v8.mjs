@@ -174,6 +174,18 @@ async function generateText({
   write(path, source);
 }
 
+function patchMissionComposerListHelper() {
+  const path = "lib/creative/intent/CreativeMissionComposerRuntime.js";
+  let source = read(path);
+  if (!source.includes("CREATIVE_MISSION_DIRECTOR_LIST_HELPER_V8_2")) {
+    const anchor = "function compactMissionAsset(asset = {}) {";
+    if (!source.includes(anchor)) {
+      throw new Error("CREATIVE_MISSION_DIRECTOR_LIST_HELPER_ANCHOR_MISSING");
+    }
+    source = source.replace(anchor, "// CREATIVE_MISSION_DIRECTOR_LIST_HELPER_V8_2\nfunction list(value) {\n  if (value == null) return [];\n  return Array.isArray(value) ? value.filter(Boolean) : [value];\n}\n" + anchor);
+  }
+  write(path, source);
+}
 function patchMissionComposer() {
   const path = "lib/creative/intent/CreativeMissionComposerRuntime.js";
   let source = read(path);
@@ -278,6 +290,7 @@ function patchMissionRoute() {
 }
 
 patchOpenAIProvider();
+patchMissionComposerListHelper();
 patchMissionComposer();
 patchMissionRoute();
 

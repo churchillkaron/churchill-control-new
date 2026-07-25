@@ -56,6 +56,8 @@ jobs:
             node scripts/apply-creative-mission-evidence-selection-v4.mjs
             node --check scripts/repair-and-run-creative-evidence-fidelity-v5.mjs
             node scripts/repair-and-run-creative-evidence-fidelity-v5.mjs
+            node --check scripts/apply-creative-evidence-selection-retry-v6.mjs
+            node scripts/apply-creative-evidence-selection-retry-v6.mjs
           } > /tmp/creative-materializer.log 2>&1
 
       - name: Upload Creative materializer log
@@ -182,6 +184,12 @@ jobs:
             lib/creative/production/contracts/CreativeProviderInputRuntime.js
           grep -q 'CREATIVE_MASTER_STILL_FIDELITY_AND_DIVERSITY_GATE_V5' \
             lib/creative/production-graph/planner/ProductionGraphPlanner.js
+          grep -q 'CREATIVE_ORGANIZATION_UPLOAD_SCOPE_V3' \
+            lib/creative/knowledge/CreativeBusinessTruthRuntime.js
+          grep -q 'CREATIVE_STRONG_RELEVANCE_MISSION_AUTHORIZATION_V6' \
+            lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
+          grep -q 'CREATIVE_QUALITY_REVISION_ATTEMPT_BUDGET_V6' \
+            lib/operations/tasks/runtime/ProductionTaskRuntime.js
           grep -q 'Automatic after AI quality' \
             components/creative/ProductionStudio/actions/RunCreativePipelineButton.jsx
           grep -q 'CREATIVE_END_TO_END_SMOKE=PASS' \

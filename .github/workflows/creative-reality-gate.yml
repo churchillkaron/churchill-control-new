@@ -102,6 +102,8 @@ jobs:
           node --check scripts/apply-creative-director-escape-fix-v8-1.mjs
           node --check scripts/apply-creative-director-list-helper-v8-2.mjs
           node --check scripts/apply-creative-source-evidence-provenance-v9.mjs
+          node --check scripts/apply-creative-deterministic-quality-v10.mjs
+          node --check scripts/test-creative-deterministic-quality-v10.mjs
           node --check app/api/creative/missions/compose/route.js
           node --check app/api/creative/director/execute/route.js
           node --check lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
@@ -114,6 +116,7 @@ jobs:
           node --check lib/creative/production/contracts/CreativeImagePromptBudgetRuntime.js
           node --check lib/creative/production/contracts/CreativeProviderInputRuntime.js
           node --check lib/creative/production/contracts/CreativeShotDirectionEnrichmentRuntime.js
+          node --check lib/creative/production/quality/CreativeDeterministicImageQualityRuntime.js
           node --check lib/operations/tasks/runtime/ProductionTaskRuntime.js
           node --check lib/platform/service-runtime/providers/openai/OpenAIProvider.js
           node --check lib/creative/production/runtime/CreativeUniversalProductionRuntime.js
@@ -125,6 +128,9 @@ jobs:
           bash -n scripts/creative-end-to-end-smoke.sh
           bash -n scripts/creative-live-smoke-local.sh
           bash -n scripts/creative-reality-gate.sh
+
+      - name: Deterministic image quality tests
+        run: node scripts/test-creative-deterministic-quality-v10.mjs
 
       - name: Production build
         shell: bash
@@ -192,6 +198,14 @@ jobs:
           grep -q 'MISSION_ROLE_MATCHED_ORGANIZATION_UPLOAD' scripts/creative-end-to-end-smoke.sh
           ! grep -q "arbitrary_fallback_allowed // true" scripts/creative-end-to-end-smoke.sh
           printf '{"arbitrary_fallback_allowed":false}\n' | jq -e 'if has("arbitrary_fallback_allowed") then .arbitrary_fallback_allowed == false else false end' >/dev/null
+          grep -q 'CREATIVE_DETERMINISTIC_MASTER_STILL_DUPLICATE_GATE_V10' lib/creative/production/quality/CreativeDeterministicImageQualityRuntime.js
+          grep -q 'CREATIVE_EXACT_BRAND_COMPOSITOR_V10' lib/creative/production/quality/CreativeDeterministicImageQualityRuntime.js
+          grep -q 'CREATIVE_DETERMINISTIC_IMAGE_QUALITY_V10' lib/operations/tasks/runtime/ProductionTaskRuntime.js
+          grep -q 'CREATIVE_BOUND_EVIDENCE_QUALITY_REQUIREMENTS_V10' lib/creative/production-graph/planner/ProductionGraphPlanner.js
+          grep -q 'isMasterStillTask(candidate)' lib/operations/tasks/runtime/ProductionTaskRuntime.js
+          grep -q 'assertUniqueMasterStill' lib/operations/tasks/runtime/ProductionTaskRuntime.js
+          grep -q 'assertExactBrandOverlayContract' lib/operations/tasks/runtime/ProductionTaskRuntime.js
+          grep -q 'CREATIVE_DETERMINISTIC_QUALITY_V10_TEST=PASS' <(node scripts/test-creative-deterministic-quality-v10.mjs)
           grep -q 'CREATIVE_REALITY_GATE_MATERIALIZATION=PASS' /tmp/creative-materializer.log
           grep -q 'Automatic after AI quality' components/creative/ProductionStudio/actions/RunCreativePipelineButton.jsx
           grep -q 'CREATIVE_END_TO_END_SMOKE=PASS' scripts/creative-end-to-end-smoke.sh

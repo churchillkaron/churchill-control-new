@@ -97,6 +97,7 @@ jobs:
       - name: JavaScript syntax gates
         run: |
           node --check scripts/materialize-creative-reality-gate.mjs
+          node --check scripts/apply-creative-pre-spend-evidence-gate-v7.mjs
           node --check app/api/creative/missions/compose/route.js
           node --check app/api/creative/director/execute/route.js
           node --check lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
@@ -117,6 +118,7 @@ jobs:
           node --check lib/creative/production/control/CreativeProductionControlRuntime.js
           node --check lib/creative/worker/CreativeOrchestrationWorker.js
           bash -n scripts/creative-end-to-end-smoke.sh
+          bash -n scripts/creative-live-smoke-local.sh
           bash -n scripts/creative-reality-gate.sh
 
       - name: Production build
@@ -183,6 +185,12 @@ jobs:
             lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
           grep -q 'CREATIVE_QUALITY_REVISION_ATTEMPT_BUDGET_V6' \
             lib/operations/tasks/runtime/ProductionTaskRuntime.js
+          grep -q 'CREATIVE_PRE_SPEND_EVIDENCE_DIAGNOSTICS_V7' \
+            lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
+          grep -q 'CREATIVE_PRE_SPEND_EVIDENCE_GATE_V7' \
+            scripts/creative-end-to-end-smoke.sh
+          grep -q 'CREATIVE_LIVE_SMOKE_REQUIRED_EVIDENCE_ROLES_V7' \
+            scripts/creative-live-smoke-local.sh
           grep -q 'CREATIVE_REALITY_GATE_MATERIALIZATION=PASS' \
             /tmp/creative-materializer.log
           grep -q 'Automatic after AI quality' \

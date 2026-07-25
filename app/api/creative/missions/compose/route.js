@@ -26,6 +26,9 @@ import {
   CreativeAssetGraphRuntime,
 } from "@/lib/creative/assets/graph/runtime/CreativeAssetGraphRuntime";
 import {
+  CreativeMissionEvidenceSelectionRuntime,
+} from "@/lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime";
+import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
@@ -276,16 +279,31 @@ function orderedDeliverables(deliverables = []) {
   ];
 }
 
+// CREATIVE_MISSION_RELEVANT_EVIDENCE_IMPORT_V4
 async function importBusinessEvidence({
   organization_id,
   creative_project_id,
   businessTruth,
+  request,
+  blueprint,
+  supplied_assets = [],
 }) {
-  if (!creative_project_id) return [];
+  const selection = CreativeMissionEvidenceSelectionRuntime.select({
+    request,
+    blueprint,
+    business_truth: businessTruth,
+    supplied_assets,
+  });
 
-  const references = list(businessTruth.assets?.uploaded_references).slice(0, 40);
-  return Promise.all(
-    references.map((asset) =>
+  if (!creative_project_id) {
+    return {
+      nodes: [],
+      selection,
+    };
+  }
+
+  const nodes = await Promise.all(
+    selection.assets.map((asset) =>
       CreativeAssetGraphRuntime.create({
         organization_id,
         creative_project_id,
@@ -293,7 +311,9 @@ async function importBusinessEvidence({
         type: String(asset.type || "IMAGE").toUpperCase(),
         status: "IMPORTED",
         name: asset.name || "Imported Reference",
-        description: asset.description || "Organization-scoped production reference",
+        description:
+          asset.description ||
+          "Mission-matched organization-scoped production reference",
         url: asset.url || asset.thumbnail_url || null,
         lineage: {
           source: "creative_assets",
@@ -314,16 +334,26 @@ async function importBusinessEvidence({
           human_reviewed: false,
           approved: false,
           notes:
-            "Imported as production evidence. Rights and reuse approval remain separate gates.",
+            "Imported as mission-matched production evidence. Rights and reuse approval remain separate gates.",
         },
         metadata: {
           evidence_role: "MISSION_REFERENCE",
+          evidence_roles: list(asset.evidence_roles),
+          reference_roles: list(asset.reference_roles),
           source_asset_id: asset.id,
           rights_status: "UNVERIFIED",
+          evidence_selection_version: selection.version,
+          evidence_selection: asset.selection || {},
+          arbitrary_organization_asset_fallback: false,
         },
       }),
     ),
   );
+
+  return {
+    nodes,
+    selection,
+  };
 }
 
 function invalidDirectorError(error) {
@@ -457,10 +487,19 @@ export async function POST(request) {
     }
 
     const evidenceProjectId = masterProjectId || projects[0]?.id || null;
-    const evidenceNodes = await importBusinessEvidence({
+    const suppliedEvidenceAssets = [
+      ...list(body.assets),
+      ...list(body.reference_assets),
+      ...list(body.context?.assets),
+      ...list(body.context?.reference_assets),
+    ];
+    const evidenceImport = await importBusinessEvidence({
       organization_id,
       creative_project_id: evidenceProjectId,
       businessTruth,
+      request: creativeRequest,
+      blueprint,
+      supplied_assets: suppliedEvidenceAssets,
     });
 
     const finalBusinessTruth = await CreativeBusinessTruthRuntime.hydrate({
@@ -483,6 +522,8 @@ export async function POST(request) {
             business_truth_schema_version: finalBusinessTruth.schema_version,
             business_truth_record_counts: finalBusinessTruth.record_counts,
             business_truth_source_manifest: finalBusinessTruth.source_manifest,
+            mission_evidence_selection_version: evidenceImport.selection.version,
+            mission_evidence_selection: evidenceImport.selection.diagnostics,
           },
         }),
       ),
@@ -496,6 +537,8 @@ export async function POST(request) {
         business_truth_schema_version: finalBusinessTruth.schema_version,
         business_truth_record_counts: finalBusinessTruth.record_counts,
         business_truth_source_manifest: finalBusinessTruth.source_manifest,
+        mission_evidence_selection_version: evidenceImport.selection.version,
+        mission_evidence_selection: evidenceImport.selection.diagnostics,
       },
     });
 
@@ -516,7 +559,8 @@ export async function POST(request) {
         source_manifest: finalBusinessTruth.source_manifest,
         source_failures: finalBusinessTruth.source_failures,
         locations_grounding: finalBusinessTruth.locations_grounding,
-        evidence_node_count: evidenceNodes.length,
+        evidence_node_count: evidenceImport.nodes.length,
+        evidence_selection: evidenceImport.selection.diagnostics,
       },
     });
   } catch (error) {

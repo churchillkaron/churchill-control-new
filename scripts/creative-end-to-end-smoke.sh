@@ -13,6 +13,8 @@ MAX_POLLS="${CREATIVE_TEST_MAX_POLLS:-40}"
 POLL_SECONDS="${CREATIVE_TEST_POLL_SECONDS:-5}"
 REPORT="${CREATIVE_TEST_REPORT:-/tmp/creative-end-to-end-smoke.json}"
 ARTIFACT_DIR="${CREATIVE_TEST_ARTIFACT_DIR:-$(dirname "$REPORT")/creative-smoke-evidence}"
+REQUIRE_EVIDENCE="${CREATIVE_TEST_REQUIRE_EVIDENCE:-false}"
+REQUIRED_EVIDENCE_ROLES="${CREATIVE_TEST_REQUIRED_EVIDENCE_ROLES:-}"
 mkdir -p "$ARTIFACT_DIR"
 
 fail() {
@@ -138,6 +140,79 @@ PROJECT_ID="$(
   write_failure_summary "PROJECT_SELECTION" "$COMPOSE_STATUS" "$COMPOSE_BODY"
   fail "compose response missing requested $PROJECT_TYPE project"
 }
+
+# CREATIVE_PRE_SPEND_EVIDENCE_GATE_V7
+EVIDENCE_SELECTION="$ARTIFACT_DIR/evidence-selection.json"
+jq '.business_truth.evidence_selection // {}' "$COMPOSE_BODY" > "$EVIDENCE_SELECTION"
+SELECTED_EVIDENCE_COUNT="$(jq -r '.selected_count // 0' "$EVIDENCE_SELECTION")"
+ARBITRARY_EVIDENCE_FALLBACK="$(jq -r '.arbitrary_fallback_allowed // true' "$EVIDENCE_SELECTION")"
+SELECTED_EVIDENCE_DIAGNOSTIC_COUNT="$(jq -r '[.selected_assets[]?] | length' "$EVIDENCE_SELECTION")"
+INVALID_EVIDENCE_BASIS_COUNT="$(jq -r '[
+  .selected_assets[]?
+  | select(
+      (.id // "") == "" or
+      ((.approval_basis // "") | IN(
+        "EXPLICIT_REQUEST_ASSET",
+        "APPROVED_REFERENCE",
+        "STRONG_MISSION_MATCHED_ORGANIZATION_UPLOAD"
+      ) | not)
+    )
+] | length' "$EVIDENCE_SELECTION")"
+
+printf 'Creative smoke: evidence selected=%s arbitrary_fallback=%s\n' \
+  "$SELECTED_EVIDENCE_COUNT" \
+  "$ARBITRARY_EVIDENCE_FALLBACK"
+jq '{
+  selected_count,
+  explicitly_selected_count,
+  approved_reference_count,
+  mission_authorized_upload_count,
+  requested_roles,
+  selected_assets,
+  rejected_irrelevant_count,
+  arbitrary_fallback_allowed
+}' "$EVIDENCE_SELECTION"
+
+if [ "$(printf '%s' "$REQUIRE_EVIDENCE" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+  [ "$SELECTED_EVIDENCE_COUNT" -gt 0 ] || {
+    write_failure_summary "PRE_SPEND_EVIDENCE_EMPTY" "$COMPOSE_STATUS" "$COMPOSE_BODY"
+    fail "pre-spend evidence selection returned zero assets"
+  }
+  [ "$ARBITRARY_EVIDENCE_FALLBACK" = "false" ] || {
+    write_failure_summary "PRE_SPEND_EVIDENCE_ARBITRARY" "$COMPOSE_STATUS" "$COMPOSE_BODY"
+    fail "pre-spend evidence selection allowed arbitrary fallback"
+  }
+  [ "$SELECTED_EVIDENCE_DIAGNOSTIC_COUNT" -eq "$SELECTED_EVIDENCE_COUNT" ] || {
+    write_failure_summary "PRE_SPEND_EVIDENCE_DIAGNOSTICS" "$COMPOSE_STATUS" "$COMPOSE_BODY"
+    fail "pre-spend evidence diagnostics do not describe every selected asset"
+  }
+  [ "$INVALID_EVIDENCE_BASIS_COUNT" -eq 0 ] || {
+    write_failure_summary "PRE_SPEND_EVIDENCE_AUTHORIZATION" "$COMPOSE_STATUS" "$COMPOSE_BODY"
+    fail "pre-spend evidence contains an asset without a valid mission authorization basis"
+  }
+
+  OLD_IFS="$IFS"
+  IFS=','
+  for role in $REQUIRED_EVIDENCE_ROLES; do
+    role="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]' | xargs)"
+    [ -n "$role" ] || continue
+    ROLE_COUNT="$(jq -r --arg role "$role" '[
+      .selected_assets[]?
+      | select(
+          ((.inferred_roles // []) | index($role)) != null or
+          ((.matched_roles // []) | index($role)) != null
+        )
+    ] | length' "$EVIDENCE_SELECTION")"
+    if [ "$ROLE_COUNT" -eq 0 ]; then
+      IFS="$OLD_IFS"
+      write_failure_summary "PRE_SPEND_EVIDENCE_ROLE_$role" "$COMPOSE_STATUS" "$COMPOSE_BODY"
+      fail "pre-spend evidence is missing required neutral role $role"
+    fi
+  done
+  IFS="$OLD_IFS"
+fi
+
+printf 'Creative smoke: pre-spend evidence gate passed\n'
 
 printf 'Creative smoke: start project %s\n' "$PROJECT_ID"
 EXECUTE_STATUS="$(

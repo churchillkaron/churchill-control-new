@@ -105,7 +105,21 @@ COMPOSE_STATUS="$(
     --arg organization_id "$ORGANIZATION_ID" \
     --arg request "$REQUEST" \
     --arg medium "$MEDIUM" \
-    '{organization_id:$organization_id,request:$request,context:{smoke_test:true,requested_medium:$medium}}' \
+    --arg required_evidence_roles "$REQUIRED_EVIDENCE_ROLES" \
+    '{
+      organization_id:$organization_id,
+      request:$request,
+      context:{
+        smoke_test:true,
+        requested_medium:$medium,
+        required_evidence_roles:(
+          $required_evidence_roles
+          | split(",")
+          | map(gsub("^\\s+|\\s+$"; "") | ascii_upcase)
+          | map(select(length > 0))
+        )
+      }
+    }' \
   | curl -sS -o "$COMPOSE_BODY" -w '%{http_code}' \
       -X POST "$APP_URL/api/creative/missions/compose" \
       -H 'Content-Type: application/json' \
@@ -145,7 +159,13 @@ PROJECT_ID="$(
 EVIDENCE_SELECTION="$ARTIFACT_DIR/evidence-selection.json"
 jq '.business_truth.evidence_selection // {}' "$COMPOSE_BODY" > "$EVIDENCE_SELECTION"
 SELECTED_EVIDENCE_COUNT="$(jq -r '.selected_count // 0' "$EVIDENCE_SELECTION")"
-ARBITRARY_EVIDENCE_FALLBACK="$(jq -r '.arbitrary_fallback_allowed // true' "$EVIDENCE_SELECTION")"
+# CREATIVE_PRE_SPEND_BOOLEAN_AND_PROVENANCE_V9
+ARBITRARY_EVIDENCE_FALLBACK="$(jq -r '
+  if type == "object" and has("arbitrary_fallback_allowed")
+  then (.arbitrary_fallback_allowed | tostring)
+  else "true"
+  end
+' "$EVIDENCE_SELECTION")"
 SELECTED_EVIDENCE_DIAGNOSTIC_COUNT="$(jq -r '[.selected_assets[]?] | length' "$EVIDENCE_SELECTION")"
 INVALID_EVIDENCE_BASIS_COUNT="$(jq -r '[
   .selected_assets[]?
@@ -154,8 +174,19 @@ INVALID_EVIDENCE_BASIS_COUNT="$(jq -r '[
       ((.approval_basis // "") | IN(
         "EXPLICIT_REQUEST_ASSET",
         "APPROVED_REFERENCE",
-        "STRONG_MISSION_MATCHED_ORGANIZATION_UPLOAD"
+        "MISSION_ROLE_MATCHED_ORGANIZATION_UPLOAD"
       ) | not)
+    )
+] | length' "$EVIDENCE_SELECTION")"
+INVALID_MISSION_SOURCE_COUNT="$(jq -r '[
+  .selected_assets[]?
+  | select(
+      (.approval_basis // "") == "MISSION_ROLE_MATCHED_ORGANIZATION_UPLOAD" and
+      (
+        (.source_kind // "") != "USER_UPLOAD" or
+        (.original_upload // false) != true or
+        (.ai_generated // false) == true
+      )
     )
 ] | length' "$EVIDENCE_SELECTION")"
 
@@ -167,7 +198,9 @@ jq '{
   explicitly_selected_count,
   approved_reference_count,
   mission_authorized_upload_count,
+  required_roles,
   requested_roles,
+  excluded_generated_output_count,
   selected_assets,
   rejected_irrelevant_count,
   arbitrary_fallback_allowed
@@ -189,6 +222,10 @@ if [ "$(printf '%s' "$REQUIRE_EVIDENCE" | tr '[:upper:]' '[:lower:]')" = "true" 
   [ "$INVALID_EVIDENCE_BASIS_COUNT" -eq 0 ] || {
     write_failure_summary "PRE_SPEND_EVIDENCE_AUTHORIZATION" "$COMPOSE_STATUS" "$COMPOSE_BODY"
     fail "pre-spend evidence contains an asset without a valid mission authorization basis"
+  }
+  [ "$INVALID_MISSION_SOURCE_COUNT" -eq 0 ] || {
+    write_failure_summary "PRE_SPEND_EVIDENCE_PROVENANCE" "$COMPOSE_STATUS" "$COMPOSE_BODY"
+    fail "pre-spend evidence mission-authorized a generated or derived output"
   }
 
   OLD_IFS="$IFS"

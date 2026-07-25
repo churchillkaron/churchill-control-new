@@ -289,12 +289,15 @@ async function importBusinessEvidence({
   request,
   blueprint,
   supplied_assets = [],
+  required_evidence_roles = [],
 }) {
   const selection = CreativeMissionEvidenceSelectionRuntime.select({
     request,
     blueprint,
     business_truth: businessTruth,
     supplied_assets,
+    // CREATIVE_REQUIRED_EVIDENCE_ROLE_HANDOFF_V9
+    required_roles: required_evidence_roles,
   });
 
   if (!creative_project_id) {
@@ -502,6 +505,9 @@ export async function POST(request) {
       request: creativeRequest,
       blueprint,
       supplied_assets: suppliedEvidenceAssets,
+      required_evidence_roles: list(
+        body.context?.required_evidence_roles,
+      ),
     });
 
     const finalBusinessTruth = await CreativeBusinessTruthRuntime.hydrate({

@@ -132,6 +132,16 @@ const layers = [
       ["lib/creative/production-graph/planner/ProductionGraphPlanner.js", "CREATIVE_BOUND_EVIDENCE_QUALITY_REQUIREMENTS_V10"],
     ],
   },
+  {
+    name: "V11_UPLOAD_PROVENANCE_RECOVERY",
+    script: "scripts/apply-creative-upload-provenance-recovery-v11.mjs",
+    markers: [
+      ["lib/creative/assets/repositories/saveCreativeAsset.js", "CREATIVE_DURABLE_UPLOAD_PROVENANCE_V11"],
+      ["lib/creative/assets/workflows/createCreativeAssetFlow.js", "CREATIVE_UPLOAD_FLOW_PROVENANCE_V11"],
+      ["lib/creative/knowledge/CreativeBusinessTruthRuntime.js", "CREATIVE_SOURCE_UPLOAD_WINDOW_RECOVERY_V11"],
+      ["lib/creative/production-graph/planner/ProductionGraphPlanner.js", "CREATIVE_SHOT_SCOPED_EXACT_BRAND_OVERLAY_V11"],
+    ],
+  },
 ];
 
 for (const layer of layers) {

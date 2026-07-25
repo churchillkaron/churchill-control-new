@@ -73,12 +73,30 @@ export async function POST(req) {
     )
       .trim()
       .toUpperCase();
+    const idempotencyKey = String(
+      body.idempotency_key ||
+      body.idempotencyKey ||
+      req.headers.get("idempotency-key") ||
+      ""
+    ).trim();
 
     if (!currencyCode) {
       return NextResponse.json(
         {
           success: false,
           error: "currency_code required",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (!idempotencyKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "idempotency_key required",
         },
         {
           status: 400,
@@ -95,12 +113,14 @@ export async function POST(req) {
       currency_code: currencyCode,
       exchange_rate: body.exchange_rate ?? 1,
       lines: Array.isArray(body.lines) ? body.lines : [],
-      tax_amount:
-        body.tax_amount === undefined
-          ? null
-          : body.tax_amount,
+      tax_amount: body.tax_amount,
       notes: body.notes,
       created_by: user?.id || null,
+      idempotency_key: idempotencyKey,
+      document_prefix:
+        body.document_prefix ||
+        body.invoice_prefix ||
+        "INV",
     });
 
     return NextResponse.json(result);
@@ -115,7 +135,8 @@ export async function POST(req) {
       {
         status:
           message.endsWith(" required") ||
-          message.includes("must be")
+          message.includes("must be") ||
+          message.includes("Idempotency key")
             ? 400
             : 500,
       }

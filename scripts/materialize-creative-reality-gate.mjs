@@ -95,6 +95,13 @@ const layers = [
       ["lib/platform/service-runtime/providers/openai/OpenAIProvider.js", "CREATIVE_OPENAI_STRUCTURED_RECOVERY_ESCAPE_V8_1"],
     ],
   },
+  {
+    name: "V8_2_DIRECTOR_LIST_HELPER",
+    script: "scripts/apply-creative-director-list-helper-v8-2.mjs",
+    markers: [
+      ["lib/creative/intent/CreativeMissionComposerRuntime.js", "CREATIVE_MISSION_DIRECTOR_LIST_HELPER_V8_2"],
+    ],
+  },
 ];
 
 for (const layer of layers) {

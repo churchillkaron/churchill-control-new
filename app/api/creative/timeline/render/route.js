@@ -64,10 +64,25 @@ function sanitizeTracks(value = {}) {
   };
 }
 
+function trackAssetIds(tracks = {}) {
+  const ids = [];
+  if (tracks.subtitle_asset_node_id) ids.push(tracks.subtitle_asset_node_id);
+  for (const track of tracks.audio || []) {
+    const id = track.asset_node_id || track.assetNodeId;
+    if (id) ids.push(id);
+  }
+  for (const overlay of tracks.overlays || []) {
+    const id = overlay.asset_node_id || overlay.assetNodeId;
+    if (id) ids.push(id);
+  }
+  return [...new Set(ids)];
+}
+
 async function enforceReleaseGate({
   organizationId,
   timelineAssetNodeId,
   reportId,
+  tracks,
 }) {
   const timeline = await AssetGraphRepository.getById(timelineAssetNodeId);
   if (!timeline || timeline.organization_id !== organizationId) {
@@ -100,6 +115,18 @@ async function enforceReleaseGate({
   if (report.metadata?.passed !== true) {
     throw new Error("RELEASE_GATE_BLOCKED");
   }
+
+  const covered = new Set(
+    Array.isArray(report.metadata?.covered_asset_node_ids)
+      ? report.metadata.covered_asset_node_ids
+      : [],
+  );
+  const uncoveredTracks = trackAssetIds(tracks)
+    .filter((id) => !covered.has(id));
+  if (uncoveredTracks.length) {
+    throw new Error("RELEASE_GATE_TRACK_COVERAGE_REQUIRED");
+  }
+
   if (
     gate.require_human_approval_before_render === true &&
     report.review?.approved !== true
@@ -133,6 +160,7 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
+    const tracks = sanitizeTracks(body.tracks || {});
     const releaseGateReport = await enforceReleaseGate({
       organizationId,
       timelineAssetNodeId,
@@ -140,6 +168,7 @@ export async function POST(request) {
         body.release_gate_report_id ||
         body.releaseGateReportId ||
         null,
+      tracks,
     });
 
     const manualProfile = pick(
@@ -166,7 +195,7 @@ export async function POST(request) {
       organization_id: organizationId,
       timeline_asset_node_id: timelineAssetNodeId,
       export_profile: pick(resolved.profile, PROFILE_FIELDS),
-      tracks: sanitizeTracks(body.tracks || {}),
+      tracks,
       policy: {},
       force: body.force === true,
     });

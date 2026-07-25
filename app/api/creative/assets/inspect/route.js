@@ -37,7 +37,11 @@ export async function POST(request) {
       );
     }
 
-    const access = await requireOrganizationAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredPermission: "creative.media.analyse",
+    });
     if (!access.success) {
       return Response.json(access, { status: access.status });
     }

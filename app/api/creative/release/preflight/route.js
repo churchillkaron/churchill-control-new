@@ -9,6 +9,9 @@ import {
 import {
   providerCredentialReadiness,
 } from "@/lib/platform/service-runtime/providers/ProviderCredentialRuntime";
+import {
+  supabaseAdmin,
+} from "@/lib/shared/supabase/admin";
 
 const CANONICAL_PRIVATE_RENDER_BUCKET = "creative-assets";
 
@@ -23,6 +26,39 @@ function executable(value) {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function databaseReadiness() {
+  try {
+    const { data, error } = await supabaseAdmin.rpc(
+      "creative_backend_runtime_readiness",
+    );
+    if (error) {
+      return {
+        ready: false,
+        checks: [],
+        blocking_checks: ["database_runtime_readiness_rpc_unavailable"],
+        error: error.message,
+      };
+    }
+
+    return {
+      ready: data?.ready === true,
+      checks: Array.isArray(data?.checks) ? data.checks : [],
+      blocking_checks: Array.isArray(data?.blocking_checks)
+        ? data.blocking_checks
+        : ["database_runtime_readiness_invalid_response"],
+      evaluated_at: data?.evaluated_at || null,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ready: false,
+      checks: [],
+      blocking_checks: ["database_runtime_readiness_failed"],
+      error: error.message,
+    };
   }
 }
 
@@ -52,6 +88,7 @@ export async function POST(request) {
       process.env.CREATIVE_MEDIA_RENDER_BUCKET || "",
     ).trim();
     const credentialReadiness = providerCredentialReadiness();
+    const database = await databaseReadiness();
     const workerSecretConfigured = configured(
       process.env.AVANTIQO_INTERNAL_WORKER_SECRET || process.env.CRON_SECRET,
     );
@@ -71,6 +108,13 @@ export async function POST(request) {
         id: "supabase_service_role_configured",
         required: true,
         passed: configured(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      },
+      {
+        id: "database_runtime_contract_ready",
+        required: true,
+        passed: database.ready,
+        blocking_checks: database.blocking_checks,
+        error: database.error,
       },
       {
         id: "provider_credential_source_configured",
@@ -150,13 +194,20 @@ export async function POST(request) {
       },
     ];
     const blocking = checks.filter((check) => check.required && !check.passed);
+    const databaseBlocking = database.blocking_checks.map(
+      (check) => `database:${check}`,
+    );
 
     return Response.json({
       success: true,
       organization_id: organizationId,
       ready: blocking.length === 0,
       checks,
-      blocking_checks: blocking.map((check) => check.id),
+      blocking_checks: [
+        ...blocking.map((check) => check.id),
+        ...(database.ready ? [] : databaseBlocking),
+      ],
+      database_runtime: database,
       credential_source: {
         configured: credentialReadiness.configured,
         registered_resolver_count:

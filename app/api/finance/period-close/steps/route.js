@@ -5,7 +5,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import {
   loadPeriodCloseChecklist,
   runPeriodCloseStep,
-} from "@/lib/finance/period-close/runtime/PeriodCloseStepApplicationService";
+} from "@/lib/finance/period-close/runtime/PeriodCloseStepRouter";
 
 function required(value, field) {
   const normalized = String(value || "").trim();

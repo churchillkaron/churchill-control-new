@@ -28,6 +28,63 @@ function pick(value = {}) {
   );
 }
 
+function configured(policy, ...keys) {
+  return keys.some((key) => {
+    const value = policy[key];
+    return value !== null && value !== undefined && value !== "";
+  });
+}
+
+function validatePolicy(policy) {
+  const checks = [];
+
+  if (configured(policy, "max_black_duration_seconds", "maxBlackDurationSeconds")) {
+    if (!configured(policy, "black_picture_threshold", "blackPictureThreshold") ||
+        !configured(policy, "black_pixel_threshold", "blackPixelThreshold")) {
+      throw new Error("BLACK_QC_THRESHOLDS_REQUIRED");
+    }
+    checks.push("black_duration");
+  }
+
+  if (configured(policy, "max_freeze_duration_seconds", "maxFreezeDurationSeconds")) {
+    if (!configured(policy, "freeze_noise", "freezeNoise")) {
+      throw new Error("FREEZE_QC_NOISE_REQUIRED");
+    }
+    checks.push("freeze_duration");
+  }
+
+  if (configured(policy, "max_silence_duration_seconds", "maxSilenceDurationSeconds")) {
+    if (!configured(policy, "silence_noise_db", "silenceNoiseDb")) {
+      throw new Error("SILENCE_QC_NOISE_REQUIRED");
+    }
+    checks.push("silence_duration");
+  }
+
+  const loudnessConfigured = configured(
+    policy,
+    "target_integrated_lufs",
+    "targetIntegratedLufs",
+  );
+  const loudnessToleranceConfigured = configured(
+    policy,
+    "loudness_tolerance_lufs",
+    "loudnessToleranceLufs",
+  );
+  if (loudnessConfigured || loudnessToleranceConfigured) {
+    if (!loudnessConfigured || !loudnessToleranceConfigured) {
+      throw new Error("LOUDNESS_TARGET_AND_TOLERANCE_REQUIRED");
+    }
+    checks.push("integrated_loudness");
+  }
+
+  if (configured(policy, "max_true_peak_dbtp", "maxTruePeakDbtp")) {
+    checks.push("true_peak");
+  }
+
+  if (!checks.length) throw new Error("PERCEPTUAL_QC_ENFORCEABLE_CHECK_REQUIRED");
+  return checks;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -54,14 +111,20 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
+    const policy = pick(body.policy || {});
+    const enforcedChecks = validatePolicy(policy);
     const result = await CreativePerceptualQualityRuntime.analyze({
       organization_id: organizationId,
       render_asset_node_id: renderAssetNodeId,
-      policy: pick(body.policy || {}),
+      policy,
       force: body.force === true,
     });
 
-    return Response.json({ success: true, ...result });
+    return Response.json({
+      success: true,
+      enforced_checks: enforcedChecks,
+      ...result,
+    });
   } catch (error) {
     return Response.json(
       { success: false, error: error.message },

@@ -10,6 +10,9 @@ import {
 import {
   CreativeExportProfileResolver,
 } from "@/lib/creative/post-production/runtime/CreativeExportProfileResolver";
+import {
+  CreativeApprovalRuntime,
+} from "@/lib/creative/release/runtime/CreativeApprovalRuntime";
 import * as AssetGraphRepository
 from "@/lib/creative/assets/graph/repositories/CreativeAssetGraphRepository";
 import * as CreativeProjectRepository
@@ -54,9 +57,7 @@ function pick(value = {}, fields) {
 function sanitizeTracks(value = {}) {
   return {
     subtitle_asset_node_id:
-      value.subtitle_asset_node_id ||
-      value.subtitleAssetNodeId ||
-      null,
+      value.subtitle_asset_node_id || value.subtitleAssetNodeId || null,
     audio: (Array.isArray(value.audio) ? value.audio : [])
       .map((track) => pick(track, AUDIO_FIELDS)),
     overlays: (Array.isArray(value.overlays) ? value.overlays : [])
@@ -78,28 +79,19 @@ function trackAssetIds(tracks = {}) {
   return [...new Set(ids)];
 }
 
-async function enforceReleaseGate({
-  organizationId,
-  timelineAssetNodeId,
-  reportId,
-  tracks,
-}) {
+async function enforceReleaseGate({ organizationId, timelineAssetNodeId, reportId, tracks }) {
   const timeline = await AssetGraphRepository.getById(timelineAssetNodeId);
   if (!timeline || timeline.organization_id !== organizationId) {
     throw new Error("Timeline asset node not found");
   }
 
-  const project = await CreativeProjectRepository.getById(
-    timeline.creative_project_id,
-  );
+  const project = await CreativeProjectRepository.getById(timeline.creative_project_id);
   if (!project || project.organization_id !== organizationId) {
     throw new Error("Creative project not found");
   }
 
   const gate = project.metadata?.release_gate || {};
-  if (gate.require_before_render !== true) {
-    return null;
-  }
+  if (gate.require_before_render !== true) return null;
   if (!reportId) throw new Error("RELEASE_GATE_REPORT_REQUIRED");
 
   const report = await AssetGraphRepository.getById(reportId);
@@ -112,26 +104,23 @@ async function enforceReleaseGate({
   ) {
     throw new Error("VALID_RELEASE_GATE_REPORT_REQUIRED");
   }
-  if (report.metadata?.passed !== true) {
-    throw new Error("RELEASE_GATE_BLOCKED");
-  }
+  if (report.metadata?.passed !== true) throw new Error("RELEASE_GATE_BLOCKED");
 
   const covered = new Set(
     Array.isArray(report.metadata?.covered_asset_node_ids)
       ? report.metadata.covered_asset_node_ids
       : [],
   );
-  const uncoveredTracks = trackAssetIds(tracks)
-    .filter((id) => !covered.has(id));
-  if (uncoveredTracks.length) {
-    throw new Error("RELEASE_GATE_TRACK_COVERAGE_REQUIRED");
-  }
+  const uncoveredTracks = trackAssetIds(tracks).filter((id) => !covered.has(id));
+  if (uncoveredTracks.length) throw new Error("RELEASE_GATE_TRACK_COVERAGE_REQUIRED");
 
-  if (
-    gate.require_human_approval_before_render === true &&
-    report.review?.approved !== true
-  ) {
-    throw new Error("RELEASE_GATE_HUMAN_APPROVAL_REQUIRED");
+  if (gate.require_human_approval_before_render === true) {
+    const approval = await CreativeApprovalRuntime.findCurrentApproval({
+      organization_id: organizationId,
+      subject_asset_node_id: report.id,
+      scope: "RELEASE_GATE",
+    });
+    if (!approval) throw new Error("RELEASE_GATE_HUMAN_APPROVAL_REQUIRED");
   }
 
   return report;
@@ -142,50 +131,39 @@ export async function POST(request) {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
     const timelineAssetNodeId =
-      body.timeline_asset_node_id ||
-      body.timelineAssetNodeId;
+      body.timeline_asset_node_id || body.timelineAssetNodeId;
 
     if (!organizationId || !timelineAssetNodeId) {
       return Response.json(
-        {
-          success: false,
-          error: "organization_id and timeline_asset_node_id required",
-        },
+        { success: false, error: "organization_id and timeline_asset_node_id required" },
         { status: 400 },
       );
     }
 
-    const access = await requireOrganizationAccess({ organizationId });
-    if (!access.success) {
-      return Response.json(access, { status: access.status });
-    }
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredPermission: "creative.render.execute",
+    });
+    if (!access.success) return Response.json(access, { status: access.status });
 
     const tracks = sanitizeTracks(body.tracks || {});
     const releaseGateReport = await enforceReleaseGate({
       organizationId,
       timelineAssetNodeId,
-      reportId:
-        body.release_gate_report_id ||
-        body.releaseGateReportId ||
-        null,
+      reportId: body.release_gate_report_id || body.releaseGateReportId || null,
       tracks,
     });
 
     const manualProfile = pick(
-      body.manual_export_profile ||
-      body.manualExportProfile ||
-      body.export_profile ||
-      body.exportProfile ||
-      {},
+      body.manual_export_profile || body.manualExportProfile ||
+      body.export_profile || body.exportProfile || {},
       PROFILE_FIELDS,
     );
     const resolved = await CreativeExportProfileResolver.resolve({
       organization_id: organizationId,
       timeline_asset_node_id: timelineAssetNodeId,
-      profile_id:
-        body.export_profile_id ||
-        body.exportProfileId ||
-        null,
+      profile_id: body.export_profile_id || body.exportProfileId || null,
       channel: body.channel || null,
       manual_profile: Object.keys(manualProfile).length ? manualProfile : null,
       policy: {},

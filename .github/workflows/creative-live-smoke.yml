@@ -1,0 +1,104 @@
+name: Creative Live Production Smoke
+
+on:
+  push:
+    branches:
+      - "agent/creative-*"
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: Deployed Creative Studio URL
+        required: true
+        default: https://churchill-control-new-kgl1-git-e30a03-patrics-projects-3ec66dc7.vercel.app
+        type: string
+      medium:
+        description: Deliverable medium
+        required: true
+        default: FILM
+        type: choice
+        options:
+          - FILM
+          - IMAGE
+          - WEBSITE
+          - MENU
+          - DOCUMENT
+          - PRESENTATION
+          - AUDIO
+          - MULTIMEDIA
+      request:
+        description: Creative mission to produce end to end
+        required: true
+        default: Create a premium cinematic entrance-and-staff brand film. Begin outside the venue, establish the entrance and atmosphere, follow a natural guest arrival, introduce the real staff through purposeful service actions and human reactions, preserve spatial continuity and brand truth, and finish with a polished release-ready master film and supporting delivery package.
+        type: string
+      max_polls:
+        description: Maximum worker/control polling cycles
+        required: true
+        default: "120"
+        type: string
+      poll_seconds:
+        description: Seconds between polling cycles
+        required: true
+        default: "10"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: creative-live-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  provider-backed-production:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[creative-live-smoke]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      CREATIVE_TEST_APP_URL: ${{ inputs.app_url || 'https://churchill-control-new-kgl1-git-e30a03-patrics-projects-3ec66dc7.vercel.app' }}
+      CREATIVE_TEST_ORGANIZATION_ID: ${{ secrets.CREATIVE_TEST_ORGANIZATION_ID }}
+      CREATIVE_TEST_AUTH_TOKEN: ${{ secrets.CREATIVE_TEST_AUTH_TOKEN }}
+      CREATIVE_TEST_COOKIE: ${{ secrets.CREATIVE_TEST_COOKIE }}
+      CREATIVE_TEST_WORKER_SECRET: ${{ secrets.CREATIVE_TEST_WORKER_SECRET }}
+      CREATIVE_TEST_MEDIUM: ${{ inputs.medium || 'FILM' }}
+      CREATIVE_TEST_REQUEST: ${{ inputs.request || 'Create a premium cinematic entrance-and-staff brand film. Begin outside the venue, establish the entrance and atmosphere, follow a natural guest arrival, introduce the real staff through purposeful service actions and human reactions, preserve spatial continuity and brand truth, and finish with a polished release-ready master film and supporting delivery package.' }}
+      CREATIVE_TEST_MAX_POLLS: ${{ inputs.max_polls || '120' }}
+      CREATIVE_TEST_POLL_SECONDS: ${{ inputs.poll_seconds || '10' }}
+      CREATIVE_TEST_REPORT: /tmp/creative-live-smoke-report.json
+
+    steps:
+      - name: Checkout exact branch revision
+        uses: actions/checkout@v4
+
+      - name: Validate secure smoke configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for variable in \
+            CREATIVE_TEST_APP_URL \
+            CREATIVE_TEST_ORGANIZATION_ID \
+            CREATIVE_TEST_WORKER_SECRET; do
+            if [ -z "${!variable:-}" ]; then
+              echo "::error::$variable is not configured"
+              missing=1
+            fi
+          done
+          if [ -z "${CREATIVE_TEST_AUTH_TOKEN:-}" ] && [ -z "${CREATIVE_TEST_COOKIE:-}" ]; then
+            echo "::error::Configure CREATIVE_TEST_AUTH_TOKEN or CREATIVE_TEST_COOKIE"
+            missing=1
+          fi
+          [ "$missing" -eq 0 ]
+
+      - name: Run entrance-and-staff production end to end
+        shell: bash
+        run: bash scripts/creative-end-to-end-smoke.sh
+
+      - name: Upload production smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: creative-live-production-smoke-${{ github.run_id }}
+          path: /tmp/creative-live-smoke-report.json
+          if-no-files-found: warn
+          retention-days: 30

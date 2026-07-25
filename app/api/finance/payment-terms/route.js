@@ -1,27 +1,35 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
 
-    const organizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
+    const access = await requireOrganizationAccess({
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
+    });
 
-    if (!organizationId) {
+    if (!access.success) {
       return NextResponse.json(
-        { success: false, error: "organizationId required" },
-        { status: 400 }
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
       );
     }
 
     const { data, error } = await supabaseAdmin
       .from("payment_terms")
       .select("*")
-      .eq("organization_id", organizationId)
+      .eq("organization_id", access.organizationId)
       .order("name", { ascending: true });
 
     if (error) {
@@ -37,7 +45,12 @@ export async function GET(req) {
     console.error("payment-terms GET", error);
 
     return NextResponse.json(
-      { success: false, error: error.message || "Payment terms load failed" },
+      {
+        success: false,
+        error:
+          error.message ||
+          "Payment terms load failed",
+      },
       { status: 500 }
     );
   }

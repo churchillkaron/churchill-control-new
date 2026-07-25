@@ -43,6 +43,7 @@ jobs:
             tar -xzf /tmp/creative-universal-repair.tar.gz
             rm -rf scripts/.creative-repair-parts
           fi
+          node scripts/apply-creative-live-smoke-hardening.mjs
 
       - name: Use Node 20
         uses: actions/setup-node@v4
@@ -64,7 +65,7 @@ jobs:
           git config user.name "avantiqo-reality-gate[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "fix: converge Creative Studio universal production"
+          git commit -m "fix: harden Creative evidence and provider prompt contracts"
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Clean dependency installation
@@ -76,6 +77,9 @@ jobs:
           node --check app/api/creative/director/execute/route.js
           node --check lib/creative/intent/CreativeDeliverableContract.js
           node --check lib/creative/production-graph/planner/ProductionGraphPlanner.js
+          node --check lib/creative/production/contracts/CreativeImagePromptBudgetRuntime.js
+          node --check lib/operations/tasks/runtime/ProductionTaskRuntime.js
+          node --check lib/platform/service-runtime/providers/openai/OpenAIProvider.js
           node --check lib/creative/production/runtime/CreativeUniversalProductionRuntime.js
           node --check lib/creative/production/runtime/CreativeProductionHandoffRuntime.js
           node --check lib/creative/production/runtime/CreativeProductionLifecycleRuntime.js
@@ -114,6 +118,12 @@ jobs:
             app/api/creative lib/creative components/creative
           grep -q 'CREATIVE_PRODUCTION_LIFECYCLE_V3_PROJECT_STATUS_SEPARATION' \
             lib/creative/production/runtime/CreativeProductionLifecycleRuntime.js
+          grep -q 'CREATIVE_DECLARED_EVIDENCE_ASSET_HANDOFF_V1' \
+            lib/creative/production-graph/planner/ProductionGraphPlanner.js
+          grep -q 'CREATIVE_RUNTIME_EVIDENCE_REFERENCE_RECOVERY_V1' \
+            lib/operations/tasks/runtime/ProductionTaskRuntime.js
+          grep -q 'CREATIVE_OPENAI_FINAL_PROMPT_BUDGET_V1' \
+            lib/platform/service-runtime/providers/openai/OpenAIProvider.js
           grep -q 'universal_deliverable_v1' \
             lib/creative/production-graph/planner/ProductionGraphPlanner.js
           grep -q 'Automatic after AI quality' \

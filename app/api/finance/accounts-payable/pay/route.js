@@ -80,9 +80,12 @@ export async function POST(req) {
         body.bank_account_id || body.bankAccountId,
         "bank_account_id"
       ),
-      payment_method: body.payment_method || body.paymentMethod || "BANK_TRANSFER",
+      payment_method: required(
+        body.payment_method || body.paymentMethod,
+        "payment_method"
+      ),
       reference_number: body.reference_number || body.referenceNumber || null,
-      paid_by: access.user?.id,
+      paid_by: required(access.user?.id, "authenticated user"),
       paid_at: body.paid_at || body.paidAt || null,
       currency_code: body.currency_code || body.currencyCode || null,
       exchange_rate: body.exchange_rate ?? body.exchangeRate ?? null,

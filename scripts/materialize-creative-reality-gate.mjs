@@ -5,7 +5,18 @@ import { spawnSync } from "node:child_process";
 
 function hasMarker(path, marker) {
   if (!fs.existsSync(path)) return false;
-  return fs.readFileSync(path, "utf8").includes(marker);
+  const source = fs.readFileSync(path, "utf8");
+  if (source.includes(marker)) return true;
+
+  // CREATIVE_MATERIALIZER_VERSION_SUCCESSOR_COMPATIBILITY_V9_1
+  if (
+    marker === "CREATIVE_MISSION_EVIDENCE_SELECTION_V4" &&
+    source.includes("CREATIVE_MISSION_EVIDENCE_SELECTION_V9")
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function executeScript(path) {

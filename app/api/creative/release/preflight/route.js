@@ -10,6 +10,8 @@ import {
   providerCredentialReadiness,
 } from "@/lib/platform/service-runtime/providers/ProviderCredentialRuntime";
 
+const CANONICAL_PRIVATE_RENDER_BUCKET = "creative-assets";
+
 function configured(value) {
   return Boolean(String(value || "").trim());
 }
@@ -46,6 +48,9 @@ export async function POST(request) {
 
     const ffmpegPath = process.env.CREATIVE_MEDIA_FFMPEG_PATH;
     const ffprobePath = process.env.CREATIVE_MEDIA_FFPROBE_PATH;
+    const renderBucket = String(
+      process.env.CREATIVE_MEDIA_RENDER_BUCKET || "",
+    ).trim();
     const credentialReadiness = providerCredentialReadiness();
     const workerSecretConfigured = configured(
       process.env.AVANTIQO_INTERNAL_WORKER_SECRET || process.env.CRON_SECRET,
@@ -93,9 +98,20 @@ export async function POST(request) {
         passed: configured(process.env.CREATIVE_PROVIDER_CALLBACK_SECRET),
       },
       {
+        id: "publish_callback_secret_configured",
+        required: true,
+        passed: configured(process.env.CREATIVE_PUBLISH_CALLBACK_SECRET),
+      },
+      {
         id: "render_bucket_configured",
         required: true,
-        passed: configured(process.env.CREATIVE_MEDIA_RENDER_BUCKET),
+        passed: configured(renderBucket),
+      },
+      {
+        id: "canonical_private_render_bucket",
+        required: true,
+        passed: renderBucket === CANONICAL_PRIVATE_RENDER_BUCKET,
+        expected: CANONICAL_PRIVATE_RENDER_BUCKET,
       },
       {
         id: "ffmpeg_path_configured",
@@ -143,8 +159,10 @@ export async function POST(request) {
       blocking_checks: blocking.map((check) => check.id),
       credential_source: {
         configured: credentialReadiness.configured,
-        registered_resolver_count: credentialReadiness.registered_resolver_count,
-        environment_configured: credentialReadiness.environment_configured,
+        registered_resolver_count:
+          credentialReadiness.registered_resolver_count,
+        environment_configured:
+          credentialReadiness.environment_configured,
       },
       evaluated_at: new Date().toISOString(),
     });

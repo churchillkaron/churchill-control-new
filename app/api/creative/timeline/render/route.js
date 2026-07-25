@@ -7,6 +7,9 @@ import {
 import {
   CreativeEdlRenderRuntime,
 } from "@/lib/creative/post-production/runtime/CreativeEdlRenderRuntime";
+import {
+  CreativeExportProfileResolver,
+} from "@/lib/creative/post-production/runtime/CreativeExportProfileResolver";
 
 const PROFILE_FIELDS = new Set([
   "id",
@@ -39,6 +42,8 @@ const PROFILE_FIELDS = new Set([
   "sampleRate",
   "audio_channels",
   "audioChannels",
+  "audio_channel_layout",
+  "audioChannelLayout",
   "audio_mix_normalize",
   "audioMixNormalize",
   "subtitle_mode",
@@ -125,16 +130,41 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
+    const manualProfile = pick(
+      body.manual_export_profile ||
+      body.manualExportProfile ||
+      body.export_profile ||
+      body.exportProfile ||
+      {},
+      PROFILE_FIELDS,
+    );
+    const resolved = await CreativeExportProfileResolver.resolve({
+      organization_id: organizationId,
+      timeline_asset_node_id: timelineAssetNodeId,
+      profile_id:
+        body.export_profile_id ||
+        body.exportProfileId ||
+        null,
+      channel: body.channel || null,
+      manual_profile: Object.keys(manualProfile).length ? manualProfile : null,
+      policy: {},
+    });
+
     const result = await CreativeEdlRenderRuntime.render({
       organization_id: organizationId,
       timeline_asset_node_id: timelineAssetNodeId,
-      export_profile: pick(body.export_profile || body.exportProfile || {}, PROFILE_FIELDS),
+      export_profile: pick(resolved.profile, PROFILE_FIELDS),
       tracks: sanitizeTracks(body.tracks || {}),
       policy: {},
       force: body.force === true,
     });
 
-    return Response.json({ success: true, ...result });
+    return Response.json({
+      success: true,
+      export_profile_source: resolved.source,
+      export_profile_id: resolved.profile.id || resolved.profile.name || null,
+      ...result,
+    });
   } catch (error) {
     return Response.json(
       { success: false, error: error.message },

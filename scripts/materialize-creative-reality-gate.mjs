@@ -119,6 +119,24 @@ const layers = [
       ],
     ],
   },
+  {
+    name: "V7_PRE_SPEND_EVIDENCE_GATE",
+    script: "scripts/apply-creative-pre-spend-evidence-gate-v7.mjs",
+    markers: [
+      [
+        "lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js",
+        "CREATIVE_PRE_SPEND_EVIDENCE_DIAGNOSTICS_V7",
+      ],
+      [
+        "scripts/creative-end-to-end-smoke.sh",
+        "CREATIVE_PRE_SPEND_EVIDENCE_GATE_V7",
+      ],
+      [
+        "scripts/creative-live-smoke-local.sh",
+        "CREATIVE_LIVE_SMOKE_REQUIRED_EVIDENCE_ROLES_V7",
+      ],
+    ],
+  },
 ];
 
 for (const layer of layers) {

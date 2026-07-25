@@ -54,8 +54,8 @@ jobs:
             node scripts/apply-creative-evidence-binding-v3.mjs
             node --check scripts/apply-creative-mission-evidence-selection-v4.mjs
             node scripts/apply-creative-mission-evidence-selection-v4.mjs
-            node --check scripts/apply-creative-evidence-fidelity-v5.mjs
-            node scripts/apply-creative-evidence-fidelity-v5.mjs
+            node --check scripts/repair-and-run-creative-evidence-fidelity-v5.mjs
+            node scripts/repair-and-run-creative-evidence-fidelity-v5.mjs
           } > /tmp/creative-materializer.log 2>&1
 
       - name: Upload Creative materializer log

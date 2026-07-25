@@ -20,6 +20,23 @@ function required(value, field) {
   return normalized;
 }
 
+function statusFor(message) {
+  const normalized = String(message || "").toLowerCase();
+
+  if (
+    normalized.includes("required") ||
+    normalized.includes("must be") ||
+    normalized.includes("cannot") ||
+    normalized.includes("inconsistent") ||
+    normalized.includes("duplicate") ||
+    normalized.includes("idempotency")
+  ) {
+    return 400;
+  }
+
+  return 500;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -47,7 +64,10 @@ export async function POST(request) {
       "entity_id"
     );
     const vendorPartyId = required(
-      body.vendor_party_id || body.vendor,
+      body.vendor_party_id ||
+      body.vendor?.vendor_party_id ||
+      body.vendor?.party_id ||
+      body.vendor,
       "vendor_party_id"
     );
     const currencyCode = required(
@@ -68,15 +88,6 @@ export async function POST(request) {
       throw new Error("invoice lines required");
     }
 
-    const subtotal = lines.reduce(
-      (sum, line) =>
-        sum +
-        Number(line.quantity || 0) *
-          Number(line.unit_price || 0),
-      0
-    );
-    const taxAmount = Number(body.tax_amount || 0);
-
     const result = await createVendorInvoice({
       organizationId: access.organizationId,
       entityId,
@@ -95,13 +106,7 @@ export async function POST(request) {
       dueDate: body.due_date || null,
       currencyCode,
       exchangeRate: body.exchange_rate ?? 1,
-      subtotal,
-      taxAmount,
-      discountAmount: Number(body.discount_amount || 0),
-      totalAmount:
-        subtotal +
-        taxAmount -
-        Number(body.discount_amount || 0),
+      lines,
       source: body.source || "manual",
       aiExtracted: Boolean(body.ai_extracted),
       ocrConfidence: Number(body.ocr_confidence || 0),
@@ -124,12 +129,7 @@ export async function POST(request) {
         error: message,
       },
       {
-        status:
-          message.endsWith(" required") ||
-          message.includes("must be") ||
-          message.includes("Idempotency key")
-            ? 400
-            : 500,
+        status: statusFor(message),
       }
     );
   }

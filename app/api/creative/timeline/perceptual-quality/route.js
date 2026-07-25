@@ -9,26 +9,16 @@ import {
 } from "@/lib/creative/quality/runtime/CreativePerceptualQualityRuntime";
 
 const POLICY_FIELDS = new Set([
-  "black_picture_threshold",
-  "blackPictureThreshold",
-  "black_pixel_threshold",
-  "blackPixelThreshold",
-  "max_black_duration_seconds",
-  "maxBlackDurationSeconds",
-  "freeze_noise",
-  "freezeNoise",
-  "max_freeze_duration_seconds",
-  "maxFreezeDurationSeconds",
-  "silence_noise_db",
-  "silenceNoiseDb",
-  "max_silence_duration_seconds",
-  "maxSilenceDurationSeconds",
-  "target_integrated_lufs",
-  "targetIntegratedLufs",
-  "loudness_tolerance_lufs",
-  "loudnessToleranceLufs",
-  "max_true_peak_dbtp",
-  "maxTruePeakDbtp",
+  "black_picture_threshold", "blackPictureThreshold",
+  "black_pixel_threshold", "blackPixelThreshold",
+  "max_black_duration_seconds", "maxBlackDurationSeconds",
+  "freeze_noise", "freezeNoise",
+  "max_freeze_duration_seconds", "maxFreezeDurationSeconds",
+  "silence_noise_db", "silenceNoiseDb",
+  "max_silence_duration_seconds", "maxSilenceDurationSeconds",
+  "target_integrated_lufs", "targetIntegratedLufs",
+  "loudness_tolerance_lufs", "loudnessToleranceLufs",
+  "max_true_peak_dbtp", "maxTruePeakDbtp",
   "version",
 ]);
 
@@ -43,8 +33,7 @@ export async function POST(request) {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
     const renderAssetNodeId =
-      body.render_asset_node_id ||
-      body.renderAssetNodeId;
+      body.render_asset_node_id || body.renderAssetNodeId;
 
     if (!organizationId || !renderAssetNodeId) {
       return Response.json(
@@ -56,7 +45,11 @@ export async function POST(request) {
       );
     }
 
-    const access = await requireOrganizationAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredPermission: "creative.quality.evaluate",
+    });
     if (!access.success) {
       return Response.json(access, { status: access.status });
     }

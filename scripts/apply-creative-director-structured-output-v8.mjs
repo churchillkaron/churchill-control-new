@@ -45,7 +45,7 @@ function responseOutputText(response = {}) {
       ""
     )
     .filter(Boolean)
-    .join("\n")
+    .join("\\n")
     .trim();
 }
 

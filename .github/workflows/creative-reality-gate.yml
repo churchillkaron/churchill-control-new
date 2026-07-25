@@ -50,6 +50,8 @@ jobs:
             fi
             node --check scripts/apply-creative-live-smoke-hardening-v2.mjs
             node scripts/apply-creative-live-smoke-hardening-v2.mjs
+            node --check scripts/apply-creative-evidence-binding-v3.mjs
+            node scripts/apply-creative-evidence-binding-v3.mjs
           } > /tmp/creative-materializer.log 2>&1
 
       - name: Upload Creative materializer log
@@ -99,6 +101,8 @@ jobs:
           node --check app/api/creative/missions/compose/route.js
           node --check app/api/creative/director/execute/route.js
           node --check lib/creative/intent/CreativeDeliverableContract.js
+          node --check lib/creative/director/runtime/CreativeDirectorRuntime.js
+          node --check lib/creative/storyboard/runtime/CreativeStoryboardExecutionContractConvergence.js
           node --check lib/creative/production-graph/planner/ProductionGraphPlanner.js
           node --check lib/creative/production/contracts/CreativeImagePromptBudgetRuntime.js
           node --check lib/operations/tasks/runtime/ProductionTaskRuntime.js
@@ -149,6 +153,8 @@ jobs:
             lib/operations/tasks/runtime/ProductionTaskRuntime.js
           grep -q 'CREATIVE_OPENAI_FINAL_PROMPT_BUDGET_V2' \
             lib/platform/service-runtime/providers/openai/OpenAIProvider.js
+          grep -q 'CREATIVE_STORYBOARD_EVIDENCE_BINDING_V3' \
+            lib/creative/storyboard/runtime/CreativeStoryboardExecutionContractConvergence.js
           grep -q 'Automatic after AI quality' \
             components/creative/ProductionStudio/actions/RunCreativePipelineButton.jsx
           grep -q 'CREATIVE_END_TO_END_SMOKE=PASS' \

@@ -48,16 +48,8 @@ jobs:
               tar -xzf /tmp/creative-universal-repair.tar.gz
               rm -rf scripts/.creative-repair-parts
             fi
-            node --check scripts/apply-creative-live-smoke-hardening-v2.mjs
-            node scripts/apply-creative-live-smoke-hardening-v2.mjs
-            node --check scripts/apply-creative-evidence-binding-v3.mjs
-            node scripts/apply-creative-evidence-binding-v3.mjs
-            node --check scripts/apply-creative-mission-evidence-selection-v4.mjs
-            node scripts/apply-creative-mission-evidence-selection-v4.mjs
-            node --check scripts/repair-and-run-creative-evidence-fidelity-v5.mjs
-            node scripts/repair-and-run-creative-evidence-fidelity-v5.mjs
-            node --check scripts/apply-creative-evidence-selection-retry-v6.mjs
-            node scripts/apply-creative-evidence-selection-retry-v6.mjs
+            node --check scripts/materialize-creative-reality-gate.mjs
+            node scripts/materialize-creative-reality-gate.mjs
           } > /tmp/creative-materializer.log 2>&1
 
       - name: Upload Creative materializer log
@@ -104,6 +96,7 @@ jobs:
 
       - name: JavaScript syntax gates
         run: |
+          node --check scripts/materialize-creative-reality-gate.mjs
           node --check app/api/creative/missions/compose/route.js
           node --check app/api/creative/director/execute/route.js
           node --check lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
@@ -190,6 +183,8 @@ jobs:
             lib/creative/assets/evidence/runtime/CreativeMissionEvidenceSelectionRuntime.js
           grep -q 'CREATIVE_QUALITY_REVISION_ATTEMPT_BUDGET_V6' \
             lib/operations/tasks/runtime/ProductionTaskRuntime.js
+          grep -q 'CREATIVE_REALITY_GATE_MATERIALIZATION=PASS' \
+            /tmp/creative-materializer.log
           grep -q 'Automatic after AI quality' \
             components/creative/ProductionStudio/actions/RunCreativePipelineButton.jsx
           grep -q 'CREATIVE_END_TO_END_SMOKE=PASS' \

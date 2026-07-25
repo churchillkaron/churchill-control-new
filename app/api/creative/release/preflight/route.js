@@ -6,6 +6,9 @@ import fs from "node:fs";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+import {
+  providerCredentialReadiness,
+} from "@/lib/platform/service-runtime/providers/ProviderCredentialRuntime";
 
 function configured(value) {
   return Boolean(String(value || "").trim());
@@ -43,6 +46,12 @@ export async function POST(request) {
 
     const ffmpegPath = process.env.CREATIVE_MEDIA_FFMPEG_PATH;
     const ffprobePath = process.env.CREATIVE_MEDIA_FFPROBE_PATH;
+    const credentialReadiness = providerCredentialReadiness();
+    const workerSecretConfigured = configured(
+      process.env.AVANTIQO_INTERNAL_WORKER_SECRET ||
+      process.env.CRON_SECRET,
+    );
+
     const checks = [
       {
         id: "supabase_url_configured",
@@ -50,9 +59,34 @@ export async function POST(request) {
         passed: configured(process.env.NEXT_PUBLIC_SUPABASE_URL),
       },
       {
+        id: "supabase_anon_key_configured",
+        required: true,
+        passed: configured(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+      },
+      {
         id: "supabase_service_role_configured",
         required: true,
         passed: configured(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      },
+      {
+        id: "provider_credential_source_configured",
+        required: true,
+        passed: credentialReadiness.configured,
+      },
+      {
+        id: "provider_credential_environment_valid",
+        required: true,
+        passed: credentialReadiness.environment_valid,
+      },
+      {
+        id: "worker_secret_configured",
+        required: true,
+        passed: workerSecretConfigured,
+      },
+      {
+        id: "provider_callback_secret_configured",
+        required: true,
+        passed: configured(process.env.CREATIVE_PROVIDER_CALLBACK_SECRET),
       },
       {
         id: "render_bucket_configured",
@@ -98,6 +132,13 @@ export async function POST(request) {
       ready: blocking.length === 0,
       checks,
       blocking_checks: blocking.map((check) => check.id),
+      credential_source: {
+        configured: credentialReadiness.configured,
+        registered_resolver_count:
+          credentialReadiness.registered_resolver_count,
+        environment_configured:
+          credentialReadiness.environment_configured,
+      },
       evaluated_at: new Date().toISOString(),
     });
   } catch (error) {

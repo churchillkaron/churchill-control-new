@@ -543,7 +543,6 @@ async function main() {
   const creativeQualityPolicy = json("CREATIVE_SMOKE_CREATIVE_QUALITY_POLICY_JSON");
   const semanticPolicy = json("CREATIVE_SMOKE_SEMANTIC_POLICY_JSON");
   const technicalPolicy = json("CREATIVE_SMOKE_TECHNICAL_POLICY_JSON");
-  const semanticReview = json("CREATIVE_SMOKE_SEMANTIC_REVIEW_JSON");
   const executionRequirements = json("CREATIVE_SMOKE_EXECUTION_REQUIREMENTS_JSON");
   if (!Array.isArray(executionRequirements) || !executionRequirements.length) {
     throw new Error("CREATIVE_SMOKE_EXECUTION_REQUIREMENTS_JSON must be a non-empty array");
@@ -695,12 +694,21 @@ async function main() {
       organization_id: organizationId,
       render_asset_node_id: evidence.render.id,
       policy: technicalPolicy,
-      semantic_review: semanticReview,
       semantic_policy: semanticPolicy,
       force: true,
     },
   );
   report.phases.push({ phase: "quality_review", response: quality });
+  report.assertions.push(
+    assertion(
+      "semantic_review_autonomous",
+      quality.autonomous_semantic_review === true &&
+        Boolean(quality.semantic?.evidence_uri) &&
+        quality.evidence_complete === true,
+      quality.semantic || null,
+      "Semantic review was not autonomously generated from persisted render evidence",
+    ),
+  );
   evidence = {
     ...evidence,
     technical_qc: quality.technical?.report || quality.technical || evidence.technical_qc,

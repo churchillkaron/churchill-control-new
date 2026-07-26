@@ -411,9 +411,12 @@ export async function POST(request) {
 
     const walletAvailable = number(wallet.row?.available_balance, null);
     const walletReserved = number(wallet.row?.reserved_balance, 0);
+    // WalletRuntime.reserve already deducts committed funds from available_balance.
+    // Subtracting reserved_balance again would double-count reservations and can
+    // incorrectly block otherwise affordable Creative executions.
     const walletSpendable = walletAvailable === null
       ? null
-      : Math.max(0, walletAvailable - walletReserved);
+      : Math.max(0, walletAvailable);
     const walletCurrency = text(wallet.row?.currency).toUpperCase();
     const walletActive = Boolean(wallet.row) &&
       !["SUSPENDED", "CLOSED"].includes(text(wallet.row?.status).toUpperCase());
@@ -460,7 +463,7 @@ export async function POST(request) {
       check("estimated_maximum_cost_supplied", true, estimatedMaximumCost !== null && estimatedMaximumCost > 0, estimatedMaximumCost),
       check("estimated_maximum_cost_currency_supplied", true, Boolean(estimatedMaximumCostCurrency), estimatedMaximumCostCurrency || null),
       check("wallet_and_pricing_currency_match", true, walletCurrencyMatches, { wallet_currency: walletCurrency || null, requested_currency: estimatedMaximumCostCurrency || null, execution_currencies: executionRequirements.map((item) => item.currency) }),
-      check("wallet_liquidity_sufficient", true, walletSufficient, { available_balance: walletAvailable, reserved_balance: walletReserved, spendable_balance: walletSpendable, estimated_maximum_cost: estimatedMaximumCost, currency: walletCurrency || null }),
+      check("wallet_liquidity_sufficient", true, walletSufficient, { available_balance: walletAvailable, reserved_balance: walletReserved, spendable_balance: walletSpendable, balance_semantics: "AVAILABLE_EXCLUDES_RESERVED", estimated_maximum_cost: estimatedMaximumCost, currency: walletCurrency || null }),
       check("selected_asset_ids_supplied", true, selectedAssetIds.length > 0, selectedAssetIds),
       check("selected_assets_query_succeeded", true, !assets.error, assets.error),
       check("selected_assets_production_ready", true, invalidAssets.length === 0, { requested: selectedAssetIds, invalid: invalidAssets }),

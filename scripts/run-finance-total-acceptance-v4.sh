@@ -29,18 +29,16 @@ let source = fs.readFileSync(sourcePath, "utf8");
 
 const assignmentPattern = /^TEMP_ORCHESTRATOR=.*$/m;
 const currentAssignment = source.match(assignmentPattern)?.[0] || "";
+const replacement = 'TEMP_ORCHESTRATOR="$PROJECT_ROOT/.next/cache/avantiqo-finance-total-acceptance-v3-$$.mjs"';
 
 if (!currentAssignment.includes("avantiqo-finance-total-acceptance-v3-$$.mjs")) {
   throw new Error(`Unexpected temporary orchestrator assignment: ${currentAssignment || "missing"}`);
 }
 
-source = source.replace(
-  assignmentPattern,
-  'TEMP_ORCHESTRATOR="$PROJECT_ROOT/.next/cache/avantiqo-finance-total-acceptance-v3-$$.mjs"'
-);
+source = source.replace(assignmentPattern, () => replacement);
 
 const rewrittenAssignment = source.match(assignmentPattern)?.[0] || "";
-if (rewrittenAssignment !== 'TEMP_ORCHESTRATOR="$PROJECT_ROOT/.next/cache/avantiqo-finance-total-acceptance-v3-$$.mjs"') {
+if (rewrittenAssignment !== replacement) {
   throw new Error(`Finance acceptance module-resolution patch failed: ${rewrittenAssignment || "missing"}`);
 }
 

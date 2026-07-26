@@ -37,14 +37,26 @@ function read(relative) {
   return fs.readFileSync(path.join(ROOT, relative), "utf8");
 }
 
+function financeWorkspaceSection(registry) {
+  const start = registry.indexOf("finance: {");
+  if (start < 0) return "";
+  const end = registry.indexOf("\n    people:", start);
+  return end > start ? registry.slice(start, end) : registry.slice(start);
+}
+
 function parseFinanceRoutes(registry) {
+  const section = financeWorkspaceSection(registry);
   const rows = [];
-  const pattern = /\{\s*id:\s*["']([^"']+)["'][\s\S]{0,1200}?route:\s*["'](\/finance(?:\/[^"']*)?)["']/g;
+  const pattern = /\{\s*id:\s*["']([^"']+)["'][\s\S]{0,900}?route:\s*["'](\/finance(?:\/[^"']*)?)["']/g;
   let match;
-  while ((match = pattern.exec(registry))) {
-    rows.push({ id: match[1], route: match[2] });
+  while ((match = pattern.exec(section))) {
+    const id = match[1];
+    const route = match[2];
+    if (!route.startsWith("/finance")) continue;
+    if (["new", "open", "edit", "delete", "history", "attachments", "reports", "automation", "ai", "export", "import"].includes(id)) continue;
+    rows.push({ id, route });
   }
-  return [...new Map(rows.map((row) => [`${row.id}:${row.route}`, row])).values()];
+  return [...new Map(rows.map((row) => [row.route, row])).values()];
 }
 
 function parseOperationalEndpoints(policy) {
@@ -130,43 +142,17 @@ async function main() {
   console.log("\n================ HOSTILE SCOPE TESTS ================");
   const foreignOrganizationId = randomUUID();
   const hostileCases = [
-    {
-      name: "lookup rejects foreign organisation",
-      url: `${BASE_URL}/api/platform/lookups?lookup=chart_of_accounts&organizationId=${foreignOrganizationId}&entityId=${ENTITY_ID}`,
-      method: "GET",
-    },
-    {
-      name: "workspace rejects foreign organisation",
-      url: `${BASE_URL}/api/finance/workspaces/opening_balances?organizationId=${foreignOrganizationId}&entityId=${ENTITY_ID}`,
-      method: "GET",
-    },
-    {
-      name: "vendor write rejects foreign organisation",
-      url: `${BASE_URL}/api/finance/vendors/upsert`,
-      method: "POST",
-      body: JSON.stringify({ organizationId: foreignOrganizationId, legal_name: "MUST NOT CREATE" }),
-    },
-    {
-      name: "customer write rejects foreign organisation",
-      url: `${BASE_URL}/api/customers/upsert`,
-      method: "POST",
-      body: JSON.stringify({ organizationId: foreignOrganizationId, customer_name: "MUST NOT CREATE" }),
-    },
-    {
-      name: "journal rejects foreign organisation",
-      url: `${BASE_URL}/api/finance/journals/create`,
-      method: "POST",
-      body: JSON.stringify({ organizationId: foreignOrganizationId, entityId: ENTITY_ID }),
-    },
+    { name: "lookup rejects foreign organisation", url: `${BASE_URL}/api/platform/lookups?lookup=chart_of_accounts&organizationId=${foreignOrganizationId}&entityId=${ENTITY_ID}`, method: "GET" },
+    { name: "workspace rejects foreign organisation", url: `${BASE_URL}/api/finance/workspaces/opening_balances?organizationId=${foreignOrganizationId}&entityId=${ENTITY_ID}`, method: "GET" },
+    { name: "vendor write rejects foreign organisation", url: `${BASE_URL}/api/finance/vendors/upsert`, method: "POST", body: JSON.stringify({ organizationId: foreignOrganizationId, legal_name: "MUST NOT CREATE" }) },
+    { name: "customer write rejects foreign organisation", url: `${BASE_URL}/api/customers/upsert`, method: "POST", body: JSON.stringify({ organizationId: foreignOrganizationId, customer_name: "MUST NOT CREATE" }) },
+    { name: "journal rejects foreign organisation", url: `${BASE_URL}/api/finance/journals/create`, method: "POST", body: JSON.stringify({ organizationId: foreignOrganizationId, entityId: ENTITY_ID }) },
   ];
 
   for (const test of hostileCases) {
     try {
       const { response, body } = await fetchResult(test.url, { method: test.method, body: test.body });
-      add("security", test.name, [401, 403, 404].includes(response.status), {
-        status: response.status,
-        message: body?.error || null,
-      });
+      add("security", test.name, [401, 403, 404].includes(response.status), { status: response.status, message: body?.error || null });
     } catch (error) {
       add("security", test.name, false, { message: error.message });
     }
@@ -219,51 +205,59 @@ async function main() {
   const vendor = vendors?.find((row) => row.party_id) || null;
   const bank = banks?.[0] || null;
 
-  const prerequisites = {
+  const hardPrerequisites = {
     entity: entity?.id,
     period: period?.id,
     postingDate,
     currency,
+    customer: customer?.id,
+  };
+  for (const [name, value] of Object.entries(hardPrerequisites)) {
+    add("prerequisite", name, Boolean(value), { value: value || null });
+  }
+
+  const optionalMasters = {
     assetAccount: asset?.id,
     revenueAccount: revenue?.id,
     expenseAccount: expense?.id,
     liabilityAccount: liability?.id,
     bankAccount: bank?.id,
-    customer: customer?.id,
     vendorParty: vendor?.party_id,
   };
-  for (const [name, value] of Object.entries(prerequisites)) {
-    add("prerequisite", name, Boolean(value), { value: value || null });
+  for (const [name, value] of Object.entries(optionalMasters)) {
+    add("probe-master", name, true, {
+      value: value || null,
+      message: value ? "existing master will be used" : "missing master will be provisioned and rolled back",
+    });
   }
 
   console.log("\n================ ROLLBACK-SAFE TRANSACTION PROBE ================");
   if (CONFIRM !== "RUN_ROLLBACK_SAFE_FINANCE_ACCEPTANCE") {
-    add("transaction", "explicit confirmation", false, {
-      message: "FINANCE_ACCEPTANCE_CONFIRM must equal RUN_ROLLBACK_SAFE_FINANCE_ACCEPTANCE",
-    });
-  } else if (Object.values(prerequisites).some((value) => !value)) {
-    add("transaction", "accounting probe", false, { message: "Accounting prerequisites are incomplete" });
+    add("transaction", "explicit confirmation", false, { message: "FINANCE_ACCEPTANCE_CONFIRM must equal RUN_ROLLBACK_SAFE_FINANCE_ACCEPTANCE" });
+  } else if (Object.values(hardPrerequisites).some((value) => !value)) {
+    add("transaction", "accounting probe", false, { message: "Core accounting prerequisites are incomplete" });
   } else {
-    const { data, error } = await supabase.rpc("finance_run_total_acceptance_probe", {
+    const { data, error } = await supabase.rpc("finance_run_total_acceptance_probe_v2", {
       p_organization_id: ORGANIZATION_ID,
       p_entity_id: ENTITY_ID,
       p_actor_id: ACTOR_ID,
       p_posting_date: postingDate,
       p_currency_code: currency,
       p_exchange_rate: 1,
-      p_asset_account_id: asset.id,
-      p_revenue_account_id: revenue.id,
-      p_expense_account_id: expense.id,
-      p_liability_account_id: liability.id,
-      p_bank_account_id: bank.id,
+      p_asset_account_id: asset?.id || null,
+      p_revenue_account_id: revenue?.id || null,
+      p_expense_account_id: expense?.id || null,
+      p_liability_account_id: liability?.id || null,
+      p_bank_account_id: bank?.id || null,
       p_customer_id: customer.id,
-      p_vendor_party_id: vendor.party_id,
+      p_vendor_party_id: vendor?.party_id || null,
     });
 
     if (error) {
       add("transaction", "accounting probe RPC", false, { message: error.message });
     } else {
       add("transaction", "probe rolled back", data?.rolled_back === true, { runId: data?.run_id, tag: data?.tag });
+      add("transaction", "prerequisite masters rolled back", data?.prerequisites_rolled_back === true, { provisioned: data?.provisioned || {} });
       for (const row of data?.results || []) {
         add("transaction", row.name, row.passed === true, { message: row.message || null, details: row.details || null });
       }

@@ -1,0 +1,39 @@
+name: Apply Creative Private Storage Boundary
+
+on:
+  push:
+    branches:
+      - agent/creative-private-render-materialization
+    paths:
+      - scripts/apply-creative-private-storage-boundary.py
+      - .github/workflows/apply-creative-private-storage-boundary.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/creative-private-render-materialization
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply exact source patch
+        run: python scripts/apply-creative-private-storage-boundary.py
+      - name: Remove one-shot patch automation
+        run: |
+          rm scripts/apply-creative-private-storage-boundary.py
+          rm .github/workflows/apply-creative-private-storage-boundary.yml
+      - name: Commit patched boundary
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Repair Creative private render materialization"
+          git push origin HEAD:agent/creative-private-render-materialization

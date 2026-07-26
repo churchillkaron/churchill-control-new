@@ -54,7 +54,7 @@ function parseFinanceRoutes(registry, policyIds) {
   const routes = [];
 
   for (const id of policyIds) {
-    const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedId = id.replace(/[.*+?^\x24{}()|[\]\\]/g, "\\$&");
     const pattern = new RegExp(
       "\\bid:\\s*[\\\"']" + escapedId + "[\\\"'][\\s\\S]{0,6000}?\\broute:\\s*[\\\"'](\\/finance(?:\\/[^\\\"']*)?)[\\\"']"
     );

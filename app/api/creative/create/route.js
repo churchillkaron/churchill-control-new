@@ -7,6 +7,9 @@ import {
 import {
   CreativeMissionRuntime,
 } from "@/lib/creative/missions/runtime/CreativeMissionRuntime";
+import {
+  CreativeDirectorRuntime,
+} from "@/lib/creative/director/runtime/CreativeDirectorRuntime";
 
 function text(value) {
   return String(value || "").trim();
@@ -98,17 +101,52 @@ export async function POST(request) {
       missionPayload(body, organizationId),
     );
     const started = await CreativeMissionRuntime.start(mission.id);
+    const creativeProjectId =
+      started.runtime_context?.creative_project_id || null;
+    const creativeBriefId =
+      started.runtime_context?.creative_brief_id || null;
+
+    if (!creativeProjectId) {
+      throw new Error("Creative mission did not create a project");
+    }
+
+    const execution = await CreativeDirectorRuntime.execute({
+      organization_id: organizationId,
+      creative_mission_id: started.id,
+      creative_project_id: creativeProjectId,
+      creative_brief_id: creativeBriefId,
+      mission: started,
+      objective: started.objective || started.business_goal || body.intent || "",
+      business_goal: started.business_goal || started.objective || body.intent || "",
+      audience: started.audience || {},
+      assets: Array.isArray(body.assets) ? body.assets : [],
+      requestedOutputs: normalizeList(
+        body.requestedOutputs ||
+        body.requested_outputs ||
+        body.channels ||
+        body.target_channels,
+      ),
+      organization: body.organization || {},
+      brand: body.brand || {},
+    });
 
     return Response.json({
-      success: true,
-      status: "READY_FOR_DIRECTION",
+      success: execution.success !== false,
+      status:
+        execution.skipped
+          ? "ALREADY_COMPLETED"
+          : execution.production?.post_production?.status ||
+            execution.production?.status ||
+            "PRODUCTION_STARTED",
       mission: started,
       creative_mission_id: started.id,
-      creative_project_id:
-        started.runtime_context?.creative_project_id || null,
-      creative_brief_id:
-        started.runtime_context?.creative_brief_id || null,
-      next_action: "RUN_CREATIVE_DIRECTOR",
+      creative_project_id: creativeProjectId,
+      creative_brief_id: creativeBriefId,
+      execution,
+      next_action:
+        execution.production?.post_production?.status === "READY_FOR_APPROVAL"
+          ? "REVIEW_AND_APPROVE"
+          : "RESUME_CREATIVE_PIPELINE",
     });
   } catch (error) {
     return Response.json(

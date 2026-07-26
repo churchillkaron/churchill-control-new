@@ -55,6 +55,9 @@ begin
     create unique index creative_project_state_mission_uidx
       on public.creative_project_state (creative_mission_id)
       where creative_mission_id is not null;
+
+    comment on index public.creative_project_state_mission_uidx is
+      'One durable pipeline-state row per Creative mission.';
   end if;
 end
 $$;
@@ -116,8 +119,5 @@ alter table public.creative_projects
 
 comment on index public.creative_projects_mission_active_uidx is
   'One active Creative project per organization and mission; duplicates are archived before enforcement.';
-
-comment on index public.creative_project_state_mission_uidx is
-  'One durable pipeline-state row per Creative mission.';
 
 commit;

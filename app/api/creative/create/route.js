@@ -10,6 +10,12 @@ import {
 import {
   CreativeDirectorRuntime,
 } from "@/lib/creative/director/runtime/CreativeDirectorRuntime";
+import {
+  CreativeProjectRuntime,
+} from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
+import {
+  CreativeAssetsRuntime,
+} from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 
 function text(value) {
   return String(value || "").trim();
@@ -22,6 +28,36 @@ function normalizeList(value) {
     .split(",")
     .map(text)
     .filter(Boolean);
+}
+
+function selectedAssetIds(body = {}) {
+  return [...new Set(
+    (Array.isArray(body.assets) ? body.assets : [])
+      .map((asset) =>
+        typeof asset === "string"
+          ? text(asset)
+          : text(asset?.asset_id || asset?.id),
+      )
+      .filter(Boolean),
+  )];
+}
+
+async function resolveSelectedAssets({ organizationId, body }) {
+  const ids = selectedAssetIds(body);
+  const assets = [];
+
+  for (const id of ids) {
+    const asset = await CreativeAssetsRuntime.get(id);
+    if (!asset || String(asset.organization_id) !== String(organizationId)) {
+      throw new Error(`CREATIVE_SELECTED_ASSET_NOT_FOUND:${id}`);
+    }
+    if (asset.archived === true) {
+      throw new Error(`CREATIVE_SELECTED_ASSET_ARCHIVED:${id}`);
+    }
+    assets.push(asset);
+  }
+
+  return assets;
 }
 
 function missionPayload(body, organizationId) {
@@ -74,6 +110,7 @@ function missionPayload(body, organizationId) {
           ? body.context
           : {},
       original_intent: intent,
+      selected_asset_ids: selectedAssetIds(body),
     },
   };
 }
@@ -97,6 +134,10 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
+    const assets = await resolveSelectedAssets({
+      organizationId,
+      body,
+    });
     const mission = await CreativeMissionRuntime.create(
       missionPayload(body, organizationId),
     );
@@ -110,6 +151,21 @@ export async function POST(request) {
       throw new Error("Creative mission did not create a project");
     }
 
+    const project = await CreativeProjectRuntime.get(creativeProjectId);
+    if (!project || String(project.organization_id) !== String(organizationId)) {
+      throw new Error("Creative project not found");
+    }
+
+    const selectedIds = assets.map((asset) => asset.id);
+    await CreativeProjectRuntime.update(creativeProjectId, {
+      metadata: {
+        ...(project.metadata || {}),
+        selected_asset_ids: selectedIds,
+        selected_assets_locked_at: new Date().toISOString(),
+        selected_assets_source: "creative_create_command",
+      },
+    });
+
     const execution = await CreativeDirectorRuntime.execute({
       organization_id: organizationId,
       creative_mission_id: started.id,
@@ -119,14 +175,14 @@ export async function POST(request) {
       objective: started.objective || started.business_goal || body.intent || "",
       business_goal: started.business_goal || started.objective || body.intent || "",
       audience: started.audience || {},
-      assets: Array.isArray(body.assets) ? body.assets : [],
+      assets,
       requestedOutputs: normalizeList(
         body.requestedOutputs ||
         body.requested_outputs ||
         body.channels ||
         body.target_channels,
       ),
-      organization: body.organization || {},
+      organization: body.organization || access.organization || {},
       brand: body.brand || {},
     });
 
@@ -142,6 +198,7 @@ export async function POST(request) {
       creative_mission_id: started.id,
       creative_project_id: creativeProjectId,
       creative_brief_id: creativeBriefId,
+      selected_asset_ids: selectedIds,
       execution,
       next_action:
         execution.production?.post_production?.status === "READY_FOR_APPROVAL"
@@ -153,6 +210,7 @@ export async function POST(request) {
       {
         success: false,
         error: error?.message || String(error),
+        validation: error?.validation || error?.cause?.validation || null,
       },
       { status: 500 },
     );

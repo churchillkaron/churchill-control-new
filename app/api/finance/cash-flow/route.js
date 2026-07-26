@@ -1,111 +1,44 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { resolveReportRequestContext } from "@/lib/finance/reporting/runtime/resolveReportRequestContext";
+import { generateCashflow } from "@/lib/finance/reporting/reports/generateCashflow";
 
 export async function GET(request) {
+  try {
+    const context = await resolveReportRequestContext(
+      new URL(request.url).searchParams
+    );
 
-  const { searchParams } = new URL(request.url);
+    if (!context.success) {
+      return NextResponse.json(
+        { success: false, error: context.error },
+        { status: context.status || 400 }
+      );
+    }
 
-  const access = await requireOrganizationAccess({
-    organizationId: searchParams.get("organizationId"),
-  });
+    const result = await generateCashflow({
+      organizationId: context.organizationId,
+      entityId: context.entityId,
+      startDate: context.startDate,
+      endDate: context.endDate,
+    });
 
-  if (!access.success) {
+    return NextResponse.json({
+      success: true,
+      organizationId: context.organizationId,
+      entityId: context.entityId,
+      periodId: context.periodId,
+      ...result,
+    });
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: access.error },
-      { status: access.status }
+      {
+        success: false,
+        error: error.message || "Cash flow failed",
+        code: error.code || null,
+      },
+      { status: Number(error.status) || 500 }
     );
   }
-
-  const organizationId = access.organizationId;
-
-  const { data: ledger, error } = await supabaseAdmin
-    .from("general_ledger")
-    .select(`
-      *,
-      chart_of_accounts!fk_general_ledger_account (
-        id,
-        account_code,
-        account_name,
-        category
-      )
-    `)
-    .eq("organization_id", organizationId)
-    .limit(10000);
-
-  if (error) {
-    return NextResponse.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
-  }
-
-  let operatingInflows = 0;
-  let operatingOutflows = 0;
-  let investingInflows = 0;
-  let investingOutflows = 0;
-  let financingInflows = 0;
-  let financingOutflows = 0;
-
-  for (const line of ledger || []) {
-
-    const account = Array.isArray(line.chart_of_accounts)
-      ? line.chart_of_accounts[0]
-      : line.chart_of_accounts;
-
-    const category = String(account?.category || "").toLowerCase();
-    const debit = Number(line.debit || 0);
-    const credit = Number(line.credit || 0);
-
-    // -------------------------
-    // OPERATING (DEFAULT)
-    // -------------------------
-    if (category.includes("revenue") || category.includes("expense") || category.includes("cogs")) {
-      operatingInflows += credit;
-      operatingOutflows += debit;
-    }
-
-    // -------------------------
-    // INVESTING
-    // -------------------------
-    if (category.includes("asset")) {
-      investingOutflows += debit;
-      investingInflows += credit;
-    }
-
-    // -------------------------
-    // FINANCING
-    // -------------------------
-    if (category.includes("liabil")) {
-      financingInflows += credit;
-      financingOutflows += debit;
-    }
-  }
-
-  const netOperatingCashFlow = operatingInflows - operatingOutflows;
-  const netInvestingCashFlow = investingInflows - investingOutflows;
-  const netFinancingCashFlow = financingInflows - financingOutflows;
-
-  const netCashFlow =
-    netOperatingCashFlow +
-    netInvestingCashFlow +
-    netFinancingCashFlow;
-
-  return NextResponse.json({
-    success: true,
-    organizationId,
-    summary: {
-      operatingInflows,
-      operatingOutflows,
-      investingInflows,
-      investingOutflows,
-      financingInflows,
-      financingOutflows,
-    },
-    netOperatingCashFlow,
-    netInvestingCashFlow,
-    netFinancingCashFlow,
-    netCashFlow
-  });
 }

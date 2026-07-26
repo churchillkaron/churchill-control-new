@@ -4,7 +4,8 @@ set -u
 
 PROJECT_ROOT="${AVANTIQO_PROJECT_ROOT:-$HOME/Projects/churchill-control-new}"
 SOURCE="$PROJECT_ROOT/scripts/run-finance-total-acceptance-v3.sh"
-TEMP_WRAPPER="/tmp/avantiqo-finance-total-acceptance-v4-$$.sh"
+CACHE_DIR="$PROJECT_ROOT/.next/cache"
+TEMP_WRAPPER="$CACHE_DIR/avantiqo-finance-total-acceptance-v4-$$.sh"
 
 cleanup() {
   rm -f "$TEMP_WRAPPER"
@@ -18,7 +19,7 @@ if [ ! -f "$SOURCE" ]; then
   exit 1
 fi
 
-mkdir -p "$PROJECT_ROOT/.next/cache" || exit 1
+mkdir -p "$CACHE_DIR" || exit 1
 
 node - "$SOURCE" "$TEMP_WRAPPER" <<'NODE'
 const fs = require("fs");
@@ -26,21 +27,30 @@ const sourcePath = process.argv[2];
 const targetPath = process.argv[3];
 let source = fs.readFileSync(sourcePath, "utf8");
 
-const original = 'TEMP_ORCHESTRATOR="/tmp/avantiqo-finance-total-acceptance-v3-$$.mjs"';
-const replacement = 'TEMP_ORCHESTRATOR="$PROJECT_ROOT/.next/cache/avantiqo-finance-total-acceptance-v3-$$.mjs"';
+const assignmentPattern = /^TEMP_ORCHESTRATOR=.*$/m;
+const currentAssignment = source.match(assignmentPattern)?.[0] || "";
 
-if (!source.includes(original)) {
-  throw new Error("Unable to locate the v3 temporary orchestrator path");
+if (!currentAssignment.includes("avantiqo-finance-total-acceptance-v3-$$.mjs")) {
+  throw new Error(`Unexpected temporary orchestrator assignment: ${currentAssignment || "missing"}`);
 }
 
-source = source.replace(original, replacement);
+source = source.replace(
+  assignmentPattern,
+  'TEMP_ORCHESTRATOR="$PROJECT_ROOT/.next/cache/avantiqo-finance-total-acceptance-v3-$$.mjs"'
+);
 
-if (!source.includes(replacement) || source.includes(original)) {
-  throw new Error("Finance acceptance module-resolution patch failed");
+const rewrittenAssignment = source.match(assignmentPattern)?.[0] || "";
+if (rewrittenAssignment !== 'TEMP_ORCHESTRATOR="$PROJECT_ROOT/.next/cache/avantiqo-finance-total-acceptance-v3-$$.mjs"') {
+  throw new Error(`Finance acceptance module-resolution patch failed: ${rewrittenAssignment || "missing"}`);
 }
 
 fs.writeFileSync(targetPath, source, { mode: 0o700 });
 NODE
+
+if [ ! -f "$TEMP_WRAPPER" ]; then
+  echo "Finance acceptance wrapper was not generated"
+  exit 1
+fi
 
 bash -n "$TEMP_WRAPPER" || exit 1
 bash "$TEMP_WRAPPER"

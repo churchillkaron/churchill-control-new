@@ -3,7 +3,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { createClient } from "@supabase/supabase-js";
 
 const ROOT = process.cwd();
 const BASE_URL = String(process.env.FINANCE_CERT_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
@@ -12,7 +11,7 @@ const ENTITY_ID = String(process.env.FINANCE_CERT_ENTITY_ID || "").trim();
 const ACTOR_ID = String(process.env.FINANCE_CERT_ACTOR_ID || "").trim();
 const ACCESS_TOKEN = String(process.env.FINANCE_CERT_ACCESS_TOKEN || "").trim();
 const COOKIE = String(process.env.FINANCE_CERT_COOKIE || "").trim();
-const SUPABASE_URL = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+const SUPABASE_URL = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim().replace(/\/$/, "");
 const SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const CONFIRM = String(process.env.FINANCE_CERT_CONFIRM || "").trim();
 const REPORT = String(process.env.FINANCE_CERT_REPORT || path.join("/tmp", `AVANTIQO_FINANCE_WORKSPACE_CRUD_CERTIFICATION_${new Date().toISOString().replace(/[:.]/g, "-")}.json`));
@@ -108,6 +107,51 @@ async function request(url, options = {}) {
   return { response, body, text };
 }
 
+async function supabaseRequest(relativePath, options = {}) {
+  const response = await fetch(`${SUPABASE_URL}${relativePath}`, {
+    method: options.method || "GET",
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    headers: {
+      accept: "application/json",
+      apikey: SERVICE_ROLE_KEY,
+      authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      ...(options.body ? { "content-type": "application/json" } : {}),
+      ...(options.headers || {}),
+    },
+  });
+
+  const text = await response.text();
+  let body = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = { raw: text.slice(0, 1000) };
+  }
+
+  if (!response.ok) {
+    const message = body?.message || body?.error || body?.details || `Supabase HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return body;
+}
+
+function writeReport() {
+  const passed = results.filter(row => row.passed).length;
+  const failed = results.length - passed;
+  const report = {
+    generatedAt: new Date().toISOString(),
+    organizationId: ORGANIZATION_ID,
+    entityId: ENTITY_ID,
+    passed,
+    failed,
+    total: results.length,
+    results,
+  };
+  fs.writeFileSync(REPORT, JSON.stringify(report, null, 2));
+  return report;
+}
+
 async function main() {
   console.log("============================================================");
   console.log("AVANTIQO FINANCE WORKSPACE CRUD CERTIFICATION");
@@ -197,23 +241,29 @@ async function main() {
   if (CONFIRM !== "RUN_ROLLBACK_SAFE_FINANCE_CRUD_CERTIFICATION") {
     add("crud-probe", "explicit confirmation", false, { message: "Confirmation phrase did not match" });
   } else {
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const postingDate = new Date().toISOString().slice(0, 10);
-    const currencyMatch = registry.match(/currency/i);
-    const { data: entity } = await supabase.from("legal_entities").select("*").eq("organization_id", ORGANIZATION_ID).eq("id", ENTITY_ID).maybeSingle();
-    const currency = String(entity?.currency || entity?.currency_code || "").trim();
-    const { data, error } = await supabase.rpc("finance_run_workspace_crud_certification_probe", {
-      p_organization_id: ORGANIZATION_ID,
-      p_entity_id: ENTITY_ID,
-      p_actor_id: ACTOR_ID,
-      p_posting_date: postingDate,
-      p_currency_code: currency || (currencyMatch ? "XTS" : "XTS"),
-    });
-    if (error) {
-      add("crud-probe", "RPC execution", false, { message: error.message });
-    } else {
+    try {
+      const entityRows = await supabaseRequest(
+        `/rest/v1/legal_entities?organization_id=eq.${encodeURIComponent(ORGANIZATION_ID)}&id=eq.${encodeURIComponent(ENTITY_ID)}&limit=1`
+      );
+      const entity = Array.isArray(entityRows) ? entityRows[0] : null;
+      if (!entity) throw new Error("Legal entity not found through PostgREST");
+
+      const postingDate = new Date().toISOString().slice(0, 10);
+      const currency = String(entity.currency || entity.currency_code || "").trim() || "XTS";
+      const data = await supabaseRequest(
+        "/rest/v1/rpc/finance_run_workspace_crud_certification_probe",
+        {
+          method: "POST",
+          body: {
+            p_organization_id: ORGANIZATION_ID,
+            p_entity_id: ENTITY_ID,
+            p_actor_id: ACTOR_ID,
+            p_posting_date: postingDate,
+            p_currency_code: currency,
+          },
+        }
+      );
+
       add("crud-probe", "probe rolled back", data?.rolled_back === true);
       for (const row of data?.results || []) {
         add("database", row.name, row.passed === true, {
@@ -221,32 +271,26 @@ async function main() {
           message: row.message || null,
         });
       }
+    } catch (error) {
+      add("crud-probe", "RPC execution", false, { message: error.message });
     }
   }
 
-  const passed = results.filter(row => row.passed).length;
-  const failed = results.length - passed;
-  const report = {
-    generatedAt: new Date().toISOString(),
-    organizationId: ORGANIZATION_ID,
-    entityId: ENTITY_ID,
-    passed,
-    failed,
-    total: results.length,
-    results,
-  };
-  fs.writeFileSync(REPORT, JSON.stringify(report, null, 2));
+  const report = writeReport();
 
   console.log("\n================ FINAL RESULT ================");
-  console.log(`PASSED=${passed}`);
-  console.log(`FAILED=${failed}`);
-  console.log(`TOTAL=${results.length}`);
+  console.log(`PASSED=${report.passed}`);
+  console.log(`FAILED=${report.failed}`);
+  console.log(`TOTAL=${report.total}`);
   console.log(`REPORT=${REPORT}`);
-  console.log(failed === 0 ? "FINANCE WORKSPACE CRUD CERTIFICATION PASSED" : "FINANCE WORKSPACE CRUD CERTIFICATION FAILED");
-  process.exitCode = failed === 0 ? 0 : 1;
+  console.log(report.failed === 0 ? "FINANCE WORKSPACE CRUD CERTIFICATION PASSED" : "FINANCE WORKSPACE CRUD CERTIFICATION FAILED");
+  process.exitCode = report.failed === 0 ? 0 : 1;
 }
 
 main().catch(error => {
+  add("runner", "unexpected failure", false, { message: error.message });
+  const report = writeReport();
   console.error(error);
-  process.exitCode = 1;
+  console.log(`REPORT=${REPORT}`);
+  process.exitCode = report.failed === 0 ? 0 : 1;
 });

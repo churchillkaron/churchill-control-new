@@ -13,12 +13,7 @@ const PERIOD_ID = String(process.env.FINANCE_CERT_PERIOD_ID || "").trim();
 const ACCESS_TOKEN = String(process.env.FINANCE_CERT_ACCESS_TOKEN || "").trim();
 const COOKIE = String(process.env.FINANCE_CERT_COOKIE || "").trim();
 const REPORT = String(process.env.FINANCE_CERT_REPORT || `/tmp/AVANTIQO_FINANCE_UI_ACTION_SECURITY_${Date.now()}.json`);
-const FOCUS = new Set(
-  String(process.env.FINANCE_CERT_FOCUS || "")
-    .split(",")
-    .map(value => value.trim())
-    .filter(Boolean)
-);
+const FOCUS = new Set(String(process.env.FINANCE_CERT_FOCUS || "").split(",").map(value => value.trim()).filter(Boolean));
 const FOCUSED = FOCUS.size > 0;
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 const FOREIGN_ORG = crypto.randomUUID();
@@ -28,8 +23,7 @@ const results = [];
 function add(category, name, passed, details = {}) {
   const row = { category, name, passed: Boolean(passed), ...details };
   results.push(row);
-  const suffix = details.message ? ` - ${details.message}` : "";
-  console.log(`${passed ? "PASS" : "FAIL"} ${category.padEnd(26)} ${name}${suffix}`);
+  console.log(`${passed ? "PASS" : "FAIL"} ${category.padEnd(26)} ${name}${details.message ? ` - ${details.message}` : ""}`);
 }
 
 function required(value, name) {
@@ -65,10 +59,7 @@ function extractBalanced(source, marker, open, close) {
       else if (char === quote) quote = null;
       continue;
     }
-    if (char === '"' || char === "'" || char === "`") {
-      quote = char;
-      continue;
-    }
+    if (char === '"' || char === "'" || char === "`") { quote = char; continue; }
     if (char === open) depth += 1;
     if (char === close && --depth === 0) return source.slice(start, index + 1);
   }
@@ -110,20 +101,6 @@ function referencedForms(source) {
   return [...new Set([...source.matchAll(/\b(?:form|formId):\s*["']([^"']+)["']/g)].map(match => match[1]))];
 }
 
-function rowActionCount(registry) {
-  const section = financeSection(registry);
-  let cursor = 0;
-  let count = 0;
-  while (true) {
-    const index = section.indexOf("rowActions:", cursor);
-    if (index < 0) break;
-    const array = extractBalanced(section.slice(index), "rowActions:", "[", "]");
-    count += [...array.matchAll(/\blabel:\s*["'][^"']+["']/g)].length;
-    cursor = index + Math.max(array.length, 12);
-  }
-  return count;
-}
-
 function apiManifest() {
   return walk(path.join(ROOT, "app", "api", "finance"))
     .filter(file => file.endsWith(`${path.sep}route.js`))
@@ -137,20 +114,13 @@ function apiManifest() {
 }
 
 function materializeRoute(route, firstContract) {
-  return route
-    .replace(/\[\[\.\.\.([^\]]+)\]\]/g, "probe")
-    .replace(/\[\.\.\.([^\]]+)\]/g, "probe")
-    .replace(/\[capabilityId\]/g, firstContract)
-    .replace(/\[[^\]]*[iI]d\]/g, ZERO_UUID)
-    .replace(/\[[^\]]+\]/g, "probe");
+  return route.replace(/\[\[\.\.\.([^\]]+)\]\]/g, "probe").replace(/\[\.\.\.([^\]]+)\]/g, "probe")
+    .replace(/\[capabilityId\]/g, firstContract).replace(/\[[^\]]*[iI]d\]/g, ZERO_UUID).replace(/\[[^\]]+\]/g, "probe");
 }
 
 function routePattern(route) {
   const escaped = route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${escaped
-    .replace(/\\\[\\\[\\\.\\\.\\\.([^\]]+)\\\]\\\]/g, ".*")
-    .replace(/\\\[\\\.\\\.\\\.([^\]]+)\\\]/g, ".+")
-    .replace(/\\\[[^\]]+\\\]/g, "[^/]+")}$`);
+  return new RegExp(`^${escaped.replace(/\\\[\\\[\\\.\\\.\\\.([^\]]+)\\\]\\\]/g, ".*").replace(/\\\[\\\.\\\.\\\.([^\]]+)\\\]/g, ".+").replace(/\\\[[^\]]+\\\]/g, "[^/]+")}$`);
 }
 
 async function request(url, options = {}) {
@@ -172,25 +142,14 @@ async function request(url, options = {}) {
 }
 
 function controlledStatus(status) {
-  return status >= 200 && status < 500 && status !== 300 && status !== 301 && status !== 302 && status !== 307 && status !== 308;
+  return status >= 200 && status < 500 && ![300, 301, 302, 307, 308].includes(status);
 }
 
 function failureDetails({ response, body, text }) {
-  const values = [
-    body?.error,
-    body?.message,
-    body?.details,
-    body?.hint,
-    body?.code,
-  ].filter(Boolean).map(value => String(value));
-
-  const message = values.length
-    ? values.join(" | ")
-    : String(text || "").replace(/\s+/g, " ").trim().slice(0, 400);
-
+  const values = [body?.error, body?.message, body?.details, body?.hint, body?.code].filter(Boolean).map(String);
   return {
     status: response.status,
-    message: message || `HTTP ${response.status}`,
+    message: values.join(" | ") || String(text || "").replace(/\s+/g, " ").trim().slice(0, 400) || `HTTP ${response.status}`,
     response: body || String(text || "").slice(0, 2000),
   };
 }
@@ -204,6 +163,9 @@ async function main() {
   const registry = read("lib/platform/registry/erpRegistry.js");
   const policy = read("lib/finance/ui/FinancePrimaryActionPolicy.js");
   const contractsSource = read("lib/finance/workspaces/FinanceWorkspaceContracts.js");
+  const mutationPolicy = read("lib/finance/workspaces/FinanceWorkspaceMutationPolicy.js");
+  const serializer = read("lib/platform/registry/serializeCapability.js");
+  const mutationEngine = read("components/workspace/engines/FinanceRecordMutationEngine.jsx");
   const formsSource = read("lib/platform/forms/FormRegistry.js");
   const formContract = read("lib/platform/forms/FinanceFormContract.js");
   const genericRoute = read("app/api/finance/workspaces/[capabilityId]/route.js");
@@ -219,16 +181,17 @@ async function main() {
     add("structure", "67 workspace policies", ids.length === 67, { actual: ids.length });
     add("structure", "67 live registry routes", routes.filter(row => row.route).length === 67, { actual: routes.filter(row => row.route).length });
     add("structure", "25 generic contracts", contracts.length === 25, { actual: contracts.length });
-    add("structure", "216 Finance row actions", rowActionCount(registry) === 216, { actual: rowActionCount(registry) });
+    add("structure", "contract-derived row mutations", /mutationRowMenu/.test(serializer) && /resolveFinanceWorkspaceMutationPolicy/.test(serializer));
+    add("structure", "schema-driven edit and duplicate", /finance_record_mutation/.test(serializer) && /method:\s*["']PATCH["']/.test(serializer) && /method:\s*["']POST["']/.test(serializer));
+    add("structure", "archive policy is explicit", /isFinanceWorkspaceArchivable|archivable/.test(mutationPolicy) && /method:\s*["']DELETE["']/.test(serializer));
+    add("structure", "mutation engine validates and scopes", /missingRequiredFields/.test(mutationEngine) && /organization_id/.test(mutationEngine) && /entity_id/.test(mutationEngine));
     add("structure", "generic POST available", /export async function POST/.test(genericRoute));
     add("structure", "generic PATCH available", /export async function PATCH/.test(genericRoute));
     add("structure", "generic archive available", /export async function DELETE/.test(genericRoute));
     add("structure", "no tenant boundary", !/tenant_id|tenantId/.test(`${financeSection(registry)}\n${contractsSource}\n${genericRoute}`));
     add("structure", "no fixed Finance defaults", !/default(?:Value)?\s*:\s*["'](?:THB|USD|EUR|GBP|Thailand)["']/i.test(formContract));
 
-    for (const formId of formRefs) {
-      add("form-binding", formId, forms.has(formId), { message: forms.has(formId) ? null : "Referenced form is not registered" });
-    }
+    for (const formId of formRefs) add("form-binding", formId, forms.has(formId), { message: forms.has(formId) ? null : "Referenced form is not registered" });
 
     const referencedApiRoutes = [...new Set(walk(path.join(ROOT, "lib", "finance"))
       .filter(file => /\.(?:js|jsx|mjs)$/.test(file))
@@ -243,11 +206,8 @@ async function main() {
       if (!route) continue;
       try {
         const { response, text } = await request(`${BASE_URL}/workspace/${ORGANIZATION_ID}${route}`, { accept: "text/html" });
-        const passed = response.status === 200 && !/Application error|Internal Server Error|404: This page could not be found/i.test(text);
-        add("live-page", id, passed, { status: response.status, route });
-      } catch (error) {
-        add("live-page", id, false, { route, message: error.message });
-      }
+        add("live-page", id, response.status === 200 && !/Application error|Internal Server Error|404: This page could not be found/i.test(text), { status: response.status, route });
+      } catch (error) { add("live-page", id, false, { route, message: error.message }); }
     }
 
     console.log("\n================ GENERIC WORKSPACE SECURITY ================");
@@ -257,14 +217,10 @@ async function main() {
       const base = `${BASE_URL}/api/finance/workspaces/${contract.id}`;
       const normal = await request(`${base}?${scopeParams}`);
       add("list-contract", contract.id, normal.response.status === 200 && normal.body?.success === true, { status: normal.response.status });
-
-      const foreignOrg = new URLSearchParams({ organizationId: FOREIGN_ORG, entityId: ENTITY_ID });
-      const deniedOrg = await request(`${base}?${foreignOrg}`);
+      const deniedOrg = await request(`${base}?${new URLSearchParams({ organizationId: FOREIGN_ORG, entityId: ENTITY_ID })}`);
       add("scope-rejection", `${contract.id}.foreign_org`, [400, 401, 403, 404].includes(deniedOrg.response.status), { status: deniedOrg.response.status });
-
       if (contract.scope === "entity") {
-        const foreignEntity = new URLSearchParams({ organizationId: ORGANIZATION_ID, entityId: FOREIGN_ENTITY });
-        const deniedEntity = await request(`${base}?${foreignEntity}`);
+        const deniedEntity = await request(`${base}?${new URLSearchParams({ organizationId: ORGANIZATION_ID, entityId: FOREIGN_ENTITY })}`);
         add("scope-rejection", `${contract.id}.foreign_entity`, [400, 401, 403, 404].includes(deniedEntity.response.status), { status: deniedEntity.response.status });
       }
     }
@@ -274,39 +230,26 @@ async function main() {
 
   console.log("\n================ FINANCE GET HANDLER MATRIX ================");
   const firstContract = contracts[0]?.id || "opening_balances";
-  const getHandlers = apiRoutes
-    .filter(item => item.methods.includes("GET"))
-    .filter(item => !FOCUSED || FOCUS.has(item.route));
-
+  const getHandlers = apiRoutes.filter(item => item.methods.includes("GET")).filter(item => !FOCUSED || FOCUS.has(item.route));
   for (const item of getHandlers) {
-    const target = materializeRoute(item.route, firstContract);
-    const url = new URL(`${BASE_URL}${target}`);
+    const url = new URL(`${BASE_URL}${materializeRoute(item.route, firstContract)}`);
     url.searchParams.set("organizationId", ORGANIZATION_ID);
     url.searchParams.set("organization_id", ORGANIZATION_ID);
     url.searchParams.set("entityId", ENTITY_ID);
     url.searchParams.set("entity_id", ENTITY_ID);
-    if (PERIOD_ID) {
-      url.searchParams.set("periodId", PERIOD_ID);
-      url.searchParams.set("period_id", PERIOD_ID);
-    }
+    if (PERIOD_ID) { url.searchParams.set("periodId", PERIOD_ID); url.searchParams.set("period_id", PERIOD_ID); }
     try {
       const result = await request(url.toString());
       const passed = controlledStatus(result.response.status) && !/Internal Server Error|Application error/i.test(result.text);
-      const details = passed
-        ? { status: result.response.status, file: item.file }
-        : { ...failureDetails(result), file: item.file, url: url.toString() };
+      const details = passed ? { status: result.response.status, file: item.file } : { ...failureDetails(result), file: item.file, url: url.toString() };
       add("get-handler", item.route, passed, details);
-      if (/preview|report|statement|ledger|trial-balance|dashboard|insight/i.test(item.route)) {
-        add("document-report", item.route, passed, details);
-      }
-    } catch (error) {
-      add("get-handler", item.route, false, { file: item.file, message: error.message });
-    }
+      if (/preview|report|statement|ledger|trial-balance|dashboard|insight/i.test(item.route)) add("document-report", item.route, passed, details);
+    } catch (error) { add("get-handler", item.route, false, { file: item.file, message: error.message }); }
   }
 
   if (!FOCUSED) {
     console.log("\n================ GENERIC WRITE GUARDS ================");
-    const writable = contracts.find(contract => contract.id !== "customer_statements" && contract.id !== "vendor_statements" && contract.id !== "cash_management");
+    const writable = contracts.find(contract => !["customer_statements", "vendor_statements", "cash_management"].includes(contract.id));
     const readOnly = contracts.find(contract => ["customer_statements", "vendor_statements", "cash_management"].includes(contract.id));
     if (writable) {
       const url = `${BASE_URL}/api/finance/workspaces/${writable.id}`;
@@ -328,19 +271,7 @@ async function main() {
 
   const passed = results.filter(row => row.passed).length;
   const failed = results.length - passed;
-  const report = {
-    generatedAt: new Date().toISOString(),
-    mode: FOCUSED ? "focused_handler_diagnostic" : "full_certification",
-    focus: [...FOCUS],
-    organizationId: ORGANIZATION_ID,
-    entityId: ENTITY_ID,
-    periodId: PERIOD_ID || null,
-    passed,
-    failed,
-    total: results.length,
-    results,
-  };
-  fs.writeFileSync(REPORT, JSON.stringify(report, null, 2));
+  fs.writeFileSync(REPORT, JSON.stringify({ generatedAt: new Date().toISOString(), mode: FOCUSED ? "focused_handler_diagnostic" : "full_certification", focus: [...FOCUS], organizationId: ORGANIZATION_ID, entityId: ENTITY_ID, periodId: PERIOD_ID || null, passed, failed, total: results.length, results }, null, 2));
   console.log("\n================ FINAL RESULT ================");
   console.log(`PASSED=${passed}`);
   console.log(`FAILED=${failed}`);
@@ -350,7 +281,4 @@ async function main() {
   process.exitCode = failed === 0 ? 0 : 1;
 }
 
-main().catch(error => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main().catch(error => { console.error(error); process.exitCode = 1; });

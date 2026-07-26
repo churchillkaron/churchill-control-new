@@ -18,7 +18,13 @@ import {
 } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 
 function text(value) {
-  return String(value || "").trim();
+  return String(value ?? "").trim();
+}
+
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
 }
 
 function normalizeList(value) {
@@ -30,16 +36,27 @@ function normalizeList(value) {
     .filter(Boolean);
 }
 
+function assetId(value) {
+  if (typeof value === "string") return text(value);
+  return text(value?.asset_id || value?.id);
+}
+
 function selectedAssetIds(body = {}) {
-  return [...new Set(
-    (Array.isArray(body.assets) ? body.assets : [])
-      .map((asset) =>
-        typeof asset === "string"
-          ? text(asset)
-          : text(asset?.asset_id || asset?.id),
-      )
-      .filter(Boolean),
-  )];
+  const explicit = [
+    ...normalizeList(body.selected_asset_ids),
+    ...normalizeList(body.selectedAssetIds),
+    ...normalizeList(body.asset_ids),
+    ...normalizeList(body.assetIds),
+  ];
+  const embedded = Array.isArray(body.assets)
+    ? body.assets.map(assetId).filter(Boolean)
+    : [];
+  return [...new Set([...explicit, ...embedded])];
+}
+
+function positiveNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 async function resolveSelectedAssets({ organizationId, body }) {
@@ -51,13 +68,35 @@ async function resolveSelectedAssets({ organizationId, body }) {
     if (!asset || String(asset.organization_id) !== String(organizationId)) {
       throw new Error(`CREATIVE_SELECTED_ASSET_NOT_FOUND:${id}`);
     }
-    if (asset.archived === true) {
-      throw new Error(`CREATIVE_SELECTED_ASSET_ARCHIVED:${id}`);
+    if (
+      asset.archived === true ||
+      ["ARCHIVED", "DISABLED", "DELETED"].includes(
+        text(asset.status).toUpperCase(),
+      )
+    ) {
+      throw new Error(`CREATIVE_SELECTED_ASSET_UNAVAILABLE:${id}`);
     }
     assets.push(asset);
   }
 
   return assets;
+}
+
+function requestMetadata(body = {}) {
+  const metadata = { ...object(body.metadata) };
+  if (Array.isArray(body.publish_targets)) {
+    metadata.publish_targets = body.publish_targets;
+  }
+  if (object(body.publish_target).id) {
+    metadata.publish_targets = [body.publish_target];
+  }
+  if (Object.keys(object(body.creative_quality_policy)).length) {
+    metadata.creative_quality_policy = body.creative_quality_policy;
+  }
+  if (Object.keys(object(body.semantic_quality_policy)).length) {
+    metadata.semantic_quality_policy = body.semantic_quality_policy;
+  }
+  return metadata;
 }
 
 function missionPayload(body, organizationId) {
@@ -76,20 +115,18 @@ function missionPayload(body, organizationId) {
     title: text(body.title) || intent.slice(0, 120),
     business_goal: intent,
     objective: intent,
-    audience:
-      body.audience && typeof body.audience === "object"
-        ? body.audience
-        : {},
+    audience: object(body.audience),
     channels: normalizeList(body.channels || body.target_channels),
     metadata: {
-      ...(body.metadata || {}),
+      ...requestMetadata(body),
       source: "natural_language_creative_intent",
       production_type:
         body.production_type || body.productionType || null,
-      target_duration:
-        Number(body.target_duration || body.duration_seconds || 30),
+      target_duration: positiveNumber(
+        body.target_duration ?? body.duration_seconds,
+      ),
       target_languages: normalizeList(
-        body.target_languages || body.languages || ["en"],
+        body.target_languages || body.languages,
       ),
       quality_profile:
         body.quality_profile || body.qualityProfile || null,
@@ -105,10 +142,7 @@ function missionPayload(body, organizationId) {
       emotion: text(body.emotion),
       products: Array.isArray(body.products) ? body.products : [],
       markets: Array.isArray(body.markets) ? body.markets : [],
-      context:
-        body.context && typeof body.context === "object"
-          ? body.context
-          : {},
+      context: object(body.context),
       original_intent: intent,
       selected_asset_ids: selectedAssetIds(body),
     },
@@ -157,14 +191,17 @@ export async function POST(request) {
     }
 
     const selectedIds = assets.map((asset) => asset.id);
-    await CreativeProjectRuntime.update(creativeProjectId, {
-      metadata: {
-        ...(project.metadata || {}),
-        selected_asset_ids: selectedIds,
-        selected_assets_locked_at: new Date().toISOString(),
-        selected_assets_source: "creative_create_command",
-      },
-    });
+    const metadata = {
+      ...(project.metadata || {}),
+      ...requestMetadata(body),
+      selected_asset_ids: selectedIds,
+      selected_assets_locked_at: new Date().toISOString(),
+      selected_assets_source: "creative_create_command",
+    };
+    const updatedProject = await CreativeProjectRuntime.update(
+      creativeProjectId,
+      { metadata },
+    );
 
     const execution = await CreativeDirectorRuntime.execute({
       organization_id: organizationId,
@@ -172,6 +209,7 @@ export async function POST(request) {
       creative_project_id: creativeProjectId,
       creative_brief_id: creativeBriefId,
       mission: started,
+      project: updatedProject,
       objective: started.objective || started.business_goal || body.intent || "",
       business_goal: started.business_goal || started.objective || body.intent || "",
       audience: started.audience || {},

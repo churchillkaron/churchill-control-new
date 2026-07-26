@@ -214,7 +214,15 @@ source = source.replace(
 );
 source = source.replace(
   /  add\("registry", "Finance routes discovered",[\s\S]*?\n  add\("registry", "Primary action policies", \(policy\.match\(\/mode:\\s\*\["'\]\/g\) \|\| \[\]\)\.length >= 67, \{[\s\S]*?\n  \}\);/,
-  `  add("registry", "Finance routes discovered", routes.length === 67 && missingRouteIds.length === 0, {\n    actual: routes.length,\n    expected: 67,\n    missingRouteIds,\n  });\n  add("registry", "Primary action policies", policyIds.length === 67, {\n    actual: policyIds.length,\n    expected: 67,\n  });`
+  `  add("registry", "Finance routes discovered", routes.length === 67 && missingRouteIds.length === 0, {
+    actual: routes.length,
+    expected: 67,
+    missingRouteIds,
+  });
+  add("registry", "Primary action policies", policyIds.length === 67, {
+    actual: policyIds.length,
+    expected: 67,
+  });`
 );
 source = source.replace(
   'supabase.rpc("finance_run_total_acceptance_probe_v2"',
@@ -242,10 +250,14 @@ let source = fs.readFileSync(sourcePath, "utf8");
 
 source = source
   .replaceAll(
-    "20260726100000_finance_total_acceptance_probe.sql",
+    "20260726103000_finance_total_acceptance_probe_v2.sql",
     "20260726110000_finance_total_acceptance_probe_v3.sql"
   )
-  .replaceAll("20260726100000", "20260726110000")
+  .replaceAll("20260726103000", "20260726110000")
+  .replaceAll("Acceptance probe v2", "Acceptance probe v3")
+  .replaceAll("acceptance probe v2", "acceptance probe v3")
+  .replaceAll("Acceptance migration v2", "Acceptance migration v3")
+  .replaceAll("acceptance migration v2", "acceptance migration v3")
   .replace(
     "node scripts/finance-total-acceptance.mjs",
     'node "$TEMP_ORCHESTRATOR"'
@@ -253,9 +265,20 @@ source = source
 
 for (const expected of [
   "20260726110000_finance_total_acceptance_probe_v3.sql",
+  "20260726110000",
+  "Acceptance probe v3",
+  "acceptance migration v3",
   'node "$TEMP_ORCHESTRATOR"',
 ]) {
   if (!source.includes(expected)) throw new Error(`Launcher v3 patch missing: ${expected}`);
+}
+
+for (const obsolete of [
+  "20260726103000_finance_total_acceptance_probe_v2.sql",
+  "Dry run did not show the expected acceptance migration v2",
+  "Acceptance probe v2 is already deployed",
+]) {
+  if (source.includes(obsolete)) throw new Error(`Launcher v3 still contains obsolete gate: ${obsolete}`);
 }
 
 fs.writeFileSync(targetPath, source, { mode: 0o700 });

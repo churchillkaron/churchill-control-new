@@ -5,6 +5,12 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { runConsolidation } from "@/lib/finance/intercompany/workflows/runConsolidation";
 
+const MISSING_RELATION_CODES = new Set(["42P01", "PGRST204", "PGRST205"]);
+const CONSOLIDATION_TABLES = [
+  "finance_consolidation_runs",
+  "consolidation_runs",
+];
+
 function organizationIdFrom(value = {}) {
   return value.organizationId || value.organization_id || null;
 }
@@ -18,6 +24,36 @@ function entityIdsFrom(value = {}) {
         .split(",")
         .map(item => item.trim())
         .filter(Boolean);
+}
+
+async function readConsolidationRuns(organizationId) {
+  for (const table of CONSOLIDATION_TABLES) {
+    const parentColumn = table === "consolidation_runs"
+      ? "parent_organization_id"
+      : "organization_id";
+
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select("*")
+      .eq(parentColumn, organizationId)
+      .order("created_at", { ascending: false });
+
+    if (!error) {
+      return {
+        rows: data || [],
+        sourceTable: table,
+      };
+    }
+
+    if (!MISSING_RELATION_CODES.has(String(error.code || ""))) {
+      throw error;
+    }
+  }
+
+  return {
+    rows: [],
+    sourceTable: null,
+  };
 }
 
 export async function GET(request) {
@@ -36,19 +72,13 @@ export async function GET(request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("consolidation_runs")
-      .select("*")
-      .eq("parent_organization_id", access.organizationId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      throw error;
-    }
+    const result = await readConsolidationRuns(access.organizationId);
 
     return NextResponse.json({
       success: true,
-      rows: data || [],
+      rows: result.rows,
+      sourceTable: result.sourceTable,
+      unavailable: result.sourceTable === null,
     });
   } catch (error) {
     return NextResponse.json(

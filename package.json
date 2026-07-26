@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "smoke:creative-release": "node scripts/creative-studio-release-smoke.mjs"
+    "smoke:creative-release": "node scripts/creative-studio-release-smoke.mjs",
+    "smoke:creative-forensic-release": "node scripts/creative-studio-forensic-release-smoke.mjs"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",

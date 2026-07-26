@@ -7,6 +7,9 @@ import {
 import {
   CreativePerceptualQualityRuntime,
 } from "@/lib/creative/quality/runtime/CreativePerceptualQualityRuntime";
+import {
+  CreativeSemanticQualityRuntime,
+} from "@/lib/creative/quality/runtime/CreativeSemanticQualityRuntime";
 
 const POLICY_FIELDS = new Set([
   "black_picture_threshold", "blackPictureThreshold",
@@ -19,12 +22,22 @@ const POLICY_FIELDS = new Set([
   "target_integrated_lufs", "targetIntegratedLufs",
   "loudness_tolerance_lufs", "loudnessToleranceLufs",
   "max_true_peak_dbtp", "maxTruePeakDbtp",
+  "ffmpeg_path", "ffmpegPath",
+  "quality_timeout_ms", "qualityTimeoutMs",
   "version",
 ]);
 
-function pick(value = {}) {
+const SEMANTIC_POLICY_FIELDS = new Set([
+  "required_checks",
+  "minimum_confidence",
+  "minimum_score",
+  "require_audio_review",
+  "version",
+]);
+
+function pick(value = {}, fields = POLICY_FIELDS) {
   return Object.fromEntries(
-    Object.entries(value).filter(([key]) => POLICY_FIELDS.has(key)),
+    Object.entries(value).filter(([key]) => fields.has(key)),
   );
 }
 
@@ -54,17 +67,43 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
-    const result = await CreativePerceptualQualityRuntime.analyze({
+    const technical = await CreativePerceptualQualityRuntime.analyze({
       organization_id: organizationId,
       render_asset_node_id: renderAssetNodeId,
       policy: pick(body.policy || {}),
       force: body.force === true,
     });
 
-    return Response.json({ success: true, ...result });
+    let semantic = null;
+    if (body.semantic_review) {
+      semantic = await CreativeSemanticQualityRuntime.record({
+        organization_id: organizationId,
+        render_asset_node_id: renderAssetNodeId,
+        review: body.semantic_review,
+        policy: pick(
+          body.semantic_policy || {},
+          SEMANTIC_POLICY_FIELDS,
+        ),
+        force: body.force === true,
+      });
+    }
+
+    return Response.json({
+      success: true,
+      technical,
+      semantic,
+      passed:
+        technical.report?.metadata?.passed === true &&
+        (!semantic || semantic.report?.metadata?.passed === true),
+      evidence_complete: Boolean(semantic),
+    });
   } catch (error) {
     return Response.json(
-      { success: false, error: error.message },
+      {
+        success: false,
+        error: error.message,
+        validation: error.validation || null,
+      },
       { status: 500 },
     );
   }

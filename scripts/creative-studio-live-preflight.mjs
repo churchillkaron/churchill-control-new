@@ -21,6 +21,19 @@ function csv(name) {
     .filter(Boolean);
 }
 
+function json(name) {
+  const raw = required(name);
+  try {
+    const value = JSON.parse(raw);
+    if (!value || typeof value !== "object") {
+      throw new Error("must contain an object or array");
+    }
+    return value;
+  } catch (error) {
+    throw new Error(`${name} invalid JSON: ${error.message}`);
+  }
+}
+
 function headers() {
   const result = {
     "content-type": "application/json",
@@ -43,17 +56,31 @@ async function main() {
     `creative-studio-live-preflight-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
   );
   const estimatedMaximumCost = Number(required("CREATIVE_SMOKE_ESTIMATED_MAXIMUM_COST"));
-  if (!Number.isFinite(estimatedMaximumCost) || estimatedMaximumCost < 0) {
-    throw new Error("CREATIVE_SMOKE_ESTIMATED_MAXIMUM_COST must be a non-negative number");
+  if (!Number.isFinite(estimatedMaximumCost) || estimatedMaximumCost <= 0) {
+    throw new Error("CREATIVE_SMOKE_ESTIMATED_MAXIMUM_COST must be greater than zero");
+  }
+
+  const publishTarget = json("CREATIVE_SMOKE_PUBLISH_TARGET_JSON");
+  const creativeQualityPolicy = json("CREATIVE_SMOKE_CREATIVE_QUALITY_POLICY_JSON");
+  const semanticQualityPolicy = json("CREATIVE_SMOKE_SEMANTIC_POLICY_JSON");
+  const executionRequirements = json("CREATIVE_SMOKE_EXECUTION_REQUIREMENTS_JSON");
+  if (!Array.isArray(executionRequirements) || !executionRequirements.length) {
+    throw new Error("CREATIVE_SMOKE_EXECUTION_REQUIREMENTS_JSON must be a non-empty array");
   }
 
   const body = {
     organization_id: organizationId,
-    required_service_ids: csv("CREATIVE_SMOKE_REQUIRED_SERVICE_IDS"),
-    required_provider_ids: csv("CREATIVE_SMOKE_REQUIRED_PROVIDER_IDS"),
+    execution_requirements: executionRequirements,
     selected_asset_ids: csv("CREATIVE_SMOKE_SELECTED_ASSET_IDS"),
     publish_target_id: required("CREATIVE_SMOKE_PUBLISH_TARGET_ID"),
+    publish_target: publishTarget,
+    required_media_kind: required("CREATIVE_SMOKE_MEDIA_KIND"),
+    creative_quality_policy: creativeQualityPolicy,
+    semantic_quality_policy: semanticQualityPolicy,
     estimated_maximum_cost: estimatedMaximumCost,
+    estimated_maximum_cost_currency: required(
+      "CREATIVE_SMOKE_ESTIMATED_MAXIMUM_COST_CURRENCY",
+    ),
   };
 
   const response = await fetch(new URL("/api/creative/release/preflight", baseUrl), {

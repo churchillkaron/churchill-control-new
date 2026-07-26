@@ -46,6 +46,20 @@ alter table public.creative_projects
   add column if not exists created_at timestamptz default now(),
   add column if not exists updated_at timestamptz default now();
 
+update public.creative_projects
+set
+  version = coalesce(version, 1),
+  status = coalesce(nullif(status, ''), 'DRAFT'),
+  name = coalesce(nullif(name, ''), 'Creative project'),
+  description = coalesce(description, ''),
+  objective = coalesce(objective, ''),
+  target_channels = coalesce(target_channels, '[]'::jsonb),
+  target_languages = coalesce(target_languages, '[]'::jsonb),
+  metadata = coalesce(metadata, '{}'::jsonb),
+  archived = coalesce(archived, false),
+  created_at = coalesce(created_at, now()),
+  updated_at = coalesce(updated_at, now());
+
 create index if not exists creative_projects_organization_idx
   on public.creative_projects (organization_id, created_at desc);
 
@@ -53,18 +67,39 @@ create index if not exists creative_projects_mission_idx
   on public.creative_projects (organization_id, creative_mission_id)
   where creative_mission_id is not null;
 
-create unique index if not exists creative_projects_mission_active_uidx
-  on public.creative_projects (organization_id, creative_mission_id)
-  where creative_mission_id is not null and archived = false;
-
 alter table public.creative_projects enable row level security;
 
 alter table if exists public.creative_project_state
   add column if not exists creative_project_id uuid;
 
-create unique index if not exists creative_project_state_mission_uidx
-  on public.creative_project_state (creative_mission_id)
-  where creative_mission_id is not null;
+do $$
+begin
+  if to_regclass('public.creative_project_state') is not null then
+    with ranked as (
+      select
+        ctid,
+        row_number() over (
+          partition by creative_mission_id
+          order by
+            coalesce(to_jsonb(state_row) ->> 'updated_at', '') desc,
+            coalesce(to_jsonb(state_row) ->> 'created_at', '') desc,
+            coalesce(to_jsonb(state_row) ->> 'id', '') desc,
+            ctid desc
+        ) as row_number
+      from public.creative_project_state state_row
+      where creative_mission_id is not null
+    )
+    delete from public.creative_project_state target
+    using ranked
+    where target.ctid = ranked.ctid
+      and ranked.row_number > 1;
+
+    create unique index if not exists creative_project_state_mission_uidx
+      on public.creative_project_state (creative_mission_id)
+      where creative_mission_id is not null;
+  end if;
+end
+$$;
 
 do $$
 declare
@@ -120,7 +155,21 @@ begin
       row_data -> 'budget_profile',
       coalesce(row_data -> 'metadata', '{}'::jsonb),
       case when coalesce(row_data ->> 'created_by', '') ~ uuid_pattern then (row_data ->> 'created_by')::uuid end,
-      coalesce((row_data ->> 'archived')::boolean, false),
+      case lower(trim(coalesce(row_data ->> 'archived', '')))
+        when 'true' then true
+        when 't' then true
+        when '1' then true
+        when 'yes' then true
+        when 'y' then true
+        when 'on' then true
+        when 'false' then false
+        when 'f' then false
+        when '0' then false
+        when 'no' then false
+        when 'n' then false
+        when 'off' then false
+        else false
+      end,
       now(),
       now()
     from (
@@ -157,6 +206,34 @@ begin
   end if;
 end
 $$;
+
+with ranked as (
+  select
+    id,
+    row_number() over (
+      partition by organization_id, creative_mission_id
+      order by updated_at desc nulls last, created_at desc nulls last, id desc
+    ) as row_number
+  from public.creative_projects
+  where creative_mission_id is not null
+    and archived = false
+)
+update public.creative_projects project
+set
+  archived = true,
+  status = 'ARCHIVED',
+  metadata = coalesce(project.metadata, '{}'::jsonb) || jsonb_build_object(
+    'archived_reason', 'duplicate_active_mission_project',
+    'archived_by_migration', '20260725181500'
+  ),
+  updated_at = now()
+from ranked
+where project.id = ranked.id
+  and ranked.row_number > 1;
+
+create unique index if not exists creative_projects_mission_active_uidx
+  on public.creative_projects (organization_id, creative_mission_id)
+  where creative_mission_id is not null and archived = false;
 
 comment on table public.creative_projects is
   'Canonical Creative Studio project documents. Pipeline state remains in creative_project_state.';

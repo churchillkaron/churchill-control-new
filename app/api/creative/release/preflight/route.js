@@ -332,6 +332,7 @@ export async function POST(request) {
     );
     const assetBucket = process.env.CREATIVE_MEDIA_ASSET_BUCKET;
     const renderBucket = process.env.CREATIVE_MEDIA_RENDER_BUCKET;
+    const derivativeBucket = process.env.CREATIVE_MEDIA_DERIVATIVE_BUCKET;
     const ffmpegPath = process.env.CREATIVE_MEDIA_FFMPEG_PATH;
     const ffprobePath = process.env.CREATIVE_MEDIA_FFPROBE_PATH;
 
@@ -348,6 +349,7 @@ export async function POST(request) {
       assets,
       assetBucketResult,
       renderBucketResult,
+      derivativeBucketResult,
       executionEvidence,
     ] = await Promise.all([
       queryOrganizationServices(organizationId, requiredServiceIds),
@@ -355,6 +357,7 @@ export async function POST(request) {
       querySelectedAssets(organizationId, selectedAssetIds),
       queryBucket(assetBucket),
       queryBucket(renderBucket),
+      queryBucket(derivativeBucket),
       Promise.all(executionRequirements.map((item) =>
         inspectExecutionRequirement(organizationId, item))),
     ]);
@@ -430,6 +433,10 @@ export async function POST(request) {
       check("render_bucket_configured", true, configured(renderBucket), renderBucket || null),
       check("render_bucket_exists", true, renderBucketResult.found, renderBucketResult.error),
       check("render_bucket_private", true, renderBucketResult.private, { bucket: renderBucket || null }),
+      check("derivative_bucket_configured", true, configured(derivativeBucket), derivativeBucket || null),
+      check("derivative_bucket_exists", true, derivativeBucketResult.found, derivativeBucketResult.error),
+      check("derivative_bucket_private", true, derivativeBucketResult.private, { bucket: derivativeBucket || null }),
+      check("private_media_url_ttl_configured", true, number(process.env.CREATIVE_PRIVATE_MEDIA_URL_TTL_SECONDS, null) > 0, process.env.CREATIVE_PRIVATE_MEDIA_URL_TTL_SECONDS || null),
       check("asset_and_render_buckets_distinct", true, configured(assetBucket) && configured(renderBucket) && assetBucket !== renderBucket, { asset_bucket: assetBucket || null, render_bucket: renderBucket || null }),
       check("ffmpeg_path_configured", true, configured(ffmpegPath)),
       check("ffmpeg_executable", true, executable(ffmpegPath)),

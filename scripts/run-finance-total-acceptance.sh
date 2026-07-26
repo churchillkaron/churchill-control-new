@@ -9,21 +9,36 @@ SESSION_FILE="$(mktemp)"
 BOOTSTRAP_FILE="$(mktemp)"
 DRY_LOG="$(mktemp)"
 REPORT="/tmp/AVANTIQO_FINANCE_TOTAL_ACCEPTANCE_${STAMP}.json"
-CREATIVE_MIGRATION="$PROJECT_ROOT/supabase/migrations/20260725181500_creative_project_contract_convergence.sql"
-CREATIVE_HOLD="/tmp/20260725181500_creative_project_contract_convergence_${STAMP}_$$.sql"
-CREATIVE_QUARANTINED=0
+CREATIVE_HOLD_DIR="/tmp/avantiqo-finance-acceptance-creative-${STAMP}-$$"
+CREATIVE_MIGRATIONS=(
+  "$PROJECT_ROOT/supabase/migrations/20260725181500_creative_project_contract_convergence.sql"
+  "$PROJECT_ROOT/supabase/migrations/20260726093000_creative_project_contract_hardening.sql"
+)
+QUARANTINED_CREATIVE_FILES=()
 
-restore_creative_migration() {
-  if [ "$CREATIVE_QUARANTINED" -eq 1 ] && [ -f "$CREATIVE_HOLD" ]; then
-    mkdir -p "$(dirname "$CREATIVE_MIGRATION")"
-    mv "$CREATIVE_HOLD" "$CREATIVE_MIGRATION"
-    CREATIVE_QUARANTINED=0
-    echo "CREATIVE_MIGRATION_RESTORED=YES"
+restore_creative_migrations() {
+  local restored=0
+  local held
+  local destination
+
+  for held in "${QUARANTINED_CREATIVE_FILES[@]}"; do
+    [ -f "$held" ] || continue
+    destination="$PROJECT_ROOT/supabase/migrations/$(basename "$held")"
+    mkdir -p "$(dirname "$destination")"
+    mv "$held" "$destination"
+    restored=$((restored + 1))
+  done
+
+  QUARANTINED_CREATIVE_FILES=()
+  rmdir "$CREATIVE_HOLD_DIR" 2>/dev/null || true
+
+  if [ "$restored" -gt 0 ]; then
+    echo "CREATIVE_MIGRATIONS_RESTORED=$restored"
   fi
 }
 
 cleanup() {
-  restore_creative_migration
+  restore_creative_migrations
   rm -f "$SESSION_FILE" "$BOOTSTRAP_FILE" "$DRY_LOG"
   unset FINANCE_SMOKE_PASSWORD FINANCE_ACCEPTANCE_ACCESS_TOKEN FINANCE_ACCEPTANCE_COOKIE 2>/dev/null || true
 }
@@ -114,14 +129,19 @@ export NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"
 export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
 
 echo ""
-echo "================ ISOLATE UNRELATED CREATIVE MIGRATION ================"
-if [ -f "$CREATIVE_MIGRATION" ]; then
-  mv "$CREATIVE_MIGRATION" "$CREATIVE_HOLD" || fail "Could not quarantine the unrelated Creative migration"
-  CREATIVE_QUARANTINED=1
-  echo "CREATIVE_MIGRATION_QUARANTINED=YES"
-else
-  echo "CREATIVE_MIGRATION_QUARANTINED=NOT_PRESENT"
-fi
+echo "================ ISOLATE UNRELATED CREATIVE MIGRATIONS ================"
+mkdir -p "$CREATIVE_HOLD_DIR" || fail "Could not create Creative migration hold directory"
+
+for migration in "${CREATIVE_MIGRATIONS[@]}"; do
+  if [ -f "$migration" ]; then
+    held="$CREATIVE_HOLD_DIR/$(basename "$migration")"
+    mv "$migration" "$held" || fail "Could not quarantine $(basename "$migration")"
+    QUARANTINED_CREATIVE_FILES+=("$held")
+    echo "CREATIVE_MIGRATION_QUARANTINED=$(basename "$migration")"
+  fi
+done
+
+echo "CREATIVE_MIGRATIONS_QUARANTINED=${#QUARANTINED_CREATIVE_FILES[@]}"
 
 echo ""
 echo "================ ACCEPTANCE MIGRATION DRY RUN ================"
@@ -149,11 +169,13 @@ else
   fail "Dry run did not show the expected acceptance migration"
 fi
 
-restore_creative_migration
+restore_creative_migrations
 
-if [ ! -f "$CREATIVE_MIGRATION" ]; then
-  fail "Creative migration was not restored after Finance probe deployment"
-fi
+for migration in "${CREATIVE_MIGRATIONS[@]}"; do
+  if [ ! -f "$migration" ]; then
+    fail "Creative migration was not restored: $(basename "$migration")"
+  fi
+done
 
 echo ""
 echo "================ LOCALHOST 3000 ================"

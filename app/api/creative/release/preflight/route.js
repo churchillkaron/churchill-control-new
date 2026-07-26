@@ -146,6 +146,10 @@ function validateSemanticPolicy(value) {
   if (typeof policy.require_audio_review !== "boolean") {
     failures.push("require_audio_review");
   }
+  if (!text(policy.service_id)) failures.push("service_id");
+  if (!text(policy.provider_id)) failures.push("provider_id");
+  if (!text(policy.capability)) failures.push("capability");
+  if (!text(policy.model)) failures.push("model");
 
   return {
     passed: failures.length === 0,
@@ -330,6 +334,11 @@ export async function POST(request) {
       publishTargetId,
       requiredMediaKind,
     );
+    const semanticExecutionLinked = executionRequirements.some((item) =>
+      item.service_id === text(semanticQuality.policy.service_id) &&
+      item.provider_id === text(semanticQuality.policy.provider_id).toLowerCase() &&
+      item.capability === text(semanticQuality.policy.capability) &&
+      item.model === text(semanticQuality.policy.model));
     const assetBucket = process.env.CREATIVE_MEDIA_ASSET_BUCKET;
     const renderBucket = process.env.CREATIVE_MEDIA_RENDER_BUCKET;
     const derivativeBucket = process.env.CREATIVE_MEDIA_DERIVATIVE_BUCKET;
@@ -460,6 +469,12 @@ export async function POST(request) {
       check("publish_target_execution_linked", true, targetExecutionLinked, { target_service_id: publishTarget.target.service_id, target_provider_id: publishTarget.target.provider_id, required_service_ids: requiredServiceIds, required_provider_ids: requiredProviderIds }),
       check("creative_quality_policy_valid", true, creativeQuality.passed, creativeQuality),
       check("semantic_quality_policy_valid", true, semanticQuality.passed, semanticQuality),
+      check("semantic_review_execution_linked", true, semanticExecutionLinked, {
+        service_id: semanticQuality.policy.service_id || null,
+        provider_id: semanticQuality.policy.provider_id || null,
+        capability: semanticQuality.policy.capability || null,
+        model: semanticQuality.policy.model || null,
+      }),
       check("render_timeout_configured", false, configured(process.env.CREATIVE_MEDIA_RENDER_TIMEOUT_MS)),
       check("render_cache_control_configured", false, configured(process.env.CREATIVE_MEDIA_RENDER_CACHE_CONTROL)),
     ];

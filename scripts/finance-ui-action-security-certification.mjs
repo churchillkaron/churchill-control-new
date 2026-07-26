@@ -13,6 +13,13 @@ const PERIOD_ID = String(process.env.FINANCE_CERT_PERIOD_ID || "").trim();
 const ACCESS_TOKEN = String(process.env.FINANCE_CERT_ACCESS_TOKEN || "").trim();
 const COOKIE = String(process.env.FINANCE_CERT_COOKIE || "").trim();
 const REPORT = String(process.env.FINANCE_CERT_REPORT || `/tmp/AVANTIQO_FINANCE_UI_ACTION_SECURITY_${Date.now()}.json`);
+const FOCUS = new Set(
+  String(process.env.FINANCE_CERT_FOCUS || "")
+    .split(",")
+    .map(value => value.trim())
+    .filter(Boolean)
+);
+const FOCUSED = FOCUS.size > 0;
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 const FOREIGN_ORG = crypto.randomUUID();
 const FOREIGN_ENTITY = crypto.randomUUID();
@@ -168,6 +175,26 @@ function controlledStatus(status) {
   return status >= 200 && status < 500 && status !== 300 && status !== 301 && status !== 302 && status !== 307 && status !== 308;
 }
 
+function failureDetails({ response, body, text }) {
+  const values = [
+    body?.error,
+    body?.message,
+    body?.details,
+    body?.hint,
+    body?.code,
+  ].filter(Boolean).map(value => String(value));
+
+  const message = values.length
+    ? values.join(" | ")
+    : String(text || "").replace(/\s+/g, " ").trim().slice(0, 400);
+
+  return {
+    status: response.status,
+    message: message || `HTTP ${response.status}`,
+    response: body || String(text || "").slice(0, 2000),
+  };
+}
+
 async function main() {
   required(ORGANIZATION_ID, "FINANCE_CERT_ORGANIZATION_ID");
   required(ENTITY_ID, "FINANCE_CERT_ENTITY_ID");
@@ -187,63 +214,71 @@ async function main() {
   const formRefs = referencedForms(`${policy}\n${financeSection(registry)}`);
   const apiRoutes = apiManifest();
 
-  console.log("================ STATIC EXECUTION CONTRACTS ================");
-  add("structure", "67 workspace policies", ids.length === 67, { actual: ids.length });
-  add("structure", "67 live registry routes", routes.filter(row => row.route).length === 67, { actual: routes.filter(row => row.route).length });
-  add("structure", "25 generic contracts", contracts.length === 25, { actual: contracts.length });
-  add("structure", "216 Finance row actions", rowActionCount(registry) === 216, { actual: rowActionCount(registry) });
-  add("structure", "generic POST available", /export async function POST/.test(genericRoute));
-  add("structure", "generic PATCH available", /export async function PATCH/.test(genericRoute));
-  add("structure", "generic archive available", /export async function DELETE/.test(genericRoute));
-  add("structure", "no tenant boundary", !/tenant_id|tenantId/.test(`${financeSection(registry)}\n${contractsSource}\n${genericRoute}`));
-  add("structure", "no fixed Finance defaults", !/default(?:Value)?\s*:\s*["'](?:THB|USD|EUR|GBP|Thailand)["']/i.test(formContract));
+  if (!FOCUSED) {
+    console.log("================ STATIC EXECUTION CONTRACTS ================");
+    add("structure", "67 workspace policies", ids.length === 67, { actual: ids.length });
+    add("structure", "67 live registry routes", routes.filter(row => row.route).length === 67, { actual: routes.filter(row => row.route).length });
+    add("structure", "25 generic contracts", contracts.length === 25, { actual: contracts.length });
+    add("structure", "216 Finance row actions", rowActionCount(registry) === 216, { actual: rowActionCount(registry) });
+    add("structure", "generic POST available", /export async function POST/.test(genericRoute));
+    add("structure", "generic PATCH available", /export async function PATCH/.test(genericRoute));
+    add("structure", "generic archive available", /export async function DELETE/.test(genericRoute));
+    add("structure", "no tenant boundary", !/tenant_id|tenantId/.test(`${financeSection(registry)}\n${contractsSource}\n${genericRoute}`));
+    add("structure", "no fixed Finance defaults", !/default(?:Value)?\s*:\s*["'](?:THB|USD|EUR|GBP|Thailand)["']/i.test(formContract));
 
-  for (const formId of formRefs) {
-    add("form-binding", formId, forms.has(formId), { message: forms.has(formId) ? null : "Referenced form is not registered" });
-  }
-
-  const referencedApiRoutes = [...new Set(walk(path.join(ROOT, "lib", "finance"))
-    .filter(file => /\.(?:js|jsx|mjs)$/.test(file))
-    .flatMap(file => [...fs.readFileSync(file, "utf8").matchAll(/["'`](\/api\/finance\/[^"'`?\s]+)/g)].map(match => match[1])))];
-  for (const reference of referencedApiRoutes) {
-    const exists = apiRoutes.some(item => routePattern(item.route).test(reference));
-    add("api-reference", reference, exists, { message: exists ? null : "No matching app/api/finance route" });
-  }
-
-  console.log("\n================ 67 AUTHENTICATED WORKSPACE PAGES ================");
-  for (const { id, route } of routes) {
-    if (!route) continue;
-    try {
-      const { response, text } = await request(`${BASE_URL}/workspace/${ORGANIZATION_ID}${route}`, { accept: "text/html" });
-      const passed = response.status === 200 && !/Application error|Internal Server Error|404: This page could not be found/i.test(text);
-      add("live-page", id, passed, { status: response.status, route });
-    } catch (error) {
-      add("live-page", id, false, { route, message: error.message });
+    for (const formId of formRefs) {
+      add("form-binding", formId, forms.has(formId), { message: forms.has(formId) ? null : "Referenced form is not registered" });
     }
-  }
 
-  console.log("\n================ GENERIC WORKSPACE SECURITY ================");
-  for (const contract of contracts) {
-    const scopeParams = new URLSearchParams({ organizationId: ORGANIZATION_ID });
-    if (contract.scope === "entity") scopeParams.set("entityId", ENTITY_ID);
-    const base = `${BASE_URL}/api/finance/workspaces/${contract.id}`;
-    const normal = await request(`${base}?${scopeParams}`);
-    add("list-contract", contract.id, normal.response.status === 200 && normal.body?.success === true, { status: normal.response.status });
-
-    const foreignOrg = new URLSearchParams({ organizationId: FOREIGN_ORG, entityId: ENTITY_ID });
-    const deniedOrg = await request(`${base}?${foreignOrg}`);
-    add("scope-rejection", `${contract.id}.foreign_org`, [400, 401, 403, 404].includes(deniedOrg.response.status), { status: deniedOrg.response.status });
-
-    if (contract.scope === "entity") {
-      const foreignEntity = new URLSearchParams({ organizationId: ORGANIZATION_ID, entityId: FOREIGN_ENTITY });
-      const deniedEntity = await request(`${base}?${foreignEntity}`);
-      add("scope-rejection", `${contract.id}.foreign_entity`, [400, 401, 403, 404].includes(deniedEntity.response.status), { status: deniedEntity.response.status });
+    const referencedApiRoutes = [...new Set(walk(path.join(ROOT, "lib", "finance"))
+      .filter(file => /\.(?:js|jsx|mjs)$/.test(file))
+      .flatMap(file => [...fs.readFileSync(file, "utf8").matchAll(/["'`](\/api\/finance\/[^"'`?\s]+)/g)].map(match => match[1])))];
+    for (const reference of referencedApiRoutes) {
+      const exists = apiRoutes.some(item => routePattern(item.route).test(reference));
+      add("api-reference", reference, exists, { message: exists ? null : "No matching app/api/finance route" });
     }
+
+    console.log("\n================ 67 AUTHENTICATED WORKSPACE PAGES ================");
+    for (const { id, route } of routes) {
+      if (!route) continue;
+      try {
+        const { response, text } = await request(`${BASE_URL}/workspace/${ORGANIZATION_ID}${route}`, { accept: "text/html" });
+        const passed = response.status === 200 && !/Application error|Internal Server Error|404: This page could not be found/i.test(text);
+        add("live-page", id, passed, { status: response.status, route });
+      } catch (error) {
+        add("live-page", id, false, { route, message: error.message });
+      }
+    }
+
+    console.log("\n================ GENERIC WORKSPACE SECURITY ================");
+    for (const contract of contracts) {
+      const scopeParams = new URLSearchParams({ organizationId: ORGANIZATION_ID });
+      if (contract.scope === "entity") scopeParams.set("entityId", ENTITY_ID);
+      const base = `${BASE_URL}/api/finance/workspaces/${contract.id}`;
+      const normal = await request(`${base}?${scopeParams}`);
+      add("list-contract", contract.id, normal.response.status === 200 && normal.body?.success === true, { status: normal.response.status });
+
+      const foreignOrg = new URLSearchParams({ organizationId: FOREIGN_ORG, entityId: ENTITY_ID });
+      const deniedOrg = await request(`${base}?${foreignOrg}`);
+      add("scope-rejection", `${contract.id}.foreign_org`, [400, 401, 403, 404].includes(deniedOrg.response.status), { status: deniedOrg.response.status });
+
+      if (contract.scope === "entity") {
+        const foreignEntity = new URLSearchParams({ organizationId: ORGANIZATION_ID, entityId: FOREIGN_ENTITY });
+        const deniedEntity = await request(`${base}?${foreignEntity}`);
+        add("scope-rejection", `${contract.id}.foreign_entity`, [400, 401, 403, 404].includes(deniedEntity.response.status), { status: deniedEntity.response.status });
+      }
+    }
+  } else {
+    console.log(`================ FOCUSED HANDLER DIAGNOSTIC (${[...FOCUS].join(", ")}) ================`);
   }
 
   console.log("\n================ FINANCE GET HANDLER MATRIX ================");
   const firstContract = contracts[0]?.id || "opening_balances";
-  for (const item of apiRoutes.filter(item => item.methods.includes("GET"))) {
+  const getHandlers = apiRoutes
+    .filter(item => item.methods.includes("GET"))
+    .filter(item => !FOCUSED || FOCUS.has(item.route));
+
+  for (const item of getHandlers) {
     const target = materializeRoute(item.route, firstContract);
     const url = new URL(`${BASE_URL}${target}`);
     url.searchParams.set("organizationId", ORGANIZATION_ID);
@@ -255,40 +290,56 @@ async function main() {
       url.searchParams.set("period_id", PERIOD_ID);
     }
     try {
-      const { response, text } = await request(url.toString());
-      const passed = controlledStatus(response.status) && !/Internal Server Error|Application error/i.test(text);
-      add("get-handler", item.route, passed, { status: response.status, file: item.file });
+      const result = await request(url.toString());
+      const passed = controlledStatus(result.response.status) && !/Internal Server Error|Application error/i.test(result.text);
+      const details = passed
+        ? { status: result.response.status, file: item.file }
+        : { ...failureDetails(result), file: item.file, url: url.toString() };
+      add("get-handler", item.route, passed, details);
       if (/preview|report|statement|ledger|trial-balance|dashboard|insight/i.test(item.route)) {
-        add("document-report", item.route, passed, { status: response.status });
+        add("document-report", item.route, passed, details);
       }
     } catch (error) {
       add("get-handler", item.route, false, { file: item.file, message: error.message });
     }
   }
 
-  console.log("\n================ GENERIC WRITE GUARDS ================");
-  const writable = contracts.find(contract => contract.id !== "customer_statements" && contract.id !== "vendor_statements" && contract.id !== "cash_management");
-  const readOnly = contracts.find(contract => ["customer_statements", "vendor_statements", "cash_management"].includes(contract.id));
-  if (writable) {
-    const url = `${BASE_URL}/api/finance/workspaces/${writable.id}`;
-    const emptyPost = await request(url, { method: "POST", body: JSON.stringify({ organizationId: ORGANIZATION_ID, entityId: ENTITY_ID }) });
-    add("write-guard", "required fields reject empty POST", [400, 405].includes(emptyPost.response.status), { status: emptyPost.response.status });
-    const emptyPatch = await request(url, { method: "PATCH", body: JSON.stringify({ organizationId: ORGANIZATION_ID, entityId: ENTITY_ID }) });
-    add("write-guard", "PATCH requires record id", emptyPatch.response.status === 400, { status: emptyPatch.response.status });
-    const emptyDelete = await request(url, { method: "DELETE", body: JSON.stringify({ organizationId: ORGANIZATION_ID, entityId: ENTITY_ID }) });
-    add("write-guard", "DELETE requires record id", emptyDelete.response.status === 400, { status: emptyDelete.response.status });
-  }
-  if (readOnly) {
-    const url = `${BASE_URL}/api/finance/workspaces/${readOnly.id}`;
-    for (const method of ["POST", "PATCH", "DELETE"]) {
-      const probe = await request(url, { method, body: JSON.stringify({ organizationId: ORGANIZATION_ID, entityId: ENTITY_ID, id: ZERO_UUID }) });
-      add("read-only-guard", `${readOnly.id}.${method}`, probe.response.status === 405, { status: probe.response.status });
+  if (!FOCUSED) {
+    console.log("\n================ GENERIC WRITE GUARDS ================");
+    const writable = contracts.find(contract => contract.id !== "customer_statements" && contract.id !== "vendor_statements" && contract.id !== "cash_management");
+    const readOnly = contracts.find(contract => ["customer_statements", "vendor_statements", "cash_management"].includes(contract.id));
+    if (writable) {
+      const url = `${BASE_URL}/api/finance/workspaces/${writable.id}`;
+      const emptyPost = await request(url, { method: "POST", body: JSON.stringify({ organizationId: ORGANIZATION_ID, entityId: ENTITY_ID }) });
+      add("write-guard", "required fields reject empty POST", [400, 405].includes(emptyPost.response.status), { status: emptyPost.response.status });
+      const emptyPatch = await request(url, { method: "PATCH", body: JSON.stringify({ organizationId: ORGANIZATION_ID, entityId: ENTITY_ID }) });
+      add("write-guard", "PATCH requires record id", emptyPatch.response.status === 400, { status: emptyPatch.response.status });
+      const emptyDelete = await request(url, { method: "DELETE", body: JSON.stringify({ organizationId: ORGANIZATION_ID, entityId: ENTITY_ID }) });
+      add("write-guard", "DELETE requires record id", emptyDelete.response.status === 400, { status: emptyDelete.response.status });
+    }
+    if (readOnly) {
+      const url = `${BASE_URL}/api/finance/workspaces/${readOnly.id}`;
+      for (const method of ["POST", "PATCH", "DELETE"]) {
+        const probe = await request(url, { method, body: JSON.stringify({ organizationId: ORGANIZATION_ID, entityId: ENTITY_ID, id: ZERO_UUID }) });
+        add("read-only-guard", `${readOnly.id}.${method}`, probe.response.status === 405, { status: probe.response.status });
+      }
     }
   }
 
   const passed = results.filter(row => row.passed).length;
   const failed = results.length - passed;
-  const report = { generatedAt: new Date().toISOString(), organizationId: ORGANIZATION_ID, entityId: ENTITY_ID, periodId: PERIOD_ID || null, passed, failed, total: results.length, results };
+  const report = {
+    generatedAt: new Date().toISOString(),
+    mode: FOCUSED ? "focused_handler_diagnostic" : "full_certification",
+    focus: [...FOCUS],
+    organizationId: ORGANIZATION_ID,
+    entityId: ENTITY_ID,
+    periodId: PERIOD_ID || null,
+    passed,
+    failed,
+    total: results.length,
+    results,
+  };
   fs.writeFileSync(REPORT, JSON.stringify(report, null, 2));
   console.log("\n================ FINAL RESULT ================");
   console.log(`PASSED=${passed}`);

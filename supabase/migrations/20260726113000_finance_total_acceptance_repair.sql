@@ -84,97 +84,82 @@ on public.journal_entries
 for each row
 execute function public.finance_guard_generated_journal_number();
 
-create or replace function public.finance_sync_accounts_payable_vendor_identity()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $$
+do $$
 declare
-  v_target_table text;
-  v_target_name text;
-  v_resolved_vendor_id uuid;
-  v_resolved_party_id uuid;
+  v_constraint record;
+  v_orphan_count bigint;
 begin
-  select constraint_row.confrelid::regclass::text
-  into v_target_table
-  from pg_constraint constraint_row
-  where constraint_row.conrelid = 'public.accounts_payable'::regclass
-    and constraint_row.contype = 'f'
-    and constraint_row.conname = 'accounts_payable_vendor_id_fkey'
-  limit 1;
-
-  if v_target_table is null then
-    return new;
+  if to_regclass('public.accounts_payable') is null then
+    raise exception 'accounts_payable table is required';
   end if;
 
-  v_target_name := regexp_replace(replace(v_target_table, '"', ''), '^.*\.', '');
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'accounts_payable'
+      and column_name = 'vendor_party_id'
+  ) then
+    raise exception 'accounts_payable.vendor_party_id is required';
+  end if;
 
-  if new.vendor_party_id is null and new.vendor_id is not null then
-    if v_target_name = 'parties' then
-      v_resolved_party_id := new.vendor_id;
-    elsif v_target_name = 'supplier_profiles' then
-      select profile.party_id
-      into v_resolved_party_id
-      from public.supplier_profiles profile
-      where profile.id = new.vendor_id
-        and profile.organization_id = new.organization_id
-      limit 1;
-    elsif v_target_name = 'vendors' then
-      execute format(
-        'select nullif(coalesce(to_jsonb(vendor_row)->>''party_id'', to_jsonb(vendor_row)->>''vendor_party_id''), '''')::uuid from %s vendor_row where vendor_row.id = $1 limit 1',
-        v_target_table
+  for v_constraint in
+    select constraint_row.conname
+    from pg_constraint constraint_row
+    where constraint_row.conrelid = 'public.accounts_payable'::regclass
+      and constraint_row.contype = 'f'
+      and exists (
+        select 1
+        from unnest(constraint_row.conkey) as key_column(attnum)
+        join pg_attribute attribute_row
+          on attribute_row.attrelid = constraint_row.conrelid
+         and attribute_row.attnum = key_column.attnum
+        where attribute_row.attname = 'vendor_party_id'
       )
-      using new.vendor_id
-      into v_resolved_party_id;
-    end if;
-
-    if v_resolved_party_id is not null then
-      new.vendor_party_id := v_resolved_party_id;
-    end if;
-  end if;
-
-  if new.vendor_party_id is null then
-    return new;
-  end if;
-
-  if v_target_name = 'parties' then
-    v_resolved_vendor_id := new.vendor_party_id;
-  elsif v_target_name = 'supplier_profiles' then
-    select profile.id
-    into v_resolved_vendor_id
-    from public.supplier_profiles profile
-    where profile.organization_id = new.organization_id
-      and profile.party_id = new.vendor_party_id
-      and coalesce(profile.is_active, true) = true
-    order by profile.created_at desc nulls last, profile.id
-    limit 1;
-  elsif v_target_name = 'vendors' then
+  loop
     execute format(
-      'select vendor_row.id from %s vendor_row where coalesce(to_jsonb(vendor_row)->>''organization_id'', $1) = $1 and coalesce(to_jsonb(vendor_row)->>''party_id'', to_jsonb(vendor_row)->>''vendor_party_id'') = $2 limit 1',
-      v_target_table
-    )
-    using new.organization_id::text, new.vendor_party_id::text
-    into v_resolved_vendor_id;
+      'alter table public.accounts_payable drop constraint %I',
+      v_constraint.conname
+    );
+  end loop;
+
+  update public.accounts_payable payable
+  set vendor_party_id = profile.party_id
+  from public.supplier_profiles profile
+  where payable.vendor_party_id = profile.id
+    and profile.organization_id = payable.organization_id
+    and not exists (
+      select 1
+      from public.parties party
+      where party.id = payable.vendor_party_id
+        and party.organization_id = payable.organization_id
+    );
+
+  select count(*)
+  into v_orphan_count
+  from public.accounts_payable payable
+  left join public.parties party
+    on party.id = payable.vendor_party_id
+   and party.organization_id = payable.organization_id
+  where payable.vendor_party_id is not null
+    and party.id is null;
+
+  if v_orphan_count > 0 then
+    raise exception
+      'Cannot align accounts_payable.vendor_party_id: % orphaned vendor reference(s) remain',
+      v_orphan_count;
   end if;
 
-  if v_resolved_vendor_id is null then
-    raise exception 'Canonical supplier profile is required before creating accounts payable for vendor party %', new.vendor_party_id;
-  end if;
+  alter table public.accounts_payable
+    add constraint accounts_payable_vendor_party_id_fkey
+    foreign key (vendor_party_id)
+    references public.parties(id)
+    not valid;
 
-  new.vendor_id := v_resolved_vendor_id;
-  return new;
+  alter table public.accounts_payable
+    validate constraint accounts_payable_vendor_party_id_fkey;
 end;
 $$;
-
-drop trigger if exists zzzz_finance_accounts_payable_vendor_identity
-on public.accounts_payable;
-
-create trigger zzzz_finance_accounts_payable_vendor_identity
-before insert or update of vendor_id, vendor_party_id, organization_id
-on public.accounts_payable
-for each row
-execute function public.finance_sync_accounts_payable_vendor_identity();
 
 create or replace function public.finance_run_total_acceptance_probe_v4(
   p_organization_id uuid,

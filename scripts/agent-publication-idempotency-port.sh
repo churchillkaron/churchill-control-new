@@ -82,3 +82,5 @@ PY
 
 rm -f scripts/agent-publication-idempotency-port.sh
 rm -f .github/workflows/agent-publication-idempotency-port.yml
+
+# Trigger workflow after installation.

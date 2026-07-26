@@ -41,7 +41,6 @@ export async function POST(request) {
         user_id: access.userId,
         staff_account_id: access.staff?.id,
       },
-      force: body.force === true,
     });
 
     return Response.json({ success: true, ...result });

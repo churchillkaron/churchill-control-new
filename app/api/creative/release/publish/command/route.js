@@ -5,21 +5,24 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
-  CreativePublishExecutionRuntime,
-} from "@/lib/creative/release/runtime/CreativePublishExecutionRuntime";
+  CreativePublishCommandRuntime,
+} from "@/lib/creative/release/runtime/CreativePublishCommandRuntime";
 
 export async function POST(request) {
   try {
     const body = await request.json();
     const organizationId = body.organization_id || body.organizationId;
-    const publishCommandAssetNodeId =
-      body.publish_command_asset_node_id || body.publishCommandAssetNodeId;
+    const releaseReadinessReportId =
+      body.release_readiness_report_id || body.releaseReadinessReportId;
+    const publishTargetId =
+      body.publish_target_id || body.publishTargetId;
 
-    if (!organizationId || !publishCommandAssetNodeId) {
+    if (!organizationId || !releaseReadinessReportId || !publishTargetId) {
       return Response.json(
         {
           success: false,
-          error: "organization_id and publish_command_asset_node_id required",
+          error:
+            "organization_id, release_readiness_report_id and publish_target_id required",
         },
         { status: 400 },
       );
@@ -28,18 +31,20 @@ export async function POST(request) {
     const access = await requireOrganizationAccess({
       organizationId,
       request,
-      requiredPermission: "creative.release.publish.execute",
+      requiredPermission: "creative.release.publish",
     });
     if (!access.success) {
       return Response.json(access, { status: access.status });
     }
 
-    const result = await CreativePublishExecutionRuntime.execute({
+    const result = await CreativePublishCommandRuntime.create({
       organization_id: organizationId,
-      publish_command_asset_node_id: publishCommandAssetNodeId,
-      executed_by: {
+      release_readiness_report_id: releaseReadinessReportId,
+      publish_target_id: publishTargetId,
+      requested_by: {
         user_id: access.userId,
         staff_account_id: access.staff?.id,
+        email: access.userEmail,
       },
     });
 

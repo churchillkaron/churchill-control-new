@@ -93,13 +93,13 @@ begin
     using ranked
     where target.ctid = ranked.ctid
       and ranked.row_number > 1;
+
+    create unique index if not exists creative_project_state_mission_uidx
+      on public.creative_project_state (creative_mission_id)
+      where creative_mission_id is not null;
   end if;
 end
 $$;
-
-create unique index if not exists creative_project_state_mission_uidx
-  on public.creative_project_state (creative_mission_id)
-  where creative_mission_id is not null;
 
 do $$
 declare

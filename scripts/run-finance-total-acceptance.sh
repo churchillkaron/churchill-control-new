@@ -110,7 +110,8 @@ git switch main || fail "Cannot switch to main"
 git pull --ff-only origin main || fail "Cannot fast-forward main"
 echo "MAIN=$(git rev-parse HEAD)"
 
-[ -f supabase/migrations/20260726100000_finance_total_acceptance_probe.sql ] || fail "Acceptance migration is missing"
+[ -f supabase/migrations/20260726100000_finance_total_acceptance_probe.sql ] || fail "Acceptance migration v1 is missing"
+[ -f supabase/migrations/20260726103000_finance_total_acceptance_probe_v2.sql ] || fail "Acceptance migration v2 is missing"
 [ -f scripts/finance-total-acceptance.mjs ] || fail "Acceptance orchestrator is missing"
 [ -f scripts/create-finance-smoke-session.mjs ] || fail "Session helper is missing"
 
@@ -152,21 +153,21 @@ if [ "$DRY_STATUS" -ne 0 ]; then
 fi
 
 if grep -q "Remote database is up to date" "$DRY_LOG"; then
-  echo "Acceptance probe is already deployed."
-elif grep -q "20260726100000_finance_total_acceptance_probe.sql" "$DRY_LOG"; then
-  UNEXPECTED_VERSIONS="$(grep -Eo '[0-9]{14}' "$DRY_LOG" | sort -u | grep -v '^20260726100000$' || true)"
+  echo "Acceptance probe v2 is already deployed."
+elif grep -q "20260726103000_finance_total_acceptance_probe_v2.sql" "$DRY_LOG"; then
+  UNEXPECTED_VERSIONS="$(grep -Eo '[0-9]{14}' "$DRY_LOG" | sort -u | grep -v '^20260726103000$' || true)"
   if [ -n "$UNEXPECTED_VERSIONS" ]; then
     echo "$UNEXPECTED_VERSIONS"
     fail "Unexpected pending migrations detected"
   fi
 
   echo ""
-  printf "Press Enter to deploy the rollback-safe acceptance probe, or Control-C to stop..."
+  printf "Press Enter to deploy the rollback-safe acceptance probe v2, or Control-C to stop..."
   IFS= read -r _
 
-  npx supabase db push --yes || fail "Acceptance migration deployment failed"
+  npx supabase db push --yes || fail "Acceptance migration v2 deployment failed"
 else
-  fail "Dry run did not show the expected acceptance migration"
+  fail "Dry run did not show the expected acceptance migration v2"
 fi
 
 restore_creative_migrations
@@ -230,8 +231,8 @@ echo "ENTITY_NAME=$ENTITY_NAME"
 
 echo ""
 echo "================ EXPLICIT WRITE-SAFE CONFIRMATION ================"
-echo "The database probe performs real Finance writes inside a PostgreSQL subtransaction."
-echo "It deliberately raises a controlled exception and rolls every probe row back before returning."
+echo "The database probe provisions missing test masters and performs real Finance writes inside a PostgreSQL subtransaction."
+echo "It deliberately rolls every provisioned master and transaction row back before returning."
 printf "Type RUN_ROLLBACK_SAFE_FINANCE_ACCEPTANCE exactly: "
 IFS= read -r FINANCE_ACCEPTANCE_CONFIRM
 if [ "$FINANCE_ACCEPTANCE_CONFIRM" != "RUN_ROLLBACK_SAFE_FINANCE_ACCEPTANCE" ]; then

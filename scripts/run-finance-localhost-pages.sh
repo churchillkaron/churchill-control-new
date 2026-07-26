@@ -84,7 +84,8 @@ USER_EMAIL="$(json_value "$SESSION_FILE" userEmail)"
 echo "AUTHENTICATED_USER=$USER_EMAIL"
 
 echo ""
-echo "================ RESOLVE BUSINESS CONTEXT ================"n
+echo "================ RESOLVE BUSINESS CONTEXT ================"
+
 BOOTSTRAP_STATUS="$({
   USER_PAYLOAD="$(USER_ID="$USER_ID" node <<'NODE'
 process.stdout.write(JSON.stringify({ user_id: process.env.USER_ID }));
@@ -122,7 +123,8 @@ echo "ENTITY_ID=$ENTITY_ID"
 echo "ENTITY_NAME=$ENTITY_NAME"
 
 echo ""
-echo "================ RUN COMPLETE FINANCE SMOKE ================"n
+echo "================ RUN COMPLETE FINANCE SMOKE ================"
+
 FINANCE_SMOKE_BASE_URL="$BASE_URL" \
 FINANCE_SMOKE_ORGANIZATION_ID="$ORGANIZATION_ID" \
 FINANCE_SMOKE_ENTITY_ID="$ENTITY_ID" \
@@ -133,7 +135,8 @@ node scripts/finance-total-closure-smoke.mjs
 SMOKE_STATUS=$?
 
 echo ""
-echo "================ FINAL RESULT ================"necho "SMOKE_STATUS=$SMOKE_STATUS"
+echo "================ FINAL RESULT ================"
+echo "SMOKE_STATUS=$SMOKE_STATUS"
 echo "REPORT=$REPORT_FILE"
 
 if [ "$SMOKE_STATUS" -eq 0 ]; then

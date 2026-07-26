@@ -7,13 +7,27 @@ BASE_URL="http://127.0.0.1:3000"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 SESSION_FILE="$(mktemp)"
 BOOTSTRAP_FILE="$(mktemp)"
+DRY_LOG="$(mktemp)"
 REPORT="/tmp/AVANTIQO_FINANCE_TOTAL_ACCEPTANCE_${STAMP}.json"
+CREATIVE_MIGRATION="$PROJECT_ROOT/supabase/migrations/20260725181500_creative_project_contract_convergence.sql"
+CREATIVE_HOLD="/tmp/20260725181500_creative_project_contract_convergence_${STAMP}_$$.sql"
+CREATIVE_QUARANTINED=0
+
+restore_creative_migration() {
+  if [ "$CREATIVE_QUARANTINED" -eq 1 ] && [ -f "$CREATIVE_HOLD" ]; then
+    mkdir -p "$(dirname "$CREATIVE_MIGRATION")"
+    mv "$CREATIVE_HOLD" "$CREATIVE_MIGRATION"
+    CREATIVE_QUARANTINED=0
+    echo "CREATIVE_MIGRATION_RESTORED=YES"
+  fi
+}
 
 cleanup() {
-  rm -f "$SESSION_FILE" "$BOOTSTRAP_FILE"
+  restore_creative_migration
+  rm -f "$SESSION_FILE" "$BOOTSTRAP_FILE" "$DRY_LOG"
   unset FINANCE_SMOKE_PASSWORD FINANCE_ACCEPTANCE_ACCESS_TOKEN FINANCE_ACCEPTANCE_COOKIE 2>/dev/null || true
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 fail() {
   echo ""
@@ -40,7 +54,9 @@ for (const filename of [".env", ".env.local"]) {
     if (index < 1) continue;
     const name = normalized.slice(0, index).trim();
     let value = normalized.slice(index + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
     values[name] = value;
   }
 }
@@ -98,37 +114,50 @@ export NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"
 export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
 
 echo ""
+echo "================ ISOLATE UNRELATED CREATIVE MIGRATION ================"
+if [ -f "$CREATIVE_MIGRATION" ]; then
+  mv "$CREATIVE_MIGRATION" "$CREATIVE_HOLD" || fail "Could not quarantine the unrelated Creative migration"
+  CREATIVE_QUARANTINED=1
+  echo "CREATIVE_MIGRATION_QUARANTINED=YES"
+else
+  echo "CREATIVE_MIGRATION_QUARANTINED=NOT_PRESENT"
+fi
+
+echo ""
 echo "================ ACCEPTANCE MIGRATION DRY RUN ================"
-DRY_LOG="$(mktemp)"
 npx supabase db push --dry-run 2>&1 | tee "$DRY_LOG"
 DRY_STATUS=${PIPESTATUS[0]}
 if [ "$DRY_STATUS" -ne 0 ]; then
-  rm -f "$DRY_LOG"
   fail "Acceptance migration dry run failed"
 fi
 
 if grep -q "Remote database is up to date" "$DRY_LOG"; then
   echo "Acceptance probe is already deployed."
 elif grep -q "20260726100000_finance_total_acceptance_probe.sql" "$DRY_LOG"; then
-  if grep -E "Would push these migrations:|•" "$DRY_LOG" | grep -Eo '[0-9]{14}' | sort -u | grep -v '^20260726100000$' >/dev/null; then
-    rm -f "$DRY_LOG"
+  UNEXPECTED_VERSIONS="$(grep -Eo '[0-9]{14}' "$DRY_LOG" | sort -u | grep -v '^20260726100000$' || true)"
+  if [ -n "$UNEXPECTED_VERSIONS" ]; then
+    echo "$UNEXPECTED_VERSIONS"
     fail "Unexpected pending migrations detected"
   fi
+
   echo ""
   printf "Press Enter to deploy the rollback-safe acceptance probe, or Control-C to stop..."
   IFS= read -r _
-  npx supabase db push --yes || {
-    rm -f "$DRY_LOG"
-    fail "Acceptance migration deployment failed"
-  }
+
+  npx supabase db push --yes || fail "Acceptance migration deployment failed"
 else
-  rm -f "$DRY_LOG"
   fail "Dry run did not show the expected acceptance migration"
 fi
-rm -f "$DRY_LOG"
+
+restore_creative_migration
+
+if [ ! -f "$CREATIVE_MIGRATION" ]; then
+  fail "Creative migration was not restored after Finance probe deployment"
+fi
 
 echo ""
-echo "================ LOCALHOST 3000 ================"nSTATUS="$(curl --silent --max-time 5 --output /dev/null --write-out '%{http_code}' "$BASE_URL" 2>/dev/null || true)"
+echo "================ LOCALHOST 3000 ================"
+STATUS="$(curl --silent --max-time 5 --output /dev/null --write-out '%{http_code}' "$BASE_URL" 2>/dev/null || true)"
 if [ "$STATUS" = "000" ] || [ -z "$STATUS" ]; then
   fail "localhost:3000 is not running. Start it with npm run dev first."
 fi
@@ -178,7 +207,8 @@ echo "ENTITY_ID=$ENTITY_ID"
 echo "ENTITY_NAME=$ENTITY_NAME"
 
 echo ""
-echo "================ EXPLICIT WRITE-SAFE CONFIRMATION ================"necho "The database probe performs real Finance writes inside a PostgreSQL subtransaction."
+echo "================ EXPLICIT WRITE-SAFE CONFIRMATION ================"
+echo "The database probe performs real Finance writes inside a PostgreSQL subtransaction."
 echo "It deliberately raises a controlled exception and rolls every probe row back before returning."
 printf "Type RUN_ROLLBACK_SAFE_FINANCE_ACCEPTANCE exactly: "
 IFS= read -r FINANCE_ACCEPTANCE_CONFIRM
@@ -187,7 +217,8 @@ if [ "$FINANCE_ACCEPTANCE_CONFIRM" != "RUN_ROLLBACK_SAFE_FINANCE_ACCEPTANCE" ]; 
 fi
 
 echo ""
-echo "================ RUN TOTAL ACCEPTANCE ================"nFINANCE_ACCEPTANCE_BASE_URL="$BASE_URL" \
+echo "================ RUN TOTAL ACCEPTANCE ================"
+FINANCE_ACCEPTANCE_BASE_URL="$BASE_URL" \
 FINANCE_ACCEPTANCE_ORGANIZATION_ID="$ORGANIZATION_ID" \
 FINANCE_ACCEPTANCE_ENTITY_ID="$ENTITY_ID" \
 FINANCE_ACCEPTANCE_ACTOR_ID="$ACTOR_ID" \
@@ -201,7 +232,8 @@ node scripts/finance-total-acceptance.mjs
 ACCEPTANCE_STATUS=$?
 
 echo ""
-echo "================ FINAL STATUS ================"necho "ACCEPTANCE_STATUS=$ACCEPTANCE_STATUS"
+echo "================ FINAL STATUS ================"
+echo "ACCEPTANCE_STATUS=$ACCEPTANCE_STATUS"
 echo "REPORT=$REPORT"
 if [ "$ACCEPTANCE_STATUS" -eq 0 ]; then
   echo "FINANCE TOTAL ACCEPTANCE PASSED"

@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import process from "node:process";
 import { createServerClient } from "@supabase/ssr";
+import WebSocket from "ws";
 
 function parseEnvFiles() {
   const values = {};
@@ -51,6 +52,9 @@ if (!url || !anonKey || !email || !password) {
 
 const cookieJar = new Map();
 const supabase = createServerClient(url, anonKey, {
+  realtime: {
+    transport: WebSocket,
+  },
   cookies: {
     getAll() {
       return [...cookieJar.entries()].map(([name, value]) => ({ name, value }));

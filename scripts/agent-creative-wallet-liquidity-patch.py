@@ -29,3 +29,5 @@ if source.count(old_evidence) != 1:
 path.write_text(source.replace(old_evidence, new_evidence, 1))
 Path("scripts/agent-creative-wallet-liquidity-patch.py").unlink()
 Path(".github/workflows/agent-creative-wallet-liquidity.yml").unlink()
+
+# Trigger workflow after workflow file exists on branch.

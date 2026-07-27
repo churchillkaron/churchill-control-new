@@ -22,7 +22,7 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
-async function loadReferenceMaps({ organizationId, rows }) {
+async function loadReferenceMaps({ organizationId, entityId, rows }) {
   const partyIds = unique(rows.map(row => row.vendor_party_id || row.supplier_party_id));
   const invoiceIds = unique(rows.map(row => row.vendor_invoice_id));
   const payableIds = unique(rows.map(row => row.accounts_payable_id));
@@ -42,6 +42,7 @@ async function loadReferenceMaps({ organizationId, rows }) {
             .from("vendor_invoices")
             .select("id, invoice_number, reference_number, vendor_party_id, supplier_party_id")
             .eq("organization_id", organizationId)
+            .eq("entity_id", entityId)
             .in("id", invoiceIds)
         : Promise.resolve({ data: [], error: null }),
       payableIds.length
@@ -49,6 +50,7 @@ async function loadReferenceMaps({ organizationId, rows }) {
             .from("accounts_payable")
             .select("id, vendor_invoice_id, vendor_party_id, supplier_party_id, invoice_number, due_date")
             .eq("organization_id", organizationId)
+            .eq("entity_id", entityId)
             .in("id", payableIds)
         : Promise.resolve({ data: [], error: null }),
       bankAccountIds.length
@@ -56,6 +58,7 @@ async function loadReferenceMaps({ organizationId, rows }) {
             .from("bank_accounts")
             .select("id, account_name, bank_name, account_number")
             .eq("organization_id", organizationId)
+            .eq("entity_id", entityId)
             .in("id", bankAccountIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
@@ -76,42 +79,44 @@ function partyName(party) {
   return party?.display_name || party?.legal_name || null;
 }
 
-export async function GET(req) {
+export async function GET(request) {
   try {
     await requireAuth();
 
-    const { searchParams } = new URL(req.url);
-    const organizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
-
+    const { searchParams } = new URL(request.url);
     const access = await requireOrganizationAccess({
-      organizationId,
-      request: req,
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
+      request,
     });
 
     if (!access.success) {
       return NextResponse.json(
-        { success: false, error: access.error },
+        { success: false, error: access.error, rows: [] },
         { status: access.status }
       );
     }
 
     const requestedEntityId =
       searchParams.get("entityId") ||
-      searchParams.get("entity_id") ||
-      null;
+      searchParams.get("entity_id");
 
-    const entity = requestedEntityId
-      ? await resolveEntity({
-          organizationId: access.organizationId,
-          entityId: requestedEntityId,
-        })
-      : null;
-
-    if (requestedEntityId && !entity) {
+    if (!requestedEntityId) {
       return NextResponse.json(
-        { success: false, error: "Legal entity not found in organisation" },
+        { success: false, error: "entity_id required", rows: [] },
+        { status: 400 }
+      );
+    }
+
+    const entity = await resolveEntity({
+      organizationId: access.organizationId,
+      entityId: requestedEntityId,
+    });
+
+    if (!entity) {
+      return NextResponse.json(
+        { success: false, error: "Legal entity not found in organisation", rows: [] },
         { status: 404 }
       );
     }
@@ -119,22 +124,19 @@ export async function GET(req) {
     const view = requestedView(searchParams);
 
     if (view === "vendor_payments") {
-      let paymentQuery = supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from("vendor_payments")
         .select("*")
         .eq("organization_id", access.organizationId)
+        .eq("entity_id", entity.id)
         .order("paid_at", { ascending: false });
 
-      if (entity?.id) {
-        paymentQuery = paymentQuery.eq("entity_id", entity.id);
-      }
-
-      const { data, error } = await paymentQuery;
       if (error) throw error;
 
       const rawPayments = data || [];
       const maps = await loadReferenceMaps({
         organizationId: access.organizationId,
+        entityId: entity.id,
         rows: rawPayments,
       });
 
@@ -174,6 +176,8 @@ export async function GET(req) {
 
       return NextResponse.json({
         success: true,
+        organization_id: access.organizationId,
+        entity_id: entity.id,
         view,
         payments,
         payables: payments,
@@ -181,22 +185,19 @@ export async function GET(req) {
       });
     }
 
-    let payableQuery = supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("accounts_payable")
       .select("*")
       .eq("organization_id", access.organizationId)
+      .eq("entity_id", entity.id)
       .order("created_at", { ascending: false });
 
-    if (entity?.id) {
-      payableQuery = payableQuery.eq("entity_id", entity.id);
-    }
-
-    const { data, error } = await payableQuery;
     if (error) throw error;
 
     const rawPayables = data || [];
     const maps = await loadReferenceMaps({
       organizationId: access.organizationId,
+      entityId: entity.id,
       rows: rawPayables,
     });
 
@@ -223,13 +224,15 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
+      organization_id: access.organizationId,
+      entity_id: entity.id,
       view: "accounts_payable",
       payables,
       rows: payables,
     });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message || "Payments list failed", rows: [] },
       { status: error.status || 500 }
     );
   }

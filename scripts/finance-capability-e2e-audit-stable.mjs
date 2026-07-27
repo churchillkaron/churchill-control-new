@@ -338,12 +338,22 @@ generatedSource = generatedSource.replace(
   `${authentication}\nasync function main() {`
 );
 generatedSource = generatedSource.replace(
+  "server = await harness.resolveServer();",
+  `const verifiedBaseUrl = process.env.FINANCE_E2E_VERIFIED_BASE_URL?.replace(/\\\/$/, "");
+    server = verifiedBaseUrl
+      ? { baseUrl: verifiedBaseUrl, child: null }
+      : await harness.resolveServer();`
+);
+generatedSource = generatedSource.replace(
   "const bootstrap = await harness.login(client, server.baseUrl, email, password);",
   "const bootstrap = await authenticateFinanceAudit(harness, client, server.baseUrl, email, password, localEnv);"
 );
 
 if (!generatedSource.includes("AUTH=SUPABASE_SSR_COOKIE")) {
   throw new Error("FINANCE_E2E_AUTH_PATCH_NOT_APPLIED");
+}
+if (!generatedSource.includes("FINANCE_E2E_VERIFIED_BASE_URL")) {
+  throw new Error("FINANCE_E2E_VERIFIED_SERVER_PATCH_NOT_APPLIED");
 }
 
 fs.writeFileSync(generatedPath, generatedSource);

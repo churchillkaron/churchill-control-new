@@ -15,6 +15,7 @@ PROXY_DIR="$HOME/Downloads/cole-ley-ingest-proxies"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 REPORT="$HOME/Downloads/COLE_LEY_AVANTIQO_3MIN_SMOKE_${STAMP}.json"
 LOGO_FILE="$HOME/Downloads/cole-logo1.png"
+CREATED_PROXY=""
 
 SOURCE_VIDEOS=(
   "$HOME/Downloads/IMG_0013.MOV"
@@ -56,29 +57,141 @@ wait_for_server() {
   return 1
 }
 
+probe_value() {
+  local ffprobe="$1"
+  local file="$2"
+  local entry="$3"
+  "$ffprobe" \
+    -v error \
+    -show_entries "$entry" \
+    -of default=nw=1:nk=1 \
+    "$file" \
+    2>/dev/null \
+    | head -1
+}
+
 verify_proxy() {
   local source="$1"
   local proxy="$2"
   local ffprobe="$3"
-  local source_duration proxy_duration proxy_size
+  local source_duration proxy_duration proxy_size video_codec audio_codec
 
   [ -s "$proxy" ] || return 1
+
   proxy_size="$(stat -f '%z' "$proxy")"
   [ "$proxy_size" -le "$BUCKET_LIMIT_BYTES" ] || return 1
 
-  source_duration="$(
-    "$ffprobe" -v error -show_entries format=duration -of default=nw=1:nk=1 "$source" 2>/dev/null
+  source_duration="$(probe_value "$ffprobe" "$source" "format=duration")"
+  proxy_duration="$(probe_value "$ffprobe" "$proxy" "format=duration")"
+  video_codec="$(probe_value "$ffprobe" "$proxy" "stream=codec_name:stream_tags=handler_name" | head -1)"
+  audio_codec="$(
+    "$ffprobe" \
+      -v error \
+      -select_streams a:0 \
+      -show_entries stream=codec_name \
+      -of default=nw=1:nk=1 \
+      "$proxy" \
+      2>/dev/null \
+      | head -1
   )"
-  proxy_duration="$(
-    "$ffprobe" -v error -show_entries format=duration -of default=nw=1:nk=1 "$proxy" 2>/dev/null
-  )"
+
+  [ -n "$video_codec" ] || return 1
+  [ -n "$audio_codec" ] || return 1
 
   node -e '
     const source = Number(process.argv[1]);
     const proxy = Number(process.argv[2]);
     if (!Number.isFinite(source) || !Number.isFinite(proxy)) process.exit(1);
     process.exit(Math.abs(source - proxy) <= 0.75 ? 0 : 1);
-  ' "$source_duration" "$proxy_duration"
+  ' "$source_duration" "$proxy_duration" || return 1
+
+  echo "INGEST_PROXY_VALIDATED=$(basename "$proxy") BYTES=$proxy_size SOURCE_SECONDS=$source_duration PROXY_SECONDS=$proxy_duration VIDEO_CODEC=$video_codec AUDIO_CODEC=$audio_codec"
+  return 0
+}
+
+calculate_video_bitrate() {
+  local duration="$1"
+  node -e '
+    const bytes = Number(process.argv[1]);
+    const duration = Number(process.argv[2]);
+    const audioKbps = 128;
+    const containerReserveKbps = 32;
+    if (!Number.isFinite(bytes) || !Number.isFinite(duration) || duration <= 0) process.exit(1);
+    const totalKbps = bytes * 8 / duration / 1000;
+    console.log(Math.max(320, Math.floor(totalKbps - audioKbps - containerReserveKbps)));
+  ' "$PROXY_TARGET_BYTES" "$duration"
+}
+
+encode_two_pass() {
+  local source="$1"
+  local output="$2"
+  local ffmpeg="$3"
+  local bitrate="$4"
+  local passlog="$5"
+  local filter
+
+  filter="scale=1280:1280:force_original_aspect_ratio=decrease:flags=lanczos,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p"
+
+  rm -f "$output" "${passlog}"* 2>/dev/null || true
+
+  echo "ENCODE_PASS=1 SOURCE=$(basename "$source") VIDEO_KBPS=$bitrate"
+
+  "$ffmpeg" \
+    -hide_banner \
+    -loglevel warning \
+    -stats \
+    -y \
+    -i "$source" \
+    -map "0:v:0" \
+    -an \
+    -sn \
+    -dn \
+    -vf "$filter" \
+    -c:v libx264 \
+    -preset fast \
+    -profile:v high \
+    -level:v 4.1 \
+    -x264-params "weightp=1" \
+    -b:v "${bitrate}k" \
+    -pass 1 \
+    -passlogfile "$passlog" \
+    -f null \
+    /dev/null \
+    || return 1
+
+  echo "ENCODE_PASS=2 SOURCE=$(basename "$source") VIDEO_KBPS=$bitrate"
+
+  "$ffmpeg" \
+    -hide_banner \
+    -loglevel warning \
+    -stats \
+    -y \
+    -i "$source" \
+    -map "0:v:0" \
+    -map "0:a:0?" \
+    -sn \
+    -dn \
+    -vf "$filter" \
+    -c:v libx264 \
+    -preset fast \
+    -profile:v high \
+    -level:v 4.1 \
+    -x264-params "weightp=1" \
+    -b:v "${bitrate}k" \
+    -pass 2 \
+    -passlogfile "$passlog" \
+    -c:a aac \
+    -b:a 128k \
+    -ar 48000 \
+    -movflags +faststart \
+    -color_primaries bt709 \
+    -color_trc bt709 \
+    -colorspace bt709 \
+    "$output" \
+    || return 1
+
+  rm -f "${passlog}"* 2>/dev/null || true
+  return 0
 }
 
 create_ingest_proxy() {
@@ -87,135 +200,56 @@ create_ingest_proxy() {
   local ffprobe="$3"
   local base output duration bitrate passlog output_size retry_bitrate
 
+  CREATED_PROXY=""
   base="$(basename "${source%.*}")"
   output="$PROXY_DIR/${base}_INGEST.mp4"
 
   if verify_proxy "$source" "$output" "$ffprobe"; then
-    echo "INGEST_PROXY_REUSED=$(basename "$output") BYTES=$(stat -f '%z' "$output")"
-    printf '%s\n' "$output"
+    echo "INGEST_PROXY_REUSED=$(basename "$output")"
+    CREATED_PROXY="$output"
     return 0
   fi
 
-  duration="$(
-    "$ffprobe" -v error -show_entries format=duration -of default=nw=1:nk=1 "$source"
-  )"
-
-  bitrate="$(
-    node -e '
-      const bytes = Number(process.argv[1]);
-      const duration = Number(process.argv[2]);
-      const audioKbps = 128;
-      if (!Number.isFinite(bytes) || !Number.isFinite(duration) || duration <= 0) process.exit(1);
-      const totalKbps = bytes * 8 / duration / 1000;
-      console.log(Math.max(320, Math.floor(totalKbps - audioKbps - 24)));
-    ' "$PROXY_TARGET_BYTES" "$duration"
-  )" || return 1
-
+  duration="$(probe_value "$ffprobe" "$source" "format=duration")"
+  bitrate="$(calculate_video_bitrate "$duration")" || return 1
   passlog="$PROXY_DIR/.${base}-pass"
-  rm -f "$output" "${passlog}"* 2>/dev/null || true
 
   echo "CREATING_INGEST_PROXY=$(basename "$source") TARGET_VIDEO_KBPS=$bitrate"
 
-  "$ffmpeg" \
-    -hide_banner \
-    -y \
-    -i "$source" \
-    -map "0:v:0" \
-    -an \
-    -sn \
-    -dn \
-    -vf "scale=1280:1280:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-    -c:v libx264 \
-    -preset fast \
-    -b:v "${bitrate}k" \
-    -pass 1 \
-    -passlogfile "$passlog" \
-    -f mp4 \
-    /dev/null \
-    || return 1
-
-  "$ffmpeg" \
-    -hide_banner \
-    -y \
-    -i "$source" \
-    -map "0:v:0" \
-    -map "0:a:0?" \
-    -sn \
-    -dn \
-    -vf "scale=1280:1280:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-    -c:v libx264 \
-    -preset medium \
-    -b:v "${bitrate}k" \
-    -pass 2 \
-    -passlogfile "$passlog" \
-    -c:a aac \
-    -b:a 128k \
-    -ar 48000 \
-    -movflags +faststart \
+  encode_two_pass \
+    "$source" \
     "$output" \
+    "$ffmpeg" \
+    "$bitrate" \
+    "$passlog" \
     || return 1
-
-  rm -f "${passlog}"* 2>/dev/null || true
 
   output_size="$(stat -f '%z' "$output")"
+
   if [ "$output_size" -gt "$BUCKET_LIMIT_BYTES" ]; then
     retry_bitrate="$(
       node -e '
         const bitrate = Number(process.argv[1]);
         const actual = Number(process.argv[2]);
-        const limit = Number(process.argv[3]);
-        console.log(Math.max(280, Math.floor(bitrate * limit / actual * 0.94)));
+        const target = Number(process.argv[3]);
+        console.log(Math.max(280, Math.floor(bitrate * target / actual * 0.95)));
       ' "$bitrate" "$output_size" "$PROXY_TARGET_BYTES"
     )"
 
     echo "INGEST_PROXY_RETRY=$(basename "$source") VIDEO_KBPS=$retry_bitrate"
-    rm -f "$output" "${passlog}"* 2>/dev/null || true
 
-    "$ffmpeg" \
-      -hide_banner \
-      -y \
-      -i "$source" \
-      -map "0:v:0" \
-      -an \
-      -sn \
-      -dn \
-      -vf "scale=1280:1280:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-      -c:v libx264 \
-      -preset fast \
-      -b:v "${retry_bitrate}k" \
-      -pass 1 \
-      -passlogfile "$passlog" \
-      -f mp4 \
-      /dev/null \
-      || return 1
-
-    "$ffmpeg" \
-      -hide_banner \
-      -y \
-      -i "$source" \
-      -map "0:v:0" \
-      -map "0:a:0?" \
-      -sn \
-      -dn \
-      -vf "scale=1280:1280:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-      -c:v libx264 \
-      -preset medium \
-      -b:v "${retry_bitrate}k" \
-      -pass 2 \
-      -passlogfile "$passlog" \
-      -c:a aac \
-      -b:a 128k \
-      -ar 48000 \
-      -movflags +faststart \
+    encode_two_pass \
+      "$source" \
       "$output" \
+      "$ffmpeg" \
+      "$retry_bitrate" \
+      "$passlog" \
       || return 1
-
-    rm -f "${passlog}"* 2>/dev/null || true
   fi
 
   verify_proxy "$source" "$output" "$ffprobe" || return 1
-  echo "INGEST_PROXY_READY=$(basename "$output") BYTES=$(stat -f '%z' "$output")"
-  printf '%s\n' "$output"
+  CREATED_PROXY="$output"
+  return 0
 }
 
 echo "============================================================"
@@ -278,19 +312,33 @@ FFPROBE_PATH="$(read_env_value CREATIVE_MEDIA_FFPROBE_PATH .env.local)"
 
 mkdir -p "$PROXY_DIR"
 UPLOAD_VIDEOS=()
+FIRST_PROXY_VALIDATED="NO"
 
 for source in "${SOURCE_VIDEOS[@]}"; do
   source_size="$(stat -f '%z' "$source")"
+
   if [ "$source_size" -le "$PROXY_TARGET_BYTES" ]; then
     echo "DIRECT_INGEST_SOURCE=$(basename "$source") BYTES=$source_size"
     UPLOAD_VIDEOS+=("$source")
-  else
-    proxy="$(create_ingest_proxy "$source" "$FFMPEG_PATH" "$FFPROBE_PATH" | tail -1)" \
-      || fail "Could not create ingest proxy for $(basename "$source")"
-    [ -s "$proxy" ] || fail "Ingest proxy missing: $proxy"
-    UPLOAD_VIDEOS+=("$proxy")
+    continue
+  fi
+
+  create_ingest_proxy "$source" "$FFMPEG_PATH" "$FFPROBE_PATH" \
+    || fail "Could not create and validate ingest proxy for $(basename "$source")"
+
+  [ -s "$CREATED_PROXY" ] \
+    || fail "Validated ingest proxy path missing for $(basename "$source")"
+
+  UPLOAD_VIDEOS+=("$CREATED_PROXY")
+
+  if [ "$FIRST_PROXY_VALIDATED" = "NO" ]; then
+    FIRST_PROXY_VALIDATED="YES"
+    echo "FIRST_PROXY_GATE=PASS"
   fi
 done
+
+[ "$FIRST_PROXY_VALIDATED" = "YES" ] \
+  || fail "At least one validated proxy was expected"
 
 export CREATIVE_MEDIA_ASSET_MAX_UPLOAD_BYTES="$BUCKET_LIMIT_BYTES"
 export CREATIVE_ASSET_MAX_UPLOAD_BYTES="$BUCKET_LIMIT_BYTES"
@@ -388,6 +436,7 @@ NODE
 
   AUTH_STATUS=$?
   unset AUTH_PASSWORD
+
   [ "$AUTH_STATUS" -eq 0 ] || {
     rm -f "$AUTH_FILE"
     fail "Authentication failed"

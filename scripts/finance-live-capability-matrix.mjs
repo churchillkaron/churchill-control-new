@@ -22,6 +22,15 @@ if (!COOKIE && !ACCESS_TOKEN) {
 const read = relative => fs.readFileSync(path.join(ROOT, relative), "utf8");
 const manifest = JSON.parse(read("lib/finance/runtime/financeCapabilityRuntimeManifest.json"));
 const registry = read("lib/platform/registry/erpRegistry.js");
+
+function financeSection(source) {
+  const start = source.indexOf("finance: {");
+  if (start < 0) return "";
+  const end = source.indexOf("\n    people:", start);
+  return end > start ? source.slice(start, end) : source.slice(start);
+}
+
+const financeRegistry = financeSection(registry);
 const results = [];
 
 function add(capability, check, passed, details = {}) {
@@ -32,10 +41,10 @@ function add(capability, check, passed, details = {}) {
 
 function blockFor(id) {
   const marker = `id: "${id}"`;
-  const start = registry.indexOf(marker);
+  const start = financeRegistry.indexOf(marker);
   if (start < 0) return "";
-  const next = registry.indexOf("{ id:", start + marker.length);
-  return registry.slice(start, next > start ? next : start + 5000);
+  const next = financeRegistry.indexOf("{ id:", start + marker.length);
+  return financeRegistry.slice(start, next > start ? next : start + 5000);
 }
 
 function match(block, pattern) {
@@ -61,6 +70,7 @@ async function request(url, options = {}) {
 }
 
 console.log("================ LIVE FINANCE CAPABILITY MATRIX ================");
+add("finance", "registry section", Boolean(financeRegistry));
 
 for (const [id, definition] of Object.entries(manifest)) {
   const block = blockFor(id);

@@ -25,6 +25,8 @@ function businessEntries(value, prefix = "") {
     "updated_by",
     "metadata",
     "payload",
+    "idempotency_key",
+    "idempotencyKey",
   ]);
 
   return Object.entries(value)
@@ -51,6 +53,27 @@ function missingRequired(schema, values) {
       return value === undefined || value === null || value === "";
     })
     .map(field => field.label || field.name);
+}
+
+function operationIdempotencyKey({
+  capabilityId,
+  actionId,
+  organizationId,
+  entityId,
+  periodId,
+}) {
+  const nonce = globalThis.crypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  return [
+    "finance-operation",
+    capabilityId || "capability",
+    actionId || "action",
+    organizationId || "organization",
+    entityId || "organization-scope",
+    periodId || "no-period",
+    nonce,
+  ].join(":");
 }
 
 export default function FinanceOperationalWorkCenter({
@@ -97,21 +120,36 @@ export default function FinanceOperationalWorkCenter({
 
     try {
       const url = new URL(endpoint, window.location.origin);
+      const suppliedIdempotencyKey = String(
+        actionValues.idempotency_key || actionValues.idempotencyKey || ""
+      ).trim();
+      const idempotencyKey = suppliedIdempotencyKey || operationIdempotencyKey({
+        capabilityId: capability?.id,
+        actionId: action?.id,
+        organizationId,
+        entityId,
+        periodId,
+      });
       const context = {
         ...actionValues,
+        ...(action.payload || action.defaults || {}),
         organizationId,
         organization_id: organizationId,
         entityId,
         entity_id: entityId,
         periodId,
         period_id: periodId,
+        idempotencyKey,
+        idempotency_key: idempotencyKey,
       };
 
       const options = {
         method,
         credentials: "include",
         cache: "no-store",
-        headers: {},
+        headers: {
+          "Idempotency-Key": idempotencyKey,
+        },
       };
 
       if (method === "GET") {

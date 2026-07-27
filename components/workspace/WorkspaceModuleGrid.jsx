@@ -29,28 +29,19 @@ import {
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { getWorkspaceGroups } from "@/lib/platform/registry/erpRegistry";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
-import { getFinanceWorkspaceContract } from "@/lib/finance/workspaces/FinanceWorkspaceContracts";
 
 const DISABLED_STATUSES = new Set([
   "planned",
+  "blocked",
+  "partial",
+  "unproven",
   "disabled",
   "unavailable",
   "coming-soon",
   "coming_soon",
 ]);
 
-function normalizeItemForWorkspace(item, workspace) {
-  if (
-    String(workspace || "").toLowerCase() === "finance" &&
-    getFinanceWorkspaceContract(item?.id)
-  ) {
-    return {
-      ...item,
-      status: "active",
-      disabled: false,
-    };
-  }
-
+function normalizeItemForWorkspace(item) {
   return item;
 }
 
@@ -80,6 +71,9 @@ function getStatusLabel(item) {
     return "Coming soon";
   }
   if (status === "planned") return "Planned";
+  if (status === "blocked") return "Blocked";
+  if (status === "partial") return "Partial";
+  if (status === "unproven") return "Unproven";
   if (status === "disabled" || status === "unavailable") {
     return "Unavailable";
   }
@@ -262,7 +256,7 @@ export default function WorkspaceModuleGrid({
                   </div>
                   <div className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs text-white/35">
                     {disabledCount > 0
-                      ? `${activeCount} active · ${disabledCount} planned`
+                      ? `${activeCount} active · ${disabledCount} unavailable`
                       : (group.items || []).length}
                   </div>
                 </div>

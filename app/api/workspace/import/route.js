@@ -1,102 +1,91 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-export async function POST(req){
+const REGISTRY = {
+  customers: "/api/customers/import",
+  vendors: "/api/finance/vendors/import",
+  legal_entities: "/api/finance/legal-entities/import",
+  cost_centers: "/api/finance/cost-centers/import",
+  bank_accounts: "/api/finance/bank-accounts/import",
+};
 
-  try{
+function normalizeModule(value) {
+  return String(value || "").trim().toLowerCase().replace(/-/g, "_");
+}
 
-    const form =
-      await req.formData();
+export async function POST(request) {
+  try {
+    const form = await request.formData();
+    const file = form.get("file");
+    const source = String(form.get("source") || "file").trim().toLowerCase();
+    const moduleKey = normalizeModule(form.get("module"));
+    const organizationId = String(
+      form.get("organizationId") || form.get("organization_id") || ""
+    ).trim();
 
-    const file =
-      form.get("file");
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
 
-    const moduleKey =
-      form.get("module");
-
-    const organizationId =
-      form.get("organizationId");
-
-    if(!file){
-
-      return NextResponse.json({
-
-        success:false,
-        error:"No file uploaded.",
-
-      },{status:400});
-
+    if (!access.success) {
+      return NextResponse.json(access, { status: access.status || 403 });
     }
 
-    const registry={
-
-      customers:
-        "/api/customers/import",
-
-      vendors:
-        "/api/finance/vendors/import",
-
-      "legal-entities":
-        "/api/finance/legal-entities/import",
-
-      "cost-centers":
-        "/api/finance/cost-centers/import",
-
-      "bank-accounts":
-        "/api/finance/bank-accounts/import",
-
-    };
-
-    const endpoint=
-      registry[moduleKey];
-
-    if(!endpoint){
-
-      return NextResponse.json({
-
-        success:false,
-        error:`Import not configured for ${moduleKey}`,
-
-      },{status:400});
-
-    }
-
-    const forward=
-      new FormData();
-
-    forward.append("file",file);
-    forward.append("organizationId",organizationId);
-
-    const response=
-      await fetch(
-
-        `${process.env.NEXT_PUBLIC_APP_URL}${endpoint}`,
-
-        {
-
-          method:"POST",
-
-          body:forward,
-
-        }
-
+    if (source !== "file") {
+      return NextResponse.json(
+        { success: false, error: `Import source ${source} is not implemented for the generic importer` },
+        { status: 400 }
       );
+    }
 
-    const json=
-      await response.json();
+    if (!file || typeof file === "string") {
+      return NextResponse.json(
+        { success: false, error: "No file uploaded." },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json(json);
+    const endpoint = REGISTRY[moduleKey];
+    if (!endpoint) {
+      return NextResponse.json(
+        { success: false, error: `Import not configured for ${moduleKey || "workspace"}` },
+        { status: 400 }
+      );
+    }
 
-  }catch(e){
+    const forward = new FormData();
+    forward.append("file", file);
+    forward.append("organizationId", organizationId);
+    forward.append("organization_id", organizationId);
 
-    return NextResponse.json({
+    const response = await fetch(new URL(endpoint, request.url), {
+      method: "POST",
+      headers: {
+        cookie: request.headers.get("cookie") || "",
+        authorization: request.headers.get("authorization") || "",
+      },
+      body: forward,
+      cache: "no-store",
+    });
 
-      success:false,
-      error:e.message,
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const json = await response.json();
+      return NextResponse.json(json, { status: response.status });
+    }
 
-    },{status:500});
-
+    const text = await response.text();
+    return new NextResponse(text, {
+      status: response.status,
+      headers: { "content-type": contentType || "text/plain" },
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error?.message || "Workspace import failed" },
+      { status: 500 }
+    );
   }
-
 }

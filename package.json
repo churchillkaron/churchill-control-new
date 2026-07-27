@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "audit:finance-capabilities": "node scripts/finance-capability-reality-audit.mjs",
     "smoke:creative-preflight": "node scripts/creative-studio-live-preflight.mjs",
     "smoke:creative-release": "node scripts/creative-studio-release-smoke.mjs",
     "smoke:creative-forensic-release": "node scripts/creative-studio-forensic-release-smoke.mjs"

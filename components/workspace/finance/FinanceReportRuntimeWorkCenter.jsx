@@ -41,12 +41,30 @@ export default function FinanceReportRuntimeWorkCenter({
   workspaceId,
 }) {
   const api = capability?.ui?.api || capability?.runtime?.listApi || null;
+  const contextScope =
+    capability?.contextScope ||
+    capability?.runtime?.scope ||
+    capability?.scope ||
+    "entity";
+  const requiresEntityContext = contextScope === "entity";
+  const contextReady = Boolean(
+    organizationId &&
+    (!requiresEntityContext || (entityId && periodId))
+  );
   const [loading, setLoading] = useState(Boolean(api));
   const [error, setError] = useState("");
   const [payload, setPayload] = useState(null);
 
   useEffect(() => {
-    if (!api || !organizationId) return;
+    if (!api) return;
+
+    if (!contextReady) {
+      setLoading(true);
+      setError("");
+      setPayload(null);
+      return;
+    }
+
     let active = true;
 
     async function load() {
@@ -81,7 +99,7 @@ export default function FinanceReportRuntimeWorkCenter({
     return () => {
       active = false;
     };
-  }, [api, organizationId, entityId, periodId]);
+  }, [api, contextReady, organizationId, entityId, periodId]);
 
   const rows = useMemo(() => firstArray(payload), [payload]);
   const columns = useMemo(() => {

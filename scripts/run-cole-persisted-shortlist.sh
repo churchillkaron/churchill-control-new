@@ -24,7 +24,9 @@ fail() {
 
 trap cleanup EXIT INT TERM
 
-[ -d "${REPO}/.git" ] || fail "Preflight worktree not found: ${REPO}"
+[ -d "${REPO}" ] || fail "Preflight worktree not found: ${REPO}"
+git -C "${REPO}" rev-parse --is-inside-work-tree >/dev/null 2>&1 || \
+  fail "Path is not a Git worktree: ${REPO}"
 cd "${REPO}" || fail "Cannot enter preflight worktree"
 
 [ -f "${RUNNER}" ] || fail "Runner missing: ${RUNNER}"

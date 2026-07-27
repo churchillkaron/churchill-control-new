@@ -14,8 +14,55 @@ globalThis.WebSocket = WebSocket;
 const ENV_FILES = [".env", ".env.local"];
 const TARGET_ENV_FILE = ".env.local";
 
+const ASSET_MIME_TYPES = Object.freeze([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/mp4",
+  "audio/aac",
+  "audio/flac",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/json",
+  "application/zip",
+  "application/octet-stream",
+]);
+
+const VIDEO_MIME_TYPES = Object.freeze([
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/mp4",
+  "audio/aac",
+  "audio/flac",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/json",
+  "application/octet-stream",
+]);
+
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function positiveInteger(value, fallback = null) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0
+    ? parsed
+    : fallback;
 }
 
 function parseEnvFile(filePath) {
@@ -88,28 +135,77 @@ function updateEnvFile(filePath, updates) {
   });
 }
 
-async function ensurePrivateBucket(supabase, id) {
+function bucketOptions({ fileSizeLimit, allowedMimeTypes }) {
+  const options = {
+    public: false,
+    allowedMimeTypes,
+  };
+  if (fileSizeLimit) options.fileSizeLimit = fileSizeLimit;
+  return options;
+}
+
+async function ensurePrivateBucket(supabase, definition) {
+  const { id, fileSizeLimit, allowedMimeTypes } = definition;
+  const options = bucketOptions({ fileSizeLimit, allowedMimeTypes });
   const { data: existing, error: lookupError } = await supabase.storage.getBucket(id);
   if (lookupError && !/not found/i.test(lookupError.message || "")) {
     throw new Error(`Bucket ${id} lookup failed: ${lookupError.message}`);
   }
 
   if (!existing?.id) {
-    const { error } = await supabase.storage.createBucket(id, {
-      public: false,
-    });
-    if (error) throw new Error(`Bucket ${id} creation failed: ${error.message}`);
-    return { id, created: true, private: true };
+    const { error } = await supabase.storage.createBucket(id, options);
+    if (error) {
+      throw new Error(
+        `Bucket ${id} creation failed for fileSizeLimit=${fileSizeLimit || "GLOBAL"}: ${error.message}`,
+      );
+    }
+    return {
+      id,
+      created: true,
+      private: true,
+      fileSizeLimit,
+      allowedMimeTypes,
+    };
   }
 
-  if (existing.public !== false) {
-    const { error } = await supabase.storage.updateBucket(id, {
-      public: false,
-    });
-    if (error) throw new Error(`Bucket ${id} privacy update failed: ${error.message}`);
+  const { error } = await supabase.storage.updateBucket(id, options);
+  if (error) {
+    const globalHint = /maximum|limit|size/i.test(error.message || "")
+      ? " Supabase Storage global file-size limit may be lower than this bucket limit."
+      : "";
+    throw new Error(
+      `Bucket ${id} update failed for fileSizeLimit=${fileSizeLimit || "GLOBAL"}: ${error.message}.${globalHint}`,
+    );
   }
 
-  return { id, created: false, private: true };
+  const { data: verified, error: verifyError } = await supabase.storage.getBucket(id);
+  if (verifyError) {
+    throw new Error(`Bucket ${id} verification failed: ${verifyError.message}`);
+  }
+  if (verified?.public !== false) {
+    throw new Error(`Bucket ${id} did not remain private`);
+  }
+
+  const verifiedLimit = positiveInteger(
+    verified?.file_size_limit ?? verified?.fileSizeLimit,
+    null,
+  );
+  if (fileSizeLimit && verifiedLimit !== fileSizeLimit) {
+    throw new Error(
+      `Bucket ${id} file-size limit verification failed: requested=${fileSizeLimit} actual=${verifiedLimit || "GLOBAL"}`,
+    );
+  }
+
+  return {
+    id,
+    created: false,
+    private: true,
+    fileSizeLimit: verifiedLimit,
+    allowedMimeTypes:
+      verified?.allowed_mime_types ||
+      verified?.allowedMimeTypes ||
+      allowedMimeTypes,
+  };
 }
 
 async function main() {
@@ -142,6 +238,38 @@ async function main() {
     throw new Error("Creative asset and render buckets must be distinct");
   }
 
+  const assetLimit = positiveInteger(
+    env.CREATIVE_MEDIA_ASSET_MAX_UPLOAD_BYTES ||
+    env.CREATIVE_ASSET_MAX_UPLOAD_BYTES,
+    null,
+  );
+  const renderLimit = positiveInteger(
+    env.CREATIVE_MEDIA_RENDER_MAX_UPLOAD_BYTES,
+    assetLimit,
+  );
+  const derivativeLimit = positiveInteger(
+    env.CREATIVE_MEDIA_DERIVATIVE_MAX_UPLOAD_BYTES,
+    assetLimit,
+  );
+
+  const definitions = [
+    {
+      id: buckets.asset,
+      fileSizeLimit: assetLimit,
+      allowedMimeTypes: ASSET_MIME_TYPES,
+    },
+    {
+      id: buckets.render,
+      fileSizeLimit: renderLimit,
+      allowedMimeTypes: VIDEO_MIME_TYPES,
+    },
+    {
+      id: buckets.derivative,
+      fileSizeLimit: derivativeLimit,
+      allowedMimeTypes: VIDEO_MIME_TYPES,
+    },
+  ];
+
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       persistSession: false,
@@ -150,12 +278,12 @@ async function main() {
   });
 
   const results = [];
-  for (const id of Object.values(buckets)) {
-    if (results.some((entry) => entry.id === id)) continue;
-    results.push(await ensurePrivateBucket(supabase, id));
+  for (const definition of definitions) {
+    if (results.some((entry) => entry.id === definition.id)) continue;
+    results.push(await ensurePrivateBucket(supabase, definition));
   }
 
-  updateEnvFile(TARGET_ENV_FILE, {
+  const envUpdates = {
     CREATIVE_MEDIA_ASSET_BUCKET: buckets.asset,
     CREATIVE_MEDIA_RENDER_BUCKET: buckets.render,
     CREATIVE_MEDIA_DERIVATIVE_BUCKET: buckets.derivative,
@@ -173,14 +301,30 @@ async function main() {
       text(env.CREATIVE_MEDIA_SCENE_THRESHOLD) || "0.3",
     CREATIVE_MEDIA_RENDER_CACHE_CONTROL:
       text(env.CREATIVE_MEDIA_RENDER_CACHE_CONTROL) || "3600",
-  });
+  };
+  if (assetLimit) {
+    envUpdates.CREATIVE_MEDIA_ASSET_MAX_UPLOAD_BYTES = String(assetLimit);
+    envUpdates.CREATIVE_ASSET_MAX_UPLOAD_BYTES = String(assetLimit);
+  }
+  if (renderLimit) {
+    envUpdates.CREATIVE_MEDIA_RENDER_MAX_UPLOAD_BYTES = String(renderLimit);
+  }
+  if (derivativeLimit) {
+    envUpdates.CREATIVE_MEDIA_DERIVATIVE_MAX_UPLOAD_BYTES = String(derivativeLimit);
+  }
+  updateEnvFile(TARGET_ENV_FILE, envUpdates);
 
   console.log("============================================================");
   console.log("AVANTIQO CREATIVE STORAGE BOOTSTRAP");
   console.log("============================================================");
   for (const result of results) {
     console.log(
-      `BUCKET=${result.id} PRIVATE=YES CREATED=${result.created ? "YES" : "NO"}`,
+      [
+        `BUCKET=${result.id}`,
+        "PRIVATE=YES",
+        `CREATED=${result.created ? "YES" : "NO"}`,
+        `MAX_BYTES=${result.fileSizeLimit || "GLOBAL"}`,
+      ].join(" "),
     );
   }
   console.log(`FFMPEG=${ffmpegPath}`);

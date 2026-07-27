@@ -20,7 +20,83 @@ if (start < 0 || end < 0) {
   throw new Error("FINANCE_E2E_STABLE_PATCH_TARGET_NOT_FOUND");
 }
 
-const replacement = `async function inspectRowMenuButtons(harness, client) {
+const replacement = `async function inspectTopMenuState(harness, client) {
+  return harness.evaluate(client, \`(() => {
+    const visible = element => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number(style.opacity || 1) > 0 &&
+        rect.width > 2 &&
+        rect.height > 2;
+    };
+    const normalized = value => String(value || "").replace(/\\s+/g, " ").trim();
+    const headerButtons = Array.from(document.querySelectorAll("main header button"))
+      .filter(visible);
+    const actionButtons = headerButtons.filter(button =>
+      normalized(button.textContent) === "..."
+    );
+    const loading = Array.from(document.querySelectorAll("main *"))
+      .filter(visible)
+      .some(element => normalized(element.textContent) === "Loading...");
+    return {
+      actionButtonCount: actionButtons.length,
+      loading,
+      headerButtons: headerButtons.map(button => normalized(button.textContent)).filter(Boolean),
+    };
+  })()\`);
+}
+
+async function clickTopMenu(harness, client) {
+  return harness.evaluate(client, \`(() => {
+    const visible = element => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number(style.opacity || 1) > 0 &&
+        rect.width > 2 &&
+        rect.height > 2;
+    };
+    const normalized = value => String(value || "").replace(/\\s+/g, " ").trim();
+    const button = Array.from(document.querySelectorAll("main header button"))
+      .filter(visible)
+      .find(item => normalized(item.textContent) === "...");
+    if (!button) {
+      return { clicked: false, count: 0 };
+    }
+    button.click();
+    return { clicked: true, count: 1 };
+  })()\`);
+}
+
+async function waitForTopMenuReady(harness, client, topExpected, timeoutMs = 20000) {
+  if (!(Number(topExpected) > 0)) {
+    return { ready: true, actionButtonCount: 0, loading: false };
+  }
+
+  const startedAt = Date.now();
+  let last = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    last = await inspectTopMenuState(harness, client);
+    last = {
+      ...last,
+      ready: last.actionButtonCount > 0 && !last.loading,
+    };
+    if (last.ready) return last;
+    await harness.sleep(350);
+  }
+
+  return {
+    ...(last || {}),
+    ready: false,
+    reason: "workspace top action menu did not become ready before timeout",
+  };
+}
+
+async function inspectRowMenuButtons(harness, client) {
   return harness.evaluate(client, \`(() => {
     const visible = element => {
       const style = getComputedStyle(element);
@@ -126,25 +202,31 @@ async function waitForRowMenuReady(harness, client, rowCount, timeoutMs = 15000)
 async function inspectMenusAndDetail(harness, client, capability, definition, rowCount) {
   const topExpected = definition.topActions.length;
   const rowExpected = definition.rowActions.length;
+  const topReadiness = await waitForTopMenuReady(harness, client, topExpected);
   let ui = await inspectVisibleUi(harness, client);
   const topChecks = [];
   const rawVisible = ui.buttons.filter(isRawIdentifier);
   if (rawVisible.length) topChecks.push(\`raw visible actions: \${rawVisible.join(", ")}\`);
 
-  const ellipsis = await clickButton(harness, client, { type: "exact", value: "..." }, "first");
-  if (ellipsis.clicked) {
-    await harness.sleep(250);
-    ui = await inspectVisibleUi(harness, client);
-    const rawMenu = ui.buttons.filter(isRawIdentifier);
-    if (rawMenu.length) topChecks.push(\`raw menu actions: \${rawMenu.join(", ")}\`);
-    await closeOverlay(harness, client);
+  if (!topReadiness.ready) {
+    topChecks.push(topReadiness.reason || "top action menu did not become ready");
   } else if (topExpected > 0) {
-    topChecks.push("top action menu could not be opened");
+    const ellipsis = await clickTopMenu(harness, client);
+    if (ellipsis.clicked) {
+      await harness.sleep(250);
+      ui = await inspectVisibleUi(harness, client);
+      const rawMenu = ui.buttons.filter(isRawIdentifier);
+      if (rawMenu.length) topChecks.push(\`raw menu actions: \${rawMenu.join(", ")}\`);
+      await clickTopMenu(harness, client);
+      await harness.sleep(150);
+    } else {
+      topChecks.push("workspace top action menu could not be opened");
+    }
   }
 
   const topActions = topChecks.length
-    ? check("FAIL", topChecks.join("; "), ui)
-    : check("PASS", null, { expected: topExpected });
+    ? check("FAIL", topChecks.join("; "), { ui, readiness: topReadiness })
+    : check("PASS", null, { expected: topExpected, readiness: topReadiness });
 
   if (!rowExpected) {
     return {

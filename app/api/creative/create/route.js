@@ -18,6 +18,12 @@ import {
 } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import * as CreativeAssetGraphRepository
 from "@/lib/creative/assets/graph/repositories/CreativeAssetGraphRepository";
+import {
+  CREATIVE_ASSET_NODE_TYPES,
+} from "@/lib/creative/assets/graph/documents/CreativeAssetNode";
+import {
+  CreativePerformanceVideoIntelligenceRuntime,
+} from "@/lib/creative/media/runtime/CreativePerformanceVideoIntelligenceRuntime";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -151,6 +157,71 @@ function missionPayload(body, organizationId) {
   };
 }
 
+function performanceIntelligenceRequired(body = {}) {
+  const metadata = object(body.metadata);
+  return (
+    metadata.require_subject_tracking === true ||
+    metadata.require_song_boundary_detection === true ||
+    metadata.live_showreel === true ||
+    metadata.performance_video_intelligence_required === true
+  );
+}
+
+function performancePolicy(body = {}) {
+  const metadata = object(body.metadata);
+  const configured = object(
+    metadata.performance_video_policy ||
+    metadata.performanceVideoPolicy,
+  );
+  return {
+    version: "performance-video-v1",
+    requested_subject:
+      text(configured.requested_subject || configured.requestedSubject) ||
+      "primary lead vocalist",
+    minimum_usable_sections:
+      positiveNumber(configured.minimum_usable_sections) || 1,
+    minimum_verified_samples:
+      positiveNumber(configured.minimum_verified_samples) || 2,
+    minimum_quality_score:
+      positiveNumber(configured.minimum_quality_score) || 55,
+    minimum_primary_performer_ratio:
+      Number.isFinite(Number(configured.minimum_primary_performer_ratio))
+        ? Number(configured.minimum_primary_performer_ratio)
+        : 0.5,
+    minimum_vocalist_ratio:
+      Number.isFinite(Number(configured.minimum_vocalist_ratio))
+        ? Number(configured.minimum_vocalist_ratio)
+        : 0.5,
+    minimum_section_seconds:
+      positiveNumber(configured.minimum_section_seconds) || 12,
+    maximum_section_seconds:
+      positiveNumber(configured.maximum_section_seconds) || 75,
+    minimum_boundary_silence_seconds:
+      positiveNumber(configured.minimum_boundary_silence_seconds) || 1.2,
+    silence_noise_db:
+      Number.isFinite(Number(configured.silence_noise_db))
+        ? Number(configured.silence_noise_db)
+        : -32,
+    silence_duration_seconds:
+      positiveNumber(configured.silence_duration_seconds) || 1.2,
+    sample_fractions: Array.isArray(configured.sample_fractions)
+      ? configured.sample_fractions
+      : [0.25, 0.5, 0.75],
+    output_width: positiveNumber(configured.output_width) || 1920,
+    output_height: positiveNumber(configured.output_height) || 1080,
+    frame_rate: positiveNumber(configured.frame_rate) || 30,
+    video_codec: text(configured.video_codec) || "libx264",
+    video_preset: text(configured.video_preset) || "medium",
+    video_crf:
+      Number.isFinite(Number(configured.video_crf))
+        ? Number(configured.video_crf)
+        : 18,
+    audio_codec: text(configured.audio_codec) || "aac",
+    audio_bitrate: text(configured.audio_bitrate) || "192k",
+    ...configured,
+  };
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -214,6 +285,33 @@ export async function POST(request) {
       throw new Error("CREATIVE_SELECTED_ASSET_NODE_ATTACHMENT_INCOMPLETE");
     }
 
+    const performanceIntelligence = [];
+    if (performanceIntelligenceRequired(body)) {
+      const selectedVideos = attachedAssetNodes.filter((node) =>
+        node.type === CREATIVE_ASSET_NODE_TYPES.VIDEO,
+      );
+      if (!selectedVideos.length) {
+        throw new Error("PERFORMANCE_VIDEO_ASSET_REQUIRED");
+      }
+
+      for (const video of selectedVideos) {
+        const result = await CreativePerformanceVideoIntelligenceRuntime.analyze({
+          organization_id: organizationId,
+          parent_asset_node_id: video.id,
+          policy: performancePolicy(body),
+        });
+        if (!Array.isArray(result.moments) || !result.moments.length) {
+          throw new Error(`PERFORMANCE_VIDEO_INTELLIGENCE_REQUIRED:${video.id}`);
+        }
+        performanceIntelligence.push({
+          source_asset_node_id: video.id,
+          analysis_identity: result.analysis_identity,
+          moment_ids: result.moments.map((moment) => moment.id),
+          detected_section_count: result.detected_sections?.length || null,
+        });
+      }
+    }
+
     const execution = await CreativeDirectorRuntime.execute({
       organization_id: organizationId,
       creative_mission_id: started.id,
@@ -249,6 +347,7 @@ export async function POST(request) {
       creative_brief_id: creativeBriefId,
       selected_asset_ids: selectedIds,
       attached_asset_node_ids: attachedAssetNodes.map((node) => node.id),
+      performance_intelligence: performanceIntelligence,
       execution,
       next_action:
         execution.production?.post_production?.status === "READY_FOR_APPROVAL"

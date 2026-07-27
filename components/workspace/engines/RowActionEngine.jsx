@@ -3,29 +3,73 @@
 import { useMemo, useState } from "react";
 
 import CapabilityActionResolver from "@/components/workspace/master-data/CapabilityActionResolver";
-
-import {
-  resolveRowAction,
-} from "@/lib/platform/actions/resolveRowAction";
-
-import {
-  resolveInventoryRowAction,
-} from "@/lib/inventory/actions/resolveInventoryRowAction";
+import { resolveRowAction } from "@/lib/platform/actions/resolveRowAction";
+import { resolveInventoryRowAction } from "@/lib/inventory/actions/resolveInventoryRowAction";
 import { getForm } from "@/lib/platform/forms";
 
+const TECHNICAL_KEYS = new Set([
+  "id",
+  "organization_id",
+  "organizationId",
+  "entity_id",
+  "entityId",
+  "period_id",
+  "periodId",
+  "tenant_id",
+  "tenantId",
+  "metadata",
+  "value_json",
+  "payload",
+  "raw_data",
+  "created_by",
+  "updated_by",
+]);
+
+const EXECUTABLE_KINDS = new Set([
+  "delete",
+  "archive",
+  "duplicate",
+  "approve",
+  "reject",
+  "post",
+  "reverse",
+  "reconcile",
+  "assign",
+  "complete",
+  "close",
+  "submit",
+  "restore",
+  "merge",
+  "split",
+  "sync",
+  "publish",
+  "lock",
+  "unlock",
+  "print",
+  "download",
+  "upload",
+  "attach",
+  "email",
+  "sms",
+  "whatsapp",
+]);
+
+function humanize(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, character => character.toUpperCase());
+}
 
 function titleFromAction(action) {
-  return (
+  return humanize(
     action?.label ||
     action?.title ||
     action?.name ||
     action?.id ||
     action?.type ||
     "Action"
-  )
-    .replace(/_/g, " ")
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, c => c.toUpperCase());
+  );
 }
 
 function resolveKind(action) {
@@ -63,7 +107,6 @@ function resolveKind(action) {
     "email",
     "sms",
     "whatsapp",
-
     "connect_service",
     "complete_connection",
     "disconnect_service",
@@ -73,67 +116,217 @@ function resolveKind(action) {
     "view_capabilities",
   ];
 
-  const direct =
-    action?.action ||
-    action?.type ||
-    action?.id ||
-    "";
-
+  const direct = action?.action || action?.type || action?.id || "";
   if (direct) {
-    const normalized =
-      String(direct)
-      .toLowerCase()
-      .replace(/-/g, "_");
-
-    return (
-      inferredKinds.find(kind => normalized.includes(kind)) ||
-      normalized
-    );
+    const normalized = String(direct).toLowerCase().replace(/-/g, "_");
+    return inferredKinds.find(kind => normalized.includes(kind)) || normalized;
   }
 
-  const label =
-    String(action?.label || action?.title || "")
-      .toLowerCase();
-
-  for (const kind of inferredKinds) {
-    if (label.includes(kind)) {
-      return kind;
-    }
-  }
-
-  return "";
+  const label = String(action?.label || action?.title || "").toLowerCase();
+  return inferredKinds.find(kind => label.includes(kind)) || "";
 }
 
 function endpointFromAction(action) {
-  return (
-    action?.endpoint ||
-    action?.api ||
-    action?.url ||
-    null
+  return action?.endpoint || action?.api || action?.url || null;
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "")
   );
 }
 
-function valueLabel(key) {
-  return String(key || "")
-    .replace(/_/g, " ")
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, c => c.toUpperCase());
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: String(value).includes("T") ? "2-digit" : undefined,
+    minute: String(value).includes("T") ? "2-digit" : undefined,
+  }).format(date);
 }
 
-function formatValue(value) {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-
+function formatValue(value, key = "") {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Active" : "Inactive";
+  if (Array.isArray(value)) return `${value.length} item${value.length === 1 ? "" : "s"}`;
+  if (typeof value === "object") return "Available in the related record";
+  if (isUuid(value)) return "Linked record";
+  if (/(_at|_date|date|timestamp)$/i.test(key)) return formatDate(value);
   return String(value);
+}
+
+function firstValue(row, keys, fallback = null) {
+  for (const key of keys) {
+    const value = row?.[key];
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return fallback;
+}
+
+function accountDetail(row) {
+  const status = firstValue(row, ["status"], row?.is_active === false ? "Inactive" : "Active");
+  const parent = firstValue(row, [
+    "parent_account_name",
+    "parent_name",
+    "parent_account_code",
+  ]);
+
+  return {
+    eyebrow: "Account Details",
+    title: firstValue(row, ["account_name", "name"], "Account"),
+    subtitle: [
+      firstValue(row, ["account_code", "code"]),
+      firstValue(row, ["account_type", "type"]),
+    ].filter(Boolean).join(" · "),
+    sections: [
+      {
+        title: "Account Structure",
+        fields: [
+          ["Account Code", firstValue(row, ["account_code", "code"])],
+          ["Account Name", firstValue(row, ["account_name", "name"])],
+          ["Account Type", firstValue(row, ["account_type", "type"])],
+          ["Category", firstValue(row, ["category", "account_category"])],
+          ["Normal Balance", firstValue(row, ["normal_balance", "balance_type"])],
+          ["Parent Account", parent],
+        ],
+      },
+      {
+        title: "Control",
+        fields: [
+          ["Status", status],
+          ["Posting Allowed", firstValue(row, ["allow_posting", "posting_allowed", "is_posting"], true)],
+          ["System Account", firstValue(row, ["is_system", "system_account"], false)],
+          ["Description", firstValue(row, ["description", "notes"])],
+        ],
+      },
+    ],
+  };
+}
+
+function genericDetail(row) {
+  const preferredKeys = [
+    "name",
+    "display_name",
+    "legal_name",
+    "account_name",
+    "account_code",
+    "invoice_number",
+    "journal_number",
+    "reference_number",
+    "reference",
+    "code",
+    "type",
+    "category",
+    "status",
+    "description",
+    "notes",
+    "currency_code",
+    "currency",
+    "amount",
+    "total_amount",
+    "balance",
+    "start_date",
+    "end_date",
+    "due_date",
+    "posting_date",
+    "created_at",
+    "updated_at",
+  ];
+
+  const keys = [
+    ...preferredKeys.filter(key => row?.[key] !== undefined),
+    ...Object.keys(row || {}).filter(key => !preferredKeys.includes(key)),
+  ];
+
+  const fields = keys
+    .filter(key => !TECHNICAL_KEYS.has(key))
+    .filter(key => !key.endsWith("_id") && !key.endsWith("Id"))
+    .filter(key => typeof row?.[key] !== "function")
+    .filter(key => !isUuid(row?.[key]))
+    .filter(key => !["metadata", "payload", "raw", "json"].some(token => key.toLowerCase().includes(token)))
+    .slice(0, 16)
+    .map(key => [humanize(key), row?.[key], key]);
+
+  return {
+    eyebrow: "Record Details",
+    title: firstValue(row, [
+      "account_name",
+      "invoice_number",
+      "journal_number",
+      "reference_number",
+      "name",
+      "display_name",
+      "legal_name",
+      "code",
+    ], "Selected Record"),
+    subtitle: firstValue(row, ["status", "type", "category"], "Business record"),
+    sections: [
+      {
+        title: "Summary",
+        fields,
+      },
+    ],
+  };
+}
+
+function detailPresentation(moduleKey, row) {
+  if (moduleKey === "chart_of_accounts") return accountDetail(row);
+  return genericDetail(row);
+}
+
+function DetailSections({ presentation, row }) {
+  const lines = Array.isArray(row?.lines) ? row.lines : [];
+
+  return (
+    <div className="space-y-5">
+      {presentation.sections.map(section => (
+        <section key={section.title}>
+          <div className="text-[11px] uppercase tracking-[0.24em] text-white/35">
+            {section.title}
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            {section.fields.map(([label, value, key]) => (
+              <div
+                key={label}
+                className="rounded-2xl border border-white/[0.07] bg-black/25 p-4"
+              >
+                <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                  {label}
+                </div>
+                <div className="mt-2 break-words text-sm text-white/75">
+                  {formatValue(value, key || label)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {lines.length ? (
+        <section>
+          <div className="text-[11px] uppercase tracking-[0.24em] text-white/35">
+            Lines
+          </div>
+          <div className="mt-3 space-y-2">
+            {lines.map((line, index) => (
+              <div
+                key={line?.id || index}
+                className="grid gap-3 rounded-2xl border border-white/[0.07] bg-black/25 p-4 text-sm text-white/70 md:grid-cols-4"
+              >
+                <div>{firstValue(line, ["account_code", "code"], `Line ${index + 1}`)}</div>
+                <div>{firstValue(line, ["account_name", "description", "name"], "—")}</div>
+                <div>Debit: {formatValue(line?.debit)}</div>
+                <div>Credit: {formatValue(line?.credit)}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
 }
 
 export default function RowActionEngine({
@@ -163,24 +356,13 @@ export default function RowActionEngine({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const fields = useMemo(
-    () => Object.entries(row || {})
-      .filter(([, value]) => value !== undefined && typeof value !== "function")
-      .slice(0, 24),
-    [row]
-  );
-  console.log(
-    "ROW ACTION DEBUG",
-    {
-      action,
-      moduleKey,
-      row,
-    }
-  );
 
-
-  const kind =
-    resolveKind(action);
+  const kind = resolveKind(action);
+  const isDetail = kind === "open" || kind === "view";
+  const presentation = useMemo(
+    () => detailPresentation(moduleKey, row || {}),
+    [moduleKey, row]
+  );
 
   const resolvedAction =
     resolveInventoryRowAction({
@@ -197,17 +379,11 @@ export default function RowActionEngine({
       entityId,
     });
 
-
-  const isCapabilityAction =
-    Boolean(
-      action?.capability &&
-      action?.action &&
-      action?.form
-    );
-
+  const isCapabilityAction = Boolean(
+    action?.capability && action?.action && action?.form
+  );
 
   if (isCapabilityAction) {
-
     const schema = getForm(action?.form);
 
     async function saveCapability() {
@@ -254,83 +430,36 @@ export default function RowActionEngine({
     }
 
     return (
-
       <CapabilityActionResolver
-
         open={true}
-
         saving={saving}
-
         action={action}
-
-        fallbackLabel={
-          titleFromAction(action)
-        }
-
+        fallbackLabel={titleFromAction(action)}
         schema={schema}
-
         values={values}
-
-        onChange={(name, value) => setValues(current => ({ ...current, [name]: value }))}
-
+        onChange={(name, value) =>
+          setValues(current => ({ ...current, [name]: value }))
+        }
         onClose={onClose}
-
         onSave={saveCapability}
-
-        organizationId={
-          organizationId
-        }
-
-        entityId={
-          entityId
-        }
-
-        partyId={
-          row?.party_id ||
-          null
-        }
-
-        periodId={
-          periodId
-        }
-
-        moduleKey={
-          moduleKey
-        }
-
-        onComplete={
-          onComplete
-        }
-
+        organizationId={organizationId}
+        entityId={entityId}
+        partyId={row?.party_id || null}
+        periodId={periodId}
+        moduleKey={moduleKey}
+        onComplete={onComplete}
       />
-
     );
-
   }
 
-
-  const endpoint =
-    resolvedAction?.endpoint ||
-    endpointFromAction(action);
-
-
-  const method =
-    resolvedAction?.method ||
-    action?.method ||
-    "POST";
-
-  const isDestructive =
-    kind === "delete" ||
-    kind === "archive";
-
-  const canExecute =
-    Boolean(endpoint);
+  const endpoint = resolvedAction?.endpoint || endpointFromAction(action);
+  const method = resolvedAction?.method || action?.method || "POST";
+  const isDestructive = kind === "delete" || kind === "archive";
+  const canExecute = Boolean(endpoint);
 
   async function execute() {
     if (!endpoint) {
-      setMessage(
-        "This action is available in the menu, but no execution endpoint is configured for it yet."
-      );
+      setMessage("This action is not connected to an execution endpoint yet.");
       return;
     }
 
@@ -340,37 +469,29 @@ export default function RowActionEngine({
       setMessage("");
 
       const actionPayload = {
-            organizationId,
-            organization_id:
-              organizationId,
-            entityId,
-            entity_id:
-              entityId,
-            periodId,
-            period_id:
-              periodId,
-            workspaceId,
-            workspace_id:
-              workspaceId,
-            moduleKey,
-            module:
-              moduleKey,
-            action:
-              kind,
-            action_id:
-              action?.id ||
-              kind,
-            row,
-            id:
-              row?.id,
-
-            ...(resolvedAction?.payload || {}),
-          };
+        organizationId,
+        organization_id: organizationId,
+        entityId,
+        entity_id: entityId,
+        periodId,
+        period_id: periodId,
+        workspaceId,
+        workspace_id: workspaceId,
+        moduleKey,
+        module: moduleKey,
+        action: kind,
+        action_id: action?.id || kind,
+        row,
+        id: row?.id,
+        ...(resolvedAction?.payload || {}),
+      };
 
       const requestUrl = method === "GET"
         ? `${endpoint}${endpoint.includes("?") ? "&" : "?"}${new URLSearchParams(
             Object.entries(actionPayload)
-              .filter(([, value]) => value !== null && value !== undefined && typeof value !== "object")
+              .filter(([, value]) =>
+                value !== null && value !== undefined && typeof value !== "object"
+              )
               .map(([key, value]) => [key, String(value)])
           ).toString()}`
         : endpoint;
@@ -380,84 +501,67 @@ export default function RowActionEngine({
         headers: { "Content-Type": "application/json" },
         ...(method === "GET" ? {} : { body: JSON.stringify(actionPayload) }),
       });
-
-      const json =
-        await response.json()
-          .catch(() => ({}));
+      const json = await response.json().catch(() => ({}));
 
       if (!response.ok || json?.success === false) {
         throw new Error(
-          json?.error ||
-          json?.message ||
-          `${titleFromAction(action)} failed`
+          json?.error || json?.message || `${titleFromAction(action)} failed`
         );
       }
 
-
-      if (
-        json?.redirect
-      ) {
-
-        window.location.href =
-          json.redirect;
-
+      if (json?.redirect) {
+        window.location.href = json.redirect;
         return;
-
       }
 
-
-      setMessage(
-        json?.message ||
-        `${titleFromAction(action)} completed.`
-      );
+      setMessage(json?.message || `${titleFromAction(action)} completed.`);
       onComplete?.();
-    } catch (err) {
-      setError(
-        err.message ||
-        "Action failed"
-      );
+    } catch (executionError) {
+      setError(executionError.message || "Action failed");
     } finally {
       setBusy(false);
     }
   }
 
-  if (
-    kind === "open" ||
-    kind === "view"
-  ) {
-
-    console.log(
-      "OPEN DOCUMENT DEBUG",
-      {
-        kind,
-        action,
-        document: action?.document,
-        row,
-      }
-    );
-
-  }
-
+  const eyebrow = isDetail
+    ? presentation.eyebrow
+    : kind === "history"
+      ? "Record History"
+      : kind === "attachments"
+        ? "Attachments"
+        : "Record Action";
+  const title = isDetail ? presentation.title : titleFromAction(action);
+  const subtitle = isDetail
+    ? presentation.subtitle
+    : firstValue(row, [
+        "invoice_number",
+        "journal_number",
+        "reference_number",
+        "account_name",
+        "name",
+        "display_name",
+        "legal_name",
+        "code",
+      ], "Selected record");
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur">
-      <div className="w-full max-w-3xl overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] shadow-2xl shadow-black">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] shadow-2xl shadow-black"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
           <div>
             <div className="text-[11px] uppercase tracking-[0.28em] text-amber-300/70">
-              Row Action
+              {eyebrow}
             </div>
             <h2 className="mt-2 text-3xl font-light tracking-[-0.05em] text-white">
-              {titleFromAction(action)}
+              {title}
             </h2>
-            <div className="mt-2 text-sm text-white/42">
-              {row?.invoice_number ||
-                row?.reference_number ||
-                row?.name ||
-                row?.display_name ||
-                row?.legal_name ||
-                row?.id ||
-                "Selected record"}
+            <div className="mt-2 text-sm text-white/45">
+              {subtitle || "Business record"}
             </div>
           </div>
 
@@ -471,48 +575,38 @@ export default function RowActionEngine({
         </div>
 
         <div className="max-h-[68vh] overflow-auto px-6 py-5">
-          {kind === "history" ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/58">
-              <div className="text-white/78">
-                Record timeline
-              </div>
+          {isDetail ? (
+            <DetailSections presentation={presentation} row={row || {}} />
+          ) : kind === "history" ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+              <div className="text-white/80">Record timeline</div>
               <div className="mt-3 grid gap-2">
                 {[
-                  ["Created", row?.created_at],
-                  ["Updated", row?.updated_at],
-                  ["Status", row?.status],
-                  ["Reference", row?.reference_number || row?.invoice_number || row?.code],
-                ].map(([label, value]) => (
+                  ["Created", row?.created_at, "created_at"],
+                  ["Updated", row?.updated_at, "updated_at"],
+                  ["Status", row?.status, "status"],
+                  [
+                    "Reference",
+                    row?.reference_number || row?.invoice_number || row?.code,
+                    "reference",
+                  ],
+                ].map(([label, value, key]) => (
                   <div
                     key={label}
                     className="flex justify-between gap-4 border-b border-white/[0.06] py-2 last:border-b-0"
                   >
                     <span className="text-white/35">{label}</span>
-                    <span className="text-right">{formatValue(value)}</span>
+                    <span className="text-right">{formatValue(value, key)}</span>
                   </div>
                 ))}
               </div>
             </div>
           ) : kind === "attachments" ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/58">
-              No attachment provider is configured for this record yet.
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+              No attachments are linked to this record.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {fields.map(([key, value]) => (
-                <div
-                  key={key}
-                  className="rounded-2xl border border-white/[0.07] bg-black/24 p-4"
-                >
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/30">
-                    {valueLabel(key)}
-                  </div>
-                  <div className="mt-2 break-words text-sm text-white/72">
-                    {formatValue(value)}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DetailSections presentation={genericDetail(row || {})} row={row || {}} />
           )}
 
           {message ? (
@@ -537,34 +631,7 @@ export default function RowActionEngine({
             Back
           </button>
 
-          {canExecute || [
-            "delete",
-            "archive",
-            "duplicate",
-            "approve",
-            "reject",
-            "post",
-            "reverse",
-            "reconcile",
-            "assign",
-            "complete",
-            "close",
-            "submit",
-            "restore",
-            "merge",
-            "split",
-            "sync",
-            "publish",
-            "lock",
-            "unlock",
-            "print",
-            "download",
-            "upload",
-            "attach",
-            "email",
-            "sms",
-            "whatsapp",
-          ].includes(kind) ? (
+          {canExecute || EXECUTABLE_KINDS.has(kind) ? (
             <button
               type="button"
               onClick={execute}

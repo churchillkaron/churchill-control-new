@@ -1,58 +1,91 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-export async function GET(request){
+const REGISTRY = {
+  customers: "/api/customers/export",
+  vendors: "/api/finance/vendors/export",
+  legal_entities: "/api/finance/legal-entities/export",
+  cost_centers: "/api/finance/cost-centers/export",
+  bank_accounts: "/api/finance/bank-accounts/export",
+};
 
-  const { searchParams } =
-    new URL(request.url);
+function normalizeModule(value) {
+  return String(value || "").trim().toLowerCase().replace(/-/g, "_");
+}
 
-  const moduleKey =
-    searchParams.get("module");
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const moduleKey = normalizeModule(searchParams.get("module"));
+    const organizationId = String(
+      searchParams.get("organizationId") || searchParams.get("organization_id") || ""
+    ).trim();
+    const entityId = String(
+      searchParams.get("entityId") || searchParams.get("entity_id") || ""
+    ).trim();
+    const periodId = String(
+      searchParams.get("periodId") || searchParams.get("period_id") || ""
+    ).trim();
+    const format = String(searchParams.get("format") || "xlsx").trim().toLowerCase();
+    const scope = String(searchParams.get("scope") || "current").trim().toLowerCase();
 
-  const organizationId =
-    searchParams.get("organizationId");
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
 
-  const format =
-    searchParams.get("format") || "xlsx";
+    if (!access.success) {
+      return NextResponse.json(access, { status: access.status || 403 });
+    }
 
-  const registry = {
+    const endpoint = REGISTRY[moduleKey];
+    if (!endpoint) {
+      return NextResponse.json(
+        { success: false, error: `Export not configured for ${moduleKey || "workspace"}` },
+        { status: 400 }
+      );
+    }
 
-    customers:
-      "/api/customers/export",
+    const target = new URL(endpoint, request.url);
+    target.searchParams.set("organizationId", organizationId);
+    target.searchParams.set("organization_id", organizationId);
+    if (entityId) {
+      target.searchParams.set("entityId", entityId);
+      target.searchParams.set("entity_id", entityId);
+    }
+    if (periodId) {
+      target.searchParams.set("periodId", periodId);
+      target.searchParams.set("period_id", periodId);
+    }
+    target.searchParams.set("format", format);
+    target.searchParams.set("scope", scope);
 
-    vendors:
-      "/api/finance/vendors/export",
+    const response = await fetch(target, {
+      method: "GET",
+      headers: {
+        cookie: request.headers.get("cookie") || "",
+        authorization: request.headers.get("authorization") || "",
+      },
+      cache: "no-store",
+      redirect: "follow",
+    });
 
-    "legal-entities":
-      "/api/finance/legal-entities/export",
+    const headers = new Headers();
+    for (const name of ["content-type", "content-disposition", "content-length"]) {
+      const value = response.headers.get(name);
+      if (value) headers.set(name, value);
+    }
 
-    "cost-centers":
-      "/api/finance/cost-centers/export",
-
-    "bank-accounts":
-      "/api/finance/bank-accounts/export",
-
-  };
-
-  const endpoint =
-    registry[moduleKey];
-
-  if(!endpoint){
-
-    return NextResponse.json({
-
-      success:false,
-      error:`Export not configured for ${moduleKey}`,
-
-    },{status:400});
-
+    return new Response(response.body, {
+      status: response.status,
+      headers,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error?.message || "Workspace export failed" },
+      { status: 500 }
+    );
   }
-
-  return Response.redirect(
-
-    `${process.env.NEXT_PUBLIC_APP_URL}${endpoint}?organizationId=${organizationId}&format=${format}`
-
-  );
-
 }

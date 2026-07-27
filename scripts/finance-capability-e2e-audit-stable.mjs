@@ -222,10 +222,131 @@ async function inspectMenusAndDetail(harness, client, capability, definition, ro
 }
 `;
 
-fs.writeFileSync(
-  generatedPath,
-  `${source.slice(0, start)}${replacement}${source.slice(end)}`
+const authentication = `async function authenticateFinanceAudit(harness, client, baseUrl, email, password, localEnv) {
+  const supabaseUrl = String(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    localEnv.NEXT_PUBLIC_SUPABASE_URL ||
+    localEnv.SUPABASE_URL ||
+    ""
+  ).trim();
+  const anonKey = String(
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    localEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    localEnv.SUPABASE_ANON_KEY ||
+    ""
+  ).trim();
+
+  if (!supabaseUrl || !anonKey) {
+    throw new Error("Finance E2E authentication requires the Supabase URL and anonymous key");
+  }
+
+  const [{ createServerClient }, { default: WebSocket }] = await Promise.all([
+    import("@supabase/ssr"),
+    import("ws"),
+  ]);
+
+  const cookieJar = new Map();
+  const cookieOptions = new Map();
+  const supabase = createServerClient(supabaseUrl, anonKey, {
+    realtime: { transport: WebSocket },
+    cookies: {
+      getAll() {
+        return [...cookieJar.entries()].map(([name, value]) => ({ name, value }));
+      },
+      setAll(cookiesToSet) {
+        for (const cookie of cookiesToSet) {
+          cookieJar.set(cookie.name, cookie.value);
+          cookieOptions.set(cookie.name, cookie.options || {});
+        }
+      },
+    },
+  });
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data?.session || !data?.user) {
+    throw new Error(\`Finance E2E Supabase authentication failed: \${error?.message || "session unavailable"}\`);
+  }
+
+  const sameSite = value => {
+    const normalized = String(value || "").toLowerCase();
+    if (normalized === "strict") return "Strict";
+    if (normalized === "none") return "None";
+    if (normalized === "lax") return "Lax";
+    return undefined;
+  };
+
+  const cookies = [...cookieJar.entries()].map(([name, value]) => {
+    const options = cookieOptions.get(name) || {};
+    const cookie = {
+      name,
+      value,
+      url: \`\${baseUrl}/\`,
+      secure: baseUrl.startsWith("https://"),
+      httpOnly: Boolean(options.httpOnly),
+    };
+    const resolvedSameSite = sameSite(options.sameSite);
+    if (resolvedSameSite) cookie.sameSite = resolvedSameSite;
+    if (Number.isFinite(options.maxAge)) {
+      cookie.expires = Math.floor(Date.now() / 1000) + Number(options.maxAge);
+    }
+    return cookie;
+  });
+
+  if (!cookies.length) {
+    throw new Error("Finance E2E Supabase authentication produced no session cookies");
+  }
+
+  await client.send("Network.setCookies", { cookies });
+  await harness.navigate(client, \`\${baseUrl}/login\`);
+
+  const startedAt = Date.now();
+  let last = null;
+  while (Date.now() - startedAt < 30000) {
+    last = await harness.evaluate(client, \`(async () => {
+      try {
+        const response = await fetch("/api/session/bootstrap", { credentials: "include" });
+        const contentType = response.headers.get("content-type") || "";
+        const text = await response.text();
+        let data = null;
+        if (contentType.includes("application/json")) {
+          try { data = JSON.parse(text); } catch {}
+        }
+        return { status: response.status, data, text: text.slice(0, 700) };
+      } catch (error) {
+        return { status: 0, error: error.message };
+      }
+    })()\`);
+
+    if (last?.status === 200 && last?.data?.success) {
+      console.log("AUTH=SUPABASE_SSR_COOKIE");
+      return last.data;
+    }
+    await harness.sleep(350);
+  }
+
+  throw new Error(
+    \`Finance E2E authenticated bootstrap failed: status=\${last?.status || 0} body=\${last?.text || last?.error || "unavailable"}\`
+  );
+}
+`;
+
+let generatedSource = `${source.slice(0, start)}${replacement}${source.slice(end)}`;
+generatedSource = generatedSource.replace(
+  "async function main() {",
+  `${authentication}\nasync function main() {`
 );
+generatedSource = generatedSource.replace(
+  "const bootstrap = await harness.login(client, server.baseUrl, email, password);",
+  "const bootstrap = await authenticateFinanceAudit(harness, client, server.baseUrl, email, password, localEnv);"
+);
+
+if (!generatedSource.includes("AUTH=SUPABASE_SSR_COOKIE")) {
+  throw new Error("FINANCE_E2E_AUTH_PATCH_NOT_APPLIED");
+}
+
+fs.writeFileSync(generatedPath, generatedSource);
 
 try {
   await import(`${pathToFileURL(generatedPath).href}?v=${Date.now()}`);

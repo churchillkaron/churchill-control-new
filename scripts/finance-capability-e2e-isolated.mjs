@@ -113,45 +113,51 @@ try {
   console.log(`FINANCE_E2E_DIST_DIR=${DIST_DIR}`);
   console.log(`FINANCE_E2E_SERVER_LOG=${SERVER_LOG}`);
   console.log(`FINANCE_E2E_PAGE_TIMEOUT_MS=${PAGE_TIMEOUT_MS}`);
-  console.log("FINANCE_E2E_AUTH_ORIGIN=redirect-tolerant-login");
+  console.log("FINANCE_E2E_AUTH_VALIDATION=server-cookie");
   console.log("FINANCE_E2E_SERVER_VERIFIED=true");
 
   const stablePath = path.join(ROOT, "scripts/finance-capability-e2e-audit-stable.mjs");
   const patchedStablePath = path.join(
     ROOT,
     "scripts",
-    `.finance-capability-e2e-redirect-login-${process.pid}.mjs`
+    `.finance-capability-e2e-server-auth-${process.pid}.mjs`
   );
   const stableSource = fs.readFileSync(stablePath, "utf8");
-  const loginNavigation = '  await harness.navigate(client, \\`\\${baseUrl}/login\\`);';
-  const redirectTolerantNavigation = [
-    '  await client.send("Page.navigate", { url: \\`\\${baseUrl}/login\\` });',
-    '  const browserOriginDeadline = Date.now() + Number(process.env.FINANCE_SMOKE_PAGE_TIMEOUT_MS || 120000);',
-    '  let browserOriginReady = false;',
-    '  let browserOriginState = null;',
-    '  while (Date.now() < browserOriginDeadline) {',
-    '    try {',
-    '      browserOriginState = await harness.evaluate(client, \\`({',
-    '        href: location.href,',
-    '        origin: location.origin,',
-    '        ready: document.readyState',
-    '      })\\`);',
-    '      if (browserOriginState?.origin === new URL(baseUrl).origin && browserOriginState?.ready === "complete") {',
-    '        browserOriginReady = true;',
-    '        break;',
-    '      }',
-    '    } catch {}',
-    '    await harness.sleep(250);',
-    '  }',
-    '  if (!browserOriginReady) {',
-    '    throw new Error(\\`Finance E2E browser page did not become ready: \\${browserOriginState?.href || "unavailable"}\\`);',
-    '  }',
-  ].join("\n");
-  const patchedStableSource = stableSource.replace(loginNavigation, redirectTolerantNavigation);
+  const authStart = stableSource.indexOf('  await client.send("Network.setCookies", { cookies });');
+  const authEnd = stableSource.indexOf("\n}\n`;", authStart);
 
-  if (patchedStableSource === stableSource) {
-    throw new Error("FINANCE_E2E_REDIRECT_LOGIN_PATCH_NOT_APPLIED");
+  if (authStart < 0 || authEnd < 0) {
+    throw new Error("FINANCE_E2E_SERVER_AUTH_PATCH_TARGET_NOT_FOUND");
   }
+
+  const serverValidation = [
+    '  await client.send("Network.setCookies", { cookies });',
+    '  const cookieHeader = [...cookieJar.entries()]',
+    '    .map(([name, value]) => `${name}=${value}`)',
+    '    .join("; ");',
+    '  const response = await fetch(`${baseUrl}/api/session/bootstrap`, {',
+    '    headers: { cookie: cookieHeader },',
+    '    redirect: "manual",',
+    '  });',
+    '  const contentType = response.headers.get("content-type") || "";',
+    '  const text = await response.text();',
+    '  let bootstrapData = null;',
+    '  if (contentType.includes("application/json")) {',
+    '    try { bootstrapData = JSON.parse(text); } catch {}',
+    '  }',
+    '  if (response.status !== 200 || !bootstrapData?.success) {',
+    '    throw new Error(',
+    '      `Finance E2E authenticated bootstrap failed: status=${response.status} body=${text.slice(0, 700)}`',
+    '    );',
+    '  }',
+    '  console.log("AUTH=SUPABASE_SSR_COOKIE");',
+    '  return bootstrapData;',
+  ].join("\n");
+
+  const patchedStableSource =
+    stableSource.slice(0, authStart) +
+    serverValidation +
+    stableSource.slice(authEnd);
 
   fs.writeFileSync(patchedStablePath, patchedStableSource);
   try {

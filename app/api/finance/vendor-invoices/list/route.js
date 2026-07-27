@@ -6,20 +6,20 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function GET(req) {
+export async function GET(request) {
   try {
     await requireAuth();
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
     const access = await requireOrganizationAccess({
       organizationId:
         searchParams.get("organizationId") ||
         searchParams.get("organization_id"),
-      request: req,
+      request,
     });
 
     if (!access.success) {
       return NextResponse.json(
-        { success: false, error: access.error },
+        { success: false, error: access.error, invoices: [], rows: [] },
         { status: access.status }
       );
     }
@@ -27,31 +27,32 @@ export async function GET(req) {
     const requestedEntityId =
       searchParams.get("entityId") ||
       searchParams.get("entity_id");
-    const entity = requestedEntityId
-      ? await resolveEntity({
-          organizationId: access.organizationId,
-          entityId: requestedEntityId,
-        })
-      : null;
 
-    if (requestedEntityId && !entity) {
+    if (!requestedEntityId) {
       return NextResponse.json(
-        { success: false, error: "Legal entity not found in organisation" },
+        { success: false, error: "entity_id required", invoices: [], rows: [] },
+        { status: 400 }
+      );
+    }
+
+    const entity = await resolveEntity({
+      organizationId: access.organizationId,
+      entityId: requestedEntityId,
+    });
+
+    if (!entity) {
+      return NextResponse.json(
+        { success: false, error: "Legal entity not found in organisation", invoices: [], rows: [] },
         { status: 404 }
       );
     }
 
-    let invoiceQuery = supabaseAdmin
+    const { data: invoices, error: invoiceError } = await supabaseAdmin
       .from("vendor_invoices")
       .select("*")
       .eq("organization_id", access.organizationId)
+      .eq("entity_id", entity.id)
       .order("invoice_date", { ascending: false });
-
-    if (entity?.id) {
-      invoiceQuery = invoiceQuery.eq("entity_id", entity.id);
-    }
-
-    const { data: invoices, error: invoiceError } = await invoiceQuery;
 
     if (invoiceError) {
       throw invoiceError;
@@ -80,19 +81,33 @@ export async function GET(req) {
     const partyById = new Map(parties.map(party => [party.id, party]));
     const rows = (invoices || []).map(invoice => {
       const partyId = invoice.vendor_party_id || invoice.supplier_party_id || null;
+      const party = partyById.get(partyId) || null;
       return {
         ...invoice,
-        party: partyById.get(partyId) || null,
+        party,
+        vendor_name:
+          invoice.vendor_name ||
+          party?.display_name ||
+          party?.legal_name ||
+          null,
       };
     });
 
     return NextResponse.json({
       success: true,
+      organization_id: access.organizationId,
+      entity_id: entity.id,
       invoices: rows,
+      rows,
     });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      {
+        success: false,
+        error: error.message || "Vendor invoice list failed",
+        invoices: [],
+        rows: [],
+      },
       { status: error.status || 500 }
     );
   }

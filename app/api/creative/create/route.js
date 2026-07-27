@@ -62,9 +62,14 @@ function selectedAssetIds(body = {}) {
   return [...new Set([...explicit, ...embedded])];
 }
 
-function positiveNumber(value) {
+function finiteNumber(value, fallback = null) {
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function positiveNumber(value) {
+  const parsed = finiteNumber(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
 }
 
 async function resolveSelectedAssets({ organizationId, body }) {
@@ -222,6 +227,148 @@ function performancePolicy(body = {}) {
   };
 }
 
+function targetDuration(body = {}, project = {}) {
+  return positiveNumber(
+    body.target_duration ??
+    body.duration_seconds ??
+    project.target_duration ??
+    project.metadata?.target_duration,
+  );
+}
+
+function enforcedPerformancePostProduction({
+  body,
+  project,
+  selectedVideoCount,
+}) {
+  const requested = requestMetadata(body);
+  const existingPostProduction = object(
+    project.metadata?.post_production,
+  );
+  const requestedPostProduction = object(
+    requested.post_production,
+  );
+  const existingTimeline = object(
+    existingPostProduction.timeline,
+  );
+  const requestedTimeline = object(
+    requestedPostProduction.timeline,
+  );
+  const existingQuality = object(
+    existingPostProduction.quality,
+  );
+  const requestedQuality = object(
+    requestedPostProduction.quality,
+  );
+  const existingPerceptual = object(
+    existingQuality.perceptual_policy ||
+    existingQuality.perceptualPolicy,
+  );
+  const requestedPerceptual = object(
+    requestedQuality.perceptual_policy ||
+    requestedQuality.perceptualPolicy,
+  );
+  const duration = targetDuration(body, project);
+
+  if (!duration) {
+    throw new Error(
+      "PERFORMANCE_TIMELINE_TARGET_DURATION_REQUIRED",
+    );
+  }
+
+  const requestedMinimumScore = finiteNumber(
+    requestedTimeline.minimum_score ??
+    requestedTimeline.minimumScore,
+    55,
+  );
+  const requestedMaximumPerSource = positiveNumber(
+    requestedTimeline.maximum_clips_per_source ??
+    requestedTimeline.maximumClipsPerSource,
+  );
+  const requestedMinimumSources = positiveNumber(
+    requestedTimeline.minimum_distinct_sources ??
+    requestedTimeline.minimumDistinctSources,
+  );
+  const automaticMinimumSources = Math.min(
+    selectedVideoCount,
+    Math.max(1, Math.min(4, Math.ceil(selectedVideoCount / 2))),
+  );
+
+  return {
+    ...existingPostProduction,
+    ...requestedPostProduction,
+    timeline: {
+      ...existingTimeline,
+      ...requestedTimeline,
+      performance_verified_only: true,
+      minimum_score: Math.max(55, requestedMinimumScore),
+      minimum_duration_seconds: duration,
+      maximum_duration_seconds: duration,
+      minimum_distinct_sources: Math.min(
+        selectedVideoCount,
+        requestedMinimumSources || automaticMinimumSources,
+      ),
+      maximum_clips_per_source:
+        requestedMaximumPerSource || 3,
+      allow_fallback: true,
+      preserve_original_audio: true,
+      exact_lip_sync_required: true,
+      reject_blurred_vertical_background: true,
+    },
+    quality: {
+      ...existingQuality,
+      ...requestedQuality,
+      require_perceptual_qc: true,
+      perceptual_policy: {
+        ...existingPerceptual,
+        ...requestedPerceptual,
+        require_audio_review: true,
+        require_subject_continuity: true,
+        require_performance_authenticity: true,
+        require_lip_synchronisation: true,
+        reject_blurred_vertical_background: true,
+      },
+    },
+  };
+}
+
+function projectMetadata({
+  body,
+  project,
+  selectedIds,
+  selectedVideos,
+  performanceIntelligence,
+}) {
+  const requested = requestMetadata(body);
+  const requiresPerformance = performanceIntelligenceRequired(body);
+  const metadata = {
+    ...(project.metadata || {}),
+    ...requested,
+    target_duration:
+      targetDuration(body, project) || null,
+    selected_asset_ids: selectedIds,
+    selected_assets_locked_at: new Date().toISOString(),
+    selected_assets_source: "creative_create_command",
+    performance_video_intelligence_required:
+      requiresPerformance,
+    performance_intelligence:
+      performanceIntelligence,
+  };
+
+  if (requiresPerformance) {
+    metadata.post_production = enforcedPerformancePostProduction({
+      body,
+      project: {
+        ...project,
+        metadata,
+      },
+      selectedVideoCount: selectedVideos.length,
+    });
+  }
+
+  return metadata;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -259,58 +406,71 @@ export async function POST(request) {
     }
 
     const project = await CreativeProjectRuntime.get(creativeProjectId);
-    if (!project || String(project.organization_id) !== String(organizationId)) {
+    if (
+      !project ||
+      String(project.organization_id) !== String(organizationId)
+    ) {
       throw new Error("Creative project not found");
     }
 
     const selectedIds = assets.map((asset) => asset.id);
-    const metadata = {
-      ...(project.metadata || {}),
-      ...requestMetadata(body),
-      selected_asset_ids: selectedIds,
-      selected_assets_locked_at: new Date().toISOString(),
-      selected_assets_source: "creative_create_command",
-    };
-    const updatedProject = await CreativeProjectRuntime.update(
-      creativeProjectId,
-      { metadata },
-    );
-
-    const attachedAssetNodes = await CreativeAssetGraphRepository.attachAssetsToProject({
-      organization_id: organizationId,
-      creative_project_id: creativeProjectId,
-      creative_asset_ids: selectedIds,
-    });
+    const attachedAssetNodes =
+      await CreativeAssetGraphRepository.attachAssetsToProject({
+        organization_id: organizationId,
+        creative_project_id: creativeProjectId,
+        creative_asset_ids: selectedIds,
+      });
     if (attachedAssetNodes.length < selectedIds.length) {
-      throw new Error("CREATIVE_SELECTED_ASSET_NODE_ATTACHMENT_INCOMPLETE");
+      throw new Error(
+        "CREATIVE_SELECTED_ASSET_NODE_ATTACHMENT_INCOMPLETE",
+      );
     }
 
+    const requiresPerformance = performanceIntelligenceRequired(body);
+    const selectedVideos = attachedAssetNodes.filter(
+      (node) => node.type === CREATIVE_ASSET_NODE_TYPES.VIDEO,
+    );
     const performanceIntelligence = [];
-    if (performanceIntelligenceRequired(body)) {
-      const selectedVideos = attachedAssetNodes.filter((node) =>
-        node.type === CREATIVE_ASSET_NODE_TYPES.VIDEO,
-      );
+
+    if (requiresPerformance) {
       if (!selectedVideos.length) {
         throw new Error("PERFORMANCE_VIDEO_ASSET_REQUIRED");
       }
 
       for (const video of selectedVideos) {
-        const result = await CreativePerformanceVideoIntelligenceRuntime.analyze({
-          organization_id: organizationId,
-          parent_asset_node_id: video.id,
-          policy: performancePolicy(body),
-        });
+        const result =
+          await CreativePerformanceVideoIntelligenceRuntime.analyze({
+            organization_id: organizationId,
+            parent_asset_node_id: video.id,
+            policy: performancePolicy(body),
+          });
         if (!Array.isArray(result.moments) || !result.moments.length) {
-          throw new Error(`PERFORMANCE_VIDEO_INTELLIGENCE_REQUIRED:${video.id}`);
+          throw new Error(
+            `PERFORMANCE_VIDEO_INTELLIGENCE_REQUIRED:${video.id}`,
+          );
         }
         performanceIntelligence.push({
           source_asset_node_id: video.id,
           analysis_identity: result.analysis_identity,
           moment_ids: result.moments.map((moment) => moment.id),
-          detected_section_count: result.detected_sections?.length || null,
+          detected_section_count:
+            result.detected_sections?.length || null,
+          verified_section_count: result.moments.length,
         });
       }
     }
+
+    const metadata = projectMetadata({
+      body,
+      project,
+      selectedIds,
+      selectedVideos,
+      performanceIntelligence,
+    });
+    const updatedProject = await CreativeProjectRuntime.update(
+      creativeProjectId,
+      { metadata },
+    );
 
     const execution = await CreativeDirectorRuntime.execute({
       organization_id: organizationId,
@@ -319,8 +479,16 @@ export async function POST(request) {
       creative_brief_id: creativeBriefId,
       mission: started,
       project: updatedProject,
-      objective: started.objective || started.business_goal || body.intent || "",
-      business_goal: started.business_goal || started.objective || body.intent || "",
+      objective:
+        started.objective ||
+        started.business_goal ||
+        body.intent ||
+        "",
+      business_goal:
+        started.business_goal ||
+        started.objective ||
+        body.intent ||
+        "",
       audience: started.audience || {},
       assets,
       requestedOutputs: normalizeList(
@@ -346,11 +514,18 @@ export async function POST(request) {
       creative_project_id: creativeProjectId,
       creative_brief_id: creativeBriefId,
       selected_asset_ids: selectedIds,
-      attached_asset_node_ids: attachedAssetNodes.map((node) => node.id),
-      performance_intelligence: performanceIntelligence,
+      attached_asset_node_ids:
+        attachedAssetNodes.map((node) => node.id),
+      performance_intelligence:
+        performanceIntelligence,
+      enforced_post_production_policy:
+        requiresPerformance
+          ? metadata.post_production
+          : null,
       execution,
       next_action:
-        execution.production?.post_production?.status === "READY_FOR_APPROVAL"
+        execution.production?.post_production?.status ===
+        "READY_FOR_APPROVAL"
           ? "REVIEW_AND_APPROVE"
           : "RESUME_CREATIVE_PIPELINE",
     });
@@ -359,7 +534,10 @@ export async function POST(request) {
       {
         success: false,
         error: error?.message || String(error),
-        validation: error?.validation || error?.cause?.validation || null,
+        validation:
+          error?.validation ||
+          error?.cause?.validation ||
+          null,
       },
       { status: 500 },
     );

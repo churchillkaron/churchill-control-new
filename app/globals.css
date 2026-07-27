@@ -48,3 +48,13 @@ ul {
   padding-left: 1.25rem;
   margin: 0;
 }
+
+/*
+ * Shared master-data hygiene.
+ * These controls currently have no action contract or handler. Keep them out of
+ * production UI until a real registry-backed implementation exists.
+ */
+main > div.mx-auto > div.mt-4.grid > section:first-child > div:first-child > div.flex.flex-wrap.gap-2,
+main > div.mx-auto > div.mt-4.grid > aside > div > div.flex.items-start.gap-4 > button:last-child {
+  display: none;
+}

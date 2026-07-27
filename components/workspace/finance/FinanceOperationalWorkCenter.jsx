@@ -60,8 +60,19 @@ export default function FinanceOperationalWorkCenter({
   periodId,
 }) {
   const actions = useMemo(() => {
+    const workspaceSchema = Array.isArray(capability?.create?.schema)
+      ? capability.create.schema
+      : [];
+
     return actionList(capability?.topMenu || capability?.ui?.topMenu || capability?.actions)
-      .filter(action => action?.endpoint || action?.api);
+      .filter(action => action?.endpoint || action?.api)
+      .map(action => ({
+        ...action,
+        schema:
+          Array.isArray(action?.schema) && action.schema.length
+            ? action.schema
+            : workspaceSchema,
+      }));
   }, [capability]);
 
   const [running, setRunning] = useState("");

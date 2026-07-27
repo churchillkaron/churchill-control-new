@@ -44,7 +44,7 @@
   "statutory_filings": { "kind": "records", "scope": "entity", "owner": "finance" },
 
   "legal_entities": { "kind": "records", "scope": "organization", "owner": "finance", "api": "/api/finance/legal-entities/list" },
-  "cost_centers": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/cost-centers/list" },
+  "cost_centers": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/cost-centers" },
   "currencies": { "kind": "records", "scope": "organization", "owner": "finance", "api": "/api/finance/currencies" },
   "intercompany": { "kind": "records", "scope": "organization", "owner": "finance", "api": "/api/finance/intercompany/runtime" },
   "payment_terms": { "kind": "records", "scope": "organization", "owner": "finance", "api": "/api/finance/payment-terms" },

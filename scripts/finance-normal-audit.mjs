@@ -29,6 +29,7 @@ const policyPath = "lib/finance/ui/FinancePrimaryActionPolicy.js";
 const formContractPath = "lib/platform/forms/FinanceFormContract.js";
 const formRegistryPath = "lib/platform/forms/FormRegistry.js";
 const rendererRegistryPath = "lib/platform/erp-engine/renderers/RendererRegistry.js";
+const dynamicWorkspaceRoutePath = "app/api/finance/workspaces/[capabilityId]/route.js";
 
 const manifest = JSON.parse(read(manifestPath));
 const registry = read(registryPath);
@@ -39,6 +40,9 @@ const policy = read(policyPath);
 const formContract = read(formContractPath);
 const formRegistry = read(formRegistryPath);
 const rendererRegistry = read(rendererRegistryPath);
+const dynamicWorkspaceRoute = exists(dynamicWorkspaceRoutePath)
+  ? read(dynamicWorkspaceRoutePath)
+  : "";
 
 const rows = [];
 
@@ -56,6 +60,11 @@ function firstMatch(text, pattern) {
 
 function apiFile(api) {
   if (!api?.startsWith("/api/")) return null;
+
+  if (api.startsWith("/api/finance/workspaces/")) {
+    return dynamicWorkspaceRoutePath;
+  }
+
   return `app${api}/route.js`;
 }
 
@@ -94,6 +103,13 @@ const globalChecks = [
   ["Master data renderer registered", rendererRegistry.includes("MasterDataRuntimeWorkCenter")],
   ["Finance report renderer registered", rendererRegistry.includes("FinanceReportRuntimeWorkCenter")],
   ["Finance operational renderer registered", rendererRegistry.includes("FinanceOperationalWorkCenter")],
+  ["Dynamic Finance workspace API route exists", Boolean(dynamicWorkspaceRoute)],
+  ["Dynamic Finance workspace API resolves contracts", dynamicWorkspaceRoute.includes("getFinanceWorkspaceContract")],
+  ["Dynamic Finance workspace API enforces organisation access", dynamicWorkspaceRoute.includes("requireOrganizationAccess")],
+  ["Dynamic Finance workspace API supports GET", /export\s+async\s+function\s+GET\b/.test(dynamicWorkspaceRoute)],
+  ["Dynamic Finance workspace API supports POST", /export\s+async\s+function\s+POST\b/.test(dynamicWorkspaceRoute)],
+  ["Dynamic Finance workspace API supports PATCH", /export\s+async\s+function\s+PATCH\b/.test(dynamicWorkspaceRoute)],
+  ["Dynamic Finance workspace API supports DELETE", /export\s+async\s+function\s+DELETE\b/.test(dynamicWorkspaceRoute)],
   ["No tenant boundary in Finance registry", !/tenant_id|tenantId/.test(financeRegistry)],
   ["No fixed currency or country defaults in Finance form contract", !/default(?:Value)?\s*:\s*["'](?:THB|USD|EUR|GBP|Thailand)["']/i.test(formContract)],
 ];
@@ -186,6 +202,7 @@ for (const [id, definition] of Object.entries(manifest)) {
     route,
     renderer: expectedRenderer,
     api,
+    apiRouteFile: apiPath,
     form: formId,
     contract,
     actionPolicy,

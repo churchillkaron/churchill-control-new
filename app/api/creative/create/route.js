@@ -16,6 +16,8 @@ import {
 import {
   CreativeAssetsRuntime,
 } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
+import * as CreativeAssetGraphRepository
+from "@/lib/creative/assets/graph/repositories/CreativeAssetGraphRepository";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -203,6 +205,15 @@ export async function POST(request) {
       { metadata },
     );
 
+    const attachedAssetNodes = await CreativeAssetGraphRepository.attachAssetsToProject({
+      organization_id: organizationId,
+      creative_project_id: creativeProjectId,
+      creative_asset_ids: selectedIds,
+    });
+    if (attachedAssetNodes.length < selectedIds.length) {
+      throw new Error("CREATIVE_SELECTED_ASSET_NODE_ATTACHMENT_INCOMPLETE");
+    }
+
     const execution = await CreativeDirectorRuntime.execute({
       organization_id: organizationId,
       creative_mission_id: started.id,
@@ -237,6 +248,7 @@ export async function POST(request) {
       creative_project_id: creativeProjectId,
       creative_brief_id: creativeBriefId,
       selected_asset_ids: selectedIds,
+      attached_asset_node_ids: attachedAssetNodes.map((node) => node.id),
       execution,
       next_action:
         execution.production?.post_production?.status === "READY_FOR_APPROVAL"

@@ -2,11 +2,11 @@
 set -u
 
 REPO="${COLE_PREFLIGHT_REPO:-$HOME/Projects/churchill-control-preflight}"
-APP_PORT="${COLE_PREFLIGHT_APP_PORT:-3011}"
-SOURCE_PORT="${COLE_PREFLIGHT_SOURCE_PORT:-43871}"
-BASE_URL="http://127.0.0.1:${APP_PORT}"
+REQUESTED_APP_PORT="${COLE_PREFLIGHT_APP_PORT:-3011}"
+REQUESTED_SOURCE_PORT="${COLE_PREFLIGHT_SOURCE_PORT:-43871}"
+APP_PORT="${REQUESTED_APP_PORT}"
+SOURCE_PORT="${REQUESTED_SOURCE_PORT}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
-SERVER_LOG="${COLE_PREFLIGHT_SERVER_LOG:-$HOME/Downloads/COLE_LEY_PREFLIGHT_SERVER_${STAMP}.log}"
 RUNNER="scripts/creative-studio-cole-persisted-preflight.mjs"
 SERVER_PID=""
 
@@ -20,6 +20,28 @@ cleanup() {
 fail() {
   echo "STOP: $1"
   exit 1
+}
+
+port_in_use() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t 2>/dev/null | grep -q .
+    return $?
+  fi
+  return 1
+}
+
+next_free_port() {
+  local candidate="$1"
+  local attempts=0
+  while port_in_use "${candidate}"; do
+    candidate=$((candidate + 1))
+    attempts=$((attempts + 1))
+    if [ "${attempts}" -ge 100 ]; then
+      return 1
+    fi
+  done
+  printf '%s' "${candidate}"
 }
 
 trap cleanup EXIT INT TERM
@@ -55,14 +77,18 @@ do
   [ -r "$HOME/Downloads/${file}" ] || fail "Source file missing: $HOME/Downloads/${file}"
 done
 
-if command -v lsof >/dev/null 2>&1; then
-  if lsof -nP -iTCP:"${APP_PORT}" -sTCP:LISTEN -t | grep -q .; then
-    fail "Port ${APP_PORT} is already in use"
-  fi
-  if lsof -nP -iTCP:"${SOURCE_PORT}" -sTCP:LISTEN -t | grep -q .; then
-    fail "Port ${SOURCE_PORT} is already in use"
-  fi
+APP_PORT="$(next_free_port "${REQUESTED_APP_PORT}")" || \
+  fail "No free application port found from ${REQUESTED_APP_PORT}"
+SOURCE_PORT="$(next_free_port "${REQUESTED_SOURCE_PORT}")" || \
+  fail "No free source port found from ${REQUESTED_SOURCE_PORT}"
+
+if [ "${APP_PORT}" = "${SOURCE_PORT}" ]; then
+  SOURCE_PORT="$(next_free_port $((SOURCE_PORT + 1)))" || \
+    fail "No separate free source port found"
 fi
+
+BASE_URL="http://127.0.0.1:${APP_PORT}"
+SERVER_LOG="${COLE_PREFLIGHT_SERVER_LOG:-$HOME/Downloads/COLE_LEY_PREFLIGHT_SERVER_${STAMP}.log}"
 
 if [ -z "${CREATIVE_LOCAL_SOURCE_PREFLIGHT_TOKEN:-}" ]; then
   if command -v openssl >/dev/null 2>&1; then
@@ -89,8 +115,11 @@ echo "============================================================"
 echo "COLE LEY PERSISTED LOCAL SHORTLIST"
 echo "============================================================"
 echo "COMMIT=$(git rev-parse HEAD)"
+echo "REQUESTED_APP_PORT=${REQUESTED_APP_PORT}"
+echo "SELECTED_APP_PORT=${APP_PORT}"
+echo "REQUESTED_SOURCE_PORT=${REQUESTED_SOURCE_PORT}"
+echo "SELECTED_SOURCE_PORT=${SOURCE_PORT}"
 echo "APP_URL=${BASE_URL}"
-echo "SOURCE_PORT=${SOURCE_PORT}"
 echo "DATABASE_WRITES=YES"
 echo "PROVIDER_CALLS=NO"
 echo "WALLET_CHARGES=NO"

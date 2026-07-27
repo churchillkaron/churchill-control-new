@@ -31,7 +31,7 @@ async function serverReady(baseUrl) {
   try {
     const response = await fetch(`${baseUrl}/api/session/bootstrap`, {
       redirect: "manual",
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(10000),
     });
     const contentType = response.headers.get("content-type") || "";
     return response.status !== 404 &&
@@ -82,24 +82,35 @@ process.once("exit", cleanup);
 
 try {
   const deadline = Date.now() + SERVER_TIMEOUT_MS;
+  let consecutiveReadyChecks = 0;
+
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
       throw new Error(`Isolated Finance E2E server exited early. See ${SERVER_LOG}`);
     }
-    if (await serverReady(baseUrl)) break;
+
+    if (await serverReady(baseUrl)) {
+      consecutiveReadyChecks += 1;
+      if (consecutiveReadyChecks >= 3) break;
+    } else {
+      consecutiveReadyChecks = 0;
+    }
+
     await sleep(750);
   }
 
-  if (!(await serverReady(baseUrl))) {
-    throw new Error(`Isolated Finance E2E server did not become ready. See ${SERVER_LOG}`);
+  if (consecutiveReadyChecks < 3) {
+    throw new Error(`Isolated Finance E2E server did not become stable. See ${SERVER_LOG}`);
   }
 
   process.env.FINANCE_SMOKE_BASE_URL = baseUrl;
+  process.env.FINANCE_E2E_VERIFIED_BASE_URL = baseUrl;
   process.env.AVANTIQO_NEXT_DIST_DIR = DIST_DIR;
 
   console.log(`FINANCE_E2E_SERVER=${baseUrl}`);
   console.log(`FINANCE_E2E_DIST_DIR=${DIST_DIR}`);
   console.log(`FINANCE_E2E_SERVER_LOG=${SERVER_LOG}`);
+  console.log("FINANCE_E2E_SERVER_VERIFIED=true");
 
   await import(
     `${pathToFileURL(path.join(ROOT, "scripts/finance-capability-e2e-audit-stable.mjs")).href}?v=${Date.now()}`

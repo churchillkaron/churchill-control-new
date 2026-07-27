@@ -122,7 +122,15 @@ try {
     "scripts",
     `.finance-capability-e2e-server-auth-${process.pid}.mjs`
   );
-  const stableSource = fs.readFileSync(stablePath, "utf8");
+  const stableSource = fs.readFileSync(stablePath, "utf8").replace(
+    'const source = fs.readFileSync(sourcePath, "utf8");',
+    'const source = fs.readFileSync(sourcePath, "utf8").replace("\\nmain().catch(error => {", "\\nawait main().catch(error => {");'
+  );
+
+  if (!stableSource.includes("await main().catch(error => {")) {
+    throw new Error("FINANCE_E2E_AWAITABLE_MAIN_PATCH_NOT_APPLIED");
+  }
+
   const authStart = stableSource.indexOf('  await client.send("Network.setCookies", { cookies });');
   const authEnd = stableSource.indexOf("\n}\n`;", authStart);
 

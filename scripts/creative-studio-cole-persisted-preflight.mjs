@@ -18,16 +18,16 @@ const ORGANIZATION_ID =
 const BASE_URL = process.env.COLE_PREFLIGHT_BASE_URL || "http://127.0.0.1:3011";
 const SOURCE_PORT = Number(process.env.COLE_PREFLIGHT_SOURCE_PORT || 43871);
 const PREFLIGHT_KEY =
-  process.env.COLE_PREFLIGHT_KEY || "cole-ley-live-showreel-v1";
+  process.env.COLE_PREFLIGHT_KEY || "cole-ley-live-showreel-v2";
 const DOWNLOADS = path.join(process.env.HOME || "", "Downloads");
 const STATE_PATH =
   process.env.COLE_PREFLIGHT_STATE ||
-  path.join(DOWNLOADS, "COLE_LEY_PERSISTED_PREFLIGHT_STATE.json");
+  path.join(DOWNLOADS, "COLE_LEY_PERSISTED_PREFLIGHT_STATE_V2.json");
 const REPORT_PATH =
   process.env.COLE_PREFLIGHT_REPORT ||
   path.join(
     DOWNLOADS,
-    `COLE_LEY_PERSISTED_PREFLIGHT_${new Date()
+    `COLE_LEY_PERSISTED_SHORTLIST_${new Date()
       .toISOString()
       .replace(/[-:]/g, "")
       .replace(/\..+$/, "")}.json`,
@@ -73,7 +73,7 @@ async function loadState() {
     return JSON.parse(await fsp.readFile(STATE_PATH, "utf8"));
   } catch {
     return {
-      version: 1,
+      version: 2,
       preflight_key: PREFLIGHT_KEY,
       organization_id: ORGANIZATION_ID,
       sources: {},
@@ -100,11 +100,12 @@ function authHeaders(extra = {}) {
   const headers = {
     accept: "application/json",
     "content-type": "application/json",
-    "x-avantiqo-local-preflight-token": required(
-      "CREATIVE_LOCAL_SOURCE_PREFLIGHT_TOKEN",
-    ),
     ...extra,
   };
+  const localToken = text(process.env.CREATIVE_LOCAL_SOURCE_PREFLIGHT_TOKEN);
+  if (localToken) {
+    headers["x-avantiqo-local-preflight-token"] = localToken;
+  }
   const bearer = text(process.env.CREATIVE_SMOKE_BEARER_TOKEN);
   const cookie = text(process.env.CREATIVE_SMOKE_COOKIE);
   if (bearer) headers.authorization = `Bearer ${bearer}`;
@@ -117,15 +118,12 @@ function authHeaders(extra = {}) {
   return headers;
 }
 
-async function post(body) {
-  const response = await fetch(
-    new URL("/api/creative/preflight/local", BASE_URL),
-    {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({ organization_id: ORGANIZATION_ID, ...body }),
-    },
-  );
+async function post(route, body) {
+  const response = await fetch(new URL(route, BASE_URL), {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ organization_id: ORGANIZATION_ID, ...body }),
+  });
   const raw = await response.text();
   let payload;
   try {
@@ -144,31 +142,28 @@ async function post(body) {
   return payload;
 }
 
-function run(command, args, { capture = true } = {}) {
+function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       shell: false,
-      stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+      stdio: ["ignore", "pipe", "pipe"],
     });
     const stdout = [];
     const stderr = [];
-    if (capture) {
-      child.stdout.on("data", (chunk) => stdout.push(chunk));
-      child.stderr.on("data", (chunk) => stderr.push(chunk));
-    }
+    child.stdout.on("data", (chunk) => stdout.push(chunk));
+    child.stderr.on("data", (chunk) => stderr.push(chunk));
     child.on("error", reject);
     child.on("close", (code) => {
       if (code !== 0) {
         reject(new Error(
-          capture
-            ? Buffer.concat(stderr).toString("utf8") || `${command} exited ${code}`
-            : `${command} exited ${code}`,
+          Buffer.concat(stderr).toString("utf8") ||
+          `${command} exited ${code}`,
         ));
         return;
       }
       resolve({
-        stdout: capture ? Buffer.concat(stdout).toString("utf8") : "",
-        stderr: capture ? Buffer.concat(stderr).toString("utf8") : "",
+        stdout: Buffer.concat(stdout).toString("utf8"),
+        stderr: Buffer.concat(stderr).toString("utf8"),
       });
     });
   });
@@ -257,7 +252,10 @@ function createSourceServer() {
   const allowed = new Map(SOURCES.map((source) => [source.name, source.file]));
   return http.createServer(async (request, response) => {
     try {
-      const url = new URL(request.url || "/", `http://127.0.0.1:${SOURCE_PORT}`);
+      const url = new URL(
+        request.url || "/",
+        `http://127.0.0.1:${SOURCE_PORT}`,
+      );
       const name = decodeURIComponent(url.pathname.replace(/^\//, ""));
       const filePath = allowed.get(name);
       if (!filePath) {
@@ -281,7 +279,9 @@ function createSourceServer() {
           ? Math.min(Number(match[2]), stat.size - 1)
           : stat.size - 1;
         if (start > end || start >= stat.size) {
-          response.writeHead(416, { "Content-Range": `bytes */${stat.size}` }).end();
+          response.writeHead(416, {
+            "Content-Range": `bytes */${stat.size}`,
+          }).end();
           return;
         }
         response.writeHead(206, {
@@ -330,12 +330,35 @@ async function assertAppReady() {
 function missionIntent() {
   return [
     "Create a three-minute premium Cole Ley live-performance showreel from the registered real performance videos and logo.",
-    "Analyse every complete source video, detect musical section boundaries, and persist verified source ranges before production.",
-    "Cole Ley must be visibly central and actively performing in every selected moment.",
+    "Analyse every complete source video locally, score every detected section, and persist the strongest diverse shortlist before any paid semantic verification.",
+    "Cole Ley must be visibly central and actively performing in every final selected moment.",
     "Preserve original live audio and exact lip synchronisation.",
     "Build a deliberate three-act progression with premium subject-aware reframing and no generic blurred vertical backgrounds.",
-    "This preflight must not start paid production. Production requires a separate explicit resume command.",
+    "This preflight must not start paid analysis or production. Both require separate explicit authorisation.",
   ].join("\n\n");
+}
+
+function localPolicy() {
+  return {
+    version: "creative-local-shortlist-v1",
+    minimum_section_seconds: 8,
+    maximum_section_seconds: 20,
+    minimum_boundary_silence_seconds: 1.2,
+    silence_noise_db: -32,
+    silence_duration_seconds: 1.2,
+    local_sample_fractions: [0.2, 0.5, 0.8],
+  };
+}
+
+function projectPolicy() {
+  return {
+    version: "creative-project-shortlist-v1",
+    maximum_candidates: 14,
+    minimum_per_source: 1,
+    maximum_per_source: 3,
+    minimum_temporal_distance_seconds: 10,
+    ai_sample_fractions: [0.35, 0.7],
+  };
 }
 
 async function main() {
@@ -358,7 +381,7 @@ async function main() {
 
   try {
     if (!state.creative_mission_id || !state.creative_project_id) {
-      const initialized = await post({
+      const initialized = await post("/api/creative/preflight/local", {
         action: "INIT",
         preflight_key: PREFLIGHT_KEY,
         title: "Cole Ley — Three-Minute Live Performance Showreel",
@@ -380,6 +403,7 @@ async function main() {
           live_showreel: true,
           original_audio_required: true,
           exact_lip_sync_required: true,
+          paid_analysis_authorized: false,
           paid_production_authorized: false,
         },
       });
@@ -417,7 +441,7 @@ async function main() {
 
       if (!state.sources[source.name].asset_node_id) {
         console.log(`REGISTERING=${source.name}`);
-        const registered = await post({
+        const registered = await post("/api/creative/preflight/local", {
           action: "REGISTER",
           preflight_key: PREFLIGHT_KEY,
           creative_mission_id: state.creative_mission_id,
@@ -454,98 +478,116 @@ async function main() {
 
     for (const source of SOURCES.filter((item) => item.kind === "video")) {
       const sourceState = state.sources[source.name];
-      if (sourceState.analysis_status === "COMPLETE") {
-        console.log(`ANALYSIS_REUSED_FROM_CHECKPOINT=${source.name}`);
+      if (sourceState.local_shortlist_status === "COMPLETE") {
+        console.log(`LOCAL_SHORTLIST_REUSED_FROM_CHECKPOINT=${source.name}`);
         continue;
       }
 
-      console.log(`ANALYSING_COMPLETE_SOURCE=${source.name}`);
-      const analysed = await post({
-        action: "ANALYSE",
-        creative_mission_id: state.creative_mission_id,
+      console.log(`LOCAL_FULL_TIMELINE_ANALYSIS=${source.name}`);
+      const analysed = await post("/api/creative/media/shortlist", {
+        action: "ANALYZE_SOURCE",
         creative_project_id: state.creative_project_id,
         parent_asset_node_id: sourceState.asset_node_id,
-        source_url: sourceUrl(source),
         policy: {
-          version: "persisted-local-performance-v1",
-          requested_subject: "primary lead vocalist",
-          minimum_usable_sections: 1,
-          minimum_verified_samples: 2,
-          minimum_quality_score: 55,
-          minimum_primary_performer_ratio: 0.5,
-          minimum_vocalist_ratio: 0.5,
-          minimum_section_seconds: 8,
-          maximum_section_seconds: 20,
-          minimum_boundary_silence_seconds: 1.2,
-          silence_noise_db: -32,
-          silence_duration_seconds: 1.2,
-          sample_fractions: [0.2, 0.5, 0.8],
-          output_width: 1920,
-          output_height: 1080,
-          frame_rate: 30,
-          video_codec: "libx264",
-          video_preset: "medium",
-          video_crf: 20,
-          audio_codec: "aac",
-          audio_bitrate: "192k",
+          ...localPolicy(),
+          max_bytes: sourceState.technical.file_size_bytes + 1024 * 1024,
+          allow_private_networks: true,
+          allowed_hosts: ["127.0.0.1", "localhost"],
         },
       });
       state.sources[source.name] = {
         ...sourceState,
-        analysis_status: "COMPLETE",
-        analysis_identity: analysed.analysis_identity,
-        verified_moment_count: analysed.verified_moment_count,
-        verified_moment_ids: analysed.verified_moment_ids,
-        analysed_at: new Date().toISOString(),
+        local_shortlist_status: "COMPLETE",
+        local_shortlist_plan_identity: analysed.plan_identity,
+        local_candidate_count: analysed.candidates?.length || 0,
+        local_candidate_ids:
+          analysed.candidates?.map((candidate) => candidate.id) || [],
+        local_shortlist_completed_at: new Date().toISOString(),
       };
-      event(state, "SOURCE_ANALYSIS_PERSISTED", {
+      event(state, "LOCAL_SHORTLIST_PERSISTED", {
         source: source.name,
-        analysis_identity: analysed.analysis_identity,
-        verified_moment_count: analysed.verified_moment_count,
-        verified_moment_ids: analysed.verified_moment_ids,
+        plan_identity: analysed.plan_identity,
+        candidate_count: analysed.candidates?.length || 0,
+        reused: analysed.reused === true,
       });
       await saveState(state);
       console.log(
-        `SOURCE_ANALYSIS_PERSISTED=${source.name} MOMENTS=${analysed.verified_moment_count}`,
+        `LOCAL_SHORTLIST_PERSISTED=${source.name} ` +
+        `CANDIDATES=${analysed.candidates?.length || 0}`,
       );
     }
 
-    const status = await post({
+    if (!state.project_shortlist_identity) {
+      console.log("FINALIZING_DIVERSE_PROJECT_SHORTLIST");
+      const finalized = await post("/api/creative/media/shortlist", {
+        action: "FINALIZE",
+        creative_project_id: state.creative_project_id,
+        policy: projectPolicy(),
+      });
+      state.project_shortlist_identity = finalized.project_shortlist_identity;
+      state.shortlist = finalized;
+      event(state, "PROJECT_SHORTLIST_FINALIZED", {
+        project_shortlist_identity: finalized.project_shortlist_identity,
+        selected_candidate_count: finalized.selected_candidate_count,
+        estimated_ai_calls: finalized.estimated_ai_calls,
+        cost_estimate: finalized.cost_estimate,
+      });
+      await saveState(state);
+    }
+
+    const status = await post("/api/creative/media/shortlist", {
       action: "STATUS",
-      creative_mission_id: state.creative_mission_id,
       creative_project_id: state.creative_project_id,
     });
     state.final_status = status;
-    event(state, "PREFLIGHT_STATUS", status);
+    event(state, "SHORTLIST_STATUS", status);
     await saveState(state);
 
     const report = {
       generated_at: new Date().toISOString(),
-      mode: "PERSISTED_PREFLIGHT_ONLY",
-      paid_production_authorized: false,
+      mode: "PERSISTED_LOCAL_SHORTLIST_ONLY",
+      database_writes: true,
+      local_analysis_completed: true,
+      provider_calls: false,
+      wallet_charges: false,
+      paid_analysis_authorized: false,
       production_started: false,
       state_path: STATE_PATH,
       ...status,
       sources: state.sources,
+      required_authorization: status.cost_estimate?.ready
+        ? {
+            approved: true,
+            project_shortlist_identity:
+              status.project_shortlist_identity,
+            maximum_ai_calls: status.estimated_ai_calls,
+            maximum_customer_price:
+              status.cost_estimate.estimated_customer_price,
+            currency: status.cost_estimate.currency,
+          }
+        : null,
     };
     await fsp.writeFile(REPORT_PATH, JSON.stringify(report, null, 2));
 
     console.log("");
     console.log("============================================================");
-    console.log("COLE LEY PERSISTED PREFLIGHT RESULT");
+    console.log("COLE LEY PERSISTED LOCAL SHORTLIST RESULT");
     console.log("============================================================");
-    console.log("PAID_PRODUCTION_AUTHORIZED=NO");
+    console.log("PROVIDER_CALLS=NO");
+    console.log("WALLET_CHARGES=NO");
+    console.log("PAID_ANALYSIS_AUTHORIZED=NO");
     console.log("PRODUCTION_STARTED=NO");
-    console.log(`MISSION_ID=${status.creative_mission_id}`);
-    console.log(`PROJECT_ID=${status.creative_project_id}`);
-    console.log(`SOURCE_VIDEO_COUNT=${status.source_video_count}`);
-    console.log(`VERIFIED_MOMENT_COUNT=${status.verified_moment_count}`);
-    console.log(`VERIFIED_SOURCE_COUNT=${status.verified_source_count}`);
-    console.log(`VERIFIED_DURATION_SECONDS=${status.verified_duration_seconds}`);
-    console.log(`TARGET_DURATION_SECONDS=${status.target_duration_seconds}`);
-    console.log(`READY_TO_RESUME=${status.ready_to_resume ? "YES" : "NO"}`);
+    console.log(`MISSION_ID=${state.creative_mission_id}`);
+    console.log(`PROJECT_ID=${state.creative_project_id}`);
+    console.log(`LOCAL_CANDIDATE_COUNT=${status.local_candidate_count}`);
+    console.log(`SELECTED_CANDIDATE_COUNT=${status.selected_candidate_count}`);
+    console.log(`ESTIMATED_AI_CALLS=${status.estimated_ai_calls}`);
+    console.log(`ESTIMATED_CUSTOMER_PRICE=${status.cost_estimate?.estimated_customer_price ?? "UNAVAILABLE"}`);
+    console.log(`ESTIMATED_PRICE_CURRENCY=${status.cost_estimate?.currency || "UNAVAILABLE"}`);
+    console.log(`PROJECT_SHORTLIST_IDENTITY=${status.project_shortlist_identity || ""}`);
     console.log(`STATE=${STATE_PATH}`);
     console.log(`REPORT=${REPORT_PATH}`);
+    console.log("============================================================");
   } finally {
     await close(sourceServer);
   }

@@ -10,6 +10,7 @@ const ROOT = process.cwd();
 const DIST_DIR = process.env.FINANCE_E2E_DIST_DIR || ".next-finance-e2e";
 const SERVER_LOG = process.env.FINANCE_E2E_SERVER_LOG || "/tmp/AVANTIQO_FINANCE_E2E_SERVER.log";
 const SERVER_TIMEOUT_MS = Number(process.env.FINANCE_E2E_SERVER_TIMEOUT_MS || 120000);
+const PAGE_TIMEOUT_MS = Number(process.env.FINANCE_SMOKE_PAGE_TIMEOUT_MS || 120000);
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -40,6 +41,19 @@ async function serverReady(baseUrl) {
   } catch {
     return false;
   }
+}
+
+async function warmBrowserRoute(baseUrl, pathname) {
+  const response = await fetch(`${baseUrl}${pathname}`, {
+    redirect: "follow",
+    signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
+  });
+  if (response.status >= 500) {
+    throw new Error(
+      `Isolated Finance E2E route warm-up failed: ${pathname} status=${response.status}. See ${SERVER_LOG}`
+    );
+  }
+  await response.arrayBuffer();
 }
 
 const distPath = path.join(ROOT, DIST_DIR);
@@ -103,13 +117,18 @@ try {
     throw new Error(`Isolated Finance E2E server did not become stable. See ${SERVER_LOG}`);
   }
 
+  await warmBrowserRoute(baseUrl, "/login");
+
   process.env.FINANCE_SMOKE_BASE_URL = baseUrl;
   process.env.FINANCE_E2E_VERIFIED_BASE_URL = baseUrl;
   process.env.AVANTIQO_NEXT_DIST_DIR = DIST_DIR;
+  process.env.FINANCE_SMOKE_PAGE_TIMEOUT_MS = String(PAGE_TIMEOUT_MS);
 
   console.log(`FINANCE_E2E_SERVER=${baseUrl}`);
   console.log(`FINANCE_E2E_DIST_DIR=${DIST_DIR}`);
   console.log(`FINANCE_E2E_SERVER_LOG=${SERVER_LOG}`);
+  console.log(`FINANCE_E2E_PAGE_TIMEOUT_MS=${PAGE_TIMEOUT_MS}`);
+  console.log("FINANCE_E2E_LOGIN_WARM=true");
   console.log("FINANCE_E2E_SERVER_VERIFIED=true");
 
   await import(

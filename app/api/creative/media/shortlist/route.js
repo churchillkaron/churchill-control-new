@@ -10,6 +10,9 @@ import {
 import {
   CreativeLocalMediaShortlistRuntime,
 } from "@/lib/creative/media/runtime/CreativeLocalMediaShortlistRuntime";
+import {
+  CreativeBoundedShortlistVerificationRuntime,
+} from "@/lib/creative/media/runtime/CreativeBoundedShortlistVerificationRuntime";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -30,7 +33,8 @@ function statusFor(error) {
     message.includes("INVALID") ||
     message.includes("MISMATCH") ||
     message.includes("EXCEEDED") ||
-    message.includes("BLOCKING")
+    message.includes("BLOCKING") ||
+    message.includes("RECONCILIATION")
   ) return 400;
   return 500;
 }
@@ -124,13 +128,11 @@ export async function POST(request) {
         },
       });
     } else if (action === "VERIFY") {
-      result = await CreativeLocalMediaShortlistRuntime.verifyProject({
+      result = await CreativeBoundedShortlistVerificationRuntime.verifyProject({
         organization_id: organizationId,
         creative_project_id: projectId,
         authorization: object(body.authorization),
         policy,
-        country: body.country || null,
-        currency: body.currency || null,
       });
       const refreshed = await CreativeProjectRuntime.get(projectId);
       await CreativeProjectRuntime.update(projectId, {
@@ -143,6 +145,10 @@ export async function POST(request) {
           local_shortlist_verified_at: new Date().toISOString(),
           local_shortlist_completed_ai_calls:
             result.completed_ai_calls,
+          local_shortlist_verified_candidate_count:
+            result.verified_candidate_count,
+          local_shortlist_rejected_candidate_count:
+            result.rejected_candidate_count,
         },
       });
     } else {

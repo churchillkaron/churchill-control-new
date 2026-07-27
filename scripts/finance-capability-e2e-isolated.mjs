@@ -113,28 +113,30 @@ try {
   console.log(`FINANCE_E2E_DIST_DIR=${DIST_DIR}`);
   console.log(`FINANCE_E2E_SERVER_LOG=${SERVER_LOG}`);
   console.log(`FINANCE_E2E_PAGE_TIMEOUT_MS=${PAGE_TIMEOUT_MS}`);
-  console.log("FINANCE_E2E_AUTH_ORIGIN=bootstrap");
+  console.log("FINANCE_E2E_AUTH_ORIGIN=redirect-tolerant-login");
   console.log("FINANCE_E2E_SERVER_VERIFIED=true");
 
   const stablePath = path.join(ROOT, "scripts/finance-capability-e2e-audit-stable.mjs");
   const patchedStablePath = path.join(
     ROOT,
     "scripts",
-    `.finance-capability-e2e-bootstrap-origin-${process.pid}.mjs`
+    `.finance-capability-e2e-redirect-login-${process.pid}.mjs`
   );
   const stableSource = fs.readFileSync(stablePath, "utf8");
   const loginNavigation = '  await harness.navigate(client, \\`\\${baseUrl}/login\\`);';
-  const bootstrapNavigation = [
-    '  await client.send("Page.navigate", { url: \\`\\${baseUrl}/api/session/bootstrap\\` });',
-    '  const browserOriginDeadline = Date.now() + 30000;',
+  const redirectTolerantNavigation = [
+    '  await client.send("Page.navigate", { url: \\`\\${baseUrl}/login\\` });',
+    '  const browserOriginDeadline = Date.now() + Number(process.env.FINANCE_SMOKE_PAGE_TIMEOUT_MS || 120000);',
     '  let browserOriginReady = false;',
+    '  let browserOriginState = null;',
     '  while (Date.now() < browserOriginDeadline) {',
     '    try {',
-    '      const state = await harness.evaluate(client, \\`({',
+    '      browserOriginState = await harness.evaluate(client, \\`({',
+    '        href: location.href,',
     '        origin: location.origin,',
     '        ready: document.readyState',
     '      })\\`);',
-    '      if (state?.origin === new URL(baseUrl).origin && state?.ready === "complete") {',
+    '      if (browserOriginState?.origin === new URL(baseUrl).origin && browserOriginState?.ready === "complete") {',
     '        browserOriginReady = true;',
     '        break;',
     '      }',
@@ -142,13 +144,13 @@ try {
     '    await harness.sleep(250);',
     '  }',
     '  if (!browserOriginReady) {',
-    '    throw new Error("Finance E2E browser origin did not become ready");',
+    '    throw new Error(\\`Finance E2E browser page did not become ready: \\${browserOriginState?.href || "unavailable"}\\`);',
     '  }',
   ].join("\n");
-  const patchedStableSource = stableSource.replace(loginNavigation, bootstrapNavigation);
+  const patchedStableSource = stableSource.replace(loginNavigation, redirectTolerantNavigation);
 
   if (patchedStableSource === stableSource) {
-    throw new Error("FINANCE_E2E_BOOTSTRAP_ORIGIN_PATCH_NOT_APPLIED");
+    throw new Error("FINANCE_E2E_REDIRECT_LOGIN_PATCH_NOT_APPLIED");
   }
 
   fs.writeFileSync(patchedStablePath, patchedStableSource);

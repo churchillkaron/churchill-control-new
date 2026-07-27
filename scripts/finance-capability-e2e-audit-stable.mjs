@@ -20,16 +20,78 @@ if (start < 0 || end < 0) {
   throw new Error("FINANCE_E2E_STABLE_PATCH_TARGET_NOT_FOUND");
 }
 
-const replacement = `async function waitForRowMenuReady(harness, client, rowCount, timeoutMs = 15000) {
+const replacement = `async function inspectRowMenuButtons(harness, client) {
+  return harness.evaluate(client, \`(() => {
+    const visible = element => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number(style.opacity || 1) > 0 &&
+        rect.width > 2 &&
+        rect.height > 2;
+    };
+    const normalized = value => String(value || "").replace(/\\s+/g, " ").trim();
+    const allEllipsis = Array.from(document.querySelectorAll("button"))
+      .filter(visible)
+      .filter(button => normalized(button.textContent) === "...");
+    const rowButtons = allEllipsis.filter(button =>
+      !button.closest("header") &&
+      !button.closest("aside")
+    );
+    return {
+      totalEllipsisCount: allEllipsis.length,
+      rowEllipsisCount: rowButtons.length,
+      rowLabels: rowButtons.slice(0, 10).map(button => {
+        const row = button.closest(".relative") || button.parentElement?.parentElement;
+        return normalized(row?.textContent).slice(0, 180);
+      }),
+    };
+  })()\`);
+}
+
+async function clickFirstRowMenu(harness, client) {
+  return harness.evaluate(client, \`(() => {
+    const visible = element => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number(style.opacity || 1) > 0 &&
+        rect.width > 2 &&
+        rect.height > 2;
+    };
+    const normalized = value => String(value || "").replace(/\\s+/g, " ").trim();
+    const rowButtons = Array.from(document.querySelectorAll("button"))
+      .filter(visible)
+      .filter(button => normalized(button.textContent) === "...")
+      .filter(button => !button.closest("header") && !button.closest("aside"));
+    const button = rowButtons[0];
+    if (!button) {
+      return { clicked: false, count: 0 };
+    }
+    const row = button.closest(".relative") || button.parentElement?.parentElement;
+    const rowText = normalized(row?.textContent).slice(0, 240);
+    button.click();
+    return {
+      clicked: true,
+      count: rowButtons.length,
+      rowText,
+    };
+  })()\`);
+}
+
+async function waitForRowMenuReady(harness, client, rowCount, timeoutMs = 15000) {
   if (!(Number(rowCount) > 0)) {
-    return { ready: false, reason: "no real rows", ellipsisCount: 0 };
+    return { ready: false, reason: "no real rows", rowEllipsisCount: 0 };
   }
 
   const startedAt = Date.now();
   let last = null;
 
   while (Date.now() - startedAt < timeoutMs) {
-    last = await harness.evaluate(client, \`(() => {
+    const menuState = await inspectRowMenuButtons(harness, client);
+    const loadingState = await harness.evaluate(client, \`(() => {
       const visible = element => {
         const style = getComputedStyle(element);
         const rect = element.getBoundingClientRect();
@@ -39,30 +101,25 @@ const replacement = `async function waitForRowMenuReady(harness, client, rowCoun
           rect.width > 2 &&
           rect.height > 2;
       };
-      const normalized = value => String(value || "").replace(/\\s+/g, " ").trim();
-      const buttons = Array.from(document.querySelectorAll("button")).filter(visible);
-      const ellipsisCount = buttons.filter(button => normalized(button.textContent) === "...").length;
-      const visibleText = Array.from(document.querySelectorAll("main,section,div"))
+      return Array.from(document.querySelectorAll("main *"))
         .filter(visible)
-        .map(element => normalized(element.textContent))
-        .join(" ");
-      const loading = /(^|\\s)Loading\\.\\.\\.(\\s|$)/i.test(visibleText);
-      return {
-        ready: ellipsisCount >= 2 && !loading,
-        ellipsisCount,
-        loading,
-        buttonTexts: buttons.map(button => normalized(button.textContent)).filter(Boolean).slice(0, 80),
-      };
+        .some(element => String(element.textContent || "").trim() === "Loading...");
     })()\`);
 
-    if (last?.ready) return last;
+    last = {
+      ...menuState,
+      loading: Boolean(loadingState),
+      ready: menuState.rowEllipsisCount > 0 && !loadingState,
+    };
+
+    if (last.ready) return last;
     await harness.sleep(350);
   }
 
   return {
     ...(last || {}),
     ready: false,
-    reason: "browser rows did not finish rendering before timeout",
+    reason: "browser record rows did not finish rendering before timeout",
   };
 }
 
@@ -114,8 +171,8 @@ async function inspectMenusAndDetail(harness, client, capability, definition, ro
     };
   }
 
-  const rowMenu = await clickButton(harness, client, { type: "exact", value: "..." }, "last");
-  if (!rowMenu.clicked || Number(rowMenu.count || 0) < 2) {
+  const rowMenu = await clickFirstRowMenu(harness, client);
+  if (!rowMenu.clicked) {
     return {
       topActions,
       rowActions: check("FAIL", "real row action menu button missing", { rowMenu, readiness }),
@@ -128,7 +185,7 @@ async function inspectMenusAndDetail(harness, client, capability, definition, ro
   const rawActions = ui.buttons.filter(isRawIdentifier);
   const rowActions = rawActions.length
     ? check("FAIL", \`raw row actions: \${rawActions.join(", ")}\`, ui)
-    : check("PASS", null, ui);
+    : check("PASS", null, { ...ui, rowMenu });
 
   const open = await clickButton(harness, client, { type: "exact", value: "Open" });
   if (!open.clicked) {
@@ -136,7 +193,7 @@ async function inspectMenusAndDetail(harness, client, capability, definition, ro
     return {
       topActions,
       rowActions,
-      detailView: check("FAIL", "Open action missing from real row menu", ui),
+      detailView: check("FAIL", "Open action missing from real row menu", { ...ui, rowMenu }),
     };
   }
 

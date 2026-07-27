@@ -9,8 +9,11 @@ SOURCE_PORT="${REQUESTED_SOURCE_PORT}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 RUNNER="scripts/creative-studio-cole-persisted-preflight.mjs"
 SERVER_PID=""
+AUTH_FILE="$(mktemp)"
+USER_FILE="$(mktemp)"
 
 cleanup() {
+  rm -f "${AUTH_FILE}" "${USER_FILE}"
   if [ -n "${SERVER_PID}" ] && kill -0 "${SERVER_PID}" >/dev/null 2>&1; then
     kill "${SERVER_PID}" >/dev/null 2>&1 || true
     wait "${SERVER_PID}" >/dev/null 2>&1 || true
@@ -20,6 +23,58 @@ cleanup() {
 fail() {
   echo "STOP: $1"
   exit 1
+}
+
+read_env_value() {
+  local key="$1"
+
+  node - "$key" <<'NODE'
+const fs = require("fs");
+const key = process.argv[2];
+const values = {};
+for (const filename of [".env", ".env.local"]) {
+  if (!fs.existsSync(filename)) continue;
+  const content = fs.readFileSync(filename, "utf8");
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const normalized = line.startsWith("export ")
+      ? line.slice(7).trim()
+      : line;
+    const separator = normalized.indexOf("=");
+    if (separator < 1) continue;
+    const name = normalized.slice(0, separator).trim();
+    let value = normalized.slice(separator + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    values[name] = value.replace(/\\n/g, "\n").replace(/\\r/g, "\r");
+  }
+}
+process.stdout.write(String(values[key] || ""));
+NODE
+}
+
+json_value() {
+  local file="$1"
+  local expression="$2"
+
+  node - "$file" "$expression" <<'NODE'
+const fs = require("fs");
+const file = process.argv[2];
+const expression = process.argv[3];
+const data = JSON.parse(fs.readFileSync(file, "utf8") || "{}");
+const value = expression
+  .split(".")
+  .filter(Boolean)
+  .reduce((current, part) => current?.[part], data);
+if (value !== undefined && value !== null) {
+  process.stdout.write(String(value));
+}
+NODE
 }
 
 port_in_use() {
@@ -44,6 +99,114 @@ next_free_port() {
   printf '%s' "${candidate}"
 }
 
+acquire_access_token() {
+  local supabase_url="$1"
+  local anon_key="$2"
+  local access_token="${CREATIVE_SMOKE_BEARER_TOKEN:-}"
+  local auth_user_email=""
+  local user_status=""
+
+  if [ -n "${access_token}" ]; then
+    user_status="$({
+      curl \
+        --silent \
+        --show-error \
+        --max-time 20 \
+        --output "${USER_FILE}" \
+        --write-out '%{http_code}' \
+        --header "apikey: ${anon_key}" \
+        --header "Authorization: Bearer ${access_token}" \
+        "${supabase_url}/auth/v1/user"
+    })"
+
+    if [ "${user_status}" = "200" ]; then
+      auth_user_email="$(json_value "${USER_FILE}" email)"
+      export CREATIVE_SMOKE_BEARER_TOKEN="${access_token}"
+      echo "AUTH_TOKEN_REUSED=YES"
+      echo "AUTHENTICATED_USER=${auth_user_email}"
+      return 0
+    fi
+
+    echo "AUTH_TOKEN_REUSED=NO"
+    echo "AUTH_TOKEN_REFRESH_REQUIRED=YES"
+    access_token=""
+    CREATIVE_SMOKE_BEARER_TOKEN=""
+    export CREATIVE_SMOKE_BEARER_TOKEN
+  fi
+
+  local login_email="${CREATIVE_SMOKE_EMAIL:-}"
+  local login_password="${CREATIVE_SMOKE_PASSWORD:-}"
+
+  if [ -z "${login_email}" ]; then
+    printf "Avantiqo login email: "
+    IFS= read -r login_email
+  fi
+
+  if [ -z "${login_password}" ]; then
+    printf "Avantiqo login password: "
+    IFS= read -r -s login_password
+    echo ""
+  fi
+
+  [ -n "${login_email}" ] || fail "Avantiqo login email is required"
+  [ -n "${login_password}" ] || fail "Avantiqo login password is required"
+
+  local auth_payload
+  auth_payload="$({
+    SMOKE_EMAIL="${login_email}" \
+    SMOKE_PASSWORD="${login_password}" \
+    node <<'NODE'
+process.stdout.write(JSON.stringify({
+  email: process.env.SMOKE_EMAIL,
+  password: process.env.SMOKE_PASSWORD,
+}));
+NODE
+  })"
+
+  local auth_status
+  auth_status="$({
+    printf '%s' "${auth_payload}" |
+      curl \
+        --silent \
+        --show-error \
+        --max-time 30 \
+        --output "${AUTH_FILE}" \
+        --write-out '%{http_code}' \
+        --request POST \
+        --header "apikey: ${anon_key}" \
+        --header "Content-Type: application/json" \
+        --data-binary @- \
+        "${supabase_url}/auth/v1/token?grant_type=password"
+  })"
+
+  login_password=""
+  auth_payload=""
+  CREATIVE_SMOKE_PASSWORD=""
+  unset CREATIVE_SMOKE_PASSWORD 2>/dev/null || true
+
+  if [ "${auth_status}" != "200" ]; then
+    echo "AUTH_STATUS=${auth_status}"
+    node - "${AUTH_FILE}" <<'NODE'
+const fs = require("fs");
+try {
+  const data = JSON.parse(fs.readFileSync(process.argv[2], "utf8") || "{}");
+  console.log(`AUTH_ERROR=${data.msg || data.message || data.error_description || data.error || "Unknown authentication error"}`);
+} catch {
+  console.log("AUTH_ERROR=Unreadable authentication response");
+}
+NODE
+    fail "Avantiqo authentication failed"
+  fi
+
+  access_token="$(json_value "${AUTH_FILE}" access_token)"
+  auth_user_email="$(json_value "${AUTH_FILE}" user.email)"
+  [ -n "${access_token}" ] || fail "Authentication did not return an access token"
+
+  export CREATIVE_SMOKE_BEARER_TOKEN="${access_token}"
+  echo "AUTH_TOKEN_REFRESHED=YES"
+  echo "AUTHENTICATED_USER=${auth_user_email}"
+}
+
 trap cleanup EXIT INT TERM
 
 [ -d "${REPO}" ] || fail "Preflight worktree not found: ${REPO}"
@@ -53,10 +216,19 @@ cd "${REPO}" || fail "Cannot enter preflight worktree"
 
 [ -f "${RUNNER}" ] || fail "Runner missing: ${RUNNER}"
 [ -d ".next" ] || fail "Production build missing. Run the validated build first."
+command -v curl >/dev/null 2>&1 || fail "curl not found"
 
-if [ -z "${CREATIVE_SMOKE_BEARER_TOKEN:-}" ] && [ -z "${CREATIVE_SMOKE_COOKIE:-}" ]; then
-  fail "CREATIVE_SMOKE_BEARER_TOKEN or CREATIVE_SMOKE_COOKIE is required in this terminal"
+SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-$(read_env_value NEXT_PUBLIC_SUPABASE_URL)}"
+if [ -z "${SUPABASE_URL}" ]; then
+  SUPABASE_URL="${SUPABASE_URL:-$(read_env_value SUPABASE_URL)}"
 fi
+ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY:-$(read_env_value NEXT_PUBLIC_SUPABASE_ANON_KEY)}"
+if [ -z "${ANON_KEY}" ]; then
+  ANON_KEY="${SUPABASE_ANON_KEY:-$(read_env_value SUPABASE_ANON_KEY)}"
+fi
+[ -n "${SUPABASE_URL}" ] || fail "NEXT_PUBLIC_SUPABASE_URL is missing from .env.local"
+[ -n "${ANON_KEY}" ] || fail "NEXT_PUBLIC_SUPABASE_ANON_KEY is missing from .env.local"
+SUPABASE_URL="${SUPABASE_URL%/}"
 
 FFMPEG_BIN="${CREATIVE_MEDIA_FFMPEG_PATH:-$(command -v ffmpeg || true)}"
 FFPROBE_BIN="${CREATIVE_MEDIA_FFPROBE_PATH:-$(command -v ffprobe || true)}"
@@ -89,6 +261,8 @@ fi
 
 BASE_URL="http://127.0.0.1:${APP_PORT}"
 SERVER_LOG="${COLE_PREFLIGHT_SERVER_LOG:-$HOME/Downloads/COLE_LEY_PREFLIGHT_SERVER_${STAMP}.log}"
+
+acquire_access_token "${SUPABASE_URL}" "${ANON_KEY}"
 
 if [ -z "${CREATIVE_LOCAL_SOURCE_PREFLIGHT_TOKEN:-}" ]; then
   if command -v openssl >/dev/null 2>&1; then

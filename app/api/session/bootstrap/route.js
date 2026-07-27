@@ -34,88 +34,74 @@ async function loadActivePeriod({ supabase, organizationId, entityId }) {
   return data || null;
 }
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
-    const { user_id } = body;
+async function loadBootstrapContext({ supabase, userId }) {
+  const { data: staff, error } = await supabase
+    .from("staff_accounts")
+    .select("id, role, active_organization_id, name, email")
+    .eq("auth_user_id", userId)
+    .maybeSingle();
 
-    if (!user_id) {
-      return Response.json(
-        { success: false, error: "Missing user_id" },
-        { status: 400 }
-      );
-    }
-
-    const supabase = createServerSupabase();
-
-    const { data: staff, error } = await supabase
-      .from("staff_accounts")
-      .select("id, role, active_organization_id, name, email")
-      .eq("auth_user_id", user_id)
-      .maybeSingle();
-
-    if (error) {
-      return Response.json(
+  if (error) {
+    return {
+      response: Response.json(
         { success: false, error: error.message },
         { status: 500 }
-      );
-    }
+      ),
+    };
+  }
 
-    if (!staff) {
-      return Response.json(
-        {
-          success: false,
-          reason: "STAFF_NOT_FOUND",
-        },
+  if (!staff) {
+    return {
+      response: Response.json(
+        { success: false, reason: "STAFF_NOT_FOUND" },
         { status: 404 }
-      );
-    }
+      ),
+    };
+  }
 
-    const organizationId =
-      staff.active_organization_id || null;
+  const organizationId = staff.active_organization_id || null;
 
-    if (!organizationId) {
-      return Response.json(
-        {
-          success: false,
-          reason: "ORGANIZATION_MISSING",
-        },
+  if (!organizationId) {
+    return {
+      response: Response.json(
+        { success: false, reason: "ORGANIZATION_MISSING" },
         { status: 409 }
-      );
-    }
+      ),
+    };
+  }
 
-    const { data: organization, error: orgError } =
-      await supabase
-        .from("organizations")
-        .select("*")
-        .eq("id", organizationId)
-        .maybeSingle();
+  const { data: organization, error: orgError } = await supabase
+    .from("organizations")
+    .select("*")
+    .eq("id", organizationId)
+    .maybeSingle();
 
-    if (orgError || !organization) {
-      return Response.json(
+  if (orgError || !organization) {
+    return {
+      response: Response.json(
         {
           success: false,
           reason: "ORGANIZATION_NOT_FOUND",
           error: orgError?.message || null,
         },
         { status: 404 }
-      );
-    }
+      ),
+    };
+  }
 
-    const entity =
-      await loadActiveEntity({
-        supabase,
-        organizationId,
-      });
+  const entity = await loadActiveEntity({
+    supabase,
+    organizationId,
+  });
 
-    const period =
-      await loadActivePeriod({
-        supabase,
-        organizationId,
-        entityId: entity?.id || null,
-      });
+  const period = await loadActivePeriod({
+    supabase,
+    organizationId,
+    entityId: entity?.id || null,
+  });
 
-    return Response.json({
+  return {
+    payload: {
       success: true,
       staff,
       organization,
@@ -137,19 +123,74 @@ export async function POST(req) {
         null,
       permissions: [],
       role: staff.role || "staff",
+    },
+  };
+}
+
+export async function GET() {
+  try {
+    const supabase = createServerSupabase();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      return Response.json(
+        {
+          success: false,
+          reason: "AUTHENTICATION_REQUIRED",
+          error: error?.message || null,
+        },
+        { status: 401 }
+      );
+    }
+
+    const result = await loadBootstrapContext({
+      supabase,
+      userId: user.id,
     });
 
+    if (result.response) return result.response;
+    return Response.json(result.payload);
   } catch (err) {
     return Response.json(
       {
         success: false,
-        error:
-          err.message ||
-          "Server error",
+        error: err.message || "Server error",
       },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    const { user_id } = body;
+
+    if (!user_id) {
+      return Response.json(
+        { success: false, error: "Missing user_id" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createServerSupabase();
+    const result = await loadBootstrapContext({
+      supabase,
+      userId: user_id,
+    });
+
+    if (result.response) return result.response;
+    return Response.json(result.payload);
+  } catch (err) {
+    return Response.json(
       {
-        status: 500,
-      }
+        success: false,
+        error: err.message || "Server error",
+      },
+      { status: 500 }
     );
   }
 }

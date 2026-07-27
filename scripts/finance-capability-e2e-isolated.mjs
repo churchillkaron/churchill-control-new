@@ -43,19 +43,6 @@ async function serverReady(baseUrl) {
   }
 }
 
-async function warmBrowserRoute(baseUrl, pathname) {
-  const response = await fetch(`${baseUrl}${pathname}`, {
-    redirect: "follow",
-    signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
-  });
-  if (response.status >= 500) {
-    throw new Error(
-      `Isolated Finance E2E route warm-up failed: ${pathname} status=${response.status}. See ${SERVER_LOG}`
-    );
-  }
-  await response.arrayBuffer();
-}
-
 const distPath = path.join(ROOT, DIST_DIR);
 fs.rmSync(distPath, { recursive: true, force: true });
 
@@ -117,8 +104,6 @@ try {
     throw new Error(`Isolated Finance E2E server did not become stable. See ${SERVER_LOG}`);
   }
 
-  await warmBrowserRoute(baseUrl, "/login");
-
   process.env.FINANCE_SMOKE_BASE_URL = baseUrl;
   process.env.FINANCE_E2E_VERIFIED_BASE_URL = baseUrl;
   process.env.AVANTIQO_NEXT_DIST_DIR = DIST_DIR;
@@ -128,12 +113,50 @@ try {
   console.log(`FINANCE_E2E_DIST_DIR=${DIST_DIR}`);
   console.log(`FINANCE_E2E_SERVER_LOG=${SERVER_LOG}`);
   console.log(`FINANCE_E2E_PAGE_TIMEOUT_MS=${PAGE_TIMEOUT_MS}`);
-  console.log("FINANCE_E2E_LOGIN_WARM=true");
+  console.log("FINANCE_E2E_AUTH_ORIGIN=bootstrap");
   console.log("FINANCE_E2E_SERVER_VERIFIED=true");
 
-  await import(
-    `${pathToFileURL(path.join(ROOT, "scripts/finance-capability-e2e-audit-stable.mjs")).href}?v=${Date.now()}`
+  const stablePath = path.join(ROOT, "scripts/finance-capability-e2e-audit-stable.mjs");
+  const patchedStablePath = path.join(
+    ROOT,
+    "scripts",
+    `.finance-capability-e2e-bootstrap-origin-${process.pid}.mjs`
   );
+  const stableSource = fs.readFileSync(stablePath, "utf8");
+  const loginNavigation = '  await harness.navigate(client, \\`\\${baseUrl}/login\\`);';
+  const bootstrapNavigation = [
+    '  await client.send("Page.navigate", { url: \\`\\${baseUrl}/api/session/bootstrap\\` });',
+    '  const browserOriginDeadline = Date.now() + 30000;',
+    '  let browserOriginReady = false;',
+    '  while (Date.now() < browserOriginDeadline) {',
+    '    try {',
+    '      const state = await harness.evaluate(client, \\`({',
+    '        origin: location.origin,',
+    '        ready: document.readyState',
+    '      })\\`);',
+    '      if (state?.origin === new URL(baseUrl).origin && state?.ready === "complete") {',
+    '        browserOriginReady = true;',
+    '        break;',
+    '      }',
+    '    } catch {}',
+    '    await harness.sleep(250);',
+    '  }',
+    '  if (!browserOriginReady) {',
+    '    throw new Error("Finance E2E browser origin did not become ready");',
+    '  }',
+  ].join("\n");
+  const patchedStableSource = stableSource.replace(loginNavigation, bootstrapNavigation);
+
+  if (patchedStableSource === stableSource) {
+    throw new Error("FINANCE_E2E_BOOTSTRAP_ORIGIN_PATCH_NOT_APPLIED");
+  }
+
+  fs.writeFileSync(patchedStablePath, patchedStableSource);
+  try {
+    await import(`${pathToFileURL(patchedStablePath).href}?v=${Date.now()}`);
+  } finally {
+    fs.rmSync(patchedStablePath, { force: true });
+  }
 } finally {
   cleanup();
 }

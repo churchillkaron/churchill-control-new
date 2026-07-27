@@ -13,6 +13,14 @@ const policy = read("lib/finance/ui/FinancePrimaryActionPolicy.js");
 const serializer = read("lib/platform/registry/serializeCapability.js");
 const renderers = read("lib/platform/erp-engine/renderers/RendererRegistry.js");
 
+function financeSection(source) {
+  const start = source.indexOf("finance: {");
+  if (start < 0) return "";
+  const end = source.indexOf("\n    people:", start);
+  return end > start ? source.slice(start, end) : source.slice(start);
+}
+
+const financeRegistry = financeSection(registry);
 const results = [];
 function check(name, passed, details = {}) {
   results.push({ name, passed: Boolean(passed), ...details });
@@ -21,10 +29,10 @@ function check(name, passed, details = {}) {
 
 function registryCapability(id) {
   const marker = `id: "${id}"`;
-  const start = registry.indexOf(marker);
+  const start = financeRegistry.indexOf(marker);
   if (start < 0) return "";
-  const next = registry.indexOf("{ id:", start + marker.length);
-  return registry.slice(start, next > start ? next : start + 5000);
+  const next = financeRegistry.indexOf("{ id:", start + marker.length);
+  return financeRegistry.slice(start, next > start ? next : start + 5000);
 }
 
 function apiFile(api) {
@@ -37,6 +45,7 @@ check("Manifest contains all 67 Finance capabilities", Object.keys(manifest).len
   actual: Object.keys(manifest).length,
   expected: 67,
 });
+check("Finance registry section resolved", Boolean(financeRegistry));
 check("Serializer consumes canonical manifest", serializer.includes("financeCapabilityRuntimeManifest.json"));
 check("Report renderer registered", renderers.includes('registerRenderer("FinanceReportRuntimeWorkCenter"'));
 check("Operational renderer registered", renderers.includes('registerRenderer("FinanceOperationalWorkCenter"'));

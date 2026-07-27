@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+
 import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 async function loadActiveEntity({ supabase, organizationId }) {
   if (!organizationId) return null;
@@ -127,13 +131,55 @@ async function loadBootstrapContext({ supabase, userId }) {
   };
 }
 
-export async function GET() {
-  try {
-    const supabase = createServerSupabase();
-    const {
-      data: { user },
+function bearerToken(request) {
+  const value = request?.headers?.get?.("authorization") || "";
+  const match = value.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+async function loadAuthenticatedUser(request) {
+  const token = bearerToken(request);
+
+  if (token) {
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    return {
+      user: data?.user || null,
       error,
-    } = await supabase.auth.getUser();
+    };
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    return {
+      user: null,
+      error: new Error("Supabase browser authentication is not configured"),
+    };
+  }
+
+  const cookieStore = cookies();
+  const authClient = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll() {
+        // Bootstrap only reads the authenticated session.
+      },
+    },
+  });
+
+  const { data, error } = await authClient.auth.getUser();
+  return {
+    user: data?.user || null,
+    error,
+  };
+}
+
+export async function GET(request) {
+  try {
+    const { user, error } = await loadAuthenticatedUser(request);
 
     if (error || !user) {
       return Response.json(
@@ -147,7 +193,7 @@ export async function GET() {
     }
 
     const result = await loadBootstrapContext({
-      supabase,
+      supabase: createServerSupabase(),
       userId: user.id,
     });
 

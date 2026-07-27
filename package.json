@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "audit:finance": "node scripts/finance-normal-audit.mjs",
     "audit:finance-capabilities": "node scripts/finance-capability-reality-audit.mjs",
     "audit:finance-live": "node scripts/finance-live-capability-matrix.mjs",
     "smoke:creative-preflight": "node scripts/creative-studio-live-preflight.mjs",
@@ -46,7 +47,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.5.0",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.0",
     "tailwindcss": "^3.4.1"
   }
 }

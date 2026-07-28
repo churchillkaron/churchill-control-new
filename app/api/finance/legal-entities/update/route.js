@@ -1,25 +1,77 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
+
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  decorateLegalEntity,
+  validateLegalEntityWrite,
+} from "@/lib/finance/legal-entities/LegalEntityPolicy";
+
+function failure(error) {
+  const message = error?.message || "Legal Entity update failed";
+  const status = /required|must|valid|configured|already exists|not found|cannot/i.test(
+    message
+  )
+    ? 400
+    : 500;
+
+  return NextResponse.json(
+    { success: false, error: message },
+    { status }
+  );
+}
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const access = await requireOrganizationAccess({ organizationId: body.organizationId || body.organization_id });
-    if (!access.success) return NextResponse.json({ success: false, error: access.error }, { status: access.status });
-    const { data, error } = await supabaseAdmin.from("legal_entities").update({
-      code: body.code,
-      legal_name: body.legal_name,
-      country: body.country,
-      tax_id: body.tax_id || body.tax_number || null,
-      registration_number: body.registration_number || null,
-      updated_at: new Date().toISOString(),
-    }).eq("id", body.id).eq("organization_id", access.organizationId).select().single();
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId || body.organization_id,
+      request,
+    });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
+
+    const entityId = String(body.id || body.entity_id || "").trim();
+    if (!entityId) {
+      return NextResponse.json(
+        { success: false, error: "Legal Entity id required" },
+        { status: 400 }
+      );
+    }
+
+    const candidate = await validateLegalEntityWrite({
+      organizationId: access.organizationId,
+      payload: body,
+      recordId: entityId,
+    });
+
+    const { data, error } = await supabaseAdmin
+      .from("legal_entities")
+      .update({
+        ...candidate,
+        updated_by: access.user?.id || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", access.organizationId)
+      .eq("id", entityId)
+      .select("*")
+      .single();
+
     if (error) throw error;
-    return NextResponse.json({ success: true, entity: data });
+
+    return NextResponse.json({
+      success: true,
+      entity: decorateLegalEntity(data),
+      record: decorateLegalEntity(data),
+    });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return failure(error);
   }
 }
-

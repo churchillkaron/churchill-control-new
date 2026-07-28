@@ -5,12 +5,15 @@ const ROOT = process.cwd();
 
 const FILES = Object.freeze({
   catalogue: "lib/operations/runtime/OperationsCapabilityCatalog.js",
+  lifecyclePolicy: "lib/operations/runtime/OperationsLifecyclePolicy.js",
   runtime: "lib/operations/runtime/OperationsRuntime.js",
   atomicExecutor: "lib/operations/runtime/AtomicOperationsCommandExecution.js",
   serverApi: "lib/operations/api/createServerOperationsApi.js",
+  apiController: "lib/operations/api/OperationsApiController.js",
   requestContext: "lib/operations/api/resolveOperationsRequestContext.js",
   repositories: "lib/operations/repositories/OperationsRepositoryRegistry.js",
   formSchemas: "lib/operations/forms/OperationsFormSchemaRegistry.js",
+  commandSchemas: "lib/operations/forms/OperationsCommandSchemaRegistry.js",
   workspaceRegistry: "lib/operations/registry/OperationsWorkspaceRegistry.js",
   workspaceResolver: "lib/operations/registry/OperationsWorkspaceResolver.js",
   workspaceHub: "components/workspace/operations/OperationsWorkspaceHub.jsx",
@@ -22,6 +25,7 @@ const FILES = Object.freeze({
   commandRoute: "app/api/operations/[capabilityId]/commands/[command]/route.js",
   baseMigration: "supabase/migrations/20260728130000_operations_runtime_persistence.sql",
   atomicMigration: "supabase/migrations/20260728173000_operations_atomic_command_execution.sql",
+  lifecycleMigration: "supabase/migrations/20260728190000_operations_lifecycle_guard.sql",
 });
 
 function read(relativePath) {
@@ -74,6 +78,17 @@ requireIncludes(source.catalogue, [
   "boundary",
 ], "Operations capability catalogue");
 
+requireIncludes(source.lifecyclePolicy, [
+  "getAllowedOperationsCommands",
+  "canExecuteOperationsCommand",
+  "getOperationsTargetStatus",
+  "assertOperationsTransition",
+  "Invalid Operations lifecycle transition",
+  "in_progress",
+  "validated",
+  "superseded",
+], "Operations lifecycle policy");
+
 requireIncludes(source.runtime, [
   "assertBusinessContext",
   "commandExecution?.execute",
@@ -89,6 +104,7 @@ requireIncludes(source.atomicExecutor, [
   "attachActor",
   "created_by",
   "updated_by",
+  "_operations_lifecycle",
 ], "Atomic Operations executor");
 
 requireIncludes(source.serverApi, [
@@ -97,6 +113,12 @@ requireIncludes(source.serverApi, [
   "createCanonicalOperationsRepositories",
   "createCanonicalOperationsHandlers",
 ], "Operations server composition");
+
+requireIncludes(source.apiController, [
+  "projectLifecycle",
+  "getAllowedOperationsCommands",
+  "allowed_commands",
+], "Operations API lifecycle projection");
 
 requireIncludes(source.requestContext, [
   "resolveBusinessContext",
@@ -133,6 +155,27 @@ requireExcludes(source.formSchemas, [
   "waiter",
   "pest",
 ], "Operations dynamic form schemas");
+
+requireIncludes(source.commandSchemas, [
+  "getOperationsCommandSchema",
+  "getOperationsCommandInitialValues",
+  "validateOperationsCommand",
+  "buildOperationsCommandPayload",
+  "assignable-users",
+  "assigned_to",
+  "assignee_party_id",
+  "completion_note",
+  "resolution",
+  "approval_note",
+], "Operations lifecycle command schemas");
+
+requireExcludes(source.commandSchemas, [
+  "restaurant",
+  "hotel",
+  "kitchen",
+  "waiter",
+  "pest",
+], "Operations lifecycle command schemas");
 
 requireIncludes(source.workspaceRegistry, [
   "OPERATIONS_CAPABILITY_CATALOG",
@@ -177,7 +220,13 @@ requireIncludes(source.runtimeWorkCenter, [
   "getOperationsFormSchema",
   "buildOperationsFormPayload",
   "validateOperationsForm",
-  "Operational details",
+  "getOperationsCommandSchema",
+  "validateOperationsCommand",
+  "buildOperationsCommandPayload",
+  "allowed_commands",
+  "/api/platform/users/assignable",
+  "assignee_party_id",
+  "No further lifecycle actions",
 ], "Operations runtime work centre");
 
 requireIncludes(source.operationsPage, [
@@ -226,6 +275,15 @@ requireIncludes(source.atomicMigration, [
   "updated_by",
 ], "Operations atomic command migration");
 
+requireIncludes(source.lifecycleMigration, [
+  "operations_lifecycle_initial_status",
+  "operations_lifecycle_target_status",
+  "guard_operations_record_lifecycle",
+  "operations_records_lifecycle_guard",
+  "Invalid Operations lifecycle transition",
+  "before insert or update",
+], "Operations lifecycle guard migration");
+
 for (const [label, contents] of Object.entries(source)) {
   requireExcludes(contents, [
     "tenant_id",
@@ -233,8 +291,8 @@ for (const [label, contents] of Object.entries(source)) {
   ], `Operations ${label}`);
 }
 
-if (FILES.baseMigration >= FILES.atomicMigration) {
-  throw new Error("Operations atomic migration must sort after persistence migration.");
+if (!(FILES.baseMigration < FILES.atomicMigration && FILES.atomicMigration < FILES.lifecycleMigration)) {
+  throw new Error("Operations migrations are not in persistence, atomic execution, lifecycle order.");
 }
 
 console.log("OPERATIONS_RELEASE_AUDIT=PASS");
@@ -245,3 +303,5 @@ console.log("OPERATIONS_EVENT_DELIVERY=TRANSACTIONAL_OUTBOX");
 console.log("OPERATIONS_UI=CANONICAL_NEUTRAL_WORKSPACES");
 console.log("OPERATIONS_FORMS=DYNAMIC_LIFECYCLE_AND_GROUP_SCHEMAS");
 console.log("OPERATIONS_AUDIT_ACTOR=AUTHENTICATED_USER");
+console.log("OPERATIONS_LIFECYCLE=DATABASE_GUARDED_AND_API_PROJECTED");
+console.log("OPERATIONS_COMMAND_UI=STRUCTURED_AND_STATE_GOVERNED");

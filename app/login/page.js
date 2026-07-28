@@ -81,7 +81,7 @@ export default function LoginPage() {
     }
   }
 
-  async function handleFirstLogin() {
+  async function handleForgotPassword() {
     if (!email.trim()) {
       setError("Enter your registered email first.");
       return;
@@ -105,15 +105,15 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        setError(result.error || "Unable to start password setup.");
+        setError(result.error || "Unable to send the password email.");
         return;
       }
 
       setMessage(
-        "Password setup email sent. Open the secure link in your inbox to choose your password."
+        "Check your email for a secure link to create or reset your password."
       );
     } catch {
-      setError("Unable to send the password setup email.");
+      setError("Unable to send the password email.");
     } finally {
       setLoading(false);
     }
@@ -144,7 +144,7 @@ export default function LoginPage() {
         return;
       }
 
-      setMessage("Password created successfully. Opening Churchill Runtime...");
+      setMessage("Password saved successfully. Opening Churchill Runtime...");
       router.replace("/login/callback");
     } catch {
       setError("Unable to save the new password.");
@@ -154,7 +154,9 @@ export default function LoginPage() {
   }
 
   async function handleGoogleLogin() {
+    setLoading(true);
     setError("");
+    setMessage("");
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -165,6 +167,7 @@ export default function LoginPage() {
 
     if (oauthError) {
       setError(oauthError.message);
+      setLoading(false);
     }
   }
 
@@ -194,7 +197,7 @@ export default function LoginPage() {
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-white/45">
               {recoveryMode
-                ? "Create the password you will use for future logins."
+                ? "Choose the password you will use for future logins."
                 : "Secure staff access to the Churchill operating system."}
             </p>
           </div>
@@ -211,6 +214,9 @@ export default function LoginPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleManualLogin();
+                  }}
                   placeholder="you@churchill.com"
                   className="w-full bg-transparent text-white outline-none placeholder:text-white/20"
                 />
@@ -227,6 +233,9 @@ export default function LoginPage() {
                 autoComplete={recoveryMode ? "new-password" : "current-password"}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !recoveryMode) handleManualLogin();
+                }}
                 placeholder="••••••••"
                 className="w-full bg-transparent text-white outline-none placeholder:text-white/20"
               />
@@ -243,9 +252,25 @@ export default function LoginPage() {
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleSetPassword();
+                  }}
                   placeholder="••••••••"
                   className="w-full bg-transparent text-white outline-none placeholder:text-white/20"
                 />
+              </div>
+            )}
+
+            {!recoveryMode && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                  className="text-sm text-fuchsia-200 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Forgot password?
+                </button>
               </div>
             )}
 
@@ -270,21 +295,12 @@ export default function LoginPage() {
               {loading
                 ? "Please wait..."
                 : recoveryMode
-                  ? "Create Password"
+                  ? "Save Password"
                   : "Login"}
             </button>
 
             {!recoveryMode && (
               <>
-                <button
-                  type="button"
-                  onClick={handleFirstLogin}
-                  disabled={loading}
-                  className="flex h-12 w-full items-center justify-center rounded-[20px] border border-fuchsia-400/25 bg-fuchsia-400/[0.06] text-sm font-semibold text-fuchsia-200 transition hover:bg-fuchsia-400/[0.12] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  First login / Set password
-                </button>
-
                 <div className="relative py-2">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-white/10" />

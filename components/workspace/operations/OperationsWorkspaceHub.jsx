@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowRight, Search, Wrench } from "lucide-react";
+import { ArrowRight, Search, ShieldCheck, Wrench } from "lucide-react";
 
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
@@ -13,6 +13,7 @@ import {
   hasOperationsPermission,
   OPERATIONS_ACTIONS,
 } from "@/lib/operations/security/OperationsAuthorizationPolicy";
+import useOperationsAccess from "@/lib/operations/security/useOperationsAccess";
 
 function matchesQuery(group, item, query) {
   if (!query) return true;
@@ -36,10 +37,10 @@ function matchesQuery(group, item, query) {
 export default function OperationsWorkspaceHub() {
   const params = useParams();
   const businessContext = useBusinessContext() || {};
-  const organizationId = params?.organizationId || null;
-  const permissions = businessContext.permissions
-    || businessContext.access?.permissions
-    || [];
+  const organizationId = params?.organizationId || businessContext.organization_id || null;
+  const entityId = businessContext.entity_id || businessContext.entity?.id || null;
+  const periodId = businessContext.period_id || businessContext.period?.id || null;
+  const access = useOperationsAccess({ organizationId, entityId, periodId });
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -49,7 +50,7 @@ export default function OperationsWorkspaceHub() {
         ...group,
         items: group.items.filter((item) => (
           hasOperationsPermission({
-            permissions,
+            permissions: access.permissions,
             capabilityId: item.capabilityId,
             action: item.readOnly
               ? OPERATIONS_ACTIONS.AUDIT
@@ -59,7 +60,7 @@ export default function OperationsWorkspaceHub() {
         )),
       }))
       .filter((group) => group.items.length > 0)
-  ), [normalizedQuery, permissions]);
+  ), [normalizedQuery, access.permissions]);
 
   const totalCapabilities = groups.reduce(
     (sum, group) => sum + group.items.length,
@@ -73,7 +74,21 @@ export default function OperationsWorkspaceHub() {
           workspace="Operations"
           title="Operations"
           description="Industry-neutral work execution, planning, orchestration, control, resilience, quality, performance and operational intelligence."
+          actions={access.can?.administer ? (
+            <Link
+              href={`/workspace/${organizationId}/operations/access-control`}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 px-4 py-2 text-sm text-[#D6A66A]"
+            >
+              <ShieldCheck size={15} /> Access Control
+            </Link>
+          ) : null}
         />
+
+        {access.error ? (
+          <div className="mb-5 rounded-2xl border border-red-400/25 bg-red-500/10 p-4 text-sm text-red-200">
+            {access.error}
+          </div>
+        ) : null}
 
         <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
           <div>
@@ -81,7 +96,9 @@ export default function OperationsWorkspaceHub() {
               Canonical Operations Kernel
             </div>
             <div className="mt-2 text-sm text-white/45">
-              {totalCapabilities} authorised capabilities across {groups.length} operational groups
+              {access.loading
+                ? "Resolving authorised capabilities…"
+                : `${totalCapabilities} authorised capabilities across ${groups.length} operational groups`}
             </div>
           </div>
 
@@ -96,7 +113,7 @@ export default function OperationsWorkspaceHub() {
           </div>
         </section>
 
-        {groups.length === 0 ? (
+        {!access.loading && groups.length === 0 ? (
           <div className="rounded-[28px] border border-white/10 bg-white/[0.035] p-8 text-sm text-white/45">
             No authorised Operations capabilities match this search.
           </div>

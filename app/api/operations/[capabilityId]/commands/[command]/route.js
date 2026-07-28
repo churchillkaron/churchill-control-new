@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { serverOperationsApi } from "@/lib/operations/api/createServerOperationsApi";
+import { serverOperationsEvents } from "@/lib/operations/events/serverOperationsEvents";
 import {
   resolveOperationsRequestContext,
 } from "@/lib/operations/api/resolveOperationsRequestContext";
@@ -32,5 +33,28 @@ export async function POST(request, { params }) {
     },
   });
 
-  return NextResponse.json(result.body, { status: result.status });
+  let eventDelivery = null;
+
+  if (result.status >= 200 && result.status < 300 && result.body?.ok) {
+    try {
+      eventDelivery = await serverOperationsEvents.publishPending({
+        organizationId: resolved.context.organization_id,
+        limit: 50,
+      });
+    } catch (error) {
+      eventDelivery = {
+        ok: false,
+        deferred: true,
+        error: error.message || "Operations event delivery deferred.",
+      };
+    }
+  }
+
+  return NextResponse.json(
+    {
+      ...result.body,
+      event_delivery: eventDelivery,
+    },
+    { status: result.status },
+  );
 }

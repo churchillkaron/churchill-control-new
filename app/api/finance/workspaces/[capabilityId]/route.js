@@ -6,12 +6,13 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { getFinanceWorkspaceContract } from "@/lib/finance/workspaces/FinanceWorkspaceContracts";
+import {
+  decorateFinanceWorkspaceRows,
+  normalizeFinanceWorkspacePayload,
+  validateFinanceWorkspaceWrite,
+} from "@/lib/finance/workspaces/FinanceWorkspaceWriteValidation";
 
-const MISSING_RELATION_CODES = new Set([
-  "42P01",
-  "PGRST204",
-  "PGRST205",
-]);
+const MISSING_RELATION_CODES = new Set(["42P01", "PGRST204", "PGRST205"]);
 
 const PERIOD_SCOPED_TABLES = new Set([
   "finance_opening_balance_batches",
@@ -59,18 +60,12 @@ function required(value, field) {
   if (value === undefined || value === null || value === "") {
     throw new Error(`${field} required`);
   }
-
   return value;
 }
 
 function parseJsonField(value, field) {
-  if (value === undefined || value === null || value === "") {
-    return {};
-  }
-
-  if (typeof value === "object") {
-    return value;
-  }
+  if (value === undefined || value === null || value === "") return {};
+  if (typeof value === "object") return value;
 
   try {
     return JSON.parse(value);
@@ -79,15 +74,13 @@ function parseJsonField(value, field) {
   }
 }
 
-function normalizePayload(contract, body) {
+function normalizePayload(capabilityId, contract, body) {
   const schema = Array.isArray(contract.schema) ? contract.schema : [];
-  const allowed = new Set(schema.map(field => field.name));
+  const allowed = new Set(schema.map((field) => field.name));
   const payload = {};
 
   for (const [key, value] of Object.entries(body || {})) {
-    if (!allowed.has(key)) {
-      continue;
-    }
+    if (!allowed.has(key)) continue;
 
     if (key === "definition_json" || key === "value_json") {
       payload[key] = parseJsonField(value, key);
@@ -97,25 +90,17 @@ function normalizePayload(contract, body) {
     payload[key] = value;
   }
 
-  return payload;
+  return normalizeFinanceWorkspacePayload(capabilityId, payload);
 }
 
 function validateRequiredFields(contract, payload) {
   for (const field of Array.isArray(contract.schema) ? contract.schema : []) {
-    if (field.required) {
-      required(payload[field.name], field.name);
-    }
+    if (field.required) required(payload[field.name], field.name);
   }
 }
 
-async function resolveScopedEntity({
-  contract,
-  access,
-  requestedEntityId,
-}) {
-  if (contract.scope !== "entity" && !requestedEntityId) {
-    return null;
-  }
+async function resolveScopedEntity({ contract, access, requestedEntityId }) {
+  if (contract.scope !== "entity" && !requestedEntityId) return null;
 
   if (contract.scope === "entity" && !requestedEntityId) {
     throw new Error("entity_id required for this Finance workspace");
@@ -126,10 +111,7 @@ async function resolveScopedEntity({
     entityId: requestedEntityId,
   });
 
-  if (!entity) {
-    throw new Error("Legal entity not found in organisation");
-  }
-
+  if (!entity) throw new Error("Legal entity not found in organisation");
   return entity.id;
 }
 
@@ -177,48 +159,28 @@ async function resolveWriteContext(request, params) {
     requestedEntityId,
   });
 
-  return {
-    capabilityId,
-    contract,
-    body,
-    access,
-    entityId,
-  };
+  return { capabilityId, contract, body, access, entityId };
 }
 
 function scopedMutation(query, { contract, access, entityId }) {
   let scoped = query.eq("organization_id", access.organizationId);
-
-  if (contract.scope === "entity") {
-    scoped = scoped.eq("entity_id", entityId);
-  }
-
+  if (contract.scope === "entity") scoped = scoped.eq("entity_id", entityId);
   return scoped;
 }
 
-async function readTable({
-  table,
-  contract,
-  organizationId,
-  entityId,
-}) {
+async function readTable({ table, contract, organizationId, entityId }) {
   let query = supabaseAdmin
     .from(table)
     .select("*")
     .eq("organization_id", organizationId)
     .limit(250);
 
-  if (contract.scope === "entity") {
-    query = query.eq("entity_id", entityId);
-  }
+  if (contract.scope === "entity") query = query.eq("entity_id", entityId);
 
   const { data, error } = await query;
 
   if (error) {
-    if (isMissingRelation(error)) {
-      return null;
-    }
-
+    if (isMissingRelation(error)) return null;
     throw new Error(`Unable to load ${table}: ${error.message}`);
   }
 
@@ -226,15 +188,12 @@ async function readTable({
 }
 
 function failureResponse(error, fallback) {
-  const message = error.message || fallback;
-  const status = /required|not found|read-only|valid JSON|duplicate|unique|no editable fields|does not support archive/i.test(message)
+  const message = error?.message || fallback;
+  const status = /required|not found|read-only|valid JSON|duplicate|unique|already exists|must be|not supported|greater than|no editable fields|does not support archive/i.test(message)
     ? 400
     : 500;
 
-  return NextResponse.json(
-    { success: false, error: message },
-    { status }
-  );
+  return NextResponse.json({ success: false, error: message }, { status });
 }
 
 export async function GET(request, { params }) {
@@ -250,13 +209,8 @@ export async function GET(request, { params }) {
     }
 
     const { searchParams } = new URL(request.url);
-    const requestedOrganizationId = queryValue(
-      searchParams,
-      "organizationId",
-      "organization_id"
-    );
     const access = await requireOrganizationAccess({
-      organizationId: requestedOrganizationId,
+      organizationId: queryValue(searchParams, "organizationId", "organization_id"),
       request,
     });
 
@@ -267,15 +221,10 @@ export async function GET(request, { params }) {
       );
     }
 
-    const requestedEntityId = queryValue(
-      searchParams,
-      "entityId",
-      "entity_id"
-    );
     const entityId = await resolveScopedEntity({
       contract,
       access,
-      requestedEntityId,
+      requestedEntityId: queryValue(searchParams, "entityId", "entity_id"),
     });
 
     let rows = [];
@@ -290,7 +239,7 @@ export async function GET(request, { params }) {
       });
 
       if (result !== null) {
-        rows = result;
+        rows = decorateFinanceWorkspaceRows(capabilityId, result);
         sourceTable = table;
         break;
       }
@@ -316,15 +265,8 @@ export async function POST(request, { params }) {
     const context = await resolveWriteContext(request, params);
     if (context.response) return context.response;
 
-    const {
-      capabilityId,
-      contract,
-      body,
-      access,
-      entityId,
-    } = context;
-
-    const payload = normalizePayload(contract, body);
+    const { capabilityId, contract, body, access, entityId } = context;
+    const payload = normalizePayload(capabilityId, contract, body);
     validateRequiredFields(contract, payload);
 
     if (payload.entity_id) {
@@ -335,6 +277,12 @@ export async function POST(request, { params }) {
       });
     }
 
+    await validateFinanceWorkspaceWrite({
+      capabilityId,
+      organizationId: access.organizationId,
+      payload,
+    });
+
     const record = {
       ...payload,
       organization_id: access.organizationId,
@@ -342,9 +290,7 @@ export async function POST(request, { params }) {
       updated_at: new Date().toISOString(),
     };
 
-    if (contract.scope === "entity") {
-      record.entity_id = entityId;
-    }
+    if (contract.scope === "entity") record.entity_id = entityId;
 
     if (
       PERIOD_SCOPED_TABLES.has(contract.table) &&
@@ -373,13 +319,12 @@ export async function POST(request, { params }) {
           .single();
 
     const { data, error } = await query;
-
     if (error) throw new Error(error.message);
 
     return NextResponse.json({
       success: true,
       capabilityId,
-      record: data,
+      record: decorateFinanceWorkspaceRows(capabilityId, [data])[0] || data,
     });
   } catch (error) {
     return failureResponse(error, "Finance workspace save failed");
@@ -391,16 +336,9 @@ export async function PATCH(request, { params }) {
     const context = await resolveWriteContext(request, params);
     if (context.response) return context.response;
 
-    const {
-      capabilityId,
-      contract,
-      body,
-      access,
-      entityId,
-    } = context;
-
+    const { capabilityId, contract, body, access, entityId } = context;
     const id = required(body.id || body.record_id, "id");
-    const payload = normalizePayload(contract, body);
+    const payload = normalizePayload(capabilityId, contract, body);
 
     if (payload.entity_id) {
       payload.entity_id = await resolveScopedEntity({
@@ -414,28 +352,27 @@ export async function PATCH(request, { params }) {
       throw new Error("No editable fields provided");
     }
 
-    let query = supabaseAdmin
-      .from(contract.table)
-      .update({
-        ...payload,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    query = scopedMutation(query, {
-      contract,
-      access,
-      entityId,
+    await validateFinanceWorkspaceWrite({
+      capabilityId,
+      organizationId: access.organizationId,
+      payload,
+      recordId: id,
     });
 
-    const { data, error } = await query.select("*").single();
+    let query = supabaseAdmin
+      .from(contract.table)
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq("id", id);
 
+    query = scopedMutation(query, { contract, access, entityId });
+
+    const { data, error } = await query.select("*").single();
     if (error) throw new Error(error.message);
 
     return NextResponse.json({
       success: true,
       capabilityId,
-      record: data,
+      record: decorateFinanceWorkspaceRows(capabilityId, [data])[0] || data,
     });
   } catch (error) {
     return failureResponse(error, "Finance workspace update failed");
@@ -447,13 +384,7 @@ export async function DELETE(request, { params }) {
     const context = await resolveWriteContext(request, params);
     if (context.response) return context.response;
 
-    const {
-      capabilityId,
-      contract,
-      body,
-      access,
-      entityId,
-    } = context;
+    const { capabilityId, contract, body, access, entityId } = context;
 
     if (!ARCHIVABLE_TABLES.has(contract.table)) {
       throw new Error("This Finance workspace does not support archive");
@@ -463,20 +394,12 @@ export async function DELETE(request, { params }) {
 
     let query = supabaseAdmin
       .from(contract.table)
-      .update({
-        status: "ARCHIVED",
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: "ARCHIVED", updated_at: new Date().toISOString() })
       .eq("id", id);
 
-    query = scopedMutation(query, {
-      contract,
-      access,
-      entityId,
-    });
+    query = scopedMutation(query, { contract, access, entityId });
 
     const { data, error } = await query.select("*").single();
-
     if (error) throw new Error(error.message);
 
     return NextResponse.json({

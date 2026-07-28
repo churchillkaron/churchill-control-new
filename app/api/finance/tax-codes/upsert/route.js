@@ -10,14 +10,15 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
 
     const access = await requireOrganizationAccess({
       organizationId:
         body.organization_id ||
         body.organizationId,
+      request,
     });
 
     if (!access.success) {
@@ -35,8 +36,15 @@ export async function POST(req) {
     const result = await upsertTaxCodeCommand({
       organization_id: access.organizationId,
       values: {
-        ...body,
-        organization_id: access.organizationId,
+        id: body.id || null,
+        code: body.code,
+        name: body.name,
+        rate: body.rate,
+        regime: body.regime,
+        standard: body.standard,
+        effective_from: body.effective_from,
+        effective_to: body.effective_to,
+        is_active: body.is_active,
       },
     });
 
@@ -45,15 +53,18 @@ export async function POST(req) {
       taxCode: result,
     });
   } catch (error) {
+    const message = error.message || "Tax code upsert failed";
+    const status = /required|between|valid date|cannot be after|overlaps/i.test(message)
+      ? 400
+      : 500;
+
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message ||
-          "Tax code upsert failed",
+        error: message,
       },
       {
-        status: 500,
+        status,
       }
     );
   }

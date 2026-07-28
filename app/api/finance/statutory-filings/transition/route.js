@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
-import { runIntercompanyReconciliationCommand } from "@/lib/finance/intercompany/runtime/IntercompanyApplicationService";
+import { transitionStatutoryFiling } from "@/lib/finance/statutory-filings/transitionStatutoryFiling";
 
 function required(value, field) {
   const normalized = String(value || "").trim();
@@ -36,32 +36,21 @@ export async function POST(request) {
       throw new Error("Legal entity not found in organisation");
     }
 
-    const sourceBalance = Number(
-      body.sourceBalance ?? body.source_balance
-    );
-    const targetBalance = Number(
-      body.targetBalance ?? body.target_balance
-    );
-
-    if (!Number.isFinite(sourceBalance) || !Number.isFinite(targetBalance)) {
-      throw new Error("source_balance and target_balance must be numeric");
-    }
-
-    const result = await runIntercompanyReconciliationCommand({
+    const result = await transitionStatutoryFiling({
       organizationId: access.organizationId,
       entityId: entity.id,
-      transactionId: required(
-        body.transactionId || body.transaction_id,
-        "transaction_id"
-      ),
-      sourceBalance,
-      targetBalance,
+      filingId: body.filingId || body.filing_id || body.id,
+      status: body.status || body.target_status,
+      submissionReference:
+        body.submissionReference || body.submission_reference || null,
+      reason: body.reason || body.notes || null,
+      actor: access.user?.id || null,
     });
 
-    return NextResponse.json({ success: true, reconciliation: result });
+    return NextResponse.json(result);
   } catch (error) {
-    const message = error.message || "Intercompany reconciliation failed";
-    const status = /required|not found|not part|numeric/i.test(message)
+    const message = error.message || "Statutory filing transition failed";
+    const status = /required|not found|invalid|cannot|transition/i.test(message)
       ? 400
       : 500;
 

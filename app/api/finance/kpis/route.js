@@ -1,71 +1,42 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { getExecutiveKPIs } from "@/lib/finance/reporting/reports/getExecutiveKPIs";
+
+function queryValue(searchParams, camel, snake) {
+  return searchParams.get(camel) || searchParams.get(snake) || null;
+}
 
 export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const access = await requireOrganizationAccess({
+      organizationId: queryValue(searchParams, "organizationId", "organization_id"),
+      request,
+    });
 
-  const { searchParams } = new URL(request.url);
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error, rows: [] },
+        { status: access.status }
+      );
+    }
 
-  const access = await requireOrganizationAccess({
-    organizationId: searchParams.get("organizationId"),
-  });
+    const result = await getExecutiveKPIs({
+      organizationId: access.organizationId,
+      entityId: queryValue(searchParams, "entityId", "entity_id"),
+      periodId: queryValue(searchParams, "periodId", "period_id"),
+      startDate: queryValue(searchParams, "startDate", "start_date"),
+      endDate: queryValue(searchParams, "endDate", "end_date"),
+    });
 
-  if (!access.success) {
+    return NextResponse.json(result);
+  } catch (error) {
+    const message = error.message || "Finance KPI load failed";
     return NextResponse.json(
-      { success: false, error: access.error },
-      { status: access.status }
+      { success: false, error: message, rows: [] },
+      { status: /required|not found|period|entity/i.test(message) ? 400 : 500 }
     );
   }
-
-  const organizationId = access.organizationId;
-
-  const { data: ledger } = await supabaseAdmin
-    .from("general_ledger")
-    .select(`
-      *,
-      chart_of_accounts!fk_general_ledger_account (
-        id, account_code, account_name, account_category, account_type
-      )
-    `)
-    .eq("organization_id", organizationId)
-    .limit(10000);
-
-  let revenue = 0;
-  let cogs = 0;
-  let expenses = 0;
-  let assets = 0;
-  let liabilities = 0;
-  let cash = 0;
-
-  for (const line of ledger || []) {
-
-    const account = Array.isArray(line.chart_of_accounts)
-      ? line.chart_of_accounts[0]
-      : line.chart_of_accounts;
-
-    const category = String(account?.category || "").toLowerCase();
-    const accountCode = String(account?.code || "");
-
-    const debit = Number(line.debit || 0);
-    const credit = Number(line.credit || 0);
-
-    if (category.includes("revenue")) revenue += credit - debit;
-    if (category.includes("cogs")) cogs += debit - credit;
-    if (category.includes("expense")) expenses += debit - credit;
-    if (category.includes("asset")) assets += debit - credit;
-    if (category.includes("liabil")) liabilities += credit - debit;
-    if (accountCode === "1000") cash += debit - credit;
-  }
-
-  return NextResponse.json({
-    success: true,
-    organizationId,
-    revenue,
-    cogs,
-    expenses,
-    assets,
-    liabilities,
-    cash
-  });
 }

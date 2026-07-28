@@ -1,57 +1,60 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function GET(req) {
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { TaxCodeRepository } from "@/lib/finance/tax-codes/repositories/taxCodeRepository";
+
+function accessError(access) {
+  return NextResponse.json(
+    { success: false, error: access.error, taxCodes: [], rows: [] },
+    { status: access.status }
+  );
+}
+
+export async function GET(request) {
   try {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
+    const access = await requireOrganizationAccess({
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
+      request,
+    });
 
-    const organizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
-
-    if (!organizationId) {
-      return NextResponse.json(
-        { success: false, error: "organizationId required" },
-        { status: 400 }
-      );
+    if (!access.success) {
+      return accessError(access);
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("tax_rules")
-      .select("*")
-      .eq("is_active", true)
-      .order("tax_code", { ascending: true });
+    const records = await TaxCodeRepository.list({
+      organizationId: access.organizationId,
+    });
 
-    if (error) throw error;
-
-    // Map ERP schema → UI schema expected by registry
-    const taxCodes = (data || []).map((t) => ({
-      id: t.id,
-      code: t.tax_code,
-      name: t.tax_name,
-      rate: t.tax_rate,
-      regime: t.tax_regime,
-      standard: t.accounting_standard,
-      effective_from: t.effective_from,
-      effective_to: t.effective_to,
-      is_active: t.is_active
+    const taxCodes = records.map(record => ({
+      id: record.id,
+      code: record.tax_code,
+      name: record.tax_name,
+      rate: Number(record.tax_rate || 0),
+      regime: record.tax_regime,
+      standard: record.accounting_standard,
+      effective_from: record.effective_from,
+      effective_to: record.effective_to,
+      is_active: record.is_active,
     }));
 
     return NextResponse.json({
       success: true,
+      organizationId: access.organizationId,
       taxCodes,
-      rows: taxCodes
+      rows: taxCodes,
     });
-
   } catch (error) {
-    console.error("tax-codes GET", error);
-
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Tax codes load failed"
+        error: error.message || "Tax codes load failed",
+        taxCodes: [],
+        rows: [],
       },
       { status: 500 }
     );

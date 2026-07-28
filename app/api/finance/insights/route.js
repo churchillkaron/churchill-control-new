@@ -1,346 +1,104 @@
 export const dynamic = "force-dynamic";
-import { NextResponse }
-from "next/server";
 
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { getExecutiveKPIs } from "@/lib/finance/reporting/reports/getExecutiveKPIs";
 
 export async function GET(request) {
-
-  const {
-    searchParams,
-  } = new URL(
-    request.url
-  );
-
-  const access =
-    await requireOrganizationAccess({
-
-      organizationId:
-        searchParams.get(
-          "organizationId"
-        ),
-
+  try {
+    const { searchParams } = new URL(request.url);
+    const access = await requireOrganizationAccess({
+      organizationId: searchParams.get("organizationId") || searchParams.get("organization_id"),
+      request,
     });
-
-  if (!access.success) {
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          access.error,
-      },
-      {
-        status:
-          access.status,
-      }
-    );
-
-  }
-
-  const organizationId =
-    access.organizationId;
-
-  const insights = [];
-
-  const {
-    data: ledger,
-  } = await supabaseAdmin
-
-    .from("general_ledger")
-
-    .select(`
-      *,
-      chart_of_accounts!fk_general_ledger_account (
-        id,
-        code,
-        name,
-        category
-      )
-    `)
-
-    .eq(
-      "organization_id",
-      organizationId
-    )
-
-    .limit(10000);
-
-  let revenue = 0;
-
-  let expenses = 0;
-
-  let cogs = 0;
-
-  let cash = 0;
-
-  for (const line of ledger || []) {
-
-    const account =
-      Array.isArray(
-        line.chart_of_accounts
-      )
-        ? line.chart_of_accounts[0]
-        : line.chart_of_accounts;
-
-    const category =
-      String(
-        account?.category || ""
-      ).toLowerCase();
-
-    const accountCode =
-      String(
-        account?.code || ""
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error, insights: [] },
+        { status: access.status }
       );
-
-    const debit =
-      Number(line.debit || 0);
-
-    const credit =
-      Number(line.credit || 0);
-
-    // -------------------------
-    // REVENUE
-    // -------------------------
-
-    if (
-      category.includes(
-        "revenue"
-      )
-    ) {
-
-      revenue +=
-        credit - debit;
-
     }
 
-    // -------------------------
-    // EXPENSES
-    // -------------------------
+    const entityId = searchParams.get("entityId") || searchParams.get("entity_id");
+    const periodId = searchParams.get("periodId") || searchParams.get("period_id") || null;
+    const startDate = searchParams.get("startDate") || searchParams.get("start_date") || null;
+    const endDate = searchParams.get("endDate") || searchParams.get("end_date") || null;
 
-    if (
-      category.includes(
-        "expense"
-      )
-    ) {
+    const result = await getExecutiveKPIs({
+      organizationId: access.organizationId,
+      entityId,
+      periodId,
+      startDate,
+      endDate,
+    });
+    const summary = result.summary || {};
+    const insights = [];
 
-      expenses +=
-        debit - credit;
-
+    if (Number(summary.revenue || 0) === 0) {
+      insights.push({
+        severity: "info",
+        type: "NO_REVENUE_ACTIVITY",
+        title: "No posted revenue",
+        message: "No posted revenue was found in the selected finance scope.",
+      });
     }
 
-    // -------------------------
-    // COGS
-    // -------------------------
-
-    if (
-      category.includes(
-        "cogs"
-      )
-    ) {
-
-      cogs +=
-        debit - credit;
-
+    if (Number(summary.net_profit || 0) < 0) {
+      insights.push({
+        severity: "critical",
+        type: "NEGATIVE_PROFITABILITY",
+        title: "Negative profitability",
+        message: "Posted costs and expenses exceed posted revenue in the selected scope.",
+      });
+    } else if (summary.net_profit_margin !== null && Number(summary.net_profit_margin) < 10) {
+      insights.push({
+        severity: "warning",
+        type: "LOW_NET_MARGIN",
+        title: "Low net margin",
+        message: `Net profit margin is ${Number(summary.net_profit_margin).toFixed(2)}%.`,
+      });
+    } else if (summary.net_profit_margin !== null) {
+      insights.push({
+        severity: "positive",
+        type: "POSITIVE_NET_MARGIN",
+        title: "Positive net margin",
+        message: `Net profit margin is ${Number(summary.net_profit_margin).toFixed(2)}%.`,
+      });
     }
 
-    // -------------------------
-    // CASH
-    // -------------------------
-
-    if (
-      accountCode === "1000"
-    ) {
-
-      cash +=
-        debit - credit;
-
+    if (Number(summary.cash || 0) < 0) {
+      insights.push({
+        severity: "critical",
+        type: "NEGATIVE_CASH_POSITION",
+        title: "Negative cash position",
+        message: "The posted cash balance is negative in the selected scope.",
+      });
     }
 
-  }
+    if (Number(summary.liabilities || 0) > Number(summary.assets || 0)) {
+      insights.push({
+        severity: "warning",
+        type: "LIABILITIES_EXCEED_ASSETS",
+        title: "Liabilities exceed assets",
+        message: "Posted liabilities are greater than posted assets in the selected scope.",
+      });
+    }
 
-  const grossProfit =
-
-    revenue - cogs;
-
-  const netProfit =
-
-    revenue -
-    cogs -
-    expenses;
-
-  const foodCostPercent =
-
-    revenue > 0
-
-      ? (
-          cogs /
-          revenue
-        ) * 100
-
-      : 0;
-
-  const netMargin =
-
-    revenue > 0
-
-      ? (
-          netProfit /
-          revenue
-        ) * 100
-
-      : 0;
-
-  // -----------------------------------
-  // AI INSIGHTS
-  // -----------------------------------
-
-  if (
-    foodCostPercent > 35
-  ) {
-
-    insights.push({
-
-      severity:
-        "critical",
-
-      type:
-        "HIGH_FOOD_COST",
-
-      message:
-        `Food cost critically high at ${foodCostPercent.toFixed(2)}%`,
-
+    return NextResponse.json({
+      success: true,
+      organization_id: result.organization_id,
+      entity_id: result.entity_id,
+      period_id: result.period_id,
+      metrics: summary,
+      insightCount: insights.length,
+      insights,
+      rows: insights,
+      source: "POSTED_GENERAL_LEDGER",
     });
-
+  } catch (error) {
+    const message = error.message || "Finance insight load failed";
+    return NextResponse.json(
+      { success: false, error: message, insights: [] },
+      { status: /required|not found|period/i.test(message) ? 400 : 500 }
+    );
   }
-
-  else if (
-    foodCostPercent > 25
-  ) {
-
-    insights.push({
-
-      severity:
-        "warning",
-
-      type:
-        "FOOD_COST_WARNING",
-
-      message:
-        `Food cost elevated at ${foodCostPercent.toFixed(2)}%`,
-
-    });
-
-  }
-
-  else {
-
-    insights.push({
-
-      severity:
-        "positive",
-
-      type:
-        "STRONG_MARGIN",
-
-      message:
-        `Food cost healthy at ${foodCostPercent.toFixed(2)}%`,
-
-    });
-
-  }
-
-  if (
-    netMargin < 10
-  ) {
-
-    insights.push({
-
-      severity:
-        "warning",
-
-      type:
-        "LOW_NET_MARGIN",
-
-      message:
-        `Net margin low at ${netMargin.toFixed(2)}%`,
-
-    });
-
-  }
-
-  else {
-
-    insights.push({
-
-      severity:
-        "positive",
-
-      type:
-        "STRONG_PROFITABILITY",
-
-      message:
-        `Net margin healthy at ${netMargin.toFixed(2)}%`,
-
-    });
-
-  }
-
-  if (
-    cash < 0
-  ) {
-
-    insights.push({
-
-      severity:
-        "critical",
-
-      type:
-        "NEGATIVE_CASH",
-
-      message:
-        "Cash position negative",
-
-    });
-
-  }
-
-  return NextResponse.json({
-
-    success: true,
-
-    organizationId,
-
-    metrics: {
-
-      revenue,
-
-      expenses,
-
-      cogs,
-
-      grossProfit,
-
-      netProfit,
-
-      cash,
-
-      foodCostPercent,
-
-      netMargin,
-
-    },
-
-    insightCount:
-      insights.length,
-
-    insights,
-
-  });
-
 }

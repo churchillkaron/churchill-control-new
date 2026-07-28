@@ -1,299 +1,108 @@
 export const dynamic = "force-dynamic";
-import { NextResponse }
-from "next/server";
 
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 
 export async function GET(request) {
-
-  const {
-    searchParams,
-  } = new URL(
-    request.url
-  );
-
-  const access =
-    await requireOrganizationAccess({
-
-      organizationId:
-        searchParams.get(
-          "organizationId"
-        ),
-
+  try {
+    const { searchParams } = new URL(request.url);
+    const access = await requireOrganizationAccess({
+      organizationId: searchParams.get("organizationId") || searchParams.get("organization_id"),
+      request,
     });
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error, issues: [] },
+        { status: access.status }
+      );
+    }
 
-  if (!access.success) {
+    const entityId = searchParams.get("entityId") || searchParams.get("entity_id");
+    if (!entityId) throw new Error("entity_id required");
+    const entity = await resolveEntity({ organizationId: access.organizationId, entityId });
+    if (!entity) throw new Error("Legal entity not found in organisation");
 
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          access.error,
-      },
-      {
-        status:
-          access.status,
+    const periodId = searchParams.get("periodId") || searchParams.get("period_id") || null;
+    let query = supabaseAdmin
+      .from("journal_entries")
+      .select("id, journal_number, status, source_type, source_document, source_document_id, period_id, posting_date, journal_entry_lines(debit, credit)")
+      .eq("organization_id", access.organizationId)
+      .eq("entity_id", entity.id)
+      .limit(5000);
+    if (periodId) query = query.eq("period_id", periodId);
+
+    const { data: journals, error } = await query;
+    if (error) throw error;
+
+    const issues = [];
+    let totalDebits = 0;
+    let totalCredits = 0;
+    let unbalancedJournals = 0;
+    let missingSources = 0;
+    const seen = new Set();
+    let duplicateEntries = 0;
+
+    for (const journal of journals || []) {
+      const debit = (journal.journal_entry_lines || []).reduce((sum, line) => sum + Number(line.debit || 0), 0);
+      const credit = (journal.journal_entry_lines || []).reduce((sum, line) => sum + Number(line.credit || 0), 0);
+      totalDebits += debit;
+      totalCredits += credit;
+
+      if (Math.abs(debit - credit) > 0.01) {
+        unbalancedJournals += 1;
+        issues.push({
+          type: "UNBALANCED_JOURNAL",
+          severity: "critical",
+          entry: journal.journal_number || journal.id,
+          debit: Number(debit.toFixed(2)),
+          credit: Number(credit.toFixed(2)),
+        });
       }
-    );
 
-  }
+      if (!journal.source_type && !journal.source_document && !journal.source_document_id) {
+        missingSources += 1;
+        issues.push({
+          type: "MISSING_SOURCE_EVIDENCE",
+          severity: "warning",
+          entry: journal.journal_number || journal.id,
+        });
+      }
 
-  const organizationId =
-    access.organizationId;
-
-  const report = {
-
-    balancedTrialBalance: false,
-
-    totalDebits: 0,
-
-    totalCredits: 0,
-
-    journalCount: 0,
-
-    orphanedJournals: 0,
-
-    unbalancedJournals: 0,
-
-    missingSources: 0,
-
-    duplicateEntries: 0,
-
-    retainedEarningsPresent: false,
-
-    incomeSummaryPresent: false,
-
-    healthScore: 100,
-
-    issues: [],
-
-  };
-
-  // -----------------------------------
-  // LOAD JOURNALS
-  // -----------------------------------
-
-  const {
-    data: journals,
-  } = await supabaseAdmin
-
-    .from("journal_entries")
-
-    .select(`
-      *,
-      journal_entry_lines (
-        *
-      )
-    `)
-
-    .eq(
-      "organization_id",
-      organizationId
-    )
-
-    .limit(5000);
-
-  report.journalCount =
-    journals?.length || 0;
-
-  const seen =
-    new Set();
-
-  for (
-    const journal of journals || []
-  ) {
-
-    let debits = 0;
-
-    let credits = 0;
-
-    for (
-      const line of
-      journal.journal_entry_lines || []
-    ) {
-
-      debits +=
-        Number(
-          line.debit || 0
-        );
-
-      credits +=
-        Number(
-          line.credit || 0
-        );
-
+      const duplicateKey = [journal.journal_number, journal.posting_date, journal.source_document_id].join(":");
+      if (seen.has(duplicateKey)) duplicateEntries += 1;
+      seen.add(duplicateKey);
     }
 
-    report.totalDebits +=
-      debits;
+    const balancedTrialBalance = Math.abs(totalDebits - totalCredits) < 0.01;
+    const healthScore = Math.max(0, 100 - unbalancedJournals * 15 - missingSources * 2 - duplicateEntries * 5 - (balancedTrialBalance ? 0 : 25));
+    const report = {
+      balancedTrialBalance,
+      totalDebits: Number(totalDebits.toFixed(2)),
+      totalCredits: Number(totalCredits.toFixed(2)),
+      journalCount: (journals || []).length,
+      unbalancedJournals,
+      missingSources,
+      duplicateEntries,
+      healthScore,
+      issues,
+    };
 
-    report.totalCredits +=
-      credits;
-
-    // -----------------------------
-    // UNBALANCED
-    // -----------------------------
-
-    if (
-
-      Math.abs(
-        debits - credits
-      ) > 0.01
-
-    ) {
-
-      report.unbalancedJournals++;
-
-      report.healthScore -= 15;
-
-      report.issues.push({
-
-        type:
-          "UNBALANCED_JOURNAL",
-
-        entry:
-          journal.journal_number,
-
-      });
-
-    }
-
-    // -----------------------------
-    // MISSING SOURCE
-    // -----------------------------
-
-    if (
-      !journal.source_type
-    ) {
-
-      report.missingSources++;
-
-      report.healthScore -= 5;
-
-    }
-
-    // -----------------------------
-    // DUPLICATES
-    // -----------------------------
-
-    const key =
-
-      `${journal.journal_number}-${journal.description}`;
-
-    if (
-      seen.has(key)
-    ) {
-
-      report.duplicateEntries++;
-
-      report.healthScore -= 10;
-
-    }
-
-    seen.add(key);
-
-  }
-
-  // -----------------------------------
-  // TRIAL BALANCE
-  // -----------------------------------
-
-  report.balancedTrialBalance =
-
-    Math.abs(
-
-      report.totalDebits -
-
-      report.totalCredits
-
-    ) < 0.01;
-
-  if (
-    !report.balancedTrialBalance
-  ) {
-
-    report.healthScore -= 25;
-
-  }
-
-  // -----------------------------------
-  // ACCOUNT CHECKS
-  // -----------------------------------
-
-  const {
-    data: accounts,
-  } = await supabaseAdmin
-
-    .from("chart_of_accounts")
-
-    .select("*")
-
-    .eq(
-      "organization_id",
-      organizationId
+    return NextResponse.json({
+      success: true,
+      organization_id: access.organizationId,
+      entity_id: entity.id,
+      period_id: periodId,
+      report,
+      issues,
+      rows: issues,
+    });
+  } catch (error) {
+    const message = error.message || "Financial health scan failed";
+    return NextResponse.json(
+      { success: false, error: message, issues: [] },
+      { status: /required|not found/i.test(message) ? 400 : 500 }
     );
-
-  report.retainedEarningsPresent =
-
-    (accounts || []).some(
-
-      (a) =>
-
-        a.code === "3100"
-
-    );
-
-  report.incomeSummaryPresent =
-
-    (accounts || []).some(
-
-      (a) =>
-
-        a.code === "3900"
-
-    );
-
-  if (
-    !report.retainedEarningsPresent
-  ) {
-
-    report.healthScore -= 20;
-
   }
-
-  if (
-    !report.incomeSummaryPresent
-  ) {
-
-    report.healthScore -= 10;
-
-  }
-
-  // -----------------------------------
-  // LIMIT SCORE
-  // -----------------------------------
-
-  if (
-    report.healthScore < 0
-  ) {
-
-    report.healthScore = 0;
-
-  }
-
-  return NextResponse.json({
-
-    success: true,
-
-    organizationId,
-
-    report,
-
-  });
-
 }

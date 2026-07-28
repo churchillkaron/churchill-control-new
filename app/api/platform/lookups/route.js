@@ -30,6 +30,7 @@ export async function GET(request) {
 
     const access = await requireOrganizationAccess({
       organizationId: requestedOrganizationId,
+      request,
     });
 
     if (!access.success) {
@@ -66,15 +67,15 @@ export async function GET(request) {
 
     return NextResponse.json(options || []);
   } catch (error) {
-    console.error("LOOKUP API ERROR", error);
+    const message = error.message || "Lookup failed";
 
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Lookup failed",
+        error: message,
       },
       {
-        status: 500,
+        status: /required|unknown lookup/i.test(message) ? 400 : 500,
       }
     );
   }

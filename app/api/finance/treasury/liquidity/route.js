@@ -1,4 +1,5 @@
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ function accessError(access) {
     {
       success: false,
       error: access.error,
+      rows: [],
     },
     {
       status: access.status,
@@ -17,94 +19,87 @@ function accessError(access) {
   );
 }
 
-export async function POST(request) {
+async function resolveScope(request, body = null) {
+  const searchParams = new URL(request.url).searchParams;
+  const access = await requireOrganizationAccess({
+    organizationId:
+      body?.organizationId ||
+      body?.organization_id ||
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id"),
+    request,
+  });
+
+  if (!access.success) return { response: accessError(access) };
+
+  const entityId =
+    body?.entityId ||
+    body?.entity_id ||
+    searchParams.get("entityId") ||
+    searchParams.get("entity_id");
+
+  if (!entityId) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: "entity_id required", rows: [] },
+        { status: 400 }
+      ),
+    };
+  }
+
+  const entity = await resolveEntity({
+    organizationId: access.organizationId,
+    entityId,
+  });
+
+  if (!entity) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: "Legal entity not found in organisation", rows: [] },
+        { status: 404 }
+      ),
+    };
+  }
+
+  return { access, entity };
+}
+
+async function liquidityResponse(request, body = null) {
   try {
-    const body = await request.json();
+    const scope = await resolveScope(request, body);
+    if (scope.response) return scope.response;
 
-    const access =
-      await requireOrganizationAccess({
-        organizationId:
-          body.organizationId ||
-          body.organization_id,
-      });
-
-    if (!access.success) {
-      return accessError(access);
-    }
-
-    const liquidity =
-      await getLiquidityAnalysis({
-        organizationId:
-          access.organizationId,
-      });
+    const liquidity = await getLiquidityAnalysis({
+      organizationId: scope.access.organizationId,
+      entityId: scope.entity.id,
+    });
 
     return NextResponse.json({
       success: true,
+      organization_id: scope.access.organizationId,
+      entity_id: scope.entity.id,
       liquidity,
-      rows:
-        Array.isArray(liquidity)
-          ? liquidity
-          : [liquidity],
+      rows: [liquidity],
     });
   } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message ||
-          "Liquidity refresh failed",
+        error: error.message || "Liquidity analysis failed",
+        rows: [],
       },
       {
-        status: 500,
+        status: /required|not found/i.test(String(error.message || "")) ? 400 : 500,
       }
     );
   }
 }
 
+export async function POST(request) {
+  const body = await request.json().catch(() => ({}));
+  return liquidityResponse(request, body);
+}
+
 export async function GET(request) {
-  try {
-    const { searchParams } =
-      new URL(request.url);
-
-    const requestedOrganizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
-
-    const access =
-      await requireOrganizationAccess({
-        organizationId:
-          requestedOrganizationId,
-      });
-
-    if (!access.success) {
-      return accessError(access);
-    }
-
-    const liquidity =
-      await getLiquidityAnalysis({
-        organizationId:
-          access.organizationId,
-      });
-
-    return NextResponse.json({
-      success: true,
-      liquidity,
-      rows:
-        Array.isArray(liquidity)
-          ? liquidity
-          : [liquidity],
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message ||
-          "Liquidity load failed",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
+  return liquidityResponse(request);
 }

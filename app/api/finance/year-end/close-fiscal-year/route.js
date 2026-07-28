@@ -25,6 +25,7 @@ export async function POST(request) {
       organizationId:
         body.organizationId ||
         body.organization_id,
+      request,
     });
 
     if (!access.success) {
@@ -37,6 +38,11 @@ export async function POST(request) {
           status: access.status,
         }
       );
+    }
+
+    const confirmation = required(body.confirmation, "confirmation").toUpperCase();
+    if (confirmation !== "CLOSE YEAR") {
+      throw new Error("confirmation must be CLOSE YEAR");
     }
 
     const result = await runYearEndCloseCommand({
@@ -73,7 +79,7 @@ export async function POST(request) {
         error: message,
       },
       {
-        status: /required|period|step|journal|locked/i.test(message)
+        status: /required|period|step|journal|locked|confirmation/i.test(message)
           ? 400
           : 500,
       }

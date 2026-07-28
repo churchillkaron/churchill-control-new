@@ -1,0 +1,3 @@
+Vercel production build trigger for the atomic Finance journal RPC repair.
+Target branch: main
+Target repair commit: 6a2cd4f46efe3b0feb7ce730e80f27bf1f5e1ff4

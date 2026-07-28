@@ -29,18 +29,29 @@ export default function CreateEngine({
     if (!open || typeof onChange !== "function") return;
 
     fields.forEach((field) => {
+      const resolvedDefault =
+        field.defaultValue !== undefined
+          ? field.defaultValue
+          : field.name === "template_source_url"
+            ? "builtin://finance/standard"
+            : undefined;
+
       if (
         values[field.name] === undefined &&
-        field.defaultValue !== undefined
+        resolvedDefault !== undefined
       ) {
-        onChange(field.name, field.defaultValue);
+        onChange(field.name, resolvedDefault);
       }
     });
   }, [open, fields, values, onChange]);
 
   if (!open) return null;
 
-  const visibleFields = fields.filter((field) => field.type !== "hidden");
+  const visibleFields = fields.filter(
+    (field) =>
+      field.type !== "hidden" &&
+      field.name !== "template_source_url"
+  );
 
   const previewEnabled = Boolean(
     typeof onPreview === "function" &&

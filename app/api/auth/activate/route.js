@@ -102,7 +102,7 @@ export async function POST(request) {
     }
 
     const redirectTo = new URL(
-      "/login",
+      "/login#type=recovery",
       resolveRedirectOrigin(request)
     ).toString();
 

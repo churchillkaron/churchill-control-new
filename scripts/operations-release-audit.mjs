@@ -11,6 +11,11 @@ const FILES = Object.freeze({
   requestContext: "lib/operations/api/resolveOperationsRequestContext.js",
   repositories: "lib/operations/repositories/OperationsRepositoryRegistry.js",
   workspaceRegistry: "lib/operations/registry/OperationsWorkspaceRegistry.js",
+  workspaceResolver: "lib/operations/registry/OperationsWorkspaceResolver.js",
+  workspaceHub: "components/workspace/operations/OperationsWorkspaceHub.jsx",
+  runtimeWorkCenter: "components/workspace/operations/OperationsRuntimeWorkCenter.jsx",
+  operationsPage: "app/(system)/workspace/[organizationId]/operations/page.jsx",
+  operationsCapabilityPage: "app/(system)/workspace/[organizationId]/operations/[...operationsRoute]/page.jsx",
   collectionRoute: "app/api/operations/[capabilityId]/route.js",
   detailRoute: "app/api/operations/[capabilityId]/[recordId]/route.js",
   commandRoute: "app/api/operations/[capabilityId]/commands/[command]/route.js",
@@ -107,11 +112,55 @@ requireIncludes(source.repositories, [
 
 requireIncludes(source.workspaceRegistry, [
   "OPERATIONS_CAPABILITY_CATALOG",
-  "Create",
+  "OperationsRuntimeWorkCenter",
+  "/commands/:command",
+  "commandEndpoint",
   "Import",
   "Export",
   "AI",
 ], "Operations workspace registry");
+
+requireIncludes(source.workspaceResolver, [
+  "getOperationsWorkspaceGroups",
+  "getOperationsWorkspaceItems",
+  "getOperationsWorkspaceItem",
+  "getOperationsWorkspaceItemByRoute",
+], "Operations workspace resolver");
+
+requireIncludes(source.workspaceHub, [
+  "getOperationsWorkspaceGroups",
+  "Canonical Operations Kernel",
+  "resolveWorkspaceRoute",
+], "Operations workspace hub");
+
+requireExcludes(source.workspaceHub, [
+  "Waiter",
+  "Kitchen",
+  "KDS",
+  "Tables",
+  "Recipes",
+], "Operations workspace hub");
+
+requireIncludes(source.runtimeWorkCenter, [
+  "json.ok",
+  "Idempotency-Key",
+  "/api/operations/",
+  "executeCommand",
+  "organization_id",
+  "entity_id",
+  "period_id",
+  "Export",
+], "Operations runtime work centre");
+
+requireIncludes(source.operationsPage, [
+  "OperationsWorkspaceHub",
+], "Operations landing page");
+
+requireIncludes(source.operationsCapabilityPage, [
+  "OperationsRuntimeWorkCenter",
+  "getOperationsWorkspaceItem",
+  "notFound",
+], "Operations capability page");
 
 for (const [label, route] of [
   ["Operations collection route", source.collectionRoute],
@@ -160,3 +209,4 @@ console.log(`OPERATIONS_CAPABILITY_COUNT=${capabilityCount}`);
 console.log("OPERATIONS_CONTEXT_SCOPE=organization_id,entity_id,period_id,capability_id");
 console.log("OPERATIONS_COMMAND_EXECUTION=ATOMIC_RPC");
 console.log("OPERATIONS_EVENT_DELIVERY=TRANSACTIONAL_OUTBOX");
+console.log("OPERATIONS_UI=CANONICAL_NEUTRAL_WORKSPACES");

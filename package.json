@@ -18,7 +18,8 @@
     "smoke:creative-release": "node scripts/creative-studio-forensic-release-smoke.mjs",
     "smoke:creative-forensic-release": "node scripts/creative-studio-forensic-release-smoke.mjs",
     "smoke:creative-release-legacy": "node scripts/creative-studio-release-smoke.mjs",
-    "smoke:creative-cole-live": "node scripts/creative-studio-cole-ley-live-smoke.mjs"
+    "smoke:creative-cole-live": "node scripts/creative-studio-cole-ley-live-smoke.mjs",
+    "smoke:creative-cole-dense-preflight": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-studio-cole-dense-preflight.mjs"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",

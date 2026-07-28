@@ -1,83 +1,71 @@
 export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+
+import { requireAuth } from "@/lib/shared/auth";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
-  NextResponse,
-} from "next/server";
+  decorateLegalEntity,
+  validateLegalEntityWrite,
+} from "@/lib/finance/legal-entities/LegalEntityPolicy";
 
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
+function failure(error) {
+  const message = error?.message || "Legal Entity creation failed";
+  const status = /required|must|valid|configured|already exists|not found|cannot/i.test(
+    message
+  )
+    ? 400
+    : 500;
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+  return NextResponse.json(
+    { success: false, error: message },
+    { status }
+  );
+}
 
-import createLegalEntity from "@/lib/finance/legal-entities/createLegalEntity";
-
-export async function POST(req) {
-
+export async function POST(request) {
   try {
-
-    await requireAuth();
-
-    const body =
-      await req.json();
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
-      });
+    const user = await requireAuth();
+    const body = await request.json();
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId || body.organization_id,
+      request,
+    });
 
     if (!access.success) {
-
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            access.error,
-        },
-        {
-          status:
-            access.status,
-        }
+        { success: false, error: access.error },
+        { status: access.status }
       );
-
     }
 
-    const organizationId =
-      access.organizationId;
+    const candidate = await validateLegalEntityWrite({
+      organizationId: access.organizationId,
+      payload: body,
+    });
 
-    const result =
-      await createLegalEntity({
+    const { data, error } = await supabaseAdmin
+      .from("legal_entities")
+      .insert({
+        ...candidate,
+        organization_id: access.organizationId,
+        created_by: user?.id || access.user?.id || null,
+        updated_by: user?.id || access.user?.id || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select("*")
+      .single();
 
-        organization_id:
-          organizationId,
+    if (error) throw error;
 
-        ...body,
-
-      });
-
-    return NextResponse.json(
-      result
-    );
-
+    return NextResponse.json({
+      success: true,
+      entity: decorateLegalEntity(data),
+      record: decorateLegalEntity(data),
+    });
   } catch (error) {
-
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-      },
-      {
-        status: 500,
-      }
-    );
-
+    return failure(error);
   }
-
 }

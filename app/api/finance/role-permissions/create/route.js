@@ -1,7 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { grantPermission } from "@/lib/finance/security/runtime/FinanceSecurityApplicationService";
+import {
+  assignRole,
+  grantPermission,
+} from "@/lib/finance/security/runtime/FinanceSecurityApplicationService";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 function accessError(access) {
@@ -37,6 +40,10 @@ export async function POST(request) {
       body.roleId ||
       body.role_id ||
       body.role;
+    const userId =
+      body.userId ||
+      body.user_id ||
+      null;
     const permissionKey =
       body.permissionKey ||
       body.permission_key ||
@@ -51,9 +58,28 @@ export async function POST(request) {
       );
     }
 
+    if (userId) {
+      const result = await assignRole({
+        organizationId: access.organizationId,
+        userId,
+        roleId,
+        assignedBy: access.userId,
+      });
+
+      return NextResponse.json({
+        success: true,
+        mode: "role_assignment",
+        data: result,
+        row: result,
+      });
+    }
+
     if (!permissionKey) {
       return NextResponse.json(
-        { success: false, error: "Finance permission required" },
+        {
+          success: false,
+          error: "Staff member required",
+        },
         { status: 400 }
       );
     }
@@ -67,17 +93,23 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
+      mode: "permission_grant",
       data: result,
       row: result,
     });
   } catch (error) {
+    const message = error.message || "Unable to assign Finance role";
+    const status = /required|not found|does not belong|already/i.test(message)
+      ? 400
+      : 500;
+
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Unable to grant Finance permission",
+        error: message,
       },
       {
-        status: 500,
+        status,
       }
     );
   }

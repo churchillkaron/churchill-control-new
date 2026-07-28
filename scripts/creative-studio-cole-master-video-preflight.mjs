@@ -17,10 +17,6 @@ function object(value) {
     : {};
 }
 
-function list(value) {
-  return Array.isArray(value) ? value.filter(Boolean) : [];
-}
-
 function finite(value, fallback = null) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -32,27 +28,20 @@ function required(name) {
   return value;
 }
 
-function upper(value) {
-  return text(value).toUpperCase();
-}
-
-function rank(candidate) {
-  return finite(candidate?.metadata?.shortlist_rank, 999999);
-}
-
-function score(node) {
+function duration(moment) {
   return finite(
-    node?.metadata?.score ?? node?.intelligence?.reuse_score,
+    object(moment.metadata).clip_range?.duration_seconds ??
+    object(moment.technical).duration_seconds,
     0,
   );
 }
 
-function momentDuration(moment) {
-  return finite(
-    moment?.metadata?.clip_range?.duration_seconds ??
-      moment?.technical?.duration_seconds,
-    0,
-  );
+function sourceId(moment) {
+  const metadata = object(moment.metadata);
+  return text(metadata.source_asset_node_id) ||
+    text(metadata.original_source_asset_node_id) ||
+    text(object(metadata.performance_evidence).source_asset_node_id) ||
+    null;
 }
 
 function findLogo(nodes) {
@@ -77,7 +66,7 @@ const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
 
 const targetDuration = 180;
 const minimumDistinctSources = 4;
-const maximumClipsPerOriginalSource = 4;
+const maximumClipsPerSource = 4;
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: {
@@ -85,9 +74,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
     autoRefreshToken: false,
     detectSessionInUrl: false,
   },
-  realtime: {
-    transport: WebSocket,
-  },
+  realtime: { transport: WebSocket },
 });
 
 const {
@@ -122,128 +109,79 @@ if (nodesError) {
   throw new Error(`ASSET_NODES_READ_FAILED:${nodesError.message}`);
 }
 
-const nodeMap = new Map((nodes || []).map((node) => [node.id, node]));
-
-const candidates = (nodes || [])
-  .filter((node) =>
-    node.type === "MOMENT" &&
-    object(node.metadata).local_shortlist_candidate === true &&
-    object(node.metadata).selected_for_ai_verification === true &&
-    upper(object(node.metadata).ai_verification_status) === "COMPLETE",
-  )
+const verified = (nodes || [])
+  .filter((node) => {
+    const metadata = object(node.metadata);
+    return (
+      node.type === "MOMENT" &&
+      metadata.performance_verified === true &&
+      metadata.blocked !== true &&
+      metadata.original_audio_preserved === true &&
+      text(node.url) &&
+      duration(node) > 0
+    );
+  })
   .sort((left, right) => {
-    const rankDifference = rank(left) - rank(right);
-    if (rankDifference !== 0) return rankDifference;
-    return score(right) - score(left);
+    const leftScore = finite(
+      object(left.metadata).score ?? object(left.intelligence).reuse_score,
+      0,
+    );
+    const rightScore = finite(
+      object(right.metadata).score ?? object(right.intelligence).reuse_score,
+      0,
+    );
+    return rightScore - leftScore;
   });
 
-const eligible = [];
-const seenMomentIds = new Set();
-
-for (const candidate of candidates) {
-  const metadata = object(candidate.metadata);
-  const originalSourceId = text(metadata.source_asset_node_id) || null;
-
-  for (const momentId of list(metadata.verified_moment_ids)) {
-    if (seenMomentIds.has(momentId)) continue;
-
-    const moment = nodeMap.get(momentId);
-    if (!moment || moment.type !== "MOMENT") continue;
-
-    const momentMetadata = object(moment.metadata);
-    const duration = momentDuration(moment);
-
-    if (
-      momentMetadata.performance_verified !== true ||
-      momentMetadata.blocked === true ||
-      momentMetadata.original_audio_preserved !== true ||
-      !text(moment.url) ||
-      !(duration > 0)
-    ) {
-      continue;
-    }
-
-    eligible.push({
-      candidate_id: candidate.id,
-      moment_id: moment.id,
-      original_source_asset_node_id: originalSourceId,
-      duration_seconds: duration,
-      shortlist_rank: rank(candidate),
-      score: finite(
-        momentMetadata.score ??
-          object(moment.intelligence).reuse_score ??
-          score(candidate),
-        0,
-      ),
-    });
-
-    seenMomentIds.add(momentId);
-  }
-}
-
-const sourceCounts = new Map();
-const primary = [];
+const counts = new Map();
+const preferred = [];
 const overflow = [];
 
-for (const item of eligible) {
-  const sourceId = item.original_source_asset_node_id || item.moment_id;
-  const count = sourceCounts.get(sourceId) || 0;
-
-  if (count < maximumClipsPerOriginalSource) {
-    primary.push(item);
-    sourceCounts.set(sourceId, count + 1);
+for (const moment of verified) {
+  const identity = sourceId(moment) || moment.id;
+  const count = counts.get(identity) || 0;
+  if (count < maximumClipsPerSource) {
+    preferred.push(moment);
+    counts.set(identity, count + 1);
   } else {
-    overflow.push(item);
+    overflow.push(moment);
   }
 }
 
 const selected = [];
 let selectedDuration = 0;
-
-for (const item of [...primary, ...overflow]) {
+for (const moment of [...preferred, ...overflow]) {
   if (selectedDuration >= targetDuration - 0.001) break;
-
-  const duration = Math.min(
-    item.duration_seconds,
+  const clipDuration = Math.min(
+    duration(moment),
     targetDuration - selectedDuration,
   );
-
-  if (!(duration > 0)) continue;
-
+  if (clipDuration <= 0) continue;
   selected.push({
-    ...item,
-    selected_duration_seconds: duration,
+    moment_id: moment.id,
+    source_asset_node_id: sourceId(moment),
+    selected_duration_seconds: clipDuration,
   });
-  selectedDuration += duration;
+  selectedDuration += clipDuration;
 }
 
 selectedDuration = Number(selectedDuration.toFixed(6));
-
-const distinctOriginalSources = new Set(
-  selected
-    .map((item) => item.original_source_asset_node_id)
-    .filter(Boolean),
-).size;
-
 const eligibleDuration = Number(
-  eligible
-    .reduce((sum, item) => sum + item.duration_seconds, 0)
-    .toFixed(3),
+  verified.reduce((sum, moment) => sum + duration(moment), 0).toFixed(3),
 );
-
+const distinctSources = new Set(
+  selected.map((item) => item.source_asset_node_id).filter(Boolean),
+).size;
 const logo = findLogo(nodes || []);
-const reasons = [];
 
-if (!candidates.length) {
-  reasons.push("VERIFIED_SHORTLIST_CANDIDATES_REQUIRED");
-}
-if (!eligible.length) {
+const reasons = [];
+if (!verified.length) {
   reasons.push("VERIFIED_PERFORMANCE_MOMENTS_REQUIRED");
 }
 if (selectedDuration + 0.001 < targetDuration) {
   reasons.push("MASTER_VIDEO_SOURCE_DURATION_INSUFFICIENT");
 }
-if (distinctOriginalSources < minimumDistinctSources) {
+if (distinctSources < minimumDistinctSources) {
   reasons.push("MASTER_VIDEO_SOURCE_DIVERSITY_INSUFFICIENT");
 }
 if (!logo) {
@@ -256,17 +194,17 @@ console.log("============================================================");
 console.log("COLE SOURCE-ONLY MASTER VIDEO PREFLIGHT");
 console.log("============================================================");
 console.log("PREFLIGHT_MODE=READ_ONLY_LIVE_DATABASE");
+console.log("EVIDENCE_SOURCE=CANONICAL_PERFORMANCE_VERIFIED_MOMENTS");
 console.log(`ORGANIZATION_ID=${organizationId}`);
 console.log(`CREATIVE_PROJECT_ID=${projectId}`);
 console.log(`CREATIVE_MISSION_ID=${project.creative_mission_id || ""}`);
 console.log(`PROJECT_NAME=${project.name || ""}`);
 console.log(`TARGET_DURATION_SECONDS=${targetDuration}`);
-console.log(`VERIFIED_CANDIDATE_COUNT=${candidates.length}`);
-console.log(`ELIGIBLE_VERIFIED_MOMENT_COUNT=${eligible.length}`);
+console.log(`ELIGIBLE_VERIFIED_MOMENT_COUNT=${verified.length}`);
 console.log(`ELIGIBLE_VERIFIED_DURATION_SECONDS=${eligibleDuration}`);
 console.log(`SELECTED_CLIP_COUNT=${selected.length}`);
 console.log(`SELECTED_DURATION_SECONDS=${selectedDuration}`);
-console.log(`DISTINCT_ORIGINAL_SOURCE_COUNT=${distinctOriginalSources}`);
+console.log(`DISTINCT_ORIGINAL_SOURCE_COUNT=${distinctSources}`);
 console.log(`MINIMUM_DISTINCT_ORIGINAL_SOURCES=${minimumDistinctSources}`);
 console.log(`LOGO_ASSET_NODE_ID=${logo?.id || ""}`);
 console.log("SOURCE_ONLY_FFMPEG=YES");

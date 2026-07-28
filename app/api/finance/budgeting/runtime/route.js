@@ -7,9 +7,11 @@ import { listBudgetsCommand } from "@/lib/finance/budgeting/runtime/BudgetApplic
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-
     const access = await requireOrganizationAccess({
-      organizationId: searchParams.get("organizationId"),
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
+      request,
     });
 
     if (!access.success) {
@@ -20,18 +22,26 @@ export async function GET(request) {
     }
 
     const result = await listBudgetsCommand({
-      organization_id: access.organizationId,
+      organizationId: access.organizationId,
+      entityId:
+        searchParams.get("entityId") ||
+        searchParams.get("entity_id"),
+      periodId:
+        searchParams.get("periodId") ||
+        searchParams.get("period_id") ||
+        null,
     });
 
     return NextResponse.json({
       success: true,
+      rows: result.data,
       budgets: result.data,
     });
-
   } catch (error) {
+    const message = error.message || "Budget load failed";
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: message, rows: [] },
+      { status: /required|not found/i.test(message) ? 400 : 500 }
     );
   }
 }

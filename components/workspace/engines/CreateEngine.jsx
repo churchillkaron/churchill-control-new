@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import DynamicForm from "./DynamicForm";
 
 export default function CreateEngine({
@@ -22,20 +21,19 @@ export default function CreateEngine({
 }) {
   if (!open) return null;
 
-  console.log(
-    "CREATE ENGINE CONTEXT",
-    {
-      organizationId,
-      entityId,
-      moduleKey,
-      action,
-    }
+  const previewEnabled = Boolean(
+    typeof onPreview === "function" &&
+    (
+      action?.preview === true ||
+      action?.preview?.enabled === true ||
+      action?.documentType ||
+      moduleKey === "customer_invoices"
+    )
   );
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="w-full max-w-3xl rounded-[30px] border border-white/10 bg-[#0b0b0b] shadow-2xl">
-
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
           <div>
             <div className="text-xs uppercase tracking-[0.3em] text-amber-300/70">
@@ -56,8 +54,7 @@ export default function CreateEngine({
         </div>
 
         <div className="max-h-[70vh] overflow-auto p-6">
-
-          {Array.isArray(schema) && schema.length>0 ? (
+          {Array.isArray(schema) && schema.length > 0 ? (
             <DynamicForm
               schema={schema}
               values={values}
@@ -70,7 +67,6 @@ export default function CreateEngine({
           ) : (
             children
           )}
-
         </div>
 
         <div className="flex justify-end gap-3 border-t border-white/10 px-6 py-5">
@@ -81,7 +77,7 @@ export default function CreateEngine({
             Cancel
           </button>
 
-          {onPreview ? (
+          {previewEnabled ? (
             <button
               onClick={onPreview}
               className="rounded-xl border border-amber-300/30 px-5 py-3 text-sm text-amber-200"
@@ -98,7 +94,6 @@ export default function CreateEngine({
             {saving ? "Saving..." : "Create"}
           </button>
         </div>
-
       </div>
     </div>
   );

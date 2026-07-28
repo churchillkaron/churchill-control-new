@@ -13,11 +13,20 @@ export async function POST(request, { params }) {
   const capabilityId = String(resolvedParams?.capabilityId || "").trim();
   const command = String(resolvedParams?.command || "").trim();
   const body = await request.json();
-  const resolved = await resolveOperationsRequestContext({ request, input: body });
+  const resolved = await resolveOperationsRequestContext({
+    request,
+    input: body,
+    capabilityId,
+    command,
+  });
 
   if (!resolved.success) {
     return NextResponse.json(
-      { ok: false, error: resolved.error },
+      {
+        ok: false,
+        error: resolved.error,
+        required_permissions: resolved.required_permissions || [],
+      },
       { status: resolved.status || 400 },
     );
   }

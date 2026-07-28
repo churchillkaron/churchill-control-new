@@ -3,15 +3,25 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { resolveOperationsRequestContext } from "@/lib/operations/api/resolveOperationsRequestContext";
 import { serverOperationsEvents } from "@/lib/operations/events/serverOperationsEvents";
+import { OPERATIONS_ACTIONS } from "@/lib/operations/security/OperationsAuthorizationPolicy";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const input = Object.fromEntries(searchParams.entries());
-  const resolved = await resolveOperationsRequestContext({ request, input });
+  const resolved = await resolveOperationsRequestContext({
+    request,
+    input,
+    capabilityId: searchParams.get("capability_id") || "operational-events",
+    action: OPERATIONS_ACTIONS.AUDIT,
+  });
 
   if (!resolved.success) {
     return NextResponse.json(
-      { ok: false, error: resolved.error },
+      {
+        ok: false,
+        error: resolved.error,
+        required_permissions: resolved.required_permissions || [],
+      },
       { status: resolved.status || 400 },
     );
   }
@@ -40,11 +50,20 @@ export async function GET(request) {
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
-  const resolved = await resolveOperationsRequestContext({ request, input: body });
+  const resolved = await resolveOperationsRequestContext({
+    request,
+    input: body,
+    capabilityId: "operational-events",
+    action: OPERATIONS_ACTIONS.EVENTS_MANAGE,
+  });
 
   if (!resolved.success) {
     return NextResponse.json(
-      { ok: false, error: resolved.error },
+      {
+        ok: false,
+        error: resolved.error,
+        required_permissions: resolved.required_permissions || [],
+      },
       { status: resolved.status || 400 },
     );
   }

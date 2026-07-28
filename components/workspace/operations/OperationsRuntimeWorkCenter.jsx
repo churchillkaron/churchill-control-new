@@ -5,6 +5,12 @@ import { RefreshCw, Search, X } from "lucide-react";
 
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import {
+  buildOperationsFormPayload,
+  getOperationsFormSchema,
+  getOperationsInitialValues,
+  validateOperationsForm,
+} from "@/lib/operations/forms/OperationsFormSchemaRegistry";
 
 function clean(value) {
   return value === undefined || value === null ? "" : String(value);
@@ -29,6 +35,40 @@ function recordLabel(record) {
   return record?.name || record?.code || record?.reference || record?.id || "Operations record";
 }
 
+function Field({ field, value, onChange }) {
+  const common = {
+    value: value ?? "",
+    onChange: (event) => onChange(field.name, event.target.value),
+    className: "mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-[#D6A66A]/40",
+    required: Boolean(field.required),
+  };
+
+  return (
+    <label className="block">
+      <span className="text-xs uppercase tracking-[0.16em] text-white/35">
+        {field.label}{field.required ? " *" : ""}
+      </span>
+
+      {field.type === "textarea" ? (
+        <textarea {...common} placeholder={field.placeholder} className={`${common.className} min-h-28`} />
+      ) : field.type === "select" ? (
+        <select {...common}>
+          {(field.options || []).map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          {...common}
+          type={field.type || "text"}
+          step={field.step}
+          placeholder={field.placeholder}
+        />
+      )}
+    </label>
+  );
+}
+
 export default function OperationsRuntimeWorkCenter({ capability }) {
   const businessContext = useBusinessContext() || {};
   const organizationId = businessContext.organization_id || businessContext.organization?.id || null;
@@ -37,6 +77,9 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
 
   const capabilityId = capability?.capabilityId || capability?.runtime?.capability || capability?.id;
   const listApi = capability?.runtime?.listApi || capability?.ui?.api || `/api/operations/${capabilityId}`;
+  const formSchema = useMemo(() => getOperationsFormSchema(capability), [capability]);
+  const initialValues = useMemo(() => getOperationsInitialValues(capability), [capability]);
+
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [query, setQuery] = useState("");
@@ -45,13 +88,11 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    code: "",
-    description: "",
-    priority: "normal",
-    status: "draft",
-  });
+  const [form, setForm] = useState(initialValues);
+
+  useEffect(() => {
+    setForm(initialValues);
+  }, [initialValues]);
 
   const contextPayload = useMemo(() => buildContextPayload({
     organizationId,
@@ -74,9 +115,7 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
       if (entityId) params.set("entity_id", entityId);
       if (periodId) params.set("period_id", periodId);
 
-      const response = await fetch(`${listApi}?${params.toString()}`, {
-        cache: "no-store",
-      });
+      const response = await fetch(`${listApi}?${params.toString()}`, { cache: "no-store" });
       const json = await response.json().catch(() => ({}));
 
       if (!response.ok || !json.ok) {
@@ -116,6 +155,7 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
       row.source_domain,
       row.source_type,
       row.source_id,
+      JSON.stringify(row.attributes || {}),
     ].filter(Boolean).join(" ").toLowerCase().includes(normalized));
   }, [rows, query]);
 
@@ -154,19 +194,23 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
 
       setNotice(`${command.replaceAll("_", " ")} completed.`);
       setCreateOpen(false);
-      setForm({
-        name: "",
-        code: "",
-        description: "",
-        priority: "normal",
-        status: "draft",
-      });
+      setForm(initialValues);
       await load();
     } catch (commandError) {
       setError(commandError.message || "Operations command failed.");
     } finally {
       setSaving(false);
     }
+  }
+
+  function submitCreate() {
+    const missing = validateOperationsForm(formSchema, form);
+    if (missing.length > 0) {
+      setError(`Complete required fields: ${missing.join(", ")}`);
+      return;
+    }
+
+    executeCommand(createCommand, buildOperationsFormPayload(formSchema, form));
   }
 
   function exportRows() {
@@ -196,38 +240,32 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
             <div className="flex flex-wrap gap-2">
               {capability?.create?.enabled && createCommand ? (
                 <button
-                  onClick={() => setCreateOpen(true)}
+                  onClick={() => {
+                    setForm(initialValues);
+                    setCreateOpen(true);
+                  }}
                   className="rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 px-4 py-2 text-sm text-[#D6A66A]"
                 >
                   {capability.create.label || "Create"}
                 </button>
               ) : null}
-              <button
-                onClick={exportRows}
-                className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65"
-              >
+              <button onClick={exportRows} className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65">
                 Export
               </button>
-              <button
-                onClick={load}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65"
-              >
+              <button onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65">
                 <RefreshCw size={15} /> Refresh
               </button>
             </div>
           )}
         />
 
-        {error ? (
-          <div className="mb-5 rounded-2xl border border-red-400/25 bg-red-500/10 p-4 text-sm text-red-200">
-            {error}
+        {capability?.boundary ? (
+          <div className="mb-5 rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-4 text-sm text-white/60">
+            <span className="font-semibold text-[#D6A66A]">Boundary:</span> {capability.boundary}
           </div>
         ) : null}
-        {notice ? (
-          <div className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-            {notice}
-          </div>
-        ) : null}
+        {error ? <div className="mb-5 rounded-2xl border border-red-400/25 bg-red-500/10 p-4 text-sm text-red-200">{error}</div> : null}
+        {notice ? <div className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">{notice}</div> : null}
 
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
           <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5">
@@ -238,39 +276,23 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
               </div>
               <div className="flex w-full items-center rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white/45 md:w-[340px]">
                 <Search size={16} />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search records…"
-                  className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
-                />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search records…" className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30" />
               </div>
             </div>
 
             <div className="space-y-2">
               {filteredRows.map((row) => (
-                <button
-                  key={row.id}
-                  onClick={() => setSelectedId(row.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition ${selected?.id === row.id ? "border-[#D6A66A]/40 bg-[#D6A66A]/10" : "border-white/10 bg-black/20 hover:border-white/20"}`}
-                >
+                <button key={row.id} onClick={() => setSelectedId(row.id)} className={`w-full rounded-2xl border p-4 text-left transition ${selected?.id === row.id ? "border-[#D6A66A]/40 bg-[#D6A66A]/10" : "border-white/10 bg-black/20 hover:border-white/20"}`}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-sm font-semibold text-white">{recordLabel(row)}</div>
                       <div className="mt-1 text-xs text-white/35">{row.description || row.record_type || capability?.recordType}</div>
                     </div>
-                    <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-white/40">
-                      {row.status || "unknown"}
-                    </span>
+                    <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-white/40">{row.status || "unknown"}</span>
                   </div>
                 </button>
               ))}
-
-              {!loading && filteredRows.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-sm text-white/40">
-                  No Operations records in this scope.
-                </div>
-              ) : null}
+              {!loading && filteredRows.length === 0 ? <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-sm text-white/40">No Operations records in this scope.</div> : null}
             </div>
           </div>
 
@@ -282,7 +304,6 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                   <div className="text-xl font-semibold text-white">{recordLabel(selected)}</div>
                   <div className="mt-1 text-sm text-white/40">{selected.description || "No description"}</div>
                 </div>
-
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   {[
                     ["Status", selected.status],
@@ -298,74 +319,50 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                     </div>
                   ))}
                 </dl>
-
+                {selected.attributes && Object.keys(selected.attributes).length > 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-white/30">Operational details</div>
+                    <pre className="mt-3 overflow-auto whitespace-pre-wrap text-xs leading-5 text-white/60">{JSON.stringify(selected.attributes, null, 2)}</pre>
+                  </div>
+                ) : null}
                 {rowCommands.length ? (
                   <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
                     {rowCommands.map((action) => (
-                      <button
-                        key={action.command}
-                        disabled={saving}
-                        onClick={() => executeCommand(action.command, { id: selected.id, record_id: selected.id })}
-                        className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/65 transition hover:border-[#D6A66A]/35 hover:text-[#D6A66A] disabled:opacity-50"
-                      >
+                      <button key={action.command} disabled={saving} onClick={() => executeCommand(action.command, { id: selected.id, record_id: selected.id })} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/65 transition hover:border-[#D6A66A]/35 hover:text-[#D6A66A] disabled:opacity-50">
                         {action.label}
                       </button>
                     ))}
                   </div>
                 ) : null}
               </div>
-            ) : (
-              <div className="mt-5 text-sm text-white/40">Select a record to inspect it.</div>
-            )}
+            ) : <div className="mt-5 text-sm text-white/40">Select a record to inspect it.</div>}
           </aside>
         </section>
       </div>
 
       {createOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-[30px] border border-white/10 bg-[#101010] p-6 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-white/10 bg-[#101010] p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">New record</div>
                 <h2 className="mt-2 text-2xl font-semibold text-white">{capability?.name}</h2>
+                <p className="mt-2 text-sm text-white/40">{capability?.description}</p>
               </div>
               <button onClick={() => setCreateOpen(false)} className="rounded-xl border border-white/10 p-2 text-white/45"><X size={18} /></button>
             </div>
 
-            <div className="mt-6 space-y-4">
-              {[
-                ["name", "Name"],
-                ["code", "Code"],
-                ["description", "Description"],
-                ["priority", "Priority"],
-                ["status", "Status"],
-              ].map(([field, label]) => (
-                <label key={field} className="block">
-                  <span className="text-xs uppercase tracking-[0.16em] text-white/35">{label}</span>
-                  {field === "description" ? (
-                    <textarea
-                      value={form[field]}
-                      onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
-                      className="mt-2 min-h-28 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-[#D6A66A]/40"
-                    />
-                  ) : (
-                    <input
-                      value={form[field]}
-                      onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
-                      className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-[#D6A66A]/40"
-                    />
-                  )}
-                </label>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {formSchema.map((field) => (
+                <div key={field.name} className={field.type === "textarea" ? "md:col-span-2" : ""}>
+                  <Field field={field} value={form[field.name]} onChange={(name, value) => setForm((current) => ({ ...current, [name]: value }))} />
+                </div>
               ))}
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => setCreateOpen(false)} className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/55">Cancel</button>
-              <button
-                disabled={saving || !form.name.trim()}
-                onClick={() => executeCommand(createCommand, form)}
-                className="rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 px-4 py-2 text-sm text-[#D6A66A] disabled:opacity-50"
-              >
+              <button disabled={saving} onClick={submitCreate} className="rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 px-4 py-2 text-sm text-[#D6A66A] disabled:opacity-50">
                 {saving ? "Saving…" : capability?.create?.label || "Create"}
               </button>
             </div>

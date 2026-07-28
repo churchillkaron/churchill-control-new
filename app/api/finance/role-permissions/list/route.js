@@ -3,33 +3,73 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import {
+  listFinancePermissionGrants,
   listFinancePermissions,
   listFinanceRoles,
+  listUserFinanceRoles,
 } from "@/lib/finance/security/repositories/FinancePermissionRepository";
+
+function accessError(access) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: access.error,
+    },
+    {
+      status: access.status,
+    }
+  );
+}
 
 export async function GET(request) {
   try {
-    const organizationId = new URL(request.url).searchParams.get("organizationId");
-    const access = await requireOrganizationAccess({ organizationId });
-    if (!access.success) return NextResponse.json({ success: false, error: access.error }, { status: access.status });
+    const { searchParams } = new URL(request.url);
+    const requestedOrganizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
 
-    const [roles, permissions] = await Promise.all([
-      listFinanceRoles(),
-      listFinancePermissions(),
+    const access = await requireOrganizationAccess({
+      organizationId: requestedOrganizationId,
+    });
+
+    if (!access.success) {
+      return accessError(access);
+    }
+
+    const organizationId = access.organizationId;
+
+    const [roles, permissions, rows, assignments] = await Promise.all([
+      listFinanceRoles(organizationId),
+      listFinancePermissions(organizationId),
+      listFinancePermissionGrants(organizationId),
+      listUserFinanceRoles({ organizationId }),
     ]);
 
-    const rows = roles.flatMap(role =>
-      permissions.map(permission => ({
-        id: `${role.id}:${permission.id}`,
-        role_id: role.id,
-        role_name: role.role_name,
-        permission_id: permission.id,
-        permission_key: permission.permission_key,
-      }))
-    );
-
-    return NextResponse.json({ success: true, roles: rows, rows });
+    return NextResponse.json({
+      success: true,
+      organization_id: organizationId,
+      rows,
+      roles,
+      permissions,
+      assignments,
+      metrics: {
+        roles: roles.length,
+        permissions: permissions.length,
+        grants: rows.length,
+        assignments: assignments.length,
+      },
+    });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("FINANCE PERMISSION LIST ERROR", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || "Unable to load Finance permissions",
+      },
+      {
+        status: 500,
+      }
+    );
   }
 }

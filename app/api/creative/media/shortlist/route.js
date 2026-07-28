@@ -13,6 +13,9 @@ import {
 import {
   CreativeBoundedShortlistVerificationRuntime,
 } from "@/lib/creative/media/runtime/CreativeBoundedShortlistVerificationRuntime";
+import {
+  CreativeDenseSemanticPlanRuntime,
+} from "@/lib/creative/media/runtime/CreativeDenseSemanticPlanRuntime";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -34,7 +37,8 @@ function statusFor(error) {
     message.includes("MISMATCH") ||
     message.includes("EXCEEDED") ||
     message.includes("BLOCKING") ||
-    message.includes("RECONCILIATION")
+    message.includes("RECONCILIATION") ||
+    message.includes("PREFLIGHT")
   ) return 400;
   return 500;
 }
@@ -60,7 +64,13 @@ export async function POST(request) {
 
     if (!organizationId) throw new Error("organization_id required");
     if (!projectId) throw new Error("creative_project_id required");
-    if (!["ANALYZE_SOURCE", "FINALIZE", "VERIFY", "STATUS"].includes(action)) {
+    if (![
+      "ANALYZE_SOURCE",
+      "FINALIZE",
+      "DENSE_PREFLIGHT",
+      "VERIFY",
+      "STATUS",
+    ].includes(action)) {
       throw new Error("CREATIVE_SHORTLIST_ACTION_INVALID");
     }
 
@@ -112,7 +122,7 @@ export async function POST(request) {
       await CreativeProjectRuntime.update(projectId, {
         metadata: {
           ...object(project.metadata),
-          local_shortlist_status: "AWAITING_PAID_AUTHORIZATION",
+          local_shortlist_status: "AWAITING_DENSE_PREFLIGHT",
           project_shortlist_identity:
             result.project_shortlist_identity,
           local_shortlist_candidate_count:
@@ -127,30 +137,40 @@ export async function POST(request) {
           local_shortlist_finalized_at: new Date().toISOString(),
         },
       });
-    } else if (action === "VERIFY") {
-      result = await CreativeBoundedShortlistVerificationRuntime.verifyProject({
+    } else if (action === "DENSE_PREFLIGHT") {
+      result = await CreativeDenseSemanticPlanRuntime.preflight({
         organization_id: organizationId,
         creative_project_id: projectId,
-        authorization: object(body.authorization),
         policy,
+        country: body.country || null,
+        currency: body.currency || null,
       });
-      const refreshed = await CreativeProjectRuntime.get(projectId);
       await CreativeProjectRuntime.update(projectId, {
         metadata: {
-          ...object(refreshed.metadata),
-          local_shortlist_status: "AI_VERIFICATION_COMPLETE",
-          paid_analysis_authorized: true,
+          ...object(project.metadata),
+          local_shortlist_status: result.ready
+            ? "AWAITING_DENSE_AUTHORIZATION"
+            : "DENSE_PREFLIGHT_BLOCKED",
+          dense_semantic_plan_identity:
+            result.dense_semantic_plan_identity,
+          dense_semantic_estimated_ai_calls:
+            result.estimated_ai_calls,
+          dense_semantic_cost_estimate:
+            result.cost_estimate,
+          dense_semantic_candidate_plans:
+            result.candidate_plans,
+          dense_semantic_preflight_ready: result.ready,
+          dense_semantic_preflight_reasons: result.reasons,
+          paid_analysis_authorized: false,
           paid_production_authorized: false,
           production_started_by_shortlist: false,
-          local_shortlist_verified_at: new Date().toISOString(),
-          local_shortlist_completed_ai_calls:
-            result.completed_ai_calls,
-          local_shortlist_verified_candidate_count:
-            result.verified_candidate_count,
-          local_shortlist_rejected_candidate_count:
-            result.rejected_candidate_count,
+          dense_semantic_preflight_at: new Date().toISOString(),
         },
       });
+    } else if (action === "VERIFY") {
+      throw new Error(
+        "LEGACY_TWO_FRAME_VERIFICATION_DISABLED:DENSE_SEMANTIC_EXECUTION_REQUIRED",
+      );
     } else {
       result = await CreativeLocalMediaShortlistRuntime.status({
         organization_id: organizationId,

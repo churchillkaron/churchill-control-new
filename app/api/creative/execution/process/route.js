@@ -4,6 +4,7 @@ export const maxDuration = 300;
 
 import crypto from "node:crypto";
 
+import "@/lib/creative/execution/runtime/CreativeServiceExecutionEnvelopeCompatibility";
 import {
   CreativeExecutionJobRuntime,
 } from "@/lib/creative/execution/runtime/CreativeExecutionJobRuntime";
@@ -47,7 +48,7 @@ async function process(request, body = {}) {
       `creative-http-worker-${crypto.randomUUID()}`;
     const result = await CreativeExecutionJobRuntime.processOne({
       worker_id: workerId,
-      lease_seconds: Number(body.lease_seconds || body.leaseSeconds || 300),
+      lease_seconds: Number(body.lease_seconds || body.leaseSeconds || 900),
     });
 
     return Response.json({

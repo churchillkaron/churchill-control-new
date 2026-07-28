@@ -10,6 +10,7 @@ const FILES = Object.freeze({
   healthRoute: "app/api/operations/events/health/route.js",
   recordHistoryRoute: "app/api/operations/[capabilityId]/[recordId]/history/route.js",
   recordHistoryPanel: "components/workspace/operations/OperationsRecordHistoryPanel.jsx",
+  runtimeWorkCenter: "components/workspace/operations/OperationsRuntimeWorkCenter.jsx",
   eventWorkCenter: "components/workspace/operations/OperationsEventWorkCenter.jsx",
   workspaceRegistry: "lib/operations/registry/OperationsWorkspaceRegistry.js",
   capabilityPage: "app/(system)/workspace/[organizationId]/operations/[...operationsRoute]/page.jsx",
@@ -125,6 +126,19 @@ requireIncludes(source.recordHistoryPanel, [
   "en-GB",
 ], "Operations record history panel");
 
+requireIncludes(source.runtimeWorkCenter, [
+  'import OperationsRecordHistoryPanel from "./OperationsRecordHistoryPanel"',
+  "historyRefreshKey",
+  "setHistoryRefreshKey",
+  "<OperationsRecordHistoryPanel",
+  "capabilityId={capabilityId}",
+  "recordId={selected.id}",
+  "organizationId={organizationId}",
+  "entityId={entityId}",
+  "periodId={periodId}",
+  "refreshKey={historyRefreshKey}",
+], "Operations record history embed");
+
 requireIncludes(source.eventWorkCenter, [
   "OperationsEventWorkCenter",
   "/api/operations/events",
@@ -176,3 +190,4 @@ console.log("OPERATIONS_EVENT_DELIVERY=RETRYABLE_TRANSACTIONAL_OUTBOX");
 console.log("OPERATIONS_EVENT_HEALTH=SCOPED_DATABASE_AGGREGATION");
 console.log("OPERATIONS_EVENT_UI=HISTORY_TIMELINE_AUDIT_AND_DEAD_LETTER");
 console.log("OPERATIONS_RECORD_HISTORY=COMMANDS_EVENTS_AND_ACTOR_IDENTITY");
+console.log("OPERATIONS_RECORD_HISTORY_UI=EMBEDDED_AND_COMMAND_REFRESHED");

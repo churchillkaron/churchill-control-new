@@ -14,6 +14,10 @@ function accessError(access) {
     {
       success: false,
       error: access.error,
+      rows: [],
+      roles: [],
+      permissions: [],
+      assignments: [],
     },
     {
       status: access.status,
@@ -30,6 +34,7 @@ export async function GET(request) {
 
     const access = await requireOrganizationAccess({
       organizationId: requestedOrganizationId,
+      request,
     });
 
     if (!access.success) {
@@ -38,7 +43,7 @@ export async function GET(request) {
 
     const organizationId = access.organizationId;
 
-    const [roles, permissions, rows, assignments] = await Promise.all([
+    const [availableRoles, permissions, rows, assignments] = await Promise.all([
       listFinanceRoles(organizationId),
       listFinancePermissions(organizationId),
       listFinancePermissionGrants(organizationId),
@@ -49,11 +54,13 @@ export async function GET(request) {
       success: true,
       organization_id: organizationId,
       rows,
-      roles,
+      roles: rows,
+      grants: rows,
+      available_roles: availableRoles,
       permissions,
       assignments,
       metrics: {
-        roles: roles.length,
+        roles: availableRoles.length,
         permissions: permissions.length,
         grants: rows.length,
         assignments: assignments.length,
@@ -66,6 +73,10 @@ export async function GET(request) {
       {
         success: false,
         error: error.message || "Unable to load Finance permissions",
+        rows: [],
+        roles: [],
+        permissions: [],
+        assignments: [],
       },
       {
         status: 500,

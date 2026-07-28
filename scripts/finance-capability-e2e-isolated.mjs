@@ -113,7 +113,7 @@ try {
   console.log(`FINANCE_E2E_DIST_DIR=${DIST_DIR}`);
   console.log(`FINANCE_E2E_SERVER_LOG=${SERVER_LOG}`);
   console.log(`FINANCE_E2E_PAGE_TIMEOUT_MS=${PAGE_TIMEOUT_MS}`);
-  console.log("FINANCE_E2E_AUTH_VALIDATION=server-cookie");
+  console.log("FINANCE_E2E_AUTH_VALIDATION=server-bearer");
   console.log("FINANCE_E2E_SERVER_VERIFIED=true");
 
   const stablePath = path.join(ROOT, "scripts/finance-capability-e2e-audit-stable.mjs");
@@ -122,7 +122,15 @@ try {
     "scripts",
     `.finance-capability-e2e-server-auth-${process.pid}.mjs`
   );
-  const stableSource = fs.readFileSync(stablePath, "utf8");
+  const stableSource = fs.readFileSync(stablePath, "utf8").replace(
+    'const source = fs.readFileSync(sourcePath, "utf8");',
+    'const source = fs.readFileSync(sourcePath, "utf8").replace("\\nmain().catch(error => {", "\\nawait main().catch(error => {");'
+  );
+
+  if (!stableSource.includes("await main().catch(error => {")) {
+    throw new Error("FINANCE_E2E_AWAITABLE_MAIN_PATCH_NOT_APPLIED");
+  }
+
   const authStart = stableSource.indexOf('  await client.send("Network.setCookies", { cookies });');
   const authEnd = stableSource.indexOf("\n}\n`;", authStart);
 
@@ -132,13 +140,17 @@ try {
 
   const serverValidation = [
     '  await client.send("Network.setCookies", { cookies });',
-    '  const cookieHeader = [...cookieJar.entries()]',
-    '    .map(([name, value]) => name + "=" + value)',
-    '    .join("; ");',
-    '  const response = await fetch(baseUrl + "/api/session/bootstrap", {',
-    '    headers: { cookie: cookieHeader },',
-    '    redirect: "manual",',
-    '  });',
+    '  let response = null;',
+    '  try {',
+    '    response = await fetch(baseUrl + "/api/session/bootstrap", {',
+    '      headers: { authorization: data.session.token_type + " " + data.session.access_token },',
+    '      redirect: "manual",',
+    '      signal: AbortSignal.timeout(15000),',
+    '    });',
+    '  } catch (error) {',
+    '    const cause = error?.cause?.code || error?.cause?.message || error?.message || "unknown transport error";',
+    '    throw new Error("Finance E2E authenticated bootstrap transport failed: " + cause);',
+    '  }',
     '  const contentType = response.headers.get("content-type") || "";',
     '  const text = await response.text();',
     '  let bootstrapData = null;',

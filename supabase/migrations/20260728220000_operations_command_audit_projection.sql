@@ -84,6 +84,9 @@ on public.operations_command_ledger
 for each row
 execute function public.project_operations_command_audit_fields();
 
+alter table public.operations_events
+  disable trigger operations_events_immutable_guard;
+
 update public.operations_events
    set actor_id = nullif(coalesce(
          payload #>> '{record,updated_by}',
@@ -96,6 +99,9 @@ update public.operations_events
          payload #>> '{record,created_by}',
          payload ->> 'actor_id'
        ), '') is not null;
+
+alter table public.operations_events
+  enable trigger operations_events_immutable_guard;
 
 comment on column public.operations_command_ledger.record_id is
   'Indexed Operations record reference derived from the immutable command payload or result.';

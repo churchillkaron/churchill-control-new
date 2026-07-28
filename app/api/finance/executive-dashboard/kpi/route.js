@@ -1,106 +1,54 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { getExecutiveKPIs } from "@/lib/finance/reporting/reports/getExecutiveKPIs";
 import {
   BusinessIntelligenceRuntime,
 } from "@/lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime";
 
+function queryValue(searchParams, camel, snake) {
+  return searchParams.get(camel) || searchParams.get(snake) || null;
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
+    const access = await requireOrganizationAccess({
+      organizationId: queryValue(searchParams, "organizationId", "organization_id"),
+      request,
+    });
 
-    const organizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
-
-    const entityId =
-      searchParams.get("entityId") ||
-      searchParams.get("entity_id") ||
-      searchParams.get("entity_id");
-
-    const periodId =
-      searchParams.get("periodId") ||
-      searchParams.get("period_id");
-
-    if (!organizationId) {
+    if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "organizationId required",
-        },
-        {
-          status: 400,
-        }
+        { success: false, error: access.error, rows: [] },
+        { status: access.status }
       );
     }
 
-    const mod =
-      await import("@/lib/finance/reporting/reports/getExecutiveKPIs");
+    const result = await getExecutiveKPIs({
+      organizationId: access.organizationId,
+      entityId: queryValue(searchParams, "entityId", "entity_id"),
+      periodId: queryValue(searchParams, "periodId", "period_id"),
+      startDate: queryValue(searchParams, "startDate", "start_date"),
+      endDate: queryValue(searchParams, "endDate", "end_date"),
+    });
 
-    const getExecutiveKPIs =
-      mod.getExecutiveKPIs ||
-      mod.default;
-
-    if (typeof getExecutiveKPIs !== "function") {
-      throw new Error("getExecutiveKPIs export not found");
-    }
-
-    const result =
-      await getExecutiveKPIs({
-        organizationId,
-        organization_id: organizationId,
-        entityId,
-        entity_id: entityId,
-        entity_id: entityId,
-        periodId,
-        period_id: periodId,
-      });
-
-    const kpis =
-      Array.isArray(result)
-        ? result
-        : result?.kpis ||
-          result?.rows ||
-          result?.items ||
-          [];
-
-    const intelligence =
-      await BusinessIntelligenceRuntime
-        .analyzeOrganization(
-          organizationId
-        )
-        .catch(
-          () => null
-        );
-
+    const intelligence = await BusinessIntelligenceRuntime
+      .analyzeOrganization(access.organizationId)
+      .catch(() => null);
 
     return NextResponse.json({
-      success: true,
-
-      kpis,
-
-      rows: kpis,
-
-      summary:
-        result?.summary ||
-        result ||
-        {},
-
+      ...result,
+      rows: result.rows || [],
+      kpis: result.kpis || result.rows || [],
       intelligence,
-
     });
   } catch (error) {
-    console.error("executive-dashboard/kpi GET", error);
-
+    const message = error.message || "Executive KPI load failed";
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Executive KPI load failed",
-      },
-      {
-        status: 500,
-      }
+      { success: false, error: message, rows: [] },
+      { status: /required|not found|period|entity/i.test(message) ? 400 : 500 }
     );
   }
 }

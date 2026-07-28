@@ -12,9 +12,16 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function configuredSecrets() {
+  return [
+    process.env.CREATIVE_EXECUTION_WORKER_SECRET,
+    process.env.CRON_SECRET,
+  ].map(text).filter(Boolean);
+}
+
 function authorized(request) {
-  const configured = text(process.env.CREATIVE_EXECUTION_WORKER_SECRET);
-  if (!configured) return false;
+  const secrets = configuredSecrets();
+  if (!secrets.length) return false;
 
   const authorization = text(request.headers.get("authorization"));
   const bearer = authorization.toLowerCase().startsWith("bearer ")
@@ -23,10 +30,10 @@ function authorized(request) {
   const headerSecret = text(
     request.headers.get("x-creative-worker-secret"),
   );
-  return bearer === configured || headerSecret === configured;
+  return secrets.includes(bearer) || secrets.includes(headerSecret);
 }
 
-export async function POST(request) {
+async function process(request, body = {}) {
   if (!authorized(request)) {
     return Response.json({
       success: false,
@@ -36,7 +43,6 @@ export async function POST(request) {
   }
 
   try {
-    const body = await request.json().catch(() => ({}));
     const workerId = text(body.worker_id || body.workerId) ||
       `creative-http-worker-${crypto.randomUUID()}`;
     const result = await CreativeExecutionJobRuntime.processOne({
@@ -50,14 +56,25 @@ export async function POST(request) {
       production_started: false,
     });
   } catch (error) {
+    console.error("CREATIVE_EXECUTION_WORKER_FAILED", {
+      message: error?.message || String(error),
+      cause: error?.cause?.message || null,
+      stack: error?.stack || null,
+    });
     return Response.json({
       success: false,
       error: error?.message || String(error),
+      cause: error?.cause?.message || null,
       production_started: false,
     }, { status: 500 });
   }
 }
 
+export async function POST(request) {
+  const body = await request.json().catch(() => ({}));
+  return process(request, body);
+}
+
 export async function GET(request) {
-  return POST(request);
+  return process(request, {});
 }

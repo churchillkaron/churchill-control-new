@@ -2,41 +2,95 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 
-export async function GET(req) {
+export async function GET(request) {
   try {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
+    const access = await requireOrganizationAccess({
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
+      request,
+    });
 
-    const organizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
-
-    if (!organizationId) {
+    if (!access.success) {
       return NextResponse.json(
-        { success: false, error: "organizationId required" },
-        { status: 400 }
+        { success: false, error: access.error, events: [], rows: [] },
+        { status: access.status }
       );
     }
 
-    const { data, error } = await supabaseAdmin
+    const requestedEntityId =
+      searchParams.get("entityId") ||
+      searchParams.get("entity_id") ||
+      null;
+
+    let entityId = null;
+    if (requestedEntityId) {
+      const entity = await resolveEntity({
+        organizationId: access.organizationId,
+        entityId: requestedEntityId,
+      });
+
+      if (!entity) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Legal entity not found in organisation",
+            events: [],
+            rows: [],
+          },
+          { status: 400 }
+        );
+      }
+
+      entityId = entity.id;
+    }
+
+    const limit = Math.min(
+      Math.max(Number(searchParams.get("limit") || 200), 1),
+      500
+    );
+
+    let query = supabaseAdmin
       .from("audit_logs")
       .select("*")
-      .eq("organization_id", organizationId)
+      .eq("organization_id", access.organizationId)
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(limit);
 
-    if (error) {
-      throw error;
+    const action = String(searchParams.get("action") || "").trim();
+    if (action) {
+      query = query.eq("action", action);
     }
+
+    const entityType = String(
+      searchParams.get("entityType") || searchParams.get("entity_type") || ""
+    ).trim();
+    if (entityType) {
+      query = query.eq("entity_type", entityType);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const rows = entityId
+      ? (data || []).filter(event =>
+          String(event?.metadata?.legal_entity_id || "") === String(entityId) ||
+          String(event?.metadata?.entity_id || "") === String(entityId)
+        )
+      : (data || []);
 
     return NextResponse.json({
       success: true,
-      events: data || [],
-      rows: data || [],
+      organization_id: access.organizationId,
+      entity_id: entityId,
+      events: rows,
+      rows,
     });
   } catch (error) {
-    console.error("audit-trail GET", error);
-
     return NextResponse.json(
       { success: false, error: error.message || "Audit trail load failed" },
       { status: 500 }

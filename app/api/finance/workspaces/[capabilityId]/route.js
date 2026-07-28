@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { getFinanceWorkspaceContract } from "@/lib/finance/workspaces/FinanceWorkspaceContracts";
+import { validateFinanceWorkspaceWrite } from "@/lib/finance/workspaces/FinanceWorkspaceWriteValidation";
 
 const MISSING_RELATION_CODES = new Set([
   "42P01",
@@ -106,6 +107,12 @@ function validateRequiredFields(contract, payload) {
       required(payload[field.name], field.name);
     }
   }
+}
+
+function projectValidatedPayload(payload, validated) {
+  return Object.fromEntries(
+    Object.keys(payload).map(key => [key, validated[key]])
+  );
 }
 
 async function resolveScopedEntity({
@@ -225,9 +232,32 @@ async function readTable({
   return Array.isArray(data) ? data : [];
 }
 
+async function loadScopedRecord({
+  contract,
+  access,
+  entityId,
+  id,
+}) {
+  let query = supabaseAdmin
+    .from(contract.table)
+    .select("*")
+    .eq("id", id);
+
+  query = scopedMutation(query, {
+    contract,
+    access,
+    entityId,
+  });
+
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Finance record not found in selected scope");
+  return data;
+}
+
 function failureResponse(error, fallback) {
   const message = error.message || fallback;
-  const status = /required|not found|read-only|valid JSON|duplicate|unique|no editable fields|does not support archive/i.test(message)
+  const status = /required|not found|read-only|valid JSON|duplicate|unique|no editable fields|does not support archive|must be|cannot be|does not match|overlaps|archived/i.test(message)
     ? 400
     : 500;
 
@@ -324,7 +354,7 @@ export async function POST(request, { params }) {
       entityId,
     } = context;
 
-    const payload = normalizePayload(contract, body);
+    let payload = normalizePayload(contract, body);
     validateRequiredFields(contract, payload);
 
     if (payload.entity_id) {
@@ -334,6 +364,13 @@ export async function POST(request, { params }) {
         requestedEntityId: payload.entity_id,
       });
     }
+
+    payload = await validateFinanceWorkspaceWrite({
+      capabilityId,
+      payload,
+      organizationId: access.organizationId,
+      entityId,
+    });
 
     const record = {
       ...payload,
@@ -400,7 +437,7 @@ export async function PATCH(request, { params }) {
     } = context;
 
     const id = required(body.id || body.record_id, "id");
-    const payload = normalizePayload(contract, body);
+    let payload = normalizePayload(contract, body);
 
     if (payload.entity_id) {
       payload.entity_id = await resolveScopedEntity({
@@ -413,6 +450,24 @@ export async function PATCH(request, { params }) {
     if (Object.keys(payload).length === 0) {
       throw new Error("No editable fields provided");
     }
+
+    const existing = await loadScopedRecord({
+      contract,
+      access,
+      entityId,
+      id,
+    });
+    const validated = await validateFinanceWorkspaceWrite({
+      capabilityId,
+      payload: {
+        ...existing,
+        ...payload,
+      },
+      organizationId: access.organizationId,
+      entityId,
+      recordId: id,
+    });
+    payload = projectValidatedPayload(payload, validated);
 
     let query = supabaseAdmin
       .from(contract.table)

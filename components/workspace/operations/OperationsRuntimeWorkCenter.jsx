@@ -11,6 +11,12 @@ import {
   getOperationsInitialValues,
   validateOperationsForm,
 } from "@/lib/operations/forms/OperationsFormSchemaRegistry";
+import {
+  buildOperationsCommandPayload,
+  getOperationsCommandInitialValues,
+  getOperationsCommandSchema,
+  validateOperationsCommand,
+} from "@/lib/operations/forms/OperationsCommandSchemaRegistry";
 
 function clean(value) {
   return value === undefined || value === null ? "" : String(value);
@@ -35,7 +41,14 @@ function recordLabel(record) {
   return record?.name || record?.code || record?.reference || record?.id || "Operations record";
 }
 
-function Field({ field, value, onChange }) {
+function titleCase(value) {
+  return String(value || "")
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function Field({ field, value, onChange, lookupOptions = [] }) {
   const common = {
     value: value ?? "",
     onChange: (event) => onChange(field.name, event.target.value),
@@ -54,6 +67,13 @@ function Field({ field, value, onChange }) {
       ) : field.type === "select" ? (
         <select {...common}>
           {(field.options || []).map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      ) : field.type === "lookup" ? (
+        <select {...common}>
+          <option value="">Select {field.label.toLowerCase()}</option>
+          {lookupOptions.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
@@ -89,6 +109,10 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
   const [notice, setNotice] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(initialValues);
+  const [commandModal, setCommandModal] = useState(null);
+  const [commandValues, setCommandValues] = useState({});
+  const [assignees, setAssignees] = useState([]);
+  const [assigneesLoading, setAssigneesLoading] = useState(false);
 
   useEffect(() => {
     setForm(initialValues);
@@ -163,6 +187,56 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
     || filteredRows[0]
     || null;
 
+  const createCommand = capability?.create?.command || capability?.create?.action || null;
+  const rowActionMap = useMemo(() => new Map(
+    (capability?.ui?.rowMenu || [])
+      .filter((action) => action?.command)
+      .map((action) => [action.command, action]),
+  ), [capability]);
+
+  const allowedCommands = Array.isArray(selected?.allowed_commands)
+    ? selected.allowed_commands
+    : [];
+
+  const rowCommands = allowedCommands.map((command) => (
+    rowActionMap.get(command) || {
+      id: command,
+      command,
+      label: titleCase(command),
+    }
+  ));
+
+  async function loadAssignees() {
+    if (!organizationId || assigneesLoading || assignees.length > 0) return;
+
+    setAssigneesLoading(true);
+
+    try {
+      const params = new URLSearchParams({ organizationId });
+      const response = await fetch(`/api/platform/users/assignable?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || "Assignable users could not be loaded.");
+      }
+
+      setAssignees((json.users || []).map((user) => ({
+        value: user.party_id || user.staff_id,
+        label: [user.name, user.position || user.role, user.department]
+          .filter(Boolean)
+          .join(" · "),
+        party_id: user.party_id || null,
+        staff_id: user.staff_id || null,
+      })).filter((option) => option.value));
+    } catch (lookupError) {
+      setError(lookupError.message || "Assignable users could not be loaded.");
+    } finally {
+      setAssigneesLoading(false);
+    }
+  }
+
   async function executeCommand(command, payload = {}) {
     if (!organizationId || !capabilityId || !command) return;
 
@@ -192,8 +266,10 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
         throw new Error(json.error || "Operations command failed.");
       }
 
-      setNotice(`${command.replaceAll("_", " ")} completed.`);
+      setNotice(`${titleCase(command)} completed.`);
       setCreateOpen(false);
+      setCommandModal(null);
+      setCommandValues({});
       setForm(initialValues);
       await load();
     } catch (commandError) {
@@ -213,6 +289,35 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
     executeCommand(createCommand, buildOperationsFormPayload(formSchema, form));
   }
 
+  async function openCommand(command) {
+    if (!selected || !allowedCommands.includes(command)) return;
+
+    const schema = getOperationsCommandSchema(command);
+    setError("");
+    setCommandValues(getOperationsCommandInitialValues(command, selected));
+    setCommandModal(schema);
+
+    if (schema.fields.some((field) => field.optionsSource === "assignable-users")) {
+      await loadAssignees();
+    }
+  }
+
+  function submitCommand() {
+    if (!selected || !commandModal) return;
+
+    const missing = validateOperationsCommand(commandModal, commandValues);
+    if (missing.length > 0) {
+      setError(`Complete required fields: ${missing.join(", ")}`);
+      return;
+    }
+
+    executeCommand(commandModal.command, {
+      id: selected.id,
+      record_id: selected.id,
+      ...buildOperationsCommandPayload(commandModal, commandValues, { assignees }),
+    });
+  }
+
   function exportRows() {
     const payload = JSON.stringify(filteredRows, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
@@ -223,11 +328,6 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
     anchor.click();
     URL.revokeObjectURL(url);
   }
-
-  const createCommand = capability?.create?.command || capability?.create?.action || null;
-  const rowCommands = (capability?.ui?.rowMenu || []).filter((action) => (
-    action?.command && action.command !== "open"
-  ));
 
   return (
     <main className="min-h-screen px-6 py-7 text-white">
@@ -310,8 +410,8 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                     ["Priority", selected.priority],
                     ["Code", selected.code],
                     ["Last command", selected.last_command],
+                    ["Assignee", selected.attributes?.assignee_name || selected.assigned_to],
                     ["Source", selected.source_domain],
-                    ["Source ID", selected.source_id],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-3">
                       <dt className="text-[10px] uppercase tracking-[0.16em] text-white/30">{label}</dt>
@@ -328,12 +428,14 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                 {rowCommands.length ? (
                   <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
                     {rowCommands.map((action) => (
-                      <button key={action.command} disabled={saving} onClick={() => executeCommand(action.command, { id: selected.id, record_id: selected.id })} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/65 transition hover:border-[#D6A66A]/35 hover:text-[#D6A66A] disabled:opacity-50">
-                        {action.label}
+                      <button key={action.command} disabled={saving} onClick={() => openCommand(action.command)} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/65 transition hover:border-[#D6A66A]/35 hover:text-[#D6A66A] disabled:opacity-50">
+                        {action.label || titleCase(action.command)}
                       </button>
                     ))}
                   </div>
-                ) : null}
+                ) : (
+                  <div className="border-t border-white/10 pt-4 text-xs text-white/35">No further lifecycle actions are available from this state.</div>
+                )}
               </div>
             ) : <div className="mt-5 text-sm text-white/40">Select a record to inspect it.</div>}
           </aside>
@@ -364,6 +466,49 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
               <button onClick={() => setCreateOpen(false)} className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/55">Cancel</button>
               <button disabled={saving} onClick={submitCreate} className="rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 px-4 py-2 text-sm text-[#D6A66A] disabled:opacity-50">
                 {saving ? "Saving…" : capability?.create?.label || "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {commandModal && selected ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[30px] border border-white/10 bg-[#101010] p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Lifecycle action</div>
+                <h2 className="mt-2 text-2xl font-semibold text-white">{commandModal.title}</h2>
+                <p className="mt-2 text-sm text-white/40">{commandModal.description}</p>
+                <p className="mt-2 text-xs text-white/30">{recordLabel(selected)} · {selected.status}</p>
+              </div>
+              <button onClick={() => setCommandModal(null)} className="rounded-xl border border-white/10 p-2 text-white/45"><X size={18} /></button>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {commandModal.fields.map((field) => (
+                <div key={field.name} className={field.type === "textarea" ? "md:col-span-2" : ""}>
+                  <Field
+                    field={field}
+                    value={commandValues[field.name]}
+                    lookupOptions={field.optionsSource === "assignable-users" ? assignees : []}
+                    onChange={(name, value) => setCommandValues((current) => ({ ...current, [name]: value }))}
+                  />
+                  {field.optionsSource === "assignable-users" && assigneesLoading ? (
+                    <div className="mt-2 text-xs text-white/30">Loading eligible users…</div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setCommandModal(null)} className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/55">Cancel</button>
+              <button
+                disabled={saving || assigneesLoading}
+                onClick={submitCommand}
+                className={`rounded-xl border px-4 py-2 text-sm disabled:opacity-50 ${commandModal.danger ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-[#D6A66A]/35 bg-[#D6A66A]/10 text-[#D6A66A]"}`}
+              >
+                {saving ? "Saving…" : commandModal.confirmLabel}
               </button>
             </div>
           </div>

@@ -8,12 +8,15 @@ const FILES = Object.freeze({
   serverEvents: "lib/operations/events/serverOperationsEvents.js",
   eventsRoute: "app/api/operations/events/route.js",
   healthRoute: "app/api/operations/events/health/route.js",
+  recordHistoryRoute: "app/api/operations/[capabilityId]/[recordId]/history/route.js",
+  recordHistoryPanel: "components/workspace/operations/OperationsRecordHistoryPanel.jsx",
   eventWorkCenter: "components/workspace/operations/OperationsEventWorkCenter.jsx",
   workspaceRegistry: "lib/operations/registry/OperationsWorkspaceRegistry.js",
   capabilityPage: "app/(system)/workspace/[organizationId]/operations/[...operationsRoute]/page.jsx",
   commandRoute: "app/api/operations/[capabilityId]/commands/[command]/route.js",
   eventMigration: "supabase/migrations/20260728210000_operations_event_delivery.sql",
   healthMigration: "supabase/migrations/20260728213000_operations_event_health.sql",
+  auditProjectionMigration: "supabase/migrations/20260728220000_operations_command_audit_projection.sql",
 });
 
 function read(relativePath) {
@@ -65,6 +68,17 @@ requireIncludes(source.healthMigration, [
   "status = 'dead_letter'",
 ], "Operations event health migration");
 
+requireIncludes(source.auditProjectionMigration, [
+  "add column if not exists record_id uuid",
+  "add column if not exists actor_id uuid",
+  "operations_command_ledger_record_idx",
+  "operations_command_ledger_actor_idx",
+  "project_operations_command_audit_fields",
+  "operations_command_ledger_audit_projection",
+  "disable trigger operations_events_immutable_guard",
+  "enable trigger operations_events_immutable_guard",
+], "Operations command audit projection migration");
+
 requireIncludes(source.deliveryRuntime, [
   "publishPending",
   "listEvents",
@@ -87,6 +101,29 @@ requireIncludes(source.healthRoute, [
   "outbox_id required",
   "publishPending",
 ], "Operations event health API");
+
+requireIncludes(source.recordHistoryRoute, [
+  "operations_command_ledger",
+  "operations_records",
+  "serverOperationsEvents.listEvents",
+  "record_id",
+  "actor_id",
+  "auth_user_id",
+  "parties",
+  "timeline",
+  "organization_id",
+  "entity_id",
+  "period_id",
+], "Operations record history API");
+
+requireIncludes(source.recordHistoryPanel, [
+  "OperationsRecordHistoryPanel",
+  "/history?",
+  "Record history",
+  "audit entries",
+  "actorLabel",
+  "en-GB",
+], "Operations record history panel");
 
 requireIncludes(source.eventWorkCenter, [
   "OperationsEventWorkCenter",
@@ -124,8 +161,13 @@ for (const [label, contents] of Object.entries(source)) {
   requireExcludes(contents, ["tenant_id", "tenantId"], `Operations event ${label}`);
 }
 
-if (!(FILES.eventMigration < FILES.healthMigration)) {
-  throw new Error("Operations event health migration must sort after event delivery migration.");
+if (!(
+  FILES.eventMigration < FILES.healthMigration
+  && FILES.healthMigration < FILES.auditProjectionMigration
+)) {
+  throw new Error(
+    "Operations event migrations must sort as delivery, health, command audit projection.",
+  );
 }
 
 console.log("OPERATIONS_EVENT_RELEASE_AUDIT=PASS");
@@ -133,3 +175,4 @@ console.log("OPERATIONS_EVENT_STREAM=IMMUTABLE");
 console.log("OPERATIONS_EVENT_DELIVERY=RETRYABLE_TRANSACTIONAL_OUTBOX");
 console.log("OPERATIONS_EVENT_HEALTH=SCOPED_DATABASE_AGGREGATION");
 console.log("OPERATIONS_EVENT_UI=HISTORY_TIMELINE_AUDIT_AND_DEAD_LETTER");
+console.log("OPERATIONS_RECORD_HISTORY=COMMANDS_EVENTS_AND_ACTOR_IDENTITY");

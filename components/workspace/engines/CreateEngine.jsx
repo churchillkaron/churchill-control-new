@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo } from "react";
 import DynamicForm from "./DynamicForm";
+import {
+  FINANCE_ACCOUNTING_POLICY_OPTIONS,
+  getFinanceAccountingPolicyDefinition,
+  getFinanceAccountingPolicyOption,
+} from "@/lib/finance/accounting-settings/FinanceAccountingPolicyDefinitions";
 
 const FINANCE_APPROVAL_DOCUMENT_TYPES = Object.freeze([
   { value: "JOURNAL_ENTRY", label: "Journal Entry" },
@@ -41,6 +46,17 @@ function isApprovalWorkflowForm(fields) {
     names.has("document_type") &&
     names.has("approver_role") &&
     names.has("required_approvals") &&
+    names.has("effective_from")
+  );
+}
+
+function isAccountingSettingsForm(fields) {
+  const names = new Set(fields.map((field) => field?.name));
+
+  return (
+    names.has("setting_key") &&
+    names.has("name") &&
+    names.has("value_json") &&
     names.has("effective_from")
   );
 }
@@ -105,6 +121,78 @@ function normalizeApprovalWorkflowFields(fields) {
         ...field,
         label: "Legal Entity Scope",
         description: "Leave blank to apply to all legal entities in this organisation.",
+      };
+    }
+
+    if (field.name === "effective_from") {
+      return {
+        ...field,
+        label: "Effective From",
+        type: "date",
+        required: true,
+      };
+    }
+
+    if (field.name === "effective_to") {
+      return {
+        ...field,
+        label: "Effective To",
+        type: "date",
+      };
+    }
+
+    return field;
+  });
+}
+
+function accountingPolicyValue(value) {
+  if (!value) return "";
+
+  if (typeof value === "object") {
+    return String(value.value || "").trim().toUpperCase();
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return String(parsed?.value || "").trim().toUpperCase();
+  } catch {
+    return String(value).trim().toUpperCase();
+  }
+}
+
+function normalizeAccountingSettingsFields(fields, values) {
+  const definition = getFinanceAccountingPolicyDefinition(values?.setting_key);
+
+  return fields.map((field) => {
+    if (field.name === "setting_key") {
+      return {
+        ...field,
+        label: "Accounting Policy",
+        type: "select",
+        options: FINANCE_ACCOUNTING_POLICY_OPTIONS,
+        required: true,
+        width: "full",
+      };
+    }
+
+    if (field.name === "name") {
+      return {
+        ...field,
+        type: "hidden",
+      };
+    }
+
+    if (field.name === "value_json") {
+      return {
+        ...field,
+        label: "Policy Value",
+        type: "select",
+        required: true,
+        options: (definition?.options || []).map((option) => ({
+          value: JSON.stringify({ value: option.value }),
+          label: option.label,
+        })),
+        width: "full",
       };
     }
 
@@ -194,6 +282,25 @@ function validateApprovalWorkflow(values = {}) {
   return true;
 }
 
+function validateAccountingSettings(values = {}) {
+  const definition = getFinanceAccountingPolicyDefinition(values.setting_key);
+  const selectedValue = accountingPolicyValue(values.value_json);
+
+  if (!definition || !values.effective_from) return false;
+  if (!getFinanceAccountingPolicyOption(definition.key, selectedValue)) {
+    return false;
+  }
+
+  if (
+    values.effective_to &&
+    String(values.effective_to) < String(values.effective_from)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export default function CreateEngine({
   open,
   title = "Create",
@@ -220,13 +327,22 @@ export default function CreateEngine({
     () => isApprovalWorkflowForm(baseFields),
     [baseFields]
   );
-
-  const fields = useMemo(
-    () => approvalWorkflowForm
-      ? normalizeApprovalWorkflowFields(baseFields)
-      : baseFields,
-    [baseFields, approvalWorkflowForm]
+  const accountingSettingsForm = useMemo(
+    () => isAccountingSettingsForm(baseFields),
+    [baseFields]
   );
+
+  const fields = useMemo(() => {
+    if (approvalWorkflowForm) {
+      return normalizeApprovalWorkflowFields(baseFields);
+    }
+
+    if (accountingSettingsForm) {
+      return normalizeAccountingSettingsFields(baseFields, values);
+    }
+
+    return baseFields;
+  }, [baseFields, approvalWorkflowForm, accountingSettingsForm, values]);
 
   const journalForm = useMemo(
     () => isJournalForm(fields),
@@ -267,7 +383,35 @@ export default function CreateEngine({
         onChange(field.name, resolvedDefault);
       }
     });
-  }, [open, fields, values, onChange, journalForm]);
+
+    if (accountingSettingsForm && values.setting_key) {
+      const definition = getFinanceAccountingPolicyDefinition(values.setting_key);
+
+      if (definition && values.name !== definition.name) {
+        onChange("name", definition.name);
+      }
+
+      const currentValue = accountingPolicyValue(values.value_json);
+      const validCurrentValue = getFinanceAccountingPolicyOption(
+        definition?.key,
+        currentValue
+      );
+
+      if (definition && !validCurrentValue) {
+        onChange(
+          "value_json",
+          JSON.stringify({ value: definition.defaultValue })
+        );
+      }
+    }
+  }, [
+    open,
+    fields,
+    values,
+    onChange,
+    journalForm,
+    accountingSettingsForm,
+  ]);
 
   if (!open) return null;
 
@@ -289,7 +433,10 @@ export default function CreateEngine({
 
   const journalReady = !journalForm || validateJournal(values);
   const approvalReady = !approvalWorkflowForm || validateApprovalWorkflow(values);
-  const saveDisabled = saving || !journalReady || !approvalReady;
+  const accountingSettingsReady =
+    !accountingSettingsForm || validateAccountingSettings(values);
+  const saveDisabled =
+    saving || !journalReady || !approvalReady || !accountingSettingsReady;
 
   const saveLabel = journalForm
     ? saving
@@ -299,9 +446,13 @@ export default function CreateEngine({
       ? saving
         ? "Saving..."
         : "Create Approval Rule"
-      : saving
-        ? "Saving..."
-        : action?.submitLabel || "Create";
+      : accountingSettingsForm
+        ? saving
+          ? "Saving..."
+          : "Save Accounting Policy"
+        : saving
+          ? "Saving..."
+          : action?.submitLabel || "Create";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -309,7 +460,7 @@ export default function CreateEngine({
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
           <div>
             <div className="text-xs uppercase tracking-[0.3em] text-amber-300/70">
-              {journalForm ? "Post" : "Create"}
+              {journalForm ? "Post" : accountingSettingsForm ? "Configure" : "Create"}
             </div>
 
             <h2 className="mt-2 text-3xl font-light text-white">
@@ -351,7 +502,11 @@ export default function CreateEngine({
                   ? "Complete the scope, threshold, approver role and valid effective dates."
                   : approvalWorkflowForm
                     ? "The most specific active rule with the highest applicable threshold will govern approval."
-                    : null}
+                    : accountingSettingsForm && !accountingSettingsReady
+                      ? "Select a supported policy value and a valid effective date range."
+                      : accountingSettingsForm
+                        ? "Effective-dated policies govern system-generated Finance journals."
+                        : null}
           </div>
 
           <div className="flex justify-end gap-3">

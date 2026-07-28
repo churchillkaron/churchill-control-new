@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import DynamicForm from "./DynamicForm";
 
 export default function CreateEngine({
@@ -19,7 +20,27 @@ export default function CreateEngine({
   moduleKey,
   action,
 }) {
+  const fields = useMemo(
+    () => (Array.isArray(schema) ? schema.filter(Boolean) : []),
+    [schema]
+  );
+
+  useEffect(() => {
+    if (!open || typeof onChange !== "function") return;
+
+    fields.forEach((field) => {
+      if (
+        values[field.name] === undefined &&
+        field.defaultValue !== undefined
+      ) {
+        onChange(field.name, field.defaultValue);
+      }
+    });
+  }, [open, fields, values, onChange]);
+
   if (!open) return null;
+
+  const visibleFields = fields.filter((field) => field.type !== "hidden");
 
   const previewEnabled = Boolean(
     typeof onPreview === "function" &&
@@ -54,9 +75,9 @@ export default function CreateEngine({
         </div>
 
         <div className="max-h-[70vh] overflow-auto p-6">
-          {Array.isArray(schema) && schema.length > 0 ? (
+          {visibleFields.length > 0 ? (
             <DynamicForm
-              schema={schema}
+              schema={visibleFields}
               values={values}
               onChange={onChange}
               organizationId={organizationId}

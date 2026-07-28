@@ -4,6 +4,17 @@ import { useMemo, useState } from "react";
 
 import CreateEngine from "@/components/workspace/engines/CreateEngine";
 
+function isOrganizationProfileSchema(schema = []) {
+  const names = new Set(schema.map((field) => field?.name));
+  return (
+    names.has("legal_name") &&
+    names.has("functional_currency") &&
+    names.has("accounting_standard") &&
+    names.has("fiscal_year_start_month") &&
+    names.has("timezone")
+  );
+}
+
 function initialFieldValue(field, row, duplicate) {
   const value = row?.[field.name];
 
@@ -23,12 +34,21 @@ function initialFieldValue(field, row, duplicate) {
 }
 
 function initialValues(schema, row, duplicate) {
-  return Object.fromEntries(
+  const schemaValues = Object.fromEntries(
     (schema || []).map(field => [
       field.name,
       initialFieldValue(field, row, duplicate),
     ])
   );
+
+  if (!duplicate && isOrganizationProfileSchema(schema)) {
+    return {
+      ...(row || {}),
+      ...schemaValues,
+    };
+  }
+
+  return schemaValues;
 }
 
 function missingRequiredFields(schema, values) {

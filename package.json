@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "npm run audit:operations",
+    "prebuild": "npm run audit:operations && npm run audit:operations-events",
     "build": "next build",
     "start": "next start",
     "audit:operations": "node scripts/operations-release-audit.mjs",
+    "audit:operations-events": "node scripts/operations-event-release-audit.mjs",
     "audit:finance": "node scripts/finance-normal-audit.mjs",
     "audit:finance-capabilities": "node scripts/finance-capability-reality-audit.mjs",
     "audit:finance-live": "node scripts/finance-live-capability-matrix.mjs",

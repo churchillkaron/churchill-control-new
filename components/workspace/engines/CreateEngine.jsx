@@ -3,62 +3,18 @@
 import { useEffect, useMemo } from "react";
 import DynamicForm from "./DynamicForm";
 
-const COST_CENTRE_FIELDS = Object.freeze([
-  {
-    name: "name",
-    label: "Cost Centre Name",
-    type: "text",
-    required: true,
-    placeholder: "Example: Kitchen Operations",
-  },
-  {
-    name: "code",
-    label: "Cost Centre Code",
-    type: "text",
-    required: true,
-    placeholder: "Example: KITCHEN",
-  },
-  {
-    name: "type",
-    label: "Cost Centre Type",
-    type: "select",
-    required: true,
-    defaultValue: "OPERATIONAL",
-    options: [
-      { value: "OPERATIONAL", label: "Operational" },
-      { value: "ADMINISTRATIVE", label: "Administrative" },
-      { value: "SALES", label: "Sales" },
-      { value: "SERVICE", label: "Service Delivery" },
-      { value: "PROJECT", label: "Project" },
-      { value: "SHARED", label: "Shared / Corporate" },
-      { value: "OTHER", label: "Other" },
-    ],
-  },
-  {
-    name: "parent_cost_center_id",
-    label: "Parent Cost Centre",
-    type: "lookup",
-    lookup: "cost_centers",
-    required: false,
-  },
-  {
-    name: "manager",
-    label: "Responsible Manager",
-    type: "text",
-    required: false,
-    placeholder: "Manager or owner responsible for this centre",
-  },
-  {
-    name: "is_active",
-    label: "Active",
-    type: "boolean",
-    defaultValue: true,
-  },
-  {
-    name: "entity_id",
-    label: "Legal Entity",
-    type: "hidden",
-  },
+const FINANCE_APPROVAL_DOCUMENT_TYPES = Object.freeze([
+  { value: "JOURNAL_ENTRY", label: "Journal Entry" },
+  { value: "VENDOR_BILL", label: "Vendor Bill" },
+  { value: "VENDOR_PAYMENT", label: "Vendor Payment" },
+  { value: "CUSTOMER_CREDIT_NOTE", label: "Customer Credit Note" },
+  { value: "CUSTOMER_REFUND", label: "Customer Refund" },
+  { value: "BANK_PAYMENT", label: "Bank Payment" },
+  { value: "PURCHASE_ORDER", label: "Purchase Order" },
+  { value: "EXPENSE_CLAIM", label: "Expense Claim" },
+  { value: "WRITE_OFF", label: "Write-Off" },
+  { value: "PERIOD_CLOSE", label: "Period Close" },
+  { value: "YEAR_END_CLOSE", label: "Year-End Close" },
 ]);
 
 function isJournalForm(fields) {
@@ -76,6 +32,101 @@ function isJournalForm(fields) {
     lineNames.has("debit") &&
     lineNames.has("credit")
   );
+}
+
+function isApprovalWorkflowForm(fields) {
+  const names = new Set(fields.map((field) => field?.name));
+
+  return (
+    names.has("document_type") &&
+    names.has("approver_role") &&
+    names.has("required_approvals") &&
+    names.has("effective_from")
+  );
+}
+
+function normalizeApprovalWorkflowFields(fields) {
+  return fields.map((field) => {
+    if (field.name === "document_type") {
+      return {
+        ...field,
+        type: "select",
+        options: FINANCE_APPROVAL_DOCUMENT_TYPES,
+        required: true,
+      };
+    }
+
+    if (field.name === "approver_role") {
+      return {
+        ...field,
+        type: "lookup",
+        lookup: "finance_role_codes",
+        label: "Approver Finance Role",
+        required: true,
+      };
+    }
+
+    if (field.name === "threshold_amount") {
+      return {
+        ...field,
+        label: "Approval Required From Amount",
+        type: "number",
+        min: 0,
+        step: "0.01",
+        defaultValue: 0,
+        required: true,
+      };
+    }
+
+    if (field.name === "currency_code") {
+      return {
+        ...field,
+        label: "Threshold Currency",
+        type: "currency",
+        lookup: "currencies",
+        required: true,
+      };
+    }
+
+    if (field.name === "required_approvals") {
+      return {
+        ...field,
+        label: "Number of Approvals Required",
+        type: "number",
+        min: 1,
+        step: 1,
+        defaultValue: 1,
+        required: true,
+      };
+    }
+
+    if (field.name === "entity_id") {
+      return {
+        ...field,
+        label: "Legal Entity Scope",
+        description: "Leave blank to apply to all legal entities in this organisation.",
+      };
+    }
+
+    if (field.name === "effective_from") {
+      return {
+        ...field,
+        label: "Effective From",
+        type: "date",
+        required: true,
+      };
+    }
+
+    if (field.name === "effective_to") {
+      return {
+        ...field,
+        label: "Effective To",
+        type: "date",
+      };
+    }
+
+    return field;
+  });
 }
 
 function validateJournal(values = {}) {
@@ -106,10 +157,7 @@ function validateJournal(values = {}) {
     }
 
     if (lineDebit < 0 || lineCredit < 0) return false;
-    if (
-      (lineDebit > 0 && lineCredit > 0) ||
-      (lineDebit === 0 && lineCredit === 0)
-    ) {
+    if ((lineDebit > 0 && lineCredit > 0) || (lineDebit === 0 && lineCredit === 0)) {
       return false;
     }
 
@@ -123,12 +171,27 @@ function validateJournal(values = {}) {
   );
 }
 
-function validateCostCentre(values = {}) {
-  return Boolean(
-    String(values.name || "").trim() &&
-    String(values.code || "").trim() &&
-    String(values.type || "").trim()
-  );
+function validateApprovalWorkflow(values = {}) {
+  if (!String(values.name || "").trim()) return false;
+  if (!values.document_type) return false;
+  if (!values.approver_role) return false;
+  if (!values.currency_code) return false;
+  if (!values.effective_from) return false;
+
+  const threshold = Number(values.threshold_amount);
+  const approvals = Number(values.required_approvals);
+
+  if (!Number.isFinite(threshold) || threshold < 0) return false;
+  if (!Number.isInteger(approvals) || approvals < 1) return false;
+
+  if (
+    values.effective_to &&
+    String(values.effective_to) < String(values.effective_from)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export default function CreateEngine({
@@ -142,20 +205,28 @@ export default function CreateEngine({
   onSave,
   onPreview,
   saving = false,
+
   organizationId,
   entityId,
   moduleKey,
   action,
 }) {
-  const costCentreForm = action?.form === "cost-center";
+  const baseFields = useMemo(
+    () => (Array.isArray(schema) ? schema.filter(Boolean) : []),
+    [schema]
+  );
 
-  const fields = useMemo(() => {
-    if (costCentreForm) {
-      return COST_CENTRE_FIELDS.map((field) => ({ ...field }));
-    }
+  const approvalWorkflowForm = useMemo(
+    () => isApprovalWorkflowForm(baseFields),
+    [baseFields]
+  );
 
-    return Array.isArray(schema) ? schema.filter(Boolean) : [];
-  }, [schema, costCentreForm]);
+  const fields = useMemo(
+    () => approvalWorkflowForm
+      ? normalizeApprovalWorkflowFields(baseFields)
+      : baseFields,
+    [baseFields, approvalWorkflowForm]
+  );
 
   const journalForm = useMemo(
     () => isJournalForm(fields),
@@ -189,10 +260,6 @@ export default function CreateEngine({
         resolvedDefault = values.posting_date;
       }
 
-      if (costCentreForm && field.name === "entity_id") {
-        resolvedDefault = entityId || null;
-      }
-
       if (
         values[field.name] === undefined &&
         resolvedDefault !== undefined
@@ -200,15 +267,7 @@ export default function CreateEngine({
         onChange(field.name, resolvedDefault);
       }
     });
-  }, [
-    open,
-    fields,
-    values,
-    onChange,
-    journalForm,
-    costCentreForm,
-    entityId,
-  ]);
+  }, [open, fields, values, onChange, journalForm]);
 
   if (!open) return null;
 
@@ -229,18 +288,17 @@ export default function CreateEngine({
   );
 
   const journalReady = !journalForm || validateJournal(values);
-  const costCentreReady =
-    !costCentreForm || validateCostCentre(values);
-  const saveDisabled = saving || !journalReady || !costCentreReady;
+  const approvalReady = !approvalWorkflowForm || validateApprovalWorkflow(values);
+  const saveDisabled = saving || !journalReady || !approvalReady;
 
   const saveLabel = journalForm
     ? saving
       ? "Posting..."
       : "Post Journal"
-    : costCentreForm
+    : approvalWorkflowForm
       ? saving
-        ? "Creating..."
-        : "Create Cost Centre"
+        ? "Saving..."
+        : "Create Approval Rule"
       : saving
         ? "Saving..."
         : action?.submitLabel || "Create";
@@ -255,7 +313,7 @@ export default function CreateEngine({
             </div>
 
             <h2 className="mt-2 text-3xl font-light text-white">
-              {costCentreForm ? "New Cost Centre" : title}
+              {title}
             </h2>
           </div>
 
@@ -268,15 +326,6 @@ export default function CreateEngine({
         </div>
 
         <div className="max-h-[72vh] overflow-auto p-6">
-          {costCentreForm ? (
-            <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/55">
-              This cost centre will belong to the selected organisation
-              {entityId
-                ? " and selected legal entity."
-                : " and will be available organisation-wide."}
-            </div>
-          ) : null}
-
           {visibleFields.length > 0 ? (
             <DynamicForm
               schema={visibleFields}
@@ -298,9 +347,11 @@ export default function CreateEngine({
               ? "Complete all required fields and balance debit and credit before posting."
               : journalForm
                 ? "Posting creates an immutable accounting journal. Use reversal for later corrections."
-                : costCentreForm
-                  ? "Only active cost centres appear in journal and reporting selectors."
-                  : null}
+                : approvalWorkflowForm && !approvalReady
+                  ? "Complete the scope, threshold, approver role and valid effective dates."
+                  : approvalWorkflowForm
+                    ? "The most specific active rule with the highest applicable threshold will govern approval."
+                    : null}
           </div>
 
           <div className="flex justify-end gap-3">

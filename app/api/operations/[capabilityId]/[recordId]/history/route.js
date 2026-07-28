@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { resolveOperationsRequestContext } from "@/lib/operations/api/resolveOperationsRequestContext";
 import { serverOperationsEvents } from "@/lib/operations/events/serverOperationsEvents";
+import { OPERATIONS_ACTIONS } from "@/lib/operations/security/OperationsAuthorizationPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function scoped(query, context) {
@@ -67,11 +68,17 @@ export async function GET(request, { params }) {
   const resolved = await resolveOperationsRequestContext({
     request,
     input: Object.fromEntries(searchParams.entries()),
+    capabilityId,
+    action: OPERATIONS_ACTIONS.AUDIT,
   });
 
   if (!resolved.success) {
     return NextResponse.json(
-      { ok: false, error: resolved.error },
+      {
+        ok: false,
+        error: resolved.error,
+        required_permissions: resolved.required_permissions || [],
+      },
       { status: resolved.status || 400 },
     );
   }

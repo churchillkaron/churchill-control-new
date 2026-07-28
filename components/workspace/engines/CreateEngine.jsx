@@ -3,6 +3,64 @@
 import { useEffect, useMemo } from "react";
 import DynamicForm from "./DynamicForm";
 
+const COST_CENTRE_FIELDS = Object.freeze([
+  {
+    name: "name",
+    label: "Cost Centre Name",
+    type: "text",
+    required: true,
+    placeholder: "Example: Kitchen Operations",
+  },
+  {
+    name: "code",
+    label: "Cost Centre Code",
+    type: "text",
+    required: true,
+    placeholder: "Example: KITCHEN",
+  },
+  {
+    name: "type",
+    label: "Cost Centre Type",
+    type: "select",
+    required: true,
+    defaultValue: "OPERATIONAL",
+    options: [
+      { value: "OPERATIONAL", label: "Operational" },
+      { value: "ADMINISTRATIVE", label: "Administrative" },
+      { value: "SALES", label: "Sales" },
+      { value: "SERVICE", label: "Service Delivery" },
+      { value: "PROJECT", label: "Project" },
+      { value: "SHARED", label: "Shared / Corporate" },
+      { value: "OTHER", label: "Other" },
+    ],
+  },
+  {
+    name: "parent_cost_center_id",
+    label: "Parent Cost Centre",
+    type: "lookup",
+    lookup: "cost_centers",
+    required: false,
+  },
+  {
+    name: "manager",
+    label: "Responsible Manager",
+    type: "text",
+    required: false,
+    placeholder: "Manager or owner responsible for this centre",
+  },
+  {
+    name: "is_active",
+    label: "Active",
+    type: "boolean",
+    defaultValue: true,
+  },
+  {
+    name: "entity_id",
+    label: "Legal Entity",
+    type: "hidden",
+  },
+]);
+
 function isJournalForm(fields) {
   const names = new Set(fields.map((field) => field?.name));
   const linesField = fields.find((field) => field?.name === "lines");
@@ -48,7 +106,10 @@ function validateJournal(values = {}) {
     }
 
     if (lineDebit < 0 || lineCredit < 0) return false;
-    if ((lineDebit > 0 && lineCredit > 0) || (lineDebit === 0 && lineCredit === 0)) {
+    if (
+      (lineDebit > 0 && lineCredit > 0) ||
+      (lineDebit === 0 && lineCredit === 0)
+    ) {
       return false;
     }
 
@@ -59,6 +120,14 @@ function validateJournal(values = {}) {
   return (
     debit > 0 &&
     Math.round(debit * 100) === Math.round(credit * 100)
+  );
+}
+
+function validateCostCentre(values = {}) {
+  return Boolean(
+    String(values.name || "").trim() &&
+    String(values.code || "").trim() &&
+    String(values.type || "").trim()
   );
 }
 
@@ -73,16 +142,20 @@ export default function CreateEngine({
   onSave,
   onPreview,
   saving = false,
-
   organizationId,
   entityId,
   moduleKey,
   action,
 }) {
-  const fields = useMemo(
-    () => (Array.isArray(schema) ? schema.filter(Boolean) : []),
-    [schema]
-  );
+  const costCentreForm = action?.form === "cost-center";
+
+  const fields = useMemo(() => {
+    if (costCentreForm) {
+      return COST_CENTRE_FIELDS.map((field) => ({ ...field }));
+    }
+
+    return Array.isArray(schema) ? schema.filter(Boolean) : [];
+  }, [schema, costCentreForm]);
 
   const journalForm = useMemo(
     () => isJournalForm(fields),
@@ -116,6 +189,10 @@ export default function CreateEngine({
         resolvedDefault = values.posting_date;
       }
 
+      if (costCentreForm && field.name === "entity_id") {
+        resolvedDefault = entityId || null;
+      }
+
       if (
         values[field.name] === undefined &&
         resolvedDefault !== undefined
@@ -123,7 +200,15 @@ export default function CreateEngine({
         onChange(field.name, resolvedDefault);
       }
     });
-  }, [open, fields, values, onChange, journalForm]);
+  }, [
+    open,
+    fields,
+    values,
+    onChange,
+    journalForm,
+    costCentreForm,
+    entityId,
+  ]);
 
   if (!open) return null;
 
@@ -144,14 +229,21 @@ export default function CreateEngine({
   );
 
   const journalReady = !journalForm || validateJournal(values);
-  const saveDisabled = saving || !journalReady;
+  const costCentreReady =
+    !costCentreForm || validateCostCentre(values);
+  const saveDisabled = saving || !journalReady || !costCentreReady;
+
   const saveLabel = journalForm
     ? saving
       ? "Posting..."
       : "Post Journal"
-    : saving
-      ? "Saving..."
-      : "Create";
+    : costCentreForm
+      ? saving
+        ? "Creating..."
+        : "Create Cost Centre"
+      : saving
+        ? "Saving..."
+        : action?.submitLabel || "Create";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -163,7 +255,7 @@ export default function CreateEngine({
             </div>
 
             <h2 className="mt-2 text-3xl font-light text-white">
-              {title}
+              {costCentreForm ? "New Cost Centre" : title}
             </h2>
           </div>
 
@@ -176,6 +268,15 @@ export default function CreateEngine({
         </div>
 
         <div className="max-h-[72vh] overflow-auto p-6">
+          {costCentreForm ? (
+            <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/55">
+              This cost centre will belong to the selected organisation
+              {entityId
+                ? " and selected legal entity."
+                : " and will be available organisation-wide."}
+            </div>
+          ) : null}
+
           {visibleFields.length > 0 ? (
             <DynamicForm
               schema={visibleFields}
@@ -197,7 +298,9 @@ export default function CreateEngine({
               ? "Complete all required fields and balance debit and credit before posting."
               : journalForm
                 ? "Posting creates an immutable accounting journal. Use reversal for later corrections."
-                : null}
+                : costCentreForm
+                  ? "Only active cost centres appear in journal and reporting selectors."
+                  : null}
           </div>
 
           <div className="flex justify-end gap-3">

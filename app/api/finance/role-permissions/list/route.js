@@ -16,7 +16,9 @@ function accessError(access) {
       error: access.error,
       rows: [],
       roles: [],
+      available_roles: [],
       permissions: [],
+      grants: [],
       assignments: [],
     },
     {
@@ -42,40 +44,52 @@ export async function GET(request) {
     }
 
     const organizationId = access.organizationId;
-
-    const [availableRoles, permissions, rows, assignments] = await Promise.all([
+    const [availableRoles, permissions, grants, assignments] = await Promise.all([
       listFinanceRoles(organizationId),
       listFinancePermissions(organizationId),
       listFinancePermissionGrants(organizationId),
       listUserFinanceRoles({ organizationId }),
     ]);
 
+    const rows = assignments.map((assignment) => ({
+      ...assignment,
+      name: assignment.user_name || assignment.user_email || "Staff Member",
+      title: assignment.user_name || assignment.user_email || "Staff Member",
+      status: "ACTIVE",
+      permission_bundle:
+        assignment.role_name ||
+        assignment.role_code ||
+        "Finance Role",
+    }));
+
     return NextResponse.json({
       success: true,
       organization_id: organizationId,
       rows,
       roles: rows,
-      grants: rows,
       available_roles: availableRoles,
       permissions,
-      assignments,
+      grants,
+      assignments: rows,
       metrics: {
         roles: availableRoles.length,
         permissions: permissions.length,
-        grants: rows.length,
-        assignments: assignments.length,
+        grants: grants.length,
+        assignments: rows.length,
       },
     });
   } catch (error) {
-    console.error("FINANCE PERMISSION LIST ERROR", error);
+    console.error("FINANCE ACCESS LIST ERROR", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Unable to load Finance permissions",
+        error: error.message || "Unable to load Finance access",
         rows: [],
         roles: [],
+        available_roles: [],
         permissions: [],
+        grants: [],
         assignments: [],
       },
       {

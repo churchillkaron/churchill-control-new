@@ -44,40 +44,15 @@ function GoogleIcon() {
 function AvantiqoIdentity() {
   return (
     <div className="flex flex-col items-center">
-      <div className="relative h-[128px] w-[128px] drop-shadow-[0_0_34px_rgba(214,166,106,0.3)] sm:h-[138px] sm:w-[138px]">
-        <div className="pointer-events-none absolute inset-[18%] rounded-full bg-[#D6A66A]/10 blur-2xl" />
-        <svg aria-hidden="true" viewBox="0 0 120 120" className="relative h-full w-full" fill="none">
-          <defs>
-            <linearGradient id="avantiqoGold" x1="20" y1="10" x2="92" y2="108" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#FFF8D1" />
-              <stop offset="0.18" stopColor="#FFD77A" />
-              <stop offset="0.38" stopColor="#B97120" />
-              <stop offset="0.58" stopColor="#4D290E" />
-              <stop offset="0.76" stopColor="#F6D889" />
-              <stop offset="1" stopColor="#6C3F16" />
-            </linearGradient>
-            <linearGradient id="avantiqoSilver" x1="34" y1="49" x2="94" y2="106" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#FFFFFF" />
-              <stop offset="0.2" stopColor="#C9C9C7" />
-              <stop offset="0.43" stopColor="#4B4D51" />
-              <stop offset="0.66" stopColor="#141519" />
-              <stop offset="0.84" stopColor="#96989C" />
-              <stop offset="1" stopColor="#F2EFE8" />
-            </linearGradient>
-            <filter id="markShadow" x="-30%" y="-30%" width="160%" height="170%">
-              <feDropShadow dx="0" dy="5" stdDeviation="4" floodColor="#000000" floodOpacity="0.8" />
-              <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#E5B75E" floodOpacity="0.42" />
-            </filter>
-          </defs>
-          <g filter="url(#markShadow)">
-            <path d="M60 7 92 97 60 75 27 106 60 7Z" fill="url(#avantiqoGold)" stroke="#FFE3A1" strokeWidth="1.3" />
-            <path d="M59 48 98 28 64 65 95 105 56 79 27 106 47 65 59 48Z" fill="url(#avantiqoSilver)" stroke="#F5F0E8" strokeWidth="1.25" />
-            <path d="M18 94 51 51 104 24 62 70 18 94Z" fill="url(#avantiqoGold)" stroke="#F2CF7A" strokeWidth="1.25" />
-            <path d="M60 7 60 48 44 59 60 7Z" fill="#FFF7CE" fillOpacity="0.92" />
-            <path d="M31 101 55 79 43 102 31 101Z" fill="#7C5AB0" fillOpacity="0.82" />
-            <path d="M22 91 62 69 101 27" stroke="#FFF4C7" strokeWidth="1.1" strokeLinecap="round" opacity="0.8" />
-          </g>
-        </svg>
+      <div className="relative flex h-[148px] w-full items-center justify-center sm:h-[162px]">
+        <div className="pointer-events-none absolute h-[100px] w-[180px] rounded-full bg-[#D6A66A]/10 blur-3xl" />
+        <img
+          src="/app/branding/avantiqo-logo.webp"
+          alt="Avantiqo"
+          width="320"
+          height="220"
+          className="relative h-[148px] w-auto max-w-full object-contain drop-shadow-[0_0_34px_rgba(214,166,106,0.28)] sm:h-[162px]"
+        />
       </div>
 
       <div className="mt-1 bg-gradient-to-r from-[#B97A2E] via-[#FFE2A0] to-[#9C6B74] bg-clip-text text-[22px] font-medium uppercase tracking-[0.34em] text-transparent">

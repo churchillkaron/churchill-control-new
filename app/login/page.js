@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Mail } from "lucide-react";
+import { Lock, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/shared/supabase/client";
 
 function formatCompanyName(hostname) {
@@ -13,10 +13,7 @@ function formatCompanyName(hostname) {
     .replace(/^www\./, "")
     .split(":")[0];
 
-  if (!host || host === "localhost" || host.endsWith("vercel.app")) {
-    return "Churchill";
-  }
-
+  if (!host || host === "localhost" || host.endsWith("vercel.app")) return "Churchill";
   if (host.includes("churchill")) return "Churchill";
   if (host.includes("butterfly")) return "Butterfly Bar";
   if (host.includes("coleley") || host.includes("cole-ley")) return "Cole Ley";
@@ -27,49 +24,48 @@ function formatCompanyName(hostname) {
   const parts = host.split(".").filter(Boolean);
   const label = parts[0] === "app" && parts.length > 2 ? parts[1] : parts[0];
 
-  return String(label || "Organization")
+  return String(label || "Organisation")
     .replace(/[-_]+/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function AvantiqoMark() {
+function AvantiqoIdentity() {
   return (
     <div className="flex flex-col items-center">
-      <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[#D6A66A]/45 bg-[#D6A66A]/[0.05] shadow-[0_0_35px_rgba(214,166,106,0.08)]">
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 64 64"
-          className="h-8 w-8"
-          fill="none"
-        >
-          <path
-            d="M12 48 30.5 14a2 2 0 0 1 3.5 0L52 48"
-            stroke="#D6A66A"
-            strokeWidth="3.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M21.5 39h21"
-            stroke="#D6A66A"
-            strokeWidth="3.2"
-            strokeLinecap="round"
-          />
-          <path
-            d="M32 21v27"
-            stroke="#F2DEC0"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            opacity="0.9"
-          />
+      <div className="relative h-[92px] w-[92px] drop-shadow-[0_0_26px_rgba(214,166,106,0.22)]">
+        <svg aria-hidden="true" viewBox="0 0 120 120" className="h-full w-full" fill="none">
+          <defs>
+            <linearGradient id="avantiqoGold" x1="20" y1="10" x2="92" y2="108" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#FFF2B9" />
+              <stop offset="0.28" stopColor="#E7B65B" />
+              <stop offset="0.58" stopColor="#8B551D" />
+              <stop offset="0.82" stopColor="#F6D889" />
+              <stop offset="1" stopColor="#6C3F16" />
+            </linearGradient>
+            <linearGradient id="avantiqoSilver" x1="34" y1="49" x2="94" y2="106" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#F6F3EC" />
+              <stop offset="0.35" stopColor="#777A7E" />
+              <stop offset="0.66" stopColor="#232428" />
+              <stop offset="1" stopColor="#D9D8D2" />
+            </linearGradient>
+          </defs>
+          <path d="M60 8 91 96 60 75 28 105 60 8Z" fill="url(#avantiqoGold)" stroke="#F2D28E" strokeWidth="1.2" />
+          <path d="M59 48 96 30 63 65 94 104 56 79 28 105 47 65 59 48Z" fill="url(#avantiqoSilver)" stroke="#E8E2D7" strokeWidth="1.2" />
+          <path d="M20 93 51 52 102 26 62 70 20 93Z" fill="url(#avantiqoGold)" stroke="#EAC875" strokeWidth="1.2" />
+          <path d="M60 8 60 48 44 59 60 8Z" fill="#FFF4C9" fillOpacity="0.9" />
+          <path d="M31 100 55 79 43 101 31 100Z" fill="#7453A9" fillOpacity="0.75" />
         </svg>
       </div>
-      <div className="mt-4 text-[13px] font-medium uppercase tracking-[0.42em] text-[#E7C99D]">
+
+      <div className="mt-3 bg-gradient-to-r from-[#B97A2E] via-[#FFE2A0] to-[#9C6B74] bg-clip-text text-[22px] font-medium uppercase tracking-[0.34em] text-transparent">
         Avantiqo
       </div>
-      <div className="mt-1 text-[9px] uppercase tracking-[0.25em] text-white/30">
-        Business Operating System
+      <div className="mt-2 text-[9px] uppercase tracking-[0.25em] text-white/48">
+        Synthetic Intelligence Operating System
+      </div>
+      <div className="mt-3 text-[9px] uppercase tracking-[0.38em] text-[#D6A66A]/80">
+        Create · Operate · Scale
       </div>
     </div>
   );
@@ -77,7 +73,6 @@ function AvantiqoMark() {
 
 export default function LoginPage() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -91,29 +86,18 @@ export default function LoginPage() {
 
   useEffect(() => {
     let mounted = true;
-
-    if (typeof window !== "undefined") {
-      setHostname(window.location.hostname);
-    }
+    if (typeof window !== "undefined") setHostname(window.location.hostname);
 
     async function initialiseAuth() {
       const { data } = await supabase.auth.getSession();
-
-      if (
-        mounted &&
-        data?.session &&
-        typeof window !== "undefined" &&
-        window.location.hash.includes("type=recovery")
-      ) {
+      if (mounted && data?.session && typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
         setMode("recovery");
       }
     }
 
     initialiseAuth();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (mounted && event === "PASSWORD_RECOVERY") {
         setMode("recovery");
         setError("");
@@ -137,17 +121,14 @@ export default function LoginPage() {
       setLoading(true);
       setError("");
       setMessage("");
-
       const { error: loginError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
       });
-
       if (loginError) {
         setError(loginError.message);
         return;
       }
-
       router.push("/login/callback");
     } catch {
       setError("Login failed.");
@@ -166,7 +147,6 @@ export default function LoginPage() {
       setLoading(true);
       setError("");
       setMessage("");
-
       const response = await fetch("/api/auth/activate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -175,14 +155,11 @@ export default function LoginPage() {
           hostname: typeof window !== "undefined" ? window.location.hostname : "",
         }),
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         setError(result.error || "Unable to send the password email.");
         return;
       }
-
       setMessage("Check your email for a secure link to create or reset your password.");
     } catch {
       setError("Unable to send the password email.");
@@ -196,7 +173,6 @@ export default function LoginPage() {
       setError("Password must contain at least 8 characters.");
       return;
     }
-
     if (password !== confirmPassword) {
       setError("The passwords do not match.");
       return;
@@ -206,14 +182,11 @@ export default function LoginPage() {
       setLoading(true);
       setError("");
       setMessage("");
-
       const { error: updateError } = await supabase.auth.updateUser({ password });
-
       if (updateError) {
         setError(updateError.message);
         return;
       }
-
       setMessage("Password saved successfully. Opening your workspace...");
       router.replace("/login/callback");
     } catch {
@@ -227,14 +200,10 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     setMessage("");
-
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/login/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/login/callback` },
     });
-
     if (oauthError) {
       setError(oauthError.message);
       setLoading(false);
@@ -244,149 +213,92 @@ export default function LoginPage() {
   const recoveryMode = mode === "recovery";
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070707] px-5 py-10 text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-15%,rgba(214,166,106,0.08),transparent_38%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#D6A66A]/55 to-transparent" />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#030303] px-5 py-10 text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(214,166,106,0.11),transparent_38%)]" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-[38%] opacity-20 [background-image:radial-gradient(circle,rgba(214,166,106,.65)_1px,transparent_1px)] [background-size:12px_12px] [mask-image:linear-gradient(to_right,black,transparent)]" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-[38%] opacity-20 [background-image:radial-gradient(circle,rgba(214,166,106,.65)_1px,transparent_1px)] [background-size:12px_12px] [mask-image:linear-gradient(to_left,black,transparent)]" />
 
-      <section className="relative w-full max-w-[420px]">
-        <div className="mb-8 text-center">
-          <AvantiqoMark />
-          <div className="mx-auto mt-7 h-px w-16 bg-[#D6A66A]/35" />
-          <h1 className="mt-6 text-[28px] font-light tracking-[0.02em] text-white">
+      <section className="relative w-full max-w-[510px] rounded-[36px] border border-[#D6A66A]/35 bg-[linear-gradient(145deg,rgba(20,20,20,.97),rgba(5,5,5,.98))] px-7 py-8 shadow-[0_40px_120px_rgba(0,0,0,.75),0_0_80px_rgba(214,166,106,.06)] sm:px-11 sm:py-10">
+        <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#F2C66F] to-transparent" />
+        <AvantiqoIdentity />
+
+        <div className="my-7 flex items-center gap-4">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-[#D6A66A]/45" />
+          <div className="h-1.5 w-1.5 rotate-45 border border-[#E4BC82]/80" />
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-[#D6A66A]/45" />
+        </div>
+
+        <div className="text-center">
+          <h1 className="font-serif text-[34px] font-normal tracking-[0.01em] text-[#F6F1E8]">
             {recoveryMode ? "Create password" : companyName}
           </h1>
-          <p className="mt-2 text-[12px] tracking-[0.08em] text-white/35">
-            {recoveryMode ? "Secure your account" : "Authorised staff access"}
+          <p className="mt-2 text-[11px] tracking-[0.08em] text-[#D6A66A]/65">
+            {recoveryMode ? "Secure your account" : `Secure staff access to ${companyName}`}
           </p>
         </div>
 
-        <div className="rounded-[26px] border border-white/[0.08] bg-[#0D0D0D]/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.55)] sm:p-7">
-          <div className="space-y-4">
-            {!recoveryMode && (
-              <label className="block">
-                <span className="mb-2 block text-[10px] uppercase tracking-[0.22em] text-white/35">
-                  Email
-                </span>
-                <div className="flex items-center gap-3 rounded-[14px] border border-white/[0.09] bg-black/35 px-4 transition focus-within:border-[#D6A66A]/50">
-                  <Mail className="h-4 w-4 text-[#D6A66A]/65" />
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") handleManualLogin();
-                    }}
-                    placeholder="name@company.com"
-                    className="h-12 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/20"
-                  />
-                </div>
-              </label>
-            )}
-
+        <div className="mt-7 space-y-4">
+          {!recoveryMode && (
             <label className="block">
-              <span className="mb-2 block text-[10px] uppercase tracking-[0.22em] text-white/35">
-                {recoveryMode ? "New password" : "Password"}
-              </span>
-              <div className="flex items-center gap-3 rounded-[14px] border border-white/[0.09] bg-black/35 px-4 transition focus-within:border-[#D6A66A]/50">
-                <Lock className="h-4 w-4 text-[#D6A66A]/65" />
-                <input
-                  type="password"
-                  autoComplete={recoveryMode ? "new-password" : "current-password"}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !recoveryMode) handleManualLogin();
-                  }}
-                  placeholder="Enter password"
-                  className="h-12 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/20"
-                />
+              <span className="mb-2 block text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]/80">Email</span>
+              <div className="flex items-center gap-3 rounded-[12px] border border-white/[0.12] bg-black/45 px-4 transition focus-within:border-[#D6A66A]/65 focus-within:shadow-[0_0_24px_rgba(214,166,106,.08)]">
+                <Mail className="h-4 w-4 text-white/35" />
+                <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleManualLogin(); }} placeholder="name@company.com" className="h-12 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/18" />
               </div>
             </label>
+          )}
 
-            {recoveryMode && (
-              <label className="block">
-                <span className="mb-2 block text-[10px] uppercase tracking-[0.22em] text-white/35">
-                  Confirm password
-                </span>
-                <div className="flex items-center gap-3 rounded-[14px] border border-white/[0.09] bg-black/35 px-4 transition focus-within:border-[#D6A66A]/50">
-                  <Lock className="h-4 w-4 text-[#D6A66A]/65" />
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") handleSetPassword();
-                    }}
-                    placeholder="Repeat password"
-                    className="h-12 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/20"
-                  />
-                </div>
-              </label>
-            )}
+          <label className="block">
+            <span className="mb-2 block text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]/80">{recoveryMode ? "New password" : "Password"}</span>
+            <div className="flex items-center gap-3 rounded-[12px] border border-white/[0.12] bg-black/45 px-4 transition focus-within:border-[#D6A66A]/65 focus-within:shadow-[0_0_24px_rgba(214,166,106,.08)]">
+              <Lock className="h-4 w-4 text-white/35" />
+              <input type="password" autoComplete={recoveryMode ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !recoveryMode) handleManualLogin(); }} placeholder="Enter password" className="h-12 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/18" />
+            </div>
+          </label>
 
-            {!recoveryMode && (
-              <div className="flex justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  disabled={loading}
-                  className="text-[12px] text-[#D6A66A]/80 transition hover:text-[#F2DEC0] disabled:opacity-50"
-                >
-                  Forgot password?
-                </button>
+          {recoveryMode && (
+            <label className="block">
+              <span className="mb-2 block text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]/80">Confirm password</span>
+              <div className="flex items-center gap-3 rounded-[12px] border border-white/[0.12] bg-black/45 px-4 transition focus-within:border-[#D6A66A]/65">
+                <Lock className="h-4 w-4 text-white/35" />
+                <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleSetPassword(); }} placeholder="Repeat password" className="h-12 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/18" />
               </div>
-            )}
+            </label>
+          )}
 
-            {error && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/[0.07] px-4 py-3 text-xs text-red-300">
-                {error}
+          {!recoveryMode && (
+            <div className="flex justify-end">
+              <button type="button" onClick={handleForgotPassword} disabled={loading} className="text-[12px] text-[#D6A66A] transition hover:text-[#F3D89D] disabled:opacity-50">Forgot password?</button>
+            </div>
+          )}
+
+          {error && <div className="rounded-xl border border-red-500/20 bg-red-500/[0.07] px-4 py-3 text-xs text-red-300">{error}</div>}
+          {message && <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.07] px-4 py-3 text-xs text-emerald-300">{message}</div>}
+
+          <button type="button" onClick={recoveryMode ? handleSetPassword : handleManualLogin} disabled={loading} className="mt-2 flex h-13 w-full items-center justify-center rounded-[12px] border border-[#F0C873] bg-[linear-gradient(100deg,#8E5A20,#E0AE54,#F6D98C,#B9772A)] px-5 py-3.5 text-[12px] font-semibold uppercase tracking-[0.2em] text-black shadow-[inset_0_1px_0_rgba(255,255,255,.42),0_10px_30px_rgba(191,128,45,.18)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
+            {loading ? "Please wait" : recoveryMode ? "Save password" : "Log in"}
+          </button>
+
+          {!recoveryMode && (
+            <>
+              <div className="flex items-center gap-4 py-1">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent to-[#D6A66A]/35" />
+                <span className="text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]/75">or</span>
+                <div className="h-px flex-1 bg-gradient-to-l from-transparent to-[#D6A66A]/35" />
               </div>
-            )}
-
-            {message && (
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.07] px-4 py-3 text-xs text-emerald-300">
-                {message}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={recoveryMode ? handleSetPassword : handleManualLogin}
-              disabled={loading}
-              className="mt-1 flex h-12 w-full items-center justify-center rounded-[14px] border border-[#D6A66A]/55 bg-[#D6A66A] text-[11px] font-semibold uppercase tracking-[0.2em] text-black transition hover:bg-[#E4BC82] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "Please wait" : recoveryMode ? "Save password" : "Login"}
-            </button>
-
-            {!recoveryMode && (
-              <>
-                <div className="flex items-center gap-3 py-1">
-                  <div className="h-px flex-1 bg-white/[0.07]" />
-                  <span className="text-[9px] uppercase tracking-[0.22em] text-white/20">or</span>
-                  <div className="h-px flex-1 bg-white/[0.07]" />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
-                  className="flex h-12 w-full items-center justify-center gap-3 rounded-[14px] border border-white/[0.09] bg-white/[0.025] text-sm text-white/70 transition hover:border-white/[0.16] hover:bg-white/[0.05] hover:text-white disabled:opacity-50"
-                >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-black">
-                    G
-                  </span>
-                  Continue with Google
-                </button>
-              </>
-            )}
-          </div>
+              <button type="button" onClick={handleGoogleLogin} disabled={loading} className="flex h-12 w-full items-center justify-center gap-3 rounded-[12px] border border-white/[0.12] bg-white/[0.025] text-sm text-white/75 transition hover:border-[#D6A66A]/35 hover:bg-white/[0.05] hover:text-white disabled:opacity-50">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-black">G</span>
+                Continue with Google
+              </button>
+            </>
+          )}
         </div>
 
-        <p className="mt-6 text-center text-[9px] uppercase tracking-[0.18em] text-white/20">
-          Protected by Avantiqo Identity
-        </p>
+        <div className="mt-7 flex items-center justify-center gap-2 text-[9px] uppercase tracking-[0.16em] text-white/25">
+          <ShieldCheck className="h-4 w-4 text-[#D6A66A]/55" />
+          Secure · Encrypted · Protected
+        </div>
+        <div className="pointer-events-none absolute inset-x-10 bottom-0 h-px bg-gradient-to-r from-transparent via-[#F2C66F] to-transparent" />
       </section>
     </main>
   );

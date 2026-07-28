@@ -30,6 +30,7 @@ declare
   v_next_number bigint;
   v_period_token text;
   v_separator text;
+  v_runtime_aliases text[];
 begin
   if p_organization_id is null then
     raise exception 'organization_id required';
@@ -61,6 +62,12 @@ begin
     when 'INVOICE' then 'CUSTOMER_INVOICE'
     when 'CUSTOMER_INVOICE_CREATED' then 'CUSTOMER_INVOICE'
     else v_document_type
+  end;
+
+  v_runtime_aliases := case
+    when v_configured_type = 'CUSTOMER_INVOICE'
+      then array['CUSTOMER_INVOICE', 'INVOICE', 'CUSTOMER_INVOICE_CREATED']
+    else array[v_configured_type]
   end;
 
   select
@@ -139,9 +146,13 @@ begin
   from public.document_number_sequences
   where organization_id = p_organization_id
     and entity_id = p_entity_id
-    and upper(btrim(document_type)) = v_configured_type
+    and upper(btrim(document_type)) = any(v_runtime_aliases)
     and year = v_bucket_year
     and month = v_bucket_month
+  order by
+    case when upper(btrim(document_type)) = v_configured_type then 0 else 1 end,
+    coalesce(last_number, 0) desc,
+    updated_at desc nulls last
   limit 1
   for update;
 

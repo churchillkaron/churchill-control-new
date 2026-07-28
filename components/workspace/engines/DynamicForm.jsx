@@ -12,6 +12,17 @@ const TEXTAREA_CLASS =
 const LABEL_CLASS =
   "mb-2 block text-xs uppercase tracking-[0.25em] text-white/40";
 
+const JOURNAL_TYPE_OPTIONS = Object.freeze([
+  { value: "GENERAL", label: "General Journal" },
+  { value: "ADJUSTING", label: "Adjusting Journal" },
+  { value: "ACCRUAL", label: "Accrual" },
+  { value: "DEFERRAL", label: "Deferral" },
+  { value: "RECLASSIFICATION", label: "Reclassification" },
+  { value: "CORRECTION", label: "Correction" },
+  { value: "REVERSING", label: "Reversing Journal" },
+  { value: "CLOSING", label: "Closing Journal" },
+]);
+
 function getWidthClass(width) {
   switch (width) {
     case "full":
@@ -24,6 +35,155 @@ function getWidthClass(width) {
   }
 }
 
+function isJournalSchema(fields) {
+  const names = new Set(fields.map((field) => field?.name));
+  const linesField = fields.find((field) => field?.name === "lines");
+  const lineNames = new Set(
+    (Array.isArray(linesField?.columns) ? linesField.columns : []).map(
+      (column) => column?.name
+    )
+  );
+
+  return (
+    names.has("journal_type") &&
+    names.has("posting_date") &&
+    lineNames.has("debit") &&
+    lineNames.has("credit")
+  );
+}
+
+function normalizeJournalLineColumn(column) {
+  if (!column?.name) return column;
+
+  if (column.name === "account_id") {
+    return {
+      ...column,
+      label: "Account",
+      type: "lookup",
+      lookup: "chart_of_accounts",
+      required: true,
+      minWidth: 240,
+    };
+  }
+
+  if (column.name === "description") {
+    return {
+      ...column,
+      label: "Description",
+      type: "text",
+      required: true,
+      minWidth: 220,
+    };
+  }
+
+  if (column.name === "debit" || column.name === "credit") {
+    return {
+      ...column,
+      label: column.name === "debit" ? "Debit" : "Credit",
+      type: "number",
+      min: 0,
+      step: "0.01",
+      minWidth: 140,
+    };
+  }
+
+  if (column.name === "cost_center_id") {
+    return {
+      ...column,
+      label: "Cost Centre",
+      type: "lookup",
+      lookup: "cost_centers",
+      minWidth: 180,
+    };
+  }
+
+  if (column.name === "department_id") {
+    return {
+      ...column,
+      label: "Department",
+      type: "lookup",
+      lookup: "departments",
+      minWidth: 180,
+    };
+  }
+
+  if (column.name === "project_id") {
+    return {
+      ...column,
+      label: "Project",
+      type: "lookup",
+      lookup: "projects",
+      minWidth: 180,
+    };
+  }
+
+  return column;
+}
+
+function normalizeJournalField(field) {
+  if (!field?.name) return field;
+
+  if (field.name === "journal_type") {
+    return {
+      ...field,
+      label: "Journal Type",
+      type: "select",
+      options: JOURNAL_TYPE_OPTIONS,
+      required: true,
+      defaultValue: "GENERAL",
+    };
+  }
+
+  if (field.name === "currency_code" || field.name === "currency") {
+    return {
+      ...field,
+      name: "currency_code",
+      label: "Currency",
+      type: "currency",
+      lookup: "currencies",
+      required: true,
+    };
+  }
+
+  if (field.name === "exchange_rate") {
+    return {
+      ...field,
+      label: "Exchange Rate",
+      type: "number",
+      required: true,
+      min: 0.0000000001,
+      step: "0.0000000001",
+      defaultValue: 1,
+    };
+  }
+
+  if (field.name === "document_date") {
+    return {
+      ...field,
+      label: "Document Date",
+      type: "date",
+      required: true,
+    };
+  }
+
+  if (field.name === "lines") {
+    return {
+      ...field,
+      label: "Debit and Credit Lines",
+      type: "table",
+      required: true,
+      width: "full",
+      minimumRows: 2,
+      balanceMode: "debit-credit",
+      columns: (Array.isArray(field.columns) ? field.columns : []).map(
+        normalizeJournalLineColumn
+      ),
+    };
+  }
+
+  return field;
+}
+
 export default function DynamicForm({
   schema = [],
   values = {},
@@ -31,14 +191,17 @@ export default function DynamicForm({
   organizationId,
   entityId,
 }) {
-  const fields = useMemo(
-    () => schema.filter(Boolean),
-    [schema]
-  );
+  const fields = useMemo(() => {
+    const baseFields = schema.filter(Boolean);
+
+    return isJournalSchema(baseFields)
+      ? baseFields.map(normalizeJournalField)
+      : baseFields;
+  }, [schema]);
 
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-      {fields.map(field => (
+      {fields.map((field) => (
         <div
           key={field.name}
           className={getWidthClass(field.width)}
@@ -129,7 +292,7 @@ function PrimitiveField({
             disabled={field.disabled}
             readOnly={field.readOnly}
             required={field.required}
-            onChange={event =>
+            onChange={(event) =>
               onChange(field.name, event.target.value)
             }
             className={TEXTAREA_CLASS}
@@ -157,16 +320,17 @@ function PrimitiveField({
             value={value || ""}
             disabled={field.disabled}
             required={field.required}
-            onChange={event =>
+            onChange={(event) =>
               onChange(field.name, event.target.value)
             }
             className={FIELD_CLASS}
           >
             <option value="">Select...</option>
-            {(field.options || []).map(option => {
-              const item = typeof option === "string"
-                ? { value: option, label: option }
-                : option;
+            {(field.options || []).map((option) => {
+              const item =
+                typeof option === "string"
+                  ? { value: option, label: option }
+                  : option;
 
               return (
                 <option key={item.value} value={item.value}>
@@ -208,7 +372,7 @@ function PrimitiveField({
             <input
               type="checkbox"
               checked={!!value}
-              onChange={event =>
+              onChange={(event) =>
                 onChange(field.name, event.target.checked)
               }
             />
@@ -233,7 +397,7 @@ function PrimitiveField({
             min={field.min}
             max={field.max}
             step={field.step || "any"}
-            onChange={event =>
+            onChange={(event) =>
               onChange(
                 field.name,
                 event.target.value === ""
@@ -262,7 +426,7 @@ function PrimitiveField({
             disabled={field.disabled}
             readOnly={field.readOnly}
             required={field.required}
-            onChange={event =>
+            onChange={(event) =>
               onChange(field.name, event.target.value)
             }
             className={FIELD_CLASS}
@@ -288,7 +452,10 @@ function LookupField({
   useEffect(() => {
     let active = true;
 
-    if (Array.isArray(field.options) || (!field.lookup && !field.source)) {
+    if (
+      Array.isArray(field.options) ||
+      (!field.lookup && !field.source)
+    ) {
       return undefined;
     }
 
@@ -304,8 +471,8 @@ function LookupField({
     fetch(`/api/platform/lookups?${params.toString()}`, {
       cache: "no-store",
     })
-      .then(response => response.json())
-      .then(payload => {
+      .then((response) => response.json())
+      .then((payload) => {
         if (!active) return;
 
         if (Array.isArray(payload)) {
@@ -316,7 +483,7 @@ function LookupField({
         setOptions([]);
         setError(payload?.error || "Lookup could not be loaded");
       })
-      .catch(loadError => {
+      .catch((loadError) => {
         if (!active) return;
         setOptions([]);
         setError(loadError?.message || "Lookup could not be loaded");
@@ -328,7 +495,13 @@ function LookupField({
     return () => {
       active = false;
     };
-  }, [field.lookup, field.source, field.options, organizationId, entityId]);
+  }, [
+    field.lookup,
+    field.source,
+    field.options,
+    organizationId,
+    entityId,
+  ]);
 
   return (
     <>
@@ -342,7 +515,7 @@ function LookupField({
         value={value || ""}
         disabled={loading || field.disabled}
         required={field.required}
-        onChange={event =>
+        onChange={(event) =>
           onChange(field.name, event.target.value)
         }
         className={FIELD_CLASS}
@@ -350,10 +523,11 @@ function LookupField({
         <option value="">
           {loading ? "Loading..." : `Select ${field.label}`}
         </option>
-        {options.map(option => {
-          const item = typeof option === "string"
-            ? { value: option, label: option }
-            : option;
+        {options.map((option) => {
+          const item =
+            typeof option === "string"
+              ? { value: option, label: option }
+              : option;
 
           return (
             <option key={item.value} value={item.value}>

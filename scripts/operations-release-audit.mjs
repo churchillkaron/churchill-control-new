@@ -225,7 +225,6 @@ requireIncludes(source.runtimeWorkCenter, [
   "buildOperationsCommandPayload",
   "allowed_commands",
   "/api/platform/users/assignable",
-  "assignee_party_id",
   "No further lifecycle actions",
 ], "Operations runtime work centre");
 

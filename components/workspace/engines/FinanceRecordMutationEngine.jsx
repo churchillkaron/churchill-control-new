@@ -4,17 +4,30 @@ import { useMemo, useState } from "react";
 
 import CreateEngine from "@/components/workspace/engines/CreateEngine";
 
+function initialFieldValue(field, row, duplicate) {
+  const value = row?.[field.name];
+
+  if (duplicate && field.name === "status") {
+    return undefined;
+  }
+
+  if (
+    field.name === "value_json" &&
+    value &&
+    typeof value === "object"
+  ) {
+    return JSON.stringify(value);
+  }
+
+  return value ?? (field.type === "table" ? [] : "");
+}
+
 function initialValues(schema, row, duplicate) {
   return Object.fromEntries(
-    (schema || []).map(field => {
-      const value = row?.[field.name];
-
-      if (duplicate && field.name === "status") {
-        return [field.name, undefined];
-      }
-
-      return [field.name, value ?? (field.type === "table" ? [] : "")];
-    })
+    (schema || []).map(field => [
+      field.name,
+      initialFieldValue(field, row, duplicate),
+    ])
   );
 }
 

@@ -6,8 +6,13 @@ import { useParams } from "next/navigation";
 import { ArrowRight, Search, Wrench } from "lucide-react";
 
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { getOperationsWorkspaceGroups } from "@/lib/operations/registry/OperationsWorkspaceResolver";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
+import {
+  hasOperationsPermission,
+  OPERATIONS_ACTIONS,
+} from "@/lib/operations/security/OperationsAuthorizationPolicy";
 
 function matchesQuery(group, item, query) {
   if (!query) return true;
@@ -30,7 +35,11 @@ function matchesQuery(group, item, query) {
 
 export default function OperationsWorkspaceHub() {
   const params = useParams();
+  const businessContext = useBusinessContext() || {};
   const organizationId = params?.organizationId || null;
+  const permissions = businessContext.permissions
+    || businessContext.access?.permissions
+    || [];
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -39,11 +48,18 @@ export default function OperationsWorkspaceHub() {
       .map((group) => ({
         ...group,
         items: group.items.filter((item) => (
-          matchesQuery(group, item, normalizedQuery)
+          hasOperationsPermission({
+            permissions,
+            capabilityId: item.capabilityId,
+            action: item.readOnly
+              ? OPERATIONS_ACTIONS.AUDIT
+              : OPERATIONS_ACTIONS.VIEW,
+          })
+          && matchesQuery(group, item, normalizedQuery)
         )),
       }))
       .filter((group) => group.items.length > 0)
-  ), [normalizedQuery]);
+  ), [normalizedQuery, permissions]);
 
   const totalCapabilities = groups.reduce(
     (sum, group) => sum + group.items.length,
@@ -65,7 +81,7 @@ export default function OperationsWorkspaceHub() {
               Canonical Operations Kernel
             </div>
             <div className="mt-2 text-sm text-white/45">
-              {totalCapabilities} capabilities across {groups.length} operational groups
+              {totalCapabilities} authorised capabilities across {groups.length} operational groups
             </div>
           </div>
 
@@ -82,7 +98,7 @@ export default function OperationsWorkspaceHub() {
 
         {groups.length === 0 ? (
           <div className="rounded-[28px] border border-white/10 bg-white/[0.035] p-8 text-sm text-white/45">
-            No matching Operations capabilities.
+            No authorised Operations capabilities match this search.
           </div>
         ) : (
           <div className="space-y-6">
@@ -93,12 +109,8 @@ export default function OperationsWorkspaceHub() {
               >
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-white">
-                      {group.name}
-                    </h2>
-                    <p className="mt-1 text-sm leading-6 text-white/42">
-                      {group.description}
-                    </p>
+                    <h2 className="text-xl font-semibold text-white">{group.name}</h2>
+                    <p className="mt-1 text-sm leading-6 text-white/42">{group.description}</p>
                   </div>
                   <div className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs text-white/35">
                     {group.items.length}
@@ -127,24 +139,14 @@ export default function OperationsWorkspaceHub() {
                         />
                       </div>
 
-                      <div className="mt-4 text-sm font-semibold text-white">
-                        {item.name}
-                      </div>
-                      <div className="mt-1.5 text-xs leading-5 text-white/40">
-                        {item.description}
-                      </div>
+                      <div className="mt-4 text-sm font-semibold text-white">{item.name}</div>
+                      <div className="mt-1.5 text-xs leading-5 text-white/40">{item.description}</div>
 
                       <div className="mt-4 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.16em] text-white/30">
-                        <span className="rounded-full border border-white/10 px-2.5 py-1">
-                          {item.lifecycle}
-                        </span>
-                        <span className="rounded-full border border-white/10 px-2.5 py-1">
-                          {item.recordType}
-                        </span>
+                        <span className="rounded-full border border-white/10 px-2.5 py-1">{item.lifecycle}</span>
+                        <span className="rounded-full border border-white/10 px-2.5 py-1">{item.recordType}</span>
                         {item.readOnly ? (
-                          <span className="rounded-full border border-white/10 px-2.5 py-1">
-                            Read only
-                          </span>
+                          <span className="rounded-full border border-white/10 px-2.5 py-1">Read only</span>
                         ) : null}
                       </div>
                     </Link>

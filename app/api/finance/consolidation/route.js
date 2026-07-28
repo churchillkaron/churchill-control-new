@@ -17,13 +17,14 @@ function organizationIdFrom(value = {}) {
 
 function entityIdsFrom(value = {}) {
   const raw = value.entityIds || value.entity_ids || [];
-
-  return Array.isArray(raw)
+  const values = Array.isArray(raw)
     ? raw
     : String(raw || "")
         .split(",")
         .map(item => item.trim())
         .filter(Boolean);
+
+  return [...new Set(values.map(value => String(value).trim()).filter(Boolean))];
 }
 
 async function readConsolidationRuns(organizationId) {
@@ -63,6 +64,7 @@ export async function GET(request) {
       organizationId:
         searchParams.get("organizationId") ||
         searchParams.get("organization_id"),
+      request,
     });
 
     if (!access.success) {
@@ -93,6 +95,7 @@ export async function POST(request) {
     const body = await request.json();
     const access = await requireOrganizationAccess({
       organizationId: organizationIdFrom(body),
+      request,
     });
 
     if (!access.success) {
@@ -102,14 +105,29 @@ export async function POST(request) {
       );
     }
 
+    const entityIds = entityIdsFrom(body);
+    if (entityIds.length < 2) {
+      throw new Error("Consolidation requires at least two explicitly selected legal entities");
+    }
+
+    const periodId = body.periodId || body.period_id || null;
+    const startDate = body.startDate || body.start_date || null;
+    const endDate = body.endDate || body.end_date || null;
+
+    if (!periodId && (!startDate || !endDate)) {
+      throw new Error(
+        "Consolidation requires an accounting period or explicit start and end dates"
+      );
+    }
+
     const result = await runConsolidation({
       organizationId: access.organizationId,
-      entityIds: entityIdsFrom(body),
-      periodId: body.periodId || body.period_id || null,
+      entityIds,
+      periodId,
       reportingPeriod:
         body.reportingPeriod || body.reporting_period || null,
-      startDate: body.startDate || body.start_date || null,
-      endDate: body.endDate || body.end_date || null,
+      startDate,
+      endDate,
     });
 
     return NextResponse.json({
@@ -117,7 +135,7 @@ export async function POST(request) {
       data: result,
     });
   } catch (error) {
-    const status = /required|outside|cannot|must|requires/i.test(
+    const status = /required|outside|cannot|must|requires|at least|explicit/i.test(
       String(error.message || "")
     )
       ? 400

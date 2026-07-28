@@ -7,6 +7,7 @@ import {
   resolveOperationsRequestContext,
   searchParamsToObject,
 } from "@/lib/operations/api/resolveOperationsRequestContext";
+import { OPERATIONS_ACTIONS } from "@/lib/operations/security/OperationsAuthorizationPolicy";
 
 function respond(result) {
   return NextResponse.json(result.body, { status: result.status });
@@ -17,11 +18,21 @@ export async function GET(request, { params }) {
   const capabilityId = String(resolvedParams?.capabilityId || "").trim();
   const { searchParams } = new URL(request.url);
   const input = searchParamsToObject(searchParams);
-  const resolved = await resolveOperationsRequestContext({ request, input });
+  const resolved = await resolveOperationsRequestContext({
+    request,
+    input,
+    capabilityId,
+    action: OPERATIONS_ACTIONS.VIEW,
+  });
 
   if (!resolved.success) {
     return NextResponse.json(
-      { ok: false, error: resolved.error, rows: [] },
+      {
+        ok: false,
+        error: resolved.error,
+        rows: [],
+        required_permissions: resolved.required_permissions || [],
+      },
       { status: resolved.status || 400 },
     );
   }
@@ -57,16 +68,24 @@ export async function POST(request, { params }) {
   const resolvedParams = await params;
   const capabilityId = String(resolvedParams?.capabilityId || "").trim();
   const body = await request.json();
-  const resolved = await resolveOperationsRequestContext({ request, input: body });
+  const command = String(body.command || "create").trim();
+  const resolved = await resolveOperationsRequestContext({
+    request,
+    input: body,
+    capabilityId,
+    command,
+  });
 
   if (!resolved.success) {
     return NextResponse.json(
-      { ok: false, error: resolved.error },
+      {
+        ok: false,
+        error: resolved.error,
+        required_permissions: resolved.required_permissions || [],
+      },
       { status: resolved.status || 400 },
     );
   }
-
-  const command = String(body.command || "create").trim();
 
   return respond(await serverOperationsApi.execute({
     capabilityId,
@@ -76,6 +95,7 @@ export async function POST(request, { params }) {
       ...body,
       created_by: resolved.user?.id || null,
       updated_by: resolved.user?.id || null,
+      actor_id: resolved.user?.id || null,
     },
   }));
 }
@@ -84,22 +104,33 @@ export async function PATCH(request, { params }) {
   const resolvedParams = await params;
   const capabilityId = String(resolvedParams?.capabilityId || "").trim();
   const body = await request.json();
-  const resolved = await resolveOperationsRequestContext({ request, input: body });
+  const command = String(body.command || "update").trim();
+  const resolved = await resolveOperationsRequestContext({
+    request,
+    input: body,
+    capabilityId,
+    command,
+  });
 
   if (!resolved.success) {
     return NextResponse.json(
-      { ok: false, error: resolved.error },
+      {
+        ok: false,
+        error: resolved.error,
+        required_permissions: resolved.required_permissions || [],
+      },
       { status: resolved.status || 400 },
     );
   }
 
   return respond(await serverOperationsApi.execute({
     capabilityId,
-    command: String(body.command || "update").trim(),
+    command,
     context: resolved.context,
     payload: {
       ...body,
       updated_by: resolved.user?.id || null,
+      actor_id: resolved.user?.id || null,
     },
   }));
 }

@@ -1,75 +1,54 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse }
-from "next/server";
+import {
+  NextResponse,
+} from "next/server";
 
-import { getOrCreateBusinessProfile }
-from "@/lib/ai/profiles/getOrCreateBusinessProfile";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+import {
+  getOrCreateBusinessProfile,
+} from "@/lib/ai/profiles/getOrCreateBusinessProfile";
 
-export async function GET(
-  request
-) {
-
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const organizationId =
+      searchParams.get("organization_id") ||
+      searchParams.get("organizationId");
 
-    const { searchParams } =
-      new URL(
-        request.url
-      );
-
-    const tenantId =
-      searchParams.get(
-        "tenantId"
-      );
-
-    if (!tenantId) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "tenantId required",
-        },
-        {
-          status: 400,
-        }
-      );
-
-    }
-
-    const profile =
-      await getOrCreateBusinessProfile({
-
-        tenantId,
-
-      });
-
-    return NextResponse.json({
-
-      success: true,
-
-      profile,
-
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredAnyPermission: [
+        "creative.*",
+        "creative.asset.read",
+        "marketing.*",
+      ],
     });
 
-  } catch (err) {
+    if (!access.success) {
+      return NextResponse.json(access, { status: access.status });
+    }
 
-    console.error(
-      "BUSINESS PROFILE ERROR",
-      err
-    );
+    const profile = await getOrCreateBusinessProfile({
+      organizationId: access.organizationId,
+    });
 
+    return NextResponse.json({
+      success: true,
+      organization_id: access.organizationId,
+      profile,
+    });
+  } catch (error) {
+    console.error("BUSINESS PROFILE ERROR", error);
     return NextResponse.json(
       {
         success: false,
-        error:
-          err.message,
+        error: error?.message || String(error),
       },
-      {
-        status: 500,
-      }
+      { status: 500 },
     );
-
   }
-
 }

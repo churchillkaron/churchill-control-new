@@ -10,6 +10,7 @@ const FILES = Object.freeze({
   serverApi: "lib/operations/api/createServerOperationsApi.js",
   requestContext: "lib/operations/api/resolveOperationsRequestContext.js",
   repositories: "lib/operations/repositories/OperationsRepositoryRegistry.js",
+  formSchemas: "lib/operations/forms/OperationsFormSchemaRegistry.js",
   workspaceRegistry: "lib/operations/registry/OperationsWorkspaceRegistry.js",
   workspaceResolver: "lib/operations/registry/OperationsWorkspaceResolver.js",
   workspaceHub: "components/workspace/operations/OperationsWorkspaceHub.jsx",
@@ -85,6 +86,9 @@ requireIncludes(source.atomicExecutor, [
   "execute_operations_command",
   "database.rpc",
   "idempotent_replay",
+  "attachActor",
+  "created_by",
+  "updated_by",
 ], "Atomic Operations executor");
 
 requireIncludes(source.serverApi, [
@@ -109,6 +113,26 @@ requireIncludes(source.repositories, [
   '.is("period_id", null)',
   "sanitizeWriteValues",
 ], "Operations repository isolation");
+
+requireIncludes(source.formSchemas, [
+  "BASE_FIELDS",
+  "LIFECYCLE_FIELDS",
+  "GROUP_FIELDS",
+  "getOperationsFormSchema",
+  "getOperationsInitialValues",
+  "buildOperationsFormPayload",
+  "validateOperationsForm",
+  'storage: "attribute"',
+  'storage: "column"',
+], "Operations dynamic form schemas");
+
+requireExcludes(source.formSchemas, [
+  "restaurant",
+  "hotel",
+  "kitchen",
+  "waiter",
+  "pest",
+], "Operations dynamic form schemas");
 
 requireIncludes(source.workspaceRegistry, [
   "OPERATIONS_CAPABILITY_CATALOG",
@@ -150,6 +174,10 @@ requireIncludes(source.runtimeWorkCenter, [
   "entity_id",
   "period_id",
   "Export",
+  "getOperationsFormSchema",
+  "buildOperationsFormPayload",
+  "validateOperationsForm",
+  "Operational details",
 ], "Operations runtime work centre");
 
 requireIncludes(source.operationsPage, [
@@ -179,6 +207,9 @@ requireIncludes(source.baseMigration, [
   "create table if not exists public.operations_command_ledger",
   "create table if not exists public.operations_event_outbox",
   "operations_command_ledger_key_uidx",
+  "created_by",
+  "updated_by",
+  "attributes jsonb",
 ], "Operations persistence migration");
 
 requireIncludes(source.atomicMigration, [
@@ -191,6 +222,8 @@ requireIncludes(source.atomicMigration, [
   "is not distinct from",
   "grant execute on function",
   "to service_role",
+  "created_by",
+  "updated_by",
 ], "Operations atomic command migration");
 
 for (const [label, contents] of Object.entries(source)) {
@@ -210,3 +243,5 @@ console.log("OPERATIONS_CONTEXT_SCOPE=organization_id,entity_id,period_id,capabi
 console.log("OPERATIONS_COMMAND_EXECUTION=ATOMIC_RPC");
 console.log("OPERATIONS_EVENT_DELIVERY=TRANSACTIONAL_OUTBOX");
 console.log("OPERATIONS_UI=CANONICAL_NEUTRAL_WORKSPACES");
+console.log("OPERATIONS_FORMS=DYNAMIC_LIFECYCLE_AND_GROUP_SCHEMAS");
+console.log("OPERATIONS_AUDIT_ACTOR=AUTHENTICATED_USER");

@@ -3,6 +3,10 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { listFinanceCostCenters } from "@/lib/finance/cost-centers/CostCenterPolicy";
+import {
+  buildCostCenterFormSchema,
+  resolveCostCenterConfiguration,
+} from "@/lib/finance/cost-centers/CostCenterConfiguration";
 
 async function respond(request, body = {}) {
   try {
@@ -34,11 +38,16 @@ async function respond(request, body = {}) {
       url.searchParams.get("includeInactive") === "true" ||
       url.searchParams.get("include_inactive") === "true";
 
-    const rows = await listFinanceCostCenters({
-      organizationId: access.organizationId,
-      entityId,
-      includeInactive,
-    });
+    const [rows, configuration] = await Promise.all([
+      listFinanceCostCenters({
+        organizationId: access.organizationId,
+        entityId,
+        includeInactive,
+      }),
+      resolveCostCenterConfiguration({
+        organizationId: access.organizationId,
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
@@ -46,6 +55,8 @@ async function respond(request, body = {}) {
       rows,
       active: rows.filter(row => row.is_active !== false).length,
       inactive: rows.filter(row => row.is_active === false).length,
+      configuration,
+      formSchema: buildCostCenterFormSchema(configuration),
     });
   } catch (error) {
     const message = error?.message || "Cost Centres could not be loaded";

@@ -13,6 +13,7 @@ const FILES = Object.freeze({
   accessPage: "app/(system)/workspace/[organizationId]/operations/access-control/page.jsx",
   workspaceHub: "components/workspace/operations/OperationsWorkspaceHub.jsx",
   migration: "supabase/migrations/20260728230000_operations_role_permissions.sql",
+  ownerBackfillMigration: "supabase/migrations/20260728233000_operations_owner_admin_backfill.sql",
 });
 
 function read(relativePath) {
@@ -54,6 +55,17 @@ requireIncludes(source.migration, [
   "service_role",
 ], "Operations role migration");
 
+requireIncludes(source.ownerBackfillMigration, [
+  "privileged_memberships",
+  "OPERATIONS_ADMIN",
+  "operations.*",
+  "organization_users",
+  "staff_accounts",
+  "auth_user_id",
+  "on conflict (organization_id, user_id, role_id)",
+  "revoked_at = null",
+], "Operations owner administrator backfill");
+
 requireIncludes(source.repository, [
   "CANONICAL_OPERATIONS_ROLES",
   "OPERATIONS_ADMIN",
@@ -75,14 +87,22 @@ requireIncludes(source.policy, [
   "OPERATIONS_ACTIONS.ADMINISTER",
   "OPERATIONS_ACTIONS.EVENTS_MANAGE",
   "managementOverride",
-], "Operations authorization separation");
+  "OPERATIONS_BOOTSTRAP_ADMIN_ROLES",
+  "isOperationsBootstrapAdminRole",
+  "bootstrapOperationsPermissions",
+], "Operations authorization separation and owner bootstrap");
 
 requireIncludes(source.requestContext, [
   "resolveUserOperationsPermissions",
   "assignedPermissions",
   "assigned_operations_permissions",
-  "permissions = unique",
-], "Operations assigned permission context");
+  "bootstrapOperationsPermissions",
+  "isOperationsBootstrapAdminRole",
+  "assignOperationsRole",
+  'roleCode: "OPERATIONS_ADMIN"',
+  "operations_bootstrap_assignment_ensured",
+  "operations_security_schema_ready",
+], "Operations assigned permission context and self-healing owner assignment");
 
 requireIncludes(source.accessRoute, [
   "resolveOperationsRequestContext",
@@ -138,7 +158,13 @@ requireIncludes(source.workspaceHub, [
   "access.can?.administer",
   "/operations/access-control",
   "Access Control",
-], "Operations authorised workspace hub");
+  "Resolving Operations access",
+  "Operations access failed to load",
+  "Retry Access Check",
+  "No Operations role is assigned",
+  "queryHasNoMatches",
+  "genuinelyHasNoAccess",
+], "Operations authorised workspace hub and recovery states");
 
 for (const [label, contents] of Object.entries(source)) {
   requireExcludes(contents, ["tenant_id", "tenantId"], `Operations role ${label}`);
@@ -151,4 +177,6 @@ console.log("OPERATIONS_ROLE_TARGET=ORGANIZATION_MEMBERSHIP_REQUIRED");
 console.log("OPERATIONS_ROLE_UI=MEMBERS_ASSIGNMENTS_AND_CANONICAL_ROLES");
 console.log("OPERATIONS_LAST_ADMIN=REVOCATION_PROTECTED");
 console.log("OPERATIONS_CLIENT_ACCESS=SERVER_MERGED_PERMISSION_PROJECTION");
+console.log("OPERATIONS_OWNER_ACCESS=BOOTSTRAP_BACKFILL_AND_RUNTIME_SELF_HEALING");
+console.log("OPERATIONS_EMPTY_STATE=LOADING_ERROR_NO_ROLE_AND_SEARCH_SEPARATED");
 console.log("OPERATIONS_SECURITY_ADMINISTRATION=SEPARATED_FROM_MANAGEMENT");

@@ -18,6 +18,7 @@ const FILES = Object.freeze({
   eventMigration: "supabase/migrations/20260728210000_operations_event_delivery.sql",
   healthMigration: "supabase/migrations/20260728213000_operations_event_health.sql",
   auditProjectionMigration: "supabase/migrations/20260728220000_operations_command_audit_projection.sql",
+  actorProjectionRepairMigration: "supabase/migrations/20260729004500_operations_event_actor_projection_repair.sql",
 });
 
 function read(relativePath) {
@@ -76,9 +77,15 @@ requireIncludes(source.auditProjectionMigration, [
   "operations_command_ledger_actor_idx",
   "project_operations_command_audit_fields",
   "operations_command_ledger_audit_projection",
+], "Operations command audit projection migration");
+
+requireIncludes(source.actorProjectionRepairMigration, [
   "disable trigger operations_events_immutable_guard",
   "enable trigger operations_events_immutable_guard",
-], "Operations command audit projection migration");
+  "update public.operations_events",
+  "where actor_id is null",
+  "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+], "Operations immutable event actor projection repair migration");
 
 requireIncludes(source.deliveryRuntime, [
   "publishPending",
@@ -178,9 +185,10 @@ for (const [label, contents] of Object.entries(source)) {
 if (!(
   FILES.eventMigration < FILES.healthMigration
   && FILES.healthMigration < FILES.auditProjectionMigration
+  && FILES.auditProjectionMigration < FILES.actorProjectionRepairMigration
 )) {
   throw new Error(
-    "Operations event migrations must sort as delivery, health, command audit projection.",
+    "Operations event migrations must sort as delivery, health, command audit projection, actor projection repair.",
   );
 }
 

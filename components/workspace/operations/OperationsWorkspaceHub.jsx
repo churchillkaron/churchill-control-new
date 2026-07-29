@@ -3,7 +3,15 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowRight, Search, ShieldCheck, Wrench } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  LoaderCircle,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Wrench,
+} from "lucide-react";
 
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
@@ -17,7 +25,6 @@ import useOperationsAccess from "@/lib/operations/security/useOperationsAccess";
 
 function matchesQuery(group, item, query) {
   if (!query) return true;
-
   return [
     group.name,
     group.description,
@@ -44,28 +51,43 @@ export default function OperationsWorkspaceHub() {
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
 
-  const groups = useMemo(() => (
+  const authorisedGroups = useMemo(() => (
     getOperationsWorkspaceGroups()
       .map((group) => ({
         ...group,
-        items: group.items.filter((item) => (
-          hasOperationsPermission({
-            permissions: access.permissions,
-            capabilityId: item.capabilityId,
-            action: item.readOnly
-              ? OPERATIONS_ACTIONS.AUDIT
-              : OPERATIONS_ACTIONS.VIEW,
-          })
-          && matchesQuery(group, item, normalizedQuery)
-        )),
+        items: group.items.filter((item) => hasOperationsPermission({
+          permissions: access.permissions,
+          capabilityId: item.capabilityId,
+          action: item.readOnly
+            ? OPERATIONS_ACTIONS.AUDIT
+            : OPERATIONS_ACTIONS.VIEW,
+        })),
       }))
       .filter((group) => group.items.length > 0)
-  ), [normalizedQuery, access.permissions]);
+  ), [access.permissions]);
 
-  const totalCapabilities = groups.reduce(
+  const groups = useMemo(() => authorisedGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => matchesQuery(group, item, normalizedQuery)),
+    }))
+    .filter((group) => group.items.length > 0), [authorisedGroups, normalizedQuery]);
+
+  const totalAuthorisedCapabilities = authorisedGroups.reduce(
     (sum, group) => sum + group.items.length,
     0,
   );
+  const visibleCapabilities = groups.reduce(
+    (sum, group) => sum + group.items.length,
+    0,
+  );
+  const queryHasNoMatches = !access.loading
+    && !access.error
+    && totalAuthorisedCapabilities > 0
+    && visibleCapabilities === 0;
+  const genuinelyHasNoAccess = !access.loading
+    && !access.error
+    && totalAuthorisedCapabilities === 0;
 
   return (
     <main className="min-h-screen px-6 py-7 text-white">
@@ -84,12 +106,6 @@ export default function OperationsWorkspaceHub() {
           ) : null}
         />
 
-        {access.error ? (
-          <div className="mb-5 rounded-2xl border border-red-400/25 bg-red-500/10 p-4 text-sm text-red-200">
-            {access.error}
-          </div>
-        ) : null}
-
         <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
           <div>
             <div className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">
@@ -97,8 +113,10 @@ export default function OperationsWorkspaceHub() {
             </div>
             <div className="mt-2 text-sm text-white/45">
               {access.loading
-                ? "Resolving authorised capabilities…"
-                : `${totalCapabilities} authorised capabilities across ${groups.length} operational groups`}
+                ? "Resolving Operations access…"
+                : access.error
+                  ? "Operations access could not be resolved"
+                  : `${totalAuthorisedCapabilities} authorised capabilities across ${authorisedGroups.length} operational groups`}
             </div>
           </div>
 
@@ -107,15 +125,50 @@ export default function OperationsWorkspaceHub() {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
+              disabled={access.loading || Boolean(access.error)}
               placeholder="Search Operations capabilities…"
-              className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+              className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30 disabled:opacity-45"
             />
           </div>
         </section>
 
-        {!access.loading && groups.length === 0 ? (
+        {access.loading ? (
+          <div className="flex min-h-[240px] items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.035] p-8 text-sm text-white/45">
+            <LoaderCircle className="mr-3 animate-spin text-[#D6A66A]" size={20} />
+            Resolving your Operations capabilities…
+          </div>
+        ) : access.error ? (
+          <div className="rounded-[28px] border border-red-400/25 bg-red-500/10 p-8">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="mt-0.5 text-red-300" size={22} />
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-red-100">Operations access failed to load</div>
+                <div className="mt-2 text-sm leading-6 text-red-100/65">{access.error}</div>
+                <button
+                  type="button"
+                  onClick={access.refresh}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl border border-red-300/25 bg-black/20 px-4 py-2 text-sm text-red-100"
+                >
+                  <RefreshCw size={15} /> Retry Access Check
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : genuinelyHasNoAccess ? (
+          <div className="rounded-[28px] border border-amber-300/20 bg-amber-300/[0.06] p-8">
+            <div className="flex items-start gap-4">
+              <ShieldCheck className="mt-0.5 text-[#D6A66A]" size={22} />
+              <div>
+                <div className="font-semibold text-white">No Operations role is assigned</div>
+                <div className="mt-2 text-sm leading-6 text-white/45">
+                  Your organisation membership is active, but it does not currently grant an Operations role. Ask an Operations administrator to assign the appropriate access bundle.
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : queryHasNoMatches ? (
           <div className="rounded-[28px] border border-white/10 bg-white/[0.035] p-8 text-sm text-white/45">
-            No authorised Operations capabilities match this search.
+            No authorised Operations capabilities match “{query}”.
           </div>
         ) : (
           <div className="space-y-6">

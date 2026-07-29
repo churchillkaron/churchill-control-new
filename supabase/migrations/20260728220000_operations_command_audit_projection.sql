@@ -93,35 +93,29 @@ on public.operations_command_ledger
 for each row
 execute function public.project_operations_command_audit_fields();
 
-create or replace function public.prevent_operations_event_mutation()
-returns trigger
-language plpgsql
-set search_path = public
-as $$
-begin
-  raise exception 'operations_events is immutable';
-end;
-$$;
+create or replace view public.operations_event_audit_projection as
+select
+  event_record.*,
+  coalesce(
+    event_record.actor_id,
+    case
+      when nullif(coalesce(
+        event_record.payload #>> '{record,updated_by}',
+        event_record.payload #>> '{record,created_by}',
+        event_record.payload ->> 'actor_id'
+      ), '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then nullif(coalesce(
+        event_record.payload #>> '{record,updated_by}',
+        event_record.payload #>> '{record,created_by}',
+        event_record.payload ->> 'actor_id'
+      ), '')::uuid
+      else null
+    end
+  ) as effective_actor_id
+from public.operations_events event_record;
 
-drop trigger if exists operations_events_immutable_guard on public.operations_events;
-
-update public.operations_events
-   set actor_id = nullif(coalesce(
-         payload #>> '{record,updated_by}',
-         payload #>> '{record,created_by}',
-         payload ->> 'actor_id'
-       ), '')::uuid
- where actor_id is null
-   and nullif(coalesce(
-         payload #>> '{record,updated_by}',
-         payload #>> '{record,created_by}',
-         payload ->> 'actor_id'
-       ), '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
-
-create trigger operations_events_immutable_guard
-before update or delete on public.operations_events
-for each row
-execute function public.prevent_operations_event_mutation();
+revoke all on table public.operations_event_audit_projection from anon, authenticated;
+grant select on table public.operations_event_audit_projection to service_role;
 
 comment on column public.operations_command_ledger.record_id is
   'Indexed Operations record reference derived from the immutable command payload or result when the value is a valid UUID.';
@@ -131,3 +125,6 @@ comment on column public.operations_command_ledger.actor_id is
 
 comment on function public.project_operations_command_audit_fields() is
   'Projects valid UUID record and actor identifiers from Operations command JSON into indexed audit columns without rejecting non-UUID source identifiers.';
+
+comment on view public.operations_event_audit_projection is
+  'Read-only audit projection for immutable Operations events. It derives effective_actor_id from UUID-safe payload evidence without updating the event stream or altering its immutability trigger.';

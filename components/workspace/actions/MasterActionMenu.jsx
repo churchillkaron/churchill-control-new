@@ -1,5 +1,6 @@
 "use client";
 
+// Posted General Ledger records remain immutable; corrections use reversal or adjustment workflows.
 import { useRouter } from "next/navigation";
 
 function titleFromAction(action) {

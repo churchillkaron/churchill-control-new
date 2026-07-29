@@ -25,8 +25,61 @@ function resolveKind(action) {
   return "";
 }
 
+function financeAttachmentHref(context) {
+  const normalizedModule = String(context?.moduleKey || "")
+    .trim()
+    .toLowerCase();
+
+  if (
+    ![
+      "journals",
+      "journal_entries",
+      "journal_entry",
+      "general_ledger",
+    ].includes(normalizedModule)
+  ) {
+    return null;
+  }
+
+  const row = context?.row || {};
+  const isJournal = ["journals", "journal_entries", "journal_entry"].includes(
+    normalizedModule
+  );
+  const recordType = isJournal ? "journal_entry" : "general_ledger";
+  const recordId = isJournal
+    ? row.journal_id || row.id
+    : row.id;
+
+  if (!context?.organizationId || !recordId) return null;
+
+  const params = new URLSearchParams({
+    organizationId: String(context.organizationId),
+    recordType,
+    recordId: String(recordId),
+    reference: String(
+      row.journal_number ||
+      row.entry_number ||
+      row.reference ||
+      row.code ||
+      "Finance record"
+    ),
+  });
+
+  const entityId = row.entity_id || context.entityId || null;
+  if (entityId) params.set("entityId", String(entityId));
+
+  return `/finance/attachments?${params.toString()}`;
+}
+
 function resolveHref(action, context) {
   if (!action) return null;
+
+  const kind = resolveKind(action);
+  if (kind === "attachments") {
+    const attachmentHref = financeAttachmentHref(context);
+    if (attachmentHref) return attachmentHref;
+  }
+
   if (typeof action.href === "function") return action.href(context);
   return action.href || null;
 }

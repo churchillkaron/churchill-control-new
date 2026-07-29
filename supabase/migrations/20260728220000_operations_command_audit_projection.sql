@@ -84,24 +84,66 @@ on public.operations_command_ledger
 for each row
 execute function public.project_operations_command_audit_fields();
 
-alter table public.operations_events
-  disable trigger operations_events_immutable_guard;
+create or replace function public.prevent_operations_event_mutation()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  raise exception 'operations_events is immutable';
+end;
+$$;
 
-update public.operations_events
-   set actor_id = nullif(coalesce(
-         payload #>> '{record,updated_by}',
-         payload #>> '{record,created_by}',
-         payload ->> 'actor_id'
-       ), '')::uuid
- where actor_id is null
-   and nullif(coalesce(
-         payload #>> '{record,updated_by}',
-         payload #>> '{record,created_by}',
-         payload ->> 'actor_id'
-       ), '') is not null;
+do $$
+declare
+  v_guard_exists boolean := false;
+begin
+  select exists (
+    select 1
+      from pg_trigger trigger_record
+     where trigger_record.tgrelid = 'public.operations_events'::regclass
+       and trigger_record.tgname = 'operations_events_immutable_guard'
+       and not trigger_record.tgisinternal
+  )
+    into v_guard_exists;
 
-alter table public.operations_events
-  enable trigger operations_events_immutable_guard;
+  if v_guard_exists then
+    execute 'alter table public.operations_events disable trigger operations_events_immutable_guard';
+  end if;
+
+  begin
+    update public.operations_events
+       set actor_id = nullif(coalesce(
+             payload #>> '{record,updated_by}',
+             payload #>> '{record,created_by}',
+             payload ->> 'actor_id'
+           ), '')::uuid
+     where actor_id is null
+       and nullif(coalesce(
+             payload #>> '{record,updated_by}',
+             payload #>> '{record,created_by}',
+             payload ->> 'actor_id'
+           ), '') is not null;
+  exception
+    when others then
+      if v_guard_exists then
+        execute 'alter table public.operations_events enable trigger operations_events_immutable_guard';
+      end if;
+      raise;
+  end;
+
+  if v_guard_exists then
+    execute 'alter table public.operations_events enable trigger operations_events_immutable_guard';
+  else
+    execute $trigger$
+      create trigger operations_events_immutable_guard
+      before update or delete on public.operations_events
+      for each row
+      execute function public.prevent_operations_event_mutation()
+    $trigger$;
+  end if;
+end;
+$$;
 
 comment on column public.operations_command_ledger.record_id is
   'Indexed Operations record reference derived from the immutable command payload or result.';

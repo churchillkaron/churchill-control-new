@@ -9,6 +9,27 @@ function money(value) {
   }).format(Number(value || 0));
 }
 
+function accountDetails(line = {}) {
+  const account =
+    line.account ||
+    line.chart_of_accounts ||
+    line.chartOfAccounts ||
+    null;
+
+  return {
+    code:
+      account?.account_code ||
+      account?.code ||
+      line.account_code ||
+      null,
+    name:
+      account?.account_name ||
+      account?.name ||
+      line.account_name ||
+      null,
+  };
+}
+
 export default function FinanceJournalDetailEngine({
   row,
   organizationId,
@@ -115,19 +136,22 @@ export default function FinanceJournalDetailEngine({
                 <div className="text-right">Debit</div>
                 <div className="text-right">Credit</div>
               </div>
-              {lines.length ? lines.map((line, index) => (
-                <div key={line.id || index} className="grid grid-cols-[1fr_180px_180px] border-b border-white/[0.06] px-5 py-4 text-[13px] last:border-b-0">
-                  <div>
-                    <div className="text-white/80">
-                      {line.account?.code || line.account_code || line.account_id || "-"}
-                      {line.account?.name ? ` · ${line.account.name}` : ""}
+              {lines.length ? lines.map((line, index) => {
+                const account = accountDetails(line);
+                return (
+                  <div key={line.id || index} className="grid grid-cols-[1fr_180px_180px] border-b border-white/[0.06] px-5 py-4 text-[13px] last:border-b-0">
+                    <div>
+                      <div className="text-white/80">
+                        {account.code || "Account"}
+                        {account.name ? ` · ${account.name}` : ""}
+                      </div>
+                      {line.description ? <div className="mt-1 text-[12px] text-white/35">{line.description}</div> : null}
                     </div>
-                    {line.description ? <div className="mt-1 text-[12px] text-white/35">{line.description}</div> : null}
+                    <div className="text-right text-white/70">{money(line.debit)}</div>
+                    <div className="text-right text-white/70">{money(line.credit)}</div>
                   </div>
-                  <div className="text-right text-white/70">{money(line.debit)}</div>
-                  <div className="text-right text-white/70">{money(line.credit)}</div>
-                </div>
-              )) : (
+                );
+              }) : (
                 <div className="p-6 text-[13px] text-white/40">No journal lines found.</div>
               )}
               <div className="grid grid-cols-[1fr_180px_180px] border-t border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-5 py-4 text-[13px] font-medium">

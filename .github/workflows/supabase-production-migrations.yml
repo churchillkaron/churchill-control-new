@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "supabase/migrations/**"
+      - "lib/operations/deployment/**"
+      - "scripts/operations-*-audit.mjs"
       - ".github/workflows/supabase-production-migrations.yml"
   workflow_dispatch:
 
@@ -60,7 +62,13 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Validate Operations release contracts
-        run: node scripts/operations-release-audit.mjs
+        run: |
+          npm run audit:operations
+          npm run audit:operations-events
+          npm run audit:operations-authorization
+          npm run audit:operations-roles
+          npm run audit:operations-readiness
+          npm run audit:operations-migrations
 
       - name: Link production project
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
@@ -74,5 +82,10 @@ jobs:
       - name: Apply pending migrations
         run: supabase db push --linked
 
-      - name: Verify migration history after deployment
-        run: supabase migration list --linked
+      - name: Capture migration history after deployment
+        run: supabase migration list --linked | tee operations-remote-migration-history.txt
+
+      - name: Verify Operations migration history after deployment
+        env:
+          SUPABASE_MIGRATION_LIST_FILE: operations-remote-migration-history.txt
+        run: npm run audit:operations-migrations

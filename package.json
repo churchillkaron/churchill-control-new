@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "npm run audit:operations && npm run audit:operations-events && npm run audit:operations-authorization && npm run audit:operations-roles && npm run audit:operations-readiness",
+    "prebuild": "npm run audit:operations && npm run audit:operations-events && npm run audit:operations-authorization && npm run audit:operations-roles && npm run audit:operations-readiness && npm run audit:operations-migrations",
     "build": "next build",
     "start": "next start",
     "audit:operations": "node scripts/operations-release-audit.mjs",
@@ -12,6 +12,7 @@
     "audit:operations-authorization": "node scripts/operations-authorization-release-audit.mjs",
     "audit:operations-roles": "node scripts/operations-role-release-audit.mjs",
     "audit:operations-readiness": "node scripts/operations-readiness-release-audit.mjs",
+    "audit:operations-migrations": "node scripts/operations-migration-release-audit.mjs",
     "audit:finance": "node scripts/finance-normal-audit.mjs",
     "audit:finance-capabilities": "node scripts/finance-capability-reality-audit.mjs",
     "audit:finance-live": "node scripts/finance-live-capability-matrix.mjs",

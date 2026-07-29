@@ -2,14 +2,20 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { settleIntercompanyTransactionCommand } from "@/lib/finance/intercompany/runtime/IntercompanyApplicationService";
+import { settleIntercompanyTransactionAtomic } from "@/lib/finance/intercompany/IntercompanyPolicy";
 
-export async function POST(req) {
+function failure(error) {
+  const message = error?.message || "Intercompany settlement failed";
+  const status = /required|not found|must|cannot|exceeds|reconciled|already|account|rate|date|idempotency/i.test(message) ? 400 : 500;
+  return NextResponse.json({ success: false, error: message }, { status });
+}
+
+export async function POST(request) {
   try {
-    const body = await req.json();
-
+    const body = await request.json();
     const access = await requireOrganizationAccess({
-      organizationId: body.organizationId,
+      organizationId: body.organizationId || body.organization_id,
+      request,
     });
 
     if (!access.success) {
@@ -19,17 +25,14 @@ export async function POST(req) {
       );
     }
 
-    const result = await settleIntercompanyTransactionCommand({
-      organization_id: access.organizationId,
-      transaction_id: body.transaction_id,
-      settled_by: body.userId || "system",
+    const result = await settleIntercompanyTransactionAtomic({
+      organizationId: access.organizationId,
+      payload: body,
+      actorId: access.user?.id || access.userId,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return failure(error);
   }
 }

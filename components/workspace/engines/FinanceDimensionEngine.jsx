@@ -27,7 +27,6 @@ export default function FinanceDimensionEngine(props) {
     if (!values.value_type) onChange("value_type", "LIST");
     if (!values.effective_from) onChange("effective_from", localDate());
 
-    // A new dimension is open-ended unless the user explicitly ends it.
     if (values.effective_to) onChange("effective_to", "");
     if (values.required_on_posting === undefined) {
       onChange("required_on_posting", false);
@@ -68,26 +67,26 @@ export default function FinanceDimensionEngine(props) {
     const result = [
       {
         name: "code",
-        label: "Dimension Code",
+        label: "Internal Code",
         type: "text",
         required: true,
-        placeholder: "Example: CHANNEL",
+        placeholder: "Example: SALES_CHANNEL",
       },
       {
         name: "name",
-        label: "Dimension Name",
+        label: "Display Name",
         type: "text",
         required: true,
         placeholder: "Example: Sales Channel",
       },
       {
         name: "scope",
-        label: "Scope",
+        label: "Applies To",
         type: "select",
         required: true,
         options: [
-          { value: "ENTITY", label: "Legal Entity" },
-          { value: "ORGANISATION", label: "Organisation" },
+          { value: "ENTITY", label: "One Legal Entity" },
+          { value: "ORGANISATION", label: "Entire Organisation" },
         ],
       },
     ];
@@ -104,11 +103,11 @@ export default function FinanceDimensionEngine(props) {
 
     result.push({
       name: "value_type",
-      label: "Value Type",
+      label: "How Values Are Entered",
       type: "select",
       required: true,
       options: [
-        { value: "LIST", label: "Controlled List" },
+        { value: "LIST", label: "Select from Approved Values" },
         { value: "TEXT", label: "Free Text" },
         { value: "NUMBER", label: "Number" },
         { value: "DATE", label: "Date" },
@@ -128,19 +127,19 @@ export default function FinanceDimensionEngine(props) {
     result.push(
       {
         name: "required_on_posting",
-        label: "Required on Posting",
+        label: "Required on Accounting Entries",
         type: "boolean",
         defaultValue: false,
       },
       {
         name: "effective_from",
-        label: "Effective From",
+        label: "Available From",
         type: "date",
         required: true,
       },
       {
         name: "effective_to",
-        label: "Effective To (Optional)",
+        label: "Available Until (Optional)",
         type: "date",
       },
       {
@@ -149,7 +148,7 @@ export default function FinanceDimensionEngine(props) {
         type: "textarea",
         rows: 2,
         width: "full",
-        placeholder: "Explain the reporting purpose only when the name is not self-explanatory.",
+        placeholder: "Explain the reporting purpose only when the display name is not clear.",
       }
     );
 
@@ -161,7 +160,7 @@ export default function FinanceDimensionEngine(props) {
     form: "finance-dimension",
     api: "/api/finance/dimensions/upsert",
     endpoint: "/api/finance/dimensions/upsert",
-    submitLabel: "Create Dimension",
+    submitLabel: "Create Custom Dimension",
   };
 
   return (
@@ -169,7 +168,7 @@ export default function FinanceDimensionEngine(props) {
       {...props}
       action={action}
       schema={fields}
-      title="New Finance Dimension"
+      title="New Custom Dimension"
     />
   );
 }

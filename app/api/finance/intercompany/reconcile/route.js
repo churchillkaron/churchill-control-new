@@ -25,9 +25,22 @@ export async function POST(request) {
       );
     }
 
+    const transactionId = body.transaction_id || body.transactionId || body.id;
+    const reconciliationDate =
+      body.reconciliation_date || new Date().toISOString().slice(0, 10);
+    const payload = {
+      ...body,
+      transaction_id: transactionId,
+      reconciliation_date: reconciliationDate,
+      idempotency_key:
+        body.idempotency_key ||
+        body.idempotencyKey ||
+        `intercompany:reconcile:${transactionId}:${reconciliationDate}`,
+    };
+
     const result = await reconcileIntercompanyTransactionAtomic({
       organizationId: access.organizationId,
-      payload: body,
+      payload,
       actorId: access.user?.id || access.userId,
     });
 

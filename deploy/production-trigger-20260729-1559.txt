@@ -1,0 +1,3 @@
+Production deployment trigger
+Timestamp: 2026-07-29T15:59:00+07:00
+Includes Journal lifecycle row-menu fixes through commit 890f7c9b56c39b049cf9b29858f339000af0c0af.

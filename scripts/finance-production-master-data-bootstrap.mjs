@@ -1,11 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 
-const desiredUnits = Object.freeze([
+const DEPARTMENT = Object.freeze({
+  code: "FOOD_BEVERAGE",
+  name: "Food & Beverage",
+  description: "Food and beverage operations.",
+});
+
+const COST_CENTRES = Object.freeze([
   { code: "KITCHEN", name: "Kitchen", description: "Kitchen operations and production." },
   { code: "BAR", name: "Bar", description: "Bar operations and beverage service." },
-  { code: "RESTAURANT", name: "Restaurant", description: "Restaurant floor and dining service." },
+  { code: "RESTAURANT", name: "Restaurant Service", description: "Restaurant floor and dining service." },
   { code: "BREAKFAST", name: "Breakfast", description: "Breakfast operations and service." },
 ]);
+
+const DUPLICATE_DEPARTMENT_CODES = new Set(COST_CENTRES.map((row) => row.code));
 
 function text(value) {
   return String(value ?? "").trim();
@@ -17,14 +25,9 @@ function upper(value) {
 
 function active(row = {}) {
   if (row.active === false || row.is_active === false || row.enabled === false) return false;
-  return ![
-    "INACTIVE",
-    "DISABLED",
-    "ARCHIVED",
-    "SUSPENDED",
-    "TERMINATED",
-    "REVOKED",
-  ].includes(upper(row.status || "ACTIVE"));
+  return !["INACTIVE", "DISABLED", "ARCHIVED", "SUSPENDED", "TERMINATED"].includes(
+    upper(row.status || "ACTIVE"),
+  );
 }
 
 function searchable(row = {}) {
@@ -33,11 +36,6 @@ function searchable(row = {}) {
     .map(([, value]) => (typeof value === "string" ? value : ""))
     .join(" ")
     .toLowerCase();
-}
-
-function isChurchill(row = {}) {
-  const value = searchable(row);
-  return value.includes("churchill") || value.includes("karon");
 }
 
 async function selectAll(supabase, table) {
@@ -51,9 +49,8 @@ async function optionalSelectAll(supabase, table) {
   return error ? [] : data || [];
 }
 
-async function tableColumns({ url, serviceRoleKey, table, rows }) {
+async function discoverColumns({ url, serviceRoleKey, table, rows }) {
   const columns = new Set(Object.keys(rows?.[0] || {}));
-
   try {
     const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/`, {
       headers: {
@@ -62,51 +59,45 @@ async function tableColumns({ url, serviceRoleKey, table, rows }) {
         Accept: "application/openapi+json",
       },
     });
-
     if (response.ok) {
       const specification = await response.json();
       const schema =
         specification?.definitions?.[table] ||
         specification?.components?.schemas?.[table] ||
         null;
-
       for (const column of Object.keys(schema?.properties || {})) columns.add(column);
     }
   } catch {
-    // Existing live rows remain a safe schema source if OpenAPI discovery is unavailable.
+    // Existing rows remain the fallback schema source.
   }
-
-  if (!columns.size) throw new Error(`Could not discover the live ${table} schema.`);
+  if (!columns.size) throw new Error(`Could not discover live ${table} schema.`);
   return columns;
 }
 
-function projectPayload(payload, columns, requiredColumns = []) {
-  for (const column of requiredColumns) {
-    if (!columns.has(column)) {
-      throw new Error(`Live schema is missing required column ${column}.`);
-    }
+function payloadFor(columns, values, required = []) {
+  for (const column of required) {
+    if (!columns.has(column)) throw new Error(`Live schema is missing required column ${column}.`);
   }
-
   return Object.fromEntries(
-    Object.entries(payload).filter(([column, value]) => columns.has(column) && value !== undefined),
+    Object.entries(values).filter(([column, value]) => columns.has(column) && value !== undefined),
   );
 }
 
-function uniquePairs(rows) {
-  const pairs = new Map();
+function uniqueTargets(rows) {
+  const targets = new Map();
   for (const row of rows) {
     const organizationId = text(row.organization_id);
     const entityId = text(row.entity_id);
     if (!organizationId || !entityId) continue;
-    pairs.set(`${organizationId}:${entityId}`, {
+    targets.set(`${organizationId}:${entityId}`, {
       organization_id: organizationId,
       entity_id: entityId,
     });
   }
-  return [...pairs.values()];
+  return [...targets.values()];
 }
 
-async function resolveTargetPairs(supabase, departments) {
+async function resolveTargets(supabase, departments, costCentres) {
   const [organizations, legalEntities, profiles] = await Promise.all([
     optionalSelectAll(supabase, "organizations"),
     optionalSelectAll(supabase, "legal_entities"),
@@ -115,121 +106,104 @@ async function resolveTargetPairs(supabase, departments) {
 
   const churchillOrganizationIds = new Set(
     [...organizations, ...legalEntities, ...profiles]
-      .filter(isChurchill)
+      .filter((row) => {
+        const value = searchable(row);
+        return value.includes("churchill") || value.includes("karon");
+      })
       .map((row) => text(row.organization_id || row.id))
       .filter(Boolean),
   );
 
-  const generalDepartments = departments.filter(
-    (row) => active(row) && upper(row.name) === "GENERAL DEPARTMENT",
+  const candidates = [...departments, ...costCentres].filter(
+    (row) => churchillOrganizationIds.has(text(row.organization_id)),
   );
-
-  let targets = uniquePairs(
-    generalDepartments.filter((row) => churchillOrganizationIds.has(text(row.organization_id))),
-  );
+  let targets = uniqueTargets(candidates);
 
   if (!targets.length) {
-    const allGeneralTargets = uniquePairs(generalDepartments);
-    if (allGeneralTargets.length === 1) targets = allGeneralTargets;
-  }
-
-  if (!targets.length) {
-    throw new Error(
-      "Could not safely resolve the Churchill organisation and legal entity from General Department.",
+    const generalDepartments = departments.filter(
+      (row) => active(row) && upper(row.name) === "GENERAL DEPARTMENT",
     );
+    targets = uniqueTargets(generalDepartments);
   }
 
+  if (targets.length !== 1) {
+    throw new Error(`Expected one Churchill organisation/entity target, found ${targets.length}.`);
+  }
   return targets;
 }
 
 async function resolveResponsibleOwner(supabase, organizationId) {
   const staff = await optionalSelectAll(supabase, "staff_accounts");
-  let candidates = staff.filter(
-    (row) => active(row) && text(row.active_organization_id) === text(organizationId),
+  const memberships = await optionalSelectAll(supabase, "organization_users");
+  const memberIds = new Set(
+    memberships
+      .filter((row) => active(row) && text(row.organization_id) === text(organizationId))
+      .map((row) => text(row.staff_account_id))
+      .filter(Boolean),
   );
 
-  if (!candidates.length) {
-    const memberships = (await optionalSelectAll(supabase, "organization_users")).filter(
+  const candidates = staff
+    .filter(
       (row) =>
         active(row) &&
-        text(row.organization_id) === text(organizationId) &&
-        text(row.staff_account_id),
-    );
-    const memberIds = new Set(memberships.map((row) => text(row.staff_account_id)));
-    candidates = staff.filter((row) => active(row) && memberIds.has(text(row.id)));
-  }
+        (text(row.active_organization_id || row.organization_id) === text(organizationId) ||
+          memberIds.has(text(row.id))),
+    )
+    .sort((left, right) => {
+      const rank = (row) => {
+        const value = searchable(row);
+        if (value.includes("patric")) return 0;
+        if (value.includes("owner") || value.includes("admin")) return 1;
+        return 2;
+      };
+      return rank(left) - rank(right);
+    });
 
-  candidates.sort((left, right) => {
-    const priority = (row) => {
-      const value = searchable(row);
-      if (value.includes("patric")) return 0;
-      if (value.includes("owner") || value.includes("admin")) return 1;
-      return 2;
-    };
-    return priority(left) - priority(right);
-  });
-
-  return candidates[0]?.id || null;
+  return candidates[0] || null;
 }
 
-function matchesUnit(row, desired) {
-  return upper(row.code) === desired.code || upper(row.name) === desired.code;
-}
-
-async function ensureDepartment({
-  supabase,
-  target,
-  desired,
-  departments,
-  departmentColumns,
-}) {
-  const existing = departments.find(
+async function ensureDepartment({ supabase, target, rows, columns }) {
+  const existing = rows.find(
     (row) =>
       text(row.organization_id) === target.organization_id &&
       text(row.entity_id) === target.entity_id &&
-      matchesUnit(row, desired),
+      (upper(row.code) === DEPARTMENT.code || upper(row.name) === upper(DEPARTMENT.name)),
   );
-
   const now = new Date().toISOString();
-  const payload = projectPayload(
+  const values = payloadFor(
+    columns,
     {
       organization_id: target.organization_id,
       entity_id: target.entity_id,
-      code: desired.code,
-      name: desired.name,
-      description: text(existing?.description) || desired.description,
+      code: DEPARTMENT.code,
+      name: DEPARTMENT.name,
+      description: DEPARTMENT.description,
       status: "ACTIVE",
       is_active: true,
       active: true,
       updated_at: now,
     },
-    departmentColumns,
     ["organization_id", "entity_id", "name"],
   );
 
   if (existing) {
     const { data, error } = await supabase
       .from("departments")
-      .update(payload)
+      .update(values)
       .eq("id", existing.id)
       .select("*")
       .single();
-    if (error) throw new Error(`Department ${desired.name}: ${error.message}`);
+    if (error) throw new Error(`Food & Beverage Department: ${error.message}`);
     return data;
   }
 
-  const insertPayload = projectPayload(
-    { ...payload, created_at: now },
-    departmentColumns,
-    ["organization_id", "entity_id", "name"],
-  );
   const { data, error } = await supabase
     .from("departments")
-    .insert(insertPayload)
+    .insert(payloadFor(columns, { ...values, created_at: now }, ["organization_id", "entity_id", "name"]))
     .select("*")
     .single();
-  if (error) throw new Error(`Department ${desired.name}: ${error.message}`);
-  departments.push(data);
+  if (error) throw new Error(`Food & Beverage Department: ${error.message}`);
+  rows.push(data);
   return data;
 }
 
@@ -238,25 +212,19 @@ async function ensureCostCentre({
   target,
   desired,
   department,
-  responsibleOwnerId,
-  costCentres,
-  costCentreColumns,
+  owner,
+  rows,
+  columns,
 }) {
-  for (const required of ["organization_id", "entity_id", "code", "name", "department_id"] ) {
-    if (!costCentreColumns.has(required)) {
-      throw new Error(`Cost Centre live schema is missing required column ${required}.`);
-    }
-  }
-
-  const existing = costCentres.find(
+  const existing = rows.find(
     (row) =>
       text(row.organization_id) === target.organization_id &&
       text(row.entity_id) === target.entity_id &&
-      matchesUnit(row, desired),
+      upper(row.code) === desired.code,
   );
-
   const now = new Date().toISOString();
-  const payload = projectPayload(
+  const values = payloadFor(
+    columns,
     {
       organization_id: target.organization_id,
       entity_id: target.entity_id,
@@ -264,44 +232,76 @@ async function ensureCostCentre({
       name: desired.name,
       type: "OPERATIONAL",
       department_id: department.id,
-      manager_user_id: existing?.manager_user_id || responsibleOwnerId || null,
-      manager: existing?.manager || null,
-      description: text(existing?.description) || desired.description,
+      parent_cost_center_id: null,
+      manager_user_id: existing?.manager_user_id || owner?.id || null,
+      manager: existing?.manager || owner?.full_name || owner?.name || owner?.email || null,
+      description: desired.description,
       is_active: true,
       active: true,
       updated_at: now,
     },
-    costCentreColumns,
     ["organization_id", "entity_id", "code", "name", "department_id"],
   );
 
   if (existing) {
     const { data, error } = await supabase
       .from("cost_centers")
-      .update(payload)
+      .update(values)
       .eq("id", existing.id)
       .select("*")
       .single();
-    if (error) throw new Error(`Cost Centre ${desired.name}: ${error.message}`);
+    if (error) throw new Error(`${desired.name} Cost Centre: ${error.message}`);
     return data;
   }
 
-  const insertPayload = projectPayload(
-    { ...payload, created_at: now },
-    costCentreColumns,
-    ["organization_id", "entity_id", "code", "name", "department_id"],
-  );
   const { data, error } = await supabase
     .from("cost_centers")
-    .insert(insertPayload)
+    .insert(
+      payloadFor(
+        columns,
+        { ...values, created_at: now },
+        ["organization_id", "entity_id", "code", "name", "department_id"],
+      ),
+    )
     .select("*")
     .single();
-  if (error) throw new Error(`Cost Centre ${desired.name}: ${error.message}`);
-  costCentres.push(data);
+  if (error) throw new Error(`${desired.name} Cost Centre: ${error.message}`);
+  rows.push(data);
   return data;
 }
 
-async function verify(supabase, target) {
+async function removeDuplicateDepartments({ supabase, target, departments, columns, keepId }) {
+  const duplicates = departments.filter(
+    (row) =>
+      text(row.organization_id) === target.organization_id &&
+      text(row.entity_id) === target.entity_id &&
+      text(row.id) !== text(keepId) &&
+      (DUPLICATE_DEPARTMENT_CODES.has(upper(row.code)) ||
+        DUPLICATE_DEPARTMENT_CODES.has(upper(row.name)) ||
+        upper(row.name) === "RESTAURANT SERVICE"),
+  );
+
+  for (const row of duplicates) {
+    const { error: deleteError } = await supabase.from("departments").delete().eq("id", row.id);
+    if (!deleteError) continue;
+
+    const archive = payloadFor(columns, {
+      status: "ARCHIVED",
+      is_active: false,
+      active: false,
+      updated_at: new Date().toISOString(),
+    });
+    const { error: archiveError } = await supabase
+      .from("departments")
+      .update(archive)
+      .eq("id", row.id);
+    if (archiveError) {
+      throw new Error(`Could not remove duplicate Department ${row.name}: ${archiveError.message}`);
+    }
+  }
+}
+
+async function verify(supabase, target, departmentId) {
   const [{ data: departments, error: departmentError }, { data: costCentres, error: costError }] =
     await Promise.all([
       supabase
@@ -315,17 +315,39 @@ async function verify(supabase, target) {
         .eq("organization_id", target.organization_id)
         .eq("entity_id", target.entity_id),
     ]);
-
   if (departmentError) throw departmentError;
   if (costError) throw costError;
 
-  for (const desired of desiredUnits) {
-    const department = (departments || []).find((row) => active(row) && matchesUnit(row, desired));
-    const costCentre = (costCentres || []).find((row) => active(row) && matchesUnit(row, desired));
-    if (!department) throw new Error(`${desired.name} Department verification failed.`);
-    if (!costCentre) throw new Error(`${desired.name} Cost Centre verification failed.`);
-    if (text(costCentre.department_id) !== text(department.id)) {
-      throw new Error(`${desired.name} Cost Centre is not linked to its Department.`);
+  const foodAndBeverage = (departments || []).filter(
+    (row) => active(row) && text(row.id) === text(departmentId),
+  );
+  if (foodAndBeverage.length !== 1) throw new Error("Food & Beverage Department verification failed.");
+
+  const activeDuplicateDepartments = (departments || []).filter(
+    (row) =>
+      active(row) &&
+      text(row.id) !== text(departmentId) &&
+      (DUPLICATE_DEPARTMENT_CODES.has(upper(row.code)) ||
+        DUPLICATE_DEPARTMENT_CODES.has(upper(row.name)) ||
+        upper(row.name) === "RESTAURANT SERVICE"),
+  );
+  if (activeDuplicateDepartments.length) {
+    throw new Error("Duplicate Kitchen/Bar/Restaurant/Breakfast Departments remain active.");
+  }
+
+  for (const desired of COST_CENTRES) {
+    const row = (costCentres || []).find(
+      (costCentre) => active(costCentre) && upper(costCentre.code) === desired.code,
+    );
+    if (!row) throw new Error(`${desired.name} Cost Centre verification failed.`);
+    if (text(row.department_id) !== text(departmentId)) {
+      throw new Error(`${desired.name} is not assigned to Food & Beverage.`);
+    }
+    if (text(row.parent_cost_center_id)) {
+      throw new Error(`${desired.name} must not have a Parent Cost Centre.`);
+    }
+    if (upper(row.type || "OPERATIONAL") !== "OPERATIONAL") {
+      throw new Error(`${desired.name} must be Operational.`);
     }
   }
 }
@@ -338,51 +360,55 @@ async function main() {
 
   const url = text(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const serviceRoleKey = text(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  if (!url || !serviceRoleKey) {
-    throw new Error("Production Supabase service credentials are unavailable to Vercel.");
-  }
+  if (!url || !serviceRoleKey) throw new Error("Production Supabase credentials unavailable.");
 
   const supabase = createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
-
   const departments = await selectAll(supabase, "departments");
   const costCentres = await selectAll(supabase, "cost_centers");
   const [departmentColumns, costCentreColumns] = await Promise.all([
-    tableColumns({ url, serviceRoleKey, table: "departments", rows: departments }),
-    tableColumns({ url, serviceRoleKey, table: "cost_centers", rows: costCentres }),
+    discoverColumns({ url, serviceRoleKey, table: "departments", rows: departments }),
+    discoverColumns({ url, serviceRoleKey, table: "cost_centers", rows: costCentres }),
   ]);
-  const targets = await resolveTargetPairs(supabase, departments);
+  const targets = await resolveTargets(supabase, departments, costCentres);
 
   for (const target of targets) {
-    const responsibleOwnerId = await resolveResponsibleOwner(supabase, target.organization_id);
-    if (costCentreColumns.has("manager_user_id") && !responsibleOwnerId) {
-      throw new Error("No active Responsible Owner could be resolved for the Churchill organisation.");
+    const owner = await resolveResponsibleOwner(supabase, target.organization_id);
+    if (costCentreColumns.has("manager_user_id") && !owner) {
+      throw new Error("No active Responsible Owner found for Churchill.");
     }
 
-    for (const desired of desiredUnits) {
-      const department = await ensureDepartment({
-        supabase,
-        target,
-        desired,
-        departments,
-        departmentColumns,
-      });
+    const department = await ensureDepartment({
+      supabase,
+      target,
+      rows: departments,
+      columns: departmentColumns,
+    });
+
+    for (const desired of COST_CENTRES) {
       await ensureCostCentre({
         supabase,
         target,
         desired,
         department,
-        responsibleOwnerId,
-        costCentres,
-        costCentreColumns,
+        owner,
+        rows: costCentres,
+        columns: costCentreColumns,
       });
     }
 
-    await verify(supabase, target);
+    await removeDuplicateDepartments({
+      supabase,
+      target,
+      departments,
+      columns: departmentColumns,
+      keepId: department.id,
+    });
+    await verify(supabase, target, department.id);
   }
 
-  console.log(`Finance production master data verified for ${targets.length} legal entity target(s).`);
+  console.log("Finance Cost Centre structure verified: Food & Beverage with four operational Cost Centres.");
 }
 
 main().catch((error) => {

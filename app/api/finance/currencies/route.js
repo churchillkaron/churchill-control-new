@@ -1,57 +1,44 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { listFinanceCurrencies } from "@/lib/finance/currencies/FinanceCurrencyPolicy";
 
-export async function GET(req) {
+export async function GET(request) {
   try {
-    const { searchParams } = new URL(req.url);
-
+    const { searchParams } = new URL(request.url);
     const access = await requireOrganizationAccess({
       organizationId:
         searchParams.get("organizationId") ||
         searchParams.get("organization_id"),
+      request,
     });
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
-        {
-          status: access.status,
-        }
+        { success: false, error: access.error, currencies: [], rows: [] },
+        { status: access.status }
       );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("currencies")
-      .select("*")
-      .or(
-        `organization_id.eq.${access.organizationId},organization_id.is.null`
-      )
-      .order("code", { ascending: true });
-
-    if (error) {
-      throw error;
-    }
+    const currencies = await listFinanceCurrencies({
+      organizationId: access.organizationId,
+      includeInactive: true,
+    });
 
     return NextResponse.json({
       success: true,
-      currencies: data || [],
-      rows: data || [],
+      currencies,
+      rows: currencies,
     });
   } catch (error) {
-    console.error("currencies GET", error);
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message ||
-          "Currencies load failed",
+        error: error?.message || "Currencies load failed",
+        currencies: [],
+        rows: [],
       },
       { status: 500 }
     );

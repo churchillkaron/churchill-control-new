@@ -36,6 +36,20 @@ export async function POST(request) {
       );
     }
 
+    if (!body.department_id && !body.departmentId) {
+      return NextResponse.json(
+        { success: false, error: "Department required" },
+        { status: 400 }
+      );
+    }
+
+    if (!body.manager_user_id && !body.managerUserId) {
+      return NextResponse.json(
+        { success: false, error: "Responsible Owner required" },
+        { status: 400 }
+      );
+    }
+
     const result = await upsertFinanceCostCenter({
       organizationId: access.organizationId,
       entityId,

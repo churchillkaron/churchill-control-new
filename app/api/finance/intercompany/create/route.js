@@ -2,14 +2,22 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { createIntercompanyTransactionCommand } from "@/lib/finance/intercompany/runtime/IntercompanyApplicationService";
+import { createIntercompanyTransactionAtomic } from "@/lib/finance/intercompany/IntercompanyPolicy";
 
-export async function POST(req) {
+function failure(error) {
+  const message = error?.message || "Intercompany transaction creation failed";
+  const status = /required|must|cannot|different|active|configured|exchange rate|currency|account|entity|exists|supported|date|idempotency/i.test(message)
+    ? 400
+    : 500;
+  return NextResponse.json({ success: false, error: message }, { status });
+}
+
+export async function POST(request) {
   try {
-    const body = await req.json();
-
+    const body = await request.json();
     const access = await requireOrganizationAccess({
-      organizationId: body.organizationId,
+      organizationId: body.organizationId || body.organization_id,
+      request,
     });
 
     if (!access.success) {
@@ -19,16 +27,14 @@ export async function POST(req) {
       );
     }
 
-    const result = await createIntercompanyTransactionCommand({
-      ...body,
-      organization_id: access.organizationId,
+    const result = await createIntercompanyTransactionAtomic({
+      organizationId: access.organizationId,
+      payload: body,
+      actorId: access.user?.id || access.userId,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return failure(error);
   }
 }

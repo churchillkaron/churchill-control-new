@@ -5,6 +5,7 @@ const ROOT = process.cwd();
 const FILES = Object.freeze({
   policy: "lib/operations/security/OperationsAuthorizationPolicy.js",
   requestContext: "lib/operations/api/resolveOperationsRequestContext.js",
+  accessRoute: "app/api/operations/access/route.js",
   controller: "lib/operations/api/OperationsApiController.js",
   collectionRoute: "app/api/operations/[capabilityId]/route.js",
   detailRoute: "app/api/operations/[capabilityId]/[recordId]/route.js",
@@ -46,6 +47,13 @@ const source = Object.fromEntries(
 requireIncludes(source.policy, [
   "OPERATIONS_ACTIONS",
   "OPERATIONS_PERMISSION_CATALOG",
+  "OPERATIONS_BOOTSTRAP_ADMIN_ROLES",
+  "bootstrapOperationsPermissions",
+  '"OWNER"',
+  '"ORGANIZATION_OWNER"',
+  '"SUPER_ADMIN"',
+  '"ADMIN"',
+  '"operations.*"',
   "operations.view",
   "operations.create",
   "operations.update",
@@ -65,11 +73,24 @@ requireIncludes(source.policy, [
 
 requireIncludes(source.requestContext, [
   "authorizeOperationsAccess",
+  "bootstrapOperationsPermissions",
+  "resolveUserOperationsPermissions",
+  "isMissingOperationsSecuritySchema",
+  "operations_security_schema_ready",
   "Operations permission required",
   "required_permissions",
-  "permissions: resolved.permissions",
+  "assignedPermissions",
   "authorization",
 ], "Operations request authorization");
+
+requireIncludes(source.accessRoute, [
+  "resolveOperationsRequestContext",
+  "isMissingOperationsSecuritySchema",
+  "operations_security_schema_ready",
+  "permissions",
+  "assignments",
+  "can",
+], "Operations access projection");
 
 requireIncludes(source.controller, [
   "projectAuthorization",
@@ -114,7 +135,7 @@ requireIncludes(source.eventHealthRoute, [
 ], "Operations event health authorization");
 
 requireIncludes(source.workspaceHub, [
-  "useBusinessContext",
+  "useOperationsAccess",
   "hasOperationsPermission",
   "OPERATIONS_ACTIONS",
   "authorised capabilities",
@@ -127,6 +148,8 @@ for (const [label, contents] of Object.entries(source)) {
 
 console.log("OPERATIONS_AUTHORIZATION_RELEASE_AUDIT=PASS");
 console.log("OPERATIONS_AUTHORIZATION=MEMBERSHIP_SCOPE_AND_PERMISSION");
+console.log("OPERATIONS_OWNER_BOOTSTRAP=EXISTING_OWNER_AND_ADMIN_ROLES");
+console.log("OPERATIONS_ROLE_SCHEMA_FALLBACK=ACCESS_REMAINS_AVAILABLE_BEFORE_MIGRATION");
 console.log("OPERATIONS_PERMISSION_LEVELS=DOMAIN_GROUP_CAPABILITY_ACTION");
 console.log("OPERATIONS_COMMAND_AUTHORIZATION=CREATE_UPDATE_EXECUTE_CONTROL");
 console.log("OPERATIONS_AUDIT_AUTHORIZATION=HISTORY_EVENTS_AND_DELIVERY_MANAGEMENT");

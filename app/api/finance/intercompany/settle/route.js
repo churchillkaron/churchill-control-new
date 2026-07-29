@@ -25,9 +25,22 @@ export async function POST(request) {
       );
     }
 
+    const transactionId = body.transaction_id || body.transactionId || body.id;
+    const settlementDate = body.settlement_date;
+    const settlementAmount = body.settlement_amount || body.amount;
+    const payload = {
+      ...body,
+      transaction_id: transactionId,
+      settlement_amount: settlementAmount,
+      idempotency_key:
+        body.idempotency_key ||
+        body.idempotencyKey ||
+        `intercompany:settle:${transactionId}:${settlementDate}:${settlementAmount}:${body.reference_number || "manual"}`,
+    };
+
     const result = await settleIntercompanyTransactionAtomic({
       organizationId: access.organizationId,
-      payload: body,
+      payload,
       actorId: access.user?.id || access.userId,
     });
 

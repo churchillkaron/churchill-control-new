@@ -110,28 +110,26 @@ export default function WalletTopUpEngine({
     const entityId =
       cleanValue(context.entityId);
 
+    const organizationId =
+      cleanValue(context.organizationId);
+
     const contextCurrency =
       cleanValue(context.currency);
 
-    console.log(
-      "WALLET CURRENCY CONTEXT",
-      {
-        entityId,
-        organizationId: cleanValue(context.organizationId),
-        currency: contextCurrency,
-      }
-    );
-
     async function loadCurrency(){
 
-      if(!entityId){
+      if(!entityId || !organizationId){
         return;
       }
 
+      const params = new URLSearchParams({
+        entity_id: entityId,
+        organization_id: organizationId,
+      });
 
       const response =
         await fetch(
-          `/api/platform/currency/entity?entity_id=${encodeURIComponent(entityId)}`
+          `/api/platform/currency/entity?${params.toString()}`
         );
 
 
@@ -169,6 +167,7 @@ export default function WalletTopUpEngine({
   },[
     open,
     context.entityId,
+    context.organizationId,
     context.currency,
   ]);
 
@@ -217,53 +216,67 @@ export default function WalletTopUpEngine({
         await response.json();
 
 
-      if (
-        resolvedCurrency &&
-        !result.methods?.length
-      ) {
-        params.delete("currency");
-
-        const fallbackResponse =
-          await fetch(
-            `/api/platform/payment-methods?${params.toString()}`
-          );
-
-        result =
-          await fallbackResponse.json();
+      if (!response.ok) {
+        result = {
+          success: false,
+          paymentMethods: [],
+        };
       }
 
 
-      if (!active) {
-        return;
-      }
-
-      const returnedMethods =
-        result.methods?.length
-          ? result.methods
-          : DEFAULT_PAYMENT_METHODS;
-
-      const methods =
-        returnedMethods.filter(method =>
-          SUPPORTED_PAYMENT_METHOD_IDS.has(method.id)
-        );
-
-      setPaymentMethods(methods);
+      const configuredMethods =
+        Array.isArray(result.paymentMethods)
+          ? result.paymentMethods
+          : [];
 
 
-      if (methods.length){
-
-        setPaymentMethod(
-          current =>
-            methods.some(
-              method => method.id === current
+      const nextMethods =
+        configuredMethods
+          .filter(method =>
+            SUPPORTED_PAYMENT_METHOD_IDS.has(
+              cleanValue(
+                method.id ||
+                method.payment_method
+              )
             )
-              ? current
-              : methods[0].id
+          )
+          .map(method => {
+            const id = cleanValue(
+              method.id ||
+              method.payment_method
+            );
+            const fallback =
+              DEFAULT_PAYMENT_METHODS.find(
+                item => item.id === id
+              );
+
+            return {
+              ...fallback,
+              ...method,
+              id,
+              name:
+                cleanValue(method.name) ||
+                fallback?.name ||
+                id,
+              type:
+                cleanValue(method.type) ||
+                fallback?.type ||
+                id,
+            };
+          });
+
+
+      if(active){
+
+        setPaymentMethods(nextMethods);
+
+        setPaymentMethod(current =>
+          nextMethods.some(
+            method => method.id === current
+          )
+            ? current
+            : nextMethods[0]?.id || ""
         );
-
-      } else {
-
-        setPaymentMethod("");
 
       }
 
@@ -275,6 +288,7 @@ export default function WalletTopUpEngine({
       loadPaymentMethods();
 
     }
+
 
     return () => {
       active = false;
@@ -288,284 +302,169 @@ export default function WalletTopUpEngine({
   ]);
 
 
-  if(!open)
-    return null;
+  function handleSubmit(){
 
+    const normalizedAmount =
+      Number(amount);
 
-
-  function renderPaymentForm(){
-
-    console.log(
-      "PAYMENT FORM DEBUG",
-      {
-        paymentMethod,
-        paymentMethods,
-      }
-    );
-
-    if (
-      !currency ||
-      !paymentMethod ||
-      !paymentMethods.length
-    ) {
-      return null;
-    }
-
-
-    if(
-      paymentMethod === "credit_card"
-    ){
-
-      return (
-        <CreditCardPayment
-          value={paymentData}
-          onChange={setPaymentData}
-        />
-      );
-
-    }
-
-
-    if(
-      paymentMethod === "qr_payment"
-    ){
-
-      return (
-        <QRPayment />
-      );
-
-    }
-
-
-    if(
-      paymentMethod === "bank_transfer"
-    ){
-
-      return (
-        <BankTransferPayment />
-      );
-
-    }
-
-
-    return null;
-
-  }
-
-
-
-  async function submit(){
-
-    const organizationId =
-      cleanValue(context.organizationId);
-
-    const entityId =
-      cleanValue(context.entityId);
-
-    const resolvedCurrency =
+    const normalizedCurrency =
       cleanValue(currency);
 
-    if (!organizationId) {
-      alert("Organization is still loading.");
+    if(
+      !Number.isFinite(normalizedAmount) ||
+      normalizedAmount <= 0
+    ){
+      alert("Enter a valid amount.");
       return;
     }
 
-    if (!resolvedCurrency) {
-      alert("Currency is still loading.");
+    if(!normalizedCurrency){
+      alert("Currency could not be resolved for this entity.");
       return;
     }
 
-    if (!paymentMethod) {
-      alert("Payment method is still loading.");
+    if(!paymentMethod){
+      alert("Choose a payment method.");
       return;
     }
 
-    const response =
-      await fetch(
-        "/api/platform/payment/create",
-        {
-          method:"POST",
+    const payload = {
+      amount: normalizedAmount,
+      currency: normalizedCurrency,
+      payment_method: paymentMethod,
+      payment_data: paymentData,
+      notes,
+    };
 
-          headers:{
-            "Content-Type":"application/json",
-          },
-
-          body:JSON.stringify({
-
-            organization_id:
-              organizationId,
-
-            entity_id:
-              entityId || null,
-
-            party_id:
-              context.partyId,
-
-            country:
-              context.country,
-
-            amount:
-              Number(amount || 0),
-
-            currency:
-              resolvedCurrency,
-
-            payment_method:
-              paymentMethod,
-
-            metadata:{
-
-              payment_data:
-                paymentData,
-
-              notes,
-
-            },
-
-          }),
-
-        }
-      );
-
-
-    const result =
-      await response.json();
-
-
-    if(!result.success){
-
-      alert(
-        result.error ||
-        "Payment creation failed"
-      );
-
+    if(onSave){
+      onSave(payload);
       return;
-
     }
 
-
-    alert(
-      "Payment created: " +
-      result.payment.id
-    );
-
-    if (onComplete) {
-      onComplete();
-    }
-
-    if (onClose) {
-      onClose();
-    }
-
-
+    onComplete?.(payload);
   }
 
+
+  if(!open){
+    return null;
+  }
+
+
+  const selectedMethod =
+    paymentMethods.find(
+      method => method.id === paymentMethod
+    );
 
 
   return (
-
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-
-      <div className="w-full max-w-xl rounded-[30px] border border-white/10 bg-[#0b0b0b] p-8 text-white">
-
-
-        <div className="text-xs uppercase tracking-[0.3em] text-amber-300/70">
-          Wallet Action
-        </div>
-
-
-        <h2 className="mt-3 text-3xl font-light">
-          {title}
-        </h2>
-
-
-        <div className="mt-8 space-y-5">
-
-
-          <input
-            type="number"
-            placeholder="Amount"
-            value={amount}
-            onChange={
-              e=>setAmount(e.target.value)
-            }
-            className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3"
-          />
-
-
-          <div className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white/70">
-            Currency: {currency || "Loading..."}
+    <div className="workspace-modal-overlay">
+      <div className="workspace-modal">
+        <div className="workspace-modal-header">
+          <div>
+            <div className="workspace-modal-eyebrow">Wallet</div>
+            <h2>{title}</h2>
           </div>
-
-
-          <div className="grid grid-cols-3 gap-2">
-
-            {paymentMethods.map(method=>(
-
-              <button
-                key={method.id}
-                type="button"
-                onClick={() =>
-                  setPaymentMethod(method.id)
-                }
-                className={
-                  [
-                    "min-h-12 rounded-xl border px-3 py-2 text-sm transition",
-                    paymentMethod === method.id
-                      ? "border-amber-300 bg-amber-300 text-black"
-                      : "border-white/10 bg-black/20 text-white/70 hover:border-white/25 hover:bg-white/10",
-                  ].join(" ")
-                }
-              >
-                {method.name}
-              </button>
-
-            ))}
-
-          </div>
-
-
-          {renderPaymentForm()}
-
-
-          <textarea
-            placeholder="Notes"
-            value={notes}
-            onChange={
-              e=>setNotes(e.target.value)
-            }
-            className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3"
-          />
-
-
-        </div>
-
-
-        <div className="mt-8 flex justify-end gap-3">
-
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-5 py-3"
+            className="workspace-modal-close"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="workspace-modal-body">
+          <label>
+            Amount
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={amount}
+              onChange={event => setAmount(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Currency
+            <input
+              value={currency}
+              readOnly
+            />
+          </label>
+
+          <label>
+            Payment Method
+            <select
+              value={paymentMethod}
+              onChange={event => {
+                setPaymentMethod(event.target.value);
+                setPaymentData({});
+              }}
+            >
+              {paymentMethods.length === 0 ? (
+                <option value="">No configured payment method</option>
+              ) : null}
+              {paymentMethods.map(method => (
+                <option
+                  key={method.id}
+                  value={method.id}
+                >
+                  {method.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {selectedMethod?.type === "card" ? (
+            <CreditCardPayment
+              value={paymentData}
+              onChange={setPaymentData}
+            />
+          ) : null}
+
+          {selectedMethod?.type === "qr" ? (
+            <QRPayment
+              value={paymentData}
+              onChange={setPaymentData}
+            />
+          ) : null}
+
+          {selectedMethod?.type === "bank" ? (
+            <BankTransferPayment
+              value={paymentData}
+              onChange={setPaymentData}
+            />
+          ) : null}
+
+          <label>
+            Notes
+            <textarea
+              value={notes}
+              onChange={event => setNotes(event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="workspace-modal-footer">
+          <button
+            type="button"
+            onClick={onClose}
+            className="workspace-button-secondary"
           >
             Cancel
           </button>
 
-
           <button
-            onClick={submit}
-            disabled={saving}
-            className="rounded-xl bg-amber-400 px-5 py-3 text-black font-semibold"
+            type="button"
+            onClick={handleSubmit}
+            disabled={saving || paymentMethods.length === 0}
+            className="workspace-button-primary"
           >
-            Confirm Top Up
+            {saving ? "Processing..." : "Continue"}
           </button>
-
         </div>
-
-
       </div>
-
     </div>
-
   );
-
 }

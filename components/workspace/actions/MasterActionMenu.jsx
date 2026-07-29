@@ -1,6 +1,6 @@
 "use client";
 
-// Posted General Ledger records remain immutable; corrections use reversal or adjustment workflows.
+// Posted accounting records remain immutable; corrections use controlled reversal workflows.
 import { useRouter } from "next/navigation";
 
 function titleFromAction(action) {
@@ -52,48 +52,84 @@ function actionKey(action) {
     .replace(/[^a-z0-9]+/g, "_");
 }
 
-function withGeneralLedgerActions(actions, moduleKey, row) {
-  if (String(moduleKey || "").toLowerCase() !== "general_ledger") {
-    return actions;
-  }
-
-  const configured = Array.isArray(actions) ? actions : [];
-  const journalId = row?.journal_entry_id || row?.journal_id || null;
-  const additions = [
-    { id: "open", type: "open", label: "Open Ledger Line" },
-    { id: "history", type: "history", label: "History" },
-    { id: "attachments", type: "attachments", label: "Attachments" },
-    ...(journalId
-      ? [
-          {
-            id: "request_reversal",
-            type: "capability",
-            label: "Request Reversal",
-            capability: "general_ledger",
-            action: "requestJournalReversalCommand",
-            form: "journal-reversal",
-            endpoint: "/api/finance/journals/request-reversal",
-          },
-          {
-            id: "create_adjustment",
-            type: "capability",
-            label: "Create Adjustment Journal",
-            capability: "journal_entry",
-            action: "createAdjustmentJournal",
-            form: "journal-entry",
-            endpoint: "/api/finance/journals/create",
-          },
-        ]
-      : []),
-  ];
-
+function uniqueActions(actions) {
   const seen = new Set();
-  return [...configured, ...additions].filter(action => {
+  return (Array.isArray(actions) ? actions : []).filter(action => {
     const key = actionKey(action);
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+function normalizeState(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function reversalAction() {
+  return {
+    id: "request_reversal",
+    type: "capability",
+    label: "Request Reversal",
+    capability: "general_ledger",
+    action: "requestJournalReversalCommand",
+    form: "journal-reversal",
+    endpoint: "/api/finance/journals/request-reversal",
+  };
+}
+
+function withJournalActions(actions, moduleKey, row) {
+  const normalizedModule = String(moduleKey || "").trim().toLowerCase();
+  if (!["journals", "journal_entries", "journal_entry"].includes(normalizedModule)) {
+    return actions;
+  }
+
+  const status = normalizeState(row?.status);
+  const reversalStatus = normalizeState(row?.reversal_status);
+  const isPosted = status === "POSTED";
+  const isReversed =
+    row?.reversed === true ||
+    status === "REVERSED" ||
+    reversalStatus === "REVERSED";
+  const reversalPending = reversalStatus === "PENDING";
+
+  const configured = (Array.isArray(actions) ? actions : []).filter(action => {
+    const key = actionKey(action);
+    if (["edit", "delete", "archive", "duplicate"].includes(key) && isPosted) {
+      return false;
+    }
+    if (key === "request_reversal") return false;
+    return true;
+  });
+
+  return uniqueActions([
+    ...configured,
+    { id: "open", type: "open", label: "Open Journal" },
+    { id: "history", type: "history", label: "History" },
+    { id: "attachments", type: "attachments", label: "Attachments" },
+    ...(isPosted && !isReversed && !reversalPending ? [reversalAction()] : []),
+  ]);
+}
+
+function withGeneralLedgerActions(actions, moduleKey, row) {
+  if (String(moduleKey || "").toLowerCase() !== "general_ledger") {
+    return actions;
+  }
+
+  const journalId = row?.journal_entry_id || row?.journal_id || null;
+  const reversalStatus = normalizeState(row?.reversal_status);
+  const isReversed =
+    row?.reversed === true ||
+    reversalStatus === "REVERSED";
+  const reversalPending = reversalStatus === "PENDING";
+
+  return uniqueActions([
+    ...(Array.isArray(actions) ? actions : []),
+    { id: "open", type: "open", label: "Open Ledger Line" },
+    { id: "history", type: "history", label: "History" },
+    { id: "attachments", type: "attachments", label: "Attachments" },
+    ...(journalId && !isReversed && !reversalPending ? [reversalAction()] : []),
+  ]);
 }
 
 const STANDARD_ACTION_KINDS = new Set([
@@ -153,7 +189,11 @@ export default function MasterActionMenu({
   onRefresh,
 }) {
   const router = useRouter();
-  const effectiveActions = withGeneralLedgerActions(actions, moduleKey, row);
+  const effectiveActions = withJournalActions(
+    withGeneralLedgerActions(actions, moduleKey, row),
+    moduleKey,
+    row
+  );
 
   function execute(action) {
     if (!action || action.type === "section") return;

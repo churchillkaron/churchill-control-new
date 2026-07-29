@@ -59,6 +59,7 @@ requireIncludes(source.eventMigration, [
   "dead_letter",
   "power(2",
   "on conflict (outbox_id) do nothing",
+  "actor_id",
 ], "Operations event delivery migration");
 
 requireIncludes(source.healthMigration, [
@@ -79,12 +80,25 @@ requireIncludes(source.auditProjectionMigration, [
   "operations_command_ledger_audit_projection",
 ], "Operations command audit projection migration");
 
-requireIncludes(source.actorProjectionRepairMigration, [
+requireExcludes(source.auditProjectionMigration, [
   "disable trigger operations_events_immutable_guard",
   "enable trigger operations_events_immutable_guard",
   "update public.operations_events",
-  "where actor_id is null",
-  "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+  "drop trigger if exists operations_events_immutable_guard",
+  "operations_event_audit_projection",
+], "Operations command audit projection migration");
+
+requireIncludes(source.actorProjectionRepairMigration, [
+  "Legacy Operations event actor backfill intentionally skipped",
+  "immutable Operations events are never rewritten",
+  "New events receive actor_id during transactional outbox publication",
+], "Operations immutable event actor projection repair migration");
+
+requireExcludes(source.actorProjectionRepairMigration, [
+  "disable trigger operations_events_immutable_guard",
+  "enable trigger operations_events_immutable_guard",
+  "update public.operations_events",
+  "alter table public.operations_events",
 ], "Operations immutable event actor projection repair migration");
 
 requireIncludes(source.deliveryRuntime, [
@@ -194,6 +208,8 @@ if (!(
 
 console.log("OPERATIONS_EVENT_RELEASE_AUDIT=PASS");
 console.log("OPERATIONS_EVENT_STREAM=IMMUTABLE");
+console.log("OPERATIONS_EVENT_HISTORICAL_REWRITE=FORBIDDEN");
+console.log("OPERATIONS_EVENT_ACTOR_ID=CAPTURED_AT_PUBLICATION");
 console.log("OPERATIONS_EVENT_DELIVERY=RETRYABLE_TRANSACTIONAL_OUTBOX");
 console.log("OPERATIONS_EVENT_HEALTH=SCOPED_DATABASE_AGGREGATION");
 console.log("OPERATIONS_EVENT_UI=HISTORY_TIMELINE_AUDIT_AND_DEAD_LETTER");

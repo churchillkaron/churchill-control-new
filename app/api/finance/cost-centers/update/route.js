@@ -1,24 +1,41 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { upsertFinanceCostCenter } from "@/lib/finance/cost-centers/CostCenterPolicy";
+
+function failure(error) {
+  const message = error?.message || "Cost Centre update failed";
+  const status = /required|exists|outside|inactive|different|supported|cycle|manager|department|entity|code|name|cannot change/i.test(message)
+    ? 400
+    : 500;
+  return NextResponse.json({ success: false, error: message }, { status });
+}
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const access = await requireOrganizationAccess({ organizationId: body.organizationId || body.organization_id });
-    if (!access.success) return NextResponse.json({ success: false, error: access.error }, { status: access.status });
-    const { data, error } = await supabaseAdmin.from("cost_centers").update({
-      code: body.code,
-      name: body.name,
-      type: body.type || null,
-      manager: body.manager || null,
-      updated_at: new Date().toISOString(),
-    }).eq("id", body.id).eq("organization_id", access.organizationId).select().single();
-    if (error) throw error;
-    return NextResponse.json({ success: true, costCenter: data });
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId || body.organization_id,
+      request,
+      requiredPermission: "finance.accounting.manage",
+    });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
+
+    const result = await upsertFinanceCostCenter({
+      organizationId: access.organizationId,
+      payload: body,
+      actorId: access.user?.id || access.userId,
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return failure(error);
   }
 }
-

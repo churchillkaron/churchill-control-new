@@ -93,38 +93,11 @@ on public.operations_command_ledger
 for each row
 execute function public.project_operations_command_audit_fields();
 
-create or replace view public.operations_event_audit_projection as
-select
-  event_record.*,
-  coalesce(
-    event_record.actor_id,
-    case
-      when nullif(coalesce(
-        event_record.payload #>> '{record,updated_by}',
-        event_record.payload #>> '{record,created_by}',
-        event_record.payload ->> 'actor_id'
-      ), '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-      then nullif(coalesce(
-        event_record.payload #>> '{record,updated_by}',
-        event_record.payload #>> '{record,created_by}',
-        event_record.payload ->> 'actor_id'
-      ), '')::uuid
-      else null
-    end
-  ) as effective_actor_id
-from public.operations_events event_record;
-
-revoke all on table public.operations_event_audit_projection from anon, authenticated;
-grant select on table public.operations_event_audit_projection to service_role;
-
 comment on column public.operations_command_ledger.record_id is
-  'Indexed Operations record reference derived from the immutable command payload or result when the value is a valid UUID.';
+  'Indexed Operations record reference derived from the command payload or result when the value is a valid UUID.';
 
 comment on column public.operations_command_ledger.actor_id is
   'Authenticated Supabase user identifier responsible for the Operations command when the source value is a valid UUID.';
 
 comment on function public.project_operations_command_audit_fields() is
   'Projects valid UUID record and actor identifiers from Operations command JSON into indexed audit columns without rejecting non-UUID source identifiers.';
-
-comment on view public.operations_event_audit_projection is
-  'Read-only audit projection for immutable Operations events. It derives effective_actor_id from UUID-safe payload evidence without updating the event stream or altering its immutability trigger.';

@@ -19,9 +19,74 @@ const DISABLED_STATUSES = new Set([
 ]);
 
 function normalizeItemForWorkspace(item, workspace) {
-  return String(workspace || "").toLowerCase() === "finance"
-    ? serializeCapability(item)
-    : item;
+  const finance = String(workspace || "").toLowerCase() === "finance";
+  const normalized = finance ? serializeCapability(item) : item;
+
+  if (!finance || !normalized) return normalized;
+
+  if (normalized.id === "cost_centers") {
+    return {
+      ...normalized,
+      name: "Cost Centres",
+      description:
+        "Define operating areas such as Kitchen, Bar and Administration for cost responsibility and reporting.",
+    };
+  }
+
+  if (normalized.id === "dimensions") {
+    return {
+      ...normalized,
+      name: "Custom Dimensions",
+      description:
+        "Define additional controlled reporting attributes such as Sales Channel, Shift, Campaign or Customer Segment.",
+      document: "CustomDimension",
+    };
+  }
+
+  return normalized;
+}
+
+function organizeFinanceGroups(groups, workspace) {
+  if (String(workspace || "").toLowerCase() !== "finance") return groups;
+
+  let costCentres = null;
+  let customDimensions = null;
+
+  const remainingGroups = groups
+    .map((group) => ({
+      ...group,
+      items: (group.items || []).filter((item) => {
+        if (item?.id === "cost_centers") {
+          costCentres = item;
+          return false;
+        }
+        if (item?.id === "dimensions") {
+          customDimensions = item;
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  const dimensionItems = [costCentres, customDimensions].filter(Boolean);
+  if (!dimensionItems.length) return remainingGroups;
+
+  const accountingIndex = remainingGroups.findIndex(
+    (group) => group.id === "accounting"
+  );
+  const insertAt = accountingIndex >= 0 ? accountingIndex + 1 : 0;
+
+  remainingGroups.splice(insertAt, 0, {
+    id: "accounting_dimensions",
+    name: "Dimensions & Analysis",
+    description:
+      "Use Cost Centres for operating responsibility and Custom Dimensions for additional reporting analysis.",
+    order: 15,
+    items: dimensionItems,
+  });
+
+  return remainingGroups;
 }
 
 function getItemStatus(item) {
@@ -91,14 +156,16 @@ export default function WorkspaceModuleGrid({ workspace, organizationId, title, 
     ? [{ id: "workspace", name: title || "Workspace", description: description || "Open a work center.", order: 10, items }]
     : registryGroups;
 
-  const groups = rawGroups
+  const normalizedGroups = rawGroups
     .map(group => ({
       ...group,
       items: (group.items || [])
         .map(item => normalizeItemForWorkspace(item, workspace))
-        .filter(item => !isHiddenItem(item)),
+        .filter(item => item && !isHiddenItem(item)),
     }))
     .filter(group => group.items.length > 0);
+
+  const groups = organizeFinanceGroups(normalizedGroups, workspace);
 
   const [query, setQuery] = useState("");
   const allItems = useMemo(() => flattenGroups(groups), [groups]);

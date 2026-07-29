@@ -4,12 +4,14 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { requestJournalReversalCommand } from "@/lib/finance/general-ledger/runtime/GeneralLedgerApplicationService";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
 
     const access = await requireOrganizationAccess({
-      organizationId: body.organizationId,
+      organizationId:
+        body.organizationId ||
+        body.organization_id,
     });
 
     if (!access.success) {
@@ -20,16 +22,38 @@ export async function POST(req) {
     }
 
     const result = await requestJournalReversalCommand({
-      ...body,
       organizationId: access.organizationId,
+      entityId:
+        body.entityId ||
+        body.entity_id ||
+        null,
+      journalId:
+        body.journalId ||
+        body.journal_id ||
+        body.id ||
+        null,
+      reason: body.reason,
+      reversalDate:
+        body.reversalDate ||
+        body.reversal_date ||
+        null,
+      requestedBy:
+        access.user?.id ||
+        body.requestedBy ||
+        body.requested_by ||
+        "system",
     });
 
     return NextResponse.json(result);
-
   } catch (error) {
+    const message = error.message || "Reversal request failed";
+    const status = /required|not found|not posted|already|reversed|pending/i.test(message)
+      ? 400
+      : 500;
+
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: message },
+      { status }
     );
   }
 }

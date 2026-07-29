@@ -30,10 +30,9 @@ export async function GET(request) {
       );
     }
 
-    const access =
-      await requireOrganizationAccess({
-        organizationId: requestedOrganizationId,
-      });
+    const access = await requireOrganizationAccess({
+      organizationId: requestedOrganizationId,
+    });
 
     if (!access.success) {
       return NextResponse.json(
@@ -42,70 +41,81 @@ export async function GET(request) {
       );
     }
 
-    const organizationId =
-      access.organizationId;
+    const organizationId = access.organizationId;
 
-    const { data: journals, error } =
-      await supabaseAdmin
-        .from("journal_entries")
-        .select(`
+    const { data: journals, error } = await supabaseAdmin
+      .from("journal_entries")
+      .select(`
+        *,
+        journal_entry_lines (
           *,
-          journal_entry_lines (
-            *,
-            chart_of_accounts (
-              id,
-              account_code,
-              account_name,
-              account_category,
-              account_type
-            )
+          chart_of_accounts (
+            id,
+            account_code,
+            account_name,
+            account_category,
+            account_type
           )
-        `)
-        .eq("organization_id", organizationId)
-        .eq("entity_id", entityId)
-        .order("posting_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(500);
+        )
+      `)
+      .eq("organization_id", organizationId)
+      .eq("entity_id", entityId)
+      .order("posting_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(500);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
-    const formatted =
-      (journals || []).map((journal) => ({
-        id: journal.id,
-        journal_number: journal.journal_number,
-        entry_number: journal.journal_number,
-        journal_type: journal.journal_type,
-        posting_date: journal.posting_date,
-        entry_date: journal.posting_date,
-        document_date: journal.document_date,
-        reference: journal.reference,
-        description: journal.description,
-        source_module: journal.source_module,
-        source_document: journal.source_document,
-        source_document_id: journal.source_document_id,
-        status: journal.status,
-        organization_id: journal.organization_id,
-        entity_id: journal.entity_id,
-        created_by: journal.created_by,
-        created_at: journal.created_at,
-        lines: (journal.journal_entry_lines || []).map((line) => ({
-          id: line.id,
-          debit: Number(line.debit || 0),
-          credit: Number(line.credit || 0),
-          description: line.description,
-          organization_id: line.organization_id,
-          entity_id: line.entity_id,
-          account: {
-            id: line.chart_of_accounts?.id,
-            code: line.chart_of_accounts?.account_code,
-            name: line.chart_of_accounts?.account_name,
-            category: line.chart_of_accounts?.account_category,
-            type: line.chart_of_accounts?.account_type,
-          },
-        })),
-      }));
+    const formatted = (journals || []).map((journal) => ({
+      id: journal.id,
+      journal_id: journal.id,
+      journal_number: journal.journal_number,
+      entry_number: journal.entry_number || journal.journal_number,
+      journal_type: journal.journal_type,
+      posting_date: journal.posting_date,
+      entry_date: journal.entry_date || journal.posting_date,
+      document_date: journal.document_date,
+      reference: journal.reference,
+      description: journal.description,
+      source_module: journal.source_module,
+      source_document: journal.source_document,
+      source_document_id: journal.source_document_id,
+      status: journal.status,
+      reversal_status: journal.reversal_status || null,
+      reversal_reason: journal.reversal_reason || null,
+      reversal_requested_by: journal.reversal_requested_by || null,
+      reversal_requested_at: journal.reversal_requested_at || null,
+      reversal_journal_id: journal.reversal_journal_id || null,
+      reversed: journal.reversed === true,
+      reversed_at: journal.reversed_at || null,
+      reversed_by: journal.reversed_by || null,
+      organization_id: journal.organization_id,
+      entity_id: journal.entity_id,
+      period_id: journal.period_id || null,
+      currency_code: journal.currency_code || null,
+      exchange_rate: Number(journal.exchange_rate || 1),
+      created_by: journal.created_by,
+      created_at: journal.created_at,
+      lines: (journal.journal_entry_lines || []).map((line) => ({
+        id: line.id,
+        account_id: line.account_id,
+        debit: Number(line.debit || 0),
+        credit: Number(line.credit || 0),
+        description: line.description,
+        cost_center_id: line.cost_center_id || null,
+        department_id: line.department_id || null,
+        project_id: line.project_id || null,
+        organization_id: line.organization_id,
+        entity_id: line.entity_id,
+        account: {
+          id: line.chart_of_accounts?.id,
+          code: line.chart_of_accounts?.account_code,
+          name: line.chart_of_accounts?.account_name,
+          category: line.chart_of_accounts?.account_category,
+          type: line.chart_of_accounts?.account_type,
+        },
+      })),
+    }));
 
     return NextResponse.json({
       success: true,

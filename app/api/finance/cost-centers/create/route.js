@@ -6,7 +6,7 @@ import { upsertFinanceCostCenter } from "@/lib/finance/cost-centers/CostCenterPo
 
 function failure(error) {
   const message = error?.message || "Cost Centre creation failed";
-  const status = /required|exists|outside|inactive|different|supported|cycle|manager|department|entity|code|name/i.test(message)
+  const status = /required|exists|outside|inactive|different|supported|cycle|owner|department|entity|code|name/i.test(message)
     ? 400
     : 500;
   return NextResponse.json({ success: false, error: message }, { status });
@@ -28,9 +28,22 @@ export async function POST(request) {
       );
     }
 
+    const entityId = body.entityId || body.entity_id || null;
+    if (!entityId) {
+      return NextResponse.json(
+        { success: false, error: "Select an active Legal Entity in Business Context first" },
+        { status: 400 }
+      );
+    }
+
     const result = await upsertFinanceCostCenter({
       organizationId: access.organizationId,
-      payload: body,
+      entityId,
+      payload: {
+        ...body,
+        entityId: undefined,
+        entity_id: undefined,
+      },
       actorId: access.user?.id || access.userId,
     });
 

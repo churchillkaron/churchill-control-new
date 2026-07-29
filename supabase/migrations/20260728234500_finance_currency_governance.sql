@@ -2,6 +2,10 @@ begin;
 
 alter table public.currencies
   add column if not exists organization_id uuid,
+  add column if not exists code text,
+  add column if not exists name text,
+  add column if not exists symbol text,
+  add column if not exists decimal_places integer,
   add column if not exists is_active boolean not null default true,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now(),
@@ -13,7 +17,6 @@ set
   code = upper(trim(code)),
   name = nullif(trim(name), ''),
   symbol = nullif(trim(symbol), ''),
-  decimal_places = coalesce(decimal_places, 2),
   is_active = coalesce(is_active, true),
   updated_at = coalesce(updated_at, now());
 
@@ -25,6 +28,7 @@ with ranked as (
       order by updated_at desc nulls last, created_at desc nulls last, id
     ) as row_rank
   from public.currencies
+  where code is not null
 )
 delete from public.currencies currency
 using ranked
@@ -37,17 +41,17 @@ alter table public.currencies
 
 alter table public.currencies
   add constraint currencies_code_format_check
-    check (code ~ '^[A-Z]{3}$'),
+    check (code is null or code ~ '^[A-Z]{3}$'),
   add constraint currencies_decimal_places_check
-    check (decimal_places between 0 and 6);
+    check (decimal_places is null or decimal_places between 0 and 6);
 
 create unique index if not exists currencies_organization_code_unique
   on public.currencies (organization_id, code)
-  where organization_id is not null;
+  where organization_id is not null and code is not null;
 
 create unique index if not exists currencies_global_code_unique
   on public.currencies (code)
-  where organization_id is null;
+  where organization_id is null and code is not null;
 
 create index if not exists currencies_effective_lookup_idx
   on public.currencies (organization_id, code, is_active);
@@ -77,7 +81,7 @@ comment on table public.currencies is
   'Effective Finance currency configuration. Global rows are system references; organisation rows are governed overrides.';
 
 comment on column public.currencies.decimal_places is
-  'Minor-unit decimal precision used for validation, display and document totals.';
+  'Optional minor-unit decimal precision. When absent, the Finance runtime resolves the currency standard dynamically.';
 
 comment on column public.currencies.is_active is
   'Controls whether the currency is available to Finance lookups and new transactions.';

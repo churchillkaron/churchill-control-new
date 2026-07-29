@@ -1,57 +1,46 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-
-import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { setFinanceCostCenterActive } from "@/lib/finance/cost-centers/CostCenterPolicy";
 
-import {
-  toggleCostCenterCommand,
-} from "@/lib/finance/cost-centers/runtime/CostCenterApplicationService";
-
-export async function POST(req) {
+export async function POST(request) {
   try {
-    await requireAuth();
-
-    const body = await req.json();
-
-    const access =
-      await requireOrganizationAccess({
-        organizationId: body.organizationId,
-      });
+    const body = await request.json();
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId || body.organization_id,
+      request,
+      requiredPermission: "finance.accounting.manage",
+    });
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
-        {
-          status: access.status,
-        }
+        { success: false, error: access.error },
+        { status: access.status }
       );
     }
 
-    const result =
-      await toggleCostCenterCommand({
-        organization_id: access.organizationId,
-        cost_center_id: body.cost_center_id || body.id,
-        updated_by: body.userId || "system",
-      });
+    const costCenterId = body.cost_center_id || body.costCenterId || body.id;
+    const desired =
+      body.is_active !== undefined
+        ? Boolean(body.is_active)
+        : body.active !== undefined
+          ? Boolean(body.active)
+          : false;
+
+    const result = await setFinanceCostCenterActive({
+      organizationId: access.organizationId,
+      costCenterId,
+      isActive: desired,
+      actorId: access.user?.id || access.userId,
+    });
 
     return NextResponse.json(result);
-
   } catch (error) {
-
+    const message = error?.message || "Cost Centre status update failed";
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
+      { success: false, error: message },
+      { status: /required|not found|child|first/i.test(message) ? 400 : 500 }
     );
-
   }
 }

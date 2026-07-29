@@ -3,10 +3,11 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { upsertFinanceCostCenter } from "@/lib/finance/cost-centers/CostCenterPolicy";
+import { applyCostCenterConfiguration } from "@/lib/finance/cost-centers/CostCenterConfiguration";
 
 function failure(error) {
   const message = error?.message || "Cost Centre creation failed";
-  const status = /required|exists|outside|inactive|different|supported|cycle|owner|department|entity|code|name/i.test(message)
+  const status = /required|exists|outside|inactive|different|supported|cycle|owner|department|entity|code|name|configuration/i.test(message)
     ? 400
     : 500;
   return NextResponse.json({ success: false, error: message }, { status });
@@ -36,32 +37,27 @@ export async function POST(request) {
       );
     }
 
-    if (!body.department_id && !body.departmentId) {
-      return NextResponse.json(
-        { success: false, error: "Department required" },
-        { status: 400 }
-      );
-    }
-
-    if (!body.manager_user_id && !body.managerUserId) {
-      return NextResponse.json(
-        { success: false, error: "Responsible Owner required" },
-        { status: 400 }
-      );
-    }
-
-    const result = await upsertFinanceCostCenter({
+    const configured = await applyCostCenterConfiguration({
       organizationId: access.organizationId,
-      entityId,
       payload: {
         ...body,
         entityId: undefined,
         entity_id: undefined,
       },
+      isCreate: true,
+    });
+
+    const result = await upsertFinanceCostCenter({
+      organizationId: access.organizationId,
+      entityId,
+      payload: configured.payload,
       actorId: access.user?.id || access.userId,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ...result,
+      configuration: configured.configuration,
+    });
   } catch (error) {
     return failure(error);
   }

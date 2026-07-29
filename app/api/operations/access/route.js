@@ -14,6 +14,15 @@ import {
   listUserOperationsRoleAssignments,
 } from "@/lib/operations/security/OperationsPermissionRepository";
 
+function isMissingOperationsSecuritySchema(error) {
+  const code = String(error?.code || "");
+  const message = String(error?.message || "");
+
+  return code === "42P01"
+    || code === "PGRST205"
+    || /operations_(roles|role_permissions)|user_operations_roles/i.test(message);
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const resolved = await resolveOperationsRequestContext({
@@ -31,12 +40,20 @@ export async function GET(request) {
 
   try {
     const permissions = resolved.context.permissions || [];
-    const assignments = resolved.user?.id
-      ? await listUserOperationsRoleAssignments({
+    let assignments = [];
+    let securitySchemaReady = resolved.operations_security_schema_ready !== false;
+
+    if (resolved.user?.id && securitySchemaReady) {
+      try {
+        assignments = await listUserOperationsRoleAssignments({
           organizationId: resolved.context.organization_id,
           userId: resolved.user.id,
-        })
-      : [];
+        });
+      } catch (error) {
+        if (!isMissingOperationsSecuritySchema(error)) throw error;
+        securitySchemaReady = false;
+      }
+    }
 
     const can = Object.freeze({
       view: hasOperationsPermission({ permissions, action: OPERATIONS_ACTIONS.VIEW }),
@@ -59,6 +76,7 @@ export async function GET(request) {
       permissions,
       assignments,
       can,
+      operations_security_schema_ready: securitySchemaReady,
     });
   } catch (error) {
     return NextResponse.json(

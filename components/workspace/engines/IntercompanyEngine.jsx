@@ -1,0 +1,118 @@
+"use client";
+
+import { useMemo } from "react";
+import CreateEngine from "./CreateEngine";
+
+const TYPE_OPTIONS = [
+  ["FUNDING", "Funding"],
+  ["LOAN", "Loan"],
+  ["EXPENSE_RECHARGE", "Expense Recharge"],
+  ["SERVICE_CHARGE", "Service Charge"],
+  ["ASSET_TRANSFER", "Asset Transfer"],
+  ["CASH_TRANSFER", "Cash Transfer"],
+  ["DIVIDEND", "Dividend"],
+  ["MANAGEMENT_FEE", "Management Fee"],
+  ["OTHER", "Other"],
+].map(([value, label]) => ({ value, label }));
+
+const SIDE_OPTIONS = [
+  { value: "DEBIT", label: "Debit intercompany account" },
+  { value: "CREDIT", label: "Credit intercompany account" },
+];
+
+const CREATE_FIELDS = [
+  { name: "from_legal_entity_id", label: "Source Legal Entity", type: "lookup", lookup: "legal_entities", required: true },
+  { name: "to_legal_entity_id", label: "Destination Legal Entity", type: "lookup", lookup: "legal_entities", required: true },
+  { name: "transaction_type", label: "Transaction Type", type: "select", options: TYPE_OPTIONS, required: true },
+  { name: "reference_number", label: "Reference Number", type: "text", required: true },
+  { name: "transaction_date", label: "Transaction Date", type: "date", required: true },
+  { name: "posting_date", label: "Posting Date", type: "date", required: true },
+  { name: "due_date", label: "Due Date", type: "date" },
+  { name: "transaction_currency", label: "Transaction Currency", type: "currency", lookup: "currencies", required: true },
+  { name: "amount", label: "Transaction Amount", type: "number", min: 0.000001, step: "0.01", required: true },
+  { name: "description", label: "Description", type: "textarea", rows: 3, width: "full", required: true },
+  { name: "from_exchange_rate", label: "Transaction Currency to Source Functional Currency", type: "number", min: 0.0000000001, step: "0.0000000001", placeholder: "Leave blank to use configured effective rate" },
+  { name: "to_exchange_rate", label: "Transaction Currency to Destination Functional Currency", type: "number", min: 0.0000000001, step: "0.0000000001", placeholder: "Leave blank to use configured effective rate" },
+  { name: "from_intercompany_account_id", label: "Source Intercompany Account", type: "lookup", lookup: "intercompany_accounts", required: true },
+  { name: "from_offset_account_id", label: "Source Offset Account", type: "lookup", lookup: "intercompany_accounts", required: true },
+  { name: "from_intercompany_side", label: "Source Intercompany Posting", type: "select", options: SIDE_OPTIONS, required: true },
+  { name: "to_intercompany_account_id", label: "Destination Intercompany Account", type: "lookup", lookup: "intercompany_accounts", required: true },
+  { name: "to_offset_account_id", label: "Destination Offset Account", type: "lookup", lookup: "intercompany_accounts", required: true },
+  { name: "to_intercompany_side", label: "Destination Intercompany Posting", type: "select", options: SIDE_OPTIONS, required: true },
+];
+
+const RECONCILE_FIELDS = [
+  { name: "transaction_id", label: "Intercompany Transaction", type: "hidden", required: true },
+  { name: "reconciliation_date", label: "Reconciliation Date", type: "date", required: true },
+  { name: "notes", label: "Reconciliation Notes", type: "textarea", rows: 3, width: "full" },
+];
+
+const SETTLEMENT_FIELDS = [
+  { name: "transaction_id", label: "Intercompany Transaction", type: "hidden", required: true },
+  { name: "settlement_date", label: "Settlement Date", type: "date", required: true },
+  { name: "settlement_amount", label: "Settlement Amount", type: "number", min: 0.000001, step: "0.01", required: true },
+  { name: "from_settlement_account_id", label: "Source Settlement / Bank GL Account", type: "lookup", lookup: "intercompany_accounts", required: true },
+  { name: "to_settlement_account_id", label: "Destination Settlement / Bank GL Account", type: "lookup", lookup: "intercompany_accounts", required: true },
+  { name: "from_exchange_rate", label: "Settlement Currency to Source Functional Currency", type: "number", min: 0.0000000001, step: "0.0000000001", placeholder: "Leave blank to use configured effective rate" },
+  { name: "to_exchange_rate", label: "Settlement Currency to Destination Functional Currency", type: "number", min: 0.0000000001, step: "0.0000000001", placeholder: "Leave blank to use configured effective rate" },
+  { name: "reference_number", label: "Settlement Reference", type: "text" },
+  { name: "notes", label: "Settlement Notes", type: "textarea", rows: 3, width: "full" },
+];
+
+function formKind(action = {}, moduleKey = "") {
+  const form = String(action.form || "").toLowerCase();
+  const name = String(action.action || action.id || "").toLowerCase();
+  if (form.includes("settlement") || name.includes("settle")) return "settlement";
+  if (form.includes("reconciliation") || name.includes("reconcile")) return "reconciliation";
+  if (form === "intercompany" || moduleKey === "intercompany") return "create";
+  return null;
+}
+
+export function isIntercompanyEngineAction(action, moduleKey) {
+  return Boolean(formKind(action, moduleKey));
+}
+
+export default function IntercompanyEngine(props) {
+  const kind = formKind(props.action, props.moduleKey);
+  const schema = useMemo(() => {
+    if (kind === "settlement") return SETTLEMENT_FIELDS;
+    if (kind === "reconciliation") return RECONCILE_FIELDS;
+    return CREATE_FIELDS;
+  }, [kind]);
+
+  const values = {
+    ...(props.values || {}),
+    transaction_id:
+      props.values?.transaction_id ||
+      props.values?.id ||
+      props.action?.row?.id ||
+      null,
+  };
+
+  const action = {
+    ...(props.action || {}),
+    submitLabel:
+      kind === "settlement"
+        ? "Post Settlement"
+        : kind === "reconciliation"
+          ? "Reconcile"
+          : "Post Intercompany Transaction",
+  };
+
+  return (
+    <CreateEngine
+      {...props}
+      action={action}
+      schema={schema}
+      values={values}
+      title={
+        props.title ||
+        (kind === "settlement"
+          ? "Settle Intercompany Transaction"
+          : kind === "reconciliation"
+            ? "Reconcile Intercompany Transaction"
+            : "New Intercompany Transaction")
+      }
+    />
+  );
+}

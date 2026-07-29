@@ -2,34 +2,27 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { runIntercompanyEliminationCommand } from "@/lib/finance/intercompany/runtime/IntercompanyApplicationService";
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
+export async function POST(request) {
+  const body = await request.json().catch(() => ({}));
+  const access = await requireOrganizationAccess({
+    organizationId: body.organizationId || body.organization_id,
+    request,
+  });
 
-    const access = await requireOrganizationAccess({
-      organizationId: body.organizationId,
-    });
-
-    if (!access.success) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status }
-      );
-    }
-
-    const result = await runIntercompanyEliminationCommand({
-      organizationId: access.organizationId,
-      reconciliationId: body.reconciliationId,
-      eliminationAmount: body.eliminationAmount,
-    });
-
-    return NextResponse.json(result);
-  } catch (error) {
+  if (!access.success) {
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: access.error },
+      { status: access.status }
     );
   }
+
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        "Intercompany elimination must be executed through a governed Consolidation run with balanced elimination journals.",
+    },
+    { status: 405 }
+  );
 }

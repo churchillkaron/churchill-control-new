@@ -3,6 +3,7 @@ begin;
 -- Backfill canonical operational Departments from the Cost Centres that
 -- already exist for each organisation and legal entity. This avoids relying
 -- on company-name matching and keeps the values editable master data.
+-- Production migration retrigger: 2026-07-29T13:08:00+07:00.
 
 alter table public.departments
   add column if not exists organization_id uuid,

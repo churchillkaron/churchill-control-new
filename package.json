@@ -27,7 +27,7 @@
     "smoke:creative-cole-dense-preflight": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-studio-cole-dense-preflight.mjs",
     "execute:creative-cole-dense": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-studio-cole-dense-execute.mjs",
     "recover:creative-cole-dense": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-studio-cole-dense-recover.mjs",
-    "smoke:creative-churchill-short-ad-preflight": "node scripts/creative-studio-churchill-short-ad-preflight-v5.mjs",
+    "smoke:creative-churchill-short-ad-preflight": "node scripts/creative-studio-churchill-short-ad-preflight-v6.mjs",
     "inspect:creative-churchill-assets": "node scripts/creative-studio-churchill-asset-selector-node20.mjs"
   },
   "dependencies": {
@@ -42,7 +42,7 @@
     "framer-motion": "^12.38.0",
     "googleapis": "^171.4.0",
     "html-to-image": "^1.11.13",
-    "html2canvas": "^1.4.1",
+    "html2canvas": "^1.4.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.11.0",
     "next": "14.2.5",

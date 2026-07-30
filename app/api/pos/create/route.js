@@ -4,7 +4,6 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { openTableSession } from "@/lib/restaurant/services/openTableSession";
 import { recordSystemEvent } from "@/lib/events/recordSystemEvent";
 import { SYSTEM_EVENTS } from "@/lib/shared/constants/events";
-import { processWorkCenterEvents } from "@/lib/workers/work-centers/processWorkCenterEvents";
 import { resolvePOSFinancialPolicy } from "@/lib/pos/runtime/resolvePOSFinancialPolicy";
 
 export async function POST(req) {
@@ -209,11 +208,17 @@ export async function POST(req) {
 
     if (updatedOrder.error) throw updatedOrder.error;
 
-    await recordSystemEvent({
+    const eventResult = await recordSystemEvent({
       organizationId,
       type: isNewOrder
         ? SYSTEM_EVENTS.ORDER_CREATED
         : SYSTEM_EVENTS.ORDER_ITEM_ADDED,
+      idempotencyKey: `pos-order-items:${organizationId}:${order.id}:${(
+        inserted.data || []
+      )
+        .map((item) => item.id)
+        .sort()
+        .join(",")}`,
       payload: {
         order_id: order.id,
         organization_id: organizationId,
@@ -227,22 +232,17 @@ export async function POST(req) {
       },
     });
 
-    let dispatchError = null;
-
-    try {
-      await processWorkCenterEvents();
-    } catch (error) {
-      dispatchError = error.message;
-      console.error("POS WORK CENTER DISPATCH ERROR", error);
-    }
+    const dispatchPending =
+      eventResult?.success === false || eventResult?.event?.processed === false;
 
     return Response.json({
       success: true,
       order_id: order.id,
       session_id: session.id,
       inserted_items: inserted.data || [],
-      dispatch_pending: Boolean(dispatchError),
-      dispatch_error: dispatchError,
+      dispatch_pending: dispatchPending,
+      dispatch_error:
+        eventResult?.success === false ? eventResult.error : null,
     });
   } catch (error) {
     console.error("POS CREATE ERROR", error);

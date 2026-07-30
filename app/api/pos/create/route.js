@@ -5,31 +5,18 @@ import { openTableSession } from "@/lib/restaurant/services/openTableSession";
 import { recordSystemEvent } from "@/lib/events/recordSystemEvent";
 import { SYSTEM_EVENTS } from "@/lib/shared/constants/events";
 import { processWorkCenterEvents } from "@/lib/workers/work-centers/processWorkCenterEvents";
+import { resolvePOSFinancialPolicy } from "@/lib/pos/runtime/resolvePOSFinancialPolicy";
 
 export async function POST(req) {
   try {
     const body = await req.json();
 
     const organizationId =
-      body.organization_id ||
-      body.organizationId ||
-      null;
-
-    const tableId =
-      body.table_id ||
-      body.tableId ||
-      null;
-
+      body.organization_id || body.organizationId || null;
+    const tableId = body.table_id || body.tableId || null;
     const tableNumber =
-      body.table ||
-      body.table_number ||
-      body.tableNumber ||
-      null;
-
-    const items =
-      Array.isArray(body.items)
-        ? body.items
-        : [];
+      body.table || body.table_number || body.tableNumber || null;
+    const items = Array.isArray(body.items) ? body.items : [];
 
     if (!organizationId) {
       return Response.json(
@@ -89,9 +76,7 @@ export async function POST(req) {
       .limit(1)
       .maybeSingle();
 
-    if (existing.error) {
-      throw existing.error;
-    }
+    if (existing.error) throw existing.error;
 
     let order = existing.data || null;
     let isNewOrder = false;
@@ -125,10 +110,7 @@ export async function POST(req) {
         .select()
         .single();
 
-      if (created.error) {
-        throw created.error;
-      }
-
+      if (created.error) throw created.error;
       order = created.data;
     }
 
@@ -142,7 +124,7 @@ export async function POST(req) {
         item.modifiers?.seat ||
         null;
 
-      for (let i = 0; i < quantity; i++) {
+      for (let index = 0; index < quantity; index += 1) {
         orderItems.push({
           organization_id: organizationId,
           order_id: order.id,
@@ -173,9 +155,7 @@ export async function POST(req) {
       .insert(orderItems)
       .select("id");
 
-    if (inserted.error) {
-      throw inserted.error;
-    }
+    if (inserted.error) throw inserted.error;
 
     const allItems = await supabaseAdmin
       .from("order_items")
@@ -183,9 +163,7 @@ export async function POST(req) {
       .eq("organization_id", organizationId)
       .eq("order_id", order.id);
 
-    if (allItems.error) {
-      throw allItems.error;
-    }
+    if (allItems.error) throw allItems.error;
 
     const subtotal = (allItems.data || []).reduce(
       (sum, item) =>
@@ -193,11 +171,28 @@ export async function POST(req) {
       0
     );
 
-    const serviceCharge = Number((subtotal * 0.05).toFixed(2));
-    const vat = Number(((subtotal + serviceCharge) * 0.07).toFixed(2));
-    const total = Number((subtotal + serviceCharge + vat).toFixed(2));
+    const financialPolicy = await resolvePOSFinancialPolicy({
+      organizationId,
+      transactionDate: now,
+    });
 
-    await supabaseAdmin
+    const serviceCharge = Number(
+      (subtotal * financialPolicy.serviceChargeRate).toFixed(2)
+    );
+    const taxableAmount = subtotal + serviceCharge;
+    const vat = financialPolicy.pricesIncludeTax
+      ? Number(
+          (
+            taxableAmount -
+            taxableAmount / (1 + financialPolicy.taxRate || 1)
+          ).toFixed(2)
+        )
+      : Number((taxableAmount * financialPolicy.taxRate).toFixed(2));
+    const total = financialPolicy.pricesIncludeTax
+      ? Number(taxableAmount.toFixed(2))
+      : Number((taxableAmount + vat).toFixed(2));
+
+    const updatedOrder = await supabaseAdmin
       .from("orders")
       .update({
         subtotal,
@@ -208,7 +203,11 @@ export async function POST(req) {
         updated_at: now,
       })
       .eq("organization_id", organizationId)
-      .eq("id", order.id);
+      .eq("id", order.id)
+      .select("id")
+      .single();
+
+    if (updatedOrder.error) throw updatedOrder.error;
 
     await recordSystemEvent({
       organizationId,
@@ -223,16 +222,27 @@ export async function POST(req) {
         session_id: session.id,
         item_ids: (inserted.data || []).map((item) => item.id),
         items_count: orderItems.length,
+        tax_code_id: financialPolicy.taxCodeId,
+        tax_code: financialPolicy.taxCode,
       },
     });
 
-    await processWorkCenterEvents();
+    let dispatchError = null;
+
+    try {
+      await processWorkCenterEvents();
+    } catch (error) {
+      dispatchError = error.message;
+      console.error("POS WORK CENTER DISPATCH ERROR", error);
+    }
 
     return Response.json({
       success: true,
       order_id: order.id,
       session_id: session.id,
       inserted_items: inserted.data || [],
+      dispatch_pending: Boolean(dispatchError),
+      dispatch_error: dispatchError,
     });
   } catch (error) {
     console.error("POS CREATE ERROR", error);

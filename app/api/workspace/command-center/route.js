@@ -2,380 +2,304 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-import {
-  supabaseAdmin,
-} from "@/lib/shared/supabase/admin";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { loadAccountingFirmDashboard } from "@/lib/accounting/loadAccountingFirmDashboard";
+import { loadAccountingClients } from "@/lib/accounting/loadAccountingClients";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { generateWorkspaceNarrative } from "@/lib/platform/workspaces/generateWorkspaceNarrative";
 
-import {
-  loadAccountingFirmDashboard,
-} from "@/lib/accounting/loadAccountingFirmDashboard";
+const CLOSED_ORDER_STATUSES = new Set([
+  "PAID",
+  "CLOSED",
+  "CANCELLED",
+  "VOID",
+]);
 
-import {
-  loadAccountingClients,
-} from "@/lib/accounting/loadAccountingClients";
+const CLOSED_KITCHEN_STATUSES = new Set([
+  "COMPLETED",
+  "SERVED",
+  "CANCELLED",
+  "VOID",
+]);
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+function statusOf(record) {
+  return String(record?.status || "").trim().toUpperCase();
+}
 
-import {
-  generateWorkspaceNarrative,
-} from "@/lib/platform/workspaces/generateWorkspaceNarrative";
+function numberFrom(record, fields) {
+  for (const field of fields) {
+    const value = Number(record?.[field]);
+    if (Number.isFinite(value)) return value;
+  }
 
+  return 0;
+}
 
-
-
-function sumRows(rows, field) {
+function sumRows(rows, fields) {
   return (rows || []).reduce(
-    (sum, row) =>
-      sum + Number(row?.[field] || 0),
+    (sum, row) => sum + numberFrom(row, fields),
     0
   );
 }
 
 async function safeQuery(query) {
-  const result = await query;
-  return {
-    data: result.data || [],
-    error: result.error || null,
-  };
+  try {
+    const result = await query;
+
+    return {
+      data: result.data || [],
+      error: result.error || null,
+    };
+  } catch (error) {
+    return {
+      data: [],
+      error,
+    };
+  }
+}
+
+async function safeNarrative(input) {
+  try {
+    return await generateWorkspaceNarrative(input);
+  } catch (error) {
+    console.error("workspace narrative error", error);
+    return null;
+  }
 }
 
 export async function GET(request) {
   try {
-    const { searchParams } =
-      new URL(request.url);
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get("organizationId");
+    const organizationType = searchParams.get("organizationType");
 
-    const organizationId =
-      searchParams.get(
-        "organizationId"
-      );
-
-    const organizationType =
-      searchParams.get(
-        "organizationType"
-      );
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId,
-
-      });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
-    const tenantId =
-      access.tenantId;
-
-    if (
-      organizationType ===
-      "accounting_firm"
-    ) {
-
-      const metrics =
-        await loadAccountingFirmDashboard({
-
-          organizationId,
-
-        });
-
-      const clients =
-        await loadAccountingClients({
-
-          organizationId,
-
-        });
+    if (organizationType === "accounting_firm") {
+      const [metrics, clients] = await Promise.all([
+        loadAccountingFirmDashboard({ organizationId }),
+        loadAccountingClients({ organizationId }),
+      ]);
 
       return NextResponse.json({
-
         success: true,
-
         metrics,
-
         clients,
-
       });
-
     }
 
-    if (!tenantId) {
-      return NextResponse.json({
-        success: false,
-        error: "Missing tenantId",
-      }, { status: 400 });
-    }
-
-    const today =
-      new Date();
-
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayIso = today.toISOString();
 
     const [
       payments,
       orders,
       tables,
-      orderItems,
+      kitchenTickets,
       shifts,
-      ingredients,
+      inventoryItems,
       payables,
       waste,
+      workCenters,
     ] = await Promise.all([
       safeQuery(
         supabaseAdmin
-          .from('payment_transactions')
+          .from("payments")
           .select("*")
-          .eq("tenant_id", tenantId)
-          .gte("created_at", today.toISOString())
+          .eq("organization_id", organizationId)
+          .gte("created_at", todayIso)
       ),
-
       safeQuery(
         supabaseAdmin
           .from("orders")
           .select("*")
-          .eq("tenant_id", tenantId)
-          .gte("created_at", today.toISOString())
+          .eq("organization_id", organizationId)
+          .gte("created_at", todayIso)
       ),
-
       safeQuery(
         supabaseAdmin
           .from("restaurant_tables")
           .select("*")
-          .eq("tenant_id", tenantId)
+          .eq("organization_id", organizationId)
       ),
-
       safeQuery(
         supabaseAdmin
-          .from("order_items")
+          .from("kitchen_tickets")
           .select("*")
-          .eq("tenant_id", tenantId)
+          .eq("organization_id", organizationId)
       ),
-
       safeQuery(
         supabaseAdmin
           .from("pos_shifts")
           .select("*")
-          .eq("tenant_id", tenantId)
+          .eq("organization_id", organizationId)
       ),
-
       safeQuery(
         supabaseAdmin
           .from("inventory_items")
           .select("*")
-          .eq("tenant_id", tenantId)
+          .eq("organization_id", organizationId)
       ),
-
       safeQuery(
         supabaseAdmin
           .from("accounts_payable")
           .select("*")
-          .eq("tenant_id", tenantId)
+          .eq("organization_id", organizationId)
       ),
-
       safeQuery(
         supabaseAdmin
           .from("production_waste_logs")
           .select("*")
-          .eq("tenant_id", tenantId)
+          .eq("organization_id", organizationId)
+          .gte("created_at", todayIso)
+      ),
+      safeQuery(
+        supabaseAdmin
+          .from("organization_work_centers")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .eq("active", true)
+          .order("display_order", { ascending: true })
       ),
     ]);
 
-    const revenue =
-      sumRows(payments.data, "total");
+    const paidPayments = (payments.data || []).filter(
+      (payment) => statusOf(payment) === "PAID"
+    );
+    const paidOrders = (orders.data || []).filter((order) => {
+      const orderStatus = statusOf(order);
+      const paymentStatus = String(order?.payment_status || "")
+        .trim()
+        .toUpperCase();
 
-    const openOrders =
-      (orders.data || []).filter(
-        order =>
-          !["PAID", "CLOSED", "CANCELLED", "VOID"].includes(
-            String(status || "").toUpperCase()
-          )
-      );
+      return paymentStatus === "PAID" || orderStatus === "PAID";
+    });
+    const openOrders = (orders.data || []).filter(
+      (order) => !CLOSED_ORDER_STATUSES.has(statusOf(order))
+    );
+    const occupiedTables = (tables.data || []).filter((table) =>
+      ["OCCUPIED", "ACTIVE", "OPEN"].includes(statusOf(table))
+    );
+    const operationsQueue = (kitchenTickets.data || []).filter(
+      (ticket) => !CLOSED_KITCHEN_STATUSES.has(statusOf(ticket))
+    );
+    const readyOrders = operationsQueue.filter(
+      (ticket) => statusOf(ticket) === "READY"
+    );
+    const activeStaff = (shifts.data || []).filter((shift) =>
+      ["OPEN", "ACTIVE"].includes(statusOf(shift))
+    );
+    const lowStock = (inventoryItems.data || []).filter((item) => {
+      const available = numberFrom(item, [
+        "quantity_on_hand",
+        "on_hand_quantity",
+        "current_quantity",
+        "stock",
+      ]);
+      const minimum = numberFrom(item, [
+        "reorder_point",
+        "minimum_stock",
+        "min_stock",
+      ]);
 
-    const paidOrders =
-      (orders.data || []).filter(
-        order =>
-          String(status || "").toUpperCase() === "PAID"
-      );
+      return minimum > 0 && available <= minimum;
+    });
+    const pendingPayables = (payables.data || []).filter(
+      (payable) => statusOf(payable) !== "PAID"
+    );
 
-    const occupiedTables =
-      (tables.data || []).filter(
-        serviceUnit =>
-          ["OCCUPIED", "ACTIVE"].includes(
-            String(table.status || "").toUpperCase()
-          )
-      );
+    const paidOrderRevenue = sumRows(paidOrders, ["total_amount", "total"]);
+    const paymentRevenue = sumRows(paidPayments, ["amount", "total_amount"]);
+    const revenue = paymentRevenue || paidOrderRevenue;
+    const serviceCharge = sumRows(orders.data, ["service_charge_amount"]);
+    const pendingPayablesAmount = sumRows(pendingPayables, [
+      "amount",
+      "balance_due",
+      "total_amount",
+    ]);
+    const wasteCost = sumRows(waste.data, ["estimated_cost", "cost"]);
+    const averageOrder = paidOrders.length > 0 ? revenue / paidOrders.length : 0;
 
-    const operationsQueue =
-      (orderItems.data || []).filter(
-        item =>
-          !["READY", "SERVED", "CANCELLED", "VOID"].includes(
-            String(item.status || "").toUpperCase()
-          )
-      );
+    const metrics = {
+      revenue,
+      serviceCharge,
+      totalOrders: orders.data.length,
+      openOrders: openOrders.length,
+      paidOrders: paidOrders.length,
+      averageOrder,
+      occupiedTables: occupiedTables.length,
+      totalTables: tables.data.length,
+      operationsQueue: operationsQueue.length,
+      readyOrders: readyOrders.length,
+      activeStaff: activeStaff.length,
+      lowStockAlerts: lowStock.length,
+      pendingPayables: pendingPayables.length,
+      pendingPayablesAmount,
+      wasteCost,
+      workCenters: workCenters.data.length,
+    };
 
-    const activeStaff =
-      (shifts.data || []).filter(
-        shift =>
-          ["OPEN", "ACTIVE"].includes(
-            String(shift.status || "").toUpperCase()
-          )
-      );
-
-    const lowStock =
-      (ingredients.data || []).filter(
-        ingredient =>
-          Number(ingredient.stock || 0) <=
-          Number(ingredient.minimum_stock || 0)
-      );
-
-    const pendingPayables =
-      (payables.data || []).filter(
-        payable =>
-          String(payable.status || "").toUpperCase() !== "PAID"
-      );
-
-    const pendingPayablesAmount =
-      sumRows(pendingPayables, "amount");
-
-    const wasteCost =
-      sumRows(waste.data, "estimated_cost");
-
-    const averageOrder =
-      paidOrders.length > 0
-        ? revenue / paidOrders.length
-        : 0;
-
-    const serviceCharge =
-      revenue * 0.05;
-
-    const narrative =
-      await generateWorkspaceNarrative({
-
-        organization: {
-          id:
-            organizationId,
-
-          name:
-            organizationId,
-
-          organization_type:
-            organizationType,
-        },
-
-        industry:
-          organizationType,
-
-        metrics: {
-
-          revenue,
-
-          serviceCharge,
-
-          totalOrders:
-            orders.data.length,
-
-          openOrders:
-            openOrders.length,
-
-          paidOrders:
-            paidOrders.length,
-
-          averageOrder,
-
-          occupiedTables:
-            occupiedTables.length,
-
-          totalTables:
-            tables.data.length,
-
-          operationsQueue:
-            operationsQueue.length,
-
-          activeStaff:
-            activeStaff.length,
-
-          lowStockAlerts:
-            lowStock.length,
-
-          pendingPayables:
-            pendingPayables.length,
-
-          pendingPayablesAmount,
-
-          wasteCost,
-
-        },
-
-        alerts: [
-
-          lowStock.length > 0
-            ? `${lowStock.length} low stock alerts`
-            : null,
-
-          operationsQueue.length > 5
-            ? `Operations queue ${operationsQueue.length}`
-            : null,
-
-          pendingPayables.length > 0
-            ? `${pendingPayables.length} unpaid payables`
-            : null,
-
-        ].filter(Boolean),
-
-      });
+    const narrative = await safeNarrative({
+      organization: {
+        id: organizationId,
+        name: organizationId,
+        organization_type: organizationType,
+      },
+      industry: organizationType,
+      metrics,
+      alerts: [
+        lowStock.length > 0 ? `${lowStock.length} low stock alerts` : null,
+        operationsQueue.length > 5
+          ? `Operations queue ${operationsQueue.length}`
+          : null,
+        pendingPayables.length > 0
+          ? `${pendingPayables.length} unpaid payables`
+          : null,
+      ].filter(Boolean),
+    });
 
     return NextResponse.json({
       success: true,
-
       narrative,
-
-      metrics: {
-        revenue,
-        serviceCharge,
-        totalOrders: orders.data.length,
-        openOrders: openOrders.length,
-        paidOrders: paidOrders.length,
-        averageOrder,
-        occupiedTables: occupiedTables.length,
-        totalTables: tables.data.length,
-        operationsQueue: operationsQueue.length,
-        activeStaff: activeStaff.length,
-        lowStockAlerts: lowStock.length,
-        pendingPayables: pendingPayables.length,
-        pendingPayablesAmount,
-        wasteCost,
-      },
+      metrics,
+      workCenters: workCenters.data,
       sourceHealth: {
         payments: !payments.error,
         orders: !orders.error,
         tables: !tables.error,
-        orderItems: !orderItems.error,
+        kitchenTickets: !kitchenTickets.error,
         shifts: !shifts.error,
-        ingredients: !ingredients.error,
+        inventoryItems: !inventoryItems.error,
         payables: !payables.error,
         waste: !waste.error,
+        workCenters: !workCenters.error,
       },
     });
   } catch (error) {
     console.error("command center error", error);
 
-    return NextResponse.json({
-      success: false,
-      error: error.message,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      { status: 500 }
+    );
   }
 }

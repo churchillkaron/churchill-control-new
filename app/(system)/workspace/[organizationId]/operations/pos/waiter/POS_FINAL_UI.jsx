@@ -643,6 +643,8 @@ export default function POSFinalUI() {
     }
 
     const result = await assignSeatToBillGroup({
+      organizationId,
+      tableId: openTable.id,
       itemIds,
       billGroup: destination.group_name,
     });

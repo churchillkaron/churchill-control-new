@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import crypto from "node:crypto";
 import process from "node:process";
 import nextEnv from "@next/env";
 import WebSocket from "ws";
@@ -85,6 +86,13 @@ function verticalRequested(value, channels) {
     channels.some((channel) => ["facebook", "instagram", "tiktok"].includes(channel));
 }
 
+function commandIdentity(organizationId, value) {
+  return crypto
+    .createHash("sha256")
+    .update(`${organizationId}\n${normalized(value)}`)
+    .digest("hex");
+}
+
 async function resolveOrganization() {
   const explicit = text(
     process.env.CREATIVE_ORGANIZATION_ID ||
@@ -138,6 +146,10 @@ async function resolveOrganization() {
 function cleanSelection(selection = {}) {
   return {
     source: selection.source || null,
+    scanned_asset_count: Number(selection.scanned_asset_count || 0),
+    scanned_asset_node_count: Number(selection.scanned_asset_node_count || 0),
+    visual_asset_count: Number(selection.visual_asset_count || 0),
+    verified_visual_asset_count: Number(selection.verified_visual_asset_count || 0),
     candidate_count: Number(selection.candidate_count || 0),
     selected_asset_ids: selection.selected_asset_ids || [],
     selected_assets: selection.selected_assets || [],
@@ -151,12 +163,32 @@ function approvalBoundary(error) {
     message.includes("HUMAN_APPROVAL_REQUIRED");
 }
 
+function reusableMission(missions, identity) {
+  const inactive = new Set(["completed", "archived", "cancelled", "canceled"]);
+  return (missions || []).find((mission) => {
+    if (inactive.has(text(mission.status).toLowerCase())) return false;
+    const metadata = mission.metadata || {};
+    return (
+      text(metadata.command_identity) === identity ||
+      (
+        normalized(metadata.original_intent) === normalized(intent) &&
+        [
+          "natural_language_creative_command_cli",
+          "natural_language_creative_intent",
+          "natural_language_creative_command",
+        ].includes(text(metadata.source))
+      )
+    );
+  }) || null;
+}
+
 try {
   const organization = await resolveOrganization();
   const channels = inferChannels(intent);
   const productionType = inferProductionType(intent);
   const duration = inferDuration(intent);
   const vertical = verticalRequested(intent, channels);
+  const identity = commandIdentity(organization.id, intent);
 
   const selection = await CreativeAssetAutoSelectionRuntime.resolve({
     organization_id: organization.id,
@@ -166,33 +198,62 @@ try {
   });
   const assets = selection.assets || [];
   if (!assets.length) {
-    throw new Error("CREATIVE_VERIFIED_SOURCE_ASSETS_NOT_FOUND");
+    throw new Error(
+      `CREATIVE_VERIFIED_SOURCE_ASSETS_NOT_FOUND:` +
+      `assets=${selection.scanned_asset_count || 0},` +
+      `nodes=${selection.scanned_asset_node_count || 0},` +
+      `verified_visuals=${selection.verified_visual_asset_count || 0},` +
+      `candidates=${selection.candidate_count || 0}`,
+    );
   }
 
   const selectedIds = assets.map((asset) => asset.id);
-  const mission = await CreativeMissionRuntime.create({
+  const metadata = {
+    source: "natural_language_creative_command_cli",
+    command_identity: identity,
+    original_intent: intent,
+    production_type: productionType,
+    target_duration: duration,
+    target_languages: ["en"],
+    default_export_profile_id:
+      vertical ? "master-vertical-h264" : "master-landscape-h264",
+    public_publish_authorized: false,
+    publish_authorized: false,
+    publication_requires_human_approval: true,
+    production_dossier_approval_required: true,
+    selected_asset_ids: selectedIds,
+    asset_selection: cleanSelection(selection),
+  };
+
+  const missions = await CreativeMissionRuntime.list({
     organization_id: organization.id,
-    title: intent.slice(0, 120),
-    business_goal: intent,
-    objective: intent,
-    audience: {},
-    channels,
-    metadata: {
-      source: "natural_language_creative_command_cli",
-      original_intent: intent,
-      production_type: productionType,
-      target_duration: duration,
-      target_languages: ["en"],
-      default_export_profile_id:
-        vertical ? "master-vertical-h264" : "master-landscape-h264",
-      public_publish_authorized: false,
-      publish_authorized: false,
-      publication_requires_human_approval: true,
-      production_dossier_approval_required: true,
-      selected_asset_ids: selectedIds,
-      asset_selection: cleanSelection(selection),
-    },
   });
+  const existingMission = reusableMission(missions, identity);
+  const mission = existingMission
+    ? await CreativeMissionRuntime.update(existingMission.id, {
+        title: intent.slice(0, 120),
+        business_goal: intent,
+        objective: intent,
+        audience: existingMission.audience || {},
+        channels,
+        metadata: {
+          ...(existingMission.metadata || {}),
+          ...metadata,
+          resumed_at: new Date().toISOString(),
+        },
+      })
+    : await CreativeMissionRuntime.create({
+        organization_id: organization.id,
+        title: intent.slice(0, 120),
+        business_goal: intent,
+        objective: intent,
+        audience: {},
+        channels,
+        metadata,
+      });
+  const executionMode = existingMission
+    ? "RESUMED_EXISTING_MISSION"
+    : "CREATED_NEW_MISSION";
 
   const started = await CreativeMissionRuntime.start(mission.id);
   const projectId = started.runtime_context?.creative_project_id;
@@ -212,6 +273,7 @@ try {
   const updatedProject = await CreativeProjectRuntime.update(projectId, {
     metadata: {
       ...(project.metadata || {}),
+      command_identity: identity,
       target_duration: duration,
       selected_asset_ids: selectedIds,
       selected_assets_locked_at: new Date().toISOString(),
@@ -266,6 +328,8 @@ try {
   console.log("AVANTIQO CREATIVE COMMAND");
   console.log("============================================================");
   console.log(`COMMAND=${intent}`);
+  console.log(`COMMAND_IDENTITY=${identity}`);
+  console.log(`COMMAND_EXECUTION_MODE=${executionMode}`);
   console.log(`ORGANIZATION_ID=${organization.id}`);
   console.log(`ORGANIZATION_NAME=${organization.name}`);
   console.log(`PRODUCTION_TYPE=${productionType}`);
@@ -273,6 +337,10 @@ try {
   console.log(`CHANNELS=${channels.join(",")}`);
   console.log(`EXPORT_PROFILE=${vertical ? "master-vertical-h264" : "master-landscape-h264"}`);
   console.log(`ASSET_SELECTION_SOURCE=${selection.source}`);
+  console.log(`SCANNED_ASSET_COUNT=${selection.scanned_asset_count || 0}`);
+  console.log(`SCANNED_ASSET_NODE_COUNT=${selection.scanned_asset_node_count || 0}`);
+  console.log(`VERIFIED_VISUAL_ASSET_COUNT=${selection.verified_visual_asset_count || 0}`);
+  console.log(`ORIGINAL_SOURCE_CANDIDATE_COUNT=${selection.candidate_count || 0}`);
   console.log(`SELECTED_ASSET_COUNT=${selectedIds.length}`);
   for (const selected of selection.selected_assets || []) {
     console.log(
@@ -282,6 +350,7 @@ try {
   console.log(`CREATIVE_MISSION_ID=${started.id}`);
   console.log(`CREATIVE_PROJECT_ID=${projectId}`);
   console.log(`CREATIVE_BRIEF_ID=${briefId || ""}`);
+  console.log(`ATTACHED_ASSET_NODE_COUNT=${attached.length}`);
   console.log(`PRODUCTION_DOSSIER_ID=${dossier?.id || ""}`);
   console.log(`ESTIMATED_PRODUCTION_COST=${estimatedCost ?? "PENDING"}`);
   console.log(`CURRENCY=${currency || "PENDING"}`);

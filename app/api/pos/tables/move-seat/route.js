@@ -1,239 +1,59 @@
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { execute } from "@/lib/ubte/runtime/ExecutionEngine";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 export const dynamic = "force-dynamic";
 
-function scoped(query, { organizationId }) {
-  if (organizationId) return query.eq("organization_id", organizationId);
-  return query.eq("organization_id", organizationId);
+function readOrganizationId(body) {
+  return body?.organizationId ?? body?.organization_id ?? null;
 }
 
-function scopedOrderItems(query, { organizationId }) {
-  return query.eq("organization_id", organizationId);
-}
-
-async function recalcOrder(orderId, context) {
-  const { data: items, error } = await scopedOrderItems(
-    supabaseAdmin
-      .from("order_items")
-      .select("*")
-      .eq("order_id", orderId),
-    context
-  );
-
-  if (error) throw error;
-
-  const total = (items || []).reduce(
-    (sum, item) =>
-      sum +
-      Number(item.price || 0) *
-        Number(item.quantity || 1),
-    0
-  );
-
-  await scoped(
-    supabaseAdmin
-      .from("orders")
-      .update({
-        total,
-        total_amount: total,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", orderId),
-    context
-  );
-
-  return total;
-}
-
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
+    const organizationId = readOrganizationId(body);
 
-    const organizationId =
-      body.organizationId || body.organization_id || null;
-
-    const fromTableId = body.fromTableId;
-    const toTableId = body.toTableId;
-    const seatPosition = body.seatPosition;
-
-    if (!organizationId && !organizationId) {
-      return Response.json(
-        { success: false, error: "Missing organization/organization" },
-        { status: 400 }
-      );
-    }
-
-    if (!fromTableId || !toTableId || !seatPosition) {
-      return Response.json(
-        { success: false, error: "Missing move seat data" },
-        { status: 400 }
-      );
-    }
-
-    const context = { organizationId };
-
-    const { data: sourceTable, error: sourceError } =
-      await scoped(
-        supabaseAdmin
-          .from("restaurant_tables")
-          .select("*")
-          .eq("id", fromTableId),
-        context
-      ).single();
-
-    if (sourceError || !sourceTable) {
-      throw sourceError || new Error("Source table not found");
-    }
-
-    const { data: targetTable, error: targetError } =
-      await scoped(
-        supabaseAdmin
-          .from("restaurant_tables")
-          .select("*")
-          .eq("id", toTableId),
-        context
-      ).single();
-
-    if (targetError || !targetTable) {
-      throw targetError || new Error("Target table not found");
-    }
-
-    const { data: sourceOrders, error: sourceOrdersError } =
-      await scoped(
-        supabaseAdmin
-          .from("orders")
-          .select("*, order_items(*)")
-          .eq("table_id", fromTableId)
-          .in("status", ["OPEN", "PENDING", "PREPARING"]),
-        context
-      );
-
-    if (sourceOrdersError) throw sourceOrdersError;
-
-    const seatItems =
-      (sourceOrders || [])
-        .flatMap((order) =>
-          (order.order_items || []).map((item) => ({
-            ...item,
-            source_order_id: order.id,
-          }))
-        )
-        .filter((item) => {
-          const seat =
-            item.seat_position ||
-            item.seat_number ||
-            item.modifiers?.seat;
-
-          return String(seat) === String(seatPosition);
-        });
-
-    if (process.env.NODE_ENV !== "production") console.log("SEAT SEARCH", {
-      seatPosition,
-      found: seatItems.length,
-      allItems: (sourceOrders || []).flatMap(order =>
-        (order.order_items || []).map(item => ({
-          id: item.id,
-          order: order.id,
-          seat_position: item.seat_position,
-          seat_number: item.seat_number,
-          modifiers: item.modifiers,
-        }))
-      ),
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
     });
 
-    if (seatItems.length) {
-      let { data: targetOrder, error: targetOrderError } =
-        await scoped(
-          supabaseAdmin
-            .from("orders")
-            .select("*")
-            .eq("table_id", toTableId)
-            .eq("status", "OPEN")
-            .order("created_at", { ascending: false })
-            .limit(1),
-          context
-        ).maybeSingle();
-
-      if (targetOrderError) throw targetOrderError;
-
-      if (!targetOrder) {
-        const now = new Date().toISOString();
-
-        const created = await supabaseAdmin
-          .from("orders")
-          .insert({
-            organization_id: organizationId,
-            organization_id: organizationId,
-            table_id: toTableId,
-            table_number: targetTable.table_number,
-            session_id:
-              targetTable.active_session_id ||
-              sourceTable.active_session_id ||
-              null,
-            total: 0,
-            total_amount: 0,
-            status: "OPEN",
-            staff_name: "Staff",
-            created_at: now,
-          })
-          .select()
-          .single();
-
-        if (created.error) throw created.error;
-        targetOrder = created.data;
-      }
-
-      const itemIds = seatItems.map((item) => item.id);
-
-      if (process.env.NODE_ENV !== "production") console.log("MOVE SEAT", {
-        seatPosition,
-        seatItems: seatItems.length,
-        itemIds,
-        sourceOrders: [...new Set(seatItems.map(i => i.source_order_id))],
-        targetOrder: targetOrder.id,
-      });
-
-      const {
-        data: updatedRows,
-        error: moveError,
-      } = await scopedOrderItems(
-        supabaseAdmin
-          .from("order_items")
-          .update({
-            order_id: targetOrder.id,
-            updated_at: new Date().toISOString(),
-          })
-          .in("id", itemIds)
-          .select("id, order_id, seat_position"),
-        context
+    if (!access.success) {
+      return Response.json(
+        { success: false, error: access.error },
+        { status: access.status || 403 }
       );
-
-      if (process.env.NODE_ENV !== "production") console.log("UPDATED ROWS", updatedRows);
-
-      if (moveError) throw moveError;
-
-      const sourceOrderIds = [
-        ...new Set(seatItems.map((item) => item.source_order_id)),
-      ];
-
-      for (const orderId of sourceOrderIds) {
-        await recalcOrder(orderId, context);
-      }
-
-      await recalcOrder(targetOrder.id, context);
     }
 
-    
-    // Move Seat only moves order items.
-    // It must NOT modify restaurant_tables.current_guests.
-    // Guest counts are maintained by Session operations.
-    
-return Response.json({
+    const result = await execute({
+      organizationId: access.organizationId,
+      domain: "restaurant",
+      capability: "posTableActions",
+      action: "MoveSeat",
+      payload: {
+        fromTableId: body.fromTableId,
+        toTableId: body.toTableId,
+        seatPosition: body.seatPosition,
+      },
+      actor: {
+        id: access.user?.id || null,
+        email: access.user?.email || null,
+        staffAccountId:
+          access.access?.staffAccountId || access.staff?.id || null,
+        role: access.role || null,
+      },
+      runtime: {
+        permissions: access.permissions || [],
+        metadata: {
+          authenticated: true,
+          compatibilityRoute: "/api/pos/tables/move-seat",
+        },
+      },
+    });
+
+    return Response.json({
       success: true,
-      movedItems: seatItems.length,
-      seatPosition,
-      fromTableId,
-      toTableId,
+      ...result.result,
+      execution: result.context,
     });
   } catch (error) {
     console.error("[MOVE_SEAT]", error);
@@ -241,9 +61,9 @@ return Response.json({
     return Response.json(
       {
         success: false,
-        error: error.message,
+        error: error?.message || "Move seat failed",
       },
-      { status: 500 }
+      { status: error?.status || 500 }
     );
   }
 }

@@ -17,33 +17,32 @@ const PAYMENT_OPTIONS = [
   { value: "MIXED", label: "Mixed payment", icon: Split },
 ];
 
-function numeric(record, fields) {
-  for (const field of fields) {
-    const value = Number(record?.[field]);
-    if (Number.isFinite(value)) return value;
-  }
-  return 0;
-}
-
 function formatMoney(value, currencyCode) {
   const amount = Number(value || 0);
 
   try {
-    return new Intl.NumberFormat(undefined, currencyCode
-      ? {
-          style: "currency",
-          currency: currencyCode,
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }
-      : {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }
+    return new Intl.NumberFormat(
+      undefined,
+      currencyCode
+        ? {
+            style: "currency",
+            currency: currencyCode,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
+        : {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
     ).format(amount);
   } catch {
     return amount.toFixed(2);
   }
+}
+
+function itemAmount(item, field, fallback = 0) {
+  const value = Number(item?.[field]);
+  return Number.isFinite(value) ? value : Number(fallback || 0);
 }
 
 export default function PaymentsPage() {
@@ -110,50 +109,65 @@ export default function PaymentsPage() {
   }, [organizationId, tableNumber]);
 
   const items = paymentState?.items || [];
-  const allItemsNet = useMemo(
-    () =>
-      items.reduce(
-        (sum, item) =>
-          sum + Number(item.price || 0) * Number(item.quantity || 1),
-        0
-      ),
-    [items]
+  const selectedRows = useMemo(
+    () => items.filter((item) => selectedItems.includes(item.id) && !item.fully_paid),
+    [items, selectedItems]
   );
   const selectedNet = useMemo(
     () =>
-      items
-        .filter((item) => selectedItems.includes(item.id))
-        .reduce(
-          (sum, item) =>
-            sum + Number(item.price || 0) * Number(item.quantity || 1),
-          0
-        ),
-    [items, selectedItems]
+      selectedRows.reduce(
+        (sum, item) =>
+          sum +
+          itemAmount(
+            item,
+            "remaining_net_amount",
+            Number(item.price || 0) * Number(item.quantity || 1)
+          ),
+        0
+      ),
+    [selectedRows]
   );
-  const persistedSubtotal =
-    numeric(paymentState, ["subtotal", "netTotal", "net_total"]) || allItemsNet;
-  const persistedService = numeric(paymentState, [
-    "serviceCharge",
-    "service_charge",
-    "serviceChargeAmount",
-    "service_charge_amount",
-  ]);
-  const persistedTax = numeric(paymentState, [
-    "tax",
-    "vat",
-    "taxAmount",
-    "tax_amount",
-    "vatAmount",
-    "vat_amount",
-  ]);
-  const selectedShare =
-    selectedNet > 0 && persistedSubtotal > 0
-      ? Math.min(1, selectedNet / persistedSubtotal)
-      : 0;
-  const selectedService = Number((persistedService * selectedShare).toFixed(2));
-  const selectedTax = Number((persistedTax * selectedShare).toFixed(2));
-  const selectedGross = Number(
-    (selectedNet + selectedService + selectedTax).toFixed(2)
+  const selectedService = useMemo(
+    () =>
+      selectedRows.reduce(
+        (sum, item) => sum + itemAmount(item, "remaining_service_amount"),
+        0
+      ),
+    [selectedRows]
+  );
+  const selectedTax = useMemo(
+    () =>
+      selectedRows.reduce(
+        (sum, item) => sum + itemAmount(item, "remaining_tax_amount"),
+        0
+      ),
+    [selectedRows]
+  );
+  const selectedDiscount = useMemo(
+    () =>
+      selectedRows.reduce(
+        (sum, item) => sum + itemAmount(item, "remaining_discount_amount"),
+        0
+      ),
+    [selectedRows]
+  );
+  const selectedGross = useMemo(
+    () =>
+      Number(
+        selectedRows
+          .reduce(
+            (sum, item) =>
+              sum +
+              itemAmount(
+                item,
+                "remaining_amount",
+                Number(item.price || 0) * Number(item.quantity || 1)
+              ),
+            0
+          )
+          .toFixed(2)
+      ),
+    [selectedRows]
   );
   const splitPreview = useMemo(
     () =>
@@ -174,16 +188,18 @@ export default function PaymentsPage() {
     setAmount(targetAmount > 0 ? targetAmount.toFixed(2) : "");
   }, [targetAmount]);
 
-  function toggleItem(itemId) {
+  function toggleItem(item) {
+    if (item.fully_paid || actionLoading) return;
+
     resetSettlementIdentity();
     setSelectedItems((current) =>
-      current.includes(itemId)
-        ? current.filter((id) => id !== itemId)
-        : [...current, itemId]
+      current.includes(item.id)
+        ? current.filter((id) => id !== item.id)
+        : [...current, item.id]
     );
   }
 
-  async function payAmount(paymentAmount, mode) {
+  async function payAmount(paymentAmount, mode, itemIds = []) {
     if (!paymentState?.session?.table_number) {
       setError("No active table session");
       return;
@@ -219,7 +235,7 @@ export default function PaymentsPage() {
             tableNumber: paymentState.session.table_number,
             paymentMethod,
             paidAmount: Number(paymentAmount),
-            itemIds: selectedItems,
+            itemIds,
           }),
         }
       );
@@ -291,14 +307,24 @@ export default function PaymentsPage() {
           <div className="mt-8 space-y-2">
             {items.map((item) => {
               const selected = selectedItems.includes(item.id);
+              const paid = Boolean(item.fully_paid);
+              const displayedAmount = itemAmount(
+                item,
+                "remaining_amount",
+                Number(item.price || 0) * Number(item.quantity || 1)
+              );
+
               return (
                 <button
                   key={item.id}
-                  onClick={() => toggleItem(item.id)}
+                  disabled={paid || actionLoading}
+                  onClick={() => toggleItem(item)}
                   className={
-                    selected
-                      ? "flex w-full items-center justify-between rounded-2xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 px-4 py-4 text-left"
-                      : "flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-left"
+                    paid
+                      ? "flex w-full cursor-not-allowed items-center justify-between rounded-2xl border border-emerald-400/15 bg-emerald-400/5 px-4 py-4 text-left opacity-55"
+                      : selected
+                        ? "flex w-full items-center justify-between rounded-2xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 px-4 py-4 text-left"
+                        : "flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-left"
                   }
                 >
                   <div>
@@ -306,14 +332,13 @@ export default function PaymentsPage() {
                       {item.item_name || item.name || "Item"}
                     </div>
                     <div className="mt-1 text-xs text-white/40">
-                      {Number(item.quantity || 1)} item(s)
+                      {paid
+                        ? "Paid"
+                        : `${Number(item.quantity || 1)} item(s)`}
                     </div>
                   </div>
-                  <div className="text-sm text-white/65">
-                    {formatMoney(
-                      Number(item.price || 0) * Number(item.quantity || 1),
-                      currencyCode
-                    )}
+                  <div className={paid ? "text-sm text-emerald-200/70" : "text-sm text-white/65"}>
+                    {paid ? "Paid" : formatMoney(displayedAmount, currencyCode)}
                   </div>
                 </button>
               );
@@ -334,6 +359,12 @@ export default function PaymentsPage() {
                 <span>Allocated tax</span>
                 <span>{formatMoney(selectedTax, currencyCode)}</span>
               </div>
+              {selectedDiscount > 0 ? (
+                <div className="mt-2 flex justify-between text-white/55">
+                  <span>Allocated discount</span>
+                  <span>-{formatMoney(selectedDiscount, currencyCode)}</span>
+                </div>
+              ) : null}
               <div className="mt-3 flex justify-between text-lg font-semibold">
                 <span>Selected total</span>
                 <span>{formatMoney(selectedGross, currencyCode)}</span>
@@ -397,22 +428,22 @@ export default function PaymentsPage() {
           />
 
           <button
-            disabled={actionLoading || selectedItems.length === 0}
-            onClick={() => payAmount(selectedGross, "PARTIAL")}
+            disabled={actionLoading || selectedItems.length === 0 || selectedGross <= 0}
+            onClick={() => payAmount(selectedGross, "PARTIAL", selectedItems)}
             className="mt-6 w-full rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 py-4 text-sm font-semibold text-[#F3D7A2] disabled:opacity-30"
           >
             {actionLoading ? "Processing..." : "Pay Selected Items"}
           </button>
           <button
             disabled={actionLoading}
-            onClick={() => payAmount(Number(amount || 0), "PARTIAL")}
+            onClick={() => payAmount(Number(amount || 0), "PARTIAL", [])}
             className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold disabled:opacity-30"
           >
             {actionLoading ? "Processing..." : "Pay Partial Amount"}
           </button>
           <button
             disabled={actionLoading}
-            onClick={() => payAmount(paymentState.remainingBalance, "FULL")}
+            onClick={() => payAmount(paymentState.remainingBalance, "FULL", [])}
             className="mt-3 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black disabled:opacity-30"
           >
             {actionLoading ? "Processing..." : "Pay Full Balance"}

@@ -7,6 +7,7 @@
     "prebuild": "npm run audit:operations && npm run audit:operations-events && npm run audit:operations-authorization && npm run audit:operations-roles && npm run audit:operations-readiness && npm run audit:operations-migrations && node scripts/finance-production-master-data-bootstrap.mjs",
     "build": "next build",
     "start": "next start",
+    "creative": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-command.mjs",
     "audit:operations": "node scripts/operations-release-audit.mjs",
     "audit:operations-events": "node scripts/operations-event-release-audit.mjs",
     "audit:operations-authorization": "node scripts/operations-authorization-release-audit.mjs",

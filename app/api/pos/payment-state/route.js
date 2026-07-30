@@ -12,6 +12,18 @@ function numeric(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function roundMoney(value) {
+  return Number(numeric(value).toFixed(2));
+}
+
+function isMissingAllocationTable(error) {
+  return (
+    error?.code === "42P01" ||
+    error?.code === "PGRST205" ||
+    /restaurant_payment_allocations/i.test(error?.message || "")
+  );
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -35,7 +47,11 @@ export async function POST(request) {
     const organizationId = access.organizationId;
     const tableNumber = readValue(body, "tableNumber", "table_number");
 
-    if (tableNumber === null || tableNumber === undefined || tableNumber === "") {
+    if (
+      tableNumber === null ||
+      tableNumber === undefined ||
+      tableNumber === ""
+    ) {
       return Response.json(
         { success: false, error: "Missing tableNumber" },
         { status: 400 }
@@ -113,9 +129,13 @@ export async function POST(request) {
 
     const persistedOrders = orders || [];
     const orderIds = persistedOrders.map((order) => order.id);
-    const sessionIds = [...new Set(
-      persistedOrders.map((order) => order.session_id).filter(Boolean)
-    )];
+    const sessionIds = [
+      ...new Set(
+        persistedOrders
+          .map((order) => order.session_id)
+          .filter(Boolean)
+      ),
+    ];
 
     let payments = [];
 
@@ -136,12 +156,14 @@ export async function POST(request) {
         query = query.in("session_id", sessionIds);
       }
 
-      const paymentResult = await query.order("paid_at", { ascending: true });
+      const paymentResult = await query.order("paid_at", {
+        ascending: true,
+      });
       if (paymentResult.error) throw paymentResult.error;
       payments = paymentResult.data || [];
     }
 
-    const items = persistedOrders.flatMap((order) =>
+    const rawItems = persistedOrders.flatMap((order) =>
       (order.order_items || []).map((item) => ({
         ...item,
         order_id: order.id,
@@ -174,8 +196,82 @@ export async function POST(request) {
     );
     const remainingBalance = Math.max(
       0,
-      Number((total - paidAmount).toFixed(2))
+      roundMoney(total - paidAmount)
     );
+
+    const paymentIds = payments.map((payment) => payment.id).filter(Boolean);
+    const itemIds = rawItems.map((item) => item.id).filter(Boolean);
+    let itemAllocations = [];
+    let allocationTrackingAvailable = false;
+
+    if (paymentIds.length && itemIds.length) {
+      const allocationResult = await supabaseAdmin
+        .from("restaurant_payment_allocations")
+        .select("payment_id, order_id, order_item_id, amount")
+        .eq("organization_id", organizationId)
+        .eq("allocation_type", "ITEM")
+        .in("payment_id", paymentIds)
+        .in("order_item_id", itemIds);
+
+      if (allocationResult.error) {
+        if (!isMissingAllocationTable(allocationResult.error)) {
+          throw allocationResult.error;
+        }
+      } else {
+        allocationTrackingAvailable = true;
+        itemAllocations = allocationResult.data || [];
+      }
+    } else if (!paymentIds.length) {
+      allocationTrackingAvailable = true;
+    }
+
+    const allocatedByItem = itemAllocations.reduce((map, allocation) => {
+      const itemId = allocation.order_item_id;
+      if (!itemId) return map;
+      map.set(itemId, numeric(map.get(itemId)) + numeric(allocation.amount));
+      return map;
+    }, new Map());
+
+    const items = rawItems.map((item) => {
+      const netAmount = numeric(item.price) * numeric(item.quantity || 1);
+      const share = subtotal > 0 ? Math.min(1, netAmount / subtotal) : 0;
+      const serviceAmount = serviceCharge * share;
+      const taxAmount = tax * share;
+      const discountAmount = discount * share;
+      const grossAmount = Math.max(
+        0,
+        roundMoney(netAmount + serviceAmount + taxAmount - discountAmount)
+      );
+      const allocatedAmount = Math.max(
+        0,
+        roundMoney(allocatedByItem.get(item.id))
+      );
+      const remainingAmount = Math.max(
+        0,
+        roundMoney(grossAmount - allocatedAmount)
+      );
+      const remainingRatio =
+        grossAmount > 0 ? Math.min(1, remainingAmount / grossAmount) : 0;
+
+      return {
+        ...item,
+        net_amount: roundMoney(netAmount),
+        service_amount: roundMoney(serviceAmount),
+        tax_amount: roundMoney(taxAmount),
+        discount_amount: roundMoney(discountAmount),
+        gross_amount: grossAmount,
+        payment_allocated_amount: allocatedAmount,
+        remaining_amount: remainingAmount,
+        remaining_net_amount: roundMoney(netAmount * remainingRatio),
+        remaining_service_amount: roundMoney(serviceAmount * remainingRatio),
+        remaining_tax_amount: roundMoney(taxAmount * remainingRatio),
+        remaining_discount_amount: roundMoney(discountAmount * remainingRatio),
+        fully_paid:
+          allocationTrackingAvailable &&
+          grossAmount > 0 &&
+          remainingAmount <= 0.01,
+      };
+    });
 
     return Response.json({
       success: true,
@@ -190,12 +286,14 @@ export async function POST(request) {
         orders: persistedOrders,
         items,
         payments,
-        subtotal: Number(subtotal.toFixed(2)),
-        serviceCharge: Number(serviceCharge.toFixed(2)),
-        tax: Number(tax.toFixed(2)),
-        discount: Number(discount.toFixed(2)),
-        total: Number(total.toFixed(2)),
-        paidAmount: Number(paidAmount.toFixed(2)),
+        itemAllocations,
+        allocationTrackingAvailable,
+        subtotal: roundMoney(subtotal),
+        serviceCharge: roundMoney(serviceCharge),
+        tax: roundMoney(tax),
+        discount: roundMoney(discount),
+        total: roundMoney(total),
+        paidAmount: roundMoney(paidAmount),
         remainingBalance,
       },
     });

@@ -32,6 +32,7 @@ declare
   v_item_id text;
   v_inserted_item_ids jsonb := '[]'::jsonb;
   v_quantity integer;
+  v_index integer;
   v_price numeric;
   v_subtotal numeric := 0;
   v_service_rate numeric := greatest(coalesce(p_service_charge_rate, 0), 0);

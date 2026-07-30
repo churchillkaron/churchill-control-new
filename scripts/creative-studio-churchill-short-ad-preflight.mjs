@@ -27,16 +27,6 @@ function finite(value, fallback) {
   return Number.isFinite(number) ? number : fallback;
 }
 
-function object(value) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value
-    : {};
-}
-
-function list(value) {
-  return Array.isArray(value) ? value : [];
-}
-
 function unique(values = []) {
   return [...new Set(values.map(text).filter(Boolean))];
 }
@@ -169,6 +159,12 @@ function top(items, category, count = 5) {
     .map((item) => summarize(item, category));
 }
 
+function firstDistinct(items, usedIds) {
+  const match = items.find((item) => item?.id && !usedIds.has(item.id)) || null;
+  if (match) usedIds.add(match.id);
+  return match;
+}
+
 async function allRows(client, table, organizationId, pageSize = 1000) {
   const rows = [];
   for (let offset = 0; ; offset += pageSize) {
@@ -227,7 +223,11 @@ const combined = [
 const explicitChurchill = combined.filter((item) =>
   haystack(item).includes("churchill"),
 );
-const discoveryPool = explicitChurchill.length ? explicitChurchill : combined;
+
+// The organization boundary already isolates Churchill-owned assets. Keep the
+// full organization pool so food or venue uploads with camera filenames are not
+// accidentally discarded merely because their metadata omits the venue name.
+const discoveryPool = combined;
 
 const logo = top(discoveryPool, "LOGO", 5);
 const food = top(discoveryPool, "FOOD", 8);
@@ -235,12 +235,11 @@ const atmosphere = top(discoveryPool, "ATMOSPHERE", 8);
 const games = top(discoveryPool, "GAMES", 8);
 const audio = top(discoveryPool, "AUDIO", 5);
 
-const experience = games[0] || atmosphere[0] || null;
-const selected = [logo[0], food[0], experience]
-  .filter(Boolean)
-  .filter((item, index, source) =>
-    source.findIndex((candidate) => candidate.id === item.id) === index,
-  );
+const usedIds = new Set();
+const logoPrimary = firstDistinct(logo, usedIds);
+const foodPrimary = firstDistinct(food, usedIds);
+const experiencePrimary = firstDistinct([...games, ...atmosphere], usedIds);
+const selected = [logoPrimary, foodPrimary, experiencePrimary].filter(Boolean);
 
 const checks = [
   {
@@ -249,7 +248,7 @@ const checks = [
     evidence: explicitChurchill.length,
   },
   {
-    id: "approved_logo_candidate_found",
+    id: "logo_candidate_found",
     passed: logo.length > 0,
     evidence: logo.slice(0, 3),
   },
@@ -264,7 +263,7 @@ const checks = [
     evidence: { atmosphere: atmosphere.slice(0, 3), games: games.slice(0, 3) },
   },
   {
-    id: "three_shot_asset_mix_available",
+    id: "three_distinct_shot_assets_available",
     passed: selected.length >= 3,
     evidence: selected,
   },
@@ -299,6 +298,7 @@ const report = {
     maximum_customer_price: hardCostLimit,
     currency,
     stop_if_limit_exceeded: true,
+    logo_identity_must_be_human_approved: true,
     human_approval_required_before_paid_execution: true,
     human_approval_required_before_publication: true,
   },
@@ -308,7 +308,7 @@ const report = {
       start_seconds: 0,
       end_seconds: foodEnd,
       purpose: "Immediate food appetite hook",
-      asset: food[0] || null,
+      asset: foodPrimary,
       generation_policy: "USE_EXISTING_ASSET_FIRST",
     },
     {
@@ -316,7 +316,7 @@ const report = {
       start_seconds: foodEnd,
       end_seconds: experienceEnd,
       purpose: "Show Churchill atmosphere, games and social energy",
-      asset: experience,
+      asset: experiencePrimary,
       generation_policy: "USE_EXISTING_ASSET_OR_ONE_CONTROLLED_ANIMATION",
     },
     {
@@ -324,7 +324,7 @@ const report = {
       start_seconds: experienceEnd,
       end_seconds: targetDurationSeconds,
       purpose: "Correct Churchill logo and concise call to action",
-      asset: logo[0] || null,
+      asset: logoPrimary,
       overlay_text: "Free games • Happy hour all day • Live music tonight",
       website: "www.churchillkaron.com",
       generation_policy: "RENDER_TEXT_AND_LOGO_OUTSIDE_GENERATED_PIXELS",

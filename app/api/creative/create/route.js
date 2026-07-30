@@ -16,6 +16,9 @@ import {
 import {
   CreativeAssetsRuntime,
 } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
+import {
+  CreativeAssetAutoSelectionRuntime,
+} from "@/lib/creative/assets/runtime/CreativeAssetAutoSelectionRuntime";
 import * as CreativeAssetGraphRepository
 from "@/lib/creative/assets/graph/repositories/CreativeAssetGraphRepository";
 import {
@@ -72,27 +75,125 @@ function positiveNumber(value) {
   return parsed !== null && parsed > 0 ? parsed : null;
 }
 
-async function resolveSelectedAssets({ organizationId, body }) {
-  const ids = selectedAssetIds(body);
-  const assets = [];
+function creativeIntent(body = {}) {
+  return text(
+    body.intent ||
+    body.request ||
+    body.objective ||
+    body.business_goal,
+  );
+}
 
-  for (const id of ids) {
-    const asset = await CreativeAssetsRuntime.get(id);
-    if (!asset || String(asset.organization_id) !== String(organizationId)) {
-      throw new Error(`CREATIVE_SELECTED_ASSET_NOT_FOUND:${id}`);
+function inferredDuration(intent) {
+  const source = text(intent).toLowerCase();
+  const match = source.match(/\b(\d+(?:\.\d+)?)\s*(?:-|–|—)?\s*(?:second|seconds|sec|secs|s)\b/);
+  return match ? positiveNumber(match[1]) : null;
+}
+
+function inferredChannels(intent) {
+  const source = text(intent).toLowerCase();
+  const channels = [];
+  if (source.includes("facebook")) channels.push("facebook");
+  if (source.includes("instagram")) channels.push("instagram");
+  if (source.includes("tiktok") || source.includes("tik tok")) channels.push("tiktok");
+  if (source.includes("youtube")) channels.push("youtube");
+  if (source.includes("linkedin")) channels.push("linkedin");
+  if (source.includes("website") || source.includes("web page") || source.includes("webpage")) channels.push("website");
+  return channels;
+}
+
+function inferredProductionType(intent) {
+  const source = text(intent).toLowerCase();
+  if (/\b(video|film|reel|trailer|commercial|motion)\b/.test(source)) return "VIDEO";
+  if (/\b(poster|image|photo|banner|graphic|social post)\b/.test(source)) return "IMAGE";
+  if (/\b(menu|brochure|document|report|presentation|deck)\b/.test(source)) return "DOCUMENT";
+  if (/\b(website|webpage|web page|landing page)\b/.test(source)) return "WEBSITE";
+  if (/\b(audio|music|song|podcast|voice)\b/.test(source)) return "AUDIO";
+  return null;
+}
+
+function normalizeCreativeCommand(body = {}, organization = {}) {
+  const intent = creativeIntent(body);
+  if (!intent) throw new Error("creative intent required");
+
+  const explicitChannels = normalizeList(body.channels || body.target_channels);
+  const productionType =
+    body.production_type ||
+    body.productionType ||
+    inferredProductionType(intent);
+  const duration = positiveNumber(
+    body.target_duration ?? body.duration_seconds,
+  ) || inferredDuration(intent);
+  const metadata = {
+    ...object(body.metadata),
+    source: "natural_language_creative_command",
+    active_organization_id: organization.id || body.organization_id || body.organizationId || null,
+    active_organization_name: organization.name || null,
+    public_publish_authorized: false,
+    publish_authorized: false,
+    publication_requires_human_approval: true,
+    production_dossier_approval_required: true,
+  };
+
+  return {
+    ...body,
+    intent,
+    request: body.request || intent,
+    objective: body.objective || intent,
+    business_goal: body.business_goal || intent,
+    channels: explicitChannels.length ? explicitChannels : inferredChannels(intent),
+    production_type: productionType,
+    duration_seconds: duration,
+    target_duration: duration,
+    metadata,
+  };
+}
+
+async function resolveSelectedAssets({ organizationId, organization, body }) {
+  const ids = selectedAssetIds(body);
+  if (ids.length) {
+    const assets = [];
+    for (const id of ids) {
+      const asset = await CreativeAssetsRuntime.get(id);
+      if (!asset || String(asset.organization_id) !== String(organizationId)) {
+        throw new Error(`CREATIVE_SELECTED_ASSET_NOT_FOUND:${id}`);
+      }
+      if (
+        asset.archived === true ||
+        ["ARCHIVED", "DISABLED", "DELETED"].includes(
+          text(asset.status).toUpperCase(),
+        )
+      ) {
+        throw new Error(`CREATIVE_SELECTED_ASSET_UNAVAILABLE:${id}`);
+      }
+      assets.push(asset);
     }
-    if (
-      asset.archived === true ||
-      ["ARCHIVED", "DISABLED", "DELETED"].includes(
-        text(asset.status).toUpperCase(),
-      )
-    ) {
-      throw new Error(`CREATIVE_SELECTED_ASSET_UNAVAILABLE:${id}`);
-    }
-    assets.push(asset);
+    return {
+      assets,
+      selection: {
+        source: "EXPLICIT_CREATIVE_COMMAND_ASSETS",
+        organization_id: organizationId,
+        selected_asset_ids: assets.map((asset) => asset.id),
+        selected_assets: assets.map((asset) => ({
+          asset_id: asset.id,
+          name: asset.name || asset.title || asset.file_name || null,
+        })),
+      },
+    };
   }
 
-  return assets;
+  const automatic = await CreativeAssetAutoSelectionRuntime.resolve({
+    organization_id: organizationId,
+    organization,
+    intent: creativeIntent(body),
+  });
+  return {
+    assets: automatic.assets,
+    selection: {
+      ...automatic,
+      assets: undefined,
+    },
+  };
 }
 
 function requestMetadata(body = {}) {
@@ -113,13 +214,7 @@ function requestMetadata(body = {}) {
 }
 
 function missionPayload(body, organizationId) {
-  const intent = text(
-    body.intent ||
-    body.request ||
-    body.objective ||
-    body.business_goal,
-  );
-
+  const intent = creativeIntent(body);
   if (!intent) throw new Error("creative intent required");
 
   return {
@@ -348,7 +443,9 @@ function projectMetadata({
       targetDuration(body, project) || null,
     selected_asset_ids: selectedIds,
     selected_assets_locked_at: new Date().toISOString(),
-    selected_assets_source: "creative_create_command",
+    selected_assets_source:
+      requested.asset_selection?.source ||
+      "creative_create_command",
     performance_video_intelligence_required:
       requiresPerformance,
     performance_intelligence:
@@ -371,9 +468,9 @@ function projectMetadata({
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    const incoming = await request.json();
     const organizationId =
-      body.organization_id || body.organizationId || null;
+      incoming.organization_id || incoming.organizationId || null;
 
     const access = await requireOrganizationAccess({
       organizationId,
@@ -388,10 +485,26 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
-    const assets = await resolveSelectedAssets({
+    const command = normalizeCreativeCommand(
+      incoming,
+      access.organization || {},
+    );
+    const resolved = await resolveSelectedAssets({
       organizationId,
-      body,
+      organization: access.organization || command.organization || {},
+      body: command,
     });
+    const assets = resolved.assets;
+    const selectedIds = assets.map((asset) => asset.id);
+    const body = {
+      ...command,
+      selected_asset_ids: selectedIds,
+      metadata: {
+        ...object(command.metadata),
+        asset_selection: resolved.selection,
+      },
+    };
+
     const mission = await CreativeMissionRuntime.create(
       missionPayload(body, organizationId),
     );
@@ -413,7 +526,6 @@ export async function POST(request) {
       throw new Error("Creative project not found");
     }
 
-    const selectedIds = assets.map((asset) => asset.id);
     const attachedAssetNodes =
       await CreativeAssetGraphRepository.attachAssetsToProject({
         organization_id: organizationId,
@@ -472,6 +584,15 @@ export async function POST(request) {
       { metadata },
     );
 
+    const requestedOutputs = [...new Set([
+      ...normalizeList(
+        body.requestedOutputs ||
+        body.requested_outputs ||
+        body.channels ||
+        body.target_channels,
+      ),
+      ...normalizeList(body.production_type),
+    ])];
     const execution = await CreativeDirectorRuntime.execute({
       organization_id: organizationId,
       creative_mission_id: started.id,
@@ -491,28 +612,40 @@ export async function POST(request) {
         "",
       audience: started.audience || {},
       assets,
-      requestedOutputs: normalizeList(
-        body.requestedOutputs ||
-        body.requested_outputs ||
-        body.channels ||
-        body.target_channels,
-      ),
+      requestedOutputs,
       organization: body.organization || access.organization || {},
       brand: body.brand || {},
     });
+
+    const productionStatus =
+      execution.production?.post_production?.status ||
+      execution.production?.status ||
+      "PRODUCTION_STARTED";
+    const approvalRequired = [
+      "PRODUCTION_DOSSIER_APPROVAL_REQUIRED",
+      "READY_FOR_APPROVAL",
+      "WAITING_FOR_APPROVAL",
+      "APPROVAL_REQUIRED",
+    ].some((value) => String(productionStatus).includes(value));
 
     return Response.json({
       success: execution.success !== false,
       status:
         execution.skipped
           ? "ALREADY_COMPLETED"
-          : execution.production?.post_production?.status ||
-            execution.production?.status ||
-            "PRODUCTION_STARTED",
+          : productionStatus,
+      command: {
+        intent: body.intent,
+        production_type: body.production_type || null,
+        target_duration: body.target_duration || null,
+        channels: normalizeList(body.channels),
+        public_publish_authorized: false,
+      },
       mission: started,
       creative_mission_id: started.id,
       creative_project_id: creativeProjectId,
       creative_brief_id: creativeBriefId,
+      asset_selection: resolved.selection,
       selected_asset_ids: selectedIds,
       attached_asset_node_ids:
         attachedAssetNodes.map((node) => node.id),
@@ -524,9 +657,10 @@ export async function POST(request) {
           : null,
       execution,
       next_action:
+        approvalRequired ||
         execution.production?.post_production?.status ===
-        "READY_FOR_APPROVAL"
-          ? "REVIEW_AND_APPROVE"
+          "READY_FOR_APPROVAL"
+          ? "REVIEW_AND_APPROVE_PRODUCTION_DOSSIER"
           : "RESUME_CREATIVE_PIPELINE",
     });
   } catch (error) {

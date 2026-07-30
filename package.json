@@ -27,7 +27,8 @@
     "smoke:creative-cole-dense-preflight": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-studio-cole-dense-preflight.mjs",
     "execute:creative-cole-dense": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-studio-cole-dense-execute.mjs",
     "recover:creative-cole-dense": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-studio-cole-dense-recover.mjs",
-    "smoke:creative-churchill-short-ad-preflight": "node scripts/creative-studio-churchill-short-ad-preflight-node20.mjs"
+    "smoke:creative-churchill-short-ad-preflight": "node scripts/creative-studio-churchill-short-ad-preflight-node20.mjs",
+    "inspect:creative-churchill-assets": "node scripts/creative-studio-churchill-asset-selector.mjs"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",

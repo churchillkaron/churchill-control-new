@@ -20,14 +20,6 @@ function positive(value) {
   return Number.isFinite(number) && number > 0 ? number : null;
 }
 
-function requiredEnvironment(...names) {
-  for (const name of names) {
-    const value = text(process.env[name]);
-    if (value) return value;
-  }
-  throw new Error(`${names.join(" or ")} required`);
-}
-
 function optionalEnvironment(...names) {
   for (const name of names) {
     const value = text(process.env[name]);
@@ -65,11 +57,48 @@ function projectDuration(project = {}) {
   );
 }
 
-const organizationId = requiredEnvironment(
+function temporalProject(project = {}) {
+  const workflow = text(
+    project.metadata?.workflow_kind ||
+    project.metadata?.creative_medium ||
+    project.production_type,
+  ).toUpperCase();
+  return ["VIDEO", "FILM", "ANIMATION", "TEMPORAL"].includes(workflow);
+}
+
+function fullSongProject(project = {}) {
+  const metadata = object(project.metadata);
+  const mode = text(
+    metadata.duration_mode ||
+    metadata.temporal_contract?.mode ||
+    metadata.temporalContract?.mode,
+  ).toUpperCase();
+  return metadata.full_song === true ||
+    metadata.music_video === true ||
+    ["FULL_SOURCE_AUDIO", "FULL_SONG", "MATCH_SOURCE_AUDIO"].includes(mode);
+}
+
+function durationMatches(project, durationHint) {
+  if (!durationHint) return true;
+  const duration = projectDuration(project);
+  return duration !== null && Math.abs(duration - durationHint) <= 0.25;
+}
+
+function candidateDescription(project = {}) {
+  return [
+    project.id,
+    project.organization_id,
+    project.creative_mission_id || "NO_MISSION",
+    project.name || "UNNAMED",
+    projectDuration(project) || "NO_DURATION",
+  ].join("|");
+}
+
+const configuredOrganizationId = optionalEnvironment(
   "CREATIVE_ORGANIZATION_ID",
   "CREATIVE_SMOKE_ORGANIZATION_ID",
 );
-const projectId = requiredEnvironment(
+const configuredProjectId = optionalEnvironment(
   "CREATIVE_PROJECT_ID",
   "COLE_LEY_PROJECT_ID",
 );
@@ -77,20 +106,90 @@ const configuredMissionId = optionalEnvironment(
   "CREATIVE_MISSION_ID",
   "COLE_LEY_MISSION_ID",
 );
+const durationHint = positive(optionalEnvironment(
+  "CREATIVE_FULL_MASTER_DURATION",
+  "FULL_MASTER_DURATION",
+  "COLE_LEY_FULL_MASTER_DURATION",
+));
+const nameHint = text(optionalEnvironment(
+  "CREATIVE_PROJECT_NAME_HINT",
+  "COLE_LEY_PROJECT_NAME_HINT",
+)).toLowerCase();
 
-const [{ CreativeDirectorRuntime }, CreativeProjectRepository, AssetGraphRepository] =
-  await Promise.all([
-    import("@/lib/creative/director/runtime/CreativeDirectorRuntime"),
-    import("@/lib/creative/projects/repositories/CreativeProjectRepository"),
-    import("@/lib/creative/assets/graph/repositories/CreativeAssetGraphRepository"),
-  ]);
+const [
+  { CreativeDirectorRuntime },
+  CreativeProjectRepository,
+  AssetGraphRepository,
+  { supabaseAdmin },
+] = await Promise.all([
+  import("@/lib/creative/director/runtime/CreativeDirectorRuntime"),
+  import("@/lib/creative/projects/repositories/CreativeProjectRepository"),
+  import("@/lib/creative/assets/graph/repositories/CreativeAssetGraphRepository"),
+  import("@/lib/shared/supabase/admin"),
+]);
 
-const project = await CreativeProjectRepository.getById(projectId);
-if (!project || String(project.organization_id) !== String(organizationId)) {
-  throw new Error("Creative project not found in organization scope");
+async function resolveProject() {
+  if (configuredProjectId) {
+    const project = await CreativeProjectRepository.getById(configuredProjectId);
+    if (!project) throw new Error("Configured creative project not found");
+    if (
+      configuredOrganizationId &&
+      String(project.organization_id) !== String(configuredOrganizationId)
+    ) {
+      throw new Error("Configured creative project is outside organization scope");
+    }
+    return project;
+  }
+
+  let query = supabaseAdmin
+    .from("creative_projects")
+    .select(
+      "id,organization_id,creative_mission_id,name,description,objective,production_type,target_duration,metadata,archived,created_at",
+    )
+    .eq("archived", false)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (configuredOrganizationId) {
+    query = query.eq("organization_id", configuredOrganizationId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  let candidates = (data || [])
+    .filter(temporalProject)
+    .filter((project) => durationMatches(project, durationHint));
+
+  if (nameHint) {
+    candidates = candidates.filter((project) => [
+      project.name,
+      project.description,
+      project.objective,
+    ].map(text).join(" ").toLowerCase().includes(nameHint));
+  }
+
+  const fullSongCandidates = candidates.filter(fullSongProject);
+  if (fullSongCandidates.length) candidates = fullSongCandidates;
+
+  if (candidates.length !== 1) {
+    const evidence = candidates.slice(0, 20).map(candidateDescription).join("\n");
+    throw new Error(
+      candidates.length
+        ? `CREATIVE_PROJECT_SELECTION_AMBIGUOUS:${candidates.length}\n${evidence}`
+        : "CREATIVE_FULL_SONG_PROJECT_NOT_FOUND",
+    );
+  }
+
+  return candidates[0];
 }
 
+const project = await resolveProject();
+const organizationId = configuredOrganizationId || text(project.organization_id);
+const projectId = text(project.id);
 const missionId = configuredMissionId || text(project.creative_mission_id);
+
+if (!organizationId) throw new Error("Creative project organization_id required");
 if (!missionId) throw new Error("CREATIVE_MISSION_ID or project creative_mission_id required");
 
 const nodes = await AssetGraphRepository.listByProject({
@@ -108,7 +207,7 @@ const configuredSoundtrackId = text(
 const soundtrack = audioNodes.find((node) => node.id === configuredSoundtrackId) || audioNodes[0];
 if (!soundtrack) throw new Error("CREATIVE_PRIMARY_SOUNDTRACK_REQUIRED");
 
-const duration = projectDuration(project) || nodeDuration(soundtrack);
+const duration = durationHint || projectDuration(project) || nodeDuration(soundtrack);
 if (!duration) throw new Error("CREATIVE_FULL_SONG_DURATION_REQUIRED");
 
 const soundtrackDuration = nodeDuration(soundtrack);
@@ -182,9 +281,11 @@ await AssetGraphRepository.update(soundtrack.id, {
 console.log("============================================================");
 console.log("AVANTIQO FULL-SONG PRODUCTION");
 console.log("============================================================");
+console.log(`PROJECT_RESOLUTION=${configuredProjectId ? "ENVIRONMENT" : "DATABASE_UNIQUE_MATCH"}`);
 console.log(`ORGANIZATION_ID=${organizationId}`);
 console.log(`CREATIVE_PROJECT_ID=${projectId}`);
 console.log(`CREATIVE_MISSION_ID=${missionId}`);
+console.log(`PROJECT_NAME=${text(project.name)}`);
 console.log(`PRIMARY_SOUNDTRACK_NODE_ID=${soundtrack.id}`);
 console.log(`FULL_MASTER_DURATION=${duration}`);
 console.log("DURATION_MODE=FULL_SOURCE_AUDIO");

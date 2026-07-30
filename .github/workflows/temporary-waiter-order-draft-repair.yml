@@ -1,0 +1,114 @@
+name: Temporary Waiter Order Draft Repair
+
+on:
+  push:
+    paths:
+      - ".github/workflows/temporary-waiter-order-draft-repair.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Repair waiter order draft lifecycle
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx")
+          source = path.read_text()
+
+          def replace_once(old, new, label):
+              global source
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              source = source.replace(old, new, 1)
+
+          replace_once(
+              '''  const [guestDraft, setGuestDraft] = useState(1);\n  const [dishDraft, setDishDraft] = useState(null);''',
+              '''  const [guestDraft, setGuestDraft] = useState(1);\n  const [draftSetupTableId, setDraftSetupTableId] = useState(null);\n  const [dishDraft, setDishDraft] = useState(null);''',
+              "draft setup state",
+          )
+
+          replace_once(
+              '''  function closeModal() {\n    setModal(null);\n    setModalTableId(null);\n    setCustomerSearch("");\n    setCustomerResults([]);\n    setCustomerDraft(null);\n    setCustomerForm({ name: "", phone: "", email: "" });\n    setMoveSeatValue(null);\n    setMoveSeatOrders([]);\n    setTargetTableId(null);\n    setMergeTargetIds([]);\n  }''',
+              '''  function clearCustomerDraft() {\n    setCustomerSearch("");\n    setCustomerResults([]);\n    setCustomerDraft(null);\n    setCustomerForm({ name: "", phone: "", email: "" });\n  }\n\n  function revertDraftTableSetup(tableId = draftSetupTableId) {\n    if (!tableId) return;\n\n    setRuntime((previous) => {\n      if (!previous) return previous;\n\n      return {\n        ...previous,\n        tables: (previous.tables || []).map((table) =>\n          table.id === tableId\n            ? {\n                ...table,\n                current_guests: 0,\n                status: table.active_session_id ? "OCCUPIED" : "AVAILABLE",\n              }\n            : table\n        ),\n      };\n    });\n    setDraftSetupTableId((current) =>\n      current === tableId ? null : current\n    );\n  }\n\n  function closeModal() {\n    setModal(null);\n    setModalTableId(null);\n    setCustomerSearch("");\n    setCustomerResults([]);\n    setMoveSeatValue(null);\n    setMoveSeatOrders([]);\n    setTargetTableId(null);\n    setMergeTargetIds([]);\n  }\n\n  function cancelCustomerSetup() {\n    revertDraftTableSetup();\n    clearCustomerDraft();\n    closeModal();\n  }''',
+              "modal and draft lifecycle",
+          )
+
+          replace_once(
+              '''  function chooseZone(zoneId) {\n    setActiveZoneId(zoneId);\n    setActiveTableId(null);\n    setCart([]);\n    resetCartIdentity();\n  }''',
+              '''  function chooseZone(zoneId) {\n    revertDraftTableSetup();\n    clearCustomerDraft();\n    setActiveZoneId(zoneId);\n    setActiveTableId(null);\n    setCart([]);\n    resetCartIdentity();\n  }''',
+              "zone draft reset",
+          )
+
+          replace_once(
+              '''    if (activeTableId !== table.id) {\n      setCart([]);\n      resetCartIdentity();\n    }''',
+              '''    if (activeTableId !== table.id) {\n      revertDraftTableSetup();\n      clearCustomerDraft();\n      setCart([]);\n      resetCartIdentity();\n    }''',
+              "table draft reset",
+          )
+
+          replace_once(
+              '''  async function confirmGuests() {\n    const table = tables.find(\n      (item) => item.id === modalTableId || item.id === activeTableId\n    );\n\n    if (!table) return;\n\n    try {\n      await posAction("MOVE_GUESTS", {\n        tableId: table.id,\n        guestCount: Number(guestDraft || 1),\n      });\n      setActiveTableId(table.id);\n      closeModal();\n      await loadRuntime();\n    } catch (error) {\n      alert(error.message);\n    }\n  }''',
+              '''  async function confirmGuests() {\n    const table = tables.find(\n      (item) => item.id === modalTableId || item.id === activeTableId\n    );\n\n    if (!table) return;\n\n    const guestCount = Number(guestDraft || 1);\n    const isInitialDraft =\n      !table.active_session_id &&\n      !Number(table.current_guests || 0) &&\n      draftSetupTableId !== table.id;\n\n    if (isInitialDraft) {\n      setRuntime((previous) => {\n        if (!previous) return previous;\n\n        return {\n          ...previous,\n          tables: (previous.tables || []).map((item) =>\n            item.id === table.id\n              ? {\n                  ...item,\n                  current_guests: guestCount,\n                  status: "OCCUPIED",\n                }\n              : item\n          ),\n        };\n      });\n      setDraftSetupTableId(table.id);\n      setActiveTableId(table.id);\n      closeModal();\n      return;\n    }\n\n    try {\n      await posAction("MOVE_GUESTS", {\n        tableId: table.id,\n        guestCount,\n      });\n      setActiveTableId(table.id);\n      closeModal();\n      await loadRuntime();\n    } catch (error) {\n      alert(error.message);\n    }\n  }''',
+              "guest confirmation lifecycle",
+          )
+
+          replace_once(
+              '''    setCart([]);\n    resetCartIdentity();\n    setModal(null);\n    setSuccessMessage(''',
+              '''    setCart([]);\n    resetCartIdentity();\n    clearCustomerDraft();\n    setDraftSetupTableId(null);\n    setGuestDraft(1);\n    setModal(null);\n    setSuccessMessage(''',
+              "successful order cleanup",
+          )
+
+          replace_once(
+              '''              setCustomerSearch("");\n              setCustomerResults([]);\n              setCustomerDraft(null);\n              setModal("CUSTOMER");''',
+              '''              setCustomerSearch("");\n              setCustomerResults([]);\n              setCustomerDraft(null);\n              setGuestDraft(Number(modalTable.current_guests || 1));\n              setModal("CUSTOMER");''',
+              "change customer guest count",
+          )
+
+          replace_once(
+              '''              <button\n                onClick={closeModal}\n                className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"\n              >\n                Cancel\n              </button>\n            </div>\n          </div>\n        </Modal>\n      )}\n\n      {modal === "CREATE_CUSTOMER"''',
+              '''              <button\n                onClick={cancelCustomerSetup}\n                className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"\n              >\n                Cancel\n              </button>\n            </div>\n          </div>\n        </Modal>\n      )}\n\n      {modal === "CREATE_CUSTOMER"''',
+              "customer modal cancel",
+          )
+
+          replace_once(
+              '''            <button\n              onClick={closeModal}\n              className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"\n            >\n              Cancel\n            </button>\n          </div>\n        </Modal>\n      )}\n\n      {modal === "GUESTS"''',
+              '''            <button\n              onClick={cancelCustomerSetup}\n              className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"\n            >\n              Cancel\n            </button>\n          </div>\n        </Modal>\n      )}\n\n      {modal === "GUESTS"''',
+              "create customer cancel",
+          )
+
+          replace_once(
+              '''          <button\n            onClick={closeModal}\n            className="mt-2 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold text-white/70"\n          >\n            Cancel\n          </button>\n        </Modal>\n      )}\n\n      {modal === "DISH"''',
+              '''          <button\n            onClick={cancelCustomerSetup}\n            className="mt-2 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold text-white/70"\n          >\n            Cancel\n          </button>\n        </Modal>\n      )}\n\n      {modal === "DISH"''',
+              "guest modal cancel",
+          )
+
+          path.write_text(source)
+          PY
+
+          git diff --check
+          grep -q 'const \[draftSetupTableId, setDraftSetupTableId\]' 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'
+          grep -q 'clearCustomerDraft();' 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'
+          grep -q 'isInitialDraft' 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'
+
+      - name: Commit verified repair
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/temporary-waiter-order-draft-repair.yml
+          git add 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'
+          git commit -m "preserve waiter customer and guest order draft"
+          git push origin HEAD:main

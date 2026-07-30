@@ -10,6 +10,9 @@ export async function register() {
       "@/lib/creative/execution/runtime/CreativeProductionTaskMaterializationGraphRuntime"
     );
     await import(
+      "@/lib/creative/production/review/runtime/CreativeProductionTaskReviewSettlementGate"
+    );
+    await import(
       "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
     );
   }

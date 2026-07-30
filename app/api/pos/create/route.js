@@ -116,13 +116,12 @@ export async function POST(request) {
       organizationId,
       transactionDate,
     });
-    const actorStaffId =
-      uuidOrNull(
-        access.access?.staffAccountId ||
-          access.staff?.id ||
-          access.user?.id ||
-          null
-      );
+    const actorStaffId = uuidOrNull(
+      access.access?.staffAccountId ||
+        access.staff?.id ||
+        access.user?.id ||
+        null
+    );
     const actorName =
       access.staff?.display_name ||
       access.staff?.name ||
@@ -142,7 +141,9 @@ export async function POST(request) {
           ? null
           : String(tableNumber),
       p_items: items,
-      p_customer_id: uuidOrNull(readValue(body, "customerId", "customer_id")),
+      p_customer_id: uuidOrNull(
+        readValue(body, "customerId", "customer_id")
+      ),
       p_customer_name: readValue(body, "customerName", "customer_name"),
       p_customer_email: readValue(body, "customerEmail", "customer_email"),
       p_customer_phone: readValue(body, "customerPhone", "customer_phone"),
@@ -178,21 +179,37 @@ export async function POST(request) {
     }
 
     const transaction = rpcResult.data || {};
+    const eventId = uuidOrNull(transaction.event_id);
     let dispatchPending = false;
     let dispatchError = null;
 
     if (!transaction.duplicate) {
-      try {
-        const dispatch = await runEventProcessors();
-        dispatchPending =
-          Number(dispatch?.failed || 0) > 0 ||
-          Array.isArray(dispatch?.failures) && dispatch.failures.length > 0;
-        dispatchError = dispatchPending
-          ? dispatch?.failures?.[0]?.error || "Event dispatch incomplete"
-          : null;
-      } catch (error) {
+      if (!eventId) {
         dispatchPending = true;
-        dispatchError = error?.message || "Event dispatch failed";
+        dispatchError =
+          "Atomic POS transaction did not return an event identity";
+      } else {
+        try {
+          const dispatch = await runEventProcessors({
+            organizationId,
+            eventId,
+            limit: 1,
+          });
+
+          dispatchPending =
+            dispatch?.success === false ||
+            Number(dispatch?.failed || 0) > 0 ||
+            (Array.isArray(dispatch?.failures) &&
+              dispatch.failures.length > 0);
+          dispatchError = dispatchPending
+            ? dispatch?.failures?.[0]?.error ||
+              dispatch?.error ||
+              "Event dispatch incomplete"
+            : null;
+        } catch (error) {
+          dispatchPending = true;
+          dispatchError = error?.message || "Event dispatch failed";
+        }
       }
     }
 
@@ -201,7 +218,11 @@ export async function POST(request) {
       order_id: transaction.order_id,
       session_id: transaction.session_id,
       table_id: transaction.table_id || tableId,
-      inserted_items: (transaction.inserted_item_ids || []).map((id) => ({ id })),
+      inserted_items: (transaction.inserted_item_ids || []).map((id) => ({
+        id,
+      })),
+      event_id: eventId,
+      event_type: transaction.event_type || null,
       idempotency_key: idempotencyKey,
       duplicate: Boolean(transaction.duplicate),
       subtotal: Number(transaction.subtotal || 0),

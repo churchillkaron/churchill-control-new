@@ -14,5 +14,5 @@ for (const name of [
   }
 }
 
-await import("../lib/creative/director/runtime/CreativeDirectionExecutionRepairPatch.js");
+await import("../lib/creative/director/runtime/CreativeDirectionReliableOutputPatch.js");
 await import("./creative-studio-full-song-safe-execute.mjs");

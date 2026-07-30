@@ -224,9 +224,9 @@ const explicitChurchill = combined.filter((item) =>
   haystack(item).includes("churchill"),
 );
 
-// The organization boundary already isolates Churchill-owned assets. Keep the
-// full organization pool so food or venue uploads with camera filenames are not
-// accidentally discarded merely because their metadata omits the venue name.
+// Asset metadata is frequently camera-generated and may omit the venue name.
+// Organization scope plus human review is the identity boundary; a missing
+// literal "Churchill" label is diagnostic and must not block a read-only plan.
 const discoveryPool = combined;
 
 const logo = top(discoveryPool, "LOGO", 5);
@@ -240,12 +240,22 @@ const logoPrimary = firstDistinct(logo, usedIds);
 const foodPrimary = firstDistinct(food, usedIds);
 const experiencePrimary = firstDistinct([...games, ...atmosphere], usedIds);
 const selected = [logoPrimary, foodPrimary, experiencePrimary].filter(Boolean);
+const metadataWarnings = [];
+if (!explicitChurchill.length) {
+  metadataWarnings.push("CHURCHILL_TEXT_LABEL_MISSING_FROM_ASSET_METADATA");
+}
+if (logoPrimary?.review?.approved !== true) {
+  metadataWarnings.push("SELECTED_LOGO_REQUIRES_HUMAN_APPROVAL");
+}
 
 const checks = [
   {
-    id: "churchill_identity_assets_found",
-    passed: explicitChurchill.length > 0,
-    evidence: explicitChurchill.length,
+    id: "organization_scoped_assets_found",
+    passed: combined.some(usable),
+    evidence: {
+      organization_id: organizationId,
+      usable_asset_count: combined.filter(usable).length,
+    },
   },
   {
     id: "logo_candidate_found",
@@ -284,6 +294,7 @@ const report = {
   mode: "READ_ONLY_CHURCHILL_SHORT_AD_PREFLIGHT",
   ready,
   blocking_reasons: blockers,
+  warnings: metadataWarnings,
   organization_id: organizationId,
   target: {
     production_type: "SOCIAL_VERTICAL_AD",
@@ -298,6 +309,7 @@ const report = {
     maximum_customer_price: hardCostLimit,
     currency,
     stop_if_limit_exceeded: true,
+    selected_assets_must_be_human_approved: true,
     logo_identity_must_be_human_approved: true,
     human_approval_required_before_paid_execution: true,
     human_approval_required_before_publication: true,
@@ -373,10 +385,15 @@ console.log(`LOGO_CANDIDATE_COUNT=${logo.length}`);
 console.log(`FOOD_CANDIDATE_COUNT=${food.length}`);
 console.log(`ATMOSPHERE_CANDIDATE_COUNT=${atmosphere.length}`);
 console.log(`GAMES_CANDIDATE_COUNT=${games.length}`);
+console.log(`SELECTED_LOGO=${logoPrimary?.name || logoPrimary?.original_file_name || ""}`);
+console.log(`SELECTED_FOOD=${foodPrimary?.name || foodPrimary?.original_file_name || ""}`);
+console.log(`SELECTED_EXPERIENCE=${experiencePrimary?.name || experiencePrimary?.original_file_name || ""}`);
 console.log(`SELECTED_ASSET_IDS=${report.selected_asset_ids.join(",")}`);
 console.log(`SELECTED_ASSET_NODE_IDS=${report.selected_asset_node_ids.join(",")}`);
 console.log(`SHORT_AD_PREFLIGHT_READY=${ready ? "PASS" : "FAIL"}`);
 console.log(`BLOCKING_REASONS=${blockers.join(",")}`);
+console.log(`WARNINGS=${metadataWarnings.join(",")}`);
+console.log("SELECTED_ASSETS_REQUIRE_HUMAN_APPROVAL=YES");
 console.log("PROVIDER_CALLS_EXECUTED=0");
 console.log("WALLET_CHARGES=0");
 console.log("DATABASE_WRITES=0");

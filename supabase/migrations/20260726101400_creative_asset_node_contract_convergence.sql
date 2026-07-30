@@ -1,5 +1,19 @@
 begin;
 
+-- creative_asset_nodes is the canonical persistence table used by
+-- CreativeAssetGraphRepository and the release/publication runtimes. Some
+-- production environments never received its retired base migration, so
+-- establish the minimum document identity and scope contract before applying
+-- the lifecycle and evidence convergence below.
+
+create table if not exists public.creative_asset_nodes (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  creative_project_id uuid,
+  type text not null default 'ASSET',
+  created_at timestamptz not null default now()
+);
+
 -- The Creative asset graph document has evolved beyond the original table.
 -- Converge older deployments before publication idempotency relies on the
 -- lifecycle status and structured evidence columns.
@@ -74,6 +88,12 @@ create index if not exists creative_asset_nodes_project_type_status_idx
     created_at desc
   );
 
+alter table public.creative_asset_nodes enable row level security;
+
+grant select, insert, update, delete
+  on table public.creative_asset_nodes
+  to service_role;
+
 comment on column public.creative_asset_nodes.status is
   'Lifecycle state for an immutable Creative asset-graph node. ARCHIVED removes a node from active identity resolution while preserving history.';
 
@@ -88,5 +108,7 @@ comment on column public.creative_asset_nodes.intelligence is
 
 comment on column public.creative_asset_nodes.metadata is
   'Node-type-specific immutable execution, approval, release and publication evidence.';
+
+notify pgrst, 'reload schema';
 
 commit;

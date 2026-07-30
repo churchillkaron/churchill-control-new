@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -20,50 +20,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  repair_waiter_batch_merge:
-    if: github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 2
-          persist-credentials: true
-
-      - name: Apply verified waiter batch merge patch
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx")
-          source = path.read_text()
-          old = '''    try {\n      for (const targetId of mergeTargetIds) {\n        await posAction("MERGE_TABLES", {\n          masterTableId: modalTable.id,\n          targetTableId: targetId,\n        });\n      }\n      closeModal();\n      await loadRuntime();\n    } catch (error) {'''
-          new = '''    try {\n      await posAction("MERGE_TABLES", {\n        masterTableId: modalTable.id,\n        targetTableIds: mergeTargetIds,\n      });\n      closeModal();\n      await loadRuntime();\n    } catch (error) {'''
-          count = source.count(old)
-          if count != 1:
-              raise SystemExit(f"expected one sequential merge block, found {count}")
-          path.write_text(source.replace(old, new, 1))
-          PY
-
-          git show HEAD^:.github/workflows/supabase-production-migrations.yml > .github/workflows/supabase-production-migrations.yml
-          git diff --check
-          grep -q 'targetTableIds: mergeTargetIds' 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'
-          if grep -q 'for (const targetId of mergeTargetIds)' 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'; then
-            echo "Sequential merge loop still present" >&2
-            exit 1
-          fi
-
-      - name: Commit repair and restore workflow
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/supabase-production-migrations.yml
-          git add 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'
-          git commit -m "submit waiter table merges atomically"
-          git push origin HEAD:main
-
   migrate:
     name: Push pending migrations
     runs-on: ubuntu-latest
@@ -197,3 +153,5 @@ jobs:
                 : "Production migration failed",
               target_url: runUrl
             });
+
+# Deployment trigger refreshed 2026-07-30

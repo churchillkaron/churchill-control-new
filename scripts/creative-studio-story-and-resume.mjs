@@ -52,7 +52,10 @@ console.log("============================================================");
 console.log(`STORY_FILE=${outputPath}`);
 console.log(`STORY_SOURCE_USAGE_ID=${recovered.usage_id}`);
 console.log("STORY_REGENERATED=NO");
-console.log("PRODUCTION_RESUME_STARTING=YES");
+console.log("RUNWAY_RECOVERY_PREFLIGHT_STARTING=YES");
 console.log("============================================================");
 
+await import("./creative-studio-runway-recovery-preflight.mjs");
+
+console.log("PRODUCTION_RESUME_STARTING=YES");
 await import("./creative-studio-full-song-resume.mjs");

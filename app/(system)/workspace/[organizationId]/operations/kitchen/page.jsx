@@ -11,43 +11,53 @@ export default function KitchenCompatibilityPage() {
   const router = useRouter();
   const businessContext = useBusinessContext();
   const { organization } = useOrganization();
-
   const [error, setError] = useState(null);
+
+  const organizationId =
+    organization?.id ||
+    businessContext?.organization?.id ||
+    businessContext?.organizationId ||
+    businessContext?.staff?.active_organization_id ||
+    null;
 
   useEffect(() => {
     async function redirectToWorkCenter() {
-      const organizationId =
-        organization?.id ||
-        businessContext?.organization ||
-        businessContext?.staff?.active_organization_id;
-
       if (!organizationId) return;
 
-      const res = await fetch("/api/work-centers/list", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          organizationId,
-        }),
-      });
+      try {
+        const res = await fetch("/api/work-centers/list", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            organizationId,
+          }),
+        });
 
-      const json = await res.json();
-      const first = json.data?.[0];
+        const json = await res.json();
 
-      if (!first?.id) {
-        setError("No active work centers configured.");
-        return;
+        if (!res.ok || json.success === false) {
+          throw new Error(json.error || "Unable to load work centers.");
+        }
+
+        const first = json.data?.[0];
+
+        if (!first?.id) {
+          setError("No active work centers configured.");
+          return;
+        }
+
+        router.replace(
+          `/workspace/${organizationId}/operations/work-centres?workCenterId=${encodeURIComponent(first.id)}`
+        );
+      } catch (redirectError) {
+        setError(redirectError.message);
       }
-
-      router.replace(
-        `/operations/work-center/${first.id}`
-      );
     }
 
     redirectToWorkCenter();
-  }, [organization?.id, tenant]);
+  }, [organizationId, router]);
 
   return (
     <main className="min-h-screen bg-[#030712] p-8 text-white">

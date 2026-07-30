@@ -714,12 +714,10 @@ export default function POSFinalUI() {
     if (!modalTable || !mergeTargetIds.length) return;
 
     try {
-      for (const targetId of mergeTargetIds) {
-        await posAction("MERGE_TABLES", {
-          masterTableId: modalTable.id,
-          targetTableId: targetId,
-        });
-      }
+      await posAction("MERGE_TABLES", {
+        masterTableId: modalTable.id,
+        targetTableIds: mergeTargetIds,
+      });
       closeModal();
       await loadRuntime();
     } catch (error) {

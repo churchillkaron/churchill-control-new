@@ -4,7 +4,13 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("./sentry.server.config");
     await import(
+      "@/lib/platform/service-runtime/execution/ServiceExecutionCostGuardRuntime"
+    );
+    await import(
       "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
+    );
+    await import(
+      "@/lib/creative/reasoning/runtime/CreativeReasoningBudgetRuntime"
     );
     await import(
       "@/lib/creative/execution/runtime/CreativeProductionTaskMaterializationGraphRuntime"

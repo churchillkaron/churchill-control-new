@@ -2,6 +2,7 @@
 
 import crypto from "node:crypto";
 import process from "node:process";
+import { createInterface } from "node:readline/promises";
 import nextEnv from "@next/env";
 import WebSocket from "ws";
 
@@ -23,6 +24,11 @@ const [
   { CreativeProjectRuntime },
   CreativeAssetGraphRepository,
   { CreativeDirectorRuntime },
+  { OrganizationServiceRuntime },
+  { resolveProvider },
+  { PricingRuntime },
+  { resolveServiceCapabilities },
+  { resolvePrimaryExecutionCapability },
 ] = await Promise.all([
   import("@/lib/shared/supabase/admin"),
   import("@/lib/creative/assets/runtime/CreativeAssetAutoSelectionRuntime"),
@@ -30,10 +36,23 @@ const [
   import("@/lib/creative/projects/runtime/CreativeProjectRuntime"),
   import("@/lib/creative/assets/graph/repositories/CreativeAssetGraphRepository"),
   import("@/lib/creative/director/runtime/CreativeDirectorRuntime"),
+  import("@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime"),
+  import("@/lib/platform/service-runtime/providers/ProviderResolver"),
+  import("@/lib/platform/service-runtime/pricing/PricingRuntime"),
+  import("@/lib/platform/service-runtime/services/resolver/ServiceCapabilityResolver"),
+  import("@/lib/platform/service-runtime/services/resolver/CapabilityExecutionResolver"),
 ]);
+
+const RESEARCH_SERVICE_ID = "ai.reasoning.execute";
+const RESEARCH_APPROVAL_MINUTES = 30;
+let paidResearchAuthorized = false;
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 function normalized(value) {
@@ -91,6 +110,12 @@ function commandIdentity(organizationId, value) {
     .createHash("sha256")
     .update(`${organizationId}\n${normalized(value)}`)
     .digest("hex");
+}
+
+function amountText(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "0";
+  return number.toFixed(6).replace(/\.?0+$/, "");
 }
 
 async function resolveOrganization() {
@@ -182,6 +207,125 @@ function reusableMission(missions, identity) {
   }) || null;
 }
 
+function reusableResearchApproval(project = {}, identity) {
+  const approval = object(project.metadata?.paid_research_approval);
+  const approvedAt = Date.parse(text(approval.approved_at));
+  const expiresAt = Date.parse(text(approval.expires_at));
+  const now = Date.now();
+  return (
+    approval.approved === true &&
+    text(approval.provider) &&
+    text(approval.pricing_id) &&
+    Number(approval.maximum_customer_price) > 0 &&
+    Number.isFinite(approvedAt) &&
+    Number.isFinite(expiresAt) &&
+    approvedAt <= now &&
+    expiresAt > now &&
+    text(approval.command_identity) === identity
+  ) ? approval : null;
+}
+
+async function researchEstimate(organizationId) {
+  const organizationService = await OrganizationServiceRuntime.get({
+    organization_id: organizationId,
+    service_id: RESEARCH_SERVICE_ID,
+  });
+  if (!organizationService) {
+    throw new Error(`Service ${RESEARCH_SERVICE_ID} is not enabled for organization`);
+  }
+
+  const service = resolveServiceCapabilities(RESEARCH_SERVICE_ID);
+  const capability = resolvePrimaryExecutionCapability(service?.capabilities || []);
+  if (!capability) {
+    throw new Error(`No execution capability found for ${RESEARCH_SERVICE_ID}`);
+  }
+
+  const selected = await resolveProvider({
+    organization_id: organizationId,
+    capability,
+    preferredProvider: null,
+    country: null,
+    currency: null,
+    policy: organizationService.provider_policy || {},
+  });
+  if (!selected?.pricing_id) {
+    throw new Error("CREATIVE_RESEARCH_PRICING_ID_REQUIRED");
+  }
+
+  const pricing = await PricingRuntime.resolveById({
+    pricing_id: selected.pricing_id,
+    currency: selected.currency || null,
+    usage: { quantity: 1 },
+  });
+
+  return {
+    capability,
+    provider: selected.provider,
+    model: selected.model || null,
+    pricing_id: selected.pricing_id,
+    maximum_customer_price: pricing.customer_price,
+    supplier_cost: pricing.supplier_cost,
+    currency: pricing.currency,
+    estimated_input_tokens: pricing.input_tokens,
+    estimated_output_tokens: pricing.output_tokens,
+    pricing_estimated: pricing.estimated === true,
+  };
+}
+
+async function requestResearchApproval(estimate) {
+  const price = amountText(estimate.maximum_customer_price);
+  const currency = text(estimate.currency).toUpperCase();
+  const phrase = `APPROVE RESEARCH ${price} ${currency}`;
+
+  console.log("============================================================");
+  console.log("AVANTIQO PAID RESEARCH APPROVAL");
+  console.log("============================================================");
+  console.log(`RESEARCH_PROVIDER=${estimate.provider}`);
+  console.log(`RESEARCH_MODEL=${estimate.model || ""}`);
+  console.log(`RESEARCH_PRICING_ID=${estimate.pricing_id}`);
+  console.log(`RESEARCH_MAXIMUM_CUSTOMER_PRICE=${price}`);
+  console.log(`RESEARCH_CURRENCY=${currency}`);
+  console.log(`RESEARCH_ESTIMATED_INPUT_TOKENS=${estimate.estimated_input_tokens || 0}`);
+  console.log(`RESEARCH_ESTIMATED_OUTPUT_TOKENS=${estimate.estimated_output_tokens || 0}`);
+  console.log("MEDIA_GENERATION_AUTHORIZED=NO");
+  console.log("PUBLICATION_AUTHORIZED=NO");
+  console.log("============================================================");
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error("CREATIVE_INTERACTIVE_RESEARCH_APPROVAL_REQUIRED");
+  }
+
+  const terminal = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  try {
+    const answer = await terminal.question(`Type ${phrase} to continue, or press Enter to stop: `);
+    return normalized(answer) === normalized(phrase);
+  } finally {
+    terminal.close();
+  }
+}
+
+function stoppedBeforeResearch({ organization, mission, projectId, estimate }) {
+  console.log("============================================================");
+  console.log("AVANTIQO CREATIVE COMMAND PAUSED");
+  console.log("============================================================");
+  console.log(`ORGANIZATION_ID=${organization.id}`);
+  console.log(`ORGANIZATION_NAME=${organization.name}`);
+  console.log(`CREATIVE_MISSION_ID=${mission.id}`);
+  console.log(`CREATIVE_PROJECT_ID=${projectId}`);
+  console.log(`RESEARCH_PROVIDER=${estimate.provider}`);
+  console.log(`RESEARCH_MODEL=${estimate.model || ""}`);
+  console.log(`RESEARCH_MAXIMUM_CUSTOMER_PRICE=${amountText(estimate.maximum_customer_price)}`);
+  console.log(`RESEARCH_CURRENCY=${estimate.currency}`);
+  console.log("PAID_RESEARCH_AUTHORIZED=NO");
+  console.log("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");
+  console.log("PUBLICATION_AUTHORIZED=NO");
+  console.log("NEXT_ACTION=RERUN_THE_SAME_COMMAND_AND_APPROVE_RESEARCH");
+  console.log("============================================================");
+}
+
 try {
   const organization = await resolveOrganization();
   const channels = inferChannels(intent);
@@ -270,7 +414,7 @@ try {
     throw new Error("CREATIVE_SELECTED_ASSET_NODE_ATTACHMENT_INCOMPLETE");
   }
 
-  const updatedProject = await CreativeProjectRuntime.update(projectId, {
+  let updatedProject = await CreativeProjectRuntime.update(projectId, {
     metadata: {
       ...(project.metadata || {}),
       command_identity: identity,
@@ -285,6 +429,53 @@ try {
       production_dossier_approval_required: true,
     },
   });
+
+  let researchApproval = reusableResearchApproval(updatedProject, identity);
+  let researchApprovalMode = "REUSED_EXISTING_APPROVAL";
+  if (!researchApproval) {
+    const estimate = await researchEstimate(organization.id);
+    const approved = await requestResearchApproval(estimate);
+    if (!approved) {
+      stoppedBeforeResearch({
+        organization,
+        mission: started,
+        projectId,
+        estimate,
+      });
+      process.exit(0);
+    }
+
+    const approvedAt = new Date();
+    researchApproval = {
+      id: crypto.randomUUID(),
+      approved: true,
+      scope: "AUTONOMOUS_COMPANY_MARKET_RESEARCH",
+      command_identity: identity,
+      provider: estimate.provider,
+      model: estimate.model,
+      capability: estimate.capability,
+      pricing_id: estimate.pricing_id,
+      maximum_customer_price: estimate.maximum_customer_price,
+      supplier_cost_estimate: estimate.supplier_cost,
+      currency: estimate.currency,
+      estimated_input_tokens: estimate.estimated_input_tokens,
+      estimated_output_tokens: estimate.estimated_output_tokens,
+      approved_at: approvedAt.toISOString(),
+      expires_at: new Date(
+        approvedAt.getTime() + RESEARCH_APPROVAL_MINUTES * 60 * 1000,
+      ).toISOString(),
+      media_generation_authorized: false,
+      publication_authorized: false,
+    };
+    updatedProject = await CreativeProjectRuntime.update(projectId, {
+      metadata: {
+        ...(updatedProject.metadata || {}),
+        paid_research_approval: researchApproval,
+      },
+    });
+    researchApprovalMode = "APPROVED_INTERACTIVELY";
+  }
+  paidResearchAuthorized = true;
 
   let execution = null;
   let executionError = null;
@@ -351,12 +542,19 @@ try {
   console.log(`CREATIVE_PROJECT_ID=${projectId}`);
   console.log(`CREATIVE_BRIEF_ID=${briefId || ""}`);
   console.log(`ATTACHED_ASSET_NODE_COUNT=${attached.length}`);
+  console.log(`RESEARCH_APPROVAL_MODE=${researchApprovalMode}`);
+  console.log(`RESEARCH_PROVIDER=${researchApproval.provider}`);
+  console.log(`RESEARCH_MODEL=${researchApproval.model || ""}`);
+  console.log(`RESEARCH_PRICING_ID=${researchApproval.pricing_id}`);
+  console.log(`RESEARCH_MAXIMUM_CUSTOMER_PRICE=${amountText(researchApproval.maximum_customer_price)}`);
+  console.log(`RESEARCH_CURRENCY=${researchApproval.currency}`);
   console.log(`PRODUCTION_DOSSIER_ID=${dossier?.id || ""}`);
   console.log(`ESTIMATED_PRODUCTION_COST=${estimatedCost ?? "PENDING"}`);
   console.log(`CURRENCY=${currency || "PENDING"}`);
   console.log(`PIPELINE_STATUS=${execution?.status || execution?.production?.status || "WAITING_FOR_PRODUCTION_APPROVAL"}`);
   console.log(`PIPELINE_BOUNDARY=${executionError || "PRODUCTION_DOSSIER_APPROVAL_REQUIRED"}`);
-  console.log("PAID_EXECUTION_AUTHORIZED=NO");
+  console.log("PAID_RESEARCH_AUTHORIZED=YES");
+  console.log("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");
   console.log("PUBLICATION_AUTHORIZED=NO");
   console.log("NEXT_ACTION=REVIEW_AND_APPROVE_PRODUCTION_DOSSIER");
   console.log("============================================================");
@@ -365,7 +563,8 @@ try {
   console.error("AVANTIQO CREATIVE COMMAND FAILED");
   console.error("============================================================");
   console.error(`ERROR=${text(error?.message || error)}`);
-  console.error("PAID_EXECUTION_AUTHORIZED=NO");
+  console.error(`PAID_RESEARCH_AUTHORIZED=${paidResearchAuthorized ? "YES" : "NO"}`);
+  console.error("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");
   console.error("PUBLICATION_AUTHORIZED=NO");
   console.error("============================================================");
   process.exit(1);

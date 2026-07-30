@@ -9,10 +9,16 @@ import {
 } from "@/lib/creative/release/runtime/CreativeApprovalRuntime";
 
 const ALLOWED_SCOPES = new Set([
+  "PRODUCTION_DOSSIER",
   "RELEASE_GATE",
   "FINAL_RENDER",
   "PUBLISH_RELEASE",
 ]);
+
+function finite(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
 
 export async function POST(request) {
   try {
@@ -21,12 +27,27 @@ export async function POST(request) {
     const subjectAssetNodeId =
       body.subject_asset_node_id || body.subjectAssetNodeId;
     const scope = String(body.scope || "").trim().toUpperCase();
+    const approvedCostCeiling = finite(
+      body.approved_cost_ceiling ?? body.approvedCostCeiling,
+    );
 
     if (!organizationId || !subjectAssetNodeId || !ALLOWED_SCOPES.has(scope)) {
       return Response.json(
         {
           success: false,
           error: "organization_id, valid subject_asset_node_id and scope required",
+        },
+        { status: 400 },
+      );
+    }
+    if (
+      scope === "PRODUCTION_DOSSIER" &&
+      (approvedCostCeiling === null || approvedCostCeiling < 0)
+    ) {
+      return Response.json(
+        {
+          success: false,
+          error: "approved_cost_ceiling required for production dossier approval",
         },
         { status: 400 },
       );
@@ -48,6 +69,8 @@ export async function POST(request) {
       organization_id: organizationId,
       subject_asset_node_id: subjectAssetNodeId,
       scope,
+      approved_cost_ceiling:
+        scope === "PRODUCTION_DOSSIER" ? approvedCostCeiling : null,
       approver: {
         user_id: access.userId,
         staff_account_id: access.staff?.id,

@@ -10,6 +10,9 @@ export async function register() {
       "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
     );
     await import(
+      "@/lib/creative/reasoning/runtime/CreativeReasoningRequestCostEstimateRuntime"
+    );
+    await import(
       "@/lib/creative/reasoning/runtime/CreativeReasoningBudgetRuntime"
     );
     await import(

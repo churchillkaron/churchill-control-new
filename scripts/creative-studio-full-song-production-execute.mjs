@@ -57,6 +57,10 @@ const [
   import("../lib/creative/director/runtime/CreativeDirectionReliableOutputPatch.js"),
 ]);
 
+await import(
+  "../lib/creative/production-graph/runtime/CreativeProductionGraphConvergencePatch.js"
+);
+
 const configuredProjectId = text(
   process.env.CREATIVE_PROJECT_ID ||
   process.env.CREATIVE_FULL_SONG_PROJECT_ID,
@@ -144,6 +148,7 @@ console.log(`DIRECTION_PREFLIGHT_USAGE_ID=${preflight.usage_id || ""}`);
 console.log(`DIRECTION_PREFLIGHT_SCENE_COUNT=${preflight.scene_count}`);
 console.log(`DIRECTION_PREFLIGHT_SHOT_COUNT=${preflight.shot_count}`);
 console.log("DIRECTION_PREFLIGHT=PASS");
+console.log("PRODUCTION_GRAPH_CONVERGENCE=ENABLED");
 console.log("PRODUCTION_LOCK_ACQUIRED=NO");
 console.log("============================================================");
 

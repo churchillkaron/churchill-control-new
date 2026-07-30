@@ -127,6 +127,7 @@ export default function POSFinalUI() {
     email: "",
   });
   const [guestDraft, setGuestDraft] = useState(1);
+  const [draftSetupTableId, setDraftSetupTableId] = useState(null);
   const [dishDraft, setDishDraft] = useState(null);
   const [modifierDraft, setModifierDraft] = useState({});
   const [cart, setCart] = useState([]);
@@ -306,17 +307,52 @@ export default function POSFinalUI() {
     }, 550);
   }
 
+  function clearCustomerDraft() {
+    setCustomerSearch("");
+    setCustomerResults([]);
+    setCustomerDraft(null);
+    setCustomerForm({ name: "", phone: "", email: "" });
+  }
+
+  function revertDraftTableSetup(tableId = draftSetupTableId) {
+    if (!tableId) return;
+
+    setRuntime((previous) => {
+      if (!previous) return previous;
+
+      return {
+        ...previous,
+        tables: (previous.tables || []).map((table) =>
+          table.id === tableId
+            ? {
+                ...table,
+                current_guests: 0,
+                status: table.active_session_id ? "OCCUPIED" : "AVAILABLE",
+              }
+            : table
+        ),
+      };
+    });
+    setDraftSetupTableId((current) =>
+      current === tableId ? null : current
+    );
+  }
+
   function closeModal() {
     setModal(null);
     setModalTableId(null);
     setCustomerSearch("");
     setCustomerResults([]);
-    setCustomerDraft(null);
-    setCustomerForm({ name: "", phone: "", email: "" });
     setMoveSeatValue(null);
     setMoveSeatOrders([]);
     setTargetTableId(null);
     setMergeTargetIds([]);
+  }
+
+  function cancelCustomerSetup() {
+    revertDraftTableSetup();
+    clearCustomerDraft();
+    closeModal();
   }
 
   function resetCartIdentity() {
@@ -324,6 +360,8 @@ export default function POSFinalUI() {
   }
 
   function chooseZone(zoneId) {
+    revertDraftTableSetup();
+    clearCustomerDraft();
     setActiveZoneId(zoneId);
     setActiveTableId(null);
     setCart([]);
@@ -337,6 +375,8 @@ export default function POSFinalUI() {
     }
 
     if (activeTableId !== table.id) {
+      revertDraftTableSetup();
+      clearCustomerDraft();
       setCart([]);
       resetCartIdentity();
     }
@@ -417,10 +457,39 @@ export default function POSFinalUI() {
 
     if (!table) return;
 
+    const guestCount = Number(guestDraft || 1);
+    const isInitialDraft =
+      !table.active_session_id &&
+      !Number(table.current_guests || 0) &&
+      draftSetupTableId !== table.id;
+
+    if (isInitialDraft) {
+      setRuntime((previous) => {
+        if (!previous) return previous;
+
+        return {
+          ...previous,
+          tables: (previous.tables || []).map((item) =>
+            item.id === table.id
+              ? {
+                  ...item,
+                  current_guests: guestCount,
+                  status: "OCCUPIED",
+                }
+              : item
+          ),
+        };
+      });
+      setDraftSetupTableId(table.id);
+      setActiveTableId(table.id);
+      closeModal();
+      return;
+    }
+
     try {
       await posAction("MOVE_GUESTS", {
         tableId: table.id,
-        guestCount: Number(guestDraft || 1),
+        guestCount,
       });
       setActiveTableId(table.id);
       closeModal();
@@ -530,6 +599,9 @@ export default function POSFinalUI() {
 
     setCart([]);
     resetCartIdentity();
+    clearCustomerDraft();
+    setDraftSetupTableId(null);
+    setGuestDraft(1);
     setModal(null);
     setSuccessMessage(
       result.dispatch_pending
@@ -847,6 +919,7 @@ export default function POSFinalUI() {
               setCustomerSearch("");
               setCustomerResults([]);
               setCustomerDraft(null);
+              setGuestDraft(Number(modalTable.current_guests || 1));
               setModal("CUSTOMER");
             }}
           >
@@ -916,7 +989,7 @@ export default function POSFinalUI() {
                 Create New Customer
               </button>
               <button
-                onClick={closeModal}
+                onClick={cancelCustomerSetup}
                 className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"
               >
                 Cancel
@@ -967,7 +1040,7 @@ export default function POSFinalUI() {
               Back
             </button>
             <button
-              onClick={closeModal}
+              onClick={cancelCustomerSetup}
               className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"
             >
               Cancel
@@ -1003,7 +1076,7 @@ export default function POSFinalUI() {
             Start Order
           </button>
           <button
-            onClick={closeModal}
+            onClick={cancelCustomerSetup}
             className="mt-2 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold text-white/70"
           >
             Cancel

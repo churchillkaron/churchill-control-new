@@ -146,6 +146,58 @@ CreativeDenseSemanticExecutionPlanRuntime.preflight = async function (
   };
 };
 
+const {
+  CreativeExecutionJobRepository,
+} = await import(
+  "@/lib/creative/execution/repositories/CreativeExecutionJobRepository"
+);
+const enqueueWithoutTerminalReconciliation =
+  CreativeExecutionJobRepository.enqueue.bind(
+    CreativeExecutionJobRepository,
+  );
+
+CreativeExecutionJobRepository.enqueue = async function (
+  job = {},
+) {
+  if (job.job_type !== "DENSE_SEMANTIC_RECOVERY") {
+    return enqueueWithoutTerminalReconciliation(job);
+  }
+
+  let idempotencyKey = [
+    job.idempotency_key,
+    "terminal-reconciliation-v2",
+  ].join(":");
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const result = await enqueueWithoutTerminalReconciliation({
+      ...job,
+      idempotency_key: idempotencyKey,
+      payload: {
+        ...(job.payload || {}),
+        terminal_reconciliation: true,
+        terminal_reconciliation_version: 2,
+        reconciliation_candidate_ids: initialPlans.map(
+          (plan) => plan.candidate_id,
+        ),
+        new_provider_calls_authorized: 0,
+        new_customer_price_authorized: 0,
+      },
+    });
+
+    if (result.created || result.job?.status !== "COMPLETED") {
+      return result;
+    }
+
+    idempotencyKey = [
+      idempotencyKey,
+      "after-stale-completed-job",
+      result.job.id,
+    ].join(":");
+  }
+
+  throw new Error("TERMINAL_RECONCILIATION_STALE_JOB_CHAIN_LIMIT");
+};
+
 console.log("============================================================");
 console.log("COLE DENSE TERMINAL RECONCILIATION");
 console.log("============================================================");
@@ -160,6 +212,7 @@ console.log("NEW_PROVIDER_CALLS_AUTHORIZED=0");
 console.log("NEW_CUSTOMER_PRICE_AUTHORIZED=0");
 console.log("RUNWAY_AUTHORIZED=NO");
 console.log("PRODUCTION_AUTHORIZED=NO");
+console.log("STALE_COMPLETED_JOB_REUSE=BLOCKED");
 console.log("============================================================");
 
 await import("./creative-studio-cole-dense-recover.mjs");

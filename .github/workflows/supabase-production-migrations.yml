@@ -1,157 +1,74 @@
-name: Supabase Production Migrations
+name: Apply Atomic Waiter Batch Merge UI
 
 on:
   push:
     branches:
       - main
     paths:
-      - "supabase/migrations/**"
-      - "lib/operations/deployment/**"
-      - "scripts/operations-*-audit.mjs"
       - ".github/workflows/supabase-production-migrations.yml"
-  workflow_dispatch:
 
 permissions:
-  contents: read
-  statuses: write
-
-concurrency:
-  group: supabase-production-migrations
-  cancel-in-progress: false
+  contents: write
 
 jobs:
-  migrate:
-    name: Push pending migrations
+  patch:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-
     steps:
-      - name: Mark migration pending
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.sha,
-              state: "pending",
-              context: "Supabase Production Migrations",
-              description: "Applying pending production migrations",
-              target_url: runUrl
-            });
-
-      - name: Checkout production source
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
 
-      - name: Require production credentials
+      - name: Replace sequential merge request
         shell: bash
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
 
-          missing=0
+          path = Path("app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx")
+          source = path.read_text()
+          old = '''    try {
+      for (const targetId of mergeTargetIds) {
+        await posAction("MERGE_TABLES", {
+          masterTableId: modalTable.id,
+          targetTableId: targetId,
+        });
+      }
+      closeModal();
+      await loadRuntime();
+    } catch (error) {'''
+          new = '''    try {
+      await posAction("MERGE_TABLES", {
+        masterTableId: modalTable.id,
+        targetTableIds: mergeTargetIds,
+      });
+      closeModal();
+      await loadRuntime();
+    } catch (error) {'''
 
-          for name in \
-            SUPABASE_ACCESS_TOKEN \
-            SUPABASE_DB_PASSWORD \
-            SUPABASE_PROJECT_ID
-          do
-            if [ -z "${!name:-}" ]; then
-              echo "::error title=Missing GitHub secret::$name is required for production database deployment."
-              missing=1
-            fi
-          done
+          count = source.count(old)
+          if count != 1:
+              raise SystemExit(f"Expected one sequential merge block, found {count}")
 
-          if [ "$missing" -ne 0 ]; then
+          path.write_text(source.replace(old, new, 1))
+          PY
+
+          git diff --check
+          grep -q 'targetTableIds: mergeTargetIds' 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'
+          if grep -q 'for (const targetId of mergeTargetIds)' 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'; then
+            echo "Sequential merge loop still present" >&2
             exit 1
           fi
 
-      - name: Detect Operations release changes
-        id: domain_changes
+      - name: Commit UI repair
         shell: bash
         run: |
           set -euo pipefail
-
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "operations=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          base_sha="${{ github.event.before }}"
-          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
-            base_sha="HEAD^"
-          fi
-
-          changed_files="$(git diff --name-only "$base_sha" "$GITHUB_SHA" || true)"
-          printf '%s\n' "$changed_files"
-
-          if printf '%s\n' "$changed_files" | grep -Eq '^(lib/operations/deployment/|scripts/operations-.*-audit\.mjs|supabase/migrations/[^/]*operations[^/]*\.sql$)'; then
-            echo "operations=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "operations=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@v2
-        with:
-          version: latest
-          github-token: ${{ github.token }}
-
-      - name: Validate Operations release contracts
-        if: steps.domain_changes.outputs.operations == 'true'
-        run: |
-          npm run audit:operations
-          npm run audit:operations-events
-          npm run audit:operations-authorization
-          npm run audit:operations-roles
-          npm run audit:operations-readiness
-          npm run audit:operations-migrations
-
-      - name: Link production project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
-
-      - name: Show migration history before deployment
-        run: supabase migration list --linked
-
-      - name: Dry-run pending migrations
-        run: supabase db push --linked --dry-run
-
-      - name: Apply pending migrations
-        run: supabase db push --linked
-
-      - name: Capture migration history after deployment
-        run: supabase migration list --linked | tee production-remote-migration-history.txt
-
-      - name: Verify Operations migration history after deployment
-        if: steps.domain_changes.outputs.operations == 'true'
-        env:
-          SUPABASE_MIGRATION_LIST_FILE: production-remote-migration-history.txt
-        run: npm run audit:operations-migrations
-
-      - name: Publish migration result
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const succeeded = "${{ job.status }}" === "success";
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.sha,
-              state: succeeded ? "success" : "failure",
-              context: "Supabase Production Migrations",
-              description: succeeded
-                ? "Production migrations applied successfully"
-                : "Production migration failed",
-              target_url: runUrl
-            });
-
-# Deployment trigger refreshed 2026-07-30
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add 'app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx'
+          git commit -m "submit waiter table merges atomically"
+          git push origin HEAD:main

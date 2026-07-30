@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CreditCard, Landmark, QrCode, Split, Wallet } from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
@@ -28,25 +28,21 @@ function numeric(record, fields) {
 function formatMoney(value, currencyCode) {
   const amount = Number(value || 0);
 
-  if (!currencyCode) {
-    return new Intl.NumberFormat(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  }
-
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currencyCode,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    return new Intl.NumberFormat(undefined, currencyCode
+      ? {
+          style: "currency",
+          currency: currencyCode,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }
+      : {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }
+    ).format(amount);
   } catch {
-    return new Intl.NumberFormat(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    return amount.toFixed(2);
   }
 }
 
@@ -60,6 +56,7 @@ export default function PaymentsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tableNumber = searchParams.get("table");
+  const paymentRequestKey = useRef(null);
 
   const [paymentState, setPaymentState] = useState(null);
   const [selectedItems, setSelectedItems] = useState([]);
@@ -69,6 +66,10 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  function resetSettlementIdentity() {
+    paymentRequestKey.current = null;
+  }
 
   async function loadPaymentState() {
     if (!organizationId || !tableNumber) {
@@ -82,12 +83,9 @@ export default function PaymentsPage() {
     try {
       const response = await fetch("/api/pos/payment-state", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organizationId,
-          organization_id: organizationId,
-          tableNumber,
-        }),
+        body: JSON.stringify({ organizationId, tableNumber }),
       });
       const result = await response.json();
 
@@ -98,6 +96,7 @@ export default function PaymentsPage() {
       setPaymentState(result.state || null);
       setSelectedItems([]);
       setSplitCount(1);
+      resetSettlementIdentity();
     } catch (loadError) {
       setPaymentState(null);
       setError(loadError.message);
@@ -131,12 +130,8 @@ export default function PaymentsPage() {
         ),
     [items, selectedItems]
   );
-
-  const persistedSubtotal = numeric(paymentState, [
-    "subtotal",
-    "netTotal",
-    "net_total",
-  ]) || allItemsNet;
+  const persistedSubtotal =
+    numeric(paymentState, ["subtotal", "netTotal", "net_total"]) || allItemsNet;
   const persistedService = numeric(paymentState, [
     "serviceCharge",
     "service_charge",
@@ -151,19 +146,15 @@ export default function PaymentsPage() {
     "vatAmount",
     "vat_amount",
   ]);
-
   const selectedShare =
     selectedNet > 0 && persistedSubtotal > 0
       ? Math.min(1, selectedNet / persistedSubtotal)
       : 0;
-  const selectedService = Number(
-    (persistedService * selectedShare).toFixed(2)
-  );
+  const selectedService = Number((persistedService * selectedShare).toFixed(2));
   const selectedTax = Number((persistedTax * selectedShare).toFixed(2));
   const selectedGross = Number(
     (selectedNet + selectedService + selectedTax).toFixed(2)
   );
-
   const splitPreview = useMemo(
     () =>
       splitBill(
@@ -172,7 +163,6 @@ export default function PaymentsPage() {
       ),
     [paymentState, splitCount]
   );
-
   const targetAmount =
     selectedItems.length > 0
       ? selectedGross
@@ -185,6 +175,7 @@ export default function PaymentsPage() {
   }, [targetAmount]);
 
   function toggleItem(itemId) {
+    resetSettlementIdentity();
     setSelectedItems((current) =>
       current.includes(itemId)
         ? current.filter((id) => id !== itemId)
@@ -203,6 +194,10 @@ export default function PaymentsPage() {
       return;
     }
 
+    if (!paymentRequestKey.current) {
+      paymentRequestKey.current = crypto.randomUUID();
+    }
+
     setActionLoading(true);
     setError(null);
 
@@ -213,14 +208,17 @@ export default function PaymentsPage() {
           : "/api/restaurant/payments/partial",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": paymentRequestKey.current,
+          },
           body: JSON.stringify({
             organizationId,
-            organization_id: organizationId,
+            idempotencyKey: paymentRequestKey.current,
             tableNumber: paymentState.session.table_number,
             paymentMethod,
             paidAmount: Number(paymentAmount),
-            amount: Number(paymentAmount),
             itemIds: selectedItems,
           }),
         }
@@ -231,7 +229,9 @@ export default function PaymentsPage() {
         throw new Error(result.error || "Payment failed");
       }
 
-      if (Number(result.remainingBalance || 0) <= 0 || mode === "FULL") {
+      resetSettlementIdentity();
+
+      if (Number(result.remainingBalance || 0) <= 0 || result.fullyPaid) {
         router.push(`/workspace/${organizationId}/operations/pos`);
         router.refresh();
         return;
@@ -272,12 +272,10 @@ export default function PaymentsPage() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <section className="xl:col-span-2 rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
+        <section className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 xl:col-span-2">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">
-                Table
-              </p>
+              <p className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Table</p>
               <h2 className="mt-2 text-5xl font-light">
                 {paymentState.session.table_number}
               </h2>
@@ -345,16 +343,17 @@ export default function PaymentsPage() {
         </section>
 
         <aside className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/40">
-            Payment method
-          </p>
+          <p className="text-xs uppercase tracking-[0.2em] text-white/40">Payment method</p>
           <div className="mt-4 grid grid-cols-2 gap-2">
             {PAYMENT_OPTIONS.map((option) => {
               const Icon = option.icon;
               return (
                 <button
                   key={option.value}
-                  onClick={() => setPaymentMethod(option.value)}
+                  onClick={() => {
+                    resetSettlementIdentity();
+                    setPaymentMethod(option.value);
+                  }}
                   className={
                     paymentMethod === option.value
                       ? "rounded-2xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 p-4 text-[#F3D7A2]"
@@ -375,9 +374,10 @@ export default function PaymentsPage() {
             type="number"
             min="1"
             value={splitCount}
-            onChange={(event) =>
-              setSplitCount(Math.max(1, Number(event.target.value || 1)))
-            }
+            onChange={(event) => {
+              resetSettlementIdentity();
+              setSplitCount(Math.max(1, Number(event.target.value || 1)));
+            }}
             className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3"
           />
 
@@ -389,7 +389,10 @@ export default function PaymentsPage() {
             min="0"
             step="0.01"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            onChange={(event) => {
+              resetSettlementIdentity();
+              setAmount(event.target.value);
+            }}
             className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-xl"
           />
 
@@ -398,23 +401,21 @@ export default function PaymentsPage() {
             onClick={() => payAmount(selectedGross, "PARTIAL")}
             className="mt-6 w-full rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 py-4 text-sm font-semibold text-[#F3D7A2] disabled:opacity-30"
           >
-            Pay Selected Items
+            {actionLoading ? "Processing..." : "Pay Selected Items"}
           </button>
-
           <button
             disabled={actionLoading}
             onClick={() => payAmount(Number(amount || 0), "PARTIAL")}
             className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold disabled:opacity-30"
           >
-            Pay Partial Amount
+            {actionLoading ? "Processing..." : "Pay Partial Amount"}
           </button>
-
           <button
             disabled={actionLoading}
             onClick={() => payAmount(paymentState.remainingBalance, "FULL")}
             className="mt-3 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black disabled:opacity-30"
           >
-            Pay Full Balance
+            {actionLoading ? "Processing..." : "Pay Full Balance"}
           </button>
         </aside>
       </div>

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
-import { useWorkspaceRuntime } from "@/app/providers/WorkspaceRuntimeProvider";
 import { loadWaiterData } from "@/lib/restaurant/pos/waiter/loadWaiterData";
 import { groupMenuByCategory } from "@/lib/restaurant/pos/waiter/groupMenuByCategory";
 import { assignSeatToBillGroup } from "@/lib/restaurant/pos/tables/assignSeatToBillGroup";
@@ -15,14 +14,8 @@ function tableName(table) {
   return table?.table_name || table?.table_number || table?.name || "--";
 }
 
-
-
 function seatOf(item) {
   return item?.seat_position || item?.seat_number || item?.modifiers?.seat || null;
-}
-
-function itemTotal(item) {
-  return Number(item?.price || 0) * Number(item?.quantity || 1);
 }
 
 function normalizeModifierGroups(settings) {
@@ -95,37 +88,36 @@ function Modal({ children, wide = false }) {
 }
 
 function SmallTitle({ children }) {
+  return <div className="text-xs font-medium text-white/55">{children}</div>;
+}
+
+function SecondaryButton({ children, ...props }) {
   return (
-    <div className="text-xs font-medium text-white/55">
+    <button
+      {...props}
+      className="mb-2 w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left text-sm font-semibold disabled:opacity-30"
+    >
       {children}
-    </div>
+    </button>
   );
 }
 
 export default function POSFinalUI() {
-  const { organization, entity, period } = useBusinessContext();
-  const businessContext = { organization, entity, period };
-  const { runtime: workspaceRuntime } = useWorkspaceRuntime();
-
-  const waiterStaff =
-    workspaceRuntime?.access?.staff || null;
-
+  const { organization } = useBusinessContext();
   const organizationId = organization?.id || null;
 
   const holdTimer = useRef(null);
   const longPressFired = useRef(false);
+  const orderRequestKey = useRef(null);
 
   const [runtime, setRuntime] = useState(null);
-  const [staff, setStaff] = useState(null);
-
+  const [runtimeError, setRuntimeError] = useState(null);
   const [activeZoneId, setActiveZoneId] = useState(null);
   const [activeTableId, setActiveTableId] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
-
   const [modal, setModal] = useState(null);
   const [modalTableId, setModalTableId] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerResults, setCustomerResults] = useState([]);
   const [customerDraft, setCustomerDraft] = useState(null);
@@ -134,21 +126,16 @@ export default function POSFinalUI() {
     phone: "",
     email: "",
   });
-
   const [guestDraft, setGuestDraft] = useState(1);
-
   const [dishDraft, setDishDraft] = useState(null);
   const [modifierDraft, setModifierDraft] = useState({});
   const [cart, setCart] = useState([]);
-
   const [openTableId, setOpenTableId] = useState(null);
   const [openOrders, setOpenOrders] = useState([]);
-
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
   const [targetGroupIndex, setTargetGroupIndex] = useState(0);
   const [draftGroups, setDraftGroups] = useState([]);
-
   const [moveSeatValue, setMoveSeatValue] = useState(null);
   const [moveSeatOrders, setMoveSeatOrders] = useState([]);
   const [targetTableId, setTargetTableId] = useState(null);
@@ -158,27 +145,26 @@ export default function POSFinalUI() {
   const tables = runtime?.tables || [];
   const dishes = runtime?.dishes || [];
   const settings = runtime?.posSettings || {};
-
   const activeTable = tables.find((table) => table.id === activeTableId) || null;
   const modalTable = tables.find((table) => table.id === modalTableId) || null;
   const openTable = tables.find((table) => table.id === openTableId) || null;
   const targetTable = tables.find((table) => table.id === targetTableId) || null;
 
-  const menuGroups = useMemo(() => groupMenuByCategory(dishes || []), [dishes]);
+  const menuGroups = useMemo(
+    () => groupMenuByCategory(dishes || []),
+    [dishes]
+  );
   const categories = Object.keys(menuGroups || {});
   const currentCategory = activeCategory || categories[0] || null;
   const visibleDishes = currentCategory ? menuGroups[currentCategory] || [] : [];
-
   const modifierGroups = useMemo(
     () => normalizeModifierGroups(settings),
     [settings]
   );
-
   const visibleTables = useMemo(() => {
     if (!activeZoneId) return tables;
     return tables.filter((table) => table.zone_id === activeZoneId);
   }, [tables, activeZoneId]);
-
   const openItems = useMemo(
     () =>
       openOrders.flatMap((order) =>
@@ -189,18 +175,10 @@ export default function POSFinalUI() {
       ),
     [openOrders]
   );
-
   const openSeats = useMemo(() => {
-    const guestCount = Number(
-      openTable?.current_guests || 0
-    );
-
-    return Array.from(
-      { length: guestCount },
-      (_, index) => String(index + 1)
-    );
+    const guestCount = Number(openTable?.current_guests || 0);
+    return Array.from({ length: guestCount }, (_, index) => String(index + 1));
   }, [openTable]);
-
   const billGroups = useMemo(() => {
     const grouped = {};
 
@@ -231,7 +209,6 @@ export default function POSFinalUI() {
 
     return result;
   }, [openItems, draftGroups, settings]);
-
   const moveSeatOptions = useMemo(() => {
     const items = moveSeatOrders.flatMap((order) => order.order_items || []);
     const fromItems = [
@@ -244,79 +221,45 @@ export default function POSFinalUI() {
     return Array.from({ length: guestCount }, (_, index) => String(index + 1));
   }, [moveSeatOrders, modalTable]);
 
-  const cartTotal = cart.reduce((sum, item) => sum + Number(item.price || 0), 0);
-
   async function loadRuntime() {
     if (!organizationId) return;
 
-    const loaded = await loadWaiterData(organizationId);
-    setRuntime(loaded);
+    try {
+      setRuntimeError(null);
+      const loaded = await loadWaiterData(organizationId);
+      setRuntime(loaded);
 
-    if (!activeZoneId && loaded?.zones?.[0]?.id) {
-      setActiveZoneId(loaded.zones[0].id);
-    }
+      if (!activeZoneId && loaded?.zones?.[0]?.id) {
+        setActiveZoneId(loaded.zones[0].id);
+      }
 
-    const grouped = groupMenuByCategory(loaded?.dishes || []);
-    const firstCategory = Object.keys(grouped || {})[0];
+      const grouped = groupMenuByCategory(loaded?.dishes || []);
+      const firstCategory = Object.keys(grouped || {})[0];
 
-    if (!activeCategory && firstCategory) {
-      setActiveCategory(firstCategory);
-    }
-  }
-
-  async function loadStaffRuntime() {
-    const email =
-      typeof window !== "undefined"
-        ? localStorage.getItem("staff_email") ||
-          localStorage.getItem("userEmail")
-        : null;
-
-    if (process.env.NODE_ENV !== "production") console.log("WAITER_EMAIL_CHECK", {
-      staff_email:
-        typeof window !== "undefined"
-          ? localStorage.getItem("staff_email")
-          : null,
-      userEmail:
-        typeof window !== "undefined"
-          ? localStorage.getItem("userEmail")
-          : null,
-    });
-
-    if (!email) return;
-
-    const response = await fetch(
-      `/api/staff/runtime?email=${encodeURIComponent(email)}`
-    );
-
-    const result = await response.json();
-
-    if (result?.success) {
-      if (process.env.NODE_ENV !== "production") console.log("WAITER_STAFF", result.staff);
-      setStaff(result.staff);
+      if (!activeCategory && firstCategory) {
+        setActiveCategory(firstCategory);
+      }
+    } catch (error) {
+      setRuntimeError(error?.message || "Unable to load waiter runtime");
     }
   }
 
   async function posAction(action, payload = {}) {
     const response = await fetch("/api/pos/tables/action", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action,
         payload: {
           ...payload,
           organizationId,
-          organization_id: organizationId,
-          organizationId,
-          organization_id: organizationId,
         },
       }),
     });
-
     const result = await response.json();
 
-    if (!result.success) {
+    if (!response.ok || !result.success) {
       throw new Error(result.error || "POS action failed");
     }
 
@@ -326,19 +269,16 @@ export default function POSFinalUI() {
   async function openTableOrders(table) {
     const response = await fetch("/api/pos/tables/open", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         tableId: tableId(table),
-        organization_id: organizationId,
-        organization_id: organizationId,
+        organizationId,
       }),
     });
-
     const result = await response.json();
 
-    if (!result.success) {
+    if (!response.ok || !result.success) {
       throw new Error(result.error || "Failed to open table");
     }
 
@@ -347,7 +287,6 @@ export default function POSFinalUI() {
 
   useEffect(() => {
     loadRuntime();
-    loadStaffRuntime();
   }, [organizationId]);
 
   function clearHold() {
@@ -360,7 +299,6 @@ export default function POSFinalUI() {
   function startHold(table) {
     clearHold();
     longPressFired.current = false;
-
     holdTimer.current = setTimeout(() => {
       longPressFired.current = true;
       setModalTableId(table.id);
@@ -381,22 +319,33 @@ export default function POSFinalUI() {
     setMergeTargetIds([]);
   }
 
+  function resetCartIdentity() {
+    orderRequestKey.current = null;
+  }
+
   function chooseZone(zoneId) {
     setActiveZoneId(zoneId);
     setActiveTableId(null);
     setCart([]);
+    resetCartIdentity();
   }
 
-  async function chooseTable(table) {
+  function chooseTable(table) {
     if (table.status === "MERGED") {
       alert("This table is merged into another table");
       return;
+    }
+
+    if (activeTableId !== table.id) {
+      setCart([]);
+      resetCartIdentity();
     }
 
     setActiveTableId(table.id);
 
     if (!Number(table.current_guests || 0)) {
       setModalTableId(table.id);
+      setGuestDraft(1);
       setModal("CUSTOMER");
       return;
     }
@@ -409,19 +358,16 @@ export default function POSFinalUI() {
 
     const response = await fetch("/api/customers/search", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        organizationId,
         organizationId,
         query: customerSearch,
       }),
     });
-
     const result = await response.json();
 
-    if (result.success) {
+    if (response.ok && result.success) {
       setCustomerResults(result.customers || []);
     }
   }
@@ -429,9 +375,8 @@ export default function POSFinalUI() {
   async function createCustomer() {
     const response = await fetch("/api/customers/upsert", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         organizationId,
         customer_name: customerForm.name,
@@ -439,23 +384,20 @@ export default function POSFinalUI() {
         customer_email: customerForm.email,
       }),
     });
-
     const result = await response.json();
 
-    if (!result.success) {
+    if (!response.ok || !result.success) {
       alert(result.error || "Customer failed");
       return;
     }
 
     const customer = result.customer;
-
     setCustomerDraft({
       id: customer.id,
       name: customer.customer_name,
       phone: customer.customer_phone,
       email: customer.customer_email,
     });
-
     setModal("GUESTS");
   }
 
@@ -465,24 +407,27 @@ export default function POSFinalUI() {
       name: settings?.walk_in_label || settings?.walkInLabel || "Walk-in",
       type: "WALK_IN",
     });
-
     setModal("GUESTS");
   }
 
   async function confirmGuests() {
-    const table = tables.find((item) => item.id === modalTableId || item.id === activeTableId);
+    const table = tables.find(
+      (item) => item.id === modalTableId || item.id === activeTableId
+    );
 
     if (!table) return;
 
-    await posAction("MOVE_GUESTS", {
-      tableId: table.id,
-      guestCount: Number(guestDraft || 1),
-    });
-
-    setActiveTableId(table.id);
-    closeModal();
-
-    await loadRuntime();
+    try {
+      await posAction("MOVE_GUESTS", {
+        tableId: table.id,
+        guestCount: Number(guestDraft || 1),
+      });
+      setActiveTableId(table.id);
+      closeModal();
+      await loadRuntime();
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   function openDish(dish) {
@@ -497,10 +442,7 @@ export default function POSFinalUI() {
     }
 
     setDishDraft(dish);
-    setModifierDraft({
-      seat: "",
-      notes: "",
-    });
+    setModifierDraft({ seat: "", notes: "" });
     setModal("DISH");
   }
 
@@ -511,15 +453,15 @@ export default function POSFinalUI() {
     }
 
     const dynamicModifiers = {};
-
     modifierGroups.forEach((group) => {
       dynamicModifiers[group.key] = modifierDraft[group.key] || null;
     });
 
-    setCart((prev) => [
-      ...prev,
+    resetCartIdentity();
+    setCart((previous) => [
+      ...previous,
       {
-        id: `${dishDraft.id}-${Date.now()}`,
+        id: `${dishDraft.id}-${Date.now()}-${crypto.randomUUID()}`,
         dish_id: dishDraft.id,
         name: dishDraft.name || dishDraft.dish_name,
         price: Number(dishDraft.price || 0),
@@ -538,7 +480,6 @@ export default function POSFinalUI() {
         },
       },
     ]);
-
     setDishDraft(null);
     setModal(null);
   }
@@ -556,22 +497,23 @@ export default function POSFinalUI() {
       return;
     }
 
+    if (!orderRequestKey.current) {
+      orderRequestKey.current = crypto.randomUUID();
+    }
+
     const response = await fetch("/api/pos/create", {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        "Idempotency-Key": orderRequestKey.current,
       },
       body: JSON.stringify({
+        organizationId,
+        idempotencyKey: orderRequestKey.current,
         table: activeTable.table_number || activeTable.table_name,
-        table_id: activeTable.id,
+        tableId: activeTable.id,
         items: cart,
-        total: cartTotal,
-        staff_name:
-          waiterStaff?.name || "Waiter",
-        staff_id:
-          waiterStaff?.id || null,
-        organization_id: organizationId,
-        organization_id: organizationId,
         customerId: customerDraft?.id || null,
         customerName: customerDraft?.name || null,
         customerEmail: customerDraft?.email || null,
@@ -579,39 +521,44 @@ export default function POSFinalUI() {
         guestCount: Number(activeTable.current_guests || 0),
       }),
     });
-
     const result = await response.json();
 
-    if (!response.ok || result.error) {
+    if (!response.ok || result.success === false || result.error) {
       alert(result.error || "Order failed");
       return;
     }
 
     setCart([]);
+    resetCartIdentity();
     setModal(null);
-    setSuccessMessage("Order sent to kitchen");
-
+    setSuccessMessage(
+      result.dispatch_pending
+        ? "Order saved. Kitchen dispatch is pending."
+        : "Order sent to kitchen"
+    );
     await loadRuntime();
   }
 
   async function showOpenTable(table) {
-    const result = await openTableOrders(table);
-
-    setOpenTableId(table.id);
-    setOpenOrders(result.orders || []);
-    setSelectedSeat(null);
-    setSelectedGroupIndex(0);
-    setTargetGroupIndex(0);
-    setDraftGroups([]);
-    setModal("OPEN_TABLE");
-    setModalTableId(table.id);
+    try {
+      const result = await openTableOrders(table);
+      setOpenTableId(table.id);
+      setOpenOrders(result.orders || []);
+      setSelectedSeat(null);
+      setSelectedGroupIndex(0);
+      setTargetGroupIndex(0);
+      setDraftGroups([]);
+      setModal("OPEN_TABLE");
+      setModalTableId(table.id);
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   async function moveSeatToGroup() {
     if (!selectedSeat) return;
 
     const destination = billGroups[targetGroupIndex];
-
     if (!destination) return;
 
     const itemIds = openItems
@@ -633,19 +580,20 @@ export default function POSFinalUI() {
       return;
     }
 
-    if (openTable) {
-      await showOpenTable(openTable);
-    }
+    if (openTable) await showOpenTable(openTable);
   }
 
   async function openMoveGuest(table) {
-    const result = await openTableOrders(table);
-
-    setMoveSeatOrders(result.orders || []);
-    setMoveSeatValue(null);
-    setTargetTableId(null);
-    setModalTableId(table.id);
-    setModal("MOVE_GUEST");
+    try {
+      const result = await openTableOrders(table);
+      setMoveSeatOrders(result.orders || []);
+      setMoveSeatValue(null);
+      setTargetTableId(null);
+      setModalTableId(table.id);
+      setModal("MOVE_GUEST");
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   async function confirmMoveGuest() {
@@ -653,21 +601,18 @@ export default function POSFinalUI() {
 
     const response = await fetch("/api/pos/tables/move-seat", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        organizationId,
         organizationId,
         fromTableId: modalTable.id,
         toTableId: targetTable.id,
         seatPosition: moveSeatValue,
       }),
     });
-
     const result = await response.json();
 
-    if (!result.success) {
+    if (!response.ok || !result.success) {
       alert(result.error || "Move guest failed");
       return;
     }
@@ -679,27 +624,60 @@ export default function POSFinalUI() {
   async function confirmTransferTable() {
     if (!modalTable || !targetTableId) return;
 
-    await posAction("TRANSFER_TABLE", {
-      fromTableId: modalTable.id,
-      toTableId: targetTableId,
-    });
-
-    closeModal();
-    await loadRuntime();
+    try {
+      await posAction("TRANSFER_TABLE", {
+        fromTableId: modalTable.id,
+        toTableId: targetTableId,
+      });
+      closeModal();
+      await loadRuntime();
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   async function confirmMergeTables() {
     if (!modalTable || !mergeTargetIds.length) return;
 
-    for (const targetId of mergeTargetIds) {
-      await posAction("MERGE_TABLES", {
-        masterTableId: modalTable.id,
-        targetTableId: targetId,
-      });
+    try {
+      for (const targetId of mergeTargetIds) {
+        await posAction("MERGE_TABLES", {
+          masterTableId: modalTable.id,
+          targetTableId: targetId,
+        });
+      }
+      closeModal();
+      await loadRuntime();
+    } catch (error) {
+      alert(error.message);
     }
+  }
 
-    closeModal();
-    await loadRuntime();
+  function goToPayment(table) {
+    const number = table?.table_number || table?.table_name || null;
+    if (!organizationId || number === null || number === undefined) return;
+
+    window.location.assign(
+      `/workspace/${organizationId}/operations/pos/payments?table=${encodeURIComponent(
+        String(number)
+      )}`
+    );
+  }
+
+  if (runtimeError) {
+    return (
+      <main className="min-h-screen bg-black p-4 text-white">
+        <div className="mx-auto flex min-h-[80vh] w-full max-w-[430px] flex-col items-center justify-center gap-4 rounded-[32px] border border-red-500/20 bg-[#060606] p-6 text-center">
+          <div className="text-sm text-red-300">{runtimeError}</div>
+          <button
+            onClick={loadRuntime}
+            className="rounded-xl bg-[#D6A66A] px-5 py-3 text-xs font-bold text-black"
+          >
+            Retry
+          </button>
+        </div>
+      </main>
+    );
   }
 
   if (!runtime) {
@@ -723,7 +701,6 @@ export default function POSFinalUI() {
                   {zones.find((zone) => zone.id === activeZoneId)?.name || "Waiter"}
                   {activeTable ? ` • ${tableName(activeTable)}` : ""}
                 </div>
-
                 <div className="mt-1 text-[10px] text-white/35">
                   {activeTable
                     ? `${Number(activeTable.current_guests || 0)} guests`
@@ -833,56 +810,48 @@ export default function POSFinalUI() {
 
       {modal === "TABLE_ACTIONS" && modalTable && (
         <Modal>
-          <div className="mb-4 text-lg font-semibold">
-            {tableName(modalTable)}
-          </div>
-
+          <div className="mb-4 text-lg font-semibold">{tableName(modalTable)}</div>
           <button
             onClick={() => showOpenTable(modalTable)}
             className="mb-2 w-full rounded-2xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-4 py-4 text-left text-sm font-black text-[#E2C48A]"
           >
             Open Table
           </button>
-
           <button
+            onClick={() => goToPayment(modalTable)}
+            className="mb-2 w-full rounded-2xl bg-[#D6A66A] px-4 py-4 text-left text-sm font-black text-black"
+          >
+            Go to Payment
+          </button>
+          <SecondaryButton
             onClick={() => {
               setModal("MERGE_TABLE");
               setMergeTargetIds([]);
             }}
-            className="mb-2 w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left text-sm font-semibold"
           >
             Merge Table
-          </button>
-
-          <button
+          </SecondaryButton>
+          <SecondaryButton
             onClick={() => {
               setModal("TRANSFER_TABLE");
               setTargetTableId(null);
             }}
-            className="mb-2 w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left text-sm font-semibold"
           >
             Move Table
-          </button>
-
-          <button
-            onClick={() => openMoveGuest(modalTable)}
-            className="mb-2 w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left text-sm font-semibold"
-          >
+          </SecondaryButton>
+          <SecondaryButton onClick={() => openMoveGuest(modalTable)}>
             Move Guest
-          </button>
-
-          <button
+          </SecondaryButton>
+          <SecondaryButton
             onClick={() => {
               setCustomerSearch("");
               setCustomerResults([]);
               setCustomerDraft(null);
               setModal("CUSTOMER");
             }}
-            className="mb-2 w-full rounded-2xl bg-white/[0.06] px-4 py-4 text-left text-sm font-semibold"
           >
             Change Customer
-          </button>
-
+          </SecondaryButton>
           <button
             onClick={closeModal}
             className="mt-3 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
@@ -895,27 +864,22 @@ export default function POSFinalUI() {
       {modal === "CUSTOMER" && (
         <Modal>
           <div className="text-lg font-semibold">Customer</div>
-
-          
-
-          
           <div className="mt-4">
             <input
               value={customerSearch}
-              onChange={(event) => {
-                const value = event.target.value;
-                setCustomerSearch(value);
-
-                if (value.trim().length >= 2) {
-                  setTimeout(() => {
-                    searchCustomers();
-                  }, 150);
-                }
+              onChange={(event) => setCustomerSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") searchCustomers();
               }}
               placeholder="Search customer name, phone, email"
               className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm outline-none"
             />
-
+            <button
+              onClick={searchCustomers}
+              className="mt-2 w-full rounded-xl border border-white/10 py-2 text-xs font-semibold"
+            >
+              Search
+            </button>
             <div className="mt-3 space-y-2">
               {customerResults.map((customer) => (
                 <button
@@ -938,22 +902,19 @@ export default function POSFinalUI() {
                 </button>
               ))}
             </div>
-
             <button
               onClick={walkInCustomer}
               className="mt-4 w-full rounded-xl border border-[#D6A66A]/30 py-3 text-sm font-semibold text-[#D6A66A]"
             >
               Walk-in Customer
             </button>
-
-            <div className="mt-4 border-t border-white/10 pt-4 space-y-2">
+            <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
               <button
                 onClick={() => setModal("CREATE_CUSTOMER")}
                 className="w-full rounded-xl bg-[#D6A66A] py-3 text-sm font-semibold text-black"
               >
                 Create New Customer
               </button>
-
               <button
                 onClick={closeModal}
                 className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"
@@ -967,78 +928,57 @@ export default function POSFinalUI() {
 
       {modal === "CREATE_CUSTOMER" && (
         <Modal>
-          <div className="text-lg font-semibold">
-            Create Customer
-          </div>
-
+          <div className="text-lg font-semibold">Create Customer</div>
           <div className="mt-4 space-y-2">
-
             <input
               value={customerForm.name}
               onChange={(event) =>
-                setCustomerForm({
-                  ...customerForm,
-                  name: event.target.value,
-                })
+                setCustomerForm({ ...customerForm, name: event.target.value })
               }
               placeholder="Full Name"
               className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
             />
-
             <input
               value={customerForm.phone}
               onChange={(event) =>
-                setCustomerForm({
-                  ...customerForm,
-                  phone: event.target.value,
-                })
+                setCustomerForm({ ...customerForm, phone: event.target.value })
               }
               placeholder="Phone"
               className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
             />
-
             <input
               value={customerForm.email}
               onChange={(event) =>
-                setCustomerForm({
-                  ...customerForm,
-                  email: event.target.value,
-                })
+                setCustomerForm({ ...customerForm, email: event.target.value })
               }
               placeholder="Email"
               className="w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
             />
-
             <button
               onClick={createCustomer}
               className="w-full rounded-xl bg-white py-3 text-sm font-bold text-black"
             >
               Save Customer
             </button>
-
             <button
               onClick={() => setModal("CUSTOMER")}
               className="w-full rounded-xl border border-white/10 py-3 text-sm"
             >
               Back
             </button>
-
             <button
               onClick={closeModal}
               className="w-full rounded-xl border border-white/10 py-3 text-sm text-white/70"
             >
               Cancel
             </button>
-
           </div>
         </Modal>
       )}
 
-
       {modal === "GUESTS" && (
         <Modal>
           <div className="text-lg font-semibold">Guests</div>
-
           <div className="mt-5 flex items-center justify-center gap-4">
             <button
               onClick={() => setGuestDraft(Math.max(1, guestDraft - 1))}
@@ -1046,11 +986,9 @@ export default function POSFinalUI() {
             >
               -
             </button>
-
             <div className="min-w-[80px] text-center text-4xl font-black">
               {guestDraft}
             </div>
-
             <button
               onClick={() => setGuestDraft(guestDraft + 1)}
               className="h-12 w-12 rounded-2xl bg-white/[0.06] text-2xl font-black"
@@ -1058,14 +996,12 @@ export default function POSFinalUI() {
               +
             </button>
           </div>
-
           <button
             onClick={confirmGuests}
             className="mt-5 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
           >
             Start Order
           </button>
-
           <button
             onClick={closeModal}
             className="mt-2 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold text-white/70"
@@ -1080,10 +1016,8 @@ export default function POSFinalUI() {
           <div className="text-lg font-semibold">
             {dishDraft.name || dishDraft.dish_name}
           </div>
-
           <div className="mt-4">
             <SmallTitle>Seat</SmallTitle>
-
             <div className="mt-2 flex flex-wrap gap-1">
               {Array.from(
                 { length: Number(activeTable.current_guests || 0) },
@@ -1091,9 +1025,7 @@ export default function POSFinalUI() {
               ).map((seat) => (
                 <button
                   key={seat}
-                  onClick={() =>
-                    setModifierDraft({ ...modifierDraft, seat })
-                  }
+                  onClick={() => setModifierDraft({ ...modifierDraft, seat })}
                   className={
                     String(modifierDraft.seat) === String(seat)
                       ? "rounded-lg bg-[#D6A66A] px-3 py-2 text-xs font-semibold text-black"
@@ -1105,11 +1037,9 @@ export default function POSFinalUI() {
               ))}
             </div>
           </div>
-
           {modifierGroups.map((group) => (
             <div key={group.key} className="mt-4">
               <SmallTitle>{group.label}</SmallTitle>
-
               <div className="mt-2 flex flex-wrap gap-1">
                 {group.options.map((option) => (
                   <button
@@ -1132,7 +1062,6 @@ export default function POSFinalUI() {
               </div>
             </div>
           ))}
-
           <textarea
             value={modifierDraft.notes || ""}
             onChange={(event) =>
@@ -1141,14 +1070,12 @@ export default function POSFinalUI() {
             placeholder={settings?.notes_label || "Notes"}
             className="mt-4 h-20 w-full rounded-xl border border-white/10 bg-black px-3 py-3 text-sm"
           />
-
           <button
             onClick={addDishToCart}
             className="mt-4 w-full rounded-2xl bg-white py-4 text-sm font-semibold text-black"
           >
             Add to Order
           </button>
-
           <button
             onClick={() => {
               setDishDraft(null);
@@ -1165,18 +1092,14 @@ export default function POSFinalUI() {
         <Modal wide>
           <div className="flex items-center justify-between">
             <div className="text-lg font-semibold">Order</div>
-            <div className="text-xs text-white/40">
-              {cart.length} Items
-            </div>
+            <div className="text-xs text-white/40">{cart.length} Items</div>
           </div>
-
           <div className="mt-4 max-h-[320px] space-y-2 overflow-y-auto">
             {!cart.length && (
               <div className="rounded-2xl border border-white/10 p-6 text-center text-xs text-white/40">
                 No items yet
               </div>
             )}
-
             {cart.map((item, index) => (
               <div
                 key={item.id}
@@ -1185,20 +1108,19 @@ export default function POSFinalUI() {
                 <div className="rounded-md border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-2 py-1 text-center text-[10px] font-black text-[#E2C48A]">
                   S{item.seatPosition}
                 </div>
-
                 <div className="min-w-0">
-                  <div className="truncate text-xs font-semibold">
-                    {item.name}
-                  </div>
+                  <div className="truncate text-xs font-semibold">{item.name}</div>
                   <div className="truncate text-[10px] text-white/35">
                     {item.notes || ""}
                   </div>
                 </div>
-
                 <button
-                  onClick={() =>
-                    setCart((prev) => prev.filter((_, i) => i !== index))
-                  }
+                  onClick={() => {
+                    resetCartIdentity();
+                    setCart((previous) =>
+                      previous.filter((_, itemIndex) => itemIndex !== index)
+                    );
+                  }}
                   className="text-xs text-red-300"
                 >
                   Remove
@@ -1206,14 +1128,12 @@ export default function POSFinalUI() {
               </div>
             ))}
           </div>
-
           <button
             onClick={sendOrder}
             className="mt-4 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
           >
             Send Order
           </button>
-
           <button
             onClick={() => setModal(null)}
             className="mt-2 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
@@ -1225,12 +1145,10 @@ export default function POSFinalUI() {
 
       {modal === "OPEN_TABLE" && openTable && (
         <Modal wide>
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-2">
             <div>
               <SmallTitle>Order Management</SmallTitle>
-              <div className="mt-2 text-xl font-semibold">
-                {tableName(openTable)}
-              </div>
+              <div className="mt-2 text-xl font-semibold">{tableName(openTable)}</div>
               <div className="mt-2 flex items-center gap-2">
                 <button
                   onClick={async () => {
@@ -1241,7 +1159,6 @@ export default function POSFinalUI() {
                         Number(openTable.current_guests || 1) - 1
                       ),
                     });
-
                     await loadRuntime();
                     await showOpenTable(openTable);
                   }}
@@ -1249,19 +1166,15 @@ export default function POSFinalUI() {
                 >
                   -
                 </button>
-
                 <div className="text-xs text-white/45">
                   {openTable.current_guests || 0} Guests
                 </div>
-
                 <button
                   onClick={async () => {
                     await posAction("MOVE_GUESTS", {
                       tableId: openTable.id,
-                      guestCount:
-                        Number(openTable.current_guests || 0) + 1,
+                      guestCount: Number(openTable.current_guests || 0) + 1,
                     });
-
                     await loadRuntime();
                     await showOpenTable(openTable);
                   }}
@@ -1270,7 +1183,14 @@ export default function POSFinalUI() {
                   +
                 </button>
               </div>
-            </div>          </div>
+            </div>
+            <button
+              onClick={() => goToPayment(openTable)}
+              className="rounded-xl bg-[#D6A66A] px-3 py-2 text-xs font-black text-black"
+            >
+              Payment
+            </button>
+          </div>
 
           <div className="mt-4 border-t border-white/10 pt-3">
             <SmallTitle>Seats</SmallTitle>
@@ -1299,15 +1219,13 @@ export default function POSFinalUI() {
                   const label =
                     settings?.next_group_label ||
                     `Group ${String.fromCharCode(65 + billGroups.length)}`;
-
-                  setDraftGroups((prev) => [...prev, label]);
+                  setDraftGroups((previous) => [...previous, label]);
                 }}
                 className="rounded-lg border border-[#D6A66A]/25 px-2 py-1 text-[10px] font-semibold text-[#E2C48A]"
               >
                 + Group
               </button>
             </div>
-
             <div className="mt-2 flex flex-wrap gap-1.5">
               {billGroups.map((group, index) => {
                 const seats = [
@@ -1341,26 +1259,20 @@ export default function POSFinalUI() {
                 );
               })}
             </div>
-
             <div className="mt-3 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/5 p-3">
-              <div className="text-xs font-medium text-white/55">
-                Assignment
-              </div>
-
+              <div className="text-xs font-medium text-white/55">Assignment</div>
               <div className="mt-2 text-xs text-white/70">
                 Seat:
                 <span className="ml-1 font-semibold text-[#E2C48A]">
                   {selectedSeat ? `S${selectedSeat}` : "-"}
                 </span>
               </div>
-
               <div className="mt-1 text-xs text-white/70">
                 Group:
                 <span className="ml-1 font-semibold text-[#E2C48A]">
                   {billGroups[targetGroupIndex]?.group_name || "-"}
                 </span>
               </div>
-
               <button
                 onClick={moveSeatToGroup}
                 disabled={!selectedSeat}
@@ -1373,11 +1285,9 @@ export default function POSFinalUI() {
 
           <div className="mt-4 border-t border-white/10 pt-3">
             <SmallTitle>Orders</SmallTitle>
-
             <div className="mt-2 space-y-3">
               {billGroups.map((group) => {
                 const bySeat = {};
-
                 (group.order_items || []).forEach((item) => {
                   const seat = seatOf(item) || "Unassigned";
                   if (!bySeat[seat]) bySeat[seat] = [];
@@ -1392,13 +1302,11 @@ export default function POSFinalUI() {
                     <div className="mb-2 text-xs font-semibold text-[#E2C48A]">
                       {group.group_name}
                     </div>
-
                     {Object.entries(bySeat).map(([seat, items]) => (
                       <div key={seat} className="mt-2">
                         <div className="mb-1 text-xs font-medium text-white/55">
                           {seat === "Unassigned" ? "Unassigned" : `Seat ${seat}`}
                         </div>
-
                         {items.map((item) => (
                           <div
                             key={item.id}
@@ -1412,9 +1320,7 @@ export default function POSFinalUI() {
                                 </span>
                               )}
                             </div>
-                            <div className="text-right text-white/25">
-                              •
-                            </div>
+                            <div className="text-right text-white/25">•</div>
                           </div>
                         ))}
                       </div>
@@ -1434,7 +1340,6 @@ export default function POSFinalUI() {
           >
             Continue Ordering
           </button>
-
           <button
             onClick={closeModal}
             className="mt-2 w-full rounded-xl border border-white/10 py-3 text-xs font-semibold text-white/70"
@@ -1450,7 +1355,6 @@ export default function POSFinalUI() {
           <div className="mt-2 text-sm text-white/50">
             From: {tableName(modalTable)}
           </div>
-
           <div className="mt-4">
             <SmallTitle>Select Seat</SmallTitle>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -1469,10 +1373,8 @@ export default function POSFinalUI() {
               ))}
             </div>
           </div>
-
           <div className="mt-5">
             <SmallTitle>Destination</SmallTitle>
-
             <div className="mt-3 max-h-[240px] space-y-2 overflow-y-auto">
               {tables
                 .filter((table) => table.id !== modalTable.id)
@@ -1495,7 +1397,6 @@ export default function POSFinalUI() {
                 ))}
             </div>
           </div>
-
           <button
             disabled={!targetTableId || !moveSeatValue}
             onClick={confirmMoveGuest}
@@ -1503,7 +1404,6 @@ export default function POSFinalUI() {
           >
             Move Guest
           </button>
-
           <button
             onClick={closeModal}
             className="mt-3 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
@@ -1519,7 +1419,6 @@ export default function POSFinalUI() {
           <div className="mt-2 text-sm text-white/50">
             From: {tableName(modalTable)}
           </div>
-
           <div className="mt-4 max-h-[260px] space-y-2 overflow-y-auto">
             {tables
               .filter((table) => table.id !== modalTable.id)
@@ -1538,7 +1437,6 @@ export default function POSFinalUI() {
                 </button>
               ))}
           </div>
-
           <button
             onClick={confirmTransferTable}
             disabled={!targetTableId}
@@ -1546,7 +1444,6 @@ export default function POSFinalUI() {
           >
             Move Table
           </button>
-
           <button
             onClick={closeModal}
             className="mt-3 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
@@ -1556,32 +1453,12 @@ export default function POSFinalUI() {
         </Modal>
       )}
 
-      {successMessage && (
-        <Modal>
-          <div className="text-lg font-semibold text-white">
-            {successMessage}
-          </div>
-
-          <div className="mt-2 text-sm text-white/45">
-            Kitchen has received the order.
-          </div>
-
-          <button
-            onClick={() => setSuccessMessage(null)}
-            className="mt-5 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
-          >
-            OK
-          </button>
-        </Modal>
-      )}
-
       {modal === "MERGE_TABLE" && modalTable && (
         <Modal>
           <div className="text-lg font-semibold">Merge Table</div>
           <div className="mt-2 text-sm text-white/50">
-            Source: {tableName(modalTable)}
+            Master: {tableName(modalTable)}
           </div>
-
           <div className="mt-4 max-h-[260px] space-y-2 overflow-y-auto">
             {tables
               .filter((table) => table.id !== modalTable.id)
@@ -1593,10 +1470,10 @@ export default function POSFinalUI() {
                   <button
                     key={table.id}
                     onClick={() =>
-                      setMergeTargetIds((prev) =>
+                      setMergeTargetIds((previous) =>
                         selected
-                          ? prev.filter((id) => id !== table.id)
-                          : [...prev, table.id]
+                          ? previous.filter((id) => id !== table.id)
+                          : [...previous, table.id]
                       )
                     }
                     className={
@@ -1610,7 +1487,6 @@ export default function POSFinalUI() {
                 );
               })}
           </div>
-
           <button
             onClick={confirmMergeTables}
             disabled={!mergeTargetIds.length}
@@ -1618,12 +1494,26 @@ export default function POSFinalUI() {
           >
             Confirm Merge
           </button>
-
           <button
             onClick={closeModal}
             className="mt-3 w-full rounded-xl border border-white/10 py-3 text-sm font-bold"
           >
             Cancel
+          </button>
+        </Modal>
+      )}
+
+      {successMessage && (
+        <Modal>
+          <div className="text-lg font-semibold text-white">{successMessage}</div>
+          <div className="mt-2 text-sm text-white/45">
+            The order is saved in the POS runtime.
+          </div>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="mt-5 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black"
+          >
+            OK
           </button>
         </Modal>
       )}

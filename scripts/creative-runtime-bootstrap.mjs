@@ -41,6 +41,12 @@ await import(
   "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
 );
 
+// Complete both under-specified and placeholder-style provider direction
+// locally before the strict master-plan validator runs.
+await import(
+  "@/lib/creative/director/runtime/CreativeGenericDirectionCompletionRuntime"
+);
+
 // The recovery layer reuses only an exact completed reasoning request; it
 // cannot substitute one concept, critic or scene response for another.
 await import(

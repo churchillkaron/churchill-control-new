@@ -24,6 +24,9 @@ export async function register() {
     await import(
       "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
     );
+    await import(
+      "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
+    );
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {

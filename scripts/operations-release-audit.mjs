@@ -196,7 +196,10 @@ requireIncludes(source.workspaceResolver, [
 
 requireIncludes(source.workspaceHub, [
   "getOperationsWorkspaceGroups",
-  "Canonical Operations Kernel",
+  "Operations Command Center",
+  "PRIMARY_ACTIONS",
+  "COMMAND_SECTIONS",
+  "All Operations Tools",
   "resolveWorkspaceRoute",
 ], "Operations workspace hub");
 
@@ -299,7 +302,7 @@ console.log(`OPERATIONS_CAPABILITY_COUNT=${capabilityCount}`);
 console.log("OPERATIONS_CONTEXT_SCOPE=organization_id,entity_id,period_id,capability_id");
 console.log("OPERATIONS_COMMAND_EXECUTION=ATOMIC_RPC");
 console.log("OPERATIONS_EVENT_DELIVERY=TRANSACTIONAL_OUTBOX");
-console.log("OPERATIONS_UI=CANONICAL_NEUTRAL_WORKSPACES");
+console.log("OPERATIONS_UI=COMMAND_CENTER_WITH_CONTROLLED_CAPABILITY_DIRECTORY");
 console.log("OPERATIONS_FORMS=DYNAMIC_LIFECYCLE_AND_GROUP_SCHEMAS");
 console.log("OPERATIONS_AUDIT_ACTOR=AUTHENTICATED_USER");
 console.log("OPERATIONS_LIFECYCLE=DATABASE_GUARDED_AND_API_PROJECTED");

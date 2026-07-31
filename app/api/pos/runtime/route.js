@@ -60,7 +60,7 @@ export async function GET(request) {
           .maybeSingle(),
         supabaseAdmin
           .from("organizations")
-          .select("id,name,currency,currency_code")
+          .select("*")
           .eq("id", organizationId)
           .maybeSingle(),
         resolvePOSFinancialPolicy({ organizationId }),
@@ -75,14 +75,24 @@ export async function GET(request) {
     }
 
     const storedSettings =
-      settingsResult.data?.settings &&
-      typeof settingsResult.data.settings === "object"
+      settingsResult.data?.settings && typeof settingsResult.data.settings === "object"
         ? settingsResult.data.settings
         : {};
+    const organization = organizationResult.data || { id: organizationId };
+    const currencyCode =
+      organization.currency_code ||
+      organization.base_currency_code ||
+      organization.reporting_currency_code ||
+      storedSettings.currency_code ||
+      storedSettings.currency ||
+      null;
 
     return NextResponse.json({
       success: true,
-      organization: organizationResult.data || { id: organizationId },
+      organization: {
+        ...organization,
+        currency_code: currencyCode,
+      },
       zones,
       tables,
       dishes,

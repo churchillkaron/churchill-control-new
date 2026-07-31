@@ -24,6 +24,30 @@ alter table public.departments
   add column if not exists created_at timestamptz default now(),
   add column if not exists updated_at timestamptz default now();
 
+-- Preserve every existing row while making duplicate non-empty codes unique
+-- before the production uniqueness index is installed.
+with ranked_codes as (
+  select
+    id,
+    row_number() over (
+      partition by organization_id, entity_id, upper(btrim(code))
+      order by created_at asc nulls last, id
+    ) as duplicate_rank
+  from public.departments
+  where organization_id is not null
+    and entity_id is not null
+    and nullif(btrim(code), '') is not null
+)
+update public.departments department
+set
+  code = left(upper(btrim(department.code)), 22)
+    || '-'
+    || substr(replace(department.id::text, '-', ''), 1, 8),
+  updated_at = now()
+from ranked_codes ranked
+where ranked.id = department.id
+  and ranked.duplicate_rank > 1;
+
 create unique index if not exists departments_org_entity_code_uidx
   on public.departments (organization_id, entity_id, upper(btrim(code)))
   where code is not null and btrim(code) <> '';
@@ -74,23 +98,48 @@ desired_departments(code, name, description) as (
     ('STAFF_WELFARE', 'Staff Welfare', 'Staff welfare, benefits and support.'),
     ('MARKETING', 'Marketing', 'Marketing, advertising and promotions.'),
     ('OWNER', 'Owner', 'Owner and non-operating activity.')
+),
+ranked_matches as (
+  select
+    department.id,
+    target.entity_id,
+    desired.code,
+    desired.name,
+    desired.description,
+    row_number() over (
+      partition by target.organization_id, target.entity_id, desired.code
+      order by
+        case
+          when upper(btrim(coalesce(department.code, ''))) = desired.code then 0
+          else 1
+        end,
+        department.created_at asc nulls last,
+        department.id
+    ) as match_rank
+  from target_entities target
+  cross join desired_departments desired
+  join public.departments department
+    on department.organization_id = target.organization_id
+   and (
+     upper(btrim(coalesce(department.code, ''))) = desired.code
+     or lower(btrim(coalesce(department.name, ''))) = lower(desired.name)
+   )
 )
 update public.departments department
 set
-  entity_id = target.entity_id,
-  code = coalesce(nullif(btrim(department.code), ''), desired.code),
-  name = desired.name,
-  description = coalesce(nullif(btrim(department.description), ''), desired.description),
+  entity_id = ranked.entity_id,
+  code = ranked.code,
+  name = ranked.name,
+  description = coalesce(
+    nullif(btrim(department.description), ''),
+    ranked.description
+  ),
   status = 'ACTIVE',
   is_active = true,
   updated_at = now()
-from target_entities target
-cross join desired_departments desired
-where department.organization_id = target.organization_id
-  and (
-    upper(btrim(coalesce(department.code, ''))) = desired.code
-    or lower(btrim(coalesce(department.name, ''))) = lower(desired.name)
-  );
+from ranked_matches ranked
+where department.id = ranked.id
+  and ranked.match_rank = 1;
 
 with ranked_targets as (
   select

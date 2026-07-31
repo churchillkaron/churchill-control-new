@@ -12,6 +12,15 @@ function round(value) {
   return Number(numeric(value).toFixed(2));
 }
 
+function isMissingRelation(error, relation) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "42P01" ||
+    error?.code === "PGRST205" ||
+    message.includes(String(relation || "").toLowerCase())
+  );
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -38,29 +47,65 @@ export async function GET(request) {
     const { data: orders, error: orderError } = await orderQuery;
     if (orderError) throw orderError;
 
-    const orderIds = (orders || []).map((order) => order.id).filter(Boolean);
-    let payments = [];
+    const persistedOrders = orders || [];
+    const orderIds = persistedOrders.map((order) => order.id).filter(Boolean);
+    const sessionIds = [
+      ...new Set(persistedOrders.map((order) => order.session_id).filter(Boolean)),
+    ];
 
-    if (orderIds.length) {
+    let payments = [];
+    if (sessionIds.length) {
       const paymentResult = await supabaseAdmin
         .from("payments")
         .select("*")
         .eq("organization_id", access.organizationId)
-        .in("order_id", orderIds)
+        .in("session_id", sessionIds)
         .order("created_at", { ascending: true });
+
       if (paymentResult.error) throw paymentResult.error;
       payments = paymentResult.data || [];
     }
 
-    const paymentsByOrder = payments.reduce((map, payment) => {
-      if (!map.has(payment.order_id)) map.set(payment.order_id, []);
-      map.get(payment.order_id).push(payment);
+    let allocations = [];
+    if (orderIds.length) {
+      const allocationResult = await supabaseAdmin
+        .from("restaurant_payment_allocations")
+        .select("payment_id, order_id, amount, allocation_type")
+        .eq("organization_id", access.organizationId)
+        .in("order_id", orderIds);
+
+      if (allocationResult.error) {
+        if (!isMissingRelation(allocationResult.error, "restaurant_payment_allocations")) {
+          throw allocationResult.error;
+        }
+      } else {
+        allocations = allocationResult.data || [];
+      }
+    }
+
+    const paymentsBySession = payments.reduce((map, payment) => {
+      if (!payment.session_id) return map;
+      if (!map.has(payment.session_id)) map.set(payment.session_id, []);
+      map.get(payment.session_id).push(payment);
       return map;
     }, new Map());
 
-    const receipts = (orders || [])
+    const paymentsByOrder = allocations.reduce((map, allocation) => {
+      if (!allocation.order_id || !allocation.payment_id) return map;
+      const payment = payments.find((row) => row.id === allocation.payment_id);
+      if (!payment) return map;
+      if (!map.has(allocation.order_id)) map.set(allocation.order_id, []);
+      const rows = map.get(allocation.order_id);
+      if (!rows.some((row) => row.id === payment.id)) rows.push(payment);
+      return map;
+    }, new Map());
+
+    const receipts = persistedOrders
       .map((order) => {
-        const orderPayments = paymentsByOrder.get(order.id) || [];
+        const orderPayments =
+          paymentsByOrder.get(order.id) ||
+          paymentsBySession.get(order.session_id) ||
+          [];
         const total = round(order.total_amount ?? order.total);
         const paid = round(
           orderPayments

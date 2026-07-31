@@ -1,428 +1,189 @@
 "use client";
-import { subscribe } from "@/lib/pos/core/posEventEngine";
 
 export const dynamic = "force-dynamic";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { BellRing, CheckCircle2, RefreshCw } from "lucide-react";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
-import {
-  useBusinessContext,
-} from "@/app/providers/BusinessContextProvider";
-
-import {
-  CheckCircle2,
-  BellRing,
-} from "lucide-react";
-
-import { supabase }
-from "@/lib/shared/supabase/client";
-import { acknowledgeOrder } from "./ack_patch";
-
-
+function statusOf(value) {
+  return String(value || "").trim().toUpperCase();
+}
 
 export default function ExpoPage() {
-
-  const businessContext =
-    useBusinessContext() || {};
-
-  const tenantId =
-    businessContext?.organization_id ||
-    businessContext?.organization?.id ||
+  const params = useParams();
+  const businessContext = useBusinessContext() || {};
+  const organizationId =
+    params?.organizationId ||
+    businessContext.organization_id ||
+    businessContext.organization?.id ||
     null;
 
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionId, setActionId] = useState(null);
+  const [error, setError] = useState(null);
 
-  const [
-    orders,
-    setOrders,
-  ] = useState([]);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  async function loadExpo() {
-
-    if (!tenantId) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-
+  const loadExpo = useCallback(async () => {
+    if (!organizationId) return;
     setLoading(true);
+    setError(null);
 
-    const {
-      data,
-      error,
-    } = await supabase
-
-      .from("orders")
-
-      .select(`
-        *,
-        order_items (*)
-      `)
-
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: true,
-        }
+    try {
+      const response = await fetch(
+        `/api/restaurant/operations?scope=expo&organizationId=${encodeURIComponent(organizationId)}`,
+        { cache: "no-store", credentials: "include" }
       );
-
-    if (error) {
-
-      console.error(error);
-
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || "Unable to load Expo");
+      }
+      setTickets(result.readyTickets || []);
+    } catch (loadError) {
+      setTickets([]);
+      setError(loadError.message);
+    } finally {
       setLoading(false);
-
-      return;
-
     }
-
-    setOrders(data || []);
-
-    setLoading(false);
-
-  }
+  }, [organizationId]);
 
   useEffect(() => {
-
     loadExpo();
+  }, [loadExpo]);
 
-    if (!tenantId) {
-      return;
+  const readyTables = useMemo(() => {
+    const grouped = new Map();
+
+    for (const ticket of tickets) {
+      const table = ticket.table_number || "Unassigned";
+      const readyItems = (ticket.items || []).filter(
+        (item) => statusOf(item.status) === "READY"
+      );
+      if (!readyItems.length && statusOf(ticket.status) === "READY") {
+        readyItems.push(...(ticket.items || []).filter((item) => statusOf(item.status) !== "SERVED"));
+      }
+      if (!readyItems.length) continue;
+
+      if (!grouped.has(table)) grouped.set(table, []);
+      grouped.get(table).push(
+        ...readyItems.map((item) => ({ ...item, ticketId: ticket.id }))
+      );
     }
 
-    const channel =
-      supabase
+    return [...grouped.entries()];
+  }, [tickets]);
 
-        .channel("expo-live")
+  async function serveItems(items) {
+    setError(null);
 
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            service_unit: "order_items",
-          },
-          () => {
-            loadExpo();
-          }
-        )
+    for (const item of items) {
+      const itemId = item.id || item.order_item_id;
+      if (!itemId) continue;
+      setActionId(`${item.ticketId}:${itemId}`);
 
-        .subscribe();
-
-    return () => {
-
-      supabase.removeChannel(
-        channel
-      );
-
-    };
-
-  }, [tenantId]);
-
-  async function serveTable(
-    items
-  ) {
-
-    const ids =
-      items.map(
-        i => i.id
-      );
-
-    const { error } =
-      await supabase
-
-        .from("order_items")
-
-        .update({
-
-          status:
-            "SERVED",
-
-        })
-
-        .in(
-          "id",
-          ids
-        );
-
-    if (error) {
-
-      console.error(error);
-
-      return;
-
+      const response = await fetch("/api/restaurant/operations", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "UPDATE_KITCHEN_ITEM",
+          organizationId,
+          ticketId: item.ticketId,
+          itemId,
+          status: "SERVED",
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        setActionId(null);
+        throw new Error(result.error || "Unable to mark item served");
+      }
     }
 
-    loadExpo();
-
+    setActionId(null);
+    await loadExpo();
   }
 
-  const readyTables =
-    useMemo(() => {
-
-      const readyItems =
-        orders.flatMap(
-          order =>
-
-            (order.order_items || [])
-
-              .filter(
-                item =>
-                  item.status ===
-                  "READY"
-              )
-
-              .map(
-                item => ({
-                  ...item,
-                  table_number:
-                    order.table_number,
-                })
-              )
-        );
-
-      const grouped = {};
-
-      for (
-        const item of readyItems
-      ) {
-
-        const serviceUnit =
-          item.table_number;
-
-        if (
-          !grouped[serviceUnit]
-        ) {
-
-          grouped[serviceUnit] = [];
-
-        }
-
-        grouped[serviceUnit].push(
-          item
-        );
-
-      }
-
-      return grouped;
-
-    }, [orders]);
+  async function serveTable(items) {
+    try {
+      await serveItems(items);
+    } catch (serveError) {
+      setError(serveError.message);
+    }
+  }
 
   return (
-
-    <div className="min-h-screen bg-[#111111] p-8 text-white">
-
-      <div className="mb-10 flex items-center justify-between">
-
-        <div>
-
-          <h1 className="text-5xl font-bold tracking-tight">
-
-            Expo Control
-
-          </h1>
-
-          <p className="mt-3 text-lg text-zinc-500">
-
-            Ready tables & service coordination
-
-          </p>
-
-        </div>
-
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-6 py-4">
-
-          <div className="mb-2 flex items-center gap-2 text-zinc-500">
-
-            <BellRing size={18} />
-
-            READY TABLES
-
+    <main className="min-h-screen bg-[#080808] px-6 py-8 text-white">
+      <div className="mx-auto max-w-[1600px]">
+        <header className="rounded-[34px] border border-white/10 bg-white/[0.035] p-7">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">Restaurant Operations</p>
+              <h1 className="mt-3 text-4xl font-semibold">Expo & Service Handoff</h1>
+              <p className="mt-2 text-sm text-white/45">Assemble ready items, call service and confirm collection.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl border border-white/10 bg-black/25 px-5 py-3">
+                <div className="flex items-center gap-2 text-xs text-white/40"><BellRing size={15} /> Ready tables</div>
+                <div className="mt-1 text-2xl font-semibold">{readyTables.length}</div>
+              </div>
+              <button onClick={loadExpo} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60">
+                <RefreshCw size={15} /> Refresh
+              </button>
+            </div>
           </div>
+          {error ? <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">{error}</div> : null}
+        </header>
 
-          <div className="text-4xl font-bold">
-
-            {
-              Object.keys(
-                readyTables
-              ).length
-            }
-
-          </div>
-
-        </div>
-
-      </div>
-
-      {loading ? (
-
-        <div className="text-zinc-500">
-          Loading expo...
-        </div>
-
-      ) : (
-
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-
-          {Object.entries(
-            readyTables
-          ).map(
-            ([table, items]) => (
-
-              <div
-                key={table}
-                className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6"
-              >
-
-                <div className="mb-6 flex items-center justify-between">
-
+        <section className="mt-6 grid gap-6 xl:grid-cols-2">
+          {loading ? (
+            <div className="col-span-full rounded-3xl border border-white/10 p-12 text-center text-white/35">Loading ready service...</div>
+          ) : readyTables.length ? (
+            readyTables.map(([table, items]) => (
+              <article key={table} className="rounded-[30px] border border-[#D6A66A]/25 bg-[#D6A66A]/[0.045] p-6">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-
-                    <div className="text-sm text-zinc-500">
-
-                      TABLE
-
-                    </div>
-
-                    <div className="text-4xl font-bold">
-
-                      {table}
-
-                    </div>
-
+                    <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Table</div>
+                    <h2 className="mt-1 text-4xl font-semibold">{table}</h2>
                   </div>
-
-                  <CheckCircle2
-                    size={36}
-                    className="text-green-400"
-                  />
-
+                  <CheckCircle2 className="text-emerald-300" size={32} />
                 </div>
 
-                <div className="space-y-3">
-
-                  {items.map(
-                    item => (
-
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between rounded-xl border border-zinc-800 bg-black px-4 py-3"
-                      >
-
-                        <div>
-
-                          <div className="text-xl font-semibold">
-
-                            {item.seat_position && (
-                              <span className="mr-2 text-sm font-black text-cyan-400">
-                                S{item.seat_position}
-                              </span>
-                            )}
-
-                            {
-                              item.item_name
-                            }
-
+                <div className="mt-6 space-y-3">
+                  {items.map((item) => {
+                    const itemId = item.id || item.order_item_id;
+                    return (
+                      <div key={`${item.ticketId}:${itemId}`} className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-lg font-medium">{Number(item.quantity || 1)} × {item.item_name || item.name || "Item"}</div>
+                            {item.seat_position ? <div className="mt-1 text-xs text-cyan-200/70">Seat {item.seat_position}</div> : null}
+                            {item.notes ? <div className="mt-1 text-sm text-orange-200/70">{item.notes}</div> : null}
                           </div>
-
-                          <div className="text-sm text-zinc-500">
-
-                            Qty:
-                            {" "}
-                            {item.quantity}
-
-                          </div>
-
-                          {item.cooking_level && (
-
-                            <div className="mt-1 text-xs font-bold uppercase text-amber-400">
-
-                              {item.cooking_level}
-
-                            </div>
-
-                          )}
-
-                          {item.notes && (
-
-                            <div className="mt-1 text-sm text-orange-300">
-
-                              {item.notes}
-
-                            </div>
-
-                          )}
-
-                          {null && (
-                            <div className="mt-1 text-xs text-cyan-300">
-                              SIDE: {item.modifiers.side}
-                            </div>
-                          )}
-
-                          {null && (
-                            <div className="mt-1 text-xs text-cyan-300">
-                              SAUCE: {item.modifiers.sauce}
-                            </div>
-                          )}
-
-                          {null && (
-                            <div className="mt-1 text-xs text-cyan-300">
-                              SPICY: {item.modifiers.spicy}
-                            </div>
-                          )}
-
+                          <div className="text-xs font-semibold text-emerald-300">READY</div>
                         </div>
-
-                        <div className="text-green-400 font-bold">
-
-                          READY
-
-                        </div>
-
                       </div>
-
-                    )
-                  )}
-
+                    );
+                  })}
                 </div>
 
                 <button
-                  onClick={() =>
-                    serveTable(
-                      items
-                    )
-                  }
-                  className="mt-6 w-full rounded-2xl bg-green-500 py-4 text-lg font-bold text-black"
+                  onClick={() => serveTable(items)}
+                  disabled={Boolean(actionId)}
+                  className="mt-6 w-full rounded-2xl bg-emerald-400 py-4 text-sm font-semibold text-black disabled:opacity-40"
                 >
-
-                  SERVE TABLE
-
+                  {actionId ? "Updating..." : "Mark Table Collected / Served"}
                 </button>
-
-              </div>
-
-            )
+              </article>
+            ))
+          ) : (
+            <div className="col-span-full rounded-3xl border border-dashed border-white/10 p-16 text-center text-white/35">
+              No items are ready for service.
+            </div>
           )}
-
-        </div>
-
-      )}
-
-    </div>
-
+        </section>
+      </div>
+    </main>
   );
-
 }

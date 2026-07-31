@@ -138,8 +138,10 @@ requireIncludes(source.workspaceHub, [
   "useOperationsAccess",
   "hasOperationsPermission",
   "OPERATIONS_ACTIONS",
-  "authorised capabilities",
-  "No authorised Operations capabilities",
+  "authorisedGroups",
+  "totalAuthorisedCapabilities",
+  "Role and context filtered",
+  "No Operations role is assigned",
 ], "Operations workspace authorization UI");
 
 for (const [label, contents] of Object.entries(source)) {

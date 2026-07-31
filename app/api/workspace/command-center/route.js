@@ -6,7 +6,6 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { loadAccountingFirmDashboard } from "@/lib/accounting/loadAccountingFirmDashboard";
 import { loadAccountingClients } from "@/lib/accounting/loadAccountingClients";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { generateWorkspaceNarrative } from "@/lib/platform/workspaces/generateWorkspaceNarrative";
 
 const CLOSED_ORDER_STATUSES = new Set([
   "PAID",
@@ -55,15 +54,6 @@ async function safeQuery(query) {
       data: [],
       error,
     };
-  }
-}
-
-async function safeNarrative(input) {
-  try {
-    return await generateWorkspaceNarrative(input);
-  } catch (error) {
-    console.error("workspace narrative error", error);
-    return null;
   }
 }
 
@@ -255,28 +245,8 @@ export async function GET(request) {
       workCenters: workCenters.data.length,
     };
 
-    const narrative = await safeNarrative({
-      organization: {
-        id: organizationId,
-        name: organizationId,
-        organization_type: organizationType,
-      },
-      industry: organizationType,
-      metrics,
-      alerts: [
-        lowStock.length > 0 ? `${lowStock.length} low stock alerts` : null,
-        operationsQueue.length > 5
-          ? `Operations queue ${operationsQueue.length}`
-          : null,
-        pendingPayables.length > 0
-          ? `${pendingPayables.length} unpaid payables`
-          : null,
-      ].filter(Boolean),
-    });
-
     return NextResponse.json({
       success: true,
-      narrative,
       metrics,
       workCenters: workCenters.data,
       sourceHealth: {

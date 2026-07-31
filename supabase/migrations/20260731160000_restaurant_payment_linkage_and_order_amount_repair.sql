@@ -11,11 +11,21 @@ alter table public.payments
   add column if not exists updated_at timestamptz default now();
 
 alter table public.orders
+  add column if not exists session_id uuid,
+  add column if not exists payment_status text default 'UNPAID',
+  add column if not exists production_status text default 'PENDING',
+  add column if not exists subtotal numeric(18,2) not null default 0,
+  add column if not exists service_charge_amount numeric(18,2) not null default 0,
+  add column if not exists vat_amount numeric(18,2) not null default 0,
+  add column if not exists discount_amount numeric(18,2) not null default 0,
+  add column if not exists total numeric(18,2) not null default 0,
+  add column if not exists total_amount numeric(18,2) not null default 0,
   add column if not exists amount_paid numeric(18,2) not null default 0,
   add column if not exists remaining_balance numeric(18,2),
   add column if not exists payment_method text,
   add column if not exists paid_at timestamptz,
-  add column if not exists completed_at timestamptz;
+  add column if not exists completed_at timestamptz,
+  add column if not exists updated_at timestamptz default now();
 
 alter table public.table_sessions
   add column if not exists closed_at timestamptz;
@@ -106,7 +116,6 @@ where payment.order_id = orders.id
 
 with item_totals as (
   select
-    organization_id,
     order_id,
     round(
       coalesce(
@@ -116,12 +125,11 @@ with item_totals as (
       2
     ) as subtotal
   from public.order_items
-  group by organization_id, order_id
+  group by order_id
 ),
 calculated as (
   select
     orders.id,
-    orders.organization_id,
     item_totals.subtotal,
     round(
       greatest(
@@ -135,8 +143,7 @@ calculated as (
     ) as total_amount
   from public.orders orders
   join item_totals
-    on item_totals.organization_id = orders.organization_id
-   and item_totals.order_id = orders.id
+    on item_totals.order_id = orders.id
   where item_totals.subtotal > 0
 )
 update public.orders orders
@@ -154,7 +161,7 @@ set
     else orders.total
   end,
   remaining_balance = case
-    when coalesce(orders.payment_status, '') = 'PAID' then 0
+    when upper(coalesce(orders.payment_status, '')) = 'PAID' then 0
     when coalesce(orders.remaining_balance, 0) <= 0 then greatest(
       0,
       calculated.total_amount - coalesce(orders.amount_paid, 0)
@@ -163,8 +170,7 @@ set
   end,
   updated_at = now()
 from calculated
-where orders.id = calculated.id
-  and orders.organization_id = calculated.organization_id;
+where orders.id = calculated.id;
 
 alter table public.payments validate constraint payments_order_id_fkey;
 alter table public.payments validate constraint payments_session_id_fkey;

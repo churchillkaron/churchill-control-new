@@ -77,11 +77,11 @@ requireIncludes(source.readinessHook, [
 
 requireIncludes(source.workspaceHub, [
   "useOperationsReadiness",
-  "Kernel healthy",
-  "Kernel degraded",
-  "Kernel unavailable",
+  "Runtime healthy",
+  "Runtime degraded",
+  "Runtime unavailable",
   "blocking_failures",
-  "Recheck",
+  "Recheck Runtime",
 ], "Operations readiness UI");
 
 requireIncludes(source.atomicExecutor, [

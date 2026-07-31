@@ -11,16 +11,27 @@ const MANIFEST_FILE = path.join(
   "OperationsMigrationManifest.js",
 );
 
-const EXPECTED = Object.freeze([
+const ACTIVE_MIGRATIONS = Object.freeze([
   "20260728130000_operations_runtime_persistence.sql",
   "20260728173000_operations_atomic_command_execution.sql",
   "20260728190000_operations_lifecycle_guard.sql",
   "20260728210000_operations_event_delivery.sql",
   "20260728213000_operations_event_health.sql",
   "20260728220000_operations_command_audit_projection.sql",
-  "20260728230000_operations_role_permissions.sql",
-  "20260728233000_operations_owner_admin_backfill.sql",
-  "20260728234500_operations_deployment_contract.sql",
+  "20260728230001_operations_role_permissions.sql",
+]);
+
+const DEPLOYED_HISTORY = Object.freeze([
+  Object.freeze({
+    version: "20260728233000",
+    historicalFile: "20260728233000_operations_owner_admin_backfill.sql",
+    contractFile: "lib/operations/deployment/contracts/operations_owner_admin_backfill.sql",
+  }),
+  Object.freeze({
+    version: "20260728234500",
+    historicalFile: "20260728234500_operations_deployment_contract.sql",
+    contractFile: "lib/operations/deployment/contracts/operations_deployment_contract.sql",
+  }),
 ]);
 
 function fail(message) {
@@ -37,12 +48,30 @@ const localMigrationNames = fs.existsSync(MIGRATION_DIR)
   ? fs.readdirSync(MIGRATION_DIR).filter((name) => name.endsWith(".sql"))
   : [];
 
-for (const file of EXPECTED) {
-  if (!localMigrationNames.includes(file)) fail(`missing migration ${file}`);
-  if (!manifest.includes(file)) fail(`manifest does not include ${file}`);
+for (const file of ACTIVE_MIGRATIONS) {
+  if (!localMigrationNames.includes(file)) fail(`missing active migration ${file}`);
+  if (!manifest.includes(file)) fail(`manifest does not include active migration ${file}`);
 }
 
-const versions = EXPECTED.map((file) => file.slice(0, 14));
+for (const history of DEPLOYED_HISTORY) {
+  if (!manifest.includes(history.version)) {
+    fail(`manifest does not include deployed history version ${history.version}`);
+  }
+  if (!manifest.includes(history.historicalFile)) {
+    fail(`manifest does not identify historical migration ${history.historicalFile}`);
+  }
+  if (!manifest.includes(history.contractFile)) {
+    fail(`manifest does not include contract snapshot ${history.contractFile}`);
+  }
+  if (localMigrationNames.includes(history.historicalFile)) {
+    fail(`deployed history migration must not be active locally: ${history.historicalFile}`);
+  }
+}
+
+const versions = [
+  ...ACTIVE_MIGRATIONS.map((file) => file.slice(0, 14)),
+  ...DEPLOYED_HISTORY.map((history) => history.version),
+];
 const sortedVersions = [...versions].sort();
 if (versions.join("\n") !== sortedVersions.join("\n")) {
   fail("Operations migration versions are not strictly ordered");
@@ -53,10 +82,16 @@ if (new Set(versions).size !== versions.length) {
 }
 
 const migrationSource = Object.fromEntries(
-  EXPECTED.map((file) => [file, read(path.join(MIGRATION_DIR, file))]),
+  ACTIVE_MIGRATIONS.map((file) => [file, read(path.join(MIGRATION_DIR, file))]),
+);
+const contractSource = Object.fromEntries(
+  DEPLOYED_HISTORY.map((history) => [
+    history.contractFile,
+    read(path.join(ROOT, history.contractFile)),
+  ]),
 );
 
-const requiredContracts = Object.freeze({
+const requiredMigrationContracts = Object.freeze({
   "20260728130000_operations_runtime_persistence.sql": [
     "operations_records",
     "operations_command_ledger",
@@ -84,25 +119,43 @@ const requiredContracts = Object.freeze({
     "actor_id",
     "operations_command_ledger_audit_projection",
   ],
-  "20260728230000_operations_role_permissions.sql": [
+  "20260728230001_operations_role_permissions.sql": [
     "operations_roles",
     "operations_role_permissions",
     "user_operations_roles",
   ],
-  "20260728233000_operations_owner_admin_backfill.sql": [
+});
+
+const requiredHistoryContracts = Object.freeze({
+  "lib/operations/deployment/contracts/operations_owner_admin_backfill.sql": [
+    "AUDIT-ONLY DEPLOYED CONTRACT SNAPSHOT",
     "OPERATIONS_ADMIN",
     "operations.*",
     "on conflict",
   ],
-  "20260728234500_operations_deployment_contract.sql": [
+  "lib/operations/deployment/contracts/operations_deployment_contract.sql": [
+    "AUDIT-ONLY DEPLOYED CONTRACT SNAPSHOT",
     "get_operations_deployment_status",
     "operations_admin_assignment",
     "Operations deployment contract failed",
   ],
 });
 
-for (const [file, contracts] of Object.entries(requiredContracts)) {
+for (const [file, contracts] of Object.entries(requiredMigrationContracts)) {
   const source = migrationSource[file];
+  for (const contract of contracts) {
+    if (!source.includes(contract)) {
+      fail(`${file} is missing contract ${contract}`);
+    }
+  }
+
+  if (/tenant_id|tenantId/.test(source)) {
+    fail(`${file} contains a forbidden tenant reference`);
+  }
+}
+
+for (const [file, contracts] of Object.entries(requiredHistoryContracts)) {
+  const source = contractSource[file];
   for (const contract of contracts) {
     if (!source.includes(contract)) {
       fail(`${file} is missing contract ${contract}`);
@@ -127,5 +180,6 @@ if (remoteListFile) {
 }
 
 console.log("OPERATIONS_MIGRATION_RELEASE_AUDIT=PASS");
-console.log(`OPERATIONS_MIGRATION_COUNT=${EXPECTED.length}`);
+console.log(`OPERATIONS_ACTIVE_MIGRATION_COUNT=${ACTIVE_MIGRATIONS.length}`);
+console.log(`OPERATIONS_DEPLOYED_HISTORY_COUNT=${DEPLOYED_HISTORY.length}`);
 console.log(`OPERATIONS_DEPLOYMENT_CONTRACT_VERSION=${versions.at(-1)}`);

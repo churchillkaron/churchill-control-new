@@ -8,16 +8,25 @@ const { loadEnvConfig } = nextEnv;
 // Supabase admin client at module evaluation time.
 loadEnvConfig(process.cwd());
 
-// Mirror the Node runtime stack installed by instrumentation.js so the
-// temporary CLI exercises the same Creative Studio backend as the UI.
+// Install the same foundational cost controls used by the UI server.
 await import(
   "@/lib/platform/service-runtime/execution/ServiceExecutionCostGuardRuntime"
 );
 await import(
-  "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
-);
-await import(
   "@/lib/creative/reasoning/runtime/CreativeReasoningRequestCostEstimateRuntime"
+);
+
+// Install the CLI budget approval inside the reasoning-budget wrapper. The
+// reasoning runtime then serializes parallel council calls before each one
+// reads or updates the persisted approval balance.
+await import(
+  "@/lib/creative/director/runtime/CreativeDirectionCostApprovalRuntime"
+);
+
+// Mirror the remaining Node runtime stack installed by instrumentation.js so
+// the temporary CLI exercises the same Creative Studio backend as the UI.
+await import(
+  "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
 );
 await import(
   "@/lib/creative/reasoning/runtime/CreativeReasoningBudgetRuntime"
@@ -32,11 +41,8 @@ await import(
   "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
 );
 
-// CLI-only approval/recovery layers. These preserve the same UI runtime while
-// preventing duplicate paid direction calls during technical retries.
-await import(
-  "@/lib/creative/director/runtime/CreativeDirectionCostApprovalRuntime"
-);
+// The outer recovery layer reuses only an exact completed reasoning request;
+// it cannot substitute one concept, critic or scene response for another.
 await import(
   "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
 );

@@ -34,7 +34,21 @@ const [
 ]);
 
 const DIRECTION_SERVICE_ID = "ai.reasoning.execute";
-const APPROVAL_MINUTES = 30;
+const APPROVAL_MINUTES = 90;
+const APPROVAL_CONTRACT = "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2";
+const PROVISIONAL_THB_CAP = 250;
+
+const TEMPORAL_OPERATIONS = Object.freeze([
+  "MASTER_PLAN_V3",
+  "UNIVERSAL_MUSIC_WORLD_IDENTITY_SYNTHESIS_V1",
+  "TEMPORAL_MASTER_PLAN_BASE_V1",
+  "TEMPORAL_SCENE_ARCHITECTURE_V1",
+  "TEMPORAL_SCENE_SHOT_DIRECTION_V1",
+  "CREATIVE_CONCEPT_DIRECTOR_*",
+  "CREATIVE_CONCEPT_CRITIC_*",
+  "CREATIVE_EXECUTIVE_CONCEPT_SELECTION_V1",
+  "CREATIVE_SELECTED_CONCEPT_PLAN_REVISION_V1",
+]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -74,6 +88,62 @@ function amountText(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return "0";
   return number.toFixed(6).replace(/\.?0+$/, "");
+}
+
+function inferDuration(value) {
+  const match = normalized(value).match(
+    /\b(\d+(?:\.\d+)?)\s*(?:second|seconds|sec|secs|s)\b/,
+  );
+  return match ? Number(match[1]) : 30;
+}
+
+function inferProductionType(value) {
+  const source = normalized(value);
+  if (/\b(video|film|reel|trailer|commercial|motion)\b/.test(source)) {
+    return "TEMPORAL";
+  }
+  if (/\b(poster|image|photo|banner|graphic|social post)\b/.test(source)) {
+    return "STILL";
+  }
+  if (/\b(menu|brochure|document|report|presentation|deck)\b/.test(source)) {
+    return "DOCUMENT";
+  }
+  if (/\b(website|webpage|web page|landing page)\b/.test(source)) {
+    return "INTERACTIVE";
+  }
+  if (/\b(audio|music|song|podcast|voice)\b/.test(source)) {
+    return "AUDIO";
+  }
+  return "CAMPAIGN_SYSTEM";
+}
+
+function maximumTemporalSceneCalls(duration) {
+  const preferred = Math.max(
+    6,
+    Math.min(20, Math.round(Number(duration || 30) / 14)),
+  );
+  return Math.min(24, preferred + 3);
+}
+
+function directionBudgetShape(productionType, duration) {
+  if (productionType !== "TEMPORAL") {
+    return {
+      maximum_calls: 1,
+      allowed_operations: ["MASTER_PLAN_V3"],
+      calculation: "ONE_SHOT_NON_TEMPORAL_DIRECTION",
+    };
+  }
+
+  const maximumSceneCalls = maximumTemporalSceneCalls(duration);
+  return {
+    // One synthesis + base plan + scene architecture + one call per maximum
+    // scene + three independent directors + four independent critics +
+    // executive selection + selected-plan revision.
+    maximum_calls: 12 + maximumSceneCalls,
+    maximum_scene_direction_calls: maximumSceneCalls,
+    allowed_operations: [...TEMPORAL_OPERATIONS],
+    calculation: "UNIVERSAL_TEMPORAL_COUNCIL_AND_SCENE_MAXIMUM",
+  };
 }
 
 async function resolveOrganization() {
@@ -176,7 +246,7 @@ async function renewCompletedResearch(project) {
   return renewed;
 }
 
-async function directionEstimate(organizationId) {
+async function directionEstimate(organizationId, shape) {
   const organizationService = await OrganizationServiceRuntime.get({
     organization_id: organizationId,
     service_id: DIRECTION_SERVICE_ID,
@@ -208,39 +278,69 @@ async function directionEstimate(organizationId) {
     currency: selected.currency || null,
     usage: { quantity: 1 },
   });
+  const maximumCalls = Number(shape.maximum_calls);
+  const maximumCustomerPrice = Number((
+    Number(pricing.customer_price) * maximumCalls
+  ).toFixed(6));
+  const supplierCost = Number((
+    Number(pricing.supplier_cost || 0) * maximumCalls
+  ).toFixed(6));
+
+  if (
+    text(pricing.currency).toUpperCase() === "THB" &&
+    maximumCustomerPrice > PROVISIONAL_THB_CAP
+  ) {
+    throw new Error(
+      `CREATIVE_DIRECTION_BUDGET_EXCEEDS_PROVISIONAL_CAP:${maximumCustomerPrice}:${PROVISIONAL_THB_CAP}:THB`,
+    );
+  }
 
   return {
     capability,
     provider: selected.provider,
     model: selected.model || null,
     pricing_id: selected.pricing_id,
-    maximum_customer_price: pricing.customer_price,
-    supplier_cost: pricing.supplier_cost,
+    maximum_calls: maximumCalls,
+    maximum_per_call_customer_price: pricing.customer_price,
+    maximum_customer_price: maximumCustomerPrice,
+    supplier_cost_estimate: supplierCost,
     currency: pricing.currency,
-    estimated_input_tokens: pricing.input_tokens,
-    estimated_output_tokens: pricing.output_tokens,
+    estimated_input_tokens:
+      Number(pricing.input_tokens || 0) * maximumCalls,
+    estimated_output_tokens:
+      Number(pricing.output_tokens || 0) * maximumCalls,
+    allowed_operations: shape.allowed_operations,
+    calculation: shape.calculation,
+    maximum_scene_direction_calls:
+      shape.maximum_scene_direction_calls || 0,
   };
 }
 
 function existingApproval(project, identity) {
   const approval = object(project.metadata?.paid_direction_approval);
-  const status = text(approval.status).toUpperCase();
   if (
-    status === "COMPLETED" &&
-    text(approval.usage_id) &&
-    text(approval.command_identity) === identity
-  ) return approval;
+    approval.contract !== APPROVAL_CONTRACT ||
+    text(approval.command_identity) !== identity
+  ) return null;
+
+  const status = text(approval.status).toUpperCase();
+  if (status === "COMPLETED") return approval;
 
   const approvedAt = Date.parse(text(approval.approved_at));
   const expiresAt = Date.parse(text(approval.expires_at));
+  const remaining = Number(
+    approval.remaining_customer_price ??
+    Number(approval.maximum_customer_price || 0) -
+      Number(approval.spent_customer_price || 0),
+  );
   if (
     approval.approved === true &&
-    status === "APPROVED" &&
-    text(approval.command_identity) === identity &&
+    ["APPROVED", "IN_PROGRESS"].includes(status) &&
     Number.isFinite(approvedAt) &&
     Number.isFinite(expiresAt) &&
     approvedAt <= Date.now() &&
-    expiresAt > Date.now()
+    expiresAt > Date.now() &&
+    remaining > 0
   ) return approval;
 
   return null;
@@ -249,18 +349,23 @@ function existingApproval(project, identity) {
 async function requestApproval(estimate) {
   const amount = amountText(estimate.maximum_customer_price);
   const currency = text(estimate.currency).toUpperCase();
-  const phrase = `APPROVE DIRECTION ${amount} ${currency}`;
+  const phrase = `APPROVE DIRECTION BUDGET ${amount} ${currency}`;
 
   console.log("============================================================");
-  console.log("AVANTIQO CREATIVE DIRECTION APPROVAL");
+  console.log("AVANTIQO CONSOLIDATED CREATIVE DIRECTION APPROVAL");
   console.log("============================================================");
   console.log(`DIRECTION_PROVIDER=${estimate.provider}`);
   console.log(`DIRECTION_MODEL=${estimate.model || ""}`);
   console.log(`DIRECTION_PRICING_ID=${estimate.pricing_id}`);
+  console.log(`DIRECTION_MAXIMUM_CALLS=${estimate.maximum_calls}`);
+  console.log(
+    `DIRECTION_MAXIMUM_PER_CALL_CUSTOMER_PRICE=${amountText(estimate.maximum_per_call_customer_price)}`,
+  );
   console.log(`DIRECTION_MAXIMUM_CUSTOMER_PRICE=${amount}`);
   console.log(`DIRECTION_CURRENCY=${currency}`);
   console.log(`DIRECTION_ESTIMATED_INPUT_TOKENS=${estimate.estimated_input_tokens || 0}`);
   console.log(`DIRECTION_ESTIMATED_OUTPUT_TOKENS=${estimate.estimated_output_tokens || 0}`);
+  console.log(`DIRECTION_BUDGET_CALCULATION=${estimate.calculation}`);
   console.log("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");
   console.log("PUBLICATION_AUTHORIZED=NO");
   console.log("============================================================");
@@ -286,6 +391,9 @@ async function requestApproval(estimate) {
 const organization = await resolveOrganization();
 if (!organization) process.exit(0);
 const identity = commandIdentity(organization.id, intent);
+const duration = inferDuration(intent);
+const productionType = inferProductionType(intent);
+const shape = directionBudgetShape(productionType, duration);
 const missions = await CreativeMissionRuntime.list({
   organization_id: organization.id,
 });
@@ -303,20 +411,27 @@ const reusable = existingApproval(project, identity);
 if (reusable) {
   console.log(`DIRECTION_APPROVAL_MODE=${
     text(reusable.status).toUpperCase() === "COMPLETED"
-      ? "RECOVER_COMPLETED_USAGE"
-      : "REUSED_EXISTING_APPROVAL"
+      ? "RECOVER_COMPLETED_DIRECTION_BUDGET"
+      : "REUSED_EXISTING_DIRECTION_BUDGET"
   }`);
   console.log(`DIRECTION_PROVIDER=${reusable.provider}`);
   console.log(`DIRECTION_MODEL=${reusable.model || ""}`);
-  console.log(`DIRECTION_MAXIMUM_CUSTOMER_PRICE=${amountText(reusable.maximum_customer_price)}`);
+  console.log(`DIRECTION_MAXIMUM_CALLS=${reusable.maximum_calls}`);
+  console.log(`DIRECTION_CALL_COUNT=${reusable.call_count || 0}`);
+  console.log(
+    `DIRECTION_MAXIMUM_CUSTOMER_PRICE=${amountText(reusable.maximum_customer_price)}`,
+  );
+  console.log(
+    `DIRECTION_SPENT_CUSTOMER_PRICE=${amountText(reusable.spent_customer_price || 0)}`,
+  );
   console.log(`DIRECTION_CURRENCY=${reusable.currency}`);
   process.exit(0);
 }
 
-const estimate = await directionEstimate(organization.id);
+const estimate = await directionEstimate(organization.id, shape);
 const approved = await requestApproval(estimate);
 if (!approved) {
-  console.log("DIRECTION_APPROVED=NO");
+  console.log("DIRECTION_BUDGET_APPROVED=NO");
   console.log("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");
   console.log("PUBLICATION_AUTHORIZED=NO");
   process.exit(0);
@@ -324,20 +439,32 @@ if (!approved) {
 
 const approvedAt = new Date();
 const approval = {
+  contract: APPROVAL_CONTRACT,
   id: crypto.randomUUID(),
   approved: true,
   status: "APPROVED",
-  scope: "CREATIVE_MASTER_PLAN_DIRECTION",
+  scope: "CREATIVE_DIRECTION_PIPELINE_BUDGET",
   command_identity: identity,
   provider: estimate.provider,
   model: estimate.model,
   capability: estimate.capability,
   pricing_id: estimate.pricing_id,
+  maximum_calls: estimate.maximum_calls,
+  call_count: 0,
+  maximum_per_call_customer_price:
+    estimate.maximum_per_call_customer_price,
   maximum_customer_price: estimate.maximum_customer_price,
-  supplier_cost_estimate: estimate.supplier_cost,
+  spent_customer_price: 0,
+  remaining_customer_price: estimate.maximum_customer_price,
+  supplier_cost_estimate: estimate.supplier_cost_estimate,
   currency: estimate.currency,
   estimated_input_tokens: estimate.estimated_input_tokens,
   estimated_output_tokens: estimate.estimated_output_tokens,
+  allowed_operations: estimate.allowed_operations,
+  budget_calculation: estimate.calculation,
+  maximum_scene_direction_calls:
+    estimate.maximum_scene_direction_calls,
+  operations: [],
   approved_at: approvedAt.toISOString(),
   expires_at: new Date(
     approvedAt.getTime() + APPROVAL_MINUTES * 60 * 1000,
@@ -350,11 +477,27 @@ await CreativeProjectRuntime.update(project.id, {
   metadata: {
     ...(project.metadata || {}),
     paid_direction_approval: approval,
+    creative_reasoning_budget: {
+      contract: "CREATIVE_REASONING_BUDGET_V1",
+      id: approval.id,
+      maximum_calls: approval.maximum_calls,
+      maximum_requested_output_tokens: 180000,
+      maximum_single_call_output_tokens: 20000,
+      maximum_prompt_characters: 500000,
+      maximum_total_prompt_characters: 2000000,
+      maximum_customer_price: approval.maximum_customer_price,
+      currency: approval.currency,
+    },
   },
 });
 
-console.log("DIRECTION_APPROVED=YES");
+console.log("DIRECTION_BUDGET_APPROVED=YES");
 console.log(`DIRECTION_APPROVAL_ID=${approval.id}`);
+console.log(`DIRECTION_MAXIMUM_CALLS=${approval.maximum_calls}`);
+console.log(
+  `DIRECTION_MAXIMUM_CUSTOMER_PRICE=${amountText(approval.maximum_customer_price)}`,
+);
+console.log(`DIRECTION_CURRENCY=${approval.currency}`);
 console.log(`CREATIVE_MISSION_ID=${mission.id}`);
 console.log(`CREATIVE_PROJECT_ID=${project.id}`);
 console.log("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");

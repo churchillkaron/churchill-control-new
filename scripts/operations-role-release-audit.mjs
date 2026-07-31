@@ -12,8 +12,8 @@ const FILES = Object.freeze({
   accessWorkCenter: "components/workspace/operations/OperationsAccessControlWorkCenter.jsx",
   accessPage: "app/(system)/workspace/[organizationId]/operations/access-control/page.jsx",
   workspaceHub: "components/workspace/operations/OperationsWorkspaceHub.jsx",
-  migration: "supabase/migrations/20260728230000_operations_role_permissions.sql",
-  ownerBackfillMigration: "supabase/migrations/20260728233000_operations_owner_admin_backfill.sql",
+  migration: "supabase/migrations/20260728230001_operations_role_permissions.sql",
+  ownerBackfillContract: "lib/operations/deployment/contracts/operations_owner_admin_backfill.sql",
 });
 
 function read(relativePath) {
@@ -55,7 +55,8 @@ requireIncludes(source.migration, [
   "service_role",
 ], "Operations role migration");
 
-requireIncludes(source.ownerBackfillMigration, [
+requireIncludes(source.ownerBackfillContract, [
+  "AUDIT-ONLY DEPLOYED CONTRACT SNAPSHOT",
   "privileged_memberships",
   "OPERATIONS_ADMIN",
   "operations.*",
@@ -64,7 +65,7 @@ requireIncludes(source.ownerBackfillMigration, [
   "auth_user_id",
   "on conflict (organization_id, user_id, role_id)",
   "revoked_at = null",
-], "Operations owner administrator backfill");
+], "Operations owner administrator backfill contract");
 
 requireIncludes(source.repository, [
   "CANONICAL_OPERATIONS_ROLES",

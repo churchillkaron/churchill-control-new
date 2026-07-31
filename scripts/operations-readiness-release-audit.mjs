@@ -8,7 +8,7 @@ const FILES = Object.freeze({
   readinessHook: "lib/operations/readiness/useOperationsReadiness.js",
   workspaceHub: "components/workspace/operations/OperationsWorkspaceHub.jsx",
   atomicExecutor: "lib/operations/runtime/AtomicOperationsCommandExecution.js",
-  ownerBackfill: "supabase/migrations/20260728233000_operations_owner_admin_backfill.sql",
+  ownerBackfillContract: "lib/operations/deployment/contracts/operations_owner_admin_backfill.sql",
 });
 
 function read(relativePath) {
@@ -93,14 +93,15 @@ requireExcludes(source.atomicExecutor, [
   "created_by: payload?.created_by || actorId",
 ], "Operations actor spoofing protection");
 
-requireIncludes(source.ownerBackfill, [
+requireIncludes(source.ownerBackfillContract, [
+  "AUDIT-ONLY DEPLOYED CONTRACT SNAPSHOT",
   "OPERATIONS_ADMIN",
   "operations.*",
   "organization_users",
   "staff_accounts",
   "on conflict (organization_id, user_id, role_id)",
   "revoked_at = null",
-], "Operations owner administrator backfill");
+], "Operations owner administrator backfill contract");
 
 for (const [label, contents] of Object.entries(source)) {
   requireExcludes(contents, ["tenant_id", "tenantId"], `Operations readiness ${label}`);

@@ -91,6 +91,32 @@ begin
 end;
 $$;
 
+do $$
+declare
+  legacy_trigger record;
+begin
+  for legacy_trigger in
+    select trigger_definition.tgname
+    from pg_trigger trigger_definition
+    join pg_class relation_definition
+      on relation_definition.oid = trigger_definition.tgrelid
+    join pg_namespace schema_definition
+      on schema_definition.oid = relation_definition.relnamespace
+    join pg_proc function_definition
+      on function_definition.oid = trigger_definition.tgfoid
+    where schema_definition.nspname = 'public'
+      and relation_definition.relname = 'orders'
+      and not trigger_definition.tgisinternal
+      and pg_get_functiondef(function_definition.oid) ilike '%tenant_id%'
+  loop
+    execute format(
+      'drop trigger if exists %I on public.orders',
+      legacy_trigger.tgname
+    );
+  end loop;
+end;
+$$;
+
 with single_order_allocations as (
   select
     payment_id,

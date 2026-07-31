@@ -25,6 +25,7 @@ function isMissingOperationsSecuritySchema(error) {
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
+  const includeAssignments = searchParams.get("include_assignments") === "true";
   const resolved = await resolveOperationsRequestContext({
     request,
     input: searchParamsToObject(searchParams),
@@ -43,7 +44,7 @@ export async function GET(request) {
     let assignments = [];
     let securitySchemaReady = resolved.operations_security_schema_ready !== false;
 
-    if (resolved.user?.id && securitySchemaReady) {
+    if (includeAssignments && resolved.user?.id && securitySchemaReady) {
       try {
         assignments = await listUserOperationsRoleAssignments({
           organizationId: resolved.context.organization_id,

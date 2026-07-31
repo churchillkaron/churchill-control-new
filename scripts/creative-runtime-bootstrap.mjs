@@ -41,8 +41,14 @@ await import(
   "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
 );
 
-// The outer recovery layer reuses only an exact completed reasoning request;
-// it cannot substitute one concept, critic or scene response for another.
+// The recovery layer reuses only an exact completed reasoning request; it
+// cannot substitute one concept, critic or scene response for another.
 await import(
   "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
+);
+
+// Install this last so short-form prompt normalization occurs before request
+// hashing, recovery, budget accounting and provider execution.
+await import(
+  "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );

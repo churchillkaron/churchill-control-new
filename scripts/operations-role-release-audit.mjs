@@ -159,7 +159,7 @@ requireIncludes(source.workspaceHub, [
   "access.can?.administer",
   "/operations/access-control",
   "Access Control",
-  "Resolving Operations access",
+  "Preparing your Operations command center",
   "Operations access failed to load",
   "Retry Access Check",
   "No Operations role is assigned",

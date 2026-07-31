@@ -11,6 +11,13 @@ alter table public.cost_centers
   add column if not exists legacy_type text,
   add column if not exists legacy_code text;
 
+-- A strict validation trigger may already be installed from an earlier manual
+-- or superseded deployment. Temporarily remove only that trigger so legacy rows
+-- without canonical scope can be normalised without inventing organization or
+-- entity ownership. The strict trigger is recreated below for all future writes.
+drop trigger if exists finance_cost_center_validate
+  on public.cost_centers;
+
 update public.cost_centers
 set
   legacy_type = case

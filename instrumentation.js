@@ -7,7 +7,7 @@ export async function register() {
       "@/lib/platform/service-runtime/execution/ServiceExecutionCostGuardRuntime"
     );
     await import(
-      "@/lib/creative/assets/runtime/CreativeLongFormAssetSelectionRuntimeV3"
+      "@/lib/creative/assets/runtime/CreativeLongFormAssetSelectionSanitizerRuntime"
     );
     await import(
       "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
@@ -32,6 +32,9 @@ export async function register() {
     );
     await import(
       "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
+    );
+    await import(
+      "@/lib/creative/director/runtime/CreativeDirectionJsonContractRuntime"
     );
     await import(
       "@/lib/creative/director/runtime/CreativeConceptResponseRepairRuntime"

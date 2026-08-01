@@ -15,7 +15,7 @@ await import(
   "@/lib/creative/director/runtime/CreativeDirectionCostApprovalRuntime"
 );
 await import(
-  "@/lib/creative/assets/runtime/CreativeLongFormAssetSelectionRuntimeV3"
+  "@/lib/creative/assets/runtime/CreativeLongFormAssetSelectionSanitizerRuntime"
 );
 await import(
   "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"

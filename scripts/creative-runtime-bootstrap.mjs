@@ -45,6 +45,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeDirectionJsonContractRuntime"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeDirectionSanitizedAssetRecoveryRuntime"
+);
+await import(
   "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
 );
 await import(

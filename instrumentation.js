@@ -7,6 +7,9 @@ export async function register() {
       "@/lib/platform/service-runtime/execution/ServiceExecutionCostGuardRuntime"
     );
     await import(
+      "@/lib/creative/assets/runtime/CreativeLongFormAssetSelectionRuntime"
+    );
+    await import(
       "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
     );
     await import(

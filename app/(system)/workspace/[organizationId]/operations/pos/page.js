@@ -3,12 +3,12 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
-import StationaryPOSUI from "./StationaryPOS_UI";
+import POSWorkspace from "./POSWorkspace";
 
 export default function POSPage() {
   return (
     <Suspense fallback={null}>
-      <StationaryPOSUI />
+      <POSWorkspace />
     </Suspense>
   );
 }

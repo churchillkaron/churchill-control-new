@@ -45,5 +45,8 @@ await import(
   "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeConceptResponseRepairRuntime"
+);
+await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );

@@ -42,10 +42,10 @@ await import(
   "@/lib/creative/director/runtime/CreativeGenericDirectionCompletionRuntime"
 );
 await import(
-  "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
+  "@/lib/creative/director/runtime/CreativeDirectionJsonContractRuntime"
 );
 await import(
-  "@/lib/creative/director/runtime/CreativeDirectionJsonContractRuntime"
+  "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
 );
 await import(
   "@/lib/creative/director/runtime/CreativeConceptResponseRepairRuntime"

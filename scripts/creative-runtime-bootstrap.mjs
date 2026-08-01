@@ -29,6 +29,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeUniversalReferenceCastingRuntime"
+);
+await import(
   "@/lib/creative/reasoning/runtime/CreativeReasoningBudgetRuntime"
 );
 await import(

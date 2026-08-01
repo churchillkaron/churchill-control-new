@@ -16,6 +16,9 @@ export async function register() {
       "@/lib/creative/reasoning/runtime/CreativeReasoningBudgetRuntime"
     );
     await import(
+      "@/lib/creative/audio/runtime/CreativeTemporalSoundtrackGraphRuntime"
+    );
+    await import(
       "@/lib/creative/execution/runtime/CreativeProductionTaskMaterializationGraphRuntime"
     );
     await import(

@@ -41,9 +41,15 @@ export default function RestaurantWorkspacePage() {
   const businessContext = useBusinessContext() || {};
   const organization = businessContext.organization || null;
   const organizationId =
-    params?.organizationId || businessContext.organization_id || organization?.id || "";
+    params?.organizationId ||
+    businessContext.organization_id ||
+    organization?.id ||
+    "";
   const currencyCode =
-    organization?.currency_code || organization?.currency || businessContext.currency || null;
+    organization?.currency_code ||
+    organization?.currency ||
+    businessContext.currency ||
+    null;
 
   const [metrics, setMetrics] = useState(EMPTY_METRICS);
   const [sourceHealth, setSourceHealth] = useState({});
@@ -63,7 +69,9 @@ export default function RestaurantWorkspacePage() {
         const query = new URLSearchParams({
           organizationId,
           organizationType:
-            organization?.organization_type || organization?.type || "restaurant",
+            organization?.organization_type ||
+            organization?.type ||
+            "restaurant",
         });
         const response = await fetch(
           `/api/workspace/command-center?${query.toString()}`,
@@ -72,7 +80,9 @@ export default function RestaurantWorkspacePage() {
         const result = await response.json();
 
         if (!response.ok || result.success === false) {
-          throw new Error(result.error || "Unable to load restaurant operations.");
+          throw new Error(
+            result.error || "Unable to load restaurant operations."
+          );
         }
 
         if (cancelled) return;
@@ -86,6 +96,7 @@ export default function RestaurantWorkspacePage() {
     }
 
     loadWorkspace();
+
     return () => {
       cancelled = true;
     };
@@ -94,74 +105,39 @@ export default function RestaurantWorkspacePage() {
   const operationCards = useMemo(
     () => [
       {
-        id: "waiter-pos",
-        title: "Waiter POS",
+        id: "pos",
+        title: "POS & Payments",
         value: metrics.openOrders,
-        label: "Open Orders",
-        href: `/workspace/${organizationId}/operations/pos/waiter`,
-      },
-      {
-        id: "stationary-pos",
-        title: "Stationary POS",
-        value: metrics.totalTables,
-        label: "POS & Counter Service",
+        label: "Sell, order, split bills, settle, receipt and cash control",
         href: `/workspace/${organizationId}/operations/pos`,
       },
       {
         id: "tables",
-        title: "Floor",
+        title: "Floor & Tables",
         value: `${metrics.occupiedTables}/${metrics.totalTables}`,
-        label: "Occupied Tables",
+        label: "Guests, seats, service state and table control",
         href: `/workspace/${organizationId}/operations/tables`,
       },
       {
         id: "kitchen",
-        title: "Kitchen",
+        title: "Kitchen Production",
         value: metrics.operationsQueue,
-        label: "Active Tickets",
+        label: "Preparation tickets, stations and production state",
         href: `/workspace/${organizationId}/operations/kitchen`,
       },
       {
         id: "expo",
-        title: "Expo",
+        title: "Expo & Handoff",
         value: metrics.readyOrders,
-        label: "Ready Orders",
+        label: "Assembly, ready items and service collection",
         href: `/workspace/${organizationId}/operations/kitchen/expo`,
       },
       {
-        id: "orders",
-        title: "Orders",
-        value: metrics.openOrders,
-        label: "Active & Completed",
-        href: `/workspace/${organizationId}/operations/pos/orders`,
-      },
-      {
-        id: "payments",
-        title: "Payments",
-        value: metrics.openOrders,
-        label: "Orders Awaiting Payment",
-        href: `/workspace/${organizationId}/operations/pos/payments`,
-      },
-      {
-        id: "receipts",
-        title: "Receipts",
-        value: metrics.paidOrders,
-        label: "Paid Transactions",
-        href: `/workspace/${organizationId}/operations/pos/receipts`,
-      },
-      {
-        id: "shifts",
-        title: "POS Shifts",
-        value: metrics.activeStaff,
-        label: "Active Staff & Cash Control",
-        href: `/workspace/${organizationId}/operations/pos/shifts`,
-      },
-      {
-        id: "inventory",
-        title: "Inventory",
+        id: "production",
+        title: "Stock & Recipes",
         value: metrics.lowStockAlerts,
-        label: "Low Stock Alerts",
-        href: `/workspace/${organizationId}/supply-chain/inventory`,
+        label: "Inventory alerts, recipes, costing and production usage",
+        href: `/workspace/${organizationId}/supply-chain/production/recipes`,
       },
     ],
     [metrics, organizationId]
@@ -176,7 +152,9 @@ export default function RestaurantWorkspacePage() {
         <h1 className="mt-3 text-5xl font-semibold tracking-[-0.04em]">
           Live Service Command
         </h1>
-        <p className="mt-3 text-white/50">{organization?.name || "Organization"}</p>
+        <p className="mt-3 text-white/50">
+          {organization?.name || "Organization"}
+        </p>
         {error ? (
           <p className="mt-5 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
             {error}
@@ -193,34 +171,45 @@ export default function RestaurantWorkspacePage() {
           ["Kitchen Queue", metrics.operationsQueue],
           ["Ready Orders", metrics.readyOrders],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div
+            key={label}
+            className="rounded-2xl border border-white/10 bg-white/5 p-5"
+          >
             <p className="text-sm text-white/55">{label}</p>
-            <p className="mt-2 text-2xl font-semibold">{loading ? "—" : value}</p>
+            <p className="mt-2 text-2xl font-semibold">
+              {loading ? "—" : value}
+            </p>
           </div>
         ))}
       </section>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         {operationCards.map((card) => (
           <Link
             key={card.id}
             href={card.href}
-            className="flex min-h-40 flex-col justify-between rounded-3xl border border-white/10 bg-black/30 p-6 transition hover:-translate-y-1 hover:border-[#D6A66A]/40"
+            className="flex min-h-48 flex-col justify-between rounded-3xl border border-white/10 bg-black/30 p-6 transition hover:-translate-y-1 hover:border-[#D6A66A]/40"
           >
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-[#D6A66A]/75">
                 {card.title}
               </p>
-              <p className="mt-3 text-sm text-white/50">{card.label}</p>
+              <p className="mt-3 text-sm leading-6 text-white/50">
+                {card.label}
+              </p>
             </div>
-            <span className="mt-6 text-3xl font-semibold">{loading ? "—" : card.value}</span>
+            <span className="mt-6 text-3xl font-semibold">
+              {loading ? "—" : card.value}
+            </span>
           </Link>
         ))}
       </section>
 
       {Object.keys(sourceHealth).length ? (
         <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.025] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/40">Live source status</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-white/40">
+            Live source status
+          </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {Object.entries(sourceHealth).map(([source, healthy]) => (
               <span

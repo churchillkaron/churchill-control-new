@@ -14,6 +14,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeDirectionCostApprovalRuntime"
 );
 await import(
+  "@/lib/creative/reasoning/runtime/CreativeReasoningBudgetRuntime"
+);
+await import(
   "@/lib/creative/director/runtime/CreativeDirectionCompletedBudgetRecoveryRuntime"
 );
 await import(
@@ -24,9 +27,6 @@ await import(
 );
 await import(
   "@/lib/creative/director/runtime/CreativeUniversalReferenceCastingRuntime"
-);
-await import(
-  "@/lib/creative/reasoning/runtime/CreativeReasoningBudgetRuntime"
 );
 await import(
   "@/lib/creative/audio/runtime/CreativeTemporalSoundtrackGraphRuntime"

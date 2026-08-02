@@ -9,8 +9,8 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 import {
-  MarketingCampaignReadinessRuntime,
-} from "@/lib/marketing/campaigns/MarketingCampaignReadinessRuntime";
+  MarketingCampaignBuilderReadinessRuntime,
+} from "@/lib/marketing/campaigns/MarketingCampaignBuilderReadinessRuntime";
 
 export const GET = withApiHandler(
   "marketing-campaign-readiness",
@@ -27,7 +27,7 @@ export const GET = withApiHandler(
       throw error;
     }
 
-    return MarketingCampaignReadinessRuntime.readiness({
+    return MarketingCampaignBuilderReadinessRuntime.readiness({
       organizationId: access.organizationId,
     });
   },

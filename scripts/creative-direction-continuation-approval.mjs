@@ -26,6 +26,14 @@ const [
 const APPROVAL_CONTRACT = "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2";
 const APPROVAL_MINUTES = 90;
 const REQUIRED_TEMPORAL_CALLS = 24;
+const INVALID_COUNTED_STATUS_PARTS = Object.freeze([
+  "REFUNDED",
+  "REVOKED",
+  "CANCELLED",
+  "CANCELED",
+  "REJECTED",
+  "SETTLEMENT_MISMATCH",
+]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -69,6 +77,39 @@ function amountText(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return "0";
   return number.toFixed(6).replace(/\.?0+$/, "");
+}
+
+function countedApproval(approval = {}, identity = "") {
+  const status = text(approval.status).toUpperCase();
+  return (
+    approval.contract === APPROVAL_CONTRACT &&
+    text(approval.id) &&
+    text(approval.command_identity) === identity &&
+    Number.isFinite(Number(approval.maximum_calls)) &&
+    Number(approval.maximum_calls) > 0 &&
+    !INVALID_COUNTED_STATUS_PARTS.some((part) => status.includes(part))
+  );
+}
+
+function approvalChain(metadata = {}, identity = "") {
+  const byId = new Map();
+  for (const approval of [
+    ...list(metadata.paid_direction_approval_history),
+    object(metadata.paid_direction_approval),
+  ]) {
+    const id = text(approval?.id);
+    if (id) byId.set(id, approval);
+  }
+  return [...byId.values()].filter((approval) =>
+    countedApproval(approval, identity),
+  );
+}
+
+function cumulativeCalls(approvals = []) {
+  return approvals.reduce(
+    (sum, approval) => sum + Number(approval.maximum_calls || 0),
+    0,
+  );
 }
 
 async function resolveOrganization() {
@@ -168,6 +209,22 @@ const project = await CreativeProjectRepository.getByMission({
 if (!project) process.exit(0);
 
 const metadata = object(project.metadata);
+const chain = approvalChain(metadata, identity);
+const authorizedCalls = cumulativeCalls(chain);
+const chainIds = chain.map((approval) => approval.id);
+
+if (authorizedCalls >= REQUIRED_TEMPORAL_CALLS) {
+  console.log("DIRECTION_CONTINUATION_PROMPT_BLOCKED=YES");
+  console.log(`DIRECTION_CUMULATIVE_AUTHORIZED_CALLS=${authorizedCalls}`);
+  console.log(`DIRECTION_REQUIRED_CALLS=${REQUIRED_TEMPORAL_CALLS}`);
+  console.log(`DIRECTION_APPROVAL_CHAIN_IDS=${chainIds.join(",")}`);
+  console.log("NEW_DIRECTION_AUTHORIZATION_REQUIRED=NO");
+  console.log("NEW_PROVIDER_EXECUTION_AUTHORIZED=NO");
+  console.log("PAID_MEDIA_EXECUTION_AUTHORIZED=NO");
+  console.log("PUBLICATION_AUTHORIZED=NO");
+  process.exit(0);
+}
+
 const previous = object(metadata.paid_direction_approval);
 const previousStatus = text(previous.status).toUpperCase();
 const previousCalls = Number(previous.maximum_calls || 0);
@@ -176,13 +233,14 @@ if (
   previous.contract !== APPROVAL_CONTRACT ||
   text(previous.command_identity) !== identity ||
   !["COMPLETED", "COMPLETED_ARCHIVED"].includes(previousStatus) ||
-  previousCalls <= 0 ||
-  previousCalls >= REQUIRED_TEMPORAL_CALLS
+  previousCalls <= 0
 ) {
   process.exit(0);
 }
 
-const additionalCalls = REQUIRED_TEMPORAL_CALLS - previousCalls;
+const additionalCalls = REQUIRED_TEMPORAL_CALLS - authorizedCalls;
+if (additionalCalls <= 0) process.exit(0);
+
 const perCall = Number(previous.maximum_per_call_customer_price || 0);
 if (!Number.isFinite(perCall) || perCall <= 0) {
   throw new Error("CREATIVE_DIRECTION_CONTINUATION_PRICE_REQUIRED");
@@ -223,7 +281,7 @@ const approval = {
   supplier_cost_estimate: Number((
     Number(previous.supplier_cost_estimate || 0) *
     additionalCalls /
-    previousCalls
+    Math.max(1, previousCalls)
   ).toFixed(6)),
   currency,
   estimated_input_tokens: 0,
@@ -231,7 +289,7 @@ const approval = {
   allowed_operations: list(previous.allowed_operations),
   budget_calculation: "SUPPLEMENTAL_CONCEPT_REPAIR_RESERVE",
   continuation_of_approval_id: previous.id || null,
-  previous_approved_call_count: previousCalls,
+  previous_approved_call_count: authorizedCalls,
   required_total_call_capacity: REQUIRED_TEMPORAL_CALLS,
   operations: [],
   approved_at: approvedAt.toISOString(),

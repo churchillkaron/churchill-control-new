@@ -16,6 +16,7 @@ import {
   resolvePOSMode,
 } from "@/lib/operations/commerce/POSWorkspaceConfiguration";
 import StationaryPOSUI from "./StationaryPOS_UI";
+import RetailCatalogWorkspace from "./RetailCatalogWorkspace";
 import PaymentWorkspace from "./PaymentWorkspace";
 import POSFinalUI from "./waiter/POS_FINAL_UI";
 import POSOrdersPage from "./orders/page";
@@ -32,10 +33,9 @@ const ICONS = Object.freeze({
 });
 
 const RETAIL_BINDINGS = Object.freeze([
-  Object.freeze({ owner: "Commercial", label: "Catalog items, variants, barcodes and prices" }),
-  Object.freeze({ owner: "Supply Chain", label: "Location-aware inventory availability" }),
-  Object.freeze({ owner: "Commercial", label: "Canonical sales orders and lines" }),
-  Object.freeze({ owner: "Finance", label: "Tender settlement, refunds and posting handoff" }),
+  Object.freeze({ owner: "Supply Chain", label: "Catalog items and stock availability", state: "Active" }),
+  Object.freeze({ owner: "Commercial", label: "Canonical sales orders and lines", state: "Blocked" }),
+  Object.freeze({ owner: "Finance", label: "Tender settlement, refunds and posting handoff", state: "Blocked" }),
 ]);
 
 function RetailReadiness({ posConfiguration, posMode }) {
@@ -54,14 +54,19 @@ function RetailReadiness({ posConfiguration, posMode }) {
             "Complete the canonical retail bindings before transaction execution is enabled."}
         </p>
 
-        <div className="mt-7 grid gap-3 md:grid-cols-2">
+        <div className="mt-7 grid gap-3 md:grid-cols-3">
           {RETAIL_BINDINGS.map((binding) => (
             <div
               key={`${binding.owner}:${binding.label}`}
               className="rounded-2xl border border-white/10 bg-black/25 p-4"
             >
-              <div className="text-xs uppercase tracking-[0.18em] text-[#D6A66A]">
-                {binding.owner}
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs uppercase tracking-[0.18em] text-[#D6A66A]">
+                  {binding.owner}
+                </div>
+                <div className={binding.state === "Active" ? "text-xs text-emerald-300/70" : "text-xs text-white/30"}>
+                  {binding.state}
+                </div>
               </div>
               <div className="mt-2 text-sm text-white/70">{binding.label}</div>
             </div>
@@ -70,7 +75,7 @@ function RetailReadiness({ posConfiguration, posMode }) {
 
         <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4 text-xs text-white/40">
           Application: {posConfiguration?.applicationId || "retail"} · Capability:{" "}
-          {posMode?.capability || posConfiguration?.capability || "point-of-sale"} · State: configuration required
+          {posMode?.capability || posConfiguration?.capability || "point-of-sale"} · State: partial readiness
         </div>
       </div>
     </section>
@@ -84,6 +89,7 @@ const COMPONENTS = Object.freeze({
   "restaurant-receipts": ReceiptsPage,
   "restaurant-cash-control": ShiftPage,
   "restaurant-service": POSFinalUI,
+  "retail-catalog": RetailCatalogWorkspace,
   "retail-readiness": RetailReadiness,
   "retail-cash-control": ShiftPage,
 });

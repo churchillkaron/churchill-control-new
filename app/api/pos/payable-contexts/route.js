@@ -2,23 +2,21 @@ export const dynamic = "force-dynamic";
 
 import resolvePOSRequestApplication from "@/lib/operations/commerce/server/resolvePOSRequestApplication";
 
-function readValue(source, camelKey, snakeKey) {
-  return source?.[camelKey] ?? source?.[snakeKey] ?? null;
-}
-
 function errorResponse(error, status = 500) {
   return Response.json({ success: false, error }, { status });
 }
 
-export async function POST(request) {
+export async function GET(request) {
   try {
-    const body = await request.json();
+    const { searchParams } = new URL(request.url);
     const resolved = await resolvePOSRequestApplication({
       request,
-      organizationId: readValue(body, "organizationId", "organization_id"),
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
       requestedApplicationId:
-        body.applicationId ||
-        body.application_id ||
+        searchParams.get("applicationId") ||
+        searchParams.get("application_id") ||
         request.headers.get("x-pos-application"),
     });
 
@@ -26,15 +24,14 @@ export async function POST(request) {
       return errorResponse(resolved.error, resolved.status);
     }
 
-    if (typeof resolved.application.adapter?.loadPaymentState !== "function") {
+    if (typeof resolved.application.adapter?.listPayableContexts !== "function") {
       return errorResponse(
-        `Payment state is not available for application ${resolved.application.id}`,
+        `Checkout contexts are not available for application ${resolved.application.id}`,
         501
       );
     }
 
-    const state = await resolved.application.adapter.loadPaymentState({
-      body,
+    const contexts = await resolved.application.adapter.listPayableContexts({
       access: resolved.access,
       organization: resolved.organization,
       organizationId: resolved.organizationId,
@@ -44,13 +41,12 @@ export async function POST(request) {
     return Response.json({
       success: true,
       application_id: resolved.application.id,
-      context: state.context || body.context || null,
-      state,
+      contexts,
     });
   } catch (error) {
-    console.error("POS PAYMENT STATE ERROR", error);
+    console.error("POS PAYABLE CONTEXTS ERROR", error);
     return errorResponse(
-      error?.message || "Unable to load payment state",
+      error?.message || "Unable to load payable contexts",
       error?.status || 500
     );
   }

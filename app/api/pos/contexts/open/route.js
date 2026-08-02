@@ -23,34 +23,37 @@ export async function POST(request) {
     });
 
     if (!resolved.success) {
-      return errorResponse(resolved.error, resolved.status);
+      return errorResponse(resolved.error, resolved.status || 403);
     }
 
-    if (typeof resolved.application.adapter?.loadPaymentState !== "function") {
+    const openContext = resolved.application.adapter?.contexts?.openContext;
+    if (typeof openContext !== "function") {
       return errorResponse(
-        `Payment state is not available for application ${resolved.application.id}`,
+        `POS contexts are not available for application ${resolved.application.id}`,
         501
       );
     }
 
-    const state = await resolved.application.adapter.loadPaymentState({
+    const result = await openContext({
       body,
       access: resolved.access,
+      application: resolved.application,
       organization: resolved.organization,
       organizationId: resolved.organizationId,
       request,
+      settings: resolved.settings,
     });
 
     return Response.json({
       success: true,
       application_id: resolved.application.id,
-      context: state.context || body.context || null,
-      state,
+      presentation: resolved.application.presentation || null,
+      ...result,
     });
   } catch (error) {
-    console.error("POS PAYMENT STATE ERROR", error);
+    console.error("OPEN POS CONTEXT ERROR", error);
     return errorResponse(
-      error?.message || "Unable to load payment state",
+      error?.message || "Unable to open POS context",
       error?.status || 500
     );
   }

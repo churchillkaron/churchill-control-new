@@ -18,7 +18,14 @@ function errorResponse(error, status = 500) {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const requestedOrganizationId = searchParams.get("organizationId");
+    const requestedOrganizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
+    const requestedEntityId =
+      searchParams.get("entityId") ||
+      searchParams.get("entity_id") ||
+      searchParams.get("legalEntityId") ||
+      searchParams.get("legal_entity_id");
     const requestedApplicationId =
       searchParams.get("applicationId") ||
       searchParams.get("application_id") ||
@@ -46,6 +53,7 @@ export async function GET(request) {
       runtimeAdapter.loadRuntime({
         access: resolved.access,
         application: resolved.application,
+        entityId: requestedEntityId,
         organization: resolved.organization,
         organizationId: resolved.organizationId,
         request,
@@ -81,6 +89,7 @@ export async function GET(request) {
       terminal: {
         type: "point_of_sale",
         application_id: resolved.application.id,
+        entity_id: applicationRuntime?.entity_id || requestedEntityId || null,
         currency_code: currencyCode,
       },
       settings: {

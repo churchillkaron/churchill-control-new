@@ -16,7 +16,9 @@ import {
 } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
 
 function graphVersion() {
-  return process.env.META_GRAPH_API_VERSION || "v23.0";
+  const configured = String(process.env.META_GRAPH_API_VERSION || "").trim();
+  if (!configured) throw new Error("META_GRAPH_API_VERSION is not configured");
+  return configured.startsWith("v") ? configured : `v${configured}`;
 }
 
 function clearOauthCookies(response) {
@@ -58,7 +60,9 @@ export async function GET(request) {
   const savedState = request.cookies.get("meta_oauth_state")?.value;
 
   try {
-    if (!organizationId) throw new Error("Organization context expired. Start the connection again.");
+    if (!organizationId) {
+      throw new Error("Organization context expired. Start the connection again.");
+    }
     if (!code || !state || state !== savedState) {
       throw new Error("Meta connection validation failed or expired");
     }
@@ -76,7 +80,9 @@ export async function GET(request) {
     tokenUrl.searchParams.set("code", code);
 
     const tokenData = await graphJson(tokenUrl);
-    if (!tokenData.access_token) throw new Error("Meta did not return an access token");
+    if (!tokenData.access_token) {
+      throw new Error("Meta did not return an access token");
+    }
 
     const pagesUrl = new URL(
       `https://graph.facebook.com/${graphVersion()}/me/accounts`
@@ -90,7 +96,9 @@ export async function GET(request) {
 
     const pagesData = await graphJson(pagesUrl);
     const pages = Array.isArray(pagesData?.data) ? pagesData.data : [];
-    if (!pages.length) throw new Error("No Facebook Pages were available for this account");
+    if (!pages.length) {
+      throw new Error("No Facebook Pages were available for this account");
+    }
 
     const primaryPage = pages[0];
     const credential = await CredentialRuntime.store({
@@ -163,11 +171,10 @@ export async function GET(request) {
     );
     return clearOauthCookies(response);
   } catch (error) {
-    const safeOrganizationId = organizationId || "unknown";
     const response = NextResponse.redirect(
       redirectToWorkspace(
         origin,
-        safeOrganizationId,
+        organizationId || "unknown",
         "error",
         error?.message || "Meta connection failed"
       )

@@ -1,9 +1,8 @@
-import process from "node:process";
-import nextEnv from "@next/env";
+import {
+  loadAvantiqoEnv,
+} from "./load-avantiqo-env.mjs";
 
-const { loadEnvConfig } = nextEnv;
-
-loadEnvConfig(process.cwd());
+loadAvantiqoEnv({ cwd: process.cwd() });
 
 await import(
   "@/lib/platform/service-runtime/execution/ServiceExecutionCostGuardRuntime"

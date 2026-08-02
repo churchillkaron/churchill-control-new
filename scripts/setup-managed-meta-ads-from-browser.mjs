@@ -228,17 +228,54 @@ function updateEnvFile(values) {
   chmodSync(ENV_PATH, 0o600);
 }
 
+async function tryValidatedToken(candidate, source) {
+  if (!tokenCandidate(candidate)) return null;
+
+  console.log(`CLIPBOARD_TOKEN_DETECTED=${source}`);
+
+  try {
+    const validation = await validateSystemUserToken(candidate);
+    return {
+      token: candidate,
+      validation,
+    };
+  } catch (error) {
+    console.log(
+      `CLIPBOARD_TOKEN_REJECTED=${error?.message || String(error)}`,
+    );
+    return null;
+  }
+}
+
 async function waitForValidatedClipboardToken(initialClipboard) {
+  const initialResult = await tryValidatedToken(
+    initialClipboard,
+    "ALREADY_PRESENT",
+  );
+  if (initialResult) return initialResult;
+
   const timeoutAt = Date.now() + 10 * 60 * 1000;
+  const startedAt = Date.now();
   let lastCandidate = initialClipboard;
   let lastError = null;
+  let lastHeartbeatSecond = -1;
 
   while (Date.now() < timeoutAt) {
+    const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+
+    if (
+      elapsedSeconds === 0 ||
+      (elapsedSeconds % 10 === 0 && elapsedSeconds !== lastHeartbeatSecond)
+    ) {
+      lastHeartbeatSecond = elapsedSeconds;
+      console.log(`WAITING_FOR_META_TOKEN_COPY=${elapsedSeconds}s`);
+    }
+
     const current = clipboardValue();
 
     if (current !== lastCandidate && tokenCandidate(current)) {
       lastCandidate = current;
-      console.log("CLIPBOARD_TOKEN_DETECTED=YES");
+      console.log("CLIPBOARD_TOKEN_DETECTED=NEW_COPY");
 
       try {
         const validation = await validateSystemUserToken(current);
@@ -290,7 +327,23 @@ async function runBootstrap(environment) {
   });
 }
 
+async function openMetaSystemUsers() {
+  try {
+    await execFileAsync("open", ["-a", "Safari", META_SYSTEM_USERS_URL]);
+    return "SAFARI";
+  } catch {
+    try {
+      await execFileAsync("open", [META_SYSTEM_USERS_URL]);
+      return "DEFAULT_BROWSER";
+    } catch {
+      return "FAILED";
+    }
+  }
+}
+
 async function main() {
+  console.log("SCRIPT_STARTED=YES");
+
   const organizationId = required("ORGANIZATION_ID");
   const initialClipboard = clipboardValue();
 
@@ -299,12 +352,9 @@ async function main() {
   console.log("CAMPAIGN_CREATED=NO");
   console.log("TOKEN_PRINTED=NO");
 
-  try {
-    await execFileAsync("open", [META_SYSTEM_USERS_URL]);
-    console.log("META_SYSTEM_USERS_OPENED=YES");
-  } catch {
-    console.log("META_SYSTEM_USERS_OPENED=NO");
-  }
+  const openedWith = await openMetaSystemUsers();
+  console.log(`META_SYSTEM_USERS_OPENED=${openedWith}`);
+  console.log(`META_SYSTEM_USERS_URL=${META_SYSTEM_USERS_URL}`);
 
   console.log("");
   console.log("In Meta, select the Avantiqo system user and click:");

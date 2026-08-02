@@ -71,7 +71,7 @@ await import(
   "@/lib/creative/director/runtime/CreativeTemporalSemanticPlanGateRuntime"
 );
 await import(
-  "@/lib/creative/director/runtime/CreativeTemporalSemanticReplanConvergenceRuntime"
+  "@/lib/creative/director/runtime/CreativeTemporalSemanticReplanConvergenceRuntimeV2"
 );
 await import(
   "@/lib/creative/post-production/runtime/CreativeTemporalBrandEndCardRuntime"

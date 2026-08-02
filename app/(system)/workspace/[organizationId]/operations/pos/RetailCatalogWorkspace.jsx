@@ -34,6 +34,10 @@ export default function RetailCatalogWorkspace() {
     businessContext.organization_id ||
     businessContext.organization?.id ||
     null;
+  const entityId =
+    businessContext.entity_id ||
+    businessContext.entity?.id ||
+    null;
 
   const [runtime, setRuntime] = useState(null);
   const [query, setQuery] = useState("");
@@ -46,8 +50,14 @@ export default function RetailCatalogWorkspace() {
     setLoading(true);
     setError(null);
     try {
+      const queryParams = new URLSearchParams({
+        organizationId,
+        applicationId: "retail",
+      });
+      if (entityId) queryParams.set("entityId", entityId);
+
       const response = await fetch(
-        `/api/pos/runtime?organizationId=${encodeURIComponent(organizationId)}&applicationId=retail`,
+        `/api/pos/runtime?${queryParams.toString()}`,
         { cache: "no-store", credentials: "include" }
       );
       const result = await response.json();
@@ -61,7 +71,7 @@ export default function RetailCatalogWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [organizationId]);
+  }, [entityId, organizationId]);
 
   useEffect(() => {
     loadRuntime();
@@ -116,6 +126,10 @@ export default function RetailCatalogWorkspace() {
     });
   }
 
+  const transactionState = runtime?.availability_ready
+    ? "Catalog ready · Checkout blocked"
+    : "Select entity · Stock blocked";
+
   return (
     <main className="min-h-screen bg-[#070707] px-5 py-6 text-white lg:px-8">
       <div className="mx-auto max-w-[1700px]">
@@ -127,7 +141,7 @@ export default function RetailCatalogWorkspace() {
               </p>
               <h1 className="mt-3 text-3xl font-semibold">Catalog and availability</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-                Browse canonical inventory items and live location-aware stock. Basket creation is local until the Commercial sales-order contract is activated.
+                Browse canonical inventory items and entity-scoped stock. Basket creation is local until the Commercial sales-order contract is activated.
               </p>
             </div>
             <button
@@ -149,11 +163,11 @@ export default function RetailCatalogWorkspace() {
             <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
               <div className="text-xs uppercase tracking-[0.16em] text-white/35">Available</div>
               <div className="mt-2 text-2xl">{runtime?.catalog?.available_item_count || 0}</div>
-              <div className="mt-1 text-xs text-white/35">Items currently sellable</div>
+              <div className="mt-1 text-xs text-white/35">Items available in selected entity</div>
             </div>
             <div className="rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-4">
               <div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Transaction state</div>
-              <div className="mt-2 text-lg">Catalog ready · Checkout blocked</div>
+              <div className="mt-2 text-lg">{transactionState}</div>
               <div className="mt-1 text-xs text-white/40">Sales-order and settlement contracts remain required</div>
             </div>
           </div>
@@ -161,6 +175,13 @@ export default function RetailCatalogWorkspace() {
           {error ? (
             <div className="mt-5 flex gap-3 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
               <AlertCircle size={17} className="shrink-0" /> {error}
+            </div>
+          ) : null}
+
+          {!loading && runtime?.readiness?.state === "blocked" ? (
+            <div className="mt-5 flex gap-3 rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/10 p-4 text-sm text-[#F3D7A2]">
+              <AlertCircle size={17} className="shrink-0" />
+              {runtime.readiness.reason}
             </div>
           ) : null}
         </header>
@@ -262,7 +283,7 @@ export default function RetailCatalogWorkspace() {
                 ))
               ) : (
                 <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-white/30">
-                  Add catalog items to prepare a sale.
+                  Add available catalog items to prepare a sale.
                 </div>
               )}
             </div>

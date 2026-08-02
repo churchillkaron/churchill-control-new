@@ -31,6 +31,52 @@ const ICONS = Object.freeze({
   Users,
 });
 
+const RETAIL_BINDINGS = Object.freeze([
+  Object.freeze({ owner: "Commercial", label: "Catalog items, variants, barcodes and prices" }),
+  Object.freeze({ owner: "Supply Chain", label: "Location-aware inventory availability" }),
+  Object.freeze({ owner: "Commercial", label: "Canonical sales orders and lines" }),
+  Object.freeze({ owner: "Finance", label: "Tender settlement, refunds and posting handoff" }),
+]);
+
+function RetailReadiness({ posConfiguration, posMode }) {
+  return (
+    <section className="mx-auto max-w-[1100px] px-6 py-16">
+      <div className="rounded-[32px] border border-[#D6A66A]/20 bg-white/[0.03] p-8">
+        <p className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">
+          Retail Operations
+        </p>
+        <h1 className="mt-4 text-3xl font-semibold">
+          {posConfiguration?.presentation?.readinessTitle ||
+            "Retail transaction bindings required"}
+        </h1>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-white/50">
+          {posConfiguration?.presentation?.readinessDescription ||
+            "Complete the canonical retail bindings before transaction execution is enabled."}
+        </p>
+
+        <div className="mt-7 grid gap-3 md:grid-cols-2">
+          {RETAIL_BINDINGS.map((binding) => (
+            <div
+              key={`${binding.owner}:${binding.label}`}
+              className="rounded-2xl border border-white/10 bg-black/25 p-4"
+            >
+              <div className="text-xs uppercase tracking-[0.18em] text-[#D6A66A]">
+                {binding.owner}
+              </div>
+              <div className="mt-2 text-sm text-white/70">{binding.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4 text-xs text-white/40">
+          Application: {posConfiguration?.applicationId || "retail"} · Capability:{" "}
+          {posMode?.capability || posConfiguration?.capability || "point-of-sale"} · State: configuration required
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const COMPONENTS = Object.freeze({
   "restaurant-order-capture": StationaryPOSUI,
   "restaurant-checkout": PaymentWorkspace,
@@ -38,6 +84,8 @@ const COMPONENTS = Object.freeze({
   "restaurant-receipts": ReceiptsPage,
   "restaurant-cash-control": ShiftPage,
   "restaurant-service": POSFinalUI,
+  "retail-readiness": RetailReadiness,
+  "retail-cash-control": ShiftPage,
 });
 
 function POSApplicationRequired({ posConfiguration, posMode }) {
@@ -104,6 +152,7 @@ export default function POSWorkspace() {
     if (nextMode !== "checkout") {
       next.delete("service_context");
       next.delete("table");
+      next.delete("sale");
     }
 
     if (nextMode !== "receipts") {

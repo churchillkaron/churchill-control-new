@@ -15,6 +15,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeDirectionCostApprovalRuntime"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeDirectionCompletedBudgetRecoveryRuntime"
+);
+await import(
   "@/lib/creative/assets/runtime/CreativeLongFormAssetSelectionSanitizerRuntime"
 );
 await import(
@@ -61,7 +64,4 @@ await import(
 );
 await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
-);
-await import(
-  "@/lib/creative/director/runtime/CreativeDirectionCompletedBudgetRecoveryRuntime"
 );

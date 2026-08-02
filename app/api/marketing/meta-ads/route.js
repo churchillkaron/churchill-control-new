@@ -12,27 +12,38 @@ import {
   MetaAdsRuntime,
 } from "@/lib/marketing/services/MetaAdsRuntime";
 
-async function resolveOrganizationId(value) {
+async function resolveOrganizationAccess({
+  value,
+  request,
+  requiredPermission = null,
+}) {
   const access = await requireOrganizationAccess({
     organizationId: value,
+    request,
+    requiredPermission,
   });
 
   if (!access.success) {
-    throw new Error(access.error || "Organization access denied");
+    const error = new Error(access.error || "Organization access denied");
+    error.status = access.status || 403;
+    throw error;
   }
 
-  return access.organizationId;
+  return access;
 }
 
 export const GET = withApiHandler(
   "marketing-meta-ads-readiness",
   async (request) => {
     const url = new URL(request.url);
-    const organizationId = await resolveOrganizationId(
-      url.searchParams.get("organizationId")
-    );
+    const access = await resolveOrganizationAccess({
+      value: url.searchParams.get("organizationId"),
+      request,
+    });
 
-    return MetaAdsRuntime.readiness({ organizationId });
+    return MetaAdsRuntime.readiness({
+      organizationId: access.organizationId,
+    });
   }
 );
 
@@ -40,10 +51,14 @@ export const POST = withApiHandler(
   "marketing-meta-ads-create",
   async (request) => {
     const body = await request.json();
-    const organizationId = await resolveOrganizationId(body.organizationId);
+    const access = await resolveOrganizationAccess({
+      value: body.organizationId,
+      request,
+      requiredPermission: "marketing.ads.manage",
+    });
 
     return MetaAdsRuntime.createCampaign({
-      organizationId,
+      organizationId: access.organizationId,
       entityId: body.entityId || null,
       authorizedBudget: body.authorizedBudget,
       currency: body.currency,
@@ -53,26 +68,6 @@ export const POST = withApiHandler(
       ad: body.ad,
       deliveryChannels: body.deliveryChannels || [],
       destination: body.destination || "ENGAGEMENT",
-    });
-  }
-);
-
-export const PATCH = withApiHandler(
-  "marketing-meta-ads-settlement",
-  async (request) => {
-    const body = await request.json();
-    const organizationId = await resolveOrganizationId(body.organizationId);
-
-    if (body.action !== "settle_spend") {
-      throw new Error("Unsupported managed media action");
-    }
-
-    return MetaAdsRuntime.settleSpend({
-      organizationId,
-      campaignId: body.campaignId,
-      cumulativeProviderSpend: body.cumulativeProviderSpend,
-      settlementKey: body.settlementKey,
-      complete: body.complete === true,
     });
   }
 );

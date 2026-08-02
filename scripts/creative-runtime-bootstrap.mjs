@@ -68,3 +68,6 @@ await import(
 await import(
   "@/lib/creative/production-graph/runtime/CreativeProductionPlanRecordConvergenceRuntime"
 );
+await import(
+  "@/lib/creative/production-graph/runtime/CreativeProductionGraphReadinessRuntime"
+);

@@ -1,73 +1,81 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import { AlertCircle, PackageSearch, RefreshCw, Search, ShoppingBasket } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import {
+  AlertCircle,
+  CheckCircle2,
+  PackageSearch,
+  RefreshCw,
+  Search,
+  ShoppingBasket,
+} from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 function money(value, currency) {
   const amount = Number(value || 0);
   try {
-    return new Intl.NumberFormat(undefined, currency
-      ? { style: "currency", currency, maximumFractionDigits: 2 }
-      : { maximumFractionDigits: 2 }).format(amount);
+    return new Intl.NumberFormat(
+      undefined,
+      currency
+        ? { style: "currency", currency, maximumFractionDigits: 2 }
+        : { maximumFractionDigits: 2 }
+    ).format(amount);
   } catch {
     return amount.toFixed(2);
   }
 }
 
 function availabilityLabel(item) {
-  const status = item?.availability?.status;
   const onHand = item?.availability?.on_hand;
-  if (status === "unknown" || onHand === null || onHand === undefined) {
-    return "Stock unknown";
-  }
-  if (status === "out_of_stock") return "Out of stock";
-  return `${Number(onHand || 0)} available`;
+  if (onHand === null || onHand === undefined) return "Stock unknown";
+  if (Number(onHand) <= 0) return "Out of stock";
+  return `${Number(onHand)} available`;
 }
 
 export default function RetailCatalogWorkspace() {
   const params = useParams();
+  const router = useRouter();
   const businessContext = useBusinessContext() || {};
   const organizationId =
     params?.organizationId ||
     businessContext.organization_id ||
     businessContext.organization?.id ||
     null;
-  const entityId =
-    businessContext.entity_id ||
-    businessContext.entity?.id ||
-    null;
+  const entityId = businessContext.entity_id || businessContext.entity?.id || null;
 
   const [runtime, setRuntime] = useState(null);
   const [query, setQuery] = useState("");
   const [basket, setBasket] = useState({});
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
+  const [createdOrder, setCreatedOrder] = useState(null);
+  const idempotencyKeyRef = useRef(null);
 
   const loadRuntime = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true);
     setError(null);
     try {
-      const queryParams = new URLSearchParams({
+      const search = new URLSearchParams({
         organizationId,
         applicationId: "retail",
       });
-      if (entityId) queryParams.set("entityId", entityId);
+      if (entityId) search.set("entityId", entityId);
 
-      const response = await fetch(
-        `/api/pos/runtime?${queryParams.toString()}`,
-        { cache: "no-store", credentials: "include" }
-      );
+      const response = await fetch(`/api/pos/runtime?${search.toString()}`, {
+        cache: "no-store",
+        credentials: "include",
+      });
       const result = await response.json();
       if (!response.ok || result.success === false) {
         throw new Error(result.error || "Unable to load retail catalog");
       }
       setRuntime(result);
     } catch (loadError) {
-      setError(loadError.message);
       setRuntime(null);
+      setError(loadError.message);
     } finally {
       setLoading(false);
     }
@@ -81,6 +89,7 @@ export default function RetailCatalogWorkspace() {
   const currency =
     runtime?.organization?.currency_code ||
     runtime?.terminal?.currency_code ||
+    businessContext.entity?.currency ||
     null;
   const visibleItems = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -98,25 +107,38 @@ export default function RetailCatalogWorkspace() {
     0
   );
   const basketTotal = basketLines.reduce(
-    (sum, line) => sum + Number(line.item.price || 0) * Number(line.quantity || 0),
+    (sum, line) =>
+      sum + Number(line.item.price || 0) * Number(line.quantity || 0),
     0
   );
+  const canCreate = Boolean(
+    organizationId &&
+      entityId &&
+      runtime?.catalog_ready &&
+      runtime?.availability_ready &&
+      basketLines.length &&
+      !creating
+  );
+
+  function invalidateDraftIdentity() {
+    idempotencyKeyRef.current = null;
+    setCreatedOrder(null);
+  }
 
   function addItem(item) {
     if (!item.available) return;
-    setBasket((current) => {
-      const existing = current[item.id];
-      return {
-        ...current,
-        [item.id]: {
-          item,
-          quantity: Number(existing?.quantity || 0) + 1,
-        },
-      };
-    });
+    invalidateDraftIdentity();
+    setBasket((current) => ({
+      ...current,
+      [item.id]: {
+        item,
+        quantity: Number(current[item.id]?.quantity || 0) + 1,
+      },
+    }));
   }
 
   function setQuantity(itemId, quantity) {
+    invalidateDraftIdentity();
     setBasket((current) => {
       const next = { ...current };
       if (!next[itemId]) return current;
@@ -126,9 +148,52 @@ export default function RetailCatalogWorkspace() {
     });
   }
 
-  const transactionState = runtime?.availability_ready
-    ? "Catalog ready · Checkout blocked"
-    : "Select entity · Stock blocked";
+  async function createDraftSale() {
+    if (!canCreate) return;
+    setCreating(true);
+    setError(null);
+    setCreatedOrder(null);
+
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = `retail-pos:${organizationId}:${entityId}:${crypto.randomUUID()}`;
+    }
+
+    try {
+      const response = await fetch("/api/pos/create", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKeyRef.current,
+        },
+        body: JSON.stringify({
+          organizationId,
+          entityId,
+          applicationId: "retail",
+          channel: "POS",
+          sourceType: "point_of_sale",
+          idempotencyKey: idempotencyKeyRef.current,
+          items: basketLines.map(({ item, quantity }) => ({
+            item_id: item.id,
+            quantity,
+          })),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || "Unable to create draft sale");
+      }
+
+      setCreatedOrder(result);
+      setBasket({});
+      idempotencyKeyRef.current = null;
+      await loadRuntime();
+    } catch (createError) {
+      setError(createError.message);
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#070707] px-5 py-6 text-white lg:px-8">
@@ -141,7 +206,8 @@ export default function RetailCatalogWorkspace() {
               </p>
               <h1 className="mt-3 text-3xl font-semibold">Catalog and availability</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-                Browse canonical inventory items and entity-scoped stock. Basket creation is local until the Commercial sales-order contract is activated.
+                Build an entity-scoped basket and create a canonical Commercial
+                sales-order draft. Draft creation does not reserve stock or capture payment.
               </p>
             </div>
             <button
@@ -150,7 +216,8 @@ export default function RetailCatalogWorkspace() {
               disabled={loading}
               className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm text-white/60"
             >
-              <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
+              <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+              Refresh
             </button>
           </div>
 
@@ -163,12 +230,12 @@ export default function RetailCatalogWorkspace() {
             <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
               <div className="text-xs uppercase tracking-[0.16em] text-white/35">Available</div>
               <div className="mt-2 text-2xl">{runtime?.catalog?.available_item_count || 0}</div>
-              <div className="mt-1 text-xs text-white/35">Items available in selected entity</div>
+              <div className="mt-1 text-xs text-white/35">Items in selected entity</div>
             </div>
             <div className="rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-4">
               <div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Transaction state</div>
-              <div className="mt-2 text-lg">{transactionState}</div>
-              <div className="mt-1 text-xs text-white/40">Sales-order and settlement contracts remain required</div>
+              <div className="mt-2 text-lg">Draft ordering active</div>
+              <div className="mt-1 text-xs text-white/40">Settlement and confirmation remain controlled</div>
             </div>
           </div>
 
@@ -177,11 +244,19 @@ export default function RetailCatalogWorkspace() {
               <AlertCircle size={17} className="shrink-0" /> {error}
             </div>
           ) : null}
-
-          {!loading && runtime?.readiness?.state === "blocked" ? (
-            <div className="mt-5 flex gap-3 rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/10 p-4 text-sm text-[#F3D7A2]">
-              <AlertCircle size={17} className="shrink-0" />
-              {runtime.readiness.reason}
+          {createdOrder ? (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 size={18} />
+                Draft sales order {String(createdOrder.sales_order_id).slice(0, 8)} created.
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(`/workspace/${organizationId}/operations/pos?view=orders`)}
+                className="rounded-xl border border-emerald-300/20 px-4 py-2 text-xs"
+              >
+                Open orders
+              </button>
             </div>
           ) : null}
         </header>
@@ -221,28 +296,24 @@ export default function RetailCatalogWorkspace() {
                       </div>
                       <PackageSearch size={18} className="text-white/25" />
                     </div>
-
                     <p className="mt-3 line-clamp-2 text-xs leading-5 text-white/40">
                       {item.description || "No product description"}
                     </p>
-
-                    <div className="mt-auto pt-5">
-                      <div className="flex items-end justify-between gap-3">
-                        <div>
-                          <div className="text-xl font-semibold">{money(item.price, currency)}</div>
-                          <div className={item.available ? "mt-1 text-xs text-emerald-300/70" : "mt-1 text-xs text-red-300/70"}>
-                            {availabilityLabel(item)}
-                          </div>
+                    <div className="mt-auto flex items-end justify-between gap-3 pt-5">
+                      <div>
+                        <div className="text-xl font-semibold">{money(item.price, currency)}</div>
+                        <div className={item.available ? "mt-1 text-xs text-emerald-300/70" : "mt-1 text-xs text-red-300/70"}>
+                          {availabilityLabel(item)}
                         </div>
-                        <button
-                          type="button"
-                          disabled={!item.available}
-                          onClick={() => addItem(item)}
-                          className="rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-30"
-                        >
-                          Add
-                        </button>
                       </div>
+                      <button
+                        type="button"
+                        disabled={!item.available}
+                        onClick={() => addItem(item)}
+                        className="rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        Add
+                      </button>
                     </div>
                   </article>
                 ))}
@@ -264,24 +335,22 @@ export default function RetailCatalogWorkspace() {
             </div>
 
             <div className="mt-5 space-y-3">
-              {basketLines.length ? (
-                basketLines.map(({ item, quantity }) => (
-                  <div key={item.id} className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <div className="flex justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-medium">{item.name}</div>
-                        <div className="mt-1 text-xs text-white/35">{money(item.price, currency)} each</div>
-                      </div>
-                      <div className="text-sm">{money(item.price * quantity, currency)}</div>
+              {basketLines.length ? basketLines.map(({ item, quantity }) => (
+                <div key={item.id} className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                  <div className="flex justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium">{item.name}</div>
+                      <div className="mt-1 text-xs text-white/35">{money(item.price, currency)} each</div>
                     </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <button type="button" onClick={() => setQuantity(item.id, quantity - 1)} className="h-8 w-8 rounded-lg border border-white/10">−</button>
-                      <div className="min-w-8 text-center text-sm">{quantity}</div>
-                      <button type="button" onClick={() => setQuantity(item.id, quantity + 1)} className="h-8 w-8 rounded-lg border border-white/10">+</button>
-                    </div>
+                    <div className="text-sm">{money(item.price * quantity, currency)}</div>
                   </div>
-                ))
-              ) : (
+                  <div className="mt-3 flex items-center gap-2">
+                    <button type="button" onClick={() => setQuantity(item.id, quantity - 1)} className="h-8 w-8 rounded-lg border border-white/10">−</button>
+                    <div className="min-w-8 text-center text-sm">{quantity}</div>
+                    <button type="button" onClick={() => setQuantity(item.id, quantity + 1)} className="h-8 w-8 rounded-lg border border-white/10">+</button>
+                  </div>
+                </div>
+              )) : (
                 <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-white/30">
                   Add available catalog items to prepare a sale.
                 </div>
@@ -289,19 +358,21 @@ export default function RetailCatalogWorkspace() {
             </div>
 
             <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
-              <span className="text-sm text-white/45">Total</span>
+              <span className="text-sm text-white/45">Estimated total</span>
               <span className="text-xl font-semibold">{money(basketTotal, currency)}</span>
             </div>
 
             <button
               type="button"
-              disabled
-              className="mt-4 w-full rounded-2xl bg-[#D6A66A] px-4 py-3 text-sm font-semibold text-black opacity-35"
+              disabled={!canCreate}
+              onClick={createDraftSale}
+              className="mt-4 w-full rounded-2xl bg-[#D6A66A] px-4 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-35"
             >
-              Create sale unavailable
+              {creating ? "Creating draft..." : "Create draft sale"}
             </button>
             <p className="mt-3 text-xs leading-5 text-white/35">
-              The basket is not persisted or charged. Commercial sales-order creation and Finance settlement must be implemented before checkout can be activated.
+              Prices and tax are validated again on the server. The draft does not
+              reserve stock, capture payment or post accounting entries.
             </p>
           </aside>
         </div>

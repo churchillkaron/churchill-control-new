@@ -17,6 +17,7 @@ import {
 } from "@/lib/operations/commerce/POSWorkspaceConfiguration";
 import StationaryPOSUI from "./StationaryPOS_UI";
 import RetailCatalogWorkspace from "./RetailCatalogWorkspace";
+import RetailOrdersWorkspace from "./RetailOrdersWorkspace";
 import PaymentWorkspace from "./PaymentWorkspace";
 import POSFinalUI from "./waiter/POS_FINAL_UI";
 import POSOrdersPage from "./orders/page";
@@ -34,7 +35,7 @@ const ICONS = Object.freeze({
 
 const RETAIL_BINDINGS = Object.freeze([
   Object.freeze({ owner: "Supply Chain", label: "Catalog items and stock availability", state: "Active" }),
-  Object.freeze({ owner: "Commercial", label: "Canonical sales orders and lines", state: "Blocked" }),
+  Object.freeze({ owner: "Commercial", label: "Canonical draft sales orders and lines", state: "Active" }),
   Object.freeze({ owner: "Finance", label: "Tender settlement, refunds and posting handoff", state: "Blocked" }),
 ]);
 
@@ -47,11 +48,11 @@ function RetailReadiness({ posConfiguration, posMode }) {
         </p>
         <h1 className="mt-4 text-3xl font-semibold">
           {posConfiguration?.presentation?.readinessTitle ||
-            "Retail transaction bindings required"}
+            "Retail settlement binding required"}
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-white/50">
           {posConfiguration?.presentation?.readinessDescription ||
-            "Complete the canonical retail bindings before transaction execution is enabled."}
+            "Finance settlement must be connected before transactions can be completed."}
         </p>
 
         <div className="mt-7 grid gap-3 md:grid-cols-3">
@@ -75,7 +76,7 @@ function RetailReadiness({ posConfiguration, posMode }) {
 
         <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4 text-xs text-white/40">
           Application: {posConfiguration?.applicationId || "retail"} · Capability:{" "}
-          {posMode?.capability || posConfiguration?.capability || "point-of-sale"} · State: partial readiness
+          {posMode?.capability || posConfiguration?.capability || "point-of-sale"} · State: draft ordering active
         </div>
       </div>
     </section>
@@ -90,6 +91,7 @@ const COMPONENTS = Object.freeze({
   "restaurant-cash-control": ShiftPage,
   "restaurant-service": POSFinalUI,
   "retail-catalog": RetailCatalogWorkspace,
+  "retail-orders": RetailOrdersWorkspace,
   "retail-readiness": RetailReadiness,
   "retail-cash-control": ShiftPage,
 });

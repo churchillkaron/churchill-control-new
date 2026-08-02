@@ -10,6 +10,11 @@ import {
   Smartphone,
   Users,
 } from "lucide-react";
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import {
+  buildPOSWorkspaceConfiguration,
+  resolvePOSMode,
+} from "@/lib/operations/commerce/POSWorkspaceConfiguration";
 import StationaryPOSUI from "./StationaryPOS_UI";
 import PaymentWorkspace from "./PaymentWorkspace";
 import POSFinalUI from "./waiter/POS_FINAL_UI";
@@ -17,50 +22,63 @@ import POSOrdersPage from "./orders/page";
 import ReceiptsPage from "./receipts/page";
 import ShiftPage from "./shifts/page";
 
-const MODES = Object.freeze([
-  { id: "sell", label: "Sell", icon: Monitor },
-  { id: "waiter", label: "Waiter", icon: Smartphone },
-  { id: "checkout", label: "Checkout", icon: Banknote },
-  { id: "orders", label: "Orders", icon: ClipboardList },
-  { id: "receipts", label: "Receipts", icon: ReceiptText },
-  { id: "shift", label: "Shift & Cash", icon: Users },
-]);
-
-const MODE_ALIASES = Object.freeze({
-  payment: "checkout",
-  payments: "checkout",
-  stationary: "sell",
-  pos: "sell",
-  shifts: "shift",
+const ICONS = Object.freeze({
+  Banknote,
+  ClipboardList,
+  Monitor,
+  ReceiptText,
+  Smartphone,
+  Users,
 });
 
-function resolveMode(value) {
-  const normalized = String(value || "sell").trim().toLowerCase();
-  const resolved = MODE_ALIASES[normalized] || normalized;
-  return MODES.some((mode) => mode.id === resolved) ? resolved : "sell";
-}
+const COMPONENTS = Object.freeze({
+  "order-capture": StationaryPOSUI,
+  checkout: PaymentWorkspace,
+  orders: POSOrdersPage,
+  receipts: ReceiptsPage,
+  "cash-control": ShiftPage,
+  "restaurant-service": POSFinalUI,
+});
 
 export default function POSWorkspace() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const organizationId = params?.organizationId || "";
-  const mode = resolveMode(searchParams.get("view"));
+  const businessContext = useBusinessContext() || {};
+  const organization = businessContext.organization || null;
+  const organizationId =
+    params?.organizationId ||
+    businessContext.organization_id ||
+    organization?.id ||
+    "";
 
-  const activeComponent = useMemo(() => {
-    if (mode === "waiter") return <POSFinalUI />;
-    if (mode === "checkout") return <PaymentWorkspace />;
-    if (mode === "orders") return <POSOrdersPage />;
-    if (mode === "receipts") return <ReceiptsPage />;
-    if (mode === "shift") return <ShiftPage />;
-    return <StationaryPOSUI />;
-  }, [mode]);
+  const configuration = useMemo(
+    () =>
+      buildPOSWorkspaceConfiguration({
+        organization,
+        applicationId:
+          businessContext.operations_application ||
+          businessContext.industry_application ||
+          null,
+      }),
+    [
+      businessContext.industry_application,
+      businessContext.operations_application,
+      organization,
+    ]
+  );
+  const mode = resolvePOSMode(configuration, searchParams.get("view"));
+  const activeMode =
+    configuration.modes.find((item) => item.id === mode) ||
+    configuration.modes[0];
+  const ActiveComponent = COMPONENTS[activeMode?.component] || StationaryPOSUI;
 
   function changeMode(nextMode) {
     const next = new URLSearchParams(searchParams.toString());
     next.set("view", nextMode);
 
     if (nextMode !== "checkout") {
+      next.delete("service_context");
       next.delete("table");
     }
 
@@ -83,12 +101,12 @@ export default function POSWorkspace() {
               Avantiqo POS
             </div>
             <div className="mt-0.5 text-sm font-semibold text-white">
-              Sell · Settle · Control
+              Order · Settle · Control
             </div>
           </div>
 
-          {MODES.map((item) => {
-            const Icon = item.icon;
+          {configuration.modes.map((item) => {
+            const Icon = ICONS[item.icon] || Monitor;
             const active = item.id === mode;
 
             return (
@@ -96,6 +114,7 @@ export default function POSWorkspace() {
                 key={item.id}
                 type="button"
                 onClick={() => changeMode(item.id)}
+                data-capability={item.capability}
                 className={
                   active
                     ? "flex shrink-0 items-center gap-2 rounded-xl bg-[#D6A66A] px-4 py-2.5 text-xs font-semibold text-black"
@@ -110,7 +129,10 @@ export default function POSWorkspace() {
         </div>
       </div>
 
-      {activeComponent}
+      <ActiveComponent
+        posConfiguration={configuration}
+        posMode={activeMode}
+      />
     </main>
   );
 }

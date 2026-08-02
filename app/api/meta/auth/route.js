@@ -2,82 +2,76 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-const BASE_URL =
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
-  "https://app.churchillkaron.com";
+function graphVersion() {
+  return process.env.META_GRAPH_API_VERSION || "v23.0";
+}
 
-export async function GET() {
-
+export async function GET(request) {
   try {
+    const requestUrl = new URL(request.url);
+    const organizationId = requestUrl.searchParams.get("organizationId");
+    const access = await requireOrganizationAccess({ organizationId });
 
-    if (process.env.NODE_ENV !== "production") console.log("META AUTH START");
+    if (!access.success) {
+      throw new Error(access.error || "Organization access denied");
+    }
+
+    if (!process.env.META_APP_ID) {
+      throw new Error("META_APP_ID is not configured");
+    }
 
     const state = crypto.randomUUID();
-
+    const origin = requestUrl.origin;
+    const callbackUrl = `${origin}/api/meta/auth/callback`;
     const authUrl = new URL(
-      "https://www.facebook.com/v23.0/dialog/oauth"
+      `https://www.facebook.com/${graphVersion()}/dialog/oauth`
     );
 
+    authUrl.searchParams.set("client_id", process.env.META_APP_ID);
+    authUrl.searchParams.set("redirect_uri", callbackUrl);
+    authUrl.searchParams.set("state", state);
+    authUrl.searchParams.set("response_type", "code");
     authUrl.searchParams.set(
-      "client_id",
-      process.env.META_APP_ID
+      "scope",
+      [
+        "pages_show_list",
+        "pages_read_engagement",
+        "business_management",
+        "instagram_basic",
+        "instagram_content_publish",
+      ].join(",")
     );
 
-    authUrl.searchParams.set(
-      "redirect_uri",
-      `${BASE_URL}/api/meta/auth/callback`
-    );
+    const response = NextResponse.redirect(authUrl.toString());
+    const secure = requestUrl.protocol === "https:";
+    const cookieOptions = {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 600,
+    };
 
-    authUrl.searchParams.set(
-      "state",
-      state
-    );
-
-    authUrl.searchParams.set(
-      "response_type",
-      "code"
-    );
-
-authUrl.searchParams.set(
-  "scope",
-  [
-    "pages_show_list",
-    "pages_read_engagement",
-    "business_management",
-    "instagram_basic",
-    "instagram_content_publish"
-  ].join(",")
-);
-
-    const response =
-      NextResponse.redirect(
-        authUrl.toString()
-      );
-
+    response.cookies.set("meta_oauth_state", state, cookieOptions);
     response.cookies.set(
-      "fb_oauth_state",
-      state,
-      {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        path: "/",
-      }
+      "meta_oauth_organization_id",
+      access.organizationId,
+      cookieOptions
     );
+    response.cookies.set("meta_oauth_origin", origin, cookieOptions);
 
     return response;
-
-  } catch (err) {
-
+  } catch (error) {
     return NextResponse.json(
       {
-        error:
-          err.message ||
-          "Meta auth failed",
+        success: false,
+        error: error?.message || "Meta auth failed",
       },
       { status: 500 }
     );
-
   }
-
 }

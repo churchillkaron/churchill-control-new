@@ -32,13 +32,37 @@ const ICONS = Object.freeze({
 });
 
 const COMPONENTS = Object.freeze({
-  "order-capture": StationaryPOSUI,
-  checkout: PaymentWorkspace,
-  orders: POSOrdersPage,
-  receipts: ReceiptsPage,
-  "cash-control": ShiftPage,
+  "restaurant-order-capture": StationaryPOSUI,
+  "restaurant-checkout": PaymentWorkspace,
+  "restaurant-orders": POSOrdersPage,
+  "restaurant-receipts": ReceiptsPage,
+  "restaurant-cash-control": ShiftPage,
   "restaurant-service": POSFinalUI,
 });
+
+function POSApplicationRequired({ posConfiguration, posMode }) {
+  return (
+    <section className="mx-auto max-w-[1100px] px-6 py-16">
+      <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-8">
+        <p className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">
+          Point of Sale
+        </p>
+        <h1 className="mt-4 text-3xl font-semibold">
+          Configure an industry application
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-white/50">
+          The universal POS capability is active, but this organization has no
+          transaction application configured for {posMode?.label || "this view"}.
+          Connect an application profile that maps catalog, order context,
+          fulfillment and settlement behavior for this business.
+        </p>
+        <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4 text-xs text-white/40">
+          Capability: {posMode?.capability || posConfiguration?.capability || "point-of-sale"}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function POSWorkspace() {
   const params = useParams();
@@ -71,7 +95,7 @@ export default function POSWorkspace() {
   const activeMode =
     configuration.modes.find((item) => item.id === mode) ||
     configuration.modes[0];
-  const ActiveComponent = COMPONENTS[activeMode?.component] || StationaryPOSUI;
+  const ActiveComponent = COMPONENTS[activeMode?.component] || POSApplicationRequired;
 
   function changeMode(nextMode) {
     const next = new URLSearchParams(searchParams.toString());

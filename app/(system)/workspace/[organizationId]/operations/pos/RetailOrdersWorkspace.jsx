@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { RefreshCw, Search } from "lucide-react";
+import { RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 function money(value, currency) {
@@ -17,6 +17,13 @@ function money(value, currency) {
   } catch {
     return amount.toFixed(2);
   }
+}
+
+function statusClass(status) {
+  const value = String(status || "").toUpperCase();
+  if (value === "CONFIRMED") return "text-emerald-300";
+  if (["CANCELLED", "CLOSED"].includes(value)) return "text-red-300";
+  return "text-[#D6A66A]";
 }
 
 export default function RetailOrdersWorkspace() {
@@ -38,7 +45,9 @@ export default function RetailOrdersWorkspace() {
   const [selectedId, setSelectedId] = useState(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
 
   const loadOrders = useCallback(async () => {
     if (!organizationId || !entityId) {
@@ -101,6 +110,47 @@ export default function RetailOrdersWorkspace() {
 
   const selected = orders.find((order) => order.id === selectedId) || null;
   const lines = selected?.items || selected?.order_items || [];
+  const isDraft = String(selected?.status || "").toUpperCase() === "DRAFT";
+
+  async function confirmSelected() {
+    if (!selected || !organizationId || !entityId || actionLoading) return;
+
+    setActionLoading(true);
+    setError(null);
+    setNotice(null);
+    const idempotencyKey = `sales-order-confirm:${selected.id}`;
+
+    try {
+      const response = await fetch("/api/commercial/sales/orders", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify({
+          action: "CONFIRM",
+          organizationId,
+          entityId,
+          salesOrderId: selected.id,
+          idempotencyKey,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || "Unable to confirm sales order");
+      }
+
+      setNotice(
+        `${result.order_number || "Sales order"} confirmed and inventory reserved.`
+      );
+      await loadOrders();
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-white">
@@ -111,10 +161,11 @@ export default function RetailOrdersWorkspace() {
               <p className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">
                 Commercial Sales Orders
               </p>
-              <h1 className="mt-3 text-4xl font-semibold">Retail draft orders</h1>
+              <h1 className="mt-3 text-4xl font-semibold">Retail sales orders</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-                Canonical entity-scoped sales orders created through POS. Confirmation,
-                stock reservation and payment remain separate controlled transitions.
+                Draft orders can be confirmed only when entity-scoped inventory is
+                available. Confirmation assigns the configured order number and
+                creates active stock reservations before settlement.
               </p>
             </div>
             <button
@@ -132,6 +183,11 @@ export default function RetailOrdersWorkspace() {
               {error}
             </div>
           ) : null}
+          {notice ? (
+            <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+              {notice}
+            </div>
+          ) : null}
         </header>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
@@ -141,7 +197,7 @@ export default function RetailOrdersWorkspace() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search draft, status or customer"
+                placeholder="Search order, status or customer"
                 className="ml-3 w-full bg-transparent text-sm text-white outline-none"
               />
             </div>
@@ -156,7 +212,10 @@ export default function RetailOrdersWorkspace() {
                   <button
                     key={order.id}
                     type="button"
-                    onClick={() => setSelectedId(order.id)}
+                    onClick={() => {
+                      setSelectedId(order.id);
+                      setNotice(null);
+                    }}
                     className={`w-full rounded-2xl border p-4 text-left ${
                       selectedId === order.id
                         ? "border-[#D6A66A]/45 bg-[#D6A66A]/10"
@@ -172,7 +231,9 @@ export default function RetailOrdersWorkspace() {
                           {new Date(order.created_at).toLocaleString()}
                         </div>
                       </div>
-                      <div className="text-xs text-[#D6A66A]">{order.status}</div>
+                      <div className={`text-xs ${statusClass(order.status)}`}>
+                        {order.status}
+                      </div>
                     </div>
                     <div className="mt-4 flex justify-between text-sm text-white/50">
                       <span>{(order.items || []).length} line(s)</span>
@@ -202,8 +263,9 @@ export default function RetailOrdersWorkspace() {
                     <p className="mt-1 text-xs text-white/35">{selected.id}</p>
                   </div>
                   <div className="text-right text-xs">
-                    <div className="text-[#D6A66A]">{selected.status}</div>
+                    <div className={statusClass(selected.status)}>{selected.status}</div>
                     <div className="mt-1 text-white/35">{selected.payment_status}</div>
+                    <div className="mt-1 text-white/35">{selected.fulfillment_status}</div>
                   </div>
                 </div>
 
@@ -246,10 +308,29 @@ export default function RetailOrdersWorkspace() {
                   </div>
                 </div>
 
-                <div className="mt-6 rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-4 text-xs leading-5 text-white/45">
-                  This is an unconfirmed Commercial draft. No stock has been reserved,
-                  no payment has been captured and no accounting entry has been posted.
-                </div>
+                {isDraft ? (
+                  <button
+                    type="button"
+                    onClick={confirmSelected}
+                    disabled={actionLoading}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#D6A66A] px-4 py-4 text-sm font-semibold text-black disabled:opacity-35"
+                  >
+                    <ShieldCheck size={17} />
+                    {actionLoading ? "Confirming..." : "Confirm and reserve stock"}
+                  </button>
+                ) : (
+                  <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 text-xs leading-5 text-emerald-100/70">
+                    Inventory is reserved for this confirmed sales order. Payment
+                    remains unavailable until the Finance settlement contract is active.
+                  </div>
+                )}
+
+                {isDraft ? (
+                  <p className="mt-3 text-xs leading-5 text-white/35">
+                    Confirmation fails safely when stock is insufficient or no active
+                    SALES_ORDER number sequence is configured.
+                  </p>
+                ) : null}
               </>
             ) : (
               <div className="text-sm text-white/35">Select a sales order.</div>

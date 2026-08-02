@@ -19,6 +19,7 @@ loadEnvConfig(process.cwd());
 const ENV_PATH = ".env.local";
 const META_SYSTEM_USERS_URL =
   "https://business.facebook.com/settings/system-users";
+const DEFAULT_META_GRAPH_API_VERSION = "v25.0";
 const REQUIRED_PERMISSIONS = [
   "ads_management",
   "ads_read",
@@ -36,6 +37,11 @@ function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name} is required`);
   return value;
+}
+
+function metaGraphApiVersion() {
+  const configured = text(process.env.META_GRAPH_API_VERSION);
+  return configured || DEFAULT_META_GRAPH_API_VERSION;
 }
 
 function sleep(milliseconds) {
@@ -86,8 +92,9 @@ function graphError(payload, status) {
 }
 
 async function graphGet(path, token, params = {}) {
+  const version = metaGraphApiVersion();
   const url = new URL(
-    `https://graph.facebook.com/${String(path).replace(/^\//, "")}`,
+    `https://graph.facebook.com/${version}/${String(path).replace(/^\//, "")}`,
   );
 
   for (const [key, value] of Object.entries(params)) {
@@ -106,7 +113,7 @@ async function graphGet(path, token, params = {}) {
   const effectiveVersion =
     response.headers.get("facebook-api-version") ||
     response.headers.get("x-fb-api-version") ||
-    null;
+    version;
 
   if (!response.ok || payload?.error) {
     throw new Error(graphError(payload, response.status));
@@ -170,11 +177,9 @@ async function validateSystemUserToken(token) {
   const effectiveVersion =
     adAccountsResult.effectiveVersion ||
     permissionsResult.effectiveVersion ||
-    identity.effectiveVersion;
+    identity.effectiveVersion ||
+    metaGraphApiVersion();
 
-  if (!effectiveVersion) {
-    throw new Error("Meta did not report the effective Graph API version");
-  }
   if (!account?.id || !account?.currency) {
     throw new Error("Meta returned an incomplete assigned ad account");
   }
@@ -286,7 +291,7 @@ async function waitForValidatedClipboardToken(initialClipboard) {
       } catch (error) {
         lastError = error?.message || String(error);
         console.log(`CLIPBOARD_TOKEN_REJECTED=${lastError}`);
-        console.log("Waiting for a newly generated token to be copied...");
+        console.log("Waiting for a copied valid token...");
       }
     }
 
@@ -348,6 +353,7 @@ async function main() {
   const initialClipboard = clipboardValue();
 
   console.log("MANAGED_META_ADS_BROWSER_SETUP");
+  console.log(`META_GRAPH_API_VERSION=${metaGraphApiVersion()}`);
   console.log("DATABASE_CHANGES=NO");
   console.log("CAMPAIGN_CREATED=NO");
   console.log("TOKEN_PRINTED=NO");
@@ -357,9 +363,9 @@ async function main() {
   console.log(`META_SYSTEM_USERS_URL=${META_SYSTEM_USERS_URL}`);
 
   console.log("");
-  console.log("In Meta, select the Avantiqo system user and click:");
-  console.log("Generate token -> Churchill marketing fa/inst -> select the requested permissions -> Generate -> Copy");
-  console.log("This script is waiting for the copied token. Do not paste it into Terminal.");
+  console.log("The script first validates any token already on the clipboard.");
+  console.log("Only when no valid token is present, copy one from the Avantiqo system user in Meta.");
+  console.log("Do not paste the token into Terminal.");
 
   const { token, validation } = await waitForValidatedClipboardToken(
     initialClipboard,

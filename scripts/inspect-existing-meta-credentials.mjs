@@ -1,5 +1,6 @@
 import nextEnv from "@next/env";
 import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
 
 const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
@@ -167,6 +168,9 @@ async function main() {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
+    },
+    realtime: {
+      transport: ws,
     },
   });
 

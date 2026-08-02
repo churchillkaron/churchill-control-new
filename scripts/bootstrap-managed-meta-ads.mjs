@@ -5,6 +5,8 @@ import ws from "ws";
 const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
 
+const ORGANIZATION_WALLET_TABLE = "organization_wallets";
+
 let currentStage = "START";
 
 function stage(value) {
@@ -180,7 +182,7 @@ async function main() {
       .eq("id", organizationId)
       .maybeSingle(),
     supabase
-      .from("platform_wallets")
+      .from(ORGANIZATION_WALLET_TABLE)
       .select("*")
       .eq("organization_id", organizationId)
       .maybeSingle(),
@@ -190,14 +192,21 @@ async function main() {
     throw supabaseError("Organization lookup failed", organizationResult.error);
   }
   if (walletResult.error) {
-    throw supabaseError("Wallet lookup failed", walletResult.error);
+    throw supabaseError(
+      `Canonical wallet lookup failed in ${ORGANIZATION_WALLET_TABLE}`,
+      walletResult.error,
+    );
   }
 
   const organization = organizationResult.data;
   const wallet = walletResult.data;
 
   if (!organization) throw new Error(`Organization ${organizationId} was not found`);
-  if (!wallet) throw new Error("Organization prepaid wallet does not exist");
+  if (!wallet) {
+    throw new Error(
+      `Organization prepaid wallet does not exist in ${ORGANIZATION_WALLET_TABLE}`,
+    );
+  }
 
   stage("VALIDATE_CURRENCY");
 
@@ -221,8 +230,11 @@ async function main() {
     apply,
     organization_id: organization.id,
     organization_name: organizationName,
+    wallet_table: ORGANIZATION_WALLET_TABLE,
     wallet_currency: walletCurrency,
     wallet_status: wallet.status,
+    wallet_available_balance: Number(wallet.available_balance || 0),
+    wallet_reserved_balance: Number(wallet.reserved_balance || 0),
     meta_ad_account_id: account.id,
     meta_ad_account_name: account.name || null,
     meta_account_status: account.account_status,

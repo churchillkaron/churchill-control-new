@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { withApiHandler } from "@/lib/shared/http/withApiHandler";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { AICampaignPlannerRuntime } from "@/lib/marketing/campaigns/AICampaignPlannerRuntime";
-import { MarketingCampaignReadinessRuntime } from "@/lib/marketing/campaigns/MarketingCampaignReadinessRuntime";
+import { MarketingCampaignBuilderReadinessRuntime } from "@/lib/marketing/campaigns/MarketingCampaignBuilderReadinessRuntime";
 
 export const POST = withApiHandler(
   "marketing-ai-campaign-plan",
@@ -17,10 +17,12 @@ export const POST = withApiHandler(
     });
 
     if (!access.success) {
-      throw new Error(access.error || "Organization access denied");
+      const error = new Error(access.error || "Organization access denied");
+      error.status = access.status || 403;
+      throw error;
     }
 
-    const readiness = await MarketingCampaignReadinessRuntime.readiness({
+    const readiness = await MarketingCampaignBuilderReadinessRuntime.readiness({
       organizationId: access.organizationId,
     });
 

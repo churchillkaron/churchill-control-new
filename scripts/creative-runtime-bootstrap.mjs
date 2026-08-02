@@ -71,6 +71,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeTemporalSemanticPlanGateRuntime"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeTemporalRoleLanguagePolishRuntime"
+);
+await import(
   "@/lib/creative/director/runtime/CreativeTemporalSemanticReplanConvergenceRuntimeV2"
 );
 await import(

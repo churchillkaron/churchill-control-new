@@ -1,205 +1,177 @@
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
-const BASE_URL =
-  "https://app.churchillkaron.com";
+import {
+  CredentialRuntime,
+} from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+
+import {
+  ChannelConnectionRuntime,
+} from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+
+import {
+  ChannelAssetRuntime,
+} from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+
+function graphVersion() {
+  return process.env.META_GRAPH_API_VERSION || "v23.0";
+}
+
+function clearOauthCookies(response) {
+  response.cookies.delete("meta_oauth_state");
+  response.cookies.delete("meta_oauth_organization_id");
+  response.cookies.delete("meta_oauth_origin");
+  return response;
+}
+
+function redirectToWorkspace(origin, organizationId, status, message = null) {
+  const url = new URL(
+    `/workspace/${organizationId}/commercial/marketing/ads`,
+    origin
+  );
+  url.searchParams.set("meta", status);
+  if (message) url.searchParams.set("message", message.slice(0, 180));
+  return url;
+}
+
+async function graphJson(url) {
+  const response = await fetch(url, { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.error) {
+    throw new Error(
+      payload?.error?.error_user_msg ||
+      payload?.error?.message ||
+      `Meta request failed (${response.status})`
+    );
+  }
+  return payload;
+}
 
 export async function GET(request) {
+  const requestUrl = new URL(request.url);
+  const origin = request.cookies.get("meta_oauth_origin")?.value || requestUrl.origin;
+  const organizationId = request.cookies.get("meta_oauth_organization_id")?.value;
+  const code = requestUrl.searchParams.get("code");
+  const state = requestUrl.searchParams.get("state");
+  const savedState = request.cookies.get("meta_oauth_state")?.value;
 
-  const url = new URL(request.url);
+  try {
+    if (!organizationId) throw new Error("Organization context expired. Start the connection again.");
+    if (!code || !state || state !== savedState) {
+      throw new Error("Meta connection validation failed or expired");
+    }
+    if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
+      throw new Error("Meta application credentials are not configured");
+    }
 
-  const code =
-    url.searchParams.get("code");
-
-  const state =
-    url.searchParams.get("state");
-
-  const savedState =
-    request.cookies.get(
-      "fb_oauth_state"
-    )?.value;
-
-  if (
-    !code ||
-    !state ||
-    state !== savedState
-  ) {
-
-    return NextResponse.redirect(
-      `${BASE_URL}/settings/connections/social?status=error`
+    const callbackUrl = `${origin}/api/meta/auth/callback`;
+    const tokenUrl = new URL(
+      `https://graph.facebook.com/${graphVersion()}/oauth/access_token`
     );
+    tokenUrl.searchParams.set("client_id", process.env.META_APP_ID);
+    tokenUrl.searchParams.set("client_secret", process.env.META_APP_SECRET);
+    tokenUrl.searchParams.set("redirect_uri", callbackUrl);
+    tokenUrl.searchParams.set("code", code);
 
-  }
+    const tokenData = await graphJson(tokenUrl);
+    if (!tokenData.access_token) throw new Error("Meta did not return an access token");
 
-  const tokenUrl = new URL(
-    "https://graph.facebook.com/v23.0/oauth/access_token"
-  );
-
-  tokenUrl.searchParams.set(
-    "client_id",
-    process.env.META_APP_ID
-  );
-
-  tokenUrl.searchParams.set(
-    "client_secret",
-    process.env.META_APP_SECRET
-  );
-
-  tokenUrl.searchParams.set(
-    "redirect_uri",
-    `${BASE_URL}/api/meta/auth/callback`
-  );
-
-  tokenUrl.searchParams.set(
-    "code",
-    code
-  );
-
-  const tokenRes =
-    await fetch(
-      tokenUrl.toString()
+    const pagesUrl = new URL(
+      `https://graph.facebook.com/${graphVersion()}/me/accounts`
     );
+    pagesUrl.searchParams.set(
+      "fields",
+      "id,name,access_token,instagram_business_account{id,username}"
+    );
+    pagesUrl.searchParams.set("limit", "100");
+    pagesUrl.searchParams.set("access_token", tokenData.access_token);
 
-  const tokenData =
-    await tokenRes.json();
+    const pagesData = await graphJson(pagesUrl);
+    const pages = Array.isArray(pagesData?.data) ? pagesData.data : [];
+    if (!pages.length) throw new Error("No Facebook Pages were available for this account");
 
-  if (process.env.NODE_ENV !== "production") console.log(
-    "TOKEN DATA:",
-    JSON.stringify(
-      tokenData,
-      null,
-      2
-    )
-  );
-
-  if (!tokenData.access_token) {
-
-    return Response.json({
-      success: false,
-      tokenData,
-      message:
-        "No access token",
+    const primaryPage = pages[0];
+    const credential = await CredentialRuntime.store({
+      provider_id: "meta",
+      credential_type: "oauth_page_token",
+      secret_reference: primaryPage.access_token,
+      metadata: {
+        organization_id: organizationId,
+        page_id: primaryPage.id,
+        page_name: primaryPage.name,
+        purpose: "ORGANIZATION_CHANNEL_PUBLISHING",
+      },
     });
 
-  }
-
-  // GET USER PAGES
-
-  const pagesRes =
-    await fetch(
-      `https://graph.facebook.com/v23.0/me/accounts?access_token=${tokenData.access_token}`
-    );
-
-  const pagesData =
-    await pagesRes.json();
-
-  if (process.env.NODE_ENV !== "production") console.log(
-    "PAGES DATA:",
-    JSON.stringify(
-      pagesData,
-      null,
-      2
-    )
-  );
-
-  // SAFE GUARD
-
-  if (
-    !pagesData?.data?.length
-  ) {
-
-    return Response.json({
-      success: false,
-      pagesData,
-      message:
-        "No Facebook pages found",
+    const connection = await ChannelConnectionRuntime.connect({
+      organization_id: organizationId,
+      provider: "meta",
+      channel_type: "social",
+      credentials_reference: credential.id,
+      metadata: {
+        page_id: primaryPage.id,
+        page_name: primaryPage.name,
+        instagram_business_id:
+          primaryPage.instagram_business_account?.id || null,
+        available_pages: pages.map((page) => ({
+          id: page.id,
+          name: page.name,
+          instagram_business_id:
+            page.instagram_business_account?.id || null,
+          instagram_username:
+            page.instagram_business_account?.username || null,
+        })),
+        advertising_billing_model: "AVANTIQO_MANAGED",
+      },
     });
 
-  }
+    for (const page of pages) {
+      await ChannelAssetRuntime.register({
+        organization_id: organizationId,
+        connection_id: connection.id,
+        provider: "meta",
+        asset_type: "facebook_page",
+        external_id: page.id,
+        name: page.name,
+        metadata: {
+          instagram_business_id:
+            page.instagram_business_account?.id || null,
+          instagram_username:
+            page.instagram_business_account?.username || null,
+        },
+      });
 
-  // SAVE ALL PAGES
+      if (page.instagram_business_account?.id) {
+        await ChannelAssetRuntime.register({
+          organization_id: organizationId,
+          connection_id: connection.id,
+          provider: "meta",
+          asset_type: "instagram_business",
+          external_id: page.instagram_business_account.id,
+          name:
+            page.instagram_business_account.username ||
+            `${page.name} Instagram`,
+          metadata: { facebook_page_id: page.id },
+        });
+      }
+    }
 
-  for (
-    const page of pagesData.data
-  ) {
-
-    const igRes =
-      await fetch(
-        `https://graph.facebook.com/v23.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
-      );
-
-    const igData =
-      await igRes.json();
-
-    if (process.env.NODE_ENV !== "production") console.log(
-      "IG DATA:",
-      JSON.stringify(
-        igData,
-        null,
-        2
+    const response = NextResponse.redirect(
+      redirectToWorkspace(origin, organizationId, "connected")
+    );
+    return clearOauthCookies(response);
+  } catch (error) {
+    const safeOrganizationId = organizationId || "unknown";
+    const response = NextResponse.redirect(
+      redirectToWorkspace(
+        origin,
+        safeOrganizationId,
+        "error",
+        error?.message || "Meta connection failed"
       )
     );
-
-    const instagramId =
-      igData
-        ?.instagram_business_account
-        ?.id || null;
-
-    await fetch(
-      `${BASE_URL}/api/meta/save-account`,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-
-        body: JSON.stringify({
-          connected: true,
-
-          access_token:
-            page.access_token,
-
-          page_name:
-            page.name,
-
-          page_id:
-            page.id,
-
-          instagram_business_id:
-            instagramId,
-        }),
-      }
-    );
-
+    return clearOauthCookies(response);
   }
-
-  const response =
-    NextResponse.redirect(
-      `${BASE_URL}/settings/connections/social?status=connected`
-    );
-
-  // USE FIRST PAGE TOKEN
-  // FOR SESSION COOKIE
-
-  response.cookies.set(
-    "fb_page_token",
-    pagesData.data[0]
-      .access_token,
-    {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      path: "/",
-    }
-  );
-
-  response.cookies.delete(
-    "fb_oauth_state"
-  );
-
-  return response;
-
 }

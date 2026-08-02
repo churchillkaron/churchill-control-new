@@ -7,19 +7,24 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 function graphVersion() {
-  return process.env.META_GRAPH_API_VERSION || "v23.0";
+  const configured = String(process.env.META_GRAPH_API_VERSION || "").trim();
+  if (!configured) throw new Error("META_GRAPH_API_VERSION is not configured");
+  return configured.startsWith("v") ? configured : `v${configured}`;
 }
 
 export async function GET(request) {
   try {
     const requestUrl = new URL(request.url);
     const organizationId = requestUrl.searchParams.get("organizationId");
-    const access = await requireOrganizationAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+      requiredPermission: "marketing.ads.manage",
+    });
 
     if (!access.success) {
       throw new Error(access.error || "Organization access denied");
     }
-
     if (!process.env.META_APP_ID) {
       throw new Error("META_APP_ID is not configured");
     }
@@ -47,10 +52,9 @@ export async function GET(request) {
     );
 
     const response = NextResponse.redirect(authUrl.toString());
-    const secure = requestUrl.protocol === "https:";
     const cookieOptions = {
       httpOnly: true,
-      secure,
+      secure: requestUrl.protocol === "https:",
       sameSite: "lax",
       path: "/",
       maxAge: 600,
@@ -71,7 +75,7 @@ export async function GET(request) {
         success: false,
         error: error?.message || "Meta auth failed",
       },
-      { status: 500 }
+      { status: error?.status || 500 }
     );
   }
 }

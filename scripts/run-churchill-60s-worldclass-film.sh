@@ -11,3 +11,5 @@ echo "TERMINAL_REMAINS_OPEN=YES"
 echo
 printf "Copy the complete result, then press Enter..."
 IFS= read -r _
+
+exit "$STATUS"

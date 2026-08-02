@@ -1,4 +1,7 @@
+import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
+
+loadEnvConfig(process.cwd());
 
 function text(value) {
   return String(value ?? "").trim();

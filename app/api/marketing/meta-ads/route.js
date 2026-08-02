@@ -44,25 +44,35 @@ export const POST = withApiHandler(
 
     return MetaAdsRuntime.createCampaign({
       organizationId,
-      adAccountId: body.adAccountId,
+      entityId: body.entityId || null,
+      authorizedBudget: body.authorizedBudget,
+      currency: body.currency,
       campaign: body.campaign,
       adSet: body.adSet,
       creative: body.creative,
       ad: body.ad,
+      deliveryChannels: body.deliveryChannels || [],
+      destination: body.destination || "ENGAGEMENT",
     });
   }
 );
 
 export const PATCH = withApiHandler(
-  "marketing-meta-ads-status",
+  "marketing-meta-ads-settlement",
   async (request) => {
     const body = await request.json();
     const organizationId = await resolveOrganizationId(body.organizationId);
 
-    return MetaAdsRuntime.updateStatus({
+    if (body.action !== "settle_spend") {
+      throw new Error("Unsupported managed media action");
+    }
+
+    return MetaAdsRuntime.settleSpend({
       organizationId,
-      objectId: body.objectId,
-      status: body.status,
+      campaignId: body.campaignId,
+      cumulativeProviderSpend: body.cumulativeProviderSpend,
+      settlementKey: body.settlementKey,
+      complete: body.complete === true,
     });
   }
 );

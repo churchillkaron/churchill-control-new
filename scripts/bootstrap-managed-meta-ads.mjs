@@ -1,5 +1,6 @@
 import nextEnv from "@next/env";
 import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
 
 const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
@@ -29,6 +30,15 @@ function looksLikePlaceholder(value) {
 function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name} is required`);
+  if (looksLikePlaceholder(value)) {
+    throw new Error(`${name} still contains a placeholder instead of a real value`);
+  }
+  return value;
+}
+
+function optional(name) {
+  const value = text(process.env[name]);
+  if (!value) return null;
   if (looksLikePlaceholder(value)) {
     throw new Error(`${name} still contains a placeholder instead of a real value`);
   }
@@ -90,6 +100,47 @@ async function metaJson(path, accessToken, params = {}) {
   return payload;
 }
 
+function normalizeAdAccountId(value) {
+  const id = text(value);
+  return id.startsWith("act_") ? id : `act_${id}`;
+}
+
+async function resolveAdAccount(accessToken) {
+  const configuredId = optional("AVANTIQO_META_AD_ACCOUNT_ID");
+
+  if (configuredId) {
+    stage("VALIDATE_META_AD_ACCOUNT");
+    return metaJson(normalizeAdAccountId(configuredId), accessToken, {
+      fields: "id,name,account_id,account_status,currency,timezone_name",
+    });
+  }
+
+  stage("DISCOVER_META_AD_ACCOUNT");
+
+  const result = await metaJson("me/adaccounts", accessToken, {
+    fields: "id,name,account_id,account_status,currency,timezone_name,business",
+    limit: "100",
+  });
+  const accounts = Array.isArray(result?.data) ? result.data : [];
+
+  if (!accounts.length) {
+    throw new Error(
+      "The system-user token cannot access any Meta ad account. Assign exactly one managed ad account to the system user and regenerate the token.",
+    );
+  }
+
+  if (accounts.length > 1) {
+    const options = accounts
+      .map((account) => `${account.id || account.account_id || "unknown"}:${account.name || "unnamed"}`)
+      .join(", ");
+    throw new Error(
+      `The system-user token can access ${accounts.length} ad accounts. Set AVANTIQO_META_AD_ACCOUNT_ID explicitly. Accessible accounts: ${options}`,
+    );
+  }
+
+  return accounts[0];
+}
+
 async function main() {
   stage("LOAD_CONFIGURATION");
 
@@ -97,17 +148,9 @@ async function main() {
   const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
   const organizationId = required("ORGANIZATION_ID");
   const accessToken = required("AVANTIQO_META_ACCESS_TOKEN");
-  const rawAdAccountId = required("AVANTIQO_META_AD_ACCOUNT_ID");
-  const adAccountId = rawAdAccountId.startsWith("act_")
-    ? rawAdAccountId
-    : `act_${rawAdAccountId}`;
   const apply = bool(process.env.APPLY);
 
-  stage("VALIDATE_META_AD_ACCOUNT");
-
-  const account = await metaJson(adAccountId, accessToken, {
-    fields: "id,name,account_id,account_status,currency,timezone_name",
-  });
+  const account = await resolveAdAccount(accessToken);
 
   if (!account?.id || !account?.currency) {
     throw new Error(
@@ -122,6 +165,9 @@ async function main() {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
+    },
+    realtime: {
+      transport: ws,
     },
   });
 
@@ -181,6 +227,9 @@ async function main() {
     meta_ad_account_name: account.name || null,
     meta_account_status: account.account_status,
     meta_currency: providerCurrency,
+    ad_account_discovery: optional("AVANTIQO_META_AD_ACCOUNT_ID")
+      ? "EXPLICIT"
+      : "AUTOMATIC_SINGLE_ASSIGNED_ACCOUNT",
     whatsapp_ads_enabled: bool(process.env.AVANTIQO_META_WHATSAPP_ADS_ENABLED),
   };
 
@@ -328,7 +377,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`MANAGED_META_ADS_BOOTSTRAP=FAIL`);
+  console.error("MANAGED_META_ADS_BOOTSTRAP=FAIL");
   console.error(`FAILED_STAGE=${currentStage}`);
   console.error(`ERROR=${error?.message || String(error)}`);
   process.exit(1);

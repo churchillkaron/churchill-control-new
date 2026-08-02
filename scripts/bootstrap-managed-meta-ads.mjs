@@ -1,6 +1,7 @@
-import { loadEnvConfig } from "@next/env";
+import nextEnv from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 
+const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
 
 function text(value) {

@@ -10,7 +10,7 @@ create table if not exists public.inventory_reservations (
   source_line_id uuid,
   quantity numeric(18,4) not null,
   status text not null default 'ACTIVE',
-  reserved_by uuid,
+  reserved_by uuid not null,
   reserved_at timestamptz not null default now(),
   released_at timestamptz,
   consumed_at timestamptz,
@@ -38,6 +38,15 @@ create index if not exists inventory_reservations_item_status_idx
     status
   );
 
+create index if not exists inventory_reservations_source_idx
+  on public.inventory_reservations (
+    organization_id,
+    entity_id,
+    source_document,
+    source_document_id,
+    status
+  );
+
 alter table public.inventory_reservations enable row level security;
 
 create or replace function public.commercial_confirm_sales_order_atomic(
@@ -61,6 +70,8 @@ declare
   v_order_number text;
   v_event_id text;
   v_existing_event jsonb;
+  v_existing_event_type text;
+  v_reservation_count integer := 0;
 begin
   if p_organization_id is null then
     raise exception 'organization_id required';
@@ -74,32 +85,50 @@ begin
     raise exception 'sales_order_id required';
   end if;
 
+  if p_actor_id is null then
+    raise exception 'authenticated actor required';
+  end if;
+
   if nullif(btrim(p_idempotency_key), '') is null then
     raise exception 'idempotency_key required';
   end if;
 
   perform pg_advisory_xact_lock(
     hashtextextended(
-      p_organization_id::text || ':' || p_sales_order_id::text,
+      p_organization_id::text || ':sales-order-confirm:' || btrim(p_idempotency_key),
       0
     )
   );
 
-  select payload
-  into v_existing_event
+  perform pg_advisory_xact_lock(
+    hashtextextended(
+      p_organization_id::text || ':sales-order:' || p_sales_order_id::text,
+      0
+    )
+  );
+
+  select type, payload
+  into v_existing_event_type, v_existing_event
   from public.system_events
   where organization_id = p_organization_id
-    and idempotency_key = p_idempotency_key
+    and idempotency_key = btrim(p_idempotency_key)
+  order by created_at asc
   limit 1;
 
   if found then
+    if v_existing_event_type <> 'SALES_ORDER_CONFIRMED'
+       or v_existing_event->>'sales_order_id' is distinct from p_sales_order_id::text then
+      raise exception 'idempotency_key is already used by another operation';
+    end if;
+
     return jsonb_build_object(
       'success', true,
       'duplicate', true,
       'sales_order_id', v_existing_event->>'sales_order_id',
       'order_number', v_existing_event->>'order_number',
       'status', v_existing_event->>'status',
-      'fulfillment_status', v_existing_event->>'fulfillment_status'
+      'fulfillment_status', v_existing_event->>'fulfillment_status',
+      'payment_status', v_existing_event->>'payment_status'
     );
   end if;
 
@@ -122,7 +151,8 @@ begin
       'sales_order_id', v_order.id,
       'order_number', v_order.order_number,
       'status', v_order.status,
-      'fulfillment_status', v_order.fulfillment_status
+      'fulfillment_status', v_order.fulfillment_status,
+      'payment_status', v_order.payment_status
     );
   end if;
 
@@ -153,12 +183,32 @@ begin
       raise exception 'Every confirmed sales order line must reference an inventory item';
     end if;
 
+    perform pg_advisory_xact_lock(
+      hashtextextended(
+        p_organization_id::text || ':' ||
+        p_entity_id::text || ':inventory-reservation:' ||
+        v_line.item_id::text,
+        0
+      )
+    );
+
     select coalesce(sum(
       case
-        when upper(type) in ('PURCHASE', 'GOODS_RECEIPT', 'PRODUCTION', 'ADJUSTMENT_IN', 'TRANSFER_IN')
-          then quantity
-        when upper(type) in ('SALE', 'CONSUMPTION', 'WASTE', 'ADJUSTMENT_OUT', 'TRANSFER_OUT', 'BATCH_PRODUCTION')
-          then -quantity
+        when upper(type) in (
+          'PURCHASE',
+          'GOODS_RECEIPT',
+          'PRODUCTION',
+          'ADJUSTMENT_IN',
+          'TRANSFER_IN'
+        ) then quantity
+        when upper(type) in (
+          'SALE',
+          'CONSUMPTION',
+          'WASTE',
+          'ADJUSTMENT_OUT',
+          'TRANSFER_OUT',
+          'BATCH_PRODUCTION'
+        ) then -quantity
         else quantity
       end
     ), 0)
@@ -175,7 +225,10 @@ begin
       and entity_id = p_entity_id
       and item_id = v_line.item_id
       and status = 'ACTIVE'
-      and source_document_id <> v_order.id;
+      and not (
+        source_document = 'sales_order'
+        and source_document_id = v_order.id
+      );
 
     v_required := coalesce(v_line.quantity, 0);
 
@@ -248,6 +301,8 @@ begin
       metadata = excluded.metadata,
       updated_at = now();
 
+  get diagnostics v_reservation_count = row_count;
+
   update public.sales_orders
   set order_number = v_order_number,
       status = 'CONFIRMED',
@@ -275,10 +330,11 @@ begin
       'status', v_order.status,
       'fulfillment_status', v_order.fulfillment_status,
       'payment_status', v_order.payment_status,
+      'reservation_count', v_reservation_count,
       'total_amount', v_order.total_amount,
       'currency_code', v_order.currency_code
     ),
-    p_idempotency_key
+    btrim(p_idempotency_key)
   )
   returning id::text into v_event_id;
 
@@ -290,6 +346,7 @@ begin
     'status', v_order.status,
     'fulfillment_status', v_order.fulfillment_status,
     'payment_status', v_order.payment_status,
+    'reservation_count', v_reservation_count,
     'event_id', v_event_id,
     'event_type', 'SALES_ORDER_CONFIRMED'
   );
@@ -303,6 +360,14 @@ revoke all on function public.commercial_confirm_sales_order_atomic(
 grant execute on function public.commercial_confirm_sales_order_atomic(
   uuid, uuid, uuid, uuid, text
 ) to service_role;
+
+comment on table public.inventory_reservations is
+  'Canonical entity-scoped inventory commitments created by confirmed commercial documents.';
+
+comment on function public.commercial_confirm_sales_order_atomic(
+  uuid, uuid, uuid, uuid, text
+) is
+  'Confirms one draft sales order, reserves available inventory under deterministic item locks, assigns a configured document number, and records an idempotent system event.';
 
 notify pgrst, 'reload schema';
 

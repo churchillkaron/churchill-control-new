@@ -4,13 +4,34 @@ import { createClient } from "@supabase/supabase-js";
 const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
 
+let currentStage = "START";
+
+function stage(value) {
+  currentStage = value;
+  console.log(`BOOTSTRAP_STAGE=${value}`);
+}
+
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function looksLikePlaceholder(value) {
+  const normalized = text(value).toUpperCase();
+  return (
+    normalized.startsWith("YOUR_") ||
+    normalized.includes("YOUR_REAL_") ||
+    normalized.startsWith("REPLACE_") ||
+    normalized === "NULL" ||
+    normalized === "UNDEFINED"
+  );
 }
 
 function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name} is required`);
+  if (looksLikePlaceholder(value)) {
+    throw new Error(`${name} still contains a placeholder instead of a real value`);
+  }
   return value;
 }
 
@@ -18,9 +39,26 @@ function bool(value) {
   return ["1", "true", "yes", "on"].includes(text(value).toLowerCase());
 }
 
+function safePart(value) {
+  const normalized = text(value).replace(/\s+/g, " ");
+  return normalized ? normalized.slice(0, 400) : null;
+}
+
+function supabaseError(label, error) {
+  const parts = [
+    safePart(error?.message),
+    error?.code ? `code=${error.code}` : null,
+    error?.details ? `details=${safePart(error.details)}` : null,
+    error?.hint ? `hint=${safePart(error.hint)}` : null,
+  ].filter(Boolean);
+
+  return new Error(`${label}: ${parts.join(" | ") || "Unknown Supabase error"}`);
+}
+
 async function metaJson(path, accessToken, params = {}) {
   const version = required("META_GRAPH_API_VERSION");
   const url = new URL(`https://graph.facebook.com/${version}/${path.replace(/^\//, "")}`);
+
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null && value !== "") {
       url.searchParams.set(key, String(value));
@@ -34,17 +72,27 @@ async function metaJson(path, accessToken, params = {}) {
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok || payload?.error) {
-    throw new Error(
-      payload?.error?.error_user_msg ||
-      payload?.error?.message ||
-      `Meta validation failed (${response.status})`,
-    );
+    const metaError = payload?.error || {};
+    const parts = [
+      safePart(metaError.error_user_msg || metaError.message),
+      `status=${response.status}`,
+      metaError.code !== undefined ? `code=${metaError.code}` : null,
+      metaError.error_subcode !== undefined
+        ? `subcode=${metaError.error_subcode}`
+        : null,
+      metaError.type ? `type=${metaError.type}` : null,
+      metaError.fbtrace_id ? `trace=${metaError.fbtrace_id}` : null,
+    ].filter(Boolean);
+
+    throw new Error(`Meta request ${path} failed: ${parts.join(" | ")}`);
   }
 
   return payload;
 }
 
 async function main() {
+  stage("LOAD_CONFIGURATION");
+
   const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
   const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
   const organizationId = required("ORGANIZATION_ID");
@@ -55,13 +103,19 @@ async function main() {
     : `act_${rawAdAccountId}`;
   const apply = bool(process.env.APPLY);
 
+  stage("VALIDATE_META_AD_ACCOUNT");
+
   const account = await metaJson(adAccountId, accessToken, {
-    fields: "id,name,account_id,account_status,currency,timezone_name,business",
+    fields: "id,name,account_id,account_status,currency,timezone_name",
   });
 
   if (!account?.id || !account?.currency) {
-    throw new Error("Meta ad account validation did not return id and currency");
+    throw new Error(
+      `Meta ad account validation returned incomplete data: id=${Boolean(account?.id)} currency=${Boolean(account?.currency)}`,
+    );
   }
+
+  stage("CONNECT_SUPABASE");
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
@@ -71,28 +125,56 @@ async function main() {
     },
   });
 
-  const [{ data: organization, error: organizationError }, { data: wallet, error: walletError }] =
-    await Promise.all([
-      supabase.from("organizations").select("id,name").eq("id", organizationId).single(),
-      supabase.from("platform_wallets").select("*").eq("organization_id", organizationId).maybeSingle(),
-    ]);
+  stage("READ_ORGANIZATION_AND_WALLET");
 
-  if (organizationError) throw new Error(`Organization lookup failed: ${organizationError.message}`);
-  if (walletError) throw new Error(`Wallet lookup failed: ${walletError.message}`);
+  const [organizationResult, walletResult] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("*")
+      .eq("id", organizationId)
+      .maybeSingle(),
+    supabase
+      .from("platform_wallets")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .maybeSingle(),
+  ]);
+
+  if (organizationResult.error) {
+    throw supabaseError("Organization lookup failed", organizationResult.error);
+  }
+  if (walletResult.error) {
+    throw supabaseError("Wallet lookup failed", walletResult.error);
+  }
+
+  const organization = organizationResult.data;
+  const wallet = walletResult.data;
+
+  if (!organization) throw new Error(`Organization ${organizationId} was not found`);
   if (!wallet) throw new Error("Organization prepaid wallet does not exist");
+
+  stage("VALIDATE_CURRENCY");
 
   const walletCurrency = text(wallet.currency).toUpperCase();
   const providerCurrency = text(account.currency).toUpperCase();
+
   if (!walletCurrency || walletCurrency !== providerCurrency) {
     throw new Error(
-      `Wallet currency ${walletCurrency || "missing"} does not match Meta account currency ${providerCurrency}`,
+      `Wallet currency ${walletCurrency || "missing"} does not match Meta account currency ${providerCurrency || "missing"}`,
     );
   }
+
+  const organizationName =
+    organization.name ||
+    organization.legal_name ||
+    organization.display_name ||
+    organization.organization_name ||
+    null;
 
   const summary = {
     apply,
     organization_id: organization.id,
-    organization_name: organization.name,
+    organization_name: organizationName,
     wallet_currency: walletCurrency,
     wallet_status: wallet.status,
     meta_ad_account_id: account.id,
@@ -111,6 +193,8 @@ async function main() {
     return;
   }
 
+  stage("READ_MANAGED_META_CREDENTIAL");
+
   const now = new Date().toISOString();
   const { data: existingCredentials, error: credentialReadError } = await supabase
     .from("provider_credentials")
@@ -119,7 +203,7 @@ async function main() {
     .eq("status", "ACTIVE");
 
   if (credentialReadError) {
-    throw new Error(`Provider credential lookup failed: ${credentialReadError.message}`);
+    throw supabaseError("Provider credential lookup failed", credentialReadError);
   }
 
   const existing = (existingCredentials || []).find(
@@ -146,6 +230,8 @@ async function main() {
     updated_at: now,
   };
 
+  stage("STORE_MANAGED_META_CREDENTIAL");
+
   let credential;
   if (existing?.id) {
     const { data, error } = await supabase
@@ -154,7 +240,7 @@ async function main() {
       .eq("id", existing.id)
       .select("*")
       .single();
-    if (error) throw new Error(`Provider credential update failed: ${error.message}`);
+    if (error) throw supabaseError("Provider credential update failed", error);
     credential = data;
   } else {
     const { data, error } = await supabase
@@ -162,9 +248,11 @@ async function main() {
       .insert({ ...credentialPayload, created_at: now })
       .select("*")
       .single();
-    if (error) throw new Error(`Provider credential insert failed: ${error.message}`);
+    if (error) throw supabaseError("Provider credential insert failed", error);
     credential = data;
   }
+
+  stage("READ_ORGANIZATION_SERVICE");
 
   const { data: existingService, error: serviceReadError } = await supabase
     .from("organization_services")
@@ -174,7 +262,7 @@ async function main() {
     .maybeSingle();
 
   if (serviceReadError) {
-    throw new Error(`Organization service lookup failed: ${serviceReadError.message}`);
+    throw supabaseError("Organization service lookup failed", serviceReadError);
   }
 
   const servicePayload = {
@@ -209,6 +297,8 @@ async function main() {
     updated_at: now,
   };
 
+  stage("ACTIVATE_ORGANIZATION_SERVICE");
+
   const { data: service, error: serviceWriteError } = await supabase
     .from("organization_services")
     .upsert(servicePayload, { onConflict: "organization_id,service_id" })
@@ -216,7 +306,7 @@ async function main() {
     .single();
 
   if (serviceWriteError) {
-    throw new Error(`Organization service activation failed: ${serviceWriteError.message}`);
+    throw supabaseError("Organization service activation failed", serviceWriteError);
   }
 
   console.log("MANAGED_META_ADS_BOOTSTRAP=PASS");
@@ -238,6 +328,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`MANAGED_META_ADS_BOOTSTRAP=FAIL: ${error.message}`);
+  console.error(`MANAGED_META_ADS_BOOTSTRAP=FAIL`);
+  console.error(`FAILED_STAGE=${currentStage}`);
+  console.error(`ERROR=${error?.message || String(error)}`);
   process.exit(1);
 });

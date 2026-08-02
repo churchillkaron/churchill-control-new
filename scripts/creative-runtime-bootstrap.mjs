@@ -51,6 +51,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeConceptPlanRevisionStructureRuntime"
+);
+await import(
   "@/lib/creative/director/runtime/CreativeDirectionScopedUsageLookupRuntime"
 );
 await import(

@@ -3,429 +3,208 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-
+import { useParams } from "next/navigation";
 import {
-  Activity,
   ArrowRight,
   BarChart3,
-  Bot,
   Brain,
   CalendarDays,
   Eye,
-  FileImage,
-  Globe2,
-  Instagram,
+  Image,
   LayoutDashboard,
   Megaphone,
   PenTool,
-  PieChart,
-  Radio,
   Share2,
-  Sparkles,
   Target,
-  TrendingUp,
   Users,
-  Wand2,
 } from "lucide-react";
 
 const SECTIONS = [
-
-  {
-    title: "Marketing Overview",
-    description:
-      "Main marketing command center, live campaign visibility and growth performance.",
-    icon: LayoutDashboard,
-    items: [
-      { name: "Overview", route: "/marketing/overview" },
-      { name: "Live Runtime", route: "/marketing/live" },
-      { name: "Growth Dashboard", route: "/marketing/growth" },
-      { name: "Performance Center", route: "/marketing/performance" },
-    ],
-  },
-
   {
     title: "Campaign Management",
-    description:
-      "Campaign planning, execution, scheduling and publishing operations.",
+    description: "Plan, prepare, approve and launch campaigns across connected channels.",
     icon: Megaphone,
     items: [
-      { name: "Campaigns", route: "/marketing/campaigns" },
-      { name: "Campaign Queue", route: "/marketing/queue" },
-      { name: "Publishing Calendar", route: "/marketing/calendar" },
-      { name: "Scheduled Posts", route: "/marketing/scheduled" },
-      { name: "Live Campaigns", route: "/marketing/live-campaigns" },
+      { name: "Campaigns", route: "campaigns" },
+      { name: "Meta Ads Manager", route: "ads", featured: true },
+      { name: "Campaign Queue", route: "queue" },
+      { name: "Publishing Calendar", route: "calendar" },
+      { name: "Live Campaigns", route: "live-campaigns" },
     ],
   },
-
   {
     title: "Content Studio",
-    description:
-      "Creative production, AI generation and media management runtime.",
+    description: "Create, approve and manage exact organization-owned campaign assets.",
     icon: PenTool,
     items: [
-      { name: "AI Design Studio", route: "/marketing/design" },
-      { name: "Content Workspace", route: "/marketing/content" },
-      { name: "Creative Assets", route: "/marketing/assets" },
-      { name: "Brand Library", route: "/marketing/brand" },
-      { name: "Media Manager", route: "/marketing/media" },
+      { name: "AI Design Studio", route: "design" },
+      { name: "Content Workspace", route: "content" },
+      { name: "Creative Assets", route: "assets" },
+      { name: "Brand Library", route: "brand" },
+      { name: "Media Manager", route: "media" },
     ],
   },
-
   {
     title: "Social & Publishing",
-    description:
-      "Social publishing, channel management and platform operations.",
+    description: "Publish and monitor content through organization-connected channels.",
     icon: Share2,
     items: [
-      { name: "Social Runtime", route: "/marketing/social" },
-      { name: "Instagram", route: "/marketing/instagram" },
-      { name: "Facebook", route: "/marketing/facebook" },
-      { name: "Multi-Platform", route: "/marketing/platforms" },
-      { name: "Publishing Logs", route: "/marketing/publishing" },
+      { name: "Social Runtime", route: "social" },
+      { name: "Instagram", route: "instagram" },
+      { name: "Facebook", route: "facebook" },
+      { name: "Multi-Platform", route: "platforms" },
+      { name: "Publishing Logs", route: "publishing" },
     ],
   },
-
   {
     title: "Audience & Segmentation",
-    description:
-      "Customer targeting, segmentation and audience growth operations.",
+    description: "Build target groups, journeys and retargeting audiences.",
     icon: Users,
     items: [
-      { name: "Audience Segments", route: "/marketing/segments" },
-      { name: "Target Groups", route: "/marketing/targets" },
-      { name: "Personalization", route: "/marketing/personalization" },
-      { name: "Customer Journeys", route: "/marketing/journeys" },
-      { name: "Retargeting", route: "/marketing/retargeting" },
+      { name: "Audience Segments", route: "segments" },
+      { name: "Target Groups", route: "targets" },
+      { name: "Personalization", route: "personalization" },
+      { name: "Customer Journeys", route: "journeys" },
+      { name: "Retargeting", route: "retargeting" },
     ],
   },
-
   {
     title: "Analytics & Conversion",
-    description:
-      "Campaign analytics, conversion tracking and marketing measurement.",
+    description: "Measure campaign performance, engagement, conversion and return.",
     icon: BarChart3,
     items: [
-      { name: "Campaign Analytics", route: "/marketing/analytics" },
-      { name: "Conversion Tracking", route: "/marketing/conversions" },
-      { name: "Engagement Metrics", route: "/marketing/engagement" },
-      { name: "ROI Analytics", route: "/marketing/roi" },
-      { name: "Traffic Analytics", route: "/marketing/traffic" },
+      { name: "Campaign Analytics", route: "analytics" },
+      { name: "Conversion Tracking", route: "conversions" },
+      { name: "Engagement Metrics", route: "engagement" },
+      { name: "ROI Analytics", route: "roi" },
+      { name: "Traffic Analytics", route: "traffic" },
     ],
   },
-
   {
     title: "AI Marketing Intelligence",
-    description:
-      "AI recommendations, automation and campaign optimization systems.",
+    description: "Generate recommendations and optimize campaigns from live performance.",
     icon: Brain,
     items: [
-      { name: "Marketing AI", route: "/marketing/ai" },
-      { name: "Automation Runtime", route: "/marketing/automation" },
-      { name: "Growth Forecasting", route: "/marketing/forecasting" },
-      { name: "Optimization Center", route: "/marketing/optimization" },
+      { name: "Marketing AI", route: "ai" },
+      { name: "Automation Runtime", route: "automation" },
+      { name: "Growth Forecasting", route: "forecasting" },
+      { name: "Optimization Center", route: "optimization" },
     ],
   },
-
   {
     title: "Brand & Reputation",
-    description:
-      "Brand consistency, reviews, reputation and customer perception monitoring.",
+    description: "Protect brand consistency and monitor public customer perception.",
     icon: Eye,
     items: [
-      { name: "Brand Monitoring", route: "/marketing/monitoring" },
-      { name: "Reputation Runtime", route: "/marketing/reputation" },
-      { name: "Reviews", route: "/marketing/reviews" },
-      { name: "Community Feedback", route: "/marketing/feedback" },
-      { name: "Public Presence", route: "/marketing/presence" },
+      { name: "Brand Monitoring", route: "monitoring" },
+      { name: "Reputation Runtime", route: "reputation" },
+      { name: "Reviews", route: "reviews" },
+      { name: "Community Feedback", route: "feedback" },
+      { name: "Public Presence", route: "presence" },
     ],
   },
-
 ];
 
 const STATUS = [
-
-  {
-    label: "Campaign Runtime",
-    value: "ACTIVE",
-  },
-
-  {
-    label: "Publishing",
-    value: "ONLINE",
-  },
-
-  {
-    label: "AI Marketing",
-    value: "ARMED",
-  },
-
-  {
-    label: "Growth Engine",
-    value: "RUNNING",
-  },
-
-];
-
-const QUICK_ACTIONS = [
-
-  "Generate campaign",
-  "Schedule social posts",
-  "Analyze campaign ROI",
-  "Review engagement",
-  "Optimize targeting",
-  "Prepare weekend promotion",
-
+  { label: "Campaign Runtime", value: "ACTIVE", icon: LayoutDashboard },
+  { label: "Paid Media", value: "CONNECTED", icon: Target },
+  { label: "Publishing", value: "ONLINE", icon: CalendarDays },
+  { label: "Asset Protection", value: "EXACT", icon: Image },
 ];
 
 export default function MarketingPage() {
+  const params = useParams();
+  const organizationId = params?.organizationId;
+  const base = `/workspace/${organizationId}/commercial/marketing`;
 
   return (
-
-    <main className="min-h-screen bg-black p-10 text-white">
-
-      <div className="mb-10">
-
-        <div className="mb-3 flex items-center gap-3">
-
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-pink-500/10">
-
-            <Megaphone className="h-5 w-5 text-pink-400" />
-
-          </div>
-
-          <div className="text-xs uppercase tracking-[0.3em] text-pink-400">
-
-            Churchill Platform
-
-          </div>
-
-        </div>
-
-        <div className="flex items-end justify-between gap-8">
-
+    <main className="min-h-screen bg-black p-8 text-white lg:p-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
           <div>
-
-            <h1 className="mb-4 text-7xl font-light">
-
-              Marketing
-
-            </h1>
-
-            <p className="max-w-5xl text-lg leading-relaxed text-white/50">
-
-              Hospitality growth runtime for campaigns, social publishing,
-              customer targeting, AI marketing and conversion analytics.
-
+            <div className="mb-3 text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
+              Commercial / Marketing
+            </div>
+            <h1 className="text-6xl font-light">Marketing</h1>
+            <p className="mt-4 max-w-3xl text-lg text-white/45">
+              Campaign planning, exact creative asset control, connected publishing and paid media execution.
             </p>
-
           </div>
 
           <Link
-            href="/marketing/live"
-            className="rounded-2xl border border-pink-500/20 bg-pink-500/10 px-5 py-4 text-sm font-medium text-pink-300 hover:bg-pink-500/20"
+            href={`${base}/ads`}
+            className="flex items-center gap-3 rounded-2xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-6 py-4 text-sm font-medium text-[#E6C18C] transition hover:bg-[#D6A66A]/20"
           >
-
-            Open Marketing Runtime
-
+            <Megaphone className="h-5 w-5" />
+            Open Meta Ads Manager
           </Link>
-
         </div>
 
-      </div>
-
-      <div className="mb-10 grid grid-cols-4 gap-6">
-
-        {STATUS.map((item) => (
-
-          <div
-            key={item.label}
-            className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6"
-          >
-
-            <div className="mb-5 h-8 w-8 rounded-2xl bg-pink-500/10" />
-
-            <div className="mb-2 text-xs uppercase tracking-[0.2em] text-white/30">
-
-              {item.label}
-
+        <div className="mb-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {STATUS.map(({ label, value, icon: Icon }) => (
+            <div key={label} className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+              <Icon className="mb-5 h-5 w-5 text-[#D6A66A]" />
+              <div className="text-xs uppercase tracking-[0.2em] text-white/30">{label}</div>
+              <div className="mt-2 text-2xl font-light">{value}</div>
             </div>
-
-            <div className="text-3xl font-light">
-
-              {item.value}
-
-            </div>
-
-          </div>
-
-        ))}
-
-      </div>
-
-      <div className="mb-10 rounded-[40px] border border-pink-500/20 bg-pink-500/5 p-8">
-
-        <div className="mb-6 flex items-center justify-between">
-
-          <div className="flex items-center gap-4">
-
-            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-pink-500/10">
-
-              <Sparkles className="h-8 w-8 text-pink-400" />
-
-            </div>
-
-            <div>
-
-              <div className="mb-1 text-3xl font-light">
-
-                Marketing AI Command
-
-              </div>
-
-              <div className="text-white/40">
-
-                Generate campaigns, optimize targeting and manage publishing operations.
-
-              </div>
-
-            </div>
-
-          </div>
-
-          <Link
-            href="/marketing/ai"
-            className="rounded-2xl border border-pink-500/20 bg-black/30 px-5 py-3 text-sm text-pink-300"
-          >
-
-            Open Marketing Intelligence
-
-          </Link>
-
-        </div>
-
-        <div className="mb-5 flex items-center gap-4 rounded-3xl border border-white/10 bg-black/40 px-6 py-5">
-
-          <Bot className="h-6 w-6 text-pink-400" />
-
-          <input
-            placeholder="Ask marketing AI to generate campaigns, optimize targeting or analyze conversions..."
-            className="w-full bg-transparent text-lg outline-none placeholder:text-white/20"
-          />
-
-          <button className="rounded-2xl bg-pink-500 px-6 py-3 font-medium text-white">
-
-            Run
-
-          </button>
-
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-
-          {QUICK_ACTIONS.map((action) => (
-
-            <button
-              key={action}
-              className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-white/60 hover:border-pink-500/30 hover:bg-pink-500/10 hover:text-white"
-            >
-
-              {action}
-
-            </button>
-
           ))}
-
         </div>
 
-      </div>
-
-      <div className="grid grid-cols-2 gap-6">
-
-        {SECTIONS.map((section) => {
-
-          const Icon = section.icon;
-
-          return (
-
-            <div
-              key={section.title}
-              className="rounded-[36px] border border-white/10 bg-white/[0.03] p-8"
-            >
-
-              <div className="mb-8 flex items-start justify-between gap-6">
-
-                <div className="flex gap-5">
-
-                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-pink-500/10">
-
-                    <Icon className="h-8 w-8 text-pink-400" />
-
-                  </div>
-
-                  <div>
-
-                    <div className="mb-2 text-3xl font-light">
-
-                      {section.title}
-
-                    </div>
-
-                    <div className="max-w-xl text-white/45">
-
-                      {section.description}
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-                <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/40">
-
-                  Runtime
-
-                </div>
-
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-
-                {section.items.map((item) => (
-
-                  <Link
-                    key={item.route}
-                    href={item.route || "#"}
-                    className="group rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-pink-500/40 hover:bg-pink-500/5"
-                  >
-
-                    <div className="flex items-center justify-between gap-3">
-
-                      <div className="text-white/70">
-
-                        {item.name}
-
-                      </div>
-
-                      <ArrowRight className="h-4 w-4 text-white/20 group-hover:text-pink-400" />
-
-                    </div>
-
-                  </Link>
-
-                ))}
-
-              </div>
-
+        <div className="mb-8 rounded-[36px] border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-8">
+          <div className="flex flex-wrap items-center justify-between gap-5">
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Paid Media</div>
+              <h2 className="mt-2 text-3xl font-light">Meta Ads Manager</h2>
+              <p className="mt-2 max-w-3xl text-white/45">
+                Select an exact approved organization asset, preview it, confirm the logo and create the complete Meta campaign in paused status.
+              </p>
             </div>
+            <Link
+              href={`${base}/ads`}
+              className="flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
+            >
+              Create Meta campaign
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
 
-          );
+        <div className="grid gap-6 lg:grid-cols-2">
+          {SECTIONS.map((section) => {
+            const Icon = section.icon;
+            return (
+              <section key={section.title} className="rounded-[32px] border border-white/10 bg-white/[0.03] p-7">
+                <div className="mb-6 flex gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D6A66A]/10">
+                    <Icon className="h-6 w-6 text-[#D6A66A]" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-light">{section.title}</h2>
+                    <p className="mt-1 text-sm leading-relaxed text-white/40">{section.description}</p>
+                  </div>
+                </div>
 
-        })}
-
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {section.items.map((item) => (
+                    <Link
+                      key={item.route}
+                      href={`${base}/${item.route}`}
+                      className={`group flex items-center justify-between rounded-2xl border p-4 transition ${
+                        item.featured
+                          ? "border-[#D6A66A]/30 bg-[#D6A66A]/10 text-[#E6C18C]"
+                          : "border-white/10 bg-black/30 text-white/65 hover:border-[#D6A66A]/30 hover:text-white"
+                      }`}
+                    >
+                      <span>{item.name}</span>
+                      <ArrowRight className="h-4 w-4 opacity-40 transition group-hover:opacity-100" />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
-
     </main>
-
   );
-
 }

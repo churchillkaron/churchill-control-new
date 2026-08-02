@@ -213,7 +213,7 @@ async function main() {
   const credentialPayload = {
     provider_id: "meta",
     credential_type: "managed_access_token",
-    secret_reference: accessToken,
+    secret_reference: "env:AVANTIQO_META_ACCESS_TOKEN",
     status: "ACTIVE",
     metadata: {
       ...(existing?.metadata || {}),

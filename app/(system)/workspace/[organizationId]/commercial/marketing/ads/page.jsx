@@ -1,31 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   AlertCircle,
+  ArrowRight,
   BrainCircuit,
-  Check,
   CheckCircle2,
   ChevronRight,
+  ImagePlus,
   Loader2,
   Megaphone,
-  Plus,
+  PencilRuler,
   RefreshCw,
   ShieldCheck,
-  Trash2,
+  Sparkles,
   WalletCards,
 } from "lucide-react";
 
 import {
   CAMPAIGN_GOALS,
   DESTINATION_NAMES,
-  LOCATION_TYPES,
   applyUniversalPlanToForm,
   buildUniversalCampaignPlan,
   campaignPlanFingerprint,
   createDefaultCampaignForm,
-  createLocation,
 } from "@/lib/marketing/campaigns/ui/CampaignBuilderModel";
 
 const GOLD = "#D6A66A";
@@ -37,15 +37,29 @@ function unwrap(payload) {
 }
 
 function publicError(payload, fallback = "Something went wrong") {
-  const error = payload?.error || payload;
-  if (!error) return { message: fallback };
-  if (typeof error === "string") return { message: error };
+  if (!payload) return { message: fallback };
+  if (typeof payload === "string") return { message: payload };
+
+  const nested = payload.error;
+  if (typeof nested === "string") {
+    return {
+      message: nested,
+      stage: payload.stage || null,
+      code: payload.code || null,
+      correction: payload.correction || null,
+    };
+  }
+
   return {
-    stage: error.stage || null,
-    code: error.code || null,
+    stage: nested?.stage || payload.stage || null,
+    code: nested?.code || payload.code || null,
     message:
-      error.message || error.error_user_msg || error.error?.message || fallback,
-    correction: error.correction || null,
+      nested?.message ||
+      payload.message ||
+      nested?.error_user_msg ||
+      nested?.error?.message ||
+      fallback,
+    correction: nested?.correction || payload.correction || null,
   };
 }
 
@@ -78,164 +92,34 @@ function Field({ label, hint, children }) {
   );
 }
 
-function Choice({ active, disabled, title, description, badge, onClick }) {
+function ModeButton({ active, icon: Icon, title, description, onClick }) {
   return (
     <button
       type="button"
-      disabled={disabled}
       onClick={onClick}
-      className={`w-full rounded-2xl border p-4 text-left transition ${
+      className={`rounded-3xl border p-5 text-left transition ${
         active
-          ? "border-[#D6A66A]/60 bg-[#D6A66A]/10"
-          : "border-white/10 bg-black/20 hover:border-white/20"
-      } disabled:cursor-not-allowed disabled:opacity-35`}
+          ? "border-[#D6A66A]/55 bg-[#D6A66A]/10"
+          : "border-white/10 bg-black/25 hover:border-white/20"
+      }`}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="text-sm font-medium text-white">{title}</div>
-            {badge ? (
-              <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-white/35">
-                {badge}
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-1 text-xs leading-5 text-white/38">
-            {description}
-          </div>
-        </div>
-        <div
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-            active
-              ? "border-[#D6A66A] bg-[#D6A66A] text-black"
-              : "border-white/20"
-          }`}
-        >
-          {active ? <Check size={13} /> : null}
-        </div>
-      </div>
+      <Icon className="h-5 w-5 text-[#D6A66A]" />
+      <div className="mt-4 text-lg font-medium text-white">{title}</div>
+      <div className="mt-2 text-sm leading-6 text-white/40">{description}</div>
     </button>
   );
 }
 
-function LocationEditor({ value, onChange, onRemove, excluded = false }) {
-  function update(name, next) {
-    onChange({ ...value, [name]: next });
-  }
-
+function SummaryCard({ label, value, description }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-black/25 p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="text-xs uppercase tracking-[0.16em] text-white/35">
-          {excluded ? "Excluded area" : "Included area"}
-        </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="rounded-xl border border-white/10 p-2 text-white/35 transition hover:border-red-400/30 hover:text-red-300"
-        >
-          <Trash2 size={14} />
-        </button>
+    <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+        {label}
       </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Location type">
-          <select
-            className={inputClass}
-            value={value.type}
-            onChange={(event) => update("type", event.target.value)}
-          >
-            {LOCATION_TYPES.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        {value.type === "country" ? (
-          <Field label="Country code">
-            <input
-              className={inputClass}
-              maxLength={2}
-              value={value.country_code}
-              onChange={(event) =>
-                update("country_code", event.target.value.toUpperCase())
-              }
-              placeholder="TH"
-            />
-          </Field>
-        ) : null}
-
-        {["region", "city", "district", "postal_code"].includes(
-          value.type,
-        ) ? (
-          <>
-            <Field label="Display name">
-              <input
-                className={inputClass}
-                value={value.name}
-                onChange={(event) => update("name", event.target.value)}
-                placeholder="Location name"
-              />
-            </Field>
-            <Field
-              label="Meta targeting id"
-              hint="Use the exact provider id. Map radius needs no provider id."
-            >
-              <input
-                className={inputClass}
-                value={value.id}
-                onChange={(event) => update("id", event.target.value)}
-                placeholder="Provider targeting id"
-              />
-            </Field>
-          </>
-        ) : null}
-
-        {value.type === "radius" ? (
-          <>
-            <Field label="Latitude">
-              <input
-                className={inputClass}
-                type="number"
-                step="any"
-                value={value.latitude}
-                onChange={(event) => update("latitude", event.target.value)}
-              />
-            </Field>
-            <Field label="Longitude">
-              <input
-                className={inputClass}
-                type="number"
-                step="any"
-                value={value.longitude}
-                onChange={(event) => update("longitude", event.target.value)}
-              />
-            </Field>
-            <Field label="Radius">
-              <input
-                className={inputClass}
-                type="number"
-                min="1"
-                step="any"
-                value={value.radius}
-                onChange={(event) => update("radius", event.target.value)}
-              />
-            </Field>
-            <Field label="Radius unit">
-              <select
-                className={inputClass}
-                value={value.radius_unit}
-                onChange={(event) => update("radius_unit", event.target.value)}
-              >
-                <option value="kilometer">Kilometer</option>
-                <option value="mile">Mile</option>
-              </select>
-            </Field>
-          </>
-        ) : null}
-      </div>
+      <div className="mt-3 text-xl font-light text-white">{value}</div>
+      {description ? (
+        <div className="mt-2 text-xs leading-5 text-white/35">{description}</div>
+      ) : null}
     </div>
   );
 }
@@ -244,37 +128,37 @@ export default function CampaignBuilderPage() {
   const params = useParams();
   const organizationId = params?.organizationId;
 
-  const [readiness, setReadiness] = useState(null);
+  const [experienceMode, setExperienceMode] = useState("autopilot");
+  const [manualMode, setManualMode] = useState("simple");
   const [form, setForm] = useState(createDefaultCampaignForm);
-  const [mode, setMode] = useState("simple");
-  const [step, setStep] = useState(1);
+  const [readiness, setReadiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [planning, setPlanning] = useState(false);
   const [preflighting, setPreflighting] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [ownerApproved, setOwnerApproved] = useState(false);
+  const [aiPlan, setAiPlan] = useState(null);
   const [preflight, setPreflight] = useState(null);
   const [preflightFingerprint, setPreflightFingerprint] = useState("");
-  const [aiPlan, setAiPlan] = useState(null);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
 
   const walletCurrency = readiness?.wallet?.currency || "";
   const availableBalance = Number(readiness?.wallet?.available_balance || 0);
   const budget = Number(form.totalBudget || 0);
-  const selectedAsset = useMemo(
-    () =>
-      (readiness?.creative_assets || []).find(
-        (asset) => asset.id === form.assetId,
-      ) || null,
-    [readiness, form.assetId],
-  );
   const selectedChannel = useMemo(
     () =>
       (readiness?.connected_channels || []).find(
         (channel) => channel.id === form.channelId,
       ) || null,
     [readiness, form.channelId],
+  );
+  const selectedAsset = useMemo(
+    () =>
+      (readiness?.creative_assets || []).find(
+        (asset) => asset.id === form.assetId,
+      ) || null,
+    [readiness, form.assetId],
   );
 
   const plan = useMemo(
@@ -283,18 +167,22 @@ export default function CampaignBuilderPage() {
         form,
         organizationId,
         walletCurrency,
-        mode,
+        mode: manualMode,
         ai: aiPlan?.ai || {},
       }),
-    [form, organizationId, walletCurrency, mode, aiPlan],
+    [form, organizationId, walletCurrency, manualMode, aiPlan],
   );
-  const currentFingerprint = useMemo(
+
+  const planFingerprint = useMemo(
     () => campaignPlanFingerprint(plan),
     [plan],
   );
   const preflightCurrent = Boolean(
-    preflight && preflightFingerprint === currentFingerprint,
+    preflight && preflightFingerprint === planFingerprint,
   );
+  const creativeStudioHref = `/workspace/${organizationId}/commercial/design?returnTo=${encodeURIComponent(
+    `/workspace/${organizationId}/commercial/marketing/ads`,
+  )}&source=campaign-builder`;
 
   function resetApproval() {
     setOwnerApproved(false);
@@ -305,45 +193,6 @@ export default function CampaignBuilderPage() {
 
   function update(name, value) {
     setForm((current) => ({ ...current, [name]: value }));
-    resetApproval();
-  }
-
-  function toggleList(name, value) {
-    setForm((current) => {
-      const source = current[name] || [];
-      return {
-        ...current,
-        [name]: source.includes(value)
-          ? source.filter((item) => item !== value)
-          : [...source, value],
-      };
-    });
-    resetApproval();
-  }
-
-  function updateLocation(name, key, nextLocation) {
-    setForm((current) => ({
-      ...current,
-      [name]: current[name].map((item) =>
-        item._key === key ? nextLocation : item,
-      ),
-    }));
-    resetApproval();
-  }
-
-  function addLocation(name, type = "country") {
-    setForm((current) => ({
-      ...current,
-      [name]: [...current[name], createLocation(type)],
-    }));
-    resetApproval();
-  }
-
-  function removeLocation(name, key) {
-    setForm((current) => ({
-      ...current,
-      [name]: current[name].filter((item) => item._key !== key),
-    }));
     resetApproval();
   }
 
@@ -372,9 +221,7 @@ export default function CampaignBuilderPage() {
         channelId: current.channelId || firstReady?.id || "",
         networks:
           current.networks.length > 0
-            ? current.networks.filter((network) =>
-                (firstReady?.networks || []).includes(network),
-              )
+            ? current.networks
             : (firstReady?.networks || []).filter((network) =>
                 ["facebook", "instagram"].includes(network),
               ),
@@ -382,11 +229,14 @@ export default function CampaignBuilderPage() {
           (firstReady?.destinations || []).includes(current.destination)
             ? current.destination
             : firstReady?.destinations?.[0] || "ENGAGEMENT",
+        country: current.country || "TH",
       }));
     } catch (loadError) {
       setReadiness(null);
       setError(
-        loadError?.message ? loadError : publicError(loadError, "Load failed"),
+        loadError?.message
+          ? loadError
+          : publicError(loadError, "Campaign workspace could not be loaded"),
       );
     } finally {
       setLoading(false);
@@ -396,56 +246,6 @@ export default function CampaignBuilderPage() {
   useEffect(() => {
     loadReadiness();
   }, [organizationId]);
-
-  function validateStep(targetStep = step) {
-    if (targetStep >= 1) {
-      if (!form.campaignName.trim()) throw new Error("Name the campaign");
-      if (!form.goal) throw new Error("Choose a campaign goal");
-    }
-    if (targetStep >= 2) {
-      if (!form.channelId) throw new Error("Choose an executable channel");
-      if (!form.networks.length) throw new Error("Choose at least one network");
-      if (!form.destination) throw new Error("Choose a destination");
-    }
-    if (targetStep >= 3) {
-      if (!walletCurrency) throw new Error("Wallet currency is not configured");
-      if (!budget || budget <= 0) throw new Error("Enter a positive budget");
-      if (budget > availableBalance) {
-        throw new Error("Wallet balance is too low for this campaign");
-      }
-      if (!form.endTime) throw new Error("Choose a finite end time");
-      if (Number(form.ageMin) < 18) throw new Error("Minimum age must be 18");
-      if (Number(form.ageMax) < Number(form.ageMin)) {
-        throw new Error("Maximum age must be at least the minimum age");
-      }
-      if (mode === "simple" && !/^[A-Za-z]{2}$/.test(form.country)) {
-        throw new Error("Enter a valid two-letter country code");
-      }
-      if (mode === "advanced" && !form.includedLocations.length) {
-        throw new Error("Add at least one included location");
-      }
-    }
-    if (targetStep >= 4) {
-      if (!selectedAsset) throw new Error("Select an exact creative asset");
-      if (!form.confirmExactAsset) {
-        throw new Error("Confirm the exact creative asset");
-      }
-      if (!form.primaryText.trim()) throw new Error("Add primary campaign text");
-      if (form.destination === "WEBSITE" && !form.destinationUrl.trim()) {
-        throw new Error("Add the website destination URL");
-      }
-    }
-  }
-
-  function nextStep() {
-    try {
-      validateStep(step);
-      setError(null);
-      setStep((current) => Math.min(5, current + 1));
-    } catch (validationError) {
-      setError({ message: validationError.message });
-    }
-  }
 
   async function createAiPlan() {
     setPlanning(true);
@@ -459,17 +259,10 @@ export default function CampaignBuilderPage() {
         body: JSON.stringify({
           organizationId,
           request: {
-            business_goal: form.campaignBrief || form.goal,
-            campaign_name: form.campaignName || null,
-            preferred_channel_id: form.channelId || null,
-            preferred_networks: form.networks,
-            preferred_destination: form.destination || null,
-            maximum_budget: form.totalBudget
-              ? Number(form.totalBudget)
-              : null,
-            currency: walletCurrency || null,
-            start_time: form.startTime || null,
-            end_time: form.endTime || null,
+            decision_mode: "AI_AUTOPILOT",
+            owner_instruction:
+              String(form.campaignBrief || "").trim() ||
+              "Create the best executable campaign for this organization. Decide everything from the organization facts, connected channels, wallet and approved assets.",
           },
         }),
       });
@@ -485,27 +278,23 @@ export default function CampaignBuilderPage() {
         readiness,
       });
       setAiPlan(generated);
-      setMode(applied.mode);
+      setManualMode(applied.mode);
       setForm(applied.form);
-      setStep(1);
+      setExperienceMode("autopilot");
     } catch (planError) {
-      setError(planError?.message ? planError : publicError(planError));
+      setError(
+        planError?.message
+          ? planError
+          : publicError(planError, "AI campaign planning failed"),
+      );
     } finally {
       setPlanning(false);
     }
   }
 
   async function runPreflight() {
-    try {
-      validateStep(5);
-    } catch (validationError) {
-      setError({ message: validationError.message });
-      return;
-    }
-
     setPreflighting(true);
     setError(null);
-    setPreflight(null);
     setOwnerApproved(false);
 
     try {
@@ -524,7 +313,7 @@ export default function CampaignBuilderPage() {
       }
 
       setPreflight(unwrap(payload));
-      setPreflightFingerprint(currentFingerprint);
+      setPreflightFingerprint(planFingerprint);
     } catch (preflightError) {
       setError(
         preflightError?.message
@@ -537,20 +326,9 @@ export default function CampaignBuilderPage() {
   }
 
   async function approveAndExecute() {
-    if (!preflightCurrent) {
-      setError({
-        message: "Run preflight again because the campaign plan changed",
-      });
-      return;
-    }
-    if (!ownerApproved) {
-      setError({ message: "Confirm owner approval before wallet reservation" });
-      return;
-    }
-
+    if (!preflightCurrent || !ownerApproved) return;
     setExecuting(true);
     setError(null);
-    setResult(null);
 
     try {
       const response = await fetch("/api/marketing/campaign-execution", {
@@ -582,13 +360,21 @@ export default function CampaignBuilderPage() {
     }
   }
 
-  const steps = [
-    "Goal & AI",
-    "Channels",
-    "Audience & budget",
-    "Creative",
-    "Review & approval",
-  ];
+  function openCreativeStudio() {
+    try {
+      window.sessionStorage.setItem(
+        "avantiqo_campaign_creative_brief",
+        JSON.stringify({
+          organization_id: organizationId,
+          source: "campaign-builder",
+          return_to: `/workspace/${organizationId}/commercial/marketing/ads`,
+          plan,
+        }),
+      );
+    } catch {
+      // Navigation still works when browser storage is unavailable.
+    }
+  }
 
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-white lg:px-10">
@@ -596,14 +382,15 @@ export default function CampaignBuilderPage() {
         <header className="mb-8 flex flex-wrap items-end justify-between gap-5">
           <div>
             <div className="mb-3 flex items-center gap-3 text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
-              <Megaphone size={15} /> Marketing / Universal Campaigns
+              <Megaphone size={15} /> Marketing / Autonomous Campaigns
             </div>
             <h1 className="text-4xl font-light tracking-tight lg:text-5xl">
               Campaign Builder
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-white/42">
-              Business goal to AI plan, owner approval, prepaid wallet reservation,
-              provider preflight and paused-first execution.
+              Avantiqo decides the strategy, targeting, channel, budget, timing,
+              copy and creative recommendation. The owner reviews the completed
+              plan before any wallet reservation.
             </p>
           </div>
           <button
@@ -618,37 +405,27 @@ export default function CampaignBuilderPage() {
         </header>
 
         <div className="mb-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-white/35">
-              <ShieldCheck size={15} style={{ color: GOLD }} /> Executable channels
-            </div>
-            <div className="mt-3 text-xl font-light">
-              {loading ? "Checking" : readiness?.ready_channel_count || 0}
-            </div>
-            <div className="mt-1 text-xs text-white/32">
-              Only channels with a real active adapter are offered
-            </div>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-white/35">
-              <WalletCards size={15} style={{ color: GOLD }} /> Available wallet
-            </div>
-            <div className="mt-3 text-xl font-light">
-              {readiness?.wallet
+          <SummaryCard
+            label="Executable channels"
+            value={loading ? "Checking" : readiness?.ready_channel_count || 0}
+            description="Only channels with a real provider adapter are offered."
+          />
+          <SummaryCard
+            label="Available wallet"
+            value={
+              readiness?.wallet
                 ? money(availableBalance, walletCurrency)
-                : "Not available"}
-            </div>
-            <div className="mt-1 text-xs text-white/32">
-              Funds are untouched during planning and preflight
-            </div>
-          </div>
+                : "Not available"
+            }
+            description="Planning and preflight do not reserve funds."
+          />
           <div className="rounded-3xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-5">
-            <div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]/75">
-              Execution safety
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#D6A66A]/75">
+              <ShieldCheck size={15} /> Execution safety
             </div>
-            <div className="mt-3 text-xl font-light">Preflight · Owner approval</div>
-            <div className="mt-1 text-xs text-white/35">
-              Provider objects are created paused first
+            <div className="mt-3 text-xl font-light">Paused first</div>
+            <div className="mt-2 text-xs leading-5 text-white/35">
+              Provider preflight and authenticated owner approval remain mandatory.
             </div>
           </div>
         </div>
@@ -677,664 +454,318 @@ export default function CampaignBuilderPage() {
         {result ? (
           <div className="mb-6 flex gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
             <CheckCircle2 size={17} className="mt-0.5 shrink-0" />
-            Campaign execution completed in paused-first mode. Review the provider
-            result before any activation.
+            Campaign created in paused-first mode. Review it before activation.
           </div>
         ) : null}
 
-        <div className="mb-6 grid grid-cols-5 gap-2 rounded-3xl border border-white/10 bg-white/[0.025] p-3">
-          {steps.map((label, index) => {
-            const number = index + 1;
-            return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setStep(number)}
-                className={`rounded-2xl px-3 py-3 text-xs transition ${
-                  step === number
-                    ? "bg-[#D6A66A] text-black"
-                    : number < step
-                      ? "bg-[#D6A66A]/10 text-[#D6A66A]"
-                      : "text-white/35"
-                }`}
-              >
-                <span className="mr-2 hidden sm:inline">{number}.</span>
-                {label}
-              </button>
-            );
-          })}
+        <div className="mb-6 grid gap-4 md:grid-cols-2">
+          <ModeButton
+            active={experienceMode === "autopilot"}
+            icon={Sparkles}
+            title="AI Autopilot"
+            description="Avantiqo researches the available organization facts and decides the complete campaign. No marketing settings are required from the owner."
+            onClick={() => setExperienceMode("autopilot")}
+          />
+          <ModeButton
+            active={experienceMode === "manual"}
+            icon={PencilRuler}
+            title="Manual Expert"
+            description="Optional expert controls for owners or agencies that need to override the autonomous plan."
+            onClick={() => setExperienceMode("manual")}
+          />
         </div>
 
-        <section className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
-          {step === 1 ? (
-            <div className="mx-auto max-w-4xl space-y-6">
-              <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
-                  Step 1
-                </div>
-                <h2 className="mt-2 text-3xl font-light">
-                  Define the business outcome
-                </h2>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Campaign name">
-                  <input
-                    className={inputClass}
-                    value={form.campaignName}
-                    onChange={(event) =>
-                      update("campaignName", event.target.value)
-                    }
-                    placeholder="Name this campaign"
-                  />
-                </Field>
-                <Field label="Planning mode">
-                  <div className="grid grid-cols-2 gap-2">
-                    {["simple", "advanced"].map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => {
-                          setMode(item);
-                          resetApproval();
-                        }}
-                        className={`rounded-2xl border px-4 py-3 text-sm capitalize ${
-                          mode === item
-                            ? "border-[#D6A66A]/60 bg-[#D6A66A]/10 text-[#D6A66A]"
-                            : "border-white/10 bg-black/25 text-white/45"
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    ))}
+        {experienceMode === "autopilot" ? (
+          <section className="rounded-[36px] border border-[#D6A66A]/25 bg-[#D6A66A]/[0.055] p-6 lg:p-9">
+            <div className="mx-auto max-w-5xl">
+              <div className="flex flex-wrap items-start justify-between gap-5">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
+                    Autonomous marketing director
                   </div>
+                  <h2 className="mt-3 text-3xl font-light lg:text-4xl">
+                    Let Avantiqo create the best campaign
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">
+                    Avantiqo chooses the objective, channel, Facebook or Instagram
+                    delivery, audience, geography, budget, schedule, copy and best
+                    approved creative. Your only required action is final approval.
+                  </p>
+                </div>
+                <BrainCircuit className="h-10 w-10 text-[#D6A66A]" />
+              </div>
+
+              <div className="mt-7">
+                <Field
+                  label="Optional owner instruction"
+                  hint="Leave this empty to let Avantiqo decide everything from the organization data."
+                >
+                  <textarea
+                    className={`${inputClass} min-h-32 resize-y`}
+                    value={form.campaignBrief}
+                    onChange={(event) =>
+                      update("campaignBrief", event.target.value)
+                    }
+                    placeholder="Optional: promote a specific event, offer, product or date."
+                  />
                 </Field>
               </div>
-
-              <div className="grid gap-3 md:grid-cols-4">
-                {CAMPAIGN_GOALS.map((goal) => (
-                  <Choice
-                    key={goal.id}
-                    active={form.goal === goal.id}
-                    title={goal.name}
-                    description={goal.description}
-                    onClick={() => update("goal", goal.id)}
-                  />
-                ))}
-              </div>
-
-              <Field
-                label="Business brief"
-                hint="Describe the real business goal, offer, audience and timing. AI will use only connected executable channels."
-              >
-                <textarea
-                  className={`${inputClass} min-h-36 resize-y`}
-                  value={form.campaignBrief}
-                  onChange={(event) =>
-                    update("campaignBrief", event.target.value)
-                  }
-                  placeholder="Example: Build awareness and visits for a time-bound offer within a precise local radius..."
-                />
-              </Field>
 
               <button
                 type="button"
                 onClick={createAiPlan}
-                disabled={planning || loading || !readiness?.ready_channel_count}
-                className="flex w-full items-center justify-center gap-3 rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 px-5 py-4 text-sm font-semibold text-[#D6A66A] transition hover:bg-[#D6A66A]/15 disabled:opacity-35"
+                disabled={planning || loading}
+                className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#D6A66A] px-5 py-4 font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
               >
                 {planning ? (
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader2 size={19} className="animate-spin" />
                 ) : (
-                  <BrainCircuit size={18} />
+                  <Sparkles size={19} />
                 )}
-                Let AI create the complete campaign plan
+                Create the best campaign for this business
               </button>
 
-              {aiPlan ? (
-                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
-                  <div className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">
-                    AI plan loaded · owner approval still required
-                  </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-3">
-                    <div className="text-sm text-white/55">
-                      Confidence: {aiPlan.ai?.confidence ?? "Not stated"}
-                    </div>
-                    <div className="text-sm text-white/55">
-                      Assumptions: {aiPlan.ai?.assumptions?.length || 0}
-                    </div>
-                    <div className="text-sm text-white/55">
-                      Warnings: {aiPlan.ai?.warnings?.length || 0}
-                    </div>
-                  </div>
+              {!loading && !readiness?.ready_channel_count ? (
+                <div className="mt-3 text-center text-xs text-white/35">
+                  The button remains available so Avantiqo can return the exact
+                  readiness stage and required correction.
                 </div>
               ) : null}
             </div>
-          ) : null}
-
-          {step === 2 ? (
-            <div className="mx-auto max-w-4xl space-y-6">
-              <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
-                  Step 2
-                </div>
-                <h2 className="mt-2 text-3xl font-light">
-                  Select a genuinely executable channel
-                </h2>
+          </section>
+        ) : (
+          <section className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
+            <div className="mb-6">
+              <div className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
+                Manual Expert
               </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                {(readiness?.channels || []).map((channel) => (
-                  <Choice
-                    key={channel.id}
-                    active={form.channelId === channel.id}
-                    disabled={!channel.available}
-                    title={channel.name}
-                    badge={channel.readiness_state}
-                    description={
-                      channel.available
-                        ? `${channel.adapter_version || "Active adapter"} · ${
-                            channel.available_networks?.join(", ") || "Ready"
-                          }`
-                        : channel.reasons?.join("; ") || "Not executable"
-                    }
-                    onClick={() => {
-                      update("channelId", channel.id);
-                      setForm((current) => ({
-                        ...current,
-                        channelId: channel.id,
-                        networks: (channel.available_networks || []).filter(
-                          (network) =>
-                            ["facebook", "instagram"].includes(network),
-                        ),
-                        destination:
-                          channel.available_destinations?.[0] ||
-                          channel.destinations?.[0] ||
-                          "ENGAGEMENT",
-                      }));
-                    }}
-                  />
-                ))}
-              </div>
-
-              {selectedChannel ? (
-                <>
-                  <div>
-                    <div className="mb-3 text-xs uppercase tracking-[0.16em] text-white/35">
-                      Delivery networks
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {(selectedChannel.networks || []).map((network) => (
-                        <Choice
-                          key={network}
-                          active={form.networks.includes(network)}
-                          title={network.replace(/_/g, " ")}
-                          description={`Deliver through ${network.replace(/_/g, " ")}`}
-                          onClick={() => toggleList("networks", network)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-3 text-xs uppercase tracking-[0.16em] text-white/35">
-                      Destination
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      {(selectedChannel.destinations || []).map((destination) => (
-                        <Choice
-                          key={destination}
-                          active={form.destination === destination}
-                          title={DESTINATION_NAMES[destination] || destination}
-                          description={`Optimize this channel for ${(
-                            DESTINATION_NAMES[destination] || destination
-                          ).toLowerCase()}`}
-                          onClick={() => update("destination", destination)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : null}
+              <h2 className="mt-2 text-3xl font-light">
+                Override the campaign plan
+              </h2>
             </div>
-          ) : null}
 
-          {step === 3 ? (
-            <div className="mx-auto max-w-5xl space-y-6">
-              <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
-                  Step 3
-                </div>
-                <h2 className="mt-2 text-3xl font-light">
-                  Audience, geography, schedule and budget
-                </h2>
-              </div>
-
-              {mode === "simple" ? (
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Field label="Country code">
-                    <input
-                      className={inputClass}
-                      maxLength={2}
-                      value={form.country}
-                      onChange={(event) =>
-                        update("country", event.target.value.toUpperCase())
-                      }
-                      placeholder="TH"
-                    />
-                  </Field>
-                  <Field label="Minimum age">
-                    <input
-                      className={inputClass}
-                      type="number"
-                      min="18"
-                      value={form.ageMin}
-                      onChange={(event) => update("ageMin", event.target.value)}
-                    />
-                  </Field>
-                  <Field label="Maximum age">
-                    <input
-                      className={inputClass}
-                      type="number"
-                      min="18"
-                      value={form.ageMax}
-                      onChange={(event) => update("ageMax", event.target.value)}
-                    />
-                  </Field>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-4">
-                    {(form.includedLocations || []).map((location) => (
-                      <LocationEditor
-                        key={location._key}
-                        value={location}
-                        onChange={(next) =>
-                          updateLocation(
-                            "includedLocations",
-                            location._key,
-                            next,
-                          )
-                        }
-                        onRemove={() =>
-                          removeLocation("includedLocations", location._key)
-                        }
-                      />
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => addLocation("includedLocations", "radius")}
-                      className="flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/55"
-                    >
-                      <Plus size={16} /> Add included area
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {(form.excludedLocations || []).map((location) => (
-                      <LocationEditor
-                        key={location._key}
-                        value={location}
-                        excluded
-                        onChange={(next) =>
-                          updateLocation(
-                            "excludedLocations",
-                            location._key,
-                            next,
-                          )
-                        }
-                        onRemove={() =>
-                          removeLocation("excludedLocations", location._key)
-                        }
-                      />
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => addLocation("excludedLocations", "radius")}
-                      className="flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/55"
-                    >
-                      <Plus size={16} /> Add excluded area
-                    </button>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <Field label="Minimum age">
-                      <input
-                        className={inputClass}
-                        type="number"
-                        min="18"
-                        value={form.ageMin}
-                        onChange={(event) =>
-                          update("ageMin", event.target.value)
-                        }
-                      />
-                    </Field>
-                    <Field label="Maximum age">
-                      <input
-                        className={inputClass}
-                        type="number"
-                        min="18"
-                        value={form.ageMax}
-                        onChange={(event) =>
-                          update("ageMax", event.target.value)
-                        }
-                      />
-                    </Field>
-                    <Field label="Location presence">
-                      <select
-                        className={inputClass}
-                        value={form.locationPresence}
-                        onChange={(event) =>
-                          update("locationPresence", event.target.value)
-                        }
-                      >
-                        <option value="living_or_recent">Living in or recently in</option>
-                        <option value="living_in">Living in</option>
-                        <option value="recently_in">Recently in</option>
-                        <option value="traveling_in">Traveling in</option>
-                      </select>
-                    </Field>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field
-                      label="Language locale ids"
-                      hint="Exact Meta locale ids, separated by commas."
-                    >
-                      <input
-                        className={inputClass}
-                        value={form.languageIds}
-                        onChange={(event) =>
-                          update("languageIds", event.target.value)
-                        }
-                      />
-                    </Field>
-                    <Field
-                      label="Interest ids"
-                      hint="Exact Meta interest ids, separated by commas."
-                    >
-                      <input
-                        className={inputClass}
-                        value={form.interestIds}
-                        onChange={(event) =>
-                          update("interestIds", event.target.value)
-                        }
-                      />
-                    </Field>
-                    <Field label="Behaviour ids">
-                      <input
-                        className={inputClass}
-                        value={form.behaviorIds}
-                        onChange={(event) =>
-                          update("behaviorIds", event.target.value)
-                        }
-                      />
-                    </Field>
-                    <Field label="Custom audience ids">
-                      <input
-                        className={inputClass}
-                        value={form.customAudienceIds}
-                        onChange={(event) =>
-                          update("customAudienceIds", event.target.value)
-                        }
-                      />
-                    </Field>
-                    <Field label="Excluded audience ids">
-                      <input
-                        className={inputClass}
-                        value={form.excludedAudienceIds}
-                        onChange={(event) =>
-                          update("excludedAudienceIds", event.target.value)
-                        }
-                      />
-                    </Field>
-                    <Field label="Lookalike audience ids">
-                      <input
-                        className={inputClass}
-                        value={form.lookalikeAudienceIds}
-                        onChange={(event) =>
-                          update("lookalikeAudienceIds", event.target.value)
-                        }
-                      />
-                    </Field>
-                  </div>
-                </>
-              )}
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Start">
-                  <input
-                    className={inputClass}
-                    type="datetime-local"
-                    value={form.startTime}
-                    onChange={(event) => update("startTime", event.target.value)}
-                  />
-                </Field>
-                <Field label="End" hint="Required to cap the maximum spend.">
-                  <input
-                    className={inputClass}
-                    type="datetime-local"
-                    value={form.endTime}
-                    onChange={(event) => update("endTime", event.target.value)}
-                  />
-                </Field>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field
-                  label={`Total budget${walletCurrency ? ` (${walletCurrency})` : ""}`}
-                  hint={`Available: ${money(availableBalance, walletCurrency)}`}
-                >
-                  <input
-                    className={inputClass}
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={form.totalBudget}
-                    onChange={(event) =>
-                      update("totalBudget", event.target.value)
-                    }
-                  />
-                </Field>
-                <Field label="Bid strategy">
-                  <select
-                    className={inputClass}
-                    value={form.bidStrategy}
-                    onChange={(event) =>
-                      update("bidStrategy", event.target.value)
-                    }
-                  >
-                    <option value="lowest_cost">Lowest cost</option>
-                    <option value="cost_cap">Cost cap</option>
-                    <option value="bid_cap">Bid cap</option>
-                  </select>
-                </Field>
-              </div>
-            </div>
-          ) : null}
-
-          {step === 4 ? (
-            <div className="mx-auto max-w-5xl space-y-6">
-              <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
-                  Step 4
-                </div>
-                <h2 className="mt-2 text-3xl font-light">
-                  Select and verify the exact creative
-                </h2>
-              </div>
-
-              <Field label="Creative asset">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Campaign name">
+                <input
+                  className={inputClass}
+                  value={form.campaignName}
+                  onChange={(event) => update("campaignName", event.target.value)}
+                />
+              </Field>
+              <Field label="Goal">
                 <select
                   className={inputClass}
-                  value={form.assetId}
-                  onChange={(event) => {
-                    update("assetId", event.target.value);
-                    setForm((current) => ({
-                      ...current,
-                      assetId: event.target.value,
-                      confirmExactAsset: false,
-                    }));
-                  }}
+                  value={form.goal}
+                  onChange={(event) => update("goal", event.target.value)}
                 >
-                  <option value="">Select creative</option>
-                  {(readiness?.creative_assets || []).map((asset) => (
-                    <option key={asset.id} value={asset.id}>
-                      {asset.name} · {asset.approval_status}
+                  {CAMPAIGN_GOALS.map((goal) => (
+                    <option key={goal.id} value={goal.id}>
+                      {goal.name}
                     </option>
                   ))}
                 </select>
               </Field>
-
-              {selectedAsset ? (
-                <div className="rounded-3xl border border-white/10 bg-black/30 p-4">
-                  <img
-                    src={selectedAsset.preview_url}
-                    alt={selectedAsset.name}
-                    className="mx-auto max-h-[520px] rounded-2xl object-contain"
-                  />
-                  <div className="mt-4 text-sm text-white/65">
-                    {selectedAsset.name}
-                  </div>
-                  <div className="mt-1 text-xs text-[#D6A66A]">
-                    Exact source asset: {selectedAsset.id}
-                  </div>
-                </div>
-              ) : null}
-
-              <label className="flex items-start gap-3 rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-4 text-sm leading-6 text-white/65">
+              <Field label="Channel">
+                <select
+                  className={inputClass}
+                  value={form.channelId}
+                  onChange={(event) => {
+                    const channel = (readiness?.connected_channels || []).find(
+                      (item) => item.id === event.target.value,
+                    );
+                    setForm((current) => ({
+                      ...current,
+                      channelId: event.target.value,
+                      networks: (channel?.networks || []).filter((network) =>
+                        ["facebook", "instagram"].includes(network),
+                      ),
+                      destination: channel?.destinations?.[0] || "ENGAGEMENT",
+                    }));
+                    resetApproval();
+                  }}
+                >
+                  <option value="">Select executable channel</option>
+                  {(readiness?.connected_channels || []).map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      {channel.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Destination">
+                <select
+                  className={inputClass}
+                  value={form.destination}
+                  onChange={(event) => update("destination", event.target.value)}
+                >
+                  {(selectedChannel?.destinations || ["ENGAGEMENT"]).map(
+                    (destination) => (
+                      <option key={destination} value={destination}>
+                        {DESTINATION_NAMES[destination] || destination}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </Field>
+              <Field label="Country">
                 <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={form.confirmExactAsset}
+                  className={inputClass}
+                  maxLength={2}
+                  value={form.country}
                   onChange={(event) =>
-                    update("confirmExactAsset", event.target.checked)
+                    update("country", event.target.value.toUpperCase())
                   }
                 />
-                <span>
-                  I confirm the exact asset, identity, logo, people, food and layout.
-                  Avantiqo must not regenerate or replace it.
-                </span>
-              </label>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Primary text">
-                  <textarea
-                    className={`${inputClass} min-h-36 resize-y`}
-                    value={form.primaryText}
-                    onChange={(event) =>
-                      update("primaryText", event.target.value)
-                    }
-                  />
-                </Field>
-                <div className="space-y-4">
-                  <Field label="Headline">
-                    <input
-                      className={inputClass}
-                      value={form.headline}
-                      onChange={(event) =>
-                        update("headline", event.target.value)
-                      }
-                    />
-                  </Field>
-                  <Field label="Description">
-                    <input
-                      className={inputClass}
-                      value={form.description}
-                      onChange={(event) =>
-                        update("description", event.target.value)
-                      }
-                    />
-                  </Field>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Destination URL">
-                  <input
-                    className={inputClass}
-                    type="url"
-                    value={form.destinationUrl}
-                    onChange={(event) =>
-                      update("destinationUrl", event.target.value)
-                    }
-                  />
-                </Field>
-                <Field label="Call to action">
-                  <select
-                    className={inputClass}
-                    value={form.callToAction}
-                    onChange={(event) =>
-                      update("callToAction", event.target.value)
-                    }
-                  >
-                    <option value="LEARN_MORE">Learn more</option>
-                    <option value="BOOK_NOW">Book now</option>
-                    <option value="CONTACT_US">Contact us</option>
-                    <option value="SIGN_UP">Sign up</option>
-                    <option value="SHOP_NOW">Shop now</option>
-                  </select>
-                </Field>
-              </div>
+              </Field>
+              <Field label="Lifetime budget">
+                <input
+                  className={inputClass}
+                  type="number"
+                  value={form.totalBudget}
+                  onChange={(event) => update("totalBudget", event.target.value)}
+                />
+              </Field>
+              <Field label="Start">
+                <input
+                  className={inputClass}
+                  type="datetime-local"
+                  value={form.startTime}
+                  onChange={(event) => update("startTime", event.target.value)}
+                />
+              </Field>
+              <Field label="End">
+                <input
+                  className={inputClass}
+                  type="datetime-local"
+                  value={form.endTime}
+                  onChange={(event) => update("endTime", event.target.value)}
+                />
+              </Field>
             </div>
-          ) : null}
+          </section>
+        )}
 
-          {step === 5 ? (
-            <div className="mx-auto max-w-5xl space-y-6">
+        {aiPlan ? (
+          <section className="mt-6 rounded-[36px] border border-white/10 bg-white/[0.03] p-6 lg:p-9">
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <div className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
-                  Step 5
+                  Complete AI campaign plan
                 </div>
                 <h2 className="mt-2 text-3xl font-light">
-                  Provider preflight and owner approval
+                  Review Avantiqo&apos;s decision
                 </h2>
               </div>
+              <div className="text-sm text-white/40">
+                Confidence: {aiPlan.ai?.confidence ?? "Not stated"}
+              </div>
+            </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-                  <div className="text-xs uppercase tracking-[0.18em] text-white/35">
-                    Campaign plan
-                  </div>
-                  <div className="mt-3 text-xl">{form.campaignName}</div>
-                  <div className="mt-3 space-y-1 text-sm text-white/45">
-                    <div>Goal: {form.goal}</div>
-                    <div>Channel: {form.channelId}</div>
-                    <div>Networks: {form.networks.join(", ")}</div>
-                    <div>Destination: {form.destination}</div>
-                    <div>End: {form.endTime || "Not set"}</div>
-                  </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <SummaryCard label="Campaign" value={form.campaignName || "Unnamed"} description={`Goal: ${form.goal}`} />
+              <SummaryCard label="Channel" value={form.channelId || "Not selected"} description={form.networks.join(", ") || "No delivery network"} />
+              <SummaryCard label="Audience" value={`${form.country || "Targeted area"} · ${form.ageMin}-${form.ageMax}`} description={form.destination} />
+              <SummaryCard label="Maximum budget" value={money(budget, walletCurrency)} description={form.endTime ? `Ends ${form.endTime}` : "End time required"} />
+            </div>
+
+            <div className="mt-6 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                  Campaign message
                 </div>
-                <div className="rounded-3xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-5">
-                  <div className="text-xs uppercase tracking-[0.18em] text-[#D6A66A]/75">
-                    Maximum wallet authorization
-                  </div>
-                  <div className="mt-3 text-3xl font-light">
-                    {money(budget, walletCurrency)}
-                  </div>
-                  <div className="mt-3 text-sm leading-6 text-white/45">
-                    Nothing is reserved during preflight. Reservation begins only
-                    after explicit authenticated owner approval.
-                  </div>
+                <div className="mt-3 text-lg text-white">
+                  {form.headline || "Headline pending"}
+                </div>
+                <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-white/50">
+                  {form.primaryText || "Primary text pending"}
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-                <div className="text-xs uppercase tracking-[0.18em] text-white/35">
-                  Exact creative
+              <div className="rounded-3xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.055] p-5">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#D6A66A]">
+                  <ImagePlus size={15} /> Creative decision
                 </div>
                 <div className="mt-3 text-lg">
-                  {selectedAsset?.name || "Not selected"}
+                  {selectedAsset?.name || "New campaign art required"}
                 </div>
-                <div className="mt-2 text-sm text-white/45">
-                  {form.primaryText || "No primary text"}
+                <div className="mt-2 text-sm leading-6 text-white/45">
+                  {selectedAsset
+                    ? "Avantiqo selected an existing organization asset. The owner must still visually confirm the exact image."
+                    : "No suitable approved asset was selected. Send the complete campaign brief to Creative Studio."}
+                </div>
+                <Link
+                  href={creativeStudioHref}
+                  onClick={openCreativeStudio}
+                  className="mt-5 flex items-center justify-center gap-2 rounded-2xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 px-4 py-3 text-sm font-semibold text-[#E6C18C] transition hover:bg-[#D6A66A]/15"
+                >
+                  <ImagePlus size={17} />
+                  {selectedAsset ? "Open Creative Studio" : "Create recommended campaign art"}
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-white/10 bg-black/25 p-5">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                Exact creative approval
+              </div>
+              <div className="mt-4 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+                <div>
+                  <select
+                    className={inputClass}
+                    value={form.assetId}
+                    onChange={(event) => {
+                      setForm((current) => ({
+                        ...current,
+                        assetId: event.target.value,
+                        confirmExactAsset: false,
+                      }));
+                      resetApproval();
+                    }}
+                  >
+                    <option value="">Select exact approved creative</option>
+                    {(readiness?.creative_assets || []).map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.name} · {asset.approval_status}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-white/55">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={form.confirmExactAsset}
+                      disabled={!selectedAsset}
+                      onChange={(event) =>
+                        update("confirmExactAsset", event.target.checked)
+                      }
+                    />
+                    I visually confirm this exact creative, including identity,
+                    logo, people, food and layout.
+                  </label>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
+                  {selectedAsset?.preview_url ? (
+                    <img
+                      src={selectedAsset.preview_url}
+                      alt={selectedAsset.name}
+                      className="mx-auto max-h-[360px] rounded-xl object-contain"
+                    />
+                  ) : (
+                    <div className="flex min-h-44 items-center justify-center text-sm text-white/30">
+                      No exact creative selected
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
 
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
               <button
                 type="button"
                 onClick={runPreflight}
-                disabled={preflighting || executing}
-                className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white/[0.04] px-5 py-4 font-semibold text-white/75 transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A] disabled:opacity-35"
+                disabled={preflighting || !form.confirmExactAsset}
+                className="flex items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white/[0.04] px-5 py-4 font-semibold text-white/75 transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A] disabled:opacity-35"
               >
                 {preflighting ? (
                   <Loader2 size={19} className="animate-spin" />
@@ -1344,75 +775,60 @@ export default function CampaignBuilderPage() {
                 Run no-spend provider preflight
               </button>
 
-              {preflightCurrent ? (
-                <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5">
-                  <div className="flex items-center gap-2 text-sm font-medium text-emerald-100">
-                    <CheckCircle2 size={17} /> Provider preflight passed
-                  </div>
-                  <div className="mt-3 text-xs leading-5 text-emerald-100/60">
-                    Wallet changed: no · Campaign created: no · Execution mode:
-                    paused first
-                  </div>
-                </div>
-              ) : null}
-
-              <label
-                className={`flex items-start gap-3 rounded-2xl border p-4 text-sm leading-6 ${
-                  preflightCurrent
-                    ? "border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] text-white/70"
-                    : "border-white/10 bg-black/20 text-white/25"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  disabled={!preflightCurrent}
-                  checked={ownerApproved}
-                  onChange={(event) => setOwnerApproved(event.target.checked)}
-                />
-                <span>
-                  I approve this exact campaign plan and authorize Avantiqo to
-                  reserve up to {money(budget, walletCurrency)} and create the
-                  provider campaign in paused status.
-                </span>
-              </label>
-
-              <button
-                type="button"
-                onClick={approveAndExecute}
-                disabled={!preflightCurrent || !ownerApproved || executing}
-                className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#D6A66A] px-5 py-4 font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
-              >
-                {executing ? (
-                  <Loader2 size={19} className="animate-spin" />
-                ) : (
-                  <ShieldCheck size={19} />
-                )}
-                Approve, reserve wallet and create paused campaign
-              </button>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/45">
+                Preflight validates the exact provider payload. It does not reserve
+                money and does not create a campaign.
+              </div>
             </div>
-          ) : null}
 
-          <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-5">
+            {preflightCurrent ? (
+              <div className="mt-5 rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5">
+                <div className="flex items-center gap-2 text-sm font-medium text-emerald-100">
+                  <CheckCircle2 size={17} /> Provider preflight passed
+                </div>
+                <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-emerald-50/75">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={ownerApproved}
+                    onChange={(event) => setOwnerApproved(event.target.checked)}
+                  />
+                  I approve this exact AI-generated campaign plan and authorize
+                  Avantiqo to reserve up to {money(budget, walletCurrency)} and
+                  create the provider campaign in paused status.
+                </label>
+                <button
+                  type="button"
+                  onClick={approveAndExecute}
+                  disabled={!ownerApproved || executing}
+                  className="mt-5 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#D6A66A] px-5 py-4 font-semibold text-black transition hover:brightness-110 disabled:opacity-35"
+                >
+                  {executing ? (
+                    <Loader2 size={19} className="animate-spin" />
+                  ) : (
+                    <ShieldCheck size={19} />
+                  )}
+                  Approve, reserve wallet and create paused campaign
+                </button>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {!aiPlan && experienceMode === "manual" ? (
+          <div className="mt-6 flex justify-end">
             <button
               type="button"
-              onClick={() => setStep((current) => Math.max(1, current - 1))}
-              disabled={step === 1}
-              className="rounded-xl px-4 py-2 text-sm text-white/45 disabled:opacity-20"
+              onClick={createAiPlan}
+              disabled={planning || loading}
+              className="flex items-center gap-2 rounded-2xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-5 py-3 text-sm font-semibold text-[#D6A66A] disabled:opacity-35"
             >
-              Back
+              {planning ? <Loader2 size={17} className="animate-spin" /> : <BrainCircuit size={17} />}
+              Let AI complete the manual brief
+              <ChevronRight size={16} />
             </button>
-            {step < 5 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="flex items-center gap-2 rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
-              >
-                Continue <ChevronRight size={16} />
-              </button>
-            ) : null}
           </div>
-        </section>
+        ) : null}
       </div>
     </main>
   );

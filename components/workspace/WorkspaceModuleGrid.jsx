@@ -18,6 +18,38 @@ const DISABLED_STATUSES = new Set([
   "planned", "blocked", "partial", "unproven", "disabled", "unavailable", "coming-soon", "coming_soon",
 ]);
 
+const META_ADS_ITEM = {
+  id: "meta_ads",
+  name: "Meta Ads Manager",
+  route: "/commercial/marketing/ads",
+  description:
+    "Create Facebook and Instagram campaigns using exact approved organization assets.",
+  order: 25,
+  status: "active",
+};
+
+function augmentWorkspaceGroups(groups, workspace) {
+  if (String(workspace || "").toLowerCase() !== "commercial") {
+    return groups;
+  }
+
+  return groups.map((group) => {
+    if (group.id !== "marketing") return group;
+
+    const items = group.items || [];
+    if (items.some((item) => item?.id === META_ADS_ITEM.id)) {
+      return group;
+    }
+
+    return {
+      ...group,
+      items: [...items, META_ADS_ITEM].sort(
+        (left, right) => Number(left?.order || 0) - Number(right?.order || 0)
+      ),
+    };
+  });
+}
+
 function normalizeItemForWorkspace(item, workspace) {
   const finance = String(workspace || "").toLowerCase() === "finance";
   const normalized = finance ? serializeCapability(item) : item;
@@ -125,7 +157,7 @@ function getIcon(item, group) {
   if (id.includes("hotel") || id.includes("front") || id.includes("room") || id.includes("guest")) return Store;
   if (id.includes("customer") || id.includes("contact") || id.includes("lead") || id.includes("loyalty")) return Users;
   if (id.includes("project") || id.includes("task") || id.includes("planning")) return ClipboardList;
-  if (id.includes("marketing") || id.includes("campaign") || id.includes("design") || id.includes("social")) return Sparkles;
+  if (id.includes("marketing") || id.includes("campaign") || id.includes("design") || id.includes("social") || id.includes("meta_ads")) return Sparkles;
   if (id.includes("analytics") || id.includes("report") || id.includes("kpi") || id.includes("forecast")) return BarChart3;
   if (id.includes("ai") || id.includes("agent") || id.includes("automation")) return Bot;
   if (id.includes("document") || id.includes("file") || id.includes("ocr") || id.includes("contract")) return FolderOpen;
@@ -151,7 +183,10 @@ export default function WorkspaceModuleGrid({ workspace, organizationId, title, 
   const businessContext = useBusinessContext();
   const organization = businessContext?.organization || null;
   const fallbackOrganizationId = organizationId || businessContext?.organization_id || organization?.id || null;
-  const registryGroups = getWorkspaceGroups(workspace);
+  const registryGroups = augmentWorkspaceGroups(
+    getWorkspaceGroups(workspace),
+    workspace
+  );
   const rawGroups = items
     ? [{ id: "workspace", name: title || "Workspace", description: description || "Open a work center.", order: 10, items }]
     : registryGroups;

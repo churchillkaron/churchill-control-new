@@ -62,3 +62,6 @@ await import(
 await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );
+await import(
+  "@/lib/creative/director/runtime/CreativeDirectionCompletedBudgetRecoveryRuntime"
+);

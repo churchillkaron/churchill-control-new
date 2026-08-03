@@ -68,6 +68,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeProductionCurrencyRuntime"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeValidatedDossierPlanRecoveryRuntime"
+);
+await import(
   "@/lib/creative/director/runtime/CreativeTemporalSemanticIntentEvidenceRuntime"
 );
 await import(

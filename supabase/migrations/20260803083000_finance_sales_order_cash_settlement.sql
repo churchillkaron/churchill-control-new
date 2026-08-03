@@ -158,12 +158,10 @@ begin
     p_cash_session_id::text,
     lower(btrim(p_application_id)),
     v_tendered::text,
+    p_actor_id::text,
     upper(btrim(p_currency_code)),
     p_exchange_rate::text,
-    p_posting_date::text,
-    upper(btrim(p_journal_type)),
-    btrim(p_journal_reference),
-    p_journal_lines::text
+    p_posting_date::text
   ));
 
   v_existing := public.finance_claim_idempotency(
@@ -176,7 +174,7 @@ begin
   );
 
   if v_existing is not null then
-    return v_existing;
+    return v_existing || jsonb_build_object('duplicate', true);
   end if;
 
   perform pg_advisory_xact_lock(
@@ -289,7 +287,7 @@ begin
   v_document_number := public.finance_next_document_number(
     p_organization_id,
     p_entity_id,
-    'PAYMENT_RECEIPT',
+    'SALES_RECEIPT',
     null,
     p_posting_date
   );

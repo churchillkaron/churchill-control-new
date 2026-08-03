@@ -89,6 +89,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeTemporalSemanticReplanConvergenceRuntimeV2"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeValidatedDossierReplanConvergenceRuntime"
+);
+await import(
   "@/lib/creative/execution/runtime/CreativeProductionTaskActiveGraphScopeRuntime"
 );
 await import(

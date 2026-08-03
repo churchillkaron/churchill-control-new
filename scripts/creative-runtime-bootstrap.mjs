@@ -23,6 +23,9 @@ await import(
   "@/lib/creative/assets/runtime/CreativeLongFormAssetSelectionSanitizerRuntime"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeMeasuredValidatedDossierRecoveryGate"
+);
+await import(
   "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
 );
 await import(

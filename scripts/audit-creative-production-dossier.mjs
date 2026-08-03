@@ -498,16 +498,17 @@ const recoveryEvidence = object(
 check(
   "VALIDATED_PLAN_RECOVERY_EVIDENCE",
   text(recoveryEvidence.contract) ===
-    "CREATIVE_VALIDATED_DOSSIER_PLAN_RECOVERY_V2" &&
+    "CREATIVE_VALIDATED_DOSSIER_PLAN_RECOVERY_V3" &&
     Number(recoveryEvidence.canonical_selected_asset_count) ===
       selectedAssetIds.length &&
     setEqual(
       list(recoveryEvidence.canonical_selected_asset_ids),
       selectedAssetIds,
     ) &&
+    recoveryEvidence.forbidden_asset_ids_persisted === false &&
     recoveryEvidence.provider_execution_required === false &&
     recoveryEvidence.customer_charge_required === false,
-  `contract=${text(recoveryEvidence.contract) || "MISSING"};canonical_selected=${Number(recoveryEvidence.canonical_selected_asset_count || 0)};provider_execution_required=${String(recoveryEvidence.provider_execution_required)}`,
+  `contract=${text(recoveryEvidence.contract) || "MISSING"};canonical_selected=${Number(recoveryEvidence.canonical_selected_asset_count || 0)};removed_asset_count=${Number(recoveryEvidence.removed_asset_count || 0)};forbidden_asset_ids_persisted=${String(recoveryEvidence.forbidden_asset_ids_persisted)};provider_execution_required=${String(recoveryEvidence.provider_execution_required)}`,
 );
 
 const finalScene = planSceneList[planSceneList.length - 1] || {};

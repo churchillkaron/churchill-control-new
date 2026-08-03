@@ -2,12 +2,15 @@
 
 import process from "node:process";
 import { createClient } from "@supabase/supabase-js";
+import WebSocket from "ws";
 
 import {
   loadAvantiqoEnv,
 } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv({ cwd: process.cwd() });
+
+if (!globalThis.WebSocket) globalThis.WebSocket = WebSocket;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -63,6 +66,9 @@ try {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
+    },
+    realtime: {
+      transport: WebSocket,
     },
   });
 

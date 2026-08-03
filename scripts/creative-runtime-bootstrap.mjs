@@ -23,6 +23,9 @@ await import(
   "@/lib/creative/assets/runtime/CreativeLongFormAssetSelectionSanitizerRuntime"
 );
 await import(
+  "@/lib/creative/assets/runtime/CreativeStrictOriginalSourceSelectionRuntime"
+);
+await import(
   "@/lib/creative/director/runtime/CreativeMeasuredValidatedDossierRecoveryGate"
 );
 await import(
@@ -84,9 +87,6 @@ await import(
 );
 await import(
   "@/lib/creative/director/runtime/CreativeTemporalSemanticReplanConvergenceRuntimeV2"
-);
-await import(
-  "@/lib/creative/director/runtime/CreativeValidatedDossierFreshProjectRecoveryRuntime"
 );
 await import(
   "@/lib/creative/post-production/runtime/CreativeTemporalBrandEndCardRuntime"

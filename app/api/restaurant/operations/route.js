@@ -148,9 +148,7 @@ export async function GET(request) {
       ...order,
       table:
         tableById.get(order.table_id) ||
-        (order.table_number
-          ? { table_number: order.table_number, table_name: order.table_number }
-          : null),
+        null,
       payment_status:
         order.payment_status ||
         (order.remaining_balance <= 0 && order.total > 0 ? "PAID" : "UNPAID"),
@@ -161,8 +159,12 @@ export async function GET(request) {
       order: orderById.get(ticket.order_id) || null,
       table_number:
         ticket.table_number ||
-        orderById.get(ticket.order_id)?.table_number ||
-        tableLabel(tableById.get(ticket.table_id)),
+        tableLabel(
+          tableById.get(
+            ticket.table_id ||
+            orderById.get(ticket.order_id)?.table_id
+          )
+        ),
     }));
 
     const payload = {

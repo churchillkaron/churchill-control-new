@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { Clock3, RefreshCw } from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
-const CLOSED_STATUSES = new Set(["COMPLETED", "SERVED", "CANCELLED", "VOID"]);
+const CLOSED_STATUSES = new Set(["COMPLETED", "CANCELLED", "VOID"]);
 
 function statusOf(value) {
   return String(value || "").trim().toUpperCase();
@@ -245,21 +245,65 @@ export default function FulfillmentDispatchWorkspace({
                             <button
                               disabled={
                                 busy ||
-                                ["PREPARING", "READY", "SERVED", "COMPLETED"].includes(status)
+                                [
+                                  "IN_PROGRESS",
+                                  "PREPARING",
+                                  "READY",
+                                  "SERVED",
+                                  "COMPLETED",
+                                  "CANCELLED",
+                                  "VOID",
+                                ].includes(status)
                               }
-                              onClick={() => updateItem(entry, item, "PREPARING")}
+                              onClick={() =>
+                                updateItem(entry, item, "PREPARING")
+                              }
                               className="rounded-xl border border-white/10 py-2 text-xs text-white/60 disabled:opacity-30"
                             >
                               Start
                             </button>
+
                             <button
                               disabled={
-                                busy || ["READY", "SERVED", "COMPLETED"].includes(status)
+                                busy ||
+                                [
+                                  "READY",
+                                  "SERVED",
+                                  "COMPLETED",
+                                  "CANCELLED",
+                                  "VOID",
+                                ].includes(status)
                               }
-                              onClick={() => updateItem(entry, item, "READY")}
+                              onClick={() =>
+                                updateItem(entry, item, "READY")
+                              }
                               className="rounded-xl bg-[#D6A66A] py-2 text-xs font-semibold text-black disabled:opacity-30"
                             >
                               Ready
+                            </button>
+
+                            <button
+                              disabled={
+                                busy || status !== "READY"
+                              }
+                              onClick={() =>
+                                updateItem(entry, item, "SERVED")
+                              }
+                              className="rounded-xl border border-[#D6A66A]/30 py-2 text-xs font-semibold text-[#E2C48A] disabled:opacity-30"
+                            >
+                              Served
+                            </button>
+
+                            <button
+                              disabled={
+                                busy || status !== "SERVED"
+                              }
+                              onClick={() =>
+                                updateItem(entry, item, "COMPLETED")
+                              }
+                              className="rounded-xl border border-white/10 py-2 text-xs font-semibold text-white/70 disabled:opacity-30"
+                            >
+                              Complete
                             </button>
                           </div>
                         </div>

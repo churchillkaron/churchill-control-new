@@ -85,7 +85,9 @@ export async function POST(req) {
 
     return NextResponse.json({
       success: true,
-      customer,
+      customer: customer?.customer || null,
+      party: customer?.party || null,
+      identity: customer || null,
     });
   } catch (error) {
     return NextResponse.json(

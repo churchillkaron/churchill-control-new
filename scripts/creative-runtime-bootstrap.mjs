@@ -83,6 +83,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeTemporalSemanticReplanConvergenceRuntimeV2"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeValidatedDossierFreshProjectRecoveryRuntime"
+);
+await import(
   "@/lib/creative/post-production/runtime/CreativeTemporalBrandEndCardRuntime"
 );
 await import(

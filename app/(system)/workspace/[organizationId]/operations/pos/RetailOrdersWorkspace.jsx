@@ -26,6 +26,24 @@ function statusClass(status) {
   return "text-[#D6A66A]";
 }
 
+function customerLabel(order = {}) {
+  const {
+    customer,
+    customer_display_name: customerDisplayName,
+    customer_name: customerName,
+    party_name: partyName,
+  } = order;
+
+  return (
+    customer?.name ||
+    customer?.display_name ||
+    customerDisplayName ||
+    customerName ||
+    partyName ||
+    null
+  );
+}
+
 export default function RetailOrdersWorkspace() {
   const params = useParams();
   const businessContext = useBusinessContext() || {};
@@ -99,7 +117,7 @@ export default function RetailOrdersWorkspace() {
         order.order_number,
         order.status,
         order.payment_status,
-        order.customer_name,
+        customerLabel(order),
       ]
         .filter(Boolean)
         .join(" ")

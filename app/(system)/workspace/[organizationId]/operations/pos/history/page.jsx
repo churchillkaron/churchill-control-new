@@ -157,7 +157,9 @@ export default function POSHistoryPage() {
 
                       <div className="text-4xl font-light">
                         {
-                          order.table_number
+                          order.context?.reference ||
+                          order.table_reference ||
+                          "—"
                         }
                       </div>
 

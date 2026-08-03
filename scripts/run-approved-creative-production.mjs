@@ -49,6 +49,10 @@ function list(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function activeRecord(record = {}) {
   const status = text(record.status).toUpperCase();
   return Boolean(
@@ -92,6 +96,43 @@ function ids(records = []) {
   return list(records).map((record) => record.id).filter(Boolean);
 }
 
+function providerJobId(task = {}) {
+  return task.output?.provider_job_id ||
+    task.output?.provider_submission?.provider_job_id ||
+    task.output?.provider_submission?.output?.provider_job_id ||
+    task.output?.provider_submission?.output?.output?.provider_job_id ||
+    "NONE";
+}
+
+function usageId(task = {}) {
+  return task.output?.usage?.id ||
+    task.output?.provider_submission?.usage?.id ||
+    task.output?.provider_poll?.usage?.id ||
+    "NONE";
+}
+
+function taskFailureSummary(task = {}) {
+  return [
+    task.id || "NONE",
+    text(task.title).replace(/\|/g, "/") || "UNTITLED",
+    task.status || "UNKNOWN",
+    task.provider_id || task.output?.provider || task.output?.provider_submission?.provider || "NONE",
+    providerJobId(task),
+    usageId(task),
+    task.output?.settlement || task.output?.provider_poll?.settlement || "NONE",
+    text(task.error || "NONE").replace(/\s+/g, " ").replace(/\|/g, "/").slice(0, 1000),
+  ].join("|");
+}
+
+function printQueueFailures(queue = {}) {
+  list(queue.failed).forEach((task) =>
+    console.error(`FAILED_TASK=${taskFailureSummary(task)}`),
+  );
+  list(queue.blocked).forEach((task) =>
+    console.error(`BLOCKED_TASK=${taskFailureSummary(task)}`),
+  );
+}
+
 function requiredEnvironment() {
   const values = {
     organizationId: text(process.env.ORGANIZATION_ID),
@@ -111,6 +152,8 @@ function requiredEnvironment() {
     expectedTaskCount: integer(process.env.EXPECTED_TASK_COUNT, 0),
     pollIntervalMs: integer(process.env.POLL_INTERVAL_MS, 10000),
     maxPollCycles: integer(process.env.MAX_POLL_CYCLES, 720),
+    lockWaitMs: integer(process.env.CREATIVE_EXECUTION_LOCK_WAIT_MS, 180000),
+    lockRetryMs: integer(process.env.CREATIVE_EXECUTION_LOCK_RETRY_MS, 5000),
   };
 
   const missing = Object.entries(values)
@@ -118,7 +161,12 @@ function requiredEnvironment() {
       if (["ceiling", "expectedTaskCount"].includes(key)) {
         return value === null || value <= 0;
       }
-      if (["pollIntervalMs", "maxPollCycles"].includes(key)) return false;
+      if ([
+        "pollIntervalMs",
+        "maxPollCycles",
+        "lockWaitMs",
+        "lockRetryMs",
+      ].includes(key)) return false;
       return !value;
     })
     .map(([key]) => key);
@@ -244,6 +292,9 @@ async function verifyImmutableScope(config) {
     ["FAILED", "SKIPPED"].includes(text(task.status).toUpperCase()),
   );
   if (terminalFailures.length) {
+    terminalFailures.forEach((task) =>
+      console.error(`EXISTING_FAILED_TASK=${taskFailureSummary(task)}`),
+    );
     throw new Error(
       `APPROVED_PRODUCTION_EXISTING_TASK_FAILURES:` +
       ids(terminalFailures).join(","),
@@ -295,6 +346,28 @@ async function verifyApprovedGraph(config) {
   return graph;
 }
 
+async function acquireProductionLease(scope, config) {
+  const startedAt = Date.now();
+  let attempts = 0;
+  while (Date.now() - startedAt <= config.lockWaitMs) {
+    attempts += 1;
+    const token = await CreativeStateEngine.acquireExecutionLock(scope);
+    if (token) {
+      console.log(`EXECUTION_LOCK_ACQUIRED=YES|ATTEMPTS=${attempts}`);
+      return token;
+    }
+    const state = await CreativeStateEngine.get(scope);
+    console.log(
+      `EXECUTION_LOCK_WAITING=YES|ATTEMPT=${attempts}|` +
+      `LOCKED_AT=${state?.locked_at || "UNKNOWN"}`,
+    );
+    await sleep(config.lockRetryMs);
+  }
+  throw new Error(
+    `CREATIVE_PRODUCTION_EXECUTION_LOCK_TIMEOUT:${config.lockWaitMs}`,
+  );
+}
+
 async function produce(config) {
   const scope = {
     organization_id: config.organizationId,
@@ -302,8 +375,7 @@ async function produce(config) {
     creative_project_id: config.projectId,
     production_graph_id: config.graphId,
   };
-  const locked = await CreativeStateEngine.acquireExecutionLock(scope);
-  if (!locked) throw new Error("CREATIVE_PRODUCTION_EXECUTION_LOCKED");
+  const lockToken = await acquireProductionLease(scope, config);
 
   let finalisation = null;
   let cycle = 0;
@@ -312,9 +384,18 @@ async function produce(config) {
 
     while (cycle < config.maxPollCycles) {
       cycle += 1;
+      const renewed = await CreativeStateEngine.renewExecutionLock({
+        ...scope,
+        execution_lock_token: lockToken,
+      });
+      if (!renewed) {
+        throw new Error("CREATIVE_PRODUCTION_EXECUTION_LOCK_LOST");
+      }
+
       const before = await ProductionQueueRuntime.build(scope);
       const beforeCounts = queueCounts(before);
       if (beforeCounts.failed || beforeCounts.blocked) {
+        printQueueFailures(before);
         throw new Error(
           `CREATIVE_PRODUCTION_QUEUE_BLOCKED:` +
           `failed=${ids(before.failed).join(",") || "NONE"};` +
@@ -342,6 +423,7 @@ async function produce(config) {
       );
 
       if (counts.failed || counts.blocked) {
+        printQueueFailures(after);
         throw new Error(
           `CREATIVE_PRODUCTION_QUEUE_FAILED:` +
           `failed=${ids(after.failed).join(",") || "NONE"};` +
@@ -368,16 +450,17 @@ async function produce(config) {
         );
       }
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, config.pollIntervalMs),
-      );
+      await sleep(config.pollIntervalMs);
     }
 
     throw new Error(
       `CREATIVE_PRODUCTION_POLL_LIMIT_REACHED:${config.maxPollCycles}`,
     );
   } finally {
-    await CreativeStateEngine.releaseExecutionLock(scope);
+    await CreativeStateEngine.releaseExecutionLock({
+      ...scope,
+      execution_lock_token: lockToken,
+    });
   }
 }
 

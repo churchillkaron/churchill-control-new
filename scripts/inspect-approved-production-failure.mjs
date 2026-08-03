@@ -269,7 +269,7 @@ console.log(`GRAPH_WALLET_RESERVE=${reserved}`);
 console.log(`GRAPH_WALLET_CHARGE=${charged}`);
 console.log(`GRAPH_WALLET_RELEASE=${released}`);
 console.log(`GRAPH_WALLET_REFUND=${refunded}`);
-console.log(`GRAPH_OPEN_RESERVATION=${Math.max(0, reserved - charge - released - refunded)}`);
+console.log(`GRAPH_OPEN_RESERVATION=${Math.max(0, reserved - charged - released - refunded)}`);
 
 if (requestedTaskId && !requested) {
   console.log(`REQUESTED_TASK_NOT_FOUND=${requestedTaskId}`);

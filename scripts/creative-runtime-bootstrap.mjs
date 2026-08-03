@@ -68,6 +68,9 @@ await import(
   "@/lib/creative/director/runtime/CreativeProductionCurrencyRuntime"
 );
 await import(
+  "@/lib/creative/director/runtime/CreativeTemporalSemanticIntentEvidenceRuntime"
+);
+await import(
   "@/lib/creative/director/runtime/CreativeTemporalSemanticPlanGateRuntime"
 );
 await import(

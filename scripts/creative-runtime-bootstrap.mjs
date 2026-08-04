@@ -43,6 +43,14 @@ await import(
 await import(
   "@/lib/creative/reasoning/runtime/CreativeReasoningBudgetRuntime"
 );
+
+// Exact resume sits outside cost approval and reasoning-budget execution. An
+// exact settled result therefore bypasses both charging and call consumption,
+// while any request hash miss continues through the normal governed stack.
+await import(
+  "@/lib/creative/director/runtime/CreativeDirectionExactResumeRuntime"
+);
+
 await import(
   "@/lib/creative/audio/runtime/CreativeTemporalSoundtrackGraphRuntime"
 );
@@ -66,6 +74,12 @@ await import(
 // cannot substitute one concept, critic or scene response for another.
 await import(
   "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
+);
+
+// Install this after exact resume so the production critic receives a new
+// request hash while all unchanged completed calls remain recoverable.
+await import(
+  "@/lib/creative/director/runtime/CreativeConceptCriticCoverageRuntime"
 );
 
 // Install this last so short-form prompt normalization occurs before request

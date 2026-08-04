@@ -75,10 +75,16 @@ await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );
 
-// Remove all persisted prompt fields before the evidence-constrained final
-// boundary is installed. Provider instructions remain transport-only.
+// Remove all persisted prompt fields before any evidence-constrained work.
 await import(
   "@/lib/creative/director/runtime/CreativePromptlessDirectionSpecRuntime"
+);
+
+// Remove every revoked narrative, action, camera, staging, production-design,
+// and generation-content field. Keep only identity, timing, source bindings,
+// and technical structure needed for a fresh evidence-based rebuild.
+await import(
+  "@/lib/creative/director/runtime/CreativeRevokedDirectionFieldScrubRuntime"
 );
 
 // Install this last. It rebuilds every scene and shot from verified structured

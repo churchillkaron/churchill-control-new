@@ -74,3 +74,11 @@ await import(
 await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );
+
+// Install this last so it is the outermost final-result boundary. The completed
+// direction remains fully structured, but all stored prompt fields are removed
+// and missing camera movement motivations are derived only from approved local
+// shot and scene evidence. Vendor prompts are serialized at execution transport.
+await import(
+  "@/lib/creative/director/runtime/CreativePromptlessDirectionSpecRuntime"
+);

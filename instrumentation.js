@@ -45,6 +45,9 @@ export async function register() {
     await import(
       "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
     );
+    await import(
+      "@/lib/creative/assets/intelligence/runtime/CreativeSourceSemanticProductionGateRuntime"
+    );
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {

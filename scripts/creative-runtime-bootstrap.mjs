@@ -86,3 +86,10 @@ await import(
 await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );
+
+// Install source semantic validation after every production-graph decorator so
+// both preview and materialization fail before graph construction when any raw
+// source asset lacks provider-verified visual evidence.
+await import(
+  "@/lib/creative/assets/intelligence/runtime/CreativeSourceSemanticProductionGateRuntime"
+);

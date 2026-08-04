@@ -43,14 +43,6 @@ await import(
 await import(
   "@/lib/creative/reasoning/runtime/CreativeReasoningBudgetRuntime"
 );
-
-// Exact resume sits outside cost approval and reasoning-budget execution. An
-// exact settled result therefore bypasses both charging and call consumption,
-// while any request hash miss continues through the normal governed stack.
-await import(
-  "@/lib/creative/director/runtime/CreativeDirectionExactResumeRuntime"
-);
-
 await import(
   "@/lib/creative/audio/runtime/CreativeTemporalSoundtrackGraphRuntime"
 );
@@ -70,20 +62,27 @@ await import(
   "@/lib/creative/director/runtime/CreativeGenericDirectionCompletionRuntime"
 );
 
-// The recovery layer reuses only an exact completed reasoning request; it
-// cannot substitute one concept, critic or scene response for another.
+// Complete exact provider direction payloads locally before validation.
 await import(
   "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
 );
 
-// Install this after exact resume so the production critic receives a new
-// request hash while all unchanged completed calls remain recoverable.
+// Change only the production critic request contract. This sits inside replay,
+// so sequence 16 can be deliberately regenerated while sequences 1-15 replay
+// their exact settled usage results.
 await import(
   "@/lib/creative/director/runtime/CreativeConceptCriticCoverageRuntime"
 );
 
-// Install this last so short-form prompt normalization occurs before request
-// hashing, recovery, budget accounting and provider execution.
+// Install prompt normalization before deterministic replay. Replay matches the
+// recorded operation sequence and settled usage IDs, not volatile prompt hashes.
 await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
+);
+
+// Install deterministic attempt replay last so it is the outermost direction
+// layer. Replayed calls bypass cost approval and budget accounting; skipped or
+// new calls continue through the full governed stack.
+await import(
+  "@/lib/creative/director/runtime/CreativeDirectionAttemptReplayRuntime"
 );

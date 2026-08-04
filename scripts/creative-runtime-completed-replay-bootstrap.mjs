@@ -75,10 +75,15 @@ await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );
 
-// Install this last so it is the outermost final-result boundary. The completed
-// direction remains fully structured, but all stored prompt fields are removed
-// and missing camera movement motivations are derived only from approved local
-// shot and scene evidence. Vendor prompts are serialized at execution transport.
+// Remove all persisted prompt fields before the evidence-constrained final
+// boundary is installed. Provider instructions remain transport-only.
 await import(
   "@/lib/creative/director/runtime/CreativePromptlessDirectionSpecRuntime"
+);
+
+// Install this last. It rebuilds every scene and shot from verified structured
+// source evidence, revalidates all source-to-shot requirements, and forbids any
+// invented physical content before returning the final zero-cost direction.
+await import(
+  "@/lib/creative/director/runtime/CreativeEvidenceConstrainedDirectionRuntime"
 );

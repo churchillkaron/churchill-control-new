@@ -312,6 +312,19 @@ const brief = briefs[0] || {};
 const selectedIds = unique(list(project.metadata?.selected_asset_ids));
 const assetById = new Map(list(assets).map((asset) => [text(asset.id), asset]));
 const selectedAssets = selectedIds.map((id) => assetById.get(id)).filter(Boolean);
+const selectedIdSet = new Set(selectedIds);
+const directionSupportAssets = list(assets).filter((asset) =>
+  !selectedIdSet.has(text(asset.id)) &&
+  asset.metadata?.direction_support_asset === true &&
+  asset.metadata?.read_only_projection === true
+);
+const directionAssets = [
+  ...selectedAssets,
+  ...directionSupportAssets,
+];
+const directionSupportAssetIds = directionSupportAssets
+  .map((asset) => text(asset.id))
+  .filter(Boolean);
 const missingSelectedIds = selectedIds.filter((id) => !assetById.has(id));
 const unavailableSelectedIds = selectedAssets
   .filter((asset) => !assetAvailable(asset, organizationId))
@@ -360,7 +373,7 @@ try {
   assetIntelligence = CreativeUniversalAssetIntelligenceRuntime.analyze({
     project,
     brief,
-    assets: selectedAssets,
+    assets: directionAssets,
   });
 } catch (error) {
   assetIntelligenceError = text(error?.message || error);
@@ -423,6 +436,14 @@ if (assetIntelligence && assetIntelligence.passed !== true) {
     `UNIVERSAL_ASSET_INTELLIGENCE_BLOCKED:${list(assetIntelligence.blocking_issues).join(",")}`,
   );
 }
+if (
+  fullSourceAudio &&
+  list(assetIntelligence?.audio_sources).length < 1
+) {
+  blockers.push(
+    "PRIMARY_SOUNDTRACK_NOT_VISIBLE_TO_DIRECTION_INTELLIGENCE",
+  );
+}
 if (fullSourceAudio && !soundtrackNodeId) {
   blockers.push("PRIMARY_SOUNDTRACK_NODE_ID_REQUIRED");
 }
@@ -459,6 +480,9 @@ console.log(`QUALITY_POLICY_VERSION=${text(policy.version) || "NONE"}`);
 console.log(`QUALITY_POLICY_FAILURES=${JSON.stringify(qualityFailures)}`);
 console.log(`SELECTED_ASSET_ID_COUNT=${selectedIds.length}`);
 console.log(`SELECTED_ASSET_RECORD_COUNT=${selectedAssets.length}`);
+console.log(`DIRECTION_SUPPORT_ASSET_COUNT=${directionSupportAssets.length}`);
+console.log(`DIRECTION_SUPPORT_ASSET_IDS=${JSON.stringify(directionSupportAssetIds)}`);
+console.log(`DIRECTION_ASSET_COUNT=${directionAssets.length}`);
 console.log(`SELECTED_ASSET_PROJECT_NODE_COVERAGE=${selectedIds.length - selectedIdsMissingProjectNodes.length}/${selectedIds.length}`);
 console.log(`PROJECT_ASSET_NODE_COUNT=${assetNodes.length}`);
 console.log(`PROJECT_GRAPH_COUNT=${graphs.length}`);

@@ -236,12 +236,25 @@ const brief = briefs[0] || {};
 const selectedIds = unique(list(project.metadata?.selected_asset_ids));
 const assetById = new Map(list(assets).map((asset) => [text(asset.id), asset]));
 const selectedAssets = selectedIds.map((id) => assetById.get(id)).filter(Boolean);
+const selectedIdSet = new Set(selectedIds);
+const directionSupportAssets = list(assets).filter((asset) =>
+  !selectedIdSet.has(text(asset.id)) &&
+  asset.metadata?.direction_support_asset === true &&
+  asset.metadata?.read_only_projection === true
+);
+const directionAssets = [
+  ...selectedAssets,
+  ...directionSupportAssets,
+];
+const directionSupportAssetIds = directionSupportAssets
+  .map((asset) => text(asset.id))
+  .filter(Boolean);
 const missingSelectedIds = selectedIds.filter((id) => !assetById.has(id));
 
 const intelligence = CreativeUniversalAssetIntelligenceRuntime.analyze({
   project,
   brief,
-  assets: selectedAssets,
+  assets: directionAssets,
 });
 
 const manifestById = new Map(
@@ -249,6 +262,10 @@ const manifestById = new Map(
 );
 
 const missingManifestIds = selectedIds.filter((id) => !manifestById.has(id));
+const missingDirectionSupportManifestIds =
+  directionSupportAssetIds.filter(
+    (id) => !manifestById.has(id),
+  );
 const nameOnlyVisualIds = [];
 const fallbackOnlyVisualIds = [];
 const uncoveredVisualIds = [];
@@ -263,6 +280,9 @@ console.log(`CREATIVE_PROJECT_ID=${projectId}`);
 console.log(`CREATIVE_MISSION_ID=${missionId || "NONE"}`);
 console.log(`SELECTED_ASSET_COUNT=${selectedIds.length}`);
 console.log(`SELECTED_ASSET_RECORD_COUNT=${selectedAssets.length}`);
+console.log(`DIRECTION_SUPPORT_ASSET_COUNT=${directionSupportAssets.length}`);
+console.log(`DIRECTION_SUPPORT_ASSET_IDS=${JSON.stringify(directionSupportAssetIds)}`);
+console.log(`DIRECTION_ASSET_COUNT=${directionAssets.length}`);
 console.log(`ASSET_MANIFEST_COUNT=${list(intelligence.asset_manifest).length}`);
 console.log(`INTELLIGENCE_CONTRACT=${text(intelligence.contract) || "NONE"}`);
 console.log(`SEMANTIC_COVERAGE_CONTRACT=${text(intelligence.semantic_coverage?.contract) || "NONE"}`);
@@ -334,6 +354,13 @@ const blockers = unique([
   missingManifestIds.length
     ? `ASSET_MANIFEST_ENTRIES_MISSING:${missingManifestIds.join(",")}`
     : null,
+  missingDirectionSupportManifestIds.length
+    ? `DIRECTION_SUPPORT_MANIFEST_ENTRIES_MISSING:${missingDirectionSupportManifestIds.join(",")}`
+    : null,
+  directionSupportAssets.length &&
+  list(intelligence.audio_sources).length < 1
+    ? "PRIMARY_SOUNDTRACK_NOT_VISIBLE_TO_DIRECTION_INTELLIGENCE"
+    : null,
   uncoveredVisualIds.map((id) =>
     `VISUAL_ASSET_SEMANTIC_CLASSIFICATION_REQUIRED:${id}`,
   ),
@@ -353,6 +380,7 @@ console.log(`NAME_ONLY_VISUAL_ASSET_IDS=${JSON.stringify(nameOnlyVisualIds)}`);
 console.log(`FALLBACK_ONLY_VISUAL_ASSET_IDS=${JSON.stringify(fallbackOnlyVisualIds)}`);
 console.log(`MISSING_SELECTED_ASSET_IDS=${JSON.stringify(missingSelectedIds)}`);
 console.log(`MISSING_MANIFEST_ASSET_IDS=${JSON.stringify(missingManifestIds)}`);
+console.log(`MISSING_DIRECTION_SUPPORT_MANIFEST_ASSET_IDS=${JSON.stringify(missingDirectionSupportManifestIds)}`);
 console.log(`SEMANTIC_ROLE_MATRIX_READY=${blockers.length ? "NO" : "YES"}`);
 console.log(`SEMANTIC_ROLE_MATRIX_BLOCKER_COUNT=${blockers.length}`);
 console.log(`SEMANTIC_ROLE_MATRIX_BLOCKERS=${JSON.stringify(blockers)}`);

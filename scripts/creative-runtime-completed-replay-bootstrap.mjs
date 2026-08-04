@@ -72,10 +72,18 @@ await import(
   "@/lib/creative/director/runtime/CreativeEvidenceConstrainedDirectionRuntime"
 );
 
-// Install outermost. The evidence-constrained plan is already complete and has
-// passed structured source-to-shot validation. This final source-locked layer
-// removes all legacy identity-profile, atlas and keyframe-generation bindings
-// while preserving source reference IDs and visible-person continuity.
+// The source evidence gate has already passed for every shot. This outer local
+// craft layer now gives the truthful plan a distinctive campaign idea, seven
+// differentiated chapters and thirteen varied editorial camera treatments.
+// It changes no source binding, timing, provider workload or physical content.
+await import(
+  "@/lib/creative/director/runtime/CreativeEvidenceNarrativeCraftRuntime"
+);
+
+// Install outermost. The evidence-constrained and narrative-crafted plan is
+// complete. This final source-locked layer removes every remaining legacy
+// identity-profile, atlas and keyframe-generation binding while preserving
+// real source references and visible-person continuity.
 await import(
   "@/lib/creative/director/runtime/CreativeSourceLockedIdentityRequirementScrubRuntime"
 );

@@ -29,6 +29,13 @@ function finite(value, fallback = null) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function rounded(value, precision = 3) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  const factor = 10 ** precision;
+  return Math.round(number * factor) / factor;
+}
+
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (!value || typeof value !== "object") return value;
@@ -77,11 +84,6 @@ function normalizedId(value) {
 
 function uniqueIds(values = []) {
   return [...new Set(list(values).map(normalizedId).filter(Boolean))];
-}
-
-function display(value, fallback = "Not specified") {
-  const rendered = text(value);
-  return rendered || fallback;
 }
 
 function compact(values = []) {
@@ -149,31 +151,48 @@ function productNames(products = []) {
 
 function cameraSummary(shot = {}, node = {}) {
   const camera = object(shot.camera || node.requirements?.camera);
+  const movementMotivation =
+    camera.movement_motivation ||
+    camera.movementMotivation ||
+    camera.motivation ||
+    camera.why ||
+    shot.camera_movement_motivation ||
+    shot.cameraMovementMotivation ||
+    null;
+  const movement =
+    camera.movement_path ||
+    camera.movementPath ||
+    camera.movement_type ||
+    camera.movementType ||
+    camera.camera_movement ||
+    camera.cameraMovement ||
+    camera.movement ||
+    camera.move ||
+    camera.motion ||
+    shot.camera_movement_path ||
+    shot.cameraMovementPath ||
+    shot.camera_movement ||
+    shot.cameraMovement ||
+    null;
+
   return {
-    movement:
-      camera.movement ||
-      camera.move ||
-      camera.motion ||
-      camera.camera_movement ||
-      shot.camera_movement ||
-      null,
-    movement_motivation:
-      camera.movement_motivation ||
-      camera.motivation ||
-      camera.why ||
-      shot.camera_movement_motivation ||
-      null,
+    movement,
+    movement_motivation: movementMotivation,
     framing:
       camera.framing ||
       camera.shot_size ||
+      camera.shotSize ||
       camera.scale ||
       shot.shot_scale ||
+      shot.shotScale ||
       shot.framing ||
       null,
     lens:
       camera.lens ||
       camera.focal_length ||
+      camera.focalLength ||
       camera.lens_language ||
+      camera.lensLanguage ||
       null,
     angle:
       camera.angle ||
@@ -446,6 +465,7 @@ function buildMarkdown(review = {}) {
     `- OpenAI perceptual reviews: ${review.summary.perceptual_review_count}`,
     `- FAL soundtrack generations: ${review.summary.soundtrack_generation_count}`,
     `- Prompt fields persisted: ${review.summary.persisted_prompt_field_count}`,
+    `- Transport instructions: ${review.summary.transport_instruction_count}`,
     `- Human-review warnings: ${review.summary.human_review_warning_count}`,
     "",
   ];
@@ -505,11 +525,11 @@ function buildMarkdown(review = {}) {
   lines.push(
     "## Soundtrack",
     "",
-    `**Node:** ${markdownValue(review.soundtrack.node_id)}`,
-    `**Provider / model:** ${markdownValue({ provider: review.soundtrack.provider, model: review.soundtrack.model })}`,
-    `**Duration:** ${review.soundtrack.duration_seconds}s`,
-    `**Creative direction:** ${markdownValue(review.soundtrack.intent)}`,
-    `**Rights and constraints:** ${markdownValue(review.soundtrack.requirements)}`,
+    `**Node:** ${markdownValue(review.soundtrack?.node_id)}`,
+    `**Provider / model:** ${markdownValue({ provider: review.soundtrack?.provider, model: review.soundtrack?.model })}`,
+    `**Duration:** ${review.soundtrack?.duration_seconds ?? 0}s`,
+    `**Creative direction:** ${markdownValue(review.soundtrack?.intent)}`,
+    `**Rights and constraints:** ${markdownValue(review.soundtrack?.requirements)}`,
     "",
     "## Approval decision",
     "",
@@ -530,7 +550,10 @@ const persistenceAudit = readJson(process.argv[5], "PERSISTENCE_AUDIT");
 const plan = directionPlan(direction.value);
 const graph = object(graphPreview.value.graph);
 const previewSummary = object(graphPreview.value.summary);
-const persistenceSummary = object(persistenceAudit.value.summary);
+const nestedPersistenceSummary = object(persistenceAudit.value.summary);
+const persistenceSummary = Object.keys(nestedPersistenceSummary).length
+  ? nestedPersistenceSummary
+  : persistenceAudit.value;
 const blockers = [];
 
 if (list(manifest.value.blockers).length) {
@@ -592,31 +615,73 @@ const warningCount = allShots.reduce(
   (sum, shot) => sum + shot.human_review_warnings.length,
   0,
 );
+const videoGenerationCount = Number(
+  previewSummary.shot_generation_count ??
+    previewSummary.video_generation_count ??
+    0,
+);
+const perceptualReviewCount = Number(
+  previewSummary.perceptual_review_count ?? 0,
+);
+const soundtrackGenerationCount = Number(
+  previewSummary.soundtrack_generation_count ?? 0,
+);
+const graphPromptFieldCount = Number(
+  persistenceSummary.graph_prompt_field_count ??
+    list(persistenceAudit.value.graph_prompt_field_paths).length,
+);
+const executionPromptFieldCount = Number(
+  persistenceSummary.execution_prompt_field_count ??
+    list(persistenceAudit.value.execution_prompt_field_paths).length,
+);
+const taskPromptFieldCount = Number(
+  persistenceSummary.task_prompt_field_count ??
+    list(persistenceAudit.value.task_prompt_field_paths).length,
+);
+const transportInstructionCount = Number(
+  persistenceSummary.transport_instruction_count ??
+    persistenceAudit.value.transport_instruction_count ??
+    0,
+);
+const durationSeconds = rounded(
+  allShots.reduce(
+    (sum, shot) => sum + Number(shot.duration_seconds || 0),
+    0,
+  ),
+  3,
+);
 
 if (reviews.length !== 7) blockers.push("SCENE_COUNT_NOT_SEVEN");
 if (allShots.length !== 13) blockers.push("SHOT_COUNT_NOT_THIRTEEN");
+if (Math.abs(durationSeconds - 60) > 0.01) blockers.push("DURATION_NOT_SIXTY_SECONDS");
 if (!soundtrackNode) blockers.push("SOUNDTRACK_NODE_MISSING");
-if (Number(previewSummary.video_generation_count || 0) !== 13) {
+if (videoGenerationCount !== 13) {
   blockers.push("VIDEO_GENERATION_COUNT_INVALID");
 }
-if (Number(previewSummary.perceptual_review_count || 0) !== 13) {
+if (perceptualReviewCount !== 13) {
   blockers.push("PERCEPTUAL_REVIEW_COUNT_INVALID");
 }
-if (Number(previewSummary.soundtrack_generation_count || 0) !== 1) {
+if (soundtrackGenerationCount !== 1) {
   blockers.push("SOUNDTRACK_GENERATION_COUNT_INVALID");
 }
-if (Number(persistenceSummary.graph_prompt_field_count || 0) !== 0) {
+if (graphPromptFieldCount !== 0) {
   blockers.push("GRAPH_PROMPT_FIELDS_PRESENT");
 }
-if (Number(persistenceSummary.execution_prompt_field_count || 0) !== 0) {
+if (executionPromptFieldCount !== 0) {
   blockers.push("EXECUTION_PROMPT_FIELDS_PRESENT");
 }
-if (Number(persistenceSummary.task_prompt_field_count || 0) !== 0) {
+if (taskPromptFieldCount !== 0) {
   blockers.push("TASK_PROMPT_FIELDS_PRESENT");
+}
+if (transportInstructionCount !== 27) {
+  blockers.push("TRANSPORT_INSTRUCTION_COUNT_INVALID");
+}
+if (warningCount !== 0) {
+  blockers.push("HUMAN_REVIEW_WARNINGS_PRESENT");
 }
 
 const reviewCore = {
-  contract: "CREATIVE_HUMAN_PRODUCTION_REVIEW_V1",
+  contract: "CREATIVE_HUMAN_PRODUCTION_REVIEW_V2",
   generated_at: new Date().toISOString(),
   organization_id: manifest.value.organization_id,
   creative_project_id: manifest.value.creative_project_id,
@@ -659,23 +724,16 @@ const reviewCore = {
   summary: {
     scene_count: reviews.length,
     shot_count: allShots.length,
-    duration_seconds: allShots.reduce(
-      (sum, shot) => sum + Number(shot.duration_seconds || 0),
-      0,
-    ),
-    video_generation_count:
-      Number(previewSummary.video_generation_count || 0),
-    perceptual_review_count:
-      Number(previewSummary.perceptual_review_count || 0),
-    soundtrack_generation_count:
-      Number(previewSummary.soundtrack_generation_count || 0),
+    duration_seconds: durationSeconds,
+    video_generation_count: videoGenerationCount,
+    perceptual_review_count: perceptualReviewCount,
+    soundtrack_generation_count: soundtrackGenerationCount,
     persisted_prompt_field_count:
-      Number(persistenceSummary.graph_prompt_field_count || 0) +
-      Number(persistenceSummary.execution_prompt_field_count || 0) +
-      Number(persistenceSummary.task_prompt_field_count || 0),
+      graphPromptFieldCount +
+      executionPromptFieldCount +
+      taskPromptFieldCount,
     human_review_warning_count: warningCount,
-    transport_instruction_count:
-      Number(persistenceSummary.transport_instruction_count || 0),
+    transport_instruction_count: transportInstructionCount,
   },
   scenes: reviews,
   soundtrack: soundtrackNode

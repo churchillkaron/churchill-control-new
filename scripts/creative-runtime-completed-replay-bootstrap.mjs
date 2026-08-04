@@ -4,9 +4,6 @@ import nextEnv from "@next/env";
 const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
 
-// The direction-only entrypoint requires this flag before it begins. Actual
-// provider and settlement execution remains blocked by the zero-cost firewall
-// installed below, beneath deterministic completed-result replay.
 process.env.CREATIVE_PROVIDER_EXECUTION_AUTHORIZED = "true";
 process.env.CREATIVE_ZERO_COST_PROVIDER_FIREWALL_AUTHORIZED = "true";
 process.env.CREATIVE_ALLOW_AUTOMATIC_REPAIR = "false";
@@ -14,14 +11,9 @@ process.env.CREATIVE_APPROVED_INCREMENTAL_REPAIR_BUDGET = "0";
 process.env.REPAIR_EXECUTION_AUTHORIZED = "false";
 process.env.PUBLICATION_AUTHORIZED = "false";
 
-// Install the firewall first. Every later wrapper captures this blocked base
-// execution path. Completed replay returns before reaching it; any unexpected
-// new execution or settlement request is rejected before usage creation,
-// wallet reservation, provider selection or provider invocation.
 await import(
   "@/lib/creative/director/runtime/CreativeZeroCostProviderFirewallRuntime"
 );
-
 await import(
   "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
 );
@@ -31,9 +23,6 @@ await import(
 await import(
   "@/lib/creative/director/runtime/CreativeUniversalReferenceCastingRuntime"
 );
-
-// Deterministically repair only evidence-safe reference contract defects from
-// the completed plan before the existing strict fresh-reference validator runs.
 await import(
   "@/lib/creative/director/runtime/CreativeFreshDirectionReferenceNormalizationRuntime"
 );
@@ -58,7 +47,6 @@ await import(
 await import(
   "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
 );
-
 await import(
   "@/lib/creative/director/runtime/CreativeDirectionCompletedReplayRuntime"
 );
@@ -74,22 +62,20 @@ await import(
 await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );
-
-// Remove all persisted prompt fields before any evidence-constrained work.
 await import(
   "@/lib/creative/director/runtime/CreativePromptlessDirectionSpecRuntime"
 );
-
-// Remove every revoked narrative, action, camera, staging, production-design,
-// and generation-content field. Keep only identity, timing, source bindings,
-// and technical structure needed for a fresh evidence-based rebuild.
 await import(
   "@/lib/creative/director/runtime/CreativeRevokedDirectionFieldScrubRuntime"
 );
-
-// Install this last. It rebuilds every scene and shot from verified structured
-// source evidence, revalidates all source-to-shot requirements, and forbids any
-// invented physical content before returning the final zero-cost direction.
 await import(
   "@/lib/creative/director/runtime/CreativeEvidenceConstrainedDirectionRuntime"
+);
+
+// Install outermost. The evidence-constrained plan is already complete and has
+// passed structured source-to-shot validation. This final source-locked layer
+// removes all legacy identity-profile, atlas and keyframe-generation bindings
+// while preserving source reference IDs and visible-person continuity.
+await import(
+  "@/lib/creative/director/runtime/CreativeSourceLockedIdentityRequirementScrubRuntime"
 );

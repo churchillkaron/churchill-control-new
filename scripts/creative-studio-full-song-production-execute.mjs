@@ -1,155 +1,36 @@
 #!/usr/bin/env node
 
-import nextEnv from "@next/env";
+import process from "node:process";
+import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
-const { loadEnvConfig } = nextEnv;
-loadEnvConfig(process.cwd());
-
-for (const name of [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-]) {
-  if (!String(process.env[name] || "").trim()) {
-    throw new Error(`Missing environment variable after loadEnvConfig: ${name}`);
-  }
-}
-
-function object(value) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value
-    : {};
-}
+loadAvantiqoEnv({ cwd: process.cwd() });
 
 function text(value) {
   return String(value ?? "").trim();
 }
 
-function positive(value) {
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : null;
-}
-
-function projectDuration(project = {}) {
-  const metadata = object(project.metadata);
-  return positive(
-    metadata.temporal_contract?.duration_seconds ??
-    metadata.full_master_duration ??
-    metadata.full_song_duration_seconds ??
-    project.target_duration,
-  );
-}
-
-function isFullSong(project = {}) {
-  const metadata = object(project.metadata);
-  return (
-    metadata.full_song === true ||
-    metadata.music_video === true ||
-    text(metadata.duration_mode).toUpperCase() === "FULL_SOURCE_AUDIO" ||
-    text(metadata.temporal_contract?.mode).toUpperCase() === "FULL_SOURCE_AUDIO"
-  );
-}
-
-const [
-  { supabaseAdmin },
-  { preflightCreativeDirectionOutput },
-] = await Promise.all([
-  import("@/lib/shared/supabase/admin"),
-  import("../lib/creative/director/runtime/CreativeDirectionReliableOutputPatch.js"),
-]);
-
-await import(
-  "../lib/creative/production-graph/runtime/CreativeProductionGraphConvergencePatch.js"
-);
-
-const configuredProjectId = text(
-  process.env.CREATIVE_PROJECT_ID ||
-  process.env.CREATIVE_FULL_SONG_PROJECT_ID,
-);
-const configuredOrganizationId = text(
-  process.env.CREATIVE_ORGANIZATION_ID ||
-  process.env.ORGANIZATION_ID,
-);
-const durationHint = positive(
-  process.env.CREATIVE_FULL_MASTER_DURATION ||
-  process.env.CREATIVE_MASTER_DURATION,
-);
-
-let project = null;
-
-if (configuredProjectId) {
-  const { data, error } = await supabaseAdmin
-    .from("creative_projects")
-    .select("id,organization_id,target_duration,metadata,archived,created_at")
-    .eq("id", configuredProjectId)
-    .maybeSingle();
-
-  if (error) throw error;
-  project = data || null;
-} else {
-  let query = supabaseAdmin
-    .from("creative_projects")
-    .select("id,organization_id,target_duration,metadata,archived,created_at")
-    .eq("archived", false)
-    .order("created_at", { ascending: false })
-    .limit(500);
-
-  if (configuredOrganizationId) {
-    query = query.eq("organization_id", configuredOrganizationId);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  const candidates = (data || [])
-    .filter(isFullSong)
-    .filter((item) => {
-      if (!durationHint) return true;
-      const duration = projectDuration(item);
-      return duration && Math.abs(duration - durationHint) <= 0.25;
-    });
-
-  if (candidates.length !== 1) {
-    throw new Error(
-      candidates.length
-        ? `CREATIVE_DIRECTION_PREFLIGHT_PROJECT_AMBIGUOUS:${candidates.length}`
-        : "CREATIVE_DIRECTION_PREFLIGHT_PROJECT_NOT_FOUND",
-    );
-  }
-
-  [project] = candidates;
-}
-
-if (!project?.id) {
-  throw new Error("CREATIVE_DIRECTION_PREFLIGHT_PROJECT_REQUIRED");
-}
-if (!project.organization_id) {
-  throw new Error("CREATIVE_DIRECTION_PREFLIGHT_ORGANIZATION_REQUIRED");
-}
-if (
-  configuredOrganizationId &&
-  String(project.organization_id) !== String(configuredOrganizationId)
-) {
-  throw new Error("CREATIVE_DIRECTION_PREFLIGHT_ORGANIZATION_MISMATCH");
-}
+const freshDirectionAuthorized =
+  text(process.env.CREATIVE_FRESH_DIRECTION_AUTHORIZED).toLowerCase() === "true";
+const providerExecutionAuthorized =
+  text(process.env.CREATIVE_PROVIDER_EXECUTION_AUTHORIZED).toLowerCase() === "true";
 
 console.log("============================================================");
-console.log("CREATIVE DIRECTION PREFLIGHT");
+console.log("CREATIVE FULL-SONG PRODUCTION EXECUTION GATE");
 console.log("============================================================");
-console.log(`PREFLIGHT_PROJECT_ID=${project.id}`);
-console.log(`PREFLIGHT_ORGANIZATION_ID=${project.organization_id}`);
+console.log("LEGACY_DIRECTION_REUSE=DISABLED");
+console.log("LEGACY_DIRECTION_REPAIR=DISABLED");
+console.log("LEGACY_GRAPH_RECONCILIATION=DISABLED");
+console.log(`FRESH_DIRECTION_AUTHORIZED=${freshDirectionAuthorized ? "YES" : "NO"}`);
+console.log(`PROVIDER_EXECUTION_AUTHORIZED=${providerExecutionAuthorized ? "YES" : "NO"}`);
 
-const preflight = await preflightCreativeDirectionOutput({
-  organization_id: project.organization_id,
-  creative_project_id: project.id,
-});
+if (!freshDirectionAuthorized) {
+  throw new Error("CREATIVE_FRESH_DIRECTION_AUTHORIZATION_REQUIRED");
+}
+if (!providerExecutionAuthorized) {
+  throw new Error("CREATIVE_PROVIDER_EXECUTION_AUTHORIZATION_REQUIRED");
+}
 
-console.log(`DIRECTION_PREFLIGHT_SOURCE=${preflight.source}`);
-console.log(`DIRECTION_PREFLIGHT_USAGE_ID=${preflight.usage_id || ""}`);
-console.log(`DIRECTION_PREFLIGHT_SCENE_COUNT=${preflight.scene_count}`);
-console.log(`DIRECTION_PREFLIGHT_SHOT_COUNT=${preflight.shot_count}`);
-console.log("DIRECTION_PREFLIGHT=PASS");
-console.log("PRODUCTION_GRAPH_CONVERGENCE=ENABLED");
-console.log("PRODUCTION_LOCK_ACQUIRED=NO");
+console.log("EXECUTION_PATH=CANONICAL_FRESH_DIRECTION_ONLY");
 console.log("============================================================");
 
 await import("./creative-studio-full-song-safe-execute.mjs");

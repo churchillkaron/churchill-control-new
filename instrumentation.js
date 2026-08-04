@@ -13,6 +13,9 @@ export async function register() {
       "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
     );
     await import(
+      "@/lib/creative/assets/intelligence/runtime/CreativeUniversalAssetSemanticCoverageRuntime"
+    );
+    await import(
       "@/lib/creative/director/runtime/CreativeUniversalReferenceCastingRuntime"
     );
     await import(

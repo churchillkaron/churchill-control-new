@@ -31,6 +31,12 @@ await import(
 await import(
   "@/lib/creative/director/runtime/CreativeUniversalReferenceCastingRuntime"
 );
+
+// Deterministically repair only evidence-safe reference contract defects from
+// the completed plan before the existing strict fresh-reference validator runs.
+await import(
+  "@/lib/creative/director/runtime/CreativeFreshDirectionReferenceNormalizationRuntime"
+);
 await import(
   "@/lib/creative/director/runtime/CreativeFreshDirectionReferenceContractRuntime"
 );

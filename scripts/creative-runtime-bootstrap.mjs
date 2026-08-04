@@ -16,15 +16,14 @@ await import(
   "@/lib/creative/reasoning/runtime/CreativeReasoningRequestCostEstimateRuntime"
 );
 
-// Install the CLI budget approval inside the reasoning-budget wrapper. The
-// reasoning runtime then serializes parallel council calls before each one
-// reads or updates the persisted approval balance.
+// Install paid approval inside reasoning-budget execution. Requests that are
+// not replayed therefore remain fully governed, priced, charged and settled.
 await import(
   "@/lib/creative/director/runtime/CreativeDirectionCostApprovalRuntime"
 );
 
 // Mirror the remaining Node runtime stack installed by instrumentation.js so
-// the temporary CLI exercises the same Creative Studio backend as the UI.
+// the isolated CLI exercises the same Creative Studio backend as the UI.
 await import(
   "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
 );
@@ -56,33 +55,34 @@ await import(
   "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
 );
 
+// Harden only the production critic provider request. It remains inside replay,
+// so source sequence 16 is regenerated through the normal paid approval stack.
+await import(
+  "@/lib/creative/director/runtime/CreativeConceptCriticCoverageRuntime"
+);
+
+// Deterministic replay sits inside local result completion. Replayed raw usage
+// payloads therefore receive exactly the same completion and normalization as
+// provider responses, while skipped/new calls continue through cost approval.
+await import(
+  "@/lib/creative/director/runtime/CreativeDirectionAttemptReplayRuntime"
+);
+
+// Complete exact provider or replayed direction payloads locally before strict
+// validation. Exact-hash recovery remains disabled by the execution command;
+// deterministic attempt replay is the only authorized reuse path.
+await import(
+  "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
+);
+
 // Complete both under-specified and placeholder-style provider direction
 // locally before the strict master-plan validator runs.
 await import(
   "@/lib/creative/director/runtime/CreativeGenericDirectionCompletionRuntime"
 );
 
-// Complete exact provider direction payloads locally before validation.
-await import(
-  "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
-);
-
-// Change only the production critic request contract. This sits inside replay,
-// so sequence 16 can be deliberately regenerated while sequences 1-15 replay
-// their exact settled usage results.
-await import(
-  "@/lib/creative/director/runtime/CreativeConceptCriticCoverageRuntime"
-);
-
-// Install prompt normalization before deterministic replay. Replay matches the
-// recorded operation sequence and settled usage IDs, not volatile prompt hashes.
+// Install prompt normalization last so every logical request has its canonical
+// input before completion, replay dispatch, budget accounting and execution.
 await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
-);
-
-// Install deterministic attempt replay last so it is the outermost direction
-// layer. Replayed calls bypass cost approval and budget accounting; skipped or
-// new calls continue through the full governed stack.
-await import(
-  "@/lib/creative/director/runtime/CreativeDirectionAttemptReplayRuntime"
 );

@@ -19,6 +19,9 @@ export async function register() {
       "@/lib/creative/director/runtime/CreativeUniversalReferenceCastingRuntime"
     );
     await import(
+      "@/lib/creative/director/runtime/CreativeFreshDirectionReferenceContractRuntime"
+    );
+    await import(
       "@/lib/creative/director/runtime/CreativeCanonicalShotSourceRuntime"
     );
     await import(

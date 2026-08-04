@@ -15,6 +15,10 @@ function object(value) {
     : {};
 }
 
+function list(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
 function finite(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
@@ -42,6 +46,37 @@ function readJson(filePath, label) {
   return { absolute, raw, value: JSON.parse(raw) };
 }
 
+function musicReadinessSummary(value = {}) {
+  const auditBlockers = list(value.blockers).map(text).filter(Boolean);
+  const registryProviders = list(value.registry_providers);
+  const executableProviders = list(value.resolver?.providers);
+  const executablePricing = list(value.resolver?.pricing)
+    .filter((row) => row.active !== false);
+  const databasePricing = list(value.database?.pricing_rows)
+    .filter((row) => row.active !== false);
+  const organizationServices = list(value.database?.organization_service_rows)
+    .filter((row) => row.enabled !== false);
+  const explicitReady = value.ready === true;
+  const passed =
+    explicitReady &&
+    auditBlockers.length === 0 &&
+    registryProviders.length > 0 &&
+    executableProviders.length > 0 &&
+    (executablePricing.length > 0 || databasePricing.length > 0) &&
+    organizationServices.length > 0;
+
+  return {
+    passed,
+    explicit_ready: explicitReady,
+    audit_blockers: auditBlockers,
+    registry_provider_count: registryProviders.length,
+    executable_provider_count: executableProviders.length,
+    executable_pricing_count: executablePricing.length,
+    active_database_pricing_count: databasePricing.length,
+    enabled_organization_service_count: organizationServices.length,
+  };
+}
+
 const direction = readJson(process.argv[2], "DIRECTION");
 const audit = readJson(process.argv[3], "DIRECTION_AUDIT");
 const estimate = readJson(process.argv[4], "COST_ESTIMATE");
@@ -56,6 +91,7 @@ const plan = object(
 const auditSummary = object(audit.value.summary);
 const estimateScenarios = object(estimate.value.scenarios);
 const estimateWallet = object(estimate.value.wallet);
+const musicReadiness = musicReadinessSummary(readiness.value);
 const blockers = [];
 
 if (plan.validation?.passed !== true) blockers.push("DIRECTION_VALIDATION_NOT_PASSED");
@@ -63,7 +99,7 @@ if (auditSummary.technical_readiness !== "PASS") blockers.push("DIRECTION_TECHNI
 if (auditSummary.world_class_readiness !== "PASS") blockers.push("DIRECTION_WORLD_CLASS_READINESS_NOT_PASSED");
 if (Number(auditSummary.persisted_provider_prompt_count || 0) !== 0) blockers.push("DIRECTION_NOT_PROMPTLESS");
 if (Array.isArray(estimate.value.blockers) && estimate.value.blockers.length) blockers.push("COST_ESTIMATE_HAS_BLOCKERS");
-if (readiness.value.readiness !== "PASS" && readiness.value.summary?.readiness !== "PASS") blockers.push("MUSIC_PROVIDER_NOT_READY");
+if (!musicReadiness.passed) blockers.push("MUSIC_PROVIDER_NOT_READY");
 
 const selectedBaseline = finite(estimateScenarios.selected_baseline);
 const approvalCeiling = finite(estimateScenarios.recommended_approval_ceiling);
@@ -113,7 +149,15 @@ const manifestCore = {
   music_readiness: {
     file: readiness.absolute,
     sha256: digest(readiness.raw),
-    readiness: readiness.value.readiness || readiness.value.summary?.readiness || null,
+    readiness: musicReadiness.passed ? "PASS" : "FAIL",
+    explicit_ready: musicReadiness.explicit_ready,
+    blockers: musicReadiness.audit_blockers,
+    registry_provider_count: musicReadiness.registry_provider_count,
+    executable_provider_count: musicReadiness.executable_provider_count,
+    executable_pricing_count: musicReadiness.executable_pricing_count,
+    active_database_pricing_count: musicReadiness.active_database_pricing_count,
+    enabled_organization_service_count:
+      musicReadiness.enabled_organization_service_count,
   },
   authorization: {
     production_authorized: false,
@@ -149,6 +193,12 @@ console.log(`COST_ESTIMATE_SHA256=${manifest.cost_estimate.sha256}`);
 console.log(`SELECTED_BASELINE=${selectedBaseline}`);
 console.log(`APPROVAL_CEILING=${approvalCeiling}`);
 console.log(`WALLET_BALANCE=${walletBalance}`);
+console.log(`MUSIC_READINESS=${manifest.music_readiness.readiness}`);
+console.log(`MUSIC_REGISTRY_PROVIDER_COUNT=${manifest.music_readiness.registry_provider_count}`);
+console.log(`MUSIC_EXECUTABLE_PROVIDER_COUNT=${manifest.music_readiness.executable_provider_count}`);
+console.log(`MUSIC_EXECUTABLE_PRICING_COUNT=${manifest.music_readiness.executable_pricing_count}`);
+console.log(`MUSIC_ACTIVE_DATABASE_PRICING_COUNT=${manifest.music_readiness.active_database_pricing_count}`);
+console.log(`MUSIC_ENABLED_ORGANIZATION_SERVICE_COUNT=${manifest.music_readiness.enabled_organization_service_count}`);
 console.log(`APPROVAL_MANIFEST_READINESS=${blockers.length ? "FAIL" : "PASS"}`);
 console.log(`APPROVAL_MANIFEST_BLOCKER_COUNT=${blockers.length}`);
 console.log(`APPROVAL_MANIFEST_BLOCKERS=${JSON.stringify(blockers)}`);

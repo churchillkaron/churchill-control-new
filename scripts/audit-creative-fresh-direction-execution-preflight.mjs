@@ -241,8 +241,10 @@ const sceneRange = effectiveSceneRange(duration);
 const audioSources = list(assets).filter((asset) => assetKind(asset) === "AUDIO");
 const sourceAudioIntent = fullSourceAudioIntent(project, brief);
 
-const currentSynthesisCalls = 1;
-const hardenedSynthesisCalls = sourceAudioIntent ? 1 : 0;
+const currentSynthesisCalls =
+  sourceAudioIntent ? 1 : 0;
+const hardenedSynthesisCalls =
+  sourceAudioIntent ? 1 : 0;
 const temporalFixedCalls = 2;
 const councilCalls = 9;
 
@@ -261,9 +263,9 @@ function requestedTokenRange(synthesisCalls) {
     14000 +
     73000;
   return {
-    minimum: fixed + sceneRange.minimum * 16000,
-    preferred: fixed + sceneRange.preferred * 16000,
-    maximum: fixed + sceneRange.maximum * 16000,
+    minimum: fixed + sceneRange.minimum * 15000,
+    preferred: fixed + sceneRange.preferred * 15000,
+    maximum: fixed + sceneRange.maximum * 15000,
   };
 }
 
@@ -330,23 +332,49 @@ const universalSource = readSource(
 const completionSource = readSource(
   "lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime.js",
 );
+const costApprovalSource = readSource(
+  "lib/creative/director/runtime/CreativeDirectionCostApprovalRuntime.js",
+);
 
 const staleAudioGate = directionOnlySource.includes(
   "DIRECTION_ONLY_PRIMARY_SOUNDTRACK_ASSET_REQUIRED",
 );
+const adaptiveAudioContract =
+  temporalSource.includes(
+    "function temporalAudioContract(",
+  ) &&
+  temporalSource.includes(
+    "duration_mode: audioContract.mode",
+  ) &&
+  temporalSource.includes(
+    "audio_contract: audioContract",
+  ) &&
+  /source_audio_required:\s*audioContract\.source_audio_required/
+    .test(temporalSource) &&
+  temporalSource.includes(
+    "ORIGINAL_SCORE_AND_SOUND_DESIGN",
+  );
+
 const hardcodedSourceAudio =
-  temporalSource.includes('duration_mode: "FULL_SOURCE_AUDIO"') ||
-  temporalSource.includes("preserve the supplied primary soundtrack exactly") ||
-  temporalSource.includes("Cover the complete source soundtrack");
+  !adaptiveAudioContract;
 const unconditionalSynthesis = universalSource.includes(
   "const synthesis = await createCreativeSynthesis({",
 );
 const legacyRecoveryEnabled = completionSource.includes(
   "!REPEATABLE_OPERATIONS.has(operation) && legacy.length === 1",
 );
-const explicitFreshRecoveryDisable = completionSource.includes(
-  "CREATIVE_DIRECTION_RESULT_RECOVERY_DISABLED",
-);
+const explicitFreshRecoveryDisable =
+  completionSource.includes(
+    "CREATIVE_DIRECTION_RESULT_RECOVERY_DISABLED",
+  );
+
+const perCallCostGuardInstalled =
+  costApprovalSource.includes(
+    "approvedPerCallMaximum",
+  ) &&
+  costApprovalSource.includes(
+    "approval.maximum_per_call_customer_price",
+  );
 
 const blockers = [];
 if (staleAudioGate && !sourceAudioIntent) {
@@ -362,7 +390,14 @@ if (legacyRecoveryEnabled) {
   blockers.push("LEGACY_DIRECTION_RESULT_RECOVERY_ENABLED");
 }
 if (!explicitFreshRecoveryDisable) {
-  blockers.push("FRESH_DIRECTION_RECOVERY_DISABLE_MISSING");
+  blockers.push(
+    "FRESH_DIRECTION_RECOVERY_DISABLE_MISSING",
+  );
+}
+if (!perCallCostGuardInstalled) {
+  blockers.push(
+    "PAID_DIRECTION_PER_CALL_COST_GUARD_MISSING",
+  );
 }
 if (contextMatches.length) {
   blockers.push(`OLD_EXECUTION_IDS_PRESENT_IN_DIRECTION_CONTEXT:${contextMatches.length}`);
@@ -465,6 +500,7 @@ console.log(`TEMPORAL_SOURCE_AUDIO_HARDCODED=${hardcodedSourceAudio ? "YES" : "N
 console.log(`NON_MUSIC_SYNTHESIS_PROVIDER_CALL=${unconditionalSynthesis ? "YES" : "NO"}`);
 console.log(`LEGACY_DIRECTION_RECOVERY_ENABLED=${legacyRecoveryEnabled ? "YES" : "NO"}`);
 console.log(`FRESH_DIRECTION_RECOVERY_DISABLE_INSTALLED=${explicitFreshRecoveryDisable ? "YES" : "NO"}`);
+console.log(`PAID_DIRECTION_PER_CALL_COST_GUARD=${perCallCostGuardInstalled ? "YES" : "NO"}`);
 console.log("PROVIDER_CALLS_EXECUTED=NO");
 console.log("WALLET_CHANGED=NO");
 console.log("USAGE_ROWS_CREATED=NO");

@@ -8,6 +8,8 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv({ cwd: process.cwd() });
 
+process.env.CREATIVE_DIRECTION_RESULT_RECOVERY_DISABLED = "true";
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -24,6 +26,62 @@ function list(value) {
 
 function authorized(name) {
   return text(process.env[name]).toLowerCase() === "true";
+}
+
+function fullSourceAudioIntent(
+  project = {},
+  brief = {},
+) {
+  const projectMetadata = object(project.metadata);
+  const briefMetadata = object(brief.metadata);
+
+  const mode = text(
+    projectMetadata.duration_mode ||
+    projectMetadata.durationMode ||
+    projectMetadata.temporal_contract?.mode ||
+    projectMetadata.temporalContract?.mode ||
+    briefMetadata.duration_mode ||
+    briefMetadata.temporal_contract?.mode,
+  ).toUpperCase();
+
+  if ([
+    "FULL_SOURCE_AUDIO",
+    "FULL_SONG",
+    "MATCH_SOURCE_AUDIO",
+    "SOURCE_AUDIO",
+  ].includes(mode)) {
+    return true;
+  }
+
+  if (
+    projectMetadata.full_song === true ||
+    projectMetadata.fullSong === true ||
+    projectMetadata.music_video === true ||
+    projectMetadata.musicVideo === true ||
+    briefMetadata.full_song === true ||
+    briefMetadata.music_video === true
+  ) {
+    return true;
+  }
+
+  const corpus = [
+    project.name,
+    project.description,
+    project.objective,
+    brief.creative_objective,
+    brief.business_goal,
+    projectMetadata.request,
+    projectMetadata.request_text,
+    projectMetadata.creative_request,
+    projectMetadata.production_intent,
+  ]
+    .map(text)
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return /\b(music video|official video|full song|entire song|whole song|complete song|song-length|full-length song)\b/i
+    .test(corpus);
 }
 
 const freshDirectionAuthorized = authorized(
@@ -142,8 +200,16 @@ if (list(assetIntelligence.person_profiles).length) {
     "DIRECTION_ONLY_EXISTING_IDENTITY_ATLAS_PREFLIGHT_REQUIRED",
   );
 }
-if (!list(assetIntelligence.audio_sources).length) {
-  throw new Error("DIRECTION_ONLY_PRIMARY_SOUNDTRACK_ASSET_REQUIRED");
+const sourceAudioRequired =
+  fullSourceAudioIntent(project, brief);
+
+if (
+  sourceAudioRequired &&
+  !list(assetIntelligence.audio_sources).length
+) {
+  throw new Error(
+    "DIRECTION_ONLY_REQUIRED_SOURCE_AUDIO_MISSING",
+  );
 }
 
 console.log("============================================================");
@@ -154,7 +220,9 @@ console.log(`ORGANIZATION_ID=${organizationId}`);
 console.log(`CREATIVE_PROJECT_ID=${projectId}`);
 console.log(`CREATIVE_MISSION_ID=${missionId}`);
 console.log(`DIRECTION_ASSET_COUNT=${assets.length}`);
+console.log(`SOURCE_AUDIO_REQUIRED=${sourceAudioRequired ? "YES" : "NO"}`);
 console.log(`AUDIO_SOURCE_COUNT=${list(assetIntelligence.audio_sources).length}`);
+console.log("DIRECTION_RESULT_RECOVERY_DISABLED=YES");
 console.log(`PERSON_PROFILE_COUNT=${list(assetIntelligence.person_profiles).length}`);
 console.log(`PRODUCTION_GRAPH_COUNT_BEFORE=${graphsBefore.length}`);
 console.log(`PRODUCTION_TASK_COUNT_BEFORE=${tasksBefore.length}`);

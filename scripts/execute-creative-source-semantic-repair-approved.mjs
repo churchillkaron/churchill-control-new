@@ -40,6 +40,16 @@ if (text(planFile.value.creative_project_id) !== projectId) {
   throw new Error("SOURCE_SEMANTIC_REPAIR_PROJECT_MISMATCH");
 }
 
+// Legacy Churchill source assets contain Supabase Storage URLs that can return
+// HTTP 400 outside the authenticated client. Install admin-storage recovery
+// before loading the repair and provider runtimes so all source reads use the
+// same authenticated fallback without exposing service credentials.
+const {
+  SupabaseStorageFetchRuntime,
+} = await import(
+  "@/lib/shared/supabase/SupabaseStorageFetchRuntime"
+);
+
 const {
   executeCreativeSourceSemanticRepair,
 } = await import(
@@ -53,6 +63,7 @@ console.log(`PLAN=${planFile.absolute}`);
 console.log(`PLAN_HASH=${planFile.value.plan_hash}`);
 console.log("APPROVAL_LITERAL=APPROVE SOURCE SEMANTIC REPAIR MAX 8.736 THB");
 console.log("APPROVAL_MAXIMUM_THB=8.736");
+console.log(`SUPABASE_STORAGE_RECOVERY_INSTALLED=${SupabaseStorageFetchRuntime.installation.installed ? "YES" : "NO"}`);
 console.log("PRODUCTION_AUTHORIZED=NO");
 console.log("PUBLICATION_AUTHORIZED=NO");
 console.log("============================================================");

@@ -149,7 +149,7 @@ function freshReferenceRows({ shot = {}, identityAssetIds = [], audioAssetId = n
     primaryId = identityPrimary || visualRows[0].asset_id;
   }
   if (primaryId && !byId.has(primaryId)) {
-    throw new Error(`FRESH_DIRECTION_PRIMARY_SOURCE_REFERENCE_MISSING:${primaryId}`);
+    throw new Error("FRESH_DIRECTION_PRIMARY_SOURCE_REFERENCE_MISSING:" + primaryId);
   }
 
   const normalized = rows.map((row) => ({

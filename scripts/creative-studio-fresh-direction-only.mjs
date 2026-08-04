@@ -90,6 +90,21 @@ const freshDirectionAuthorized = authorized(
 const providerExecutionAuthorized = authorized(
   "CREATIVE_PROVIDER_EXECUTION_AUTHORIZED",
 );
+const evidenceConstrainedZeroCostReplayAuthorized = authorized(
+  "CREATIVE_EVIDENCE_CONSTRAINED_ZERO_COST_REPLAY_AUTHORIZED",
+);
+const approvedIncrementalRepairBudget = Number(
+  text(process.env.CREATIVE_APPROVED_INCREMENTAL_REPAIR_BUDGET) || "0",
+);
+const identityAtlasBypassAuthorized = Boolean(
+  evidenceConstrainedZeroCostReplayAuthorized &&
+  authorized("CREATIVE_DIRECTION_COMPLETED_REPLAY_AUTHORIZED") &&
+  authorized("CREATIVE_ZERO_COST_PROVIDER_FIREWALL_AUTHORIZED") &&
+  approvedIncrementalRepairBudget === 0 &&
+  !authorized("CREATIVE_ALLOW_AUTOMATIC_REPAIR") &&
+  !authorized("REPAIR_EXECUTION_AUTHORIZED") &&
+  !authorized("PUBLICATION_AUTHORIZED")
+);
 
 if (!freshDirectionAuthorized) {
   throw new Error("CREATIVE_FRESH_DIRECTION_AUTHORIZATION_REQUIRED");
@@ -195,7 +210,8 @@ if (!assetIntelligence.passed) {
     `UNIVERSAL_ASSET_INTELLIGENCE_BLOCKED:${assetIntelligence.blocking_issues.join(",")}`,
   );
 }
-if (list(assetIntelligence.person_profiles).length) {
+const personProfileCount = list(assetIntelligence.person_profiles).length;
+if (personProfileCount && !identityAtlasBypassAuthorized) {
   throw new Error(
     "DIRECTION_ONLY_EXISTING_IDENTITY_ATLAS_PREFLIGHT_REQUIRED",
   );
@@ -223,7 +239,10 @@ console.log(`DIRECTION_ASSET_COUNT=${assets.length}`);
 console.log(`SOURCE_AUDIO_REQUIRED=${sourceAudioRequired ? "YES" : "NO"}`);
 console.log(`AUDIO_SOURCE_COUNT=${list(assetIntelligence.audio_sources).length}`);
 console.log("DIRECTION_RESULT_RECOVERY_DISABLED=YES");
-console.log(`PERSON_PROFILE_COUNT=${list(assetIntelligence.person_profiles).length}`);
+console.log(`PERSON_PROFILE_COUNT=${personProfileCount}`);
+console.log(`IDENTITY_ATLAS_PREFLIGHT_BYPASS=${
+  personProfileCount && identityAtlasBypassAuthorized ? "SOURCE_LOCKED_ZERO_COST_REPLAY" : "NO"
+}`);
 console.log(`PRODUCTION_GRAPH_COUNT_BEFORE=${graphsBefore.length}`);
 console.log(`PRODUCTION_TASK_COUNT_BEFORE=${tasksBefore.length}`);
 console.log("FRESH_DIRECTION_AUTHORIZED=YES");
@@ -300,6 +319,15 @@ const payload = {
     plan.metadata?.canonical_shot_source ||
     null,
   universal_asset_intelligence: assetIntelligence,
+  identity_atlas_preflight: {
+    person_profile_count: personProfileCount,
+    bypassed: Boolean(personProfileCount && identityAtlasBypassAuthorized),
+    bypass_contract: personProfileCount && identityAtlasBypassAuthorized
+      ? "SOURCE_LOCKED_EVIDENCE_CONSTRAINED_ZERO_COST_REPLAY_V1"
+      : null,
+    identity_generation_authorized: false,
+    identity_keyframe_generation_authorized: false,
+  },
   plan,
 };
 

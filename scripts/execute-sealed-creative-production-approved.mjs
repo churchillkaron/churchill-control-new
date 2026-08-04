@@ -95,7 +95,13 @@ function taskType(step = {}) {
   return "EXECUTE_CAPABILITY";
 }
 function selectedItemPrices(costValue = {}) {
-  const estimates = list(costValue.estimate?.service_estimates);
+  const estimates = list(
+    costValue.estimate?.services ||
+      costValue.estimate?.service_estimates,
+  );
+  if (!estimates.length) {
+    throw new Error("SEALED_COST_SERVICE_ESTIMATES_REQUIRED");
+  }
   return estimates.flatMap((estimate) =>
     list(estimate.selected?.item_prices).map((item) => ({
       ...item,
@@ -120,7 +126,18 @@ function stepPriceAssignments(steps = [], costValue = {}) {
     const kind = serviceKind(step);
     const key = `${kind}:${text(step.service_code || step.capability)}`;
     const bucket = buckets.get(key) || [];
-    const price = bucket.shift();
+    const exactIndex = bucket.findIndex((price) =>
+      text(price.source_id) &&
+      (
+        text(price.source_id) === text(step.node_id) ||
+        text(price.source_id) === text(step.metadata?.source_generation_node_id) ||
+        text(step.node_id).startsWith(`${text(price.source_id)}:`) ||
+        text(step.node_id).startsWith(`${text(price.source_id)}-`)
+      ),
+    );
+    const price = exactIndex >= 0
+      ? bucket.splice(exactIndex, 1)[0]
+      : bucket.shift();
     if (!price) throw new Error(`APPROVED_ITEM_PRICE_MISSING:${step.node_id}:${key}`);
     assignments.set(step.node_id, price);
   }

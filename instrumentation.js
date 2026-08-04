@@ -16,6 +16,9 @@ export async function register() {
       "@/lib/creative/director/runtime/CreativeUniversalReferenceCastingRuntime"
     );
     await import(
+      "@/lib/creative/director/runtime/CreativeCanonicalShotSourceRuntime"
+    );
+    await import(
       "@/lib/creative/reasoning/runtime/CreativeReasoningRequestCostEstimateRuntime"
     );
     await import(

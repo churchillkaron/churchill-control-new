@@ -79,6 +79,10 @@ requireMissing(
   "app/(system)/workspace/[organizationId]/operations/pos/RestaurantOrderEntryBridge.jsx",
   "Temporary DOM order-entry bridge",
 );
+requireMissing(
+  "app/(system)/workspace/[organizationId]/operations/pos/POS_FINAL_UI.jsx",
+  "Legacy final POS surface",
+);
 
 requireIncludes(configuration, [
   'id: "sell"',
@@ -210,7 +214,8 @@ requireIncludes(safeRealtime, [
 if (
   restaurantRealtime.includes("tenant_id") ||
   liveWaiterService.includes("tenant_id") ||
-  orderEntry.includes("tenant_id")
+  orderEntry.includes("tenant_id") ||
+  checkout.includes("tenant_id")
 ) {
   throw new Error("Restaurant POS realtime must not use tenant_id");
 }
@@ -247,6 +252,14 @@ requireIncludes(checkout, [
   "Pay Partial Amount",
   "Pay Full Balance",
   "/api/pos/payments/settle",
+  "useRestaurantPOSRealtime",
+  "paymentRefreshRef",
+  "refreshPaymentRuntime",
+  "preserveDraft",
+  "payableItemIds",
+  'realtimeStatus === "live"',
+  "FALLBACK_REFRESH_MS",
+  "Polling fallback",
 ], "Stationary checkout");
 
 requireIncludes(orders, [
@@ -274,5 +287,6 @@ console.log("STATIONARY_POS=ORDER_ENTRY,ORDERS,CHECKOUT,PAYMENTS,RECEIPTS,CASH_C
 console.log("WAITER_SERVICE=POINTER_SAFE,STATE_AWARE,PERMISSION_GATED,REALTIME_WITH_POLLING_FALLBACK");
 console.log("WAITER_ORDER_HANDOFF=NATIVE_URL_STATE");
 console.log("SELL_REALTIME=CART_PRESERVING,FOCUS_RECOVERY,POLLING_FALLBACK");
+console.log("CHECKOUT_REALTIME=DRAFT_PRESERVING,BALANCE_SYNCHRONIZED,PAID_SELECTIONS_REMOVED");
 console.log("RESTAURANT_REALTIME=ORGANIZATION_SCOPED,NO_TENANT");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

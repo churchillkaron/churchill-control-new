@@ -25,7 +25,7 @@ import RetailCheckoutWorkspace from "./RetailCheckoutWorkspace";
 import RetailCashControlWorkspace from "./RetailCashControlWorkspace";
 import PaymentWorkspace from "./PaymentWorkspace";
 import RestaurantOrderEntryWorkspace from "./RestaurantOrderEntryWorkspace";
-import WaiterServiceWorkspace from "./waiter/WaiterServiceWorkspace";
+import LiveWaiterServiceWorkspace from "./waiter/LiveWaiterServiceWorkspace";
 import POSOrdersPage from "./orders/page";
 import ReceiptsPage from "./receipts/page";
 import ShiftPage from "./shifts/page";
@@ -103,7 +103,7 @@ const COMPONENTS = Object.freeze({
   "restaurant-cash-control": ShiftPage,
   "restaurant-fulfillment": FulfillmentDispatchWorkspace,
   "restaurant-order-capture": StationaryPOSUI,
-  "restaurant-service": WaiterServiceWorkspace,
+  "restaurant-service": LiveWaiterServiceWorkspace,
   "retail-catalog": RetailCatalogWorkspace,
   "retail-checkout": RetailCheckoutWorkspace,
   "retail-orders": RetailOrdersWorkspace,

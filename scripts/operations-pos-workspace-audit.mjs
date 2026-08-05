@@ -98,7 +98,8 @@ requireIncludes(waiterService, [
 ], "Waiter service action menu");
 
 requireIncludes(liveWaiterService, [
-  "useRestaurantPOSRealtime", "organizationId", "refreshWaiterRuntime",
+  "useParams", "usePOSRealtime", "organizationId", "refreshWaiterRuntime",
+  "applicationSubscriptions", "props.posConfiguration?.realtimeSubscriptions || []",
   'new Event("focus")', "Polling fallback", "WaiterServiceWorkspace",
 ], "Live waiter service binding");
 
@@ -161,6 +162,6 @@ console.log("SELL_REALTIME=CART_PRESERVING,FOCUS_RECOVERY,POLLING_FALLBACK");
 console.log("CHECKOUT_REALTIME=DRAFT_PRESERVING,BALANCE_SYNCHRONIZED,PAID_SELECTIONS_REMOVED");
 console.log("ORDERS_REALTIME=FILTER_PRESERVING,SELECTION_VALIDATED,STALE_DATA_RETAINED_ON_TRANSIENT_ERROR");
 console.log("POS_REALTIME=UNIVERSAL_CORE,APPLICATION_SUBSCRIPTIONS,ORGANIZATION_SCOPED");
-console.log("POS_GENERIC_CONSUMERS=CHECKOUT,ORDERS");
-console.log("RESTAURANT_REALTIME=APPLICATION_ADAPTER,RESTAURANT_TABLES");
+console.log("POS_GENERIC_CONSUMERS=CHECKOUT,ORDERS,MOBILE_SERVICE");
+console.log("RESTAURANT_REALTIME=SELL_ADAPTER_ONLY");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

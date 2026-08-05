@@ -31,6 +31,18 @@ const registry = read(
 const orderEntry = read(
   "app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx",
 );
+const waiterService = read(
+  "app/(system)/workspace/[organizationId]/operations/pos/waiter/WaiterServiceWorkspace.jsx",
+);
+const actionPolicy = read(
+  "lib/operations/commerce/security/POSActionPolicy.js",
+);
+const actionAdapter = read(
+  "lib/operations/commerce/adapters/restaurant/RestaurantServiceActionAdapter.js",
+);
+const paymentSettlement = read(
+  "lib/operations/commerce/server/settlePOSPaymentRequest.js",
+);
 const checkout = read(
   "app/(system)/workspace/[organizationId]/operations/pos/PaymentWorkspace.jsx",
 );
@@ -61,10 +73,12 @@ requireIncludes(configuration, [
   'component: "restaurant-receipts"',
   'component: "restaurant-cash-control"',
   'component: "restaurant-fulfillment"',
+  'component: "restaurant-service"',
 ], "POS workspace configuration");
 
 requireIncludes(workspace, [
   "POSFinalUI",
+  "WaiterServiceWorkspace",
   "StationaryPOSUI",
   "PaymentWorkspace",
   "POSOrdersPage",
@@ -72,6 +86,7 @@ requireIncludes(workspace, [
   "ShiftPage",
   "FulfillmentDispatchWorkspace",
   '"restaurant-order-entry": POSFinalUI',
+  '"restaurant-service": WaiterServiceWorkspace',
   '"restaurant-context-control": StationaryPOSUI',
   '"restaurant-checkout": PaymentWorkspace',
   '"restaurant-orders": POSOrdersPage',
@@ -100,6 +115,47 @@ requireIncludes(orderEntry, [
   "orderRequestKey",
   "modifierDraft",
 ], "Stationary order entry");
+
+requireIncludes(waiterService, [
+  "onPointerDown",
+  "onPointerUp",
+  "LONG_PRESS_MS",
+  "Tap a table to order. Hold a table for controlled actions.",
+  "isMerged",
+  "isOccupied",
+  "isEmpty",
+  "emptyDestinations",
+  "Move Complete Table",
+  "Move Guest",
+  "Merge Tables",
+  "Close & Release Table",
+  'posAction("CLOSE_TABLE"',
+  'view: "checkout"',
+  "canExecutePOSAction",
+  "REFRESH_MS",
+], "Waiter service action menu");
+
+requireIncludes(actionPolicy, [
+  "ACTION_POLICY",
+  "ORDER_ENTRY",
+  "PAYMENT",
+  "TRANSFER_TABLE",
+  "MERGE_TABLES",
+  "CLOSE_TABLE",
+  "assertPOSActionAllowed",
+  "canExecutePOSAction",
+], "POS action permission policy");
+
+requireIncludes(actionAdapter, [
+  "assertPOSActionAllowed",
+  "POLICY_ACTIONS",
+  'action: policyAction',
+], "Restaurant context action authorization");
+
+requireIncludes(paymentSettlement, [
+  "assertPOSActionAllowed",
+  'action: "PAYMENT"',
+], "POS payment authorization");
 
 requireIncludes(checkout, [
   'value: "CARD"',
@@ -135,4 +191,5 @@ requireIncludes(fulfillment, [
 
 console.log("OPERATIONS_POS_WORKSPACE_AUDIT=PASS");
 console.log("STATIONARY_POS=ORDER_ENTRY,ORDERS,CHECKOUT,PAYMENTS,RECEIPTS,CASH_CONTROL,FULFILLMENT");
+console.log("WAITER_SERVICE=POINTER_SAFE,STATE_AWARE,PERMISSION_GATED,AUTO_REFRESH");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

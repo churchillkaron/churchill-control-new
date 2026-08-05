@@ -24,7 +24,7 @@ import RetailOrdersWorkspace from "./RetailOrdersWorkspace";
 import RetailCheckoutWorkspace from "./RetailCheckoutWorkspace";
 import RetailCashControlWorkspace from "./RetailCashControlWorkspace";
 import PaymentWorkspace from "./PaymentWorkspace";
-import POSFinalUI from "./waiter/POS_FINAL_UI";
+import RestaurantOrderEntryBridge from "./RestaurantOrderEntryBridge";
 import WaiterServiceWorkspace from "./waiter/WaiterServiceWorkspace";
 import POSOrdersPage from "./orders/page";
 import ReceiptsPage from "./receipts/page";
@@ -95,7 +95,7 @@ function RetailReadiness({ posConfiguration, posMode }) {
 }
 
 const COMPONENTS = Object.freeze({
-  "restaurant-order-entry": POSFinalUI,
+  "restaurant-order-entry": RestaurantOrderEntryBridge,
   "restaurant-context-control": StationaryPOSUI,
   "restaurant-checkout": PaymentWorkspace,
   "restaurant-orders": POSOrdersPage,
@@ -178,10 +178,11 @@ export default function POSWorkspace() {
     const next = new URLSearchParams(searchParams.toString());
     next.set("view", nextMode);
 
-    if (nextMode !== "checkout") {
+    if (nextMode !== "checkout" && nextMode !== "sell") {
       next.delete("service_context");
       next.delete("table");
       next.delete("sale");
+      next.delete("action");
     }
 
     if (nextMode !== "receipts") {

@@ -148,6 +148,13 @@ requireIncludes(orderEntry, [
   "Send to Kitchen",
   'view: "checkout"',
   'view=mobile-service',
+  "useRestaurantPOSRealtime",
+  "runtimeRefreshRef",
+  "loadRuntime({ silent: true })",
+  'realtimeStatus === "live"',
+  "FALLBACK_REFRESH_MS",
+  "realtimeLabel",
+  "refreshing",
 ], "Native restaurant order entry");
 
 requireIncludes(waiterService, [
@@ -200,7 +207,11 @@ requireIncludes(safeRealtime, [
   "removeChannel",
 ], "Shared Supabase realtime channel");
 
-if (restaurantRealtime.includes("tenant_id") || liveWaiterService.includes("tenant_id")) {
+if (
+  restaurantRealtime.includes("tenant_id") ||
+  liveWaiterService.includes("tenant_id") ||
+  orderEntry.includes("tenant_id")
+) {
   throw new Error("Restaurant POS realtime must not use tenant_id");
 }
 
@@ -262,5 +273,6 @@ console.log("OPERATIONS_POS_WORKSPACE_AUDIT=PASS");
 console.log("STATIONARY_POS=ORDER_ENTRY,ORDERS,CHECKOUT,PAYMENTS,RECEIPTS,CASH_CONTROL,FULFILLMENT");
 console.log("WAITER_SERVICE=POINTER_SAFE,STATE_AWARE,PERMISSION_GATED,REALTIME_WITH_POLLING_FALLBACK");
 console.log("WAITER_ORDER_HANDOFF=NATIVE_URL_STATE");
+console.log("SELL_REALTIME=CART_PRESERVING,FOCUS_RECOVERY,POLLING_FALLBACK");
 console.log("RESTAURANT_REALTIME=ORGANIZATION_SCOPED,NO_TENANT");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

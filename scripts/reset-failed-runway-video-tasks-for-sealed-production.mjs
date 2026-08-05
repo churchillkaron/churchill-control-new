@@ -41,12 +41,6 @@ function providerJobId(task = {}) {
   );
 }
 
-function taskUsageId(task = {}) {
-  const output = object(task.output);
-  const submission = object(output.provider_submission);
-  return text(output.usage?.id || submission.usage?.id);
-}
-
 function usageState(usage = {}) {
   return text(
     usage.status ||
@@ -127,28 +121,25 @@ for (const task of failedVideos) {
   }
 }
 
-const usageIds = failedVideos.map(taskUsageId).filter(Boolean);
-let usages = [];
-if (usageIds.length) {
-  const result = await supabaseAdmin
-    .from("platform_service_usage")
-    .select("*")
-    .in("id", usageIds);
-  if (result.error) throw result.error;
-  usages = list(result.data);
-}
+const failedTaskIds = new Set(failedVideos.map((task) => task.id));
+const usageResult = await supabaseAdmin
+  .from("platform_service_usage")
+  .select("*")
+  .eq("organization_id", organizationId)
+  .order("created_at", { ascending: false })
+  .limit(500);
+if (usageResult.error) throw usageResult.error;
+const usages = list(usageResult.data).filter((usage) =>
+  failedTaskIds.has(text(usage.metadata?.task_id)),
+);
 for (const usage of usages) {
   const state = usageState(usage);
-  const customerPrice = money(
-    usage.customer_price || usage.amount || usage.total_price,
-  );
   if (
     ["RESERVED", "RUNNING", "PENDING", "PROCESSING", "CHARGED", "COMPLETED"]
-      .includes(state) ||
-    customerPrice > 0
+      .includes(state)
   ) {
     throw new Error(
-      `SEALED_RUNWAY_RESET_USAGE_NOT_RELEASED:${usage.id}:${state}:${customerPrice}`,
+      `SEALED_RUNWAY_RESET_USAGE_NOT_RELEASED:${usage.id}:${state}`,
     );
   }
 }

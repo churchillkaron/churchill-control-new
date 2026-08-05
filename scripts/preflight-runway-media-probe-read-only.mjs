@@ -173,22 +173,63 @@ for (const task of failedVideos) {
     const source = object(request.source);
     const bodyKeys = Object.keys(object(request.body)).sort();
     const promptImage = text(request.body?.promptImage);
+    const framePrepared = frame.prepared === true;
+    const requestEncodedBytes = Number(source.encoded_bytes || 0);
+    const frameEncodedBytes = Number(frame.encoded_bytes || 0);
+    const effectiveEncodedBytes = framePrepared
+      ? frameEncodedBytes
+      : requestEncodedBytes;
+    const effectiveSourceBytes = framePrepared
+      ? Number(frame.source_bytes || 0)
+      : Number(source.source_bytes || 0);
+    const effectiveNormalizedBytes = framePrepared
+      ? Number(frame.frame_bytes || 0)
+      : Number(source.normalized_bytes || 0);
+    const effectiveWidth = framePrepared
+      ? Number(frame.width || 0)
+      : Number(source.width || 0);
+    const effectiveHeight = framePrepared
+      ? Number(frame.height || 0)
+      : Number(source.height || 0);
+    const normalizedImageTransportValid =
+      !framePrepared &&
+      source.transport === "DATA_URI_NORMALIZED_JPEG" &&
+      requestEncodedBytes > 0 &&
+      requestEncodedBytes <= 5 * 1024 * 1024 &&
+      effectiveWidth > 0 &&
+      effectiveHeight > 0;
+    const preparedFrameTransportValid =
+      framePrepared &&
+      frame.contract === "RUNWAY_APPROVED_VIDEO_SOURCE_FRAME_V2" &&
+      frame.detection === "FFPROBE_VIDEO_STREAM" &&
+      frame.source_media_kind === "video" &&
+      source.transport === "DATA_URI_EXISTING" &&
+      text(source.content_type).toLowerCase() === "image/jpeg" &&
+      frameEncodedBytes > 0 &&
+      frameEncodedBytes <= 5 * 1024 * 1024 &&
+      requestEncodedBytes === frameEncodedBytes &&
+      effectiveSourceBytes > 0 &&
+      effectiveNormalizedBytes > 0 &&
+      effectiveWidth > 0 &&
+      effectiveHeight > 0 &&
+      Number(frame.sample_fraction) === 0.5 &&
+      Number(frame.sample_second) >= 0 &&
+      Number(frame.source_duration_seconds) > 0;
+    const bodyKeysValid = bodyKeys.every((key) => [
+      "contentModeration",
+      "duration",
+      "model",
+      "negativePrompt",
+      "promptImage",
+      "promptText",
+      "ratio",
+      "seed",
+    ].includes(key));
     const pass =
       text(request.model) === text(selected.model) &&
       /^data:image\/jpeg;base64,/i.test(promptImage) &&
-      source.transport === "DATA_URI_NORMALIZED_JPEG" &&
-      Number(source.encoded_bytes || 0) > 0 &&
-      Number(source.encoded_bytes || 0) <= 5 * 1024 * 1024 &&
-      bodyKeys.every((key) => [
-        "contentModeration",
-        "duration",
-        "model",
-        "negativePrompt",
-        "promptImage",
-        "promptText",
-        "ratio",
-        "seed",
-      ].includes(key));
+      (normalizedImageTransportValid || preparedFrameTransportValid) &&
+      bodyKeysValid;
 
     results.push({
       task_id: task.id,
@@ -199,20 +240,24 @@ for (const task of failedVideos) {
       model: selected.model,
       request_model: request.model,
       source_transport: source.transport || null,
-      source_content_type: source.source_content_type || null,
-      source_bytes: Number(source.source_bytes || 0),
-      normalized_bytes: Number(source.normalized_bytes || 0),
-      encoded_bytes: Number(source.encoded_bytes || 0),
-      width: Number(source.width || 0),
-      height: Number(source.height || 0),
+      source_content_type:
+        source.content_type || source.source_content_type || null,
+      source_bytes: effectiveSourceBytes,
+      normalized_bytes: effectiveNormalizedBytes,
+      encoded_bytes: effectiveEncodedBytes,
+      width: effectiveWidth,
+      height: effectiveHeight,
       ratio: request.body?.ratio || null,
       duration: request.body?.duration || null,
       body_keys: bodyKeys,
       frame_contract: frame.contract || null,
-      frame_prepared: frame.prepared === true,
+      frame_prepared: framePrepared,
       frame_detection: frame.detection || null,
       frame_sample_fraction: frame.sample_fraction ?? null,
       frame_sample_second: frame.sample_second ?? null,
+      frame_duration_seconds: frame.source_duration_seconds ?? null,
+      normalized_image_transport_valid: normalizedImageTransportValid,
+      prepared_frame_transport_valid: preparedFrameTransportValid,
     });
   } catch (error) {
     results.push({
@@ -236,7 +281,7 @@ const passCount = results.filter((result) => result.success).length;
 const failCount = results.length - passCount;
 
 const output = {
-  contract: "CHURCHILL_RUNWAY_MEDIA_PROBE_PREFLIGHT_V1",
+  contract: "CHURCHILL_RUNWAY_MEDIA_PROBE_PREFLIGHT_V2",
   generated_at: new Date().toISOString(),
   organization_id: organizationId,
   creative_project_id: projectId,
@@ -257,7 +302,7 @@ const output = {
 fs.writeFileSync(outputPath, `${JSON.stringify(output, null, 2)}\n`);
 
 console.log("============================================================");
-console.log("READ-ONLY RUNWAY MEDIA PROBE PREFLIGHT");
+console.log("READ-ONLY RUNWAY MEDIA PROBE PREFLIGHT V2");
 console.log("============================================================");
 console.log(`OUTPUT=${outputPath}`);
 console.log(`TASK_COUNT=${results.length}`);

@@ -134,15 +134,18 @@ requireIncludes(paymentSettlement, ["assertPOSActionAllowed", 'action: "PAYMENT"
 requireIncludes(checkout, [
   'value: "CARD"', 'value: "CASH"', 'value: "QR"', 'value: "TRANSFER"',
   'value: "MIXED"', "Pay Selected Items", "Pay Partial Amount", "Pay Full Balance",
-  "/api/pos/payments/settle", "useRestaurantPOSRealtime", "paymentRefreshRef",
+  "/api/pos/payments/settle", "usePOSRealtime", "applicationSubscriptions",
+  "posConfiguration?.realtimeSubscriptions || []", "paymentRefreshRef",
   "refreshPaymentRuntime", "preserveDraft", "payableItemIds",
   'realtimeStatus === "live"', "FALLBACK_REFRESH_MS", "Polling fallback",
 ], "Stationary checkout");
 
 requireIncludes(orders, [
   '"ACTIVE"', '"COMPLETED"', '"ALL"', "Open Payment",
-  "useRestaurantPOSRealtime", "orderRefreshRef", "loadOrders({ silent: true })",
-  "requestedContext", 'realtimeStatus === "live"', "FALLBACK_REFRESH_MS",
+  "usePOSRealtime", "applicationSubscriptions",
+  "posConfiguration?.realtimeSubscriptions || []", "orderRefreshRef",
+  "loadOrders({ silent: true })", "requestedContext",
+  'realtimeStatus === "live"', "FALLBACK_REFRESH_MS",
   "Polling fallback", "loadedOrders.some((order) => order.id === current)",
 ], "Stationary order control");
 
@@ -158,5 +161,6 @@ console.log("SELL_REALTIME=CART_PRESERVING,FOCUS_RECOVERY,POLLING_FALLBACK");
 console.log("CHECKOUT_REALTIME=DRAFT_PRESERVING,BALANCE_SYNCHRONIZED,PAID_SELECTIONS_REMOVED");
 console.log("ORDERS_REALTIME=FILTER_PRESERVING,SELECTION_VALIDATED,STALE_DATA_RETAINED_ON_TRANSIENT_ERROR");
 console.log("POS_REALTIME=UNIVERSAL_CORE,APPLICATION_SUBSCRIPTIONS,ORGANIZATION_SCOPED");
+console.log("POS_GENERIC_CONSUMERS=CHECKOUT,ORDERS");
 console.log("RESTAURANT_REALTIME=APPLICATION_ADAPTER,RESTAURANT_TABLES");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

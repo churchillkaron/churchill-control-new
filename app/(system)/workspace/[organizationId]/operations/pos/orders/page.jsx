@@ -2,10 +2,13 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { CreditCard, RefreshCw, Search } from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import useRestaurantPOSRealtime from "@/lib/restaurant/pos/realtime/useRestaurantPOSRealtime";
+
+const FALLBACK_REFRESH_MS = 10000;
 
 function formatMoney(value, currencyCode) {
   const amount = Number(value || 0);
@@ -35,6 +38,14 @@ function contextSearchValue(context) {
     .join(" ");
 }
 
+function realtimeLabel(status, refreshing) {
+  if (refreshing) return "Refreshing";
+  if (status === "live") return "Live";
+  if (status === "connecting") return "Connecting";
+  if (status === "polling") return "Polling fallback";
+  return "Offline";
+}
+
 export default function POSOrdersPage({ posConfiguration }) {
   const params = useParams();
   const router = useRouter();
@@ -54,17 +65,24 @@ export default function POSOrdersPage({ posConfiguration }) {
   const contextLabel = posConfiguration?.context?.singularLabel || "Context";
   const orderEyebrow =
     posConfiguration?.presentation?.orderEyebrow || "Commerce Operations";
+  const requestedContext =
+    searchParams.get(contextQueryKey) || searchParams.get("table") || "";
+  const orderRefreshRef = useRef(false);
 
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("ACTIVE");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  const loadOrders = useCallback(async () => {
-    if (!organizationId) return;
-    setLoading(true);
+  const loadOrders = useCallback(async ({ silent = false } = {}) => {
+    if (!organizationId || orderRefreshRef.current) return;
+
+    orderRefreshRef.current = true;
+    if (silent) setRefreshing(true);
+    else setLoading(true);
     setError(null);
 
     try {
@@ -78,9 +96,6 @@ export default function POSOrdersPage({ posConfiguration }) {
       }
 
       const loadedOrders = result.orders || [];
-      setOrders(loadedOrders);
-      const requestedContext =
-        searchParams.get(contextQueryKey) || searchParams.get("table");
       const requested = requestedContext
         ? loadedOrders.find((order) =>
             [order.context?.id, order.context?.reference].some(
@@ -88,20 +103,63 @@ export default function POSOrdersPage({ posConfiguration }) {
             )
           )
         : null;
-      setSelectedOrderId((current) =>
-        current || requested?.id || loadedOrders[0]?.id || null
-      );
+
+      setOrders(loadedOrders);
+      setSelectedOrderId((current) => {
+        if (current && loadedOrders.some((order) => order.id === current)) {
+          return current;
+        }
+        return requested?.id || loadedOrders[0]?.id || null;
+      });
     } catch (loadError) {
-      setOrders([]);
+      if (!silent) {
+        setOrders([]);
+        setSelectedOrderId(null);
+      }
       setError(loadError.message);
     } finally {
+      orderRefreshRef.current = false;
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [organizationId, searchParams, contextQueryKey]);
+  }, [organizationId, requestedContext]);
 
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  const refreshOrders = useCallback(() => {
+    loadOrders({ silent: true });
+  }, [loadOrders]);
+
+  const realtimeStatus = useRestaurantPOSRealtime({
+    organizationId,
+    enabled: Boolean(organizationId),
+    onChange: refreshOrders,
+  });
+
+  useEffect(() => {
+    if (!organizationId) return undefined;
+
+    window.addEventListener("focus", refreshOrders);
+
+    if (realtimeStatus === "live") {
+      return () => {
+        window.removeEventListener("focus", refreshOrders);
+      };
+    }
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refreshOrders();
+      }
+    }, FALLBACK_REFRESH_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshOrders);
+    };
+  }, [organizationId, realtimeStatus, refreshOrders]);
 
   const filteredOrders = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -127,6 +185,7 @@ export default function POSOrdersPage({ posConfiguration }) {
   const selectedOrder =
     orders.find((order) => order.id === selectedOrderId) || null;
   const selectedItems = selectedOrder?.items || selectedOrder?.order_items || [];
+  const syncStatus = realtimeLabel(realtimeStatus, refreshing);
 
   function openPayment(order) {
     const context = order?.context;
@@ -152,12 +211,20 @@ export default function POSOrdersPage({ posConfiguration }) {
                 Active, completed and cancelled orders with item and payment state.
               </p>
             </div>
-            <button
-              onClick={loadOrders}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60"
-            >
-              <RefreshCw size={15} /> Refresh
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">
+                {syncStatus}
+              </div>
+              <button
+                type="button"
+                onClick={refreshOrders}
+                disabled={refreshing}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60 disabled:opacity-35"
+              >
+                <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+                Refresh
+              </button>
+            </div>
           </div>
           {error ? (
             <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
@@ -172,6 +239,7 @@ export default function POSOrdersPage({ posConfiguration }) {
               {["ACTIVE", "COMPLETED", "ALL"].map((value) => (
                 <button
                   key={value}
+                  type="button"
                   onClick={() => setFilter(value)}
                   className={
                     filter === value
@@ -202,6 +270,7 @@ export default function POSOrdersPage({ posConfiguration }) {
                 filteredOrders.map((order) => (
                   <button
                     key={order.id}
+                    type="button"
                     onClick={() => setSelectedOrderId(order.id)}
                     className={`w-full rounded-2xl border p-4 text-left transition ${
                       selectedOrderId === order.id
@@ -303,6 +372,7 @@ export default function POSOrdersPage({ posConfiguration }) {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => openPayment(selectedOrder)}
                   disabled={
                     (!selectedOrder.context?.id && !selectedOrder.context?.reference) ||

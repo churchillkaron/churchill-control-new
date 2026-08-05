@@ -13,7 +13,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
-import useRestaurantPOSRealtime from "@/lib/restaurant/pos/realtime/useRestaurantPOSRealtime";
+import usePOSRealtime from "@/lib/operations/commerce/realtime/usePOSRealtime";
 import { loadWaiterData } from "@/lib/restaurant/pos/waiter/loadWaiterData";
 import { groupMenuByCategory } from "@/lib/restaurant/pos/waiter/groupMenuByCategory";
 
@@ -155,7 +155,7 @@ function SecondaryButton({ children, ...props }) {
   );
 }
 
-export default function RestaurantOrderEntryWorkspace() {
+export default function RestaurantOrderEntryWorkspace({ posConfiguration }) {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -268,8 +268,10 @@ export default function RestaurantOrderEntryWorkspace() {
     }
   }, [busy, loadRuntime]);
 
-  const realtimeStatus = useRestaurantPOSRealtime({
+  const realtimeStatus = usePOSRealtime({
     organizationId,
+    applicationSubscriptions:
+      posConfiguration?.realtimeSubscriptions || [],
     enabled: Boolean(organizationId),
     onChange: refreshFromRealtime,
   });

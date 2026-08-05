@@ -31,6 +31,9 @@ const registry = read(
 const orderEntry = read(
   "app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx",
 );
+const orderEntryBridge = read(
+  "app/(system)/workspace/[organizationId]/operations/pos/RestaurantOrderEntryBridge.jsx",
+);
 const waiterService = read(
   "app/(system)/workspace/[organizationId]/operations/pos/waiter/WaiterServiceWorkspace.jsx",
 );
@@ -77,7 +80,7 @@ requireIncludes(configuration, [
 ], "POS workspace configuration");
 
 requireIncludes(workspace, [
-  "POSFinalUI",
+  "RestaurantOrderEntryBridge",
   "WaiterServiceWorkspace",
   "StationaryPOSUI",
   "PaymentWorkspace",
@@ -85,7 +88,7 @@ requireIncludes(workspace, [
   "ReceiptsPage",
   "ShiftPage",
   "FulfillmentDispatchWorkspace",
-  '"restaurant-order-entry": POSFinalUI',
+  '"restaurant-order-entry": RestaurantOrderEntryBridge',
   '"restaurant-service": WaiterServiceWorkspace',
   '"restaurant-context-control": StationaryPOSUI',
   '"restaurant-checkout": PaymentWorkspace',
@@ -93,6 +96,7 @@ requireIncludes(workspace, [
   '"restaurant-receipts": ReceiptsPage',
   '"restaurant-cash-control": ShiftPage',
   '"restaurant-fulfillment": FulfillmentDispatchWorkspace',
+  'nextMode !== "checkout" && nextMode !== "sell"',
   "configuration.modes.map",
   "data-capability",
 ], "Stationary POS workspace");
@@ -116,6 +120,18 @@ requireIncludes(orderEntry, [
   "modifierDraft",
 ], "Stationary order entry");
 
+requireIncludes(orderEntryBridge, [
+  "useSearchParams",
+  "requestedReference",
+  'searchParams.get("service_context")',
+  'searchParams.get("table")',
+  "findTableButton",
+  "MutationObserver",
+  "TABLE_SELECTION_TIMEOUT_MS",
+  "Opening table",
+  "POSFinalUI",
+], "Waiter order-entry handoff");
+
 requireIncludes(waiterService, [
   "onPointerDown",
   "onPointerUp",
@@ -131,6 +147,8 @@ requireIncludes(waiterService, [
   "Close & Release Table",
   'posAction("CLOSE_TABLE"',
   'view: "checkout"',
+  'view: "sell"',
+  'query.set("table"',
   "canExecutePOSAction",
   "REFRESH_MS",
 ], "Waiter service action menu");
@@ -192,4 +210,5 @@ requireIncludes(fulfillment, [
 console.log("OPERATIONS_POS_WORKSPACE_AUDIT=PASS");
 console.log("STATIONARY_POS=ORDER_ENTRY,ORDERS,CHECKOUT,PAYMENTS,RECEIPTS,CASH_CONTROL,FULFILLMENT");
 console.log("WAITER_SERVICE=POINTER_SAFE,STATE_AWARE,PERMISSION_GATED,AUTO_REFRESH");
+console.log("WAITER_ORDER_HANDOFF=TABLE_PRESELECTED");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

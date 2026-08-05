@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { CreditCard, RefreshCw, Search } from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
-import useRestaurantPOSRealtime from "@/lib/restaurant/pos/realtime/useRestaurantPOSRealtime";
+import usePOSRealtime from "@/lib/operations/commerce/realtime/usePOSRealtime";
 
 const FALLBACK_REFRESH_MS = 10000;
 
@@ -132,8 +132,10 @@ export default function POSOrdersPage({ posConfiguration }) {
     loadOrders({ silent: true });
   }, [loadOrders]);
 
-  const realtimeStatus = useRestaurantPOSRealtime({
+  const realtimeStatus = usePOSRealtime({
     organizationId,
+    applicationSubscriptions:
+      posConfiguration?.realtimeSubscriptions || [],
     enabled: Boolean(organizationId),
     onChange: refreshOrders,
   });

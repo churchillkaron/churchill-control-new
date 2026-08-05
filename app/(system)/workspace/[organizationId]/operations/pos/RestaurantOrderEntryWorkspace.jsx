@@ -13,8 +13,11 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import useRestaurantPOSRealtime from "@/lib/restaurant/pos/realtime/useRestaurantPOSRealtime";
 import { loadWaiterData } from "@/lib/restaurant/pos/waiter/loadWaiterData";
 import { groupMenuByCategory } from "@/lib/restaurant/pos/waiter/groupMenuByCategory";
+
+const FALLBACK_REFRESH_MS = 10000;
 
 function normalizeReference(value) {
   return String(value || "")
@@ -59,6 +62,14 @@ function isOccupied(table) {
         table?.active_session_id ||
         normalizedStatus(table) === "OCCUPIED")
   );
+}
+
+function realtimeLabel(status, refreshing) {
+  if (refreshing) return "Refreshing";
+  if (status === "live") return "Live";
+  if (status === "connecting") return "Connecting";
+  if (status === "polling") return "Polling fallback";
+  return "Offline";
 }
 
 function normalizeModifierGroups(settings) {
@@ -158,9 +169,11 @@ export default function RestaurantOrderEntryWorkspace() {
 
   const requestKeyRef = useRef(null);
   const orderRequestKey = useRef(null);
+  const runtimeRefreshRef = useRef(false);
 
   const [runtime, setRuntime] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [handoffError, setHandoffError] = useState(null);
   const [activeZoneId, setActiveZoneId] = useState(null);
@@ -220,15 +233,18 @@ export default function RestaurantOrderEntryWorkspace() {
     [cart]
   );
 
-  const loadRuntime = useCallback(async () => {
-    if (!organizationId) return;
+  const loadRuntime = useCallback(async ({ silent = false } = {}) => {
+    if (!organizationId || runtimeRefreshRef.current) return;
 
-    setLoading(true);
-    setError(null);
+    runtimeRefreshRef.current = true;
+
+    if (silent) setRefreshing(true);
+    else setLoading(true);
 
     try {
       const loaded = await loadWaiterData(organizationId);
       setRuntime(loaded);
+      setError(null);
       setActiveZoneId((current) => current || loaded?.zones?.[0]?.id || null);
 
       const grouped = groupMenuByCategory(loaded?.dishes || []);
@@ -236,13 +252,54 @@ export default function RestaurantOrderEntryWorkspace() {
     } catch (loadError) {
       setError(loadError?.message || "Unable to load restaurant order entry");
     } finally {
+      runtimeRefreshRef.current = false;
       setLoading(false);
+      setRefreshing(false);
     }
   }, [organizationId]);
 
   useEffect(() => {
     loadRuntime();
   }, [loadRuntime]);
+
+  const refreshFromRealtime = useCallback(() => {
+    if (!busy) {
+      loadRuntime({ silent: true });
+    }
+  }, [busy, loadRuntime]);
+
+  const realtimeStatus = useRestaurantPOSRealtime({
+    organizationId,
+    enabled: Boolean(organizationId),
+    onChange: refreshFromRealtime,
+  });
+
+  useEffect(() => {
+    if (!organizationId) return undefined;
+
+    const onFocus = () => {
+      if (!busy) loadRuntime({ silent: true });
+    };
+
+    window.addEventListener("focus", onFocus);
+
+    if (realtimeStatus === "live") {
+      return () => {
+        window.removeEventListener("focus", onFocus);
+      };
+    }
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible" && !busy) {
+        loadRuntime({ silent: true });
+      }
+    }, FALLBACK_REFRESH_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [busy, loadRuntime, organizationId, realtimeStatus]);
 
   useEffect(() => {
     if (!runtime || !requestedReference) {
@@ -687,7 +744,10 @@ export default function RestaurantOrderEntryWorkspace() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">
+              {realtimeLabel(realtimeStatus, refreshing)}
+            </div>
             <button
               type="button"
               onClick={openMobileService}

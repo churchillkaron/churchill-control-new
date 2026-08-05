@@ -11,6 +11,9 @@ loadAvantiqoEnv({ cwd: process.cwd() });
 // before the resume entrypoint begins its 27-task preparation pass.
 await import("./creative-runtime-bootstrap.mjs");
 await import(
+  "@/lib/platform/service-runtime/execution/ServicePendingPollResilienceRuntime"
+);
+await import(
   "@/lib/creative/execution/runtime/CreativeApprovedProductionTaskCostGuardRuntime"
 );
 await import(

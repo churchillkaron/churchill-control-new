@@ -19,6 +19,13 @@ function requireIncludes(source, values, label) {
   }
 }
 
+function requireMissing(relativePath, label) {
+  const absolutePath = path.join(ROOT, relativePath);
+  if (fs.existsSync(absolutePath)) {
+    throw new Error(`${label} must not exist: ${relativePath}`);
+  }
+}
+
 const configuration = read(
   "lib/operations/commerce/POSWorkspaceConfiguration.js",
 );
@@ -29,10 +36,7 @@ const registry = read(
   "lib/operations/registry/OperationsWorkspaceRegistry.js",
 );
 const orderEntry = read(
-  "app/(system)/workspace/[organizationId]/operations/pos/waiter/POS_FINAL_UI.jsx",
-);
-const orderEntryBridge = read(
-  "app/(system)/workspace/[organizationId]/operations/pos/RestaurantOrderEntryBridge.jsx",
+  "app/(system)/workspace/[organizationId]/operations/pos/RestaurantOrderEntryWorkspace.jsx",
 );
 const waiterService = read(
   "app/(system)/workspace/[organizationId]/operations/pos/waiter/WaiterServiceWorkspace.jsx",
@@ -62,6 +66,11 @@ const fulfillment = read(
   "components/workspace/operations/FulfillmentDispatchWorkspace.jsx",
 );
 
+requireMissing(
+  "app/(system)/workspace/[organizationId]/operations/pos/RestaurantOrderEntryBridge.jsx",
+  "Temporary DOM order-entry bridge",
+);
+
 requireIncludes(configuration, [
   'id: "sell"',
   'id: "orders"',
@@ -80,7 +89,7 @@ requireIncludes(configuration, [
 ], "POS workspace configuration");
 
 requireIncludes(workspace, [
-  "RestaurantOrderEntryBridge",
+  "RestaurantOrderEntryWorkspace",
   "WaiterServiceWorkspace",
   "StationaryPOSUI",
   "PaymentWorkspace",
@@ -88,7 +97,7 @@ requireIncludes(workspace, [
   "ReceiptsPage",
   "ShiftPage",
   "FulfillmentDispatchWorkspace",
-  '"restaurant-order-entry": RestaurantOrderEntryBridge',
+  '"restaurant-order-entry": RestaurantOrderEntryWorkspace',
   '"restaurant-service": WaiterServiceWorkspace',
   '"restaurant-context-control": StationaryPOSUI',
   '"restaurant-checkout": PaymentWorkspace',
@@ -113,24 +122,24 @@ for (const route of [
 }
 
 requireIncludes(orderEntry, [
-  "cart",
-  "createCustomer",
-  "confirmGuests",
-  "orderRequestKey",
-  "modifierDraft",
-], "Stationary order entry");
-
-requireIncludes(orderEntryBridge, [
   "useSearchParams",
   "requestedReference",
   'searchParams.get("service_context")',
   'searchParams.get("table")',
-  "findTableButton",
-  "MutationObserver",
-  "TABLE_SELECTION_TIMEOUT_MS",
-  "Opening table",
-  "POSFinalUI",
-], "Waiter order-entry handoff");
+  'searchParams.get("action")',
+  "tableMatches",
+  "selectTable(requestedTable",
+  'forceCustomer: requestedAction === "customer"',
+  "customerSearch",
+  "createCustomer",
+  "confirmGuests",
+  "modifierDraft",
+  "orderRequestKey",
+  "/api/pos/create",
+  "Send to Kitchen",
+  'view: "checkout"',
+  'view=mobile-service',
+], "Native restaurant order entry");
 
 requireIncludes(waiterService, [
   "onPointerDown",
@@ -210,5 +219,5 @@ requireIncludes(fulfillment, [
 console.log("OPERATIONS_POS_WORKSPACE_AUDIT=PASS");
 console.log("STATIONARY_POS=ORDER_ENTRY,ORDERS,CHECKOUT,PAYMENTS,RECEIPTS,CASH_CONTROL,FULFILLMENT");
 console.log("WAITER_SERVICE=POINTER_SAFE,STATE_AWARE,PERMISSION_GATED,AUTO_REFRESH");
-console.log("WAITER_ORDER_HANDOFF=TABLE_PRESELECTED");
+console.log("WAITER_ORDER_HANDOFF=NATIVE_URL_STATE");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

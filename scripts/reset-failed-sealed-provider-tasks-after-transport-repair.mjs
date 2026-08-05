@@ -9,6 +9,9 @@ await import("./creative-runtime-bootstrap.mjs");
 await import(
   "@/lib/creative/execution/runtime/CreativeApprovedProductionTaskCostGuardRuntime"
 );
+await import(
+  "@/lib/platform/service-runtime/execution/FalPendingQueueBindingRuntime"
+);
 
 function object(value) {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -79,6 +82,9 @@ const { UsageRuntime } = await import(
 const { WalletRuntime } = await import(
   "@/lib/platform/service-runtime/wallet/runtime/WalletRuntime"
 );
+const { FalPendingQueueBindingRuntime } = await import(
+  "@/lib/platform/service-runtime/execution/FalPendingQueueBindingRuntime"
+);
 
 const tasks = await ProductionTaskRuntime.list({
   organization_id: organizationId,
@@ -134,6 +140,10 @@ const walletBefore = money(await WalletRuntime.balance({
 }));
 
 const falTask = falTasks[0];
+const falJobId = providerJobId(falTask);
+if (!falJobId) {
+  throw new Error("SEALED_PROVIDER_RECOVERY_FAL_JOB_ID_REQUIRED");
+}
 const falUsageReference = taskUsage(falTask);
 if (!falUsageReference.id) {
   throw new Error("SEALED_PROVIDER_RECOVERY_FAL_USAGE_ID_REQUIRED");
@@ -142,7 +152,7 @@ const falUsage = await UsageRuntime.get(falUsageReference.id);
 if (!falUsage || text(falUsage.organization_id) !== organizationId) {
   throw new Error("SEALED_PROVIDER_RECOVERY_FAL_USAGE_NOT_FOUND");
 }
-if (text(falUsage.status).toUpperCase() !== "FAILED") {
+if (text(falUsage.status).toUpperCase() !== "PENDING") {
   throw new Error(
     `SEALED_PROVIDER_RECOVERY_FAL_USAGE_STATUS_INVALID:${falUsage.status}`,
   );
@@ -157,21 +167,6 @@ if (reservedAmount !== 0.546) {
     `SEALED_PROVIDER_RECOVERY_FAL_RESERVATION_INVALID:${reservedAmount}`,
   );
 }
-
-await WalletRuntime.release({
-  organization_id: organizationId,
-  amount: reservedAmount,
-  provider: "fal",
-  reference: falUsage.id,
-  currency: falUsage.currency || "THB",
-  metadata: {
-    usage_id: falUsage.id,
-    task_id: falTask.id,
-    production_graph_id: graphId,
-    settlement: "FAILED_POLL_TRANSPORT_RECONCILIATION",
-    original_error: falTask.error,
-  },
-});
 
 for (const task of runwayTasks) {
   await ProductionTaskRuntime.update(task.id, {
@@ -194,35 +189,41 @@ for (const task of runwayTasks) {
   });
 }
 
-await ProductionTaskRuntime.update(falTask.id, {
-  status: "WAITING",
+const restoredFal = await ProductionTaskRuntime.update(falTask.id, {
+  status: "RUNNING",
   error: null,
-  output: {},
   timing: {
     ...object(falTask.timing),
-    started_at: null,
     completed_at: null,
+  },
+  output: {
+    ...object(falTask.output),
+    provider_job_id: falJobId,
+    provider_status: "recovery_pending_poll",
+    settlement: "RESERVED",
+    recovery_preserved_usage_id: falUsage.id,
+    recovery_preserved_reservation: reservedAmount,
   },
   metadata: {
     ...object(falTask.metadata),
-    fal_authoritative_queue_retry_contract:
-      "CREATIVE_FAL_AUTHORITATIVE_QUEUE_RETRY_V1",
-    fal_authoritative_queue_retry_count:
-      Number(falTask.metadata?.fal_authoritative_queue_retry_count || 0) + 1,
-    reconciled_failed_usage_id: falUsage.id,
-    reconciled_released_amount: reservedAmount,
+    fal_authoritative_queue_resume_contract:
+      "CREATIVE_FAL_EXISTING_JOB_RESUME_V1",
+    fal_authoritative_queue_resume_count:
+      Number(falTask.metadata?.fal_authoritative_queue_resume_count || 0) + 1,
+    preserved_pending_usage_id: falUsage.id,
+    preserved_reserved_amount: reservedAmount,
     publication_authorized: false,
   },
 });
+await FalPendingQueueBindingRuntime.bindTaskQueueReferences(restoredFal);
 
 const walletAfter = money(await WalletRuntime.balance({
   organization_id: organizationId,
   currency: "THB",
 }));
-const expectedWalletAfter = money(walletBefore + reservedAmount);
-if (walletAfter !== expectedWalletAfter) {
+if (walletAfter !== walletBefore) {
   throw new Error(
-    `SEALED_PROVIDER_RECOVERY_WALLET_RECONCILIATION_INVALID:${walletBefore}:${walletAfter}:${expectedWalletAfter}`,
+    `SEALED_PROVIDER_RECOVERY_WALLET_CHANGED:${walletBefore}:${walletAfter}`,
   );
 }
 
@@ -244,9 +245,12 @@ console.log("SEALED PROVIDER TRANSPORT RECOVERY");
 console.log("============================================================");
 console.log(`GRAPH_ID=${graphId}`);
 console.log(`RESET_RUNWAY_TASK_COUNT=${runwayTasks.length}`);
-console.log(`RESET_FAL_TASK_COUNT=${falTasks.length}`);
-console.log(`RECONCILED_FAL_USAGE_ID=${falUsage.id}`);
-console.log(`RELEASED_FAL_RESERVATION=${reservedAmount}`);
+console.log("RESET_FAL_TASK_COUNT=0");
+console.log("RESUMED_FAL_TASK_COUNT=1");
+console.log(`PRESERVED_FAL_JOB_ID=${falJobId}`);
+console.log(`PRESERVED_FAL_USAGE_ID=${falUsage.id}`);
+console.log(`PRESERVED_FAL_RESERVATION=${reservedAmount}`);
+console.log("RELEASED_FAL_RESERVATION=0");
 console.log(`TASK_STATUS_COUNTS=${JSON.stringify(counts)}`);
 console.log(`WALLET_BALANCE_BEFORE=${walletBefore}`);
 console.log(`WALLET_BALANCE_AFTER=${walletAfter}`);

@@ -6,6 +6,9 @@ import { CreditCard, Landmark, QrCode, Split, Wallet } from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import PageWrapper from "@/components/PageWrapper";
 import { splitBill } from "@/lib/payments/splitBill";
+import useRestaurantPOSRealtime from "@/lib/restaurant/pos/realtime/useRestaurantPOSRealtime";
+
+const FALLBACK_REFRESH_MS = 10000;
 
 const PAYMENT_OPTIONS = [
   { value: "CARD", label: "Card", icon: CreditCard },
@@ -38,6 +41,14 @@ function contextKey(context) {
   return context?.id || `${context?.type || "context"}:${context?.reference || ""}`;
 }
 
+function realtimeLabel(status, refreshing) {
+  if (refreshing) return "Refreshing";
+  if (status === "live") return "Live";
+  if (status === "connecting") return "Connecting";
+  if (status === "polling") return "Polling fallback";
+  return "Offline";
+}
+
 export default function PaymentWorkspace({ posConfiguration }) {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -53,6 +64,7 @@ export default function PaymentWorkspace({ posConfiguration }) {
     searchParams.get(contextQueryKey) || searchParams.get("table") || "";
   const contextLabel = posConfiguration?.context?.singularLabel || "Context";
   const paymentRequestKey = useRef(null);
+  const paymentRefreshRef = useRef(false);
 
   const [payableContexts, setPayableContexts] = useState([]);
   const [selectedContext, setSelectedContext] = useState(null);
@@ -62,6 +74,7 @@ export default function PaymentWorkspace({ posConfiguration }) {
   const [paymentMethod, setPaymentMethod] = useState("CARD");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -80,10 +93,13 @@ export default function PaymentWorkspace({ posConfiguration }) {
     return contexts;
   }, [organizationId]);
 
-  const loadPaymentState = useCallback(async (context) => {
+  const loadPaymentState = useCallback(async (
+    context,
+    { preserveDraft = false } = {}
+  ) => {
     if (!organizationId || !context) {
       setPaymentState(null);
-      return;
+      return null;
     }
     const response = await fetch("/api/pos/payment-state", {
       method: "POST",
@@ -95,11 +111,27 @@ export default function PaymentWorkspace({ posConfiguration }) {
     if (!response.ok || result.success === false) {
       throw new Error(result.error || "Unable to load payment state");
     }
+
+    const nextState = result.state || null;
     setSelectedContext(result.context || context);
-    setPaymentState(result.state || null);
-    setSelectedItems([]);
-    setSplitCount(1);
+    setPaymentState(nextState);
+
+    if (preserveDraft) {
+      const payableItemIds = new Set(
+        (nextState?.items || [])
+          .filter((item) => !item.fully_paid)
+          .map((item) => item.id)
+      );
+      setSelectedItems((current) =>
+        current.filter((itemId) => payableItemIds.has(itemId))
+      );
+    } else {
+      setSelectedItems([]);
+      setSplitCount(1);
+    }
+
     paymentRequestKey.current = null;
+    return nextState;
   }, [organizationId]);
 
   useEffect(() => {
@@ -128,6 +160,7 @@ export default function PaymentWorkspace({ posConfiguration }) {
   }, [organizationId, requestedReference, loadPayableContexts, loadPaymentState]);
 
   const items = paymentState?.items || [];
+  const activePaymentContext = paymentState?.context || selectedContext;
   const selectedRows = useMemo(
     () => items.filter((item) => selectedItems.includes(item.id) && !item.fully_paid),
     [items, selectedItems]
@@ -156,6 +189,106 @@ export default function PaymentWorkspace({ posConfiguration }) {
   useEffect(() => {
     setAmount(targetAmount > 0 ? targetAmount.toFixed(2) : "");
   }, [targetAmount]);
+
+  const refreshPaymentRuntime = useCallback(async () => {
+    if (
+      !organizationId ||
+      loading ||
+      actionLoading ||
+      paymentRefreshRef.current
+    ) {
+      return;
+    }
+
+    paymentRefreshRef.current = true;
+    setRefreshing(true);
+
+    try {
+      const contexts = await loadPayableContexts();
+
+      if (!activePaymentContext) {
+        setError(null);
+        return;
+      }
+
+      const activeKey = contextKey(activePaymentContext);
+      const currentEntry = contexts.find(({ context }) =>
+        contextKey(context) === activeKey ||
+        String(context?.id || "") === String(activePaymentContext?.id || "") ||
+        String(context?.reference || "") ===
+          String(activePaymentContext?.reference || "")
+      );
+
+      if (!currentEntry?.context) {
+        setPaymentState(null);
+        setSelectedContext(null);
+        setSelectedItems([]);
+        setSplitCount(1);
+        paymentRequestKey.current = null;
+        setError(null);
+        return;
+      }
+
+      const nextState = await loadPaymentState(
+        currentEntry.context,
+        { preserveDraft: true }
+      );
+
+      if (!nextState || Number(nextState.remainingBalance || 0) <= 0) {
+        setPaymentState(null);
+        setSelectedContext(null);
+        setSelectedItems([]);
+        setSplitCount(1);
+      }
+
+      setError(null);
+    } catch (refreshError) {
+      setError(refreshError?.message || "Unable to refresh checkout");
+    } finally {
+      paymentRefreshRef.current = false;
+      setRefreshing(false);
+    }
+  }, [
+    actionLoading,
+    activePaymentContext,
+    loadPayableContexts,
+    loadPaymentState,
+    loading,
+    organizationId,
+  ]);
+
+  const realtimeStatus = useRestaurantPOSRealtime({
+    organizationId,
+    enabled: Boolean(organizationId),
+    onChange: refreshPaymentRuntime,
+  });
+
+  useEffect(() => {
+    if (!organizationId) return undefined;
+
+    const onFocus = () => {
+      refreshPaymentRuntime();
+    };
+
+    window.addEventListener("focus", onFocus);
+
+    if (realtimeStatus === "live") {
+      return () => {
+        window.removeEventListener("focus", onFocus);
+      };
+    }
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refreshPaymentRuntime();
+      }
+    }, FALLBACK_REFRESH_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [organizationId, realtimeStatus, refreshPaymentRuntime]);
 
   async function changeContext(context) {
     setError(null);
@@ -232,6 +365,8 @@ export default function PaymentWorkspace({ posConfiguration }) {
     }
   }
 
+  const syncStatus = realtimeLabel(realtimeStatus, refreshing);
+
   if (loading) {
     return <PageWrapper title="POS Checkout" subtitle="Loading settlement"><div className="text-white/40">Loading...</div></PageWrapper>;
   }
@@ -239,6 +374,11 @@ export default function PaymentWorkspace({ posConfiguration }) {
   if (!paymentState) {
     return (
       <PageWrapper title="POS Checkout" subtitle={`Select an unpaid ${contextLabel.toLowerCase()}`}>
+        <div className="mb-5 flex justify-end">
+          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">
+            {syncStatus}
+          </div>
+        </div>
         {error ? <div className="mb-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-red-100">{error}</div> : null}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {payableContexts.length ? payableContexts.map((entry) => (
@@ -268,6 +408,9 @@ export default function PaymentWorkspace({ posConfiguration }) {
             </option>
           ))}
         </select>
+        <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">
+          {syncStatus}
+        </div>
       </div>
 
       {error ? <div className="mb-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-red-100">{error}</div> : null}

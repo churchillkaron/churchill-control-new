@@ -33,7 +33,6 @@ const orderEntry = read("app/(system)/workspace/[organizationId]/operations/pos/
 const waiterService = read("app/(system)/workspace/[organizationId]/operations/pos/waiter/WaiterServiceWorkspace.jsx");
 const liveWaiterService = read("app/(system)/workspace/[organizationId]/operations/pos/waiter/LiveWaiterServiceWorkspace.jsx");
 const universalRealtime = read("lib/operations/commerce/realtime/usePOSRealtime.js");
-const restaurantRealtime = read("lib/restaurant/pos/realtime/useRestaurantPOSRealtime.js");
 const safeRealtime = read("lib/shared/realtime/createSafeRealtimeChannel.js");
 const actionPolicy = read("lib/operations/commerce/security/POSActionPolicy.js");
 const actionAdapter = read("lib/operations/commerce/adapters/restaurant/RestaurantServiceActionAdapter.js");
@@ -46,6 +45,7 @@ const fulfillment = read("components/workspace/operations/FulfillmentDispatchWor
 
 requireMissing("app/(system)/workspace/[organizationId]/operations/pos/RestaurantOrderEntryBridge.jsx", "Temporary DOM order-entry bridge");
 requireMissing("app/(system)/workspace/[organizationId]/operations/pos/POS_FINAL_UI.jsx", "Legacy final POS surface");
+requireMissing("lib/restaurant/pos/realtime/useRestaurantPOSRealtime.js", "Restaurant-specific realtime adapter");
 
 requireIncludes(configuration, [
   'id: "sell"', 'id: "orders"', 'id: "checkout"', 'id: "receipts"',
@@ -83,7 +83,8 @@ requireIncludes(orderEntry, [
   "selectTable(requestedTable", 'forceCustomer: requestedAction === "customer"',
   "customerSearch", "createCustomer", "confirmGuests", "modifierDraft",
   "orderRequestKey", "/api/pos/create", "Send to Kitchen", 'view: "checkout"',
-  'view=mobile-service', "useRestaurantPOSRealtime", "runtimeRefreshRef",
+  'view=mobile-service', "usePOSRealtime", "applicationSubscriptions",
+  "posConfiguration?.realtimeSubscriptions || []", "runtimeRefreshRef",
   "loadRuntime({ silent: true })", 'realtimeStatus === "live"',
   "FALLBACK_REFRESH_MS", "realtimeLabel", "refreshing",
 ], "Native restaurant order entry");
@@ -98,8 +99,8 @@ requireIncludes(waiterService, [
 ], "Waiter service action menu");
 
 requireIncludes(liveWaiterService, [
-  "useParams", "usePOSRealtime", "organizationId", "refreshWaiterRuntime",
-  "applicationSubscriptions", "props.posConfiguration?.realtimeSubscriptions || []",
+  "usePOSRealtime", "useParams", "organizationId", "applicationSubscriptions",
+  "props.posConfiguration?.realtimeSubscriptions || []", "refreshWaiterRuntime",
   'new Event("focus")', "Polling fallback", "WaiterServiceWorkspace",
 ], "Live waiter service binding");
 
@@ -110,18 +111,17 @@ requireIncludes(universalRealtime, [
   'setStatus("polling")', 'source:', '"operations-pos"',
 ], "Universal Operations POS realtime");
 
-requireIncludes(restaurantRealtime, [
-  "usePOSRealtime", "RESTAURANT_POS_SUBSCRIPTIONS",
-  'table: "restaurant_tables"', "applicationSubscriptions",
-], "Restaurant POS realtime adapter");
-
 requireIncludes(safeRealtime, [
   "supabaseClient", '"postgres_changes"', "table:", "subscription.table",
   "channel.subscribe", "removeChannel",
 ], "Shared Supabase realtime channel");
 
-if ([universalRealtime, restaurantRealtime, liveWaiterService, orderEntry, checkout, orders].some((source) => source.includes("tenant_id"))) {
+if ([universalRealtime, liveWaiterService, orderEntry, checkout, orders].some((source) => source.includes("tenant_id"))) {
   throw new Error("Operations POS realtime must not use tenant_id");
+}
+
+if ([liveWaiterService, orderEntry, checkout, orders].some((source) => source.includes("useRestaurantPOSRealtime"))) {
+  throw new Error("POS consumers must use the universal Operations realtime hook");
 }
 
 requireIncludes(actionPolicy, [
@@ -162,6 +162,6 @@ console.log("SELL_REALTIME=CART_PRESERVING,FOCUS_RECOVERY,POLLING_FALLBACK");
 console.log("CHECKOUT_REALTIME=DRAFT_PRESERVING,BALANCE_SYNCHRONIZED,PAID_SELECTIONS_REMOVED");
 console.log("ORDERS_REALTIME=FILTER_PRESERVING,SELECTION_VALIDATED,STALE_DATA_RETAINED_ON_TRANSIENT_ERROR");
 console.log("POS_REALTIME=UNIVERSAL_CORE,APPLICATION_SUBSCRIPTIONS,ORGANIZATION_SCOPED");
-console.log("POS_GENERIC_CONSUMERS=CHECKOUT,ORDERS,MOBILE_SERVICE");
-console.log("RESTAURANT_REALTIME=SELL_ADAPTER_ONLY");
+console.log("POS_GENERIC_CONSUMERS=SELL,CHECKOUT,ORDERS,MOBILE_SERVICE");
+console.log("RESTAURANT_REALTIME=PROFILE_SUBSCRIPTION_ONLY");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

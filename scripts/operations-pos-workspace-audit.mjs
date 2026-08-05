@@ -41,6 +41,15 @@ const orderEntry = read(
 const waiterService = read(
   "app/(system)/workspace/[organizationId]/operations/pos/waiter/WaiterServiceWorkspace.jsx",
 );
+const liveWaiterService = read(
+  "app/(system)/workspace/[organizationId]/operations/pos/waiter/LiveWaiterServiceWorkspace.jsx",
+);
+const restaurantRealtime = read(
+  "lib/restaurant/pos/realtime/useRestaurantPOSRealtime.js",
+);
+const safeRealtime = read(
+  "lib/shared/realtime/createSafeRealtimeChannel.js",
+);
 const actionPolicy = read(
   "lib/operations/commerce/security/POSActionPolicy.js",
 );
@@ -90,7 +99,7 @@ requireIncludes(configuration, [
 
 requireIncludes(workspace, [
   "RestaurantOrderEntryWorkspace",
-  "WaiterServiceWorkspace",
+  "LiveWaiterServiceWorkspace",
   "StationaryPOSUI",
   "PaymentWorkspace",
   "POSOrdersPage",
@@ -98,7 +107,7 @@ requireIncludes(workspace, [
   "ShiftPage",
   "FulfillmentDispatchWorkspace",
   '"restaurant-order-entry": RestaurantOrderEntryWorkspace',
-  '"restaurant-service": WaiterServiceWorkspace',
+  '"restaurant-service": LiveWaiterServiceWorkspace',
   '"restaurant-context-control": StationaryPOSUI',
   '"restaurant-checkout": PaymentWorkspace',
   '"restaurant-orders": POSOrdersPage',
@@ -162,6 +171,39 @@ requireIncludes(waiterService, [
   "REFRESH_MS",
 ], "Waiter service action menu");
 
+requireIncludes(liveWaiterService, [
+  "useRestaurantPOSRealtime",
+  "organizationId",
+  "refreshWaiterRuntime",
+  'new Event("focus")',
+  "Polling fallback",
+  "WaiterServiceWorkspace",
+], "Live waiter service binding");
+
+requireIncludes(restaurantRealtime, [
+  "organization_id=eq.",
+  'table: "restaurant_tables"',
+  'table: "orders"',
+  "CHANGE_DEBOUNCE_MS",
+  "createSafeRealtimeChannel",
+  "removeSafeRealtimeChannel",
+  'setStatus("live")',
+  'setStatus("polling")',
+], "Organization scoped restaurant POS realtime");
+
+requireIncludes(safeRealtime, [
+  "supabaseClient",
+  '"postgres_changes"',
+  "table:",
+  "subscription.table",
+  "channel.subscribe",
+  "removeChannel",
+], "Shared Supabase realtime channel");
+
+if (restaurantRealtime.includes("tenant_id") || liveWaiterService.includes("tenant_id")) {
+  throw new Error("Restaurant POS realtime must not use tenant_id");
+}
+
 requireIncludes(actionPolicy, [
   "ACTION_POLICY",
   "ORDER_ENTRY",
@@ -218,6 +260,7 @@ requireIncludes(fulfillment, [
 
 console.log("OPERATIONS_POS_WORKSPACE_AUDIT=PASS");
 console.log("STATIONARY_POS=ORDER_ENTRY,ORDERS,CHECKOUT,PAYMENTS,RECEIPTS,CASH_CONTROL,FULFILLMENT");
-console.log("WAITER_SERVICE=POINTER_SAFE,STATE_AWARE,PERMISSION_GATED,AUTO_REFRESH");
+console.log("WAITER_SERVICE=POINTER_SAFE,STATE_AWARE,PERMISSION_GATED,REALTIME_WITH_POLLING_FALLBACK");
 console.log("WAITER_ORDER_HANDOFF=NATIVE_URL_STATE");
+console.log("RESTAURANT_REALTIME=ORGANIZATION_SCOPED,NO_TENANT");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

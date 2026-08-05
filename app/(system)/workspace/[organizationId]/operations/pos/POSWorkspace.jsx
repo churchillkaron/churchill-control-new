@@ -24,7 +24,7 @@ import RetailOrdersWorkspace from "./RetailOrdersWorkspace";
 import RetailCheckoutWorkspace from "./RetailCheckoutWorkspace";
 import RetailCashControlWorkspace from "./RetailCashControlWorkspace";
 import PaymentWorkspace from "./PaymentWorkspace";
-import RestaurantOrderEntryBridge from "./RestaurantOrderEntryBridge";
+import RestaurantOrderEntryWorkspace from "./RestaurantOrderEntryWorkspace";
 import WaiterServiceWorkspace from "./waiter/WaiterServiceWorkspace";
 import POSOrdersPage from "./orders/page";
 import ReceiptsPage from "./receipts/page";
@@ -95,7 +95,7 @@ function RetailReadiness({ posConfiguration, posMode }) {
 }
 
 const COMPONENTS = Object.freeze({
-  "restaurant-order-entry": RestaurantOrderEntryBridge,
+  "restaurant-order-entry": RestaurantOrderEntryWorkspace,
   "restaurant-context-control": StationaryPOSUI,
   "restaurant-checkout": PaymentWorkspace,
   "restaurant-orders": POSOrdersPage,

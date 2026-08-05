@@ -6,7 +6,7 @@ import { CreditCard, Landmark, QrCode, Split, Wallet } from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import PageWrapper from "@/components/PageWrapper";
 import { splitBill } from "@/lib/payments/splitBill";
-import useRestaurantPOSRealtime from "@/lib/restaurant/pos/realtime/useRestaurantPOSRealtime";
+import usePOSRealtime from "@/lib/operations/commerce/realtime/usePOSRealtime";
 
 const FALLBACK_REFRESH_MS = 10000;
 
@@ -257,8 +257,10 @@ export default function PaymentWorkspace({ posConfiguration }) {
     organizationId,
   ]);
 
-  const realtimeStatus = useRestaurantPOSRealtime({
+  const realtimeStatus = usePOSRealtime({
     organizationId,
+    applicationSubscriptions:
+      posConfiguration?.realtimeSubscriptions || [],
     enabled: Boolean(organizationId),
     onChange: refreshPaymentRuntime,
   });

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback } from "react";
+import { useParams } from "next/navigation";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
-import useRestaurantPOSRealtime from "@/lib/restaurant/pos/realtime/useRestaurantPOSRealtime";
+import usePOSRealtime from "@/lib/operations/commerce/realtime/usePOSRealtime";
 import WaiterServiceWorkspace from "./WaiterServiceWorkspace";
 
 function statusLabel(status) {
@@ -13,9 +14,11 @@ function statusLabel(status) {
 }
 
 export default function LiveWaiterServiceWorkspace(props) {
+  const params = useParams();
   const businessContext = useBusinessContext() || {};
   const organization = businessContext.organization || null;
   const organizationId =
+    params?.organizationId ||
     businessContext.organization_id ||
     organization?.id ||
     null;
@@ -28,8 +31,10 @@ export default function LiveWaiterServiceWorkspace(props) {
     );
   }, []);
 
-  const realtimeStatus = useRestaurantPOSRealtime({
+  const realtimeStatus = usePOSRealtime({
     organizationId,
+    applicationSubscriptions:
+      props.posConfiguration?.realtimeSubscriptions || [],
     enabled: Boolean(organizationId),
     onChange: refreshWaiterRuntime,
   });

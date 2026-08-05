@@ -32,6 +32,7 @@ const registry = read("lib/operations/registry/OperationsWorkspaceRegistry.js");
 const orderEntry = read("app/(system)/workspace/[organizationId]/operations/pos/RestaurantOrderEntryWorkspace.jsx");
 const waiterService = read("app/(system)/workspace/[organizationId]/operations/pos/waiter/WaiterServiceWorkspace.jsx");
 const liveWaiterService = read("app/(system)/workspace/[organizationId]/operations/pos/waiter/LiveWaiterServiceWorkspace.jsx");
+const universalRealtime = read("lib/operations/commerce/realtime/usePOSRealtime.js");
 const restaurantRealtime = read("lib/restaurant/pos/realtime/useRestaurantPOSRealtime.js");
 const safeRealtime = read("lib/shared/realtime/createSafeRealtimeChannel.js");
 const actionPolicy = read("lib/operations/commerce/security/POSActionPolicy.js");
@@ -53,6 +54,8 @@ requireIncludes(configuration, [
   'component: "restaurant-checkout"', 'component: "restaurant-orders"',
   'component: "restaurant-receipts"', 'component: "restaurant-cash-control"',
   'component: "restaurant-fulfillment"', 'component: "restaurant-service"',
+  "realtimeSubscriptions", 'Object.freeze({ table: "restaurant_tables" })',
+  "application?.realtimeSubscriptions || Object.freeze([])",
 ], "POS workspace configuration");
 
 requireIncludes(workspace, [
@@ -99,19 +102,25 @@ requireIncludes(liveWaiterService, [
   'new Event("focus")', "Polling fallback", "WaiterServiceWorkspace",
 ], "Live waiter service binding");
 
+requireIncludes(universalRealtime, [
+  "CORE_POS_SUBSCRIPTIONS", 'table: "orders"', "applicationSubscriptions",
+  "buildSubscriptions", "organization_id=eq.", "createSafeRealtimeChannel",
+  "removeSafeRealtimeChannel", "CHANGE_DEBOUNCE_MS", 'setStatus("live")',
+  'setStatus("polling")', 'source:', '"operations-pos"',
+], "Universal Operations POS realtime");
+
 requireIncludes(restaurantRealtime, [
-  "organization_id=eq.", 'table: "restaurant_tables"', 'table: "orders"',
-  "CHANGE_DEBOUNCE_MS", "createSafeRealtimeChannel", "removeSafeRealtimeChannel",
-  'setStatus("live")', 'setStatus("polling")',
-], "Organization scoped restaurant POS realtime");
+  "usePOSRealtime", "RESTAURANT_POS_SUBSCRIPTIONS",
+  'table: "restaurant_tables"', "applicationSubscriptions",
+], "Restaurant POS realtime adapter");
 
 requireIncludes(safeRealtime, [
   "supabaseClient", '"postgres_changes"', "table:", "subscription.table",
   "channel.subscribe", "removeChannel",
 ], "Shared Supabase realtime channel");
 
-if ([restaurantRealtime, liveWaiterService, orderEntry, checkout, orders].some((source) => source.includes("tenant_id"))) {
-  throw new Error("Restaurant POS realtime must not use tenant_id");
+if ([universalRealtime, restaurantRealtime, liveWaiterService, orderEntry, checkout, orders].some((source) => source.includes("tenant_id"))) {
+  throw new Error("Operations POS realtime must not use tenant_id");
 }
 
 requireIncludes(actionPolicy, [
@@ -148,5 +157,6 @@ console.log("WAITER_ORDER_HANDOFF=NATIVE_URL_STATE");
 console.log("SELL_REALTIME=CART_PRESERVING,FOCUS_RECOVERY,POLLING_FALLBACK");
 console.log("CHECKOUT_REALTIME=DRAFT_PRESERVING,BALANCE_SYNCHRONIZED,PAID_SELECTIONS_REMOVED");
 console.log("ORDERS_REALTIME=FILTER_PRESERVING,SELECTION_VALIDATED,STALE_DATA_RETAINED_ON_TRANSIENT_ERROR");
-console.log("RESTAURANT_REALTIME=ORGANIZATION_SCOPED,NO_TENANT");
+console.log("POS_REALTIME=UNIVERSAL_CORE,APPLICATION_SUBSCRIPTIONS,ORGANIZATION_SCOPED");
+console.log("RESTAURANT_REALTIME=APPLICATION_ADAPTER,RESTAURANT_TABLES");
 console.log("OPERATIONS_COMMERCE_ROUTE=/operations/pos");

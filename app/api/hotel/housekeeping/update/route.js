@@ -1,57 +1,49 @@
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
+import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { getActiveOrganization } from "@/lib/workspace/getActiveOrganization";
+import {
+  HousekeepingTransitionError,
+  transitionHousekeepingTask,
+} from "@/lib/hotel/server/transitionHousekeepingTask";
 
 export async function POST(req) {
-
   try {
+    const body = await req.json();
+    const supabase = createServerSupabase(req);
+    const organization = await getActiveOrganization(
+      body.organizationId
+    );
 
-    const supabase =
-      createServerSupabase();
+    if (!organization) {
+      return Response.json(
+        { error: "Organization not found" },
+        { status: 400 }
+      );
+    }
 
-    const {
-      taskId,
-      status,
-    } = await req.json();
-
-    const {
-      data,
-      error,
-    } = await supabase
-      .from(
-        "hotel_housekeeping_tasks"
-      )
-      .update({
-        status,
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq(
-        "id",
-        taskId
-      )
-      .select()
-      .single();
-
-    if (error)
-      throw error;
+    const task = await transitionHousekeepingTask({
+      supabase,
+      organizationId: organization.id,
+      taskId: body.taskId,
+      action: body.action,
+    });
 
     return Response.json({
       success: true,
-      task: data,
+      task,
     });
-
   } catch (error) {
+    const status =
+      error instanceof HousekeepingTransitionError
+        ? error.status
+        : 500;
 
     return Response.json(
       {
         error:
-          error.message,
+          error?.message ||
+          "Housekeeping transition failed",
       },
-      {
-        status: 500,
-      }
+      { status }
     );
-
   }
-
 }

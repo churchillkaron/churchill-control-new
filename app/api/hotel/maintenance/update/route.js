@@ -1,57 +1,39 @@
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
+import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { getActiveOrganization } from "@/lib/workspace/getActiveOrganization";
+import {
+  transitionHotelMaintenanceTask,
+} from "@/lib/hotel/server/transitionHotelMaintenanceTask";
 
 export async function POST(req) {
-
   try {
+    const body = await req.json();
+    const supabase = createServerSupabase(req);
+    const organization = await getActiveOrganization(
+      body.organizationId
+    );
 
-    const supabase =
-      createServerSupabase();
+    if (!organization) {
+      return Response.json(
+        { error: "Organization not found" },
+        { status: 400 }
+      );
+    }
 
-    const {
-      taskId,
-      status,
-    } = await req.json();
-
-    const {
-      data,
-      error,
-    } = await supabase
-      .from(
-        "hotel_maintenance_tasks"
-      )
-      .update({
-        status,
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq(
-        "id",
-        taskId
-      )
-      .select()
-      .single();
-
-    if (error)
-      throw error;
+    const task = await transitionHotelMaintenanceTask({
+      supabase,
+      organizationId: organization.id,
+      taskId: body.taskId,
+      action: body.action,
+    });
 
     return Response.json({
       success: true,
-      task: data,
+      task,
     });
-
   } catch (error) {
-
     return Response.json(
-      {
-        error:
-          error.message,
-      },
-      {
-        status: 500,
-      }
+      { error: error.message },
+      { status: error.status || 500 }
     );
-
   }
-
 }

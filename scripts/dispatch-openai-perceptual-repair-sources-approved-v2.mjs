@@ -192,6 +192,9 @@ const dispatchContractPreviewFingerprint = text(
 
 let initialDispatchFingerprint = liveDispatchFingerprint;
 let checkpoint = null;
+let bridgedPreview = null;
+let bridgedPreviewFile = null;
+let bridgeReused = false;
 
 if (fs.existsSync(checkpointPath)) {
   checkpoint = readJson(checkpointPath, "SOURCE_DISPATCH_CHECKPOINT").value;
@@ -215,6 +218,42 @@ if (fs.existsSync(checkpointPath)) {
       "SOURCE_DISPATCH_FINGERPRINT_BRIDGE_CHECKPOINT_INITIAL_HASH_INVALID",
     );
   }
+
+  bridgedPreviewFile = readJson(
+    bridgedPreviewPath,
+    "CHECKPOINT_BRIDGED_SOURCE_DISPATCH_PREVIEW",
+  );
+  bridgedPreview = object(bridgedPreviewFile.value);
+  const bridge = object(bridgedPreview.fingerprint_bridge);
+
+  if (
+    bridgedPreviewFile.file_sha256 !== text(checkpoint.preview_file_sha256)
+  ) {
+    throw new Error(
+      "SOURCE_DISPATCH_FINGERPRINT_BRIDGE_CHECKPOINT_PREVIEW_SHA_MISMATCH",
+    );
+  }
+  if (
+    text(bridgedPreview.contract) !== PREVIEW_CONTRACT ||
+    text(bridgedPreview.organization_id) !== organizationId ||
+    text(bridgedPreview.creative_project_id) !== projectId ||
+    text(bridgedPreview.production_graph_id) !== graphId ||
+    text(bridgedPreview.dispatch_contract_sha256) !==
+      text(originalPreview.dispatch_contract_sha256) ||
+    text(bridgedPreview.exact_state_before?.task_state_sha256) !==
+      initialDispatchFingerprint ||
+    text(bridgedPreview.exact_state_after?.task_state_sha256) !==
+      initialDispatchFingerprint ||
+    text(bridge.contract) !== BRIDGE_CONTRACT ||
+    text(bridge.original_preview_file_sha256) !==
+      originalPreviewFile.file_sha256 ||
+    text(bridge.dispatch_task_state_sha256) !== initialDispatchFingerprint
+  ) {
+    throw new Error(
+      "SOURCE_DISPATCH_FINGERPRINT_BRIDGE_CHECKPOINT_PREVIEW_INVALID",
+    );
+  }
+  bridgeReused = true;
 } else {
   if (
     !expectedPreviewFingerprint ||
@@ -247,35 +286,39 @@ if (fs.existsSync(checkpointPath)) {
   ) {
     throw new Error("SOURCE_DISPATCH_FINGERPRINT_BRIDGE_WALLET_CHANGED");
   }
+
+  const bridge = {
+    contract: BRIDGE_CONTRACT,
+    original_preview_file_sha256: originalPreviewFile.file_sha256,
+    original_preview_task_state_sha256: expectedPreviewFingerprint,
+    original_preview_projection:
+      "id,status,error,depends_on,review,metadata,output,timing,updated_at",
+    dispatch_task_state_sha256: initialDispatchFingerprint,
+    dispatch_projection:
+      "id,status,provider_id,cost,error,depends_on,review,metadata,output,timing,updated_at",
+    live_preview_projection_verified: true,
+    checkpoint_resume: false,
+  };
+
+  bridgedPreview = {
+    ...originalPreview,
+    exact_state_before: {
+      ...object(originalPreview.exact_state_before),
+      task_state_sha256: initialDispatchFingerprint,
+    },
+    exact_state_after: {
+      ...object(originalPreview.exact_state_after),
+      task_state_sha256: initialDispatchFingerprint,
+    },
+    fingerprint_bridge: bridge,
+  };
+
+  writeJson(bridgedPreviewPath, bridgedPreview);
+  bridgedPreviewFile = readJson(
+    bridgedPreviewPath,
+    "CREATED_BRIDGED_SOURCE_DISPATCH_PREVIEW",
+  );
 }
-
-const bridge = {
-  contract: BRIDGE_CONTRACT,
-  original_preview_file_sha256: originalPreviewFile.file_sha256,
-  original_preview_task_state_sha256: expectedPreviewFingerprint,
-  original_preview_projection:
-    "id,status,error,depends_on,review,metadata,output,timing,updated_at",
-  dispatch_task_state_sha256: initialDispatchFingerprint,
-  dispatch_projection:
-    "id,status,provider_id,cost,error,depends_on,review,metadata,output,timing,updated_at",
-  live_preview_projection_verified: checkpoint ? null : true,
-  checkpoint_resume: Boolean(checkpoint),
-};
-
-const bridgedPreview = {
-  ...originalPreview,
-  exact_state_before: {
-    ...object(originalPreview.exact_state_before),
-    task_state_sha256: initialDispatchFingerprint,
-  },
-  exact_state_after: {
-    ...object(originalPreview.exact_state_after),
-    task_state_sha256: initialDispatchFingerprint,
-  },
-  fingerprint_bridge: bridge,
-};
-
-writeJson(bridgedPreviewPath, bridgedPreview);
 
 console.log("============================================================");
 console.log("REPAIR SOURCE DISPATCH FINGERPRINT COMPATIBILITY BRIDGE");
@@ -283,6 +326,8 @@ console.log("============================================================");
 console.log(`ORIGINAL_PREVIEW=${originalPreviewFile.absolute}`);
 console.log(`ORIGINAL_PREVIEW_SHA256=${originalPreviewFile.file_sha256}`);
 console.log(`BRIDGED_PREVIEW=${bridgedPreviewPath}`);
+console.log(`BRIDGED_PREVIEW_SHA256=${bridgedPreviewFile.file_sha256}`);
+console.log(`BRIDGED_PREVIEW_REUSED=${bridgeReused ? "YES" : "NO"}`);
 console.log(`PREVIEW_TASK_STATE_SHA256=${expectedPreviewFingerprint}`);
 console.log(`LIVE_PREVIEW_FINGERPRINT=${livePreviewFingerprint}`);
 console.log(`DISPATCH_TASK_STATE_SHA256=${initialDispatchFingerprint}`);

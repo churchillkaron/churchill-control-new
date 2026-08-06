@@ -1,11 +1,30 @@
-import { checkOutGuest } from "@/lib/hotel/checkOutGuest";
+import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { getActiveOrganization } from "@/lib/workspace/getActiveOrganization";
+import {
+  HotelBookingTransitionError,
+  transitionHotelBooking,
+} from "@/lib/hotel/server/transitionHotelBooking";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
+    const supabase = createServerSupabase(request);
+    const organization = await getActiveOrganization(
+      body.organizationId
+    );
 
-    const booking = await checkOutGuest({
+    if (!organization) {
+      return Response.json(
+        { error: "Organization not found" },
+        { status: 400 }
+      );
+    }
+
+    const booking = await transitionHotelBooking({
+      supabase,
+      organizationId: organization.id,
       bookingId: body.bookingId,
+      action: "CHECK_OUT",
     });
 
     return Response.json({
@@ -14,8 +33,17 @@ export async function POST(req) {
     });
   } catch (error) {
     return Response.json(
-      { error: error.message },
-      { status: 500 }
+      {
+        error:
+          error?.message ||
+          "Unable to check out hotel booking",
+      },
+      {
+        status:
+          error instanceof HotelBookingTransitionError
+            ? error.status
+            : 500,
+      }
     );
   }
 }

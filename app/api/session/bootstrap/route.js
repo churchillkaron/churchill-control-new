@@ -5,51 +5,91 @@ import { cookies } from "next/headers";
 
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { getAvailableModules } from "@/lib/platform/getAvailableModules";
 
-async function loadActiveEntity({ supabase, organizationId }) {
+async function loadActiveEntity({
+  supabase,
+  organizationId,
+}) {
   if (!organizationId) return null;
 
   const { data } = await supabase
     .from("legal_entities")
     .select("*")
-    .eq("organization_id", organizationId)
+    .eq(
+      "organization_id",
+      organizationId
+    )
     .eq("is_active", true)
-    .order("is_default_accounting_entity", { ascending: false })
-    .order("created_at", { ascending: true })
+    .order(
+      "is_default_accounting_entity",
+      {
+        ascending: false,
+      }
+    )
+    .order("created_at", {
+      ascending: true,
+    })
     .limit(1)
     .maybeSingle();
 
   return data || null;
 }
 
-async function loadActivePeriod({ supabase, organizationId, entityId }) {
-  if (!organizationId || !entityId) return null;
+async function loadActivePeriod({
+  supabase,
+  organizationId,
+  entityId,
+}) {
+  if (!organizationId || !entityId) {
+    return null;
+  }
 
   const { data } = await supabase
     .from("accounting_periods")
     .select("*")
-    .eq("organization_id", organizationId)
-    .or(`entity_id.eq.${entityId},entity_id.is.null`)
+    .eq(
+      "organization_id",
+      organizationId
+    )
+    .or(
+      `entity_id.eq.${entityId},entity_id.is.null`
+    )
     .in("status", ["OPEN", "open"])
-    .order("start_date", { ascending: false })
+    .order("start_date", {
+      ascending: false,
+    })
     .limit(1)
     .maybeSingle();
 
   return data || null;
 }
 
-async function loadBootstrapContext({ supabase, userId }) {
-  const { data: staff, error } = await supabase
+async function loadBootstrapContext({
+  supabase,
+  userId,
+}) {
+  const {
+    data: staff,
+    error,
+  } = await supabase
     .from("staff_accounts")
-    .select("id, role, active_organization_id, name, email")
+    .select(
+      "id, role, active_organization_id, name, email"
+    )
     .eq("auth_user_id", userId)
     .maybeSingle();
 
   if (error) {
     return {
       response: Response.json(
-        { success: false, error: error.message },
-        { status: 500 }
+        {
+          success: false,
+          error: error.message,
+        },
+        {
+          status: 500,
+        }
       ),
     };
   }
@@ -57,24 +97,39 @@ async function loadBootstrapContext({ supabase, userId }) {
   if (!staff) {
     return {
       response: Response.json(
-        { success: false, reason: "STAFF_NOT_FOUND" },
-        { status: 404 }
+        {
+          success: false,
+          reason: "STAFF_NOT_FOUND",
+        },
+        {
+          status: 404,
+        }
       ),
     };
   }
 
-  const organizationId = staff.active_organization_id || null;
+  const organizationId =
+    staff.active_organization_id ||
+    null;
 
   if (!organizationId) {
     return {
       response: Response.json(
-        { success: false, reason: "ORGANIZATION_MISSING" },
-        { status: 409 }
+        {
+          success: false,
+          reason: "ORGANIZATION_MISSING",
+        },
+        {
+          status: 409,
+        }
       ),
     };
   }
 
-  const { data: organization, error: orgError } = await supabase
+  const {
+    data: organization,
+    error: orgError,
+  } = await supabase
     .from("organizations")
     .select("*")
     .eq("id", organizationId)
@@ -85,38 +140,59 @@ async function loadBootstrapContext({ supabase, userId }) {
       response: Response.json(
         {
           success: false,
-          reason: "ORGANIZATION_NOT_FOUND",
-          error: orgError?.message || null,
+          reason:
+            "ORGANIZATION_NOT_FOUND",
+          error:
+            orgError?.message || null,
         },
-        { status: 404 }
+        {
+          status: 404,
+        }
       ),
     };
   }
 
-  const entity = await loadActiveEntity({
-    supabase,
-    organizationId,
-  });
+  const [
+    entity,
+    modules,
+  ] = await Promise.all([
+    loadActiveEntity({
+      supabase,
+      organizationId,
+    }),
+    getAvailableModules({
+      organizationId,
+      supabase,
+    }),
+  ]);
 
-  const period = await loadActivePeriod({
-    supabase,
-    organizationId,
-    entityId: entity?.id || null,
-  });
+  const period =
+    await loadActivePeriod({
+      supabase,
+      organizationId,
+      entityId:
+        entity?.id || null,
+    });
 
   return {
     payload: {
       success: true,
       staff,
       organization,
-      organization_id: organizationId,
-      active_organization_id: organizationId,
+      organization_id:
+        organizationId,
+      active_organization_id:
+        organizationId,
       entity,
-      entity_id: entity?.id || null,
-      active_entity_id: entity?.id || null,
+      entity_id:
+        entity?.id || null,
+      active_entity_id:
+        entity?.id || null,
       period,
-      period_id: period?.id || null,
-      active_period_id: period?.id || null,
+      period_id:
+        period?.id || null,
+      active_period_id:
+        period?.id || null,
       country:
         organization.country ||
         entity?.country ||
@@ -125,118 +201,201 @@ async function loadBootstrapContext({ supabase, userId }) {
         organization.default_currency ||
         entity?.currency ||
         null,
+      modules,
       permissions: [],
-      role: staff.role || "staff",
+      role:
+        staff.role || "staff",
     },
   };
 }
 
 function bearerToken(request) {
-  const value = request?.headers?.get?.("authorization") || "";
-  const match = value.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() || null;
+  const value =
+    request?.headers?.get?.(
+      "authorization"
+    ) || "";
+
+  const match =
+    value.match(
+      /^Bearer\s+(.+)$/i
+    );
+
+  return (
+    match?.[1]?.trim() ||
+    null
+  );
 }
 
-async function loadAuthenticatedUser(request) {
-  const token = bearerToken(request);
+async function loadAuthenticatedUser(
+  request
+) {
+  const token =
+    bearerToken(request);
 
   if (token) {
-    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    const {
+      data,
+      error,
+    } =
+      await supabaseAdmin.auth.getUser(
+        token
+      );
+
     return {
-      user: data?.user || null,
+      user:
+        data?.user || null,
       error,
     };
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url =
+    process.env
+      .NEXT_PUBLIC_SUPABASE_URL;
+
+  const anonKey =
+    process.env
+      .NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) {
     return {
       user: null,
-      error: new Error("Supabase browser authentication is not configured"),
+      error: new Error(
+        "Supabase browser authentication is not configured"
+      ),
     };
   }
 
-  const cookieStore = cookies();
-  const authClient = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll() {
-        // Bootstrap only reads the authenticated session.
-      },
-    },
-  });
+  const cookieStore =
+    cookies();
 
-  const { data, error } = await authClient.auth.getUser();
+  const authClient =
+    createServerClient(
+      url,
+      anonKey,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll() {
+            // Bootstrap only reads the authenticated session.
+          },
+        },
+      }
+    );
+
+  const {
+    data,
+    error,
+  } =
+    await authClient.auth.getUser();
+
   return {
-    user: data?.user || null,
+    user:
+      data?.user || null,
     error,
   };
 }
 
 export async function GET(request) {
   try {
-    const { user, error } = await loadAuthenticatedUser(request);
+    const {
+      user,
+      error,
+    } =
+      await loadAuthenticatedUser(
+        request
+      );
 
     if (error || !user) {
       return Response.json(
         {
           success: false,
-          reason: "AUTHENTICATION_REQUIRED",
-          error: error?.message || null,
+          reason:
+            "AUTHENTICATION_REQUIRED",
+          error:
+            error?.message || null,
         },
-        { status: 401 }
+        {
+          status: 401,
+        }
       );
     }
 
-    const result = await loadBootstrapContext({
-      supabase: createServerSupabase(),
-      userId: user.id,
-    });
+    const result =
+      await loadBootstrapContext({
+        supabase:
+          createServerSupabase(),
+        userId: user.id,
+      });
 
-    if (result.response) return result.response;
-    return Response.json(result.payload);
-  } catch (err) {
+    if (result.response) {
+      return result.response;
+    }
+
+    return Response.json(
+      result.payload
+    );
+  } catch (error) {
     return Response.json(
       {
         success: false,
-        error: err.message || "Server error",
+        error:
+          error.message ||
+          "Server error",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const { user_id } = body;
+    const body =
+      await request.json();
 
-    if (!user_id) {
+    const userId =
+      body?.user_id;
+
+    if (!userId) {
       return Response.json(
-        { success: false, error: "Missing user_id" },
-        { status: 400 }
+        {
+          success: false,
+          error: "Missing user_id",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    const supabase = createServerSupabase();
-    const result = await loadBootstrapContext({
-      supabase,
-      userId: user_id,
-    });
+    const result =
+      await loadBootstrapContext({
+        supabase:
+          createServerSupabase(),
+        userId,
+      });
 
-    if (result.response) return result.response;
-    return Response.json(result.payload);
-  } catch (err) {
+    if (result.response) {
+      return result.response;
+    }
+
+    return Response.json(
+      result.payload
+    );
+  } catch (error) {
     return Response.json(
       {
         success: false,
-        error: err.message || "Server error",
+        error:
+          error.message ||
+          "Server error",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

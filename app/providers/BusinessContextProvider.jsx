@@ -1,12 +1,25 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { supabase } from "@/lib/shared/supabase/client";
 
-const BusinessContext = createContext(null);
+const BusinessContext =
+  createContext(null);
 
-export function BusinessContextProvider({ children }) {
-  const [state, setState] = useState({
+export function BusinessContextProvider({
+  children,
+}) {
+  const [
+    state,
+    setState,
+  ] = useState({
     ready: false,
     loading: true,
     user: null,
@@ -19,6 +32,7 @@ export function BusinessContextProvider({ children }) {
     period_id: null,
     country: null,
     currency: null,
+    modules: [],
     permissions: [],
     role: null,
     error: null,
@@ -28,81 +42,142 @@ export function BusinessContextProvider({ children }) {
     async function loadBusinessContext() {
       try {
         const {
-          data: { user },
-        } = await supabase.auth.getUser();
+          data: {
+            user,
+          },
+        } =
+          await supabase.auth.getUser();
 
         if (!user) {
-          setState(prev => ({
-            ...prev,
+          setState(previous => ({
+            ...previous,
             ready: true,
             loading: false,
+            user: null,
+            staff: null,
+            organization: null,
+            organization_id: null,
+            entity: null,
+            entity_id: null,
+            period: null,
+            period_id: null,
+            modules: [],
+            permissions: [],
+            role: null,
             error: null,
           }));
+
           return;
         }
 
-        const res = await fetch("/api/session/bootstrap", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-          }),
-        });
+        const response =
+          await fetch(
+            "/api/session/bootstrap",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                user_id: user.id,
+              }),
+            }
+          );
 
-        const data = await res.json();
+        const data =
+          await response.json();
 
         console.log(
           "BOOTSTRAP BUSINESS CONTEXT",
           {
-            entity: data.entity,
-            entity_id: data.entity_id,
-            active_entity_id: data.active_entity_id,
-            organization_id: data.organization_id,
+            entity:
+              data.entity,
+            entity_id:
+              data.entity_id,
+            active_entity_id:
+              data.active_entity_id,
+            organization_id:
+              data.organization_id,
+            modules:
+              data.modules,
           }
         );
 
         if (!data?.success) {
-          setState(prev => ({
-            ...prev,
+          setState(previous => ({
+            ...previous,
             ready: true,
             loading: false,
             user,
-            error: data?.error || "Business context bootstrap failed",
+            modules: [],
+            error:
+              data?.error ||
+              data?.reason ||
+              "Business context bootstrap failed",
           }));
+
           return;
         }
 
         const organizationId =
           data.active_organization_id ||
           data.organization_id ||
-          data.staff?.active_organization_id ||
+          data.staff
+            ?.active_organization_id ||
           null;
 
         const next = {
           ready: true,
           loading: false,
           user,
-          staff: data.staff || null,
-          organization: data.organization || null,
-          organization_id: organizationId,
-          entity: data.entity || null,
-          entity_id: data.entity_id || data.active_entity_id || null,
-          period: data.period || null,
-          period_id: data.period_id || data.active_period_id || null,
+          staff:
+            data.staff || null,
+          organization:
+            data.organization ||
+            null,
+          organization_id:
+            organizationId,
+          entity:
+            data.entity || null,
+          entity_id:
+            data.entity_id ||
+            data.active_entity_id ||
+            null,
+          period:
+            data.period || null,
+          period_id:
+            data.period_id ||
+            data.active_period_id ||
+            null,
           country:
             data.country ||
-            data.organization?.country ||
+            data.organization
+              ?.country ||
             data.entity?.country ||
             null,
           currency:
             data.currency ||
-            data.organization?.default_currency ||
+            data.organization
+              ?.default_currency ||
             data.entity?.currency ||
             null,
-          permissions: data.permissions || [],
-          role: data.role || data.staff?.role || null,
+          modules:
+            Array.isArray(
+              data.modules
+            )
+              ? data.modules
+              : [],
+          permissions:
+            Array.isArray(
+              data.permissions
+            )
+              ? data.permissions
+              : [],
+          role:
+            data.role ||
+            data.staff?.role ||
+            null,
           error: null,
         };
 
@@ -114,14 +189,17 @@ export function BusinessContextProvider({ children }) {
             JSON.stringify(next)
           );
         } catch {}
-
       } catch (error) {
-        console.error("Business context load failed", error);
+        console.error(
+          "Business context load failed",
+          error
+        );
 
-        setState(prev => ({
-          ...prev,
+        setState(previous => ({
+          ...previous,
           ready: true,
           loading: false,
+          modules: [],
           error: error.message,
         }));
       }
@@ -130,15 +208,22 @@ export function BusinessContextProvider({ children }) {
     loadBusinessContext();
   }, []);
 
-  const value = useMemo(() => state, [state]);
+  const value = useMemo(
+    () => state,
+    [state]
+  );
 
   return (
-    <BusinessContext.Provider value={value}>
+    <BusinessContext.Provider
+      value={value}
+    >
       {children}
     </BusinessContext.Provider>
   );
 }
 
 export function useBusinessContext() {
-  return useContext(BusinessContext);
+  return useContext(
+    BusinessContext
+  );
 }

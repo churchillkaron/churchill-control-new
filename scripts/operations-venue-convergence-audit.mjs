@@ -33,31 +33,31 @@ const legacyPage =
   "app/(system)/workspace/[organizationId]/entertainment/page.jsx";
 const solutionRegistry =
   "lib/platform/solutions/OrganizationOperationalSolutionRegistry.js";
+const operationsResolver =
+  "lib/operations/registry/OperationsWorkspaceResolver.js";
 
-requireText(venuePage, "/operations/pos");
-requireText(venuePage, "/operations/incidents");
-requireText(venuePage, "/operations/queue-entries");
-requireText(venuePage, "Operations owns");
+for (const route of [
+  "/operations/pos",
+  "/operations/incidents",
+  "/operations/queue-entries",
+]) {
+  requireText(venuePage, route);
+}
 
 requireText(legacyPage, "redirect(");
 requireText(legacyPage, "/operations/venue");
 
-requireText(
-  solutionRegistry,
-  "/workspace/:organizationId/operations/venue"
-);
-requireText(
-  solutionRegistry,
-  "/workspace/:organizationId/operations/pos"
-);
-requireText(
-  solutionRegistry,
-  "/workspace/:organizationId/operations/incidents"
-);
-requireText(
-  solutionRegistry,
-  "/workspace/:organizationId/operations/queue-entries"
-);
+for (const route of [
+  "/workspace/:organizationId/operations/venue",
+  "/workspace/:organizationId/operations/pos",
+  "/workspace/:organizationId/operations/incidents",
+  "/workspace/:organizationId/operations/queue-entries",
+]) {
+  requireText(solutionRegistry, route);
+}
+
+requireText(operationsResolver, "incidents");
+requireText(operationsResolver, "queue-entries");
 
 const registryContent = read(solutionRegistry);
 

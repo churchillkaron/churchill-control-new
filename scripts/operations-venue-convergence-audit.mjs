@@ -33,8 +33,14 @@ const legacyPage =
   "app/(system)/workspace/[organizationId]/entertainment/page.jsx";
 const solutionRegistry =
   "lib/platform/solutions/OrganizationOperationalSolutionRegistry.js";
+const operationsCatalog =
+  "lib/operations/runtime/OperationsCapabilityCatalog.js";
+const operationsWorkspaceRegistry =
+  "lib/operations/registry/OperationsWorkspaceRegistry.js";
 const operationsResolver =
   "lib/operations/registry/OperationsWorkspaceResolver.js";
+const operationsCatchAll =
+  "app/(system)/workspace/[organizationId]/operations/[...operationsRoute]/page.jsx";
 
 for (const route of [
   "/operations/pos",
@@ -56,8 +62,33 @@ for (const route of [
   requireText(solutionRegistry, route);
 }
 
-requireText(operationsResolver, "incidents");
-requireText(operationsResolver, "queue-entries");
+for (const capabilityId of [
+  '"incidents"',
+  '"queue-entries"',
+]) {
+  requireText(operationsCatalog, capabilityId);
+}
+
+requireText(
+  operationsWorkspaceRegistry,
+  "CANONICAL_OPERATIONS_CAPABILITY_CATALOG"
+);
+requireText(
+  operationsWorkspaceRegistry,
+  "buildWorkspaceItem(capability"
+);
+requireText(
+  operationsResolver,
+  "OPERATIONS_WORKSPACE_REGISTRY"
+);
+requireText(
+  operationsResolver,
+  "getOperationsWorkspaceItem(value)"
+);
+requireText(
+  operationsCatchAll,
+  "getOperationsWorkspaceItem(capabilityId)"
+);
 
 const registryContent = read(solutionRegistry);
 
@@ -85,6 +116,6 @@ if (!process.exitCode) {
   console.log("VENUE_OPERATIONS_CONVERGENCE_AUDIT_PASSED");
   console.log("VENUE_CONTROL_OWNER=OPERATIONS");
   console.log("VENUE_POS_OWNER=UNIVERSAL_POS");
-  console.log("VENUE_INCIDENT_OWNER=OPERATIONS_EVENT_ENGINE");
-  console.log("VENUE_WORK_QUEUE_OWNER=OPERATIONS_EVENT_ENGINE");
+  console.log("VENUE_INCIDENT_OWNER=CANONICAL_OPERATIONS_CATALOG");
+  console.log("VENUE_WORK_QUEUE_OWNER=CANONICAL_OPERATIONS_CATALOG");
 }

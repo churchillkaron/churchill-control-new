@@ -1,16 +1,22 @@
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { getActiveOrganization } from "@/lib/workspace/getActiveOrganization";
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const supabase = createServerSupabase();
-    const organization = await getActiveOrganization();
+    const requestedOrganizationId =
+      req.nextUrl.searchParams.get("organizationId");
+    const organization = await getActiveOrganization(
+      requestedOrganizationId
+    );
 
     if (!organization) {
-      return new Response(JSON.stringify({ error: "Organization not found" }), { status: 400 });
+      return Response.json(
+        { error: "Organization not found" },
+        { status: 400 }
+      );
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await createServerSupabase(req)
       .from("hotel_concierge_requests")
       .select(`
         *,
@@ -25,10 +31,17 @@ export async function GET() {
       .eq("organization_id", organization.id)
       .order("created_at", { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return new Response(JSON.stringify({ requests: data || [] }), { status: 200 });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return Response.json({
+      requests: data || [],
+    });
+  } catch (error) {
+    return Response.json(
+      { error: error.message },
+      { status: error.status || 500 }
+    );
   }
 }

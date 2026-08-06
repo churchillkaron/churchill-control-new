@@ -1,84 +1,73 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import defaultPOSSettings from "@/lib/settings/defaultPOSSettings";
 import { resolvePOSFinancialPolicy } from "@/lib/pos/runtime/resolvePOSFinancialPolicy";
+import resolvePOSRequestApplication from "@/lib/operations/commerce/server/resolvePOSRequestApplication";
 
-async function safeQuery(query) {
-  const result = await query;
-  if (result.error) throw result.error;
-  return result.data || [];
+function errorResponse(error, status = 500) {
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+    },
+    { status }
+  );
 }
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const organizationId = searchParams.get("organizationId");
+    const requestedOrganizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
+    const requestedEntityId =
+      searchParams.get("entityId") ||
+      searchParams.get("entity_id") ||
+      searchParams.get("legalEntityId") ||
+      searchParams.get("legal_entity_id");
+    const requestedApplicationId =
+      searchParams.get("applicationId") ||
+      searchParams.get("application_id") ||
+      request.headers.get("x-pos-application");
 
-    const access = await requireOrganizationAccess({
-      organizationId,
+    const resolved = await resolvePOSRequestApplication({
       request,
+      organizationId: requestedOrganizationId,
+      requestedApplicationId,
     });
 
-    if (!access.success) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status }
+    if (!resolved.success) {
+      return errorResponse(resolved.error, resolved.status || 403);
+    }
+
+    const runtimeAdapter = resolved.application.adapter?.runtime;
+    if (typeof runtimeAdapter?.loadRuntime !== "function") {
+      return errorResponse(
+        `POS runtime is not available for application ${resolved.application.id}`,
+        501
       );
     }
 
-    const [zones, tables, dishes, settingsResult, organizationResult, policy] =
-      await Promise.all([
-        safeQuery(
-          supabaseAdmin
-            .from("restaurant_zones")
-            .select("*")
-            .eq("organization_id", organizationId)
-            .order("sort_order")
-        ),
-        safeQuery(
-          supabaseAdmin
-            .from("restaurant_tables")
-            .select("*")
-            .eq("organization_id", organizationId)
-            .order("table_number")
-        ),
-        safeQuery(
-          supabaseAdmin
-            .from("dishes")
-            .select("*")
-            .eq("organization_id", organizationId)
-            .order("name")
-        ),
-        supabaseAdmin
-          .from("operational_settings")
-          .select("*")
-          .eq("organization_id", organizationId)
-          .eq("domain", "POS")
-          .maybeSingle(),
-        supabaseAdmin
-          .from("organizations")
-          .select("*")
-          .eq("id", organizationId)
-          .maybeSingle(),
-        resolvePOSFinancialPolicy({ organizationId }),
-      ]);
+    const [applicationRuntime, financialPolicy] = await Promise.all([
+      runtimeAdapter.loadRuntime({
+        access: resolved.access,
+        application: resolved.application,
+        entityId: requestedEntityId,
+        organization: resolved.organization,
+        organizationId: resolved.organizationId,
+        request,
+        settings: resolved.settings,
+      }),
+      resolvePOSFinancialPolicy({
+        organizationId: resolved.organizationId,
+      }),
+    ]);
 
-    if (settingsResult.error && settingsResult.error.code !== "PGRST116") {
-      throw settingsResult.error;
-    }
-
-    if (organizationResult.error && organizationResult.error.code !== "PGRST116") {
-      throw organizationResult.error;
-    }
-
-    const storedSettings =
-      settingsResult.data?.settings && typeof settingsResult.data.settings === "object"
-        ? settingsResult.data.settings
-        : {};
-    const organization = organizationResult.data || { id: organizationId };
+    const storedSettings = resolved.settings || {};
+    const organization = resolved.organization || {
+      id: resolved.organizationId,
+    };
     const currencyCode =
       organization.currency_code ||
       organization.base_currency_code ||
@@ -89,26 +78,41 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
+      application: {
+        id: resolved.application.id,
+        name: resolved.application.name,
+      },
       organization: {
         ...organization,
         currency_code: currencyCode,
       },
-      zones,
-      tables,
-      dishes,
+      terminal: {
+        type: "point_of_sale",
+        application_id: resolved.application.id,
+        entity_id: applicationRuntime?.entity_id || requestedEntityId || null,
+        currency_code: currencyCode,
+      },
+      settings: {
+        ...defaultPOSSettings,
+        ...storedSettings,
+      },
+      financial_policy: financialPolicy,
+      access: resolved.access.access,
+      ...applicationRuntime,
+
+      // Compatibility fields for existing POS clients.
       posSettings: {
         ...defaultPOSSettings,
         ...storedSettings,
       },
-      financialPolicy: policy,
-      access: access.access,
+      financialPolicy,
     });
   } catch (error) {
     console.error("POS RUNTIME ERROR", error);
 
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+    return errorResponse(
+      error?.message || "Unable to load POS runtime",
+      error?.status || 500
     );
   }
 }

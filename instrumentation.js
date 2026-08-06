@@ -7,10 +7,22 @@ export async function register() {
       "@/lib/platform/service-runtime/execution/ServiceExecutionCostGuardRuntime"
     );
     await import(
+      "@/lib/creative/assets/isolation/runtime/CreativeShotPrimarySourceDispatchGate"
+    );
+    await import(
       "@/lib/creative/director/runtime/CreativeUniversalTemporalCoverageBootstrap"
     );
     await import(
+      "@/lib/creative/assets/intelligence/runtime/CreativeUniversalAssetSemanticCoverageRuntime"
+    );
+    await import(
       "@/lib/creative/director/runtime/CreativeUniversalReferenceCastingRuntime"
+    );
+    await import(
+      "@/lib/creative/director/runtime/CreativeFreshDirectionReferenceContractRuntime"
+    );
+    await import(
+      "@/lib/creative/director/runtime/CreativeCanonicalShotSourceRuntime"
     );
     await import(
       "@/lib/creative/reasoning/runtime/CreativeReasoningRequestCostEstimateRuntime"
@@ -32,6 +44,9 @@ export async function register() {
     );
     await import(
       "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
+    );
+    await import(
+      "@/lib/creative/assets/intelligence/runtime/CreativeSourceSemanticProductionGateRuntime"
     );
   }
 

@@ -1,5 +1,4 @@
 begin;
-
 create table if not exists public.managed_media_campaigns (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -32,20 +31,15 @@ create table if not exists public.managed_media_campaigns (
     settled_amount + released_amount <= reserved_amount
   )
 );
-
 create index if not exists managed_media_campaigns_org_created_idx
   on public.managed_media_campaigns (organization_id, created_at desc);
-
 create unique index if not exists managed_media_campaigns_provider_campaign_uidx
   on public.managed_media_campaigns (provider, provider_campaign_id)
   where provider_campaign_id is not null;
-
 alter table public.managed_media_campaigns enable row level security;
-
 revoke all on public.managed_media_campaigns from anon;
 revoke all on public.managed_media_campaigns from authenticated;
 grant select, insert, update, delete on public.managed_media_campaigns to service_role;
-
 create or replace function public.settle_managed_media_campaign(
   p_organization_id uuid,
   p_campaign_id uuid,
@@ -167,18 +161,13 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.settle_managed_media_campaign(uuid, uuid, numeric, text, boolean)
   from public, anon, authenticated;
 grant execute on function public.settle_managed_media_campaign(uuid, uuid, numeric, text, boolean)
   to service_role;
-
 comment on table public.managed_media_campaigns is
   'Organization-scoped ledger for Avantiqo-managed media budget reservation, provider execution, spend settlement and release.';
-
 comment on function public.settle_managed_media_campaign(uuid, uuid, numeric, text, boolean) is
   'Atomically locks one managed media campaign, charges newly verified provider spend, releases unused prepaid funds at completion, and updates settlement evidence.';
-
 notify pgrst, 'reload schema';
-
 commit;

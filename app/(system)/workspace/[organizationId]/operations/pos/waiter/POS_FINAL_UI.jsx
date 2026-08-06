@@ -431,7 +431,16 @@ export default function POSFinalUI() {
       return;
     }
 
-    const customer = result.customer;
+    const customer =
+      result.customer?.customer ||
+      result.customer ||
+      null;
+
+    if (!customer?.id) {
+      alert("Created customer response is incomplete");
+      return;
+    }
+
     setCustomerDraft({
       id: customer.id,
       name: customer.customer_name,
@@ -487,11 +496,27 @@ export default function POSFinalUI() {
     }
 
     try {
+      if (
+        table.active_session_id &&
+        customerDraft
+      ) {
+        await posAction("CHANGE_CUSTOMER", {
+          tableId: table.id,
+          sessionId: table.active_session_id,
+          customerId: customerDraft.id || null,
+          customerName: customerDraft.name || null,
+          customerEmail: customerDraft.email || null,
+          customerPhone: customerDraft.phone || null,
+        });
+      }
+
       await posAction("MOVE_GUESTS", {
         tableId: table.id,
         guestCount,
       });
+
       setActiveTableId(table.id);
+      clearCustomerDraft();
       closeModal();
       await loadRuntime();
     } catch (error) {
@@ -959,7 +984,9 @@ export default function POSFinalUI() {
                   key={customer.id}
                   onClick={() => {
                     setCustomerDraft({
-                      id: customer.id,
+                      id:
+                        customer.customer_id ||
+                        customer.id,
                       name: customer.customer_name,
                       phone: customer.customer_phone,
                       email: customer.customer_email,

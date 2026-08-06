@@ -21,7 +21,14 @@ function formatMoney(value, currencyCode) {
   }
 }
 
-export default function ReceiptsPage() {
+function contextLabel(receipt, fallbackLabel) {
+  return receipt?.context?.label ||
+    (receipt?.context?.reference
+      ? `${fallbackLabel} ${receipt.context.reference}`
+      : "No context");
+}
+
+export default function ReceiptsPage({ posConfiguration }) {
   const params = useParams();
   const searchParams = useSearchParams();
   const businessContext = useBusinessContext() || {};
@@ -34,9 +41,13 @@ export default function ReceiptsPage() {
   const currencyCode =
     organization?.currency_code || organization?.currency || businessContext.currency || null;
   const requestedOrderId = searchParams.get("order_id");
+  const contextSingular = posConfiguration?.context?.singularLabel || "Context";
+  const receiptEyebrow =
+    posConfiguration?.presentation?.receiptEyebrow || "Commerce Operations";
 
   const [receipts, setReceipts] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(requestedOrderId || null);
+  const [presentation, setPresentation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -47,7 +58,7 @@ export default function ReceiptsPage() {
 
     try {
       const response = await fetch(
-        `/api/restaurant/receipts?organizationId=${encodeURIComponent(organizationId)}`,
+        `/api/pos/receipts?organizationId=${encodeURIComponent(organizationId)}`,
         { cache: "no-store", credentials: "include" }
       );
       const result = await response.json();
@@ -56,6 +67,7 @@ export default function ReceiptsPage() {
       }
       const rows = result.receipts || [];
       setReceipts(rows);
+      setPresentation(result.presentation || null);
       setSelectedOrderId((current) => current || rows[0]?.order_id || null);
     } catch (loadError) {
       setReceipts([]);
@@ -70,6 +82,7 @@ export default function ReceiptsPage() {
   }, [loadReceipts]);
 
   const receipt = receipts.find((row) => row.order_id === selectedOrderId) || null;
+  const effectiveContextLabel = presentation?.contextSingular || contextSingular;
 
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-white">
@@ -85,20 +98,33 @@ export default function ReceiptsPage() {
         <header className="rounded-[34px] border border-white/10 bg-white/[0.035] p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">Restaurant Operations</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
+                {presentation?.receiptEyebrow || receiptEyebrow}
+              </p>
               <h1 className="mt-3 text-4xl font-semibold">Receipts</h1>
-              <p className="mt-2 text-sm text-white/45">Paid transactions, receipt preview and reprint.</p>
+              <p className="mt-2 text-sm text-white/45">
+                Paid transactions, receipt preview and reprint.
+              </p>
             </div>
-            <button onClick={loadReceipts} className="receipt-actions inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60">
+            <button
+              onClick={loadReceipts}
+              className="receipt-actions inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60"
+            >
               <RefreshCw size={15} /> Refresh
             </button>
           </div>
-          {error ? <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">{error}</div> : null}
+          {error ? (
+            <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
+              {error}
+            </div>
+          ) : null}
         </header>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[0.65fr_1.35fr]">
           <div className="receipt-navigation rounded-[30px] border border-white/10 bg-white/[0.025] p-5">
-            <div className="text-xs uppercase tracking-[0.2em] text-white/35">Paid transactions</div>
+            <div className="text-xs uppercase tracking-[0.2em] text-white/35">
+              Paid transactions
+            </div>
             <div className="mt-4 max-h-[720px] space-y-2 overflow-y-auto">
               {loading ? (
                 <div className="p-8 text-center text-sm text-white/35">Loading receipts...</div>
@@ -111,14 +137,22 @@ export default function ReceiptsPage() {
                   <div className="flex justify-between gap-3">
                     <div>
                       <div className="font-semibold">{row.receipt_number}</div>
-                      <div className="mt-1 text-xs text-white/35">Table {row.table_number || "—"}</div>
+                      <div className="mt-1 text-xs text-white/35">
+                        {contextLabel(row, effectiveContextLabel)}
+                      </div>
                     </div>
-                    <div className="text-sm text-white/60">{formatMoney(row.total, currencyCode)}</div>
+                    <div className="text-sm text-white/60">
+                      {formatMoney(row.total, currencyCode)}
+                    </div>
                   </div>
-                  <div className="mt-3 text-xs text-white/30">{row.created_at ? new Date(row.created_at).toLocaleString() : ""}</div>
+                  <div className="mt-3 text-xs text-white/30">
+                    {row.created_at ? new Date(row.created_at).toLocaleString() : ""}
+                  </div>
                 </button>
               )) : (
-                <div className="p-8 text-center text-sm text-white/35">No paid receipts found.</div>
+                <div className="p-8 text-center text-sm text-white/35">
+                  No paid receipts found.
+                </div>
               )}
             </div>
           </div>
@@ -128,21 +162,35 @@ export default function ReceiptsPage() {
               <>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-3xl font-semibold">{organization?.name || "Receipt"}</h2>
-                    <div className="mt-2 text-sm text-white/40">{receipt.receipt_number}</div>
-                    <div className="mt-1 text-sm text-white/40">Table {receipt.table_number || "—"}</div>
+                    <h2 className="text-3xl font-semibold">
+                      {organization?.name || "Receipt"}
+                    </h2>
+                    <div className="mt-2 text-sm text-white/40">
+                      {receipt.receipt_number}
+                    </div>
+                    <div className="mt-1 text-sm text-white/40">
+                      {contextLabel(receipt, effectiveContextLabel)}
+                    </div>
                   </div>
-                  <button onClick={() => window.print()} className="receipt-actions inline-flex items-center gap-2 rounded-xl bg-[#D6A66A] px-4 py-3 text-sm font-semibold text-black">
+                  <button
+                    onClick={() => window.print()}
+                    className="receipt-actions inline-flex items-center gap-2 rounded-xl bg-[#D6A66A] px-4 py-3 text-sm font-semibold text-black"
+                  >
                     <Printer size={16} /> Print Receipt
                   </button>
                 </div>
 
                 <div className="mt-8 space-y-3">
                   {(receipt.items || []).map((item) => (
-                    <div key={item.id} className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                    <div
+                      key={item.id}
+                      className="flex justify-between gap-4 border-b border-white/10 pb-3"
+                    >
                       <div>
                         <div>{item.item_name || item.name || "Item"}</div>
-                        <div className="mt-1 text-xs text-white/35">{Number(item.quantity || 1)} × {formatMoney(item.price, currencyCode)}</div>
+                        <div className="mt-1 text-xs text-white/35">
+                          {Number(item.quantity || 1)} × {formatMoney(item.price, currencyCode)}
+                        </div>
                       </div>
                       <div>{formatMoney(item.total, currencyCode)}</div>
                     </div>
@@ -158,10 +206,15 @@ export default function ReceiptsPage() {
                 </div>
 
                 <div className="mt-8 border-t border-white/10 pt-5">
-                  <div className="text-xs uppercase tracking-[0.2em] text-white/35">Payment breakdown</div>
+                  <div className="text-xs uppercase tracking-[0.2em] text-white/35">
+                    Payment breakdown
+                  </div>
                   <div className="mt-4 space-y-2">
                     {(receipt.payment_breakdown || []).map((payment) => (
-                      <div key={payment.id} className="flex justify-between rounded-xl border border-white/10 p-3 text-sm">
+                      <div
+                        key={payment.id}
+                        className="flex justify-between rounded-xl border border-white/10 p-3 text-sm"
+                      >
                         <span>{payment.payment_method || payment.method || "Payment"}</span>
                         <span>{formatMoney(payment.amount, currencyCode)}</span>
                       </div>
@@ -170,7 +223,9 @@ export default function ReceiptsPage() {
                 </div>
               </>
             ) : (
-              <div className="flex min-h-[500px] items-center justify-center text-sm text-white/35">Select a receipt to preview it.</div>
+              <div className="flex min-h-[500px] items-center justify-center text-sm text-white/35">
+                Select a receipt to preview it.
+              </div>
             )}
           </div>
         </section>

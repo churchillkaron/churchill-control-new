@@ -30,7 +30,13 @@ export default function CustomersPage() {
     const response = await fetch("/api/customers/history", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId, customerPhone: customer.customer_phone })
+      body: JSON.stringify({
+        organizationId,
+        customerId:
+          customer.customer_id || null,
+        customerPhone:
+          customer.customer_phone || null,
+      })
     });
     const result = await response.json();
     setOrderHistory(result.history || []);
@@ -186,7 +192,13 @@ export default function CustomersPage() {
                 {orderHistory.map(order => (
                   <div key={order.id} className="mb-4 rounded-xl border border-white/10 p-4">
                     <div className="font-semibold">{new Date(order.created_at).toLocaleString()}</div>
-                    <div>Table: {order.table_number}</div>
+                    <div>
+                      Table: {
+                        order.context?.reference ||
+                        order.table_reference ||
+                        "—"
+                      }
+                    </div>
                     <div>Total: ฿{Number(order.total || order.revenue || 0).toLocaleString()}</div>
                     <div>Status: {order.payment_status || order.status}</div>
                     <div className="mt-2">

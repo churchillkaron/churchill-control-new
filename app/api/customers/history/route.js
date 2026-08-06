@@ -4,18 +4,26 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-export async function POST(req) {
+function tableReference(table, session) {
+  return (
+    table?.table_number ||
+    table?.table_name ||
+    session?.table_number ||
+    null
+  );
+}
 
+export async function POST(request) {
   try {
+    const body = await request.json();
 
-    const body =
-      await req.json();
-
-    const access =
-      await requireOrganizationAccess({
-        organizationId:
-          body.organizationId,
-      });
+    const access = await requireOrganizationAccess({
+      organizationId:
+        body.organizationId ||
+        body.organization_id ||
+        null,
+      request,
+    });
 
     if (!access.success) {
       return NextResponse.json(
@@ -24,34 +32,65 @@ export async function POST(req) {
           error: access.error,
         },
         {
-          status: access.status,
+          status: access.status || 403,
         }
       );
     }
 
-    const tenantId =
-      access.tenantId;
+    const customerId =
+      body.customerId ||
+      body.customer_id ||
+      null;
 
     const customerPhone =
-      body.customerPhone;
+      String(
+        body.customerPhone ||
+        body.customer_phone ||
+        ""
+      ).trim();
 
-    const {
-      data: sessions,
-      error: sessionError,
-    } = await supabaseAdmin
-      .from("table_sessions")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("customer_phone", customerPhone);
-
-    if (sessionError) {
-      throw sessionError;
+    if (!customerId && !customerPhone) {
+      return NextResponse.json({
+        success: true,
+        history: [],
+      });
     }
 
-    const sessionIds =
-      (sessions || []).map(
-        s => s.id
+    let sessionQuery = supabaseAdmin
+      .from("table_sessions")
+      .select(
+        "id, table_id, table_number, customer_id, customer_phone"
+      )
+      .eq(
+        "organization_id",
+        access.organizationId
       );
+
+    if (customerId) {
+      sessionQuery = sessionQuery.eq(
+        "customer_id",
+        customerId
+      );
+    } else {
+      sessionQuery = sessionQuery.eq(
+        "customer_phone",
+        customerPhone
+      );
+    }
+
+    const sessionResult =
+      await sessionQuery;
+
+    if (sessionResult.error) {
+      throw sessionResult.error;
+    }
+
+    const sessions =
+      sessionResult.data || [];
+
+    const sessionIds = sessions
+      .map((session) => session.id)
+      .filter(Boolean);
 
     if (!sessionIds.length) {
       return NextResponse.json({
@@ -60,12 +99,13 @@ export async function POST(req) {
       });
     }
 
-    const {
-      data: orders,
-      error: ordersError,
-    } = await supabaseAdmin
+    const orderResult = await supabaseAdmin
       .from("orders")
-      .select("*")
+      .select("*, order_items(*)")
+      .eq(
+        "organization_id",
+        access.organizationId
+      )
       .in("session_id", sessionIds)
       .order(
         "created_at",
@@ -74,61 +114,127 @@ export async function POST(req) {
         }
       );
 
-    if (ordersError) {
-      throw ordersError;
+    if (orderResult.error) {
+      throw orderResult.error;
     }
 
-    const orderIds =
-      (orders || []).map(
-        o => o.id
-      );
+    const tableIds = [
+      ...new Set(
+        sessions
+          .map((session) => session.table_id)
+          .filter(Boolean)
+      ),
+    ];
 
-    const {
-      data: items,
-      error: itemsError,
-    } = await supabaseAdmin
-      .from("order_items")
-      .select("*")
-      .in(
-        "order_id",
-        orderIds.length
-          ? orderIds
-          : ["00000000-0000-0000-0000-000000000000"]
-      );
+    let tables = [];
 
-    if (itemsError) {
-      throw itemsError;
+    if (tableIds.length) {
+      const tableResult = await supabaseAdmin
+        .from("restaurant_tables")
+        .select(
+          "id, table_number, table_name"
+        )
+        .eq(
+          "organization_id",
+          access.organizationId
+        )
+        .in("id", tableIds);
+
+      if (tableResult.error) {
+        throw tableResult.error;
+      }
+
+      tables = tableResult.data || [];
     }
 
-    const history =
-      (orders || []).map(
-        order => ({
-          ...order,
-          items:
-            (items || []).filter(
-              item =>
-                item.order_id === order.id
-            ),
-        })
-      );
+    const sessionById = new Map(
+      sessions.map((session) => [
+        session.id,
+        session,
+      ])
+    );
+
+    const tableById = new Map(
+      tables.map((table) => [
+        table.id,
+        table,
+      ])
+    );
+
+    const history = (
+      orderResult.data || []
+    ).map((order) => {
+      const session =
+        sessionById.get(order.session_id) ||
+        null;
+
+      const table =
+        tableById.get(
+          order.table_id ||
+          session?.table_id
+        ) ||
+        null;
+
+      const reference =
+        tableReference(
+          table,
+          session
+        );
+
+      return {
+        ...order,
+
+        items:
+          Array.isArray(order.order_items)
+            ? order.order_items
+            : [],
+
+        table_reference:
+          reference,
+
+        context: {
+          type:
+            "service_location",
+
+          id:
+            table?.id ||
+            order.table_id ||
+            session?.table_id ||
+            null,
+
+          reference:
+            reference == null
+              ? null
+              : String(reference),
+
+          label:
+            reference == null
+              ? "Unassigned service location"
+              : `Table ${reference}`,
+        },
+      };
+    });
 
     return NextResponse.json({
       success: true,
       history,
     });
-
   } catch (error) {
+    console.error(
+      "CUSTOMER HISTORY ERROR",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error:
+          error?.message ||
+          "Unable to load customer history",
       },
       {
         status: 500,
       }
     );
-
   }
-
 }

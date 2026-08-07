@@ -61,28 +61,26 @@ await import(
   "@/lib/creative/director/runtime/CreativeConceptCriticCoverageRuntime"
 );
 
-// Deterministic replay sits inside local result completion. Replayed raw usage
-// payloads therefore receive exactly the same completion and normalization as
+// Deterministic replay sits inside local result validation. Replayed raw usage
+// payloads therefore receive exactly the same validation and normalization as
 // provider responses, while skipped/new calls continue through cost approval.
 await import(
   "@/lib/creative/director/runtime/CreativeDirectionAttemptReplayRuntime"
 );
 
-// Complete exact provider or replayed direction payloads locally before strict
-// validation. Exact-hash recovery remains disabled by the execution command;
+// Validate exact provider or replayed direction payloads locally before strict
+// release checks. Exact-hash recovery remains disabled by the execution command;
 // deterministic attempt replay is the only authorized reuse path.
 await import(
   "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
 );
 
-// Complete both under-specified and placeholder-style provider direction
-// locally before the strict master-plan validator runs.
-await import(
-  "@/lib/creative/director/runtime/CreativeGenericDirectionCompletionRuntime"
-);
+// The legacy generic-direction completion decorator was retired after master
+// plan completion converged on the frozen V3 validation-only contract. Approved
+// story authority must never be rewritten by CLI bootstrap side effects.
 
 // Install prompt normalization last so every logical request has its canonical
-// input before completion, replay dispatch, budget accounting and execution.
+// input before validation, replay dispatch, budget accounting and execution.
 await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );

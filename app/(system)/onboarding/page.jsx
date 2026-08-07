@@ -7,7 +7,7 @@ export default function OnboardingPage() {
 
   const [form, setForm] = useState({
     name: "",
-    organizationType: "",
+    industry: "",
     country: "",
 
     ownerName: "",
@@ -90,11 +90,11 @@ export default function OnboardingPage() {
             <select
               className="w-full rounded border border-white/10 bg-black/40 p-3"
               value={
-                form.organizationType
+                form.industry
               }
               onChange={e =>
                 update(
-                  "organizationType",
+                  "industry",
                   e.target.value
                 )
               }
@@ -104,6 +104,9 @@ export default function OnboardingPage() {
               </option>
               <option value="restaurant">
                 Restaurant
+              </option>
+              <option value="retail">
+                Retail
               </option>
               <option value="hotel">
                 Hotel
@@ -205,7 +208,7 @@ export default function OnboardingPage() {
                   Industry:
                 </strong>{" "}
                 {
-                  form.organizationType
+                  form.industry
                 }
               </div>
 

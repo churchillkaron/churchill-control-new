@@ -56,9 +56,11 @@ await import(
 await import(
   "@/lib/creative/director/runtime/CreativeDirectionResultCompletionRuntime"
 );
-await import(
-  "@/lib/creative/director/runtime/CreativeGenericDirectionCompletionRuntime"
-);
+
+// Generic direction rewriting was retired when master-plan completion converged
+// on the frozen V3 validation-only contract. Completed replay must preserve the
+// same approved story authority and may not reinstall the retired decorator.
+
 await import(
   "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
 );

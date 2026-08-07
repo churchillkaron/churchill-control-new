@@ -62,8 +62,6 @@ declare
   v_item_unit_cost numeric;
   v_available numeric;
   v_position_balance numeric;
-  v_global_balance numeric;
-  v_global_value numeric;
   v_average_unit_cost numeric;
   v_consumed_reservations integer := 0;
   v_created_movements integer := 0;
@@ -450,20 +448,6 @@ begin
       raise exception 'Unable to allocate fulfillment quantity across physical stock positions for item %',
         v_reservation.item_id;
     end if;
-
-    select
-      coalesce(sum(public.inventory_signed_quantity(type, quantity)), 0),
-      coalesce(sum(public.inventory_signed_quantity(type, quantity) * coalesce(unit_cost, 0)), 0)
-    into v_global_balance, v_global_value
-    from public.inventory_movements
-    where organization_id = p_organization_id
-      and entity_id = p_entity_id
-      and item_id = v_reservation.item_id;
-
-    update public.inventory_items
-    set quantity = v_global_balance
-    where id = v_reservation.item_id
-      and organization_id = p_organization_id;
 
     select case
       when coalesce(sum(quantity_remaining), 0) > 0 then

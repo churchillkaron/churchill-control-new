@@ -9,6 +9,7 @@ export async function POST(request) {
     const payload = buildOnboardingCore({
       name: body.name,
       ownerEmail: body.ownerEmail,
+      industry: body.industry,
     });
 
     const result = await provisionOrganization(payload);

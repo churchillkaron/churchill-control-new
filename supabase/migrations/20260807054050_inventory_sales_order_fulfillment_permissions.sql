@@ -1,0 +1,5 @@
+-- Production history bridge.
+-- Explicit Retail fulfillment function permissions were applied directly through
+-- the connected Supabase project on 2026-08-07.
+-- Reproducible permission enforcement for fresh deployments is retained in
+-- 20260807123100_inventory_sales_order_fulfillment_permissions.sql.

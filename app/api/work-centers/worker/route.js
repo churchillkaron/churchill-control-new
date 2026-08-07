@@ -1,20 +1,71 @@
 export const dynamic = "force-dynamic";
 
-import { processWorkCenterEvents } from "@/lib/workers/work-centers/processWorkCenterEvents";
+import { NextResponse } from "next/server";
 
-export async function GET() {
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { runEventProcessors } from "@/lib/workers/system/runEventProcessors";
+
+function normalizeOrganizationId(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
+export async function POST(request) {
   try {
-    const result = await processWorkCenterEvents();
+    const body = await request.json().catch(() => ({}));
+    const organizationId = normalizeOrganizationId(
+      body.organizationId || body.organization_id,
+    );
 
-    return Response.json({
-      success: true,
-      result,
+    if (!organizationId) {
+      return NextResponse.json(
+        { success: false, error: "organizationId is required" },
+        { status: 400 },
+      );
+    }
+
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
     });
 
-  } catch (err) {
-    return Response.json({
-      success: false,
-      error: err.message,
-    }, { status: 500 });
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status || 403 },
+      );
+    }
+
+    const result = await runEventProcessors({
+      organizationId,
+      limit: Math.max(1, Math.min(Number(body.limit || 50), 200)),
+    });
+
+    return NextResponse.json(
+      {
+        success: result.success !== false,
+        organization_id: organizationId,
+        result,
+      },
+      { status: result.success === false ? 500 : 200 },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Work center event recovery failed",
+      },
+      { status: 500 },
+    );
   }
+}
+
+export async function GET() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Use authenticated POST with organizationId",
+    },
+    { status: 405, headers: { Allow: "POST" } },
+  );
 }

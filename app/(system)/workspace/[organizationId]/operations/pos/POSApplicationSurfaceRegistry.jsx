@@ -95,28 +95,6 @@ function RestaurantSaleSurface(
   );
 }
 
-function RetailReceiptsSurface() {
-  return (
-    <section className="min-h-[620px] bg-[#030712] px-6 py-12 text-white">
-      <div className="mx-auto max-w-[1000px] rounded-[30px] border border-white/10 bg-white/[0.03] p-8">
-        <p className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
-          Retail receipts
-        </p>
-
-        <h2 className="mt-4 text-3xl font-semibold">
-          Receipt rendering is not connected yet
-        </h2>
-
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-white/50">
-          The receipt surface remains inside the Stationary POS terminal.
-          It will use the completed retail sale and settlement records when
-          the retail receipt contract is activated.
-        </p>
-      </div>
-    </section>
-  );
-}
-
 const APPLICATION_SURFACES =
   Object.freeze({
     restaurant:
@@ -149,7 +127,7 @@ const APPLICATION_SURFACES =
           RetailCheckoutWorkspace,
 
         receipts:
-          RetailReceiptsSurface,
+          ReceiptsPage,
 
         cash:
           RetailCashControlWorkspace,

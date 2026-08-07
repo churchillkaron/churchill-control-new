@@ -28,7 +28,19 @@ function contextLabel(receipt, fallbackLabel) {
       : "No context");
 }
 
-export default function ReceiptsPage({ posConfiguration }) {
+function receiptCurrency(receipt, fallback) {
+  return (
+    receipt?.currency_code ||
+    receipt?.currency ||
+    fallback ||
+    null
+  );
+}
+
+export default function ReceiptsPage({
+  posConfiguration,
+  posRuntime,
+}) {
   const params = useParams();
   const searchParams = useSearchParams();
   const businessContext = useBusinessContext() || {};
@@ -38,6 +50,12 @@ export default function ReceiptsPage({ posConfiguration }) {
     businessContext.organization_id ||
     organization?.id ||
     null;
+  const entityId =
+    posRuntime?.terminal?.entity_id ||
+    businessContext.entity_id ||
+    businessContext.entity?.id ||
+    null;
+
   const currencyCode =
     organization?.currency_code || organization?.currency || businessContext.currency || null;
   const requestedOrderId = searchParams.get("order_id");
@@ -57,8 +75,20 @@ export default function ReceiptsPage({ posConfiguration }) {
     setError(null);
 
     try {
+      const query =
+        new URLSearchParams({
+          organizationId,
+        });
+
+      if (entityId) {
+        query.set(
+          "entityId",
+          entityId
+        );
+      }
+
       const response = await fetch(
-        `/api/pos/receipts?organizationId=${encodeURIComponent(organizationId)}`,
+        `/api/pos/receipts?${query.toString()}`,
         { cache: "no-store", credentials: "include" }
       );
       const result = await response.json();
@@ -75,7 +105,7 @@ export default function ReceiptsPage({ posConfiguration }) {
     } finally {
       setLoading(false);
     }
-  }, [organizationId]);
+  }, [entityId, organizationId]);
 
   useEffect(() => {
     loadReceipts();
@@ -83,6 +113,7 @@ export default function ReceiptsPage({ posConfiguration }) {
 
   const receipt = receipts.find((row) => row.order_id === selectedOrderId) || null;
   const effectiveContextLabel = presentation?.contextSingular || contextSingular;
+  const selectedCurrencyCode = receiptCurrency(receipt, currencyCode);
 
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-white">
@@ -142,7 +173,7 @@ export default function ReceiptsPage({ posConfiguration }) {
                       </div>
                     </div>
                     <div className="text-sm text-white/60">
-                      {formatMoney(row.total, currencyCode)}
+                      {formatMoney(row.total, receiptCurrency(row, currencyCode))}
                     </div>
                   </div>
                   <div className="mt-3 text-xs text-white/30">
@@ -189,20 +220,25 @@ export default function ReceiptsPage({ posConfiguration }) {
                       <div>
                         <div>{item.item_name || item.name || "Item"}</div>
                         <div className="mt-1 text-xs text-white/35">
-                          {Number(item.quantity || 1)} × {formatMoney(item.price, currencyCode)}
+                          {Number(item.quantity || 1)} × {formatMoney(item.price, selectedCurrencyCode)}
                         </div>
                       </div>
-                      <div>{formatMoney(item.total, currencyCode)}</div>
+                      <div>{formatMoney(item.total, selectedCurrencyCode)}</div>
                     </div>
                   ))}
                 </div>
 
                 <div className="mt-8 space-y-3 border-t border-white/10 pt-5">
-                  <div className="flex justify-between text-white/55"><span>Subtotal</span><span>{formatMoney(receipt.subtotal, currencyCode)}</span></div>
-                  <div className="flex justify-between text-white/55"><span>Discount</span><span>-{formatMoney(receipt.discount, currencyCode)}</span></div>
-                  <div className="flex justify-between text-white/55"><span>Tax</span><span>{formatMoney(receipt.tax, currencyCode)}</span></div>
-                  <div className="flex justify-between text-white/55"><span>Service charge</span><span>{formatMoney(receipt.service_charge, currencyCode)}</span></div>
-                  <div className="flex justify-between text-2xl font-semibold"><span>Total</span><span>{formatMoney(receipt.total, currencyCode)}</span></div>
+                  <div className="flex justify-between text-white/55"><span>Subtotal</span><span>{formatMoney(receipt.subtotal, selectedCurrencyCode)}</span></div>
+                  <div className="flex justify-between text-white/55"><span>Discount</span><span>-{formatMoney(receipt.discount, selectedCurrencyCode)}</span></div>
+                  <div className="flex justify-between text-white/55"><span>Tax</span><span>{formatMoney(receipt.tax, selectedCurrencyCode)}</span></div>
+                  {Number(receipt.service_charge || 0) !== 0 ? (
+                    <div className="flex justify-between text-white/55">
+                      <span>Service charge</span>
+                      <span>{formatMoney(receipt.service_charge, selectedCurrencyCode)}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex justify-between text-2xl font-semibold"><span>Total</span><span>{formatMoney(receipt.total, selectedCurrencyCode)}</span></div>
                 </div>
 
                 <div className="mt-8 border-t border-white/10 pt-5">
@@ -216,7 +252,7 @@ export default function ReceiptsPage({ posConfiguration }) {
                         className="flex justify-between rounded-xl border border-white/10 p-3 text-sm"
                       >
                         <span>{payment.payment_method || payment.method || "Payment"}</span>
-                        <span>{formatMoney(payment.amount, currencyCode)}</span>
+                        <span>{formatMoney(payment.amount, receiptCurrency(payment, selectedCurrencyCode))}</span>
                       </div>
                     ))}
                   </div>

@@ -1,0 +1,4 @@
+-- Production history bridge.
+-- The canonical Retail fulfillment DDL is retained in
+-- 20260807123000_inventory_sales_order_fulfillment.sql for reproducible fresh deployments.
+-- This version records the direct Supabase connector deployment performed on 2026-08-07.

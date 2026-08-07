@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { RefreshCw, Search, ShieldCheck, PackageCheck } from "lucide-react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 function money(value, currency) {
@@ -21,8 +21,10 @@ function money(value, currency) {
 
 function statusClass(status) {
   const value = String(status || "").toUpperCase();
-  if (value === "CONFIRMED") return "text-emerald-300";
-  if (["CANCELLED", "CLOSED"].includes(value)) return "text-red-300";
+  if (["CONFIRMED", "FULFILLED", "CLOSED"].includes(value)) {
+    return "text-emerald-300";
+  }
+  if (["CANCELLED"].includes(value)) return "text-red-300";
   return "text-[#D6A66A]";
 }
 
@@ -42,6 +44,10 @@ function customerLabel(order = {}) {
     partyName ||
     null
   );
+}
+
+function normalized(value) {
+  return String(value || "").trim().toUpperCase();
 }
 
 export default function RetailOrdersWorkspace() {
@@ -117,6 +123,7 @@ export default function RetailOrdersWorkspace() {
         order.order_number,
         order.status,
         order.payment_status,
+        order.fulfillment_status,
         customerLabel(order),
       ]
         .filter(Boolean)
@@ -128,7 +135,20 @@ export default function RetailOrdersWorkspace() {
 
   const selected = orders.find((order) => order.id === selectedId) || null;
   const lines = selected?.items || selected?.order_items || [];
-  const isDraft = String(selected?.status || "").toUpperCase() === "DRAFT";
+  const orderStatus = normalized(selected?.status);
+  const paymentStatus = normalized(selected?.payment_status);
+  const fulfillmentStatus = normalized(selected?.fulfillment_status);
+  const isDraft = orderStatus === "DRAFT";
+  const isConfirmedUnpaid =
+    orderStatus === "CONFIRMED" &&
+    paymentStatus === "UNPAID" &&
+    fulfillmentStatus === "RESERVED";
+  const isPaidReserved =
+    orderStatus === "CONFIRMED" &&
+    paymentStatus === "PAID" &&
+    fulfillmentStatus === "RESERVED";
+  const isFulfilled =
+    orderStatus === "FULFILLED" && fulfillmentStatus === "FULFILLED";
 
   async function confirmSelected() {
     if (!selected || !organizationId || !entityId || actionLoading) return;
@@ -170,6 +190,46 @@ export default function RetailOrdersWorkspace() {
     }
   }
 
+  async function fulfillSelected() {
+    if (!selected || !organizationId || !entityId || actionLoading) return;
+
+    setActionLoading(true);
+    setError(null);
+    setNotice(null);
+    const idempotencyKey = `sales-order-fulfill:${selected.id}`;
+
+    try {
+      const response = await fetch("/api/inventory/fulfillment/sales-orders", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify({
+          organizationId,
+          entityId,
+          salesOrderId: selected.id,
+          idempotencyKey,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || "Unable to fulfill sales order");
+      }
+
+      setNotice(
+        `${result.order_number || selected.order_number || "Sales order"} fulfilled and reserved inventory consumed.`
+      );
+      await loadOrders();
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-white">
       <div className="mx-auto max-w-[1500px]">
@@ -181,9 +241,9 @@ export default function RetailOrdersWorkspace() {
               </p>
               <h1 className="mt-3 text-4xl font-semibold">Retail sales orders</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-                Draft orders can be confirmed only when entity-scoped inventory is
-                available. Confirmation assigns the configured order number and
-                creates active stock reservations before settlement.
+                Confirmed orders reserve entity-scoped inventory. Paid reserved orders
+                can then be fulfilled, consuming the reservation into canonical SALE
+                inventory movements.
               </p>
             </div>
             <button
@@ -336,12 +396,46 @@ export default function RetailOrdersWorkspace() {
                     <ShieldCheck size={17} />
                     {actionLoading ? "Confirming..." : "Confirm and reserve stock"}
                   </button>
-                ) : (
-                  <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 text-xs leading-5 text-emerald-100/70">
-                    Inventory is reserved for this confirmed sales order. Payment
-                    remains unavailable until the Finance settlement contract is active.
+                ) : null}
+
+                {isPaidReserved ? (
+                  <button
+                    type="button"
+                    onClick={fulfillSelected}
+                    disabled={actionLoading}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#D6A66A] px-4 py-4 text-sm font-semibold text-black disabled:opacity-35"
+                  >
+                    <PackageCheck size={17} />
+                    {actionLoading ? "Fulfilling..." : "Fulfill sale"}
+                  </button>
+                ) : null}
+
+                {isConfirmedUnpaid ? (
+                  <div className="mt-6 rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-4 text-xs leading-5 text-[#E8C89D]/75">
+                    Inventory is reserved. This order can proceed to Retail cash checkout
+                    when an active cash session is open for the selected legal entity.
                   </div>
-                )}
+                ) : null}
+
+                {isPaidReserved ? (
+                  <div className="mt-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 text-xs leading-5 text-emerald-100/70">
+                    Payment is complete and inventory remains reserved. Fulfillment will
+                    consume the reservation into canonical SALE stock movements.
+                  </div>
+                ) : null}
+
+                {isFulfilled ? (
+                  <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 text-xs leading-5 text-emerald-100/70">
+                    Fulfillment is complete. Reserved inventory has been consumed and the
+                    sales order is closed from the stock-fulfillment perspective.
+                  </div>
+                ) : null}
+
+                {!isDraft && !isConfirmedUnpaid && !isPaidReserved && !isFulfilled ? (
+                  <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-5 text-white/45">
+                    This sales order is not currently eligible for a Retail lifecycle action.
+                  </div>
+                ) : null}
 
                 {isDraft ? (
                   <p className="mt-3 text-xs leading-5 text-white/35">

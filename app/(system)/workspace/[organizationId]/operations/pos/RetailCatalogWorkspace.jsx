@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -33,7 +33,7 @@ function availabilityLabel(item) {
   return `${Number(onHand)} available`;
 }
 
-export default function RetailCatalogWorkspace() {
+export default function RetailCatalogWorkspace({ posRuntime }) {
   const params = useParams();
   const router = useRouter();
   const businessContext = useBusinessContext() || {};
@@ -43,47 +43,14 @@ export default function RetailCatalogWorkspace() {
     businessContext.organization?.id ||
     null;
   const entityId = businessContext.entity_id || businessContext.entity?.id || null;
+  const runtime = posRuntime || null;
 
-  const [runtime, setRuntime] = useState(null);
   const [query, setQuery] = useState("");
   const [basket, setBasket] = useState({});
-  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
   const [createdOrder, setCreatedOrder] = useState(null);
   const idempotencyKeyRef = useRef(null);
-
-  const loadRuntime = useCallback(async () => {
-    if (!organizationId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const search = new URLSearchParams({
-        organizationId,
-        applicationId: "retail",
-      });
-      if (entityId) search.set("entityId", entityId);
-
-      const response = await fetch(`/api/pos/runtime?${search.toString()}`, {
-        cache: "no-store",
-        credentials: "include",
-      });
-      const result = await response.json();
-      if (!response.ok || result.success === false) {
-        throw new Error(result.error || "Unable to load retail catalog");
-      }
-      setRuntime(result);
-    } catch (loadError) {
-      setRuntime(null);
-      setError(loadError.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [entityId, organizationId]);
-
-  useEffect(() => {
-    loadRuntime();
-  }, [loadRuntime]);
 
   const items = runtime?.catalog?.items || [];
   const currency =
@@ -187,7 +154,6 @@ export default function RetailCatalogWorkspace() {
       setCreatedOrder(result);
       setBasket({});
       idempotencyKeyRef.current = null;
-      await loadRuntime();
     } catch (createError) {
       setError(createError.message);
     } finally {
@@ -212,11 +178,10 @@ export default function RetailCatalogWorkspace() {
             </div>
             <button
               type="button"
-              onClick={loadRuntime}
-              disabled={loading}
+              onClick={() => window.location.reload()}
               className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm text-white/60"
             >
-              <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+              <RefreshCw size={15} />
               Refresh
             </button>
           </div>
@@ -273,11 +238,7 @@ export default function RetailCatalogWorkspace() {
               />
             </div>
 
-            {loading ? (
-              <div className="rounded-3xl border border-white/10 p-12 text-center text-white/35">
-                Loading retail catalog...
-              </div>
-            ) : visibleItems.length ? (
+            {visibleItems.length ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {visibleItems.map((item) => (
                   <article

@@ -21,6 +21,7 @@ const SOURCE_FILES = [
   "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
   "lib/creative/director/runtime/CreativeUniversalTemporalDirectionRuntime.js",
   "lib/creative/director/runtime/CreativeConceptCouncilRuntime.js",
+  "lib/creative/director/runtime/CreativeCinematicImpactRuntime.js",
   "lib/creative/director/runtime/CreativeDirectionCostApprovalRuntime.js",
   "lib/creative/director/runtime/CreativeMeasuredUniversalTemporalDirectionRuntime.js",
 ];
@@ -121,6 +122,7 @@ function assertCurrentWorkloadSource(sources = []) {
     "CREATIVE_CONCEPT_CRITIC_",
     "CREATIVE_EXECUTIVE_CONCEPT_SELECTION_V1",
     "CREATIVE_SELECTED_CONCEPT_PLAN_REVISION_V1",
+    "CREATIVE_CINEMATIC_IMPACT_REVISION_V1",
     "CREATIVE_IDENTITY_ATLAS_MATERIALIZATION_AUTHORIZED",
     "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2",
   ];
@@ -309,6 +311,12 @@ function operationDefinitions({ musicVideo, sceneCount }) {
       count: 1,
       max_output_tokens: 16000,
       stage: "SELECTED_CONCEPT_REVISION",
+    },
+    {
+      operation: "CREATIVE_CINEMATIC_IMPACT_REVISION_V1",
+      count: 1,
+      max_output_tokens: 18000,
+      stage: "CINEMATIC_IMPACT_REVISION",
     },
   );
   return operations;

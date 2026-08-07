@@ -12,6 +12,11 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function finite(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function readJson(filePath, label) {
   const absolute = path.resolve(filePath);
   if (!fs.existsSync(absolute)) {
@@ -26,7 +31,7 @@ function readJson(filePath, label) {
 const planFile = readJson(process.argv[2], "SOURCE_SEMANTIC_REPAIR_PLAN");
 const output = path.resolve(
   text(process.env.SOURCE_SEMANTIC_REPAIR_EXECUTION_OUTPUT) ||
-    "/tmp/churchill-source-semantic-repair-execution.json",
+    "/tmp/creative-source-semantic-repair-execution.json",
 );
 
 const organizationId = text(process.env.ORGANIZATION_ID);
@@ -40,10 +45,19 @@ if (text(planFile.value.creative_project_id) !== projectId) {
   throw new Error("SOURCE_SEMANTIC_REPAIR_PROJECT_MISMATCH");
 }
 
-// Legacy Churchill source assets contain Supabase Storage URLs that can return
-// HTTP 400 outside the authenticated client. Install admin-storage recovery
-// before loading the repair and provider runtimes so all source reads use the
-// same authenticated fallback without exposing service credentials.
+const approvalMaximum = finite(planFile.value.pricing?.approval_ceiling);
+const approvalCurrency = text(planFile.value.pricing?.currency).toUpperCase();
+const approvedAt = text(process.env.SOURCE_SEMANTIC_REPAIR_APPROVED_AT);
+if (approvalMaximum === null || approvalMaximum <= 0) {
+  throw new Error("SOURCE_SEMANTIC_REPAIR_APPROVAL_CEILING_REQUIRED");
+}
+if (!approvalCurrency) {
+  throw new Error("SOURCE_SEMANTIC_REPAIR_APPROVAL_CURRENCY_REQUIRED");
+}
+if (!approvedAt) {
+  throw new Error("SOURCE_SEMANTIC_REPAIR_APPROVED_AT_REQUIRED");
+}
+
 const {
   SupabaseStorageFetchRuntime,
 } = await import(
@@ -52,17 +66,22 @@ const {
 
 const {
   executeCreativeSourceSemanticRepair,
+  sourceSemanticRepairApprovalLiteral,
 } = await import(
   "@/lib/creative/assets/intelligence/runtime/CreativeSourceSemanticRepairExecutionRuntime"
 );
+
+const approvalLiteral = sourceSemanticRepairApprovalLiteral(planFile.value);
 
 console.log("============================================================");
 console.log("APPROVED CREATIVE SOURCE SEMANTIC REPAIR");
 console.log("============================================================");
 console.log(`PLAN=${planFile.absolute}`);
 console.log(`PLAN_HASH=${planFile.value.plan_hash}`);
-console.log("APPROVAL_LITERAL=APPROVE SOURCE SEMANTIC REPAIR MAX 8.736 THB");
-console.log("APPROVAL_MAXIMUM_THB=8.736");
+console.log(`APPROVAL_LITERAL=${approvalLiteral}`);
+console.log(`APPROVAL_MAXIMUM=${approvalMaximum}`);
+console.log(`APPROVAL_CURRENCY=${approvalCurrency}`);
+console.log(`APPROVED_AT=${approvedAt}`);
 console.log(`SUPABASE_STORAGE_RECOVERY_INSTALLED=${SupabaseStorageFetchRuntime.installation.installed ? "YES" : "NO"}`);
 console.log("PRODUCTION_AUTHORIZED=NO");
 console.log("PUBLICATION_AUTHORIZED=NO");
@@ -70,9 +89,10 @@ console.log("============================================================");
 
 const report = await executeCreativeSourceSemanticRepair({
   plan: planFile.value,
-  approval_literal: "APPROVE SOURCE SEMANTIC REPAIR MAX 8.736 THB",
-  approval_maximum_thb: 8.736,
-  approved_at: "2026-08-04T19:03:00+07:00",
+  approval_literal: approvalLiteral,
+  approval_maximum: approvalMaximum,
+  approval_currency: approvalCurrency,
+  approved_at: approvedAt,
   output_file: output,
 });
 
@@ -82,6 +102,8 @@ console.log("============================================================");
 console.log(`OUTPUT=${output}`);
 console.log(`EXECUTION_HASH=${report.execution_hash}`);
 console.log(`PLANNED_WORK_ITEM_COUNT=${report.counts.planned_work_items}`);
+console.log(`RETRY_RESERVE_COUNT=${report.counts.retry_reserve_count}`);
+console.log(`MAXIMUM_PAID_CALLS=${report.counts.maximum_paid_calls}`);
 console.log(`SUCCESSFUL_USAGE_COUNT=${report.counts.paid_successful_usage_count}`);
 console.log(`FAILED_USAGE_COUNT=${report.counts.failed_usage_count}`);
 console.log(`VERIFIED_ASSET_COUNT=${report.counts.verified_asset_count}`);

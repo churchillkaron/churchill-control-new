@@ -25,47 +25,80 @@ function statusFor(error) {
   return 500;
 }
 
+function json(payload, status = 200) {
+  return Response.json(payload, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+      Pragma: "no-cache",
+    },
+  });
+}
+
+async function runReadiness(request, organizationId) {
+  const resolvedOrganizationId = text(organizationId);
+
+  const access = await requireOrganizationAccess({
+    organizationId: resolvedOrganizationId,
+    request,
+    requiredAnyPermission: [
+      "creative.*",
+      "creative.execute",
+    ],
+  });
+
+  if (!access.success) {
+    return json(access, access.status);
+  }
+
+  const result = await checkGeminiReadiness({
+    organization_id: resolvedOrganizationId,
+  });
+
+  return json({
+    ...result,
+    organization_id: resolvedOrganizationId,
+    requested_by: access.userId || access.user?.id || null,
+  });
+}
+
+function failure(error) {
+  return json(
+    {
+      success: false,
+      ready: false,
+      generation_requested: false,
+      media_generated: false,
+      wallet_used: false,
+      billable_generation_authorized: false,
+      secret_exposed: false,
+      error: error?.message || String(error),
+    },
+    statusFor(error),
+  );
+}
+
+export async function GET(request) {
+  try {
+    const url = new URL(request.url);
+    return await runReadiness(
+      request,
+      url.searchParams.get("organization_id") ||
+        url.searchParams.get("organizationId"),
+    );
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const organizationId = text(
+    return await runReadiness(
+      request,
       body.organization_id || body.organizationId,
     );
-
-    const access = await requireOrganizationAccess({
-      organizationId,
-      request,
-      requiredAnyPermission: [
-        "creative.*",
-        "creative.execute",
-      ],
-    });
-
-    if (!access.success) {
-      return Response.json(access, { status: access.status });
-    }
-
-    const result = await checkGeminiReadiness({
-      organization_id: organizationId,
-    });
-
-    return Response.json({
-      ...result,
-      organization_id: organizationId,
-      requested_by: access.userId || access.user?.id || null,
-    });
   } catch (error) {
-    return Response.json(
-      {
-        success: false,
-        ready: false,
-        generation_requested: false,
-        media_generated: false,
-        wallet_used: false,
-        billable_generation_authorized: false,
-        error: error?.message || String(error),
-      },
-      { status: statusFor(error) },
-    );
+    return failure(error);
   }
 }

@@ -383,6 +383,16 @@ export default function RowActionEngine({
     action?.capability && action?.action && action?.form
   );
 
+  const resolvedSchema =
+    Array.isArray(
+      resolvedAction?.schema
+    )
+      ? resolvedAction.schema.filter(Boolean)
+      : [];
+
+  const isResolvedFormAction =
+    resolvedSchema.length > 0;
+
   if (isCapabilityAction) {
     const schema = getForm(action?.form);
 
@@ -448,6 +458,241 @@ export default function RowActionEngine({
         periodId={periodId}
         moduleKey={moduleKey}
         onComplete={onComplete}
+      />
+    );
+  }
+
+  if (isResolvedFormAction) {
+    const formEndpoint =
+      resolvedAction?.endpoint ||
+      endpointFromAction(
+        action
+      );
+
+    const formMethod =
+      resolvedAction?.method ||
+      action?.method ||
+      "POST";
+
+    async function saveResolvedFormAction() {
+      try {
+        setSaving(true);
+
+        if (!formEndpoint) {
+          throw new Error(
+            "This action is not connected to an execution endpoint yet."
+          );
+        }
+
+        const missing =
+          resolvedSchema
+            .filter(
+              field => {
+                if (
+                  !field?.required
+                ) {
+                  return false;
+                }
+
+                const value =
+                  values[
+                    field.name
+                  ];
+
+                return (
+                  value ===
+                    undefined ||
+                  value ===
+                    null ||
+                  value ===
+                    ""
+                );
+              }
+            )
+            .map(
+              field =>
+                field.label ||
+                field.name
+            );
+
+        if (missing.length) {
+          throw new Error(
+            `Complete required fields: ${missing.join(", ")}`
+          );
+        }
+
+        const fieldPayload =
+          Object.fromEntries(
+            resolvedSchema.map(
+              field => [
+                field.name,
+                values[
+                  field.name
+                ],
+              ]
+            )
+          );
+
+        const resolvedEntityId =
+          resolvedAction
+            ?.payload
+            ?.entity_id ||
+          row?.entity_id ||
+          entityId ||
+          null;
+
+        const payload = {
+          ...(
+            resolvedAction?.payload ||
+            {}
+          ),
+
+          ...fieldPayload,
+
+          organizationId,
+          organization_id:
+            organizationId,
+
+          entityId:
+            resolvedEntityId,
+
+          entity_id:
+            resolvedEntityId,
+
+          periodId:
+            periodId ||
+            row?.period_id ||
+            null,
+
+          period_id:
+            periodId ||
+            row?.period_id ||
+            null,
+
+          workspaceId,
+          workspace_id:
+            workspaceId,
+
+          moduleKey,
+          module:
+            moduleKey,
+
+          action:
+            kind,
+
+          action_id:
+            action?.id ||
+            kind,
+
+          id:
+            row?.id,
+        };
+
+        const response =
+          await fetch(
+            formEndpoint,
+            {
+              method:
+                formMethod,
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify(
+                  payload
+                ),
+            }
+          );
+
+        const json =
+          await response
+            .json()
+            .catch(
+              () => ({})
+            );
+
+        if (
+          !response.ok ||
+          json?.success ===
+            false
+        ) {
+          throw new Error(
+            json?.error ||
+            json?.message ||
+            `${titleFromAction(action)} failed`
+          );
+        }
+
+        onComplete?.();
+        onClose?.();
+      } catch (saveError) {
+        window.alert(
+          saveError?.message ||
+          "Action failed"
+        );
+      } finally {
+        setSaving(false);
+      }
+    }
+
+    return (
+      <CapabilityActionResolver
+        open={true}
+        saving={saving}
+        action={{
+          ...action,
+          ...resolvedAction,
+          engine:
+            resolvedAction?.engine ||
+            "create",
+        }}
+        fallbackLabel={
+          resolvedAction?.title ||
+          titleFromAction(action)
+        }
+        schema={
+          resolvedSchema
+        }
+        values={
+          values
+        }
+        onChange={(name, value) =>
+          setValues(
+            current => ({
+              ...current,
+              [name]:
+                value,
+            })
+          )
+        }
+        onClose={
+          onClose
+        }
+        onSave={
+          saveResolvedFormAction
+        }
+        organizationId={
+          organizationId
+        }
+        entityId={
+          entityId
+        }
+        partyId={
+          row?.party_id ||
+          null
+        }
+        periodId={
+          periodId
+        }
+        moduleKey={
+          moduleKey
+        }
+        onComplete={
+          onComplete
+        }
       />
     );
   }

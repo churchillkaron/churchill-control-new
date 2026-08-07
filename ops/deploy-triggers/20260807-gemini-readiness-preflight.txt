@@ -1,0 +1,5 @@
+Vercel production build trigger for Gemini Omni readiness preflight.
+Target branch: main
+Target source commit before trigger: 07008589d9a90755575155ff56c803edffea7397
+Purpose: deploy the authenticated zero-generation Gemini readiness endpoint and current governed Gemini runtime code.
+Safety: no provider generation requested; no wallet spend authorized by this trigger.

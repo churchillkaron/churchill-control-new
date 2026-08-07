@@ -50,7 +50,7 @@ function normalized(value) {
   return String(value || "").trim().toUpperCase();
 }
 
-export default function RetailOrdersWorkspace() {
+export default function RetailOrdersWorkspace({ posRuntime }) {
   const params = useParams();
   const businessContext = useBusinessContext() || {};
   const organizationId =
@@ -64,6 +64,9 @@ export default function RetailOrdersWorkspace() {
     businessContext.organization?.currency_code ||
     businessContext.currency ||
     null;
+  const fulfillmentReady =
+    posRuntime?.fulfillment_ready === true ||
+    posRuntime?.fulfillment?.ready === true;
 
   const [orders, setOrders] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -191,7 +194,15 @@ export default function RetailOrdersWorkspace() {
   }
 
   async function fulfillSelected() {
-    if (!selected || !organizationId || !entityId || actionLoading) return;
+    if (
+      !selected ||
+      !organizationId ||
+      !entityId ||
+      !fulfillmentReady ||
+      actionLoading
+    ) {
+      return;
+    }
 
     setActionLoading(true);
     setError(null);
@@ -243,7 +254,7 @@ export default function RetailOrdersWorkspace() {
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
                 Confirmed orders reserve entity-scoped inventory. Paid reserved orders
                 can then be fulfilled, consuming the reservation into canonical SALE
-                inventory movements.
+                inventory movements when the Inventory fulfillment contract is active.
               </p>
             </div>
             <button
@@ -398,7 +409,7 @@ export default function RetailOrdersWorkspace() {
                   </button>
                 ) : null}
 
-                {isPaidReserved ? (
+                {isPaidReserved && fulfillmentReady ? (
                   <button
                     type="button"
                     onClick={fulfillSelected}
@@ -417,10 +428,17 @@ export default function RetailOrdersWorkspace() {
                   </div>
                 ) : null}
 
-                {isPaidReserved ? (
+                {isPaidReserved && fulfillmentReady ? (
                   <div className="mt-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 text-xs leading-5 text-emerald-100/70">
                     Payment is complete and inventory remains reserved. Fulfillment will
                     consume the reservation into canonical SALE stock movements.
+                  </div>
+                ) : null}
+
+                {isPaidReserved && !fulfillmentReady ? (
+                  <div className="mt-6 rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-4 text-xs leading-5 text-[#E8C89D]/75">
+                    Payment is complete and inventory remains reserved. Fulfillment is
+                    waiting for the Inventory database migration to become active.
                   </div>
                 ) : null}
 

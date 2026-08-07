@@ -181,6 +181,7 @@ function UnsupportedApplication({
 export default function StationaryPOSUI({
   posConfiguration,
   posRuntime,
+  refreshPOSRuntime,
 }) {
   const params =
     useParams();
@@ -359,6 +360,9 @@ export default function StationaryPOSUI({
           }
           posRuntime={
             posRuntime
+          }
+          refreshPOSRuntime={
+            refreshPOSRuntime
           }
           applicationBinding={
             posRuntime

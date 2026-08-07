@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -127,36 +128,23 @@ export default function POSWorkspace() {
       status: null,
     });
 
-  useEffect(() => {
-    if (!organizationId) {
-      setState({
-        data: null,
-        error:
-          businessContext.loading
-            ? null
-            : "Organization context is unavailable.",
-        loading:
-          Boolean(
-            businessContext.loading
-          ),
-        status: null,
-      });
+  const fetchRuntime =
+    useCallback(
+      async ({
+        signal,
+      } = {}) => {
+        if (!organizationId) {
+          const runtimeError =
+            new Error(
+              "Organization context is unavailable."
+            );
 
-      return undefined;
-    }
+          runtimeError.status =
+            400;
 
-    const controller =
-      new AbortController();
+          throw runtimeError;
+        }
 
-    async function loadRuntime() {
-      setState({
-        data: null,
-        error: null,
-        loading: true,
-        status: null,
-      });
-
-      try {
         const query =
           new URLSearchParams({
             organizationId,
@@ -173,14 +161,15 @@ export default function POSWorkspace() {
           await fetch(
             `/api/pos/runtime?${query.toString()}`,
             {
-              credentials: "include",
-              cache: "no-store",
+              credentials:
+                "include",
+              cache:
+                "no-store",
               headers: {
                 Accept:
                   "application/json",
               },
-              signal:
-                controller.signal,
+              signal,
             }
           );
 
@@ -191,55 +180,140 @@ export default function POSWorkspace() {
 
         if (
           !response.ok ||
-          result?.success !== true
+          result?.success !==
+            true
         ) {
-          setState({
-            data: null,
-            error:
+          const runtimeError =
+            new Error(
               result?.error ||
-              "Unable to load the POS runtime.",
-            loading: false,
-            status:
-              response.status,
-          });
+                "Unable to load the POS runtime."
+            );
 
-          return;
+          runtimeError.status =
+            response.status;
+
+          throw runtimeError;
         }
 
-        setState({
-          data: result,
-          error: null,
-          loading: false,
+        return {
+          data:
+            result,
           status:
             response.status,
-        });
-      } catch (error) {
-        if (
-          error?.name ===
-          "AbortError"
-        ) {
-          return;
-        }
+        };
+      },
+      [
+        entityId,
+        organizationId,
+      ]
+    );
+
+  const refreshPOSRuntime =
+    useCallback(
+      async () => {
+        const refreshed =
+          await fetchRuntime();
 
         setState({
-          data: null,
+          data:
+            refreshed.data,
           error:
-            error?.message ||
-            "Unable to load the POS runtime.",
-          loading: false,
-          status: null,
+            null,
+          loading:
+            false,
+          status:
+            refreshed.status,
         });
-      }
+
+        return refreshed.data;
+      },
+      [
+        fetchRuntime,
+      ]
+    );
+
+  useEffect(() => {
+    if (!organizationId) {
+      setState({
+        data:
+          null,
+        error:
+          businessContext.loading
+            ? null
+            : "Organization context is unavailable.",
+        loading:
+          Boolean(
+            businessContext.loading
+          ),
+        status:
+          null,
+      });
+
+      return undefined;
     }
 
-    loadRuntime();
+    const controller =
+      new AbortController();
+
+    setState({
+      data:
+        null,
+      error:
+        null,
+      loading:
+        true,
+      status:
+        null,
+    });
+
+    fetchRuntime({
+      signal:
+        controller.signal,
+    })
+      .then(
+        refreshed => {
+          setState({
+            data:
+              refreshed.data,
+            error:
+              null,
+            loading:
+              false,
+            status:
+              refreshed.status,
+          });
+        }
+      )
+      .catch(
+        error => {
+          if (
+            error?.name ===
+            "AbortError"
+          ) {
+            return;
+          }
+
+          setState({
+            data:
+              null,
+            error:
+              error?.message ||
+              "Unable to load the POS runtime.",
+            loading:
+              false,
+            status:
+              error?.status ||
+              null,
+          });
+        }
+      );
 
     return () => {
       controller.abort();
     };
   }, [
     businessContext.loading,
-    entityId,
+    fetchRuntime,
     organizationId,
     version,
   ]);
@@ -287,6 +361,9 @@ export default function POSWorkspace() {
         configuration
       }
       posRuntime={runtime}
+      refreshPOSRuntime={
+        refreshPOSRuntime
+      }
     />
   );
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
-import { loadWaiterData } from "@/lib/restaurant/pos/waiter/loadWaiterData";
 import { groupMenuByCategory } from "@/lib/restaurant/pos/waiter/groupMenuByCategory";
 import { assignSeatToBillGroup } from "@/lib/restaurant/pos/tables/assignSeatToBillGroup";
 
@@ -16,6 +15,51 @@ function tableName(table) {
 
 function seatOf(item) {
   return item?.seat_position || item?.seat_number || item?.modifiers?.seat || null;
+}
+
+function normalizeWaiterRuntime(value) {
+  if (
+    !value ||
+    typeof value !== "object"
+  ) {
+    return null;
+  }
+
+  return {
+    ...value,
+    zones:
+      value.zones || [],
+    tables:
+      [...(value.tables || [])].sort(
+        (a, b) =>
+          Number(
+            String(
+              a.table_name ||
+              a.table_number ||
+              ""
+            ).replace(
+              /\D/g,
+              ""
+            )
+          ) -
+          Number(
+            String(
+              b.table_name ||
+              b.table_number ||
+              ""
+            ).replace(
+              /\D/g,
+              ""
+            )
+          )
+      ),
+    dishes:
+      value.dishes || [],
+    posSettings:
+      value.posSettings ||
+      value.settings ||
+      {},
+  };
 }
 
 function normalizeModifierGroups(settings) {
@@ -102,15 +146,29 @@ function SecondaryButton({ children, ...props }) {
   );
 }
 
-export default function POSFinalUI() {
+export default function POSFinalUI({
+  posRuntime,
+  refreshPOSRuntime,
+}) {
   const { organization } = useBusinessContext();
-  const organizationId = organization?.id || null;
+
+  const organizationId =
+    posRuntime?.organization?.id ||
+    organization?.id ||
+    null;
 
   const holdTimer = useRef(null);
   const longPressFired = useRef(false);
   const orderRequestKey = useRef(null);
 
-  const [runtime, setRuntime] = useState(null);
+  const [runtime, setRuntime] =
+    useState(() =>
+      posRuntime
+        ? normalizeWaiterRuntime(
+            posRuntime
+          )
+        : null
+    );
   const [runtimeError, setRuntimeError] = useState(null);
   const [activeZoneId, setActiveZoneId] = useState(null);
   const [activeTableId, setActiveTableId] = useState(null);
@@ -222,26 +280,93 @@ export default function POSFinalUI() {
     return Array.from({ length: guestCount }, (_, index) => String(index + 1));
   }, [moveSeatOrders, modalTable]);
 
-  async function loadRuntime() {
-    if (!organizationId) return;
+  function applyRuntime(
+    loaded
+  ) {
+    const normalized =
+      normalizeWaiterRuntime(
+        loaded
+      );
+
+    if (!normalized) {
+      return null;
+    }
+
+    setRuntime(
+      normalized
+    );
+
+    setRuntimeError(
+      null
+    );
+
+    setActiveZoneId(
+      current =>
+        current ||
+        normalized
+          ?.zones?.[0]?.id ||
+        null
+    );
+
+    const grouped =
+      groupMenuByCategory(
+        normalized
+          ?.dishes || []
+      );
+
+    const firstCategory =
+      Object.keys(
+        grouped || {}
+      )[0] ||
+      null;
+
+    setActiveCategory(
+      current =>
+        current ||
+        firstCategory ||
+        null
+    );
+
+    return normalized;
+  }
+
+  async function refreshRuntime() {
+    if (
+      typeof refreshPOSRuntime !==
+      "function"
+    ) {
+      const loaded =
+        applyRuntime(
+          posRuntime
+        );
+
+      if (!loaded) {
+        setRuntimeError(
+          "POS runtime refresh is unavailable"
+        );
+      }
+
+      return loaded;
+    }
 
     try {
-      setRuntimeError(null);
-      const loaded = await loadWaiterData(organizationId);
-      setRuntime(loaded);
+      setRuntimeError(
+        null
+      );
 
-      if (!activeZoneId && loaded?.zones?.[0]?.id) {
-        setActiveZoneId(loaded.zones[0].id);
-      }
+      const refreshed =
+        await refreshPOSRuntime();
 
-      const grouped = groupMenuByCategory(loaded?.dishes || []);
-      const firstCategory = Object.keys(grouped || {})[0];
-
-      if (!activeCategory && firstCategory) {
-        setActiveCategory(firstCategory);
-      }
+      return applyRuntime(
+        refreshed
+      );
     } catch (error) {
-      setRuntimeError(error?.message || "Unable to load waiter runtime");
+      setRuntimeError(
+        error?.message ||
+        "Unable to refresh waiter runtime"
+      );
+
+      return null;
     }
   }
 
@@ -287,8 +412,14 @@ export default function POSFinalUI() {
   }
 
   useEffect(() => {
-    loadRuntime();
-  }, [organizationId]);
+    if (!posRuntime) {
+      return;
+    }
+
+    applyRuntime(
+      posRuntime
+    );
+  }, [posRuntime]);
 
   function clearHold() {
     if (holdTimer.current) {
@@ -518,7 +649,7 @@ export default function POSFinalUI() {
       setActiveTableId(table.id);
       clearCustomerDraft();
       closeModal();
-      await loadRuntime();
+      await refreshRuntime();
     } catch (error) {
       alert(error.message);
     }
@@ -633,7 +764,7 @@ export default function POSFinalUI() {
         ? "Order saved. Kitchen dispatch is pending."
         : "Order sent to kitchen"
     );
-    await loadRuntime();
+    await refreshRuntime();
   }
 
   async function showOpenTable(table) {
@@ -717,7 +848,7 @@ export default function POSFinalUI() {
     }
 
     closeModal();
-    await loadRuntime();
+    await refreshRuntime();
   }
 
   async function confirmTransferTable() {
@@ -729,7 +860,7 @@ export default function POSFinalUI() {
         toTableId: targetTableId,
       });
       closeModal();
-      await loadRuntime();
+      await refreshRuntime();
     } catch (error) {
       alert(error.message);
     }
@@ -744,7 +875,7 @@ export default function POSFinalUI() {
         targetTableIds: mergeTargetIds,
       });
       closeModal();
-      await loadRuntime();
+      await refreshRuntime();
     } catch (error) {
       alert(error.message);
     }
@@ -767,7 +898,7 @@ export default function POSFinalUI() {
         <div className="mx-auto flex min-h-[80vh] w-full max-w-[430px] flex-col items-center justify-center gap-4 rounded-[32px] border border-red-500/20 bg-[#060606] p-6 text-center">
           <div className="text-sm text-red-300">{runtimeError}</div>
           <button
-            onClick={loadRuntime}
+            onClick={refreshRuntime}
             className="rounded-xl bg-[#D6A66A] px-5 py-3 text-xs font-bold text-black"
           >
             Retry
@@ -1259,7 +1390,7 @@ export default function POSFinalUI() {
                         Number(openTable.current_guests || 1) - 1
                       ),
                     });
-                    await loadRuntime();
+                    await refreshRuntime();
                     await showOpenTable(openTable);
                   }}
                   className="h-7 w-7 rounded-lg border border-white/10 bg-white/[0.04] text-xs"
@@ -1275,7 +1406,7 @@ export default function POSFinalUI() {
                       tableId: openTable.id,
                       guestCount: Number(openTable.current_guests || 0) + 1,
                     });
-                    await loadRuntime();
+                    await refreshRuntime();
                     await showOpenTable(openTable);
                   }}
                   className="h-7 w-7 rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/10 text-xs text-[#E2C48A]"

@@ -170,6 +170,15 @@ export async function GET(request) {
           resolved.application.id,
         name:
           resolved.application.name,
+        status:
+          resolved.application.status ||
+          null,
+        context:
+          resolved.application.context ||
+          null,
+        presentation:
+          resolved.application.presentation ||
+          null,
       },
 
       applicationBinding,

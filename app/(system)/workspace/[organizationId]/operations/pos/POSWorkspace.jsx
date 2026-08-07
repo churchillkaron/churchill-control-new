@@ -250,12 +250,12 @@ export default function POSWorkspace() {
     useMemo(
       () =>
         buildPOSWorkspaceConfiguration({
-          applicationId:
-            runtime?.application?.id ||
+          application:
+            runtime?.application ||
             null,
         }),
       [
-        runtime?.application?.id,
+        runtime?.application,
       ]
     );
 

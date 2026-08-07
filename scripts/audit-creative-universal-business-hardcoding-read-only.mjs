@@ -5,7 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 
-const CONTRACT = "CREATIVE_UNIVERSAL_BUSINESS_HARDCODING_AUDIT_V1";
+const CONTRACT = "CREATIVE_UNIVERSAL_BUSINESS_HARDCODING_AUDIT_V2";
 const ROOTS = ["lib/creative"];
 const EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]);
 const OUTPUT = path.resolve(
@@ -175,6 +175,34 @@ function gitValue(args, fallback = null) {
   }
 }
 
+function contextWindow(lines, index, radius = 2) {
+  return lines
+    .slice(Math.max(0, index - radius), Math.min(lines.length, index + radius + 1))
+    .join("\n");
+}
+
+function isNavigationMenuContext(context) {
+  return /\b(?:nav|navbar|navigation|nav-toggle|aria-label|toggle navigation)\b/i.test(context);
+}
+
+function isDeliverableMenuContext(context) {
+  const hasMenuToken = /(?:\bMENU\b|["'`]MENU["'`])/i.test(context);
+  const hasDeliverableVocabulary = /\b(?:DOCUMENT|PRESENTATION|REPORT|BROCHURE|POSTER|BANNER|WEBSITE|LANDING_PAGE|APPLICATION|IMAGE|VIDEO|FILM|AUDIO|DELIVERABLE|OUTPUT_TYPE|WORKFLOW_KIND)\b/i.test(context);
+  const explicitDocumentMapping = /\bMENU\s*:\s*["'`](?:MENU|DOCUMENT)["'`]/i.test(context);
+  return hasMenuToken && (hasDeliverableVocabulary || explicitDocumentMapping);
+}
+
+function literalDisposition(rule, code, context) {
+  if (rule.rule !== "BUSINESS_CATEGORY_LITERAL") return "BLOCKER";
+
+  if (rule.term.toLowerCase() === "menu") {
+    if (isNavigationMenuContext(context)) return "EXEMPT_NAVIGATION_LABEL";
+    if (isDeliverableMenuContext(context)) return "EXEMPT_DELIVERABLE_TYPE";
+  }
+
+  return "BLOCKER";
+}
+
 const organizationTerms = envTerms(
   "CREATIVE_FORBIDDEN_ORGANIZATION_TERMS",
   DEFAULT_ORGANIZATION_TERMS,
@@ -200,13 +228,14 @@ const literalRules = [
   })),
 ];
 
-const taxonomyField = /\b(?:industry|sector|vertical|business_type|businessType|organization_type|organizationType)\b/i;
+const taxonomyField = /\b(?:industry|sector|industry_vertical|industryVertical|business_vertical|businessVertical|business_type|businessType|organization_type|organizationType)\b/i;
 const controlFlow = /\b(?:if|else\s+if|switch|case)\b|\?.*:/;
 const routingVerb = /\b(?:route|routing|select|selection|rank|ranking|score|scoring|priority|prioritize|order|ordering|strategy|profile|template|preset)\b/i;
-const taxonomyMap = /\b(?:INDUSTRY|SECTOR|VERTICAL|BUSINESS_TYPE|ORGANIZATION_TYPE|CATEGORY)_[A-Z0-9_]*\s*=|\b(?:industry|sector|vertical|businessType|organizationType)Map\b/;
+const taxonomyMap = /\b(?:INDUSTRY|SECTOR|INDUSTRY_VERTICAL|BUSINESS_VERTICAL|BUSINESS_TYPE|ORGANIZATION_TYPE|CATEGORY)_[A-Z0-9_]*\s*=|\b(?:industry|sector|industryVertical|businessVertical|businessType|organizationType)Map\b/;
 
 const files = unique(ROOTS.flatMap((root) => walk(path.resolve(root)))).sort();
 const findings = [];
+const exemptions = [];
 
 for (const absolute of files) {
   const relative = path.relative(process.cwd(), absolute);
@@ -219,10 +248,25 @@ for (const absolute of files) {
     const code = executableLines[index];
     const original = rawLines[index] || "";
     if (!text(code)) continue;
+    const context = contextWindow(executableLines, index);
 
     for (const rule of literalRules) {
       rule.regex.lastIndex = 0;
       if (!rule.regex.test(code)) continue;
+
+      const disposition = literalDisposition(rule, code, context);
+      if (disposition !== "BLOCKER") {
+        exemptions.push({
+          rule: rule.rule,
+          term: rule.term,
+          file: relative,
+          line: index + 1,
+          source: original.trim(),
+          disposition,
+        });
+        continue;
+      }
+
       findings.push({
         severity: rule.severity,
         rule: rule.rule,
@@ -242,7 +286,7 @@ for (const absolute of files) {
         file: relative,
         line: index + 1,
         source: original.trim(),
-        reason: "A descriptive taxonomy field must not choose universal Creative behavior.",
+        reason: "A descriptive business taxonomy field must not choose universal Creative behavior.",
       });
     } else if (taxonomyField.test(code) && routingVerb.test(code)) {
       findings.push({
@@ -252,7 +296,7 @@ for (const absolute of files) {
         file: relative,
         line: index + 1,
         source: original.trim(),
-        reason: "Confirm that taxonomy text is contextual evidence only and does not select a fixed path.",
+        reason: "Confirm that business taxonomy text is contextual evidence only and does not select a fixed path.",
       });
     }
 
@@ -278,6 +322,12 @@ const deduped = [...new Map(findings.map((finding) => [
   left.line - right.line ||
   left.rule.localeCompare(right.rule),
 );
+const dedupedExemptions = [...new Map(exemptions.map((exemption) => [
+  [exemption.disposition, exemption.file, exemption.line, exemption.term].join("|"),
+  exemption,
+])).values()].sort((left, right) =>
+  left.file.localeCompare(right.file) || left.line - right.line,
+);
 
 const blockers = deduped.filter((finding) => finding.severity === "BLOCKER");
 const reviews = deduped.filter((finding) => finding.severity === "REVIEW");
@@ -299,6 +349,14 @@ const report = {
   scanned_file_count: files.length,
   forbidden_organization_terms: organizationTerms,
   forbidden_business_terms: businessTerms,
+  audit_semantics: {
+    plain_vertical_is_media_orientation: true,
+    explicit_business_vertical_fields_remain_audited: true,
+    navigation_menu_labels_are_exempt: true,
+    deliverable_menu_types_are_exempt: true,
+  },
+  exemption_count: dedupedExemptions.length,
+  exemptions: dedupedExemptions,
   blocker_count: blockers.length,
   review_count: reviews.length,
   finding_count: deduped.length,
@@ -330,13 +388,25 @@ fs.writeFileSync(OUTPUT, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 console.log("============================================================");
 console.log("READ-ONLY UNIVERSAL CREATIVE BUSINESS HARDCODING AUDIT");
 console.log("============================================================");
+console.log(`CONTRACT=${report.contract}`);
 console.log(`OUTPUT=${OUTPUT}`);
 console.log(`GIT_COMMIT=${report.git_commit}`);
 console.log(`SCANNED_FILE_COUNT=${report.scanned_file_count}`);
+console.log(`EXEMPTION_COUNT=${report.exemption_count}`);
 console.log(`BLOCKER_COUNT=${report.blocker_count}`);
 console.log(`REVIEW_COUNT=${report.review_count}`);
 console.log(`BLOCKER_FILES=${JSON.stringify(report.blocker_files)}`);
 console.log(`REVIEW_FILES=${JSON.stringify(report.review_files)}`);
+for (const exemption of dedupedExemptions) {
+  console.log([
+    "EXEMPTION",
+    `kind=${exemption.disposition}`,
+    `term=${exemption.term}`,
+    `file=${exemption.file}`,
+    `line=${exemption.line}`,
+    `source=${exemption.source}`,
+  ].join("|"));
+}
 for (const finding of deduped) {
   console.log([
     `FINDING=${finding.severity}`,

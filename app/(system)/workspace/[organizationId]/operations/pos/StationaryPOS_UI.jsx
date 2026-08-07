@@ -2,13 +2,14 @@
 
 import {
   useMemo,
-  useState,
 } from "react";
+
 import {
   useParams,
   useRouter,
   useSearchParams,
 } from "next/navigation";
+
 import {
   Banknote,
   ClipboardList,
@@ -17,79 +18,95 @@ import {
   Wallet,
 } from "lucide-react";
 
-import RestaurantStationaryPOSSurface from "./RestaurantStationaryPOSSurface";
-import PaymentWorkspace from "./PaymentWorkspace";
-import RetailCatalogWorkspace from "./RetailCatalogWorkspace";
-import RetailCheckoutWorkspace from "./RetailCheckoutWorkspace";
-import RetailOrdersWorkspace from "./RetailOrdersWorkspace";
-import RetailCashControlWorkspace from "./RetailCashControlWorkspace";
-import POSFinalUI from "./waiter/POS_FINAL_UI";
-import POSOrdersPage from "./orders/page";
-import ReceiptsPage from "./receipts/page";
-import ShiftPage from "./shifts/page";
+import {
+  resolvePOSApplicationSurface,
+} from "./POSApplicationSurfaceRegistry";
 
-const SECTIONS = Object.freeze([
-  Object.freeze({
-    id: "sale",
-    queryValue: "sell",
-    label: "Sale",
-    icon: Monitor,
-  }),
-  Object.freeze({
-    id: "orders",
-    queryValue: "orders",
-    label: "Orders",
-    icon: ClipboardList,
-  }),
-  Object.freeze({
-    id: "payment",
-    queryValue: "checkout",
-    label: "Payment",
-    icon: Banknote,
-  }),
-  Object.freeze({
-    id: "receipts",
-    queryValue: "receipts",
-    label: "Receipts",
-    icon: ReceiptText,
-  }),
-  Object.freeze({
-    id: "cash",
-    queryValue: "cash-control",
-    label: "Cash Control",
-    icon: Wallet,
-  }),
-]);
+const SECTIONS =
+  Object.freeze([
+    Object.freeze({
+      id: "sale",
+      queryValue: "sell",
+      label: "Sale",
+      icon: Monitor,
+    }),
+
+    Object.freeze({
+      id: "orders",
+      queryValue:
+        "orders",
+      label: "Orders",
+      icon:
+        ClipboardList,
+    }),
+
+    Object.freeze({
+      id: "payment",
+      queryValue:
+        "checkout",
+      label: "Payment",
+      icon: Banknote,
+    }),
+
+    Object.freeze({
+      id: "receipts",
+      queryValue:
+        "receipts",
+      label: "Receipts",
+      icon:
+        ReceiptText,
+    }),
+
+    Object.freeze({
+      id: "cash",
+      queryValue:
+        "cash-control",
+      label:
+        "Cash Control",
+      icon: Wallet,
+    }),
+  ]);
 
 const SECTION_ALIASES =
   Object.freeze({
     sell: "sale",
     sale: "sale",
-    stationary: "sale",
+    stationary:
+      "sale",
     pos: "sale",
     service: "sale",
     waiter: "sale",
     order: "sale",
 
-    orders: "orders",
+    orders:
+      "orders",
 
-    checkout: "payment",
-    payment: "payment",
-    payments: "payment",
-    settlement: "payment",
+    checkout:
+      "payment",
+    payment:
+      "payment",
+    payments:
+      "payment",
+    settlement:
+      "payment",
 
-    receipt: "receipts",
-    receipts: "receipts",
+    receipt:
+      "receipts",
+    receipts:
+      "receipts",
 
     cash: "cash",
-    "cash-control": "cash",
+    "cash-control":
+      "cash",
     shift: "cash",
     shifts: "cash",
     drawer: "cash",
     till: "cash",
   });
 
-function resolveSection(value) {
+function resolveSection(
+  value
+) {
   return (
     SECTION_ALIASES[
       String(value || "")
@@ -100,15 +117,21 @@ function resolveSection(value) {
   );
 }
 
-function applicationName(runtime) {
+function applicationName(
+  runtime
+) {
   return (
-    runtime?.application?.name ||
-    runtime?.application?.id ||
+    runtime?.application
+      ?.name ||
+    runtime?.application
+      ?.id ||
     "Point of Sale"
   );
 }
 
-function bindingName(runtime) {
+function bindingName(
+  runtime
+) {
   const source =
     runtime
       ?.applicationBinding
@@ -131,88 +154,6 @@ function bindingName(runtime) {
   return "Canonical runtime";
 }
 
-function RestaurantSaleSurface(
-  props
-) {
-  const [
-    panel,
-    setPanel,
-  ] = useState("terminal");
-
-  return (
-    <div>
-      <div className="border-b border-white/10 bg-[#050505] px-4 py-3">
-        <div className="mx-auto flex max-w-[1600px] gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              setPanel(
-                "terminal"
-              )
-            }
-            className={
-              panel === "terminal"
-                ? "rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black"
-                : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/55"
-            }
-          >
-            Tables and bills
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setPanel(
-                "order-entry"
-              )
-            }
-            className={
-              panel ===
-              "order-entry"
-                ? "rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black"
-                : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/55"
-            }
-          >
-            Order entry
-          </button>
-        </div>
-      </div>
-
-      {panel === "terminal" ? (
-        <RestaurantStationaryPOSSurface
-          {...props}
-        />
-      ) : (
-        <POSFinalUI
-          {...props}
-        />
-      )}
-    </div>
-  );
-}
-
-function RetailReceiptsSurface() {
-  return (
-    <section className="min-h-[620px] bg-[#030712] px-6 py-12 text-white">
-      <div className="mx-auto max-w-[1000px] rounded-[30px] border border-white/10 bg-white/[0.03] p-8">
-        <p className="text-xs uppercase tracking-[0.24em] text-[#D6A66A]">
-          Retail receipts
-        </p>
-
-        <h2 className="mt-4 text-3xl font-semibold">
-          Receipt rendering is not connected yet
-        </h2>
-
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-white/50">
-          The receipt surface remains inside the Stationary POS terminal.
-          It will use the completed retail sale and settlement records when
-          the retail receipt contract is activated.
-        </p>
-      </div>
-    </section>
-  );
-}
-
 function UnsupportedApplication({
   applicationId,
 }) {
@@ -229,69 +170,31 @@ function UnsupportedApplication({
 
         <p className="mt-3 text-sm text-white/50">
           No Stationary POS presentation is registered for application{" "}
-          {applicationId || "unknown"}.
+          {applicationId ||
+            "unknown"}.
         </p>
       </div>
     </section>
   );
 }
 
-function resolveSurface({
-  applicationId,
-  section,
-}) {
-  if (
-    applicationId ===
-    "restaurant"
-  ) {
-    return {
-      sale:
-        RestaurantSaleSurface,
-      orders:
-        POSOrdersPage,
-      payment:
-        PaymentWorkspace,
-      receipts:
-        ReceiptsPage,
-      cash:
-        ShiftPage,
-    }[section];
-  }
-
-  if (
-    applicationId ===
-    "retail"
-  ) {
-    return {
-      sale:
-        RetailCatalogWorkspace,
-      orders:
-        RetailOrdersWorkspace,
-      payment:
-        RetailCheckoutWorkspace,
-      receipts:
-        RetailReceiptsSurface,
-      cash:
-        RetailCashControlWorkspace,
-    }[section];
-  }
-
-  return null;
-}
-
 export default function StationaryPOSUI({
   posConfiguration,
   posRuntime,
 }) {
-  const params = useParams();
-  const router = useRouter();
+  const params =
+    useParams();
+
+  const router =
+    useRouter();
 
   const searchParams =
     useSearchParams();
 
   const organizationId =
     String(
-      params?.organizationId ||
+      params
+        ?.organizationId ||
       posRuntime
         ?.organization?.id ||
       ""
@@ -304,7 +207,9 @@ export default function StationaryPOSUI({
 
   const section =
     resolveSection(
-      searchParams.get("view")
+      searchParams.get(
+        "view"
+      )
     );
 
   const activeDefinition =
@@ -320,7 +225,7 @@ export default function StationaryPOSUI({
     );
 
   const ActiveSurface =
-    resolveSurface({
+    resolvePOSApplicationSurface({
       applicationId,
       section:
         activeDefinition.id,
@@ -347,15 +252,22 @@ export default function StationaryPOSUI({
         "service_context"
       );
 
-      next.delete("table");
-      next.delete("sale");
+      next.delete(
+        "table"
+      );
+
+      next.delete(
+        "sale"
+      );
     }
 
     if (
       definition.id !==
       "receipts"
     ) {
-      next.delete("order_id");
+      next.delete(
+        "order_id"
+      );
     }
 
     router.replace(
@@ -370,12 +282,14 @@ export default function StationaryPOSUI({
     <div
       className="min-h-screen bg-black text-white"
       data-pos-application={
-        applicationId || ""
+        applicationId ||
+        ""
       }
       data-pos-binding-source={
         posRuntime
           ?.applicationBinding
-          ?.source || ""
+          ?.source ||
+        ""
       }
     >
       <header className="sticky top-0 z-50 border-b border-white/10 bg-black/95 px-4 py-3 backdrop-blur-xl">
@@ -428,7 +342,9 @@ export default function StationaryPOSUI({
                 >
                   <Icon className="h-4 w-4" />
 
-                  {definition.label}
+                  {
+                    definition.label
+                  }
                 </button>
               );
             }

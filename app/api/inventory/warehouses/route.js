@@ -1,99 +1,261 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  NextResponse,
+} from "next/server";
 
-export async function GET(request) {
+import {
+  supabaseAdmin,
+} from "@/lib/shared/supabase/admin";
+
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+
+function accessError(
+  access
+) {
+  return NextResponse.json(
+    {
+      success:
+        false,
+
+      error:
+        access.error,
+    },
+    {
+      status:
+        access.status,
+    }
+  );
+}
+
+function organizationIdFromRequest(
+  request
+) {
+  const {
+    searchParams,
+  } =
+    new URL(
+      request.url
+    );
+
+  return (
+    searchParams.get(
+      "organizationId"
+    ) ||
+    searchParams.get(
+      "organization_id"
+    ) ||
+    null
+  );
+}
+
+export async function GET(
+  request
+) {
   try {
-    const { searchParams } = new URL(request.url);
-
     const organizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
+      organizationIdFromRequest(
+        request
+      );
 
     if (!organizationId) {
-      return NextResponse.json({
-        success: false,
-        error: "organizationId required",
-        warehouses: [],
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "organizationId required",
+
+          warehouses:
+            [],
+        },
+        {
+          status:
+            400,
+        }
+      );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("inventory_warehouses")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .order("created_at", { ascending: false });
+    const access =
+      await requireOrganizationAccess({
+        organizationId,
+      });
+
+    if (!access.success) {
+      return accessError(
+        access
+      );
+    }
+
+    const {
+      data,
+      error,
+    } =
+      await supabaseAdmin
+        .from(
+          "inventory_warehouses"
+        )
+        .select(
+          "id, organization_id, name, created_at"
+        )
+        .eq(
+          "organization_id",
+          access.organizationId
+        )
+        .order(
+          "created_at",
+          {
+            ascending:
+              false,
+          }
+        );
 
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-        warehouses: [],
-      }, { status: 500 });
+      throw error;
     }
 
     return NextResponse.json({
-      success: true,
-      warehouses: data || [],
-      organizationId,
-    });
+      success:
+        true,
 
+      organizationId:
+        access.organizationId,
+
+      warehouses:
+        data || [],
+    });
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: error.message,
-      warehouses: [],
-    }, { status: 500 });
+    console.error(
+      "INVENTORY WAREHOUSES GET ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success:
+          false,
+
+        error:
+          error?.message ||
+          "Unable to load warehouses",
+
+        warehouses:
+          [],
+      },
+      {
+        status:
+          500,
+      }
+    );
   }
 }
 
-export async function POST(request) {
+export async function POST(
+  request
+) {
   try {
-    const body = await request.json();
+    const body =
+      await request.json();
+
+    const organizationId =
+      body.organizationId ||
+      body.organization_id ||
+      null;
+
+    const name =
+      String(
+        body.name ||
+        ""
+      ).trim();
+
+    if (
+      !organizationId ||
+      !name
+    ) {
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "organizationId and name required",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    const access =
+      await requireOrganizationAccess({
+        organizationId,
+      });
+
+    if (!access.success) {
+      return accessError(
+        access
+      );
+    }
 
     const {
-      organizationId,
-      name,
-      code,
-      location
-    } = body;
+      data,
+      error,
+    } =
+      await supabaseAdmin
+        .from(
+          "inventory_warehouses"
+        )
+        .insert({
+          organization_id:
+            access.organizationId,
 
-    if (!organizationId || !name) {
-      return NextResponse.json({
-        success: false,
-        error: "organizationId and name required",
-      }, { status: 400 });
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from("inventory_warehouses")
-      .insert({
-        organization_id: organizationId,
-        name,
-        code,
-        location,
-        status: "active",
-      })
-      .select()
-      .single();
+          name,
+        })
+        .select(
+          "id, organization_id, name, created_at"
+        )
+        .single();
 
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+      throw error;
     }
 
-    return NextResponse.json({
-      success: true,
-      warehouse: data,
-    });
+    return NextResponse.json(
+      {
+        success:
+          true,
 
+        warehouse:
+          data,
+      },
+      {
+        status:
+          201,
+      }
+    );
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: error.message,
-    }, { status: 500 });
+    console.error(
+      "INVENTORY WAREHOUSES POST ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success:
+          false,
+
+        error:
+          error?.message ||
+          "Unable to create warehouse",
+      },
+      {
+        status:
+          500,
+      }
+    );
   }
 }

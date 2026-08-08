@@ -30,9 +30,21 @@ const SOURCE_ASSET_ID = "fc1997d3-ed07-4478-a5a5-6baa484d0074";
 const TEST_CONTRACT = "GEMINI_OMNI_FULL_STUDIO_5S_SMOKE_V1";
 const TARGET_SECONDS = 5;
 const MAXIMUM_VIDEO_CUSTOMER_PRICE_THB = 22.75;
+const RESEARCH_APPROVAL_CONTRACT = "CREATIVE_RESEARCH_BUDGET_APPROVAL_V1";
+const RESEARCH_APPROVAL_PHRASE = "APPROVE RESEARCH 5.2416 THB";
+const RESEARCH_APPROVED_PROVIDER = "openai";
+const RESEARCH_APPROVED_MODEL = "gpt-4.1-mini";
+const RESEARCH_APPROVED_PRICING_ID = "156fbd36-5a2d-48b0-b72d-450bab821a11";
+const RESEARCH_MAXIMUM_CUSTOMER_PRICE_THB = 5.2416;
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
 }
 
 function number(value) {
@@ -61,6 +73,109 @@ function errorStatus(error) {
 
 function smokeMetadata(mission = {}) {
   return mission.metadata?.gemini_omni_smoke || {};
+}
+
+function researchApproval(project = {}) {
+  return object(project.metadata?.paid_research_approval);
+}
+
+function researchAuthorizationAlreadyIssued(project = {}) {
+  const approval = researchApproval(project);
+  return Boolean(
+    text(approval.id) &&
+    text(approval.contract) === RESEARCH_APPROVAL_CONTRACT &&
+    text(approval.test_contract) === TEST_CONTRACT,
+  );
+}
+
+function forwardAuthHeaders(request, contentType = false) {
+  const headers = new Headers({ Accept: "application/json" });
+  const cookie = request.headers.get("cookie");
+  const authorization = request.headers.get("authorization");
+  if (cookie) headers.set("cookie", cookie);
+  if (authorization) headers.set("authorization", authorization);
+  if (contentType) headers.set("Content-Type", "application/json");
+  return headers;
+}
+
+async function readJsonResponse(response) {
+  const raw = await response.text();
+  let payload = {};
+  try {
+    payload = raw ? JSON.parse(raw) : {};
+  } catch {
+    payload = { raw };
+  }
+  return payload;
+}
+
+async function ensureResearchAuthorization({ request, project }) {
+  if (researchAuthorizationAlreadyIssued(project)) {
+    return project;
+  }
+
+  const endpoint = new URL(
+    "/api/creative/tests/gemini-omni-5s/research-approval",
+    request.url,
+  );
+
+  const preflightResponse = await fetch(endpoint, {
+    method: "GET",
+    headers: forwardAuthHeaders(request),
+    cache: "no-store",
+    redirect: "manual",
+  });
+  const preflight = await readJsonResponse(preflightResponse);
+  const quote = object(preflight.research);
+  const quotedPrice = number(quote.maximum_customer_price);
+
+  if (
+    text(quote.provider) !== RESEARCH_APPROVED_PROVIDER ||
+    text(quote.model) !== RESEARCH_APPROVED_MODEL ||
+    text(quote.pricing_id) !== RESEARCH_APPROVED_PRICING_ID ||
+    text(quote.currency).toUpperCase() !== "THB" ||
+    quotedPrice === null ||
+    quotedPrice <= 0 ||
+    quotedPrice > RESEARCH_MAXIMUM_CUSTOMER_PRICE_THB ||
+    text(quote.approval_phrase) !== RESEARCH_APPROVAL_PHRASE
+  ) {
+    throw new Error(
+      `GEMINI_SMOKE_RESEARCH_QUOTE_CHANGED:${text(quote.provider) || "unknown"}:${text(quote.model) || "unknown"}:${quotedPrice ?? "unknown"}:${text(quote.currency) || "unknown"}`,
+    );
+  }
+
+  const approvalResponse = await fetch(endpoint, {
+    method: "POST",
+    headers: forwardAuthHeaders(request, true),
+    body: JSON.stringify({ approval_phrase: RESEARCH_APPROVAL_PHRASE }),
+    cache: "no-store",
+    redirect: "manual",
+  });
+  const approvalPayload = await readJsonResponse(approvalResponse);
+  const approved = object(approvalPayload.research_approval);
+
+  if (
+    !approvalResponse.ok ||
+    approvalPayload.success !== true ||
+    text(approved.provider) !== RESEARCH_APPROVED_PROVIDER ||
+    text(approved.model) !== RESEARCH_APPROVED_MODEL ||
+    text(approved.pricing_id) !== RESEARCH_APPROVED_PRICING_ID ||
+    text(approved.currency).toUpperCase() !== "THB" ||
+    number(approved.maximum_customer_price) === null ||
+    number(approved.maximum_customer_price) > RESEARCH_MAXIMUM_CUSTOMER_PRICE_THB ||
+    Number(approved.maximum_calls) !== 1
+  ) {
+    throw new Error(
+      `GEMINI_SMOKE_RESEARCH_APPROVAL_FAILED:${text(approvalPayload.error) || approvalResponse.status}`,
+    );
+  }
+
+  const updatedProject = await CreativeProjectRuntime.get(project.id);
+  if (!updatedProject || !researchAuthorizationAlreadyIssued(updatedProject)) {
+    throw new Error("GEMINI_SMOKE_RESEARCH_APPROVAL_PERSISTENCE_FAILED");
+  }
+
+  return updatedProject;
 }
 
 async function findMission() {
@@ -392,7 +507,10 @@ async function executeSmokeTest(request) {
 
   const ensured = await ensureMission(access);
   let mission = await CreativeMissionRuntime.get(ensured.mission.id);
-  const project = ensured.project;
+  let project = await ensureResearchAuthorization({
+    request,
+    project: ensured.project,
+  });
   let preparation = null;
 
   if (smokeMetadata(mission).phase === "COMPLETED") {
@@ -433,6 +551,7 @@ async function executeSmokeTest(request) {
       project,
     });
     mission = await CreativeMissionRuntime.get(mission.id);
+    project = await CreativeProjectRuntime.get(project.id);
   }
 
   const result = await runProduction({
@@ -448,6 +567,7 @@ async function executeSmokeTest(request) {
     source_asset_id: SOURCE_ASSET_ID,
     provider: "gemini",
     model: "gemini-omni-flash-preview",
+    maximum_research_customer_price_thb: RESEARCH_MAXIMUM_CUSTOMER_PRICE_THB,
     maximum_video_customer_price_thb: MAXIMUM_VIDEO_CUSTOMER_PRICE_THB,
     publication_authorized: false,
     mission_id: mission.id,
@@ -467,6 +587,7 @@ export async function GET(request) {
       success: false,
       contract: TEST_CONTRACT,
       target_seconds: TARGET_SECONDS,
+      maximum_research_customer_price_thb: RESEARCH_MAXIMUM_CUSTOMER_PRICE_THB,
       publication_authorized: false,
       error: error?.message || String(error),
     }, errorStatus(error));
@@ -481,6 +602,7 @@ export async function POST(request) {
       success: false,
       contract: TEST_CONTRACT,
       target_seconds: TARGET_SECONDS,
+      maximum_research_customer_price_thb: RESEARCH_MAXIMUM_CUSTOMER_PRICE_THB,
       publication_authorized: false,
       error: error?.message || String(error),
     }, errorStatus(error));

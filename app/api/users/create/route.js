@@ -3,8 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import provisionStaffAccess from "@/lib/people/employees/provisionStaffAccess";
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const STAFF_MANAGEMENT_ROLES = new Set([
@@ -42,51 +41,26 @@ function resolveRedirectOrigin(request) {
   return new URL(request.url).origin;
 }
 
+function contextResponse(context) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: context.error,
+      code: context.code,
+      availableOrganizationIds: context.availableOrganizationIds || [],
+    },
+    { status: context.status || 403 }
+  );
+}
+
 async function managementContext(request) {
-  const user = await getServerCurrentUser();
+  const context = await resolveAuthenticatedStaffContext({ request });
 
-  if (!user) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      ),
-    };
+  if (!context.success) {
+    return { response: contextResponse(context) };
   }
 
-  const { data: actingStaff, error: actingStaffError } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("id,role,active_organization_id,active")
-    .eq("auth_user_id", user.id)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (actingStaffError) throw actingStaffError;
-
-  if (!actingStaff?.active_organization_id) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: "Active organization not found" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  const access = await requireOrganizationAccess({
-    organizationId: actingStaff.active_organization_id,
-    request,
-  });
-
-  if (!access.success) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status || 403 }
-      ),
-    };
-  }
-
-  const actingRole = normalizeRole(access.role || actingStaff.role);
+  const actingRole = normalizeRole(context.role || context.staff?.role);
 
   if (!STAFF_MANAGEMENT_ROLES.has(actingRole)) {
     return {
@@ -98,11 +72,11 @@ async function managementContext(request) {
   }
 
   return {
-    user,
-    actingStaff,
+    user: context.user,
+    actingStaff: context.staff,
     actingRole,
-    organizationId: actingStaff.active_organization_id,
-    access,
+    organizationId: context.organizationId,
+    access: context.access,
   };
 }
 

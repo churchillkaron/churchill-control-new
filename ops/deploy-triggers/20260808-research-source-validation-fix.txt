@@ -1,0 +1,4 @@
+Production deploy trigger for Creative research citation validation repair.
+Purpose: allow verified claims to retain valid source IDs while discarding stale missing source references, without weakening the requirement that each verified claim has at least one valid source.
+Smoke test: Gemini Omni full Studio 5-second governed production.
+No provider generation is triggered by this file.

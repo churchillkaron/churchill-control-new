@@ -20,34 +20,49 @@ export default function LoginCallback() {
         }
 
         const res = await fetch("/api/session/bootstrap", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-          }),
+          method: "GET",
+          cache: "no-store",
         });
 
         const data = await res.json();
 
-        if (!data.success) {
+        if (!data?.success) {
+          if (
+            data?.reason === "ORGANIZATION_SELECTION_REQUIRED" ||
+            (Array.isArray(data?.availableOrganizationIds) &&
+              data.availableOrganizationIds.length > 1)
+          ) {
+            router.push("/workspace");
+            return;
+          }
+
           router.push("/onboarding");
           return;
         }
 
-        document.cookie = `tenant_id=${data.tenant_id}; path=/`;
-        document.cookie = `role=${data.role}; path=/`;
+        const activeOrganizationId = data.active_organization_id || data.organization_id;
 
-        const org = data.active_organization_id;
+        if (activeOrganizationId) {
+          const selectionResponse = await fetch("/api/session/organization", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              organizationId: activeOrganizationId,
+            }),
+          });
 
-        if (org) {
-          router.push(`/workspace/${org}`);
+          if (!selectionResponse.ok) {
+            router.push("/workspace");
+            return;
+          }
+
+          router.push(`/workspace/${activeOrganizationId}`);
           return;
         }
 
         router.push("/workspace");
-
       } catch (err) {
         console.error(err);
         router.push("/");

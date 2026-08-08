@@ -4,6 +4,19 @@ import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthen
 import generateMonthlyPayroll from "@/lib/payroll/consolidation/generateMonthlyPayroll";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
+const GENERATE_ROLES = new Set([
+  "OWNER",
+  "SUPER_ADMIN",
+  "MANAGER",
+  "ACCOUNTING",
+  "ACCOUNTING_ADMIN",
+  "PAYROLL_ADMIN",
+]);
+
+function normalizeRole(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
 export async function POST(request) {
   try {
     const context = await resolveAuthenticatedStaffContext({ request });
@@ -17,6 +30,15 @@ export async function POST(request) {
           availableOrganizationIds: context.availableOrganizationIds || [],
         },
         { status: context.status || 403 }
+      );
+    }
+
+    const role = normalizeRole(context.role || context.staff?.role);
+
+    if (!GENERATE_ROLES.has(role)) {
+      return NextResponse.json(
+        { success: false, error: "Payroll generation permission required" },
+        { status: 403 }
       );
     }
 

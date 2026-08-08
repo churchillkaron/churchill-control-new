@@ -7,11 +7,20 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { approvePayrollRecord } from "@/lib/payroll/consolidation/approvePayrollRecord";
 import rejectPayrollRecord from "@/lib/payroll/consolidation/rejectPayrollRecord";
+import lockPayrollRecord from "@/lib/payroll/consolidation/lockPayrollRecord";
 
 const GOVERNANCE_ROLES = new Set([
   "OWNER",
   "SUPER_ADMIN",
   "MANAGER",
+  "ACCOUNTING",
+  "ACCOUNTING_ADMIN",
+  "PAYROLL_ADMIN",
+]);
+
+const LOCK_ROLES = new Set([
+  "OWNER",
+  "SUPER_ADMIN",
   "ACCOUNTING",
   "ACCOUNTING_ADMIN",
   "PAYROLL_ADMIN",
@@ -102,6 +111,10 @@ export async function GET(request) {
       success: true,
       organizationId: context.organizationId,
       role: context.role,
+      capabilities: {
+        canReview: true,
+        canLock: LOCK_ROLES.has(context.role),
+      },
       payroll: data || [],
     });
   } catch (error) {
@@ -150,6 +163,21 @@ export async function POST(request) {
         actorName,
         role: context.role,
         reason: body?.reason,
+      });
+    } else if (action === "LOCK") {
+      if (!LOCK_ROLES.has(context.role)) {
+        return NextResponse.json(
+          { success: false, error: "Payroll lock permission required" },
+          { status: 403 }
+        );
+      }
+
+      result = await lockPayrollRecord({
+        payrollRecordId,
+        organizationId: context.organizationId,
+        lockedBy: context.staff.id,
+        actorName,
+        role: context.role,
       });
     } else {
       return NextResponse.json(

@@ -10,11 +10,10 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-function html(body, status = 200) {
-  return new NextResponse(body, {
+function json(payload, status = 200) {
+  return NextResponse.json(payload, {
     status,
     headers: {
-      "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store, max-age=0",
       Pragma: "no-cache",
       "X-Robots-Tag": "noindex, nofollow, noarchive",
@@ -23,54 +22,55 @@ function html(body, status = 200) {
 }
 
 export async function GET(request) {
-  const url = new URL(request.url);
-  const approvalPhrase = text(url.searchParams.get("approval_phrase"));
+  try {
+    const requestUrl = new URL(request.url);
+    const approvalPhrase = text(requestUrl.searchParams.get("approval_phrase"));
 
-  if (!approvalPhrase) {
-    return html(`<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Research approval required</title></head>
-<body><pre>${TEST_CONTRACT}\nCREATIVE_RESEARCH_APPROVAL_PHRASE_REQUIRED</pre></body>
-</html>`, 400);
+    if (!approvalPhrase) {
+      return json({
+        success: false,
+        contract: TEST_CONTRACT,
+        error: "CREATIVE_RESEARCH_APPROVAL_PHRASE_REQUIRED",
+      }, 400);
+    }
+
+    const endpoint = new URL(APPROVAL_ENDPOINT, requestUrl.origin);
+    const headers = new Headers({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Origin: requestUrl.origin,
+    });
+
+    const cookie = request.headers.get("cookie");
+    const authorization = request.headers.get("authorization");
+    if (cookie) headers.set("cookie", cookie);
+    if (authorization) headers.set("authorization", authorization);
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ approval_phrase: approvalPhrase }),
+      cache: "no-store",
+      redirect: "manual",
+    });
+
+    const raw = await response.text();
+    const contentType = response.headers.get("content-type") || "application/json; charset=utf-8";
+
+    return new NextResponse(raw, {
+      status: response.status,
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "no-store, max-age=0",
+        Pragma: "no-cache",
+        "X-Robots-Tag": "noindex, nofollow, noarchive",
+      },
+    });
+  } catch (error) {
+    return json({
+      success: false,
+      contract: TEST_CONTRACT,
+      error: error?.message || String(error),
+    }, 500);
   }
-
-  const phraseJson = JSON.stringify(approvalPhrase).replace(/</g, "\\u003c");
-  const endpointJson = JSON.stringify(APPROVAL_ENDPOINT);
-
-  return html(`<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Avantiqo research approval</title>
-</head>
-<body>
-  <pre id="result">Submitting governed research approval...</pre>
-  <script>
-    (async () => {
-      const result = document.getElementById("result");
-      try {
-        const response = await fetch(${endpointJson}, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ approval_phrase: ${phraseJson} })
-        });
-        const raw = await response.text();
-        let payload;
-        try { payload = JSON.parse(raw); } catch { payload = { raw }; }
-        result.textContent = JSON.stringify(payload, null, 2);
-        document.title = payload?.success ? "Research approved" : "Research approval failed";
-      } catch (error) {
-        result.textContent = JSON.stringify({
-          success: false,
-          contract: ${JSON.stringify(TEST_CONTRACT)},
-          error: String(error?.message || error)
-        }, null, 2);
-        document.title = "Research approval failed";
-      }
-    })();
-  </script>
-</body>
-</html>`);
 }

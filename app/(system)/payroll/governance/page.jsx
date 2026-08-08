@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  Lock,
   RefreshCw,
   ShieldCheck,
   XCircle,
@@ -30,6 +31,7 @@ export default function PayrollGovernancePage() {
   const [payroll, setPayroll] = useState([]);
   const [role, setRole] = useState("");
   const [organizationId, setOrganizationId] = useState("");
+  const [capabilities, setCapabilities] = useState({ canLock: false });
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
   const [error, setError] = useState("");
@@ -54,6 +56,7 @@ export default function PayrollGovernancePage() {
       setPayroll(result.payroll || []);
       setRole(result.role || "");
       setOrganizationId(result.organizationId || "");
+      setCapabilities(result.capabilities || { canLock: false });
     } catch (loadError) {
       setError(loadError?.message || "Unable to load payroll governance");
     } finally {
@@ -71,10 +74,10 @@ export default function PayrollGovernancePage() {
         result.total += Number(record.final_salary || 0);
         if (["GENERATED", "RECALCULATED"].includes(record.status)) result.pending += 1;
         if (record.status === "APPROVED") result.approved += 1;
-        if (record.status === "DISPUTED") result.disputed += 1;
+        if (record.status === "LOCKED") result.locked += 1;
         return result;
       },
-      { total: 0, pending: 0, approved: 0, disputed: 0 }
+      { total: 0, pending: 0, approved: 0, locked: 0 }
     );
   }, [payroll]);
 
@@ -99,7 +102,13 @@ export default function PayrollGovernancePage() {
         throw new Error(result?.error || "Unable to execute payroll action");
       }
 
-      setMessage(action === "APPROVE" ? "Payroll approved." : "Payroll rejected.");
+      const messages = {
+        APPROVE: "Payroll approved.",
+        REJECT: "Payroll rejected.",
+        LOCK: "Payroll locked.",
+      };
+
+      setMessage(messages[action] || "Payroll updated.");
       setRejectingId("");
       setRejectReason("");
       await loadPayroll();
@@ -121,9 +130,9 @@ export default function PayrollGovernancePage() {
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.34em] text-cyan-300">
                 <ShieldCheck className="h-4 w-4" /> Payroll Governance
               </div>
-              <h1 className="mt-3 text-4xl font-black">Manager Review</h1>
+              <h1 className="mt-3 text-4xl font-black">Payroll Review & Lock</h1>
               <p className="mt-2 max-w-2xl text-sm text-white/45">
-                Review the same payroll records employees see in the Workforce Portal. Approval and rejection execute only through the authenticated organization boundary.
+                Employee acknowledgement, manager approval and payroll lock all operate on the same canonical payroll record.
               </p>
               <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
                 {organizationId ? `Organization ${organizationId}` : "Organization context"} · {role || "Role"}
@@ -145,7 +154,7 @@ export default function PayrollGovernancePage() {
           <Metric label="Payroll Total" value={`฿${money(summary.total)}`} />
           <Metric label="Needs Review" value={summary.pending} />
           <Metric label="Approved" value={summary.approved} />
-          <Metric label="Disputed" value={summary.disputed} />
+          <Metric label="Locked" value={summary.locked} />
         </section>
 
         {error ? (
@@ -166,121 +175,149 @@ export default function PayrollGovernancePage() {
           </section>
         ) : payroll.length ? (
           <section className="space-y-4">
-            {payroll.map((record) => (
-              <article
-                key={record.id}
-                className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-2xl font-black">{record.staff_name || "Employee"}</h2>
-                      <StatusBadge status={record.status} />
+            {payroll.map((record) => {
+              const unresolvedDispute = Boolean(
+                record.employee_dispute && !record.dispute_resolved
+              );
+              const acknowledgementMissing = !record.employee_acknowledged;
+              const approvalBlocked = unresolvedDispute || acknowledgementMissing;
+
+              return (
+                <article
+                  key={record.id}
+                  className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="text-2xl font-black">{record.staff_name || "Employee"}</h2>
+                        <StatusBadge status={record.status} />
+                      </div>
+                      <div className="mt-2 text-sm text-white/40">
+                        {record.role || "-"} · {record.payroll_month || "-"}
+                      </div>
                     </div>
-                    <div className="mt-2 text-sm text-white/40">
-                      {record.role || "-"} · {record.payroll_month || "-"}
-                    </div>
-                  </div>
 
-                  <div className="text-left lg:text-right">
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Net Salary</div>
-                    <div className="mt-2 text-3xl font-black text-emerald-300">฿{money(record.final_salary)}</div>
-                  </div>
-                </div>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-                  <Data label="Gross" value={`฿${money(record.gross_salary)}`} />
-                  <Data label="Base" value={`฿${money(record.base_salary)}`} />
-                  <Data label="Service Charge" value={`฿${money(record.service_charge_bonus)}`} />
-                  <Data label="Deductions" value={`฿${money(record.deductions)}`} />
-                  <Data label="Hours" value={Number(record.worked_hours || record.total_hours || 0).toFixed(2)} />
-                  <Data label="Late" value={`${Number(record.total_late_minutes || 0)} min`} />
-                </div>
-
-                {record.employee_dispute && !record.dispute_resolved ? (
-                  <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                    <div className="flex items-center gap-2 text-sm font-black text-amber-200">
-                      <AlertTriangle className="h-4 w-4" /> Employee dispute
-                    </div>
-                    <div className="mt-2 text-sm text-amber-100/65">{record.employee_dispute}</div>
-                  </div>
-                ) : null}
-
-                {record.employee_acknowledged ? (
-                  <div className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300">
-                    <CheckCircle2 className="h-4 w-4" /> Employee acknowledged
-                  </div>
-                ) : null}
-
-                {rejectingId === record.id ? (
-                  <div className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <textarea
-                      value={rejectReason}
-                      onChange={(event) => setRejectReason(event.target.value)}
-                      placeholder="Reason for rejection"
-                      className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none placeholder:text-white/30"
-                    />
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRejectingId("");
-                          setRejectReason("");
-                        }}
-                        className="h-11 flex-1 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black uppercase tracking-[0.14em]"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!rejectReason.trim() || workingId === record.id}
-                        onClick={() =>
-                          executeAction({
-                            action: "REJECT",
-                            payrollRecordId: record.id,
-                            reason: rejectReason.trim(),
-                          })
-                        }
-                        className="h-11 flex-1 rounded-xl bg-red-400 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
-                      >
-                        Confirm rejection
-                      </button>
+                    <div className="text-left lg:text-right">
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Net Salary</div>
+                      <div className="mt-2 text-3xl font-black text-emerald-300">฿{money(record.final_salary)}</div>
                     </div>
                   </div>
-                ) : null}
 
-                {(canApprove(record) || canReject(record)) && rejectingId !== record.id ? (
-                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                    {canApprove(record) ? (
-                      <button
-                        type="button"
-                        disabled={workingId === record.id || Boolean(record.employee_dispute && !record.dispute_resolved)}
-                        onClick={() =>
-                          executeAction({
-                            action: "APPROVE",
-                            payrollRecordId: record.id,
-                          })
-                        }
-                        className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-400 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
-                      >
-                        <CheckCircle2 className="h-4 w-4" /> Approve payroll
-                      </button>
-                    ) : null}
-
-                    {canReject(record) ? (
-                      <button
-                        type="button"
-                        disabled={workingId === record.id}
-                        onClick={() => setRejectingId(record.id)}
-                        className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 text-xs font-black uppercase tracking-[0.16em] text-red-300 disabled:opacity-40"
-                      >
-                        <XCircle className="h-4 w-4" /> Reject payroll
-                      </button>
-                    ) : null}
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                    <Data label="Gross" value={`฿${money(record.gross_salary)}`} />
+                    <Data label="Base" value={`฿${money(record.base_salary)}`} />
+                    <Data label="Service Charge" value={`฿${money(record.service_charge_bonus)}`} />
+                    <Data label="Deductions" value={`฿${money(record.deductions)}`} />
+                    <Data label="Hours" value={Number(record.worked_hours || record.total_hours || 0).toFixed(2)} />
+                    <Data label="Late" value={`${Number(record.total_late_minutes || 0)} min`} />
                   </div>
-                ) : null}
-              </article>
-            ))}
+
+                  {unresolvedDispute ? (
+                    <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+                      <div className="flex items-center gap-2 text-sm font-black text-amber-200">
+                        <AlertTriangle className="h-4 w-4" /> Employee dispute
+                      </div>
+                      <div className="mt-2 text-sm text-amber-100/65">{record.employee_dispute}</div>
+                    </div>
+                  ) : null}
+
+                  {record.employee_acknowledged ? (
+                    <div className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300">
+                      <CheckCircle2 className="h-4 w-4" /> Employee acknowledged
+                    </div>
+                  ) : canApprove(record) ? (
+                    <div className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-amber-300">
+                      <AlertTriangle className="h-4 w-4" /> Awaiting employee acknowledgement
+                    </div>
+                  ) : null}
+
+                  {rejectingId === record.id ? (
+                    <div className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <textarea
+                        value={rejectReason}
+                        onChange={(event) => setRejectReason(event.target.value)}
+                        placeholder="Reason for rejection"
+                        className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none placeholder:text-white/30"
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRejectingId("");
+                            setRejectReason("");
+                          }}
+                          className="h-11 flex-1 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black uppercase tracking-[0.14em]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!rejectReason.trim() || workingId === record.id}
+                          onClick={() =>
+                            executeAction({
+                              action: "REJECT",
+                              payrollRecordId: record.id,
+                              reason: rejectReason.trim(),
+                            })
+                          }
+                          className="h-11 flex-1 rounded-xl bg-red-400 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+                        >
+                          Confirm rejection
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {(canApprove(record) || canReject(record)) && rejectingId !== record.id ? (
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                      {canApprove(record) ? (
+                        <button
+                          type="button"
+                          disabled={workingId === record.id || approvalBlocked}
+                          onClick={() =>
+                            executeAction({
+                              action: "APPROVE",
+                              payrollRecordId: record.id,
+                            })
+                          }
+                          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-400 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
+                        >
+                          <CheckCircle2 className="h-4 w-4" /> Approve payroll
+                        </button>
+                      ) : null}
+
+                      {canReject(record) ? (
+                        <button
+                          type="button"
+                          disabled={workingId === record.id}
+                          onClick={() => setRejectingId(record.id)}
+                          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 text-xs font-black uppercase tracking-[0.16em] text-red-300 disabled:opacity-40"
+                        >
+                          <XCircle className="h-4 w-4" /> Reject payroll
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {record.status === "APPROVED" && capabilities.canLock ? (
+                    <button
+                      type="button"
+                      disabled={workingId === record.id}
+                      onClick={() =>
+                        executeAction({
+                          action: "LOCK",
+                          payrollRecordId: record.id,
+                        })
+                      }
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
+                    >
+                      <Lock className="h-4 w-4" /> Lock payroll
+                    </button>
+                  ) : null}
+                </article>
+              );
+            })}
           </section>
         ) : (
           <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 text-sm text-white/45">
@@ -313,13 +350,15 @@ function Data({ label, value }) {
 function StatusBadge({ status }) {
   const value = String(status || "GENERATED").toUpperCase();
   const tone =
-    value === "APPROVED"
-      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-      : value === "DISPUTED"
-        ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
-        : value === "REJECTED"
-          ? "border-red-500/20 bg-red-500/10 text-red-300"
-          : "border-cyan-500/20 bg-cyan-500/10 text-cyan-300";
+    value === "LOCKED"
+      ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
+      : value === "APPROVED"
+        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+        : value === "DISPUTED"
+          ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
+          : value === "REJECTED"
+            ? "border-red-500/20 bg-red-500/10 text-red-300"
+            : "border-white/10 bg-white/[0.05] text-white/65";
 
   return (
     <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${tone}`}>

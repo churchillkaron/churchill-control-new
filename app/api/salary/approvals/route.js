@@ -1,62 +1,74 @@
 export const dynamic = "force-dynamic";
 
-import {
-  createServerSupabase,
-} from "@/lib/shared/supabase/server";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function GET() {
+const GOVERNANCE_ROLES = new Set([
+  "OWNER",
+  "SUPER_ADMIN",
+  "MANAGER",
+  "ACCOUNTING",
+  "ACCOUNTING_ADMIN",
+  "PAYROLL_ADMIN",
+]);
 
+function normalizeRole(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+export async function GET(request) {
   try {
+    const context = await resolveAuthenticatedStaffContext({ request });
 
-    const supabase =
-      createServerSupabase();
-
-    const {
-      data,
-      error,
-    } = await supabase
-
-      .from("salary_approvals")
-
-      .select("*")
-
-      .order(
-        "created_at",
+    if (!context.success) {
+      return Response.json(
         {
-          ascending: false,
-        }
+          success: false,
+          error: context.error,
+          code: context.code,
+        },
+        { status: context.status || 403 }
       );
-
-    if (error) {
-      throw error;
     }
 
+    const role = normalizeRole(context.role || context.staff?.role);
+
+    if (!GOVERNANCE_ROLES.has(role)) {
+      return Response.json(
+        {
+          success: false,
+          error: "Payroll governance permission required",
+        },
+        { status: 403 }
+      );
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("payroll_records")
+      .select("*")
+      .eq("organization_id", context.organizationId)
+      .order("payroll_month", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
     return Response.json({
-
       success: true,
-
-      data,
-
+      deprecated: true,
+      replacement: "/api/payroll/governance",
+      organizationId: context.organizationId,
+      role,
+      data: data || [],
     });
-
   } catch (error) {
-
-    console.error(error);
+    console.error("LEGACY_SALARY_APPROVALS_ERROR", error);
 
     return Response.json(
-
       {
         success: false,
-        error:
-          error.message,
+        error: error?.message || "Unable to load payroll governance",
       },
-
-      {
-        status: 500,
-      }
-
+      { status: 500 }
     );
-
   }
-
 }

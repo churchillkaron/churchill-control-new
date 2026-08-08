@@ -1,0 +1,3 @@
+Deploy production so CreativeMasterPlanRuntime requests OpenAI JSON-object output for MASTER_PLAN_V3.
+No publication authorization change.
+No Gemini generation triggered by this commit.

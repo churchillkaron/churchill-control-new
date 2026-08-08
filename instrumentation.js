@@ -52,6 +52,9 @@ export async function register() {
       "@/lib/creative/assets/intelligence/runtime/CreativeBrandFidelityBootstrap"
     );
     await import(
+      "@/lib/creative/quality/runtime/CreativeBrandFidelityPerceptualReviewRuntime"
+    );
+    await import(
       "@/lib/creative/assets/intelligence/runtime/CreativeBrandFidelityExecutionGate"
     );
   }

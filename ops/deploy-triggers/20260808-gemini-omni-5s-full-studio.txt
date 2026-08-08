@@ -1,0 +1,12 @@
+Vercel production build trigger for the governed Gemini Omni full Creative Studio five-second smoke test.
+
+Safety and governance:
+- authenticated organization-scoped route only
+- full Creative Director / storyboard / production graph / worker path
+- Gemini constrained through ProviderResolver and ProviderExecutor
+- Usage + wallet billing required
+- target video duration: 5 seconds
+- maximum video customer price ceiling: 22.75 THB
+- one approved AI-generated Studio source asset
+- publication is not authorized
+- provider prompts remain execution-boundary only and are not persisted

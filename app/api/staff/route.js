@@ -1,8 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const LATE_THRESHOLD_MINUTES = 10;
@@ -25,54 +24,23 @@ function minutesBetween(startValue, endValue) {
 }
 
 async function resolveStaffAccess(request) {
-  const user = await getServerCurrentUser();
-  if (!user) {
+  const context = await resolveAuthenticatedStaffContext({ request });
+
+  if (!context.success) {
     return {
       response: NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
+        {
+          success: false,
+          error: context.error,
+          code: context.code,
+          availableOrganizationIds: context.availableOrganizationIds || [],
+        },
+        { status: context.status || 403 }
       ),
     };
   }
 
-  const { data: staff, error } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("*")
-    .eq("auth_user_id", user.id)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (error) throw error;
-
-  if (!staff?.active_organization_id) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: "Active staff organization not found" },
-        { status: 404 }
-      ),
-    };
-  }
-
-  const access = await requireOrganizationAccess({
-    organizationId: staff.active_organization_id,
-    request,
-  });
-
-  if (!access.success) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status || 403 }
-      ),
-    };
-  }
-
-  return {
-    user,
-    staff,
-    organizationId: access.organizationId,
-    access,
-  };
+  return context;
 }
 
 async function loadTodaySchedule({ organizationId, staffId }) {
@@ -124,6 +92,7 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
+      availableOrganizationIds: context.availableOrganizationIds || [],
       partyId: context.staff.party_id || null,
       staff: context.staff,
       schedule,

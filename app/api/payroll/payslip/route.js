@@ -1,31 +1,20 @@
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import generatePayslipPdf from "@/lib/payroll/payslips/generatePayslipPdf";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function POST(request) {
   try {
-    const user = await getServerCurrentUser();
+    const context = await resolveAuthenticatedStaffContext({ request });
 
-    if (!user) {
+    if (!context.success) {
       return Response.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      );
-    }
-
-    const { data: staff, error: staffError } = await supabaseAdmin
-      .from("staff_accounts")
-      .select("id,party_id,active_organization_id,active")
-      .eq("auth_user_id", user.id)
-      .eq("active", true)
-      .maybeSingle();
-
-    if (staffError) throw staffError;
-
-    if (!staff?.active_organization_id) {
-      return Response.json(
-        { success: false, error: "Active staff organization not found" },
-        { status: 404 }
+        {
+          success: false,
+          error: context.error,
+          code: context.code,
+          availableOrganizationIds: context.availableOrganizationIds || [],
+        },
+        { status: context.status || 403 }
       );
     }
 
@@ -39,11 +28,13 @@ export async function POST(request) {
       );
     }
 
+    const { staff, organizationId } = context;
+
     const { data: record, error: recordError } = await supabaseAdmin
       .from("payroll_records")
       .select("id,party_id,staff_id,organization_id,status")
       .eq("id", payrollRecordId)
-      .eq("organization_id", staff.active_organization_id)
+      .eq("organization_id", organizationId)
       .eq("staff_id", staff.id)
       .maybeSingle();
 
@@ -65,7 +56,7 @@ export async function POST(request) {
 
     const pdf = await generatePayslipPdf({
       payrollRecordId,
-      organizationId: staff.active_organization_id,
+      organizationId,
       staffId: staff.id,
       partyId: staff.party_id || null,
     });

@@ -48,6 +48,12 @@ export async function register() {
     await import(
       "@/lib/creative/assets/intelligence/runtime/CreativeSourceSemanticProductionGateRuntime"
     );
+    await import(
+      "@/lib/creative/assets/intelligence/runtime/CreativeBrandFidelityBootstrap"
+    );
+    await import(
+      "@/lib/creative/assets/intelligence/runtime/CreativeBrandFidelityExecutionGate"
+    );
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {

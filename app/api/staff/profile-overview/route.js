@@ -91,13 +91,20 @@ export async function GET(request) {
     if (compensationResult.error) throw compensationResult.error;
     if (payrollResult.error) throw payrollResult.error;
 
+    const compensation = compensationResult.data
+      ? {
+          ...compensationResult.data,
+          currency_code: compensationResult.data.currency || null,
+        }
+      : null;
+
     return NextResponse.json({
       success: true,
       profile: {
         organizationId,
         staff,
         party: partyResult.data || null,
-        compensation: compensationResult.data || null,
+        compensation,
         payroll: payrollResult.data || [],
       },
     });

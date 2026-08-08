@@ -2,142 +2,280 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
-import { DollarSign, Users } from "lucide-react";
-import PageWrapper from "@/components/PageWrapper";
-import { PAYROLL_STATUS } from "@/lib/payroll/consolidation/payrollStatusMachine";
-import { getTenantId, loadStaff, createRealtimeChannel } from "@/domains/hospitality/loaders/loadOperationalData";
-import { supabase } from "@/lib/shared/supabase/client";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Banknote,
+  CheckCircle2,
+  ClipboardCheck,
+  RefreshCw,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
+
+function currentPayrollMonth() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function money(value) {
+  return Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 export default function PayrollPage() {
-  const [tenantId, setTenantId] = useState(null);
-  const [staff, setStaff] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [governance, setGovernance] = useState(null);
+  const [payments, setPayments] = useState(null);
+  const [payrollMonth, setPayrollMonth] = useState(currentPayrollMonth());
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  async function loadPayroll(activeTenantId) {
+  async function load() {
+    setLoading(true);
+    setError("");
+
     try {
-      const staffData = await loadStaff(activeTenantId);
+      const [governanceResponse, paymentsResponse] = await Promise.all([
+        fetch("/api/payroll/governance", { cache: "no-store" }),
+        fetch("/api/payroll/payments", { cache: "no-store" }),
+      ]);
 
-      const { data: orderData } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("tenant_id", activeTenantId)
-        .eq("payment_status", PAYROLL_STATUS.PAID);
+      const [governanceResult, paymentsResult] = await Promise.all([
+        governanceResponse.json(),
+        paymentsResponse.json(),
+      ]);
 
-      setStaff(staffData || []);
-      setOrders(orderData || []);
-    } catch (error) {
-      console.error("PAYROLL_LOAD_ERROR", error);
+      if (!governanceResponse.ok || !governanceResult?.success) {
+        throw new Error(governanceResult?.error || "Unable to load payroll governance");
+      }
+
+      if (!paymentsResponse.ok || !paymentsResult?.success) {
+        throw new Error(paymentsResult?.error || "Unable to load payroll payments");
+      }
+
+      setGovernance(governanceResult);
+      setPayments(paymentsResult);
+    } catch (loadError) {
+      setError(loadError?.message || "Unable to load payroll");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    async function boot() {
-      try {
-        const currentTenant = await getTenantId();
-        if (!currentTenant) {
-          setLoading(false);
-          return;
-        }
-
-        setTenantId(currentTenant);
-        await loadPayroll(currentTenant);
-
-        createRealtimeChannel({
-          name: "payroll-live",
-          tables: ["orders", "staff_accounts"],
-          callback: () => loadPayroll(currentTenant),
-        });
-      } catch (error) {
-        console.error(error);
-        setLoading(false);
-      }
-    }
-    boot();
+    load();
   }, []);
 
+  const summary = useMemo(() => {
+    const rows = governance?.payroll || [];
+    const paymentRows = payments?.payments || [];
+
+    return {
+      records: rows.length,
+      acknowledged: rows.filter((row) => row.employee_acknowledged).length,
+      approved: rows.filter((row) => row.status === "APPROVED").length,
+      locked: rows.filter((row) => row.status === "LOCKED").length,
+      paid: rows.filter((row) => row.status === "PAID").length,
+      payrollTotal: rows.reduce((sum, row) => sum + Number(row.final_salary || 0), 0),
+      preparedBatches: paymentRows.filter((row) => row.status === "PREPARED").length,
+      paidBatches: paymentRows.filter((row) => row.status === "PAID").length,
+    };
+  }, [governance, payments]);
+
   async function generatePayroll() {
+    if (!/^\d{4}-\d{2}$/.test(payrollMonth)) {
+      setError("Payroll month must use YYYY-MM.");
+      return;
+    }
+
+    setGenerating(true);
+    setError("");
+    setMessage("");
+
     try {
-      setGenerating(true);
       const response = await fetch("/api/payroll/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId, payrollMonth: "2026-06" }),
+        body: JSON.stringify({ payrollMonth }),
       });
-
       const result = await response.json();
-      if (process.env.NODE_ENV !== "production") console.log("PAYROLL_GENERATE_RESULT", result);
-      alert(result.success ? "Payroll generated" : result.error);
-    } catch (error) {
-      console.error(error);
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to generate payroll");
+      }
+
+      setMessage(`Payroll generated for ${payrollMonth}.`);
+      await load();
+    } catch (generateError) {
+      setError(generateError?.message || "Unable to generate payroll");
     } finally {
       setGenerating(false);
     }
   }
 
-  const totalRevenue = orders.reduce(
-    (sum, order) => sum + Number(order.final_amount || 0),
-    0
-  );
-
-  const staffCount = staff.length;
-
-  const totalServiceCharge = orders.reduce(
-    (sum, order) => sum + Number(order.service_charge || 0),
-    0
-  );
-
-  const avgPayout = totalServiceCharge / Math.max(1, staffCount);
-
   return (
-    <PageWrapper title="Payroll" subtitle="Enterprise payroll operations">
-      {loading ? (
-        <div className="text-white/40">Loading payroll...</div>
-      ) : (
-        <>
-          <div className="mb-6 flex justify-end">
+    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+          <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
+
+          <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.34em] text-[#D6A66A]">
+                <ShieldCheck className="h-4 w-4" /> People · Payroll
+              </div>
+              <h1 className="mt-3 text-4xl font-black">Payroll Control Center</h1>
+              <p className="mt-2 max-w-3xl text-sm text-white/45">
+                One lifecycle from payroll generation to employee acknowledgement, management approval, accounting lock, payment and reconciliation.
+              </p>
+              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
+                {payments?.entity?.legal_name || "Accounting entity"} · {governance?.role || payments?.role || "Role"}
+              </div>
+            </div>
+
             <button
-              onClick={generatePayroll}
-              disabled={generating}
-              className="rounded-2xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-6 py-3 text-sm font-medium text-[#D6A66A]"
+              type="button"
+              onClick={load}
+              disabled={loading}
+              className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
             >
-              {generating ? "Generating..." : "Generate Payroll"}
+              <RefreshCw className="h-4 w-4" /> Refresh
             </button>
           </div>
+        </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-            <div className="rounded-[28px] border border-white/10 bg-[#111117] p-6">
-              <div className="flex items-center gap-2 text-white/50 text-sm">
-                <DollarSign className="w-4 h-4" />
-                Revenue
+        {error ? (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
+
+        {message ? (
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            {message}
+          </div>
+        ) : null}
+
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric label="Payroll Records" value={summary.records} />
+          <Metric label="Acknowledged" value={summary.acknowledged} />
+          <Metric label="Locked" value={summary.locked} />
+          <Metric label="Paid" value={summary.paid} />
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]">
+          <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-[#D6A66A]/10 p-3 text-[#D6A66A]">
+                <Users className="h-5 w-5" />
               </div>
-              <div className="mt-4 text-5xl">฿{Math.round(totalRevenue)}</div>
-            </div>
-
-            <div className="rounded-[28px] border border-white/10 bg-[#111117] p-6">
-              <div className="text-white/50 text-sm">Service Charge</div>
-              <div className="mt-4 text-5xl">฿{Math.round(totalServiceCharge)}</div>
-            </div>
-
-            <div className="rounded-[28px] border border-white/10 bg-[#111117] p-6">
-              <div className="flex items-center gap-2 text-white/50 text-sm">
-                <Users className="w-4 h-4" />
-                Staff
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Step 1</div>
+                <h2 className="mt-1 text-2xl font-black">Generate Payroll</h2>
+                <p className="mt-2 text-sm text-white/40">
+                  Build the monthly payroll from canonical compensation, attendance, schedules, overtime, service charge and deductions.
+                </p>
               </div>
-              <div className="mt-4 text-5xl">{staffCount}</div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-[#111117] p-6">
-              <div className="text-white/50 text-sm">Avg Payout</div>
-              <div className="mt-4 text-5xl">฿{Math.round(avgPayout)}</div>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <input
+                type="month"
+                value={payrollMonth}
+                onChange={(event) => setPayrollMonth(event.target.value)}
+                className="h-12 flex-1 rounded-xl border border-white/10 bg-[#111] px-4 text-sm outline-none"
+              />
+              <button
+                type="button"
+                onClick={generatePayroll}
+                disabled={generating}
+                className="h-12 rounded-xl bg-[#D6A66A] px-6 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
+              >
+                {generating ? "Generating..." : "Generate payroll"}
+              </button>
             </div>
           </div>
-        </>
-      )}
-    </PageWrapper>
+
+          <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Current exposure</div>
+            <div className="mt-3 text-4xl font-black text-[#D6A66A]">{money(summary.payrollTotal)}</div>
+            <div className="mt-1 text-xs text-white/30">Total net salary across loaded payroll records</div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <Mini label="Approved" value={summary.approved} />
+              <Mini label="Prepared Batches" value={summary.preparedBatches} />
+              <Mini label="Paid Batches" value={summary.paidBatches} />
+              <Mini label="Locked Ready" value={payments?.lockedPayroll?.length || 0} />
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-2">
+          <Link
+            href="/payroll/governance"
+            className="group rounded-[30px] border border-white/10 bg-white/[0.035] p-5 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.04] lg:p-6"
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-cyan-400/10 p-3 text-cyan-300">
+                <ClipboardCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-cyan-300/70">Step 2–3</div>
+                <h2 className="mt-1 text-2xl font-black">Governance</h2>
+              </div>
+            </div>
+            <p className="mt-4 text-sm text-white/40">
+              Review employee acknowledgements and disputes, approve or reject payroll, then lock approved records for accounting.
+            </p>
+            <div className="mt-5 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-cyan-300">
+              <CheckCircle2 className="h-4 w-4" /> Open governance
+            </div>
+          </Link>
+
+          <Link
+            href="/payroll/payments"
+            className="group rounded-[30px] border border-white/10 bg-white/[0.035] p-5 transition hover:border-emerald-400/30 hover:bg-emerald-400/[0.04] lg:p-6"
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-emerald-400/10 p-3 text-emerald-300">
+                <Banknote className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-emerald-300/70">Step 4–5</div>
+                <h2 className="mt-1 text-2xl font-black">Payments & Reconciliation</h2>
+              </div>
+            </div>
+            <p className="mt-4 text-sm text-white/40">
+              Prepare locked payroll for bank payment, verify employee bank snapshots, reconcile against the real transaction reference and mark payroll paid.
+            </p>
+            <div className="mt-5 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300">
+              <Banknote className="h-4 w-4" /> Open payments
+            </div>
+          </Link>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function Metric({ label, value }) {
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
+      <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">{label}</div>
+      <div className="mt-3 text-3xl font-black">{value}</div>
+    </div>
+  );
+}
+
+function Mini({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-3">
+      <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
+      <div className="mt-2 text-xl font-black">{value}</div>
+    </div>
   );
 }

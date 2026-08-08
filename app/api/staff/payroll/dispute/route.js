@@ -1,46 +1,54 @@
 import { NextResponse } from "next/server";
 
-import disputePayrollRecord
-from "@/lib/payroll/consolidation/disputePayrollRecord";
+import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
+import disputePayrollRecord from "@/lib/payroll/consolidation/disputePayrollRecord";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    const user = await getServerCurrentUser();
 
-    const body =
-      await req.json();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      );
+    }
 
-    const result =
-      await disputePayrollRecord({
+    const { data: staff, error: staffError } = await supabaseAdmin
+      .from("staff_accounts")
+      .select("id,name,email,party_id,active_organization_id,active")
+      .eq("auth_user_id", user.id)
+      .eq("active", true)
+      .maybeSingle();
 
-        payrollRecordId:
-          body.payrollRecordId,
+    if (staffError) throw staffError;
 
-        staffName:
-          body.staffName || "STAFF",
+    if (!staff?.active_organization_id) {
+      return NextResponse.json(
+        { success: false, error: "Active staff organization not found" },
+        { status: 404 }
+      );
+    }
 
-        disputeReason:
-          body.disputeReason,
+    const body = await request.json();
 
-      });
-
-    return NextResponse.json({
-      success: true,
-      result,
+    const result = await disputePayrollRecord({
+      payrollRecordId: body?.payrollRecordId,
+      organizationId: staff.active_organization_id,
+      staffId: staff.id,
+      partyId: staff.party_id || null,
+      staffName: staff.name || staff.email || "STAFF",
+      disputeReason: body?.disputeReason,
     });
 
-  } catch (err) {
+    return NextResponse.json({ success: true, result });
+  } catch (error) {
+    console.error("PAYROLL_DISPUTE_ERROR", error);
 
     return NextResponse.json(
-      {
-        success: false,
-        error: err.message,
-      },
-      {
-        status: 500,
-      }
+      { success: false, error: error?.message || "Unable to dispute payroll" },
+      { status: 400 }
     );
-
   }
-
 }

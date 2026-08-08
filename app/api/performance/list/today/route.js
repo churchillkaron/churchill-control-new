@@ -48,6 +48,9 @@ export async function GET(
 
     }
 
+    const organizationId =
+      access.organizationId;
+
     const tenant_id =
       access.tenantId;
 
@@ -240,17 +243,17 @@ export async function GET(
       });
     }
 
-    // SALARY
-    const { data: salaryConfirm } = await supabaseAdmin
-      .from("salary_confirmations")
+    // PAYROLL GOVERNANCE
+    const { data: payrollReview } = await supabaseAdmin
+      .from("payroll_records")
       .select("id")
-      .eq("tenant_id", tenant_id)
-      .eq("status", "pending_manager");
+      .eq("organization_id", organizationId)
+      .in("status", ["GENERATED", "RECALCULATED"]);
 
-    if ((salaryConfirm || []).length > 0) {
+    if ((payrollReview || []).length > 0) {
       tasks.push({
-        title: `${salaryConfirm.length} salary confirmation(s) need approval`,
-        type: "salary",
+        title: `${payrollReview.length} payroll record(s) need governance review`,
+        type: "payroll",
       });
     }
 

@@ -2,270 +2,448 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
-
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
 
-export async function GET(
-  request
-) {
+function numeric(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
+function orderRevenue(order = {}) {
+  return numeric(
+    order.final_amount ??
+      order.total_amount ??
+      order.total ??
+      0
+  );
+}
+
+function performanceLevel(score) {
+  if (!Number.isFinite(score)) return "UNKNOWN";
+  if (score < 40) return "CRITICAL";
+  if (score < 60) return "BAD";
+  if (score < 80) return "WARNING";
+  return "GOOD";
+}
+
+function average(values = []) {
+  const valid = values.filter((value) => Number.isFinite(value));
+  if (!valid.length) return null;
+
+  return Math.round(
+    valid.reduce((sum, value) => sum + value, 0) /
+      valid.length
+  );
+}
+
+function startAndEndOfTodayUtc() {
+  const now = new Date();
+
+  const start = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0,
+      0,
+      0,
+      0
+    )
+  );
+
+  const end = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      23,
+      59,
+      59,
+      999
+    )
+  );
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+}
+
+function recordedPerformanceByName(rows = []) {
+  const buckets = new Map();
+
+  for (const row of rows) {
+    const key = normalizeText(row.name);
+    const score = Number(row.score);
+
+    if (!key || !Number.isFinite(score)) continue;
+
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(score);
+  }
+
+  return new Map(
+    [...buckets.entries()].map(([key, values]) => [
+      key,
+      average(values),
+    ])
+  );
+}
+
+function recordedDepartmentScores(rows = []) {
+  const buckets = new Map();
+
+  for (const row of rows) {
+    const department = normalizeText(row.department);
+    const score = Number(row.score);
+
+    if (!department || !Number.isFinite(score)) continue;
+
+    if (!buckets.has(department)) buckets.set(department, []);
+    buckets.get(department).push(score);
+  }
+
+  return new Map(
+    [...buckets.entries()].map(([department, values]) => [
+      department,
+      average(values),
+    ])
+  );
+}
+
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const requestedOrganizationId = searchParams.get("organizationId");
 
-    const {
-      searchParams,
-    } = new URL(
-      request.url
-    );
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          searchParams.get(
-            "organizationId"
-          ),
-
-      });
+    const access = await requireOrganizationAccess({
+      organizationId: requestedOrganizationId,
+      request,
+    });
 
     if (!access.success) {
-
       return Response.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
-    const organizationId =
-      access.organizationId;
+    const organizationId = access.organizationId;
+    const { start, end } = startAndEndOfTodayUtc();
 
-    const tenant_id =
-      access.tenantId;
+    const [
+      alertsResult,
+      ordersResult,
+      staffResult,
+      performanceResult,
+      invoiceResult,
+      reviewAssetResult,
+      payrollResult,
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("alerts")
+        .select("id, alert_type, severity, message, created_at")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false })
+        .limit(100),
 
-    // 🔹 TODAY RANGE
-    const now = new Date();
-    const start = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-    const end = new Date(now.setHours(23, 59, 59, 999)).toISOString();
+      supabaseAdmin
+        .from("orders")
+        .select(
+          "id, staff_id, staff_name, total, total_amount, final_amount, created_at"
+        )
+        .eq("organization_id", organizationId)
+        .gte("created_at", start)
+        .lte("created_at", end),
 
-    // 🔹 ALERTS
-    const { data: alertRows } = await supabaseAdmin
-      .from("alerts")
-      .select("*")
-      .eq("tenant_id", tenant_id);
+      supabaseAdmin
+        .from("staff_accounts")
+        .select("id, email, name, role, department, active")
+        .eq("active_organization_id", organizationId)
+        .eq("active", true),
 
-    const alerts = (alertRows || []).map((a) => ({
-      type: a.severity || "info",
-      message: `${a.alert_type || "System"} issue`,
+      supabaseAdmin
+        .from("performance")
+        .select("id, name, department, score, late, absent, created_at")
+        .eq("organization_id", organizationId)
+        .gte("created_at", start)
+        .lte("created_at", end),
+
+      supabaseAdmin
+        .from("assets")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("type", "invoice")
+        .eq("invoice_status", "pending_manager"),
+
+      supabaseAdmin
+        .from("assets")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .in("type", ["routine", "photo"])
+        .eq("status", "pending"),
+
+      supabaseAdmin
+        .from("payroll_records")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .in("status", ["GENERATED", "RECALCULATED"]),
+    ]);
+
+    const queryResults = [
+      ["alerts", alertsResult],
+      ["orders", ordersResult],
+      ["staff_accounts", staffResult],
+      ["performance", performanceResult],
+      ["invoice assets", invoiceResult],
+      ["review assets", reviewAssetResult],
+      ["payroll_records", payrollResult],
+    ];
+
+    for (const [source, result] of queryResults) {
+      if (result.error) {
+        throw new Error(
+          `Unable to load ${source}: ${result.error.message}`
+        );
+      }
+    }
+
+    const alertRows = alertsResult.data || [];
+    const orders = ordersResult.data || [];
+    const staffRows = staffResult.data || [];
+    const performanceRows = performanceResult.data || [];
+
+    const alerts = alertRows.map((alert) => ({
+      type: alert.severity || "info",
+      message:
+        alert.message ||
+        `${alert.alert_type || "System"} issue`,
     }));
 
-    const hasCritical = (alertRows || []).some(
-      (a) => String(a.severity).toLowerCase() === "critical"
+    const hasCritical = alertRows.some(
+      (alert) => normalizeText(alert.severity) === "critical"
     );
 
-    // 🔹 ORDERS
-    const { data: orders } = await supabaseAdmin
-      .from("orders")
-      .select("id, staff_name, total, created_at")
-      .eq("tenant_id", tenant_id)
-      .gte("created_at", start)
-      .lte("created_at", end);
+    const staffById = new Map();
+    const staffByIdentity = new Map();
 
-    // 🔹 STAFF
-    const { data: staffData } = await supabaseAdmin
-      .from("staff_accounts")
-      .select("*")
-      .eq("tenant_id", tenant_id);
+    for (const staffAccount of staffRows) {
+      staffById.set(staffAccount.id, staffAccount);
 
-    const staffLookup = {};
-    for (const s of staffData || []) {
-      const email = String(s.email || "").toLowerCase();
-      if (!email) continue;
+      const email = normalizeText(staffAccount.email);
+      const name = normalizeText(staffAccount.name);
 
-      staffLookup[email] = {
-        name: s.name || s.email,
-        department: s.department || s.role || "foh",
-        email,
-      };
+      if (email) staffByIdentity.set(email, staffAccount);
+      if (name) staffByIdentity.set(name, staffAccount);
     }
 
-    const staffMap = {};
+    const salesByStaffId = new Map();
+    const legacySales = new Map();
 
-    for (const order of orders || []) {
-      const email = String(order.staff_name || "unknown").toLowerCase();
+    for (const order of orders) {
+      const revenue = orderRevenue(order);
+      const staffAccount =
+        (order.staff_id && staffById.get(order.staff_id)) ||
+        staffByIdentity.get(normalizeText(order.staff_name)) ||
+        null;
 
-      const info = staffLookup[email] || {
-        name: email,
-        department: "foh",
-        email,
-      };
-
-      if (!staffMap[email]) {
-        staffMap[email] = {
-          ...info,
+      if (staffAccount) {
+        const current = salesByStaffId.get(staffAccount.id) || {
           revenue: 0,
           orders: 0,
         };
+
+        current.revenue += revenue;
+        current.orders += 1;
+        salesByStaffId.set(staffAccount.id, current);
+        continue;
       }
 
-      staffMap[email].revenue += Number(order.total || 0);
-      staffMap[email].orders += 1;
-    }
+      const legacyKey = normalizeText(order.staff_name);
+      if (!legacyKey) continue;
 
-    for (const s of staffData || []) {
-      const email = String(s.email || "").toLowerCase();
-      if (!email || staffMap[email]) continue;
-
-      staffMap[email] = {
-        name: s.name || s.email,
-        department: s.department || "foh",
-        email,
+      const current = legacySales.get(legacyKey) || {
+        name: order.staff_name,
         revenue: 0,
         orders: 0,
       };
+
+      current.revenue += revenue;
+      current.orders += 1;
+      legacySales.set(legacyKey, current);
     }
 
-    const staff = Object.values(staffMap).map((s) => {
+    const performanceByName = recordedPerformanceByName(
+      performanceRows
+    );
+
+    const staff = staffRows.map((staffAccount) => {
+      const sales = salesByStaffId.get(staffAccount.id) || {
+        revenue: 0,
+        orders: 0,
+      };
+
       const avgOrder =
-        s.orders > 0 ? s.revenue / s.orders : 0;
+        sales.orders > 0 ? sales.revenue / sales.orders : 0;
 
-      let score = 0;
+      const recordedScore =
+        performanceByName.get(normalizeText(staffAccount.name)) ??
+        performanceByName.get(normalizeText(staffAccount.email)) ??
+        null;
 
-      score += Math.min(s.revenue / 1000, 50);
-      score += Math.min(s.orders * 5, 30);
-      score += Math.min(avgOrder / 100, 20);
+      let salesScore = null;
 
-      score = Math.round(score);
-
-      if (hasCritical) score = 0;
+      if (sales.orders > 0) {
+        salesScore = Math.round(
+          Math.min(sales.revenue / 1000, 50) +
+            Math.min(sales.orders * 5, 30) +
+            Math.min(avgOrder / 100, 20)
+        );
+      }
 
       return {
-        name: s.name,
-        email: s.email,
-        department: s.department,
-        score,
-        revenue: s.revenue,
-        orders: s.orders,
+        id: staffAccount.id,
+        name: staffAccount.name || staffAccount.email,
+        email: staffAccount.email,
+        department:
+          staffAccount.department || staffAccount.role || null,
+        score:
+          Number.isFinite(recordedScore) ? recordedScore : salesScore,
+        scoreSource:
+          Number.isFinite(recordedScore)
+            ? "performance"
+            : Number.isFinite(salesScore)
+              ? "sales"
+              : "none",
+        revenue: sales.revenue,
+        orders: sales.orders,
         avgOrder: Math.round(avgOrder),
       };
     });
 
-    const kitchenCulture = await loadKitchenCultureScore({
-      tenantId: tenant_id,
-    });
+    for (const legacy of legacySales.values()) {
+      const avgOrder =
+        legacy.orders > 0 ? legacy.revenue / legacy.orders : 0;
 
-    const averageKitchenCulture =
-      kitchenCulture?.length
+      staff.push({
+        id: null,
+        name: legacy.name,
+        email: null,
+        department: null,
+        score: Math.round(
+          Math.min(legacy.revenue / 1000, 50) +
+            Math.min(legacy.orders * 5, 30) +
+            Math.min(avgOrder / 100, 20)
+        ),
+        scoreSource: "sales_legacy_identity",
+        revenue: legacy.revenue,
+        orders: legacy.orders,
+        avgOrder: Math.round(avgOrder),
+      });
+    }
 
-        ? Math.round(
-            kitchenCulture.reduce(
-              (sum, chef) =>
-                sum + chef.cultureScore,
-              0
-            ) /
-            kitchenCulture.length
+    const departmentScores = recordedDepartmentScores(
+      performanceRows
+    );
+
+    const fohRecordedScore = average(
+      [...departmentScores.entries()]
+        .filter(([department]) =>
+          ["foh", "front of house", "service", "waiter"].includes(
+            department
           )
+        )
+        .map(([, score]) => score)
+    );
 
-        : 100;
+    const fohSalesScore = average(
+      staff
+        .filter((member) => {
+          const department = normalizeText(member.department);
+          return (
+            member.scoreSource === "sales" &&
+            [
+              "foh",
+              "front of house",
+              "service",
+              "waiter",
+              "manager",
+            ].includes(department)
+          );
+        })
+        .map((member) => member.score)
+    );
 
     const fohScore =
-      staff.length > 0
-        ? Math.round(
-            staff.reduce((sum, s) => sum + s.score, 0) /
-              staff.length
+      Number.isFinite(fohRecordedScore)
+        ? fohRecordedScore
+        : fohSalesScore;
+
+    const kitchenScore = average(
+      [...departmentScores.entries()]
+        .filter(([department]) =>
+          ["kitchen", "boh", "back of house", "chef"].includes(
+            department
           )
-        : 0;
+        )
+        .map(([, score]) => score)
+    );
 
-    let kitchenLevel = "GOOD";
+    const barScore = average(
+      [...departmentScores.entries()]
+        .filter(([department]) =>
+          ["bar", "bartender"].includes(department)
+        )
+        .map(([, score]) => score)
+    );
 
-    if (
-      averageKitchenCulture < 40
-    ) {
-
-      kitchenLevel = "CRITICAL";
-
-    } else if (
-      averageKitchenCulture < 60
-    ) {
-
-      kitchenLevel = "BAD";
-
-    } else if (
-      averageKitchenCulture < 80
-    ) {
-
-      kitchenLevel = "WARNING";
-
-    }
-    const barLevel = hasCritical ? "CRITICAL" : "GOOD";
-
-    // 🔥 TASK ENGINE (FULL + FIXED)
     const tasks = [];
 
-    // INVOICE
-    const { data: pendingInvoices } = await supabaseAdmin
-      .from("assets")
-      .select("id")
-      .eq("tenant_id", tenant_id)
-      .eq("type", "invoice")
-      .eq("invoice_status", "pending_manager");
-
-    if ((pendingInvoices || []).length > 0) {
+    if ((invoiceResult.data || []).length > 0) {
       tasks.push({
-        title: `${pendingInvoices.length} invoice(s) need approval`,
+        title: `${invoiceResult.data.length} invoice(s) need approval`,
         type: "invoice",
       });
     }
 
-    // ROUTINE / PHOTOS
-    const { data: routineUploads } = await supabaseAdmin
-      .from("assets")
-      .select("id")
-      .eq("tenant_id", tenant_id)
-      .eq("type", "routine")
-      .eq("status", "pending");
-
-    if ((routineUploads || []).length > 0) {
+    if ((reviewAssetResult.data || []).length > 0) {
       tasks.push({
-        title: `${routineUploads.length} routine upload(s) need review`,
+        title: `${reviewAssetResult.data.length} routine/photo upload(s) need review`,
         type: "routine",
       });
     }
 
-    // PAYROLL GOVERNANCE
-    const { data: payrollReview } = await supabaseAdmin
-      .from("payroll_records")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .in("status", ["GENERATED", "RECALCULATED"]);
-
-    if ((payrollReview || []).length > 0) {
+    if ((payrollResult.data || []).length > 0) {
       tasks.push({
-        title: `${payrollReview.length} payroll record(s) need governance review`,
+        title: `${payrollResult.data.length} payroll record(s) need governance review`,
         type: "payroll",
       });
     }
 
-    // PERFORMANCE
-    if (staff.some((s) => s.score < 70)) {
+    const lowPerformance = staff.filter(
+      (member) =>
+        Number.isFinite(member.score) && member.score < 70
+    );
+
+    if (lowPerformance.length > 0) {
       tasks.push({
-        title: "Low staff performance detected",
+        title: `${lowPerformance.length} staff performance record(s) need attention`,
         type: "performance",
       });
     }
 
-    // CRITICAL
     if (hasCritical) {
       tasks.push({
         title: "Critical system issue — immediate action required",
@@ -274,24 +452,48 @@ export async function GET(
     }
 
     return NextResponse.json({
+      success: true,
+      organizationId,
+      period: {
+        start,
+        end,
+        basis: "UTC",
+      },
       fohScore,
-      kitchenLevel,
-      barLevel,
+      kitchenLevel: performanceLevel(kitchenScore),
+      barLevel: performanceLevel(barScore),
+      departmentScores: {
+        foh: fohScore,
+        kitchen: kitchenScore,
+        bar: barScore,
+      },
       alerts,
       tasks,
       staff,
+      evidence: {
+        orders: orders.length,
+        performanceRecords: performanceRows.length,
+        scoredStaff: staff.filter((member) =>
+          Number.isFinite(member.score)
+        ).length,
+      },
     });
+  } catch (error) {
+    console.error("PERFORMANCE_ERROR", error);
 
-  } catch (err) {
-    console.error("PERFORMANCE ERROR:", err);
-
-    return NextResponse.json({
-      fohScore: 0,
-      kitchenLevel: "UNKNOWN",
-      barLevel: "UNKNOWN",
-      alerts: [],
-      tasks: [],
-      staff: [],
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error?.message || "Unable to load performance overview",
+        fohScore: null,
+        kitchenLevel: "UNKNOWN",
+        barLevel: "UNKNOWN",
+        alerts: [],
+        tasks: [],
+        staff: [],
+      },
+      { status: 500 }
+    );
   }
 }

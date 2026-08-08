@@ -1,8 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const MANAGE_ROLES = new Set([
@@ -21,51 +20,26 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function contextResponse(context) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: context.error,
+      code: context.code,
+      availableOrganizationIds: context.availableOrganizationIds || [],
+    },
+    { status: context.status || 403 }
+  );
+}
+
 async function context(request) {
-  const user = await getServerCurrentUser();
+  const resolved = await resolveAuthenticatedStaffContext({ request });
 
-  if (!user) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      ),
-    };
+  if (!resolved.success) {
+    return { response: contextResponse(resolved) };
   }
 
-  const { data: staff, error: staffError } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("id,name,email,role,active_organization_id,active")
-    .eq("auth_user_id", user.id)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (staffError) throw staffError;
-
-  if (!staff?.active_organization_id) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: "Active organization not found" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  const access = await requireOrganizationAccess({
-    organizationId: staff.active_organization_id,
-    request,
-  });
-
-  if (!access.success) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status || 403 }
-      ),
-    };
-  }
-
-  const role = normalizeRole(access.role || staff.role);
+  const role = normalizeRole(resolved.role || resolved.staff?.role);
 
   if (!MANAGE_ROLES.has(role)) {
     return {
@@ -77,9 +51,9 @@ async function context(request) {
   }
 
   return {
-    staff,
+    staff: resolved.staff,
     role,
-    organizationId: staff.active_organization_id,
+    organizationId: resolved.organizationId,
   };
 }
 

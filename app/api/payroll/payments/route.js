@@ -2,10 +2,9 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import preparePayrollPaymentBatch from "@/lib/payroll/payments/preparePayrollPaymentBatch";
 import reconcilePayrollPaymentBatch from "@/lib/payroll/payments/reconcilePayrollPaymentBatch";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const PAYMENT_ROLES = new Set([
@@ -20,51 +19,26 @@ function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+function contextResponse(context) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: context.error,
+      code: context.code,
+      availableOrganizationIds: context.availableOrganizationIds || [],
+    },
+    { status: context.status || 403 }
+  );
+}
+
 async function paymentContext(request) {
-  const user = await getServerCurrentUser();
+  const context = await resolveAuthenticatedStaffContext({ request });
 
-  if (!user) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      ),
-    };
+  if (!context.success) {
+    return { response: contextResponse(context) };
   }
 
-  const { data: staff, error: staffError } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("id,name,email,role,active_organization_id,active")
-    .eq("auth_user_id", user.id)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (staffError) throw staffError;
-
-  if (!staff?.active_organization_id) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: "Active organization not found" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  const access = await requireOrganizationAccess({
-    organizationId: staff.active_organization_id,
-    request,
-  });
-
-  if (!access.success) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status || 403 }
-      ),
-    };
-  }
-
-  const role = normalizeRole(access.role || staff.role);
+  const role = normalizeRole(context.role || context.staff?.role);
 
   if (!PAYMENT_ROLES.has(role)) {
     return {
@@ -76,10 +50,10 @@ async function paymentContext(request) {
   }
 
   return {
-    user,
-    staff,
+    user: context.user,
+    staff: context.staff,
     role,
-    organizationId: staff.active_organization_id,
+    organizationId: context.organizationId,
   };
 }
 

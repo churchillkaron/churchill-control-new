@@ -57,6 +57,9 @@ export async function register() {
     await import(
       "@/lib/creative/assets/intelligence/runtime/CreativeBrandFidelityExecutionGate"
     );
+    await import(
+      "@/lib/creative/release/runtime/CreativeSingleMediaAuthorizationDispatchRuntime"
+    );
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {

@@ -1,16 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import buildPeopleRuntime from "@/lib/people/runtime/PeopleRuntime";
-
-const OPTIONAL_SCHEMA_ERRORS = new Set([
-  "42P01",
-  "42703",
-  "PGRST116",
-  "PGRST204",
-]);
 
 function formatDuration(clockIn) {
   if (!clockIn) return "00:00";
@@ -24,18 +18,22 @@ function formatDuration(clockIn) {
 }
 
 function getTodayDate() {
-  return new Date().toISOString().split("T")[0];
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function getShiftStatus({ activeShift, schedule }) {
   if (activeShift) return "WORKING";
   if (!schedule) return "NO_SHIFT";
 
-  const startTime = schedule.start_time || schedule.starts_at || null;
+  const startTime = schedule.start_time || null;
   if (!startTime) return "UPCOMING";
 
-  const today = getTodayDate();
-  const shiftStart = new Date(`${today}T${startTime}`);
+  const shiftStart = new Date(`${getTodayDate()}T${startTime}+07:00`);
 
   if (!Number.isNaN(shiftStart.getTime()) && new Date() > shiftStart) {
     return "LATE";
@@ -44,153 +42,120 @@ function getShiftStatus({ activeShift, schedule }) {
   return "UPCOMING";
 }
 
-function organizationFromRequest(request) {
-  const { searchParams } = new URL(request.url);
-  const explicit =
-    searchParams.get("organizationId") ||
-    searchParams.get("organization_id");
+async function loadAuthenticatedStaff() {
+  const user = await getServerCurrentUser();
+  if (!user) return { user: null, staff: null };
 
-  if (explicit) return explicit;
+  const { data: staff, error } = await supabaseAdmin
+    .from("staff_accounts")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
 
-  const referer = request.headers.get("referer");
-  if (!referer) return null;
+  if (error) throw error;
 
-  try {
-    const pathname = new URL(referer).pathname;
-    const match = pathname.match(/\/workspace\/([^/]+)/);
-    return match?.[1] ? decodeURIComponent(match[1]) : null;
-  } catch {
-    return null;
-  }
+  return { user, staff: staff || null };
 }
 
-function isOptionalSchemaError(error) {
-  return Boolean(error && OPTIONAL_SCHEMA_ERRORS.has(error.code));
-}
-
-async function loadSchedule({ organizationId, staff }) {
-  const today = getTodayDate();
-  const staffId = staff?.id || null;
-  const staffName = staff?.name || staff?.display_name || null;
-
-  if (!staffId && !staffName) return null;
-
-  let query = supabaseAdmin
+async function loadSchedule({ organizationId, staffId }) {
+  const { data, error } = await supabaseAdmin
     .from("staff_schedules")
     .select("*")
     .eq("organization_id", organizationId)
-    .eq("shift_date", today);
-
-  query = staffId
-    ? query.eq("staff_account_id", staffId)
-    : query.eq("staff_name", staffName);
-
-  let result = await query
+    .eq("staff_id", staffId)
+    .eq("shift_date", getTodayDate())
     .order("start_time", { ascending: true })
     .limit(1)
     .maybeSingle();
 
-  if (!result.error) return result.data || null;
-  if (!isOptionalSchemaError(result.error) || !staffName) {
-    if (isOptionalSchemaError(result.error)) return null;
-    throw result.error;
-  }
-
-  result = await supabaseAdmin
-    .from("staff_schedules")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .eq("staff_name", staffName)
-    .eq("shift_date", today)
-    .order("start_time", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (result.error && !isOptionalSchemaError(result.error)) throw result.error;
-  return result.data || null;
+  if (error) throw error;
+  return data || null;
 }
 
-async function loadActiveShift({ organizationId, staff }) {
-  const staffId = staff?.id || null;
-  const staffName = staff?.name || staff?.display_name || null;
-
-  if (!staffId && !staffName) return null;
-
-  let query = supabaseAdmin
+async function loadActiveShift({ organizationId, staffId }) {
+  const { data, error } = await supabaseAdmin
     .from("staff_shifts")
     .select("*")
     .eq("organization_id", organizationId)
-    .is("clock_out", null);
-
-  query = staffId
-    ? query.eq("staff_account_id", staffId)
-    : query.eq("staff_name", staffName);
-
-  let result = await query
-    .order("clock_in", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!result.error) return result.data || null;
-  if (!isOptionalSchemaError(result.error) || !staffName) {
-    if (isOptionalSchemaError(result.error)) return null;
-    throw result.error;
-  }
-
-  result = await supabaseAdmin
-    .from("staff_shifts")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .eq("staff_name", staffName)
+    .eq("staff_id", staffId)
     .is("clock_out", null)
     .order("clock_in", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (result.error && !isOptionalSchemaError(result.error)) throw result.error;
-  return result.data || null;
+  if (error) throw error;
+  return data || null;
 }
 
 export async function GET(request) {
   try {
-    const organizationId = organizationFromRequest(request);
+    const { user, staff } = await loadAuthenticatedStaff();
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    if (!staff?.active_organization_id) {
+      return NextResponse.json(
+        { success: false, error: "Active staff organization not found" },
+        { status: 404 }
+      );
+    }
+
     const access = await requireOrganizationAccess({
-      organizationId,
+      organizationId: staff.active_organization_id,
       request,
     });
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
+        { success: false, error: access.error },
         { status: access.status || 403 }
       );
     }
 
-    const staff = access.staff || null;
-    const [schedule, activeShift] = await Promise.all([
-      loadSchedule({ organizationId: access.organizationId, staff }),
-      loadActiveShift({ organizationId: access.organizationId, staff }),
+    const organizationId = access.organizationId;
+
+    const [schedule, activeShift, latestPayroll] = await Promise.all([
+      loadSchedule({ organizationId, staffId: staff.id }),
+      loadActiveShift({ organizationId, staffId: staff.id }),
+      supabaseAdmin
+        .from("payroll_records")
+        .select("id,status,payout_status,payroll_month,final_salary")
+        .eq("organization_id", organizationId)
+        .eq("staff_id", staff.id)
+        .order("payroll_month", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
+
+    if (latestPayroll.error) throw latestPayroll.error;
+
     const runtime = buildPeopleRuntime({
       staff,
       schedule,
       activeShift,
     });
-    const shiftStatus = getShiftStatus({
-      activeShift,
-      schedule,
-    });
+
+    if (latestPayroll.data?.status) {
+      runtime.payrollStatus = latestPayroll.data.status;
+    }
+
+    const shiftStatus = getShiftStatus({ activeShift, schedule });
 
     return NextResponse.json({
       success: true,
       identity: {
-        organizationId: access.organizationId,
-        email: access.user?.email || staff?.email || null,
-        staffName: staff?.name || staff?.display_name || null,
-        staffId: staff?.id || null,
+        organizationId,
+        partyId: staff.party_id || null,
+        staffId: staff.id,
+        email: user.email || staff.email || null,
+        staffName: staff.name || null,
       },
       staff,
       membership: access.membership || null,
@@ -198,10 +163,9 @@ export async function GET(request) {
       permissions: access.permissions || [],
       schedule,
       activeShift,
+      latestPayroll: latestPayroll.data || null,
       shiftActive: Boolean(activeShift),
-      shiftDuration: activeShift
-        ? formatDuration(activeShift.clock_in)
-        : "00:00",
+      shiftDuration: activeShift ? formatDuration(activeShift.clock_in) : "00:00",
       shiftStatus,
       runtime,
       socialFeed: [
@@ -214,7 +178,7 @@ export async function GET(request) {
       aiInsight: `Workforce runtime active. Payroll status: ${runtime.payrollStatus}.`,
     });
   } catch (error) {
-    console.error("STAFF RUNTIME ERROR", error);
+    console.error("STAFF_RUNTIME_ERROR", error);
 
     return NextResponse.json(
       {

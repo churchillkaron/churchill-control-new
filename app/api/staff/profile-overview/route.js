@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function today() {
@@ -10,53 +9,21 @@ function today() {
 
 export async function GET(request) {
   try {
-    const user = await getServerCurrentUser();
+    const context = await resolveAuthenticatedStaffContext({ request });
 
-    if (!user) {
+    if (!context.success) {
       return NextResponse.json(
         {
           success: false,
-          error: "Authentication required",
+          error: context.error,
+          code: context.code,
+          availableOrganizationIds: context.availableOrganizationIds || [],
         },
-        { status: 401 }
+        { status: context.status || 403 }
       );
     }
 
-    const { data: staff, error: staffError } = await supabaseAdmin
-      .from("staff_accounts")
-      .select("*")
-      .eq("auth_user_id", user.id)
-      .eq("active", true)
-      .maybeSingle();
-
-    if (staffError) throw staffError;
-
-    if (!staff?.active_organization_id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Active staff organization not found",
-        },
-        { status: 404 }
-      );
-    }
-
-    const access = await requireOrganizationAccess({
-      organizationId: staff.active_organization_id,
-      request,
-    });
-
-    if (!access.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
-        { status: access.status || 403 }
-      );
-    }
-
-    const organizationId = access.organizationId;
+    const { staff, organizationId } = context;
 
     const [partyResult, compensationResult, payrollResult] = await Promise.all([
       staff.party_id
@@ -102,6 +69,7 @@ export async function GET(request) {
       success: true,
       profile: {
         organizationId,
+        availableOrganizationIds: context.availableOrganizationIds || [],
         staff,
         party: partyResult.data || null,
         compensation,

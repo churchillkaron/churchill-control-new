@@ -2,8 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { approvePayrollRecord } from "@/lib/payroll/consolidation/approvePayrollRecord";
 import rejectPayrollRecord from "@/lib/payroll/consolidation/rejectPayrollRecord";
@@ -30,51 +29,26 @@ function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+function contextResponse(context) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: context.error,
+      code: context.code,
+      availableOrganizationIds: context.availableOrganizationIds || [],
+    },
+    { status: context.status || 403 }
+  );
+}
+
 async function governanceContext(request) {
-  const user = await getServerCurrentUser();
+  const context = await resolveAuthenticatedStaffContext({ request });
 
-  if (!user) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      ),
-    };
+  if (!context.success) {
+    return { response: contextResponse(context) };
   }
 
-  const { data: staff, error: staffError } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("id,name,email,role,active_organization_id,active")
-    .eq("auth_user_id", user.id)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (staffError) throw staffError;
-
-  if (!staff?.active_organization_id) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: "Active organization not found" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  const access = await requireOrganizationAccess({
-    organizationId: staff.active_organization_id,
-    request,
-  });
-
-  if (!access.success) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status || 403 }
-      ),
-    };
-  }
-
-  const role = normalizeRole(access.role || staff.role);
+  const role = normalizeRole(context.role || context.staff?.role);
 
   if (!GOVERNANCE_ROLES.has(role)) {
     return {
@@ -86,10 +60,10 @@ async function governanceContext(request) {
   }
 
   return {
-    user,
-    staff,
+    user: context.user,
+    staff: context.staff,
     role,
-    organizationId: staff.active_organization_id,
+    organizationId: context.organizationId,
   };
 }
 

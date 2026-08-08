@@ -1,326 +1,285 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-const BASE_REVENUE = 128450;
 const LATE_THRESHOLD_MINUTES = 10;
-const LATE_PENALTY = 0.8;
 
-function isLate(clockInTime) {
-  const start = new Date(clockInTime);
-  const scheduled = new Date(start);
-  scheduled.setHours(17, 0, 0, 0);
-
-  const diff = (start - scheduled) / 60000;
-  return diff > LATE_THRESHOLD_MINUTES;
+function bangkokDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
-function buildSystemPayload(staffMembers, shifts) {
-  const activeStaff = (staffMembers || []).filter((s) => s.is_active !== false);
+function minutesBetween(startValue, endValue) {
+  if (!startValue || !endValue) return 0;
+  const start = new Date(startValue);
+  const end = new Date(endValue);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  return Math.max(0, Math.round((end - start) / 60000));
+}
 
-  const latestShiftByName = {};
-  for (const shift of shifts || []) {
-    if (!latestShiftByName[shift.staff_name]) {
-      latestShiftByName[shift.staff_name] = shift;
-    }
+async function resolveStaffAccess(request) {
+  const user = await getServerCurrentUser();
+  if (!user) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      ),
+    };
   }
 
-  const staffWithShift = activeStaff.map((member) => {
-    const shift = latestShiftByName[member.name] || null;
+  const { data: staff, error } = await supabaseAdmin
+    .from("staff_accounts")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
 
-    let shiftMinutes = 0;
-    if (shift?.clock_in) {
-      const start = new Date(shift.clock_in);
-      const end = shift?.clock_out ? new Date(shift.clock_out) : new Date();
-      shiftMinutes = Math.max(0, Math.floor((end - start) / 60000));
-    }
+  if (error) throw error;
 
+  if (!staff?.active_organization_id) {
     return {
-      name: member.name,
-      role: member.role,
-      score: member.score,
-      shift,
-      shiftMinutes,
+      response: NextResponse.json(
+        { success: false, error: "Active staff organization not found" },
+        { status: 404 }
+      ),
     };
+  }
+
+  const access = await requireOrganizationAccess({
+    organizationId: staff.active_organization_id,
+    request,
   });
 
-  const roleGroups = {
-    FOH: staffWithShift.filter((s) => s.role === "FOH"),
-    Bar: staffWithShift.filter((s) => s.role === "Bar"),
-    Kitchen: staffWithShift.filter((s) => s.role === "Kitchen"),
-  };
-
-  const avg = (arr) =>
-    arr.length
-      ? Math.round(arr.reduce((sum, s) => sum + (s.score || 0), 0) / arr.length)
-      : 0;
-
-  const fohScore = avg(roleGroups.FOH);
-  const barScore = avg(roleGroups.Bar);
-  const kitchenScore = avg(roleGroups.Kitchen);
-  const averageScore = Math.round((fohScore + barScore + kitchenScore) / 3);
-
-  const revenue = BASE_REVENUE;
-  const servicePool = Math.round(revenue * 0.05);
-
-  let payoutStatus = "GOOD";
-  let payoutLevel = 100;
-
-  if (averageScore < 70) {
-    payoutStatus = "WARNING";
-    payoutLevel = 70;
-  }
-  if (averageScore < 60) {
-    payoutStatus = "BAD";
-    payoutLevel = 40;
-  }
-  if (averageScore < 50) {
-    payoutStatus = "CRITICAL";
-    payoutLevel = 0;
-  }
-
-  const payoutPool = Math.round((servicePool * payoutLevel) / 100);
-
-  const roleSplit = {
-    FOH: 0.5,
-    Bar: 0.3,
-    Kitchen: 0.2,
-  };
-
-  const staffWithPayout = staffWithShift.map((member) => {
-    const group = roleGroups[member.role] || [];
-    const totalScore = group.reduce((sum, s) => sum + (s.score || 0), 0);
-    const rolePool = payoutPool * (roleSplit[member.role] || 0);
-
-    let fullPayoutShare = 0;
-    if (group.length > 0 && totalScore > 0) {
-      fullPayoutShare = Math.round((member.score / totalScore) * rolePool);
-    }
-
-    const fullShiftMinutes = 8 * 60;
-    const validShift = !!member.shift?.is_valid && member.shiftMinutes > 0;
-    const workedRatio = Math.min(member.shiftMinutes / fullShiftMinutes, 1);
-
-    const penalty = member.shift?.penalty_multiplier || 1;
-
-    const payrollAmount = validShift
-      ? Math.round(fullPayoutShare * workedRatio * penalty)
-      : 0;
-
+  if (!access.success) {
     return {
-      ...member,
-      fullPayoutShare,
-      payrollAmount,
-      validShift,
+      response: NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status || 403 }
+      ),
     };
-  });
+  }
 
   return {
-    revenue,
-    servicePool,
-    payoutPool,
-    payoutStatus,
-    payoutLevel,
-    fohScore,
-    barScore,
-    kitchenScore,
-    averageScore,
-    staffWithPayout,
+    user,
+    staff,
+    organizationId: access.organizationId,
+    access,
   };
 }
 
-export async function GET() {
-  const supabase = createServerSupabase();
-  const { data: staffMembers } = await supabase
-    .from("staff_members")
-    .select("*");
+async function loadTodaySchedule({ organizationId, staffId }) {
+  const { data, error } = await supabaseAdmin
+    .from("staff_schedules")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("staff_id", staffId)
+    .eq("shift_date", bangkokDate())
+    .order("start_time", { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
-  const { data: shifts } = await supabase
+  if (error) throw error;
+  return data || null;
+}
+
+async function loadOpenShift({ organizationId, staffId }) {
+  const { data, error } = await supabaseAdmin
     .from("staff_shifts")
     .select("*")
-    .order("created_at", { ascending: false });
+    .eq("organization_id", organizationId)
+    .eq("staff_id", staffId)
+    .is("clock_out", null)
+    .order("clock_in", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  const payload = buildSystemPayload(staffMembers, shifts);
-  return NextResponse.json(payload);
+  if (error) throw error;
+  return data || null;
+}
+
+export async function GET(request) {
+  try {
+    const context = await resolveStaffAccess(request);
+    if (context.response) return context.response;
+
+    const [schedule, openShift] = await Promise.all([
+      loadTodaySchedule({
+        organizationId: context.organizationId,
+        staffId: context.staff.id,
+      }),
+      loadOpenShift({
+        organizationId: context.organizationId,
+        staffId: context.staff.id,
+      }),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      organizationId: context.organizationId,
+      partyId: context.staff.party_id || null,
+      staff: context.staff,
+      schedule,
+      openShift,
+    });
+  } catch (error) {
+    console.error("STAFF_GET_ERROR", error);
+    return NextResponse.json(
+      { success: false, error: error?.message || "Unable to load staff" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request) {
-  const supabase = createServerSupabase();
-  const body = await request.json();
-  const {
-    action,
-    staffId,
-    staffName,
-    staffRole,
-    tenantId,
-  } = body;
+  try {
+    const context = await resolveStaffAccess(request);
+    if (context.response) return context.response;
 
-  if (!staffName || !staffRole) {
-    return NextResponse.json(
-      { error: "Missing staffName or staffRole" },
-      { status: 400 }
-    );
-  }
+    const body = await request.json();
+    const action = body?.action;
 
-  if (action === "clock_in") {
-    const now = new Date().toISOString();
-    const today =
-      new Date()
-        .toISOString()
-        .split("T")[0];
-
-    const { data: assignedSchedule } =
-      await supabase
-        .from("staff_schedules")
-        .select("*")
-        .eq("staff_name", staffName)
-        .eq("shift_date", today)
-        .eq("tenant_id", tenantId)
-        .limit(1)
-        .maybeSingle();
-
-    let late = false;
-    let scheduledStart = null;
-    let scheduledEnd = null;
-    let scheduleId = null;
-
-    if (!assignedSchedule) {
-
-      scheduledStart = null;
-
-      scheduledEnd = null;
-
-      scheduleId = null;
-
-      late = false;
-
-    }
-
-    if (assignedSchedule) {
-
-      scheduledStart =
-        assignedSchedule.start_time;
-
-      scheduledEnd =
-        assignedSchedule.end_time;
-
-      scheduleId =
-        assignedSchedule.id;
-
-      const shiftStart =
-        new Date(
-          `${today}T${scheduledStart}`
-        );
-
-      const current =
-        new Date(now);
-
-      const earlyWindow =
-        new Date(
-          shiftStart.getTime()
-          - 30 * 60000
-        );
-
-      if (
-        current <
-        earlyWindow
-      ) {
-
-        return NextResponse.json({
-
-          success: false,
-
-          error:
-            "Too early to start shift",
-
-        });
-
-      }
-
-      const diff =
-        (current - shiftStart) / 60000;
-
-      late =
-        diff >
-        LATE_THRESHOLD_MINUTES;
-
-    } else {
-
-      late = isLate(now);
-
-    }
-
-    const { error } = await supabase.from("staff_shifts").insert({
-      staff_id: staffId,
-      staff_name: staffName,
-      staff_role: staffRole,
-
-      tenant_id: tenantId,
-
-      clock_in: now,
-
-      is_valid: true,
-
-      is_late: late,
-
-      penalty_multiplier:
-        late
-          ? LATE_PENALTY
-          : 1,
-
-      scheduled_start:
-        scheduledStart,
-
-      scheduled_end:
-        scheduledEnd,
-
-      shift_source:
-        assignedSchedule
-          ? "SCHEDULED"
-          : "UNSCHEDULED",
-
-      approval_status:
-        assignedSchedule
-          ? "APPROVED"
-          : "PENDING",
-    });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, late });
-  }
-
-  if (action === "clock_out") {
-    const { data: openShift } = await supabase
-      .from("staff_shifts")
-      .select("*")
-      .eq("staff_id", staffId)
-      .eq("tenant_id", tenantId)
-      .is("clock_out", null)
-      .limit(1)
-      .maybeSingle();
-
-    if (!openShift) {
+    if (!action || !["clock_in", "clock_out"].includes(action)) {
       return NextResponse.json(
-        { error: "No open shift found" },
+        { success: false, error: "Invalid action" },
         { status: 400 }
       );
     }
 
-    const { error } = await supabase
-      .from("staff_shifts")
-      .update({ clock_out: new Date().toISOString() })
-      .eq("id", openShift.id);
+    const { staff, organizationId } = context;
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (action === "clock_in") {
+      const existingShift = await loadOpenShift({
+        organizationId,
+        staffId: staff.id,
+      });
+
+      if (existingShift) {
+        return NextResponse.json(
+          { success: false, error: "An active shift already exists" },
+          { status: 409 }
+        );
+      }
+
+      const schedule = await loadTodaySchedule({
+        organizationId,
+        staffId: staff.id,
+      });
+
+      const now = new Date();
+      let scheduledStart = null;
+      let scheduledEnd = null;
+      let lateMinutes = 0;
+      let isLate = false;
+
+      if (schedule?.start_time) {
+        scheduledStart = schedule.start_time;
+        scheduledEnd = schedule.end_time || null;
+
+        const shiftStart = new Date(
+          `${bangkokDate()}T${schedule.start_time}+07:00`
+        );
+
+        const earliestStart = new Date(shiftStart.getTime() - 30 * 60000);
+
+        if (now < earliestStart) {
+          return NextResponse.json(
+            { success: false, error: "Too early to start shift" },
+            { status: 400 }
+          );
+        }
+
+        lateMinutes = Math.max(
+          0,
+          Math.floor((now.getTime() - shiftStart.getTime()) / 60000)
+        );
+        isLate = lateMinutes > LATE_THRESHOLD_MINUTES;
+      }
+
+      const { data: shift, error } = await supabaseAdmin
+        .from("staff_shifts")
+        .insert({
+          organization_id: organizationId,
+          party_id: staff.party_id || null,
+          staff_id: staff.id,
+          staff_name: staff.name || staff.email || "Staff",
+          staff_role: staff.role || staff.position || "STAFF",
+          clock_in: now.toISOString(),
+          is_valid: true,
+          is_late: isLate,
+          late_minutes: lateMinutes,
+          penalty_multiplier: 1,
+          scheduled_start: scheduledStart,
+          scheduled_end: scheduledEnd,
+          shift_source: schedule ? "SCHEDULED" : "UNSCHEDULED",
+          approval_status: schedule ? "APPROVED" : "PENDING",
+          shift_status: "ACTIVE",
+        })
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      return NextResponse.json({
+        success: true,
+        shift,
+        late: isLate,
+        lateMinutes,
+      });
     }
 
-    return NextResponse.json({ success: true });
-  }
+    const openShift = await loadOpenShift({
+      organizationId,
+      staffId: staff.id,
+    });
 
-  return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    if (!openShift) {
+      return NextResponse.json(
+        { success: false, error: "No open shift found" },
+        { status: 400 }
+      );
+    }
+
+    const clockOut = new Date().toISOString();
+    const workedMinutes = minutesBetween(openShift.clock_in, clockOut);
+    const scheduledMinutes =
+      openShift.scheduled_start && openShift.scheduled_end
+        ? minutesBetween(
+            `${bangkokDate()}T${openShift.scheduled_start}+07:00`,
+            `${bangkokDate()}T${openShift.scheduled_end}+07:00`
+          )
+        : 0;
+    const overtimeMinutes = Math.max(0, workedMinutes - scheduledMinutes);
+
+    const { data: shift, error } = await supabaseAdmin
+      .from("staff_shifts")
+      .update({
+        clock_out: clockOut,
+        worked_minutes: workedMinutes,
+        overtime_minutes: overtimeMinutes,
+        shift_status: "COMPLETED",
+      })
+      .eq("id", openShift.id)
+      .eq("organization_id", organizationId)
+      .eq("staff_id", staff.id)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, shift });
+  } catch (error) {
+    console.error("STAFF_POST_ERROR", error);
+    return NextResponse.json(
+      { success: false, error: error?.message || "Unable to update shift" },
+      { status: 500 }
+    );
+  }
 }

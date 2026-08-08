@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
+  KeyRound,
   Mail,
   Plus,
   RefreshCw,
@@ -56,7 +57,6 @@ export default function UsersPage() {
       setUsers(result.staff || []);
       setActingRole(result.actingRole || "");
       setOrganizationId(result.organizationId || "");
-      setStatus("");
     } catch (loadError) {
       setError(loadError?.message || "Unable to load staff access");
     } finally {
@@ -73,13 +73,8 @@ export default function UsersPage() {
     [users]
   );
 
-  async function createUser() {
-    if (!newName.trim() || !newEmail.trim() || !newRole) {
-      setError("Name, email and role are required.");
-      return;
-    }
-
-    setWorkingId("create");
+  async function provisionAccess(payload, workKey) {
+    setWorkingId(workKey);
     setError("");
     setStatus("");
 
@@ -87,35 +82,69 @@ export default function UsersPage() {
       const response = await fetch("/api/users/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newName.trim(),
-          email: newEmail.trim().toLowerCase(),
-          role: newRole,
-          position: newPosition.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
       const result = await response.json();
 
       if (!response.ok || !result?.success) {
-        throw new Error(result?.error || "Unable to create staff access");
+        throw new Error(result?.error || "Unable to provision staff access");
       }
 
-      setStatus(result.message || "Staff access created.");
-      setShowModal(false);
-      setNewName("");
-      setNewEmail("");
-      setNewRole("WAITER");
-      setNewPosition("FOH");
+      setStatus(result.message || "Staff access provisioned.");
       await loadUsers();
-    } catch (createError) {
-      setError(createError?.message || "Unable to create staff access");
+      return true;
+    } catch (provisionError) {
+      setError(provisionError?.message || "Unable to provision staff access");
+      return false;
     } finally {
       setWorkingId("");
     }
   }
 
+  async function createUser() {
+    if (!newName.trim() || !newEmail.trim() || !newRole) {
+      setError("Name, email and role are required.");
+      return;
+    }
+
+    const created = await provisionAccess(
+      {
+        name: newName.trim(),
+        email: newEmail.trim().toLowerCase(),
+        role: newRole,
+        position: newPosition.trim() || null,
+      },
+      "create"
+    );
+
+    if (!created) return;
+
+    setShowModal(false);
+    setNewName("");
+    setNewEmail("");
+    setNewRole("WAITER");
+    setNewPosition("FOH");
+  }
+
+  async function sendAccess(user) {
+    if (!user?.email) {
+      setError("This staff account has no email address.");
+      return;
+    }
+
+    await provisionAccess(
+      {
+        name: user.name || user.email,
+        email: user.email,
+        role: user.role || "WAITER",
+        position: user.position || user.department || null,
+      },
+      `access:${user.id}`
+    );
+  }
+
   async function setActive(user, active) {
-    setWorkingId(user.id);
+    setWorkingId(`active:${user.id}`);
     setError("");
     setStatus("");
 
@@ -207,7 +236,7 @@ export default function UsersPage() {
         ) : null}
 
         <section className="overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.035]">
-          <div className="grid grid-cols-[1.4fr_.8fr_.8fr_.7fr_auto] gap-4 border-b border-white/10 px-5 py-4 text-[10px] uppercase tracking-[0.22em] text-white/35">
+          <div className="hidden grid-cols-[1.4fr_.8fr_.8fr_.7fr_1.15fr] gap-4 border-b border-white/10 px-5 py-4 text-[10px] uppercase tracking-[0.22em] text-white/35 lg:grid">
             <div>Employee</div>
             <div>Role</div>
             <div>Position</div>
@@ -221,7 +250,7 @@ export default function UsersPage() {
             users.map((user) => (
               <div
                 key={user.id}
-                className="grid grid-cols-[1.4fr_.8fr_.8fr_.7fr_auto] items-center gap-4 border-b border-white/[0.06] px-5 py-4 last:border-b-0"
+                className="grid gap-4 border-b border-white/[0.06] px-5 py-4 last:border-b-0 lg:grid-cols-[1.4fr_.8fr_.8fr_.7fr_1.15fr] lg:items-center"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
@@ -253,19 +282,33 @@ export default function UsersPage() {
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  disabled={workingId === user.id}
-                  onClick={() => setActive(user, !user.active)}
-                  className={`flex h-10 items-center gap-2 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.14em] disabled:opacity-40 ${
-                    user.active
-                      ? "border border-red-500/20 bg-red-500/10 text-red-300"
-                      : "border border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-                  }`}
-                >
-                  {user.active ? <UserX className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  {user.active ? "Deactivate" : "Activate"}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  {!user.auth_user_id ? (
+                    <button
+                      type="button"
+                      disabled={workingId === `access:${user.id}` || !user.active}
+                      onClick={() => sendAccess(user)}
+                      className="flex h-10 items-center gap-2 rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#E8C48F] disabled:opacity-40"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      {workingId === `access:${user.id}` ? "Sending..." : "Send access"}
+                    </button>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    disabled={workingId === `active:${user.id}`}
+                    onClick={() => setActive(user, !user.active)}
+                    className={`flex h-10 items-center gap-2 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.14em] disabled:opacity-40 ${
+                      user.active
+                        ? "border border-red-500/20 bg-red-500/10 text-red-300"
+                        : "border border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                    }`}
+                  >
+                    {user.active ? <UserX className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    {user.active ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
               </div>
             ))
           ) : (

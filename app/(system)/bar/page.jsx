@@ -13,8 +13,8 @@ export default function BarCompatibilityPage() {
   const { organization } = useOrganization();
   const organizationId =
     organization?.id ||
-    businessContext?.organization ||
     businessContext?.organization_id ||
+    businessContext?.organization?.id ||
     businessContext?.staff?.active_organization_id ||
     null;
 

@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "app/api/creative/tests/gemini-omni-5s/route.js": {
+      "maxDuration": 800
+    }
+  },
   "crons": [
     {
       "path": "/api/creative/execution/process",

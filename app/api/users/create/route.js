@@ -7,7 +7,7 @@ import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-const STAFF_CREATION_ROLES = new Set([
+const STAFF_MANAGEMENT_ROLES = new Set([
   "OWNER",
   "ORGANIZATION_OWNER",
   "ORG_OWNER",
@@ -15,6 +15,18 @@ const STAFF_CREATION_ROLES = new Set([
   "SUPER_ADMIN",
   "MANAGER",
 ]);
+
+const OWNER_LEVEL_ROLES = new Set([
+  "OWNER",
+  "ORGANIZATION_OWNER",
+  "ORG_OWNER",
+  "PLATFORM_OWNER",
+  "SUPER_ADMIN",
+]);
+
+function normalizeRole(value) {
+  return String(value || "").trim().toUpperCase();
+}
 
 function resolveRedirectOrigin(request) {
   const configuredOrigin = String(process.env.NEXT_PUBLIC_APP_URL || "").trim();
@@ -30,60 +42,108 @@ function resolveRedirectOrigin(request) {
   return new URL(request.url).origin;
 }
 
-export async function POST(request) {
-  try {
-    const user = await getServerCurrentUser();
+async function managementContext(request) {
+  const user = await getServerCurrentUser();
 
-    if (!user) {
-      return NextResponse.json(
+  if (!user) {
+    return {
+      response: NextResponse.json(
         { success: false, error: "Authentication required" },
         { status: 401 }
-      );
-    }
+      ),
+    };
+  }
 
-    const { data: actingStaff, error: actingStaffError } = await supabaseAdmin
-      .from("staff_accounts")
-      .select("id,role,active_organization_id,active")
-      .eq("auth_user_id", user.id)
-      .eq("active", true)
-      .maybeSingle();
+  const { data: actingStaff, error: actingStaffError } = await supabaseAdmin
+    .from("staff_accounts")
+    .select("id,role,active_organization_id,active")
+    .eq("auth_user_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
 
-    if (actingStaffError) throw actingStaffError;
+  if (actingStaffError) throw actingStaffError;
 
-    if (!actingStaff?.active_organization_id) {
-      return NextResponse.json(
+  if (!actingStaff?.active_organization_id) {
+    return {
+      response: NextResponse.json(
         { success: false, error: "Active organization not found" },
         { status: 403 }
-      );
-    }
+      ),
+    };
+  }
 
-    const access = await requireOrganizationAccess({
-      organizationId: actingStaff.active_organization_id,
-      request,
-    });
+  const access = await requireOrganizationAccess({
+    organizationId: actingStaff.active_organization_id,
+    request,
+  });
 
-    if (!access.success) {
-      return NextResponse.json(
+  if (!access.success) {
+    return {
+      response: NextResponse.json(
         { success: false, error: access.error },
         { status: access.status || 403 }
-      );
-    }
+      ),
+    };
+  }
 
-    const actingRole = String(access.role || actingStaff.role || "")
-      .trim()
-      .toUpperCase();
+  const actingRole = normalizeRole(access.role || actingStaff.role);
 
-    if (!STAFF_CREATION_ROLES.has(actingRole)) {
-      return NextResponse.json(
+  if (!STAFF_MANAGEMENT_ROLES.has(actingRole)) {
+    return {
+      response: NextResponse.json(
         { success: false, error: "Staff management permission required" },
         { status: 403 }
-      );
-    }
+      ),
+    };
+  }
+
+  return {
+    user,
+    actingStaff,
+    actingRole,
+    organizationId: actingStaff.active_organization_id,
+    access,
+  };
+}
+
+export async function GET(request) {
+  try {
+    const context = await managementContext(request);
+    if (context.response) return context.response;
+
+    const { data: staff, error } = await supabaseAdmin
+      .from("staff_accounts")
+      .select("id,name,email,role,position,department,active,auth_user_id,party_id,active_organization_id")
+      .eq("active_organization_id", context.organizationId)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      organizationId: context.organizationId,
+      actingRole: context.actingRole,
+      staff: staff || [],
+    });
+  } catch (error) {
+    console.error("LIST_STAFF_ACCESS_ERROR", error);
+
+    return NextResponse.json(
+      { success: false, error: error?.message || "Unable to load staff" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    const context = await managementContext(request);
+    if (context.response) return context.response;
 
     const body = await request.json();
     const name = String(body?.name || "").trim();
     const email = String(body?.email || "").trim().toLowerCase();
-    const role = String(body?.role || "").trim().toUpperCase();
+    const role = normalizeRole(body?.role);
     const position = String(body?.position || "").trim() || null;
 
     if (!name || !email || !role) {
@@ -93,10 +153,7 @@ export async function POST(request) {
       );
     }
 
-    if (
-      ["OWNER", "SUPER_ADMIN", "PLATFORM_OWNER", "ORGANIZATION_OWNER", "ORG_OWNER"].includes(role) &&
-      !["OWNER", "SUPER_ADMIN", "PLATFORM_OWNER", "ORGANIZATION_OWNER", "ORG_OWNER"].includes(actingRole)
-    ) {
+    if (OWNER_LEVEL_ROLES.has(role) && !OWNER_LEVEL_ROLES.has(context.actingRole)) {
       return NextResponse.json(
         { success: false, error: "Only an owner can provision owner-level access" },
         { status: 403 }
@@ -109,7 +166,7 @@ export async function POST(request) {
     ).toString();
 
     const result = await provisionStaffAccess({
-      organizationId: actingStaff.active_organization_id,
+      organizationId: context.organizationId,
       name,
       email,
       role,
@@ -137,6 +194,79 @@ export async function POST(request) {
         success: false,
         error: error?.message || "Unable to create staff access",
       },
+      { status: 400 }
+    );
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const context = await managementContext(request);
+    if (context.response) return context.response;
+
+    const body = await request.json();
+    const staffId = String(body?.staffId || "").trim();
+
+    if (!staffId || typeof body?.active !== "boolean") {
+      return NextResponse.json(
+        { success: false, error: "staffId and active are required" },
+        { status: 400 }
+      );
+    }
+
+    if (staffId === context.actingStaff.id && body.active === false) {
+      return NextResponse.json(
+        { success: false, error: "You cannot deactivate your own account" },
+        { status: 400 }
+      );
+    }
+
+    const { data: target, error: targetError } = await supabaseAdmin
+      .from("staff_accounts")
+      .select("id,role,active_organization_id")
+      .eq("id", staffId)
+      .eq("active_organization_id", context.organizationId)
+      .maybeSingle();
+
+    if (targetError) throw targetError;
+    if (!target) {
+      return NextResponse.json(
+        { success: false, error: "Staff account not found" },
+        { status: 404 }
+      );
+    }
+
+    if (OWNER_LEVEL_ROLES.has(normalizeRole(target.role)) && !OWNER_LEVEL_ROLES.has(context.actingRole)) {
+      return NextResponse.json(
+        { success: false, error: "Only an owner can manage owner-level access" },
+        { status: 403 }
+      );
+    }
+
+    const { data: staff, error: updateError } = await supabaseAdmin
+      .from("staff_accounts")
+      .update({ active: body.active })
+      .eq("id", staffId)
+      .eq("active_organization_id", context.organizationId)
+      .select("id,name,email,role,position,department,active,auth_user_id,party_id,active_organization_id")
+      .single();
+
+    if (updateError) throw updateError;
+
+    const { error: membershipError } = await supabaseAdmin
+      .from("organization_users")
+      .update({ status: body.active ? "active" : "inactive" })
+      .eq("organization_id", context.organizationId)
+      .eq("staff_account_id", staffId);
+
+    if (membershipError) throw membershipError;
+
+    return NextResponse.json({ success: true, staff });
+  } catch (error) {
+    console.error("UPDATE_STAFF_ACCESS_ERROR", error);
+
+    return NextResponse.json(
+      { success: false, error: error?.message || "Unable to update staff" },
       { status: 400 }
     );
   }

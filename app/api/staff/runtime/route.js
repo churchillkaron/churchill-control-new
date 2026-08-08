@@ -1,9 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import buildPeopleRuntime from "@/lib/people/runtime/PeopleRuntime";
 
 function formatDuration(clockIn) {
@@ -42,22 +41,6 @@ function getShiftStatus({ activeShift, schedule }) {
   return "UPCOMING";
 }
 
-async function loadAuthenticatedStaff() {
-  const user = await getServerCurrentUser();
-  if (!user) return { user: null, staff: null };
-
-  const { data: staff, error } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("*")
-    .eq("auth_user_id", user.id)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (error) throw error;
-
-  return { user, staff: staff || null };
-}
-
 async function loadSchedule({ organizationId, staffId }) {
   const { data, error } = await supabaseAdmin
     .from("staff_schedules")
@@ -90,42 +73,28 @@ async function loadActiveShift({ organizationId, staffId }) {
 
 export async function GET(request) {
   try {
-    const { user, staff } = await loadAuthenticatedStaff();
+    const context = await resolveAuthenticatedStaffContext({ request });
 
-    if (!user) {
+    if (!context.success) {
       return NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
+        {
+          success: false,
+          error: context.error,
+          code: context.code,
+          availableOrganizationIds: context.availableOrganizationIds || [],
+        },
+        { status: context.status || 403 }
       );
     }
 
-    if (!staff?.active_organization_id) {
-      return NextResponse.json(
-        { success: false, error: "Active staff organization not found" },
-        { status: 404 }
-      );
-    }
-
-    const access = await requireOrganizationAccess({
-      organizationId: staff.active_organization_id,
-      request,
-    });
-
-    if (!access.success) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status || 403 }
-      );
-    }
-
-    const organizationId = access.organizationId;
+    const { user, staff, organizationId } = context;
 
     const [schedule, activeShift, latestPayroll] = await Promise.all([
       loadSchedule({ organizationId, staffId: staff.id }),
       loadActiveShift({ organizationId, staffId: staff.id }),
       supabaseAdmin
         .from("payroll_records")
-        .select("id,status,payout_status,payroll_month,final_salary")
+        .select("id,status,payout_status,payroll_month,final_salary,payment_reference,payout_date")
         .eq("organization_id", organizationId)
         .eq("staff_id", staff.id)
         .order("payroll_month", { ascending: false })
@@ -157,10 +126,11 @@ export async function GET(request) {
         email: user.email || staff.email || null,
         staffName: staff.name || null,
       },
+      availableOrganizationIds: context.availableOrganizationIds || [],
       staff,
-      membership: access.membership || null,
-      role: access.role || null,
-      permissions: access.permissions || [],
+      membership: context.membership || null,
+      role: context.role || null,
+      permissions: context.permissions || [],
       schedule,
       activeShift,
       latestPayroll: latestPayroll.data || null,

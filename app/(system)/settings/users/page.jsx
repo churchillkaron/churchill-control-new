@@ -2,340 +2,381 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/shared/supabase/client";
+import { useEffect, useMemo, useState } from "react";
+import {
+  CheckCircle2,
+  Mail,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  UserRound,
+  UserX,
+  X,
+} from "lucide-react";
+
+const ROLE_OPTIONS = [
+  "WAITER",
+  "BAR",
+  "KITCHEN",
+  "ACCOUNTING",
+  "MANAGER",
+  "OWNER",
+];
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
-  const [status, setStatus] = useState("Loading...");
+  const [actingRole, setActingRole] = useState("");
+  const [organizationId, setOrganizationId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [workingId, setWorkingId] = useState("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const [newRole, setNewRole] = useState("Staff");
+  const [newRole, setNewRole] = useState("WAITER");
   const [newPosition, setNewPosition] = useState("FOH");
 
-  const [currentUser, setCurrentUser] = useState(null);
-  const [session, setSession] = useState(null);
+  async function loadUsers() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/users/create", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to load staff access");
+      }
+
+      setUsers(result.staff || []);
+      setActingRole(result.actingRole || "");
+      setOrganizationId(result.organizationId || "");
+      setStatus("");
+    } catch (loadError) {
+      setError(loadError?.message || "Unable to load staff access");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    init();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        init();
-      }
-    );
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+    loadUsers();
   }, []);
 
-  async function init() {
-    setStatus("Checking user...");
+  const linkedCount = useMemo(
+    () => users.filter((user) => Boolean(user.auth_user_id)).length,
+    [users]
+  );
 
-    const { data: authData, error: authError } = await supabase.auth.getSession();
-
-    if (authError || !authData?.user) {
-      setCurrentUser(null);
-      setStatus("Not logged in");
+  async function createUser() {
+    if (!newName.trim() || !newEmail.trim() || !newRole) {
+      setError("Name, email and role are required.");
       return;
     }
 
-    const userId = authData.user.id;
+    setWorkingId("create");
+    setError("");
+    setStatus("");
 
-    const { data: userData, error } = await supabase
-      .from("staff_accounts")
-      .select("*")
-      .eq("auth_user_id", userId)
-      .single();
-
-    if (error) {
-      setStatus("User not linked ❌");
-      return;
-    }
-
-    setCurrentUser(userData);
-    loadUsers(userData.tenant_id);
-  }
-
-  async function loadUsers(tenant_id) {
-    const { data, error } = await supabase
-      .from("staff_accounts")
-      .select("*")
-      .eq("tenant_id", tenant_id);
-
-    if (error) {
-      setStatus(error.message);
-      return;
-    }
-
-    setUsers(data || []);
-    setStatus(`Loaded (${data?.length || 0})`);
-  }
-
-  async function handleCSV(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!currentUser?.tenant_id) {
-      setStatus("No tenant found ❌");
-      return;
-    }
-
-    const text = await file.text();
-    const rows = text.split("\n").slice(1);
-
-    let results = [["email", "password"]];
-
-    for (let row of rows) {
-      if (!row.trim()) continue;
-
-      const [name, email, role, position] = row.split(",");
-
-      if (!name || !email || !role) {
-        results.push([email || "missing email", "ERROR: Missing required fields"]);
-        continue;
-      }
-
-      const res = await fetch("/api/users/create", {
+    try {
+      const response = await fetch("/api/users/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
-          role: role.trim(),
-          position: role.trim() === "Staff" ? position?.trim() || "FOH" : null,
-          tenant_id: currentUser.tenant_id,
+          name: newName.trim(),
+          email: newEmail.trim().toLowerCase(),
+          role: newRole,
+          position: newPosition.trim() || null,
         }),
       });
+      const result = await response.json();
 
-      const data = await res.json();
-
-      if (res.ok) {
-        results.push([data.email, data.password]);
-      } else {
-        results.push([email.trim(), "ERROR: " + data.error]);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to create staff access");
       }
+
+      setStatus(result.message || "Staff access created.");
+      setShowModal(false);
+      setNewName("");
+      setNewEmail("");
+      setNewRole("WAITER");
+      setNewPosition("FOH");
+      await loadUsers();
+    } catch (createError) {
+      setError(createError?.message || "Unable to create staff access");
+    } finally {
+      setWorkingId("");
     }
-
-    const csvContent = results.map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "staff_credentials.csv";
-    a.click();
-
-    URL.revokeObjectURL(url);
-
-    alert("CSV upload complete. File downloaded.");
-    loadUsers(currentUser.tenant_id);
   }
 
-  async function addUser() {
-    if (!newName || !newEmail) {
-      setStatus("Name and Email required ❌");
-      return;
+  async function setActive(user, active) {
+    setWorkingId(user.id);
+    setError("");
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/users/create", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          staffId: user.id,
+          active,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to update staff access");
+      }
+
+      setUsers((current) =>
+        current.map((item) => (item.id === user.id ? result.staff : item))
+      );
+      setStatus(active ? "Staff access activated." : "Staff access deactivated.");
+    } catch (updateError) {
+      setError(updateError?.message || "Unable to update staff access");
+    } finally {
+      setWorkingId("");
     }
-
-    setStatus("Creating user...");
-
-    const res = await fetch("/api/users/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: newName,
-        email: newEmail,
-        role: newRole,
-        position: newRole === "Staff" ? newPosition : null,
-        tenant_id: currentUser.tenant_id,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setStatus(data.error || "Failed ❌");
-      return;
-    }
-
-    setStatus("User created ✅");
-
-    alert(`Login details:
-
-Email: ${data.email}
-Password: ${data.password}`);
-
-    setShowModal(false);
-    setNewName("");
-    setNewEmail("");
-    setNewRole("Staff");
-    setNewPosition("FOH");
-
-    loadUsers(currentUser.tenant_id);
-  }
-
-  async function toggleUserActive(user) {
-    const { error } = await supabase
-      .from("staff_accounts")
-      .update({ active: !user.active })
-      .eq("id", user.id);
-
-    if (error) {
-      setStatus(error.message);
-      return;
-    }
-
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === user.id ? { ...u, active: !u.active } : u
-      )
-    );
-  }
-
-  async function login() {
-    await supabase.auth.signInWithPassword({
-      email: "test@test.com",
-      password: "123456",
-    });
-  }
-
-  async function logout() {
-    await supabase.auth.signOut();
-    setCurrentUser(null);
-    setUsers([]);
-    setStatus("Logged out");
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
-      <h1 className="text-2xl mb-6">Users</h1>
+    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
+          <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
 
-      <div className="flex gap-3 mb-6">
-        {currentUser?.role === "Owner" && (
-          <input
-            type="file"
-            accept=".csv"
-            onChange={handleCSV}
-            className="text-white"
-          />
-        )}
-
-        {!session ? (
-          <button onClick={login} className="bg-gray-700 px-4 py-2 rounded">
-            Login
-          </button>
-        ) : (
-          <button onClick={logout} className="bg-red-600 px-4 py-2 rounded">
-            Logout
-          </button>
-        )}
-
-        {currentUser?.role === "Owner" && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-orange-500 text-black px-4 py-2 rounded"
-          >
-            + Add User
-          </button>
-        )}
-      </div>
-
-      <p className="mb-4">{status}</p>
-
-      <div className="space-y-3">
-        {users.map((user) => (
-          <div
-            key={user.id}
-            className={`flex justify-between p-3 rounded ${
-              user.active ? "bg-gray-800" : "bg-gray-900 opacity-50"
-            }`}
-          >
+          <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div>{user.name}</div>
-              <div className="text-sm opacity-70">{user.email}</div>
-              <div className="text-xs text-orange-400">
-                {user.role} — {user.position || "FOH"}
+              <div className="text-[10px] uppercase tracking-[0.34em] text-[#D6A66A]">
+                People · Identity
               </div>
-              {!user.active && (
-                <div className="text-xs text-red-400">Inactive</div>
-              )}
+              <h1 className="mt-3 text-4xl font-black">Staff Access</h1>
+              <p className="mt-2 max-w-2xl text-sm text-white/45">
+                Employee identity, organization membership and secure portal access from one canonical record.
+              </p>
+              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
+                {organizationId ? `Organization ${organizationId}` : "Organization context"} · {actingRole || "Role"}
+              </div>
             </div>
 
-            {currentUser?.role === "Owner" && (
+            <div className="flex gap-3">
               <button
-                onClick={() => toggleUserActive(user)}
-                className="text-yellow-400"
+                type="button"
+                onClick={loadUsers}
+                disabled={loading}
+                className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
               >
-                {user.active ? "Deactivate" : "Activate"}
+                <RefreshCw className="h-4 w-4" />
+                Refresh
               </button>
-            )}
-          </div>
-        ))}
 
-        {users.length === 0 && <p>No users found</p>}
+              <button
+                type="button"
+                onClick={() => setShowModal(true)}
+                className="flex h-12 items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.16em] text-black"
+              >
+                <Plus className="h-4 w-4" />
+                Add staff
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-3 sm:grid-cols-3">
+          <Metric label="Staff Accounts" value={users.length} />
+          <Metric label="Auth Linked" value={linkedCount} />
+          <Metric label="Pending Access" value={Math.max(users.length - linkedCount, 0)} />
+        </section>
+
+        {error ? (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
+
+        {status ? (
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            {status}
+          </div>
+        ) : null}
+
+        <section className="overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.035]">
+          <div className="grid grid-cols-[1.4fr_.8fr_.8fr_.7fr_auto] gap-4 border-b border-white/10 px-5 py-4 text-[10px] uppercase tracking-[0.22em] text-white/35">
+            <div>Employee</div>
+            <div>Role</div>
+            <div>Position</div>
+            <div>Access</div>
+            <div>Action</div>
+          </div>
+
+          {loading ? (
+            <div className="p-6 text-sm text-white/45">Loading staff access...</div>
+          ) : users.length ? (
+            users.map((user) => (
+              <div
+                key={user.id}
+                className="grid grid-cols-[1.4fr_.8fr_.8fr_.7fr_auto] items-center gap-4 border-b border-white/[0.06] px-5 py-4 last:border-b-0"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/60">
+                      <UserRound className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate font-black">{user.name || "Unnamed staff"}</div>
+                      <div className="mt-1 flex items-center gap-1 truncate text-xs text-white/35">
+                        <Mail className="h-3 w-3" />
+                        {user.email || "No email"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-sm font-black text-[#D6A66A]">{user.role || "-"}</div>
+                <div className="text-sm text-white/55">{user.position || user.department || "-"}</div>
+
+                <div>
+                  {user.auth_user_id ? (
+                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-300">
+                      <ShieldCheck className="h-3.5 w-3.5" /> Linked
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-amber-300">
+                      <Mail className="h-3.5 w-3.5" /> Not linked
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={workingId === user.id}
+                  onClick={() => setActive(user, !user.active)}
+                  className={`flex h-10 items-center gap-2 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.14em] disabled:opacity-40 ${
+                    user.active
+                      ? "border border-red-500/20 bg-red-500/10 text-red-300"
+                      : "border border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                  }`}
+                >
+                  {user.active ? <UserX className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {user.active ? "Deactivate" : "Activate"}
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="p-6 text-sm text-white/45">No staff accounts found.</div>
+          )}
+        </section>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
-          <div className="bg-gray-900 p-6 rounded w-80 space-y-4">
-            <input
-              placeholder="Name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className="w-full p-2 bg-gray-800"
-            />
-
-            <input
-              placeholder="Email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              className="w-full p-2 bg-gray-800"
-            />
-
-            <select
-              value={newRole}
-              onChange={(e) => setNewRole(e.target.value)}
-              className="w-full p-2 bg-gray-800"
-            >
-              <option value="Staff">Staff</option>
-              <option value="Manager">Manager</option>
-              <option value="Owner">Owner</option>
-            </select>
-
-            {newRole === "Staff" && (
-              <select
-                value={newPosition}
-                onChange={(e) => setNewPosition(e.target.value)}
-                className="w-full p-2 bg-gray-800"
-              >
-                <option value="FOH">FOH</option>
-                <option value="PRODUCTION">PRODUCTION</option>
-                <option value="FULFILLMENT">FULFILLMENT</option>
-              </select>
-            )}
-
-            <div className="flex justify-between">
-              <button onClick={() => setShowModal(false)}>Cancel</button>
+      {showModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-5 backdrop-blur-xl">
+          <div className="w-full max-w-lg rounded-[30px] border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.28em] text-[#D6A66A]">Secure Provisioning</div>
+                <h2 className="mt-2 text-2xl font-black">Add staff member</h2>
+                <p className="mt-2 text-sm text-white/40">
+                  Creates or links the employee identity and sends secure access by email when needed.
+                </p>
+              </div>
 
               <button
-                onClick={addUser}
-                className="bg-orange-500 px-3 py-2 rounded text-black"
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="rounded-xl border border-white/10 p-2 text-white/50"
               >
-                Create User
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <Field label="Name">
+                <input
+                  value={newName}
+                  onChange={(event) => setNewName(event.target.value)}
+                  placeholder="Employee name"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm outline-none focus:border-[#D6A66A]/60"
+                />
+              </Field>
+
+              <Field label="Email">
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(event) => setNewEmail(event.target.value)}
+                  placeholder="employee@company.com"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm outline-none focus:border-[#D6A66A]/60"
+                />
+              </Field>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Role">
+                  <select
+                    value={newRole}
+                    onChange={(event) => setNewRole(event.target.value)}
+                    className="h-12 w-full rounded-xl border border-white/10 bg-[#111] px-4 text-sm outline-none"
+                  >
+                    {ROLE_OPTIONS.map((role) => (
+                      <option key={role} value={role}>{role}</option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Position">
+                  <input
+                    value={newPosition}
+                    onChange={(event) => setNewPosition(event.target.value)}
+                    placeholder="FOH"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm outline-none focus:border-[#D6A66A]/60"
+                  />
+                </Field>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="h-12 flex-1 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black uppercase tracking-[0.16em] text-white/60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={createUser}
+                disabled={workingId === "create"}
+                className="h-12 flex-1 rounded-xl bg-[#D6A66A] text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
+              >
+                {workingId === "create" ? "Creating..." : "Create access"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
+    </main>
+  );
+}
+
+function Metric({ label, value }) {
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
+      <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">{label}</div>
+      <div className="mt-3 text-3xl font-black">{value}</div>
     </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[10px] uppercase tracking-[0.18em] text-white/40">{label}</span>
+      {children}
+    </label>
   );
 }

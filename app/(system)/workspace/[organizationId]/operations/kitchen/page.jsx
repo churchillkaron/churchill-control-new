@@ -12,6 +12,7 @@ export default function KitchenPage() {
       description="Live preparation work routed through neutral fulfillment queues and work centres."
       emptyLabel="No kitchen fulfillment work in this view."
       contextFallback="Unassigned table"
+      sourceTypes={["restaurant_kitchen_ticket"]}
     />
   );
 }

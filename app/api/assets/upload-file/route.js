@@ -3,22 +3,19 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
 export const runtime = "nodejs";
 
 export async function POST(req) {
   try {
     const supabase = createServerSupabase();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
     const formData = await req.formData();
 
     const file = formData.get("file");
     const organizationId = formData.get("organizationId");
-    const tenantId = formData.get("tenantId");
 
     if (!file) {
       return NextResponse.json(
@@ -27,16 +24,22 @@ export async function POST(req) {
       );
     }
 
-    if (!organizationId || !tenantId) {
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request: req,
+    });
+
+    if (!access.success) {
       return NextResponse.json(
-        { success: false, error: "Missing organizationId or tenantId" },
-        { status: 400 }
+        { success: false, error: access.error },
+        { status: access.status }
       );
     }
 
+    const resolvedOrganizationId = access.organizationId;
     const buffer = Buffer.from(await file.arrayBuffer());
     const safeName = String(file.name || "upload").replace(/[^a-zA-Z0-9._-]/g, "-");
-    const filePath = `organization-documents/${organizationId}/${Date.now()}-${safeName}`;
+    const filePath = `organization-documents/${resolvedOrganizationId}/${Date.now()}-${safeName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("uploads")
@@ -59,9 +62,8 @@ export async function POST(req) {
     const { data: document, error: documentError } = await supabaseAdmin
       .from("organization_documents")
       .insert({
-        organization_id: organizationId,
-        tenant_id: tenantId,
-        uploaded_by: user?.id || null,
+        organization_id: resolvedOrganizationId,
+        uploaded_by: access.userId || null,
         file_url: publicData.publicUrl,
         file_name: file.name || safeName,
         mime_type: file.type || null,
@@ -81,6 +83,7 @@ export async function POST(req) {
 
     return NextResponse.json({
       success: true,
+      organizationId: resolvedOrganizationId,
       url: publicData.publicUrl,
       document,
       documentId: document.id,

@@ -1,121 +1,66 @@
 import { NextResponse } from "next/server";
 
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-import { getStaffIdentity }
-from "@/lib/messages/getStaffIdentity";
-
-export async function GET(req) {
-
+export async function GET(request) {
   try {
+    const context = await resolveAuthenticatedStaffContext({
+      request,
+    });
 
-    const identity =
-      await getStaffIdentity(req);
-
-    if (!identity) {
-
+    if (!context.success) {
       return NextResponse.json(
         {
           success: false,
-          error: "Unauthorized",
+          error: context.error,
+          code: context.code,
+          availableOrganizationIds:
+            context.availableOrganizationIds || [],
         },
-        {
-          status: 401,
-        }
+        { status: context.status || 403 }
       );
-
     }
 
-    const {
-      searchParams,
-    } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
+    const query = String(searchParams.get("query") || "").trim();
 
-    const query =
-      searchParams.get(
-        "query"
-      ) || "";
+    let staffQuery = supabaseAdmin
+      .from("staff_accounts")
+      .select("id,name,role,profile_picture,email,party_id")
+      .eq("active_organization_id", context.organizationId)
+      .eq("active", true)
+      .neq("id", context.staff.id)
+      .limit(20);
 
-    const supabase =
-      createServerSupabase();
+    if (query) {
+      const safeQuery = query.replace(/[%_,()]/g, " ").trim();
 
-    let request =
-      supabase
-
-        .from(
-          "staff_accounts"
-        )
-
-        .select(`
-          id,
-          name,
-          role,
-          profile_picture,
-          email
-        `)
-
-        .eq(
-          "tenant_id",
-          identity.tenant_id
-        )
-
-        .neq(
-          "id",
-          identity.id
-        )
-
-        .limit(20);
-
-    if (
-      query
-    ) {
-
-      request =
-        request.or(
-          `name.ilike.%${query}%,email.ilike.%${query}%`
+      if (safeQuery) {
+        staffQuery = staffQuery.or(
+          `name.ilike.%${safeQuery}%,email.ilike.%${safeQuery}%`
         );
-
+      }
     }
 
-    const {
-      data,
-      error,
-    } = await request;
+    const { data, error } = await staffQuery;
 
     if (error) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            error.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
+      throw error;
     }
 
     return NextResponse.json({
       success: true,
-      staff:
-        data || [],
+      organizationId: context.organizationId,
+      staff: data || [],
     });
-
-  } catch (err) {
-
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          err.message,
+        error: error?.message || "Unable to search staff",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
-
 }

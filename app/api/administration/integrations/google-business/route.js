@@ -13,6 +13,15 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 const PROVIDER = "google";
 const ASSET_TYPE = "google_business_location";
 const RETRY_DELAY_MS = 15 * 60 * 1000;
+const INTEGRATION_ROLES = new Set([
+  "OWNER",
+  "ORGANIZATION_OWNER",
+  "ORG_OWNER",
+  "PLATFORM_OWNER",
+  "SUPER_ADMIN",
+  "ADMIN",
+  "MANAGER",
+]);
 
 function nextRetryAt() {
   return new Date(Date.now() + RETRY_DELAY_MS).toISOString();
@@ -26,6 +35,19 @@ function isQuotaError(error) {
     message.includes("rate limit") ||
     message.includes("resource_exhausted")
   );
+}
+
+function canManageIntegrations(context) {
+  const roles = [
+    context?.role,
+    context?.access?.role,
+    context?.membership?.role,
+    context?.staff?.role,
+  ]
+    .map((value) => String(value || "").trim().toUpperCase())
+    .filter(Boolean);
+
+  return roles.some((role) => INTEGRATION_ROLES.has(role));
 }
 
 async function resolveContext(request, body = {}) {
@@ -74,6 +96,16 @@ async function integrationSnapshot(organizationId) {
   };
 }
 
+function forbidden() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Owner, administrator, or manager access is required to manage Google Business Profile",
+    },
+    { status: 403 }
+  );
+}
+
 export async function GET(request) {
   try {
     const context = await resolveContext(request);
@@ -83,6 +115,7 @@ export async function GET(request) {
         { status: context.status || 403 }
       );
     }
+    if (!canManageIntegrations(context)) return forbidden();
 
     return NextResponse.json({
       success: true,
@@ -107,6 +140,7 @@ export async function POST(request) {
         { status: context.status || 403 }
       );
     }
+    if (!canManageIntegrations(context)) return forbidden();
 
     const action = String(body.action || "").trim().toLowerCase();
 
@@ -238,7 +272,7 @@ export async function POST(request) {
         const partyId = context.staff?.party_id || null;
         const location = snapshot.locations[0];
         const entity = snapshot.entities[0];
-        await supabaseAdmin
+        const { error: autoMapError } = await supabaseAdmin
           .from("organization_channel_assets")
           .update({
             entity_id: entity.id,
@@ -249,6 +283,7 @@ export async function POST(request) {
           })
           .eq("id", location.id)
           .eq("organization_id", context.organizationId);
+        if (autoMapError) throw autoMapError;
       }
 
       return NextResponse.json({

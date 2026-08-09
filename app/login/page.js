@@ -5,30 +5,49 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail } from "lucide-react";
+
+import { resolvePlatformHostContext } from "@/lib/platform/context/resolvePlatformHostContext";
 import { supabase } from "@/lib/shared/supabase/client";
 
-function AvantiqoIdentity() {
+function PlatformIdentity({ brand }) {
+  if (!brand) {
+    return (
+      <div
+        aria-hidden="true"
+        className="flex h-[205px] flex-col items-center justify-center"
+      >
+        <div className="h-24 w-56 animate-pulse rounded-3xl bg-white/[0.025]" />
+      </div>
+    );
+  }
+
+  const churchillLogo = brand.id === "churchill";
+
   return (
     <div className="flex flex-col items-center">
       <div className="relative flex h-[148px] w-full items-center justify-center sm:h-[162px]">
         <div className="pointer-events-none absolute h-[100px] w-[180px] rounded-full bg-[#D6A66A]/10 blur-3xl" />
         <img
-          src="/app/branding/avantiqo-logo.webp"
-          alt="Avantiqo"
-          width="320"
-          height="220"
-          className="relative h-[148px] w-auto max-w-full object-contain drop-shadow-[0_0_34px_rgba(214,166,106,0.28)] sm:h-[162px]"
+          src={brand.logoSrc}
+          alt={brand.logoAlt}
+          width={churchillLogo ? "520" : "320"}
+          height={churchillLogo ? "260" : "220"}
+          className={
+            churchillLogo
+              ? "relative h-auto max-h-[142px] w-full max-w-[440px] rounded-[18px] object-contain shadow-[0_0_36px_rgba(214,166,106,0.16)]"
+              : "relative h-[148px] w-auto max-w-full object-contain drop-shadow-[0_0_34px_rgba(214,166,106,0.28)] sm:h-[162px]"
+          }
         />
       </div>
 
       <div className="mt-1 bg-gradient-to-r from-[#B97A2E] via-[#FFE2A0] to-[#9C6B74] bg-clip-text text-[22px] font-medium uppercase tracking-[0.34em] text-transparent">
-        Avantiqo
+        {brand.identityLabel}
       </div>
       <div className="mt-2 text-[9px] uppercase tracking-[0.25em] text-white/48">
-        Synthetic Intelligence Operating System
+        {brand.tagline}
       </div>
       <div className="mt-3 text-[9px] uppercase tracking-[0.38em] text-[#D6A66A]/80">
-        Create · Operate · Scale
+        {brand.strapline}
       </div>
     </div>
   );
@@ -36,6 +55,7 @@ function AvantiqoIdentity() {
 
 export default function LoginPage() {
   const router = useRouter();
+  const [brand, setBrand] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -46,6 +66,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     let mounted = true;
+
+    if (typeof window !== "undefined") {
+      setBrand(resolvePlatformHostContext(window.location.hostname));
+    }
 
     async function initialiseAuth() {
       const { data } = await supabase.auth.getSession();
@@ -123,7 +147,8 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
-          hostname: typeof window !== "undefined" ? window.location.hostname : "",
+          hostname:
+            typeof window !== "undefined" ? window.location.hostname : "",
         }),
       });
 
@@ -134,7 +159,9 @@ export default function LoginPage() {
         return;
       }
 
-      setMessage("Check your email for a secure link to create or reset your password.");
+      setMessage(
+        "Check your email for a secure link to create or reset your password."
+      );
     } catch {
       setError("Unable to send the password email.");
     } finally {
@@ -193,6 +220,9 @@ export default function LoginPage() {
   }
 
   const recoveryMode = mode === "recovery";
+  const loginTitle = recoveryMode
+    ? "Create password"
+    : brand?.welcomeTitle || "Secure login";
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#030303] px-5 py-10 text-white">
@@ -202,7 +232,7 @@ export default function LoginPage() {
 
       <section className="relative w-full max-w-[510px] rounded-[36px] border border-[#D6A66A]/35 bg-[linear-gradient(145deg,rgba(20,20,20,.97),rgba(5,5,5,.98))] px-7 py-8 shadow-[0_40px_120px_rgba(0,0,0,.75),0_0_80px_rgba(214,166,106,.06)] sm:px-11 sm:py-10">
         <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#F2C66F] to-transparent" />
-        <AvantiqoIdentity />
+        <PlatformIdentity brand={brand} />
 
         <div className="my-7 flex items-center gap-4">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent to-[#D6A66A]/45" />
@@ -212,10 +242,12 @@ export default function LoginPage() {
 
         <div className="text-center">
           <h1 className="font-serif text-[34px] font-normal tracking-[0.01em] text-[#F6F1E8]">
-            {recoveryMode ? "Create password" : "Welcome to Avantiqo"}
+            {loginTitle}
           </h1>
           <p className="mt-2 text-[11px] tracking-[0.08em] text-[#D6A66A]/65">
-            {recoveryMode ? "Secure your account" : "Secure access to your organisation"}
+            {recoveryMode
+              ? "Secure your account"
+              : "Secure access to your organisation"}
           </p>
         </div>
 
@@ -254,7 +286,9 @@ export default function LoginPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" && !recoveryMode) handleManualLogin();
+                  if (event.key === "Enter" && !recoveryMode) {
+                    handleManualLogin();
+                  }
                 }}
                 placeholder="Enter password"
                 className="h-12 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/18"
@@ -315,14 +349,20 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-1 flex h-12 w-full items-center justify-center rounded-[12px] border border-[#D6A66A]/55 bg-[#D6A66A] text-[11px] font-semibold uppercase tracking-[0.2em] text-black transition hover:bg-[#E4BC82] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? "Please wait" : recoveryMode ? "Save password" : "Login"}
+            {loading
+              ? "Please wait"
+              : recoveryMode
+                ? "Save password"
+                : "Login"}
           </button>
 
           {!recoveryMode && (
             <>
               <div className="flex items-center gap-3 py-1">
                 <div className="h-px flex-1 bg-white/[0.07]" />
-                <span className="text-[9px] uppercase tracking-[0.22em] text-white/20">or</span>
+                <span className="text-[9px] uppercase tracking-[0.22em] text-white/20">
+                  or
+                </span>
                 <div className="h-px flex-1 bg-white/[0.07]" />
               </div>
 
@@ -343,7 +383,7 @@ export default function LoginPage() {
 
         <div className="mt-7 flex items-center justify-center gap-2 text-[9px] uppercase tracking-[0.16em] text-white/25">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-          Protected by Avantiqo Identity
+          {brand?.securityLabel || "Secure identity"}
         </div>
       </section>
     </main>

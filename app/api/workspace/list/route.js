@@ -3,11 +3,16 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  publicPlatformBrand,
+  requestPlatformHostname,
+  resolvePlatformHostContext,
+} from "@/lib/platform/context/resolvePlatformHostContext";
 import {
   getErpDomains,
   getErpSolutions,
 } from "@/lib/platform/registry/erpRegistry";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function normalizeId(value) {
   const normalized = String(value ?? "").trim();
@@ -16,11 +21,20 @@ function normalizeId(value) {
 
 function activeRecord(record = {}) {
   if (record.active === false || record.is_active === false) return false;
+
   const status = String(record.status || "").trim().toUpperCase();
-  return !["INACTIVE", "DISABLED", "SUSPENDED", "TERMINATED", "ARCHIVED", "REVOKED"].includes(status);
+
+  return ![
+    "INACTIVE",
+    "DISABLED",
+    "SUSPENDED",
+    "TERMINATED",
+    "ARCHIVED",
+    "REVOKED",
+  ].includes(status);
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     const user = await getServerCurrentUser();
 
@@ -31,9 +45,13 @@ export async function GET() {
       );
     }
 
+    const hostContext = resolvePlatformHostContext(
+      requestPlatformHostname(request)
+    );
+
     const { data: staffRows, error: staffError } = await supabaseAdmin
       .from("staff_accounts")
-      .select("id,active_organization_id,active,status")
+      .select("id,active_organization_id,active")
       .eq("auth_user_id", user.id)
       .eq("active", true)
       .limit(1000);
@@ -63,16 +81,21 @@ export async function GET() {
         .filter(Boolean);
     }
 
-    const organizationIds = [
+    const accessibleOrganizationIds = [
       ...new Set([...directOrganizationIds, ...membershipOrganizationIds]),
     ];
+    const organizationIds = hostContext.organizationId
+      ? accessibleOrganizationIds.filter(
+          (organizationId) => organizationId === hostContext.organizationId
+        )
+      : accessibleOrganizationIds;
 
     let organizations = [];
 
     if (organizationIds.length) {
       const { data, error } = await supabaseAdmin
         .from("organizations")
-        .select("id,name,organization_type,country,default_currency,status")
+        .select("id,name,organization_type,country,status")
         .in("id", organizationIds)
         .order("name", { ascending: true });
 
@@ -99,6 +122,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      brand: publicPlatformBrand(hostContext),
       organizations,
       industries,
       modules,

@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowUpRight,
-  Building2,
-  Crown,
-} from "lucide-react";
+import { ArrowUpRight, Building2, Crown } from "lucide-react";
+
+const FALLBACK_BRAND = {
+  workspaceTitle: "Platform Workspace",
+  workspaceDescription: "Secure access to your organizations and workspaces.",
+  runtimeLabel: "Workspace Access",
+  logoSrc: null,
+  logoAlt: "Platform",
+};
 
 export default function PlatformWorkspacePage() {
   const router = useRouter();
@@ -72,34 +76,41 @@ export default function PlatformWorkspacePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#030712] text-white p-10">
-        <div className="animate-pulse text-white/40">
-          Loading platform workspace...
-        </div>
+      <main className="min-h-screen bg-[#030712] p-10 text-white">
+        <div className="animate-pulse text-white/40">Loading workspace...</div>
       </main>
     );
   }
 
   const organizations = workspace?.organizations || [];
   const industries = workspace?.industries || [];
+  const brand = workspace?.brand || FALLBACK_BRAND;
 
   return (
-    <main className="min-h-screen bg-[#030712] text-white p-10">
+    <main className="min-h-screen bg-[#030712] p-10 text-white">
       <div className="mx-auto max-w-7xl">
         <section className="mb-12 overflow-hidden rounded-[42px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.28),transparent_34%),linear-gradient(135deg,rgba(23,19,45,0.96),rgba(7,15,26,0.98))] px-10 py-10 shadow-[0_30px_120px_rgba(0,0,0,0.45)]">
+          {brand.logoSrc ? (
+            <img
+              src={brand.logoSrc}
+              alt={brand.logoAlt}
+              className="mb-7 h-20 w-auto max-w-full object-contain object-left"
+            />
+          ) : null}
+
           <div className="mb-6 flex items-center gap-3">
             <Crown className="h-6 w-6 text-violet-300" />
             <span className="text-xs uppercase tracking-[0.30em] text-violet-300/80">
-              Enterprise Runtime Active
+              {brand.runtimeLabel}
             </span>
           </div>
 
           <h1 className="text-6xl font-light tracking-[-0.06em]">
-            Avantiqo Platform
+            {brand.workspaceTitle}
           </h1>
 
           <p className="mt-4 max-w-3xl text-white/60">
-            Enterprise Operating System for hospitality, accounting, services, entertainment and multi-company operations.
+            {brand.workspaceDescription}
           </p>
         </section>
 
@@ -123,7 +134,7 @@ export default function PlatformWorkspacePage() {
                   type="button"
                   onClick={() => selectOrganization(org.id)}
                   disabled={Boolean(selectingOrganizationId)}
-                  className="group text-left rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-[#8B5CF6]/40 hover:bg-white/[0.05] disabled:cursor-wait disabled:opacity-60"
+                  className="group rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-left transition hover:border-[#8B5CF6]/40 hover:bg-white/[0.05] disabled:cursor-wait disabled:opacity-60"
                 >
                   <div className="mb-6 flex items-center justify-between">
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
@@ -153,12 +164,17 @@ export default function PlatformWorkspacePage() {
             <h2 className="text-xl font-light">Industries</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {industries.map((ind) => (
-              <Link key={ind.industry_id} href={`/workspace/platform/${ind.industry_id}`}>
+            {industries.map((industry) => (
+              <Link
+                key={industry.industry_id}
+                href={`/workspace/platform/${industry.industry_id}`}
+              >
                 <div className="group rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-[#8B5CF6]/40 hover:bg-white/[0.05]">
-                  <p className="text-lg font-semibold">{ind.name || ind.industry_id}</p>
+                  <p className="text-lg font-semibold">
+                    {industry.name || industry.industry_id}
+                  </p>
                   <p className="mt-2 text-sm text-white/40">
-                    {ind.runtime?.modules?.length || 0} Modules
+                    {industry.runtime?.modules?.length || 0} Modules
                   </p>
                 </div>
               </Link>

@@ -8,6 +8,9 @@ import { discoverAndRegisterGoogleBusinessLocations } from "@/lib/commercial/rep
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+const RETRY_DELAY_MS = 15 * 60 * 1000;
 
 function clearOauthCookies(response) {
   response.cookies.delete("google_oauth_state");
@@ -16,14 +19,22 @@ function clearOauthCookies(response) {
   return response;
 }
 
-function redirectToReviews(origin, organizationId, status, message = null) {
-  const url = new URL(
-    `/workspace/${organizationId}/commercial/reviews`,
-    origin
-  );
+function redirectToAdministration(origin, organizationId, status, message = null) {
+  const url = new URL("/settings/integrations", origin);
+  url.searchParams.set("organizationId", organizationId);
   url.searchParams.set("google", status);
-  if (message) url.searchParams.set("message", message.slice(0, 180));
+  if (message) url.searchParams.set("message", message.slice(0, 220));
   return url;
+}
+
+function isQuotaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.status === 429 ||
+    message.includes("quota exceeded") ||
+    message.includes("rate limit") ||
+    message.includes("resource_exhausted")
+  );
 }
 
 export async function GET(request) {
@@ -45,7 +56,9 @@ export async function GET(request) {
     if (!organizationId) {
       throw new Error("Organization context expired. Start the connection again.");
     }
-    if (oauthError) throw new Error(`Google connection was not approved: ${oauthError}`);
+    if (oauthError) {
+      throw new Error(`Google connection was not approved: ${oauthError}`);
+    }
     if (!code || !state || state !== savedState) {
       throw new Error("Google connection validation failed or expired");
     }
@@ -64,16 +77,21 @@ export async function GET(request) {
       throw new Error("Google did not return an access token");
     }
 
+    const authorizedAt = new Date().toISOString();
+    const authorizingPartyId = access.staff?.party_id || null;
+
     const credential = await CredentialRuntime.store({
       provider_id: "google",
       credential_type: "oauth_token",
       secret_reference: JSON.stringify(tokens),
       metadata: {
         organization_id: access.organizationId,
+        party_id: authorizingPartyId,
         scopes: tokens.scope || null,
         purpose: "GOOGLE_BUSINESS_PROFILE_REVIEWS",
       },
     });
+
     const connection = await ChannelConnectionRuntime.connect({
       organization_id: access.organizationId,
       provider: "google",
@@ -84,11 +102,23 @@ export async function GET(request) {
         location_count: 0,
         location_discovery_status: "PENDING",
         location_discovery_error: null,
+        location_discovery_retry_at: null,
       },
     });
 
+    const { error: authorizationError } = await supabaseAdmin
+      .from("organization_channel_connections")
+      .update({
+        authorized_by_party_id: authorizingPartyId,
+        authorized_at: authorizedAt,
+        updated_at: authorizedAt,
+      })
+      .eq("id", connection.id)
+      .eq("organization_id", access.organizationId);
+    if (authorizationError) throw authorizationError;
+
     let status = "connected";
-    let message = null;
+    let message = "Google Business Profile connected.";
 
     try {
       await discoverAndRegisterGoogleBusinessLocations({
@@ -96,40 +126,52 @@ export async function GET(request) {
         connection,
         accessToken: tokens.access_token,
       });
+      message = "Google Business Profile connected and locations discovered.";
     } catch (discoveryError) {
+      const quota = isQuotaError(discoveryError);
+      const attemptedAt = new Date().toISOString();
+      const retryAt = quota
+        ? new Date(Date.now() + RETRY_DELAY_MS).toISOString()
+        : null;
+
       console.warn("GOOGLE_BUSINESS_LOCATION_DISCOVERY_PENDING", {
         organization_id: access.organizationId,
         error: discoveryError?.message || "Location discovery failed",
+        quota,
       });
 
-      await ChannelConnectionRuntime.connect({
-        organization_id: access.organizationId,
-        provider: "google",
-        channel_type: "business-profile",
-        credentials_reference: credential.id,
-        metadata: {
-          ...(connection.metadata || {}),
-          location_count: 0,
-          location_discovery_status: "PENDING",
-          location_discovery_error: String(
-            discoveryError?.message || "Location discovery failed"
-          ).slice(0, 500),
-          location_discovery_attempted_at: new Date().toISOString(),
-        },
-      });
+      const { error: discoveryStateError } = await supabaseAdmin
+        .from("organization_channel_connections")
+        .update({
+          metadata: {
+            ...(connection.metadata || {}),
+            location_count: 0,
+            location_discovery_status: quota ? "RATE_LIMITED" : "PENDING",
+            location_discovery_error: String(
+              discoveryError?.message || "Location discovery failed"
+            ).slice(0, 500),
+            location_discovery_attempted_at: attemptedAt,
+            location_discovery_retry_at: retryAt,
+          },
+          updated_at: attemptedAt,
+        })
+        .eq("id", connection.id)
+        .eq("organization_id", access.organizationId);
+      if (discoveryStateError) throw discoveryStateError;
 
-      status = "connected-pending";
-      message =
-        "Google account connected. Business Profile access is awaiting Google API approval.";
+      status = quota ? "rate-limited" : "connected-pending";
+      message = quota
+        ? "Google is connected. Location discovery hit a temporary Google quota limit; the authorization is safe and can be retried from Administration."
+        : "Google is connected. Location discovery is still pending and can be retried from Administration.";
     }
 
     const response = NextResponse.redirect(
-      redirectToReviews(origin, access.organizationId, status, message)
+      redirectToAdministration(origin, access.organizationId, status, message)
     );
     return clearOauthCookies(response);
   } catch (error) {
     const response = NextResponse.redirect(
-      redirectToReviews(
+      redirectToAdministration(
         origin,
         organizationId || "unknown",
         "error",

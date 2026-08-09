@@ -7,6 +7,7 @@ import {
   Clock3,
   RefreshCw,
   Send,
+  Settings2,
   Sparkles,
 } from "lucide-react";
 
@@ -165,9 +166,14 @@ export default function ReviewFeed({
     );
   }, [reviews]);
 
-  const googleLocationReady =
-    googleConnection?.metadata?.location_discovery_status === "READY";
+  const discoveryStatus =
+    googleConnection?.metadata?.location_discovery_status || null;
+  const googleLocationReady = discoveryStatus === "READY";
   const googleAccessPending = googleConnected && !googleLocationReady;
+  const googleRateLimited = googleConnected && discoveryStatus === "RATE_LIMITED";
+  const integrationUrl = `/settings/integrations?organizationId=${encodeURIComponent(organizationId)}`;
+  const autoPublishMin = Number(policy?.auto_publish_min_rating || 4);
+  const criticalMax = Number(policy?.critical_max_rating || 2);
 
   return (
     <div className="space-y-6">
@@ -179,20 +185,26 @@ export default function ReviewFeed({
               Google response automation
             </div>
             <h2 className="mt-2 text-2xl font-light text-white">
-              {googleAccessPending
-                ? "Google connected — profile access pending"
-                : googleConnected
-                  ? "Connected and monitored"
-                  : "Connection required"}
+              {googleRateLimited
+                ? "Google connected — location discovery cooling down"
+                : googleAccessPending
+                  ? "Google connected — location setup pending"
+                  : googleConnected
+                    ? "Connected and monitored"
+                    : "Google setup required"}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-              {googleAccessPending
-                ? "Churchill has saved the Google authorization. Location and review syncing will start automatically as soon as Google approves Business Profile API access."
-                : "4–5 star reviews publish automatically. Ratings from 1–3 stars always wait for manager approval. Ratings from 1–2 stars also open a critical recovery case."}
+              {googleRateLimited
+                ? "The Google authorization remains active. Location discovery was temporarily rate-limited by Google; finish setup from Administration → Integrations when the cooldown ends."
+                : googleAccessPending
+                  ? "The Google authorization is active, but Business Profile locations still need to be discovered and mapped to the correct Avantiqo entity in Administration → Integrations."
+                  : googleConnected
+                    ? `Reviews rated ${autoPublishMin}–5 can publish automatically under the active organization policy. Lower ratings wait for approval, and ratings up to ${criticalMax} open a recovery case.`
+                    : "Connect Google Business Profile from Administration → Integrations before review monitoring can begin."}
             </p>
           </div>
 
-          {googleConnected ? (
+          {googleConnected && googleLocationReady ? (
             <button
               type="button"
               onClick={syncReviews}
@@ -200,25 +212,22 @@ export default function ReviewFeed({
               className="flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black transition disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-              {syncing
-                ? "Checking…"
-                : googleAccessPending
-                  ? "Check Google access"
-                  : "Sync now"}
+              {syncing ? "Checking…" : "Sync now"}
             </button>
           ) : (
             <a
-              href={`/api/google/auth?organizationId=${encodeURIComponent(organizationId)}`}
-              className="rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
+              href={integrationUrl}
+              className="flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
             >
-              Connect Google Business Profile
+              <Settings2 className="h-4 w-4" />
+              Open Google setup
             </a>
           )}
         </div>
 
         {policy && (
           <div className="mt-5 text-xs text-white/35">
-            Active policy: {policy.brand_name} · full history {policy.backfill_completed_at ? "processed" : "will be processed on first sync"} · new reviews checked every minute
+            Active policy: {policy.brand_name} · full history {policy.backfill_completed_at ? "processed" : "will be processed on first successful sync"} · ready connections checked automatically
           </div>
         )}
       </section>

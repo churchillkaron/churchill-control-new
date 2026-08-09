@@ -38,6 +38,10 @@
     {
       "path": "/api/internal/reputation/google-reviews/process",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/commercial/loyalty/process-events",
+      "schedule": "* * * * *"
     }
   ]
 }

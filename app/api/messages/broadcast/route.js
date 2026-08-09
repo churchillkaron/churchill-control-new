@@ -1,178 +1,85 @@
 import { NextResponse } from "next/server";
 
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { getStaffIdentity } from "@/lib/messages/getStaffIdentity";
 
-import { getStaffIdentity }
-from "@/lib/messages/getStaffIdentity";
-
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    const identity = await getStaffIdentity(request);
 
-    const identity =
-      await getStaffIdentity(req);
-
-    if (!identity) {
-
+    if (!identity?.organization_id) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        }
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
       );
-
     }
 
-    const body =
-      await req.json();
+    const body = await request.json();
+    const title = body?.title || "Organization Broadcast";
+    const content = String(body?.content || "").trim();
 
-    const {
-      title,
-      content,
-    } = body;
-
-    if (
-      !content
-    ) {
-
+    if (!content) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Content required",
-        },
-        {
-          status: 400,
-        }
+        { success: false, error: "Content required" },
+        { status: 400 }
       );
-
     }
 
-    const supabase =
-      createServerSupabase();
+    const { data: staff, error: staffError } = await supabaseAdmin
+      .from("staff_accounts")
+      .select("id")
+      .eq("active_organization_id", identity.organization_id)
+      .eq("active", true);
 
-    const {
-      data: thread,
-      error: threadError,
-    } = await supabase
+    if (staffError) {
+      throw staffError;
+    }
 
-      .from(
-        "message_threads"
-      )
-
+    const { data: thread, error: threadError } = await supabaseAdmin
+      .from("message_threads")
       .insert({
-
-        tenant_id:
-          identity.tenant_id,
-
-        created_by:
-          identity.id,
-
-        title:
-          title ||
-          "Enterprise Broadcast",
-
-        type:
-          "broadcast",
-
+        organization_id: identity.organization_id,
+        created_by: identity.id,
+        title,
+        type: "broadcast",
       })
-
       .select("*")
       .single();
 
-    if (
-      threadError
-    ) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            threadError.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
+    if (threadError) {
+      throw threadError;
     }
 
-    const {
-      data: staff,
-    } = await supabase
+    const participantRows = (staff || []).map((member) => ({
+      organization_id: identity.organization_id,
+      thread_id: thread.id,
+      staff_id: member.id,
+    }));
 
-      .from(
-        "staff_accounts"
-      )
+    if (participantRows.length) {
+      const { error: participantError } = await supabaseAdmin
+        .from("message_participants")
+        .insert(participantRows);
 
-      .select(`
-        id
-      `)
+      if (participantError) {
+        await supabaseAdmin
+          .from("message_threads")
+          .delete()
+          .eq("id", thread.id)
+          .eq("organization_id", identity.organization_id);
 
-      .eq(
-        "tenant_id",
-        identity.tenant_id
-      );
-
-    if (
-      staff?.length
-    ) {
-
-      await supabase
-
-        .from(
-          "message_participants"
-        )
-
-        .insert(
-
-          staff.map(
-            (member) => ({
-
-              tenant_id:
-                identity.tenant_id,
-
-              thread_id:
-                thread.id,
-
-              staff_id:
-                member.id,
-
-            })
-          )
-
-        );
-
+        throw participantError;
+      }
     }
 
-    const {
-      data: message,
-      error: messageError,
-    } = await supabase
-
-      .from(
-        "messages"
-      )
-
+    const { data: message, error: messageError } = await supabaseAdmin
+      .from("messages")
       .insert({
-
-        tenant_id:
-          identity.tenant_id,
-
-        thread_id:
-          thread.id,
-
-        sender_id:
-          identity.id,
-
+        organization_id: identity.organization_id,
+        thread_id: thread.id,
+        sender_id: identity.id,
         content,
-
       })
-
       .select(`
         *,
         sender:staff_accounts(
@@ -182,45 +89,25 @@ export async function POST(req) {
           profile_picture
         )
       `)
-
       .single();
 
-    if (
-      messageError
-    ) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            messageError.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
+    if (messageError) {
+      throw messageError;
     }
 
     return NextResponse.json({
       success: true,
+      organizationId: identity.organization_id,
       thread,
       message,
     });
-
-  } catch (err) {
-
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          err.message,
+        error: error?.message || "Unable to send organization broadcast",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
-
 }

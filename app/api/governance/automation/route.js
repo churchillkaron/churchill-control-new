@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 
 import {
-  requireAuth,
-} from "@/lib/shared/auth";
-
-import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
@@ -12,160 +8,159 @@ import {
   runComplianceValidation,
 } from "@/lib/governance/finance/runComplianceValidation";
 
-import { createApprovalRequest } from "@/lib/finance/createApprovalRequest";
+import {
+  createApprovalRequest,
+} from "@/lib/shared/approvals/createApprovalRequest";
 
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import logAuditEvent from "@/lib/audit/logAuditEvent";
 
 export async function POST(req) {
-
   try {
-
     const body =
       await req.json();
 
-    await requireAuth();
-
     const access =
       await requireOrganizationAccess({
-
         organizationId:
-          body.organizationId,
-
+          body.organizationId ||
+          body.organization_id,
+        request: req,
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
-    const tenant_id =
-      access.tenantId;
+    const entityId =
+      body.payload?.entity_id ||
+      body.payload?.entityId ||
+      body.entity_id ||
+      body.entityId ||
+      null;
 
-    if (!tenant_id) {
+    if (entityId) {
+      const {
+        data: entity,
+        error: entityError,
+      } = await supabaseAdmin
+        .from("legal_entities")
+        .select("id")
+        .eq("organization_id", access.organizationId)
+        .eq("id", entityId)
+        .maybeSingle();
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Missing tenant context",
-        },
-        {
-          status: 400,
-        }
-      );
+      if (entityError) {
+        throw entityError;
+      }
 
+      if (!entity) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "entity_id does not belong to organization",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
     }
 
     const policy =
       await runComplianceValidation({
-        tenantId:
-          tenant_id,
+        organizationId:
+          access.organizationId,
+        entityId,
       });
+
+    const actionType =
+      body.action_type ||
+      body.actionType ||
+      "governance_automation";
 
     let execution = {
       success: true,
       auto_approved: true,
     };
 
-    if (
-      body.requiresApproval
-    ) {
-
+    if (body.requiresApproval) {
       const approvalRequest =
         await createApprovalRequest({
-
-          tenant_id:
-            tenant_id,
-
-          type:
-            body.action_type || "governance_automation",
-
-          entity_id:
-            body.payload?.entity_id || null,
-
-          requested_by:
-            body.requested_by || "SYSTEM",
-
-          metadata:
-            body.payload || {},
-
+          organizationId:
+            access.organizationId,
+          workflowType:
+            actionType,
+          referenceTable:
+            entityId
+              ? "legal_entities"
+              : "organizations",
+          referenceId:
+            entityId || access.organizationId,
+          requestedBy:
+            access.userId,
         });
 
       execution = {
-
         success: true,
-
         auto_approved: false,
-
         approvalRequest,
-
       };
-
     }
 
     const audit =
       await logAuditEvent({
-
-        tenant_id:
-          tenant_id,
-
-        action_type:
-          body.action_type ||
-
-          "governance_automation",
-
+        organization_id:
+          access.organizationId,
         entity_type:
           "governance",
-
+        entity_id:
+          entityId,
+        action_type:
+          actionType,
+        performed_by:
+          access.userId,
+        performed_by_name:
+          access.userEmail ||
+          access.staff?.name ||
+          "SYSTEM",
         metadata: {
-
           policy,
-
           execution,
-
+          payload:
+            body.payload || {},
         },
-
       });
 
     return NextResponse.json({
-
       success: true,
-
       governance: {
-
+        organizationId:
+          access.organizationId,
+        entityId,
         policy,
-
         execution,
-
         audit,
-
       },
-
     });
-
   } catch (error) {
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
-        status: 500,
+        status:
+          error.status || 500,
       }
     );
-
   }
-
 }

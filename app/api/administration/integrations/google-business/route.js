@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 
 import {
   discoverAndRegisterGoogleBusinessLocations,
-  getGoogleBusinessAccess,
+  getGoogleBusinessConnection,
 } from "@/lib/commercial/reputation/googleBusinessProfile";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -211,7 +211,7 @@ export async function POST(request) {
     }
 
     if (action === "discover") {
-      const { connection, accessToken } = await getGoogleBusinessAccess({
+      const connection = await getGoogleBusinessConnection({
         organizationId: context.organizationId,
       });
 
@@ -232,7 +232,6 @@ export async function POST(request) {
         await discoverAndRegisterGoogleBusinessLocations({
           organizationId: context.organizationId,
           connection,
-          accessToken,
         });
       } catch (error) {
         const now = new Date().toISOString();

@@ -1,144 +1,81 @@
 import { NextResponse } from "next/server";
 
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
-
-import { getStaffIdentity }
-from "@/lib/messages/getStaffIdentity";
+import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { getStaffIdentity } from "@/lib/messages/getStaffIdentity";
 
 export const runtime = "nodejs";
 
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    const identity = await getStaffIdentity(request);
 
-    const identity =
-      await getStaffIdentity();
-
-    if (!identity) {
-
+    if (!identity?.organization_id) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        }
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
       );
-
     }
 
-    const formData =
-      await req.formData();
+    const formData = await request.formData();
+    const audio = formData.get("audio");
+    const threadId = formData.get("thread_id");
 
-    const audio =
-      formData.get("audio");
-
-    const thread_id =
-      formData.get("thread_id");
-
-    if (
-      !audio ||
-      !thread_id
-    ) {
-
+    if (!audio || !threadId) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "audio and thread_id required",
-        },
-        {
-          status: 400,
-        }
+        { success: false, error: "audio and thread_id required" },
+        { status: 400 }
       );
-
     }
 
-    const supabase =
-      createServerSupabase();
+    const { data: participant, error: participantError } = await supabaseAdmin
+      .from("message_participants")
+      .select("id")
+      .eq("organization_id", identity.organization_id)
+      .eq("thread_id", threadId)
+      .eq("staff_id", identity.id)
+      .maybeSingle();
 
-    const buffer =
-      Buffer.from(
-        await audio.arrayBuffer()
+    if (participantError) {
+      throw participantError;
+    }
+
+    if (!participant) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
       );
+    }
 
+    const supabase = createServerSupabase();
+    const buffer = Buffer.from(await audio.arrayBuffer());
     const path =
-      `voice-notes/${identity.tenant_id}/${Date.now()}.webm`;
+      `voice-notes/${identity.organization_id}/${identity.id}/${Date.now()}.webm`;
 
-    const {
-      error: uploadError,
-    } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
+      .from("uploads")
+      .upload(path, buffer, {
+        contentType: "audio/webm",
+        upsert: false,
+      });
 
-      .from(
-        "uploads"
-      )
-
-      .upload(
-        path,
-        buffer,
-        {
-          contentType:
-            "audio/webm",
-          upsert: true,
-        }
-      );
-
-    if (
-      uploadError
-    ) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            uploadError.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
+    if (uploadError) {
+      throw uploadError;
     }
 
-    const {
-      data: publicUrl,
-    } = supabase.storage
+    const { data: publicUrl } = supabase.storage
+      .from("uploads")
+      .getPublicUrl(path);
 
-      .from(
-        "uploads"
-      )
-
-      .getPublicUrl(
-        path
-      );
-
-    const {
-      data: message,
-      error,
-    } = await supabase
-
-      .from(
-        "messages"
-      )
-
+    const { data: message, error } = await supabaseAdmin
+      .from("messages")
       .insert({
-        tenant_id:
-          identity.tenant_id,
-
-        thread_id,
-
-        sender_id:
-          identity.id,
-
-        content:
-          "Voice Note",
-
-        attachment_url:
-          publicUrl.publicUrl,
+        organization_id: identity.organization_id,
+        thread_id: threadId,
+        sender_id: identity.id,
+        content: "Voice Note",
+        attachment_url: publicUrl.publicUrl,
       })
-
       .select(`
         *,
         sender:staff_accounts(
@@ -148,42 +85,24 @@ export async function POST(req) {
           profile_picture
         )
       `)
-
       .single();
 
     if (error) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            error.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
+      throw error;
     }
 
     return NextResponse.json({
       success: true,
+      organizationId: identity.organization_id,
       message,
     });
-
-  } catch (err) {
-
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          err.message,
+        error: error?.message || "Unable to save voice note",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
-
 }

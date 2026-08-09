@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   Bell,
   Building2,
@@ -20,9 +21,7 @@ import {
   getPlatformBrand,
   getPlatformHeaderItems,
 } from "@/lib/platform/registry/erpRegistry";
-
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
-
 
 const ICONS = {
   CreditCard,
@@ -35,7 +34,6 @@ const ICONS = {
 
 function platformHref(organizationId, route) {
   if (!route) return "#";
-
   if (!organizationId) return route;
 
   return resolveWorkspaceRoute({
@@ -51,15 +49,120 @@ function ContextPill({ icon, value }) {
   if (!value) return null;
 
   return (
-    <button className="flex h-9 min-w-0 max-w-[220px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-left text-white/65 transition hover:border-[#D6A66A]/30 hover:bg-[#D6A66A]/10 hover:text-white">
+    <div className="flex h-9 min-w-0 max-w-[220px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-left text-white/65">
       <Icon size={14} className="shrink-0 text-[#D6A66A]/80" />
-
       <span className="min-w-0 truncate text-[12px] font-light tracking-[0.02em]">
         {value}
       </span>
+    </div>
+  );
+}
 
-      <ChevronDown size={12} className="shrink-0 text-white/25" />
-    </button>
+function OrganizationSelector({ organization, organizations, pathname }) {
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [error, setError] = useState("");
+
+  const available = Array.isArray(organizations)
+    ? organizations.filter((row) => row?.id && row?.name)
+    : [];
+
+  async function switchOrganization(nextOrganization) {
+    if (!nextOrganization?.id || nextOrganization.id === organization?.id) {
+      setOpen(false);
+      return;
+    }
+
+    try {
+      setSwitching(true);
+      setError("");
+
+      const response = await fetch("/api/session/organization", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ organizationId: nextOrganization.id }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to switch organization");
+      }
+
+      const workspaceMatch = pathname?.match(/^\/workspace\/([^/]+)(.*)$/);
+
+      if (workspaceMatch) {
+        window.location.assign(
+          `/workspace/${encodeURIComponent(nextOrganization.id)}${workspaceMatch[2] || ""}`
+        );
+        return;
+      }
+
+      window.location.reload();
+    } catch (switchError) {
+      setError(switchError.message || "Unable to switch organization");
+      setSwitching(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        disabled={switching || available.length < 2}
+        className="flex h-9 min-w-0 max-w-[240px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-left text-white/65 transition hover:border-[#D6A66A]/30 hover:bg-[#D6A66A]/10 hover:text-white disabled:cursor-default"
+      >
+        <Building2 size={14} className="shrink-0 text-[#D6A66A]/80" />
+        <span className="min-w-0 flex-1 truncate text-[12px] font-light tracking-[0.02em]">
+          {switching ? "Switching..." : organization?.name || "Workspace"}
+        </span>
+        {available.length > 1 && (
+          <ChevronDown size={12} className="shrink-0 text-white/25" />
+        )}
+      </button>
+
+      {open && available.length > 1 && (
+        <div className="absolute left-0 top-11 z-[90] w-[300px] overflow-hidden rounded-2xl border border-white/10 bg-[#090909]/98 p-2 shadow-[0_24px_80px_rgba(0,0,0,.75)] backdrop-blur-2xl">
+          <div className="px-3 py-2 text-[9px] uppercase tracking-[0.22em] text-white/35">
+            Select organization
+          </div>
+
+          <div className="max-h-[360px] overflow-y-auto">
+            {available.map((item) => {
+              const active = item.id === organization?.id;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => switchOrganization(item)}
+                  className={
+                    active
+                      ? "flex w-full items-center gap-3 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/10 px-3 py-3 text-left text-[#E7C991]"
+                      : "flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-left text-white/65 transition hover:border-white/10 hover:bg-white/[0.045] hover:text-white"
+                  }
+                >
+                  <Building2 size={14} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-[12px]">
+                    {item.name}
+                  </span>
+                  {active && (
+                    <span className="text-[9px] uppercase tracking-[0.12em]">Active</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {error && (
+            <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-300">
+              {error}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -74,7 +177,6 @@ function HeaderItem({ item, organizationId, userName }) {
         className="hidden h-9 w-full max-w-[520px] items-center rounded-full border border-white/5 bg-white/[0.018] px-4 text-white/35 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white xl:flex"
       >
         <Icon size={14} />
-
         <span className="ml-3 truncate text-[12px] font-light tracking-[0.02em]">
           Search anything...
         </span>
@@ -90,10 +192,7 @@ function HeaderItem({ item, organizationId, userName }) {
         className="flex h-9 max-w-[150px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-[12px] font-light text-white/65 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white"
       >
         <Icon size={16} className="shrink-0" />
-
-        <span className="truncate">
-          {userName}
-        </span>
+        <span className="truncate">{userName}</span>
       </Link>
     );
   }
@@ -127,46 +226,22 @@ export default function WorkspaceTopBar() {
   const params = useParams();
   const pathname = usePathname();
 
-  const ready =
-    businessContext?.ready || false;
-
-  const organization =
-    businessContext?.organization || null;
-
-  const entity =
-    businessContext?.entity || null;
-
-  const period =
-    businessContext?.period || null;
-
-  const staff =
-    businessContext?.staff || null;
+  const ready = businessContext?.ready || false;
+  const organization = businessContext?.organization || null;
+  const organizations = businessContext?.organizations || [];
+  const entity = businessContext?.entity || null;
+  const period = businessContext?.period || null;
+  const staff = businessContext?.staff || null;
 
   const organizationId =
     businessContext?.organization_id ||
     organization?.id ||
     params?.organizationId ||
-    (pathname === "/workspace" ? "demo" : null) ||
     null;
 
-  const companyName =
-    organization?.name ||
-    "Workspace";
-
-  const entityName =
-    entity?.name ||
-    entity?.legal_name ||
-    "";
-
-  const periodName =
-    period?.name ||
-    period?.period_name ||
-    "Current Period";
-
-  const userName =
-    staff?.name ||
-    staff?.email ||
-    "User";
+  const entityName = entity?.name || entity?.legal_name || "";
+  const periodName = period?.name || period?.period_name || "Current Period";
+  const userName = staff?.name || staff?.email || "User";
 
   const brand = getPlatformBrand();
   const domains = getErpDomains();
@@ -187,16 +262,19 @@ export default function WorkspaceTopBar() {
           <div className="truncate text-[22px] font-medium uppercase tracking-[0.08em] text-white">
             {brand.name}
           </div>
-
           <div className="mt-0.5 truncate text-[9px] font-light uppercase tracking-[0.30em] text-white/40">
             {brand.subtitle}
           </div>
         </div>
 
         <div className="flex min-w-0 items-center justify-center gap-3">
-          <ContextPill icon={Building2} value={companyName} />
+          <OrganizationSelector
+            organization={organization}
+            organizations={organizations}
+            pathname={pathname}
+          />
 
-          {entityName && entityName !== companyName && (
+          {entityName && entityName !== organization?.name && (
             <ContextPill icon={Building2} value={entityName} />
           )}
 
@@ -236,9 +314,7 @@ export default function WorkspaceTopBar() {
             route: domain.route,
           });
 
-          const active =
-            pathname === href ||
-            pathname.startsWith(href + "/");
+          const active = pathname === href || pathname.startsWith(href + "/");
 
           return (
             <Link

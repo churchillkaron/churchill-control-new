@@ -111,6 +111,15 @@ export default function ReviewFeed({
         throw new Error(data.error || "Google review sync failed");
       }
 
+      if (data.skipped) {
+        setNotice(
+          data.message ||
+            "Google review synchronization is waiting for Business Profile API access."
+        );
+        await loadReviews();
+        return;
+      }
+
       const published = (data.processed || []).filter(
         (item) => item.published
       ).length;
@@ -166,11 +175,15 @@ export default function ReviewFeed({
     );
   }, [reviews]);
 
-  const discoveryStatus =
-    googleConnection?.metadata?.location_discovery_status || null;
+  const discoveryStatus = String(
+    googleConnection?.metadata?.location_discovery_status || ""
+  ).toUpperCase();
   const googleLocationReady = discoveryStatus === "READY";
+  const googleApiAccessPending =
+    googleConnected && discoveryStatus === "API_ACCESS_PENDING";
   const googleAccessPending = googleConnected && !googleLocationReady;
-  const googleRateLimited = googleConnected && discoveryStatus === "RATE_LIMITED";
+  const googleRateLimited =
+    googleConnected && discoveryStatus === "RATE_LIMITED";
   const integrationUrl = `/settings/integrations?organizationId=${encodeURIComponent(organizationId)}`;
   const autoPublishMin = Number(policy?.auto_publish_min_rating || 4);
   const criticalMax = Number(policy?.critical_max_rating || 2);
@@ -185,22 +198,26 @@ export default function ReviewFeed({
               Google response automation
             </div>
             <h2 className="mt-2 text-2xl font-light text-white">
-              {googleRateLimited
-                ? "Google connected — location discovery cooling down"
-                : googleAccessPending
-                  ? "Google connected — location setup pending"
-                  : googleConnected
-                    ? "Connected and monitored"
-                    : "Google setup required"}
+              {googleApiAccessPending
+                ? "Google connected — Business Profile API approval pending"
+                : googleRateLimited
+                  ? "Google connected — location discovery cooling down"
+                  : googleAccessPending
+                    ? "Google connected — location setup pending"
+                    : googleConnected
+                      ? "Connected and monitored"
+                      : "Google setup required"}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-              {googleRateLimited
-                ? "The Google authorization remains active. Location discovery was temporarily rate-limited by Google; finish setup from Administration → Integrations when the cooldown ends."
-                : googleAccessPending
-                  ? "The Google authorization is active, but Business Profile locations still need to be discovered and mapped to the correct Avantiqo entity in Administration → Integrations."
-                  : googleConnected
-                    ? `Reviews rated ${autoPublishMin}–5 can publish automatically under the active organization policy. Lower ratings wait for approval, and ratings up to ${criticalMax} open a recovery case.`
-                    : "Connect Google Business Profile from Administration → Integrations before review monitoring can begin."}
+              {googleApiAccessPending
+                ? "The Google authorization is active and safe. Avantiqo is waiting for Google to enable Business Profile API access for the platform Cloud project. Automatic discovery is paused, and reconnecting Google is not required."
+                : googleRateLimited
+                  ? "The Google authorization remains active. Location discovery was temporarily rate-limited by Google; finish setup from Administration → Integrations when the cooldown ends."
+                  : googleAccessPending
+                    ? "The Google authorization is active, but Business Profile locations still need to be discovered and mapped to the correct Avantiqo entity in Administration → Integrations."
+                    : googleConnected
+                      ? `Reviews rated ${autoPublishMin}–5 can publish automatically under the active organization policy. Lower ratings wait for approval, and ratings up to ${criticalMax} open a recovery case.`
+                      : "Connect Google Business Profile from Administration → Integrations before review monitoring can begin."}
             </p>
           </div>
 
@@ -220,7 +237,7 @@ export default function ReviewFeed({
               className="flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
             >
               <Settings2 className="h-4 w-4" />
-              Open Google setup
+              {googleApiAccessPending ? "Check Google access" : "Open Google setup"}
             </a>
           )}
         </div>

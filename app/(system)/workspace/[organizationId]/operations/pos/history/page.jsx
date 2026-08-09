@@ -2,18 +2,18 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { supabase } from "@/lib/shared/supabase/client";
-
+import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { loadPaidOrders } from "@/lib/pos/loadPaidOrders";
 
 export default function POSHistoryPage() {
 
-  const [
-    organizationId,
-    setTenantId,
-  ] = useState(null);
+  const { organization } =
+    useOrganizationRuntime();
+
+  const organizationId =
+    organization?.id || null;
 
   const [
     orders,
@@ -25,73 +25,38 @@ export default function POSHistoryPage() {
     setLoading,
   ] = useState(true);
 
-  // ===== LOAD TENANT =====
-  useEffect(() => {
+  // ===== LOAD =====
+  const refreshHistory =
+    useCallback(async () => {
 
-    async function loadTenant() {
-
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getSession();
-
-      if (!user) {
+      if (!organizationId) {
+        setOrders([]);
+        setLoading(false);
         return;
       }
 
-      const {
-        data,
-      } = await supabase
-        .from("staff_accounts")
-        .select("*")
-        .eq(
-          "auth_user_id",
-          user.id
-        )
-        .single();
+      setLoading(true);
 
-      if (
-        data?.organization_id
-      ) {
+      try {
+        const data =
+          await loadPaidOrders(
+            organizationId
+          );
 
-        setTenantId(
-          data.organization_id
+        setOrders(
+          data || []
         );
+      } finally {
+        setLoading(false);
       }
-    }
 
-    loadTenant();
-
-  }, []);
-
-  // ===== LOAD =====
-  async function refreshHistory() {
-
-    if (!organizationId) {
-      return;
-    }
-
-    setLoading(true);
-
-    const data =
-      await loadPaidOrders(
-        organizationId
-      );
-
-    setOrders(
-      data || []
-    );
-
-    setLoading(false);
-  }
+    }, [organizationId]);
 
   useEffect(() => {
 
     refreshHistory();
 
-  }, [
-    organizationId,
-  ]);
+  }, [refreshHistory]);
 
   return (
 

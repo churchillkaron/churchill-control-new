@@ -7,7 +7,6 @@ import { useActiveOrganization } from "@/lib/hooks/useActiveOrganization";
 export default function WorkforceUploadPage() {
 
   const {
-    tenantId,
     organizationId,
   } = useActiveOrganization();
 
@@ -23,6 +22,11 @@ export default function WorkforceUploadPage() {
       event.target.files?.[0];
 
     if (!file) return;
+
+    if (!organizationId) {
+      alert("Select an organization before uploading.");
+      return;
+    }
 
     try {
 
@@ -43,11 +47,6 @@ export default function WorkforceUploadPage() {
       formData.append(
         "organizationId",
         organizationId
-      );
-
-      formData.append(
-        "tenantId",
-        tenantId
       );
 
       const uploadResponse =
@@ -85,9 +84,6 @@ export default function WorkforceUploadPage() {
 
               image:
                 upload.url,
-
-              tenantId:
-                tenantId,
 
               organizationId:
                 organizationId,

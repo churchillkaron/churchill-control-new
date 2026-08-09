@@ -123,12 +123,12 @@ function OrganizationSelector({ organization, organizations, pathname }) {
       </button>
 
       {open && available.length > 1 && (
-        <div className="absolute left-0 top-11 z-[90] w-[300px] overflow-hidden rounded-2xl border border-white/10 bg-[#090909]/98 p-2 shadow-[0_24px_80px_rgba(0,0,0,.75)] backdrop-blur-2xl">
-          <div className="px-3 py-2 text-[9px] uppercase tracking-[0.22em] text-white/35">
+        <div className="absolute left-0 top-11 z-[90] w-[320px] overflow-hidden rounded-2xl border border-[#D6A66A]/25 bg-[#050505] p-2 shadow-[0_28px_90px_rgba(0,0,0,.95),0_0_0_1px_rgba(255,255,255,.03)]">
+          <div className="border-b border-white/[0.06] px-3 pb-3 pt-2 text-[9px] uppercase tracking-[0.22em] text-[#D6A66A]/65">
             Select organization
           </div>
 
-          <div className="max-h-[360px] overflow-y-auto">
+          <div className="mt-1 max-h-[360px] overflow-y-auto bg-[#050505]">
             {available.map((item) => {
               const active = item.id === organization?.id;
 
@@ -139,16 +139,21 @@ function OrganizationSelector({ organization, organizations, pathname }) {
                   onClick={() => switchOrganization(item)}
                   className={
                     active
-                      ? "flex w-full items-center gap-3 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/10 px-3 py-3 text-left text-[#E7C991]"
-                      : "flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-left text-white/65 transition hover:border-white/10 hover:bg-white/[0.045] hover:text-white"
+                      ? "flex w-full items-center gap-3 rounded-xl border border-[#D6A66A]/35 bg-[#18130C] px-3 py-3 text-left text-[#F0D29A] shadow-[inset_0_0_0_1px_rgba(214,166,106,.04)]"
+                      : "flex w-full items-center gap-3 rounded-xl border border-transparent bg-[#050505] px-3 py-3 text-left text-white/75 transition hover:border-white/10 hover:bg-[#121212] hover:text-white"
                   }
                 >
-                  <Building2 size={14} className="shrink-0" />
+                  <Building2
+                    size={14}
+                    className={active ? "shrink-0 text-[#D6A66A]" : "shrink-0 text-white/45"}
+                  />
                   <span className="min-w-0 flex-1 truncate text-[12px]">
                     {item.name}
                   </span>
                   {active && (
-                    <span className="text-[9px] uppercase tracking-[0.12em]">Active</span>
+                    <span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] text-[#E7C991]">
+                      Active
+                    </span>
                   )}
                 </button>
               );

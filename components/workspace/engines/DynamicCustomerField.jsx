@@ -55,7 +55,7 @@ export default function DynamicCustomerField({
 
     const res =
       await fetch(
-        "/api/customers/search",
+        "/api/commercial/customers/search",
         {
           method:"POST",
           headers:{
@@ -108,9 +108,6 @@ export default function DynamicCustomerField({
 
         party_id:
           customer.party_id,
-
-        customer_id:
-          customer.customer_id,
 
         customer_name:
           customer.customer_name ||

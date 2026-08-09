@@ -37,9 +37,9 @@ export async function POST(request) {
       );
     }
 
-    const customerId =
-      body.customerId ||
-      body.customer_id ||
+    const partyId =
+      body.partyId ||
+      body.party_id ||
       null;
 
     const customerPhone =
@@ -49,7 +49,7 @@ export async function POST(request) {
         ""
       ).trim();
 
-    if (!customerId && !customerPhone) {
+    if (!partyId && !customerPhone) {
       return NextResponse.json({
         success: true,
         history: [],
@@ -59,17 +59,17 @@ export async function POST(request) {
     let sessionQuery = supabaseAdmin
       .from("table_sessions")
       .select(
-        "id, table_id, table_number, customer_id, customer_phone"
+        "id, table_id, table_number, party_id, customer_phone"
       )
       .eq(
         "organization_id",
         access.organizationId
       );
 
-    if (customerId) {
+    if (partyId) {
       sessionQuery = sessionQuery.eq(
-        "customer_id",
-        customerId
+        "party_id",
+        partyId
       );
     } else {
       sessionQuery = sessionQuery.eq(

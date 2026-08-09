@@ -27,13 +27,13 @@ export default function CustomersPage() {
 
   // fetch customer order history
   async function loadCustomerHistory(customer) {
-    const response = await fetch("/api/customers/history", {
+    const response = await fetch("/api/commercial/customers/history", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         organizationId,
-        customerId:
-          customer.customer_id || null,
+        partyId:
+          customer.party_id || null,
         customerPhone:
           customer.customer_phone || null,
       })
@@ -47,7 +47,7 @@ export default function CustomersPage() {
     if (!organizationId) return;
     setLoading(true);
     try {
-      const response = await fetch("/api/customers/search", {
+      const response = await fetch("/api/commercial/customers/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ organizationId, query: search })
@@ -65,11 +65,12 @@ export default function CustomersPage() {
   const handleUpdateProfile = async () => {
     if (!selectedCustomer) return;
     setSaving(true);
-    await fetch("/api/customers/upsert", {
+    await fetch("/api/commercial/customers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         organizationId,
+        party_id: selectedCustomer.party_id,
         customer_name: selectedCustomer.customer_name,
         customer_phone: selectedCustomer.customer_phone,
         customer_email: selectedCustomer.customer_email,

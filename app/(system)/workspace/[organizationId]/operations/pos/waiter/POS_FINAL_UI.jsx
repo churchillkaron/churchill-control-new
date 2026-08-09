@@ -527,7 +527,7 @@ export default function POSFinalUI({
   async function searchCustomers() {
     if (!customerSearch.trim()) return;
 
-    const response = await fetch("/api/customers/search", {
+    const response = await fetch("/api/commercial/customers/search", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -544,7 +544,7 @@ export default function POSFinalUI({
   }
 
   async function createCustomer() {
-    const response = await fetch("/api/customers/upsert", {
+    const response = await fetch("/api/commercial/customers", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -634,7 +634,7 @@ export default function POSFinalUI({
         await posAction("CHANGE_CUSTOMER", {
           tableId: table.id,
           sessionId: table.active_session_id,
-          customerId: customerDraft.id || null,
+          partyId: customerDraft.id || null,
           customerName: customerDraft.name || null,
           customerEmail: customerDraft.email || null,
           customerPhone: customerDraft.phone || null,
@@ -739,7 +739,7 @@ export default function POSFinalUI({
         table: activeTable.table_number || activeTable.table_name,
         tableId: activeTable.id,
         items: cart,
-        customerId: customerDraft?.id || null,
+        partyId: customerDraft?.id || null,
         customerName: customerDraft?.name || null,
         customerEmail: customerDraft?.email || null,
         customerPhone: customerDraft?.phone || null,
@@ -1115,9 +1115,7 @@ export default function POSFinalUI({
                   key={customer.id}
                   onClick={() => {
                     setCustomerDraft({
-                      id:
-                        customer.customer_id ||
-                        customer.id,
+                      id: customer.party_id,
                       name: customer.customer_name,
                       phone: customer.customer_phone,
                       email: customer.customer_email,

@@ -21,6 +21,7 @@ export async function POST(req) {
       body.entity_id;
     const access = await requireOrganizationAccess({
       organizationId,
+      request: req,
     });
 
     if (!access.success) {
@@ -107,7 +108,7 @@ export async function POST(req) {
     const result = await createCustomerInvoiceCommand({
       organization_id: access.organizationId,
       entity_id: entityId,
-      customer_id: body.customer_id,
+      party_id: body.party_id || body.partyId,
       invoice_date: body.invoice_date,
       due_date: body.due_date,
       currency_code: currencyCode,

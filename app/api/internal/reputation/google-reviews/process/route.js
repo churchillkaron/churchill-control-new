@@ -34,18 +34,40 @@ export async function GET(request) {
 
     const { data: connections, error: connectionError } = await supabaseAdmin
       .from("organization_channel_connections")
-      .select("organization_id")
+      .select("organization_id,metadata")
       .eq("provider", "google")
       .eq("status", "ACTIVE")
       .in("organization_id", organizationIds);
     if (connectionError) throw connectionError;
 
-    const connectedIds = [
-      ...new Set((connections || []).map((item) => item.organization_id)),
+    const readyIds = [
+      ...new Set(
+        (connections || [])
+          .filter((connection) => {
+            const metadata = connection.metadata || {};
+            return (
+              metadata.location_discovery_status === "READY" &&
+              Number(metadata.location_count || 0) > 0
+            );
+          })
+          .map((item) => item.organization_id)
+      ),
     ];
-    const results = [];
 
-    for (const organizationId of connectedIds) {
+    const skipped = (connections || [])
+      .filter((connection) => !readyIds.includes(connection.organization_id))
+      .map((connection) => ({
+        organizationId: connection.organization_id,
+        success: true,
+        skipped: true,
+        reason:
+          connection.metadata?.location_discovery_status ||
+          "LOCATION_DISCOVERY_NOT_READY",
+      }));
+
+    const results = [...skipped];
+
+    for (const organizationId of readyIds) {
       try {
         const result = await syncGoogleReviews({ organizationId });
         results.push({ organizationId, success: true, ...result });

@@ -1,73 +1,59 @@
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    let body = {};
 
-    const {
-      tenantId,
-      organizationId,
-    } = await req.json();
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
 
-    const supabase =
-      createServerSupabase();
+    const context = await resolveAuthenticatedStaffContext({
+      request,
+      organizationId:
+        body?.organizationId || body?.organization_id || null,
+    });
 
-    const {
-      data,
-      error,
-    } = await supabase
+    if (!context.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: context.error,
+          code: context.code,
+          availableOrganizationIds:
+            context.availableOrganizationIds || [],
+        },
+        { status: context.status || 403 }
+      );
+    }
 
-      .from(
-        "marketing_brand_profiles"
-      )
-
+    const { data, error } = await supabaseAdmin
+      .from("marketing_brand_profiles")
       .select("*")
+      .eq("organization_id", context.organizationId)
+      .maybeSingle();
 
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .eq(
-        "organization_id",
-        organizationId
-      )
-
-      .single();
-
-    if (error &&
-        error.code !== "PGRST116") {
-
+    if (error) {
       throw error;
-
     }
 
     return NextResponse.json({
-
       success: true,
-
-      settings:
-        data || null,
-
+      organizationId: context.organizationId,
+      settings: data || null,
     });
-
   } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-      status: 500,
-    });
-
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Unable to load marketing settings",
+      },
+      { status: 500 }
+    );
   }
-
 }

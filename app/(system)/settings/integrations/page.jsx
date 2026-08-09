@@ -32,7 +32,10 @@ function connectionState(connection) {
     };
   }
 
-  const discovery = connection.metadata?.location_discovery_status || "PENDING";
+  const discovery = String(
+    connection.metadata?.location_discovery_status || "PENDING"
+  ).toUpperCase();
+
   if (discovery === "READY") {
     return {
       label: "Connected",
@@ -40,13 +43,23 @@ function connectionState(connection) {
       tone: "ready",
     };
   }
-  if (discovery === "RATE_LIMITED") {
+
+  if (discovery === "API_ACCESS_PENDING") {
     return {
-      label: "Connected — Google quota cooldown",
-      detail: "The OAuth authorization is safe. Only location discovery is waiting for Google’s quota window.",
+      label: "Connected — Business Profile API approval pending",
+      detail: "The organization’s Google authorization is valid. Avantiqo is waiting for Google to enable Business Profile API access for the platform Cloud project; reconnecting Google is not required.",
       tone: "warning",
     };
   }
+
+  if (discovery === "RATE_LIMITED") {
+    return {
+      label: "Connected — Google quota cooldown",
+      detail: "The OAuth authorization is safe. Location discovery hit a temporary Google quota window and will be checked again later.",
+      tone: "warning",
+    };
+  }
+
   return {
     label: "Connected — location setup pending",
     detail: "The OAuth authorization is active. Finish location discovery and map each Google location to an Avantiqo entity.",
@@ -129,10 +142,20 @@ export default function IntegrationsPage() {
         }
       );
       const data = await response.json();
+
+      if (data.connection || data.locations || data.entities) {
+        setSnapshot({
+          connection: data.connection || null,
+          locations: data.locations || [],
+          entities: data.entities || [],
+        });
+      }
+
       if (!response.ok || !data.success) {
-        const retryText = data.retryAt
-          ? ` Retry after ${formatDate(data.retryAt)}.`
-          : "";
+        const retryText =
+          data.retryAt && data.code !== "GOOGLE_API_ACCESS_PENDING"
+            ? ` Retry after ${formatDate(data.retryAt)}.`
+            : "";
         throw new Error(`${data.error || "Google Business action failed"}${retryText}`);
       }
 
@@ -150,8 +173,8 @@ export default function IntegrationsPage() {
     }
   }
 
-  async function discover() {
-    const result = await runAction({ action: "discover" });
+  async function discover(force = false) {
+    const result = await runAction({ action: "discover", force });
     if (result) {
       setNotice(
         result.locations?.length
@@ -174,10 +197,13 @@ export default function IntegrationsPage() {
   const connection = snapshot.connection;
   const connected = String(connection?.status || "").toUpperCase() === "ACTIVE";
   const state = connectionState(connection);
-  const discoveryStatus = connection?.metadata?.location_discovery_status || null;
+  const discoveryStatus = String(
+    connection?.metadata?.location_discovery_status || ""
+  ).toUpperCase();
+  const apiAccessPending = discoveryStatus === "API_ACCESS_PENDING";
   const retryAt = connection?.metadata?.location_discovery_retry_at || null;
   const retryBlocked = Boolean(
-    retryAt && new Date(retryAt).getTime() > Date.now()
+    !apiAccessPending && retryAt && new Date(retryAt).getTime() > Date.now()
   );
   const allMapped =
     snapshot.locations.length > 0 && snapshot.locations.every((location) => location.entity_id);
@@ -287,18 +313,30 @@ export default function IntegrationsPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={discover}
+                  onClick={() => discover(apiAccessPending)}
                   disabled={working || retryBlocked}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <RefreshCw className={`h-4 w-4 ${working ? "animate-spin" : ""}`} />
-                  {working ? "Checking Google…" : snapshot.locations.length ? "Refresh locations" : "Discover locations"}
+                  {working
+                    ? "Checking Google…"
+                    : apiAccessPending
+                      ? "Check Google access"
+                      : snapshot.locations.length
+                        ? "Refresh locations"
+                        : "Discover locations"}
                 </button>
+              )}
+
+              {apiAccessPending && (
+                <div className="rounded-xl border border-amber-400/15 bg-amber-400/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/70">
+                  Automatic review/location discovery is paused while Google Business Profile API access is pending. The saved Google authorization remains active.
+                </div>
               )}
 
               {retryBlocked && (
                 <div className="rounded-xl border border-amber-400/15 bg-amber-400/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/70">
-                  Google quota cooldown until {formatDate(retryAt)}. The connection remains active.
+                  Temporary Google quota cooldown until {formatDate(retryAt)}. The connection remains active.
                 </div>
               )}
             </div>

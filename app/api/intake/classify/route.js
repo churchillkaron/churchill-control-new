@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 import {
   ServiceExecutionRuntime,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
@@ -10,14 +12,11 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
-    const supabase = createServerSupabase();
-
     const body = await req.json();
 
     const {
       image,
       notes,
-      tenantId,
       organizationId,
       uploadedBy,
       documentId,
@@ -29,29 +28,33 @@ export async function POST(req) {
           success: false,
           error: "Image required",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request: req,
+    });
 
-    const execution =
-      await ServiceExecutionRuntime.execute({
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        { status: access.status }
+      );
+    }
 
-        organization_id:
-          organizationId,
+    const resolvedOrganizationId = access.organizationId;
 
-        service_id:
-          "document.classify",
-
-        provider_id:
-          "openai",
-
-        input:{
-
-          prompt:
-`
+    const execution = await ServiceExecutionRuntime.execute({
+      organization_id: resolvedOrganizationId,
+      service_id: "document.classify",
+      provider_id: "openai",
+      input: {
+        prompt: `
 You are Churchill AI Intake.
 
 Classify the uploaded image by BUSINESS PURPOSE and WORKFLOW DESTINATION.
@@ -67,150 +70,71 @@ Return JSON ONLY:
 
 Only classify invoices when an actual invoice, receipt, supplier invoice, or tax invoice is visible.
 `,
+        image,
+      },
+      metadata: {
+        module: "INTAKE",
+        operation: "CLASSIFY_UPLOAD",
+        uploadedBy,
+        documentId,
+      },
+      category: "DOCUMENT",
+    });
 
-          image,
-
-        },
-
-        metadata:{
-
-          module:
-            "INTAKE",
-
-          operation:
-            "CLASSIFY_UPLOAD",
-
-          uploadedBy,
-
-          documentId,
-
-        },
-
-        category:
-          "DOCUMENT",
-
-      });
-
-
-    const text =
-      execution?.output?.text ||
-      "";
-
-    const match =
-      text.match(/\{[\s\S]*\}/);
+    const text = execution?.output?.text || "";
+    const match = text.match(/\{[\s\S]*\}/);
 
     if (!match) {
-      throw new Error(
-        "No JSON returned"
-      );
+      throw new Error("No JSON returned");
     }
 
-    const result =
-      JSON.parse(match[0]);
-
-    let destinationModule =
-      result.module ||
-      "REVIEW";
-
+    const result = JSON.parse(match[0]);
+    const destinationModule = result.module || "REVIEW";
     let destinationRecordId = null;
 
     if (
       result.type === "SUPPLIER_INVOICE" ||
       result.type === "INVOICE"
     ) {
-
       try {
+        const ocrExecution = await ServiceExecutionRuntime.execute({
+          organization_id: resolvedOrganizationId,
+          service_id: "document.ocr",
+          provider_id: "openai",
+          input: {
+            image,
+            model: "gpt-4.1-mini",
+          },
+          metadata: {
+            module: "FINANCE",
+            operation: "INVOICE_OCR",
+            documentId,
+          },
+          category: "DOCUMENT",
+        });
 
-        const ocrExecution =
-          await ServiceExecutionRuntime.execute({
-
-            organization_id:
-              organizationId,
-
-            service_id:
-              "document.ocr",
-
-            provider_id:
-              "openai",
-
-            input:{
-
-              image,
-
-              model:
-                "gpt-4.1-mini",
-
-            },
-
-            metadata:{
-
-              module:
-                "FINANCE",
-
-              operation:
-                "INVOICE_OCR",
-
-              documentId,
-
-            },
-
-            category:
-              "DOCUMENT",
-
-          });
-
-
-        const ocrText =
-          ocrExecution?.output?.text ||
-          "";
-
+        const ocrText = ocrExecution?.output?.text || "";
 
         if (ocrText) {
+          const { processInvoice } = await import(
+            "@/lib/finance/invoice/processInvoice"
+          );
 
-          const {
-            processInvoice,
-          } =
-            await import(
-              "@/lib/finance/invoice/processInvoice"
-            );
+          const invoiceResult = await processInvoice({
+            ocrText,
+            organizationId: resolvedOrganizationId,
+          });
 
-
-          const invoiceResult =
-            await processInvoice({
-
-              ocrText,
-
-              organizationId,
-
-            });
-
-
-          if (
-            invoiceResult?.success
-          ) {
-
-            destinationRecordId =
-              invoiceResult.data?.id ||
-              null;
-
+          if (invoiceResult?.success) {
+            destinationRecordId = invoiceResult.data?.id || null;
           }
-
         }
-
       } catch (error) {
-
-        console.error(
-          "OCR AUTO ROUTE ERROR",
-          error
-        );
-
+        console.error("OCR_AUTO_ROUTE_ERROR", error);
       }
-
     }
 
-
     if (documentId) {
-
       const financialImpactTypes = [
         "INVOICE",
         "SUPPLIER_INVOICE",
@@ -219,141 +143,63 @@ Only classify invoices when an actual invoice, receipt, supplier invoice, or tax
         "PURCHASE_ORDER",
       ];
 
-      const {
-        error: documentUpdateError,
-      } = await supabaseAdmin
+      const { error: documentUpdateError } = await supabaseAdmin
         .from("organization_documents")
         .update({
-
-          ai_module:
-            result.module,
-
-          ai_type:
-            result.type,
-
-          approval_required:
-            financialImpactTypes.includes(
-              result.type
-            ),
-
-          financial_impact:
-            financialImpactTypes.includes(
-              result.type
-            ),
-
-          destination_module:
-            destinationModule,
-
-          destination_record_id:
-            destinationRecordId,
-
-          status:
-            "classified",
-
-          updated_at:
-            new Date().toISOString(),
-
+          ai_module: result.module,
+          ai_type: result.type,
+          approval_required: financialImpactTypes.includes(result.type),
+          financial_impact: financialImpactTypes.includes(result.type),
+          destination_module: destinationModule,
+          destination_record_id: destinationRecordId,
+          status: "classified",
+          updated_at: new Date().toISOString(),
         })
-        .eq(
-          "id",
-          documentId
-        );
+        .eq("id", documentId)
+        .eq("organization_id", resolvedOrganizationId);
 
       if (documentUpdateError) {
-
-        console.error(
-          "DOCUMENT_UPDATE_ERROR",
-          documentUpdateError
-        );
-
+        throw documentUpdateError;
       }
-
     }
 
-
-    const {
-      data,
-      error,
-    } = await supabase
-      .from(
-        "ai_intake_submissions"
-      )
-      .insert([
-        {
-          tenant_id:
-            tenantId,
-
-          uploaded_by:
-            uploadedBy,
-
-          image_url:
-            image,
-
-          notes:
-            notes || "",
-
-          ai_module:
-            result.module,
-
-          ai_type:
-            result.type,
-
-          ai_confidence:
-            result.confidence,
-
-          destination_module:
-            destinationModule,
-
-          organization_document_id:
-            documentId || null,
-
-          status:
-            "classified",
-        },
-      ])
+    const { data, error } = await supabaseAdmin
+      .from("ai_intake_submissions")
+      .insert({
+        organization_id: resolvedOrganizationId,
+        uploaded_by: uploadedBy || access.staff?.id || null,
+        image_url: image,
+        notes: notes || "",
+        ai_module: result.module,
+        ai_type: result.type,
+        ai_confidence: result.confidence,
+        destination_module: destinationModule,
+        destination_record_id: destinationRecordId,
+        organization_document_id: documentId || null,
+        status: "classified",
+      })
       .select()
       .single();
 
     if (error) {
-
-      console.error(
-        "INTAKE_INSERT_ERROR",
-        JSON.stringify(
-          error,
-          null,
-          2
-        )
-      );
-
       throw error;
-
     }
 
     return NextResponse.json({
       success: true,
-      classification:
-        result,
-      submission:
-        data,
+      organizationId: resolvedOrganizationId,
+      classification: result,
+      submission: data,
     });
-
   } catch (error) {
-
-    console.error(
-      "INTAKE ERROR",
-      error
-    );
+    console.error("INTAKE_ERROR", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error?.message || "Unable to classify intake",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
 }

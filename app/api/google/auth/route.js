@@ -3,8 +3,13 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
-import { getOAuthClient } from "@/lib/integrations/googleAuth";
+import {
+  getGoogleOAuthCallbackOrigin,
+  getOAuthClient,
+} from "@/lib/integrations/googleAuth";
 import { GOOGLE_BUSINESS_SCOPE } from "@/lib/commercial/reputation/googleBusinessProfile";
+import { resolveRegisteredPlatformHostContext } from "@/lib/platform/context/resolveRegisteredPlatformHostContext";
+import { createOAuthAuthorization } from "@/lib/platform/security/oauthAuthorizationState";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -17,12 +22,6 @@ const INTEGRATION_ROLES = new Set([
   "ADMIN",
   "MANAGER",
 ]);
-
-function applicationOrigin(requestUrl) {
-  const configured =
-    process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || requestUrl.origin;
-  return new URL(configured).origin;
-}
 
 function canManageIntegrations(access) {
   const roles = [
@@ -45,6 +44,28 @@ function administrationRedirect(origin, organizationId, message) {
   return url;
 }
 
+async function validatedReturnOrigin(requestUrl, organizationId) {
+  const hostname = requestUrl.hostname.toLowerCase();
+  const context = await resolveRegisteredPlatformHostContext(hostname);
+  const platformHost =
+    hostname === "avantiqo.ai" ||
+    hostname === "www.avantiqo.ai" ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".vercel.app");
+
+  if (context.organizationId && context.organizationId !== organizationId) {
+    throw new Error("Hostname does not belong to this organization");
+  }
+
+  if (!context.organizationId && !platformHost) {
+    throw new Error("Hostname is not registered for this organization");
+  }
+
+  return requestUrl.origin;
+}
+
 export async function GET(request) {
   try {
     const requestUrl = new URL(request.url);
@@ -55,17 +76,11 @@ export async function GET(request) {
       requestUrl.searchParams.get("reconnect") === "true" ||
       requestUrl.searchParams.get("reconnect") === "1";
 
-    const access = await requireOrganizationAccess({
-      organizationId,
-      request,
-    });
+    const access = await requireOrganizationAccess({ organizationId, request });
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error || "Organization access denied",
-        },
+        { success: false, error: access.error || "Organization access denied" },
         { status: access.status || 403 }
       );
     }
@@ -92,7 +107,11 @@ export async function GET(request) {
       .maybeSingle();
     if (connectionError) throw connectionError;
 
-    const origin = applicationOrigin(requestUrl);
+    const returnOrigin = await validatedReturnOrigin(
+      requestUrl,
+      access.organizationId
+    );
+
     if (
       existingConnection &&
       String(existingConnection.status || "").toUpperCase() === "ACTIVE" &&
@@ -100,15 +119,29 @@ export async function GET(request) {
     ) {
       return NextResponse.redirect(
         administrationRedirect(
-          origin,
+          returnOrigin,
           access.organizationId,
           "Google Business Profile is already connected. The existing authorization was left unchanged."
         )
       );
     }
 
-    const state = crypto.randomUUID();
-    const oauth2Client = getOAuthClient({ origin });
+    const { state } = await createOAuthAuthorization({
+      provider: "google",
+      purpose: "google_business",
+      organizationId: access.organizationId,
+      partyId: access.staff?.party_id || null,
+      returnOrigin,
+      metadata: {
+        user_id: access.userId || null,
+        staff_account_id: access.staff?.id || null,
+        role: access.role || null,
+      },
+    });
+
+    const oauth2Client = getOAuthClient({
+      origin: getGoogleOAuthCallbackOrigin(),
+    });
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "offline",
       prompt: "consent",
@@ -119,29 +152,11 @@ export async function GET(request) {
         "https://www.googleapis.com/auth/userinfo.email",
       ],
     });
-    const response = NextResponse.redirect(authUrl);
-    const cookieOptions = {
-      httpOnly: true,
-      secure: origin.startsWith("https://"),
-      sameSite: "lax",
-      path: "/",
-      maxAge: 600,
-    };
 
-    response.cookies.set("google_oauth_state", state, cookieOptions);
-    response.cookies.set(
-      "google_oauth_organization_id",
-      access.organizationId,
-      cookieOptions
-    );
-    response.cookies.set("google_oauth_origin", origin, cookieOptions);
-    return response;
+    return NextResponse.redirect(authUrl);
   } catch (error) {
     return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Google auth failed",
-      },
+      { success: false, error: error?.message || "Google auth failed" },
       { status: 500 }
     );
   }

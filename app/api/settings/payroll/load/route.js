@@ -1,77 +1,54 @@
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
-import loadOperationalSettings
-from "@/lib/settings/loadOperationalSettings";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+import loadOperationalSettings from "@/lib/settings/loadOperationalSettings";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 
 export async function POST(request) {
-
   try {
+    let body = {};
 
-    const body =
-      await request.json();
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
 
-    const access =
-      await requireOrganizationAccess({
+    const context = await resolveAuthenticatedStaffContext({
+      request,
+      organizationId:
+        body?.organizationId || body?.organization_id || null,
+    });
 
-        organizationId:
-          body.organizationId,
-
-      });
-
-    if (!access.success) {
-
+    if (!context.success) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: context.error,
+          code: context.code,
+          availableOrganizationIds:
+            context.availableOrganizationIds || [],
         },
-        {
-          status:
-            access.status,
-        }
+        { status: context.status || 403 }
       );
-
     }
 
-    const tenantId =
-      access.tenantId;
-
-    const settings =
-      await loadOperationalSettings({
-
-        tenantId,
-
-        domain:
-          "PAYROLL",
-
-      });
+    const settings = await loadOperationalSettings({
+      organizationId: context.organizationId,
+      domain: "PAYROLL",
+    });
 
     return NextResponse.json({
-
       success: true,
-
-      settings:
-        settings || {},
-
+      organizationId: context.organizationId,
+      settings: settings || {},
     });
-
   } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    });
-
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Unable to load payroll settings",
+      },
+      { status: 500 }
+    );
   }
-
 }

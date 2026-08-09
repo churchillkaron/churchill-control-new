@@ -1,52 +1,49 @@
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
-import saveOperationalSettings
-from "@/lib/settings/saveOperationalSettings";
+import saveOperationalSettings from "@/lib/settings/saveOperationalSettings";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    const body = await request.json();
+    const organizationId =
+      body?.organizationId || body?.organization_id || null;
 
-    const {
-      tenantId,
-      settings,
-    } = await req.json();
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
 
-    const result =
-      await saveOperationalSettings({
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        { status: access.status }
+      );
+    }
 
-        tenantId,
-
-        domain:
-          "POS",
-
-        settings,
-
-      });
+    const result = await saveOperationalSettings({
+      organizationId: access.organizationId,
+      domain: "POS",
+      settings: body?.settings || {},
+    });
 
     return NextResponse.json({
-
       success: true,
-
-      settings:
-        result,
-
+      organizationId: access.organizationId,
+      settings: result,
     });
-
   } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-      status: 500,
-    });
-
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Unable to save POS settings",
+      },
+      { status: 500 }
+    );
   }
-
 }

@@ -8,6 +8,8 @@ import {
   resolveChannelOAuthRoute,
 } from "@/lib/platform/channels/resolver/ChannelOAuthResolver";
 
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+
 
 export async function GET(req){
 
@@ -21,6 +23,34 @@ export async function GET(req){
 
     const runtime =
       searchParams.get("runtime");
+
+
+    const context =
+      await resolveAuthenticatedStaffContext({
+        request:req,
+        organizationId:
+          searchParams.get("organizationId") ||
+          searchParams.get("organization_id") ||
+          null,
+      });
+
+
+    if(!context.success){
+
+      return NextResponse.json(
+
+        {
+          success:false,
+          error:context.error,
+        },
+
+        {
+          status:context.status || 403,
+        }
+
+      );
+
+    }
 
 
     const redirect =
@@ -42,7 +72,8 @@ export async function GET(req){
 
       success:true,
 
-      redirect,
+      redirect:
+        `${redirect}?organizationId=${encodeURIComponent(context.organizationId)}`,
 
     });
 

@@ -87,7 +87,7 @@ export default function ChannelConnectionEngine({
 
         const response =
           await fetch(
-            `/api/platform/channels/oauth?runtime=${row.runtime}`
+            `/api/platform/channels/oauth?runtime=${encodeURIComponent(row.runtime)}&organizationId=${encodeURIComponent(organizationId)}`
           );
 
 

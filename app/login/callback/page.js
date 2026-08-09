@@ -4,6 +4,23 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/shared/supabase/client";
 
+const CHURCHILL_ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
+
+function hostnameOrganizationId() {
+  if (typeof window === "undefined") return null;
+
+  const hostname = String(window.location.hostname || "").trim().toLowerCase();
+
+  if (
+    hostname === "churchillkaron.com" ||
+    hostname.endsWith(".churchillkaron.com")
+  ) {
+    return CHURCHILL_ORGANIZATION_ID;
+  }
+
+  return null;
+}
+
 export default function LoginCallback() {
   const router = useRouter();
 
@@ -19,7 +36,12 @@ export default function LoginCallback() {
           return;
         }
 
-        const res = await fetch("/api/session/bootstrap", {
+        const requestedOrganizationId = hostnameOrganizationId();
+        const bootstrapUrl = requestedOrganizationId
+          ? `/api/session/bootstrap?organizationId=${encodeURIComponent(requestedOrganizationId)}`
+          : "/api/session/bootstrap";
+
+        const res = await fetch(bootstrapUrl, {
           method: "GET",
           cache: "no-store",
         });

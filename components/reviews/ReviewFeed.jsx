@@ -49,6 +49,7 @@ export default function ReviewFeed({
   const [notice, setNotice] = useState("");
   const [canApprove, setCanApprove] = useState(false);
   const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleConnection, setGoogleConnection] = useState(null);
   const [policy, setPolicy] = useState(null);
 
   const loadReviews = useCallback(async () => {
@@ -71,6 +72,7 @@ export default function ReviewFeed({
       setReviews(data.reviews || []);
       setCanApprove(Boolean(data.canApprove));
       setGoogleConnected(Boolean(data.googleConnected));
+      setGoogleConnection(data.googleConnection || null);
       setPolicy(data.policy || null);
       setDrafts(
         Object.fromEntries(
@@ -163,6 +165,10 @@ export default function ReviewFeed({
     );
   }, [reviews]);
 
+  const googleLocationReady =
+    googleConnection?.metadata?.location_discovery_status === "READY";
+  const googleAccessPending = googleConnected && !googleLocationReady;
+
   return (
     <div className="space-y-6">
       <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6">
@@ -173,12 +179,16 @@ export default function ReviewFeed({
               Google response automation
             </div>
             <h2 className="mt-2 text-2xl font-light text-white">
-              {googleConnected ? "Connected and monitored" : "Connection required"}
+              {googleAccessPending
+                ? "Google connected — profile access pending"
+                : googleConnected
+                  ? "Connected and monitored"
+                  : "Connection required"}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-              4–5 star reviews publish automatically. Ratings from 1–3 stars
-              always wait for manager approval. Ratings from 1–2 stars also
-              open a critical recovery case.
+              {googleAccessPending
+                ? "Churchill has saved the Google authorization. Location and review syncing will start automatically as soon as Google approves Business Profile API access."
+                : "4–5 star reviews publish automatically. Ratings from 1–3 stars always wait for manager approval. Ratings from 1–2 stars also open a critical recovery case."}
             </p>
           </div>
 
@@ -190,7 +200,11 @@ export default function ReviewFeed({
               className="flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black transition disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Syncing…" : "Sync now"}
+              {syncing
+                ? "Checking…"
+                : googleAccessPending
+                  ? "Check Google access"
+                  : "Sync now"}
             </button>
           ) : (
             <a

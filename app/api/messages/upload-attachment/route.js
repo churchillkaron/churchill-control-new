@@ -1,35 +1,29 @@
 import { NextResponse } from "next/server";
 
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
-
-import { getStaffIdentity }
-from "@/lib/messages/getStaffIdentity";
+import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { getStaffIdentity } from "@/lib/messages/getStaffIdentity";
 
 export const runtime = "nodejs";
 
-export async function POST(req) {
+function safeFileName(value) {
+  return String(value || "file")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .slice(0, 160);
+}
 
+export async function POST(request) {
   try {
+    const identity = await getStaffIdentity(request);
 
-    const identity =
-      await getStaffIdentity();
-
-    if (!identity) {
+    if (!identity?.organization_id) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const supabase =
-      createServerSupabase();
-
-    const formData =
-      await req.formData();
-
-    const file =
-      formData.get("file");
+    const formData = await request.formData();
+    const file = formData.get("file");
 
     if (!file) {
       return NextResponse.json(
@@ -38,46 +32,41 @@ export async function POST(req) {
       );
     }
 
-    const buffer =
-      Buffer.from(await file.arrayBuffer());
-
+    const supabase = createServerSupabase();
+    const buffer = Buffer.from(await file.arrayBuffer());
     const path =
-      `message-attachments/${identity.tenant_id}/${Date.now()}-${file.name}`;
+      `message-attachments/${identity.organization_id}/${identity.id}/` +
+      `${Date.now()}-${safeFileName(file.name)}`;
 
-    const { error } =
-      await supabase.storage
-        .from("uploads")
-        .upload(path, buffer, {
-          contentType: file.type,
-          upsert: true,
-        });
+    const { error } = await supabase.storage
+      .from("uploads")
+      .upload(path, buffer, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
 
     if (error) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+      throw error;
     }
 
-    const { data } =
-      supabase.storage
-        .from("uploads")
-        .getPublicUrl(path);
+    const { data } = supabase.storage
+      .from("uploads")
+      .getPublicUrl(path);
 
     return NextResponse.json({
       success: true,
+      organizationId: identity.organization_id,
       url: data.publicUrl,
       name: file.name,
       type: file.type,
     });
-
-  } catch (err) {
-
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: err.message },
+      {
+        success: false,
+        error: error?.message || "Unable to upload attachment",
+      },
       { status: 500 }
     );
-
   }
-
 }

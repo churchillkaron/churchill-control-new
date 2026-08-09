@@ -2,23 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+
 import { supabase } from "@/lib/shared/supabase/client";
+import { resolvePlatformHostContext } from "@/lib/platform/context/resolvePlatformHostContext";
 
-const CHURCHILL_ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
-
-function hostnameOrganizationId() {
+function browserOrganizationId() {
   if (typeof window === "undefined") return null;
 
-  const hostname = String(window.location.hostname || "").trim().toLowerCase();
-
-  if (
-    hostname === "churchillkaron.com" ||
-    hostname.endsWith(".churchillkaron.com")
-  ) {
-    return CHURCHILL_ORGANIZATION_ID;
-  }
-
-  return null;
+  return resolvePlatformHostContext(window.location.hostname).organizationId;
 }
 
 export default function LoginCallback() {
@@ -36,7 +27,7 @@ export default function LoginCallback() {
           return;
         }
 
-        const requestedOrganizationId = hostnameOrganizationId();
+        const requestedOrganizationId = browserOrganizationId();
         const bootstrapUrl = requestedOrganizationId
           ? `/api/session/bootstrap?organizationId=${encodeURIComponent(requestedOrganizationId)}`
           : "/api/session/bootstrap";
@@ -62,7 +53,8 @@ export default function LoginCallback() {
           return;
         }
 
-        const activeOrganizationId = data.active_organization_id || data.organization_id;
+        const activeOrganizationId =
+          data.active_organization_id || data.organization_id;
 
         if (activeOrganizationId) {
           const selectionResponse = await fetch("/api/session/organization", {
@@ -95,8 +87,8 @@ export default function LoginCallback() {
   }, [router]);
 
   return (
-    <div className="h-screen flex items-center justify-center bg-black text-white">
-      Loading system...
+    <div className="flex h-screen items-center justify-center bg-black text-white">
+      Loading workspace...
     </div>
   );
 }

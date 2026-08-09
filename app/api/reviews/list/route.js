@@ -1,23 +1,38 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const tenantId = body.tenantId;
-    const platform = body.platform || null;
-    const limit = Number(body.limit || 50);
+    const body = await request.json();
+    const context = await resolveAuthenticatedStaffContext({
+      request,
+      organizationId:
+        body?.organizationId || body?.organization_id || null,
+    });
 
-    if (!tenantId) {
-      return NextResponse.json({ success: false, error: "Missing tenantId" }, { status: 400 });
+    if (!context.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: context.error,
+          code: context.code,
+          availableOrganizationIds:
+            context.availableOrganizationIds || [],
+        },
+        { status: context.status || 403 }
+      );
     }
+
+    const platform = body?.platform || null;
+    const limit = Math.min(200, Math.max(1, Number(body?.limit || 50)));
 
     let query = supabaseAdmin
       .from("reputation_reviews")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", context.organizationId)
       .order("review_time", { ascending: false })
       .limit(limit);
 
@@ -27,14 +42,24 @@ export async function POST(req) {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     return NextResponse.json({
       success: true,
+      organizationId: context.organizationId,
       reviews: data || [],
     });
   } catch (error) {
-    console.error("[REVIEWS_LIST]", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("REVIEWS_LIST_ERROR", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Unable to load reviews",
+      },
+      { status: 500 }
+    );
   }
 }

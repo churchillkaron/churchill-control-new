@@ -1,37 +1,62 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/shared/supabase";
+
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const EDITABLE_FIELDS = ["department_code", "department_name", "status"];
+
+function requestedOrganizationId(request, body = null) {
+  const bodyId = body?.organizationId || body?.organization_id || null;
+  if (bodyId) return bodyId;
+  const { searchParams } = new URL(request.url);
+  return searchParams.get("organizationId") || searchParams.get("organization_id") || null;
+}
+
+function editablePayload(body = {}) {
+  return Object.fromEntries(
+    EDITABLE_FIELDS.filter((field) => body[field] !== undefined).map((field) => [field, body[field]]),
+  );
+}
+
+function errorResponse(error, status = 500) {
+  return NextResponse.json({ success: false, error }, { status });
+}
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const organization_id = searchParams.get("organization_id");
+  try {
+    const access = await requireOrganizationAccess({ organizationId: requestedOrganizationId(request), request });
+    if (!access.success) return errorResponse(access.error, access.status);
 
-  if (!organization_id)
-    return NextResponse.json({ error: "organization_id required" }, { status: 400 });
+    const { data, error } = await supabaseAdmin
+      .from("healthcare_departments")
+      .select("*")
+      .eq("organization_id", access.organizationId)
+      .order("department_name");
 
-  const { data, error } = await supabase
-    .from("healthcare_departments")
-    .select("*")
-    .eq("organization_id", organization_id)
-    .order("department_name");
-
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ success: true, data });
+    if (error) throw error;
+    return NextResponse.json({ success: true, data: data || [] });
+  } catch (error) {
+    console.error("HEALTHCARE_WARDS_GET_ERROR", error);
+    return errorResponse(error?.message || "Ward lookup failed");
+  }
 }
 
 export async function POST(request) {
-  const body = await request.json();
-  if (!body.organization_id)
-    return NextResponse.json({ error: "organization_id required" }, { status: 400 });
+  try {
+    const body = await request.json();
+    const access = await requireOrganizationAccess({ organizationId: requestedOrganizationId(request, body), request });
+    if (!access.success) return errorResponse(access.error, access.status);
 
-  const { data, error } = await supabase
-    .from("healthcare_departments")
-    .insert([body])
-    .select();
+    const payload = { ...editablePayload(body), organization_id: access.organizationId };
+    const { data, error } = await supabaseAdmin.from("healthcare_departments").insert([payload]).select();
+    if (error) throw error;
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data: data || [] });
+  } catch (error) {
+    console.error("HEALTHCARE_WARDS_POST_ERROR", error);
+    return errorResponse(error?.message || "Ward creation failed");
+  }
 }

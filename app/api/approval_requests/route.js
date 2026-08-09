@@ -1,25 +1,33 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-
-    const tenantId = searchParams.get("tenantId");
+    const organizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
     const status = searchParams.get("status");
 
-    if (!tenantId) {
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
+
+    if (!access.success) {
       return NextResponse.json(
         {
           success: false,
-          error: "tenantId required",
+          error: access.error,
         },
-        {
-          status: 400,
-        }
+        { status: access.status }
       );
     }
+
+    const resolvedOrganizationId = access.organizationId;
 
     let query = supabaseAdmin
       .from("approval_requests")
@@ -30,19 +38,19 @@ export async function GET(request) {
           workflow_type,
           department,
           minimum_role,
-          approval_steps
+          approval_steps,
+          organization_id
         )
       `)
-      .eq("tenant_id", tenantId);
+      .eq("organization_id", resolvedOrganizationId);
 
     if (status) {
       query = query.eq("status", status);
     }
 
-    const { data, error } = await query.order(
-      "created_at",
-      { ascending: false }
-    );
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
 
     if (error) {
       throw error;
@@ -50,18 +58,19 @@ export async function GET(request) {
 
     const requests = [];
 
-    for (const req of data || []) {
+    for (const approvalRequest of data || []) {
+      if (
+        approvalRequest.approval_workflows?.organization_id &&
+        approvalRequest.approval_workflows.organization_id !==
+          resolvedOrganizationId
+      ) {
+        continue;
+      }
 
       let approvalData = null;
 
-      if (
-        req.reference_serviceUnit ===
-        "payroll_records"
-      ) {
-
-        const {
-          data: payroll,
-        } = await supabaseAdmin
+      if (approvalRequest.reference_table === "payroll_records") {
+        const { data: payroll, error: payrollError } = await supabaseAdmin
           .from("payroll_records")
           .select(`
             id,
@@ -73,65 +82,49 @@ export async function GET(request) {
             review_required,
             review_reason
           `)
-          .eq(
-            "id",
-            req.reference_id
-          )
+          .eq("id", approvalRequest.reference_id)
+          .eq("organization_id", resolvedOrganizationId)
           .maybeSingle();
 
-        if (payroll) {
+        if (payrollError) {
+          throw payrollError;
+        }
 
+        if (payroll) {
           approvalData = {
             type: "payroll",
             title: "Payroll Approval",
-            staff_name:
-              payroll.staff_name,
-            role:
-              payroll.role,
-            payroll_month:
-              payroll.payroll_month,
-            final_salary:
-              payroll.final_salary,
-            department:
-              payroll.department_cost_center,
-            review_required:
-              payroll.review_required,
-            review_reason:
-              payroll.review_reason,
+            staff_name: payroll.staff_name,
+            role: payroll.role,
+            payroll_month: payroll.payroll_month,
+            final_salary: payroll.final_salary,
+            department: payroll.department_cost_center,
+            review_required: payroll.review_required,
+            review_reason: payroll.review_reason,
           };
-
         }
-
       }
 
       requests.push({
-        ...req,
+        ...approvalRequest,
         approvalData,
       });
-
     }
 
     return NextResponse.json({
       success: true,
+      organizationId: resolvedOrganizationId,
       requests,
     });
-
   } catch (error) {
-
-    console.error(
-      "APPROVAL_REQUESTS_ERROR",
-      error
-    );
+    console.error("APPROVAL_REQUESTS_ERROR", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: error?.message || "Unable to load approval requests",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
 }

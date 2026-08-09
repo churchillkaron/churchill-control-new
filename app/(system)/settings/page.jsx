@@ -9,6 +9,7 @@ import { getWorkspaceMeta } from "@/lib/platform/registry/erpRegistry";
 
 const WORKSPACE_ID = "administration";
 
+// Legacy /settings remains a compatibility entry; canonical navigation resolves to the organization ERP workspace.
 export default function SettingsPage() {
   const business = useBusinessContext();
   const workspace = getWorkspaceMeta(WORKSPACE_ID);

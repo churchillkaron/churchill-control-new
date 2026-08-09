@@ -1,130 +1,116 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
-  useEffect,
-  useState,
-} from "react";
-
-import {
-  useBusinessContext,
-} from "@/app/providers/BusinessContextProvider";
-
-
+  useOrganizationRuntime,
+} from "@/lib/hooks/useOrganizationRuntime";
 
 export default function TableSettingsPage() {
+  const { organization } = useOrganizationRuntime();
+  const organizationId = organization?.id || null;
 
-  const tenant =
-    useBusinessContext();
-
-  const tenantId =
-    businessContext?.organization?.id;
-
-
-  const [
-    settings,
-    setSettings,
-  ] = useState(null);
-
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
+  const [settings, setSettings] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   async function loadSettings() {
+    if (!organizationId) {
+      setSettings(null);
+      return;
+    }
 
-    const response =
-      await fetch(
-        "/api/settings/tables/load",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            tenantId:
-              tenantId,
-          }),
-        }
-      );
-
-    const result =
-      await response.json();
-
-    setSettings(
-      result.settings
-    );
-
-  }
-
-  async function saveSettings() {
-
-    setSaving(true);
-
-    await fetch(
-      "/api/settings/tables/save",
+    const response = await fetch(
+      "/api/settings/tables/load",
       {
         method: "POST",
         headers: {
-          "Content-Type":
-            "application/json",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-
-          tenantId:
-            tenantId,
-
-          settings,
-
+          organizationId,
         }),
       }
     );
 
-    setSaving(false);
+    const result = await response.json();
 
-    alert(
-      "Table settings saved"
-    );
+    if (!response.ok || !result?.success) {
+      throw new Error(
+        result?.error || "Unable to load table settings"
+      );
+    }
 
+    setSettings(result.settings);
+  }
+
+  async function saveSettings() {
+    if (!organizationId) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(
+        "/api/settings/tables/save",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            organizationId,
+            settings,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error || "Unable to save table settings"
+        );
+      }
+
+      alert("Table settings saved");
+    } finally {
+      setSaving(false);
+    }
   }
 
   useEffect(() => {
+    loadSettings().catch((error) => {
+      console.error("LOAD_TABLE_SETTINGS_ERROR", error);
+    });
+  }, [organizationId]);
 
-    loadSettings();
-
-  }, []);
+  if (!organizationId) {
+    return (
+      <div className="p-10 text-white">
+        Select an organization to manage table settings.
+      </div>
+    );
+  }
 
   if (!settings) {
-
     return (
       <div className="p-10 text-white">
         Loading...
       </div>
     );
-
   }
 
   function toggle(key) {
-
-    setSettings(prev => ({
-
-      ...prev,
-
-      [key]:
-        !prev[key],
-
+    setSettings((previous) => ({
+      ...previous,
+      [key]: !previous[key],
     }));
-
   }
 
   return (
-
     <div className="min-h-screen bg-black text-white p-10">
-
       <div className="max-w-5xl mx-auto space-y-8">
-
         <div>
-
           <div className="text-sm uppercase tracking-[0.3em] text-zinc-500 mb-3">
             Table Runtime
           </div>
@@ -132,74 +118,23 @@ export default function TableSettingsPage() {
           <h1 className="text-5xl font-light">
             Table Configuration
           </h1>
-
         </div>
 
         <div className="grid grid-cols-2 gap-6">
-
           {[
-            [
-              "enable_table_locking",
-              "Enable Table Locking",
-            ],
-
-            [
-              "auto_release_paid_tables",
-              "Auto Release Paid Tables",
-            ],
-
-            [
-              "allow_manual_table_release",
-              "Manual Table Release",
-            ],
-
-            [
-              "allow_table_transfer",
-              "Allow Table Transfer",
-            ],
-
-            [
-              "allow_table_merge",
-              "Allow Table Merge",
-            ],
-
-            [
-              "require_manager_transfer",
-              "Manager Transfer Approval",
-            ],
-
-            [
-              "require_manager_merge",
-              "Manager Merge Approval",
-            ],
-
-            [
-              "enable_reservations",
-              "Enable Reservations",
-            ],
-
-            [
-              "auto_release_no_show",
-              "Auto Release No Show",
-            ],
-
-            [
-              "enable_capacity_limits",
-              "Capacity Limits",
-            ],
-
-            [
-              "realtime_table_sync",
-              "Realtime Sync",
-            ],
-
-            [
-              "show_table_timers",
-              "Show Table Timers",
-            ],
-
+            ["enable_table_locking", "Enable Table Locking"],
+            ["auto_release_paid_tables", "Auto Release Paid Tables"],
+            ["allow_manual_table_release", "Manual Table Release"],
+            ["allow_table_transfer", "Allow Table Transfer"],
+            ["allow_table_merge", "Allow Table Merge"],
+            ["require_manager_transfer", "Manager Transfer Approval"],
+            ["require_manager_merge", "Manager Merge Approval"],
+            ["enable_reservations", "Enable Reservations"],
+            ["auto_release_no_show", "Auto Release No Show"],
+            ["enable_capacity_limits", "Capacity Limits"],
+            ["realtime_table_sync", "Realtime Sync"],
+            ["show_table_timers", "Show Table Timers"],
           ].map(([key, label]) => (
-
             <button
               key={key}
               onClick={() => toggle(key)}
@@ -209,15 +144,11 @@ export default function TableSettingsPage() {
                   : "bg-white/5 border-white/10"
               }`}
             >
-
               <div className="text-lg">
                 {label}
               </div>
-
             </button>
-
           ))}
-
         </div>
 
         <button
@@ -225,19 +156,9 @@ export default function TableSettingsPage() {
           disabled={saving}
           className="w-full h-16 rounded-3xl bg-emerald-500 text-black text-xl font-semibold"
         >
-
-          {
-            saving
-              ? "Saving..."
-              : "Save Table Settings"
-          }
-
+          {saving ? "Saving..." : "Save Table Settings"}
         </button>
-
       </div>
-
     </div>
-
   );
-
 }

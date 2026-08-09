@@ -1,0 +1,3 @@
+-- Historical migration marker.
+-- Already applied to the linked production database as 20260808101048.
+-- Intentionally a no-op in source control so migration history remains aligned without replaying live DDL.

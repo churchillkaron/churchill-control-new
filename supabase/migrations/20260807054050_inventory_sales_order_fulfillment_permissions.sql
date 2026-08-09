@@ -1,5 +1,5 @@
--- Production history bridge.
--- Explicit Retail fulfillment function permissions were applied directly through
--- the connected Supabase project on 2026-08-07.
--- Reproducible permission enforcement for fresh deployments is retained in
--- 20260807123100_inventory_sales_order_fulfillment_permissions.sql.
+revoke all on function public.inventory_signed_quantity(text, numeric) from public, anon, authenticated;
+grant execute on function public.inventory_signed_quantity(text, numeric) to service_role;
+
+revoke all on function public.inventory_fulfill_sales_order_atomic(uuid, uuid, uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.inventory_fulfill_sales_order_atomic(uuid, uuid, uuid, uuid, text) to service_role;

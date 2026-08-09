@@ -1,222 +1,124 @@
 import { NextResponse } from "next/server";
 
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { getStaffIdentity } from "@/lib/messages/getStaffIdentity";
 
-import { getStaffIdentity }
-from "@/lib/messages/getStaffIdentity";
-
-export async function GET() {
-
+export async function GET(request) {
   try {
+    const identity = await getStaffIdentity(request);
 
-    const identity =
-      await getStaffIdentity();
-
-    if (!identity) {
-
+    if (!identity?.organization_id) {
       return NextResponse.json(
         {
           success: false,
           error: "Unauthorized",
         },
-        {
-          status: 401,
-        }
+        { status: 401 }
       );
-
     }
 
-    const supabase =
-      createServerSupabase();
+    const { data: participantRows, error: participantError } =
+      await supabaseAdmin
+        .from("message_participants")
+        .select("thread_id")
+        .eq("organization_id", identity.organization_id)
+        .eq("staff_id", identity.id);
 
-    const {
-      data: participantRows,
-      error: participantError,
-    } = await supabase
-
-      .from(
-        "message_participants"
-      )
-
-      .select(
-        "thread_id"
-      )
-
-      .eq(
-        "tenant_id",
-        identity.tenant_id
-      )
-
-      .eq(
-        "staff_id",
-        identity.id
-      );
-
-    if (
-      participantError
-    ) {
-
-      console.error(
-        "PARTICIPANT ERROR",
-        participantError
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            participantError.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
+    if (participantError) {
+      throw participantError;
     }
 
-    const threadIds =
-      participantRows?.map(
-        (x) => x.thread_id
-      ) || [];
+    const threadIds = (participantRows || []).map(
+      (row) => row.thread_id
+    );
 
-    if (
-      threadIds.length === 0
-    ) {
-
+    if (!threadIds.length) {
       return NextResponse.json({
         success: true,
+        organizationId: identity.organization_id,
         threads: [],
       });
-
     }
 
-    const {
-      data: threads,
-      error,
-    } = await supabase
-
-      .from(
-        "message_threads"
-      )
-
+    const { data: threads, error: threadError } = await supabaseAdmin
+      .from("message_threads")
       .select(`
         id,
         title,
         type,
         created_at,
+        updated_at,
         messages(
           id,
           content,
           created_at,
-          sender_id
+          sender_id,
+          message_reads(
+            staff_id,
+            read_at
+          )
         )
       `)
+      .eq("organization_id", identity.organization_id)
+      .in("id", threadIds);
 
-      .in(
-        "id",
-        threadIds
-      );
-
-    if (error) {
-
-      console.error(
-        "THREAD ERROR",
-        error
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            error.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
+    if (threadError) {
+      throw threadError;
     }
 
-    const enriched =
-      (threads || []).map(
-        (thread) => {
-
-          const sorted =
-            [...(
-              thread.messages || []
-            )].sort(
-              (a, b) =>
-                new Date(
-                  b.created_at
-                ) -
-                new Date(
-                  a.created_at
-                )
-            );
-
-          const latest =
-            sorted[0];
-
-          let unread = 0;
-
-          for (
-            const message
-            of thread.messages || []
-          ) {
-
-            if (
-              message.sender_id !==
-              identity.id
-            ) {
-
-              unread++;
-
-            }
-
-          }
-
-          return {
-
-            ...thread,
-
-            latest_message:
-              latest?.content || "",
-
-            latest_created_at:
-              latest?.created_at || null,
-
-            unread_count:
-              unread,
-
-          };
-
-        }
+    const enriched = (threads || []).map((thread) => {
+      const messages = thread.messages || [];
+      const sorted = [...messages].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime()
       );
+      const latest = sorted[0] || null;
+
+      const unreadCount = messages.reduce((count, message) => {
+        if (message.sender_id === identity.id) {
+          return count;
+        }
+
+        const readByCurrentStaff = (message.message_reads || []).some(
+          (read) => read.staff_id === identity.id && read.read_at
+        );
+
+        return readByCurrentStaff ? count : count + 1;
+      }, 0);
+
+      return {
+        ...thread,
+        latest_message: latest?.content || "",
+        latest_created_at: latest?.created_at || null,
+        unread_count: unreadCount,
+      };
+    });
+
+    enriched.sort(
+      (a, b) =>
+        new Date(
+          b.latest_created_at || b.updated_at || b.created_at
+        ).getTime() -
+        new Date(
+          a.latest_created_at || a.updated_at || a.created_at
+        ).getTime()
+    );
 
     return NextResponse.json({
       success: true,
+      organizationId: identity.organization_id,
       threads: enriched,
     });
-
-  } catch (err) {
-
-    console.error(
-      "INBOX ERROR",
-      err
-    );
+  } catch (error) {
+    console.error("MESSAGE_INBOX_ERROR", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          err.message,
+        error: error?.message || "Unable to load inbox",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
-
 }

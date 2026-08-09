@@ -119,15 +119,19 @@ async function recover(request) {
 
   const status = text(task.status).toUpperCase();
   if (status === "COMPLETED") {
+    task = await ProductionTaskRuntime.ensureAssetNode(VIDEO_TASK_ID);
     return json({
       success: true,
       status: "GEMINI_SMOKE_VIDEO_COMPLETED",
       contract: TEST_CONTRACT,
       task_id: VIDEO_TASK_ID,
+      asset_node_id: task.output?.asset_node_id || null,
       provider_job_id: PROVIDER_JOB_ID,
       provider_usage_count: 1,
+      charged_amount_thb: Number(usage.charged_amount || 0),
       video_url: outputUrl(task),
       recovered_existing_provider_job: true,
+      recovered_asset_node_without_provider_execution: true,
       new_provider_generation_executed: false,
       publication_authorized: false,
     });
@@ -174,11 +178,16 @@ async function recover(request) {
     throw new Error(`GEMINI_SMOKE_RECOVERY_CREATED_NEW_USAGE:${finalUsages.length}`);
   }
 
+  const withAsset = finalStatus === "COMPLETED"
+    ? await ProductionTaskRuntime.ensureAssetNode(VIDEO_TASK_ID)
+    : recovered;
+
   return json({
     success: finalStatus === "COMPLETED",
     status: `GEMINI_SMOKE_VIDEO_${finalStatus}`,
     contract: TEST_CONTRACT,
     task_id: VIDEO_TASK_ID,
+    asset_node_id: withAsset.output?.asset_node_id || null,
     provider: PROVIDER,
     model: MODEL,
     target_seconds: TARGET_SECONDS,
@@ -186,12 +195,13 @@ async function recover(request) {
     provider_usage_count: finalUsages.length,
     usage_status: finalUsages[0]?.status || null,
     charged_amount_thb: Number(finalUsages[0]?.charged_amount || 0),
-    video_url: outputUrl(recovered),
+    video_url: outputUrl(withAsset),
     recovered_existing_provider_job: true,
+    recovered_asset_node_without_provider_execution: finalStatus === "COMPLETED",
     new_provider_generation_executed: false,
     automatic_retry_authorized: false,
     publication_authorized: false,
-    error: recovered.error || null,
+    error: withAsset.error || null,
   }, finalStatus === "FAILED" ? 500 : 200);
 }
 

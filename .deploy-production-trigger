@@ -1,0 +1,5 @@
+Production deployment trigger
+
+Requested: 2026-08-09T17:52:00+07:00
+Purpose: Deploy current main including Studio professional finishing.
+Policy: Update this file only for deliberate production deployments.

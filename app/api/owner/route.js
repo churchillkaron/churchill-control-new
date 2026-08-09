@@ -1,437 +1,210 @@
 export const dynamic = "force-dynamic";
 
 import {
-  createServerSupabase,
-} from "@/lib/shared/supabase/server";
-
-import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  businessDayRange,
+  resolveOrganizationTimeContext,
+} from "@/lib/shared/time/organizationTime";
 
-export async function GET() {
-
+export async function GET(request) {
   try {
-
-    const {
-      searchParams,
-    } = new URL(
-      request.url
-    );
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          searchParams.get(
-            "organizationId"
-          ),
-
-      });
+    const { searchParams } = new URL(request.url);
+    const access = await requireOrganizationAccess({
+      organizationId: searchParams.get("organizationId"),
+      request,
+    });
 
     if (!access.success) {
-
       return Response.json(
         {
-          error:
-            access.error,
+          success: false,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
-    const tenantId =
-      access.tenantId;
+    const organizationId = access.organizationId;
+    const timeContext = await resolveOrganizationTimeContext({
+      organizationId,
+    });
+    const day = businessDayRange(timeContext.timezone);
 
-    if (!tenantId) {
+    const [
+      salesResult,
+      dishesResult,
+      recipesResult,
+      ingredientsResult,
+      stockResult,
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("daily_sales_items")
+        .select("dish_id,quantity,price")
+        .eq("organization_id", organizationId)
+        .gte("created_at", day.start)
+        .lt("created_at", day.nextStart),
+      supabaseAdmin
+        .from("dishes")
+        .select("id,name")
+        .eq("organization_id", organizationId),
+      supabaseAdmin
+        .from("recipes")
+        .select(`
+          dish_id,
+          recipe_items (
+            item_id,
+            quantity
+          )
+        `)
+        .eq("organization_id", organizationId),
+      supabaseAdmin
+        .from("ingredients")
+        .select("id,cost_per_unit")
+        .eq("organization_id", organizationId),
+      supabaseAdmin
+        .from("production_batches")
+        .select("dish_id,remaining_quantity")
+        .eq("organization_id", organizationId),
+    ]);
 
-      return Response.json(
-        {
-          error:
-            "Tenant not found",
-        },
-        {
-          status: 401,
-        }
-      );
-
+    for (const result of [
+      salesResult,
+      dishesResult,
+      recipesResult,
+      ingredientsResult,
+      stockResult,
+    ]) {
+      if (result.error) {
+        throw result.error;
+      }
     }
 
-    const supabase =
-      createServerSupabase();
+    const sales = salesResult.data || [];
+    const dishes = dishesResult.data || [];
+    const recipes = recipesResult.data || [];
+    const ingredients = ingredientsResult.data || [];
+    const stock = stockResult.data || [];
 
-    const now =
-      new Date();
+    const dishMap = Object.fromEntries(
+      dishes.map((dish) => [dish.id, dish.name])
+    );
 
-    const start =
-      new Date(
-        now.setHours(
-          0,
-          0,
-          0,
-          0
-        )
-      ).toISOString();
-
-    const end =
-      new Date(
-        now.setHours(
-          23,
-          59,
-          59,
-          999
-        )
-      ).toISOString();
-
-    const {
-      data: sales,
-    } = await supabase
-
-      .from(
-        "daily_sales_items"
-      )
-
-      .select(
-        "dish_id, quantity, price"
-      )
-
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .gte(
-        "created_at",
-        start
-      )
-
-      .lte(
-        "created_at",
-        end
-      );
-
-    const {
-      data: dishes,
-    } = await supabase
-
-      .from("dishes")
-
-      .select(
-        "id, name"
-      )
-
-      .eq(
-        "tenant_id",
-        tenantId
-      );
-
-    const {
-      data: recipes,
-    } = await supabase
-
-      .from("recipes")
-
-      .select(`
-        dish_id,
-        recipe_items (
-          item_id,
-          quantity
-        )
-      `)
-
-      .eq(
-        "tenant_id",
-        tenantId
-      );
-
-    const {
-      data: ingredients,
-    } = await supabase
-
-      .from(
-        "ingredients"
-      )
-
-      .select(
-        "id, cost_per_unit"
-      )
-
-      .eq(
-        "tenant_id",
-        tenantId
-      );
-
-    const dishMap = {};
-
-    for (const d of dishes || []) {
-
-      dishMap[d.id] =
-        d.name;
-
-    }
-
-    const ingredientCostMap = {};
-
-    for (const i of ingredients || []) {
-
-      ingredientCostMap[i.id] =
-        Number(
-          i.cost_per_unit || 0
-        );
-
-    }
+    const ingredientCostMap = Object.fromEntries(
+      ingredients.map((ingredient) => [
+        ingredient.id,
+        Number(ingredient.cost_per_unit || 0),
+      ])
+    );
 
     const recipeCostMap = {};
 
-    for (const r of recipes || []) {
+    for (const recipe of recipes) {
+      const dishId = recipe.dish_id;
+      recipeCostMap[dishId] = recipeCostMap[dishId] || 0;
 
-      const dishId =
-        r.dish_id;
-
-      if (
-        !recipeCostMap[dishId]
-      ) {
-
-        recipeCostMap[dishId] = 0;
-
-      }
-
-      for (
-        const item of
-        r.recipe_items || []
-      ) {
-
-        const ingredientCost =
-          ingredientCostMap[
-            item.item_id
-          ] || 0;
-
-        const recipeQty =
-          Number(
-            item.quantity || 0
-          );
-
+      for (const item of recipe.recipe_items || []) {
         recipeCostMap[dishId] +=
-          ingredientCost *
-          recipeQty;
-
+          Number(ingredientCostMap[item.item_id] || 0) *
+          Number(item.quantity || 0);
       }
-
     }
 
     let revenue = 0;
     let cost = 0;
-
     const dishResults = {};
 
-    for (const s of sales || []) {
+    for (const sale of sales) {
+      const dishId = sale.dish_id;
+      const quantity = Number(sale.quantity || 0);
+      const price = Number(sale.price || 0);
+      const saleRevenue = quantity * price;
+      const unitCost = Number(recipeCostMap[dishId] || 0);
+      const saleCost = unitCost * quantity;
+      const profit = saleRevenue - saleCost;
 
-      const dishId =
-        s.dish_id;
-
-      const qty =
-        Number(
-          s.quantity || 0
-        );
-
-      const price =
-        Number(
-          s.price || 0
-        );
-
-      const saleRevenue =
-        qty * price;
-
-      const unitCost =
-        recipeCostMap[dishId] || 0;
-
-      const saleCost =
-        unitCost * qty;
-
-      const profit =
-        saleRevenue - saleCost;
-
-      if (
-        !dishResults[dishId]
-      ) {
-
+      if (!dishResults[dishId]) {
         dishResults[dishId] = {
-
-          dish_id:
-            dishId,
-
-          name:
-            dishMap[dishId] ||
-            dishId,
-
+          dish_id: dishId,
+          name: dishMap[dishId] || dishId,
           sold: 0,
           revenue: 0,
           cost: 0,
           profit: 0,
-
         };
-
       }
 
-      dishResults[dishId].sold +=
-        qty;
+      dishResults[dishId].sold += quantity;
+      dishResults[dishId].revenue += saleRevenue;
+      dishResults[dishId].cost += saleCost;
+      dishResults[dishId].profit += profit;
 
-      dishResults[dishId].revenue +=
-        saleRevenue;
-
-      dishResults[dishId].cost +=
-        saleCost;
-
-      dishResults[dishId].profit +=
-        profit;
-
-      revenue +=
-        saleRevenue;
-
-      cost +=
-        saleCost;
-
+      revenue += saleRevenue;
+      cost += saleCost;
     }
 
-    const dishesArr =
-      Object.values(
-        dishResults
-      ).map((d) => ({
+    const dishRows = Object.values(dishResults).map((dish) => ({
+      ...dish,
+      margin:
+        dish.revenue > 0
+          ? Math.round((dish.profit / dish.revenue) * 100)
+          : 0,
+    }));
 
-        ...d,
+    const top = [...dishRows]
+      .sort((a, b) => b.profit - a.profit)
+      .slice(0, 5);
 
-        margin:
-          d.revenue > 0
-            ? Math.round(
-                (
-                  d.profit /
-                  d.revenue
-                ) * 100
-              )
-            : 0,
-
-      }));
-
-    const top =
-      [...dishesArr]
-
-        .sort(
-          (a, b) =>
-            b.profit -
-            a.profit
-        )
-
-        .slice(0, 5);
-
-    const worst =
-      [...dishesArr]
-
-        .sort(
-          (a, b) =>
-            a.profit -
-            b.profit
-        )
-
-        .slice(0, 5);
-
-    const {
-      data: stock,
-    } = await supabase
-
-      .from("production_batches")
-
-      .select(
-        "dish_id, remaining_quantity"
-      )
-
-      .eq(
-        "tenant_id",
-        tenantId
-      );
+    const worst = [...dishRows]
+      .sort((a, b) => a.profit - b.profit)
+      .slice(0, 5);
 
     const stockMap = {};
 
-    for (const row of stock || []) {
-
+    for (const row of stock) {
       stockMap[row.dish_id] =
-        (stockMap[row.dish_id] || 0) +
-        Number(
-          row.remaining_quantity || 0
-        );
-
+        Number(stockMap[row.dish_id] || 0) +
+        Number(row.remaining_quantity || 0);
     }
 
-    const lowStock =
-      Object.entries(stockMap)
-
-        .filter(
-          ([_, quantity]) =>
-            quantity <= 5
-        )
-
-        .map(
-          ([dishId, quantity]) => ({
-
-            name:
-              dishMap[dishId] ||
-              dishId,
-
-            quantity,
-
-          })
-        );
+    const lowStock = Object.entries(stockMap)
+      .filter(([, quantity]) => quantity <= 5)
+      .map(([dishId, quantity]) => ({
+        name: dishMap[dishId] || dishId,
+        quantity,
+      }));
 
     return Response.json({
-
       success: true,
-
+      organizationId,
+      timezone: timeContext.timezone,
+      businessDate: day.businessDate,
       revenue,
-
       cost,
-
-      profit:
-        revenue - cost,
-
+      profit: revenue - cost,
       margin:
         revenue > 0
-          ? Math.round(
-              (
-                (
-                  revenue -
-                  cost
-                ) / revenue
-              ) * 100
-            )
+          ? Math.round(((revenue - cost) / revenue) * 100)
           : 0,
-
       top,
-
       worst,
-
       lowStock,
-
     });
-
-  } catch (err) {
-
-    console.error(
-      "OWNER REAL COST ERROR:",
-      err
-    );
+  } catch (error) {
+    console.error("OWNER_REAL_COST_ERROR", error);
 
     return Response.json(
       {
-        error:
-          err.message,
+        success: false,
+        error: error?.message || "Unable to load owner profitability",
       },
       {
         status: 500,
       }
     );
-
   }
-
 }

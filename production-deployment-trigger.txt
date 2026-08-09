@@ -1,0 +1,2 @@
+Production deployment trigger for the complete current main branch.
+Requested: 2026-08-09 Asia/Bangkok

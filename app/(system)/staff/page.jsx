@@ -24,14 +24,14 @@ function money(value, currency = "") {
   return currency ? `${currency} ${amount}` : amount;
 }
 
-function dateTime(value) {
+function dateTime(value, timezone = "UTC") {
   if (!value) return "-";
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
 
   return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Bangkok",
+    timeZone: timezone,
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -88,6 +88,7 @@ export default function StaffPortalPage() {
   const currency = profile?.compensation?.currency_code || profile?.compensation?.currency || "";
   const staff = profile?.staff || runtime?.staff || null;
   const schedule = runtime?.schedule || null;
+  const timezone = runtime?.timezone || "UTC";
 
   const shiftLabel = useMemo(() => {
     if (runtime?.shiftActive) return "Clocked in";
@@ -176,7 +177,7 @@ export default function StaffPortalPage() {
                         : "No shift schedule is assigned for today."}
                     </p>
                     {runtime?.activeShift?.clock_in ? (
-                      <p className="mt-2 text-xs text-white/30">Started {dateTime(runtime.activeShift.clock_in)} · elapsed {runtime.shiftDuration || "00:00"}</p>
+                      <p className="mt-2 text-xs text-white/30">Started {dateTime(runtime.activeShift.clock_in, timezone)} · elapsed {runtime.shiftDuration || "00:00"}</p>
                     ) : null}
                   </div>
                   <CalendarDays className="h-6 w-6 text-[#D6A66A]" />

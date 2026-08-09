@@ -43,6 +43,9 @@ export async function register() {
       "@/lib/creative/production/review/runtime/CreativeProductionTaskReviewSettlementGate"
     );
     await import(
+      "@/lib/creative/quality/runtime/CreativeGeneratedMediaRecoveryBootstrap"
+    );
+    await import(
       "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
     );
     await import(

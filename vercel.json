@@ -32,6 +32,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/internal/marketing/google-ads/reconcile",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/internal/reputation/google-reviews/process",
       "schedule": "* * * * *"
     }

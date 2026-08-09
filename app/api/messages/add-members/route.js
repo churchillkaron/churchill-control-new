@@ -1,124 +1,102 @@
 import { NextResponse } from "next/server";
 
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { getStaffIdentity } from "@/lib/messages/getStaffIdentity";
 
-import { getStaffIdentity }
-from "@/lib/messages/getStaffIdentity";
-
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    const identity = await getStaffIdentity(request);
 
-    const identity =
-      await getStaffIdentity(req);
+    if (!identity?.organization_id) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-    if (!identity) {
+    const body = await request.json();
+    const threadId = body?.thread_id || null;
+    const participantIds = Array.isArray(body?.participant_ids)
+      ? [...new Set(body.participant_ids.filter(Boolean))]
+      : [];
 
+    if (!threadId || !participantIds.length) {
       return NextResponse.json(
         {
           success: false,
-          error: "Unauthorized",
+          error: "thread_id and participant_ids required",
         },
-        {
-          status: 401,
-        }
+        { status: 400 }
       );
-
     }
 
-    const body =
-      await req.json();
+    const { data: requester, error: requesterError } = await supabaseAdmin
+      .from("message_participants")
+      .select("id")
+      .eq("organization_id", identity.organization_id)
+      .eq("thread_id", threadId)
+      .eq("staff_id", identity.id)
+      .maybeSingle();
 
-    const {
-      thread_id,
-      participant_ids = [],
-    } = body;
+    if (requesterError) {
+      throw requesterError;
+    }
 
-    if (
-      !thread_id ||
-      participant_ids.length === 0
-    ) {
+    if (!requester) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      );
+    }
 
+    const { data: validStaff, error: staffError } = await supabaseAdmin
+      .from("staff_accounts")
+      .select("id")
+      .eq("active_organization_id", identity.organization_id)
+      .eq("active", true)
+      .in("id", participantIds);
+
+    if (staffError) {
+      throw staffError;
+    }
+
+    if ((validStaff || []).length !== participantIds.length) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "thread_id and participant_ids required",
+          error: "One or more staff members are not active in this organization",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
-
     }
 
-    const supabase =
-      createServerSupabase();
+    const rows = participantIds.map((staffId) => ({
+      organization_id: identity.organization_id,
+      thread_id: threadId,
+      staff_id: staffId,
+    }));
 
-    const inserts =
-      participant_ids.map(
-        (staffId) => ({
-
-          tenant_id:
-            identity.tenant_id,
-
-          thread_id,
-
-          staff_id:
-            staffId,
-
-        })
-      );
-
-    const {
-      error,
-    } = await supabase
-
-      .from(
-        "message_participants"
-      )
-
-      .upsert(
-        inserts,
-        {
-          onConflict:
-            "thread_id,staff_id",
-        }
-      );
+    const { error } = await supabaseAdmin
+      .from("message_participants")
+      .upsert(rows, {
+        onConflict: "thread_id,staff_id",
+      });
 
     if (error) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            error.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
+      throw error;
     }
 
     return NextResponse.json({
       success: true,
+      organizationId: identity.organization_id,
     });
-
-  } catch (err) {
-
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          err.message,
+        error: error?.message || "Unable to add thread members",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
-
 }

@@ -6,8 +6,10 @@ import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
 import {
   publicPlatformBrand,
   requestPlatformHostname,
-  resolvePlatformHostContext,
 } from "@/lib/platform/context/resolvePlatformHostContext";
+import {
+  resolveRegisteredPlatformHostContext,
+} from "@/lib/platform/context/resolveRegisteredPlatformHostContext";
 import {
   getErpDomains,
   getErpSolutions,
@@ -45,7 +47,7 @@ export async function GET(request) {
       );
     }
 
-    const hostContext = resolvePlatformHostContext(
+    const hostContext = await resolveRegisteredPlatformHostContext(
       requestPlatformHostname(request)
     );
 

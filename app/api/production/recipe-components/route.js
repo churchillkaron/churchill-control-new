@@ -11,22 +11,40 @@ import {
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function GET(req) {
-
   try {
+    await requireAuth();
+
     const {
       searchParams,
-    } =
-      new URL(req.url);
+    } = new URL(req.url);
 
     const organizationId =
       searchParams.get("organizationId") ||
       searchParams.get("organization_id");
 
-    let query =
-      supabaseAdmin
-      .from(
-        "recipe_prepared_items"
-      )
+    const access =
+      await requireOrganizationAccess({
+        organizationId,
+        request: req,
+      });
+
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        }
+      );
+    }
+
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
+      .from("recipe_prepared_items")
       .select(`
         id,
         dish_id,
@@ -35,6 +53,10 @@ export async function GET(req) {
         unit,
         created_at
       `)
+      .eq(
+        "organization_id",
+        access.organizationId
+      )
       .order(
         "created_at",
         {
@@ -42,43 +64,21 @@ export async function GET(req) {
         }
       );
 
-    if (organizationId) {
-      query =
-        query.eq(
-          "organization_id",
-          organizationId
-        );
-    }
-
-    const {
-      data,
-      error,
-    } = await query;
-
     if (error) {
       throw error;
     }
 
     return NextResponse.json({
-
       success: true,
-
-      components:
-        data || [],
+      components: data || [],
     });
-
   } catch (error) {
-
     return NextResponse.json(
       {
-
         success: false,
-
-        error:
-          error.message,
+        error: error.message,
       },
       {
-
         status: 500,
       }
     );
@@ -86,9 +86,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-
   try {
-
     const body =
       await req.json();
 
@@ -96,51 +94,33 @@ export async function POST(req) {
 
     const access =
       await requireOrganizationAccess({
-
         organizationId:
-          body.organizationId,
-
+          body.organizationId ||
+          body.organization_id,
+        request: req,
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
-
-    const organization_id =
-      access.organizationId;
-
-    const entity_id =
-      body.entity_id ||
-      body.entityId ||
-      null;
 
     const {
       data,
       error,
     } = await supabaseAdmin
-      .from(
-        "recipe_prepared_items"
-      )
+      .from("recipe_prepared_items")
       .insert([
         {
-
           organization_id:
-            organization_id,
-
-          entity_id:
-            entity_id,
+            access.organizationId,
 
           dish_id:
             body.dish_id,
@@ -163,25 +143,16 @@ export async function POST(req) {
     }
 
     return NextResponse.json({
-
       success: true,
-
-      component:
-        data,
+      component: data,
     });
-
   } catch (error) {
-
     return NextResponse.json(
       {
-
         success: false,
-
-        error:
-          error.message,
+        error: error.message,
       },
       {
-
         status: 500,
       }
     );

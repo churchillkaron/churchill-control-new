@@ -1,48 +1,48 @@
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
-import loadOperationalSettings
-from "@/lib/settings/loadOperationalSettings";
+import loadOperationalSettings from "@/lib/settings/loadOperationalSettings";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    const body = await request.json();
+    const organizationId =
+      body?.organizationId || body?.organization_id || null;
 
-    const {
-      tenantId,
-    } = await req.json();
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
 
-    const settings =
-      await loadOperationalSettings({
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        { status: access.status }
+      );
+    }
 
-        tenantId,
-
-        domain:
-          "POS",
-
-      });
+    const settings = await loadOperationalSettings({
+      organizationId: access.organizationId,
+      domain: "POS",
+    });
 
     return NextResponse.json({
-
       success: true,
-
+      organizationId: access.organizationId,
       settings,
-
     });
-
   } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-      status: 500,
-    });
-
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Unable to load POS settings",
+      },
+      { status: 500 }
+    );
   }
-
 }

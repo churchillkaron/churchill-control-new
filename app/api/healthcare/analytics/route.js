@@ -1,27 +1,51 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/shared/supabase";
+
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function requestedOrganizationId(request) {
+  const { searchParams } = new URL(request.url);
+  return searchParams.get("organizationId") || searchParams.get("organization_id") || null;
+}
+
+function errorResponse(error, status = 500) {
+  return NextResponse.json({ success: false, error }, { status });
+}
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const organization_id = searchParams.get("organization_id");
+  try {
+    const access = await requireOrganizationAccess({
+      organizationId: requestedOrganizationId(request),
+      request,
+    });
 
-  if (!organization_id)
-    return NextResponse.json({ error: "organization_id required" }, { status: 400 });
+    if (!access.success) return errorResponse(access.error, access.status);
 
-  const [patients, appointments, admissions, beds] = await Promise.all([
-    supabase.from("healthcare_patients").select("*").eq("organization_id", organization_id),
-    supabase.from("healthcare_appointments").select("*").eq("organization_id", organization_id),
-    supabase.from("healthcare_admissions").select("*").eq("organization_id", organization_id),
-    supabase.from("healthcare_beds").select("*").eq("organization_id", organization_id),
-  ]);
+    const organizationId = access.organizationId;
+    const [patients, appointments, admissions, beds] = await Promise.all([
+      supabaseAdmin.from("healthcare_patients").select("id").eq("organization_id", organizationId),
+      supabaseAdmin.from("healthcare_appointments").select("id").eq("organization_id", organizationId),
+      supabaseAdmin.from("healthcare_admissions").select("id").eq("organization_id", organizationId),
+      supabaseAdmin.from("healthcare_beds").select("id").eq("organization_id", organizationId),
+    ]);
 
-  return NextResponse.json({
-    success: true,
-    analytics: {
-      totalPatients: patients.data?.length || 0,
-      upcomingAppointments: appointments.data?.length || 0,
-      currentAdmissions: admissions.data?.length || 0,
-      totalBeds: beds.data?.length || 0,
-    },
-  });
+    const firstError = [patients.error, appointments.error, admissions.error, beds.error].find(Boolean);
+    if (firstError) throw firstError;
+
+    return NextResponse.json({
+      success: true,
+      analytics: {
+        totalPatients: patients.data?.length || 0,
+        upcomingAppointments: appointments.data?.length || 0,
+        currentAdmissions: admissions.data?.length || 0,
+        totalBeds: beds.data?.length || 0,
+      },
+    });
+  } catch (error) {
+    console.error("HEALTHCARE_ANALYTICS_ERROR", error);
+    return errorResponse(error?.message || "Healthcare analytics failed");
+  }
 }

@@ -4,8 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import { getOAuthClient } from "@/lib/integrations/googleAuth";
-import { discoverGoogleBusinessLocations } from "@/lib/commercial/reputation/googleBusinessProfile";
-import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+import { discoverAndRegisterGoogleBusinessLocations } from "@/lib/commercial/reputation/googleBusinessProfile";
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
@@ -65,15 +64,6 @@ export async function GET(request) {
       throw new Error("Google did not return an access token");
     }
 
-    const discovery = await discoverGoogleBusinessLocations(
-      tokens.access_token
-    );
-    if (!discovery.locations.length) {
-      throw new Error(
-        "No verified Google Business Profile locations were available for this account"
-      );
-    }
-
     const credential = await CredentialRuntime.store({
       provider_id: "google",
       credential_type: "oauth_token",
@@ -91,39 +81,50 @@ export async function GET(request) {
       credentials_reference: credential.id,
       metadata: {
         scopes: tokens.scope || null,
-        accounts: discovery.accounts.map((account) => ({
-          name: account.name,
-          title: account.accountName || null,
-          type: account.type || null,
-        })),
-        location_count: discovery.locations.length,
+        location_count: 0,
+        location_discovery_status: "PENDING",
+        location_discovery_error: null,
       },
     });
 
-    for (const location of discovery.locations) {
-      await ChannelAssetRuntime.register({
+    let status = "connected";
+    let message = null;
+
+    try {
+      await discoverAndRegisterGoogleBusinessLocations({
+        organizationId: access.organizationId,
+        connection,
+        accessToken: tokens.access_token,
+      });
+    } catch (discoveryError) {
+      console.warn("GOOGLE_BUSINESS_LOCATION_DISCOVERY_PENDING", {
         organization_id: access.organizationId,
-        connection_id: connection.id,
+        error: discoveryError?.message || "Location discovery failed",
+      });
+
+      await ChannelConnectionRuntime.connect({
+        organization_id: access.organizationId,
         provider: "google",
-        asset_type: "google_business_location",
-        external_id: location.review_parent,
-        name: location.title || location.storeCode || location.review_parent,
+        channel_type: "business-profile",
+        credentials_reference: credential.id,
         metadata: {
-          account_name: location.account_name,
-          account_title: location.account_title,
-          location_name: location.name,
-          review_parent: location.review_parent,
-          store_code: location.storeCode || null,
-          website_uri: location.websiteUri || null,
-          maps_uri: location.metadata?.mapsUri || null,
-          new_review_uri: location.metadata?.newReviewUri || null,
-          phone_numbers: location.phoneNumbers || null,
+          ...(connection.metadata || {}),
+          location_count: 0,
+          location_discovery_status: "PENDING",
+          location_discovery_error: String(
+            discoveryError?.message || "Location discovery failed"
+          ).slice(0, 500),
+          location_discovery_attempted_at: new Date().toISOString(),
         },
       });
+
+      status = "connected-pending";
+      message =
+        "Google account connected. Business Profile access is awaiting Google API approval.";
     }
 
     const response = NextResponse.redirect(
-      redirectToReviews(origin, access.organizationId, "connected")
+      redirectToReviews(origin, access.organizationId, status, message)
     );
     return clearOauthCookies(response);
   } catch (error) {

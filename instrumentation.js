@@ -34,6 +34,9 @@ export async function register() {
       "@/lib/creative/audio/runtime/CreativeTemporalSoundtrackGraphRuntime"
     );
     await import(
+      "@/lib/creative/audio/runtime/CreativeTemporalSoundtrackCueSheetRuntime"
+    );
+    await import(
       "@/lib/creative/execution/runtime/CreativeProductionTaskMaterializationGraphRuntime"
     );
     await import(

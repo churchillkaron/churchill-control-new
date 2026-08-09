@@ -3,7 +3,6 @@
 export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   Building2,
@@ -56,10 +55,7 @@ function connectionState(connection) {
 
 export default function IntegrationsPage() {
   const business = useBusinessContext();
-  const searchParams = useSearchParams();
-  const requestedOrganizationId = searchParams.get("organizationId");
-  const organizationId = requestedOrganizationId || business?.organization_id || null;
-
+  const [urlOrganizationId, setUrlOrganizationId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [snapshot, setSnapshot] = useState({
@@ -68,10 +64,24 @@ export default function IntegrationsPage() {
     entities: [],
   });
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState(searchParams.get("message") || "");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setUrlOrganizationId(params.get("organizationId"));
+    setNotice(params.get("message") || "");
+  }, []);
+
+  const organizationId =
+    urlOrganizationId || business?.organization_id || business?.organization?.id || null;
 
   const load = useCallback(async () => {
-    if (!organizationId) return;
+    if (!organizationId) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -97,10 +107,13 @@ export default function IntegrationsPage() {
   }, [organizationId]);
 
   useEffect(() => {
+    if (!business?.ready) return;
     load();
-  }, [load]);
+  }, [business?.ready, load]);
 
   async function runAction(payload) {
+    if (!organizationId) return null;
+
     setWorking(true);
     setError("");
     setNotice("");
@@ -162,8 +175,9 @@ export default function IntegrationsPage() {
   const state = connectionState(connection);
   const discoveryStatus = connection?.metadata?.location_discovery_status || null;
   const retryAt = connection?.metadata?.location_discovery_retry_at || null;
-  const retryBlocked =
-    retryAt && new Date(retryAt).getTime() > Date.now();
+  const retryBlocked = Boolean(
+    retryAt && new Date(retryAt).getTime() > Date.now()
+  );
   const allMapped =
     snapshot.locations.length > 0 && snapshot.locations.every((location) => location.entity_id);
 
@@ -182,6 +196,16 @@ export default function IntegrationsPage() {
       <main className="min-h-screen bg-black p-8 text-white">
         <div className="mx-auto max-w-6xl rounded-[32px] border border-white/10 bg-white/[0.03] p-8 text-white/45">
           Loading integrations…
+        </div>
+      </main>
+    );
+  }
+
+  if (!organizationId) {
+    return (
+      <main className="min-h-screen bg-black p-8 text-white">
+        <div className="mx-auto max-w-6xl rounded-[32px] border border-amber-400/20 bg-amber-400/[0.06] p-8 text-amber-100">
+          Select an organization before managing external integrations.
         </div>
       </main>
     );

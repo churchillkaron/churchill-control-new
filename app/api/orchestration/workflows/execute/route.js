@@ -1,21 +1,38 @@
 import { NextResponse } from "next/server";
 
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
 import { executeWorkflow } from "@/lib/orchestration/executeWorkflow";
 
 export async function POST(request) {
   try {
-    const body =
-      await request.json();
+    const body = await request.json();
 
-    const execution =
-      await executeWorkflow({
-        tenantId:
-          body.tenantId,
-        workflowId:
-          body.workflowId,
-        executionReference:
-          body.executionReference,
-      });
+    const access = await requireOrganizationAccess({
+      organizationId:
+        body.organizationId || body.organization_id,
+      request,
+    });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
+
+    const execution = await executeWorkflow({
+      organizationId: access.organizationId,
+      workflowId:
+        body.workflowId || body.workflow_id,
+      executionReference:
+        body.executionReference || body.execution_reference || null,
+      inputPayload:
+        body.inputPayload || body.input_payload || {},
+      triggerSource:
+        body.triggerSource || body.trigger_source || "API",
+    });
 
     return NextResponse.json({
       success: true,
@@ -25,11 +42,10 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        message:
-          error.message,
+        error: error.message,
       },
       {
-        status: 400,
+        status: error.status || 400,
       }
     );
   }

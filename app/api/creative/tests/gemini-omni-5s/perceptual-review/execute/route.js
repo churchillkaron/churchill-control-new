@@ -76,6 +76,13 @@ function currentPriceCeiling(task = {}) {
   );
 }
 
+function expiryEpochMs(metadata = {}) {
+  const explicit = number(metadata.one_time_execution_expires_epoch_ms);
+  if (explicit !== null) return explicit;
+  const parsed = Date.parse(text(metadata.one_time_execution_expires_at));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function assertTaskBoundary(task = {}) {
   if (String(task.id) !== REVIEW_TASK_ID) {
     throw new Error("SMOKE_REVIEW_TASK_ID_MISMATCH");
@@ -156,8 +163,8 @@ export async function GET(request) {
       }, 409);
     }
 
-    const expiresAt = Date.parse(text(metadata.one_time_execution_expires_at));
-    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    const expiresAt = expiryEpochMs(metadata);
+    if (expiresAt === null || expiresAt <= Date.now()) {
       return json({ success: false, error: "ONE_TIME_EXECUTION_EXPIRED" }, 410);
     }
     if (!safeTokenMatch(token, metadata.one_time_execution_token_sha256)) {

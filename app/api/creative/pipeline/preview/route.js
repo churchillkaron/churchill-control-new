@@ -28,6 +28,9 @@ async function preview(request, input = {}) {
   const organizationId = text(input.organization_id);
   const missionId = text(input.creative_mission_id || input.mission_id);
   const projectId = text(input.creative_project_id || input.project_id);
+  const productionGraphId = text(
+    input.production_graph_id || input.graph_id,
+  ) || null;
 
   if (!organizationId || !missionId || !projectId) {
     return json({
@@ -55,6 +58,7 @@ async function preview(request, input = {}) {
     organization_id: organizationId,
     creative_mission_id: missionId,
     creative_project_id: projectId,
+    production_graph_id: productionGraphId,
   });
 
   return json({
@@ -74,6 +78,9 @@ export async function GET(request) {
       creative_project_id:
         url.searchParams.get("creative_project_id") ||
         url.searchParams.get("project_id"),
+      production_graph_id:
+        url.searchParams.get("production_graph_id") ||
+        url.searchParams.get("graph_id"),
     });
   } catch (error) {
     return json({

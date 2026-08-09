@@ -7,12 +7,14 @@ import {
   discoverAndRegisterGoogleBusinessLocations,
   getGoogleBusinessConnection,
 } from "@/lib/commercial/reputation/googleBusinessProfile";
+import {
+  googleBusinessDiscoveryFailureState,
+} from "@/lib/commercial/reputation/googleBusinessAccessState";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const PROVIDER = "google";
 const ASSET_TYPE = "google_business_location";
-const RETRY_DELAY_MS = 15 * 60 * 1000;
 const INTEGRATION_ROLES = new Set([
   "OWNER",
   "ORGANIZATION_OWNER",
@@ -22,20 +24,6 @@ const INTEGRATION_ROLES = new Set([
   "ADMIN",
   "MANAGER",
 ]);
-
-function nextRetryAt() {
-  return new Date(Date.now() + RETRY_DELAY_MS).toISOString();
-}
-
-function isQuotaError(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return (
-    error?.status === 429 ||
-    message.includes("quota exceeded") ||
-    message.includes("rate limit") ||
-    message.includes("resource_exhausted")
-  );
-}
 
 function canManageIntegrations(context) {
   const roles = [
@@ -215,13 +203,33 @@ export async function POST(request) {
         organizationId: context.organizationId,
       });
 
+      const discoveryStatus = String(
+        connection?.metadata?.location_discovery_status || ""
+      ).toUpperCase();
       const retryAt = connection?.metadata?.location_discovery_retry_at || null;
-      if (retryAt && new Date(retryAt).getTime() > Date.now() && body.force !== true) {
+      const retryBlocked = Boolean(
+        retryAt && new Date(retryAt).getTime() > Date.now()
+      );
+
+      if (discoveryStatus === "API_ACCESS_PENDING" && body.force !== true) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: "GOOGLE_API_ACCESS_PENDING",
+            error: "Google authorization is active, but this Avantiqo Google Cloud project is still waiting for Google Business Profile API access. Reconnecting Google will not fix this state.",
+            retryAt,
+            ...(await integrationSnapshot(context.organizationId)),
+          },
+          { status: 409 }
+        );
+      }
+
+      if (retryBlocked && body.force !== true) {
         return NextResponse.json(
           {
             success: false,
             code: "GOOGLE_DISCOVERY_COOLDOWN",
-            error: "Google location discovery is cooling down after a quota limit. Try again after the displayed retry time.",
+            error: "Google location discovery is cooling down after a temporary quota limit. Try again after the displayed retry time.",
             retryAt,
           },
           { status: 429 }
@@ -235,17 +243,22 @@ export async function POST(request) {
         });
       } catch (error) {
         const now = new Date().toISOString();
-        const quota = isQuotaError(error);
-        const retryAfter = quota ? nextRetryAt() : null;
+        const failure = googleBusinessDiscoveryFailureState({
+          error,
+          connection,
+        });
         const { error: stateError } = await supabaseAdmin
           .from("organization_channel_connections")
           .update({
             metadata: {
               ...(connection.metadata || {}),
-              location_discovery_status: quota ? "RATE_LIMITED" : "PENDING",
+              location_discovery_status: failure.status,
               location_discovery_error: String(error?.message || "Location discovery failed").slice(0, 500),
               location_discovery_attempted_at: now,
-              location_discovery_retry_at: retryAfter,
+              location_discovery_retry_at: failure.retryAt,
+              location_discovery_failures: failure.failures,
+              location_discovery_requires_project_approval:
+                failure.apiAccessPending,
             },
             updated_at: now,
           })
@@ -256,12 +269,14 @@ export async function POST(request) {
         return NextResponse.json(
           {
             success: false,
-            code: quota ? "GOOGLE_QUOTA_LIMIT" : "GOOGLE_DISCOVERY_PENDING",
-            error: error?.message || "Google location discovery failed",
-            retryAt: retryAfter,
+            code: failure.code,
+            error: failure.apiAccessPending
+              ? "Google authorization is active, but Google Business Profile API access for the Avantiqo Cloud project is still pending. Reconnecting the organization account is not required."
+              : error?.message || "Google location discovery failed",
+            retryAt: failure.retryAt,
             ...(await integrationSnapshot(context.organizationId)),
           },
-          { status: quota ? 429 : 502 }
+          { status: failure.apiAccessPending ? 409 : failure.quotaLimited ? 429 : 502 }
         );
       }
 

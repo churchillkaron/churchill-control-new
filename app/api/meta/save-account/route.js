@@ -1,195 +1,120 @@
-import { createServerSupabase } from "@/lib/shared/supabase/server";
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
-import {
-  ChannelConnectionRuntime,
-} from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
 
-import {
-  ChannelAssetRuntime,
-} from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+function errorResponse(error, status = 500) {
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+    },
+    { status }
+  );
+}
 
-import {
-  CredentialRuntime,
-} from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
-
-export const runtime = "nodejs";
-
-export async function POST(req) {
-
-  const supabase = createServerSupabase();
-
+export async function POST(request) {
   try {
-
-    const body = await req.json();
-
-    const {
-      connected,
-      access_token,
-      page_name,
-      page_id,
-      instagram_business_id,
-    } = body;
-
-    /*
-      UNIVERSAL PROVIDER CONNECTION
-      Move Meta into Service Runtime
-    */
-
-    const organization_id =
+    const body = await request.json();
+    const organizationId =
+      body.organizationId ||
       body.organization_id ||
       null;
 
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
 
-    if (organization_id) {
-
-
-      const credential =
-        await CredentialRuntime.store({
-
-          provider:
-            "meta",
-
-          credential_type:
-            "oauth_token",
-
-          secret_reference:
-            access_token,
-
-          metadata: {
-
-            page_id,
-
-            page_name,
-
-          },
-
-        });
-
-
-
-      await ChannelConnectionRuntime.connect({
-
-        organization_id,
-
-        provider:
-          "meta",
-
-        channel_type:
-          "social",
-
-        credentials_reference:
-          credential.id,
-
-        metadata: {
-
-          page_id,
-
-          instagram_business_id,
-
-        },
-
-      });
-
-
-
-      const connection =
-        await ChannelConnectionRuntime.get({
-
-          organization_id,
-
-          provider:
-            "meta",
-
-        });
-
-
-      if (connection) {
-
-        await ChannelAssetRuntime.register({
-
-          organization_id,
-
-          connection_id:
-            connection.id,
-
-          provider:
-            "meta",
-
-          asset_type:
-            "facebook_page",
-
-          external_id:
-            page_id,
-
-          name:
-            page_name,
-
-          metadata: {
-
-            instagram_business_id,
-
-          },
-
-        });
-
-
-        if (instagram_business_id) {
-
-          await ChannelAssetRuntime.register({
-
-            organization_id,
-
-            connection_id:
-              connection.id,
-
-            provider:
-              "meta",
-
-            asset_type:
-              "instagram_business",
-
-            external_id:
-              instagram_business_id,
-
-            name:
-              page_name,
-
-          });
-
-        }
-
-      }
-
+    if (!access.success) {
+      return errorResponse(access.error, access.status);
     }
 
+    const accessToken = body.access_token || body.accessToken || null;
+    const pageName = body.page_name || body.pageName || null;
+    const pageId = body.page_id || body.pageId || null;
+    const instagramBusinessId =
+      body.instagram_business_id ||
+      body.instagramBusinessId ||
+      null;
 
-    return NextResponse.json({
-      success: true,
-      account: {
-        page_id,
-        page_name,
-        instagram_business_id,
+    if (!accessToken) {
+      return errorResponse("access_token required", 400);
+    }
+
+    if (!pageId) {
+      return errorResponse("page_id required", 400);
+    }
+
+    const credential = await CredentialRuntime.store({
+      provider_id: "meta",
+      credential_type: "oauth_token",
+      secret_reference: accessToken,
+      metadata: {
+        page_id: pageId,
+        page_name: pageName,
       },
     });
 
-  } catch (err) {
-
-    console.error(
-      "META SAVE SERVER ERROR:",
-      err
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          err.message ||
-          "Save account failed",
+    await ChannelConnectionRuntime.connect({
+      organization_id: access.organizationId,
+      provider: "meta",
+      channel_type: "social",
+      credentials_reference: credential.id,
+      metadata: {
+        page_id: pageId,
+        instagram_business_id: instagramBusinessId,
       },
-      { status: 500 }
-    );
+    });
 
+    const connection = await ChannelConnectionRuntime.get({
+      organization_id: access.organizationId,
+      provider: "meta",
+    });
+
+    if (!connection) {
+      return errorResponse("Meta connection could not be created", 500);
+    }
+
+    await ChannelAssetRuntime.register({
+      organization_id: access.organizationId,
+      connection_id: connection.id,
+      provider: "meta",
+      asset_type: "facebook_page",
+      external_id: pageId,
+      name: pageName || pageId,
+      metadata: {
+        instagram_business_id: instagramBusinessId,
+      },
+    });
+
+    if (instagramBusinessId) {
+      await ChannelAssetRuntime.register({
+        organization_id: access.organizationId,
+        connection_id: connection.id,
+        provider: "meta",
+        asset_type: "instagram_business",
+        external_id: instagramBusinessId,
+        name: pageName || instagramBusinessId,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      organizationId: access.organizationId,
+      account: {
+        page_id: pageId,
+        page_name: pageName,
+        instagram_business_id: instagramBusinessId,
+      },
+    });
+  } catch (error) {
+    console.error("META_SAVE_ACCOUNT_ERROR", error);
+    return errorResponse(error?.message || "Save account failed", error?.status || 500);
   }
 }

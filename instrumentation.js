@@ -43,6 +43,9 @@ export async function register() {
       "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
     );
     await import(
+      "@/lib/creative/post-production/runtime/CreativeProfessionalFinishingBootstrap"
+    );
+    await import(
       "@/lib/creative/director/runtime/CreativeShortFormTemporalPlanningRuntime"
     );
     await import(

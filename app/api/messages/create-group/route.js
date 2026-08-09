@@ -1,156 +1,107 @@
 import { NextResponse } from "next/server";
 
-import { createServerSupabase }
-from "@/lib/shared/supabase/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { getStaffIdentity } from "@/lib/messages/getStaffIdentity";
 
-import { getStaffIdentity }
-from "@/lib/messages/getStaffIdentity";
-
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    const identity = await getStaffIdentity(request);
 
-    const identity =
-      await getStaffIdentity(req);
+    if (!identity?.organization_id) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-    if (!identity) {
+    const body = await request.json();
+    const title = String(body?.title || "").trim();
+    const participantIds = Array.isArray(body?.participant_ids)
+      ? body.participant_ids.filter(Boolean)
+      : [];
 
+    if (!title || participantIds.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: "Unauthorized",
+          error: "title and participant_ids required",
         },
-        {
-          status: 401,
-        }
+        { status: 400 }
       );
-
     }
 
-    const body =
-      await req.json();
+    const allParticipantIds = [
+      ...new Set([identity.id, ...participantIds]),
+    ];
 
-    const {
-      title,
-      participant_ids = [],
-    } = body;
+    const { data: staffRows, error: staffError } = await supabaseAdmin
+      .from("staff_accounts")
+      .select("id")
+      .eq("active_organization_id", identity.organization_id)
+      .eq("active", true)
+      .in("id", allParticipantIds);
 
-    if (
-      !title ||
-      participant_ids.length === 0
-    ) {
+    if (staffError) {
+      throw staffError;
+    }
 
+    if ((staffRows || []).length !== allParticipantIds.length) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "title and participant_ids required",
+          error: "One or more participants are not active in this organization",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
-
     }
 
-    const supabase =
-      createServerSupabase();
-
-    const {
-      data: thread,
-      error: threadError,
-    } = await supabase
-
-      .from(
-        "message_threads"
-      )
-
+    const { data: thread, error: threadError } = await supabaseAdmin
+      .from("message_threads")
       .insert({
-
-        tenant_id:
-          identity.tenant_id,
-
-        created_by:
-          identity.id,
-
+        organization_id: identity.organization_id,
+        created_by: identity.id,
         title,
-
-        type:
-          "group",
-
+        type: "group",
       })
-
       .select("*")
       .single();
 
-    if (
-      threadError
-    ) {
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            threadError.message,
-        },
-        {
-          status: 500,
-        }
-      );
-
+    if (threadError) {
+      throw threadError;
     }
 
-    const allParticipants = [
+    const participantRows = allParticipantIds.map((staffId) => ({
+      organization_id: identity.organization_id,
+      thread_id: thread.id,
+      staff_id: staffId,
+    }));
 
-      identity.id,
+    const { error: participantError } = await supabaseAdmin
+      .from("message_participants")
+      .insert(participantRows);
 
-      ...participant_ids,
+    if (participantError) {
+      await supabaseAdmin
+        .from("message_threads")
+        .delete()
+        .eq("id", thread.id)
+        .eq("organization_id", identity.organization_id);
 
-    ];
-
-    await supabase
-
-      .from(
-        "message_participants"
-      )
-
-      .insert(
-
-        allParticipants.map(
-          (staffId) => ({
-
-            tenant_id:
-              identity.tenant_id,
-
-            thread_id:
-              thread.id,
-
-            staff_id:
-              staffId,
-
-          })
-        )
-
-      );
+      throw participantError;
+    }
 
     return NextResponse.json({
       success: true,
+      organizationId: identity.organization_id,
       thread,
     });
-
-  } catch (err) {
-
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          err.message,
+        error: error?.message || "Unable to create group thread",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
-
   }
-
 }

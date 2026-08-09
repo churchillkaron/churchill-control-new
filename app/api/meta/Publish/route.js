@@ -1,267 +1,137 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/shared/supabase/client";
 
-import {
-  ChannelConnectionRuntime,
-} from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
+import { resolveChannelCredential } from "@/lib/platform/channels/helpers/resolveChannelCredential";
+import { MetaProvider } from "@/lib/platform/service-runtime/providers/meta/MetaProvider";
 
-import {
-  ChannelAssetRuntime,
-} from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+function errorResponse(error, status = 500) {
+  return NextResponse.json({ success: false, error }, { status });
+}
 
-import {
-  resolveChannelCredential,
-} from "@/lib/platform/channels/helpers/resolveChannelCredential";
-
-import {
-  MetaProvider,
-} from "@/lib/platform/service-runtime/providers/meta/MetaProvider";
-
-export async function POST(req) {
-
+export async function POST(request) {
   try {
-
-    if (process.env.NODE_ENV !== "production") console.log("META PUBLISH START");
-
-    const body = await req.json();
-
-    if (process.env.NODE_ENV !== "production") console.log("REQUEST BODY:", body);
-
-    const queueId = body.queueId;
+    const body = await request.json();
+    const queueId = body.queueId || body.queue_id || null;
 
     if (!queueId) {
-
-      return NextResponse.json(
-        { error: "Missing queueId" },
-        { status: 400 }
-      );
+      return errorResponse("Missing queueId", 400);
     }
 
-    // LOAD QUEUE ITEM
-
-    const { data: queue, error: queueError } = await supabase
+    const { data: queue, error: queueError } = await supabaseAdmin
       .from("campaign_publish_queue")
       .select("*")
       .eq("id", queueId)
-      .single();
+      .maybeSingle();
 
-    if (process.env.NODE_ENV !== "production") console.log("QUEUE:", queue);
-
-    if (queueError || !queue) {
-
-      if (process.env.NODE_ENV !== "production") console.log("QUEUE ERROR:", queueError);
-
-      return NextResponse.json(
-        { error: "Queue item not found" },
-        { status: 404 }
-      );
+    if (queueError) {
+      throw queueError;
     }
 
-    // LOAD CAMPAIGN
+    if (!queue?.organization_id) {
+      return errorResponse("Queue item not found", 404);
+    }
 
-    const { data: campaign, error: campaignError } = await supabase
+    const access = await requireOrganizationAccess({
+      organizationId: queue.organization_id,
+      request,
+    });
+
+    if (!access.success) {
+      return errorResponse(access.error, access.status);
+    }
+
+    const { data: campaign, error: campaignError } = await supabaseAdmin
       .from("campaign_memory")
       .select("*")
       .eq("id", queue.campaign_memory_id)
-      .single();
+      .eq("organization_id", access.organizationId)
+      .maybeSingle();
 
-    if (process.env.NODE_ENV !== "production") console.log("CAMPAIGN:", campaign);
-
-    if (campaignError || !campaign) {
-
-      if (process.env.NODE_ENV !== "production") console.log("CAMPAIGN ERROR:", campaignError);
-
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 }
-      );
+    if (campaignError) {
+      throw campaignError;
     }
 
-    // LOAD META PROVIDER CONNECTION
-
-    const connection =
-      await ChannelConnectionRuntime.get({
-
-        organization_id:
-          campaign.organization_id,
-
-        provider:
-          "meta",
-
-      });
-
-
-    if (!connection) {
-
-      return NextResponse.json(
-        {
-          error:
-            "No connected Meta provider",
-        },
-        {
-          status:404,
-        }
-      );
-
+    if (!campaign) {
+      return errorResponse("Campaign not found", 404);
     }
 
+    const connection = await ChannelConnectionRuntime.get({
+      organization_id: access.organizationId,
+      provider: "meta",
+    });
 
-    const asset =
-      await ChannelAssetRuntime.find({
-
-        organization_id:
-          campaign.organization_id,
-
-        provider:
-          "meta",
-
-        asset_type:
-          "facebook_page",
-
-        external_id:
-          connection.metadata?.page_id,
-
-      });
-
-
-    const access_token =
-      await resolveChannelCredential(
-        connection
-      );
-
-
-    if (!access_token) {
-
-      return NextResponse.json(
-        {
-          error:
-            "Meta credential missing",
-        },
-        {
-          status:404,
-        }
-      );
-
+    if (!connection || String(connection.status || "").toUpperCase() !== "ACTIVE") {
+      return errorResponse("No connected Meta provider", 404);
     }
 
-    // VALIDATE IMAGE URL
-
-    if (process.env.NODE_ENV !== "production") console.log("IMAGE URL:", campaign.image_url);
-
-    if (
-      !campaign.image_url ||
-      campaign.image_url.includes("localhost")
-    ) {
-
-      return NextResponse.json(
-        {
-          error: "Invalid image URL",
-          image_url: campaign.image_url,
-        },
-        { status: 400 }
-      );
+    const pageId = connection.metadata?.page_id || null;
+    if (!pageId) {
+      return errorResponse("Meta page is not configured", 400);
     }
 
-    // BUILD MESSAGE
+    const accessToken = await resolveChannelCredential(connection);
+    if (!accessToken) {
+      return errorResponse("Meta credential missing", 404);
+    }
 
-    const message = `
-${campaign.caption || ""}
+    if (!campaign.image_url || campaign.image_url.includes("localhost")) {
+      return errorResponse("Invalid image URL", 400);
+    }
 
-${campaign.hashtags || ""}
-`;
+    const message = `${campaign.caption || ""}\n\n${campaign.hashtags || ""}`.trim();
 
-    if (process.env.NODE_ENV !== "production") console.log("MESSAGE:", message);
-
-    // FACEBOOK PUBLISH THROUGH SERVICE PROVIDER
-
-    const publishData =
-      await MetaProvider.execute({
-
-        capability:
-          "marketing.facebook.publish",
-
-        organization_id:
-          campaign.organization_id,
-
-        page_id:
-          connection.metadata?.page_id,
-
-        access_token:
-          access_token,
-
-        message,
-
-        image_url:
-          campaign.image_url,
-
-      });
-
-
-    if (process.env.NODE_ENV !== "production") console.log(
-      "FACEBOOK RESPONSE:",
-      publishData
-    );
-
-    // FACEBOOK ERROR
+    const publishData = await MetaProvider.execute({
+      capability: "marketing.facebook.publish",
+      organization_id: access.organizationId,
+      page_id: pageId,
+      access_token: accessToken,
+      message,
+      image_url: campaign.image_url,
+    });
 
     if (!publishData?.id) {
-
-      return NextResponse.json(
-        {
-          error: "Facebook publish failed",
-          details: publishData,
-        },
-        { status: 500 }
-      );
+      return errorResponse("Facebook publish failed", 502);
     }
 
-    // UPDATE QUEUE
+    const publishedAt = new Date().toISOString();
 
-    const { error: queueUpdateError } = await supabase
+    const { error: queueUpdateError } = await supabaseAdmin
       .from("campaign_publish_queue")
       .update({
         status: "published",
-        published_at: new Date().toISOString(),
+        published_at: publishedAt,
         post_id: publishData.id,
       })
-      .eq("id", queueId);
+      .eq("id", queueId)
+      .eq("organization_id", access.organizationId);
 
-    if (process.env.NODE_ENV !== "production") console.log(
-      "QUEUE UPDATE ERROR:",
-      queueUpdateError
-    );
+    if (queueUpdateError) {
+      throw queueUpdateError;
+    }
 
-    // UPDATE CAMPAIGN
-
-    const { error: campaignUpdateError } = await supabase
+    const { error: campaignUpdateError } = await supabaseAdmin
       .from("campaign_memory")
-      .update({
-        status: "published",
-      })
-      .eq("id", campaign.id);
+      .update({ status: "published" })
+      .eq("id", campaign.id)
+      .eq("organization_id", access.organizationId);
 
-    if (process.env.NODE_ENV !== "production") console.log(
-      "CAMPAIGN UPDATE ERROR:",
-      campaignUpdateError
-    );
+    if (campaignUpdateError) {
+      throw campaignUpdateError;
+    }
 
     return NextResponse.json({
       success: true,
-      facebook_post_id: publishData.id,
-      facebook_response: publishData,
+      organizationId: access.organizationId,
+      queueId,
+      postId: publishData.id,
+      publishedAt,
     });
-
-  } catch (err) {
-
-    if (process.env.NODE_ENV !== "production") console.log("META PUBLISH CRASH:", err);
-
-    return NextResponse.json(
-      {
-        error: err.message || "Meta publish failed",
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("META_PUBLISH_ERROR", error);
+    return errorResponse(error?.message || "Meta publish failed", error?.status || 500);
   }
 }

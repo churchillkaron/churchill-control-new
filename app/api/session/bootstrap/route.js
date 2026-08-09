@@ -8,10 +8,7 @@ import { createServerSupabase } from "@/lib/shared/supabase/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { getAvailableModules } from "@/lib/platform/getAvailableModules";
 
-async function loadActiveEntity({
-  supabase,
-  organizationId,
-}) {
+async function loadActiveEntity({ supabase, organizationId }) {
   if (!organizationId) return null;
 
   const { data } = await supabase
@@ -27,14 +24,8 @@ async function loadActiveEntity({
   return data || null;
 }
 
-async function loadActivePeriod({
-  supabase,
-  organizationId,
-  entityId,
-}) {
-  if (!organizationId || !entityId) {
-    return null;
-  }
+async function loadActivePeriod({ supabase, organizationId, entityId }) {
+  if (!organizationId || !entityId) return null;
 
   const { data } = await supabase
     .from("accounting_periods")
@@ -89,11 +80,33 @@ async function loadAuthenticatedUser(request) {
   return { user: data?.user || null, error };
 }
 
+async function loadOrganizations(organizationIds) {
+  const ids = Array.isArray(organizationIds)
+    ? [...new Set(organizationIds.filter(Boolean))]
+    : [];
+
+  if (!ids.length) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from("organizations")
+    .select("*")
+    .in("id", ids)
+    .limit(1000);
+
+  if (error) throw error;
+
+  return (data || [])
+    .filter((row) => {
+      const status = String(row.organization_status || row.status || "")
+        .trim()
+        .toUpperCase();
+      return !["INACTIVE", "DISABLED", "SUSPENDED", "ARCHIVED"].includes(status);
+    })
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+}
+
 async function loadBootstrapPayload({ request, user }) {
-  const context = await resolveAuthenticatedStaffContext({
-    request,
-    user,
-  });
+  const context = await resolveAuthenticatedStaffContext({ request, user });
 
   if (!context.success) {
     return {
@@ -112,29 +125,27 @@ async function loadBootstrapPayload({ request, user }) {
   const organizationId = context.organizationId;
   const supabase = createServerSupabase();
 
-  const { data: organization, error: orgError } = await supabase
-    .from("organizations")
-    .select("*")
-    .eq("id", organizationId)
-    .maybeSingle();
+  const [organizations, entity, modules] = await Promise.all([
+    loadOrganizations(context.availableOrganizationIds || [organizationId]),
+    loadActiveEntity({ supabase, organizationId }),
+    getAvailableModules({ organizationId, supabase }),
+  ]);
 
-  if (orgError || !organization) {
+  const organization =
+    organizations.find((row) => row.id === organizationId) || null;
+
+  if (!organization) {
     return {
       response: Response.json(
         {
           success: false,
           reason: "ORGANIZATION_NOT_FOUND",
-          error: orgError?.message || null,
+          error: "Active organization is not available to this user",
         },
         { status: 404 }
       ),
     };
   }
-
-  const [entity, modules] = await Promise.all([
-    loadActiveEntity({ supabase, organizationId }),
-    getAvailableModules({ organizationId, supabase }),
-  ]);
 
   const period = await loadActivePeriod({
     supabase,
@@ -147,7 +158,7 @@ async function loadBootstrapPayload({ request, user }) {
       success: true,
       staff: context.staff,
       organization,
-      organizations: context.availableOrganizationIds || [],
+      organizations,
       organization_id: organizationId,
       active_organization_id: organizationId,
       entity,
@@ -180,10 +191,7 @@ async function handleBootstrap(request) {
   }
 
   const result = await loadBootstrapPayload({ request, user });
-
-  if (result.response) {
-    return result.response;
-  }
+  if (result.response) return result.response;
 
   return Response.json(result.payload);
 }
@@ -193,10 +201,7 @@ export async function GET(request) {
     return await handleBootstrap(request);
   } catch (error) {
     return Response.json(
-      {
-        success: false,
-        error: error.message || "Server error",
-      },
+      { success: false, error: error.message || "Server error" },
       { status: 500 }
     );
   }
@@ -207,10 +212,7 @@ export async function POST(request) {
     return await handleBootstrap(request);
   } catch (error) {
     return Response.json(
-      {
-        success: false,
-        error: error.message || "Server error",
-      },
+      { success: false, error: error.message || "Server error" },
       { status: 500 }
     );
   }

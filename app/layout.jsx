@@ -19,8 +19,9 @@ import {
 } from "@/app/providers/BusinessContextProvider";
 
 export const metadata = {
-  title: "Churchill",
-  description: "Enterprise Operating Platform",
+  title: "Avantiqo | Business Operating System",
+  description:
+    "Avantiqo is a multi-tenant Business Operating System for organizations, workflows, approvals, AI automation and connected business services.",
 };
 
 export default async function RootLayout({

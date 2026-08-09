@@ -26,13 +26,16 @@ export async function GET(request) {
       1,
       Math.min(Number(url.searchParams.get("limit")) || 50, 200)
     );
-    const result = await ManagedMediaReconciliationRuntime.reconcile({ limit });
+    const result = await ManagedMediaReconciliationRuntime.reconcile({
+      limit,
+      provider: "meta",
+    });
     return Response.json(result, { status: result.failed ? 207 : 200 });
   } catch (error) {
     return Response.json(
       {
         success: false,
-        error: error?.message || "Managed media reconciliation failed",
+        error: error?.message || "Managed Meta media reconciliation failed",
       },
       { status: 500 }
     );

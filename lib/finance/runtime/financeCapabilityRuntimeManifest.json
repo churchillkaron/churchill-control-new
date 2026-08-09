@@ -8,7 +8,7 @@
   "opening_balances": { "kind": "records", "scope": "entity", "owner": "finance" },
   "recurring_journals": { "kind": "records", "scope": "entity", "owner": "finance" },
 
-  "customers": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/customers" },
+  "customers": { "kind": "records", "scope": "organization", "owner": "commercial", "api": "/api/commercial/customers", "identity": "party_id" },
   "customer_invoices": { "kind": "records", "scope": "entity", "owner": "finance" },
   "accounts_receivable": { "kind": "records", "scope": "entity", "owner": "finance" },
   "customer_payments": { "kind": "records", "scope": "entity", "owner": "finance" },

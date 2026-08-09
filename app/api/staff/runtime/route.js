@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import buildPeopleRuntime from "@/lib/people/runtime/PeopleRuntime";
+import { loadStaffWorkday } from "@/lib/people/workforce/shiftRuntime";
+import { scheduleWindow } from "@/lib/shared/time/organizationTime";
 
 function formatDuration(clockIn) {
   if (!clockIn) return "00:00";
@@ -16,59 +18,22 @@ function formatDuration(clockIn) {
   return `${hours}:${minutes}`;
 }
 
-function getTodayDate() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Bangkok",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
-function getShiftStatus({ activeShift, schedule }) {
+function getShiftStatus({ activeShift, schedule, timezone }) {
   if (activeShift) return "WORKING";
   if (!schedule) return "NO_SHIFT";
 
-  const startTime = schedule.start_time || null;
-  if (!startTime) return "UPCOMING";
+  const timing = scheduleWindow({
+    shiftDate: schedule.shift_date,
+    startTime: schedule.start_time,
+    endTime: schedule.end_time,
+    timezone,
+  });
 
-  const shiftStart = new Date(`${getTodayDate()}T${startTime}+07:00`);
-
-  if (!Number.isNaN(shiftStart.getTime()) && new Date() > shiftStart) {
+  if (timing?.start && new Date() > timing.start) {
     return "LATE";
   }
 
   return "UPCOMING";
-}
-
-async function loadSchedule({ organizationId, staffId }) {
-  const { data, error } = await supabaseAdmin
-    .from("staff_schedules")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .eq("staff_id", staffId)
-    .eq("shift_date", getTodayDate())
-    .order("start_time", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data || null;
-}
-
-async function loadActiveShift({ organizationId, staffId }) {
-  const { data, error } = await supabaseAdmin
-    .from("staff_shifts")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .eq("staff_id", staffId)
-    .is("clock_out", null)
-    .order("clock_in", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data || null;
 }
 
 export async function GET(request) {
@@ -81,7 +46,8 @@ export async function GET(request) {
           success: false,
           error: context.error,
           code: context.code,
-          availableOrganizationIds: context.availableOrganizationIds || [],
+          availableOrganizationIds:
+            context.availableOrganizationIds || [],
         },
         { status: context.status || 403 }
       );
@@ -89,12 +55,16 @@ export async function GET(request) {
 
     const { user, staff, organizationId } = context;
 
-    const [schedule, activeShift, latestPayroll] = await Promise.all([
-      loadSchedule({ organizationId, staffId: staff.id }),
-      loadActiveShift({ organizationId, staffId: staff.id }),
+    const [workday, latestPayroll] = await Promise.all([
+      loadStaffWorkday({
+        organizationId,
+        staffId: staff.id,
+      }),
       supabaseAdmin
         .from("payroll_records")
-        .select("id,status,payout_status,payroll_month,final_salary,payment_reference,payout_date")
+        .select(
+          "id,status,payout_status,payroll_month,final_salary,payment_reference,payout_date"
+        )
         .eq("organization_id", organizationId)
         .eq("staff_id", staff.id)
         .order("payroll_month", { ascending: false })
@@ -107,15 +77,19 @@ export async function GET(request) {
 
     const runtime = buildPeopleRuntime({
       staff,
-      schedule,
-      activeShift,
+      schedule: workday.schedule,
+      activeShift: workday.openShift,
     });
 
     if (latestPayroll.data?.status) {
       runtime.payrollStatus = latestPayroll.data.status;
     }
 
-    const shiftStatus = getShiftStatus({ activeShift, schedule });
+    const shiftStatus = getShiftStatus({
+      activeShift: workday.openShift,
+      schedule: workday.schedule,
+      timezone: workday.timezone,
+    });
 
     return NextResponse.json({
       success: true,
@@ -126,16 +100,21 @@ export async function GET(request) {
         email: user.email || staff.email || null,
         staffName: staff.name || null,
       },
-      availableOrganizationIds: context.availableOrganizationIds || [],
+      availableOrganizationIds:
+        context.availableOrganizationIds || [],
       staff,
       membership: context.membership || null,
       role: context.role || null,
       permissions: context.permissions || [],
-      schedule,
-      activeShift,
+      timezone: workday.timezone,
+      businessDate: workday.businessDate,
+      schedule: workday.schedule,
+      activeShift: workday.openShift,
       latestPayroll: latestPayroll.data || null,
-      shiftActive: Boolean(activeShift),
-      shiftDuration: activeShift ? formatDuration(activeShift.clock_in) : "00:00",
+      shiftActive: Boolean(workday.openShift),
+      shiftDuration: workday.openShift
+        ? formatDuration(workday.openShift.clock_in)
+        : "00:00",
       shiftStatus,
       runtime,
       socialFeed: [
@@ -153,7 +132,8 @@ export async function GET(request) {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Unable to load staff runtime",
+        error:
+          error?.message || "Unable to load staff runtime",
       },
       { status: 500 }
     );

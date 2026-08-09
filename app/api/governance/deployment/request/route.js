@@ -1,88 +1,106 @@
 import { NextResponse } from "next/server";
 
 import {
-  requireAuth,
-} from "@/lib/shared/auth";
-
-import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
-import { createApprovalRequest } from "@/lib/finance/createApprovalRequest";
+import {
+  createApprovalRequest,
+} from "@/lib/shared/approvals/createApprovalRequest";
+
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function POST(req) {
-
   try {
-
     const body =
       await req.json();
 
-    await requireAuth();
-
     const access =
       await requireOrganizationAccess({
-
         organizationId:
-          body.organizationId,
-
+          body.organizationId ||
+          body.organization_id,
+        request: req,
       });
 
     if (!access.success) {
-
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: access.error,
         },
         {
-          status:
-            access.status,
+          status: access.status,
         }
       );
-
     }
 
-    const tenant_id =
-      access.tenantId;
+    const entityId =
+      body.entity_id ||
+      body.entityId ||
+      null;
 
-    const result =
+    if (entityId) {
+      const {
+        data: entity,
+        error: entityError,
+      } = await supabaseAdmin
+        .from("legal_entities")
+        .select("id")
+        .eq("organization_id", access.organizationId)
+        .eq("id", entityId)
+        .maybeSingle();
+
+      if (entityError) {
+        throw entityError;
+      }
+
+      if (!entity) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "entity_id does not belong to organization",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+    }
+
+    const approvalRequest =
       await createApprovalRequest({
-
-        tenant_id:
-          tenant_id,
-
-        type:
+        organizationId:
+          access.organizationId,
+        workflowType:
           "deployment",
-
-        entity_id:
-          body.entity_id || null,
-
-        requested_by:
-          body.requested_by || "SYSTEM",
-
-        metadata:
-          body,
-
+        referenceTable:
+          entityId
+            ? "legal_entities"
+            : "organizations",
+        referenceId:
+          entityId || access.organizationId,
+        requestedBy:
+          access.userId,
       });
 
-    return NextResponse.json(
-      result
-    );
-
+    return NextResponse.json({
+      success: true,
+      organizationId:
+        access.organizationId,
+      entityId,
+      approvalRequest,
+    });
   } catch (error) {
-
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
-        status: 500,
+        status:
+          error.status || 500,
       }
     );
-
   }
-
 }

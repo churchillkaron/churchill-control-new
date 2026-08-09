@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { canApproveReviewResponses } from "@/lib/commercial/reputation/reviewAuthorization";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -46,10 +47,59 @@ export async function POST(request) {
       throw error;
     }
 
+    const reviews = data || [];
+    const [policyResult, connectionResult, recoveryResult] =
+      await Promise.all([
+        supabaseAdmin
+          .from("reputation_review_policies")
+          .select("*")
+          .eq("organization_id", context.organizationId)
+          .eq("enabled", true)
+          .is("entity_id", null)
+          .is("channel_asset_id", null)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("organization_channel_connections")
+          .select("id,status,metadata,updated_at")
+          .eq("organization_id", context.organizationId)
+          .eq("provider", "google")
+          .maybeSingle(),
+        reviews.length
+          ? supabaseAdmin
+              .from("reputation_recovery_cases")
+              .select("*")
+              .eq("organization_id", context.organizationId)
+              .in(
+                "review_id",
+                reviews.map((review) => review.id)
+              )
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+    if (policyResult.error) throw policyResult.error;
+    if (connectionResult.error) throw connectionResult.error;
+    if (recoveryResult.error) throw recoveryResult.error;
+
+    const recoveryByReview = new Map(
+      (recoveryResult.data || []).map((recovery) => [
+        recovery.review_id,
+        recovery,
+      ])
+    );
+    const connected =
+      String(connectionResult.data?.status || "").toUpperCase() === "ACTIVE";
+
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
-      reviews: data || [],
+      canApprove: canApproveReviewResponses(context),
+      googleConnected: connected,
+      googleConnection: connectionResult.data || null,
+      policy: policyResult.data || null,
+      reviews: reviews.map((review) => ({
+        ...review,
+        recovery_case: recoveryByReview.get(review.id) || null,
+      })),
     });
   } catch (error) {
     console.error("REVIEWS_LIST_ERROR", error);

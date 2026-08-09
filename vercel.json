@@ -2,6 +2,12 @@
   "functions": {
     "app/api/creative/tests/gemini-omni-5s/route.js": {
       "maxDuration": 800
+    },
+    "app/api/reviews/sync-google/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/reputation/google-reviews/process/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -24,6 +30,10 @@
     {
       "path": "/api/internal/marketing/meta-ads/reconcile",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/internal/reputation/google-reviews/process",
+      "schedule": "* * * * *"
     }
   ]
 }

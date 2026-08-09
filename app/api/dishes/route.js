@@ -1,138 +1,79 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import { supabaseAdmin } from '@/lib/shared/supabase/admin'
-
-export async function GET(req) {
-
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const access = await requireOrganizationAccess({
+      organizationId: searchParams.get("organizationId") || searchParams.get("organization_id"),
+      request,
+    });
 
-    const { searchParams } =
-      new URL(req.url)
-
-    const tenant_id =
-      searchParams.get(
-        'tenant_id'
-      )
-
-    if (!tenant_id) {
-
-      throw new Error(
-        'Tenant ID required'
-      )
+    if (!access.success) {
+      return NextResponse.json({ success: false, error: access.error }, { status: access.status });
     }
 
-    const {
-      data,
-      error,
-    } =
-      await supabaseAdmin
-        .from('dishes')
-        .select('*')
-        .eq(
-          'tenant_id',
-          tenant_id
-        )
-        .order('name')
+    const { data, error } = await supabaseAdmin
+      .from("dishes")
+      .select("*")
+      .eq("organization_id", access.organizationId)
+      .order("name");
 
-    if (error) {
-
-      throw new Error(
-        error.message
-      )
-    }
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
-      data,
-    })
-
+      organizationId: access.organizationId,
+      data: data || [],
+    });
   } catch (error) {
-
-    console.error(error)
-
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-      },
-      {
-        status: 500,
-      }
-    )
+      { success: false, error: error?.message || "Unable to load dishes" },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(req) {
-
+export async function POST(request) {
   try {
+    const body = await request.json();
+    const access = await requireOrganizationAccess({
+      organizationId: body?.organizationId || body?.organization_id || null,
+      request,
+    });
 
-    const body =
-      await req.json()
-
-    const {
-      name,
-      price,
-      category,
-      tenant_id,
-    } = body
-
-    if (!name) {
-      throw new Error(
-        'Dish name required'
-      )
+    if (!access.success) {
+      return NextResponse.json({ success: false, error: access.error }, { status: access.status });
     }
 
-    if (!tenant_id) {
-      throw new Error(
-        'Tenant ID required'
-      )
+    if (!body?.name) {
+      return NextResponse.json({ success: false, error: "Dish name required" }, { status: 400 });
     }
 
-    const {
-      data,
-      error,
-    } =
-      await supabaseAdmin
-        .from('dishes')
-        .insert({
-          name,
-          price:
-            Number(price || 0),
-          cost: 0,
-          category:
-            category ||
-            'main',
-          tenant_id,
-        })
-        .select()
-        .single()
+    const { data, error } = await supabaseAdmin
+      .from("dishes")
+      .insert({
+        organization_id: access.organizationId,
+        name: body.name,
+        price: Number(body.price || 0),
+        cost: 0,
+        category: body.category || "main",
+      })
+      .select()
+      .single();
 
-    if (error) {
-
-      throw new Error(
-        error.message
-      )
-    }
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
+      organizationId: access.organizationId,
       data,
-    })
-
+    });
   } catch (error) {
-
-    console.error(error)
-
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-      },
-      {
-        status: 500,
-      }
-    )
+      { success: false, error: error?.message || "Unable to create dish" },
+      { status: 500 }
+    );
   }
 }

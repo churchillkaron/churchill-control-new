@@ -11,6 +11,15 @@ import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/ru
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const RETRY_DELAY_MS = 15 * 60 * 1000;
+const INTEGRATION_ROLES = new Set([
+  "OWNER",
+  "ORGANIZATION_OWNER",
+  "ORG_OWNER",
+  "PLATFORM_OWNER",
+  "SUPER_ADMIN",
+  "ADMIN",
+  "MANAGER",
+]);
 
 function clearOauthCookies(response) {
   response.cookies.delete("google_oauth_state");
@@ -35,6 +44,19 @@ function isQuotaError(error) {
     message.includes("rate limit") ||
     message.includes("resource_exhausted")
   );
+}
+
+function canManageIntegrations(access) {
+  const roles = [
+    access?.role,
+    access?.access?.role,
+    access?.membership?.role,
+    access?.staff?.role,
+  ]
+    .map((value) => String(value || "").trim().toUpperCase())
+    .filter(Boolean);
+
+  return roles.some((role) => INTEGRATION_ROLES.has(role));
 }
 
 export async function GET(request) {
@@ -69,6 +91,11 @@ export async function GET(request) {
     });
     if (!access.success) {
       throw new Error(access.error || "Organization access denied");
+    }
+    if (!canManageIntegrations(access)) {
+      throw new Error(
+        "Owner, administrator, or manager access is required to connect Google Business Profile"
+      );
     }
 
     const oauth2Client = getOAuthClient({ origin });

@@ -1,104 +1,61 @@
 import { supabase } from "@/lib/supabase";
 
-// ========================================
-// TENANT
-// ========================================
+function requireOrganizationId(organizationId) {
+  const value = String(organizationId || "").trim();
 
-export async function getTenantId() {
-
-  if (
-    typeof window === "undefined"
-  ) {
-
-    return null;
-
+  if (!value) {
+    throw new Error("organizationId required");
   }
 
-  const tenantId =
-    document.cookie
-      .split("; ")
-      .find(
-        row =>
-          row.startsWith(
-            "tenant_id="
-          )
-      )
-      ?.split("=")[1];
-
-  return tenantId || null;
-
+  return value;
 }
-
-// ========================================
-// REALTIME
-// ========================================
 
 export function createRealtimeChannel({
   name,
   tables = [],
   callback,
+  organizationId = null,
 }) {
-
-  const channel =
-    supabase.channel(name);
+  const channel = supabase.channel(name);
 
   tables.forEach((table) => {
+    const config = {
+      event: "*",
+      schema: "public",
+      table,
+    };
+
+    if (organizationId) {
+      config.filter = `organization_id=eq.${organizationId}`;
+    }
 
     channel.on(
       "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table,
-      },
+      config,
       callback
     );
-
   });
 
   channel.subscribe();
 
   return () => {
-    supabase.removeChannel(
-      channel
-    );
+    supabase.removeChannel(channel);
   };
-
 }
 
-// ========================================
-// ORDERS
-// ========================================
+export async function loadOrders(organizationId) {
+  const resolvedOrganizationId = requireOrganizationId(organizationId);
 
-export async function loadOrders(
-  tenantId
-) {
-
-  if (!tenantId) {
-    return [];
-  }
-
-  const { data, error } =
-    await supabase
-
-      .from("orders")
-
-      .select(`
-        *,
-        order_items(*)
-      `)
-
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      );
+  const { data, error } = await supabase
+    .from("orders")
+    .select(`
+      *,
+      order_items(*)
+    `)
+    .eq("organization_id", resolvedOrganizationId)
+    .order("created_at", {
+      ascending: false,
+    });
 
   if (error) {
     console.error(error);
@@ -106,41 +63,18 @@ export async function loadOrders(
   }
 
   return data || [];
-
 }
 
-// ========================================
-// TABLES
-// ========================================
+export async function loadTables(organizationId) {
+  const resolvedOrganizationId = requireOrganizationId(organizationId);
 
-export async function loadTables(
-  tenantId
-) {
-
-  if (!tenantId) {
-    return [];
-  }
-
-  const { data, error } =
-    await supabase
-
-      .from(
-        "restaurant_tables"
-      )
-
-      .select("*")
-
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .order(
-        "table_number",
-        {
-          ascending: true,
-        }
-      );
+  const { data, error } = await supabase
+    .from("restaurant_tables")
+    .select("*")
+    .eq("organization_id", resolvedOrganizationId)
+    .order("table_number", {
+      ascending: true,
+    });
 
   if (error) {
     console.error(error);
@@ -148,41 +82,19 @@ export async function loadTables(
   }
 
   return data || [];
-
 }
 
-// ========================================
-// STAFF
-// ========================================
+export async function loadStaff(organizationId) {
+  const resolvedOrganizationId = requireOrganizationId(organizationId);
 
-export async function loadStaff(
-  tenantId
-) {
-
-  if (!tenantId) {
-    return [];
-  }
-
-  const { data, error } =
-    await supabase
-
-      .from(
-        "staff_accounts"
-      )
-
-      .select("*")
-
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      );
+  const { data, error } = await supabase
+    .from("staff_accounts")
+    .select("*")
+    .eq("active_organization_id", resolvedOrganizationId)
+    .eq("active", true)
+    .order("created_at", {
+      ascending: false,
+    });
 
   if (error) {
     console.error(error);
@@ -190,41 +102,18 @@ export async function loadStaff(
   }
 
   return data || [];
-
 }
 
-// ========================================
-// INGREDIENTS
-// ========================================
+export async function loadIngredients(organizationId) {
+  const resolvedOrganizationId = requireOrganizationId(organizationId);
 
-export async function loadIngredients(
-  tenantId
-) {
-
-  if (!tenantId) {
-    return [];
-  }
-
-  const { data, error } =
-    await supabase
-
-      .from(
-        "ingredients"
-      )
-
-      .select("*")
-
-      .eq(
-        "tenant_id",
-        tenantId
-      )
-
-      .order(
-        "name",
-        {
-          ascending: true,
-        }
-      );
+  const { data, error } = await supabase
+    .from("ingredients")
+    .select("*")
+    .eq("organization_id", resolvedOrganizationId)
+    .order("name", {
+      ascending: true,
+    });
 
   if (error) {
     console.error(error);
@@ -232,5 +121,4 @@ export async function loadIngredients(
   }
 
   return data || [];
-
 }

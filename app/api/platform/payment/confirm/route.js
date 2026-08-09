@@ -1,59 +1,62 @@
-import {
-  NextResponse,
-} from "next/server";
+import { NextResponse } from "next/server";
 
+import { PaymentConfirmationRuntime } from "@/lib/platform/payment-runtime/confirmation/PaymentConfirmationRuntime";
+import { PaymentTransactionRepository } from "@/lib/platform/payment-runtime/repositories/PaymentTransactionRepository";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import {
-  PaymentConfirmationRuntime,
-} from "@/lib/platform/payment-runtime/confirmation/PaymentConfirmationRuntime";
+export const dynamic = "force-dynamic";
 
+function cleanValue(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
 
-export const dynamic =
-  "force-dynamic";
+function errorResponse(error, status = 500) {
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+    },
+    { status },
+  );
+}
 
-
-export async function POST(request){
-
+export async function POST(request) {
   try {
+    const body = await request.json();
+    const paymentId = cleanValue(body.payment_id || body.paymentId);
 
-    const body =
-      await request.json();
+    if (!paymentId) {
+      return errorResponse("payment_id required", 400);
+    }
 
+    const existingPayment = await PaymentTransactionRepository.get(paymentId);
 
-    const payment =
-      await PaymentConfirmationRuntime
-        .confirmPayment({
+    if (!existingPayment?.organization_id) {
+      return errorResponse("Payment not found", 404);
+    }
 
-          paymentId:
-            body.payment_id,
-
-          status:
-            body.status || "completed",
-
-        });
-
-
-    return NextResponse.json({
-
-      success:true,
-
-      payment,
-
+    const access = await requireOrganizationAccess({
+      organizationId: existingPayment.organization_id,
+      request,
     });
 
+    if (!access.success) {
+      return errorResponse(access.error, access.status);
+    }
 
-  } catch(error){
+    const payment = await PaymentConfirmationRuntime.confirmPayment({
+      paymentId,
+      status: cleanValue(body.status) || "completed",
+    });
 
-    return NextResponse.json(
-      {
-        success:false,
-        error:error.message,
-      },
-      {
-        status:500,
-      }
-    );
-
+    return NextResponse.json({
+      success: true,
+      organizationId: access.organizationId,
+      payment,
+    });
+  } catch (error) {
+    console.error("PLATFORM_PAYMENT_CONFIRM_ERROR", error);
+    return errorResponse(error?.message || "Payment confirmation failed");
   }
-
 }

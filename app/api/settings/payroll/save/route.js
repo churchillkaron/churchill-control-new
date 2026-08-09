@@ -1,76 +1,58 @@
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
-import saveOperationalSettings
-from "@/lib/settings/saveOperationalSettings";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+import saveOperationalSettings from "@/lib/settings/saveOperationalSettings";
+import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 
 export async function POST(request) {
-
   try {
+    const body = await request.json();
 
-    const body =
-      await request.json();
+    const context = await resolveAuthenticatedStaffContext({
+      request,
+      organizationId:
+        body?.organizationId || body?.organization_id || null,
+    });
 
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organizationId,
-
-      });
-
-    if (!access.success) {
-
+    if (!context.success) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            access.error,
+          error: context.error,
+          code: context.code,
+          availableOrganizationIds:
+            context.availableOrganizationIds || [],
         },
-        {
-          status:
-            access.status,
-        }
+        { status: context.status || 403 }
       );
-
     }
 
-    const tenantId =
-      access.tenantId;
+    const {
+      organizationId,
+      organization_id,
+      settings: nestedSettings,
+      ...flatSettings
+    } = body || {};
 
-    await saveOperationalSettings({
+    const settings = nestedSettings || flatSettings;
 
-      tenantId,
-
-      domain:
-        "PAYROLL",
-
-      settings:
-        body,
-
+    const result = await saveOperationalSettings({
+      organizationId: context.organizationId,
+      domain: "PAYROLL",
+      settings,
     });
 
     return NextResponse.json({
-
       success: true,
-
+      organizationId: context.organizationId,
+      settings: result,
     });
-
   } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    });
-
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Unable to save payroll settings",
+      },
+      { status: 500 }
+    );
   }
-
 }

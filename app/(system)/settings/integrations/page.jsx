@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import GoogleAdsIntegrationCard from "@/components/administration/integrations/GoogleAdsIntegrationCard";
 
 function formatDate(value) {
   if (!value) return null;
@@ -351,8 +352,14 @@ export default function IntegrationsPage() {
           )}
         </section>
 
+        <GoogleAdsIntegrationCard
+          organizationId={organizationId}
+          onNotice={setNotice}
+          onError={setError}
+        />
+
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4 text-xs leading-5 text-white/35">
-          Google credentials are managed centrally by Avantiqo. Customers never enter client IDs, API keys, or passwords. Each organization authorizes its own Google account, and each discovered location is isolated and mapped to that organization’s entity structure.
+          Google credentials are managed centrally by Avantiqo. Customers never enter client IDs, developer tokens, API keys, or passwords. Each organization authorizes its own Google account, and discovered Business Profile locations and Ads accounts remain isolated and mapped to that organization’s entity structure.
         </div>
       </div>
     </main>

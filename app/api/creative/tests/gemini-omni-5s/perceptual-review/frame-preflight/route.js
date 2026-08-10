@@ -16,8 +16,10 @@ import {
   creativeMediaBinaryReadiness,
 } from "@/lib/creative/media/runtime/CreativeMediaBinaryRuntime";
 import {
+  prepareProviderInputForExecution,
+} from "@/lib/platform/service-runtime/providers/ProviderExecutor";
+import {
   OpenAIVideoAnalysisFrameRuntime,
-  prepareOpenAIVideoAnalysisInput,
 } from "@/lib/platform/service-runtime/providers/openai/OpenAIVideoAnalysisFrameRuntime";
 
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
@@ -168,16 +170,23 @@ export async function GET() {
         generated_media_url: reviewUrl,
         source_generation_task_id: SOURCE_TASK_ID,
       },
-      context: {
-        ...object(task.input?.context),
-        organization_id: ORGANIZATION_ID,
-        production_task_id: REVIEW_TASK_ID,
-      },
     };
     const bound_input_shape = inputShape(boundInput);
 
-    const prepared = await prepareOpenAIVideoAnalysisInput(boundInput);
+    const prepared = await prepareProviderInputForExecution({
+      provider: "openai",
+      capability: "ai.image.analyze",
+      model: null,
+      input: boundInput,
+      context: {
+        organization_id: ORGANIZATION_ID,
+        production_task_id: REVIEW_TASK_ID,
+      },
+    });
     const contract = object(prepared.openai_video_analysis_frame_contract);
+    const credentialTransport = object(
+      prepared.provider_credential_transport_contract,
+    );
     const frameAssets = list(prepared.assets).filter(
       (asset) => text(asset?.role) === "GENERATED_VIDEO_FRAME_UNDER_REVIEW",
     );
@@ -207,9 +216,22 @@ export async function GET() {
       })),
       persisted_input_shape,
       bound_input_shape,
+      provider_preparation_shape: inputShape(prepared),
+      provider_credential_transport: {
+        contract: credentialTransport.contract || null,
+        reserved_business_input_keys_protected:
+          credentialTransport.reserved_business_input_keys_protected === true,
+        credential_collision_count: Number(
+          credentialTransport.credential_collision_count || 0,
+        ),
+        credential_collision_keys: list(
+          credentialTransport.credential_collision_keys,
+        ),
+      },
       runtime_readiness,
       source_reference_resolved: true,
       fresh_signed_source_bound: true,
+      provider_preparation_executed: true,
       database_writes_executed: false,
       provider_calls_executed: false,
       publication_authorized: false,
@@ -220,6 +242,7 @@ export async function GET() {
       success: false,
       error: error?.message || String(error),
       runtime_readiness,
+      provider_preparation_executed: true,
       database_writes_executed: false,
       provider_calls_executed: false,
       publication_authorized: false,

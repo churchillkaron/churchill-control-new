@@ -38,6 +38,8 @@ export default function PayrollGovernancePage() {
   const [message, setMessage] = useState("");
   const [rejectingId, setRejectingId] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [resolvingId, setResolvingId] = useState("");
+  const [resolutionNotes, setResolutionNotes] = useState("");
 
   async function loadPayroll() {
     setLoading(true);
@@ -81,7 +83,12 @@ export default function PayrollGovernancePage() {
     );
   }, [payroll]);
 
-  async function executeAction({ action, payrollRecordId, reason = "" }) {
+  async function executeAction({
+    action,
+    payrollRecordId,
+    reason = "",
+    resolutionNotes: notes = "",
+  }) {
     setWorkingId(payrollRecordId);
     setError("");
     setMessage("");
@@ -94,6 +101,7 @@ export default function PayrollGovernancePage() {
           action,
           payrollRecordId,
           reason,
+          resolutionNotes: notes,
         }),
       });
       const result = await response.json();
@@ -105,12 +113,15 @@ export default function PayrollGovernancePage() {
       const messages = {
         APPROVE: "Payroll approved.",
         REJECT: "Payroll rejected.",
+        RESOLVE_DISPUTE: "Employee payroll dispute resolved. Employee acknowledgement is still required before approval.",
         LOCK: "Payroll locked.",
       };
 
       setMessage(messages[action] || "Payroll updated.");
       setRejectingId("");
       setRejectReason("");
+      setResolvingId("");
+      setResolutionNotes("");
       await loadPayroll();
     } catch (actionError) {
       setError(actionError?.message || "Unable to execute payroll action");
@@ -132,7 +143,7 @@ export default function PayrollGovernancePage() {
               </div>
               <h1 className="mt-3 text-4xl font-black">Payroll Review & Lock</h1>
               <p className="mt-2 max-w-2xl text-sm text-white/45">
-                Employee acknowledgement, manager approval and payroll lock all operate on the same canonical payroll record.
+                Employee acknowledgement, dispute resolution, manager approval and payroll lock all operate on the same canonical payroll record.
               </p>
               <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
                 {organizationId ? `Organization ${organizationId}` : "Organization context"} · {role || "Role"}
@@ -179,6 +190,9 @@ export default function PayrollGovernancePage() {
               const unresolvedDispute = Boolean(
                 record.employee_dispute && !record.dispute_resolved
               );
+              const resolvedDispute = Boolean(
+                record.employee_dispute && record.dispute_resolved
+              );
               const acknowledgementMissing = !record.employee_acknowledged;
               const approvalBlocked = unresolvedDispute || acknowledgementMissing;
 
@@ -222,6 +236,20 @@ export default function PayrollGovernancePage() {
                     </div>
                   ) : null}
 
+                  {resolvedDispute ? (
+                    <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
+                      <div className="flex items-center gap-2 text-sm font-black text-cyan-200">
+                        <CheckCircle2 className="h-4 w-4" /> Dispute resolved
+                      </div>
+                      <div className="mt-2 text-sm text-cyan-100/65">{record.employee_dispute}</div>
+                      {record.dispute_resolution_notes ? (
+                        <div className="mt-2 text-sm text-white/45">
+                          Resolution: {record.dispute_resolution_notes}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   {record.employee_acknowledged ? (
                     <div className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300">
                       <CheckCircle2 className="h-4 w-4" /> Employee acknowledged
@@ -230,6 +258,62 @@ export default function PayrollGovernancePage() {
                     <div className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-amber-300">
                       <AlertTriangle className="h-4 w-4" /> Awaiting employee acknowledgement
                     </div>
+                  ) : null}
+
+                  {resolvingId === record.id ? (
+                    <div className="mt-5 space-y-3 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
+                      <div className="text-xs font-black uppercase tracking-[0.14em] text-amber-200">
+                        Resolve employee dispute
+                      </div>
+                      <textarea
+                        value={resolutionNotes}
+                        onChange={(event) => setResolutionNotes(event.target.value)}
+                        placeholder="Resolution notes for the employee and payroll audit trail"
+                        className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none placeholder:text-white/30"
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResolvingId("");
+                            setResolutionNotes("");
+                          }}
+                          className="h-11 flex-1 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black uppercase tracking-[0.14em]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!resolutionNotes.trim() || workingId === record.id}
+                          onClick={() =>
+                            executeAction({
+                              action: "RESOLVE_DISPUTE",
+                              payrollRecordId: record.id,
+                              resolutionNotes: resolutionNotes.trim(),
+                            })
+                          }
+                          className="h-11 flex-1 rounded-xl bg-amber-300 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+                        >
+                          Confirm resolution
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {unresolvedDispute && capabilities.canResolveDispute && resolvingId !== record.id ? (
+                    <button
+                      type="button"
+                      disabled={workingId === record.id}
+                      onClick={() => {
+                        setRejectingId("");
+                        setRejectReason("");
+                        setResolvingId(record.id);
+                        setResolutionNotes("");
+                      }}
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 text-xs font-black uppercase tracking-[0.16em] text-amber-200 disabled:opacity-40"
+                    >
+                      <AlertTriangle className="h-4 w-4" /> Resolve dispute
+                    </button>
                   ) : null}
 
                   {rejectingId === record.id ? (
@@ -269,7 +353,9 @@ export default function PayrollGovernancePage() {
                     </div>
                   ) : null}
 
-                  {(canApprove(record) || canReject(record)) && rejectingId !== record.id ? (
+                  {(canApprove(record) || canReject(record)) &&
+                  rejectingId !== record.id &&
+                  resolvingId !== record.id ? (
                     <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                       {canApprove(record) ? (
                         <button
@@ -291,7 +377,11 @@ export default function PayrollGovernancePage() {
                         <button
                           type="button"
                           disabled={workingId === record.id}
-                          onClick={() => setRejectingId(record.id)}
+                          onClick={() => {
+                            setResolvingId("");
+                            setResolutionNotes("");
+                            setRejectingId(record.id);
+                          }}
                           className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 text-xs font-black uppercase tracking-[0.16em] text-red-300 disabled:opacity-40"
                         >
                           <XCircle className="h-4 w-4" /> Reject payroll

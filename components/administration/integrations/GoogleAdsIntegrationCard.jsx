@@ -126,15 +126,21 @@ export default function GoogleAdsIntegrationCard({
   const connected = upper(snapshot.connection?.status) === "ACTIVE";
   const serviceActive = upper(snapshot.service?.status) === "ACTIVE";
   const walletActive = upper(snapshot.wallet?.status) === "ACTIVE";
-  const allMapped =
-    snapshot.accounts.length > 0 &&
-    snapshot.accounts.every((account) => account.entity_id);
+  const managerAccounts = snapshot.accounts.filter(
+    (account) => account?.metadata?.manager === true
+  );
+  const advertiserAccounts = snapshot.accounts.filter(
+    (account) => account?.metadata?.manager !== true
+  );
+  const allAdvertisersMapped =
+    advertiserAccounts.length > 0 &&
+    advertiserAccounts.every((account) => account.entity_id);
   const ready =
     connected &&
     serviceActive &&
     walletActive &&
     snapshot.platformReady &&
-    allMapped;
+    allAdvertisersMapped;
 
   const blockers = useMemo(() => {
     const list = [];
@@ -143,9 +149,18 @@ export default function GoogleAdsIntegrationCard({
     if (!snapshot.platformReady) list.push("Avantiqo developer-token configuration");
     if (!walletActive) list.push("active wallet");
     if (!snapshot.accounts.length) list.push("Ads account discovery");
-    else if (!allMapped) list.push("entity mapping");
+    else if (!advertiserAccounts.length) list.push("advertiser account under the connected manager account");
+    else if (!allAdvertisersMapped) list.push("advertiser entity mapping");
     return list;
-  }, [connected, serviceActive, snapshot.platformReady, walletActive, snapshot.accounts.length, allMapped]);
+  }, [
+    connected,
+    serviceActive,
+    snapshot.platformReady,
+    walletActive,
+    snapshot.accounts.length,
+    advertiserAccounts.length,
+    allAdvertisersMapped,
+  ]);
 
   return (
     <section className="mt-6 rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
@@ -194,6 +209,8 @@ export default function GoogleAdsIntegrationCard({
           {connected && (
             <div className="mt-4 grid gap-2 text-xs text-white/35 sm:grid-cols-2">
               <div>Accounts: {snapshot.accounts.length}</div>
+              <div>Manager accounts: {managerAccounts.length}</div>
+              <div>Advertiser accounts: {advertiserAccounts.length}</div>
               <div>Service: {snapshot.service?.status || "not enabled"}</div>
               <div>
                 Wallet: {snapshot.wallet
@@ -239,53 +256,77 @@ export default function GoogleAdsIntegrationCard({
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="text-xs uppercase tracking-[0.22em] text-white/30">
-                Advertising account mapping
+                Advertising accounts
               </div>
               <h3 className="mt-2 text-xl font-medium">
                 Google Ads accounts → Avantiqo entities
               </h3>
             </div>
-            <div className={`text-xs ${allMapped ? "text-emerald-300" : "text-amber-200"}`}>
-              {allMapped ? "All accounts mapped" : "Mapping required"}
+            <div className={`text-xs ${allAdvertisersMapped ? "text-emerald-300" : "text-amber-200"}`}>
+              {advertiserAccounts.length === 0
+                ? "Advertiser account required"
+                : allAdvertisersMapped
+                  ? "All advertiser accounts mapped"
+                  : "Advertiser mapping required"}
             </div>
           </div>
 
           <div className="space-y-3">
-            {snapshot.accounts.map((account) => (
-              <div
-                key={account.id}
-                className="grid gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 lg:grid-cols-[1fr_360px] lg:items-center"
-              >
-                <div>
-                  <div className="font-medium text-white">
-                    {account.name || `Google Ads ${account.external_id}`}
-                  </div>
-                  <div className="mt-1 text-xs text-white/35">
-                    Customer {account.external_id}
-                    {account.metadata?.currency_code
-                      ? ` · ${account.metadata.currency_code}`
-                      : ""}
-                    {account.metadata?.time_zone
-                      ? ` · ${account.metadata.time_zone}`
-                      : ""}
-                  </div>
-                </div>
+            {snapshot.accounts.map((account) => {
+              const isManager = account?.metadata?.manager === true;
 
-                <select
-                  value={account.entity_id || ""}
-                  onChange={(event) => mapAccount(account.id, event.target.value)}
-                  disabled={working}
-                  className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none disabled:opacity-50"
+              return (
+                <div
+                  key={account.id}
+                  className="grid gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 lg:grid-cols-[1fr_360px] lg:items-center"
                 >
-                  <option value="">Select Avantiqo entity…</option>
-                  {snapshot.entities.map((entity) => (
-                    <option key={entity.id} value={entity.id}>
-                      {entity.display_name || entity.legal_name || entity.code}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 font-medium text-white">
+                      <span>{account.name || `Google Ads ${account.external_id}`}</span>
+                      {isManager && (
+                        <span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] text-[#E7C991]">
+                          Manager account
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 text-xs text-white/35">
+                      Customer {account.external_id}
+                      {account.metadata?.currency_code
+                        ? ` · ${account.metadata.currency_code}`
+                        : ""}
+                      {account.metadata?.time_zone
+                        ? ` · ${account.metadata.time_zone}`
+                        : ""}
+                    </div>
+                    {isManager && (
+                      <div className="mt-2 text-xs text-white/45">
+                        Control account only. Manager accounts are not mapped to Avantiqo legal entities; advertiser/client accounts underneath it are.
+                      </div>
+                    )}
+                  </div>
+
+                  {isManager ? (
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/45">
+                      No entity mapping required
+                    </div>
+                  ) : (
+                    <select
+                      value={account.entity_id || ""}
+                      onChange={(event) => mapAccount(account.id, event.target.value)}
+                      disabled={working}
+                      className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none disabled:opacity-50"
+                    >
+                      <option value="">Select Avantiqo entity…</option>
+                      {snapshot.entities.map((entity) => (
+                        <option key={entity.id} value={entity.id}>
+                          {entity.display_name || entity.legal_name || entity.code}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}

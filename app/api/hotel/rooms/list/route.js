@@ -1,36 +1,45 @@
-import { createServerSupabase } from "@/lib/shared/supabase/server";
+import { NextResponse } from "next/server";
 
-export async function GET(req) {
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(request) {
   try {
-    const supabase = createServerSupabase(req);
-
+    const { searchParams } = new URL(request.url);
     const organizationId =
-      req.nextUrl.searchParams.get("organizationId");
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
 
-    const { data, error } = await supabase
-      .from("hotel_rooms")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .order("room_number", { ascending: true });
-
-    if (error) {
-      throw error;
-    }
-
-    return Response.json({
-      rooms: data || [],
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
     });
 
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status },
+      );
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("hotel_rooms")
+      .select("*")
+      .eq("organization_id", access.organizationId)
+      .order("room_number", { ascending: true });
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      rooms: data || [],
+    });
   } catch (error) {
-
-    return Response.json(
-      {
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
+    return NextResponse.json(
+      { success: false, error: error?.message || "Room lookup failed" },
+      { status: 500 },
     );
-
   }
 }

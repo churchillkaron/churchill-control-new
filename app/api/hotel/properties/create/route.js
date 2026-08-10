@@ -1,36 +1,64 @@
-import { createProperty } from "@/lib/hotel/createProperty";
-import { getActiveOrganization } from "@/lib/workspace/getActiveOrganization";
+import { NextResponse } from "next/server";
 
-export async function POST(req) {
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export const dynamic = "force-dynamic";
+
+function cleanValue(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
+
+function errorResponse(error, status = 500) {
+  return NextResponse.json({ success: false, error }, { status });
+}
+
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
+    const organizationId = cleanValue(
+      body.organizationId || body.organization_id,
+    );
 
-    const organization = await getActiveOrganization();
-
-    if (!organization) {
-      return new Response(
-        JSON.stringify({ error: "Organization not found" }),
-        { status: 400 }
-      );
+    if (!organizationId) {
+      return errorResponse("organizationId required", 400);
     }
 
-    const property = await createProperty({
-      organizationId: organization.id,
-      name: body.name,
-      address: body.address,
-      city: body.city,
-      country: body.country,
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
     });
 
-    return new Response(
-      JSON.stringify({ property }),
-      { status: 200 }
-    );
+    if (!access.success) {
+      return errorResponse(access.error, access.status);
+    }
 
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500 }
-    );
+    const name = cleanValue(body.name);
+    if (!name) {
+      return errorResponse("Property name required", 400);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("hotel_properties")
+      .insert({
+        organization_id: access.organizationId,
+        name,
+        address: cleanValue(body.address),
+        city: cleanValue(body.city),
+        country: cleanValue(body.country),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      property: data,
+    });
+  } catch (error) {
+    console.error("HOTEL_PROPERTY_CREATE_ERROR", error);
+    return errorResponse(error?.message || "Property creation failed");
   }
 }

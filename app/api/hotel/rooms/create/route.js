@@ -1,27 +1,56 @@
-import { createRoom } from "@/lib/hotel/createRoom";
-import { getActiveOrganization } from "@/lib/workspace/getActiveOrganization";
+import { NextResponse } from "next/server";
 
-export async function POST(req) {
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export const dynamic = "force-dynamic";
+
+function cleanValue(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
+
+function errorResponse(error, status = 500) {
+  return NextResponse.json({ success: false, error }, { status });
+}
+
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
+    const organizationId = cleanValue(
+      body.organizationId || body.organization_id,
+    );
 
-    const organization = await getActiveOrganization();
-    if (!organization)
-      return new Response(JSON.stringify({ error: "Organization not found" }), { status: 400 });
+    if (!organizationId) return errorResponse("organizationId required", 400);
 
-    const room = await createRoom({
-      organizationId: organization.id,
-      propertyId: body.propertyId,
-      roomNumber: body.roomNumber,
-      roomName: body.roomName,
-      roomType: body.roomType,
-      floorNumber: body.floorNumber,
-      maxGuests: body.maxGuests,
-    });
+    const access = await requireOrganizationAccess({ organizationId, request });
+    if (!access.success) return errorResponse(access.error, access.status);
 
-    return new Response(JSON.stringify({ room }), { status: 200 });
+    const roomNumber = cleanValue(body.roomNumber || body.room_number);
+    const roomType = cleanValue(body.roomType || body.room_type);
 
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    if (!roomNumber) return errorResponse("roomNumber required", 400);
+    if (!roomType) return errorResponse("roomType required", 400);
+
+    const { data, error } = await supabaseAdmin
+      .from("hotel_rooms")
+      .insert({
+        organization_id: access.organizationId,
+        room_number: roomNumber,
+        room_type: roomType,
+        floor: cleanValue(body.floor ?? body.floorNumber),
+        base_rate: Number(body.baseRate ?? body.base_rate ?? 0),
+        max_guests: Number(body.maxGuests ?? body.max_guests ?? 2),
+        notes: cleanValue(body.notes),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, room: data });
+  } catch (error) {
+    console.error("HOTEL_ROOM_CREATE_ERROR", error);
+    return errorResponse(error?.message || "Room creation failed");
   }
 }

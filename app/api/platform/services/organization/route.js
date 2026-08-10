@@ -1,59 +1,68 @@
 export const dynamic = "force-dynamic";
 
-import {
-  NextResponse,
-} from "next/server";
+import { NextResponse } from "next/server";
 
-import {
-  resolveOrganizationServiceReadModel,
-} from "@/lib/platform/service-runtime/services/resolver/OrganizationServiceResolver";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { resolveOrganizationServiceReadModel } from "@/lib/platform/service-runtime/services/resolver/OrganizationServiceResolver";
 
+function cleanValue(value) {
+  const normalized = String(value ?? "").trim();
 
-export async function GET(req) {
-
-  try {
-
-    const { searchParams } =
-      new URL(req.url);
-
-
-    const organization_id =
-      searchParams.get("organization_id") ||
-      searchParams.get("organizationId");
-
-
-    const services =
-      await resolveOrganizationServiceReadModel({
-
-        organization_id,
-
-      });
-
-
-    return NextResponse.json({
-
-      success:true,
-
-      rows:services,
-
-    });
-
-
-  } catch(error) {
-
-    return NextResponse.json(
-
-      {
-        success:false,
-        error:error.message,
-      },
-
-      {
-        status:500,
-      }
-
-    );
-
+  if (
+    !normalized ||
+    normalized === "undefined" ||
+    normalized === "null"
+  ) {
+    return null;
   }
 
+  return normalized;
+}
+
+function errorResponse(error, status = 500) {
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+    },
+    { status },
+  );
+}
+
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const organizationId = cleanValue(
+      searchParams.get("organization_id") ||
+      searchParams.get("organizationId"),
+    );
+
+    if (!organizationId) {
+      return errorResponse("organization_id required", 400);
+    }
+
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
+
+    if (!access.success) {
+      return errorResponse(access.error, access.status);
+    }
+
+    const services = await resolveOrganizationServiceReadModel({
+      organization_id: access.organizationId,
+    });
+
+    return NextResponse.json({
+      success: true,
+      organizationId: access.organizationId,
+      rows: services,
+    });
+  } catch (error) {
+    console.error("ORGANIZATION_SERVICES_GET_ERROR", error);
+    return errorResponse(
+      error?.message || "Organization service lookup failed",
+    );
+  }
 }

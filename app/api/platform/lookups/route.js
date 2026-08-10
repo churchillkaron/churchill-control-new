@@ -5,6 +5,10 @@ import {
 } from "@/lib/platform/erp-engine/lookups/LookupRuntime";
 
 import {
+  resolveEntity,
+} from "@/lib/platform/entities/resolveEntity";
+
+import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
@@ -20,16 +24,32 @@ function accessError(access) {
   );
 }
 
+function cleanValue(value) {
+  const normalized = String(value ?? "").trim();
+
+  if (
+    !normalized ||
+    normalized === "undefined" ||
+    normalized === "null"
+  ) {
+    return null;
+  }
+
+  return normalized;
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    const requestedOrganizationId =
+    const requestedOrganizationId = cleanValue(
       searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
+      searchParams.get("organization_id")
+    );
 
     const access = await requireOrganizationAccess({
       organizationId: requestedOrganizationId,
+      request,
     });
 
     if (!access.success) {
@@ -52,15 +72,40 @@ export async function GET(request) {
       );
     }
 
+    const requestedEntityId = cleanValue(
+      searchParams.get("entityId") ||
+      searchParams.get("entity_id")
+    );
+
+    let entityId = null;
+
+    if (requestedEntityId) {
+      const entity = await resolveEntity({
+        organizationId: access.organizationId,
+        entityId: requestedEntityId,
+      });
+
+      if (!entity) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Entity does not belong to organization",
+          },
+          {
+            status: 403,
+          }
+        );
+      }
+
+      entityId = entity.id;
+    }
+
     const options = await getLookupOptions({
       lookup,
       query: searchParams.get("query") || "",
       context: {
         organizationId: access.organizationId,
-        entityId:
-          searchParams.get("entityId") ||
-          searchParams.get("entity_id") ||
-          null,
+        entityId,
       },
     });
 

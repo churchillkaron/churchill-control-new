@@ -1,5 +1,5 @@
 Production deployment trigger
 
-Requested: 2026-08-10T11:04:00+07:00
-Purpose: Deploy current main including the active Commercial Loyalty grid card, dedicated Loyalty workspace page, automatic event worker, cron scheduling, and live capability contract.
+Requested: 2026-08-10T12:30:00+07:00
+Purpose: Deploy current main including the Party-centric Commercial customer runtime, secured customer detail projection, loyalty history, Commercial lifecycle, and Finance customer account projection.
 Policy: Update this file only for deliberate production deployments.

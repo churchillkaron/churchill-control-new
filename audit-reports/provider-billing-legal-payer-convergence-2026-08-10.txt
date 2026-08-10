@@ -1,0 +1,13 @@
+Provider Billing legal payer convergence
+Date: 2026-08-10
+
+Production convergence scope:
+- Avantiqo remains the billing operator and customer-facing prepaid wallet owner.
+- The legal payer organization is selected separately per external provider.
+- Provider payer legal entity and supplier master must belong to the selected payer organization.
+- Exactly one ACTIVE payer configuration is allowed per provider; suspended historical records remain auditable.
+- Paid provider execution remains blocked until supplier governance and customer prepaid reservation are both ready.
+- Finance vendor invoice/AP and supplier invoice-to-usage reconciliation remain canonical.
+- Google Ads Payments configuration remains an additional managed-media control and does not imply advertiser BillingSetup approval or authorize spend.
+
+No campaign activation or provider spend was initiated by this convergence.

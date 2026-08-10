@@ -1,0 +1,12 @@
+Provider legal payer evidence control deployment
+Date: 2026-08-10
+
+Scope:
+- Administration -> Integrations -> Provider Billing
+- Adds operator-facing commercial payer verification controls.
+- Saved payer/supplier mappings remain blocked until evidence is verified.
+- Verification evidence types are supplier invoice, provider statement, billing profile, or billing portal reference.
+- Only non-secret references are stored in the verification field.
+- Customer billing remains Avantiqo prepaid wallet only.
+- No customer-owned provider payment method is permitted.
+- No provider spend or advertising activation is authorized by this deployment.

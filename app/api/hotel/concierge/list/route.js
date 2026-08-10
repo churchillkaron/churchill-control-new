@@ -1,34 +1,54 @@
-import { createServerSupabase } from "@/lib/shared/supabase/server";
-import { getActiveOrganization } from "@/lib/workspace/getActiveOrganization";
+import { NextResponse } from "next/server";
 
-export async function GET() {
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+export const dynamic = "force-dynamic";
+
+function errorResponse(error, status = 500) {
+  return NextResponse.json({ success: false, error }, { status });
+}
+
+export async function GET(request) {
   try {
-    const supabase = createServerSupabase();
-    const organization = await getActiveOrganization();
+    const organizationId = String(
+      request.nextUrl.searchParams.get("organizationId") ||
+        request.nextUrl.searchParams.get("organization_id") ||
+        "",
+    ).trim();
 
-    if (!organization) {
-      return new Response(JSON.stringify({ error: "Organization not found" }), { status: 400 });
-    }
+    if (!organizationId) return errorResponse("organizationId required", 400);
 
-    const { data, error } = await supabase
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
+
+    if (!access.success) return errorResponse(access.error, access.status);
+
+    const { data: requests, error } = await supabaseAdmin
       .from("hotel_concierge_requests")
       .select(`
         *,
         hotel_guests (
-          first_name,
-          last_name
+          full_name
         ),
         hotel_properties (
           name
         )
       `)
-      .eq("organization_id", organization.id)
+      .eq("organization_id", access.organizationId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    return new Response(JSON.stringify({ requests: data || [] }), { status: 200 });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return NextResponse.json({
+      success: true,
+      organizationId: access.organizationId,
+      requests: requests || [],
+    });
+  } catch (error) {
+    console.error("HOTEL_CONCIERGE_LIST_ERROR", error);
+    return errorResponse(error?.message || "Concierge list failed");
   }
 }

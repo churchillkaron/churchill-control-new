@@ -2,9 +2,15 @@ import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  localDateString,
+  resolveOrganizationTimeContext,
+} from "@/lib/shared/time/organizationTime";
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
+function addDays(dateValue, days) {
+  const date = new Date(`${dateValue}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 export async function GET(request) {
@@ -24,8 +30,17 @@ export async function GET(request) {
     }
 
     const { staff, organizationId } = context;
+    const timeContext = await resolveOrganizationTimeContext({ organizationId });
+    const businessDate = localDateString(new Date(), timeContext.timezone);
+    const scheduleEndDate = addDays(businessDate, 14);
 
-    const [partyResult, compensationResult, payrollResult] = await Promise.all([
+    const [
+      partyResult,
+      compensationResult,
+      payrollResult,
+      scheduleResult,
+      attendanceResult,
+    ] = await Promise.all([
       staff.party_id
         ? supabaseAdmin
             .from("parties")
@@ -39,8 +54,8 @@ export async function GET(request) {
         .select("*")
         .eq("organization_id", organizationId)
         .eq("staff_account_id", staff.id)
-        .lte("effective_from", today())
-        .or(`effective_to.is.null,effective_to.gte.${today()}`)
+        .lte("effective_from", businessDate)
+        .or(`effective_to.is.null,effective_to.gte.${businessDate}`)
         .order("effective_from", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -52,16 +67,43 @@ export async function GET(request) {
         .order("payroll_month", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(24),
+      supabaseAdmin
+        .from("staff_schedules")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("staff_id", staff.id)
+        .gte("shift_date", businessDate)
+        .lte("shift_date", scheduleEndDate)
+        .order("shift_date", { ascending: true })
+        .order("start_time", { ascending: true })
+        .limit(30),
+      supabaseAdmin
+        .from("staff_attendance")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("staff_id", staff.id)
+        .order("shift_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(30),
     ]);
 
-    if (partyResult.error) throw partyResult.error;
-    if (compensationResult.error) throw compensationResult.error;
-    if (payrollResult.error) throw payrollResult.error;
+    for (const result of [
+      partyResult,
+      compensationResult,
+      payrollResult,
+      scheduleResult,
+      attendanceResult,
+    ]) {
+      if (result.error) throw result.error;
+    }
 
     const compensation = compensationResult.data
       ? {
           ...compensationResult.data,
           currency_code: compensationResult.data.currency || null,
+          configured:
+            Number(compensationResult.data.monthly_salary || 0) > 0 ||
+            Number(compensationResult.data.hourly_rate || 0) > 0,
         }
       : null;
 
@@ -70,10 +112,14 @@ export async function GET(request) {
       profile: {
         organizationId,
         availableOrganizationIds: context.availableOrganizationIds || [],
+        timezone: timeContext.timezone,
+        businessDate,
         staff,
         party: partyResult.data || null,
         compensation,
         payroll: payrollResult.data || [],
+        upcomingSchedules: scheduleResult.data || [],
+        recentAttendance: attendanceResult.data || [],
       },
     });
   } catch (error) {

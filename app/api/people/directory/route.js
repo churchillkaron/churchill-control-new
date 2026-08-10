@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+// Staff portal activation uses trusted server-side Auth administration only.
 import { NextResponse } from "next/server";
 
 import activateStaffPortalAccess, {

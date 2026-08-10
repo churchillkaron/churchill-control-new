@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import generateMonthlyPayroll from "@/lib/payroll/consolidation/generateMonthlyPayroll";
+import buildPayrollReadiness from "@/lib/payroll/readiness/buildPayrollReadiness";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const GENERATE_ROLES = new Set([
@@ -92,6 +93,24 @@ export async function POST(request) {
       );
     }
 
+    const readiness = await buildPayrollReadiness({
+      organizationId: context.organizationId,
+      entityId,
+      payrollMonth,
+    });
+
+    if (!readiness.canGenerate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Payroll is not ready to generate",
+          code: "PAYROLL_NOT_READY",
+          readiness,
+        },
+        { status: 409 }
+      );
+    }
+
     const result = await generateMonthlyPayroll({
       organizationId: context.organizationId,
       entityId,
@@ -101,6 +120,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
+      readiness,
       result,
     });
   } catch (error) {

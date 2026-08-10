@@ -6,10 +6,38 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/shared/supabase/client";
 import { resolvePlatformHostContext } from "@/lib/platform/context/resolvePlatformHostContext";
 
+const WORKSPACE_ROLES = new Set([
+  "OWNER",
+  "ORGANIZATION_OWNER",
+  "ORG_OWNER",
+  "PLATFORM_OWNER",
+  "SUPER_ADMIN",
+  "ADMIN",
+  "MANAGER",
+  "ACCOUNTING",
+  "FINANCE",
+  "HR",
+  "HUMAN_RESOURCES",
+]);
+
 function browserOrganizationId() {
   if (typeof window === "undefined") return null;
 
   return resolvePlatformHostContext(window.location.hostname).organizationId;
+}
+
+function normalizeRole(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function postLoginDestination(data, organizationId) {
+  const role = normalizeRole(data?.role || data?.staff?.role);
+
+  if (!WORKSPACE_ROLES.has(role)) {
+    return "/staff";
+  }
+
+  return `/workspace/${organizationId}`;
 }
 
 export default function LoginCallback() {
@@ -72,7 +100,7 @@ export default function LoginCallback() {
             return;
           }
 
-          router.push(`/workspace/${activeOrganizationId}`);
+          router.push(postLoginDestination(data, activeOrganizationId));
           return;
         }
 

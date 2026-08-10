@@ -88,7 +88,7 @@ export default function IntegrationsPage() {
   }, []);
 
   const organizationId =
-    urlOrganizationId || business?.organization_id || business?.organization?.id || null;
+    business?.organization_id || business?.organization?.id || urlOrganizationId || null;
 
   const load = useCallback(async () => {
     if (!organizationId) {

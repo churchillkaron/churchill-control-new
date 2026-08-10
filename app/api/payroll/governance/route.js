@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { approvePayrollRecord } from "@/lib/payroll/consolidation/approvePayrollRecord";
 import rejectPayrollRecord from "@/lib/payroll/consolidation/rejectPayrollRecord";
 import lockPayrollRecord from "@/lib/payroll/consolidation/lockPayrollRecord";
+import resolvePayrollDispute from "@/lib/payroll/consolidation/resolvePayrollDispute";
 
 const GOVERNANCE_ROLES = new Set([
   "OWNER",
@@ -87,6 +88,7 @@ export async function GET(request) {
       role: context.role,
       capabilities: {
         canReview: true,
+        canResolveDispute: true,
         canLock: LOCK_ROLES.has(context.role),
       },
       payroll: data || [],
@@ -137,6 +139,14 @@ export async function POST(request) {
         actorName,
         role: context.role,
         reason: body?.reason,
+      });
+    } else if (action === "RESOLVE_DISPUTE") {
+      result = await resolvePayrollDispute({
+        payrollRecordId,
+        organizationId: context.organizationId,
+        resolvedBy: actorName,
+        resolutionNotes: body?.resolutionNotes,
+        role: context.role,
       });
     } else if (action === "LOCK") {
       if (!LOCK_ROLES.has(context.role)) {

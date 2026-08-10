@@ -22,7 +22,7 @@ const EXECUTION_CONTRACT =
 const REVIEW_SERVICE = "ai.image.analyze";
 const REVIEW_PROVIDER = "openai";
 const MAXIMUM_CUSTOMER_PRICE_THB = 0.4368;
-const PRIVATE_MEDIA_URL_TTL_SECONDS = "900";
+const CLAIM_TABLE = "creative_one_time_execution_claims";
 
 const supabaseAdmin = getServiceSupabase();
 
@@ -122,10 +122,39 @@ function executionMetadata(task = {}) {
 }
 
 async function installPerceptualRuntime() {
-  if (!process.env.CREATIVE_PRIVATE_MEDIA_URL_TTL_SECONDS) {
-    process.env.CREATIVE_PRIVATE_MEDIA_URL_TTL_SECONDS = PRIVATE_MEDIA_URL_TTL_SECONDS;
-  }
   await import("@/lib/creative/quality/runtime/CreativeGeneratedMediaRecoveryBootstrap");
+}
+
+async function claimById(claimId) {
+  if (!claimId) return null;
+  const { data, error } = await supabaseAdmin
+    .from(CLAIM_TABLE)
+    .select(
+      "id, task_id, organization_id, execution_contract, expires_at, consumed_at, revoked_at, requested_via, publication_authorized, media_regeneration_authorized"
+    )
+    .eq("id", claimId)
+    .eq("task_id", REVIEW_TASK_ID)
+    .eq("organization_id", ORGANIZATION_ID)
+    .eq("execution_contract", EXECUTION_CONTRACT)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+async function latestClaim() {
+  const { data, error } = await supabaseAdmin
+    .from(CLAIM_TABLE)
+    .select(
+      "id, task_id, organization_id, execution_contract, expires_at, consumed_at, revoked_at, requested_via, publication_authorized, media_regeneration_authorized, created_at"
+    )
+    .eq("task_id", REVIEW_TASK_ID)
+    .eq("organization_id", ORGANIZATION_ID)
+    .eq("execution_contract", EXECUTION_CONTRACT)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
 }
 
 async function claimExecution(token) {
@@ -140,28 +169,69 @@ async function claimExecution(token) {
   if (error) throw error;
 
   const claimed = Array.isArray(data) ? data[0] : data;
-  if (claimed?.id) return { claimed, error: null, status: 200 };
+  if (claimed?.id) {
+    const claimId = text(claimed.metadata?.one_time_execution_claim_id);
+    const ledgerClaim = await claimById(claimId);
+    if (!ledgerClaim?.consumed_at) {
+      throw new Error("ONE_TIME_EXECUTION_LEDGER_CONSUMPTION_REQUIRED");
+    }
+    if (
+      ledgerClaim.publication_authorized === true ||
+      ledgerClaim.media_regeneration_authorized === true
+    ) {
+      throw new Error("ONE_TIME_EXECUTION_LEDGER_SCOPE_INVALID");
+    }
+    return {
+      claimed,
+      ledgerClaim,
+      error: null,
+      status: 200,
+      consumed_at: ledgerClaim.consumed_at,
+    };
+  }
 
   const fresh = await ProductionTaskRuntime.get(REVIEW_TASK_ID);
-  const freshMetadata = executionMetadata(fresh);
-  if (freshMetadata.one_time_execution_consumed_at) {
+  const ledgerClaim = await latestClaim();
+  if (ledgerClaim?.consumed_at) {
     return {
       claimed: null,
+      ledgerClaim,
       error: "ONE_TIME_EXECUTION_ALREADY_CONSUMED",
       status: 409,
-      consumed_at: freshMetadata.one_time_execution_consumed_at,
+      consumed_at: ledgerClaim.consumed_at,
+    };
+  }
+  if (ledgerClaim?.revoked_at) {
+    return {
+      claimed: null,
+      ledgerClaim,
+      error: "ONE_TIME_EXECUTION_REVOKED",
+      status: 409,
+    };
+  }
+  if (
+    ledgerClaim?.expires_at &&
+    Date.parse(ledgerClaim.expires_at) <= Date.now()
+  ) {
+    return {
+      claimed: null,
+      ledgerClaim,
+      error: "ONE_TIME_EXECUTION_EXPIRED",
+      status: 401,
     };
   }
   if (fresh?.status !== "WAITING") {
     return {
       claimed: null,
+      ledgerClaim,
       error: `SMOKE_REVIEW_NOT_WAITING:${fresh?.status || "UNKNOWN"}`,
       status: 409,
     };
   }
   return {
     claimed: null,
-    error: "ONE_TIME_TOKEN_INVALID_OR_EXPIRED",
+    ledgerClaim,
+    error: "ONE_TIME_TOKEN_INVALID",
     status: 401,
   };
 }
@@ -184,13 +254,6 @@ export async function GET(request) {
     if (text(metadata.one_time_execution_contract) !== EXECUTION_CONTRACT) {
       return json({ success: false, error: "ONE_TIME_EXECUTION_NOT_PREPARED" }, 409);
     }
-    if (metadata.one_time_execution_consumed_at) {
-      return json({
-        success: false,
-        error: "ONE_TIME_EXECUTION_ALREADY_CONSUMED",
-        consumed_at: metadata.one_time_execution_consumed_at,
-      }, 409);
-    }
     if (task.status !== "WAITING") {
       return json({
         success: false,
@@ -209,7 +272,6 @@ export async function GET(request) {
       }, claim.status);
     }
 
-    const consumedAt = claim.claimed.metadata?.one_time_execution_consumed_at || null;
     const result = await ProductionTaskRuntime.dispatch(REVIEW_TASK_ID);
     const validation =
       result?.output?.perceptual_validation ||
@@ -219,6 +281,7 @@ export async function GET(request) {
     return json({
       success: true,
       execution_contract: EXECUTION_CONTRACT,
+      execution_claim_id: claim.ledgerClaim?.id || null,
       task_id: REVIEW_TASK_ID,
       source_task_id: SOURCE_TASK_ID,
       source_asset_node_id: SOURCE_ASSET_NODE_ID,
@@ -230,7 +293,8 @@ export async function GET(request) {
       perceptual_validation_passed: validation?.passed === true,
       perceptual_validation: validation,
       error: result?.error || null,
-      one_time_execution_consumed_at: consumedAt,
+      one_time_execution_consumed_at: claim.consumed_at || null,
+      one_time_execution_ledger_authoritative: true,
     });
   } catch (error) {
     return json({

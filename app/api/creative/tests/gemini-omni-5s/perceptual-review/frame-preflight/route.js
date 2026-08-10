@@ -60,6 +60,30 @@ function inputShape(input = {}) {
   };
 }
 
+function managedCredentialEvidence(input = {}) {
+  const credential = object(input.credential);
+  const transport = object(input.provider_credential_transport_contract);
+
+  return {
+    selected_credential_id_present: Boolean(text(input.credential_id)),
+    managed_by_avantiqo:
+      text(credential.managed_by).toUpperCase() === "AVANTIQO",
+    credential_purpose:
+      text(credential.credential_purpose).toUpperCase() || null,
+    api_family: text(credential.api_family).toUpperCase() || null,
+    api_key_present: Boolean(text(credential.api_key)),
+    transport_contract: transport.contract || null,
+    reserved_business_input_keys_protected:
+      transport.reserved_business_input_keys_protected === true,
+    credential_collision_count: Number(
+      transport.credential_collision_count || 0,
+    ),
+    credential_collision_keys: list(
+      transport.credential_collision_keys,
+    ),
+  };
+}
+
 function json(payload, status = 200) {
   return NextResponse.json(payload, {
     status,
@@ -184,19 +208,30 @@ export async function GET() {
       },
     });
     const contract = object(prepared.openai_video_analysis_frame_contract);
-    const credentialTransport = object(
-      prepared.provider_credential_transport_contract,
-    );
+    const credentialEvidence = managedCredentialEvidence(prepared);
     const frameAssets = list(prepared.assets).filter(
       (asset) => text(asset?.role) === "GENERATED_VIDEO_FRAME_UNDER_REVIEW",
     );
 
+    const frameReady =
+      contract.contract === "OPENAI_VIDEO_ANALYSIS_FRAME_SET_V1" &&
+      contract.prepared === true &&
+      Number(contract.frame_count) === 7 &&
+      frameAssets.length === 7;
+    const credentialReady =
+      credentialEvidence.selected_credential_id_present === true &&
+      credentialEvidence.managed_by_avantiqo === true &&
+      credentialEvidence.credential_purpose === "AVANTIQO_MANAGED_AI" &&
+      credentialEvidence.api_family === "OPENAI_API" &&
+      credentialEvidence.api_key_present === true &&
+      credentialEvidence.transport_contract ===
+        "PROVIDER_CREDENTIAL_BUSINESS_INPUT_ISOLATION_V1" &&
+      credentialEvidence.reserved_business_input_keys_protected === true;
+
     return json({
-      success:
-        contract.contract === "OPENAI_VIDEO_ANALYSIS_FRAME_SET_V1" &&
-        contract.prepared === true &&
-        Number(contract.frame_count) === 7 &&
-        frameAssets.length === 7,
+      success: frameReady && credentialReady,
+      frame_ready: frameReady,
+      avantiqo_openai_governance_ready: credentialReady,
       contract: contract.contract || null,
       prepared: contract.prepared === true,
       frame_count: Number(contract.frame_count || 0),
@@ -218,15 +253,24 @@ export async function GET() {
       bound_input_shape,
       provider_preparation_shape: inputShape(prepared),
       provider_credential_transport: {
-        contract: credentialTransport.contract || null,
+        selected_credential_id_present:
+          credentialEvidence.selected_credential_id_present,
+        managed_by_avantiqo:
+          credentialEvidence.managed_by_avantiqo,
+        credential_purpose:
+          credentialEvidence.credential_purpose,
+        api_family:
+          credentialEvidence.api_family,
+        api_key_present:
+          credentialEvidence.api_key_present,
+        transport_contract:
+          credentialEvidence.transport_contract,
         reserved_business_input_keys_protected:
-          credentialTransport.reserved_business_input_keys_protected === true,
-        credential_collision_count: Number(
-          credentialTransport.credential_collision_count || 0,
-        ),
-        credential_collision_keys: list(
-          credentialTransport.credential_collision_keys,
-        ),
+          credentialEvidence.reserved_business_input_keys_protected,
+        credential_collision_count:
+          credentialEvidence.credential_collision_count,
+        credential_collision_keys:
+          credentialEvidence.credential_collision_keys,
       },
       runtime_readiness,
       source_reference_resolved: true,

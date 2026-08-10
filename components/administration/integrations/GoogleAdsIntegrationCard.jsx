@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeDollarSign,
+  Building2,
   CheckCircle2,
   ExternalLink,
+  Plus,
   RefreshCw,
 } from "lucide-react";
 
@@ -22,6 +24,14 @@ function money(value, currency) {
   return `${Number.isFinite(amount) ? amount.toLocaleString() : "0"} ${currency || ""}`.trim();
 }
 
+function defaultEntityId(entities = []) {
+  return (
+    entities.find((entity) => entity.is_default_accounting_entity)?.id ||
+    entities[0]?.id ||
+    ""
+  );
+}
+
 export default function GoogleAdsIntegrationCard({
   organizationId,
   onNotice = () => {},
@@ -29,6 +39,7 @@ export default function GoogleAdsIntegrationCard({
 }) {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [selectedEntityId, setSelectedEntityId] = useState("");
   const [snapshot, setSnapshot] = useState({
     connection: null,
     accounts: [],
@@ -36,7 +47,26 @@ export default function GoogleAdsIntegrationCard({
     service: null,
     wallet: null,
     platformReady: false,
+    platformManager: { ready: false },
   });
+
+  function applySnapshot(data) {
+    const next = {
+      connection: data.connection || null,
+      accounts: data.accounts || [],
+      entities: data.entities || [],
+      service: data.service || null,
+      wallet: data.wallet || null,
+      platformReady: data.platformReady === true,
+      platformManager: data.platformManager || { ready: false },
+    };
+    setSnapshot(next);
+    setSelectedEntityId((current) =>
+      next.entities.some((entity) => entity.id === current)
+        ? current
+        : defaultEntityId(next.entities)
+    );
+  }
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -51,14 +81,7 @@ export default function GoogleAdsIntegrationCard({
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Unable to load Google Ads integration");
       }
-      setSnapshot({
-        connection: data.connection || null,
-        accounts: data.accounts || [],
-        entities: data.entities || [],
-        service: data.service || null,
-        wallet: data.wallet || null,
-        platformReady: data.platformReady === true,
-      });
+      applySnapshot(data);
     } catch (error) {
       onError(error?.message || "Unable to load Google Ads integration");
     } finally {
@@ -87,14 +110,7 @@ export default function GoogleAdsIntegrationCard({
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Google Ads action failed");
       }
-      setSnapshot({
-        connection: data.connection || null,
-        accounts: data.accounts || [],
-        entities: data.entities || [],
-        service: data.service || null,
-        wallet: data.wallet || null,
-        platformReady: data.platformReady === true,
-      });
+      applySnapshot(data);
       return data;
     } catch (error) {
       onError(error?.message || "Google Ads action failed");
@@ -107,9 +123,29 @@ export default function GoogleAdsIntegrationCard({
   async function discover() {
     const result = await action({ action: "discover" });
     if (result) {
-      onNotice(
-        `Found ${result.accounts?.length || 0} accessible Google Ads account${result.accounts?.length === 1 ? "" : "s"}.`
+      const advertisers = (result.accounts || []).filter(
+        (account) => account?.metadata?.manager !== true
       );
+      onNotice(
+        advertisers.length
+          ? `Google Ads connected. Found ${advertisers.length} advertiser account${advertisers.length === 1 ? "" : "s"}.`
+          : "Google Ads checked. No advertiser account is available yet; Avantiqo can create one from a legal entity below."
+      );
+    }
+  }
+
+  async function createManagedAccount() {
+    if (!selectedEntityId) {
+      onError("Select an Avantiqo legal entity first.");
+      return;
+    }
+
+    const result = await action({
+      action: "create-managed-account",
+      entityId: selectedEntityId,
+    });
+    if (result) {
+      onNotice("Managed Google Ads advertiser account created and mapped to the selected entity.");
     }
   }
 
@@ -132,6 +168,9 @@ export default function GoogleAdsIntegrationCard({
   const advertiserAccounts = snapshot.accounts.filter(
     (account) => account?.metadata?.manager !== true
   );
+  const selectedEntity = snapshot.entities.find(
+    (entity) => entity.id === selectedEntityId
+  ) || null;
   const allAdvertisersMapped =
     advertiserAccounts.length > 0 &&
     advertiserAccounts.every((account) => account.entity_id);
@@ -144,23 +183,29 @@ export default function GoogleAdsIntegrationCard({
 
   const blockers = useMemo(() => {
     const list = [];
-    if (!connected) list.push("organization authorization");
+    if (!connected) list.push("Google authorization");
     if (!serviceActive) list.push("Google Ads service");
-    if (!snapshot.platformReady) list.push("Avantiqo developer-token configuration");
-    if (!walletActive) list.push("active wallet");
-    if (!snapshot.accounts.length) list.push("Ads account discovery");
-    else if (!advertiserAccounts.length) list.push("advertiser account under the connected manager account");
-    else if (!allAdvertisersMapped) list.push("advertiser entity mapping");
+    if (!snapshot.platformReady) list.push("Avantiqo provider configuration");
+    if (!snapshot.accounts.length && connected) list.push("Ads account discovery");
+    else if (connected && !advertiserAccounts.length) list.push("advertiser account");
+    else if (!allAdvertisersMapped && advertiserAccounts.length) list.push("advertiser entity mapping");
     return list;
   }, [
     connected,
     serviceActive,
     snapshot.platformReady,
-    walletActive,
     snapshot.accounts.length,
     advertiserAccounts.length,
     allAdvertisersMapped,
   ]);
+
+  const canCreateManaged =
+    connected &&
+    serviceActive &&
+    snapshot.platformReady &&
+    snapshot.platformManager?.ready === true &&
+    advertiserAccounts.length === 0 &&
+    Boolean(selectedEntity?.currency && selectedEntity?.timezone);
 
   return (
     <section className="mt-6 rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
@@ -192,30 +237,28 @@ export default function GoogleAdsIntegrationCard({
                 <AlertTriangle className="h-4 w-4" />
               ) : null}
               {ready
-                ? "Connected and financially governed"
+                ? "Connected and ready"
                 : connected
-                  ? "Connected — setup incomplete"
+                  ? "Connected — finish account setup"
                   : "Not connected"}
             </div>
             <div className="mt-1 text-sm opacity-70">
               {ready
-                ? "Campaign API calls pass through Service governance and real media budgets are reserved in the organization wallet before campaign creation."
+                ? "The advertiser account is mapped to an Avantiqo entity. Campaign execution remains governed by approvals, Service usage and wallet media-budget controls."
                 : blockers.length
                   ? `Still required: ${blockers.join(", ")}.`
-                  : "Connect the Google account that can manage this organization’s Ads account."}
+                  : "Connect the Google account the organization uses for advertising."}
             </div>
           </div>
 
           {connected && (
             <div className="mt-4 grid gap-2 text-xs text-white/35 sm:grid-cols-2">
-              <div>Accounts: {snapshot.accounts.length}</div>
-              <div>Manager accounts: {managerAccounts.length}</div>
               <div>Advertiser accounts: {advertiserAccounts.length}</div>
               <div>Service: {snapshot.service?.status || "not enabled"}</div>
               <div>
                 Wallet: {snapshot.wallet
                   ? `${snapshot.wallet.status} · ${money(snapshot.wallet.available_balance, snapshot.wallet.currency)} available`
-                  : "not configured"}
+                  : "created automatically when governed execution starts"}
               </div>
               <div>
                 Provider gateway: {snapshot.platformReady ? "ready" : "platform setup required"}
@@ -241,11 +284,96 @@ export default function GoogleAdsIntegrationCard({
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-45"
             >
               <RefreshCw className={`h-4 w-4 ${working ? "animate-spin" : ""}`} />
-              {working ? "Checking Google Ads…" : snapshot.accounts.length ? "Refresh Ads accounts" : "Discover Ads accounts"}
+              {working ? "Checking Google Ads…" : "Find existing Ads accounts"}
             </button>
           )}
         </div>
       </div>
+
+      {!loading && connected && advertiserAccounts.length === 0 && (
+        <div className="mt-8 border-t border-white/10 pt-7">
+          <div className="mb-5">
+            <div className="text-xs uppercase tracking-[0.22em] text-white/30">
+              Customer onboarding
+            </div>
+            <h3 className="mt-2 text-xl font-medium">No advertiser account yet?</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
+              Avantiqo can create a managed Google Ads advertiser from an existing legal entity. The customer does not enter a manager ID, developer token, currency or time zone in Google; Avantiqo uses the business configuration already stored here.
+            </p>
+          </div>
+
+          {!snapshot.entities.length ? (
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-5">
+              <div className="flex items-start gap-3">
+                <Building2 className="mt-0.5 h-5 w-5 text-amber-200" />
+                <div>
+                  <div className="font-medium text-amber-100">Legal entity required</div>
+                  <div className="mt-1 text-sm leading-6 text-amber-100/65">
+                    Create the company/legal entity first so Avantiqo has the correct legal name, currency and time zone for the advertising account.
+                  </div>
+                  <a
+                    href="/finance/legal-entities"
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm font-medium text-amber-100"
+                  >
+                    Open Legal Entities
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 rounded-2xl border border-white/10 bg-black/30 p-5 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <label className="text-xs uppercase tracking-[0.16em] text-white/35">
+                  Advertiser business
+                </label>
+                <select
+                  value={selectedEntityId}
+                  onChange={(event) => setSelectedEntityId(event.target.value)}
+                  disabled={working}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none disabled:opacity-50"
+                >
+                  {snapshot.entities.map((entity) => (
+                    <option key={entity.id} value={entity.id}>
+                      {entity.display_name || entity.legal_name || entity.code}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedEntity && (
+                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-white/40">
+                    <span>Name: {selectedEntity.display_name || selectedEntity.legal_name || selectedEntity.code}</span>
+                    <span>Currency: {selectedEntity.currency || "missing"}</span>
+                    <span>Time zone: {selectedEntity.timezone || "missing"}</span>
+                  </div>
+                )}
+
+                {selectedEntity && (!selectedEntity.currency || !selectedEntity.timezone) && (
+                  <div className="mt-3 text-xs leading-5 text-amber-200/80">
+                    Complete this legal entity’s currency and time zone before creating its Google Ads account.
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={createManagedAccount}
+                disabled={working || !canCreateManaged}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus className="h-4 w-4" />
+                {working ? "Creating account…" : "Create managed Ads account"}
+              </button>
+            </div>
+          )}
+
+          {!snapshot.platformManager?.ready && (
+            <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-400/[0.05] px-4 py-3 text-xs text-amber-100/70">
+              Avantiqo’s managed Google Ads account-creation gateway is not configured. Existing customer-owned advertiser accounts can still be discovered and mapped.
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-7 border-t border-white/10 pt-6 text-sm text-white/35">
@@ -266,7 +394,7 @@ export default function GoogleAdsIntegrationCard({
               {advertiserAccounts.length === 0
                 ? "Advertiser account required"
                 : allAdvertisersMapped
-                  ? "All advertiser accounts mapped"
+                  ? "Advertiser accounts ready"
                   : "Advertiser mapping required"}
             </div>
           </div>
@@ -274,6 +402,7 @@ export default function GoogleAdsIntegrationCard({
           <div className="space-y-3">
             {snapshot.accounts.map((account) => {
               const isManager = account?.metadata?.manager === true;
+              const managed = account?.metadata?.managed_by_avantiqo === true;
 
               return (
                 <div
@@ -288,6 +417,16 @@ export default function GoogleAdsIntegrationCard({
                           Manager account
                         </span>
                       )}
+                      {!isManager && managed && (
+                        <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] text-emerald-200">
+                          Managed by Avantiqo
+                        </span>
+                      )}
+                      {!isManager && !managed && (
+                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] text-white/45">
+                          Customer authorized
+                        </span>
+                      )}
                     </div>
                     <div className="mt-1 text-xs text-white/35">
                       Customer {account.external_id}
@@ -300,7 +439,7 @@ export default function GoogleAdsIntegrationCard({
                     </div>
                     {isManager && (
                       <div className="mt-2 text-xs text-white/45">
-                        Control account only. Manager accounts are not mapped to Avantiqo legal entities; advertiser/client accounts underneath it are.
+                        Control account only. It does not spend advertising budget and does not map to a legal entity.
                       </div>
                     )}
                   </div>

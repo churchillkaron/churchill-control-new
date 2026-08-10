@@ -1,0 +1,11 @@
+Avantiqo provider commercial payer verification convergence
+Date: 2026-08-10
+
+- Avantiqo Platform remains the billing operator, not an assumed legal payer company.
+- Provider payer organization, legal entity, and supplier master are proposed mappings until commercially verified.
+- Verification requires a non-secret supplier billing evidence reference and one of the controlled verification methods.
+- Unverified provider supplier accounts remain BLOCKED and cannot become provider-execution ready.
+- Exactly one ACTIVE payer account per provider is enforced by database index.
+- Existing prepaid wallet reservation and Service execution controls remain mandatory.
+- Google Ads Payments selection remains separate from legal payer verification and does not authorize media spend.
+- No provider spend or advertising activation was triggered by this convergence.

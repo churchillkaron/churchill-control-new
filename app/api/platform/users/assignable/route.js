@@ -94,6 +94,7 @@ export async function GET(req) {
 
     const {
       data: parties,
+      error: partiesError,
     } =
       partyIds.length
         ? await supabaseAdmin
@@ -101,13 +102,23 @@ export async function GET(req) {
             .select(
               "id,display_name"
             )
+            .eq(
+              "organization_id",
+              access.organizationId
+            )
             .in(
               "id",
               partyIds
             )
         : {
-            data:[]
+            data:[],
+            error:null,
           };
+
+
+    if (partiesError) {
+      throw partiesError;
+    }
 
 
     const partyMap =

@@ -1,80 +1,66 @@
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
-import {
-  NextResponse,
-} from "next/server";
+import { NextResponse } from "next/server";
 
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { BusinessIntelligenceRuntime } from "@/lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime";
 
-import {
-  BusinessIntelligenceRuntime,
-} from "@/lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime";
+function cleanValue(value) {
+  const normalized = String(value ?? "").trim();
 
-
-export async function GET(request) {
-
-  try {
-
-    const url =
-      new URL(request.url);
-
-
-    const organization_id =
-      url.searchParams.get(
-        "organization_id"
-      );
-
-
-    if (!organization_id) {
-
-      return NextResponse.json(
-        {
-          success:false,
-          error:
-            "organization_id required",
-        },
-        {
-          status:400,
-        }
-      );
-
-    }
-
-
-    const result =
-      await BusinessIntelligenceRuntime.analyzeOrganization(
-        organization_id
-      );
-
-
-    return NextResponse.json({
-
-      success:true,
-
-      data:
-        result,
-
-    });
-
-
-  } catch(error) {
-
-    return NextResponse.json(
-
-      {
-        success:false,
-
-        error:
-          error.message,
-
-      },
-
-      {
-        status:500,
-      }
-
-    );
-
+  if (
+    !normalized ||
+    normalized === "undefined" ||
+    normalized === "null"
+  ) {
+    return null;
   }
 
+  return normalized;
+}
+
+function errorResponse(error, status = 500) {
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+    },
+    { status },
+  );
+}
+
+export async function GET(request) {
+  try {
+    const url = new URL(request.url);
+    const organizationId = cleanValue(
+      url.searchParams.get("organization_id") ||
+      url.searchParams.get("organizationId"),
+    );
+
+    if (!organizationId) {
+      return errorResponse("organization_id required", 400);
+    }
+
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
+
+    if (!access.success) {
+      return errorResponse(access.error, access.status);
+    }
+
+    const data = await BusinessIntelligenceRuntime.analyzeOrganization(
+      access.organizationId,
+    );
+
+    return NextResponse.json({
+      success: true,
+      organizationId: access.organizationId,
+      data,
+    });
+  } catch (error) {
+    console.error("BUSINESS_INTELLIGENCE_GET_ERROR", error);
+    return errorResponse(error?.message || "Business intelligence lookup failed");
+  }
 }

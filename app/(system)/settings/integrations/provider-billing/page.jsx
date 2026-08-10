@@ -106,8 +106,8 @@ export default function ProviderBillingPage() {
             Administration / Integrations
           </div>
           <h1 className="mt-3 text-4xl font-semibold">Provider Billing</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-white/50">
-            Avantiqo-only supplier billing and cost governance. Provider costs continue through the existing Service Pricing → Usage → Wallet → Billing → Finance flow. This screen does not create a second billing system.
+          <p className="mt-3 max-w-4xl text-sm leading-6 text-white/50">
+            Every external provider is an Avantiqo supplier. Providers invoice or charge Avantiqo, Avantiqo records supplier cost, and customers are charged only through an ACTIVE PREPAID Avantiqo wallet. Customer-owned provider billing accounts, payment methods and direct supplier billing are not permitted.
           </p>
         </div>
 
@@ -123,10 +123,21 @@ export default function ProviderBillingPage() {
           </div>
         ) : (
           <>
+            <section className="mt-6 rounded-3xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-6">
+              <div className="text-xs uppercase tracking-[0.22em] text-[#D6A66A]">Mandatory billing contract</div>
+              <div className="mt-4 grid gap-3 md:grid-cols-4">
+                {["Provider charges Avantiqo", "Avantiqo records supplier cost", "Wallet prepaid before execution", "No direct customer/provider billing"].map((label) => (
+                  <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm text-white/75">
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </section>
+
             <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
                 ["Registered providers", state?.summary?.registered_providers ?? 0],
-                ["Adapters registered", state?.summary?.adapters_registered ?? 0],
+                ["Billed to Avantiqo", state?.summary?.supplier_billed_to_avantiqo ?? 0],
                 ["Runtime available", state?.summary?.runtime_available ?? 0],
                 ["Cost-control ready", state?.summary?.service_cost_control_ready ?? 0],
               ].map(([label, value]) => (
@@ -143,7 +154,7 @@ export default function ProviderBillingPage() {
                   <div className="text-xs uppercase tracking-[0.22em] text-white/30">Supplier account configuration</div>
                   <h2 className="mt-2 text-2xl font-semibold">Google Ads</h2>
                   <p className="mt-2 text-sm text-white/45">
-                    Select the Avantiqo Google Payments account used for managed advertiser accounts. Customer wallets and media markup stay in Services.
+                    Select the Avantiqo Google Payments account Google uses to bill Avantiqo for managed advertiser spend. Customer media budget and Avantiqo fees remain prepaid in the customer wallet.
                   </p>
                 </div>
                 <span className={`rounded-full border px-3 py-1 text-xs ${badgeClass(Boolean(google?.ready))}`}>
@@ -166,7 +177,7 @@ export default function ProviderBillingPage() {
                         onClick={() => selectGoogleAccount(account.resource_name)}
                         className="mt-4 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-4 py-2 text-sm font-medium text-[#F3D0A5] disabled:opacity-45"
                       >
-                        {selected ? "Selected" : saving ? "Saving…" : "Use for managed Ads"}
+                        {selected ? "Selected" : saving ? "Saving…" : "Use for Avantiqo managed Ads"}
                       </button>
                     </div>
                   );
@@ -181,8 +192,9 @@ export default function ProviderBillingPage() {
             <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.22em] text-white/30">Service provider adapters</div>
+                  <div className="text-xs uppercase tracking-[0.22em] text-white/30">Supplier adapters</div>
                   <h2 className="mt-2 text-2xl font-semibold">All registered providers</h2>
+                  <p className="mt-2 text-sm text-white/45">Authorization may connect customer-owned resources, but provider billing always remains with Avantiqo.</p>
                 </div>
                 <input
                   value={query}
@@ -207,16 +219,16 @@ export default function ProviderBillingPage() {
                     </div>
 
                     <div className="mt-4 space-y-2 text-xs leading-5 text-white/45">
+                      <div><span className="text-white/65">Supplier billing:</span> Avantiqo</div>
+                      <div><span className="text-white/65">Customer funding:</span> Prepaid wallet</div>
                       <div><span className="text-white/65">Adapter:</span> {provider.adapter?.adapter_id}</div>
-                      <div><span className="text-white/65">Billing mode:</span> {provider.adapter?.billing_mode}</div>
                       <div><span className="text-white/65">Supplier cost:</span> {provider.adapter?.supplier_cost_source}</div>
                       <div><span className="text-white/65">Pricing rows:</span> {provider.pricing_count}</div>
-                      <div><span className="text-white/65">Capabilities:</span> {(provider.capabilities || []).length}</div>
                     </div>
 
                     <div className={`mt-4 rounded-xl border px-3 py-2 text-xs ${badgeClass(provider.service_cost_control_ready)}`}>
                       {provider.service_cost_control_ready
-                        ? "Service cost control ready"
+                        ? "Avantiqo billing control ready"
                         : provider.pricing_configured
                           ? "Runtime unavailable"
                           : "Provider pricing still required"}

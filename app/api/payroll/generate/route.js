@@ -4,6 +4,10 @@ import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthen
 import generateMonthlyPayroll from "@/lib/payroll/consolidation/generateMonthlyPayroll";
 import buildPayrollReadiness from "@/lib/payroll/readiness/buildPayrollReadiness";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  resolveOrganizationTimeContext,
+  zonedDateTimeToUtc,
+} from "@/lib/shared/time/organizationTime";
 
 const GENERATE_ROLES = new Set([
   "OWNER",
@@ -16,6 +20,39 @@ const GENERATE_ROLES = new Set([
 
 function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
+}
+
+function monthRange(payrollMonth) {
+  const start = `${payrollMonth}-01`;
+  const end = new Date(`${start}T00:00:00.000Z`);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  return { start, end: end.toISOString().slice(0, 10) };
+}
+
+async function loadPendingAttendanceReviews({ organizationId, payrollMonth }) {
+  const range = monthRange(payrollMonth);
+  const timeContext = await resolveOrganizationTimeContext({ organizationId });
+  const rangeStart = zonedDateTimeToUtc({
+    date: range.start,
+    time: "00:00:00",
+    timezone: timeContext.timezone,
+  });
+  const rangeEnd = zonedDateTimeToUtc({
+    date: range.end,
+    time: "00:00:00",
+    timezone: timeContext.timezone,
+  });
+
+  const { data, error } = await supabaseAdmin
+    .from("staff_shifts")
+    .select("id,staff_id,staff_name,clock_in,shift_source,approval_status")
+    .eq("organization_id", organizationId)
+    .eq("approval_status", "PENDING")
+    .gte("clock_in", rangeStart.toISOString())
+    .lt("clock_in", rangeEnd.toISOString());
+
+  if (error) throw error;
+  return data || [];
 }
 
 export async function POST(request) {
@@ -93,11 +130,30 @@ export async function POST(request) {
       );
     }
 
-    const readiness = await buildPayrollReadiness({
-      organizationId: context.organizationId,
-      entityId,
-      payrollMonth,
-    });
+    const [readiness, pendingAttendanceReviews] = await Promise.all([
+      buildPayrollReadiness({
+        organizationId: context.organizationId,
+        entityId,
+        payrollMonth,
+      }),
+      loadPendingAttendanceReviews({
+        organizationId: context.organizationId,
+        payrollMonth,
+      }),
+    ]);
+
+    if (pendingAttendanceReviews.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Attendance review is required before payroll generation",
+          code: "ATTENDANCE_REVIEW_REQUIRED",
+          pendingAttendanceReviews: pendingAttendanceReviews.length,
+          readiness,
+        },
+        { status: 409 }
+      );
+    }
 
     if (!readiness.canGenerate) {
       return NextResponse.json(

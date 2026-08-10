@@ -8,6 +8,7 @@ import { approvePayrollRecord } from "@/lib/payroll/consolidation/approvePayroll
 import rejectPayrollRecord from "@/lib/payroll/consolidation/rejectPayrollRecord";
 import lockPayrollRecord from "@/lib/payroll/consolidation/lockPayrollRecord";
 import resolvePayrollDispute from "@/lib/payroll/consolidation/resolvePayrollDispute";
+import { recalculatePayrollRecord } from "@/lib/payroll/consolidation/recalculatePayrollRecord";
 
 const GOVERNANCE_ROLES = new Set([
   "OWNER",
@@ -89,6 +90,7 @@ export async function GET(request) {
       capabilities: {
         canReview: true,
         canResolveDispute: true,
+        canRecalculate: true,
         canLock: LOCK_ROLES.has(context.role),
       },
       payroll: data || [],
@@ -139,6 +141,14 @@ export async function POST(request) {
         actorName,
         role: context.role,
         reason: body?.reason,
+      });
+    } else if (action === "RECALCULATE") {
+      result = await recalculatePayrollRecord({
+        payrollRecordId,
+        organizationId: context.organizationId,
+        recalculatedBy: context.staff.id,
+        actorName,
+        role: context.role,
       });
     } else if (action === "RESOLVE_DISPUTE") {
       result = await resolvePayrollDispute({

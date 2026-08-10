@@ -40,6 +40,20 @@ function dateTime(value, timezone = "UTC") {
   }).format(date);
 }
 
+function dateOnly(value) {
+  if (!value) return "-";
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  }).format(date);
+}
+
 export default function StaffPortalPage() {
   const [runtime, setRuntime] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -85,10 +99,14 @@ export default function StaffPortalPage() {
   }, []);
 
   const latestPayroll = profile?.payroll?.[0] || runtime?.latestPayroll || null;
-  const currency = profile?.compensation?.currency_code || profile?.compensation?.currency || "";
+  const compensation = profile?.compensation || null;
+  const compensationConfigured = Boolean(compensation?.configured);
+  const currency = compensation?.currency_code || compensation?.currency || "";
   const staff = profile?.staff || runtime?.staff || null;
   const schedule = runtime?.schedule || null;
-  const timezone = runtime?.timezone || "UTC";
+  const timezone = profile?.timezone || runtime?.timezone || "UTC";
+  const upcomingSchedules = profile?.upcomingSchedules || [];
+  const recentAttendance = profile?.recentAttendance || [];
 
   const shiftLabel = useMemo(() => {
     if (runtime?.shiftActive) return "Clocked in";
@@ -136,7 +154,7 @@ export default function StaffPortalPage() {
               </div>
               <h1 className="mt-3 text-4xl font-black">{staff?.name || runtime?.identity?.staffName || "My Work"}</h1>
               <p className="mt-2 text-sm text-white/45">
-                {staff?.role || runtime?.role || "Staff"} · one secure view of your shift, compensation and payroll lifecycle.
+                {staff?.role || runtime?.role || "Staff"} · your shifts, attendance and payroll in one secure view.
               </p>
             </div>
 
@@ -201,8 +219,71 @@ export default function StaffPortalPage() {
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <Metric label="Role" value={staff?.role || "-"} />
                   <Metric label="Payroll" value={latestPayroll?.status || "No payroll"} />
-                  <Metric label="Salary type" value={profile?.compensation?.salary_type || "-"} />
+                  <Metric label="Salary type" value={compensation?.salary_type || "-"} />
                   <Metric label="Currency" value={currency || "-"} />
+                </div>
+                {!compensationConfigured ? (
+                  <div className="mt-4 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-4 text-xs leading-5 text-amber-100/75">
+                    Compensation amount is not configured yet. Payroll will use the approved compensation profile once management enters it.
+                  </div>
+                ) : null}
+              </article>
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-2">
+              <article className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]">
+                  <CalendarDays className="h-4 w-4" /> Upcoming roster
+                </div>
+                <h2 className="mt-2 text-xl font-black">Next 14 days</h2>
+
+                <div className="mt-4 space-y-2">
+                  {upcomingSchedules.length ? (
+                    upcomingSchedules.slice(0, 8).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.07] bg-black/20 p-4">
+                        <div>
+                          <div className="text-sm font-black">{dateOnly(item.shift_date)}</div>
+                          <div className="mt-1 text-xs text-white/35">{item.department || item.section || staff?.department || "Scheduled shift"}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-black text-[#D6A66A]">{item.start_time || "-"} – {item.end_time || "-"}</div>
+                          <div className="mt-1 text-[9px] uppercase tracking-[0.14em] text-white/25">{item.status || item.shift_type || "Scheduled"}</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-sm text-white/35">No upcoming shifts are scheduled.</div>
+                  )}
+                </div>
+              </article>
+
+              <article className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-cyan-300/70">
+                  <Clock3 className="h-4 w-4" /> Attendance
+                </div>
+                <h2 className="mt-2 text-xl font-black">Recent workdays</h2>
+
+                <div className="mt-4 space-y-2">
+                  {recentAttendance.length ? (
+                    recentAttendance.slice(0, 8).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.07] bg-black/20 p-4">
+                        <div>
+                          <div className="text-sm font-black">{dateOnly(item.shift_date)}</div>
+                          <div className="mt-1 text-xs text-white/35">
+                            {item.actual_start ? `In ${dateTime(item.actual_start, timezone)}` : "No clock-in"}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-black uppercase tracking-[0.12em] text-white/65">{item.attendance_status || "Recorded"}</div>
+                          <div className={`mt-1 text-[10px] ${Number(item.late_minutes || 0) > 0 ? "text-amber-200" : "text-emerald-200"}`}>
+                            {Number(item.late_minutes || 0) > 0 ? `${item.late_minutes} min late` : "On time"}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-sm text-white/35">No attendance history is recorded yet.</div>
+                  )}
                 </div>
               </article>
             </section>
@@ -228,7 +309,9 @@ export default function StaffPortalPage() {
                         </div>
                       ) : null}
                     </>
-                  ) : null}
+                  ) : (
+                    <p className="mt-3 text-sm text-white/35">Your payroll history will appear here after management generates payroll for your organization and legal entity.</p>
+                  )}
                 </div>
 
                 <Link

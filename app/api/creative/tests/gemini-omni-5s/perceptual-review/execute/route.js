@@ -4,8 +4,6 @@ export const runtime = "nodejs";
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 
-import "@/lib/creative/quality/runtime/CreativeGeneratedMediaRecoveryBootstrap";
-
 import {
   ProductionTaskRuntime,
 } from "@/lib/operations/tasks/runtime/ProductionTaskRuntime";
@@ -24,6 +22,7 @@ const EXECUTION_CONTRACT =
 const REVIEW_SERVICE = "ai.image.analyze";
 const REVIEW_PROVIDER = "openai";
 const MAXIMUM_CUSTOMER_PRICE_THB = 0.4368;
+const PRIVATE_MEDIA_URL_TTL_SECONDS = "900";
 
 const supabaseAdmin = getServiceSupabase();
 
@@ -137,6 +136,13 @@ function executionMetadata(task = {}) {
   return object(task.metadata);
 }
 
+async function installPerceptualRuntime() {
+  if (!process.env.CREATIVE_PRIVATE_MEDIA_URL_TTL_SECONDS) {
+    process.env.CREATIVE_PRIVATE_MEDIA_URL_TTL_SECONDS = PRIVATE_MEDIA_URL_TTL_SECONDS;
+  }
+  await import("@/lib/creative/quality/runtime/CreativeGeneratedMediaRecoveryBootstrap");
+}
+
 export async function GET(request) {
   try {
     const token = text(new URL(request.url).searchParams.get("token"));
@@ -177,6 +183,8 @@ export async function GET(request) {
       }, 409);
     }
 
+    await installPerceptualRuntime();
+
     const consumedAt = new Date().toISOString();
     const claimedMetadata = {
       ...metadata,
@@ -185,6 +193,7 @@ export async function GET(request) {
       one_time_execution_requested_via: "VERCEL_PRODUCTION_SMOKE_GATE",
       one_time_execution_publication_authorized: false,
       one_time_execution_media_regeneration_authorized: false,
+      private_media_url_ttl_seconds: Number(PRIVATE_MEDIA_URL_TTL_SECONDS),
     };
 
     const { data: claimed, error: claimError } = await supabaseAdmin

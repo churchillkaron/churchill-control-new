@@ -18,6 +18,14 @@ function statusLabel(provider) {
   return provider?.billing_status || provider?.billing_blocker || "BLOCKED";
 }
 
+function verificationMethodLabel(value) {
+  return text(value)
+    .split("_")
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0)}${part.slice(1).toLowerCase()}`)
+    .join(" ");
+}
+
 export default function ProviderBillingPage() {
   const [state, setState] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,6 +33,7 @@ export default function ProviderBillingPage() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [supplierSelections, setSupplierSelections] = useState({});
+  const [verificationSelections, setVerificationSelections] = useState({});
 
   async function load() {
     setLoading(true);
@@ -62,6 +71,8 @@ export default function ProviderBillingPage() {
         provider.billing_blocker,
         provider.adapter?.billing_mode,
         provider.adapter?.supplier_cost_source,
+        provider.supplier_account?.verification_status,
+        provider.supplier_account?.verification_method,
         ...(provider.capabilities || []),
       ]
         .filter(Boolean)
@@ -81,6 +92,9 @@ export default function ProviderBillingPage() {
     : [];
   const suppliers = Array.isArray(governance.suppliers)
     ? governance.suppliers
+    : [];
+  const verificationMethods = Array.isArray(governance.verification_methods)
+    ? governance.verification_methods
     : [];
 
   const google = state?.supplier_accounts?.google_ads || null;
@@ -103,6 +117,20 @@ export default function ProviderBillingPage() {
     };
   }
 
+  function verificationFor(provider) {
+    const selected = verificationSelections[provider.id] || {};
+    return {
+      verification_method:
+        selected.verification_method ??
+        provider?.supplier_account?.verification_method ??
+        "",
+      verification_reference:
+        selected.verification_reference ??
+        provider?.supplier_account?.verification_reference ??
+        "",
+    };
+  }
+
   function updateSelection(providerId, key, value) {
     setSupplierSelections((current) => {
       const next = {
@@ -118,6 +146,16 @@ export default function ProviderBillingPage() {
         [providerId]: next,
       };
     });
+  }
+
+  function updateVerification(providerId, key, value) {
+    setVerificationSelections((current) => ({
+      ...current,
+      [providerId]: {
+        ...(current[providerId] || {}),
+        [key]: value,
+      },
+    }));
   }
 
   async function post(body, fallbackMessage) {
@@ -179,6 +217,41 @@ export default function ProviderBillingPage() {
     );
   }
 
+  async function verifySupplierAccount(provider) {
+    const account = provider?.supplier_account || null;
+    const selected = selectionFor(provider);
+    const verification = verificationFor(provider);
+    const mappingMatchesStored = Boolean(
+      account &&
+        account.payer_organization_id === selected.payer_organization_id &&
+        account.payer_entity_id === selected.payer_entity_id &&
+        account.supplier_party_id === selected.supplier_party_id,
+    );
+
+    if (!account || !mappingMatchesStored) {
+      setError("Save the current legal payer and supplier mapping before verification.");
+      return;
+    }
+    if (!verification.verification_method) {
+      setError("Select the evidence type used to verify the legal payer.");
+      return;
+    }
+    if (!text(verification.verification_reference)) {
+      setError("Enter a non-secret supplier billing evidence reference.");
+      return;
+    }
+
+    return post(
+      {
+        provider: provider.id,
+        action: "verify-supplier-account",
+        verification_method: verification.verification_method,
+        verification_reference: verification.verification_reference,
+      },
+      "Unable to verify provider legal payer",
+    );
+  }
+
   return (
     <main className="min-h-screen bg-black p-6 text-white lg:p-10">
       <div className="mx-auto max-w-7xl">
@@ -195,7 +268,7 @@ export default function ProviderBillingPage() {
           <h1 className="mt-3 text-4xl font-semibold">Provider Billing</h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-white/50">
             Avantiqo operates provider billing centrally. The customer prepays the Avantiqo wallet,
-            while the selected legal payer company receives the provider invoice or charge and Finance
+            while the verified legal payer company receives the provider invoice or charge and Finance
             reconciles that supplier cost back to governed Service usage.
           </p>
         </div>
@@ -216,11 +289,12 @@ export default function ProviderBillingPage() {
               <div className="text-xs uppercase tracking-[0.22em] text-[#D6A66A]">
                 Mandatory billing contract
               </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-5">
+              <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
                 {[
                   "Customer prepays wallet",
                   "Wallet reserves before provider",
-                  "Legal payer receives provider charge",
+                  "Legal payer mapping saved",
+                  "Commercial payer evidence verified",
                   "Finance reconciles supplier invoice",
                   "No direct customer/provider billing",
                 ].map((label) => (
@@ -237,7 +311,7 @@ export default function ProviderBillingPage() {
             <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
                 ["Registered providers", state?.summary?.registered_providers ?? 0],
-                ["Supplier accounts", state?.summary?.supplier_accounts_configured ?? 0],
+                ["Verified supplier accounts", state?.summary?.supplier_accounts_configured ?? 0],
                 ["Billed through Avantiqo", state?.summary?.supplier_billed_to_avantiqo ?? 0],
                 ["Fully ready", state?.summary?.service_cost_control_ready ?? 0],
               ].map(([label, value]) => (
@@ -258,8 +332,9 @@ export default function ProviderBillingPage() {
               <h2 className="mt-2 text-2xl font-semibold">Legal payer control</h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-white/45">
                 Operator: {operatorOrganization?.name || "Avantiqo"}. The operator shell is not treated as a legal company.
-                Each provider must be assigned to the real organization that legally pays that supplier, plus a legal entity
-                and supplier master belonging to the same organization.
+                Each provider must be mapped to the real organization that legally pays that supplier, plus a legal entity
+                and supplier master belonging to the same organization. The mapping remains blocked until commercial billing
+                evidence confirms that the provider actually invoices or charges that legal payer.
               </p>
 
               <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -302,7 +377,7 @@ export default function ProviderBillingPage() {
                   <h2 className="mt-2 text-2xl font-semibold">Google Ads</h2>
                   <p className="mt-2 text-sm text-white/45">
                     Google Payments configuration is an additional provider-side requirement. Selecting it does not bypass
-                    legal payer, supplier master, advertiser BillingSetup approval, account budget, or wallet controls.
+                    verified legal payer, supplier master, advertiser BillingSetup approval, account budget, or wallet controls.
                   </p>
                 </div>
                 <span className={`rounded-full border px-3 py-1 text-xs ${badgeClass(Boolean(google?.ready))}`}>
@@ -350,7 +425,7 @@ export default function ProviderBillingPage() {
                   <div className="text-xs uppercase tracking-[0.22em] text-white/30">Supplier adapters</div>
                   <h2 className="mt-2 text-2xl font-semibold">All registered providers</h2>
                   <p className="mt-2 text-sm text-white/45">
-                    Configure exactly one active legal payer per provider. Changing payer suspends the previous active payer record for audit history.
+                    Configure one legal payer mapping per provider, then verify the commercial payer from real provider billing evidence. A saved mapping alone cannot make the provider ready.
                   </p>
                 </div>
                 <input
@@ -364,12 +439,24 @@ export default function ProviderBillingPage() {
               <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {providers.map((provider) => {
                   const selected = selectionFor(provider);
+                  const verification = verificationFor(provider);
+                  const supplierAccount = provider?.supplier_account || null;
                   const providerEntities = legalEntities.filter(
                     (entity) => entity.organization_id === selected.payer_organization_id,
                   );
                   const providerSuppliers = suppliers.filter(
                     (supplier) => supplier.organization_id === selected.payer_organization_id,
                   );
+                  const mappingMatchesStored = Boolean(
+                    supplierAccount &&
+                      supplierAccount.payer_organization_id === selected.payer_organization_id &&
+                      supplierAccount.payer_entity_id === selected.payer_entity_id &&
+                      supplierAccount.supplier_party_id === selected.supplier_party_id,
+                  );
+                  const verificationStatus =
+                    text(supplierAccount?.verification_status).toUpperCase() ||
+                    (supplierAccount ? "UNVERIFIED" : "NOT_CONFIGURED");
+                  const verified = verificationStatus === "VERIFIED";
 
                   return (
                     <article key={provider.id} className="rounded-2xl border border-white/10 bg-black/25 p-5">
@@ -466,13 +553,105 @@ export default function ProviderBillingPage() {
                           onClick={() => saveSupplierAccount(provider)}
                           className="w-full rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-3 py-2 text-xs font-medium text-[#F3D0A5] disabled:opacity-35"
                         >
-                          {saving ? "Saving…" : "Save legal payer + supplier account"}
+                          {saving ? "Saving…" : "Save legal payer + supplier mapping"}
                         </button>
                       </div>
 
+                      {supplierAccount ? (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-xs font-medium text-white/75">
+                              Commercial payer verification
+                            </div>
+                            <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${badgeClass(verified)}`}>
+                              {verificationStatus}
+                            </span>
+                          </div>
+
+                          {verified ? (
+                            <div className="mt-3 space-y-1 text-xs leading-5 text-white/45">
+                              <div>
+                                <span className="text-white/65">Evidence:</span>{" "}
+                                {verificationMethodLabel(supplierAccount.verification_method) || "Verified evidence"}
+                              </div>
+                              <div>
+                                <span className="text-white/65">Reference:</span>{" "}
+                                {supplierAccount.verification_reference || "—"}
+                              </div>
+                              <div>
+                                <span className="text-white/65">Verified:</span>{" "}
+                                {supplierAccount.verified_at
+                                  ? new Date(supplierAccount.verified_at).toLocaleString()
+                                  : "Recorded"}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mt-3 space-y-3">
+                              <p className="text-xs leading-5 text-white/45">
+                                Verify only after provider billing evidence clearly supports this legal payer. Use a non-secret invoice, statement, billing profile, or billing portal reference.
+                              </p>
+                              <select
+                                value={verification.verification_method}
+                                disabled={!mappingMatchesStored}
+                                onChange={(event) =>
+                                  updateVerification(
+                                    provider.id,
+                                    "verification_method",
+                                    event.target.value,
+                                  )
+                                }
+                                className="w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-white disabled:opacity-40"
+                              >
+                                <option value="">Select evidence type</option>
+                                {verificationMethods.map((method) => (
+                                  <option key={method} value={method}>
+                                    {verificationMethodLabel(method)}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                value={verification.verification_reference}
+                                disabled={!mappingMatchesStored}
+                                onChange={(event) =>
+                                  updateVerification(
+                                    provider.id,
+                                    "verification_reference",
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="Invoice / profile / statement reference"
+                                className="w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-white outline-none disabled:opacity-40"
+                              />
+                              {!mappingMatchesStored ? (
+                                <div className="text-[11px] leading-4 text-amber-100/70">
+                                  Save the currently selected payer mapping before entering verification evidence.
+                                </div>
+                              ) : null}
+                              <button
+                                type="button"
+                                disabled={
+                                  saving ||
+                                  !mappingMatchesStored ||
+                                  !verification.verification_method ||
+                                  !text(verification.verification_reference)
+                                }
+                                onClick={() => verifySupplierAccount(provider)}
+                                className="w-full rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-100 disabled:opacity-35"
+                              >
+                                {saving ? "Verifying…" : "Verify legal payer from evidence"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100/80">
+                          No payer mapping exists yet. Provider execution remains blocked.
+                        </div>
+                      )}
+
                       <div className={`mt-4 rounded-xl border px-3 py-2 text-xs ${badgeClass(provider.service_cost_control_ready)}`}>
                         {provider.service_cost_control_ready
-                          ? "Legal payer + supplier + pricing + runtime controls are ready"
+                          ? "Verified legal payer + supplier + pricing + runtime controls are ready"
                           : provider.billing_blocker || provider.billing_status || "Provider billing blocked"}
                       </div>
                     </article>

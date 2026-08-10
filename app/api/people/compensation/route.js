@@ -8,6 +8,7 @@ const MANAGE_ROLES = new Set([
   "OWNER",
   "SUPER_ADMIN",
   "MANAGER",
+  "HR_ADMIN",
   "PAYROLL_ADMIN",
   "ACCOUNTING_ADMIN",
 ]);
@@ -55,6 +56,27 @@ async function context(request) {
     role,
     organizationId: resolved.organizationId,
   };
+}
+
+function optionalText(body, key, { uppercase = false } = {}) {
+  if (!Object.prototype.hasOwnProperty.call(body || {}, key)) return undefined;
+
+  const value = String(body?.[key] ?? "").trim();
+  return uppercase ? value.toUpperCase() : value;
+}
+
+function optionalNumber(body, key) {
+  if (!Object.prototype.hasOwnProperty.call(body || {}, key)) return undefined;
+
+  const raw = body?.[key];
+  if (raw === "" || raw === null || typeof raw === "undefined") return 0;
+
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${key} must be a non-negative number`);
+  }
+
+  return value;
 }
 
 export async function GET(request) {
@@ -119,19 +141,67 @@ export async function PATCH(request) {
 
     const body = await request.json();
     const staffId = String(body?.staffId || "").trim();
-    const bankName = String(body?.bankName || "").trim();
-    const bankAccount = String(body?.bankAccount || "").trim();
 
-    if (!staffId || !bankName || !bankAccount) {
+    if (!staffId) {
       return NextResponse.json(
-        { success: false, error: "staffId, bankName and bankAccount are required" },
+        { success: false, error: "staffId required" },
+        { status: 400 }
+      );
+    }
+
+    const bankName = optionalText(body, "bankName");
+    const bankAccount = optionalText(body, "bankAccount");
+    const salaryType = optionalText(body, "salaryType", { uppercase: true });
+    const payrollFrequency = optionalText(body, "payrollFrequency", {
+      uppercase: true,
+    });
+    const currency = optionalText(body, "currency", { uppercase: true });
+    const monthlySalary = optionalNumber(body, "monthlySalary");
+    const hourlyRate = optionalNumber(body, "hourlyRate");
+
+    if (salaryType !== undefined && !["MONTHLY", "HOURLY"].includes(salaryType)) {
+      return NextResponse.json(
+        { success: false, error: "salaryType must be MONTHLY or HOURLY" },
+        { status: 400 }
+      );
+    }
+
+    if (payrollFrequency !== undefined && !payrollFrequency) {
+      return NextResponse.json(
+        { success: false, error: "payrollFrequency cannot be empty" },
+        { status: 400 }
+      );
+    }
+
+    if (currency !== undefined && !/^[A-Z]{3}$/.test(currency)) {
+      return NextResponse.json(
+        { success: false, error: "currency must be a 3-letter code" },
+        { status: 400 }
+      );
+    }
+
+    const updates = {};
+
+    if (bankName !== undefined) updates.bank_name = bankName || null;
+    if (bankAccount !== undefined) updates.bank_account = bankAccount || null;
+    if (salaryType !== undefined) updates.salary_type = salaryType;
+    if (payrollFrequency !== undefined) {
+      updates.payroll_frequency = payrollFrequency;
+    }
+    if (currency !== undefined) updates.currency = currency;
+    if (monthlySalary !== undefined) updates.monthly_salary = monthlySalary;
+    if (hourlyRate !== undefined) updates.hourly_rate = hourlyRate;
+
+    if (!Object.keys(updates).length) {
+      return NextResponse.json(
+        { success: false, error: "No compensation changes supplied" },
         { status: 400 }
       );
     }
 
     const { data: employee, error: staffError } = await supabaseAdmin
       .from("staff_accounts")
-      .select("id")
+      .select("id,party_id")
       .eq("id", staffId)
       .eq("active_organization_id", ctx.organizationId)
       .eq("active", true)
@@ -145,11 +215,18 @@ export async function PATCH(request) {
       );
     }
 
+    if (!employee.party_id) {
+      return NextResponse.json(
+        { success: false, error: "Employee Party identity is not configured" },
+        { status: 409 }
+      );
+    }
+
     const date = today();
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("employee_compensation_profiles")
-      .select("id")
+      .select("id,organization_id,entity_id,party_id,staff_account_id")
       .eq("organization_id", ctx.organizationId)
       .eq("staff_account_id", staffId)
       .lte("effective_from", date)
@@ -166,15 +243,31 @@ export async function PATCH(request) {
       );
     }
 
+    if (!profile.entity_id) {
+      return NextResponse.json(
+        { success: false, error: "Compensation legal entity is not configured" },
+        { status: 409 }
+      );
+    }
+
+    if (profile.party_id !== employee.party_id) {
+      return NextResponse.json(
+        { success: false, error: "Compensation Party identity does not match employee" },
+        { status: 409 }
+      );
+    }
+
     const { data: updated, error: updateError } = await supabaseAdmin
       .from("employee_compensation_profiles")
       .update({
-        bank_name: bankName,
-        bank_account: bankAccount,
+        ...updates,
         updated_at: new Date().toISOString(),
       })
       .eq("id", profile.id)
       .eq("organization_id", ctx.organizationId)
+      .eq("entity_id", profile.entity_id)
+      .eq("party_id", employee.party_id)
+      .eq("staff_account_id", staffId)
       .select("*")
       .single();
 

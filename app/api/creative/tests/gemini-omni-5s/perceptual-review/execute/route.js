@@ -51,20 +51,8 @@ function json(payload, status = 200) {
   });
 }
 
-function tokenDigest(value) {
-  return crypto.createHash("sha256").update(String(value || "")).digest();
-}
-
 function tokenDigestHex(value) {
   return crypto.createHash("sha256").update(String(value || "")).digest("hex");
-}
-
-function safeTokenMatch(provided, expectedHex) {
-  const expected = text(expectedHex);
-  if (!provided || !/^[a-f0-9]{64}$/i.test(expected)) return false;
-  const left = tokenDigest(provided);
-  const right = Buffer.from(expected, "hex");
-  return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
 function taskService(task = {}) {
@@ -140,12 +128,7 @@ async function installPerceptualRuntime() {
   await import("@/lib/creative/quality/runtime/CreativeGeneratedMediaRecoveryBootstrap");
 }
 
-async function claimExecution(token, task) {
-  const metadata = executionMetadata(task);
-  if (!safeTokenMatch(token, metadata.one_time_execution_token_sha256)) {
-    return { claimed: null, error: "ONE_TIME_TOKEN_INVALID", status: 401 };
-  }
-
+async function claimExecution(token) {
   const { data, error } = await supabaseAdmin.rpc(
     "claim_creative_one_time_task_execution",
     {
@@ -178,8 +161,8 @@ async function claimExecution(token, task) {
   }
   return {
     claimed: null,
-    error: "ONE_TIME_EXECUTION_EXPIRED_OR_NOT_CLAIMABLE",
-    status: 410,
+    error: "ONE_TIME_TOKEN_INVALID_OR_EXPIRED",
+    status: 401,
   };
 }
 
@@ -217,7 +200,7 @@ export async function GET(request) {
 
     await installPerceptualRuntime();
 
-    const claim = await claimExecution(token, task);
+    const claim = await claimExecution(token);
     if (!claim.claimed) {
       return json({
         success: false,

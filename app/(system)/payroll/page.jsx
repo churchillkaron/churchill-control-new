@@ -27,6 +27,50 @@ function money(value) {
   });
 }
 
+function readinessAction(code) {
+  const actions = {
+    PAYROLL_PERIOD_OPEN: {
+      href: "/staff/attendance",
+      label: "Review attendance",
+      note: "Complete the period first; monthly payroll remains blocked until the month closes.",
+    },
+    NO_ACTIVE_STAFF: {
+      href: "/workforce/employees",
+      label: "Open employees",
+    },
+    PAYROLL_COUNTRY_MISSING: {
+      href: "/settings/payroll",
+      label: "Configure payroll",
+    },
+    COMPENSATION_PROFILE_MISSING: {
+      href: "/people/compensation",
+      label: "Open compensation",
+    },
+    COMPENSATION_AMOUNT_MISSING: {
+      href: "/people/compensation",
+      label: "Set pay amounts",
+    },
+    SCHEDULES_MISSING: {
+      href: "/workforce/scheduling",
+      label: "Open scheduling",
+    },
+    PAYROLL_ALREADY_LOCKED: {
+      href: "/payroll/governance",
+      label: "Open governance",
+    },
+    SHIFT_EVIDENCE_MISSING: {
+      href: "/staff/attendance",
+      label: "Review attendance",
+    },
+    ATTENDANCE_EVIDENCE_MISSING: {
+      href: "/staff/attendance",
+      label: "Review attendance",
+    },
+  };
+
+  return actions[code] || null;
+}
+
 export default function PayrollPage() {
   const [governance, setGovernance] = useState(null);
   const [payments, setPayments] = useState(null);
@@ -174,9 +218,6 @@ export default function PayrollPage() {
   const paymentRestricted = payments?.restricted === true;
   const generationBlocked =
     generating || readinessLoading || !readiness || !readiness.canGenerate;
-  const directoryHref = readiness?.organizationId
-    ? `/workspace/${readiness.organizationId}/people/directory`
-    : "/staff";
 
   return (
     <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
@@ -260,8 +301,9 @@ export default function PayrollPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href={directoryHref} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Staff & Pay</Link>
-              <Link href="/schedule" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Schedule</Link>
+              <Link href="/people/compensation" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Compensation</Link>
+              <Link href="/workforce/scheduling" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Scheduling</Link>
+              <Link href="/staff/attendance" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Attendance</Link>
               <Link href="/settings/payroll" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Payroll Settings</Link>
             </div>
           </div>
@@ -278,23 +320,52 @@ export default function PayrollPage() {
 
               {readiness.blockers?.length ? (
                 <div className="mt-5 space-y-2">
-                  {readiness.blockers.map((item) => (
-                    <div key={item.code} className="flex gap-3 rounded-2xl border border-red-500/15 bg-red-500/[0.07] px-4 py-3">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
-                      <div><div className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300">{item.code.replaceAll("_", " ")}</div><div className="mt-1 text-sm text-red-100/75">{item.message}</div></div>
-                    </div>
-                  ))}
+                  {readiness.blockers.map((item) => {
+                    const action = readinessAction(item.code);
+
+                    return (
+                      <div key={item.code} className="flex flex-col gap-3 rounded-2xl border border-red-500/15 bg-red-500/[0.07] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex gap-3">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300">{item.code.replaceAll("_", " ")}</div>
+                            <div className="mt-1 text-sm text-red-100/75">{item.message}</div>
+                            {action?.note ? <div className="mt-1 text-xs text-red-100/45">{action.note}</div> : null}
+                          </div>
+                        </div>
+                        {action ? (
+                          <Link href={action.href} className="shrink-0 rounded-xl border border-red-300/20 bg-red-300/[0.08] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-red-100 transition hover:bg-red-300/[0.14]">
+                            {action.label}
+                          </Link>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
 
               {readiness.warnings?.length ? (
                 <div className="mt-3 space-y-2">
-                  {readiness.warnings.map((item) => (
-                    <div key={item.code} className="flex gap-3 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] px-4 py-3">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-                      <div><div className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-300">Review warning</div><div className="mt-1 text-sm text-amber-100/70">{item.message}</div></div>
-                    </div>
-                  ))}
+                  {readiness.warnings.map((item) => {
+                    const action = readinessAction(item.code);
+
+                    return (
+                      <div key={item.code} className="flex flex-col gap-3 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex gap-3">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-300">Review warning</div>
+                            <div className="mt-1 text-sm text-amber-100/70">{item.message}</div>
+                          </div>
+                        </div>
+                        {action ? (
+                          <Link href={action.href} className="shrink-0 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-100 transition hover:bg-amber-300/[0.14]">
+                            {action.label}
+                          </Link>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
             </>

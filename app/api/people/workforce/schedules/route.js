@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// Manager scheduling is trusted server-side workforce administration and production-ready.
+// Manager scheduling is trusted server-side workforce administration and live-production ready.
 import { NextResponse } from "next/server";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";

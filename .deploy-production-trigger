@@ -1,5 +1,5 @@
 Production deployment trigger
 
-Requested: 2026-08-10T11:02:00+07:00
-Purpose: Deploy current main including Commercial Loyalty workspace route, automatic event earning worker, cron scheduling, delivery tracking, and migration history alignment.
+Requested: 2026-08-10T11:04:00+07:00
+Purpose: Deploy current main including the active Commercial Loyalty grid card, dedicated Loyalty workspace page, automatic event worker, cron scheduling, and live capability contract.
 Policy: Update this file only for deliberate production deployments.

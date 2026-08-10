@@ -1,0 +1,28 @@
+AVANTIQO PROVIDER SUPPLIER BILLING CONVERGENCE
+Date: 2026-08-10
+
+Canonical commercial invariant
+- Every external provider is an Avantiqo supplier.
+- Provider invoices or charges Avantiqo, never the customer.
+- Customer provider payment methods and direct supplier billing are prohibited.
+- Customer usage is funded only through an ACTIVE PREPAID Avantiqo wallet.
+- Full customer charge is reserved before paid provider execution.
+- Paid provider execution also requires an ACTIVE Avantiqo provider supplier billing account with payer legal entity and supplier party.
+
+Canonical accounting flow
+Customer prepaid wallet -> reservation -> provider execution -> Service usage settlement -> customer wallet charge -> provider invoice/charge to Avantiqo -> Finance vendor invoice/AP -> supplier invoice to Service usage reconciliation -> Finance approval/payment.
+
+Architecture
+- Existing Service Pricing, Usage, Wallet, Billing and Finance remain canonical.
+- Existing parties/supplier_profiles remain supplier master.
+- Existing vendor_invoices/accounts_payable remain Finance AP.
+- provider_supplier_billing_accounts is configuration/governance only.
+- provider_supplier_invoice_allocations is reconciliation only.
+- No duplicate billing or payable ledger was introduced.
+
+Safety
+- Internal explicit zero-cost administration controls may discover provider billing configuration without a customer paid reservation.
+- Paid provider execution cannot use that exception.
+- Supplier invoice reconciliation never authorizes payment.
+- Finance approval/payment remains required.
+- No provider spend or advertising spend was triggered by this convergence.

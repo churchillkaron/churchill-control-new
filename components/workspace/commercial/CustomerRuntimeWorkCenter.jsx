@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import CustomerActionDialog from "@/components/workspace/commercial/CustomerActionDialog";
 
 function money(value, currency = "") {
   const amount = Number(value || 0);
@@ -39,7 +41,7 @@ function text(value) {
 
 function statusClass(status) {
   const normalized = String(status || "").toUpperCase();
-  if (["ACTIVE", "PAID", "FULFILLED", "ACCEPTED", "POSTED", "AWARDED"].includes(normalized)) {
+  if (["ACTIVE", "PAID", "FULFILLED", "ACCEPTED", "POSTED", "AWARDED", "RESOLVED", "CLOSED"].includes(normalized)) {
     return "text-emerald-300";
   }
   if (["OVERDUE", "FAILED", "CANCELLED", "REJECTED", "POSTING_FAILED"].includes(normalized)) {
@@ -48,11 +50,14 @@ function statusClass(status) {
   return "text-amber-200";
 }
 
-function Section({ title, children }) {
+function Section({ title, action, children }) {
   return (
     <section className="rounded-[24px] border border-white/[0.08] bg-black/25 p-4">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-white/34">
-        {title}
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-white/34">
+          {title}
+        </div>
+        {action || null}
       </div>
       <div className="mt-4">{children}</div>
     </section>
@@ -77,6 +82,23 @@ function Empty({ children = "No records." }) {
 function CompactRows({ rows, render }) {
   if (!rows?.length) return <Empty />;
   return <div className="space-y-2">{rows.map(render)}</div>;
+}
+
+function MiniAction({ children, onClick, disabled = false, accent = false }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={
+        accent
+          ? "h-8 rounded-xl border border-amber-300/30 bg-amber-300/[0.08] px-3 text-[10px] font-medium text-amber-100 transition hover:bg-amber-300/[0.12] disabled:opacity-30"
+          : "h-8 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 text-[10px] text-white/55 transition hover:bg-white/[0.06] disabled:opacity-30"
+      }
+    >
+      {children}
+    </button>
+  );
 }
 
 function CustomerEditor({ open, customer, organizationId, onClose, onSaved }) {
@@ -170,10 +192,7 @@ function CustomerEditor({ open, customer, organizationId, onClose, onSaved }) {
               {customer ? "Edit Customer" : "New Customer"}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-white/[0.08] px-3 py-2 text-[12px] text-white/50"
-          >
+          <button onClick={onClose} className="rounded-xl border border-white/[0.08] px-3 py-2 text-[12px] text-white/50">
             Close
           </button>
         </div>
@@ -181,11 +200,7 @@ function CustomerEditor({ open, customer, organizationId, onClose, onSaved }) {
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="text-[11px] text-white/48">
             Customer type
-            <select
-              value={form.customer_type || "PERSON"}
-              onChange={(event) => update("customer_type", event.target.value)}
-              className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none"
-            >
+            <select value={form.customer_type || "PERSON"} onChange={(event) => update("customer_type", event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none">
               <option value="PERSON">Person</option>
               <option value="COMPANY">Company</option>
             </select>
@@ -193,41 +208,23 @@ function CustomerEditor({ open, customer, organizationId, onClose, onSaved }) {
 
           <label className="text-[11px] text-white/48">
             Credit limit
-            <input
-              type="number"
-              value={form.credit_limit ?? 0}
-              onChange={(event) => update("credit_limit", event.target.value)}
-              className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none"
-            />
+            <input type="number" value={form.credit_limit ?? 0} onChange={(event) => update("credit_limit", event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none" />
           </label>
 
           {inputs.map(([key, label]) => (
             <label key={key} className="text-[11px] text-white/48">
               {label}
-              <input
-                value={form[key] || ""}
-                onChange={(event) => update(key, event.target.value)}
-                className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none"
-              />
+              <input value={form[key] || ""} onChange={(event) => update(key, event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 text-[13px] text-white outline-none" />
             </label>
           ))}
 
           <label className="md:col-span-2 text-[11px] text-white/48">
             Notes
-            <textarea
-              rows={4}
-              value={form.notes || ""}
-              onChange={(event) => update("notes", event.target.value)}
-              className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/40 p-3 text-[13px] text-white outline-none"
-            />
+            <textarea rows={4} value={form.notes || ""} onChange={(event) => update("notes", event.target.value)} className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/40 p-3 text-[13px] text-white outline-none" />
           </label>
 
           <label className="md:col-span-2 flex items-center gap-3 text-[12px] text-white/60">
-            <input
-              type="checkbox"
-              checked={Boolean(form.marketing_opt_in)}
-              onChange={(event) => update("marketing_opt_in", event.target.checked)}
-            />
+            <input type="checkbox" checked={Boolean(form.marketing_opt_in)} onChange={(event) => update("marketing_opt_in", event.target.checked)} />
             Marketing opt-in
           </label>
         </div>
@@ -235,17 +232,8 @@ function CustomerEditor({ open, customer, organizationId, onClose, onSaved }) {
         {error ? <div className="mt-4 text-[12px] text-red-300">{error}</div> : null}
 
         <div className="mt-6 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="h-10 rounded-xl border border-white/[0.08] px-4 text-[12px] text-white/55"
-          >
-            Cancel
-          </button>
-          <button
-            disabled={saving || !String(form.customer_name || "").trim()}
-            onClick={save}
-            className="h-10 rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-200 to-amber-500 px-5 text-[12px] font-semibold text-black disabled:opacity-40"
-          >
+          <button onClick={onClose} className="h-10 rounded-xl border border-white/[0.08] px-4 text-[12px] text-white/55">Cancel</button>
+          <button disabled={saving || !String(form.customer_name || "").trim()} onClick={save} className="h-10 rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-200 to-amber-500 px-5 text-[12px] font-semibold text-black disabled:opacity-40">
             {saving ? "Saving..." : "Save Customer"}
           </button>
         </div>
@@ -255,17 +243,10 @@ function CustomerEditor({ open, customer, organizationId, onClose, onSaved }) {
 }
 
 export default function CustomerRuntimeWorkCenter(props) {
+  const router = useRouter();
   const context = props.context || {};
-  const organizationId =
-    props.organizationId ||
-    context.organization_id ||
-    context.organizationId ||
-    null;
-  const entityId =
-    props.entityId ||
-    context.entity_id ||
-    context.entityId ||
-    null;
+  const organizationId = props.organizationId || context.organization_id || context.organizationId || null;
+  const entityId = props.entityId || context.entity_id || context.entityId || null;
 
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -276,6 +257,7 @@ export default function CustomerRuntimeWorkCenter(props) {
   const [error, setError] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
+  const [customerAction, setCustomerAction] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -291,17 +273,11 @@ export default function CustomerRuntimeWorkCenter(props) {
         url.searchParams.set("limit", "500");
         const response = await fetch(url, { cache: "no-store" });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok || result?.success === false) {
-          throw new Error(result?.error || "Unable to load customers");
-        }
+        if (!response.ok || result?.success === false) throw new Error(result?.error || "Unable to load customers");
         if (!active) return;
         const loaded = result.rows || result.customers || [];
         setRows(loaded);
-        setSelectedId((current) =>
-          current && loaded.some((row) => row.id === current)
-            ? current
-            : loaded[0]?.id || null
-        );
+        setSelectedId((current) => current && loaded.some((row) => row.id === current) ? current : loaded[0]?.id || null);
       } catch (loadError) {
         if (active) setError(loadError?.message || "Unable to load customers");
       } finally {
@@ -310,33 +286,16 @@ export default function CustomerRuntimeWorkCenter(props) {
     }
 
     loadCustomers();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [organizationId, refreshKey]);
 
   const filteredRows = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return rows;
-    return rows.filter((row) =>
-      [
-        row.customer_name,
-        row.customer_number,
-        row.customer_email,
-        row.customer_phone,
-        row.tax_id,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
+    return rows.filter((row) => [row.customer_name, row.customer_number, row.customer_email, row.customer_phone, row.tax_id].filter(Boolean).join(" ").toLowerCase().includes(term));
   }, [rows, query]);
 
-  const selected =
-    rows.find((row) => row.id === selectedId) ||
-    filteredRows[0] ||
-    null;
+  const selected = rows.find((row) => row.id === selectedId) || filteredRows[0] || null;
 
   useEffect(() => {
     let active = true;
@@ -349,38 +308,25 @@ export default function CustomerRuntimeWorkCenter(props) {
 
       try {
         setDetailLoading(true);
-        const url = new URL(
-          `/api/commercial/customers/${selected.party_id}/detail`,
-          window.location.origin
-        );
+        const url = new URL(`/api/commercial/customers/${selected.party_id}/detail`, window.location.origin);
         url.searchParams.set("organizationId", organizationId);
         url.searchParams.set("entityId", entityId);
         const response = await fetch(url, { cache: "no-store" });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok || result?.success === false) {
-          throw new Error(result?.error || "Unable to load customer detail");
-        }
+        if (!response.ok || result?.success === false) throw new Error(result?.error || "Unable to load customer detail");
         if (active) setDetail(result.row || result.customer || selected);
       } catch (detailError) {
-        if (active) {
-          setDetail({
-            ...selected,
-            detail_error: detailError?.message || "Unable to load customer detail",
-          });
-        }
+        if (active) setDetail({ ...selected, detail_error: detailError?.message || "Unable to load customer detail" });
       } finally {
         if (active) setDetailLoading(false);
       }
     }
 
     loadDetail();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [selected?.party_id, organizationId, entityId, refreshKey]);
 
   const balances = detail?.finance?.balances || [];
-  const primaryBalance = balances[0] || null;
   const loyalty = detail?.loyalty || {};
   const salesOrders = detail?.commercial?.sales_orders || [];
   const quotations = detail?.commercial?.quotations || [];
@@ -392,15 +338,9 @@ export default function CustomerRuntimeWorkCenter(props) {
   const ledger = loyalty.ledger || [];
   const redemptions = loyalty.redemptions || [];
   const timeline = detail?.timeline || [];
-
-  const totalReceivable = balances.reduce(
-    (sum, row) => sum + Number(row.receivable_outstanding || 0),
-    0
-  );
-  const totalOverdue = balances.reduce(
-    (sum, row) => sum + Number(row.overdue || 0),
-    0
-  );
+  const openCollectionCases = collectionCases.filter((row) => !["CLOSED", "RESOLVED"].includes(String(row.status || "").toUpperCase()));
+  const totalReceivable = balances.reduce((sum, row) => sum + Number(row.receivable_outstanding || 0), 0);
+  const totalOverdue = balances.reduce((sum, row) => sum + Number(row.overdue || 0), 0);
 
   function openNew() {
     setEditingCustomer(null);
@@ -418,33 +358,45 @@ export default function CustomerRuntimeWorkCenter(props) {
     setRefreshKey((value) => value + 1);
   }
 
+  function salesHref(kind) {
+    if (!selected?.party_id || !organizationId) return null;
+    const path = kind === "quote" ? "quotes" : "orders";
+    const params = new URLSearchParams({
+      party_id: selected.party_id,
+      customer_name: selected.customer_name || "",
+    });
+    if (entityId) params.set("entity_id", entityId);
+    return `/workspace/${organizationId}/commercial/sales/${path}?${params.toString()}`;
+  }
+
+  function openSales(kind) {
+    const href = salesHref(kind);
+    if (href) router.push(href);
+  }
+
+  function openLoyaltyWorkspace() {
+    if (!organizationId) return;
+    const params = new URLSearchParams();
+    if (selected?.party_id) params.set("party_id", selected.party_id);
+    router.push(`/workspace/${organizationId}/commercial/customers/loyalty${params.toString() ? `?${params.toString()}` : ""}`);
+  }
+
+  function refreshAfterAction() {
+    setRefreshKey((value) => value + 1);
+  }
+
   return (
     <main className="min-h-screen bg-[#050505] px-5 py-6 text-white lg:px-7">
       <div className="mx-auto max-w-[1700px]">
         <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.34em] text-amber-300/65">
-              Commercial · Customer Management
-            </div>
+            <div className="text-[11px] uppercase tracking-[0.34em] text-amber-300/65">Commercial · Customer Management</div>
             <h1 className="mt-3 text-[44px] font-light tracking-[-0.06em]">Customers</h1>
-            <p className="mt-2 max-w-3xl text-[13px] leading-6 text-white/42">
-              One Party-centric customer record across Commercial, Loyalty and Finance.
-            </p>
+            <p className="mt-2 max-w-3xl text-[13px] leading-6 text-white/42">One Party-centric customer record across Commercial, Loyalty and Finance.</p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={openEdit}
-              disabled={!selected}
-              className="h-10 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 text-[12px] text-white/60 disabled:opacity-35"
-            >
-              Edit Customer
-            </button>
-            <button
-              onClick={openNew}
-              className="h-10 rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-200 to-amber-500 px-4 text-[12px] font-semibold text-black"
-            >
-              + New Customer
-            </button>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={openEdit} disabled={!selected} className="h-10 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 text-[12px] text-white/60 disabled:opacity-35">Edit Customer</button>
+            <button onClick={openNew} className="h-10 rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-200 to-amber-500 px-4 text-[12px] font-semibold text-black">+ New Customer</button>
           </div>
         </header>
 
@@ -455,10 +407,7 @@ export default function CustomerRuntimeWorkCenter(props) {
             ["Overdue", money(totalOverdue), "Selected customer"],
             ["Loyalty Points", Number(loyalty.account?.loyalty_points || detail?.loyalty_points || 0), loyalty.tier?.name || loyalty.account?.tier || "No tier"],
           ].map(([label, value, hint]) => (
-            <div
-              key={label}
-              className="rounded-[26px] border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.018] p-5 shadow-2xl shadow-black/60"
-            >
+            <div key={label} className="rounded-[26px] border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.018] p-5 shadow-2xl shadow-black/60">
               <div className="text-[10px] uppercase tracking-[0.22em] text-white/32">{label}</div>
               <div className="mt-3 text-[30px] font-light tracking-[-0.05em]">{value}</div>
               <div className="mt-2 text-[11px] text-white/32">{hint}</div>
@@ -471,12 +420,7 @@ export default function CustomerRuntimeWorkCenter(props) {
             <div className="border-b border-white/[0.07] p-4">
               <div className="flex items-center rounded-2xl border border-white/[0.07] bg-black/30 px-4">
                 <span className="text-white/28">⌕</span>
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search customers..."
-                  className="h-11 flex-1 bg-transparent px-3 text-[13px] outline-none placeholder:text-white/25"
-                />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search customers..." className="h-11 flex-1 bg-transparent px-3 text-[13px] outline-none placeholder:text-white/25" />
               </div>
             </div>
 
@@ -491,23 +435,11 @@ export default function CustomerRuntimeWorkCenter(props) {
                 {filteredRows.map((row) => {
                   const active = row.id === selected?.id;
                   return (
-                    <button
-                      key={row.id}
-                      onClick={() => setSelectedId(row.id)}
-                      className={`flex w-full items-center gap-4 px-5 py-4 text-left transition ${
-                        active
-                          ? "bg-amber-300/[0.075] shadow-[inset_3px_0_0_rgba(245,158,11,0.65)]"
-                          : "hover:bg-white/[0.035]"
-                      }`}
-                    >
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/[0.08] text-[12px] text-amber-100">
-                        {initials(row.customer_name)}
-                      </div>
+                    <button key={row.id} onClick={() => setSelectedId(row.id)} className={`flex w-full items-center gap-4 px-5 py-4 text-left transition ${active ? "bg-amber-300/[0.075] shadow-[inset_3px_0_0_rgba(245,158,11,0.65)]" : "hover:bg-white/[0.035]"}`}>
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/[0.08] text-[12px] text-amber-100">{initials(row.customer_name)}</div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[14px] font-medium">{row.customer_name || "Unnamed Customer"}</div>
-                        <div className="mt-1 truncate text-[11px] text-white/36">
-                          {[row.customer_number, row.customer_email, row.customer_phone].filter(Boolean).join(" · ") || "Party customer"}
-                        </div>
+                        <div className="mt-1 truncate text-[11px] text-white/36">{[row.customer_number, row.customer_email, row.customer_phone].filter(Boolean).join(" · ") || "Party customer"}</div>
                       </div>
                       <div className={`text-[10px] uppercase ${statusClass(row.status)}`}>{row.status || "ACTIVE"}</div>
                     </button>
@@ -522,31 +454,42 @@ export default function CustomerRuntimeWorkCenter(props) {
               <div className="text-[13px] text-white/40">Select a customer.</div>
             ) : (
               <>
-                <div className="flex flex-col gap-4 border-b border-white/[0.07] pb-5 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-4 border-b border-white/[0.07] pb-5 xl:flex-row xl:items-start xl:justify-between">
                   <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/[0.08] text-[14px] text-amber-100">
-                      {initials(selected.customer_name)}
-                    </div>
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/[0.08] text-[14px] text-amber-100">{initials(selected.customer_name)}</div>
                     <div>
                       <h2 className="text-[28px] font-light tracking-[-0.05em]">{selected.customer_name}</h2>
                       <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-white/38">
                         <span>Party {selected.party_id}</span>
                         <span className={statusClass(selected.status)}>{selected.status || "ACTIVE"}</span>
-                        {entityId ? <span>Entity scoped finance</span> : <span className="text-amber-200">Select an entity for Finance</span>}
+                        {entityId ? <span>Entity scoped finance</span> : <span className="text-amber-200">Select an entity for Finance actions</span>}
                       </div>
                     </div>
                   </div>
-                  {detailLoading ? <div className="text-[11px] text-white/34">Refreshing detail...</div> : null}
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <MiniAction onClick={() => openSales("quote")} accent>New Quotation</MiniAction>
+                    <MiniAction onClick={() => openSales("order")} accent>New Sales Order</MiniAction>
+                    <MiniAction onClick={() => setCustomerAction("statement")} disabled={!entityId}>Statement</MiniAction>
+                    <MiniAction onClick={() => setCustomerAction("collection_case")} disabled={!entityId}>Open Collection</MiniAction>
+                    <MiniAction onClick={() => setCustomerAction("collection_activity")} disabled={!entityId || openCollectionCases.length === 0}>Collection Activity</MiniAction>
+                    {loyalty.account ? (
+                      <>
+                        <MiniAction onClick={() => setCustomerAction("loyalty_adjust")}>Adjust Points</MiniAction>
+                        <MiniAction onClick={() => setCustomerAction("loyalty_redeem")} disabled={!loyalty.rewards?.length}>Redeem Reward</MiniAction>
+                      </>
+                    ) : (
+                      <MiniAction onClick={openLoyaltyWorkspace}>Open Loyalty</MiniAction>
+                    )}
+                    {detailLoading ? <span className="self-center text-[11px] text-white/34">Refreshing...</span> : null}
+                  </div>
                 </div>
 
                 {detail?.detail_error ? (
-                  <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-3 text-[12px] text-amber-100">
-                    Commercial profile loaded. Finance detail unavailable: {detail.detail_error}
-                  </div>
+                  <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-3 text-[12px] text-amber-100">Commercial profile loaded. Finance detail unavailable: {detail.detail_error}</div>
                 ) : null}
 
                 <div className="mt-5 grid grid-cols-1 gap-4 2xl:grid-cols-2">
-                  <Section title="Customer Profile">
+                  <Section title="Customer Profile" action={<MiniAction onClick={openEdit}>Edit</MiniAction>}>
                     <div className="grid grid-cols-2 gap-4">
                       <Field label="Customer #" value={detail?.customer_number} />
                       <Field label="Type" value={detail?.customer_type} />
@@ -561,34 +504,26 @@ export default function CustomerRuntimeWorkCenter(props) {
                     </div>
                   </Section>
 
-                  <Section title="Finance Position">
-                    <CompactRows
-                      rows={balances}
-                      render={(row) => (
-                        <div key={row.currency_code} className="rounded-xl border border-white/[0.07] bg-black/25 p-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[12px] font-medium">{row.currency_code}</span>
-                            <span className={Number(row.net_customer_position || 0) > 0 ? "text-red-200" : "text-emerald-200"}>
-                              {money(row.net_customer_position, row.currency_code)}
-                            </span>
-                          </div>
-                          <div className="mt-3 grid grid-cols-3 gap-3 text-[11px]">
-                            <Field label="Receivable" value={money(row.receivable_outstanding)} />
-                            <Field label="Overdue" value={money(row.overdue)} />
-                            <Field label="Credit" value={money(row.available_credit)} />
-                            <Field label="Unapplied cash" value={money(row.unapplied_cash)} />
-                            <Field label="Current" value={money(row.aging?.current)} />
-                            <Field label="1–30" value={money(row.aging?.["1_30"])} />
-                            <Field label="31–60" value={money(row.aging?.["31_60"])} />
-                            <Field label="61–90" value={money(row.aging?.["61_90"])} />
-                            <Field label="91+" value={money(row.aging?.["91_plus"])} />
-                          </div>
+                  <Section title="Finance Position" action={<MiniAction onClick={() => setCustomerAction("statement")} disabled={!entityId}>Generate Statement</MiniAction>}>
+                    <CompactRows rows={balances} render={(row) => (
+                      <div key={row.currency_code} className="rounded-xl border border-white/[0.07] bg-black/25 p-3">
+                        <div className="flex items-center justify-between"><span className="text-[12px] font-medium">{row.currency_code}</span><span className={Number(row.net_customer_position || 0) > 0 ? "text-red-200" : "text-emerald-200"}>{money(row.net_customer_position, row.currency_code)}</span></div>
+                        <div className="mt-3 grid grid-cols-3 gap-3 text-[11px]">
+                          <Field label="Receivable" value={money(row.receivable_outstanding)} />
+                          <Field label="Overdue" value={money(row.overdue)} />
+                          <Field label="Credit" value={money(row.available_credit)} />
+                          <Field label="Unapplied cash" value={money(row.unapplied_cash)} />
+                          <Field label="Current" value={money(row.aging?.current)} />
+                          <Field label="1–30" value={money(row.aging?.["1_30"])} />
+                          <Field label="31–60" value={money(row.aging?.["31_60"])} />
+                          <Field label="61–90" value={money(row.aging?.["61_90"])} />
+                          <Field label="91+" value={money(row.aging?.["91_plus"])} />
                         </div>
-                      )}
-                    />
+                      </div>
+                    )} />
                   </Section>
 
-                  <Section title="Loyalty">
+                  <Section title="Loyalty" action={loyalty.account ? <div className="flex gap-2"><MiniAction onClick={() => setCustomerAction("loyalty_adjust")}>Adjust</MiniAction><MiniAction onClick={() => setCustomerAction("loyalty_redeem")} disabled={!loyalty.rewards?.length}>Redeem</MiniAction></div> : <MiniAction onClick={openLoyaltyWorkspace}>Open Loyalty</MiniAction>}>
                     <div className="grid grid-cols-2 gap-4">
                       <Field label="Program" value={loyalty.program?.name} />
                       <Field label="Tier" value={loyalty.tier?.name || loyalty.account?.tier} />
@@ -599,138 +534,52 @@ export default function CustomerRuntimeWorkCenter(props) {
                     </div>
                     <div className="mt-4 border-t border-white/[0.06] pt-3">
                       <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/28">Recent points activity</div>
-                      <CompactRows
-                        rows={ledger.slice(0, 5)}
-                        render={(row) => (
-                          <div key={row.id} className="flex items-center justify-between gap-3 text-[11px]">
-                            <span>{row.entry_type} · {dateTime(row.created_at)}</span>
-                            <span className={Number(row.points_delta) >= 0 ? "text-emerald-200" : "text-amber-200"}>
-                              {Number(row.points_delta) >= 0 ? "+" : ""}{row.points_delta} pts
-                            </span>
-                          </div>
-                        )}
-                      />
+                      <CompactRows rows={ledger.slice(0, 5)} render={(row) => (
+                        <div key={row.id} className="flex items-center justify-between gap-3 text-[11px]"><span>{row.entry_type} · {dateTime(row.created_at)}</span><span className={Number(row.points_delta) >= 0 ? "text-emerald-200" : "text-amber-200"}>{Number(row.points_delta) >= 0 ? "+" : ""}{row.points_delta} pts</span></div>
+                      )} />
                     </div>
                   </Section>
 
-                  <Section title="Sales Orders">
-                    <CompactRows
-                      rows={salesOrders.slice(0, 8)}
-                      render={(row) => (
-                        <div key={row.id} className="rounded-xl border border-white/[0.07] p-3 text-[11px]">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="font-medium">{row.order_number}</span>
-                            <span className={statusClass(row.status)}>{row.status}</span>
-                          </div>
-                          <div className="mt-2 flex flex-wrap justify-between gap-2 text-white/45">
-                            <span>{row.fulfillment_status || "No fulfilment status"} · {row.payment_status || "No payment status"}</span>
-                            <span>{money(row.total_amount, row.currency_code)}</span>
-                          </div>
-                        </div>
-                      )}
-                    />
+                  <Section title="Sales Orders" action={<MiniAction onClick={() => openSales("order")} accent>New Order</MiniAction>}>
+                    <CompactRows rows={salesOrders.slice(0, 8)} render={(row) => (
+                      <div key={row.id} className="rounded-xl border border-white/[0.07] p-3 text-[11px]"><div className="flex items-center justify-between gap-3"><span className="font-medium">{row.order_number}</span><span className={statusClass(row.status)}>{row.status}</span></div><div className="mt-2 flex flex-wrap justify-between gap-2 text-white/45"><span>{row.fulfillment_status || "No fulfilment status"} · {row.payment_status || "No payment status"}</span><span>{money(row.total_amount, row.currency_code)}</span></div></div>
+                    )} />
                   </Section>
 
-                  <Section title="Quotations">
-                    <CompactRows
-                      rows={quotations.slice(0, 8)}
-                      render={(row) => (
-                        <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] p-3 text-[11px]">
-                          <div>
-                            <div className="font-medium">{row.quotation_number}</div>
-                            <div className="mt-1 text-white/35">Valid until {row.valid_until || "-"}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className={statusClass(row.status)}>{row.status}</div>
-                            <div className="mt-1 text-white/55">{money(row.total_amount, row.currency_code)}</div>
-                          </div>
-                        </div>
-                      )}
-                    />
+                  <Section title="Quotations" action={<MiniAction onClick={() => openSales("quote")} accent>New Quote</MiniAction>}>
+                    <CompactRows rows={quotations.slice(0, 8)} render={(row) => (
+                      <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] p-3 text-[11px]"><div><div className="font-medium">{row.quotation_number}</div><div className="mt-1 text-white/35">Valid until {row.valid_until || "-"}</div></div><div className="text-right"><div className={statusClass(row.status)}>{row.status}</div><div className="mt-1 text-white/55">{money(row.total_amount, row.currency_code)}</div></div></div>
+                    )} />
                   </Section>
 
                   <Section title="Payments & Credits">
                     <div className="text-[10px] uppercase tracking-[0.16em] text-white/28">Payments</div>
-                    <div className="mt-2">
-                      <CompactRows
-                        rows={payments.slice(0, 6)}
-                        render={(row) => (
-                          <div key={row.id} className="flex items-center justify-between gap-3 py-1 text-[11px]">
-                            <span>{row.payment_number || row.reference_number || row.id}</span>
-                            <span>{money(row.amount, row.currency_code)} · <span className={statusClass(row.status)}>{row.status}</span></span>
-                          </div>
-                        )}
-                      />
-                    </div>
+                    <div className="mt-2"><CompactRows rows={payments.slice(0, 6)} render={(row) => (
+                      <div key={row.id} className="flex items-center justify-between gap-3 py-1 text-[11px]"><span>{row.payment_number || row.reference_number || row.id}</span><span>{money(row.amount, row.currency_code)} · <span className={statusClass(row.status)}>{row.status}</span></span></div>
+                    )} /></div>
                     <div className="mt-4 text-[10px] uppercase tracking-[0.16em] text-white/28">Available credits</div>
-                    <div className="mt-2">
-                      <CompactRows
-                        rows={credits.slice(0, 6)}
-                        render={(row) => (
-                          <div key={row.id} className="flex items-center justify-between gap-3 py-1 text-[11px]">
-                            <span>{row.status}</span>
-                            <span>{money(row.available_amount, row.currency_code)} available</span>
-                          </div>
-                        )}
-                      />
-                    </div>
+                    <div className="mt-2"><CompactRows rows={credits.slice(0, 6)} render={(row) => (
+                      <div key={row.id} className="flex items-center justify-between gap-3 py-1 text-[11px]"><span>{row.status}</span><span>{money(row.available_amount, row.currency_code)} available</span></div>
+                    )} /></div>
                   </Section>
 
-                  <Section title="Collections & Statements">
-                    <div className="grid grid-cols-3 gap-3">
-                      <Field label="Open cases" value={collectionCases.filter((row) => !["CLOSED", "RESOLVED"].includes(String(row.status || "").toUpperCase())).length} />
-                      <Field label="Activities" value={collectionActivities.length} />
-                      <Field label="Statements" value={statements.length} />
-                    </div>
-                    <div className="mt-4">
-                      <CompactRows
-                        rows={collectionCases.slice(0, 5)}
-                        render={(row) => (
-                          <div key={row.id} className="flex items-center justify-between gap-3 py-1 text-[11px]">
-                            <span>{row.case_number || row.id}</span>
-                            <span className={statusClass(row.status)}>{row.status}</span>
-                          </div>
-                        )}
-                      />
-                    </div>
+                  <Section title="Collections & Statements" action={<div className="flex gap-2"><MiniAction onClick={() => setCustomerAction("collection_case")} disabled={!entityId}>Open Case</MiniAction><MiniAction onClick={() => setCustomerAction("collection_activity")} disabled={!entityId || openCollectionCases.length === 0}>Activity</MiniAction></div>}>
+                    <div className="grid grid-cols-3 gap-3"><Field label="Open cases" value={openCollectionCases.length} /><Field label="Activities" value={collectionActivities.length} /><Field label="Statements" value={statements.length} /></div>
+                    <div className="mt-4"><CompactRows rows={collectionCases.slice(0, 5)} render={(row) => (
+                      <div key={row.id} className="flex items-center justify-between gap-3 py-1 text-[11px]"><span>{row.case_number || row.id}</span><span className={statusClass(row.status)}>{row.status}</span></div>
+                    )} /></div>
                   </Section>
 
                   <Section title="Loyalty Redemptions">
-                    <CompactRows
-                      rows={redemptions.slice(0, 8)}
-                      render={(row) => (
-                        <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] p-3 text-[11px]">
-                          <div>
-                            <div>{row.reward_name || row.reward_code || "Reward"}</div>
-                            <div className="mt-1 text-white/35">{dateTime(row.redeemed_at)}</div>
-                          </div>
-                          <div className="text-right">
-                            <div>{row.points_spent} pts</div>
-                            <div className={`mt-1 ${statusClass(row.status)}`}>{row.status}</div>
-                          </div>
-                        </div>
-                      )}
-                    />
+                    <CompactRows rows={redemptions.slice(0, 8)} render={(row) => (
+                      <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] p-3 text-[11px]"><div><div>{row.reward_name || row.reward_code || "Reward"}</div><div className="mt-1 text-white/35">{dateTime(row.redeemed_at)}</div></div><div className="text-right"><div>{row.points_spent} pts</div><div className={`mt-1 ${statusClass(row.status)}`}>{row.status}</div></div></div>
+                    )} />
                   </Section>
 
                   <Section title="Customer Timeline">
-                    <CompactRows
-                      rows={timeline.slice(0, 15)}
-                      render={(row) => (
-                        <div key={row.id} className="grid grid-cols-[100px_1fr_auto] gap-3 border-b border-white/[0.055] py-2 text-[11px] last:border-0">
-                          <div className="text-white/32">{row.domain}</div>
-                          <div>
-                            <div>{row.type}</div>
-                            <div className="mt-1 text-white/32">{row.reference || dateTime(row.event_at)}</div>
-                          </div>
-                          <div className="text-right">
-                            {row.points_delta !== undefined ? <div>{row.points_delta} pts</div> : null}
-                            {row.amount !== null && row.amount !== undefined ? <div>{money(row.amount, row.currency_code)}</div> : null}
-                            {row.status ? <div className={`mt-1 ${statusClass(row.status)}`}>{row.status}</div> : null}
-                          </div>
-                        </div>
-                      )}
-                    />
+                    <CompactRows rows={timeline.slice(0, 15)} render={(row) => (
+                      <div key={row.id} className="grid grid-cols-[100px_1fr_auto] gap-3 border-b border-white/[0.055] py-2 text-[11px] last:border-0"><div className="text-white/32">{row.domain}</div><div><div>{row.type}</div><div className="mt-1 text-white/32">{row.reference || dateTime(row.event_at)}</div></div><div className="text-right">{row.points_delta !== undefined ? <div>{row.points_delta} pts</div> : null}{row.amount !== null && row.amount !== undefined ? <div>{money(row.amount, row.currency_code)}</div> : null}{row.status ? <div className={`mt-1 ${statusClass(row.status)}`}>{row.status}</div> : null}</div></div>
+                    )} />
                   </Section>
                 </div>
               </>
@@ -739,12 +588,16 @@ export default function CustomerRuntimeWorkCenter(props) {
         </div>
       </div>
 
-      <CustomerEditor
-        open={editorOpen}
-        customer={editingCustomer}
+      <CustomerEditor open={editorOpen} customer={editingCustomer} organizationId={organizationId} onClose={() => setEditorOpen(false)} onSaved={saved} />
+
+      <CustomerActionDialog
+        action={customerAction}
+        customer={selected}
+        detail={detail}
         organizationId={organizationId}
-        onClose={() => setEditorOpen(false)}
-        onSaved={saved}
+        entityId={entityId}
+        onClose={() => setCustomerAction(null)}
+        onComplete={refreshAfterAction}
       />
     </main>
   );

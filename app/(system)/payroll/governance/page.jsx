@@ -113,6 +113,7 @@ export default function PayrollGovernancePage() {
       const messages = {
         APPROVE: "Payroll approved.",
         REJECT: "Payroll rejected.",
+        RECALCULATE: "Payroll month recalculated. Employee acknowledgement is required again before approval.",
         RESOLVE_DISPUTE: "Employee payroll dispute resolved. Employee acknowledgement is still required before approval.",
         LOCK: "Payroll locked.",
       };
@@ -143,7 +144,7 @@ export default function PayrollGovernancePage() {
               </div>
               <h1 className="mt-3 text-4xl font-black">Payroll Review & Lock</h1>
               <p className="mt-2 max-w-2xl text-sm text-white/45">
-                Employee acknowledgement, dispute resolution, manager approval and payroll lock all operate on the same canonical payroll record.
+                Employee acknowledgement, dispute resolution, recalculation, manager approval and payroll lock all operate on the same canonical payroll cycle.
               </p>
               <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
                 {organizationId ? `Organization ${organizationId}` : "Organization context"} · {role || "Role"}
@@ -226,6 +227,17 @@ export default function PayrollGovernancePage() {
                     <Data label="Hours" value={Number(record.worked_hours || record.total_hours || 0).toFixed(2)} />
                     <Data label="Late" value={`${Number(record.total_late_minutes || 0)} min`} />
                   </div>
+
+                  {record.status === "REJECTED" ? (
+                    <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+                      <div className="flex items-center gap-2 text-sm font-black text-red-200">
+                        <XCircle className="h-4 w-4" /> Payroll rejected
+                      </div>
+                      <div className="mt-2 text-sm text-red-100/65">
+                        {record.notes || "Correct the underlying payroll inputs, then recalculate the full payroll month."}
+                      </div>
+                    </div>
+                  ) : null}
 
                   {unresolvedDispute ? (
                     <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
@@ -388,6 +400,22 @@ export default function PayrollGovernancePage() {
                         </button>
                       ) : null}
                     </div>
+                  ) : null}
+
+                  {record.status === "REJECTED" && capabilities.canRecalculate ? (
+                    <button
+                      type="button"
+                      disabled={workingId === record.id}
+                      onClick={() =>
+                        executeAction({
+                          action: "RECALCULATE",
+                          payrollRecordId: record.id,
+                        })
+                      }
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
+                    >
+                      <RefreshCw className="h-4 w-4" /> Recalculate payroll month
+                    </button>
                   ) : null}
 
                   {record.status === "APPROVED" && capabilities.canLock ? (

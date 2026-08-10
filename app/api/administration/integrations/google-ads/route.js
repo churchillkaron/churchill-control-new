@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
 import { ServiceExecutionRuntime } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { WalletRepository } from "@/lib/platform/service-runtime/wallet/repositories/WalletRepository";
@@ -29,6 +30,10 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function upper(value) {
+  return text(value).toUpperCase();
+}
+
 function canManageIntegrations(context) {
   const roles = [
     context?.role,
@@ -36,7 +41,7 @@ function canManageIntegrations(context) {
     context?.membership?.role,
     context?.staff?.role,
   ]
-    .map((value) => text(value).toUpperCase())
+    .map((value) => upper(value))
     .filter(Boolean);
 
   return roles.some((role) => INTEGRATION_ROLES.has(role));
@@ -64,8 +69,46 @@ function forbidden() {
   );
 }
 
+async function platformManager() {
+  const { data: assets, error } = await supabaseAdmin
+    .from("organization_channel_assets")
+    .select("id,organization_id,connection_id,external_id,name,metadata")
+    .eq("channel_provider", PROVIDER)
+    .eq("asset_type", ASSET_TYPE)
+    .contains("metadata", { platform_manager: true, manager: true })
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+
+  const candidates = (assets || []).sort(
+    (a, b) =>
+      Number(b?.metadata?.manager_priority || 0) -
+      Number(a?.metadata?.manager_priority || 0)
+  );
+  const manager = candidates[0] || null;
+  if (!manager) return null;
+
+  const { data: connection, error: connectionError } = await supabaseAdmin
+    .from("organization_channel_connections")
+    .select("id,organization_id,status,credentials_reference,metadata")
+    .eq("id", manager.connection_id)
+    .eq("organization_id", manager.organization_id)
+    .eq("provider", PROVIDER)
+    .maybeSingle();
+
+  if (connectionError) throw connectionError;
+  if (!connection || upper(connection.status) !== "ACTIVE") return null;
+  if (!connection.credentials_reference) return null;
+
+  return {
+    ...manager,
+    connection,
+    customer_id: text(manager.external_id).replace(/\D/g, ""),
+  };
+}
+
 async function snapshot(organizationId) {
-  const [connectionResult, assetsResult, entitiesResult, service, wallet] =
+  const [connectionResult, assetsResult, entitiesResult, service, wallet, manager] =
     await Promise.all([
       supabaseAdmin
         .from("organization_channel_connections")
@@ -82,7 +125,7 @@ async function snapshot(organizationId) {
         .order("created_at", { ascending: true }),
       supabaseAdmin
         .from("legal_entities")
-        .select("id,organization_id,code,legal_name,display_name,is_default_accounting_entity,is_active")
+        .select("id,organization_id,code,legal_name,display_name,country,currency,timezone,is_default_accounting_entity,is_active")
         .eq("organization_id", organizationId)
         .eq("is_active", true)
         .order("is_default_accounting_entity", { ascending: false })
@@ -92,6 +135,7 @@ async function snapshot(organizationId) {
         service_id: SERVICE_ID,
       }).catch(() => null),
       WalletRepository.getByOrganization(organizationId).catch(() => null),
+      platformManager().catch(() => null),
     ]);
 
   if (connectionResult.error) throw connectionResult.error;
@@ -112,19 +156,49 @@ async function snapshot(organizationId) {
         }
       : null,
     platformReady: Boolean(process.env.GOOGLE_ADS_DEVELOPER_TOKEN),
+    platformManager: manager
+      ? {
+          ready: true,
+          asset_id: manager.id,
+          organization_id: manager.organization_id,
+          customer_id: manager.customer_id,
+          name: manager.name || "Avantiqo Manager",
+        }
+      : { ready: false },
   };
 }
 
-async function executionCurrency(organizationId) {
-  const wallet = await WalletRepository.getByOrganization(organizationId);
-  if (!wallet?.currency) {
-    throw new Error("An active organization wallet with a currency is required before Google Ads execution");
-  }
-  return text(wallet.currency).toUpperCase();
+async function executionCurrency(organizationId, preferredCurrency = null) {
+  if (upper(preferredCurrency)) return upper(preferredCurrency);
+
+  const wallet = await WalletRepository.getByOrganization(organizationId).catch(() => null);
+  if (wallet?.currency) return upper(wallet.currency);
+
+  const { data: entity, error } = await supabaseAdmin
+    .from("legal_entities")
+    .select("currency")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .not("currency", "is", null)
+    .order("is_default_accounting_entity", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (entity?.currency) return upper(entity.currency);
+
+  throw new Error(
+    "Complete the organization legal entity currency before Google Ads setup"
+  );
 }
 
-async function executeGoogleAds({ organizationId, entityId = null, input }) {
-  const currency = await executionCurrency(organizationId);
+async function executeGoogleAds({
+  organizationId,
+  entityId = null,
+  currency = null,
+  input,
+}) {
+  const resolvedCurrency = await executionCurrency(organizationId, currency);
   return ServiceExecutionRuntime.execute({
     organization_id: organizationId,
     entity_id: entityId,
@@ -133,7 +207,7 @@ async function executeGoogleAds({ organizationId, entityId = null, input }) {
     capability: CAPABILITY,
     input: {
       ...input,
-      currency,
+      currency: resolvedCurrency,
       quantity: 1,
     },
     category: "ADMINISTRATION",
@@ -145,7 +219,7 @@ async function executeGoogleAds({ organizationId, entityId = null, input }) {
 }
 
 async function discoverAccounts(organizationId, connection) {
-  if (!connection || text(connection.status).toUpperCase() !== "ACTIVE") {
+  if (!connection || upper(connection.status) !== "ACTIVE") {
     throw new Error("Google Ads is not connected");
   }
 
@@ -153,7 +227,7 @@ async function discoverAccounts(organizationId, connection) {
     organization_id: organizationId,
     service_id: SERVICE_ID,
   });
-  if (!service || text(service.status).toUpperCase() !== "ACTIVE") {
+  if (!service || upper(service.status) !== "ACTIVE") {
     throw new Error("Google Ads service is not active for this organization");
   }
 
@@ -225,6 +299,7 @@ async function discoverAccounts(organizationId, connection) {
         time_zone: details.timeZone || details.time_zone || null,
         manager: isManager,
         account_role: isManager ? "MANAGER" : "ADVERTISER",
+        account_source: existing?.metadata?.account_source || "CUSTOMER_AUTHORIZED",
         entity_id: entityId,
         discovery_error: details.discovery_error || null,
       },
@@ -248,6 +323,174 @@ async function discoverAccounts(organizationId, connection) {
   });
 
   return { accounts, connection: updatedConnection };
+}
+
+async function legalEntity(organizationId, entityId = null) {
+  let query = supabaseAdmin
+    .from("legal_entities")
+    .select("id,organization_id,code,legal_name,display_name,country,currency,timezone,is_default_accounting_entity,is_active")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true);
+
+  if (entityId) {
+    query = query.eq("id", entityId);
+  } else {
+    query = query.order("is_default_accounting_entity", { ascending: false }).limit(1);
+  }
+
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    throw new Error("Create an active Avantiqo legal entity before creating a Google Ads advertiser account");
+  }
+  if (!text(data.currency)) {
+    throw new Error("Complete the legal entity currency before creating a Google Ads advertiser account");
+  }
+  if (!text(data.timezone)) {
+    throw new Error("Complete the legal entity time zone before creating a Google Ads advertiser account");
+  }
+  return data;
+}
+
+async function delegatedCredential({ organizationId, manager }) {
+  const sourceCredentialId = manager?.connection?.credentials_reference;
+  if (!sourceCredentialId) throw new Error("Avantiqo Google Ads manager credential is unavailable");
+
+  const { data: existing, error } = await supabaseAdmin
+    .from("provider_credentials")
+    .select("id")
+    .eq("provider_id", PROVIDER)
+    .eq("credential_type", "delegated_oauth_token")
+    .eq("status", "ACTIVE")
+    .contains("metadata", {
+      organization_id: organizationId,
+      delegated_credential_id: sourceCredentialId,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (existing) return existing;
+
+  return CredentialRuntime.store({
+    provider_id: PROVIDER,
+    credential_type: "delegated_oauth_token",
+    secret_reference: "{}",
+    metadata: {
+      organization_id: organizationId,
+      delegated_credential_id: sourceCredentialId,
+      delegated_from_organization_id: manager.organization_id,
+      platform_manager_asset_id: manager.id,
+      login_customer_id: manager.customer_id,
+      purpose: "AVANTIQO_MANAGED_GOOGLE_ADS",
+    },
+  });
+}
+
+function createdCustomerId(output = {}) {
+  const candidates = [
+    output.resourceName,
+    output.resource_name,
+    output.clientCustomer,
+    output.client_customer,
+  ].map(text).filter(Boolean);
+
+  for (const candidate of candidates) {
+    const clientMatch = candidate.match(/customerClients\/(\d+)/i);
+    if (clientMatch?.[1]) return clientMatch[1];
+    const customerMatch = candidate.match(/customers\/(\d+)/i);
+    if (customerMatch?.[1] && !candidate.includes("customerClients/")) {
+      return customerMatch[1];
+    }
+  }
+
+  return null;
+}
+
+async function createManagedAdvertiser({ organizationId, entityId, partyId, connection }) {
+  if (!connection || upper(connection.status) !== "ACTIVE") {
+    throw new Error("Connect Google Ads before creating a managed advertiser account");
+  }
+
+  const current = await snapshot(organizationId);
+  const existingAdvertiser = current.accounts.find(
+    (account) => account?.metadata?.manager !== true
+  );
+  if (existingAdvertiser) {
+    throw new Error("This organization already has a Google Ads advertiser account");
+  }
+
+  const entity = await legalEntity(organizationId, entityId);
+  const manager = await platformManager();
+  if (!manager?.customer_id) {
+    throw new Error("Avantiqo managed Google Ads account creation is not configured yet");
+  }
+
+  const creation = await executeGoogleAds({
+    organizationId: manager.organization_id,
+    currency: manager.metadata?.currency_code || entity.currency,
+    input: {
+      action: "create_customer_client",
+      customer_id: manager.customer_id,
+      login_customer_id: manager.customer_id,
+      descriptive_name: entity.display_name || entity.legal_name || entity.code,
+      currency_code: upper(entity.currency),
+      time_zone: text(entity.timezone),
+    },
+  });
+
+  const output = creation?.output?.output || {};
+  const customerId = createdCustomerId(output);
+  if (!customerId) {
+    throw new Error("Google created the account but did not return a usable customer ID; refresh Ads accounts before retrying");
+  }
+
+  const delegation = await delegatedCredential({ organizationId, manager });
+  const now = new Date().toISOString();
+
+  await ChannelAssetRuntime.register({
+    organization_id: organizationId,
+    connection_id: connection.id,
+    provider: PROVIDER,
+    asset_type: ASSET_TYPE,
+    external_id: customerId,
+    name: entity.display_name || entity.legal_name || `Google Ads ${customerId}`,
+    entity_id: entity.id,
+    selected_by_party_id: partyId || null,
+    selected_at: now,
+    metadata: {
+      customer_id: customerId,
+      currency_code: upper(entity.currency),
+      time_zone: text(entity.timezone),
+      manager: false,
+      account_role: "ADVERTISER",
+      account_source: "AVANTIQO_MANAGED_CREATED",
+      managed_by_avantiqo: true,
+      entity_id: entity.id,
+      login_customer_id: manager.customer_id,
+      platform_manager_asset_id: manager.id,
+      delegated_credential_id: delegation.id,
+      created_by_party_id: partyId || null,
+      created_at: now,
+    },
+  });
+
+  const refreshed = await snapshot(organizationId);
+  await ChannelConnectionRuntime.connect({
+    organization_id: organizationId,
+    provider: PROVIDER,
+    channel_type: connection.channel_type || "advertising",
+    credentials_reference: connection.credentials_reference,
+    metadata: {
+      ...(connection.metadata || {}),
+      account_count: refreshed.accounts.length,
+      account_discovery_status: "READY",
+      managed_account_created_at: now,
+      managed_account_customer_id: customerId,
+    },
+  });
+
+  return { customerId, entity, manager, delegation };
 }
 
 export async function GET(request) {
@@ -329,6 +572,26 @@ export async function POST(request) {
       });
     }
 
+    if (action === "create-managed-account") {
+      const connection = await ChannelConnectionRuntime.get({
+        organization_id: context.organizationId,
+        provider: PROVIDER,
+      });
+      await createManagedAdvertiser({
+        organizationId: context.organizationId,
+        entityId: text(body.entityId || body.entity_id) || null,
+        partyId: context.staff?.party_id || null,
+        connection,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Managed Google Ads advertiser account created and mapped.",
+        organizationId: context.organizationId,
+        ...(await snapshot(context.organizationId)),
+      });
+    }
+
     if (action === "map-account") {
       const assetId = text(body.assetId || body.asset_id);
       const entityId = text(body.entityId || body.entity_id);
@@ -339,20 +602,7 @@ export async function POST(request) {
         );
       }
 
-      const { data: entity, error: entityError } = await supabaseAdmin
-        .from("legal_entities")
-        .select("id")
-        .eq("id", entityId)
-        .eq("organization_id", context.organizationId)
-        .eq("is_active", true)
-        .maybeSingle();
-      if (entityError) throw entityError;
-      if (!entity) {
-        return NextResponse.json(
-          { success: false, error: "Entity is not available for this organization" },
-          { status: 400 }
-        );
-      }
+      const entity = await legalEntity(context.organizationId, entityId);
 
       const { data: asset, error: assetError } = await supabaseAdmin
         .from("organization_channel_assets")
@@ -374,6 +624,18 @@ export async function POST(request) {
           {
             success: false,
             error: "Google Ads manager accounts control advertiser accounts and are not mapped to business entities",
+          },
+          { status: 400 }
+        );
+      }
+      if (
+        asset?.metadata?.currency_code &&
+        upper(asset.metadata.currency_code) !== upper(entity.currency)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Google Ads account currency ${upper(asset.metadata.currency_code)} does not match entity currency ${upper(entity.currency)}`,
           },
           { status: 400 }
         );
@@ -435,8 +697,23 @@ export async function POST(request) {
       { status: 400 }
     );
   } catch (error) {
+    const message = error?.message || "Google Ads integration action failed";
+    const lower = message.toLowerCase();
+    const creationRestricted =
+      lower.includes("createcustomerclient") ||
+      lower.includes("permission_denied") ||
+      lower.includes("not allowed to create") ||
+      lower.includes("not eligible") ||
+      lower.includes("historical spend");
+
     return NextResponse.json(
-      { success: false, error: error?.message || "Google Ads integration action failed" },
+      {
+        success: false,
+        error: creationRestricted
+          ? "Google does not currently permit API-created advertiser accounts for the Avantiqo manager. Connect an existing advertiser account, or use Google’s one-time account setup until manager eligibility is available."
+          : message,
+        code: creationRestricted ? "GOOGLE_ADS_MANAGED_ACCOUNT_CREATION_RESTRICTED" : null,
+      },
       { status: 500 }
     );
   }

@@ -1,5 +1,5 @@
 Production deployment trigger
 
-Requested: 2026-08-10T12:41:00+07:00
-Purpose: Deploy current main including Party-centric customer actions for quotations, sales orders, Finance statements and collections, and Commercial Loyalty adjustments/redemptions.
+Requested: 2026-08-10T13:00:00+07:00
+Purpose: Deploy current main including Staff Portal role-aware login routing, upcoming roster, attendance history, canonical shift runtime, and payroll self-service visibility.
 Policy: Update this file only for deliberate production deployments.

@@ -55,6 +55,10 @@ function tokenDigest(value) {
   return crypto.createHash("sha256").update(String(value || "")).digest();
 }
 
+function tokenDigestHex(value) {
+  return crypto.createHash("sha256").update(String(value || "")).digest("hex");
+}
+
 function safeTokenMatch(provided, expectedHex) {
   const expected = text(expectedHex);
   if (!provided || !/^[a-f0-9]{64}$/i.test(expected)) return false;
@@ -73,13 +77,6 @@ function currentPriceCeiling(task = {}) {
     task.metadata?.perceptual_review_spend_ceiling_thb ??
     task.cost?.estimated,
   );
-}
-
-function expiryEpochMs(metadata = {}) {
-  const explicit = number(metadata.one_time_execution_expires_epoch_ms);
-  if (explicit !== null) return explicit;
-  const parsed = Date.parse(text(metadata.one_time_execution_expires_at));
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function assertTaskBoundary(task = {}) {
@@ -143,6 +140,49 @@ async function installPerceptualRuntime() {
   await import("@/lib/creative/quality/runtime/CreativeGeneratedMediaRecoveryBootstrap");
 }
 
+async function claimExecution(token, task) {
+  const metadata = executionMetadata(task);
+  if (!safeTokenMatch(token, metadata.one_time_execution_token_sha256)) {
+    return { claimed: null, error: "ONE_TIME_TOKEN_INVALID", status: 401 };
+  }
+
+  const { data, error } = await supabaseAdmin.rpc(
+    "claim_creative_one_time_task_execution",
+    {
+      p_task_id: REVIEW_TASK_ID,
+      p_token_sha256: tokenDigestHex(token),
+      p_execution_contract: EXECUTION_CONTRACT,
+    },
+  );
+  if (error) throw error;
+
+  const claimed = Array.isArray(data) ? data[0] : data;
+  if (claimed?.id) return { claimed, error: null, status: 200 };
+
+  const fresh = await ProductionTaskRuntime.get(REVIEW_TASK_ID);
+  const freshMetadata = executionMetadata(fresh);
+  if (freshMetadata.one_time_execution_consumed_at) {
+    return {
+      claimed: null,
+      error: "ONE_TIME_EXECUTION_ALREADY_CONSUMED",
+      status: 409,
+      consumed_at: freshMetadata.one_time_execution_consumed_at,
+    };
+  }
+  if (fresh?.status !== "WAITING") {
+    return {
+      claimed: null,
+      error: `SMOKE_REVIEW_NOT_WAITING:${fresh?.status || "UNKNOWN"}`,
+      status: 409,
+    };
+  }
+  return {
+    claimed: null,
+    error: "ONE_TIME_EXECUTION_EXPIRED_OR_NOT_CLAIMABLE",
+    status: 410,
+  };
+}
+
 export async function GET(request) {
   try {
     const token = text(new URL(request.url).searchParams.get("token"));
@@ -168,14 +208,6 @@ export async function GET(request) {
         consumed_at: metadata.one_time_execution_consumed_at,
       }, 409);
     }
-
-    const expiresAt = expiryEpochMs(metadata);
-    if (expiresAt === null || expiresAt <= Date.now()) {
-      return json({ success: false, error: "ONE_TIME_EXECUTION_EXPIRED" }, 410);
-    }
-    if (!safeTokenMatch(token, metadata.one_time_execution_token_sha256)) {
-      return json({ success: false, error: "ONE_TIME_TOKEN_INVALID" }, 401);
-    }
     if (task.status !== "WAITING") {
       return json({
         success: false,
@@ -185,33 +217,16 @@ export async function GET(request) {
 
     await installPerceptualRuntime();
 
-    const consumedAt = new Date().toISOString();
-    const claimedMetadata = {
-      ...metadata,
-      one_time_execution_consumed_at: consumedAt,
-      one_time_execution_token_validated: true,
-      one_time_execution_requested_via: "VERCEL_PRODUCTION_SMOKE_GATE",
-      one_time_execution_publication_authorized: false,
-      one_time_execution_media_regeneration_authorized: false,
-      private_media_url_ttl_seconds: Number(PRIVATE_MEDIA_URL_TTL_SECONDS),
-    };
-
-    const { data: claimed, error: claimError } = await supabaseAdmin
-      .from("creative_production_tasks")
-      .update({
-        status: "READY",
-        metadata: claimedMetadata,
-      })
-      .eq("id", REVIEW_TASK_ID)
-      .eq("status", "WAITING")
-      .select("id,status,metadata")
-      .maybeSingle();
-
-    if (claimError) throw claimError;
-    if (!claimed?.id) {
-      return json({ success: false, error: "ONE_TIME_EXECUTION_CLAIM_FAILED" }, 409);
+    const claim = await claimExecution(token, task);
+    if (!claim.claimed) {
+      return json({
+        success: false,
+        error: claim.error,
+        consumed_at: claim.consumed_at || null,
+      }, claim.status);
     }
 
+    const consumedAt = claim.claimed.metadata?.one_time_execution_consumed_at || null;
     const result = await ProductionTaskRuntime.dispatch(REVIEW_TASK_ID);
     const validation =
       result?.output?.perceptual_validation ||

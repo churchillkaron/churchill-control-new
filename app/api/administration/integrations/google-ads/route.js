@@ -182,7 +182,6 @@ async function discoverAccounts(organizationId, connection) {
           customer_id: customerId,
           query:
             "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.manager FROM customer LIMIT 1",
-          page_size: 1,
         },
       });
       const detailOutput = detailExecution?.output?.output || {};
@@ -200,7 +199,10 @@ async function discoverAccounts(organizationId, connection) {
       asset_type: ASSET_TYPE,
       external_id: customerId,
     });
-    const entityId = existing?.entity_id || existing?.metadata?.entity_id || null;
+    const isManager = details.manager === true;
+    const entityId = isManager
+      ? null
+      : existing?.entity_id || existing?.metadata?.entity_id || null;
 
     const asset = await ChannelAssetRuntime.register({
       organization_id: organizationId,
@@ -214,14 +216,15 @@ async function discoverAccounts(organizationId, connection) {
         existing?.name ||
         `Google Ads ${customerId}`,
       entity_id: entityId,
-      selected_by_party_id: existing?.selected_by_party_id || null,
-      selected_at: existing?.selected_at || null,
+      selected_by_party_id: isManager ? null : existing?.selected_by_party_id || null,
+      selected_at: isManager ? null : existing?.selected_at || null,
       metadata: {
         ...(existing?.metadata || {}),
         customer_id: customerId,
         currency_code: details.currencyCode || details.currency_code || null,
         time_zone: details.timeZone || details.time_zone || null,
-        manager: details.manager === true,
+        manager: isManager,
+        account_role: isManager ? "MANAGER" : "ADVERTISER",
         entity_id: entityId,
         discovery_error: details.discovery_error || null,
       },
@@ -293,14 +296,17 @@ export async function POST(request) {
       await discoverAccounts(context.organizationId, connection);
 
       const current = await snapshot(context.organizationId);
+      const advertiserAccounts = current.accounts.filter(
+        (account) => account?.metadata?.manager !== true
+      );
       if (
-        current.accounts.length === 1 &&
+        advertiserAccounts.length === 1 &&
         current.entities.length === 1 &&
-        !current.accounts[0].entity_id
+        !advertiserAccounts[0].entity_id
       ) {
         const now = new Date().toISOString();
         const partyId = context.staff?.party_id || null;
-        const account = current.accounts[0];
+        const account = advertiserAccounts[0];
         const entity = current.entities[0];
         const { error } = await supabaseAdmin
           .from("organization_channel_assets")
@@ -361,6 +367,15 @@ export async function POST(request) {
         return NextResponse.json(
           { success: false, error: "Google Ads account was not found" },
           { status: 404 }
+        );
+      }
+      if (asset?.metadata?.manager === true) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Google Ads manager accounts control advertiser accounts and are not mapped to business entities",
+          },
+          { status: 400 }
         );
       }
 

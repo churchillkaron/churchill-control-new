@@ -15,6 +15,9 @@ const nextConfig = {
 
   experimental: {
     optimizePackageImports: [],
+    outputFileTracingIncludes: {
+      "/*": ["./.avantiqo/bin/ffmpeg"],
+    },
   },
 
   images: {

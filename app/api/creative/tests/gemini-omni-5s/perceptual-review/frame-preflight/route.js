@@ -192,6 +192,7 @@ export async function GET() {
       prepared: contract.prepared === true,
       frame_count: Number(contract.frame_count || 0),
       frame_asset_count: frameAssets.length,
+      source_transport: contract.source_transport || null,
       source_duration_seconds: Number(contract.source_duration_seconds || 0),
       source_duration_basis: contract.source_duration_basis || null,
       source_file_size_bytes: Number(contract.source_file_size_bytes || 0),

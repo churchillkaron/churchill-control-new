@@ -16,6 +16,7 @@ const PROVIDER = "google_ads";
 const ASSET_TYPE = "google_ads_customer";
 const SERVICE_ID = "google-ads";
 const CAPABILITY = "marketing.google.ads.manage";
+const MANAGED_CONNECTION_MODEL = "AVANTIQO_MANAGED_ADVERTISER";
 const INTEGRATION_ROLES = new Set([
   "OWNER",
   "ORGANIZATION_OWNER",
@@ -112,7 +113,7 @@ async function snapshot(organizationId) {
     await Promise.all([
       supabaseAdmin
         .from("organization_channel_connections")
-        .select("id,organization_id,provider,channel_type,status,metadata,authorized_by_party_id,authorized_at,created_at,updated_at")
+        .select("id,organization_id,provider,channel_type,status,credentials_reference,metadata,authorized_by_party_id,authorized_at,created_at,updated_at")
         .eq("organization_id", organizationId)
         .eq("provider", PROVIDER)
         .maybeSingle(),
@@ -352,6 +353,40 @@ async function legalEntity(organizationId, entityId = null) {
   return data;
 }
 
+async function ensureManagedGoogleAdsService(organizationId) {
+  const existing = await OrganizationServiceRuntime.get({
+    organization_id: organizationId,
+    service_id: SERVICE_ID,
+  }).catch(() => null);
+
+  if (existing && upper(existing.status) === "ACTIVE") return existing;
+
+  return OrganizationServiceRuntime.save({
+    ...(existing || {}),
+    organization_id: organizationId,
+    service_category_id: existing?.service_category_id || "marketing-social",
+    service_id: SERVICE_ID,
+    package_id: existing?.package_id || "growth",
+    status: "ACTIVE",
+    managed_by: existing?.managed_by || "avantiqo",
+    authorization_required: false,
+    usage_enabled: true,
+    billing_enabled: true,
+    billing_mode: "PREPAID_MANAGED_MEDIA",
+    pricing_mode: "PROVIDER",
+    fallback_enabled: true,
+    activated_at: existing?.activated_at || new Date().toISOString(),
+    metadata: {
+      ...(existing?.metadata || {}),
+      provider: PROVIDER,
+      connection_model: MANAGED_CONNECTION_MODEL,
+      provider_billed_to: "AVANTIQO",
+      customer_payment_source: "AVANTIQO_PREPAID_WALLET",
+    },
+    configuration: existing?.configuration || {},
+  });
+}
+
 async function delegatedCredential({ organizationId, manager }) {
   const sourceCredentialId = manager?.connection?.credentials_reference;
   if (!sourceCredentialId) throw new Error("Avantiqo Google Ads manager credential is unavailable");
@@ -407,17 +442,17 @@ function createdCustomerId(output = {}) {
   return null;
 }
 
-async function createManagedAdvertiser({ organizationId, entityId, partyId, connection }) {
-  if (!connection || upper(connection.status) !== "ACTIVE") {
-    throw new Error("Connect Google Ads before creating a managed advertiser account");
-  }
-
+async function createManagedAdvertiser({ organizationId, entityId, partyId }) {
   const current = await snapshot(organizationId);
   const existingAdvertiser = current.accounts.find(
     (account) => account?.metadata?.manager !== true
   );
   if (existingAdvertiser) {
     throw new Error("This organization already has a Google Ads advertiser account");
+  }
+
+  if (!process.env.GOOGLE_ADS_DEVELOPER_TOKEN) {
+    throw new Error("Avantiqo Google Ads provider configuration is not ready");
   }
 
   const entity = await legalEntity(organizationId, entityId);
@@ -447,10 +482,30 @@ async function createManagedAdvertiser({ organizationId, entityId, partyId, conn
 
   const delegation = await delegatedCredential({ organizationId, manager });
   const now = new Date().toISOString();
+  const managedConnection = await ChannelConnectionRuntime.connect({
+    organization_id: organizationId,
+    provider: PROVIDER,
+    channel_type: "advertising",
+    credentials_reference: delegation.id,
+    metadata: {
+      connection_model: MANAGED_CONNECTION_MODEL,
+      managed_by_avantiqo: true,
+      provider_billed_to: "AVANTIQO",
+      customer_payment_source: "AVANTIQO_PREPAID_WALLET",
+      login_customer_id: manager.customer_id,
+      platform_manager_asset_id: manager.id,
+      delegated_credential_id: delegation.id,
+      account_count: 1,
+      account_discovery_status: "READY",
+      managed_account_created_at: now,
+      managed_account_customer_id: customerId,
+      activated_by_party_id: partyId || null,
+    },
+  });
 
   await ChannelAssetRuntime.register({
     organization_id: organizationId,
-    connection_id: connection.id,
+    connection_id: managedConnection.id,
     provider: PROVIDER,
     asset_type: ASSET_TYPE,
     external_id: customerId,
@@ -470,27 +525,16 @@ async function createManagedAdvertiser({ organizationId, entityId, partyId, conn
       login_customer_id: manager.customer_id,
       platform_manager_asset_id: manager.id,
       delegated_credential_id: delegation.id,
+      provider_billed_to: "AVANTIQO",
+      customer_payment_source: "AVANTIQO_PREPAID_WALLET",
       created_by_party_id: partyId || null,
       created_at: now,
     },
   });
 
-  const refreshed = await snapshot(organizationId);
-  await ChannelConnectionRuntime.connect({
-    organization_id: organizationId,
-    provider: PROVIDER,
-    channel_type: connection.channel_type || "advertising",
-    credentials_reference: connection.credentials_reference,
-    metadata: {
-      ...(connection.metadata || {}),
-      account_count: refreshed.accounts.length,
-      account_discovery_status: "READY",
-      managed_account_created_at: now,
-      managed_account_customer_id: customerId,
-    },
-  });
+  await ensureManagedGoogleAdsService(organizationId);
 
-  return { customerId, entity, manager, delegation };
+  return { customerId, entity, manager, delegation, connection: managedConnection };
 }
 
 export async function GET(request) {
@@ -573,15 +617,10 @@ export async function POST(request) {
     }
 
     if (action === "create-managed-account") {
-      const connection = await ChannelConnectionRuntime.get({
-        organization_id: context.organizationId,
-        provider: PROVIDER,
-      });
       await createManagedAdvertiser({
         organizationId: context.organizationId,
         entityId: text(body.entityId || body.entity_id) || null,
         partyId: context.staff?.party_id || null,
-        connection,
       });
 
       return NextResponse.json({
@@ -710,7 +749,7 @@ export async function POST(request) {
       {
         success: false,
         error: creationRestricted
-          ? "Google does not currently permit API-created advertiser accounts for the Avantiqo manager. Connect an existing advertiser account, or use Google’s one-time account setup until manager eligibility is available."
+          ? "Google does not currently permit API-created advertiser accounts for the Avantiqo manager. Avantiqo platform setup must be completed before managed customer onboarding can continue; the customer does not need to authorize Google."
           : message,
         code: creationRestricted ? "GOOGLE_ADS_MANAGED_ACCOUNT_CREATION_RESTRICTED" : null,
       },

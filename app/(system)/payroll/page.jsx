@@ -5,7 +5,9 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Banknote,
+  CalendarClock,
   CheckCircle2,
   ClipboardCheck,
   RefreshCw,
@@ -28,8 +30,10 @@ function money(value) {
 export default function PayrollPage() {
   const [governance, setGovernance] = useState(null);
   const [payments, setPayments] = useState(null);
+  const [readiness, setReadiness] = useState(null);
   const [payrollMonth, setPayrollMonth] = useState(currentPayrollMonth());
   const [loading, setLoading] = useState(true);
+  const [readinessLoading, setReadinessLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -77,9 +81,38 @@ export default function PayrollPage() {
     }
   }
 
+  async function loadReadiness(month = payrollMonth) {
+    if (!/^\d{4}-\d{2}$/.test(month)) return;
+
+    setReadinessLoading(true);
+
+    try {
+      const response = await fetch(
+        `/api/payroll/readiness?payrollMonth=${encodeURIComponent(month)}`,
+        { cache: "no-store" }
+      );
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to load payroll readiness");
+      }
+
+      setReadiness(result.readiness || null);
+    } catch (readinessError) {
+      setReadiness(null);
+      setError(readinessError?.message || "Unable to load payroll readiness");
+    } finally {
+      setReadinessLoading(false);
+    }
+  }
+
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    loadReadiness(payrollMonth);
+  }, [payrollMonth]);
 
   const summary = useMemo(() => {
     const rows = governance?.payroll || [];
@@ -97,9 +130,18 @@ export default function PayrollPage() {
     };
   }, [governance, payments]);
 
+  async function refreshAll() {
+    await Promise.all([load(), loadReadiness(payrollMonth)]);
+  }
+
   async function generatePayroll() {
     if (!/^\d{4}-\d{2}$/.test(payrollMonth)) {
       setError("Payroll month must use YYYY-MM.");
+      return;
+    }
+
+    if (!readiness?.canGenerate) {
+      setError("Resolve the payroll readiness blockers before generating payroll.");
       return;
     }
 
@@ -116,11 +158,12 @@ export default function PayrollPage() {
       const result = await response.json();
 
       if (!response.ok || !result?.success) {
+        if (result?.readiness) setReadiness(result.readiness);
         throw new Error(result?.error || "Unable to generate payroll");
       }
 
       setMessage(`Payroll generated for ${payrollMonth}.`);
-      await load();
+      await refreshAll();
     } catch (generateError) {
       setError(generateError?.message || "Unable to generate payroll");
     } finally {
@@ -129,6 +172,11 @@ export default function PayrollPage() {
   }
 
   const paymentRestricted = payments?.restricted === true;
+  const generationBlocked =
+    generating || readinessLoading || !readiness || !readiness.canGenerate;
+  const directoryHref = readiness?.organizationId
+    ? `/workspace/${readiness.organizationId}/people/directory`
+    : "/staff";
 
   return (
     <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
@@ -142,13 +190,13 @@ export default function PayrollPage() {
               </div>
               <h1 className="mt-3 text-4xl font-black">Payroll Control Center</h1>
               <p className="mt-2 max-w-3xl text-sm text-white/45">
-                One lifecycle from payroll generation to employee acknowledgement, management approval, accounting lock, payment and reconciliation.
+                One lifecycle from payroll readiness and generation to employee acknowledgement, management approval, accounting lock, payment and reconciliation.
               </p>
               <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
                 {payments?.entity?.legal_name || "Organization payroll"} · {governance?.role || payments?.role || "Role"}
               </div>
             </div>
-            <button type="button" onClick={load} disabled={loading} className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40">
+            <button type="button" onClick={refreshAll} disabled={loading || readinessLoading} className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40">
               <RefreshCw className="h-4 w-4" /> Refresh
             </button>
           </div>
@@ -176,8 +224,8 @@ export default function PayrollPage() {
             </div>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <input type="month" value={payrollMonth} onChange={(event) => setPayrollMonth(event.target.value)} className="h-12 flex-1 rounded-xl border border-white/10 bg-[#111] px-4 text-sm outline-none" />
-              <button type="button" onClick={generatePayroll} disabled={generating} className="h-12 rounded-xl bg-[#D6A66A] px-6 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40">
-                {generating ? "Generating..." : "Generate payroll"}
+              <button type="button" onClick={generatePayroll} disabled={generationBlocked} className="h-12 rounded-xl bg-[#D6A66A] px-6 text-xs font-black uppercase tracking-[0.16em] text-black disabled:cursor-not-allowed disabled:opacity-35">
+                {generating ? "Generating..." : readinessLoading ? "Checking..." : "Generate payroll"}
               </button>
             </div>
           </div>
@@ -193,6 +241,64 @@ export default function PayrollPage() {
               <Mini label="Locked Ready" value={payments?.lockedPayroll?.length || 0} />
             </div>
           </div>
+        </section>
+
+        <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className={`rounded-2xl p-3 ${readiness?.canGenerate ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-300"}`}>
+                {readiness?.canGenerate ? <CheckCircle2 className="h-5 w-5" /> : <CalendarClock className="h-5 w-5" />}
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Payroll readiness · {payrollMonth}</div>
+                <h2 className="mt-1 text-2xl font-black">
+                  {readinessLoading ? "Checking payroll inputs" : readiness?.canGenerate ? "Ready to generate" : "Action required before payroll"}
+                </h2>
+                <p className="mt-2 text-sm text-white/40">
+                  Generation is server-blocked until required compensation, payroll configuration, schedule coverage and period-close checks pass.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href={directoryHref} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Staff & Pay</Link>
+              <Link href="/schedule" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Schedule</Link>
+              <Link href="/settings/payroll" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Payroll Settings</Link>
+            </div>
+          </div>
+
+          {readiness ? (
+            <>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <Mini label="Active Staff" value={readiness.summary?.activeStaff || 0} />
+                <Mini label="Paid Staff" value={readiness.summary?.paidStaff || 0} />
+                <Mini label="Scheduled Staff" value={readiness.summary?.scheduledStaff || 0} />
+                <Mini label="Shift Staff" value={readiness.summary?.shiftStaff || 0} />
+                <Mini label="Attendance Staff" value={readiness.summary?.attendanceStaff || 0} />
+              </div>
+
+              {readiness.blockers?.length ? (
+                <div className="mt-5 space-y-2">
+                  {readiness.blockers.map((item) => (
+                    <div key={item.code} className="flex gap-3 rounded-2xl border border-red-500/15 bg-red-500/[0.07] px-4 py-3">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
+                      <div><div className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300">{item.code.replaceAll("_", " ")}</div><div className="mt-1 text-sm text-red-100/75">{item.message}</div></div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {readiness.warnings?.length ? (
+                <div className="mt-3 space-y-2">
+                  {readiness.warnings.map((item) => (
+                    <div key={item.code} className="flex gap-3 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] px-4 py-3">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                      <div><div className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-300">Review warning</div><div className="mt-1 text-sm text-amber-100/70">{item.message}</div></div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">

@@ -12,7 +12,7 @@ const TARGET_DIR = path.resolve(process.cwd(), ".avantiqo/bin");
 const TARGET_PATH = path.join(TARGET_DIR, "ffmpeg");
 const DOWNLOAD_URL = `https://github.com/shaka-project/static-ffmpeg-binaries/releases/download/${RELEASE}/ffmpeg-${PLATFORM}-${ARCH}`;
 const EXPECTED_SHA256 = {
-  "linux:x64": "9eac5b2b8ab1070962d1e7909b8dcbbbedcbf0bd3cd08ef1d23bcd264fdcf1ee",
+  "linux:x64": "9eac5b2b5076db5ff853a6fa0dcd6b8de7d0cac8481eadda6c47cd935825f1ee",
 };
 
 function expectedChecksum() {
@@ -48,7 +48,13 @@ async function download(expected) {
 
   await fs.mkdir(TARGET_DIR, { recursive: true });
   const temporaryPath = `${TARGET_PATH}.download`;
-  await pipeline(Readable.fromWeb(response.body), await fs.open(temporaryPath, "w").then((handle) => handle.createWriteStream()));
+  const handle = await fs.open(temporaryPath, "w");
+  try {
+    await pipeline(Readable.fromWeb(response.body), handle.createWriteStream());
+  } finally {
+    await handle.close().catch(() => {});
+  }
+
   const actual = await checksum(temporaryPath);
   if (actual !== expected) {
     await fs.rm(temporaryPath, { force: true });

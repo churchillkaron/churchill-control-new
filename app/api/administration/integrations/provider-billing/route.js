@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
 import { ProviderBillingRuntime } from "@/lib/platform/service-runtime/billing/runtime/ProviderBillingRuntime";
+import { ProviderSupplierAccountRuntime } from "@/lib/platform/service-runtime/billing/runtime/ProviderSupplierAccountRuntime";
 import { ServiceExecutionRuntime } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -194,6 +195,41 @@ async function googleAdsBillingSnapshot() {
   };
 }
 
+function mergeGoogleAdsReadiness(providerBilling, googleAds) {
+  const providers = (providerBilling.providers || []).map((provider) => {
+    if (provider.id !== GOOGLE_ADS_PROVIDER) return provider;
+
+    const baseReady = provider.service_cost_control_ready === true;
+    const ready = baseReady && googleAds.ready === true;
+    return {
+      ...provider,
+      google_payments_account_ready: googleAds.ready === true,
+      service_cost_control_ready: ready,
+      billing_status: ready
+        ? "READY"
+        : baseReady
+          ? "GOOGLE_PAYMENTS_ACCOUNT_REQUIRED"
+          : provider.billing_status,
+      billing_blocker: ready
+        ? null
+        : baseReady
+          ? googleAds.blocker || "AVANTIQO_GOOGLE_ADS_PAYMENTS_ACCOUNT_REQUIRED"
+          : provider.billing_blocker,
+    };
+  });
+
+  return {
+    ...providerBilling,
+    providers,
+    summary: {
+      ...(providerBilling.summary || {}),
+      service_cost_control_ready: providers.filter(
+        (provider) => provider.service_cost_control_ready,
+      ).length,
+    },
+  };
+}
+
 async function completeSnapshot() {
   const [providerBilling, googleAds] = await Promise.all([
     ProviderBillingRuntime.snapshot(),
@@ -208,7 +244,7 @@ async function completeSnapshot() {
   ]);
 
   return {
-    ...providerBilling,
+    ...mergeGoogleAdsReadiness(providerBilling, googleAds),
     supplier_accounts: {
       google_ads: googleAds,
     },
@@ -240,6 +276,99 @@ export async function GET() {
   }
 }
 
+async function saveProviderSupplierAccount({ body, access }) {
+  const provider = text(body.provider).toLowerCase();
+  if (!provider) throw new Error("provider is required");
+
+  const adapter = ProviderBillingRuntime.assertProvider(provider);
+  const billingMode =
+    provider === "google_ads" || provider === "meta"
+      ? "MANAGED_MEDIA_INVOICE_OR_CHARGE"
+      : "SUPPLIER_INVOICE_OR_CHARGE";
+
+  await ProviderSupplierAccountRuntime.save({
+    provider_id: provider,
+    payer_entity_id: body.payer_entity_id || body.payerEntityId,
+    supplier_party_id: body.supplier_party_id || body.supplierPartyId,
+    billing_mode: billingMode,
+    currency: body.currency || null,
+    status: "ACTIVE",
+    configuration: body.configuration || {},
+    metadata: {
+      configured_by: access.staff?.id || null,
+      configured_at: new Date().toISOString(),
+      adapter_id: adapter.adapter_id,
+      supplier_cost_source: adapter.supplier_cost_source,
+    },
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: "Avantiqo provider supplier account saved.",
+    ...(await completeSnapshot()),
+  });
+}
+
+async function selectGooglePaymentsAccount({ body, access }) {
+  const resourceName = text(
+    body.paymentsAccountResourceName || body.payments_account_resource_name,
+  );
+  if (!resourceName) {
+    return NextResponse.json(
+      { success: false, error: "paymentsAccountResourceName is required" },
+      { status: 400 },
+    );
+  }
+
+  const manager = await avantiqoGoogleAdsManager();
+  if (!manager?.customer_id) {
+    throw new Error("Avantiqo Google Ads manager is not ready");
+  }
+
+  const service = await googleAdsService(manager);
+  if (!service || upper(service.status) !== "ACTIVE") {
+    throw new Error("Avantiqo Google Ads service is not active");
+  }
+
+  const accounts = await discoverGooglePaymentsAccounts(manager);
+  const selected = accounts.find(
+    (account) => account.resource_name === resourceName,
+  );
+  if (!selected) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Selected Google Payments account is not available to the Avantiqo manager",
+      },
+      { status: 400 },
+    );
+  }
+
+  await OrganizationServiceRuntime.save({
+    ...service,
+    configuration: {
+      ...(service.configuration || {}),
+      google_ads_payments_account_resource_name: selected.resource_name,
+      google_ads_payments_account_id: selected.payments_account_id || null,
+      google_ads_payments_profile_id: selected.payments_profile_id || null,
+      google_ads_payments_account_name: selected.payments_account_name || null,
+    },
+    metadata: {
+      ...(service.metadata || {}),
+      provider_billed_to: "AVANTIQO",
+      google_ads_billing_model: "MONTHLY_INVOICING",
+      google_ads_payments_account_selected_at: new Date().toISOString(),
+      google_ads_payments_account_selected_by: access.staff?.id || null,
+    },
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: "Avantiqo Google Payments account selected.",
+    ...(await completeSnapshot()),
+  });
+}
+
 export async function POST(request) {
   try {
     const access = await requirePlatformAdminAccess();
@@ -254,70 +383,18 @@ export async function POST(request) {
     const provider = text(body.provider).toLowerCase();
     const action = text(body.action).toLowerCase();
 
-    if (provider !== GOOGLE_ADS_PROVIDER || action !== "select-payments-account") {
-      return NextResponse.json(
-        { success: false, error: "Unsupported provider billing action" },
-        { status: 400 },
-      );
+    if (action === "save-supplier-account") {
+      return saveProviderSupplierAccount({ body, access });
     }
 
-    const resourceName = text(
-      body.paymentsAccountResourceName || body.payments_account_resource_name,
+    if (provider === GOOGLE_ADS_PROVIDER && action === "select-payments-account") {
+      return selectGooglePaymentsAccount({ body, access });
+    }
+
+    return NextResponse.json(
+      { success: false, error: "Unsupported provider billing action" },
+      { status: 400 },
     );
-    if (!resourceName) {
-      return NextResponse.json(
-        { success: false, error: "paymentsAccountResourceName is required" },
-        { status: 400 },
-      );
-    }
-
-    const manager = await avantiqoGoogleAdsManager();
-    if (!manager?.customer_id) {
-      throw new Error("Avantiqo Google Ads manager is not ready");
-    }
-
-    const service = await googleAdsService(manager);
-    if (!service || upper(service.status) !== "ACTIVE") {
-      throw new Error("Avantiqo Google Ads service is not active");
-    }
-
-    const accounts = await discoverGooglePaymentsAccounts(manager);
-    const selected = accounts.find(
-      (account) => account.resource_name === resourceName,
-    );
-    if (!selected) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Selected Google Payments account is not available to the Avantiqo manager",
-        },
-        { status: 400 },
-      );
-    }
-
-    await OrganizationServiceRuntime.save({
-      ...service,
-      configuration: {
-        ...(service.configuration || {}),
-        google_ads_payments_account_resource_name: selected.resource_name,
-        google_ads_payments_account_id: selected.payments_account_id || null,
-        google_ads_payments_profile_id: selected.payments_profile_id || null,
-        google_ads_payments_account_name: selected.payments_account_name || null,
-      },
-      metadata: {
-        ...(service.metadata || {}),
-        provider_billed_to: "AVANTIQO",
-        google_ads_billing_model: "MONTHLY_INVOICING",
-        google_ads_payments_account_selected_at: new Date().toISOString(),
-        google_ads_payments_account_selected_by: access.staff?.id || null,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Avantiqo Google Payments account selected.",
-      ...(await completeSnapshot()),
-    });
   } catch (error) {
     return NextResponse.json(
       {

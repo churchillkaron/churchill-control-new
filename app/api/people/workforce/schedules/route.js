@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+// Manager scheduling is trusted server-side workforce administration.
 import { NextResponse } from "next/server";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -75,7 +76,9 @@ export async function GET(request) {
     const ctx = await managementContext(request);
     if (ctx.response) return ctx.response;
 
-    const month = new URL(request.url).searchParams.get("month") || new Date().toISOString().slice(0, 7);
+    const month =
+      new URL(request.url).searchParams.get("month") ||
+      new Date().toISOString().slice(0, 7);
     const range = monthRange(month);
 
     const [staffResult, scheduleResult] = await Promise.all([

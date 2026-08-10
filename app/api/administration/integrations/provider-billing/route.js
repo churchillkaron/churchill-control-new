@@ -294,7 +294,6 @@ async function saveProviderSupplierAccount({ body, access }) {
     supplier_party_id: body.supplier_party_id || body.supplierPartyId,
     billing_mode: billingMode,
     currency: body.currency || null,
-    status: "ACTIVE",
     configuration: body.configuration || {},
     metadata: {
       configured_by: access.staff?.id || null,
@@ -306,7 +305,29 @@ async function saveProviderSupplierAccount({ body, access }) {
 
   return NextResponse.json({
     success: true,
-    message: "Avantiqo provider supplier account saved.",
+    message: "Provider payer mapping saved as unverified. Commercial evidence is required before activation.",
+    ...(await completeSnapshot()),
+  });
+}
+
+async function verifyProviderSupplierAccount({ body, access }) {
+  const provider = text(body.provider).toLowerCase();
+  if (!provider) throw new Error("provider is required");
+
+  ProviderBillingRuntime.assertProvider(provider);
+
+  await ProviderSupplierAccountRuntime.verify({
+    provider_id: provider,
+    verification_method:
+      body.verification_method || body.verificationMethod,
+    verification_reference:
+      body.verification_reference || body.verificationReference,
+    verified_by: access.staff?.id || null,
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: "Provider legal payer verified and supplier account activated.",
     ...(await completeSnapshot()),
   });
 }
@@ -387,6 +408,10 @@ export async function POST(request) {
 
     if (action === "save-supplier-account") {
       return saveProviderSupplierAccount({ body, access });
+    }
+
+    if (action === "verify-supplier-account") {
+      return verifyProviderSupplierAccount({ body, access });
     }
 
     if (provider === GOOGLE_ADS_PROVIDER && action === "select-payments-account") {

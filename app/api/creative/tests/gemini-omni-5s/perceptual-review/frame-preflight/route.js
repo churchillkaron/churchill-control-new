@@ -27,6 +27,16 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function runtimeReadiness() {
+  return {
+    ffmpeg_configured: Boolean(text(process.env.CREATIVE_MEDIA_FFMPEG_PATH)),
+    ffprobe_configured: Boolean(text(process.env.CREATIVE_MEDIA_FFPROBE_PATH)),
+    private_media_ttl_configured: Boolean(
+      text(process.env.CREATIVE_PRIVATE_MEDIA_URL_TTL_SECONDS),
+    ),
+  };
+}
+
 function json(payload, status = 200) {
   return NextResponse.json(payload, {
     status,
@@ -38,16 +48,30 @@ function json(payload, status = 200) {
 }
 
 export async function GET() {
+  const runtime_readiness = runtimeReadiness();
+
   try {
     const task = await ProductionTaskRuntime.get(REVIEW_TASK_ID);
     if (!task) {
-      return json({ success: false, error: "SMOKE_REVIEW_TASK_NOT_FOUND" }, 404);
+      return json({
+        success: false,
+        error: "SMOKE_REVIEW_TASK_NOT_FOUND",
+        runtime_readiness,
+      }, 404);
     }
     if (String(task.organization_id) !== ORGANIZATION_ID) {
-      return json({ success: false, error: "SMOKE_REVIEW_ORGANIZATION_MISMATCH" }, 409);
+      return json({
+        success: false,
+        error: "SMOKE_REVIEW_ORGANIZATION_MISMATCH",
+        runtime_readiness,
+      }, 409);
     }
     if (text(task.capability || task.service_code).toLowerCase() !== "ai.image.analyze") {
-      return json({ success: false, error: "SMOKE_REVIEW_CAPABILITY_MISMATCH" }, 409);
+      return json({
+        success: false,
+        error: "SMOKE_REVIEW_CAPABILITY_MISMATCH",
+        runtime_readiness,
+      }, 409);
     }
 
     const prepared = await prepareOpenAIVideoAnalysisInput({
@@ -86,6 +110,7 @@ export async function GET() {
         jpeg_bytes: Number(frame.jpeg_bytes || 0),
         encoded_bytes: Number(frame.encoded_bytes || 0),
       })),
+      runtime_readiness,
       database_writes_executed: false,
       provider_calls_executed: false,
       publication_authorized: false,
@@ -95,6 +120,7 @@ export async function GET() {
     return json({
       success: false,
       error: error?.message || String(error),
+      runtime_readiness,
       database_writes_executed: false,
       provider_calls_executed: false,
       publication_authorized: false,

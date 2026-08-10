@@ -25,7 +25,7 @@ const platformAreas = [
   },
   {
     title: "Google Ads Supplier Billing",
-    description: "Discover and select the Avantiqo Google Payments account used for managed advertiser billing.",
+    description: "Discover and select the Avantiqo Google Payments account used for managed advertiser supplier billing.",
     href: "/platform/google-ads-billing",
   },
 ];

@@ -3,6 +3,19 @@ import { NextResponse } from "next/server";
 import loadOperationalSettings from "@/lib/settings/loadOperationalSettings";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 
+const MANAGE_ROLES = new Set([
+  "OWNER",
+  "SUPER_ADMIN",
+  "MANAGER",
+  "HR_ADMIN",
+  "PAYROLL_ADMIN",
+  "ACCOUNTING_ADMIN",
+]);
+
+function normalizeRole(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
 export async function POST(request) {
   try {
     let body = {};
@@ -32,6 +45,19 @@ export async function POST(request) {
       );
     }
 
+    const role = normalizeRole(context.role || context.staff?.role);
+
+    if (!MANAGE_ROLES.has(role)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Payroll settings management permission required",
+          code: "PAYROLL_SETTINGS_PERMISSION_REQUIRED",
+        },
+        { status: 403 }
+      );
+    }
+
     const settings = await loadOperationalSettings({
       organizationId: context.organizationId,
       domain: "PAYROLL",
@@ -40,6 +66,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
+      role,
       settings: settings || {},
     });
   } catch (error) {

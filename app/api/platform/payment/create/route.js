@@ -39,6 +39,9 @@ export async function POST(request) {
     const entityId = cleanValue(
       body.entity_id || body.entityId,
     );
+    const partyId = cleanValue(
+      body.party_id || body.partyId,
+    );
 
     if (!organizationId) {
       return errorResponse("organization_id required", 400);
@@ -71,10 +74,28 @@ export async function POST(request) {
       }
     }
 
+    if (partyId) {
+      const { data: party, error: partyError } = await supabaseAdmin
+        .from("parties")
+        .select("id")
+        .eq("id", partyId)
+        .eq("organization_id", access.organizationId)
+        .maybeSingle();
+
+      if (partyError) throw partyError;
+
+      if (!party) {
+        return errorResponse(
+          "Party is not available for this organization",
+          400,
+        );
+      }
+    }
+
     const payment = await PaymentExecutionRuntime.createPayment({
       organizationId: access.organizationId,
       entityId,
-      partyId: cleanValue(body.party_id || body.partyId),
+      partyId,
       method: body.payment_method || body.paymentMethod,
       country: body.country,
       amount: body.amount,

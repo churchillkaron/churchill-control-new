@@ -288,6 +288,8 @@ async function saveProviderSupplierAccount({ body, access }) {
 
   await ProviderSupplierAccountRuntime.save({
     provider_id: provider,
+    payer_organization_id:
+      body.payer_organization_id || body.payerOrganizationId,
     payer_entity_id: body.payer_entity_id || body.payerEntityId,
     supplier_party_id: body.supplier_party_id || body.supplierPartyId,
     billing_mode: billingMode,

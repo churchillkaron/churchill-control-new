@@ -23,6 +23,15 @@ const OWNER_LEVEL_ROLES = new Set([
   "SUPER_ADMIN",
 ]);
 
+const ASSIGNABLE_STAFF_ROLES = new Set([
+  "WAITER",
+  "BAR",
+  "KITCHEN",
+  "ACCOUNTING",
+  "MANAGER",
+  "OWNER",
+]);
+
 function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
 }
@@ -123,6 +132,13 @@ export async function POST(request) {
     if (!name || !email || !role) {
       return NextResponse.json(
         { success: false, error: "Name, email and role are required" },
+        { status: 400 }
+      );
+    }
+
+    if (!ASSIGNABLE_STAFF_ROLES.has(role)) {
+      return NextResponse.json(
+        { success: false, error: "Role is not assignable through organization staff management" },
         { status: 400 }
       );
     }

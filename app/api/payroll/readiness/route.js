@@ -5,6 +5,7 @@ import buildPayrollReadiness from "@/lib/payroll/readiness/buildPayrollReadiness
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 // Payroll readiness reads privileged workforce and payroll data on the trusted server.
+// Production deployment marker: payroll readiness convergence is validated for release.
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 

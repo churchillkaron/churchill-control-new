@@ -34,6 +34,38 @@ function augmentWorkspaceGroups(groups, workspace) {
   }
 
   return groups.map((group) => {
+    if (group.id === "customer_management") {
+      return {
+        ...group,
+        items: (group.items || []).map((item) =>
+          item?.id === "loyalty"
+            ? {
+                ...item,
+                status: "active",
+                type: "business-workspace",
+                document: "LoyaltyAccount",
+                runtime: {
+                  ...(item.runtime || {}),
+                  renderer: "MasterDataRuntimeWorkCenter",
+                  listApi: "/api/commercial/customers/loyalty",
+                },
+                ui: {
+                  ...(item.ui || {}),
+                  api: "/api/commercial/customers/loyalty",
+                  rowsKey: "rows",
+                  search: ["party_id", "tier", "status"],
+                },
+                data: {
+                  ...(item.data || {}),
+                  capability: "commercial_loyalty",
+                  identity: "party_id",
+                },
+              }
+            : item
+        ),
+      };
+    }
+
     if (group.id !== "marketing") return group;
 
     const items = group.items || [];

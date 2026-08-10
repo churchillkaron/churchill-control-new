@@ -1,5 +1,5 @@
 Production deployment trigger
 
-Requested: 2026-08-10T12:30:00+07:00
-Purpose: Deploy current main including the Party-centric Commercial customer runtime, secured customer detail projection, loyalty history, Commercial lifecycle, and Finance customer account projection.
+Requested: 2026-08-10T12:41:00+07:00
+Purpose: Deploy current main including Party-centric customer actions for quotations, sales orders, Finance statements and collections, and Commercial Loyalty adjustments/redemptions.
 Policy: Update this file only for deliberate production deployments.

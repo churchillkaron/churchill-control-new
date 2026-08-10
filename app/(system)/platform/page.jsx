@@ -23,6 +23,11 @@ const platformAreas = [
     description: "Manage integrations, usage, wallet and platform services.",
     href: "/workspace/demo/services",
   },
+  {
+    title: "Google Ads Supplier Billing",
+    description: "Discover and select the Avantiqo Google Payments account used for managed advertiser billing.",
+    href: "/platform/google-ads-billing",
+  },
 ];
 
 export default function PlatformPage() {

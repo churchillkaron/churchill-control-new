@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 
-import {
-  WalletRepository,
-}
-from "@/lib/platform/service-runtime/wallet/repositories/WalletRepository";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { WalletRepository } from "@/lib/platform/service-runtime/wallet/repositories/WalletRepository";
 
 export const dynamic = "force-dynamic";
 
 function cleanValue(value) {
-  const normalized =
-    String(value ?? "").trim();
+  const normalized = String(value ?? "").trim();
 
   if (
     !normalized ||
@@ -22,49 +19,48 @@ function cleanValue(value) {
   return normalized;
 }
 
+function errorResponse(error, status = 500) {
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+    },
+    { status },
+  );
+}
+
 export async function GET(request) {
-
   try {
-
-    const { searchParams } =
-      new URL(request.url);
-
-    const organizationId =
-      cleanValue(
-        searchParams.get("organization_id") ||
-        searchParams.get("organizationId")
-      );
+    const { searchParams } = new URL(request.url);
+    const organizationId = cleanValue(
+      searchParams.get("organization_id") ||
+      searchParams.get("organizationId"),
+    );
 
     if (!organizationId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "organization_id required",
-        },
-        { status: 400 }
-      );
+      return errorResponse("organization_id required", 400);
     }
 
-    const data =
-      await WalletRepository.transactions(
-        organizationId
-      );
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
+
+    if (!access.success) {
+      return errorResponse(access.error, access.status);
+    }
+
+    const transactions = await WalletRepository.transactions(
+      access.organizationId,
+    );
 
     return NextResponse.json({
       success: true,
-      transactions: data,
+      organizationId: access.organizationId,
+      transactions,
     });
-
   } catch (error) {
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      { status: 500 }
-    );
-
+    console.error("PLATFORM_WALLET_TRANSACTIONS_GET_ERROR", error);
+    return errorResponse(error?.message || "Wallet transaction lookup failed");
   }
-
 }

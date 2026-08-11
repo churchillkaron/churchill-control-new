@@ -23,16 +23,21 @@ function currentPayrollMonth() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function blockerAction(code) {
+function peopleRoute(organizationId, path) {
+  if (!organizationId) return "#";
+  return `/workspace/${encodeURIComponent(organizationId)}/people${path}`;
+}
+
+function blockerAction(code, organizationId) {
   const actions = {
     PAYROLL_PERIOD_OPEN: { href: "/staff/attendance", label: "Review attendance" },
     NO_ACTIVE_STAFF: { href: "/workforce/employees", label: "Open employees" },
     PAYROLL_COUNTRY_MISSING: { href: "/settings/payroll", label: "Configure payroll" },
     PAYROLL_CURRENCY_MISSING: { href: "/settings/payroll", label: "Configure payroll" },
-    COMPENSATION_PROFILE_MISSING: { href: "/people/compensation", label: "Open compensation" },
-    COMPENSATION_AMOUNT_MISSING: { href: "/people/compensation", label: "Set pay amounts" },
+    COMPENSATION_PROFILE_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Open compensation" },
+    COMPENSATION_AMOUNT_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Set pay amounts" },
     SCHEDULES_MISSING: { href: "/workforce/scheduling", label: "Open scheduling" },
-    PAYROLL_ALREADY_LOCKED: { href: "/payroll/governance", label: "Open governance" },
+    PAYROLL_ALREADY_LOCKED: { href: peopleRoute(organizationId, "/payroll/governance"), label: "Open governance" },
     SHIFT_EVIDENCE_MISSING: { href: "/staff/attendance", label: "Review attendance" },
     ATTENDANCE_EVIDENCE_MISSING: { href: "/staff/attendance", label: "Review attendance" },
   };
@@ -80,60 +85,63 @@ function stageState({ readiness, errorCode, kind }) {
   return "waiting";
 }
 
-const STAGES = [
-  {
-    id: "entity",
-    title: "Legal Entity",
-    description: "Confirm the employing legal entity and accounting scope used by payroll.",
-    href: "/finance/legal-entities",
-    action: "Legal entities",
-    icon: Building2,
-  },
-  {
-    id: "settings",
-    title: "Payroll Policy",
-    description: "Set payroll country, currency and organization calculation rules without platform assumptions.",
-    href: "/settings/payroll",
-    action: "Payroll settings",
-    icon: Settings2,
-  },
-  {
-    id: "compensation",
-    title: "Compensation",
-    description: "Configure an effective compensation profile and pay amount for each payroll employee.",
-    href: "/people/compensation",
-    action: "Compensation",
-    icon: Coins,
-  },
-  {
-    id: "scheduling",
-    title: "Scheduling",
-    description: "Publish work schedules when expected payroll hours are schedule-driven.",
-    href: "/workforce/scheduling",
-    action: "Scheduling",
-    icon: CalendarClock,
-  },
-  {
-    id: "attendance",
-    title: "Attendance Evidence",
-    description: "Review clock, shift and attendance evidence before the payroll period is approved.",
-    href: "/staff/attendance",
-    action: "Attendance",
-    icon: ClipboardCheck,
-  },
-  {
-    id: "run",
-    title: "Payroll Run",
-    description: "Generate payroll only after configuration is complete and the payroll period has closed.",
-    href: "/workforce/payroll",
-    action: "Payroll runs",
-    icon: Users,
-  },
-];
+function getStages(organizationId) {
+  return [
+    {
+      id: "entity",
+      title: "Legal Entity",
+      description: "Confirm the employing legal entity and accounting scope used by payroll.",
+      href: "/finance/legal-entities",
+      action: "Legal entities",
+      icon: Building2,
+    },
+    {
+      id: "settings",
+      title: "Payroll Policy",
+      description: "Set payroll country, currency and organization calculation rules without platform assumptions.",
+      href: "/settings/payroll",
+      action: "Payroll settings",
+      icon: Settings2,
+    },
+    {
+      id: "compensation",
+      title: "Compensation",
+      description: "Configure an effective compensation profile and pay amount for each payroll employee.",
+      href: peopleRoute(organizationId, "/compensation"),
+      action: "Compensation",
+      icon: Coins,
+    },
+    {
+      id: "scheduling",
+      title: "Scheduling",
+      description: "Publish work schedules when expected payroll hours are schedule-driven.",
+      href: "/workforce/scheduling",
+      action: "Scheduling",
+      icon: CalendarClock,
+    },
+    {
+      id: "attendance",
+      title: "Attendance Evidence",
+      description: "Review clock, shift and attendance evidence before the payroll period is approved.",
+      href: "/staff/attendance",
+      action: "Attendance",
+      icon: ClipboardCheck,
+    },
+    {
+      id: "run",
+      title: "Payroll Run",
+      description: "Generate payroll only after configuration is complete and the payroll period has closed.",
+      href: peopleRoute(organizationId, "/payroll"),
+      action: "Payroll runs",
+      icon: Users,
+    },
+  ];
+}
 
 export default function AdministrationPayrollOnboardingPage() {
   const params = useParams();
   const organizationId = params?.organizationId || null;
+  const stages = useMemo(() => getStages(organizationId), [organizationId]);
   const [payrollMonth, setPayrollMonth] = useState(currentPayrollMonth());
   const [readiness, setReadiness] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -184,7 +192,7 @@ export default function AdministrationPayrollOnboardingPage() {
     readiness && readiness.entityId && setupBlockers.length === 0
   );
 
-  const completedStages = STAGES.filter(
+  const completedStages = stages.filter(
     (stage) => stageState({ readiness, errorCode, kind: stage.id }) === "ready"
   ).length;
 
@@ -226,7 +234,7 @@ export default function AdministrationPayrollOnboardingPage() {
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Setup" value={loading ? "Checking" : setupReady ? "Ready" : "Action required"} />
-          <Metric label="Completed stages" value={`${completedStages}/${STAGES.length}`} />
+          <Metric label="Completed stages" value={`${completedStages}/${stages.length}`} />
           <Metric label="Active staff" value={readiness?.summary?.activeStaff ?? "—"} />
           <Metric label="Paid staff" value={readiness?.summary?.paidStaff ?? "—"} />
         </section>
@@ -256,7 +264,7 @@ export default function AdministrationPayrollOnboardingPage() {
           </div>
 
           <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {STAGES.map((stage, index) => (
+            {stages.map((stage, index) => (
               <SetupStage
                 key={stage.id}
                 number={index + 1}
@@ -281,7 +289,7 @@ export default function AdministrationPayrollOnboardingPage() {
               ) : (
                 <div className="mt-4 space-y-2">
                   {setupBlockers.map((item) => {
-                    const action = blockerAction(item.code);
+                    const action = blockerAction(item.code, organizationId);
                     return (
                       <div key={item.code} className="rounded-2xl border border-red-500/15 bg-red-500/[0.06] p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

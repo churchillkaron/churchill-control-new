@@ -100,7 +100,12 @@ export default function ProviderBillingPage() {
 
   const governance = state?.supplier_governance || {};
   const operatorOrganization = governance.operator_organization || null;
-  const payerOrganization = governance.payer_organization || organization || null;
+  const payerOrganization =
+    governance.payer_organization || operatorOrganization || null;
+  const providerPayerOrganizationId =
+    text(state?.provider_payer_organization_id) ||
+    text(payerOrganization?.id) ||
+    text(operatorOrganization?.id);
   const legalEntities = Array.isArray(governance.legal_entities)
     ? governance.legal_entities
     : [];
@@ -120,7 +125,7 @@ export default function ProviderBillingPage() {
   function selectionFor(provider) {
     const selected = supplierSelections[provider.id] || {};
     return {
-      payer_organization_id: organizationId || "",
+      payer_organization_id: providerPayerOrganizationId,
       payer_entity_id:
         selected.payer_entity_id ?? provider?.supplier_account?.payer_entity_id ?? "",
       supplier_party_id:
@@ -203,8 +208,13 @@ export default function ProviderBillingPage() {
 
   async function saveSupplierAccount(provider) {
     const selected = selectionFor(provider);
-    if (!organizationId || !selected.payer_entity_id || !selected.supplier_party_id) {
-      setError("Select the payer entity and supplier party for this organization.");
+    if (
+      !organizationId ||
+      !providerPayerOrganizationId ||
+      !selected.payer_entity_id ||
+      !selected.supplier_party_id
+    ) {
+      setError("Select the Avantiqo payer entity and supplier party for this provider.");
       return;
     }
 
@@ -212,7 +222,7 @@ export default function ProviderBillingPage() {
       {
         provider: provider.id,
         action: "save-supplier-account",
-        payer_organization_id: organizationId,
+        payer_organization_id: providerPayerOrganizationId,
         payer_entity_id: selected.payer_entity_id,
         supplier_party_id: selected.supplier_party_id,
       },
@@ -226,13 +236,13 @@ export default function ProviderBillingPage() {
     const verification = verificationFor(provider);
     const mappingMatchesStored = Boolean(
       account &&
-        account.payer_organization_id === organizationId &&
+        account.payer_organization_id === providerPayerOrganizationId &&
         account.payer_entity_id === selected.payer_entity_id &&
         account.supplier_party_id === selected.supplier_party_id,
     );
 
     if (!account || !mappingMatchesStored) {
-      setError("Save the current organization, entity, and supplier party mapping before verification.");
+      setError("Save the current Avantiqo payer entity and supplier party mapping before verification.");
       return;
     }
     if (!verification.verification_method) {
@@ -248,6 +258,7 @@ export default function ProviderBillingPage() {
       {
         provider: provider.id,
         action: "verify-supplier-account",
+        payer_organization_id: providerPayerOrganizationId,
         verification_method: verification.verification_method,
         verification_reference: verification.verification_reference,
       },
@@ -290,9 +301,9 @@ export default function ProviderBillingPage() {
           </div>
           <h1 className="mt-3 text-4xl font-semibold">Provider Billing</h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-white/50">
-            Avantiqo operates provider billing centrally. The active organization funds provider use
-            through its prepaid Avantiqo wallet. Each provider relationship resolves an Organization,
-            payer Entity, and Supplier Party before commercial verification and execution.
+            Avantiqo is the commercial payer for external providers. The selected customer organization
+            funds all paid execution through its prepaid Avantiqo wallet; provider invoices, charges,
+            ad spend, and supplier obligations remain on Avantiqo&apos;s provider accounts and legal entity.
           </p>
         </div>
 
@@ -308,12 +319,12 @@ export default function ProviderBillingPage() {
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
             {[
-              `Organization: ${payerOrganization?.name || organization?.name || organizationId}`,
-              "Entity owns accounting and tax",
-              "Supplier Party identifies provider counterparty",
-              "Commercial evidence verifies payer",
-              "Prepaid wallet reserves before provider",
-              "No direct customer/provider billing",
+              `Customer: ${organization?.name || organizationId}`,
+              `Provider payer: ${payerOrganization?.name || "Avantiqo"}`,
+              "Avantiqo Entity owns provider AP and tax",
+              "Supplier Party is Avantiqo's counterparty",
+              "Customer prepaid wallet reserves before execution",
+              "No customer payment method at provider",
             ].map((label) => (
               <div
                 key={label}
@@ -341,28 +352,32 @@ export default function ProviderBillingPage() {
 
         <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
           <div className="text-xs uppercase tracking-[0.22em] text-white/30">
-            Operator / Organization / Entity / Party
+            Customer / Provider Payer / Entity / Party
           </div>
           <h2 className="mt-2 text-2xl font-semibold">Commercial relationship control</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-white/45">
-            Operator: {operatorOrganization?.name || "Avantiqo"}. Organization:{" "}
-            {payerOrganization?.name || organization?.name || organizationId}. Avantiqo is the platform
-            operator; it is not substituted for the organization, entity, or supplier party. Provider
-            execution remains blocked until the organization has a valid payer entity, supplier party,
-            and verified commercial evidence.
+            Customer: {organization?.name || organizationId}. Provider payer:{" "}
+            {payerOrganization?.name || "Avantiqo"}. The customer is the Service usage and prepaid-wallet
+            owner; Avantiqo is the contracting and paying party to Google, Meta, OpenAI, and other managed
+            providers. Provider execution remains blocked until Avantiqo has a valid payer Entity,
+            Supplier Party, verified commercial evidence, and the customer has prepaid funding.
           </p>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <div className={`rounded-2xl border p-4 text-sm ${badgeClass(Boolean(payerOrganization?.id))}`}>
-              <div className="font-medium">Organization</div>
-              <div className="mt-1 opacity-70">{payerOrganization?.name || organization?.name || "Selected"}</div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className={`rounded-2xl border p-4 text-sm ${badgeClass(Boolean(organizationId))}`}>
+              <div className="font-medium">Customer organization</div>
+              <div className="mt-1 opacity-70">{organization?.name || organizationId}</div>
+            </div>
+            <div className={`rounded-2xl border p-4 text-sm ${badgeClass(Boolean(providerPayerOrganizationId))}`}>
+              <div className="font-medium">Provider payer</div>
+              <div className="mt-1 opacity-70">{payerOrganization?.name || "Avantiqo"}</div>
             </div>
             <div className={`rounded-2xl border p-4 text-sm ${badgeClass(legalEntities.length > 0)}`}>
-              <div className="font-medium">Entities</div>
+              <div className="font-medium">Avantiqo payer Entities</div>
               <div className="mt-1 opacity-70">{legalEntities.length} active records</div>
             </div>
             <div className={`rounded-2xl border p-4 text-sm ${badgeClass(suppliers.length > 0)}`}>
-              <div className="font-medium">Supplier Parties</div>
+              <div className="font-medium">Avantiqo Supplier Parties</div>
               <div className="mt-1 opacity-70">{suppliers.length} active supplier records</div>
             </div>
           </div>
@@ -372,13 +387,13 @@ export default function ProviderBillingPage() {
               href="/finance/legal-entities"
               className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70 hover:bg-white/[0.07]"
             >
-              Manage Entities
+              Manage Avantiqo Entities
             </Link>
             <Link
               href="/procurement/suppliers"
               className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70 hover:bg-white/[0.07]"
             >
-              Manage Supplier Parties
+              Manage Avantiqo Supplier Parties
             </Link>
           </div>
         </section>
@@ -391,9 +406,9 @@ export default function ProviderBillingPage() {
               </div>
               <h2 className="mt-2 text-2xl font-semibold">Google Ads</h2>
               <p className="mt-2 text-sm text-white/45">
-                Google Payments belongs to Avantiqo&apos;s managed provider setup. Selecting it does not
-                bypass the active Organization, payer Entity, Supplier Party, commercial verification,
-                advertiser BillingSetup approval, account budget, or prepaid wallet controls.
+                Google Payments belongs to Avantiqo&apos;s managed provider setup. The customer never supplies
+                a payment method to Google. Selecting the Avantiqo Payments account does not bypass
+                advertiser BillingSetup approval, campaign budget authorization, or the customer prepaid-wallet gate.
               </p>
             </div>
             <span className={`rounded-full border px-3 py-1 text-xs ${badgeClass(Boolean(google?.ready))}`}>
@@ -422,7 +437,7 @@ export default function ProviderBillingPage() {
                       onClick={() => selectGoogleAccount(account.resource_name)}
                       className="mt-4 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-4 py-2 text-sm font-medium text-[#F3D0A5] disabled:opacity-45"
                     >
-                      {selected ? "Selected" : saving ? "Saving…" : "Use for managed Google Ads"}
+                      {selected ? "Selected" : saving ? "Saving…" : "Use Avantiqo for managed Google Ads"}
                     </button>
                   </div>
                 );
@@ -441,8 +456,9 @@ export default function ProviderBillingPage() {
               <div className="text-xs uppercase tracking-[0.22em] text-white/30">Supplier adapters</div>
               <h2 className="mt-2 text-2xl font-semibold">All registered providers</h2>
               <p className="mt-2 text-sm text-white/45">
-                Organization is fixed to the active business context. Select its payer Entity and Supplier Party,
-                then verify the commercial payer from real provider billing evidence.
+                The provider payer is fixed to Avantiqo. Select Avantiqo&apos;s payer Entity and Supplier Party,
+                then verify the commercial payer from real provider billing evidence. The selected customer
+                organization remains the usage and prepaid-wallet owner only.
               </p>
             </div>
             <input
@@ -460,7 +476,7 @@ export default function ProviderBillingPage() {
               const supplierAccount = provider?.supplier_account || null;
               const mappingMatchesStored = Boolean(
                 supplierAccount &&
-                  supplierAccount.payer_organization_id === organizationId &&
+                  supplierAccount.payer_organization_id === providerPayerOrganizationId &&
                   supplierAccount.payer_entity_id === selected.payer_entity_id &&
                   supplierAccount.supplier_party_id === selected.supplier_party_id,
               );
@@ -483,8 +499,8 @@ export default function ProviderBillingPage() {
                   </div>
 
                   <div className="mt-4 space-y-2 text-xs leading-5 text-white/45">
-                    <div><span className="text-white/65">Operator:</span> Avantiqo</div>
-                    <div><span className="text-white/65">Organization:</span> {payerOrganization?.name || organization?.name || organizationId}</div>
+                    <div><span className="text-white/65">Customer:</span> {organization?.name || organizationId}</div>
+                    <div><span className="text-white/65">Provider payer:</span> {payerOrganization?.name || "Avantiqo"}</div>
                     <div><span className="text-white/65">Customer funding:</span> ACTIVE PREPAID wallet</div>
                     <div><span className="text-white/65">Adapter:</span> {provider.adapter?.adapter_id}</div>
                     <div><span className="text-white/65">Supplier cost:</span> {provider.adapter?.supplier_cost_source}</div>
@@ -493,7 +509,7 @@ export default function ProviderBillingPage() {
 
                   <div className="mt-4 space-y-3">
                     <div className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/65">
-                      Organization · {payerOrganization?.name || organization?.name || organizationId}
+                      Provider payer · {payerOrganization?.name || "Avantiqo"}
                     </div>
 
                     <select
@@ -503,7 +519,7 @@ export default function ProviderBillingPage() {
                       }
                       className="w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-white"
                     >
-                      <option value="">Select payer Entity</option>
+                      <option value="">Select Avantiqo payer Entity</option>
                       {legalEntities.map((entity) => (
                         <option key={entity.id} value={entity.id}>
                           {entity.legal_name || entity.display_name || entity.code}
@@ -518,7 +534,7 @@ export default function ProviderBillingPage() {
                       }
                       className="w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-white"
                     >
-                      <option value="">Select Supplier Party</option>
+                      <option value="">Select Avantiqo Supplier Party</option>
                       {suppliers.map((supplier) => (
                         <option key={supplier.party_id} value={supplier.party_id}>
                           {supplier.party?.legal_name ||
@@ -531,13 +547,13 @@ export default function ProviderBillingPage() {
 
                     {legalEntities.length === 0 ? (
                       <Link href="/finance/legal-entities" className="block text-xs text-[#D6A66A]">
-                        This organization has no active Entity. Configure one in Finance →
+                        Avantiqo has no active payer Entity. Configure one in Finance →
                       </Link>
                     ) : null}
 
                     {suppliers.length === 0 ? (
                       <Link href="/procurement/suppliers" className="block text-xs text-[#D6A66A]">
-                        This organization has no Supplier Party. Configure the provider supplier →
+                        Avantiqo has no Supplier Party for this provider. Configure the supplier →
                       </Link>
                     ) : null}
 
@@ -547,7 +563,7 @@ export default function ProviderBillingPage() {
                       onClick={() => saveSupplierAccount(provider)}
                       className="w-full rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-3 py-2 text-xs font-medium text-[#F3D0A5] disabled:opacity-35"
                     >
-                      {saving ? "Saving…" : "Save Organization + Entity + Supplier Party"}
+                      {saving ? "Saving…" : "Save Avantiqo Entity + Supplier Party"}
                     </button>
                   </div>
 
@@ -555,7 +571,7 @@ export default function ProviderBillingPage() {
                     <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-xs font-medium text-white/75">
-                          Commercial payer verification
+                          Avantiqo commercial payer verification
                         </div>
                         <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${badgeClass(verified)}`}>
                           {verificationStatus}
@@ -582,7 +598,9 @@ export default function ProviderBillingPage() {
                       ) : (
                         <div className="mt-3 space-y-3">
                           <p className="text-xs leading-5 text-white/45">
-                            Verify only after provider billing evidence clearly supports this Organization and Entity as payer and this Supplier Party as the counterparty. Store only a non-secret reference.
+                            Verify only after provider billing evidence clearly supports Avantiqo and the selected
+                            Avantiqo legal Entity as payer, with this Supplier Party as the counterparty. Store only
+                            a non-secret reference.
                           </p>
                           <select
                             value={verification.verification_method}
@@ -618,7 +636,7 @@ export default function ProviderBillingPage() {
                           />
                           {!mappingMatchesStored ? (
                             <div className="text-[11px] leading-4 text-amber-100/70">
-                              Save the current Organization, Entity, and Supplier Party mapping before verification.
+                              Save the current Avantiqo Entity and Supplier Party mapping before verification.
                             </div>
                           ) : null}
                           <button
@@ -632,20 +650,20 @@ export default function ProviderBillingPage() {
                             onClick={() => verifySupplierAccount(provider)}
                             className="w-full rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-100 disabled:opacity-35"
                           >
-                            {saving ? "Verifying…" : "Verify commercial payer from evidence"}
+                            {saving ? "Verifying…" : "Verify Avantiqo commercial payer"}
                           </button>
                         </div>
                       )}
                     </div>
                   ) : (
                     <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100/80">
-                      No Organization + Entity + Supplier Party mapping exists yet. Provider execution remains blocked.
+                      No Avantiqo Entity + Supplier Party mapping exists yet. Provider execution remains blocked.
                     </div>
                   )}
 
                   <div className={`mt-4 rounded-xl border px-3 py-2 text-xs ${badgeClass(provider.service_cost_control_ready)}`}>
                     {provider.service_cost_control_ready
-                      ? "Verified Organization + Entity + Supplier Party + pricing + runtime controls are ready"
+                      ? "Verified Avantiqo payer + Entity + Supplier Party + pricing + runtime controls are ready"
                       : provider.billing_blocker || provider.billing_status || "Provider billing blocked"}
                   </div>
                 </article>

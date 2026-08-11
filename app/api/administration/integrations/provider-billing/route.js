@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
 import { ProviderBillingRuntime } from "@/lib/platform/service-runtime/billing/runtime/ProviderBillingRuntime";
 import { ProviderSupplierAccountRuntime } from "@/lib/platform/service-runtime/billing/runtime/ProviderSupplierAccountRuntime";
+import { ProviderPayerRuntime } from "@/lib/platform/service-runtime/billing/runtime/ProviderPayerRuntime";
 import { ServiceExecutionRuntime } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -31,6 +32,30 @@ function requireOrganizationId(value) {
   const organizationId = text(value);
   if (!organizationId) throw new Error("organization_id is required");
   return organizationId;
+}
+
+async function canonicalProviderPayerOrganizationId() {
+  return ProviderPayerRuntime.resolveProviderPayerOrganizationId();
+}
+
+async function canonicalProviderPayer() {
+  return ProviderPayerRuntime.resolve();
+}
+
+async function assertCanonicalProviderPayer(body = {}) {
+  const payerOrganizationId = await canonicalProviderPayerOrganizationId();
+  const requestedPayerOrganizationId = text(
+    body.payer_organization_id || body.payerOrganizationId,
+  );
+
+  if (
+    requestedPayerOrganizationId &&
+    requestedPayerOrganizationId !== payerOrganizationId
+  ) {
+    throw new Error("PROVIDER_BILLING_PAYER_MUST_MATCH_AVANTIQO_LEGAL_PAYER");
+  }
+
+  return payerOrganizationId;
 }
 
 async function avantiqoGoogleAdsManager() {
@@ -241,9 +266,11 @@ function mergeGoogleAdsReadiness(providerBilling, googleAds) {
 }
 
 async function completeSnapshot(organizationId) {
-  const scopedOrganizationId = requireOrganizationId(organizationId);
+  const customerOrganizationId = requireOrganizationId(organizationId);
+  const payer = await canonicalProviderPayer();
+  const payerOrganizationId = payer.organization_id;
   const [providerBilling, googleAds] = await Promise.all([
-    ProviderBillingRuntime.snapshot({ payerOrganizationId: scopedOrganizationId }),
+    ProviderBillingRuntime.snapshot({ payerOrganizationId }),
     googleAdsBillingSnapshot().catch((error) => ({
       ready: false,
       manager: null,
@@ -256,7 +283,11 @@ async function completeSnapshot(organizationId) {
 
   return {
     ...mergeGoogleAdsReadiness(providerBilling, googleAds),
-    organization_id: scopedOrganizationId,
+    organization_id: customerOrganizationId,
+    customer_organization_id: customerOrganizationId,
+    provider_payer_organization_id: payerOrganizationId,
+    provider_payer_entity_id: payer.entity_id,
+    provider_payer_role: payer.role,
     supplier_accounts: {
       google_ads: googleAds,
     },
@@ -295,11 +326,11 @@ async function saveProviderSupplierAccount({ body, access, organizationId }) {
   const provider = text(body.provider).toLowerCase();
   if (!provider) throw new Error("provider is required");
 
-  const payerOrganizationId = text(
-    body.payer_organization_id || body.payerOrganizationId,
-  );
-  if (payerOrganizationId !== organizationId) {
-    throw new Error("PROVIDER_BILLING_ORGANIZATION_SCOPE_MISMATCH");
+  const payer = await canonicalProviderPayer();
+  const payerOrganizationId = await assertCanonicalProviderPayer(body);
+  const requestedEntityId = text(body.payer_entity_id || body.payerEntityId);
+  if (requestedEntityId && requestedEntityId !== payer.entity_id) {
+    throw new Error("PROVIDER_BILLING_ENTITY_MUST_MATCH_AVANTIQO_LEGAL_PAYER");
   }
 
   const adapter = ProviderBillingRuntime.assertProvider(provider);
@@ -310,24 +341,30 @@ async function saveProviderSupplierAccount({ body, access, organizationId }) {
 
   await ProviderSupplierAccountRuntime.save({
     provider_id: provider,
-    payer_organization_id: organizationId,
-    payer_entity_id: body.payer_entity_id || body.payerEntityId,
+    payer_organization_id: payerOrganizationId,
+    payer_entity_id: payer.entity_id,
     supplier_party_id: body.supplier_party_id || body.supplierPartyId,
     billing_mode: billingMode,
-    currency: body.currency || null,
+    currency: body.currency || payer.entity?.currency || null,
     configuration: body.configuration || {},
     metadata: {
       configured_by: access.staff?.id || null,
       configured_at: new Date().toISOString(),
       adapter_id: adapter.adapter_id,
       supplier_cost_source: adapter.supplier_cost_source,
-      organization_id: organizationId,
+      billing_operator: "AVANTIQO",
+      payer_role: payer.role,
+      payer_organization_id: payerOrganizationId,
+      payer_entity_id: payer.entity_id,
+      customer_organization_id: organizationId,
+      customer_direct_provider_billing_allowed: false,
+      customer_provider_payment_method_allowed: false,
     },
   });
 
   return NextResponse.json({
     success: true,
-    message: "Provider organization, entity, and supplier party mapping saved as unverified. Commercial evidence is required before activation.",
+    message: "Avantiqo operator and BEA legal provider-payer mapping saved as unverified. Commercial evidence is required before activation.",
     ...(await completeSnapshot(organizationId)),
   });
 }
@@ -337,10 +374,11 @@ async function verifyProviderSupplierAccount({ body, access, organizationId }) {
   if (!provider) throw new Error("provider is required");
 
   ProviderBillingRuntime.assertProvider(provider);
+  const payerOrganizationId = await assertCanonicalProviderPayer(body);
 
   await ProviderSupplierAccountRuntime.verify({
     provider_id: provider,
-    payer_organization_id: organizationId,
+    payer_organization_id: payerOrganizationId,
     verification_method:
       body.verification_method || body.verificationMethod,
     verification_reference:
@@ -350,7 +388,7 @@ async function verifyProviderSupplierAccount({ body, access, organizationId }) {
 
   return NextResponse.json({
     success: true,
-    message: "Provider commercial payer verified and supplier account activated.",
+    message: "BEA legal provider payer verified and supplier account activated under Avantiqo operation.",
     ...(await completeSnapshot(organizationId)),
   });
 }
@@ -390,6 +428,7 @@ async function selectGooglePaymentsAccount({ body, access, organizationId }) {
     );
   }
 
+  const payer = await canonicalProviderPayer();
   await OrganizationServiceRuntime.save({
     ...service,
     configuration: {
@@ -401,7 +440,10 @@ async function selectGooglePaymentsAccount({ body, access, organizationId }) {
     },
     metadata: {
       ...(service.metadata || {}),
-      provider_billed_to: "AVANTIQO",
+      billing_operator: "AVANTIQO",
+      legal_provider_payer_organization_id: payer.organization_id,
+      legal_provider_payer_entity_id: payer.entity_id,
+      legal_provider_payer_role: payer.role,
       google_ads_billing_model: "MONTHLY_INVOICING",
       google_ads_payments_account_selected_at: new Date().toISOString(),
       google_ads_payments_account_selected_by: access.staff?.id || null,
@@ -410,7 +452,7 @@ async function selectGooglePaymentsAccount({ body, access, organizationId }) {
 
   return NextResponse.json({
     success: true,
-    message: "Avantiqo Google Payments account selected.",
+    message: "Avantiqo-managed Google Payments account selected with BEA as the legal provider payer.",
     ...(await completeSnapshot(organizationId)),
   });
 }
@@ -450,7 +492,8 @@ export async function POST(request) {
     const message = error?.message || "Unable to configure provider billing";
     const status =
       message === "organization_id is required" ||
-      message === "PROVIDER_BILLING_ORGANIZATION_SCOPE_MISMATCH"
+      message === "PROVIDER_BILLING_PAYER_MUST_MATCH_AVANTIQO_LEGAL_PAYER" ||
+      message === "PROVIDER_BILLING_ENTITY_MUST_MATCH_AVANTIQO_LEGAL_PAYER"
         ? 400
         : 500;
     return NextResponse.json(

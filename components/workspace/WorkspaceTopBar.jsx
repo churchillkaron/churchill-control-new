@@ -237,6 +237,8 @@ export default function WorkspaceTopBar() {
   const entity = businessContext?.entity || null;
   const period = businessContext?.period || null;
   const staff = businessContext?.staff || null;
+  const isPlatformOperatorWorkspace =
+    businessContext?.is_platform_operator_workspace === true;
 
   const organizationId =
     businessContext?.organization_id ||
@@ -249,8 +251,12 @@ export default function WorkspaceTopBar() {
   const userName = staff?.name || staff?.email || "User";
 
   const brand = getPlatformBrand();
-  const domains = getErpDomains();
-  const headerItems = getPlatformHeaderItems();
+  const domains = getErpDomains().filter(
+    (domain) => domain.id !== "services" || isPlatformOperatorWorkspace,
+  );
+  const headerItems = getPlatformHeaderItems().filter(
+    (item) => item.id !== "services" || isPlatformOperatorWorkspace,
+  );
 
   if (!ready) {
     return (

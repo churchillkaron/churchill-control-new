@@ -20,6 +20,7 @@ const EMPTY_STATE = {
   organization: null,
   organizations: [],
   organization_id: null,
+  is_platform_operator_workspace: false,
   entity: null,
   entity_id: null,
   period: null,
@@ -73,6 +74,7 @@ export function BusinessContextProvider({ children }) {
             organization: null,
             organizations: [],
             organization_id: null,
+            is_platform_operator_workspace: false,
             modules: [],
             permissions: [],
             error: data?.error || data?.reason || "Business context bootstrap failed",
@@ -98,6 +100,8 @@ export function BusinessContextProvider({ children }) {
               ? [data.organization]
               : [],
           organization_id: organizationId,
+          is_platform_operator_workspace:
+            data.is_platform_operator_workspace === true,
           entity: data.entity || null,
           entity_id: data.entity_id || data.active_entity_id || null,
           period: data.period || null,
@@ -128,6 +132,7 @@ export function BusinessContextProvider({ children }) {
           loading: false,
           organizations: [],
           modules: [],
+          is_platform_operator_workspace: false,
           error: error.message,
         }));
       }

@@ -4,9 +4,10 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
-import { createServerSupabase } from "@/lib/shared/supabase/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { getAvailableModules } from "@/lib/platform/getAvailableModules";
+import { resolvePlatformOperatorOrganizationId } from "@/lib/platform/security/PlatformOperatorWorkspaceRuntime";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { createServerSupabase } from "@/lib/shared/supabase/server";
 
 async function loadActiveEntity({ supabase, organizationId }) {
   if (!organizationId) return null;
@@ -125,10 +126,11 @@ async function loadBootstrapPayload({ request, user }) {
   const organizationId = context.organizationId;
   const supabase = createServerSupabase();
 
-  const [organizations, entity, modules] = await Promise.all([
+  const [organizations, entity, modules, operatorOrganizationId] = await Promise.all([
     loadOrganizations(context.availableOrganizationIds || [organizationId]),
     loadActiveEntity({ supabase, organizationId }),
     getAvailableModules({ organizationId, supabase }),
+    resolvePlatformOperatorOrganizationId().catch(() => null),
   ]);
 
   const organization =
@@ -161,6 +163,9 @@ async function loadBootstrapPayload({ request, user }) {
       organizations,
       organization_id: organizationId,
       active_organization_id: organizationId,
+      is_platform_operator_workspace: Boolean(
+        operatorOrganizationId && organizationId === operatorOrganizationId,
+      ),
       entity,
       entity_id: entity?.id || null,
       active_entity_id: entity?.id || null,

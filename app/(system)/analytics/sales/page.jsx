@@ -1,223 +1,72 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
+import { supabase } from "@/lib/shared/supabase/client";
+import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
+
 export const dynamic = "force-dynamic";
 
-import {
-  useEffect,
-  useState,
-} from "react";
-
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  Tooltip,
-} from "recharts";
-
-import { supabase } from "@/lib/shared/supabase/client";
-
-import { loadHourlySales } from "@/lib/analytics/loadHourlySales";
-
 export default function AnalyticsSalesPage() {
+  const { organization } = useOrganizationRuntime();
+  const organizationId = organization?.id || null;
+  const [sales, setSales] = useState([]);
 
-  const [
-    tenantId,
-    setTenantId,
-  ] = useState(null);
-
-  const [
-    sales,
-    setSales,
-  ] = useState([]);
-
-  // ===== LOAD TENANT =====
-  useEffect(() => {
-
-    async function loadTenant() {
-
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getSession();
-
-      if (!user) {
-        return;
-      }
-
-      const {
-        data,
-      } = await supabase
-        .from("staff_accounts")
-        .select("*")
-        .eq(
-          "auth_user_id",
-          user.id
-        )
-        .single();
-
-      if (
-        data?.tenant_id
-      ) {
-
-        setTenantId(
-          data.tenant_id
-        );
-      }
-    }
-
-    loadTenant();
-
-  }, []);
-
-  // ===== LOAD =====
   async function refresh() {
-
-    if (!tenantId) {
-      return;
-    }
-
-    const data =
-      await loadHourlySales(
-        tenantId
-      );
-
-    setSales(
-      data || []
-    );
+    if (!organizationId) return;
+    const response = await fetch("/api/analytics/revenue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId }),
+    });
+    const data = await response.json();
+    if (response.ok && data.success) setSales(data.hourly || []);
   }
 
   useEffect(() => {
-
     refresh();
+  }, [organizationId]);
 
-  }, [
-    tenantId,
-  ]);
-
-  // ===== REALTIME =====
   useEffect(() => {
-
-    if (!tenantId) {
-      return;
-    }
-
-    const channel =
-      supabase
-        .channel(
-          "analytics-live"
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            service_unit:
-              "orders",
-          },
-          refresh
-        )
-        .subscribe();
-
+    if (!organizationId) return;
+    const channel = supabase
+      .channel(`analytics-sales-${organizationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `organization_id=eq.${organizationId}`,
+        },
+        refresh,
+      )
+      .subscribe();
     return () => {
-
-      supabase.removeChannel(
-        channel
-      );
+      supabase.removeChannel(channel);
     };
-
-  }, [
-    tenantId,
-  ]);
+  }, [organizationId]);
 
   return (
-
     <div className="min-h-screen bg-black text-white overflow-hidden">
-
-      {/* ===== HEADER ===== */}
-      <div className="h-24 border-b border-white/5 flex items-center justify-between px-10">
-
+      <div className="h-24 border-b border-white/5 flex items-center px-10">
         <div>
-
-          <div className="text-xs tracking-[0.3em] uppercase text-violet-400 mb-2">
-            ANALYTICS
-          </div>
-
-          <div className="text-5xl font-semibold">
-            Hourly Sales
-          </div>
-
+          <div className="text-xs tracking-[0.3em] uppercase text-violet-400 mb-2">Analytics</div>
+          <div className="text-5xl font-semibold">Hourly Sales</div>
         </div>
-
       </div>
-
-      {/* ===== CHART ===== */}
       <div className="p-8">
-
         <div className="rounded-[36px] border border-white/10 bg-white/[0.03] p-8 h-[700px]">
-
-          <div className="text-sm uppercase tracking-[0.25em] text-violet-400 mb-8">
-            Today Revenue Flow
-          </div>
-
-          <ResponsiveContainer
-            width="100%"
-            height="90%"
-          >
-
-            <AreaChart
-              data={sales}
-            >
-
-              <defs>
-
-                <linearGradient
-                  id="sales"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-
-                  <stop
-                    offset="0%"
-                    stopColor="#8b5cf6"
-                    stopOpacity={0.8}
-                  />
-
-                  <stop
-                    offset="100%"
-                    stopColor="#8b5cf6"
-                    stopOpacity={0}
-                  />
-
-                </linearGradient>
-
-              </defs>
-
-              <XAxis
-                dataKey="hour"
-                stroke="#71717a"
-              />
-
+          <div className="text-sm uppercase tracking-[0.25em] text-violet-400 mb-8">Today Revenue Flow</div>
+          <ResponsiveContainer width="100%" height="90%">
+            <AreaChart data={sales}>
+              <XAxis dataKey="hour" stroke="#71717a" />
               <Tooltip />
-
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="#8b5cf6"
-                fillOpacity={1}
-                fill="url(#sales)"
-              />
-
+              <Area type="monotone" dataKey="revenue" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.18} />
             </AreaChart>
-
           </ResponsiveContainer>
-
         </div>
-
       </div>
-
     </div>
   );
 }

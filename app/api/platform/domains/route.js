@@ -1,7 +1,8 @@
-import { getDomains } from "@/lib/domain-registry";
+import { getErpDomains } from "@/lib/platform/registry/erpRegistry";
 
 export async function GET() {
   return Response.json({
-    domains: getDomains?.() || {}
+    success: true,
+    domains: getErpDomains(),
   });
 }

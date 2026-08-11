@@ -9,10 +9,6 @@ import {
 } from "@/app/providers/OrganizationProvider";
 
 import {
-  PlatformProvider,
-} from "@/app/providers/PlatformProvider";
-
-import {
   WorkspaceRuntimeProvider,
 } from "@/app/providers/WorkspaceRuntimeProvider";
 
@@ -96,15 +92,13 @@ export default async function RootLayout({
           />
         ) : null}
 
-        <PlatformProvider>
-          <BusinessContextProvider>
-            <WorkspaceRuntimeProvider>
-              <OrganizationProvider>
-                {children}
-              </OrganizationProvider>
-            </WorkspaceRuntimeProvider>
-          </BusinessContextProvider>
-        </PlatformProvider>
+        <BusinessContextProvider>
+          <WorkspaceRuntimeProvider>
+            <OrganizationProvider>
+              {children}
+            </OrganizationProvider>
+          </WorkspaceRuntimeProvider>
+        </BusinessContextProvider>
       </body>
     </html>
   );

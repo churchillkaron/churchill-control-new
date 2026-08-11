@@ -31,6 +31,18 @@ function canFinalize(record) {
   return ["PAID", "RESOLVED"].includes(record?.status);
 }
 
+function canAccountingClose(record) {
+  return record?.status === "FINALIZED";
+}
+
+function canCertify(record) {
+  return record?.status === "ACCOUNTING_CLOSED";
+}
+
+function canArchive(record) {
+  return record?.status === "CERTIFIED";
+}
+
 export default function PayrollGovernancePage() {
   const [payroll, setPayroll] = useState([]);
   const [role, setRole] = useState("");
@@ -38,6 +50,9 @@ export default function PayrollGovernancePage() {
   const [capabilities, setCapabilities] = useState({
     canLock: false,
     canFinalize: false,
+    canAccountingClose: false,
+    canCertify: false,
+    canArchive: false,
   });
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
@@ -66,7 +81,13 @@ export default function PayrollGovernancePage() {
       setRole(result.role || "");
       setOrganizationId(result.organizationId || "");
       setCapabilities(
-        result.capabilities || { canLock: false, canFinalize: false }
+        result.capabilities || {
+          canLock: false,
+          canFinalize: false,
+          canAccountingClose: false,
+          canCertify: false,
+          canArchive: false,
+        }
       );
     } catch (loadError) {
       setError(loadError?.message || "Unable to load payroll governance");
@@ -85,12 +106,12 @@ export default function PayrollGovernancePage() {
         result.total += Number(record.final_salary || 0);
         if (["GENERATED", "RECALCULATED"].includes(record.status)) result.pending += 1;
         if (record.status === "APPROVED") result.approved += 1;
-        if (["LOCKED", "PAID", "DISPUTED", "RESOLVED", "FINALIZED"].includes(record.status)) {
-          result.postApproval += 1;
+        if (["ACCOUNTING_CLOSED", "CERTIFIED", "ARCHIVED"].includes(record.status)) {
+          result.terminal += 1;
         }
         return result;
       },
-      { total: 0, pending: 0, approved: 0, postApproval: 0 }
+      { total: 0, pending: 0, approved: 0, terminal: 0 }
     );
   }, [payroll]);
 
@@ -128,6 +149,9 @@ export default function PayrollGovernancePage() {
         RESOLVE_DISPUTE: "Employee payroll dispute resolved.",
         LOCK: "Payroll month locked and accrued.",
         FINALIZE: "Payroll month finalized. Post-payment disputes are now closed for this month.",
+        ACCOUNTING_CLOSE: "Payroll accounting month closed.",
+        CERTIFY: "Payroll month certified.",
+        ARCHIVE: "Payroll month archived and is now immutable.",
       };
 
       setMessage(messages[action] || "Payroll updated.");
@@ -154,9 +178,9 @@ export default function PayrollGovernancePage() {
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.34em] text-cyan-300">
                 <ShieldCheck className="h-4 w-4" /> Payroll Governance
               </div>
-              <h1 className="mt-3 text-4xl font-black">Payroll Review & Finalization</h1>
-              <p className="mt-2 max-w-2xl text-sm text-white/45">
-                Employee acknowledgement, disputes, recalculation, approval, accounting lock and post-payment finalization all operate on the same canonical payroll month.
+              <h1 className="mt-3 text-4xl font-black">Payroll Lifecycle Governance</h1>
+              <p className="mt-2 max-w-3xl text-sm text-white/45">
+                Review, approve, lock, pay, finalize, accounting-close, certify and archive each payroll month through one controlled lifecycle.
               </p>
               <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
                 {organizationId ? `Organization ${organizationId}` : "Organization context"} · {role || "Role"}
@@ -178,7 +202,7 @@ export default function PayrollGovernancePage() {
           <Metric label="Payroll Total" value={`฿${money(summary.total)}`} />
           <Metric label="Needs Review" value={summary.pending} />
           <Metric label="Approved" value={summary.approved} />
-          <Metric label="Post Approval" value={summary.postApproval} />
+          <Metric label="Close / Archive" value={summary.terminal} />
         </section>
 
         {error ? (
@@ -271,6 +295,24 @@ export default function PayrollGovernancePage() {
                           Resolution: {record.dispute_resolution_notes}
                         </div>
                       ) : null}
+                    </div>
+                  ) : null}
+
+                  {record.accounting_period_closed ? (
+                    <div className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-cyan-300">
+                      Accounting closed · {record.accounting_period_closed_at || "Recorded"}
+                    </div>
+                  ) : null}
+
+                  {record.payroll_certified ? (
+                    <div className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300">
+                      Payroll certified · {record.payroll_certified_at || "Recorded"}
+                    </div>
+                  ) : null}
+
+                  {record.archived ? (
+                    <div className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-white/50">
+                      Archived · {record.archived_at || "Recorded"}
                     </div>
                   ) : null}
 
@@ -461,6 +503,54 @@ export default function PayrollGovernancePage() {
                       <CheckCircle2 className="h-4 w-4" /> Finalize payroll month
                     </button>
                   ) : null}
+
+                  {canAccountingClose(record) && capabilities.canAccountingClose ? (
+                    <button
+                      type="button"
+                      disabled={workingId === record.id}
+                      onClick={() =>
+                        executeAction({
+                          action: "ACCOUNTING_CLOSE",
+                          payrollRecordId: record.id,
+                        })
+                      }
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-xs font-black uppercase tracking-[0.16em] text-cyan-200 disabled:opacity-40"
+                    >
+                      <Lock className="h-4 w-4" /> Close accounting month
+                    </button>
+                  ) : null}
+
+                  {canCertify(record) && capabilities.canCertify ? (
+                    <button
+                      type="button"
+                      disabled={workingId === record.id}
+                      onClick={() =>
+                        executeAction({
+                          action: "CERTIFY",
+                          payrollRecordId: record.id,
+                        })
+                      }
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-xs font-black uppercase tracking-[0.16em] text-emerald-200 disabled:opacity-40"
+                    >
+                      <CheckCircle2 className="h-4 w-4" /> Certify payroll month
+                    </button>
+                  ) : null}
+
+                  {canArchive(record) && capabilities.canArchive ? (
+                    <button
+                      type="button"
+                      disabled={workingId === record.id}
+                      onClick={() =>
+                        executeAction({
+                          action: "ARCHIVE",
+                          payrollRecordId: record.id,
+                        })
+                      }
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
+                    >
+                      <Lock className="h-4 w-4" /> Archive payroll month
+                    </button>
+                  ) : null}
                 </article>
               );
             })}
@@ -496,21 +586,27 @@ function Data({ label, value }) {
 function StatusBadge({ status }) {
   const value = String(status || "GENERATED").toUpperCase();
   const tone =
-    value === "FINALIZED"
-      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-      : value === "RESOLVED"
-        ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
-        : value === "DISPUTED"
-          ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
-          : value === "PAID"
+    value === "ARCHIVED"
+      ? "border-white/15 bg-white/[0.05] text-white/55"
+      : value === "CERTIFIED"
+        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+        : value === "ACCOUNTING_CLOSED"
+          ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
+          : value === "FINALIZED"
             ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-            : value === "LOCKED"
+            : value === "RESOLVED"
               ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
-              : value === "APPROVED"
-                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-                : value === "REJECTED"
-                  ? "border-red-500/20 bg-red-500/10 text-red-300"
-                  : "border-white/10 bg-white/[0.05] text-white/65";
+              : value === "DISPUTED"
+                ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
+                : value === "PAID"
+                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                  : value === "LOCKED"
+                    ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
+                    : value === "APPROVED"
+                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                      : value === "REJECTED"
+                        ? "border-red-500/20 bg-red-500/10 text-red-300"
+                        : "border-white/10 bg-white/[0.05] text-white/65";
 
   return (
     <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${tone}`}>

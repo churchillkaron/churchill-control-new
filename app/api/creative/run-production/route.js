@@ -1,6 +1,9 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+import "@/lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap";
+import "@/lib/creative/quality/runtime/CreativeShotCandidateQualityGateBootstrap";
+
 import { NextResponse } from "next/server";
 import { CreativeDirectorRuntime } from "@/lib/creative/director/runtime/CreativeDirectorRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";

@@ -8,7 +8,7 @@ import * as ProductionGraphRepository
 from "@/lib/creative/production-graph/repositories/ProductionGraphRepository";
 import {
   WORLD_CLASS_CONCEPT_POLICY,
-} from "@/lib/creative/director/runtime/CreativeWorldClassConceptIntelligenceRuntime";
+} from "@/lib/creative/director/runtime/CreativeWorldClassConceptPolicy";
 
 function object(value) {
   return value && typeof value === "object" && !Array.isArray(value)

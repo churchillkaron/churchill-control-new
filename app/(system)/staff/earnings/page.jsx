@@ -15,6 +15,12 @@ import {
 } from "lucide-react";
 
 const REVIEWABLE_STATUSES = new Set(["GENERATED", "RECALCULATED"]);
+const PAYMENT_COMPLETE_STATUSES = new Set([
+  "PAID",
+  "DISPUTED",
+  "RESOLVED",
+  "FINALIZED",
+]);
 
 function money(value, currency = "") {
   const amount = Number(value || 0).toLocaleString("en-US", {
@@ -85,7 +91,7 @@ export default function StaffEarningsPage() {
   const summary = useMemo(() => {
     return {
       records: payroll.length,
-      paid: payroll.filter((row) => row.status === "PAID").length,
+      paid: payroll.filter((row) => PAYMENT_COMPLETE_STATUSES.has(row.status)).length,
       review: payroll.filter(
         (row) =>
           REVIEWABLE_STATUSES.has(row.status) &&
@@ -93,7 +99,7 @@ export default function StaffEarningsPage() {
           !row.employee_dispute
       ).length,
       totalPaid: payroll
-        .filter((row) => row.status === "PAID")
+        .filter((row) => PAYMENT_COMPLETE_STATUSES.has(row.status))
         .reduce((sum, row) => sum + Number(row.final_salary || 0), 0),
     };
   }, [payroll]);
@@ -209,7 +215,7 @@ export default function StaffEarningsPage() {
               </div>
               <h1 className="mt-3 text-4xl font-black">My Earnings</h1>
               <p className="mt-2 max-w-3xl text-sm text-white/45">
-                Review the exact payroll records used by management, Finance and your final payslip. Acknowledge correct payroll or raise a dispute before approval.
+                Review the exact payroll records used by management, Finance and your final payslip. Acknowledge payroll before approval, or raise a payment dispute after payment until the payroll month is finalized.
               </p>
             </div>
 
@@ -245,9 +251,12 @@ export default function StaffEarningsPage() {
           <section className="space-y-4">
             {payroll.map((record) => {
               const canReview = REVIEWABLE_STATUSES.has(record.status);
+              const canDisputeAfterPayment = record.status === "PAID";
+              const canOpenDispute =
+                (canReview && !record.employee_acknowledged) || canDisputeAfterPayment;
               const disputed = Boolean(record.employee_dispute && !record.dispute_resolved);
               const acknowledged = Boolean(record.employee_acknowledged);
-              const paid = record.status === "PAID";
+              const paymentComplete = PAYMENT_COMPLETE_STATUSES.has(record.status);
 
               return (
                 <article key={record.id} className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
@@ -277,7 +286,7 @@ export default function StaffEarningsPage() {
                     <Info label="Worked hours" value={Number(record.worked_hours || 0).toFixed(2)} />
                   </div>
 
-                  {paid ? (
+                  {paymentComplete ? (
                     <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.07] p-4">
                       <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-300">
                         <CheckCircle2 className="h-4 w-4" /> Paid
@@ -301,18 +310,27 @@ export default function StaffEarningsPage() {
                         <AlertTriangle className="h-4 w-4" /> {disputed ? "Dispute open" : "Dispute resolved"}
                       </div>
                       <p className="mt-2 text-sm text-white/55">{record.employee_dispute}</p>
+                      {record.dispute_resolution_notes ? (
+                        <p className="mt-2 text-sm text-white/40">Resolution: {record.dispute_resolution_notes}</p>
+                      ) : null}
                     </div>
                   ) : null}
 
-                  {disputeId === record.id && canReview && !acknowledged && !disputed ? (
+                  {disputeId === record.id && canOpenDispute && !disputed ? (
                     <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
                       <label className="block">
-                        <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-amber-200/70">What is incorrect?</span>
+                        <span className="mb-2 block text-[9px] uppercase tracking-[0.18em] text-amber-200/70">
+                          {canDisputeAfterPayment ? "What is wrong with this payment?" : "What is incorrect?"}
+                        </span>
                         <textarea
                           value={disputeReason}
                           onChange={(event) => setDisputeReason(event.target.value)}
                           rows={3}
-                          placeholder="Describe the payroll issue clearly for management."
+                          placeholder={
+                            canDisputeAfterPayment
+                              ? "Describe the payment issue clearly for payroll and accounting."
+                              : "Describe the payroll issue clearly for management."
+                          }
                           className="w-full rounded-xl border border-white/10 bg-black/25 p-4 text-sm outline-none placeholder:text-white/20"
                         />
                       </label>
@@ -351,7 +369,7 @@ export default function StaffEarningsPage() {
                       </button>
                     ) : null}
 
-                    {canReview && !acknowledged && !disputed ? (
+                    {canOpenDispute && !disputed ? (
                       <button
                         type="button"
                         onClick={() => {
@@ -360,11 +378,11 @@ export default function StaffEarningsPage() {
                         }}
                         className="h-11 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-5 text-[10px] font-black uppercase tracking-[0.14em] text-amber-200"
                       >
-                        Dispute payroll
+                        {canDisputeAfterPayment ? "Dispute payment" : "Dispute payroll"}
                       </button>
                     ) : null}
 
-                    {paid ? (
+                    {paymentComplete ? (
                       <button
                         type="button"
                         onClick={() => openPayslip(record)}

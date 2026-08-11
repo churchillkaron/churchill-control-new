@@ -1,0 +1,16 @@
+Final Studio world-class quality validation marker
+Date: 2026-08-11
+
+Contract: AVANTIQO_WORLD_CLASS_QUALITY_V1
+
+Final validation scope:
+- Preserve stricter organization/provider quality thresholds while applying Avantiqo world-class minimum floors.
+- Use newest quality evidence only; older passing evidence cannot mask a newer failed review.
+- Enforce overall A-grade release floor and per-dimension weakest-link thresholds.
+- Surface the exact weakest-dimension threshold in the Quality Director UI.
+- Keep quality status read-only and zero-provider-execution.
+- Keep autonomous repair bounded by existing approved-cost governance.
+- Keep human release approval separate.
+
+No provider, wallet, credential, billing, or OpenAI verification changes.
+No paid provider calls executed during implementation or validation.

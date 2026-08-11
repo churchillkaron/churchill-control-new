@@ -23,6 +23,16 @@ function upper(value) {
   return text(value).toUpperCase();
 }
 
+function organizationIdFromBody(body = {}) {
+  return text(body.organization_id || body.organizationId);
+}
+
+function requireOrganizationId(value) {
+  const organizationId = text(value);
+  if (!organizationId) throw new Error("organization_id is required");
+  return organizationId;
+}
+
 async function avantiqoGoogleAdsManager() {
   const { data: assets, error } = await supabaseAdmin
     .from("organization_channel_assets")
@@ -230,9 +240,10 @@ function mergeGoogleAdsReadiness(providerBilling, googleAds) {
   };
 }
 
-async function completeSnapshot() {
+async function completeSnapshot(organizationId) {
+  const scopedOrganizationId = requireOrganizationId(organizationId);
   const [providerBilling, googleAds] = await Promise.all([
-    ProviderBillingRuntime.snapshot(),
+    ProviderBillingRuntime.snapshot({ payerOrganizationId: scopedOrganizationId }),
     googleAdsBillingSnapshot().catch((error) => ({
       ready: false,
       manager: null,
@@ -245,13 +256,14 @@ async function completeSnapshot() {
 
   return {
     ...mergeGoogleAdsReadiness(providerBilling, googleAds),
+    organization_id: scopedOrganizationId,
     supplier_accounts: {
       google_ads: googleAds,
     },
   };
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     const access = await requirePlatformAdminAccess();
     if (!access.success) {
@@ -261,24 +273,34 @@ export async function GET() {
       );
     }
 
+    const organizationId = requireOrganizationId(
+      new URL(request.url).searchParams.get("organization_id"),
+    );
+
     return NextResponse.json({
       success: true,
-      ...(await completeSnapshot()),
+      ...(await completeSnapshot(organizationId)),
     });
   } catch (error) {
+    const message = error?.message || "Unable to load provider billing";
+    const status = message === "organization_id is required" ? 400 : 500;
     return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to load provider billing",
-      },
-      { status: 500 },
+      { success: false, error: message },
+      { status },
     );
   }
 }
 
-async function saveProviderSupplierAccount({ body, access }) {
+async function saveProviderSupplierAccount({ body, access, organizationId }) {
   const provider = text(body.provider).toLowerCase();
   if (!provider) throw new Error("provider is required");
+
+  const payerOrganizationId = text(
+    body.payer_organization_id || body.payerOrganizationId,
+  );
+  if (payerOrganizationId !== organizationId) {
+    throw new Error("PROVIDER_BILLING_ORGANIZATION_SCOPE_MISMATCH");
+  }
 
   const adapter = ProviderBillingRuntime.assertProvider(provider);
   const billingMode =
@@ -288,8 +310,7 @@ async function saveProviderSupplierAccount({ body, access }) {
 
   await ProviderSupplierAccountRuntime.save({
     provider_id: provider,
-    payer_organization_id:
-      body.payer_organization_id || body.payerOrganizationId,
+    payer_organization_id: organizationId,
     payer_entity_id: body.payer_entity_id || body.payerEntityId,
     supplier_party_id: body.supplier_party_id || body.supplierPartyId,
     billing_mode: billingMode,
@@ -300,17 +321,18 @@ async function saveProviderSupplierAccount({ body, access }) {
       configured_at: new Date().toISOString(),
       adapter_id: adapter.adapter_id,
       supplier_cost_source: adapter.supplier_cost_source,
+      organization_id: organizationId,
     },
   });
 
   return NextResponse.json({
     success: true,
-    message: "Provider payer mapping saved as unverified. Commercial evidence is required before activation.",
-    ...(await completeSnapshot()),
+    message: "Provider organization, entity, and supplier party mapping saved as unverified. Commercial evidence is required before activation.",
+    ...(await completeSnapshot(organizationId)),
   });
 }
 
-async function verifyProviderSupplierAccount({ body, access }) {
+async function verifyProviderSupplierAccount({ body, access, organizationId }) {
   const provider = text(body.provider).toLowerCase();
   if (!provider) throw new Error("provider is required");
 
@@ -318,6 +340,7 @@ async function verifyProviderSupplierAccount({ body, access }) {
 
   await ProviderSupplierAccountRuntime.verify({
     provider_id: provider,
+    payer_organization_id: organizationId,
     verification_method:
       body.verification_method || body.verificationMethod,
     verification_reference:
@@ -327,12 +350,12 @@ async function verifyProviderSupplierAccount({ body, access }) {
 
   return NextResponse.json({
     success: true,
-    message: "Provider legal payer verified and supplier account activated.",
-    ...(await completeSnapshot()),
+    message: "Provider commercial payer verified and supplier account activated.",
+    ...(await completeSnapshot(organizationId)),
   });
 }
 
-async function selectGooglePaymentsAccount({ body, access }) {
+async function selectGooglePaymentsAccount({ body, access, organizationId }) {
   const resourceName = text(
     body.paymentsAccountResourceName || body.payments_account_resource_name,
   );
@@ -388,7 +411,7 @@ async function selectGooglePaymentsAccount({ body, access }) {
   return NextResponse.json({
     success: true,
     message: "Avantiqo Google Payments account selected.",
-    ...(await completeSnapshot()),
+    ...(await completeSnapshot(organizationId)),
   });
 }
 
@@ -403,19 +426,20 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
+    const organizationId = requireOrganizationId(organizationIdFromBody(body));
     const provider = text(body.provider).toLowerCase();
     const action = text(body.action).toLowerCase();
 
     if (action === "save-supplier-account") {
-      return saveProviderSupplierAccount({ body, access });
+      return saveProviderSupplierAccount({ body, access, organizationId });
     }
 
     if (action === "verify-supplier-account") {
-      return verifyProviderSupplierAccount({ body, access });
+      return verifyProviderSupplierAccount({ body, access, organizationId });
     }
 
     if (provider === GOOGLE_ADS_PROVIDER && action === "select-payments-account") {
-      return selectGooglePaymentsAccount({ body, access });
+      return selectGooglePaymentsAccount({ body, access, organizationId });
     }
 
     return NextResponse.json(
@@ -423,12 +447,15 @@ export async function POST(request) {
       { status: 400 },
     );
   } catch (error) {
+    const message = error?.message || "Unable to configure provider billing";
+    const status =
+      message === "organization_id is required" ||
+      message === "PROVIDER_BILLING_ORGANIZATION_SCOPE_MISMATCH"
+        ? 400
+        : 500;
     return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to configure provider billing",
-      },
-      { status: 500 },
+      { success: false, error: message },
+      { status },
     );
   }
 }

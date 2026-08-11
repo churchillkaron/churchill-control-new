@@ -163,7 +163,10 @@ export default function CreativeQualityDirector({ runtime }) {
               <Score
                 label={quality.weakest_dimension?.label || "Weakest dimension"}
                 value={quality.weakest_dimension?.score}
-                minimum={standard.minimum_release_score}
+                minimum={
+                  quality.weakest_dimension?.minimum ??
+                  standard.minimum_release_score
+                }
               />
               <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                 <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">

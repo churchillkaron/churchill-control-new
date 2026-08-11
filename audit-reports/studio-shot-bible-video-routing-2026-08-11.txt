@@ -16,8 +16,12 @@ Scope
 
 Database
 - No schema migration required.
-- Extended Shot Bible source is stored in the existing creative_shots.metadata JSONB column.
+- Live schema verified: extended Shot Bible source belongs in existing creative_shots.metadata JSONB.
 
 Governance
 - Organization-scoped shot lookup required.
 - Existing ServiceExecutionRuntime retains provider resolution, pricing, Usage, Wallet, execution, settlement and Billing ownership.
+
+Validation repair
+- First build identified a missing Grok runtime dependency introduced by converging the newer ProviderExecutor loader map.
+- The runtime dependency was restored without enabling Grok in the Studio provider registry or routing policy.

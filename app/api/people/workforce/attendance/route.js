@@ -36,8 +36,11 @@ function contextError(context) {
   );
 }
 
-async function managementContext(request) {
-  const context = await resolveAuthenticatedStaffContext({ request });
+async function managementContext(request, requestedOrganizationId = null) {
+  const context = await resolveAuthenticatedStaffContext({
+    request,
+    organizationId: requestedOrganizationId || null,
+  });
   if (!context.success) return { response: contextError(context) };
 
   const role = roleOf(context.role || context.staff?.role);
@@ -76,6 +79,14 @@ function mergeNotes(existing, note, managerName) {
   const stamp = new Date().toISOString();
   const entry = `[${stamp}] ${managerName || "Manager"}: ${clean}`;
   return existing ? `${existing}\n${entry}` : entry;
+}
+
+function completedShift(shift) {
+  return shift?.shift_status === "COMPLETED" || Boolean(shift?.clock_out);
+}
+
+function staffDateKey(staffId, shiftDate) {
+  return `${staffId || ""}:${shiftDate || ""}`;
 }
 
 async function loadMonthData({ organizationId, month, now = new Date() }) {
@@ -133,15 +144,38 @@ async function loadMonthData({ organizationId, month, now = new Date() }) {
   const shifts = shiftResult.data || [];
   const attendance = attendanceResult.data || [];
   const workedScheduleIds = new Set(
-    shifts.map((shift) => shift.schedule_id).filter(Boolean)
+    shifts
+      .filter(completedShift)
+      .map((shift) => shift.schedule_id)
+      .filter(Boolean)
   );
   const attendanceScheduleIds = new Set(
     attendance.map((row) => row.schedule_id).filter(Boolean)
   );
+  const legacyWorkedCounts = new Map();
 
-  const absenceCandidates = schedules.filter((schedule) => {
+  for (const shift of shifts) {
+    if (!completedShift(shift) || shift.schedule_id || !shift.clock_in) continue;
+
+    const shiftDate = localDateString(
+      new Date(shift.clock_in),
+      timeContext.timezone
+    );
+    const key = staffDateKey(shift.staff_id, shiftDate);
+    legacyWorkedCounts.set(key, (legacyWorkedCounts.get(key) || 0) + 1);
+  }
+
+  const absenceCandidates = [];
+  for (const schedule of schedules) {
     if (workedScheduleIds.has(schedule.id) || attendanceScheduleIds.has(schedule.id)) {
-      return false;
+      continue;
+    }
+
+    const legacyKey = staffDateKey(schedule.staff_id, schedule.shift_date);
+    const legacyCount = legacyWorkedCounts.get(legacyKey) || 0;
+    if (legacyCount > 0) {
+      legacyWorkedCounts.set(legacyKey, legacyCount - 1);
+      continue;
     }
 
     const timing = scheduleWindow({
@@ -151,8 +185,10 @@ async function loadMonthData({ organizationId, month, now = new Date() }) {
       timezone: timeContext.timezone,
     });
 
-    return Boolean(timing?.end && now > timing.end);
-  });
+    if (timing?.end && now > timing.end) {
+      absenceCandidates.push(schedule);
+    }
+  }
 
   return {
     timezone: timeContext.timezone,
@@ -165,7 +201,10 @@ async function loadMonthData({ organizationId, month, now = new Date() }) {
       (shift) => String(shift.approval_status || "").toUpperCase() === "PENDING"
     ),
     lateShifts: shifts.filter(
-      (shift) => Boolean(shift.is_late) || Number(shift.late_minutes || 0) > 0
+      (shift) =>
+        String(shift.approval_status || "").toUpperCase() !== "REJECTED" &&
+        shift.is_valid !== false &&
+        (Boolean(shift.is_late) || Number(shift.late_minutes || 0) > 0)
     ),
     absenceCandidates,
   };
@@ -173,12 +212,12 @@ async function loadMonthData({ organizationId, month, now = new Date() }) {
 
 export async function GET(request) {
   try {
-    const ctx = await managementContext(request);
+    const url = new URL(request.url);
+    const requestedOrganizationId = url.searchParams.get("organizationId") || null;
+    const ctx = await managementContext(request, requestedOrganizationId);
     if (ctx.response) return ctx.response;
 
-    const month =
-      new URL(request.url).searchParams.get("month") ||
-      new Date().toISOString().slice(0, 7);
+    const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
     const data = await loadMonthData({
       organizationId: ctx.organizationId,
       month,
@@ -187,6 +226,7 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       organizationId: ctx.organizationId,
+      role: ctx.role,
       month,
       ...data,
     });
@@ -200,10 +240,12 @@ export async function GET(request) {
 
 export async function PATCH(request) {
   try {
-    const ctx = await managementContext(request);
+    const body = await request.json();
+    const requestedOrganizationId =
+      String(body?.organizationId || body?.organization_id || "").trim() || null;
+    const ctx = await managementContext(request, requestedOrganizationId);
     if (ctx.response) return ctx.response;
 
-    const body = await request.json();
     const action = String(body?.action || "").trim().toLowerCase();
     const managerName = ctx.manager?.name || ctx.manager?.email || "Manager";
 
@@ -250,12 +292,13 @@ export async function PATCH(request) {
         .single();
       if (updateError) throw updateError;
 
-      const { data: attendance } = await supabaseAdmin
+      const { data: attendance, error: attendanceLoadError } = await supabaseAdmin
         .from("staff_attendance")
         .select("*")
         .eq("organization_id", ctx.organizationId)
         .eq("shift_id", shiftId)
         .maybeSingle();
+      if (attendanceLoadError) throw attendanceLoadError;
 
       if (attendance) {
         const { error: attendanceUpdateError } = await supabaseAdmin
@@ -263,7 +306,11 @@ export async function PATCH(request) {
           .update({
             approved_by: String(ctx.manager?.id || managerName),
             approved_at: new Date().toISOString(),
-            notes: mergeNotes(attendance.notes, body?.notes || `Shift ${decision.toLowerCase()}`, managerName),
+            notes: mergeNotes(
+              attendance.notes,
+              body?.notes || `Shift ${decision.toLowerCase()}`,
+              managerName
+            ),
           })
           .eq("id", attendance.id)
           .eq("organization_id", ctx.organizationId);
@@ -305,6 +352,16 @@ export async function PATCH(request) {
         );
       }
 
+      if (
+        String(shift.approval_status || "").toUpperCase() === "REJECTED" ||
+        shift.is_valid === false
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Rejected shift evidence cannot be used for lateness" },
+          { status: 409 }
+        );
+      }
+
       const { data: updatedShift, error: updateError } = await supabaseAdmin
         .from("staff_shifts")
         .update({
@@ -320,12 +377,13 @@ export async function PATCH(request) {
         .single();
       if (updateError) throw updateError;
 
-      const { data: attendance } = await supabaseAdmin
+      const { data: attendance, error: attendanceLoadError } = await supabaseAdmin
         .from("staff_attendance")
         .select("*")
         .eq("organization_id", ctx.organizationId)
         .eq("shift_id", shiftId)
         .maybeSingle();
+      if (attendanceLoadError) throw attendanceLoadError;
 
       if (attendance) {
         const { error: attendanceUpdateError } = await supabaseAdmin
@@ -358,10 +416,12 @@ export async function PATCH(request) {
 
 export async function POST(request) {
   try {
-    const ctx = await managementContext(request);
+    const body = await request.json();
+    const requestedOrganizationId =
+      String(body?.organizationId || body?.organization_id || "").trim() || null;
+    const ctx = await managementContext(request, requestedOrganizationId);
     if (ctx.response) return ctx.response;
 
-    const body = await request.json();
     const action = String(body?.action || "").trim().toLowerCase();
     if (action !== "mark_absent") {
       return NextResponse.json(

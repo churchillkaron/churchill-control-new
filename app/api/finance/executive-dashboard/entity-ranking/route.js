@@ -5,7 +5,7 @@ import { getEntityRanking } from "@/lib/finance/reporting/reports/getEntityRanki
 
 import {
   BusinessIntelligenceRuntime,
-} from "@/lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime";
+} from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 
 export async function POST(request) {
   try {

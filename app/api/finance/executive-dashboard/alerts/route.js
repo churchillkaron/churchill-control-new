@@ -5,7 +5,7 @@ import { getExecutiveAlerts } from "@/lib/finance/reporting/alerts/getExecutiveA
 
 import {
   BusinessIntelligenceRuntime,
-} from "@/lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime";
+} from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 
 export async function POST(request) {
   try {

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import {
   BusinessIntelligenceRuntime,
-} from "@/lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime";
+} from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 
 export async function GET(request) {
   try {

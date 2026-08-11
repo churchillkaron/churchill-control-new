@@ -24,11 +24,18 @@ export default function AIEngine({
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (!action || action.enabled === false || !action.capability) return null;
+  const executable =
+    action &&
+    action.enabled !== false &&
+    action.domain &&
+    action.capability &&
+    action.action;
 
-  const endpoint = action.endpoint || "/api/workspace/ai";
+  if (!executable) return null;
+
+  const endpoint = action.endpoint || "/api/ubte/execute";
   const modes = Array.isArray(action.modes) && action.modes.length
-    ? DEFAULT_MODES.filter(item => action.modes.includes(item.id))
+    ? DEFAULT_MODES.filter((item) => action.modes.includes(item.id))
     : DEFAULT_MODES;
 
   async function execute() {
@@ -38,12 +45,12 @@ export default function AIEngine({
     }
 
     setBusy(true);
+
     try {
       const payload = {
         module: moduleKey,
         mode,
         prompt: prompt.trim(),
-        action: action.action || action.id || mode,
         organizationId,
         organization_id: organizationId,
         entityId,
@@ -57,17 +64,16 @@ export default function AIEngine({
         method: action.method || "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          organizationId,
+          organization_id: organizationId,
+          entityId,
+          entity_id: entityId,
+          periodId,
+          period_id: periodId,
+          domain: action.domain,
           capability: action.capability,
-          context: {
-            organizationId,
-            organization_id: organizationId,
-            entityId,
-            entity_id: entityId,
-            periodId,
-            period_id: periodId,
-            moduleKey,
-            ...context,
-          },
+          action: action.action,
+          workspace: moduleKey || null,
           payload,
         }),
       });
@@ -113,7 +119,7 @@ export default function AIEngine({
             </div>
 
             <div className="mt-6 flex flex-wrap gap-2">
-              {modes.map(item => (
+              {modes.map((item) => (
                 <button
                   key={item.id}
                   type="button"
@@ -131,7 +137,7 @@ export default function AIEngine({
 
             <textarea
               value={prompt}
-              onChange={event => setPrompt(event.target.value)}
+              onChange={(event) => setPrompt(event.target.value)}
               placeholder="Ask about this workspace or give a specific instruction..."
               className="mt-6 h-52 w-full rounded-2xl border border-white/10 bg-black/35 p-4 text-[13px] text-white outline-none placeholder:text-white/25"
             />

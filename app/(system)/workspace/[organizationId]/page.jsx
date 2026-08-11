@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useMemo } from "react";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 
 function getGreeting(name) {
@@ -14,16 +15,12 @@ function getGreeting(name) {
 }
 
 export default function OrganizationWorkspacePage() {
-
   const {
     runtime,
     organization,
     loading,
   } = useOrganizationRuntime();
 
-  const [aiQuery, setAiQuery] = useState("");
-  const [aiResponse, setAiResponse] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
   const name =
     runtime?.access?.staff?.name ||
     runtime?.activeOrganization?.name ||
@@ -35,32 +32,9 @@ export default function OrganizationWorkspacePage() {
   const metrics = runtime?.metrics || {};
   const alerts = runtime?.alerts || [];
   const activity = runtime?.activity || [];
-
-  async function askAI() {
-    if (!aiQuery) return;
-
-    setAiLoading(true);
-
-    try {
-      const res = await fetch("/api/workspace/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: aiQuery,
-          organizationId: organization?.id,
-        }),
-      });
-
-      const data = await res.json();
-      setAiResponse(data);
-    } catch (err) {
-      setAiResponse({
-        answer: "AI temporarily unavailable.",
-      });
-    } finally {
-      setAiLoading(false);
-    }
-  }
+  const intelligenceHref = organization?.id
+    ? `/intelligence?organizationId=${encodeURIComponent(organization.id)}`
+    : "/intelligence";
 
   if (loading) {
     return (
@@ -72,13 +46,8 @@ export default function OrganizationWorkspacePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-
-        {/* LEFT - EXECUTIVE STATE */}
         <div className="space-y-6">
-
-          {/* GREETING */}
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
             <div className="text-2xl font-light">
               {greeting}
@@ -89,7 +58,6 @@ export default function OrganizationWorkspacePage() {
             </div>
           </div>
 
-          {/* LIVE STATUS */}
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
             <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
               Live Business State
@@ -104,7 +72,6 @@ export default function OrganizationWorkspacePage() {
             </div>
           </div>
 
-          {/* ALERTS */}
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
             <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
               Priority Signals
@@ -114,72 +81,52 @@ export default function OrganizationWorkspacePage() {
               {(alerts || []).length === 0 ? (
                 <div className="text-white/40">No active alerts</div>
               ) : (
-                alerts.map((a, i) => (
-                  <div key={i}>• {a.message || a}</div>
+                alerts.map((alert, index) => (
+                  <div key={index}>• {alert.message || alert}</div>
                 ))
               )}
             </div>
           </div>
 
-          {/* ACTIVITY */}
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
             <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
               Live Activity
             </div>
 
             <div className="space-y-2 text-sm text-white/60">
-              {(activity || []).slice(0, 8).map((a, i) => (
-                <div key={i}>
-                  {a.time} — {a.text}
+              {(activity || []).slice(0, 8).map((item, index) => (
+                <div key={index}>
+                  {item.time} — {item.text}
                 </div>
               ))}
             </div>
           </div>
-
         </div>
 
-        {/* RIGHT - AI ENGINE */}
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 flex flex-col">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 flex flex-col justify-between">
+          <div>
+            <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
+              Company Intelligence
+            </div>
 
-          <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
-            Company Intelligence
+            <h2 className="text-3xl font-light tracking-[-0.04em]">
+              Organization intelligence
+            </h2>
+
+            <p className="mt-4 max-w-xl text-sm leading-6 text-white/50">
+              Open the canonical Intelligence workspace for attribution, channel performance and business recommendations. Executable AI actions remain capability-driven inside their owning business domains.
+            </p>
           </div>
 
-          {/* AI OUTPUT */}
-          <div className="flex-1 space-y-4 text-sm text-white/80 overflow-auto">
-            {!aiResponse && (
-              <div className="text-white/40">
-                Ask anything about the company...
-              </div>
-            )}
-
-            {aiResponse?.answer && (
-              <div className="whitespace-pre-wrap">
-                {aiResponse.answer}
-              </div>
-            )}
-          </div>
-
-          {/* INPUT */}
-          <div className="mt-4 flex gap-2">
-            <input
-              value={aiQuery}
-              onChange={(e) => setAiQuery(e.target.value)}
-              placeholder="Ask about revenue, staff, inventory, risks..."
-              className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none"
-            />
-
-            <button
-              onClick={askAI}
-              disabled={aiLoading}
-              className="px-4 py-3 rounded-2xl bg-white text-black text-sm"
+          <div className="mt-8">
+            <Link
+              href={intelligenceHref}
+              className="inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90"
             >
-              {aiLoading ? "..." : "Ask"}
-            </button>
+              Open Intelligence
+            </Link>
           </div>
-
         </div>
-
       </div>
     </div>
   );

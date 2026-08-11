@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-import { BusinessIntelligenceRuntime } from "@/lib/platform/service-runtime/intelligence/runtime/BusinessIntelligenceRuntime";
+import { BusinessIntelligenceRuntime } from "@/lib/intelligence/runtime/BusinessIntelligenceRuntime";
 
 function cleanValue(value) {
   const normalized = String(value ?? "").trim();

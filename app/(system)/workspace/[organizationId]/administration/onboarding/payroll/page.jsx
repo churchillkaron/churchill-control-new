@@ -30,16 +30,16 @@ function peopleRoute(organizationId, path) {
 
 function blockerAction(code, organizationId) {
   const actions = {
-    PAYROLL_PERIOD_OPEN: { href: "/staff/attendance", label: "Review attendance" },
-    NO_ACTIVE_STAFF: { href: "/workforce/employees", label: "Open employees" },
+    PAYROLL_PERIOD_OPEN: { href: peopleRoute(organizationId, "/attendance"), label: "Review attendance" },
+    NO_ACTIVE_STAFF: { href: peopleRoute(organizationId, "/directory"), label: "Open employees" },
     PAYROLL_COUNTRY_MISSING: { href: peopleRoute(organizationId, "/payroll/policy"), label: "Configure payroll" },
     PAYROLL_CURRENCY_MISSING: { href: peopleRoute(organizationId, "/payroll/policy"), label: "Configure payroll" },
     COMPENSATION_PROFILE_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Open compensation" },
     COMPENSATION_AMOUNT_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Set pay amounts" },
-    SCHEDULES_MISSING: { href: "/workforce/scheduling", label: "Open scheduling" },
+    SCHEDULES_MISSING: { href: peopleRoute(organizationId, "/scheduling"), label: "Open scheduling" },
     PAYROLL_ALREADY_LOCKED: { href: peopleRoute(organizationId, "/payroll/governance"), label: "Open governance" },
-    SHIFT_EVIDENCE_MISSING: { href: "/staff/attendance", label: "Review attendance" },
-    ATTENDANCE_EVIDENCE_MISSING: { href: "/staff/attendance", label: "Review attendance" },
+    SHIFT_EVIDENCE_MISSING: { href: peopleRoute(organizationId, "/attendance"), label: "Review attendance" },
+    ATTENDANCE_EVIDENCE_MISSING: { href: peopleRoute(organizationId, "/attendance"), label: "Review attendance" },
   };
 
   return actions[code] || null;
@@ -115,7 +115,7 @@ function getStages(organizationId) {
       id: "scheduling",
       title: "Scheduling",
       description: "Publish work schedules when expected payroll hours are schedule-driven.",
-      href: "/workforce/scheduling",
+      href: peopleRoute(organizationId, "/scheduling"),
       action: "Scheduling",
       icon: CalendarClock,
     },
@@ -123,7 +123,7 @@ function getStages(organizationId) {
       id: "attendance",
       title: "Attendance Evidence",
       description: "Review clock, shift and attendance evidence before the payroll period is approved.",
-      href: "/staff/attendance",
+      href: peopleRoute(organizationId, "/attendance"),
       action: "Attendance",
       icon: ClipboardCheck,
     },

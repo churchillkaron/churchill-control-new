@@ -28,25 +28,28 @@ function money(value) {
   });
 }
 
-function peoplePayrollRoute(organizationId, suffix = "") {
+function peopleRoute(organizationId, suffix = "") {
   if (!organizationId) return "#";
-  return `/workspace/${encodeURIComponent(organizationId)}/people/payroll${suffix}`;
+  return `/workspace/${encodeURIComponent(organizationId)}/people${suffix}`;
+}
+
+function peoplePayrollRoute(organizationId, suffix = "") {
+  return peopleRoute(organizationId, `/payroll${suffix}`);
 }
 
 function peopleCompensationRoute(organizationId) {
-  if (!organizationId) return "#";
-  return `/workspace/${encodeURIComponent(organizationId)}/people/compensation`;
+  return peopleRoute(organizationId, "/compensation");
 }
 
 function readinessAction(code, organizationId) {
   const actions = {
     PAYROLL_PERIOD_OPEN: {
-      href: "/staff/attendance",
+      href: peopleRoute(organizationId, "/attendance"),
       label: "Review attendance",
       note: "Complete the period first; monthly payroll remains blocked until the month closes.",
     },
     NO_ACTIVE_STAFF: {
-      href: "/workforce/employees",
+      href: peopleRoute(organizationId, "/directory"),
       label: "Open employees",
     },
     PAYROLL_COUNTRY_MISSING: {
@@ -62,7 +65,7 @@ function readinessAction(code, organizationId) {
       label: "Set pay amounts",
     },
     SCHEDULES_MISSING: {
-      href: "/workforce/scheduling",
+      href: peopleRoute(organizationId, "/scheduling"),
       label: "Open scheduling",
     },
     PAYROLL_ALREADY_LOCKED: {
@@ -70,11 +73,11 @@ function readinessAction(code, organizationId) {
       label: "Open governance",
     },
     SHIFT_EVIDENCE_MISSING: {
-      href: "/staff/attendance",
+      href: peopleRoute(organizationId, "/attendance"),
       label: "Review attendance",
     },
     ATTENDANCE_EVIDENCE_MISSING: {
-      href: "/staff/attendance",
+      href: peopleRoute(organizationId, "/attendance"),
       label: "Review attendance",
     },
   };
@@ -327,8 +330,8 @@ export default function PayrollPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Link href={peopleCompensationRoute(organizationId)} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Compensation</Link>
-              <Link href="/workforce/scheduling" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Scheduling</Link>
-              <Link href="/staff/attendance" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Attendance</Link>
+              <Link href={peopleRoute(organizationId, "/scheduling")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Scheduling</Link>
+              <Link href={peopleRoute(organizationId, "/attendance")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Attendance</Link>
               <Link href={peoplePayrollRoute(organizationId, "/policy")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Payroll Policy</Link>
             </div>
           </div>

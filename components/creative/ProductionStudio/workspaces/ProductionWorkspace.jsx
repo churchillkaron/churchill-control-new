@@ -1,6 +1,7 @@
 "use client";
 
 import CreativeDirectorCockpit from "../status/CreativeDirectorCockpit";
+import CreativeConceptDirector from "../status/CreativeConceptDirector";
 import CreativeQualityDirector from "../status/CreativeQualityDirector";
 
 function assetUrl(asset) {
@@ -50,6 +51,10 @@ export default function ProductionWorkspace({
     <div className="h-full overflow-auto">
 
       <CreativeDirectorCockpit
+        runtime={runtime}
+      />
+
+      <CreativeConceptDirector
         runtime={runtime}
       />
 

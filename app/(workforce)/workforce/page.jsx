@@ -3,43 +3,85 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  CalendarDays,
-  FileText,
-  Wallet,
-  Users,
   Bot,
-  Clock3,
+  CalendarDays,
   ChevronRight,
-  Sparkles,
-  ShieldCheck,
+  Clock3,
+  FileText,
   Play,
+  ShieldCheck,
+  Sparkles,
   Square,
+  Users,
+  Wallet,
 } from "lucide-react";
 
-import { supabase } from "@/lib/shared/supabase/client";
-import WorkforceActivityFeed from "@/components/workforce/WorkforceActivityFeed";
+const cards = [
+  {
+    title: "Schedule",
+    subtitle: "Next shifts and roster",
+    href: "/workforce/schedule",
+    icon: CalendarDays,
+  },
+  {
+    title: "Documents",
+    subtitle: "Payslips, contracts and HR files",
+    href: "/workforce/documents",
+    icon: FileText,
+  },
+  {
+    title: "Payroll",
+    subtitle: "Salary, service charge and history",
+    href: "/workforce/payroll",
+    icon: Wallet,
+  },
+  {
+    title: "Tasks",
+    subtitle: "Assigned work and approvals",
+    href: "/workforce/tasks",
+    icon: Users,
+  },
+  {
+    title: "Training",
+    subtitle: "Courses and certifications",
+    href: "/workforce/training",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Profile",
+    subtitle: "Employment and personal details",
+    href: "/workforce/profile",
+    icon: FileText,
+  },
+];
 
 export default function PortalHomePage() {
   const [staff, setStaff] = useState(null);
   const [runtime, setRuntime] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [loadingShift, setLoadingShift] = useState(false);
+  const [error, setError] = useState("");
 
   async function loadPortal() {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    setLoading(true);
+    setError("");
 
-    if (!session?.user?.email) return;
+    try {
+      const response = await fetch("/api/staff/runtime", {
+        cache: "no-store",
+      });
+      const data = await response.json();
 
-    const response = await fetch(
-      `/api/staff/runtime?email=${session.user.email}`
-    );
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Unable to load workforce portal");
+      }
 
-    const data = await response.json();
-
-    if (data.success) {
-      setStaff(data.staff);
+      setStaff(data.staff || null);
       setRuntime(data);
+    } catch (loadError) {
+      setError(loadError?.message || "Unable to load workforce portal");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -47,103 +89,38 @@ export default function PortalHomePage() {
     loadPortal();
   }, []);
 
-  async function startShift() {
-    if (!staff) return;
-
+  async function runShiftAction(action) {
     setLoadingShift(true);
+    setError("");
 
-    await fetch("/api/staff", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action: "clock_in",
-        staffId: staff.id,
-        staffName: staff.name,
-        staffRole: staff.role,
-        tenantId: staff.tenant_id,
-      }),
-    });
+    try {
+      const response = await fetch("/api/staff", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      });
+      const data = await response.json();
 
-    await loadPortal();
-    setLoadingShift(false);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Unable to update shift");
+      }
+
+      await loadPortal();
+    } catch (actionError) {
+      setError(actionError?.message || "Unable to update shift");
+    } finally {
+      setLoadingShift(false);
+    }
   }
-
-  async function endShift() {
-    if (!staff) return;
-
-    setLoadingShift(true);
-
-    await fetch("/api/staff", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action: "clock_out",
-        staffId: staff.id,
-        staffName: staff.name,
-        staffRole: staff.role,
-        tenantId: staff.tenant_id,
-      }),
-    });
-
-    await loadPortal();
-    setLoadingShift(false);
-  }
-
-  const cards = [
-    {
-      title: "Schedule",
-      subtitle: "Next shift and monthly plan",
-      href: "/workforce/schedule",
-      icon: CalendarDays,
-      accent: "from-cyan-500/20 to-blue-500/10",
-    },
-    {
-      title: "Documents",
-      subtitle: "Payslips, contracts and HR files",
-      href: "/workforce/documents",
-      icon: FileText,
-      accent: "from-violet-500/20 to-fuchsia-500/10",
-    },
-    {
-      title: "Payroll",
-      subtitle: "Salary, service charge and history",
-      href: "/workforce/payroll",
-      icon: Wallet,
-      accent: "from-emerald-500/20 to-cyan-500/10",
-    },
-    {
-      title: "Tasks",
-      subtitle: "Assigned work and approvals",
-      href: "/workforce/tasks",
-      icon: Users,
-      accent: "from-orange-500/20 to-fuchsia-500/10",
-    },
-    {
-      title: "Training",
-      subtitle: "Courses and certifications",
-      href: "/workforce/training",
-      icon: ShieldCheck,
-      accent: "from-violet-500/20 to-cyan-500/10",
-    },
-    {
-      title: "Profile",
-      subtitle: "Employment and personal details",
-      href: "/workforce/profile",
-      icon: FileText,
-      accent: "from-fuchsia-500/20 to-cyan-500/10",
-    },
-  ];
 
   const staffName = staff?.name || "Team Member";
   const staffInitial = staffName?.[0] || "?";
-  const shiftActive = runtime?.shiftActive;
+  const shiftActive = Boolean(runtime?.shiftActive);
   const shiftDuration = runtime?.shiftDuration || "00:00";
   const shiftStatus = runtime?.shiftStatus || "NO_SHIFT";
-  const schedule = runtime?.schedule;
+  const schedule = runtime?.schedule || null;
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -156,23 +133,19 @@ export default function PortalHomePage() {
       <div className="relative z-10 space-y-5">
         <section className="overflow-hidden rounded-[38px] border border-white/10 bg-white/[0.06] shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-3xl">
           <div className="h-[2px] bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400" />
-
           <div className="p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.4em] text-fuchsia-300">
                   Workforce Operating System
                 </div>
-
                 <div className="mt-3 text-4xl font-black leading-none">
-                  Good evening,
+                  Welcome,
                   <br />
                   {staffName}
                 </div>
-
                 <div className="mt-3 max-w-[280px] text-sm leading-relaxed text-white/50">
-                  Your personal operating system for shifts, salary, documents,
-                  team updates and AI help.
+                  Your personal operating system for shifts, salary, documents and team support.
                 </div>
               </div>
 
@@ -189,232 +162,72 @@ export default function PortalHomePage() {
               </div>
             </div>
 
+            {error ? (
+              <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {error}
+              </div>
+            ) : null}
+
             <div className="mt-6 grid grid-cols-3 gap-2">
-              <div className="rounded-[22px] border border-white/10 bg-black/30 p-3">
-                <div className="text-[9px] uppercase tracking-[0.25em] text-white/35">
-                  Status
-                </div>
-                <div className="mt-2 text-sm font-black text-emerald-300">
-                  {shiftActive ? "On Shift" : shiftStatus}
-                </div>
-              </div>
-
-              <div className="rounded-[22px] border border-white/10 bg-black/30 p-3">
-                <div className="text-[9px] uppercase tracking-[0.25em] text-white/35">
-                  Role
-                </div>
-                <div className="mt-2 truncate text-sm font-black text-cyan-300">
-                  {staff?.role || "Staff"}
-                </div>
-              </div>
-
-              <div className="rounded-[22px] border border-white/10 bg-black/30 p-3">
-                <div className="text-[9px] uppercase tracking-[0.25em] text-white/35">
-                  Time
-                </div>
-                <div className="mt-2 text-sm font-black text-fuchsia-300">
-                  {shiftDuration}
-                </div>
-              </div>
+              <StatusCard label="Status" value={loading ? "Loading" : shiftActive ? "On Shift" : shiftStatus} />
+              <StatusCard label="Role" value={staff?.role || "Staff"} />
+              <StatusCard label="Time" value={shiftDuration} />
             </div>
 
             <div className="mt-5 rounded-[30px] border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-white/[0.03] p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-cyan-300">
-                    <Clock3 className="h-4 w-4" />
-                    Next Shift
+                    <Clock3 className="h-4 w-4" /> Next Shift
                   </div>
-
                   <div className="mt-3 text-2xl font-black">
                     {schedule
                       ? `${schedule.start_time} - ${schedule.end_time}`
                       : "No shift today"}
                   </div>
-
                   <div className="mt-1 text-sm text-white/45">
-                    {schedule?.shift_type || "Check schedule for upcoming shifts"}
+                    {schedule?.shift_type || "Open Schedule for upcoming shifts"}
                   </div>
                 </div>
-
                 <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
                   {shiftStatus}
                 </div>
               </div>
 
               <button
-                onClick={shiftActive ? endShift : startShift}
-                disabled={loadingShift || !staff}
-                className={`mt-5 flex h-14 w-full items-center justify-center gap-3 rounded-[24px] text-sm font-black uppercase tracking-[0.2em] text-white ${
+                type="button"
+                onClick={() => runShiftAction(shiftActive ? "clock_out" : "clock_in")}
+                disabled={loadingShift || loading || !staff}
+                className={`mt-5 flex h-14 w-full items-center justify-center gap-3 rounded-[24px] text-sm font-black uppercase tracking-[0.2em] text-white disabled:opacity-40 ${
                   shiftActive
                     ? "bg-gradient-to-r from-red-500 to-orange-500"
                     : "bg-gradient-to-r from-emerald-500 to-cyan-500"
                 }`}
               >
-                {shiftActive ? (
-                  <Square className="h-5 w-5" />
-                ) : (
-                  <Play className="h-5 w-5" />
-                )}
-
-                {loadingShift
-                  ? "Syncing..."
-                  : shiftActive
-                  ? "End Shift"
-                  : "Start Shift"}
+                {shiftActive ? <Square className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                {loadingShift ? "Syncing..." : shiftActive ? "End Shift" : "Start Shift"}
               </button>
             </div>
           </div>
         </section>
 
-
-<section className="mt-4 overflow-hidden rounded-[34px] border border-violet-500/20 bg-violet-500/[0.06] backdrop-blur-2xl">
-
-  <div className="p-5">
-
-    <div className="text-[10px] uppercase tracking-[0.35em] text-violet-400">
-      Workforce Intelligence
-    </div>
-
-    <div className="mt-3 text-2xl font-light text-white">
-      Runtime Status
-    </div>
-
-    <div className="mt-4 space-y-2 text-sm text-white/70">
-
-      <div>
-        Status:
-        <span className="ml-2 text-white">
-          {runtime?.runtime?.shiftStatus || "OFF"}
-        </span>
-      </div>
-
-      <div>
-        Payroll:
-        <span className="ml-2 text-white">
-          {runtime?.runtime?.payrollStatus || "PENDING"}
-        </span>
-      </div>
-
-      <div>
-        Schedule:
-        <span className="ml-2 text-white">
-          {runtime?.runtime?.scheduleAssigned ? "ASSIGNED" : "NOT ASSIGNED"}
-        </span>
-      </div>
-
-    </div>
-
-    <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/50">
-      Workforce runtime active. Review schedule, payroll and documents.
-    </div>
-
-  </div>
-
-</section>
-
-
-        <section className="grid grid-cols-2 gap-3">
-          <div className="rounded-[30px] border border-white/10 bg-white/[0.06] p-4 backdrop-blur-3xl">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-white/35">
-              <Wallet className="h-4 w-4 text-emerald-300" />
-              This Month
-            </div>
-            <div className="mt-4 text-3xl font-black">{shiftDuration}</div>
-            <div className="mt-1 text-xs text-white/40">Current Shift</div>
-          </div>
-
-          <div className="rounded-[30px] border border-white/10 bg-white/[0.06] p-4 backdrop-blur-3xl">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-white/35">
-              <ShieldCheck className="h-4 w-4 text-fuchsia-300" />
-              Payroll
-            </div>
-            <div className="mt-4 text-lg font-black">{runtime?.runtime?.payrollStatus || "PENDING"}</div>
-            <div className="mt-1 text-xs text-white/40">Payroll Status</div>
-          </div>
-        </section>
-
-        <section className="mt-4 overflow-hidden rounded-[34px] border border-cyan-500/20 bg-cyan-500/[0.06] backdrop-blur-2xl">
-
-          <div className="p-5">
-
-            <div className="text-[10px] uppercase tracking-[0.35em] text-cyan-400">
-              Workforce Status
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-4">
-
-              <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-white/35">
-                  Status
-                </div>
-
-                <div className="mt-2 text-xl font-light text-white">
-                  {runtime?.runtime?.shiftStatus || "OFF"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-white/35">
-                  Payroll
-                </div>
-
-                <div className="mt-2 text-xl font-light text-white">
-                  {runtime?.runtime?.payrollStatus || "PENDING"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-white/35">
-                  Schedule
-                </div>
-
-                <div className="mt-2 text-xl font-light text-white">
-                  {runtime?.runtime?.scheduleAssigned ? "ASSIGNED" : "NONE"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-white/35">
-                  Role
-                </div>
-
-                <div className="mt-2 text-xl font-light text-white">
-                  {staff?.role || "--"}
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-
-        </section>
-
-
         <section className="grid grid-cols-2 gap-3">
           {cards.map((card) => {
             const Icon = card.icon;
-
             return (
               <Link
                 key={card.href}
                 href={card.href}
-                className="group flex items-center justify-between rounded-[30px] border border-white/10 bg-white/[0.03] p-5 backdrop-blur-2xl transition-all duration-300 hover:border-violet-400/40 hover:bg-violet-500/10"
+                className="group rounded-[30px] border border-white/10 bg-white/[0.05] p-4 backdrop-blur-3xl transition hover:border-violet-400/40 hover:bg-violet-500/10"
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-violet-500/20 bg-violet-500/10 text-violet-300 transition-all duration-300 group-hover:border-violet-400/40 group-hover:bg-violet-500/20">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-violet-500/20 bg-violet-500/10 text-violet-300">
                     <Icon className="h-5 w-5" />
                   </div>
-
-                  <div>
-                    <div className="text-lg font-black">{card.title}</div>
-                    <div className="mt-1 text-sm text-white/45">
-                      {card.subtitle}
-                    </div>
-                  </div>
+                  <ChevronRight className="h-4 w-4 text-white/30" />
                 </div>
-
-                <ChevronRight className="h-5 w-5 text-white/35" />
+                <div className="mt-4 text-lg font-black">{card.title}</div>
+                <div className="mt-1 text-sm text-white/45">{card.subtitle}</div>
               </Link>
             );
           })}
@@ -426,11 +239,9 @@ export default function PortalHomePage() {
               <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-gradient-to-br from-fuchsia-500 to-cyan-400 shadow-[0_0_40px_rgba(217,70,239,0.35)]">
                 <Bot className="h-6 w-6 text-white" />
               </div>
-
               <div>
                 <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-fuchsia-300">
-                  <Sparkles className="h-4 w-4" />
-                  Portal AI
+                  <Sparkles className="h-4 w-4" /> Portal AI
                 </div>
                 <div className="mt-2 text-2xl font-black">Ask anything</div>
                 <div className="mt-1 text-sm text-white/45">
@@ -438,16 +249,18 @@ export default function PortalHomePage() {
                 </div>
               </div>
             </div>
-
-            <Link
-              href="/workforce/ai"
-              className="mt-5 flex h-14 items-center justify-center rounded-[24px] bg-white text-sm font-black uppercase tracking-[0.2em] text-black"
-            >
-              Open AI Assistant
-            </Link>
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function StatusCard({ label, value }) {
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-black/30 p-3">
+      <div className="text-[9px] uppercase tracking-[0.25em] text-white/35">{label}</div>
+      <div className="mt-2 truncate text-sm font-black text-white">{value}</div>
     </div>
   );
 }

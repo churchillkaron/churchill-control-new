@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-import {
-  ServiceExecutionRuntime,
-} from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { ServiceExecutionRuntime } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,21 +9,11 @@ export const dynamic = "force-dynamic";
 export async function POST(req) {
   try {
     const body = await req.json();
-
-    const {
-      image,
-      notes,
-      organizationId,
-      uploadedBy,
-      documentId,
-    } = body;
+    const { image, notes, organizationId, documentId } = body;
 
     if (!image) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Image required",
-        },
+        { success: false, error: "Image required" },
         { status: 400 }
       );
     }
@@ -39,16 +25,12 @@ export async function POST(req) {
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
+        { success: false, error: access.error },
         { status: access.status }
       );
     }
 
     const resolvedOrganizationId = access.organizationId;
-
     const execution = await ServiceExecutionRuntime.execute({
       organization_id: resolvedOrganizationId,
       service_id: "document.classify",
@@ -75,7 +57,7 @@ Only classify invoices when an actual invoice, receipt, supplier invoice, or tax
       metadata: {
         module: "INTAKE",
         operation: "CLASSIFY_UPLOAD",
-        uploadedBy,
+        uploadedBy: access.userId || null,
         documentId,
       },
       category: "DOCUMENT",
@@ -92,10 +74,7 @@ Only classify invoices when an actual invoice, receipt, supplier invoice, or tax
     const destinationModule = result.module || "REVIEW";
     let destinationRecordId = null;
 
-    if (
-      result.type === "SUPPLIER_INVOICE" ||
-      result.type === "INVOICE"
-    ) {
+    if (result.type === "SUPPLIER_INVOICE" || result.type === "INVOICE") {
       try {
         const ocrExecution = await ServiceExecutionRuntime.execute({
           organization_id: resolvedOrganizationId,
@@ -116,10 +95,7 @@ Only classify invoices when an actual invoice, receipt, supplier invoice, or tax
         const ocrText = ocrExecution?.output?.text || "";
 
         if (ocrText) {
-          const { processInvoice } = await import(
-            "@/lib/finance/invoice/processInvoice"
-          );
-
+          const { processInvoice } = await import("@/lib/finance/invoice/processInvoice");
           const invoiceResult = await processInvoice({
             ocrText,
             organizationId: resolvedOrganizationId,
@@ -158,16 +134,14 @@ Only classify invoices when an actual invoice, receipt, supplier invoice, or tax
         .eq("id", documentId)
         .eq("organization_id", resolvedOrganizationId);
 
-      if (documentUpdateError) {
-        throw documentUpdateError;
-      }
+      if (documentUpdateError) throw documentUpdateError;
     }
 
     const { data, error } = await supabaseAdmin
       .from("ai_intake_submissions")
       .insert({
         organization_id: resolvedOrganizationId,
-        uploaded_by: uploadedBy || access.staff?.id || null,
+        uploaded_by: access.userId || access.staff?.id || null,
         image_url: image,
         notes: notes || "",
         ai_module: result.module,
@@ -181,9 +155,7 @@ Only classify invoices when an actual invoice, receipt, supplier invoice, or tax
       .select()
       .single();
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
@@ -195,10 +167,7 @@ Only classify invoices when an actual invoice, receipt, supplier invoice, or tax
     console.error("INTAKE_ERROR", error);
 
     return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to classify intake",
-      },
+      { success: false, error: error?.message || "Unable to classify intake" },
       { status: 500 }
     );
   }

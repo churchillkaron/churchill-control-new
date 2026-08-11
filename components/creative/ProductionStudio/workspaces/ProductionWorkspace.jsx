@@ -1,5 +1,7 @@
 "use client";
 
+import CreativeDirectorCockpit from "../status/CreativeDirectorCockpit";
+
 function assetUrl(asset) {
   return (
     asset?.image_url ||
@@ -45,6 +47,10 @@ export default function ProductionWorkspace({
   return (
 
     <div className="h-full overflow-auto">
+
+      <CreativeDirectorCockpit
+        runtime={runtime}
+      />
 
       <div className="border-b border-white/10 p-8">
 

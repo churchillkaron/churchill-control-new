@@ -40,6 +40,53 @@ function Metric({ name, value, minimum, detail }) {
   );
 }
 
+function RecoveryRound({ attempt }) {
+  const diagnostic = attempt?.diagnostic || {};
+  const dimensions = Array.isArray(diagnostic.failed_dimensions)
+    ? diagnostic.failed_dimensions
+    : [];
+  const territories = Array.isArray(diagnostic.rejected_territories)
+    ? diagnostic.rejected_territories
+    : [];
+  const reasons = Array.isArray(diagnostic.rejection_reasons)
+    ? diagnostic.rejection_reasons
+    : [];
+
+  return (
+    <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm font-medium text-white/70">
+          Round {attempt?.round || diagnostic.failed_round || "—"} rejected
+        </div>
+        {dimensions.length ? (
+          <div className="text-[10px] uppercase tracking-[0.18em] text-amber-100/55">
+            {dimensions.map(label).join(" · ")}
+          </div>
+        ) : null}
+      </div>
+
+      {territories.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {territories.slice(0, 3).map((territory, index) => (
+            <span
+              key={`${territory.id || territory.title || index}-${index}`}
+              className="rounded-full border border-white/8 bg-white/[0.025] px-3 py-1 text-xs text-white/45"
+            >
+              {territory.title || label(territory.id) || `Territory ${index + 1}`}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {reasons.length ? (
+        <div className="mt-3 text-xs leading-relaxed text-white/35">
+          {reasons.slice(0, 3).join(" · ")}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function CreativeConceptDirector({ runtime }) {
   const organizationId = runtime.organizationId;
   const projectId = runtime.projectRuntime?.current?.id || null;
@@ -86,6 +133,7 @@ export default function CreativeConceptDirector({ runtime }) {
 
   const policy = data?.policy || {};
   const concept = data?.concept || {};
+  const regeneration = data?.regeneration || {};
   const criticScores = concept.critic_scores || {};
   const criticMinimums = policy.critic_minimums || {};
   const passed = data?.status === "A_GRADE";
@@ -98,6 +146,14 @@ export default function CreativeConceptDirector({ runtime }) {
     (maximum, item) => Math.max(maximum, number(item.similarity) || 0),
     0,
   );
+  const failedRounds = Array.isArray(regeneration.prior_failed_rounds)
+    ? regeneration.prior_failed_rounds
+    : [];
+  const recoveryLabel = regeneration.regenerated
+    ? `Recovered in round ${regeneration.rounds_used || "—"} of ${regeneration.max_rounds || "—"}`
+    : passed
+      ? "A-grade in the first round"
+      : "Autonomous recovery armed";
 
   return (
     <section className="border-b border-white/10 bg-[#050505] px-6 py-5 lg:px-8">
@@ -155,6 +211,44 @@ export default function CreativeConceptDirector({ runtime }) {
                   {concept.selection_reason}
                 </div>
               ) : null}
+            </div>
+
+            <div className="rounded-2xl border border-violet-300/12 bg-violet-300/[0.025] p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-violet-200/55">
+                    Autonomous concept recovery
+                  </div>
+                  <div className="mt-2 text-lg font-semibold text-white/85">
+                    {recoveryLabel}
+                  </div>
+                  <div className="mt-1 max-w-3xl text-xs leading-relaxed text-white/40">
+                    Failed creative territories are removed from available creative space. Studio must change the governing mechanism, narrative engine and signature-image system rather than polish or hybridize a rejected idea.
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2 text-xs text-white/45">
+                  {regeneration.rounds_used || 0} / {regeneration.max_rounds || policy.regeneration?.default_max_rounds || 2} rounds
+                </div>
+              </div>
+
+              {failedRounds.length ? (
+                <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                  {failedRounds.map((attempt, index) => (
+                    <RecoveryRound
+                      key={`${attempt?.round || index}-${index}`}
+                      attempt={attempt}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-white/8 bg-black/20 px-4 py-3 text-xs leading-relaxed text-white/35">
+                  No failed concept round is stored for this project. When recovery is needed, its rejected territories and critic failures appear here automatically.
+                </div>
+              )}
+
+              <div className="mt-3 text-[11px] leading-relaxed text-white/25">
+                Standards are raise-only · lower scopes cannot weaken Avantiqo minimums · recovery fails closed when the governed round limit is exhausted.
+              </div>
             </div>
 
             {data.workflow_kind === "TEMPORAL" ? (
@@ -243,7 +337,7 @@ export default function CreativeConceptDirector({ runtime }) {
             ) : null}
 
             <div className="text-xs leading-relaxed text-white/30">
-              Contract {data.gate?.contract || policy.contract || "—"} · B-grade concepts forbidden · production dossier creation fails closed when the concept contract is missing or below threshold.
+              Contract {data.gate?.contract || policy.contract || "—"} · B-grade concepts forbidden · production dossier creation fails closed when the concept contract is missing or below threshold · global minimums cannot be lowered.
             </div>
           </div>
         ) : null}

@@ -27,11 +27,18 @@ function canReject(record) {
   return ["GENERATED", "RECALCULATED"].includes(record?.status);
 }
 
+function canFinalize(record) {
+  return ["PAID", "RESOLVED"].includes(record?.status);
+}
+
 export default function PayrollGovernancePage() {
   const [payroll, setPayroll] = useState([]);
   const [role, setRole] = useState("");
   const [organizationId, setOrganizationId] = useState("");
-  const [capabilities, setCapabilities] = useState({ canLock: false });
+  const [capabilities, setCapabilities] = useState({
+    canLock: false,
+    canFinalize: false,
+  });
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
   const [error, setError] = useState("");
@@ -58,7 +65,9 @@ export default function PayrollGovernancePage() {
       setPayroll(result.payroll || []);
       setRole(result.role || "");
       setOrganizationId(result.organizationId || "");
-      setCapabilities(result.capabilities || { canLock: false });
+      setCapabilities(
+        result.capabilities || { canLock: false, canFinalize: false }
+      );
     } catch (loadError) {
       setError(loadError?.message || "Unable to load payroll governance");
     } finally {
@@ -76,10 +85,12 @@ export default function PayrollGovernancePage() {
         result.total += Number(record.final_salary || 0);
         if (["GENERATED", "RECALCULATED"].includes(record.status)) result.pending += 1;
         if (record.status === "APPROVED") result.approved += 1;
-        if (record.status === "LOCKED") result.locked += 1;
+        if (["LOCKED", "PAID", "DISPUTED", "RESOLVED", "FINALIZED"].includes(record.status)) {
+          result.postApproval += 1;
+        }
         return result;
       },
-      { total: 0, pending: 0, approved: 0, locked: 0 }
+      { total: 0, pending: 0, approved: 0, postApproval: 0 }
     );
   }, [payroll]);
 
@@ -111,11 +122,12 @@ export default function PayrollGovernancePage() {
       }
 
       const messages = {
-        APPROVE: "Payroll approved.",
+        APPROVE: "Payroll month approved.",
         REJECT: "Payroll rejected.",
         RECALCULATE: "Payroll month recalculated. Employee acknowledgement is required again before approval.",
-        RESOLVE_DISPUTE: "Employee payroll dispute resolved. Employee acknowledgement is still required before approval.",
-        LOCK: "Payroll locked.",
+        RESOLVE_DISPUTE: "Employee payroll dispute resolved.",
+        LOCK: "Payroll month locked and accrued.",
+        FINALIZE: "Payroll month finalized. Post-payment disputes are now closed for this month.",
       };
 
       setMessage(messages[action] || "Payroll updated.");
@@ -142,9 +154,9 @@ export default function PayrollGovernancePage() {
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.34em] text-cyan-300">
                 <ShieldCheck className="h-4 w-4" /> Payroll Governance
               </div>
-              <h1 className="mt-3 text-4xl font-black">Payroll Review & Lock</h1>
+              <h1 className="mt-3 text-4xl font-black">Payroll Review & Finalization</h1>
               <p className="mt-2 max-w-2xl text-sm text-white/45">
-                Employee acknowledgement, dispute resolution, recalculation, manager approval and payroll lock all operate on the same canonical payroll cycle.
+                Employee acknowledgement, disputes, recalculation, approval, accounting lock and post-payment finalization all operate on the same canonical payroll month.
               </p>
               <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
                 {organizationId ? `Organization ${organizationId}` : "Organization context"} · {role || "Role"}
@@ -166,7 +178,7 @@ export default function PayrollGovernancePage() {
           <Metric label="Payroll Total" value={`฿${money(summary.total)}`} />
           <Metric label="Needs Review" value={summary.pending} />
           <Metric label="Approved" value={summary.approved} />
-          <Metric label="Locked" value={summary.locked} />
+          <Metric label="Post Approval" value={summary.postApproval} />
         </section>
 
         {error ? (
@@ -381,7 +393,7 @@ export default function PayrollGovernancePage() {
                           }
                           className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-400 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
                         >
-                          <CheckCircle2 className="h-4 w-4" /> Approve payroll
+                          <CheckCircle2 className="h-4 w-4" /> Approve payroll month
                         </button>
                       ) : null}
 
@@ -430,7 +442,23 @@ export default function PayrollGovernancePage() {
                       }
                       className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
                     >
-                      <Lock className="h-4 w-4" /> Lock payroll
+                      <Lock className="h-4 w-4" /> Lock payroll month
+                    </button>
+                  ) : null}
+
+                  {canFinalize(record) && capabilities.canFinalize ? (
+                    <button
+                      type="button"
+                      disabled={workingId === record.id || unresolvedDispute}
+                      onClick={() =>
+                        executeAction({
+                          action: "FINALIZE",
+                          payrollRecordId: record.id,
+                        })
+                      }
+                      className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
+                    >
+                      <CheckCircle2 className="h-4 w-4" /> Finalize payroll month
                     </button>
                   ) : null}
                 </article>
@@ -468,15 +496,21 @@ function Data({ label, value }) {
 function StatusBadge({ status }) {
   const value = String(status || "GENERATED").toUpperCase();
   const tone =
-    value === "LOCKED"
-      ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
-      : value === "APPROVED"
-        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+    value === "FINALIZED"
+      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+      : value === "RESOLVED"
+        ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
         : value === "DISPUTED"
           ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
-          : value === "REJECTED"
-            ? "border-red-500/20 bg-red-500/10 text-red-300"
-            : "border-white/10 bg-white/[0.05] text-white/65";
+          : value === "PAID"
+            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+            : value === "LOCKED"
+              ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
+              : value === "APPROVED"
+                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                : value === "REJECTED"
+                  ? "border-red-500/20 bg-red-500/10 text-red-300"
+                  : "border-white/10 bg-white/[0.05] text-white/65";
 
   return (
     <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${tone}`}>

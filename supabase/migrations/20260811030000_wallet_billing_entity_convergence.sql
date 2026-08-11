@@ -475,25 +475,42 @@ on public.platform_service_usage
 for each row
 execute function public.bind_platform_service_usage_entity();
 
+with contexts as (
+  select o.id as organization_id, ctx.entity_id, ctx.currency
+  from public.organizations o
+  cross join lateral public.resolve_organization_billing_context(o.id) ctx
+)
 update public.organization_services os
 set
-  entity_id = ctx.entity_id,
-  default_currency = coalesce(os.default_currency, ctx.currency),
+  entity_id = c.entity_id,
+  default_currency = coalesce(os.default_currency, c.currency),
   updated_at = now()
-from lateral public.resolve_organization_billing_context(os.organization_id) ctx
-where os.entity_id is null
-  and ctx.entity_id is not null;
+from contexts c
+where os.organization_id = c.organization_id
+  and os.entity_id is null
+  and c.entity_id is not null;
 
+with contexts as (
+  select o.id as organization_id, ctx.entity_id, ctx.currency
+  from public.organizations o
+  cross join lateral public.resolve_organization_billing_context(o.id) ctx
+), resolved as (
+  select
+    u.id as usage_id,
+    coalesce(os.entity_id, c.entity_id) as entity_id
+  from public.platform_service_usage u
+  join contexts c on c.organization_id = u.organization_id
+  left join public.organization_services os
+    on os.id = u.organization_service_id
+   and os.organization_id = u.organization_id
+  where u.entity_id is null
+)
 update public.platform_service_usage u
-set
-  entity_id = coalesce(os.entity_id, ctx.entity_id),
-  updated_at = now()
-from public.resolve_organization_billing_context(u.organization_id) ctx
-left join public.organization_services os
-  on os.id = u.organization_service_id
- and os.organization_id = u.organization_id
-where u.entity_id is null
-  and coalesce(os.entity_id, ctx.entity_id) is not null;
+set entity_id = r.entity_id,
+    updated_at = now()
+from resolved r
+where u.id = r.usage_id
+  and r.entity_id is not null;
 
 update public.wallet_transactions wt
 set entity_id = w.entity_id
@@ -503,25 +520,41 @@ where wt.wallet_id = w.id
   and wt.entity_id is null
   and w.entity_id is not null;
 
+with contexts as (
+  select o.id as organization_id, ctx.entity_id, ctx.currency
+  from public.organizations o
+  cross join lateral public.resolve_organization_billing_context(o.id) ctx
+), resolved as (
+  select
+    bil.id as line_id,
+    coalesce(u.entity_id, c.entity_id) as entity_id
+  from public.billing_invoice_lines bil
+  join contexts c on c.organization_id = bil.organization_id
+  left join public.platform_service_usage u
+    on u.id = bil.usage_id
+   and u.organization_id = bil.organization_id
+  where bil.entity_id is null
+)
 update public.billing_invoice_lines bil
-set
-  entity_id = coalesce(u.entity_id, ctx.entity_id),
-  updated_at = now()
-from public.resolve_organization_billing_context(bil.organization_id) ctx
-left join public.platform_service_usage u
-  on u.id = bil.usage_id
- and u.organization_id = bil.organization_id
-where bil.entity_id is null
-  and coalesce(u.entity_id, ctx.entity_id) is not null;
+set entity_id = r.entity_id,
+    updated_at = now()
+from resolved r
+where bil.id = r.line_id
+  and r.entity_id is not null;
 
+with contexts as (
+  select o.id as organization_id, ctx.entity_id, ctx.currency
+  from public.organizations o
+  cross join lateral public.resolve_organization_billing_context(o.id) ctx
+)
 update public.billing_invoices bi
-set
-  entity_id = ctx.entity_id,
-  updated_at = now()
-from public.resolve_organization_billing_context(bi.organization_id) ctx
-where bi.entity_id is null
+set entity_id = c.entity_id,
+    updated_at = now()
+from contexts c
+where bi.organization_id = c.organization_id
+  and bi.entity_id is null
   and upper(btrim(coalesce(bi.source, ''))) = 'SERVICE_USAGE'
-  and ctx.entity_id is not null;
+  and c.entity_id is not null;
 
 do $$
 declare

@@ -9,6 +9,7 @@ import rejectPayrollRecord from "@/lib/payroll/consolidation/rejectPayrollRecord
 import lockPayrollRecord from "@/lib/payroll/consolidation/lockPayrollRecord";
 import resolvePayrollDispute from "@/lib/payroll/consolidation/resolvePayrollDispute";
 import { recalculatePayrollRecord } from "@/lib/payroll/consolidation/recalculatePayrollRecord";
+import finalizePayrollRecord from "@/lib/payroll/consolidation/finalizePayrollRecord";
 
 const GOVERNANCE_ROLES = new Set([
   "OWNER",
@@ -23,6 +24,12 @@ const LOCK_ROLES = new Set([
   "OWNER",
   "SUPER_ADMIN",
   "ACCOUNTING",
+  "ACCOUNTING_ADMIN",
+  "PAYROLL_ADMIN",
+]);
+
+const FINALIZE_ROLES = new Set([
+  "OWNER",
   "ACCOUNTING_ADMIN",
   "PAYROLL_ADMIN",
 ]);
@@ -92,6 +99,7 @@ export async function GET(request) {
         canResolveDispute: true,
         canRecalculate: true,
         canLock: LOCK_ROLES.has(context.role),
+        canFinalize: FINALIZE_ROLES.has(context.role),
       },
       payroll: data || [],
     });
@@ -171,6 +179,20 @@ export async function POST(request) {
         organizationId: context.organizationId,
         lockedBy: context.staff.id,
         actorName,
+        role: context.role,
+      });
+    } else if (action === "FINALIZE") {
+      if (!FINALIZE_ROLES.has(context.role)) {
+        return NextResponse.json(
+          { success: false, error: "Payroll finalization permission required" },
+          { status: 403 }
+        );
+      }
+
+      result = await finalizePayrollRecord({
+        payrollRecordId,
+        organizationId: context.organizationId,
+        finalizedBy: actorName,
         role: context.role,
       });
     } else {

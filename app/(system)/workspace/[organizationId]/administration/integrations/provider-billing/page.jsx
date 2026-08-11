@@ -291,7 +291,7 @@ export default function ProviderBillingPage() {
       <div className="mx-auto max-w-7xl">
         <div className="border-b border-white/10 pb-8">
           <Link
-            href="/settings/integrations"
+            href={`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`}
             className="text-sm text-[#D6A66A] hover:text-[#e8bd87]"
           >
             ← Integrations

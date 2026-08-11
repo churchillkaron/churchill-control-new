@@ -37,7 +37,10 @@ function canManageIntegrations(access) {
 }
 
 function administrationRedirect(origin, organizationId, message) {
-  const url = new URL("/settings/integrations", origin);
+  const url = new URL(
+    `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+    origin
+  );
   url.searchParams.set("organizationId", organizationId);
   url.searchParams.set("googleAds", "connected");
   url.searchParams.set("message", message);

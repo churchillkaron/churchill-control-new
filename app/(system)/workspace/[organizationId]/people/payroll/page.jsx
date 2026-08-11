@@ -50,7 +50,7 @@ function readinessAction(code, organizationId) {
       label: "Open employees",
     },
     PAYROLL_COUNTRY_MISSING: {
-      href: "/settings/payroll",
+      href: peoplePayrollRoute(organizationId, "/policy"),
       label: "Configure payroll",
     },
     COMPENSATION_PROFILE_MISSING: {
@@ -329,7 +329,7 @@ export default function PayrollPage() {
               <Link href={peopleCompensationRoute(organizationId)} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Compensation</Link>
               <Link href="/workforce/scheduling" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Scheduling</Link>
               <Link href="/staff/attendance" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Attendance</Link>
-              <Link href="/settings/payroll" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Payroll Settings</Link>
+              <Link href={peoplePayrollRoute(organizationId, "/policy")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Payroll Policy</Link>
             </div>
           </div>
 

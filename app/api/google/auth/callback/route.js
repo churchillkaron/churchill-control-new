@@ -23,7 +23,10 @@ function redirectToAdministration(
   message = null,
   purpose = "google_business"
 ) {
-  const url = new URL("/settings/integrations", origin);
+  const url = new URL(
+    `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+    origin
+  );
   url.searchParams.set("organizationId", organizationId);
   url.searchParams.set(
     purpose === "google_ads" ? "googleAds" : "google",

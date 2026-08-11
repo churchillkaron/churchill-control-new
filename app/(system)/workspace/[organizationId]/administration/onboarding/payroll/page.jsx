@@ -32,8 +32,8 @@ function blockerAction(code, organizationId) {
   const actions = {
     PAYROLL_PERIOD_OPEN: { href: "/staff/attendance", label: "Review attendance" },
     NO_ACTIVE_STAFF: { href: "/workforce/employees", label: "Open employees" },
-    PAYROLL_COUNTRY_MISSING: { href: "/settings/payroll", label: "Configure payroll" },
-    PAYROLL_CURRENCY_MISSING: { href: "/settings/payroll", label: "Configure payroll" },
+    PAYROLL_COUNTRY_MISSING: { href: peopleRoute(organizationId, "/payroll/policy"), label: "Configure payroll" },
+    PAYROLL_CURRENCY_MISSING: { href: peopleRoute(organizationId, "/payroll/policy"), label: "Configure payroll" },
     COMPENSATION_PROFILE_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Open compensation" },
     COMPENSATION_AMOUNT_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Set pay amounts" },
     SCHEDULES_MISSING: { href: "/workforce/scheduling", label: "Open scheduling" },
@@ -99,8 +99,8 @@ function getStages(organizationId) {
       id: "settings",
       title: "Payroll Policy",
       description: "Set payroll country, currency and organization calculation rules without platform assumptions.",
-      href: "/settings/payroll",
-      action: "Payroll settings",
+      href: peopleRoute(organizationId, "/payroll/policy"),
+      action: "Payroll policy",
       icon: Settings2,
     },
     {

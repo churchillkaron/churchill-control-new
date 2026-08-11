@@ -1,0 +1,18 @@
+Avantiqo Provider Billing scope convergence
+Date: 2026-08-11
+
+Canonical commercial model:
+- Avantiqo is the platform/operator.
+- Organization is the active business scope.
+- Entity is the legal/accounting payer inside the organization.
+- Supplier Party is the provider counterparty inside the organization.
+- No tenant model or tenant terminology is used.
+
+Administration Provider Billing now requires organization_id for reads and writes.
+Provider payer mappings cannot cross the active organization scope.
+Supplier governance snapshots may be scoped to one payer organization.
+The UI derives organization_id from organization runtime and exposes only that organization's entities and supplier parties.
+Commercial verification remains mandatory before provider readiness.
+Customer funding remains ACTIVE PREPAID Avantiqo wallet only.
+No direct customer/provider billing or customer provider payment method is permitted.
+No supplier identity, payer evidence, ad activation, provider spend, or media spend is fabricated or triggered by this change.

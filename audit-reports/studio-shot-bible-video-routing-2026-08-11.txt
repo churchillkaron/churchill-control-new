@@ -1,0 +1,23 @@
+AVANTIQO_CREATIVE_STUDIO_SHOT_BIBLE_VIDEO_ROUTING_V1
+Date: 2026-08-11
+
+Scope
+- Preserve extended shot direction in creative_shots.metadata.shot_bible_source without schema expansion.
+- Build CREATIVE_SHOT_BIBLE_V1 immediately before governed video execution.
+- Select video providers through CREATIVE_VIDEO_ENGINE_ROUTE_V1 and existing Service Domain provider policy.
+- Gemini Omni remains default for normal 3-10 second production.
+- Seedance is an executable longer-motion challenger for compatible 4-15 second work.
+- Veo 3.1 Fast via FAL is an executable high-fidelity challenger.
+- Runway remains a challenger/fallback through the existing provider resolver.
+- Hard last-frame, extension, or multi-reference precision requirements fail closed until a provider runtime that actually guarantees them is executable.
+- Exact logos, typography, subtitles, legal copy and CTA remain deterministic finishing responsibilities.
+- Provider prompts are execution-boundary transport only and are not persisted as creative source of truth.
+- Paid provider execution is not performed by this validation marker.
+
+Database
+- No schema migration required.
+- Extended Shot Bible source is stored in the existing creative_shots.metadata JSONB column.
+
+Governance
+- Organization-scoped shot lookup required.
+- Existing ServiceExecutionRuntime retains provider resolution, pricing, Usage, Wallet, execution, settlement and Billing ownership.

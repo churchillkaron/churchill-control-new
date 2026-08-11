@@ -5,9 +5,9 @@ export const dynamic = "force-dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  Building2,
   CheckCircle2,
   ExternalLink,
+  Link2,
   MapPin,
   RefreshCw,
   Settings2,
@@ -16,63 +16,27 @@ import {
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import GoogleAdsIntegrationCard from "@/components/administration/integrations/GoogleAdsIntegrationCard";
 
-function formatDate(value) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString();
+function upper(value) {
+  return String(value ?? "").trim().toUpperCase();
 }
 
-function connectionState(connection) {
-  if (!connection || String(connection.status || "").toUpperCase() !== "ACTIVE") {
-    return {
-      label: "Not connected",
-      detail: "Connect the Google account that owns or manages this organization’s Business Profile.",
-      tone: "neutral",
-    };
+function toneClass(state) {
+  if (state === "CONNECTED") {
+    return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
   }
-
-  const discovery = String(
-    connection.metadata?.location_discovery_status || "PENDING"
-  ).toUpperCase();
-
-  if (discovery === "READY") {
-    return {
-      label: "Connected",
-      detail: "Google authorization is active and Business Profile locations are ready.",
-      tone: "ready",
-    };
+  if (state === "SETUP_IN_PROGRESS") {
+    return "border-amber-400/20 bg-amber-400/10 text-amber-100";
   }
-
-  if (discovery === "API_ACCESS_PENDING") {
-    return {
-      label: "Connected — Business Profile API approval pending",
-      detail: "The organization’s Google authorization is valid. Avantiqo is waiting for Google to enable Business Profile API access for the platform Cloud project; reconnecting Google is not required.",
-      tone: "warning",
-    };
-  }
-
-  if (discovery === "RATE_LIMITED") {
-    return {
-      label: "Connected — Google quota cooldown",
-      detail: "The OAuth authorization is safe. Location discovery hit a temporary Google quota window and will be checked again later.",
-      tone: "warning",
-    };
-  }
-
-  return {
-    label: "Connected — location setup pending",
-    detail: "The OAuth authorization is active. Finish location discovery and map each Google location to an Avantiqo entity.",
-    tone: "warning",
-  };
+  return "border-white/10 bg-white/[0.035] text-white/65";
 }
 
 export default function IntegrationsPage() {
   const business = useBusinessContext();
-  const [urlOrganizationId, setUrlOrganizationId] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [working, setWorking] = useState(false);
-  const [snapshot, setSnapshot] = useState({
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalog, setCatalog] = useState([]);
+  const [googleLoading, setGoogleLoading] = useState(true);
+  const [googleWorking, setGoogleWorking] = useState(false);
+  const [googleSnapshot, setGoogleSnapshot] = useState({
     connection: null,
     locations: [],
     entities: [],
@@ -80,25 +44,32 @@ export default function IntegrationsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    setUrlOrganizationId(params.get("organizationId"));
-    setNotice(params.get("message") || "");
-  }, []);
-
   const organizationId =
-    business?.organization_id || business?.organization?.id || urlOrganizationId || null;
+    business?.organization_id || business?.organization?.id || null;
 
-  const load = useCallback(async () => {
-    if (!organizationId) {
-      setLoading(false);
-      return;
+  const loadCatalog = useCallback(async () => {
+    if (!organizationId) return;
+    setCatalogLoading(true);
+    try {
+      const response = await fetch(
+        `/api/administration/integrations/catalog?organizationId=${encodeURIComponent(organizationId)}`,
+        { cache: "no-store" }
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to load integrations");
+      }
+      setCatalog(Array.isArray(data.rows) ? data.rows : []);
+    } catch (loadError) {
+      setError(loadError?.message || "Unable to load integrations");
+    } finally {
+      setCatalogLoading(false);
     }
+  }, [organizationId]);
 
-    setLoading(true);
-    setError("");
-
+  const loadGoogleBusiness = useCallback(async () => {
+    if (!organizationId) return;
+    setGoogleLoading(true);
     try {
       const response = await fetch(
         `/api/administration/integrations/google-business?organizationId=${encodeURIComponent(organizationId)}`,
@@ -106,29 +77,29 @@ export default function IntegrationsPage() {
       );
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Unable to load integrations");
+        throw new Error(data.error || "Unable to load Google Business Profile");
       }
-      setSnapshot({
+      setGoogleSnapshot({
         connection: data.connection || null,
         locations: data.locations || [],
         entities: data.entities || [],
       });
     } catch (loadError) {
-      setError(loadError?.message || "Unable to load integrations");
+      setError(loadError?.message || "Unable to load Google Business Profile");
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   }, [organizationId]);
 
   useEffect(() => {
-    if (!business?.ready) return;
-    load();
-  }, [business?.ready, load]);
+    if (!business?.ready || !organizationId) return;
+    loadCatalog();
+    loadGoogleBusiness();
+  }, [business?.ready, organizationId, loadCatalog, loadGoogleBusiness]);
 
-  async function runAction(payload) {
+  async function runGoogleAction(payload) {
     if (!organizationId) return null;
-
-    setWorking(true);
+    setGoogleWorking(true);
     setError("");
     setNotice("");
 
@@ -142,98 +113,68 @@ export default function IntegrationsPage() {
         }
       );
       const data = await response.json();
-
-      if (data.connection || data.locations || data.entities) {
-        setSnapshot({
-          connection: data.connection || null,
-          locations: data.locations || [],
-          entities: data.entities || [],
-        });
-      }
-
       if (!response.ok || !data.success) {
-        const retryText =
-          data.retryAt && data.code !== "GOOGLE_API_ACCESS_PENDING"
-            ? ` Retry after ${formatDate(data.retryAt)}.`
-            : "";
-        throw new Error(`${data.error || "Google Business action failed"}${retryText}`);
+        if (data.code === "GOOGLE_API_ACCESS_PENDING") {
+          setNotice("Google Business Profile is connected. Avantiqo is completing the remaining setup.");
+          return data;
+        }
+        throw new Error(data.error || "Google Business action failed");
       }
 
-      setSnapshot({
+      setGoogleSnapshot({
         connection: data.connection || null,
         locations: data.locations || [],
         entities: data.entities || [],
       });
+      await loadCatalog();
       return data;
     } catch (actionError) {
       setError(actionError?.message || "Google Business action failed");
       return null;
     } finally {
-      setWorking(false);
+      setGoogleWorking(false);
     }
   }
 
-  async function discover(force = false) {
-    const result = await runAction({ action: "discover", force });
-    if (result) {
+  async function discoverGoogle() {
+    const result = await runGoogleAction({ action: "discover", force: true });
+    if (result?.success) {
       setNotice(
         result.locations?.length
-          ? `Found ${result.locations.length} Google Business Profile location${result.locations.length === 1 ? "" : "s"}.`
-          : "Google location discovery completed."
+          ? `Google Business Profile updated. ${result.locations.length} location${result.locations.length === 1 ? "" : "s"} found.`
+          : "Google Business Profile checked."
       );
     }
   }
 
   async function mapLocation(assetId, entityId) {
     if (!entityId) return;
-    const result = await runAction({
+    const result = await runGoogleAction({
       action: "map-location",
       assetId,
       entityId,
     });
-    if (result) setNotice("Google location mapping saved.");
+    if (result?.success) setNotice("Google Business location mapping saved.");
   }
 
-  const connection = snapshot.connection;
-  const connected = String(connection?.status || "").toUpperCase() === "ACTIVE";
-  const state = connectionState(connection);
-  const discoveryStatus = String(
-    connection?.metadata?.location_discovery_status || ""
-  ).toUpperCase();
-  const apiAccessPending = discoveryStatus === "API_ACCESS_PENDING";
-  const retryAt = connection?.metadata?.location_discovery_retry_at || null;
-  const retryBlocked = Boolean(
-    !apiAccessPending && retryAt && new Date(retryAt).getTime() > Date.now()
+  const googleConnected =
+    upper(googleSnapshot.connection?.status) === "ACTIVE";
+  const googleSetupPending =
+    googleConnected &&
+    upper(googleSnapshot.connection?.metadata?.location_discovery_status) !== "READY";
+  const allLocationsMapped =
+    googleSnapshot.locations.length > 0 &&
+    googleSnapshot.locations.every((location) => location.entity_id);
+
+  const activeCount = useMemo(
+    () => catalog.filter((row) => row.state === "CONNECTED").length,
+    [catalog]
   );
-  const allMapped =
-    snapshot.locations.length > 0 && snapshot.locations.every((location) => location.entity_id);
 
-  const statusClass = useMemo(() => {
-    if (state.tone === "ready") {
-      return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
-    }
-    if (state.tone === "warning") {
-      return "border-amber-400/20 bg-amber-400/10 text-amber-100";
-    }
-    return "border-white/10 bg-white/[0.04] text-white/70";
-  }, [state.tone]);
-
-  if (!business?.ready || loading) {
+  if (!business?.ready) {
     return (
       <main className="min-h-screen bg-black p-8 text-white">
-        <div className="mx-auto max-w-6xl rounded-[32px] border border-white/10 bg-white/[0.03] p-8 text-white/45">
-          Loading integrations…
-        </div>
-      </main>
-    );
-  }
-
-  if (!organizationId) {
-    return (
-      <main className="min-h-screen bg-black p-8 text-white">
-        <div className="mx-auto max-w-6xl rounded-[32px] border border-amber-400/20 bg-amber-400/[0.06] p-8 text-amber-100">
-          Select an organization before managing external integrations.
-        </div>
+        <div className="mx-auto max-w-6xl text-white/45">Loading integrations…</div>
       </main>
     );
   }
@@ -248,7 +189,7 @@ export default function IntegrationsPage() {
           </div>
           <h1 className="mt-4 text-5xl font-light lg:text-6xl">Integrations</h1>
           <p className="mt-4 max-w-3xl text-lg leading-7 text-white/45">
-            Connect organization-owned services once, then map external accounts and locations to the correct Avantiqo business entities.
+            Connect the external business accounts this organization uses. Avantiqo handles the technical infrastructure behind them.
           </p>
         </div>
 
@@ -264,120 +205,172 @@ export default function IntegrationsPage() {
           </div>
         )}
 
-        <section className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="max-w-3xl">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
-                  <Building2 className="h-6 w-6 text-[#D6A66A]" />
-                </div>
-                <div>
-                  <div className="text-sm text-white/40">Google</div>
-                  <h2 className="text-2xl font-medium">Google Business Profile</h2>
-                </div>
-              </div>
-
-              <div className={`mt-5 rounded-2xl border px-4 py-4 ${statusClass}`}>
-                <div className="flex items-center gap-2 font-medium">
-                  {state.tone === "ready" ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : state.tone === "warning" ? (
-                    <AlertTriangle className="h-4 w-4" />
-                  ) : null}
-                  {state.label}
-                </div>
-                <div className="mt-1 text-sm opacity-70">{state.detail}</div>
-              </div>
-
-              {connected && (
-                <div className="mt-4 grid gap-2 text-xs text-white/35 sm:grid-cols-2">
-                  <div>Authorization: active</div>
-                  <div>Locations: {snapshot.locations.length}</div>
-                  {connection.authorized_at && (
-                    <div>Authorized: {formatDate(connection.authorized_at)}</div>
-                  )}
-                  {discoveryStatus && <div>Discovery: {discoveryStatus}</div>}
-                </div>
-              )}
+        <section className="rounded-[30px] border border-white/10 bg-white/[0.025] p-6 lg:p-7">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="text-xs uppercase tracking-[0.22em] text-white/30">Business connections</div>
+              <h2 className="mt-2 text-2xl font-medium">Connected services</h2>
             </div>
-
-            <div className="flex flex-col items-stretch gap-3 sm:min-w-[240px]">
-              {!connected ? (
-                <a
-                  href={`/api/google/auth?organizationId=${encodeURIComponent(organizationId)}`}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
-                >
-                  Connect Google Business Profile
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => discover(apiAccessPending)}
-                  disabled={working || retryBlocked}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  <RefreshCw className={`h-4 w-4 ${working ? "animate-spin" : ""}`} />
-                  {working
-                    ? "Checking Google…"
-                    : apiAccessPending
-                      ? "Check Google access"
-                      : snapshot.locations.length
-                        ? "Refresh locations"
-                        : "Discover locations"}
-                </button>
-              )}
-
-              {apiAccessPending && (
-                <div className="rounded-xl border border-amber-400/15 bg-amber-400/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/70">
-                  Automatic review/location discovery is paused while Google Business Profile API access is pending. The saved Google authorization remains active.
-                </div>
-              )}
-
-              {retryBlocked && (
-                <div className="rounded-xl border border-amber-400/15 bg-amber-400/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/70">
-                  Temporary Google quota cooldown until {formatDate(retryAt)}. The connection remains active.
-                </div>
-              )}
+            <div className="text-sm text-white/40">
+              {catalogLoading ? "Loading…" : `${activeCount} connected`}
             </div>
           </div>
 
-          {connected && snapshot.locations.length > 0 && (
-            <div className="mt-8 border-t border-white/10 pt-7">
-              <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <div className="text-xs uppercase tracking-[0.22em] text-white/30">Location mapping</div>
-                  <h3 className="mt-2 text-xl font-medium">Google locations → Avantiqo entities</h3>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {catalog.map((integration) => {
+              const canConnect =
+                integration.action === "CONNECT" && integration.connectPath;
+              const canManage =
+                integration.action === "MANAGE" && integration.detailAnchor;
+
+              return (
+                <article
+                  key={integration.id}
+                  className="rounded-2xl border border-white/10 bg-black/25 p-5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">
+                        {integration.category}
+                      </div>
+                      <h3 className="mt-2 text-lg font-medium text-white">
+                        {integration.name}
+                      </h3>
+                    </div>
+                    <div className={`rounded-full border px-2.5 py-1 text-[10px] ${toneClass(integration.state)}`}>
+                      {integration.label}
+                    </div>
+                  </div>
+
+                  <p className="mt-3 min-h-[48px] text-sm leading-6 text-white/42">
+                    {integration.description}
+                  </p>
+
+                  {integration.account ? (
+                    <div className="mt-3 truncate text-xs text-white/55">
+                      Connected: {integration.account}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5">
+                    {canConnect ? (
+                      <a
+                        href={`${integration.connectPath}?organizationId=${encodeURIComponent(organizationId)}`}
+                        className="inline-flex items-center gap-2 rounded-xl bg-[#D6A66A] px-4 py-2.5 text-xs font-semibold text-black"
+                      >
+                        Connect
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : canManage ? (
+                      <a
+                        href={`#${integration.detailAnchor}`}
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70"
+                      >
+                        Manage
+                        <Link2 className="h-3.5 w-3.5" />
+                      </a>
+                    ) : (
+                      <span className="text-xs text-white/30">
+                        {integration.state === "COMING_SOON"
+                          ? "Not available yet"
+                          : "No action required"}
+                      </span>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section id="google-business" className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.025] p-6 lg:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div>
+              <div className="text-xs uppercase tracking-[0.22em] text-white/30">Business presence</div>
+              <h2 className="mt-2 text-2xl font-medium">Google Business Profile</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/45">
+                Connect the business profile used for locations, reviews and public business information.
+              </p>
+            </div>
+            <div className={`rounded-full border px-3 py-1 text-xs ${googleConnected ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-white/10 bg-white/[0.04] text-white/50"}`}>
+              {googleConnected ? "Connected" : "Not connected"}
+            </div>
+          </div>
+
+          {!googleConnected ? (
+            <a
+              href={`/api/google/auth?organizationId=${encodeURIComponent(organizationId)}`}
+              className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black"
+            >
+              Connect Google Business Profile
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : googleSetupPending ? (
+            <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] px-4 py-4 text-amber-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <div className="text-sm font-medium">Connected — setup in progress</div>
+                <div className="mt-1 text-xs leading-5 text-amber-100/65">
+                  The Google connection is saved. Avantiqo is completing the remaining setup; reconnecting is not required.
                 </div>
-                <div className={`text-xs ${allMapped ? "text-emerald-300" : "text-amber-200"}`}>
-                  {allMapped ? "All locations mapped" : "Mapping required"}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5 flex items-center gap-2 text-sm text-emerald-200">
+              <CheckCircle2 className="h-4 w-4" />
+              Google Business Profile is ready.
+            </div>
+          )}
+
+          {googleConnected ? (
+            <button
+              type="button"
+              onClick={discoverGoogle}
+              disabled={googleWorking}
+              className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${googleWorking ? "animate-spin" : ""}`} />
+              {googleWorking ? "Checking…" : "Refresh connection"}
+            </button>
+          ) : null}
+
+          {!googleLoading && googleSnapshot.locations.length > 0 ? (
+            <div className="mt-7 border-t border-white/10 pt-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-white/30">Locations</div>
+                  <h3 className="mt-1 text-lg font-medium">Business location mapping</h3>
+                </div>
+                <div className={`text-xs ${allLocationsMapped ? "text-emerald-300" : "text-amber-200"}`}>
+                  {allLocationsMapped ? "Complete" : "Action required"}
                 </div>
               </div>
 
               <div className="space-y-3">
-                {snapshot.locations.map((location) => (
+                {googleSnapshot.locations.map((location) => (
                   <div
                     key={location.id}
-                    className="grid gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 lg:grid-cols-[1fr_360px] lg:items-center"
+                    className="grid gap-4 rounded-2xl border border-white/10 bg-black/25 p-4 lg:grid-cols-[1fr_320px] lg:items-center"
                   >
                     <div className="flex items-start gap-3">
-                      <MapPin className="mt-0.5 h-5 w-5 text-[#D6A66A]" />
+                      <MapPin className="mt-0.5 h-4 w-4 text-[#D6A66A]" />
                       <div>
-                        <div className="font-medium text-white">{location.name || "Google Business location"}</div>
+                        <div className="font-medium text-white">
+                          {location.name || "Google Business location"}
+                        </div>
                         <div className="mt-1 text-xs text-white/35">
-                          {location.metadata?.account_title || location.metadata?.account_name || "Google Business Profile"}
+                          Map this external location to the correct business entity.
                         </div>
                       </div>
                     </div>
-
                     <select
                       value={location.entity_id || ""}
                       onChange={(event) => mapLocation(location.id, event.target.value)}
-                      disabled={working}
+                      disabled={googleWorking}
                       className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none disabled:opacity-50"
                     >
-                      <option value="">Select Avantiqo entity…</option>
-                      {snapshot.entities.map((entity) => (
+                      <option value="">Select business entity</option>
+                      {googleSnapshot.entities.map((entity) => (
                         <option key={entity.id} value={entity.id}>
                           {entity.display_name || entity.legal_name || entity.code}
                         </option>
@@ -387,18 +380,17 @@ export default function IntegrationsPage() {
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </section>
 
         <GoogleAdsIntegrationCard
           organizationId={organizationId}
-          onNotice={setNotice}
+          onNotice={(message) => {
+            setNotice(message);
+            loadCatalog();
+          }}
           onError={setError}
         />
-
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4 text-xs leading-5 text-white/35">
-          Google credentials are managed centrally by Avantiqo. Customers never enter client IDs, developer tokens, API keys, or passwords. Each organization authorizes its own Google account, and discovered Business Profile locations and Ads accounts remain isolated and mapped to that organization’s entity structure.
-        </div>
       </div>
     </main>
   );

@@ -42,6 +42,31 @@ function rejectedConcepts(council = {}) {
   }));
 }
 
+function regenerationStatus(plan = {}) {
+  const regeneration = object(plan.autonomous_concept_regeneration);
+  const policy = object(WORLD_CLASS_CONCEPT_POLICY.regeneration);
+  return {
+    contract: regeneration.contract || policy.contract || null,
+    enabled: Boolean(policy.contract),
+    regenerated: regeneration.regenerated === true,
+    rounds_used: Number(regeneration.rounds_used || 1),
+    max_rounds: Number(
+      regeneration.max_rounds ||
+      policy.default_max_rounds ||
+      1,
+    ),
+    prior_failed_rounds: list(regeneration.prior_failed_rounds),
+    stopped_on_a_grade: regeneration.stopped_on_a_grade === true,
+    fail_closed_when_exhausted: policy.fail_closed_when_exhausted === true,
+    maximum_cross_round_similarity:
+      Number(policy.maximum_cross_round_similarity || 0),
+    provider_execution:
+      regeneration.provider_execution ||
+      policy.provider_execution ||
+      null,
+  };
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -92,6 +117,22 @@ export async function GET(request) {
         status: "AWAITING_DIRECTION",
         policy: WORLD_CLASS_CONCEPT_POLICY,
         concept: null,
+        regeneration: {
+          contract: WORLD_CLASS_CONCEPT_POLICY.regeneration?.contract || null,
+          enabled: Boolean(WORLD_CLASS_CONCEPT_POLICY.regeneration?.contract),
+          regenerated: false,
+          rounds_used: 0,
+          max_rounds:
+            WORLD_CLASS_CONCEPT_POLICY.regeneration?.default_max_rounds || 1,
+          prior_failed_rounds: [],
+          stopped_on_a_grade: false,
+          fail_closed_when_exhausted:
+            WORLD_CLASS_CONCEPT_POLICY.regeneration?.fail_closed_when_exhausted === true,
+          maximum_cross_round_similarity:
+            WORLD_CLASS_CONCEPT_POLICY.regeneration?.maximum_cross_round_similarity || 0,
+          provider_execution:
+            WORLD_CLASS_CONCEPT_POLICY.regeneration?.provider_execution || null,
+        },
       });
     }
 
@@ -152,6 +193,7 @@ export async function GET(request) {
         distinctness: council.distinctness || null,
         rejected_concepts: rejectedConcepts(council),
       },
+      regeneration: regenerationStatus(plan),
       gate: {
         contract: gate.contract || null,
         passed,

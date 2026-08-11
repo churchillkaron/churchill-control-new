@@ -10,6 +10,9 @@ import lockPayrollRecord from "@/lib/payroll/consolidation/lockPayrollRecord";
 import resolvePayrollDispute from "@/lib/payroll/consolidation/resolvePayrollDispute";
 import { recalculatePayrollRecord } from "@/lib/payroll/consolidation/recalculatePayrollRecord";
 import finalizePayrollRecord from "@/lib/payroll/consolidation/finalizePayrollRecord";
+import closePayrollAccountingPeriod from "@/lib/payroll/consolidation/closePayrollAccountingPeriod";
+import certifyPayrollRecord from "@/lib/payroll/consolidation/certifyPayrollRecord";
+import archivePayrollRecord from "@/lib/payroll/consolidation/archivePayrollRecord";
 
 const GOVERNANCE_ROLES = new Set([
   "OWNER",
@@ -32,6 +35,11 @@ const FINALIZE_ROLES = new Set([
   "OWNER",
   "ACCOUNTING_ADMIN",
   "PAYROLL_ADMIN",
+]);
+
+const TERMINAL_ROLES = new Set([
+  "OWNER",
+  "ACCOUNTING_ADMIN",
 ]);
 
 function normalizeRole(value) {
@@ -100,6 +108,9 @@ export async function GET(request) {
         canRecalculate: true,
         canLock: LOCK_ROLES.has(context.role),
         canFinalize: FINALIZE_ROLES.has(context.role),
+        canAccountingClose: TERMINAL_ROLES.has(context.role),
+        canCertify: TERMINAL_ROLES.has(context.role),
+        canArchive: TERMINAL_ROLES.has(context.role),
       },
       payroll: data || [],
     });
@@ -193,6 +204,48 @@ export async function POST(request) {
         payrollRecordId,
         organizationId: context.organizationId,
         finalizedBy: actorName,
+        role: context.role,
+      });
+    } else if (action === "ACCOUNTING_CLOSE") {
+      if (!TERMINAL_ROLES.has(context.role)) {
+        return NextResponse.json(
+          { success: false, error: "Payroll accounting close permission required" },
+          { status: 403 }
+        );
+      }
+
+      result = await closePayrollAccountingPeriod({
+        payrollRecordId,
+        organizationId: context.organizationId,
+        closedBy: actorName,
+        role: context.role,
+      });
+    } else if (action === "CERTIFY") {
+      if (!TERMINAL_ROLES.has(context.role)) {
+        return NextResponse.json(
+          { success: false, error: "Payroll certification permission required" },
+          { status: 403 }
+        );
+      }
+
+      result = await certifyPayrollRecord({
+        payrollRecordId,
+        organizationId: context.organizationId,
+        certifiedBy: actorName,
+        role: context.role,
+      });
+    } else if (action === "ARCHIVE") {
+      if (!TERMINAL_ROLES.has(context.role)) {
+        return NextResponse.json(
+          { success: false, error: "Payroll archive permission required" },
+          { status: 403 }
+        );
+      }
+
+      result = await archivePayrollRecord({
+        payrollRecordId,
+        organizationId: context.organizationId,
+        archivedBy: actorName,
         role: context.role,
       });
     } else {

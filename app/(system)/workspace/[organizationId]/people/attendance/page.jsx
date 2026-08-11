@@ -1,5 +1,6 @@
 "use client";
 
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -15,7 +16,15 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+function organizationQuery(organizationId) {
+  return organizationId
+    ? `&organizationId=${encodeURIComponent(organizationId)}`
+    : "";
+}
+
 export default function AttendanceManagementPage() {
+  const params = useParams();
+  const organizationId = String(params?.organizationId || "").trim();
   const [month, setMonth] = useState(currentMonth());
   const [data, setData] = useState({
     shifts: [],
@@ -33,7 +42,7 @@ export default function AttendanceManagementPage() {
     setMessage("");
     try {
       const response = await fetch(
-        `/api/people/workforce/attendance?month=${month}`,
+        `/api/people/workforce/attendance?month=${month}${organizationQuery(organizationId)}`,
         { cache: "no-store" }
       );
       const payload = await response.json();
@@ -50,7 +59,7 @@ export default function AttendanceManagementPage() {
 
   useEffect(() => {
     load();
-  }, [month]);
+  }, [month, organizationId]);
 
   const summary = useMemo(
     () => ({
@@ -70,7 +79,11 @@ export default function AttendanceManagementPage() {
       const response = await fetch("/api/people/workforce/attendance", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ...body }),
+        body: JSON.stringify({
+          action,
+          ...body,
+          ...(organizationId ? { organizationId } : {}),
+        }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -133,6 +146,7 @@ export default function AttendanceManagementPage() {
           action: "mark_absent",
           scheduleId: schedule.id,
           notes,
+          ...(organizationId ? { organizationId } : {}),
         }),
       });
       const payload = await response.json();
@@ -161,6 +175,11 @@ export default function AttendanceManagementPage() {
               Review unscheduled work, lateness and missed published shifts before payroll.
               Raw clock-in and clock-out evidence remains unchanged.
             </p>
+            {data.organizationId ? (
+              <p className="mt-2 text-xs text-zinc-600">
+                Organization scope: {data.organizationId} · {data.timezone || "UTC"}
+              </p>
+            ) : null}
           </div>
           <div className="flex items-center gap-3">
             <input

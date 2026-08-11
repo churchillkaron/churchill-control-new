@@ -1,0 +1,19 @@
+Avantiqo Creative Studio Director Cockpit validation marker
+Date: 2026-08-11
+Branch: agent/studio-director-cockpit
+
+Scope:
+- Canonical organization-scoped Creative Studio only.
+- Read immutable PRODUCTION_DOSSIER evidence through an authenticated API.
+- Show Goal -> Plan -> Approve -> Produce -> Review owner workflow.
+- Require authenticated dossier approval with explicit cost ceiling.
+- Keep approval separate from provider execution.
+- Route natural-language creative commands to Production when dossier approval is required.
+
+Governance preserved:
+- No automatic provider execution on approval.
+- No provider billing architecture changes.
+- No customer wallet changes.
+- No historical billing changes.
+- No OpenAI verification changes.
+- No paid provider call performed by this implementation or validation marker.

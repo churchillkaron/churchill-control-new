@@ -5,7 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 
-const CONTRACT = "CREATIVE_DYNAMIC_ARCHITECTURE_AUDIT_V1";
+const CONTRACT = "CREATIVE_DYNAMIC_ARCHITECTURE_AUDIT_V2";
 const ROOTS = ["lib/creative", "components/creative", "app/api/creative"];
 const EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]);
 const OUTPUT = path.resolve(
@@ -42,16 +42,6 @@ const BUSINESS_TERMS = [
   "accounting firm",
 ];
 
-const WORKFLOW_TERMS = [
-  "TEMPORAL",
-  "STILL",
-  "DOCUMENT",
-  "INTERACTIVE",
-  "SOFTWARE",
-  "AUDIO",
-  "CAMPAIGN_SYSTEM",
-];
-
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -79,20 +69,6 @@ function gitValue(args, fallback = null) {
   }
 }
 
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function phraseRegex(value) {
-  return new RegExp(`\\b${escapeRegex(value).replace(/\\ /g, "\\s+")}\\b`, "i");
-}
-
-function windowFor(lines, index, radius = 5) {
-  return lines
-    .slice(Math.max(0, index - radius), Math.min(lines.length, index + radius + 1))
-    .join("\n");
-}
-
 function addFinding(findings, finding) {
   findings.push({
     severity: finding.severity || "REVIEW",
@@ -106,40 +82,79 @@ function addFinding(findings, finding) {
   });
 }
 
-function isDocumentationLikeLine(line) {
-  return /^\s*(?:\/\/|\/\*|\*|#)/.test(line);
-}
-
-function hasAny(haystack, needles) {
-  return needles.some((needle) => haystack.includes(needle));
-}
-
 function isTestFixture(relative) {
   return /^app\/api\/creative\/tests\//.test(relative);
 }
 
-function isAntiHardcodingInstruction(context) {
-  return /(?:\bno\s+hardcoded\b|\bno\s+canned\b|\bdo\s+not\s+(?:use|select)\b|\bmust\s+not\b|\bnever\s+use\b|\bforbid(?:den)?\b)[\s\S]{0,220}\b(?:industry|sector|vertical|template|preset)\b/i.test(context) ||
-    /\b(?:industry|sector|vertical)\b[\s\S]{0,220}(?:\bmust\s+not\b|\bdo\s+not\b|\bnever\b|\bforbid(?:den)?\b|\bno\s+hardcoded\b|\bno\s+canned\b)/i.test(context);
+function isComment(line) {
+  return /^\s*(?:\/\/|\/\*|\*|#)/.test(line);
+}
+
+function antiHardcodingText(value) {
+  return /(?:do\s+not|don't|never|must\s+not|may\s+not|forbid(?:den)?|without)\s+[\s\S]{0,120}(?:hardcod|canned|template|preset|industry|sector|vertical|default)/i.test(value) ||
+    /(?:industry|sector|vertical|category)\s+[\s\S]{0,120}(?:may\s+inform|must\s+not|may\s+not|never|not\s+select|not\s+route|not\s+control)/i.test(value);
+}
+
+function windowFor(lines, index, radius = 3) {
+  return lines
+    .slice(Math.max(0, index - radius), Math.min(lines.length, index + radius + 1))
+    .join("\n");
 }
 
 function taxonomyControlsBehavior(line, context) {
+  if (antiHardcodingText(context)) return false;
   const taxonomy = "(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)";
-  const sameLine = new RegExp(
-    `(?:\\b(?:if|switch|case|route|select|rank|score|template|preset)\\b[^\\n]*\\b${taxonomy}\\b|\\b${taxonomy}\\b[^\\n]*\\b(?:if|switch|case|route|select|rank|score|template|preset)\\b)`,
-    "i",
-  );
-  if (sameLine.test(line)) return true;
-
-  const structural = new RegExp(
-    `(?:if\\s*\\([^)]*\\b${taxonomy}\\b|switch\\s*\\([^)]*\\b${taxonomy}\\b|case\\s+[^:]*\\b${taxonomy}\\b|\\b${taxonomy}\\b[^\\n]{0,100}\\?(?:[^:]|$)|\\b${taxonomy}\\b[^\\n]{0,120}\\.(?:map|find|filter|includes)\\()`,
-    "i",
-  );
-  return structural.test(context);
+  const patterns = [
+    new RegExp(`if\\s*\\([^)]*\\b${taxonomy}\\b`, "i"),
+    new RegExp(`switch\\s*\\([^)]*\\b${taxonomy}\\b`, "i"),
+    new RegExp(`case\\s+[^:]*\\b${taxonomy}\\b`, "i"),
+    new RegExp(`\\b${taxonomy}\\b[^\\n]{0,120}\\?(?:[^:]|$)`, "i"),
+    new RegExp(`\\b${taxonomy}\\b[^\\n]{0,120}\\.(?:includes|startsWith|endsWith|match|test)\\(`, "i"),
+    new RegExp(`(?:route|select|rank|score|template|preset|default)[A-Za-z0-9_]*\\s*\\([^)]*\\b${taxonomy}\\b`, "i"),
+  ];
+  return patterns.some((pattern) => pattern.test(line) || pattern.test(context));
 }
 
-function fixtureSeverity(relative, defaultSeverity) {
-  return isTestFixture(relative) ? "REVIEW" : defaultSeverity;
+function addLiteralFindings(findings, relative, line, index) {
+  const fixture = isTestFixture(relative);
+  const lower = line.toLowerCase();
+
+  for (const term of ORGANIZATION_TERMS) {
+    if (!lower.includes(term)) continue;
+    addFinding(findings, {
+      severity: fixture ? "REVIEW" : "BLOCKER",
+      ownership: fixture ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
+      rule: fixture
+        ? "ORGANIZATION_SPECIFIC_TEST_FIXTURE_REVIEW"
+        : "ORGANIZATION_SPECIFIC_LITERAL",
+      term,
+      file: relative,
+      line: index + 1,
+      source: line.trim(),
+      reason: fixture
+        ? "Named organization fixtures must remain isolated from production Creative routing."
+        : "Universal Creative production must not encode one organization as behavior.",
+    });
+  }
+
+  for (const term of BUSINESS_TERMS) {
+    if (!lower.includes(term)) continue;
+    if (antiHardcodingText(line)) continue;
+    addFinding(findings, {
+      severity: fixture ? "REVIEW" : "BLOCKER",
+      ownership: fixture ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
+      rule: fixture
+        ? "BUSINESS_CATEGORY_TEST_FIXTURE_REVIEW"
+        : "BUSINESS_CATEGORY_LITERAL",
+      term,
+      file: relative,
+      line: index + 1,
+      source: line.trim(),
+      reason: fixture
+        ? "Business-category fixtures must remain isolated from universal production logic."
+        : "Production behavior must come from verified organization and mission context, not a fixed business-category vocabulary.",
+    });
+  }
 }
 
 const files = unique(ROOTS.flatMap((root) => walk(path.resolve(root)))).sort();
@@ -153,148 +168,94 @@ for (const absolute of files) {
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     const trimmed = line.trim();
-    if (!trimmed || isDocumentationLikeLine(trimmed)) continue;
+    if (!trimmed || isComment(trimmed)) continue;
     const context = windowFor(lines, index);
 
-    for (const term of ORGANIZATION_TERMS) {
-      if (!phraseRegex(term).test(line)) continue;
-      addFinding(findings, {
-        severity: fixtureSeverity(relative, "BLOCKER"),
-        ownership: isTestFixture(relative) ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
-        rule: isTestFixture(relative)
-          ? "ORGANIZATION_SPECIFIC_TEST_FIXTURE_REVIEW"
-          : "ORGANIZATION_SPECIFIC_LITERAL",
-        term,
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: isTestFixture(relative)
-          ? "Named organization test fixtures are review evidence and must not leak into production Creative routing."
-          : "Universal Creative execution must not encode one organization as behavior.",
-      });
-    }
+    addLiteralFindings(findings, relative, line, index);
 
-    for (const term of BUSINESS_TERMS) {
-      if (!phraseRegex(term).test(line)) continue;
-      const menuDeliverable = term === "menu" && /\b(?:type|deliverable|output|document)\b/i.test(context);
-      if (menuDeliverable) continue;
-      addFinding(findings, {
-        severity: fixtureSeverity(relative, "BLOCKER"),
-        ownership: isTestFixture(relative) ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
-        rule: isTestFixture(relative)
-          ? "BUSINESS_CATEGORY_TEST_FIXTURE_REVIEW"
-          : "BUSINESS_CATEGORY_LITERAL",
-        term,
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: isTestFixture(relative)
-          ? "Business-category test fixtures are review evidence and must remain isolated from universal production logic."
-          : "Business meaning must come from verified organization and mission context, not a fixed category vocabulary.",
-      });
-    }
-
-    if (/\bconst\s+DELIVERABLES\s*=\s*\[/.test(line)) {
-      addFinding(findings, {
-        severity: "BLOCKER",
-        ownership: "REGISTRY_DATA",
+    const blockers = [
+      {
+        test: /\bconst\s+DELIVERABLES\s*=\s*\[/,
         rule: "STATIC_DELIVERABLE_CATALOG",
-        term: "DELIVERABLES",
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: "The Studio deliverable universe must be registry/capability data rather than a component-owned fixed list.",
-      });
-    }
-
-    if (/\bconst\s+CHANNELS\s*=\s*\[/.test(line)) {
-      addFinding(findings, {
-        severity: "BLOCKER",
         ownership: "REGISTRY_DATA",
+        reason: "Deliverable choice must not be owned by a component-local fixed catalog.",
+      },
+      {
+        test: /\bconst\s+CHANNELS\s*=\s*\[/,
         rule: "STATIC_CHANNEL_CATALOG",
-        term: "CHANNELS",
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: "Available channels must be resolved from organization/channel capability data rather than a component-owned fixed list.",
-      });
-    }
-
-    if (/useState\(\s*["'`](?:VIDEO|FILM|IMAGE|DOCUMENT|AUDIO)["'`]\s*\)/.test(line)) {
-      addFinding(findings, {
-        severity: "BLOCKER",
-        ownership: "CREATIVE_DIRECTOR_DECISION",
-        rule: "STATIC_MEDIA_DEFAULT",
-        term: line.match(/(?:VIDEO|FILM|IMAGE|DOCUMENT|AUDIO)/)?.[0] || "media",
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: "A creative medium must not be silently chosen before mission reasoning.",
-      });
-    }
-
-    if (/useState\(\s*\[\s*["'`](?:instagram|facebook|tiktok|youtube|website|display)["'`]\s*\]\s*\)/i.test(line)) {
-      addFinding(findings, {
-        severity: "BLOCKER",
-        ownership: "MISSION_DECISION",
-        rule: "STATIC_CHANNEL_DEFAULT",
-        term: line.match(/(?:instagram|facebook|tiktok|youtube|website|display)/i)?.[0] || "channel",
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: "A publication channel must not be silently selected before organization and mission context resolve it.",
-      });
-    }
-
-    if (/\b(?:const|let|var)\s+(?:map|workflowMap|workflow_map)\s*=\s*\{/.test(line) && hasAny(context, WORKFLOW_TERMS)) {
-      addFinding(findings, {
-        severity: "BLOCKER",
         ownership: "REGISTRY_DATA",
-        rule: "STATIC_WORKFLOW_ROUTING_MAP",
-        term: "workflow-map",
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: "Creative workflow routing must be resolved from registered capabilities rather than an embedded taxonomy map.",
-      });
-    }
-
-    if (/\bworkflow_kind\s*:\s*["'`]TEMPORAL["'`]/.test(line) && /fallback/i.test(context)) {
-      addFinding(findings, {
-        severity: "BLOCKER",
+        reason: "Channel availability must resolve from organization channel data.",
+      },
+      {
+        test: /useState\(\s*["'`](?:VIDEO|FILM|IMAGE|DOCUMENT|AUDIO)["'`]\s*\)/i,
+        rule: "STATIC_MEDIA_DEFAULT",
         ownership: "CREATIVE_DIRECTOR_DECISION",
+        reason: "Creative medium may not be silently preselected by UI state.",
+      },
+      {
+        test: /useState\(\s*\[\s*["'`](?:instagram|facebook|tiktok|youtube|website|display)["'`]\s*\]\s*\)/i,
+        rule: "STATIC_CHANNEL_DEFAULT",
+        ownership: "MISSION_DECISION",
+        reason: "Publication channel may not be silently preselected.",
+      },
+      {
+        test: /\bworkflow_kind\s*:\s*["'`]TEMPORAL["'`]/i,
+        context: /fallback|degraded/i,
         rule: "TEMPORAL_FALLBACK_DEFAULT",
-        term: "TEMPORAL",
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: "Failure handling may not silently choose a temporal/video creative solution.",
-      });
-    }
-
-    if (/\btype\s*:\s*["'`]VIDEO["'`]/.test(line) && /fallback|degraded/i.test(context)) {
-      addFinding(findings, {
-        severity: "BLOCKER",
         ownership: "CREATIVE_DIRECTOR_DECISION",
+        reason: "Failure handling may not silently choose temporal work.",
+      },
+      {
+        test: /\btype\s*:\s*["'`]VIDEO["'`]/i,
+        context: /fallback|degraded|default/i,
         rule: "VIDEO_FALLBACK_DELIVERABLE",
-        term: "VIDEO",
+        ownership: "CREATIVE_DIRECTOR_DECISION",
+        reason: "Fallback/default paths may not invent video work.",
+      },
+      {
+        test: /\b(?:duration|duration_seconds)\s*:\s*30\b/i,
+        context: /default|fallback|\?\?|\|\|/i,
+        rule: "STATIC_DURATION_DEFAULT",
+        ownership: "CREATIVE_DIRECTOR_DECISION",
+        reason: "Creative duration must come from mission or delivery evidence.",
+      },
+      {
+        test: /\b(?:aspect_ratio|resolution|frame_rate)\s*:\s*["'`]?(?:16:9|9:16|1:1|4:5|1920x1080|1080x1920|30)["'`]?/i,
+        context: /default|fallback|\?\?|\|\|/i,
+        rule: "STATIC_FORMAT_DEFAULT",
+        ownership: "CREATIVE_DIRECTOR_DECISION",
+        reason: "Technical delivery format may not come from a silent fallback.",
+      },
+    ];
+
+    for (const rule of blockers) {
+      if (!rule.test.test(line)) continue;
+      if (rule.context && !rule.context.test(context)) continue;
+      addFinding(findings, {
+        severity: isTestFixture(relative) ? "REVIEW" : "BLOCKER",
+        ownership: isTestFixture(relative) ? "TEST_FIXTURE" : rule.ownership,
+        rule: isTestFixture(relative) ? `${rule.rule}_TEST_FIXTURE_REVIEW` : rule.rule,
         file: relative,
         line: index + 1,
         source: trimmed,
-        reason: "A degraded or fallback path must not invent a video deliverable.",
+        reason: rule.reason,
       });
     }
 
-    if (/\bfunction\s+promptFor\s*\(/.test(line) || /\bconst\s+promptFor\s*=/.test(line)) {
+    if (
+      /\b(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)\b/.test(line) &&
+      taxonomyControlsBehavior(line, context)
+    ) {
       addFinding(findings, {
-        severity: "REVIEW",
-        ownership: "PROVIDER_TRANSPORT_DETAIL",
-        rule: "CREATIVE_PROMPT_TEMPLATE_OWNER",
-        term: "promptFor",
+        severity: isTestFixture(relative) ? "REVIEW" : "BLOCKER",
+        ownership: isTestFixture(relative) ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
+        rule: isTestFixture(relative)
+          ? "BUSINESS_TAXONOMY_CONTROL_FLOW_TEST_FIXTURE_REVIEW"
+          : "BUSINESS_TAXONOMY_CONTROL_FLOW",
         file: relative,
         line: index + 1,
         source: trimmed,
-        reason: "Verify that creative ontology and policy are owned by structured contracts and only serialized into provider instructions at the transport boundary.",
+        reason: "Descriptive business taxonomy may inform research but must not branch, route, score, preset or default Creative behavior.",
       });
     }
 
@@ -309,52 +270,19 @@ for (const absolute of files) {
         file: relative,
         line: index + 1,
         source: trimmed,
-        reason: isTestFixture(relative)
-          ? "Currency in a test fixture must remain isolated from production defaults."
-          : "Confirm currency is sample/schema data only and never a runtime default that bypasses organization configuration.",
+        reason: "Currency literals require review to confirm they are explicit fixtures/configuration rather than runtime defaults.",
       });
     }
 
-    if (/\b(?:16:9|9:16|1:1|4:5|1920x1080|1080x1920)\b/.test(line) && /default|fallback|aspect|resolution|output_spec/i.test(context)) {
-      addFinding(findings, {
-        severity: "REVIEW",
-        ownership: "CREATIVE_DIRECTOR_DECISION",
-        rule: "FORMAT_LITERAL_REVIEW",
-        term: line.match(/\b(?:16:9|9:16|1:1|4:5|1920x1080|1080x1920)\b/)?.[0] || "format",
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: "Confirm the format value is an explicit contract/example and not a hidden creative default.",
-      });
-    }
-
-    if (/\b(?:openai|grok|veo|seedance|fal)\b/i.test(line) && !/provider|adapter|loader|registry|capability|service/i.test(context)) {
+    if (/\bfunction\s+promptFor\s*\(|\bconst\s+promptFor\s*=/.test(line)) {
       addFinding(findings, {
         severity: "REVIEW",
         ownership: "PROVIDER_TRANSPORT_DETAIL",
-        rule: "PROVIDER_LITERAL_REVIEW",
-        term: line.match(/\b(?:openai|grok|veo|seedance|fal)\b/i)?.[0] || "provider",
+        rule: "CREATIVE_PROMPT_TEMPLATE_OWNER",
         file: relative,
         line: index + 1,
         source: trimmed,
-        reason: "Provider names should only appear in provider/service boundary code, never as creative decision logic.",
-      });
-    }
-
-    if (
-      /\b(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)\b/.test(line) &&
-      taxonomyControlsBehavior(line, context) &&
-      !isAntiHardcodingInstruction(context)
-    ) {
-      addFinding(findings, {
-        severity: "BLOCKER",
-        ownership: "ORGANIZATION_CONTEXT",
-        rule: "BUSINESS_TAXONOMY_CONTROL_FLOW",
-        term: line.match(/\b(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)\b/)?.[0] || "taxonomy",
-        file: relative,
-        line: index + 1,
-        source: trimmed,
-        reason: "Descriptive business taxonomy may inform context but must not select fixed Creative behavior.",
+        reason: "Confirm prompt serialization exists only at a provider/service transport boundary.",
       });
     }
   }
@@ -385,15 +313,6 @@ const report = {
   scanned_roots: ROOTS,
   scanned_file_count: files.length,
   strict_mode: STRICT,
-  ownership_model: [
-    "SYSTEM_INVARIANT",
-    "REGISTRY_DATA",
-    "ORGANIZATION_CONTEXT",
-    "MISSION_DECISION",
-    "CREATIVE_DIRECTOR_DECISION",
-    "PROVIDER_TRANSPORT_DETAIL",
-    "TEST_FIXTURE",
-  ],
   blocker_count: blockers.length,
   review_count: reviews.length,
   finding_count: deduped.length,
@@ -421,7 +340,7 @@ console.log("============================================================");
 console.log(`CONTRACT=${CONTRACT}`);
 console.log(`OUTPUT=${OUTPUT}`);
 console.log(`SCANNED_FILE_COUNT=${report.scanned_file_count}`);
-console.log(`STRICT_MODE=${report.strict_mode ? "YES" : "NO"}`);
+console.log(`STRICT_MODE=${STRICT ? "YES" : "NO"}`);
 console.log(`BLOCKER_COUNT=${report.blocker_count}`);
 console.log(`REVIEW_COUNT=${report.review_count}`);
 console.log(`DECISION=${report.decision}`);

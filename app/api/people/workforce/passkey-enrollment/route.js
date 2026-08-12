@@ -16,7 +16,8 @@ const MANAGE_ROLES = new Set([
   "MANAGER",
 ]);
 
-const WORKFORCE_ENROLLMENT_REDIRECT = "https://avantiqo.ai/workforce/profile";
+const WORKFORCE_CANONICAL_ORIGIN = "https://avantiqo.ai";
+const WORKFORCE_ENROLLMENT_REDIRECT = `${WORKFORCE_CANONICAL_ORIGIN}/workforce/profile`;
 
 function roleOf(value) {
   return String(value || "").trim().toUpperCase();
@@ -87,7 +88,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
-      canonicalOrigin: "https://avantiqo.ai",
+      canonicalOrigin: WORKFORCE_CANONICAL_ORIGIN,
       redirectTo: WORKFORCE_ENROLLMENT_REDIRECT,
       ...result,
     });

@@ -1,5 +1,6 @@
 "use client";
 
+import AvantiqoOperator from "@/components/operator/AvantiqoOperator";
 import WorkspaceTopBar from "@/components/workspace/WorkspaceTopBar";
 
 export default function PlatformShell({
@@ -12,6 +13,8 @@ export default function PlatformShell({
       <main className="min-h-[calc(100vh-112px)] px-6 py-6 lg:px-8">
         {children}
       </main>
+
+      <AvantiqoOperator />
     </div>
   );
 }

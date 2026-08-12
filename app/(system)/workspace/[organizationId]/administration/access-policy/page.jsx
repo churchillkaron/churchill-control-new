@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
+  Crosshair,
   KeyRound,
   MapPin,
   RefreshCw,
@@ -66,6 +67,8 @@ export default function OrganizationAccessPolicyPage() {
   const [policy, setPolicy] = useState(EMPTY_POLICY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [capturedAccuracy, setCapturedAccuracy] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -86,6 +89,7 @@ export default function OrganizationAccessPolicyPage() {
       }
 
       setPolicy(normalizePolicy(result.policy));
+      setCapturedAccuracy(null);
     } catch (loadError) {
       setError(loadError?.message || "Unable to load organization policy");
     } finally {
@@ -109,6 +113,56 @@ export default function OrganizationAccessPolicyPage() {
       ...current,
       workforce: { ...current.workforce, [key]: value },
     }));
+  }
+
+  function captureCurrentLocation() {
+    setError("");
+    setMessage("");
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError("This device or browser does not provide GPS location access.");
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = Number(position.coords.latitude.toFixed(7));
+        const longitude = Number(position.coords.longitude.toFixed(7));
+        const accuracy = Number(position.coords.accuracy || 0);
+
+        setPolicy((current) => ({
+          ...current,
+          workforce: {
+            ...current.workforce,
+            clock_in_site_latitude: latitude,
+            clock_in_site_longitude: longitude,
+          },
+        }));
+        setCapturedAccuracy(accuracy);
+        setMessage(
+          `Current business location captured with approximately ${Math.round(accuracy)} m device accuracy. Review the radius, then save the policy.`
+        );
+        setLocating(false);
+      },
+      (locationError) => {
+        const messageByCode = {
+          1: "Location permission was denied. Allow location access and try again.",
+          2: "The device could not determine its current location.",
+          3: "Location capture timed out. Move to an area with a stronger GPS signal and try again.",
+        };
+        setError(
+          messageByCode[locationError?.code] ||
+            "Unable to capture the current business location."
+        );
+        setLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
   }
 
   async function savePolicy() {
@@ -207,7 +261,7 @@ export default function OrganizationAccessPolicyPage() {
               </div>
               <h1 className="mt-3 text-4xl font-black">Organization Policy</h1>
               <p className="mt-2 max-w-3xl text-sm text-white/45">
-                Control organization app entry and staff portal availability separately from authentication, and configure workforce timing, identity verification and clock-in location rules without platform defaults.
+                Configure each business independently: app access, workforce timing, identity verification, GPS requirements and its own clock-in site geofence.
               </p>
             </div>
             <button
@@ -263,7 +317,7 @@ export default function OrganizationAccessPolicyPage() {
               onChange={(value) => updateWorkforce("passkey_clock_in_required", value)}
             />
             <div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.05] p-4 text-xs leading-5 text-violet-100/65">
-              Passkey clock-in is disabled by default. Enroll staff passkeys first in Workforce Profile, then enable this policy. Biometric templates stay on the employee device and are never stored by Avantiqo.
+              Enroll staff passkeys first in Workforce Profile before requiring this verification. Biometric templates stay on the employee device and are never stored by Avantiqo.
             </div>
           </PolicyCard>
 
@@ -274,25 +328,49 @@ export default function OrganizationAccessPolicyPage() {
               checked={policy.workforce.gps_clock_in_required}
               onChange={(value) => updateWorkforce("gps_clock_in_required", value)}
             />
+
+            <div className="rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-4">
+              <div className="text-sm font-semibold text-white/80">Business clock-in point</div>
+              <p className="mt-1 text-xs leading-5 text-white/40">
+                Stand at the normal staff clock-in location and capture the current coordinates. They are saved only for this organization.
+              </p>
+              <button
+                type="button"
+                onClick={captureCurrentLocation}
+                disabled={locating}
+                className="mt-3 flex h-11 items-center gap-2 rounded-xl border border-[#D6A66A]/30 bg-black/20 px-4 text-xs font-black uppercase tracking-[0.14em] text-[#F3D2A7] disabled:opacity-40"
+              >
+                <Crosshair className={`h-4 w-4 ${locating ? "animate-pulse" : ""}`} />
+                {locating ? "Capturing..." : "Use current location"}
+              </button>
+              {capturedAccuracy !== null ? (
+                <div className="mt-2 text-xs text-white/45">
+                  Device reported accuracy: approximately {Math.round(capturedAccuracy)} m.
+                </div>
+              ) : null}
+            </div>
+
             <NumberField
               label="Work site latitude"
               value={policy.workforce.clock_in_site_latitude}
               onChange={(value) => updateWorkforce("clock_in_site_latitude", value)}
-              description="Optional. Configure together with longitude to enable a site geofence."
+              description="Per-business latitude. Configure together with longitude to enable a geofence."
               step="any"
+              min="-90"
             />
             <NumberField
               label="Work site longitude"
               value={policy.workforce.clock_in_site_longitude}
               onChange={(value) => updateWorkforce("clock_in_site_longitude", value)}
-              description="Optional. Configure together with latitude to enable a site geofence."
+              description="Per-business longitude. Configure together with latitude to enable a geofence."
               step="any"
+              min="-180"
             />
             <NumberField
               label="Allowed radius in meters"
               value={policy.workforce.clock_in_radius_meters}
               onChange={(value) => updateWorkforce("clock_in_radius_meters", value)}
-              description="When site coordinates and a radius are configured, clock-in is rejected outside this distance."
+              description="When coordinates and a radius are configured, clock-in is rejected outside this distance."
               min="1"
               step="any"
             />
@@ -300,7 +378,7 @@ export default function OrganizationAccessPolicyPage() {
               label="Maximum GPS accuracy in meters"
               value={policy.workforce.location_accuracy_max_meters}
               onChange={(value) => updateWorkforce("location_accuracy_max_meters", value)}
-              description="Optional. Rejects weak location readings above this reported accuracy."
+              description="Reject weak staff GPS readings above this reported accuracy."
               step="any"
             />
           </PolicyCard>
@@ -310,7 +388,7 @@ export default function OrganizationAccessPolicyPage() {
           <button
             type="button"
             onClick={savePolicy}
-            disabled={loading || saving}
+            disabled={loading || saving || locating}
             className="flex h-12 items-center gap-2 rounded-xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
           >
             <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save Policy"}

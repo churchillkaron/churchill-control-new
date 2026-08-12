@@ -21,12 +21,6 @@ import {
 } from "@/lib/creative/assets/runtime/CreativeAssetAutoSelectionRuntime";
 import * as CreativeAssetGraphRepository
 from "@/lib/creative/assets/graph/repositories/CreativeAssetGraphRepository";
-import {
-  CREATIVE_ASSET_NODE_TYPES,
-} from "@/lib/creative/assets/graph/documents/CreativeAssetNode";
-import {
-  CreativePerformanceVideoIntelligenceRuntime,
-} from "@/lib/creative/media/runtime/CreativePerformanceVideoIntelligenceRuntime";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -47,6 +41,11 @@ function normalizeList(value) {
     .filter(Boolean);
 }
 
+function positiveNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 function assetId(value) {
   if (typeof value === "string") return text(value);
   return text(value?.asset_id || value?.id);
@@ -65,16 +64,6 @@ function selectedAssetIds(body = {}) {
   return [...new Set([...explicit, ...embedded])];
 }
 
-function finiteNumber(value, fallback = null) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function positiveNumber(value) {
-  const parsed = finiteNumber(value);
-  return parsed !== null && parsed > 0 ? parsed : null;
-}
-
 function creativeIntent(body = {}) {
   return text(
     body.intent ||
@@ -84,56 +73,19 @@ function creativeIntent(body = {}) {
   );
 }
 
-function inferredDuration(intent) {
-  const source = text(intent).toLowerCase();
-  const match = source.match(/\b(\d+(?:\.\d+)?)\s*(?:-|–|—)?\s*(?:second|seconds|sec|secs|s)\b/);
-  return match ? positiveNumber(match[1]) : null;
-}
-
-function inferredChannels(intent) {
-  const source = text(intent).toLowerCase();
-  const channels = [];
-  if (source.includes("facebook")) channels.push("facebook");
-  if (source.includes("instagram")) channels.push("instagram");
-  if (source.includes("tiktok") || source.includes("tik tok")) channels.push("tiktok");
-  if (source.includes("youtube")) channels.push("youtube");
-  if (source.includes("linkedin")) channels.push("linkedin");
-  if (source.includes("website") || source.includes("web page") || source.includes("webpage")) channels.push("website");
-  return channels;
-}
-
-function inferredProductionType(intent) {
-  const source = text(intent).toLowerCase();
-  if (/\b(video|film|reel|trailer|commercial|motion)\b/.test(source)) return "VIDEO";
-  if (/\b(poster|image|photo|banner|graphic|social post)\b/.test(source)) return "IMAGE";
-  if (/\b(menu|brochure|document|report|presentation|deck)\b/.test(source)) return "DOCUMENT";
-  if (/\b(website|webpage|web page|landing page)\b/.test(source)) return "WEBSITE";
-  if (/\b(audio|music|song|podcast|voice)\b/.test(source)) return "AUDIO";
-  return null;
-}
-
 function normalizeCreativeCommand(body = {}, organization = {}) {
   const intent = creativeIntent(body);
   if (!intent) throw new Error("creative intent required");
 
-  const explicitChannels = normalizeList(body.channels || body.target_channels);
-  const productionType =
-    body.production_type ||
-    body.productionType ||
-    inferredProductionType(intent);
-  const duration = positiveNumber(
+  const explicitChannels = normalizeList(
+    body.channels || body.target_channels,
+  );
+  const explicitProductionType = text(
+    body.production_type || body.productionType,
+  ) || null;
+  const explicitDuration = positiveNumber(
     body.target_duration ?? body.duration_seconds,
-  ) || inferredDuration(intent);
-  const metadata = {
-    ...object(body.metadata),
-    source: "natural_language_creative_command",
-    active_organization_id: organization.id || body.organization_id || body.organizationId || null,
-    active_organization_name: organization.name || null,
-    public_publish_authorized: false,
-    publish_authorized: false,
-    publication_requires_human_approval: true,
-    production_dossier_approval_required: true,
-  };
+  );
 
   return {
     ...body,
@@ -141,11 +93,25 @@ function normalizeCreativeCommand(body = {}, organization = {}) {
     request: body.request || intent,
     objective: body.objective || intent,
     business_goal: body.business_goal || intent,
-    channels: explicitChannels.length ? explicitChannels : inferredChannels(intent),
-    production_type: productionType,
-    duration_seconds: duration,
-    target_duration: duration,
-    metadata,
+    channels: explicitChannels,
+    production_type: explicitProductionType,
+    duration_seconds: explicitDuration,
+    target_duration: explicitDuration,
+    metadata: {
+      ...object(body.metadata),
+      source: "natural_language_creative_command",
+      active_organization_id:
+        organization.id || body.organization_id || body.organizationId || null,
+      active_organization_name: organization.name || null,
+      creative_solution_source: "DIRECTOR_RESOLVED_FROM_CONTEXT",
+      command_boundary_media_inference: false,
+      command_boundary_channel_inference: false,
+      command_boundary_specialist_preprocessing: false,
+      public_publish_authorized: false,
+      publish_authorized: false,
+      publication_requires_human_approval: true,
+      production_dossier_approval_required: true,
+    },
   };
 }
 
@@ -228,8 +194,9 @@ function missionPayload(body, organizationId) {
     metadata: {
       ...requestMetadata(body),
       source: "natural_language_creative_intent",
+      creative_solution_source: "DIRECTOR_RESOLVED_FROM_CONTEXT",
       production_type:
-        body.production_type || body.productionType || null,
+        text(body.production_type || body.productionType) || null,
       target_duration: positiveNumber(
         body.target_duration ?? body.duration_seconds,
       ),
@@ -253,175 +220,16 @@ function missionPayload(body, organizationId) {
       context: object(body.context),
       original_intent: intent,
       selected_asset_ids: selectedAssetIds(body),
-    },
-  };
-}
-
-function performanceIntelligenceRequired(body = {}) {
-  const metadata = object(body.metadata);
-  return (
-    metadata.require_subject_tracking === true ||
-    metadata.require_song_boundary_detection === true ||
-    metadata.live_showreel === true ||
-    metadata.performance_video_intelligence_required === true
-  );
-}
-
-function performancePolicy(body = {}) {
-  const metadata = object(body.metadata);
-  const configured = object(
-    metadata.performance_video_policy ||
-    metadata.performanceVideoPolicy,
-  );
-  return {
-    version: "performance-video-v1",
-    requested_subject:
-      text(configured.requested_subject || configured.requestedSubject) ||
-      "primary lead vocalist",
-    minimum_usable_sections:
-      positiveNumber(configured.minimum_usable_sections) || 1,
-    minimum_verified_samples:
-      positiveNumber(configured.minimum_verified_samples) || 2,
-    minimum_quality_score:
-      positiveNumber(configured.minimum_quality_score) || 55,
-    minimum_primary_performer_ratio:
-      Number.isFinite(Number(configured.minimum_primary_performer_ratio))
-        ? Number(configured.minimum_primary_performer_ratio)
-        : 0.5,
-    minimum_vocalist_ratio:
-      Number.isFinite(Number(configured.minimum_vocalist_ratio))
-        ? Number(configured.minimum_vocalist_ratio)
-        : 0.5,
-    minimum_section_seconds:
-      positiveNumber(configured.minimum_section_seconds) || 12,
-    maximum_section_seconds:
-      positiveNumber(configured.maximum_section_seconds) || 75,
-    minimum_boundary_silence_seconds:
-      positiveNumber(configured.minimum_boundary_silence_seconds) || 1.2,
-    silence_noise_db:
-      Number.isFinite(Number(configured.silence_noise_db))
-        ? Number(configured.silence_noise_db)
-        : -32,
-    silence_duration_seconds:
-      positiveNumber(configured.silence_duration_seconds) || 1.2,
-    sample_fractions: Array.isArray(configured.sample_fractions)
-      ? configured.sample_fractions
-      : [0.25, 0.5, 0.75],
-    output_width: positiveNumber(configured.output_width) || 1920,
-    output_height: positiveNumber(configured.output_height) || 1080,
-    frame_rate: positiveNumber(configured.frame_rate) || 30,
-    video_codec: text(configured.video_codec) || "libx264",
-    video_preset: text(configured.video_preset) || "medium",
-    video_crf:
-      Number.isFinite(Number(configured.video_crf))
-        ? Number(configured.video_crf)
-        : 18,
-    audio_codec: text(configured.audio_codec) || "aac",
-    audio_bitrate: text(configured.audio_bitrate) || "192k",
-    ...configured,
-  };
-}
-
-function targetDuration(body = {}, project = {}) {
-  return positiveNumber(
-    body.target_duration ??
-    body.duration_seconds ??
-    project.target_duration ??
-    project.metadata?.target_duration,
-  );
-}
-
-function enforcedPerformancePostProduction({
-  body,
-  project,
-  selectedVideoCount,
-}) {
-  const requested = requestMetadata(body);
-  const existingPostProduction = object(
-    project.metadata?.post_production,
-  );
-  const requestedPostProduction = object(
-    requested.post_production,
-  );
-  const existingTimeline = object(
-    existingPostProduction.timeline,
-  );
-  const requestedTimeline = object(
-    requestedPostProduction.timeline,
-  );
-  const existingQuality = object(
-    existingPostProduction.quality,
-  );
-  const requestedQuality = object(
-    requestedPostProduction.quality,
-  );
-  const existingPerceptual = object(
-    existingQuality.perceptual_policy ||
-    existingQuality.perceptualPolicy,
-  );
-  const requestedPerceptual = object(
-    requestedQuality.perceptual_policy ||
-    requestedQuality.perceptualPolicy,
-  );
-  const duration = targetDuration(body, project);
-
-  if (!duration) {
-    throw new Error(
-      "PERFORMANCE_TIMELINE_TARGET_DURATION_REQUIRED",
-    );
-  }
-
-  const requestedMinimumScore = finiteNumber(
-    requestedTimeline.minimum_score ??
-    requestedTimeline.minimumScore,
-    55,
-  );
-  const requestedMaximumPerSource = positiveNumber(
-    requestedTimeline.maximum_clips_per_source ??
-    requestedTimeline.maximumClipsPerSource,
-  );
-  const requestedMinimumSources = positiveNumber(
-    requestedTimeline.minimum_distinct_sources ??
-    requestedTimeline.minimumDistinctSources,
-  );
-  const automaticMinimumSources = Math.min(
-    selectedVideoCount,
-    Math.max(1, Math.min(4, Math.ceil(selectedVideoCount / 2))),
-  );
-
-  return {
-    ...existingPostProduction,
-    ...requestedPostProduction,
-    timeline: {
-      ...existingTimeline,
-      ...requestedTimeline,
-      performance_verified_only: true,
-      minimum_score: Math.max(55, requestedMinimumScore),
-      minimum_duration_seconds: duration,
-      maximum_duration_seconds: duration,
-      minimum_distinct_sources: Math.min(
-        selectedVideoCount,
-        requestedMinimumSources || automaticMinimumSources,
-      ),
-      maximum_clips_per_source:
-        requestedMaximumPerSource || 3,
-      allow_fallback: true,
-      preserve_original_audio: true,
-      exact_lip_sync_required: true,
-      reject_blurred_vertical_background: true,
-    },
-    quality: {
-      ...existingQuality,
-      ...requestedQuality,
-      require_perceptual_qc: true,
-      perceptual_policy: {
-        ...existingPerceptual,
-        ...requestedPerceptual,
-        require_audio_review: true,
-        require_subject_continuity: true,
-        require_performance_authenticity: true,
-        require_lip_synchronisation: true,
-        reject_blurred_vertical_background: true,
+      explicit_constraints: {
+        production_type:
+          text(body.production_type || body.productionType) || null,
+        target_duration: positiveNumber(
+          body.target_duration ?? body.duration_seconds,
+        ),
+        channels: normalizeList(body.channels || body.target_channels),
+        target_languages: normalizeList(
+          body.target_languages || body.languages,
+        ),
       },
     },
   };
@@ -431,39 +239,31 @@ function projectMetadata({
   body,
   project,
   selectedIds,
-  selectedVideos,
-  performanceIntelligence,
 }) {
   const requested = requestMetadata(body);
-  const requiresPerformance = performanceIntelligenceRequired(body);
-  const metadata = {
+  return {
     ...(project.metadata || {}),
     ...requested,
-    target_duration:
-      targetDuration(body, project) || null,
+    creative_solution_source: "DIRECTOR_RESOLVED_FROM_CONTEXT",
     selected_asset_ids: selectedIds,
     selected_assets_locked_at: new Date().toISOString(),
     selected_assets_source:
       requested.asset_selection?.source ||
       "creative_create_command",
-    performance_video_intelligence_required:
-      requiresPerformance,
-    performance_intelligence:
-      performanceIntelligence,
+    command_boundary_media_inference: false,
+    command_boundary_channel_inference: false,
+    command_boundary_specialist_preprocessing: false,
   };
+}
 
-  if (requiresPerformance) {
-    metadata.post_production = enforcedPerformancePostProduction({
-      body,
-      project: {
-        ...project,
-        metadata,
-      },
-      selectedVideoCount: selectedVideos.length,
-    });
-  }
-
-  return metadata;
+function requestedOutputs(body = {}) {
+  return [...new Set([
+    ...normalizeList(
+      body.requestedOutputs || body.requested_outputs,
+    ),
+    ...normalizeList(body.channels || body.target_channels),
+    ...normalizeList(body.production_type),
+  ])];
 }
 
 export async function POST(request) {
@@ -538,61 +338,16 @@ export async function POST(request) {
       );
     }
 
-    const requiresPerformance = performanceIntelligenceRequired(body);
-    const selectedVideos = attachedAssetNodes.filter(
-      (node) => node.type === CREATIVE_ASSET_NODE_TYPES.VIDEO,
-    );
-    const performanceIntelligence = [];
-
-    if (requiresPerformance) {
-      if (!selectedVideos.length) {
-        throw new Error("PERFORMANCE_VIDEO_ASSET_REQUIRED");
-      }
-
-      for (const video of selectedVideos) {
-        const result =
-          await CreativePerformanceVideoIntelligenceRuntime.analyze({
-            organization_id: organizationId,
-            parent_asset_node_id: video.id,
-            policy: performancePolicy(body),
-          });
-        if (!Array.isArray(result.moments) || !result.moments.length) {
-          throw new Error(
-            `PERFORMANCE_VIDEO_INTELLIGENCE_REQUIRED:${video.id}`,
-          );
-        }
-        performanceIntelligence.push({
-          source_asset_node_id: video.id,
-          analysis_identity: result.analysis_identity,
-          moment_ids: result.moments.map((moment) => moment.id),
-          detected_section_count:
-            result.detected_sections?.length || null,
-          verified_section_count: result.moments.length,
-        });
-      }
-    }
-
     const metadata = projectMetadata({
       body,
       project,
       selectedIds,
-      selectedVideos,
-      performanceIntelligence,
     });
     const updatedProject = await CreativeProjectRuntime.update(
       creativeProjectId,
       { metadata },
     );
 
-    const requestedOutputs = [...new Set([
-      ...normalizeList(
-        body.requestedOutputs ||
-        body.requested_outputs ||
-        body.channels ||
-        body.target_channels,
-      ),
-      ...normalizeList(body.production_type),
-    ])];
     const execution = await CreativeDirectorRuntime.execute({
       organization_id: organizationId,
       creative_mission_id: started.id,
@@ -612,7 +367,7 @@ export async function POST(request) {
         "",
       audience: started.audience || {},
       assets,
-      requestedOutputs,
+      requestedOutputs: requestedOutputs(body),
       organization: body.organization || access.organization || {},
       brand: body.brand || {},
     });
@@ -636,9 +391,13 @@ export async function POST(request) {
           : productionStatus,
       command: {
         intent: body.intent,
-        production_type: body.production_type || null,
-        target_duration: body.target_duration || null,
-        channels: normalizeList(body.channels),
+        explicit_constraints: {
+          production_type: body.production_type || null,
+          target_duration: body.target_duration || null,
+          channels: normalizeList(body.channels),
+          requested_outputs: requestedOutputs(body),
+        },
+        creative_solution_source: "DIRECTOR_RESOLVED_FROM_CONTEXT",
         public_publish_authorized: false,
       },
       mission: started,
@@ -649,12 +408,6 @@ export async function POST(request) {
       selected_asset_ids: selectedIds,
       attached_asset_node_ids:
         attachedAssetNodes.map((node) => node.id),
-      performance_intelligence:
-        performanceIntelligence,
-      enforced_post_production_policy:
-        requiresPerformance
-          ? metadata.post_production
-          : null,
       execution,
       next_action:
         approvalRequired ||

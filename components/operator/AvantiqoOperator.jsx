@@ -6,8 +6,10 @@ import {
   ArrowRight,
   Loader2,
   MessageCircleMore,
+  Mic,
   Send,
   Sparkles,
+  Square,
   X,
 } from "lucide-react";
 
@@ -42,15 +44,34 @@ function resultCount(execution) {
   return null;
 }
 
+function preferredAudioMimeType() {
+  if (typeof MediaRecorder === "undefined") return "";
+
+  for (const type of [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+  ]) {
+    if (MediaRecorder.isTypeSupported?.(type)) return type;
+  }
+
+  return "";
+}
+
 export default function AvantiqoOperator() {
   const router = useRouter();
   const pathname = usePathname();
   const businessContext = useBusinessContext();
   const inputRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
   const [error, setError] = useState("");
   const [agreementState, setAgreementState] = useState({});
   const [messages, setMessages] = useState([
@@ -80,7 +101,7 @@ export default function AvantiqoOperator() {
       : organization;
   }, [businessContext?.organization, businessContext?.entity]);
 
-  async function sendMessage(rawValue) {
+  async function sendMessage(rawValue, source = "text") {
     const message = text(rawValue);
     if (!message || busy || !organizationId) return;
 
@@ -103,7 +124,7 @@ export default function AvantiqoOperator() {
           periodId,
           pathname,
           message,
-          source: "text",
+          source,
           locale:
             typeof navigator !== "undefined"
               ? navigator.language || null
@@ -155,6 +176,115 @@ export default function AvantiqoOperator() {
       setBusy(false);
       window.setTimeout(() => inputRef.current?.focus(), 0);
     }
+  }
+
+  function releaseVoiceStream() {
+    for (const track of mediaStreamRef.current?.getTracks?.() || []) {
+      track.stop();
+    }
+    mediaStreamRef.current = null;
+  }
+
+  async function transcribeVoice(blob) {
+    if (!blob?.size || !organizationId) return;
+
+    setVoiceBusy(true);
+    setError("");
+
+    try {
+      const locale = navigator.language || "";
+      const form = new FormData();
+      form.append(
+        "audio",
+        blob,
+        blob.type.includes("mp4") ? "avantiqo-voice.m4a" : "avantiqo-voice.webm",
+      );
+      form.append("organizationId", organizationId);
+      if (entityId) form.append("entityId", entityId);
+      if (locale) form.append("locale", locale);
+
+      const response = await fetch("/api/operator/transcribe", {
+        method: "POST",
+        credentials: "same-origin",
+        body: form,
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || result?.success === false || !text(result?.transcript)) {
+        throw new Error(result?.error || "I couldn't understand the recording");
+      }
+
+      await sendMessage(result.transcript, "voice");
+    } catch (voiceError) {
+      const messageText = voiceError?.message || "Voice input failed";
+      setError(messageText);
+      setMessages((current) => [
+        ...current,
+        assistantMessage(`I couldn't process that voice message: ${messageText}`),
+      ]);
+    } finally {
+      setVoiceBusy(false);
+    }
+  }
+
+  async function startVoice() {
+    if (busy || voiceBusy || recording) return;
+
+    try {
+      if (
+        typeof navigator === "undefined" ||
+        !navigator.mediaDevices?.getUserMedia ||
+        typeof MediaRecorder === "undefined"
+      ) {
+        throw new Error("Voice recording is not supported by this browser");
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = preferredAudioMimeType();
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size) audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onerror = () => {
+        setRecording(false);
+        releaseVoiceStream();
+        setError("Voice recording failed");
+      };
+
+      recorder.onstop = () => {
+        const chunks = audioChunksRef.current;
+        audioChunksRef.current = [];
+        const blob = new Blob(chunks, {
+          type: recorder.mimeType || mimeType || "audio/webm",
+        });
+
+        setRecording(false);
+        releaseVoiceStream();
+        transcribeVoice(blob);
+      };
+
+      recorder.start();
+      setRecording(true);
+      setError("");
+    } catch (voiceError) {
+      releaseVoiceStream();
+      setRecording(false);
+      setError(voiceError?.message || "Microphone access failed");
+    }
+  }
+
+  function stopVoice() {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
+    recorder.stop();
   }
 
   function openPanel() {
@@ -246,7 +376,7 @@ export default function AvantiqoOperator() {
                       <button
                         key={option.id}
                         type="button"
-                        disabled={busy}
+                        disabled={busy || voiceBusy || recording}
                         onClick={() => sendMessage(option.label)}
                         className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[11px] text-white/65 transition hover:border-[#D6A66A]/35 hover:text-white disabled:opacity-40"
                         title={option.description || option.label}
@@ -259,10 +389,18 @@ export default function AvantiqoOperator() {
               </div>
             ))}
 
-            {busy ? (
+            {busy || voiceBusy || recording ? (
               <div className="mr-16 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 py-3 text-[12px] text-white/45">
-                <Loader2 size={14} className="animate-spin text-[#D6A66A]" />
-                Thinking and checking Avantiqo...
+                {recording ? (
+                  <Mic size={14} className="text-red-300" />
+                ) : (
+                  <Loader2 size={14} className="animate-spin text-[#D6A66A]" />
+                )}
+                {recording
+                  ? "Listening... tap stop when you're finished."
+                  : voiceBusy
+                    ? "Understanding your voice message..."
+                    : "Thinking and checking Avantiqo..."}
               </div>
             ) : null}
           </div>
@@ -280,7 +418,7 @@ export default function AvantiqoOperator() {
                 ref={inputRef}
                 value={input}
                 rows={1}
-                disabled={busy}
+                disabled={busy || voiceBusy || recording}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
@@ -288,13 +426,29 @@ export default function AvantiqoOperator() {
                     sendMessage(input);
                   }
                 }}
-                placeholder="Tell Avantiqo what you need..."
+                placeholder={recording ? "Listening..." : "Tell Avantiqo what you need..."}
                 className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-1 py-2.5 text-[13px] leading-5 text-white outline-none placeholder:text-white/25 disabled:opacity-50"
               />
+
+              <button
+                type="button"
+                onClick={recording ? stopVoice : startVoice}
+                disabled={busy || voiceBusy}
+                aria-label={recording ? "Stop voice recording" : "Talk to Avantiqo"}
+                aria-pressed={recording}
+                className={
+                  recording
+                    ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-400/30 bg-red-400/10 text-red-200 transition hover:bg-red-400/15 disabled:opacity-30"
+                    : "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-white/55 transition hover:border-[#D6A66A]/35 hover:text-[#F0D29A] disabled:opacity-30"
+                }
+              >
+                {recording ? <Square size={13} /> : <Mic size={15} />}
+              </button>
+
               <button
                 type="button"
                 onClick={() => sendMessage(input)}
-                disabled={busy || !text(input)}
+                disabled={busy || voiceBusy || recording || !text(input)}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6A66A] text-black transition hover:bg-[#E7C48E] disabled:cursor-not-allowed disabled:opacity-30"
                 aria-label="Send to Avantiqo"
               >
@@ -303,7 +457,7 @@ export default function AvantiqoOperator() {
             </div>
 
             <div className="mt-2 px-1 text-[9px] uppercase tracking-[0.14em] text-white/20">
-              Discuss · Navigate · Execute · Verify
+              Voice + Text · Discuss · Navigate · Execute · Verify
             </div>
           </footer>
         </section>

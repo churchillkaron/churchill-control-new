@@ -5,7 +5,8 @@ create or replace function public.workforce_create_clock_in_exception_request(
   p_staff_id uuid,
   p_reason text,
   p_targets text[],
-  p_failure_code text default null
+  p_failure_code text default null,
+  p_acted_role text default 'staff'
 )
 returns table (
   request_id uuid,
@@ -21,9 +22,10 @@ declare
   v_targets text[];
   v_existing_id uuid;
   v_existing_reference_id uuid;
-  v_request_id uuid := gen_random_uuid();
+  v_request_id uuid;
   v_reference_id uuid := gen_random_uuid();
   v_metadata jsonb;
+  v_acted_role text := coalesce(nullif(btrim(p_acted_role), ''), 'staff');
 begin
   if p_organization_id is null or p_staff_id is null then
     raise exception 'CLOCK_IN_EXCEPTION_CONTEXT_REQUIRED' using errcode = '22023';
@@ -86,6 +88,7 @@ begin
     and ar.requested_by = p_staff_id
     and ar.reference_table = 'workforce_clock_in_exception'
     and ar.status in ('pending', 'approved', 'consuming')
+    and initial_log.metadata ->> 'kind' = 'workforce_clock_in_exception'
     and exists (
       select 1
       from jsonb_array_elements_text(
@@ -105,38 +108,32 @@ begin
   end if;
 
   v_metadata := jsonb_build_object(
+    'kind', 'workforce_clock_in_exception',
+    'version', 1,
     'reason', v_reason,
-    'targets', to_jsonb(v_targets)
+    'targets', to_jsonb(v_targets),
+    'failureCode', nullif(left(btrim(coalesce(p_failure_code, '')), 120), '')
   );
-
-  if nullif(btrim(coalesce(p_failure_code, '')), '') is not null then
-    v_metadata := v_metadata || jsonb_build_object(
-      'failureCode', left(btrim(p_failure_code), 120)
-    );
-  end if;
 
   insert into public.approval_requests (
-    id,
     organization_id,
     workflow_id,
-    requested_by,
-    type,
-    reference_id,
     reference_table,
+    reference_id,
+    current_step,
     status,
-    required_role
+    requested_by
   )
   values (
-    v_request_id,
     p_organization_id,
     null,
-    p_staff_id,
-    'WORKFORCE_CLOCK_IN_EXCEPTION',
-    v_reference_id,
     'workforce_clock_in_exception',
+    v_reference_id,
+    0,
     'pending',
-    'manager'
-  );
+    p_staff_id
+  )
+  returning id into v_request_id;
 
   insert into public.approval_logs (
     organization_id,
@@ -145,7 +142,7 @@ begin
     from_status,
     to_status,
     acted_by,
-    acted_role,
+    role,
     notes
   )
   values (
@@ -155,7 +152,7 @@ begin
     null,
     'pending',
     p_staff_id,
-    'staff',
+    v_acted_role,
     v_metadata::text
   );
 
@@ -218,7 +215,7 @@ begin
       from_status,
       to_status,
       acted_by,
-      acted_role,
+      role,
       notes
     )
     select
@@ -246,15 +243,15 @@ begin
 end;
 $$;
 
-revoke all on function public.workforce_create_clock_in_exception_request(uuid, uuid, text, text[], text) from public;
-revoke all on function public.workforce_create_clock_in_exception_request(uuid, uuid, text, text[], text) from anon, authenticated;
-grant execute on function public.workforce_create_clock_in_exception_request(uuid, uuid, text, text[], text) to service_role;
+revoke all on function public.workforce_create_clock_in_exception_request(uuid, uuid, text, text[], text, text) from public;
+revoke all on function public.workforce_create_clock_in_exception_request(uuid, uuid, text, text[], text, text) from anon, authenticated;
+grant execute on function public.workforce_create_clock_in_exception_request(uuid, uuid, text, text[], text, text) to service_role;
 
 revoke all on function public.workforce_consume_clock_in_exception_claims(uuid, uuid, uuid[], uuid, text) from public;
 revoke all on function public.workforce_consume_clock_in_exception_claims(uuid, uuid, uuid[], uuid, text) from anon, authenticated;
 grant execute on function public.workforce_consume_clock_in_exception_claims(uuid, uuid, uuid[], uuid, text) to service_role;
 
-comment on function public.workforce_create_clock_in_exception_request(uuid, uuid, text, text[], text)
+comment on function public.workforce_create_clock_in_exception_request(uuid, uuid, text, text[], text, text)
 is 'Atomically creates or reuses an overlapping Workforce clock-in exception request under a per-staff advisory transaction lock.';
 
 comment on function public.workforce_consume_clock_in_exception_claims(uuid, uuid, uuid[], uuid, text)

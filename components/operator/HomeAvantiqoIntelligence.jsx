@@ -135,9 +135,9 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       sendMessage(message, event?.detail?.source || "voice");
     }
 
-    window.addEventListener("avantiqo:operator-command", receiveVoiceCommand);
+    window.addEventListener("avantiqo:home-command", receiveVoiceCommand);
     return () => {
-      window.removeEventListener("avantiqo:operator-command", receiveVoiceCommand);
+      window.removeEventListener("avantiqo:home-command", receiveVoiceCommand);
     };
   }, [organizationId, entityId, periodId, pathname]);
 

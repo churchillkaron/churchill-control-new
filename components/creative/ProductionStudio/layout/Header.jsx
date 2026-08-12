@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowRight,
   CircleDot,
+  Play,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -50,6 +51,16 @@ export default function Header({ runtime, editor }) {
     mission?.objective ||
     project?.objective ||
     "Create a new mission to start Creative Studio.";
+  const startMission = runtime.commands?.find(
+    (command) => command.id === "start_mission",
+  );
+  const canStart = Boolean(
+    mission &&
+    missionStatus !== "active" &&
+    missionStatus !== "completed" &&
+    missionStatus !== "archived" &&
+    startMission?.onClick,
+  );
 
   return (
     <header className="border-b border-white/10 bg-[#070706]">
@@ -106,6 +117,17 @@ export default function Header({ runtime, editor }) {
               <ShieldCheck className="h-3.5 w-3.5" />
               Evidence
             </button>
+
+            {canStart ? (
+              <button
+                type="button"
+                onClick={() => startMission.onClick?.()}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.07] px-4 text-xs font-semibold text-emerald-100/85 transition hover:bg-emerald-300/[0.12]"
+              >
+                <Play className="h-3.5 w-3.5" />
+                Start planning
+              </button>
+            ) : null}
 
             <button
               type="button"

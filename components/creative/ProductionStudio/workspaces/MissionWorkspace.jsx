@@ -1,139 +1,447 @@
 "use client";
 
-export default function MissionWorkspace({
-  runtime,
-  editor,
-}) {
+import { useMemo, useState } from "react";
+import {
+  ArrowRight,
+  CalendarRange,
+  Check,
+  Clapperboard,
+  Coins,
+  FileImage,
+  Film,
+  Globe2,
+  Layers3,
+  Megaphone,
+  Music2,
+  Plus,
+  Sparkles,
+  Target,
+  X,
+} from "lucide-react";
 
-  const mission =
-    runtime?.missionRuntime?.current;
+const DELIVERABLES = [
+  { id: "VIDEO", label: "Film / video", icon: Film },
+  { id: "IMAGE", label: "Campaign visual", icon: FileImage },
+  { id: "DOCUMENT", label: "Document", icon: Layers3 },
+  { id: "AUDIO", label: "Audio", icon: Music2 },
+];
 
-  const projects =
-    runtime?.projectRuntime?.items || [];
+const CHANNELS = [
+  "instagram",
+  "facebook",
+  "tiktok",
+  "youtube",
+  "website",
+  "display",
+];
 
-  const assets =
-    runtime.assetRuntime?.items || [];
+function compactNumber(value) {
+  return Number(value || 0).toLocaleString(undefined, {
+    maximumFractionDigits: 0,
+  });
+}
 
-  const scenes =
-    runtime.sceneRuntime?.items || [];
+function statusLabel(value) {
+  return String(value || "draft")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
 
-  const tasks =
-    runtime.taskRuntime?.items || [];
-
+function Metric({ label, value, detail, icon: Icon }) {
   return (
-
-    <div className="h-full min-h-0 overflow-auto p-8 text-white">
-
-      {/* HEADER */}
-      <div className="mb-8">
-
-        <div className="text-xs uppercase tracking-[0.3em] text-[#c8a96a]">
-          Mission Control
-        </div>
-
-        <h1 className="mt-2 text-3xl font-semibold">
-          {mission?.business_goal || "No Mission Selected"}
-        </h1>
-
-        <p className="mt-2 text-white/50">
-          {mission?.objective || "Define your creative direction"}
-        </p>
-
+    <div className="rounded-2xl border border-white/8 bg-white/[0.025] p-4">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">{label}</div>
+        {Icon ? <Icon className="h-4 w-4 text-[#d5b56d]/55" /> : null}
       </div>
-
-      {/* STATS GRID */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="text-xs text-white/50">Deliverables</div>
-          <div className="text-2xl font-bold">{projects.length}</div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="text-xs text-white/50">Scenes</div>
-          <div className="text-2xl font-bold">{scenes.length}</div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="text-xs text-white/50">Assets</div>
-          <div className="text-2xl font-bold">{assets.length}</div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="text-xs text-white/50">Tasks</div>
-          <div className="text-2xl font-bold">{tasks.length}</div>
-        </div>
-
-      </div>
-
-      {/* MISSION DETAILS */}
-      <div className="grid grid-cols-2 gap-6">
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="text-sm text-white/50 mb-2">Business Goal</div>
-          <div className="text-lg">
-            {mission?.business_goal || "—"}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="text-sm text-white/50 mb-2">Objective</div>
-          <div className="text-lg">
-            {mission?.objective || "—"}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="text-sm text-white/50 mb-2">Budget</div>
-          <div className="text-lg">
-            {mission?.budget || 0} {mission?.currency}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="text-sm text-white/50 mb-2">Status</div>
-          <div className="text-lg">
-            {mission?.status || "draft"}
-          </div>
-        </div>
-
-      </div>
-
-      {/* PROJECT LIST */}
-      <div className="mt-10">
-
-        <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
-          Deliverables
-        </div>
-
-        <div className="space-y-2">
-
-          {projects.map((p) => (
-            <div
-              key={p.id}
-              className="rounded-lg border border-white/10 bg-white/[0.02] p-4 flex justify-between"
-            >
-              <div>
-                <div className="font-medium">
-                  {p.name || "Untitled Project"}
-                </div>
-                <div className="text-xs text-white/40">
-                  {p.production_type}
-                </div>
-              </div>
-
-              <div className="text-xs text-white/50">
-                {p.status}
-              </div>
-            </div>
-          ))}
-
-        </div>
-
-      </div>
-
+      <div className="mt-3 text-2xl font-semibold tracking-tight text-white/90">{value}</div>
+      {detail ? <div className="mt-1 text-xs text-white/30">{detail}</div> : null}
     </div>
+  );
+}
 
+export default function MissionWorkspace({ runtime, editor }) {
+  const mission = runtime.missionRuntime?.current || null;
+  const projects = runtime.projectRuntime?.items || [];
+  const assets = runtime.assetRuntime?.items || [];
+  const scenes = runtime.sceneRuntime?.items || [];
+  const tasks = runtime.taskRuntime?.items || [];
+  const activeProject = runtime.projectRuntime?.current || null;
+
+  const [businessGoal, setBusinessGoal] = useState("");
+  const [desiredOutcome, setDesiredOutcome] = useState("");
+  const [productionType, setProductionType] = useState("VIDEO");
+  const [duration, setDuration] = useState("30");
+  const [channels, setChannels] = useState(["instagram"]);
+  const [budget, setBudget] = useState("");
+  const [currency, setCurrency] = useState(mission?.currency || "USD");
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+
+  const composerOpen = Boolean(editor.missionComposerOpen);
+  const canCreate = Boolean(businessGoal.trim() && desiredOutcome.trim() && !working);
+
+  const missionChannels = useMemo(
+    () => (Array.isArray(mission?.channels) ? mission.channels : []),
+    [mission?.channels],
   );
 
+  function toggleChannel(channel) {
+    setChannels((current) =>
+      current.includes(channel)
+        ? current.filter((item) => item !== channel)
+        : [...current, channel],
+    );
+  }
+
+  async function createMission(event) {
+    event.preventDefault();
+    if (!canCreate || !runtime.organizationId) return;
+
+    setWorking(true);
+    setError("");
+
+    try {
+      const numericBudget = Number(budget);
+      const numericDuration = Number(duration);
+      const response = await fetch("/api/creative/missions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization_id: runtime.organizationId,
+          title: businessGoal.trim().slice(0, 120),
+          business_goal: businessGoal.trim(),
+          objective: desiredOutcome.trim(),
+          status: "draft",
+          channels,
+          budget: Number.isFinite(numericBudget) ? numericBudget : 0,
+          currency,
+          metadata: {
+            source: "studio_structured_mission_composer",
+            production_type: productionType,
+            target_duration:
+              Number.isFinite(numericDuration) && numericDuration > 0
+                ? numericDuration
+                : null,
+            desired_outcome: desiredOutcome.trim(),
+            publication_requires_human_approval: true,
+            production_dossier_approval_required: true,
+            promptless_input: true,
+          },
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.mission) {
+        throw new Error(result.error || "Mission creation failed");
+      }
+
+      editor.closeMissionComposer?.();
+      setBusinessGoal("");
+      setDesiredOutcome("");
+      await runtime.refresh?.();
+    } catch (createError) {
+      setError(createError?.message || "Mission creation failed");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div className="min-h-full bg-[#050505] text-white">
+      <section className="relative overflow-hidden border-b border-white/8 px-6 py-8 lg:px-10 lg:py-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(213,181,109,0.09),transparent_34%),radial-gradient(circle_at_80%_15%,rgba(107,88,255,0.07),transparent_30%)]" />
+        <div className="relative grid gap-8 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)] xl:items-end">
+          <div>
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#d5b56d]">
+              <Sparkles className="h-3.5 w-3.5" />
+              Mission control
+            </div>
+            <h2 className="mt-4 max-w-4xl text-3xl font-semibold tracking-[-0.03em] text-white lg:text-5xl">
+              {mission?.business_goal || "Give Studio a business objective. It handles the creative work."}
+            </h2>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/42 lg:text-base">
+              {mission?.objective ||
+                "Set the outcome, deliverable and commercial constraints. Avantiqo researches, develops strategy, originates the concept, plans production and stops at governed approval points."}
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {missionChannels.length ? (
+                missionChannels.map((channel) => (
+                  <span
+                    key={channel}
+                    className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-white/45"
+                  >
+                    {channel}
+                  </span>
+                ))
+              ) : (
+                <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-white/35">
+                  Channels selected by mission context
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[26px] border border-[#d5b56d]/16 bg-[#d5b56d]/[0.045] p-5">
+            <div className="text-[10px] uppercase tracking-[0.24em] text-[#d5b56d]/65">Current control state</div>
+            <div className="mt-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-xl font-semibold text-white/90">{statusLabel(mission?.status)}</div>
+                <div className="mt-1 text-xs text-white/35">
+                  {runtime.stateRuntime?.current?.stage
+                    ? statusLabel(runtime.stateRuntime.current.stage)
+                    : "Ready for direction"}
+                </div>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#d5b56d]/20 bg-black/20">
+                <Target className="h-5 w-5 text-[#e2c681]" />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => editor.openMissionComposer?.()}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#d5b56d]/30 bg-[#d5b56d]/12 px-4 py-3 text-sm font-semibold text-[#efd79e] transition hover:bg-[#d5b56d]/20"
+            >
+              <Plus className="h-4 w-4" />
+              New creative mission
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-6 py-7 lg:px-10">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Deliverables" value={projects.length} detail={activeProject?.production_type || "Creative projects"} icon={Clapperboard} />
+          <Metric label="Scenes" value={scenes.length} detail="Storyboard + production structure" icon={Film} />
+          <Metric label="Assets" value={assets.length} detail="Approved and generated media" icon={Globe2} />
+          <Metric label="Tasks" value={tasks.length} detail={`${runtime.queueRuntime?.total || 0} in production queue`} icon={CalendarRange} />
+        </div>
+
+        <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]">
+          <section className="rounded-[26px] border border-white/8 bg-white/[0.02] p-5 lg:p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.24em] text-white/30">Creative workflow</div>
+                <h3 className="mt-2 text-xl font-semibold text-white/90">Studio works from evidence, not prompts</h3>
+              </div>
+              <Megaphone className="h-5 w-5 text-[#d5b56d]/60" />
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {[
+                ["01", "Understand", "Business context, brand, audience and approved assets."],
+                ["02", "Originate", "Research, strategy and distinct creative territories."],
+                ["03", "Produce", "Storyboard, production plan, cost control and provider governance."],
+                ["04", "Improve", "Quality review, human decisions and verified outcome learning."],
+              ].map(([number, title, detail]) => (
+                <div key={number} className="rounded-2xl border border-white/7 bg-black/20 p-4">
+                  <div className="text-[10px] font-semibold text-[#d5b56d]/55">{number}</div>
+                  <div className="mt-2 text-sm font-semibold text-white/78">{title}</div>
+                  <div className="mt-1 text-xs leading-5 text-white/34">{detail}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[26px] border border-white/8 bg-white/[0.02] p-5 lg:p-6">
+            <div className="text-[10px] uppercase tracking-[0.24em] text-white/30">Active deliverables</div>
+            <div className="mt-4 space-y-2.5">
+              {projects.slice(0, 5).map((project) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  onClick={() => editor.setActiveWorkspace("production")}
+                  className="flex w-full items-center gap-3 rounded-xl border border-white/7 bg-black/20 p-3.5 text-left transition hover:border-white/12 hover:bg-white/[0.035]"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/8 bg-white/[0.03]">
+                    <Clapperboard className="h-4 w-4 text-white/45" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-white/75">{project.name || "Creative deliverable"}</div>
+                    <div className="mt-0.5 text-[10px] text-white/28">{project.production_type || "Production"} · {statusLabel(project.status)}</div>
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-white/25" />
+                </button>
+              ))}
+
+              {!projects.length ? (
+                <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center">
+                  <div className="text-sm font-medium text-white/55">No deliverable yet</div>
+                  <div className="mt-1 text-xs text-white/28">Create and start a mission to build the production plan.</div>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      </section>
+
+      {composerOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm md:items-center md:p-6">
+          <form
+            onSubmit={createMission}
+            className="max-h-[94vh] w-full overflow-y-auto rounded-t-[30px] border border-white/10 bg-[#0a0a09] shadow-2xl md:max-w-4xl md:rounded-[30px]"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/8 bg-[#0a0a09]/95 px-6 py-5 backdrop-blur-xl">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.27em] text-[#d5b56d]">New creative mission</div>
+                <div className="mt-1 text-xl font-semibold text-white/90">Define the business job</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => editor.closeMissionComposer?.()}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/8 bg-white/[0.025] text-white/45 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-7 p-6 lg:p-7">
+              <div className="grid gap-5 lg:grid-cols-2">
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Business goal</span>
+                  <input
+                    value={businessGoal}
+                    onChange={(event) => setBusinessGoal(event.target.value)}
+                    placeholder="Increase bookings for the September launch"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-[#d5b56d]/35"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Desired outcome</span>
+                  <input
+                    value={desiredOutcome}
+                    onChange={(event) => setDesiredOutcome(event.target.value)}
+                    placeholder="Create a premium launch campaign that converts"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-[#d5b56d]/35"
+                  />
+                </label>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Primary deliverable</div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {DELIVERABLES.map((item) => {
+                    const Icon = item.icon;
+                    const active = productionType === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setProductionType(item.id)}
+                        className={`rounded-xl border p-3 text-left transition ${
+                          active
+                            ? "border-[#d5b56d]/35 bg-[#d5b56d]/10 text-[#efd79e]"
+                            : "border-white/8 bg-white/[0.02] text-white/45 hover:bg-white/[0.04]"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <div className="mt-2 text-xs font-medium">{item.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Delivery channels</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {CHANNELS.map((channel) => {
+                    const active = channels.includes(channel);
+                    return (
+                      <button
+                        key={channel}
+                        type="button"
+                        onClick={() => toggleChannel(channel)}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs transition ${
+                          active
+                            ? "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100/80"
+                            : "border-white/8 bg-white/[0.02] text-white/35"
+                        }`}
+                      >
+                        {active ? <Check className="h-3 w-3" /> : null}
+                        {channel}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-3">
+                <label>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Target duration</span>
+                  <div className="mt-2 flex rounded-xl border border-white/10 bg-black/30">
+                    <input
+                      type="number"
+                      min="1"
+                      value={duration}
+                      onChange={(event) => setDuration(event.target.value)}
+                      className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-white outline-none"
+                    />
+                    <span className="flex items-center px-3 text-xs text-white/25">sec</span>
+                  </div>
+                </label>
+
+                <label>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Budget ceiling</span>
+                  <div className="mt-2 flex rounded-xl border border-white/10 bg-black/30">
+                    <input
+                      type="number"
+                      min="0"
+                      value={budget}
+                      onChange={(event) => setBudget(event.target.value)}
+                      placeholder="0"
+                      className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-white/20"
+                    />
+                  </div>
+                </label>
+
+                <label>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Currency</span>
+                  <select
+                    value={currency}
+                    onChange={(event) => setCurrency(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-[#10100f] px-4 py-3 text-sm text-white outline-none"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="THB">THB</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 text-xs leading-5 text-white/35">
+                Studio will derive research, strategy, creative direction and production specifications from organization context, brand evidence and approved assets. This form does not create or store a generation prompt.
+              </div>
+
+              {error ? (
+                <div className="rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3 text-sm text-red-200/80">
+                  {error}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="sticky bottom-0 flex items-center justify-between gap-4 border-t border-white/8 bg-[#0a0a09]/95 px-6 py-4 backdrop-blur-xl">
+              <div className="hidden items-center gap-2 text-xs text-white/25 sm:flex">
+                <Coins className="h-3.5 w-3.5" />
+                Production spend remains locked until approval.
+              </div>
+              <button
+                type="submit"
+                disabled={!canCreate}
+                className="ml-auto inline-flex items-center gap-2 rounded-xl border border-[#d5b56d]/35 bg-[#d5b56d]/12 px-5 py-3 text-sm font-semibold text-[#efd79e] transition hover:bg-[#d5b56d]/20 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {working ? "Creating mission…" : "Create mission"}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </div>
+  );
 }

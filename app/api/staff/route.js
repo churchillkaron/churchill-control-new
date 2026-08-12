@@ -116,16 +116,21 @@ export async function POST(request) {
         }),
       ]);
 
-      const passkeyGrant = grantForTarget(approvedGrants, "passkey");
-      const gpsGrant = grantForTarget(approvedGrants, "gps");
+      const passkeyRequired =
+        policy?.workforce?.passkey_clock_in_required === true;
+      const gpsRequired = policy?.workforce?.gps_clock_in_required === true;
+
+      const passkeyGrant = passkeyRequired
+        ? grantForTarget(approvedGrants, "passkey")
+        : null;
+      const gpsGrant = gpsRequired
+        ? grantForTarget(approvedGrants, "gps")
+        : null;
 
       passkeyExceptionApproved = Boolean(passkeyGrant);
       gpsExceptionApproved = Boolean(gpsGrant);
 
-      if (
-        policy?.workforce?.passkey_clock_in_required === true &&
-        !passkeyExceptionApproved
-      ) {
+      if (passkeyRequired && !passkeyExceptionApproved) {
         await requireRecentPasskeyVerification({
           userId: context.user.id,
         });

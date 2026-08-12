@@ -7,6 +7,8 @@ import {
   clockOutStaff,
   loadStaffWorkday,
 } from "@/lib/people/workforce/shiftRuntime";
+import { requireRecentPasskeyVerification } from "@/lib/people/workforce/passkeyClockInVerification";
+import { loadOrganizationPolicy } from "@/lib/platform/security/organizationAccessPolicy";
 
 function contextError(context) {
   return NextResponse.json(
@@ -85,6 +87,18 @@ export async function POST(request) {
         },
         { status: 400 }
       );
+    }
+
+    if (action === "clock_in") {
+      const policy = await loadOrganizationPolicy({
+        organizationId: context.organizationId,
+      });
+
+      if (policy?.workforce?.passkey_clock_in_required === true) {
+        await requireRecentPasskeyVerification({
+          userId: context.user.id,
+        });
+      }
     }
 
     const result =

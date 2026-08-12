@@ -1,0 +1,36 @@
+AVANTIQO CREATIVE STUDIO MAIN CONVERGENCE AUDIT
+Date: 2026-08-12
+
+CANONICAL SOURCE OF TRUTH
+- main is the sole canonical development branch for Creative Studio.
+- PR #131 was reconciled against current main and merged successfully.
+- Merge commit: d5ab9eeb86e9974bff0d3d5e77b8bf4784929644
+- The only overlapping provider-registry conflict was converged before merge.
+- Current main retains newer unrelated main work while incorporating the complete Studio line.
+
+STUDIO CAPABILITIES NOW ON MAIN
+- governed Creative Director cockpit
+- raise-only world-class concept policy
+- autonomous concept regeneration
+- Shot Bible and governed video-engine routing
+- generated-media perceptual review and pair-aware recovery
+- candidate review and winner selection
+- whole-film Director Review with weakest-link quality enforcement
+- deterministic professional finishing
+- exact FONT asset binding evidence
+- exact title, CTA and legal-copy hash evidence
+- deterministic per-channel delivery gate
+- governed provider loaders for Grok, Seedance and Veo/FAL
+
+QUALITY AND GOVERNANCE
+- minimum release score: 94
+- minimum confidence: 85
+- B-grade release forbidden
+- publication remains human-authorized
+- provider execution remains Service Domain / Pricing / Wallet / Usage governed
+- no provider call or wallet mutation is performed by this audit
+
+BRANCH POLICY GOING FORWARD
+- Continue Creative Studio implementation directly on main.
+- Do not establish a second Studio source-of-truth branch.
+- Any temporary branch, if operationally unavoidable, must converge immediately into main before further Studio work proceeds.

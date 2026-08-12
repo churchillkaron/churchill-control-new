@@ -9,6 +9,7 @@ import rejectPayrollRecord from "@/lib/payroll/consolidation/rejectPayrollRecord
 import lockPayrollRecord from "@/lib/payroll/consolidation/lockPayrollRecord";
 import resolvePayrollDispute from "@/lib/payroll/consolidation/resolvePayrollDispute";
 import { recalculatePayrollRecord } from "@/lib/payroll/consolidation/recalculatePayrollRecord";
+import reviewAttendancePenalty from "@/lib/payroll/consolidation/reviewAttendancePenalty";
 import finalizePayrollRecord from "@/lib/payroll/consolidation/finalizePayrollRecord";
 import closePayrollAccountingPeriod from "@/lib/payroll/consolidation/closePayrollAccountingPeriod";
 import certifyPayrollRecord from "@/lib/payroll/consolidation/certifyPayrollRecord";
@@ -152,6 +153,17 @@ export async function POST(request) {
         actorName,
         role: context.role,
       });
+    } else if (action === "REVIEW_ATTENDANCE_PENALTY") {
+      result = await reviewAttendancePenalty({
+        payrollRecordId,
+        organizationId: context.organizationId,
+        reviewedBy: context.staff.id,
+        actorName,
+        role: context.role,
+        decision: body?.decision,
+        adjustedAmount: body?.adjustedAmount,
+        notes: body?.notes,
+      });
     } else if (action === "REJECT") {
       result = await rejectPayrollRecord({
         payrollRecordId,
@@ -264,7 +276,7 @@ export async function POST(request) {
 
     return NextResponse.json(
       { success: false, error: error?.message || "Unable to execute payroll action" },
-      { status: 400 }
+      { status: Number(error?.status) || 400 }
     );
   }
 }

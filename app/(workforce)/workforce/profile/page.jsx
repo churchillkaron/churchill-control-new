@@ -10,8 +10,10 @@ import {
   MapPin,
   RefreshCw,
   ShieldCheck,
+  TestTube2,
 } from "lucide-react";
 import { supabaseClient } from "@/lib/shared/supabase/client";
+import verifyClockInPasskey from "@/lib/people/workforce/verifyClockInPasskey";
 
 function dateTime(value) {
   if (!value) return "Never";
@@ -39,6 +41,7 @@ export default function ProfilePage() {
   const [runtime, setRuntime] = useState(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [reason, setReason] = useState("");
   const [selectedTargets, setSelectedTargets] = useState([]);
@@ -96,7 +99,7 @@ export default function ProfilePage() {
       if (registrationError) throw registrationError;
 
       setMessage(
-        `Passkey registered${data?.friendly_name ? ` · ${data.friendly_name}` : ""}.`
+        `Passkey registered${data?.friendly_name ? ` · ${data.friendly_name}` : ""}. Run Test passkey verification before rollout.`
       );
       await loadSecurity();
     } catch (registrationError) {
@@ -106,6 +109,27 @@ export default function ProfilePage() {
       );
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function testPasskeyVerification() {
+    setVerifying(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await verifyClockInPasskey();
+      setMessage(
+        "Passkey verification succeeded. This identity has completed a real WebAuthn verification on the current Workforce origin."
+      );
+      await loadSecurity();
+    } catch (verificationError) {
+      setError(
+        verificationError?.message ||
+          "Passkey verification failed on this device"
+      );
+    } finally {
+      setVerifying(false);
     }
   }
 
@@ -161,6 +185,12 @@ export default function ProfilePage() {
     return values;
   }, [requirements.passkeyRequired, requirements.gpsRequired]);
 
+  const latestPasskeyUse = passkeys
+    .map((passkey) => passkey?.last_used_at || null)
+    .filter(Boolean)
+    .sort()
+    .at(-1) || null;
+
   return (
     <main className="min-h-screen text-white">
       <div className="mx-auto max-w-3xl space-y-5 p-5">
@@ -211,7 +241,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={loadSecurity}
-              disabled={loading || working || requesting}
+              disabled={loading || working || verifying || requesting}
               className="flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white/55 disabled:opacity-40"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -246,15 +276,32 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={registerPasskey}
-            disabled={loading || working || requesting}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
-          >
-            <KeyRound className="h-4 w-4" />
-            {working ? "Registering..." : "Register passkey"}
-          </button>
+          {passkeys.length ? (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-xs leading-5 text-white/45">
+              Verification readiness: {latestPasskeyUse ? `last successful passkey use ${dateTime(latestPasskeyUse)}.` : "registered, but no successful passkey verification has been recorded yet."}
+            </div>
+          ) : null}
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={registerPasskey}
+              disabled={loading || working || verifying || requesting}
+              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 text-xs font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
+            >
+              <KeyRound className="h-4 w-4" />
+              {working ? "Registering..." : "Register passkey"}
+            </button>
+            <button
+              type="button"
+              onClick={testPasskeyVerification}
+              disabled={loading || working || verifying || requesting || passkeys.length === 0}
+              className="flex h-12 items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-400/10 px-4 text-xs font-black uppercase tracking-[0.14em] text-violet-100 disabled:opacity-40"
+            >
+              <TestTube2 className="h-4 w-4" />
+              {verifying ? "Verifying..." : "Test passkey verification"}
+            </button>
+          </div>
         </section>
 
         <section className="rounded-[30px] border border-white/10 bg-white/[0.04] p-5">
@@ -329,6 +376,7 @@ export default function ProfilePage() {
             disabled={
               loading ||
               working ||
+              verifying ||
               requesting ||
               selectedTargets.length === 0 ||
               reason.trim().length < 5

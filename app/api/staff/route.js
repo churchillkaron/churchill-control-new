@@ -8,6 +8,12 @@ import {
   loadStaffWorkday,
 } from "@/lib/people/workforce/shiftRuntime";
 import { requireRecentPasskeyVerification } from "@/lib/people/workforce/passkeyClockInVerification";
+import {
+  claimClockInExceptionGrants,
+  consumeClockInExceptionClaims,
+  loadApprovedClockInExceptionGrants,
+  releaseClockInExceptionClaims,
+} from "@/lib/people/workforce/clockInExceptionApproval";
 import { loadOrganizationPolicy } from "@/lib/platform/security/organizationAccessPolicy";
 
 function contextError(context) {
@@ -33,6 +39,10 @@ async function resolveStaffAccess(request) {
   }
 
   return context;
+}
+
+function grantForTarget(grants, target) {
+  return (grants || []).find((grant) => grant.targets?.includes(target)) || null;
 }
 
 export async function GET(request) {
@@ -72,8 +82,11 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  let claimedExceptions = [];
+  let context = null;
+
   try {
-    const context = await resolveStaffAccess(request);
+    context = await resolveStaffAccess(request);
     if (context.response) return context.response;
 
     const body = await request.json();
@@ -89,14 +102,46 @@ export async function POST(request) {
       );
     }
 
-    if (action === "clock_in") {
-      const policy = await loadOrganizationPolicy({
-        organizationId: context.organizationId,
-      });
+    let gpsExceptionApproved = false;
+    let passkeyExceptionApproved = false;
 
-      if (policy?.workforce?.passkey_clock_in_required === true) {
+    if (action === "clock_in") {
+      const [policy, approvedGrants] = await Promise.all([
+        loadOrganizationPolicy({
+          organizationId: context.organizationId,
+        }),
+        loadApprovedClockInExceptionGrants({
+          organizationId: context.organizationId,
+          staffId: context.staff.id,
+        }),
+      ]);
+
+      const passkeyGrant = grantForTarget(approvedGrants, "passkey");
+      const gpsGrant = grantForTarget(approvedGrants, "gps");
+
+      passkeyExceptionApproved = Boolean(passkeyGrant);
+      gpsExceptionApproved = Boolean(gpsGrant);
+
+      if (
+        policy?.workforce?.passkey_clock_in_required === true &&
+        !passkeyExceptionApproved
+      ) {
         await requireRecentPasskeyVerification({
           userId: context.user.id,
+        });
+      }
+
+      const grantsToUse = [...new Map(
+        [passkeyGrant, gpsGrant]
+          .filter(Boolean)
+          .map((grant) => [grant.id, grant])
+      ).values()];
+
+      if (grantsToUse.length) {
+        claimedExceptions = await claimClockInExceptionGrants({
+          organizationId: context.organizationId,
+          staffId: context.staff.id,
+          grantIds: grantsToUse.map((grant) => grant.id),
         });
       }
     }
@@ -106,19 +151,48 @@ export async function POST(request) {
         ? await clockInStaff({
             organizationId: context.organizationId,
             staff: context.staff,
-            location: body?.location || null,
+            location: gpsExceptionApproved ? null : body?.location || null,
+            gpsExceptionApproved,
           })
         : await clockOutStaff({
             organizationId: context.organizationId,
             staff: context.staff,
           });
 
+    if (action === "clock_in" && claimedExceptions.length) {
+      await consumeClockInExceptionClaims({
+        organizationId: context.organizationId,
+        staff: context.staff,
+        claims: claimedExceptions,
+        shiftId: result.shift?.id || null,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
+      exceptionVerification: action === "clock_in"
+        ? {
+            passkey: passkeyExceptionApproved,
+            gps: gpsExceptionApproved,
+            grantCount: claimedExceptions.length,
+          }
+        : null,
       ...result,
     });
   } catch (error) {
+    if (claimedExceptions.length && context?.organizationId && context?.staff?.id) {
+      try {
+        await releaseClockInExceptionClaims({
+          organizationId: context.organizationId,
+          staffId: context.staff.id,
+          claims: claimedExceptions,
+        });
+      } catch (releaseError) {
+        console.error("CLOCK_IN_EXCEPTION_RELEASE_ERROR", releaseError);
+      }
+    }
+
     console.error("STAFF_POST_ERROR", error);
 
     return NextResponse.json(

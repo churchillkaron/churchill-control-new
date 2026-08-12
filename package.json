@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/prepare-creative-media-binaries.mjs && npm run audit:openai-governance && npm run audit:creative-studio && npm run audit:creative-dynamic-architecture && npm run audit:operations && npm run audit:operations-events && npm run audit:operations-authorization && npm run audit:operations-roles && npm run audit:operations-readiness && npm run audit:operations-migrations && node scripts/finance-production-master-data-bootstrap.mjs && npm run benchmark:creative-world-class-live",
+    "prebuild": "node scripts/prepare-creative-media-binaries.mjs && npm run audit:openai-governance && npm run audit:creative-studio && npm run audit:creative-dynamic-architecture && npm run audit:operations && npm run audit:operations-events && npm run audit:operations-authorization && npm run audit:operations-roles && npm run audit:operations-readiness && npm run audit:operations-migrations && node scripts/finance-production-master-data-bootstrap.mjs",
     "build": "next build",
     "start": "next start",
     "creative": "sh scripts/run-creative-command.sh",

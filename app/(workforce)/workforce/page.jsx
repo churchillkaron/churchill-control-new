@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock3,
   FileText,
+  KeyRound,
   MapPin,
   Play,
   ShieldCheck,
@@ -17,6 +18,7 @@ import {
   Wallet,
 } from "lucide-react";
 import captureClockInLocation from "@/lib/people/workforce/captureClockInLocation";
+import verifyClockInPasskey from "@/lib/people/workforce/verifyClockInPasskey";
 
 const cards = [
   {
@@ -96,8 +98,20 @@ export default function PortalHomePage() {
     setError("");
 
     try {
+      const requirements = runtime?.clockInRequirements || {};
+
+      if (action === "clock_in" && requirements.passkeyRequired) {
+        if (!requirements.passkeyEnrolled) {
+          throw new Error(
+            "Register a passkey in Profile before starting your shift"
+          );
+        }
+
+        await verifyClockInPasskey();
+      }
+
       const location =
-        action === "clock_in" && runtime?.clockInRequirements?.gpsRequired
+        action === "clock_in" && requirements.gpsRequired
           ? await captureClockInLocation()
           : null;
 
@@ -129,6 +143,8 @@ export default function PortalHomePage() {
   const shiftStatus = runtime?.shiftStatus || "NO_SHIFT";
   const schedule = runtime?.schedule || null;
   const gpsRequired = Boolean(runtime?.clockInRequirements?.gpsRequired);
+  const passkeyRequired = Boolean(runtime?.clockInRequirements?.passkeyRequired);
+  const passkeyEnrolled = Boolean(runtime?.clockInRequirements?.passkeyEnrolled);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -202,8 +218,17 @@ export default function PortalHomePage() {
                 </div>
               </div>
 
+              {!shiftActive && passkeyRequired ? (
+                <div className="mt-4 flex items-center gap-2 rounded-2xl border border-violet-400/15 bg-violet-400/[0.06] px-3 py-2 text-xs text-violet-100/70">
+                  <KeyRound className="h-4 w-4 shrink-0" />
+                  {passkeyEnrolled
+                    ? "Identity verification is required before clock-in."
+                    : "Register a passkey in Profile before clock-in."}
+                </div>
+              ) : null}
+
               {!shiftActive && gpsRequired ? (
-                <div className="mt-4 flex items-center gap-2 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100/70">
+                <div className="mt-3 flex items-center gap-2 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100/70">
                   <MapPin className="h-4 w-4 shrink-0" /> GPS location is required and verified when you start your shift.
                 </div>
               ) : null}
@@ -220,9 +245,11 @@ export default function PortalHomePage() {
               >
                 {shiftActive ? <Square className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                 {loadingShift
-                  ? gpsRequired && !shiftActive
-                    ? "Verifying location..."
-                    : "Syncing..."
+                  ? !shiftActive && passkeyRequired
+                    ? "Verifying identity..."
+                    : gpsRequired && !shiftActive
+                      ? "Verifying location..."
+                      : "Syncing..."
                   : shiftActive
                     ? "End Shift"
                     : "Start Shift"}

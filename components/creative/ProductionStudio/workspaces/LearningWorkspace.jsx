@@ -8,9 +8,7 @@ function Stat({ title, value }) {
       <div className="text-xs uppercase tracking-[0.22em] text-white/45">
         {title}
       </div>
-      <div className="mt-2 text-2xl font-semibold">
-        {value}
-      </div>
+      <div className="mt-2 text-2xl font-semibold">{value}</div>
     </div>
   );
 }
@@ -29,28 +27,49 @@ function Card({ title, children }) {
 function MetricRows({ metrics = {} }) {
   const rows = Object.entries(metrics).slice(0, 8);
   if (!rows.length) {
-    return (
-      <div className="text-sm text-white/45">
-        No verified performance metrics yet.
-      </div>
-    );
+    return <div className="text-sm text-white/45">No verified performance metrics yet.</div>;
   }
 
   return (
     <div className="space-y-3">
       {rows.map(([name, value]) => (
         <div key={name} className="flex items-center justify-between gap-4">
-          <span className="text-sm text-white/45">
-            {name.replaceAll("_", " ")}
-          </span>
+          <span className="text-sm text-white/45">{name.replaceAll("_", " ")}</span>
           <span className="text-sm font-medium text-white/90">
             {Number(value.average || 0).toLocaleString(undefined, {
               maximumFractionDigits: 2,
             })}
-            <span className="ml-2 text-xs text-white/35">
-              n={value.count || 0}
-            </span>
+            <span className="ml-2 text-xs text-white/35">n={value.count || 0}</span>
           </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DecisionRows({ decisions = [] }) {
+  if (!decisions.length) {
+    return <div className="text-sm text-white/45">No authenticated Creative decisions yet.</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {decisions.slice(0, 6).map((decision) => (
+        <div key={decision.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-white/85">
+              {decision.decision === "REJECTED" ? "Revision requested" : "Approved"}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.16em] text-white/35">
+              {(decision.scope || "Creative").replaceAll("_", " ")}
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-white/40">
+            {(decision.reason_code || "OWNER_DECISION").replaceAll("_", " ")}
+          </div>
+          {decision.feedback ? (
+            <div className="mt-2 text-sm leading-5 text-white/60">{decision.feedback}</div>
+          ) : null}
         </div>
       ))}
     </div>
@@ -70,9 +89,13 @@ export default function LearningWorkspace({ runtime }) {
     let active = true;
 
     async function load() {
-      if (!organizationId) return;
-      const params = new URLSearchParams({ organization_id: organizationId });
-      if (project.id) params.set("creative_project_id", project.id);
+      if (!organizationId || !project.id) return;
+      const params = new URLSearchParams({
+        organization_id: organizationId,
+        creative_project_id: project.id,
+      });
+      if (project.brand_id) params.set("brand_id", project.brand_id);
+      if (project.campaign_id) params.set("campaign_id", project.campaign_id);
 
       try {
         const response = await fetch(`/api/creative/outcome-learning?${params}`, {
@@ -80,10 +103,10 @@ export default function LearningWorkspace({ runtime }) {
         });
         const payload = await response.json();
         if (!response.ok || payload.success === false) {
-          throw new Error(payload.error || "Outcome learning unavailable");
+          throw new Error(payload.error || "Creative learning unavailable");
         }
         if (active) {
-          setLearning(payload.summary || payload.current || null);
+          setLearning(payload);
           setError(null);
         }
       } catch (loadError) {
@@ -95,15 +118,15 @@ export default function LearningWorkspace({ runtime }) {
     return () => {
       active = false;
     };
-  }, [organizationId, project.id]);
+  }, [organizationId, project.id, project.brand_id, project.campaign_id]);
 
+  const summary = learning?.summary || learning?.current || {};
+  const outcomes = summary.outcomes || {};
+  const human = summary.human_decisions || {};
   const channelCount = useMemo(
-    () => Object.keys(learning?.channels || {}).length,
-    [learning],
+    () => Object.keys(outcomes.channels || {}).length,
+    [outcomes.channels],
   );
-  const evidenceCount = learning?.direction_eligible_count || 0;
-  const awaitingEvidence =
-    !learning || learning.evidence_status === "AWAITING_PUBLISHED_OUTCOMES";
 
   return (
     <div className="h-full overflow-auto p-8 text-white">
@@ -111,58 +134,71 @@ export default function LearningWorkspace({ runtime }) {
         <div className="text-xs uppercase tracking-[0.30em] text-[#c8a96a]">
           Learning Center
         </div>
-        <div className="mt-2 text-3xl font-semibold">
-          Outcome Intelligence
-        </div>
+        <div className="mt-2 text-3xl font-semibold">Creative Intelligence</div>
         <div className="mt-2 max-w-3xl text-sm leading-6 text-white/50">
-          Verified publication results inform future creative judgment. They never lower
-          the world-class quality floor, rights controls, release approval, or provider governance.
+          Studio learns from verified released outcomes and authenticated owner decisions.
+          Evidence informs fresh creative judgment; it never becomes a hidden prompt, lowers
+          the world-class quality floor, or bypasses rights and approval controls.
         </div>
       </div>
 
       <div className="mb-8 grid grid-cols-4 gap-4">
-        <Stat title="Verified Outcomes" value={evidenceCount} />
+        <Stat title="Verified Outcomes" value={outcomes.direction_eligible_count || 0} />
+        <Stat title="Human Decisions" value={human.decision_count || 0} />
+        <Stat title="Revisions" value={human.rejection_count || 0} />
         <Stat title="Channels" value={channelCount} />
-        <Stat title="Production" value={production.length} />
-        <Stat title="Assets" value={assets.length} />
       </div>
 
       <div className="grid grid-cols-2 gap-6">
-        <Card title="Learning Status">
+        <Card title="Why Studio Will Decide This Way">
           {error ? (
             <div className="text-sm text-red-300/80">{error}</div>
-          ) : awaitingEvidence ? (
-            <div className="space-y-3">
-              <div className="text-lg font-medium text-white/90">
-                Awaiting published outcomes
-              </div>
-              <div className="text-sm leading-6 text-white/50">
-                The Studio has no verified publication evidence for this project yet.
-                Fresh creative judgment remains in control; no synthetic performance assumptions are made.
-              </div>
-            </div>
           ) : (
             <div className="space-y-3">
               <div className="text-lg font-medium text-white/90">
-                Verified evidence available
+                {(summary.decision_explanation?.status || "LOADING")
+                  .replaceAll("_", " ")
+                  .toLowerCase()}
               </div>
               <div className="text-sm leading-6 text-white/50">
-                {evidenceCount} immutable outcome observation{evidenceCount === 1 ? "" : "s"}
-                {learning.latest_observed_at
-                  ? `, latest ${new Date(learning.latest_observed_at).toLocaleString()}.`
-                  : "."}
+                {summary.decision_explanation?.reason ||
+                  "Loading current Creative learning evidence."}
               </div>
-              {learning.future_direction?.insufficient_evidence_requires_fresh_judgment && (
-                <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-white/60">
-                  Evidence is still sparse. The Director may consider it, but must originate fresh direction rather than optimize around a weak sample.
-                </div>
-              )}
+              <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-white/60">
+                Fresh creative judgment remains mandatory. Past winners may inform direction,
+                but Studio may not imitate prior work or optimize below the fixed quality floor.
+              </div>
             </div>
           )}
         </Card>
 
         <Card title="Observed Performance">
-          <MetricRows metrics={learning?.metrics || {}} />
+          <MetricRows metrics={outcomes.metrics || {}} />
+        </Card>
+
+        <Card title="Owner Decision Evidence">
+          <DecisionRows decisions={learning?.human_decisions || human.latest_decisions || []} />
+        </Card>
+
+        <Card title="Evidence Summary">
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-white/45">Approvals</span>
+              <span>{human.approval_count || 0}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-white/45">Revision requests</span>
+              <span>{human.rejection_count || 0}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-white/45">Published evidence</span>
+              <span>{outcomes.direction_eligible_count || 0}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-white/45">Publishing jobs</span>
+              <span>{publishing.length}</span>
+            </div>
+          </div>
         </Card>
 
         <Card title="Governance">
@@ -172,12 +208,12 @@ export default function LearningWorkspace({ runtime }) {
               <span>Immutable</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-white/45">Rights gate</span>
-              <span>Cannot be bypassed</span>
+              <span className="text-white/45">Human feedback</span>
+              <span>Evidence, not instruction</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-white/45">Publish approval</span>
-              <span>Cannot be bypassed</span>
+              <span className="text-white/45">Provider prompts</span>
+              <span>Not persisted</span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-white/45">Prior-work imitation</span>
@@ -189,12 +225,12 @@ export default function LearningWorkspace({ runtime }) {
         <Card title="Operational Context">
           <div className="space-y-3 text-sm">
             <div className="flex justify-between gap-4">
-              <span className="text-white/45">Publishing jobs</span>
-              <span>{publishing.length}</span>
+              <span className="text-white/45">Production jobs</span>
+              <span>{production.length}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-white/45">Evidence source</span>
-              <span>Released external publications</span>
+              <span className="text-white/45">Asset library</span>
+              <span>{assets.length}</span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-white/45">Learning execution</span>

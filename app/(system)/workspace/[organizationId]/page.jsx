@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo } from "react";
+import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 
 function getGreeting(name) {
@@ -32,9 +32,6 @@ export default function OrganizationWorkspacePage() {
   const metrics = runtime?.metrics || {};
   const alerts = runtime?.alerts || [];
   const activity = runtime?.activity || [];
-  const intelligenceHref = organization?.id
-    ? `/intelligence?organizationId=${encodeURIComponent(organization.id)}`
-    : "/intelligence";
 
   if (loading) {
     return (
@@ -103,30 +100,7 @@ export default function OrganizationWorkspacePage() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 flex flex-col justify-between">
-          <div>
-            <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
-              Company Intelligence
-            </div>
-
-            <h2 className="text-3xl font-light tracking-[-0.04em]">
-              Organization intelligence
-            </h2>
-
-            <p className="mt-4 max-w-xl text-sm leading-6 text-white/50">
-              Open the canonical Intelligence workspace for attribution, channel performance and business recommendations. Executable AI actions remain capability-driven inside their owning business domains.
-            </p>
-          </div>
-
-          <div className="mt-8">
-            <Link
-              href={intelligenceHref}
-              className="inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90"
-            >
-              Open Intelligence
-            </Link>
-          </div>
-        </div>
+        <HomeAvantiqoIntelligence organizationId={organization?.id || null} />
       </div>
     </div>
   );

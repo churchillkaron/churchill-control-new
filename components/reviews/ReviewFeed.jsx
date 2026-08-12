@@ -184,7 +184,7 @@ export default function ReviewFeed({
   const googleAccessPending = googleConnected && !googleLocationReady;
   const googleRateLimited =
     googleConnected && discoveryStatus === "RATE_LIMITED";
-  const integrationUrl = `/settings/integrations?organizationId=${encodeURIComponent(organizationId)}`;
+  const integrationUrl = `/workspace/${encodeURIComponent(organizationId)}/administration/integrations#google-business`;
   const autoPublishMin = Number(policy?.auto_publish_min_rating || 4);
   const criticalMax = Number(policy?.critical_max_rating || 2);
 

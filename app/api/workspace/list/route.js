@@ -114,13 +114,15 @@ export async function GET(request) {
       },
     }));
 
-    const modules = getErpDomains().map((domain) => ({
-      id: domain.id,
-      name: domain.name,
-      route: domain.route || null,
-      type: domain.type,
-      description: domain.description,
-    }));
+    const modules = getErpDomains()
+      .filter((domain) => domain.id !== "services")
+      .map((domain) => ({
+        id: domain.id,
+        name: domain.name,
+        route: domain.route || null,
+        type: domain.type,
+        description: domain.description,
+      }));
 
     return NextResponse.json({
       success: true,

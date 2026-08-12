@@ -8,6 +8,14 @@ import {
 
 export async function GET(request, { params }) {
   const domainId = String(params?.domainId || "").trim();
+
+  if (domainId === "services") {
+    return NextResponse.json(
+      { success: false, error: "DOMAIN_NOT_FOUND" },
+      { status: 404 },
+    );
+  }
+
   const domain = getErpDomains().find((item) => item.id === domainId) || null;
 
   if (!domain) {

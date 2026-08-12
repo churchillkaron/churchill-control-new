@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import loadOrganizationPasskeyReadiness from "@/lib/people/workforce/passkeyRolloutReadiness";
 import {
   loadOrganizationPolicy,
   saveOrganizationPolicy,
@@ -67,15 +68,21 @@ export async function GET(request) {
     const context = await policyContext(request, requestedOrganizationId);
     if (context.response) return context.response;
 
-    const policy = await loadOrganizationPolicy({
-      organizationId: context.organizationId,
-    });
+    const [policy, passkeyReadiness] = await Promise.all([
+      loadOrganizationPolicy({
+        organizationId: context.organizationId,
+      }),
+      loadOrganizationPasskeyReadiness({
+        organizationId: context.organizationId,
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
       role: context.role,
       policy,
+      passkeyReadiness,
     });
   } catch (error) {
     return NextResponse.json(
@@ -93,21 +100,53 @@ export async function PUT(request) {
     const context = await policyContext(request, requestedOrganizationId);
     if (context.response) return context.response;
 
+    const existingPolicy = await loadOrganizationPolicy({
+      organizationId: context.organizationId,
+    });
+    const currentlyRequired =
+      existingPolicy?.workforce?.passkey_clock_in_required === true;
+    const requestedRequired =
+      body?.workforce?.passkey_clock_in_required === true;
+
+    if (requestedRequired && !currentlyRequired) {
+      const passkeyReadiness = await loadOrganizationPasskeyReadiness({
+        organizationId: context.organizationId,
+      });
+
+      if (!passkeyReadiness.activationReady) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: "PASSKEY_ROLLOUT_NOT_READY",
+            error:
+              "Mandatory passkey clock-in cannot be enabled until rollout readiness is complete.",
+            passkeyReadiness,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const policy = await saveOrganizationPolicy({
       organizationId: context.organizationId,
       access: body?.access || {},
       workforce: body?.workforce || {},
     });
 
+    const passkeyReadiness = await loadOrganizationPasskeyReadiness({
+      organizationId: context.organizationId,
+    });
+
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
       policy,
+      passkeyReadiness,
     });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error?.message || "Unable to save policy" },
-      { status: 400 }
+      { status: Number(error?.status) || 400 }
     );
   }
 }

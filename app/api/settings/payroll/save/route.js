@@ -17,6 +17,7 @@ const BOOLEAN_KEYS = [
   "manager_approval_required",
   "use_schedule_expected_hours",
   "salary_proration_enabled",
+  "lateness_deduction_enabled",
   "training_counts_as_worked",
   "sick_leave_counts_as_worked",
   "approved_leave_counts_as_worked",

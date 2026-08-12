@@ -32,6 +32,13 @@ const ICONS = {
   UserCircle,
 };
 
+const PLATFORM_ADMIN_ROLES = new Set(["PLATFORM_OWNER", "SUPER_ADMIN"]);
+const PLATFORM_ONLY_HEADER_ITEMS = new Set(["network", "services", "ai"]);
+
+function upper(value) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
 function platformHref(organizationId, route) {
   if (!route) return "#";
   if (!organizationId) return route;
@@ -237,8 +244,11 @@ export default function WorkspaceTopBar() {
   const entity = businessContext?.entity || null;
   const period = businessContext?.period || null;
   const staff = businessContext?.staff || null;
+  const role = upper(businessContext?.role || staff?.role);
   const isPlatformOperatorWorkspace =
     businessContext?.is_platform_operator_workspace === true;
+  const canAccessPlatformInfrastructure =
+    isPlatformOperatorWorkspace && PLATFORM_ADMIN_ROLES.has(role);
 
   const organizationId =
     businessContext?.organization_id ||
@@ -252,10 +262,11 @@ export default function WorkspaceTopBar() {
 
   const brand = getPlatformBrand();
   const domains = getErpDomains().filter(
-    (domain) => domain.id !== "services" || isPlatformOperatorWorkspace,
+    (domain) => domain.id !== "services" || canAccessPlatformInfrastructure,
   );
   const headerItems = getPlatformHeaderItems().filter(
-    (item) => item.id !== "services" || isPlatformOperatorWorkspace,
+    (item) =>
+      !PLATFORM_ONLY_HEADER_ITEMS.has(item.id) || canAccessPlatformInfrastructure,
   );
 
   if (!ready) {

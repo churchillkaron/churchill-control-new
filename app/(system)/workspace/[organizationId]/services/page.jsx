@@ -1,14 +1,23 @@
-"use client";
-
 export const dynamic = "force-dynamic";
 
-import { useParams } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
 import WorkspaceModuleGrid from "@/components/workspace/WorkspaceModuleGrid";
+import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
+import { isPlatformOperatorWorkspace } from "@/lib/platform/security/PlatformOperatorWorkspaceRuntime";
 
-export default function ServicesPage() {
-  const { organizationId } = useParams();
+export default async function ServicesPage({ params }) {
+  const resolvedParams = await params;
+  const organizationId = String(resolvedParams?.organizationId || "").trim();
+  const access = await requirePlatformAdminAccess().catch(() => ({ success: false }));
+  const operatorWorkspace = access.success
+    ? await isPlatformOperatorWorkspace(organizationId).catch(() => false)
+    : false;
+
+  if (!access.success || !operatorWorkspace) {
+    notFound();
+  }
 
   return (
     <>

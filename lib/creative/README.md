@@ -66,3 +66,4 @@ Business outcome
 - Quality evaluation is contextual to the organization, objective, audience, medium and idea while preserving universal standards of craft, originality, truth, brand fidelity, technical integrity and release fitness.
 - Weak work must be rejected, repaired or regenerated before the customer sees it. Release remains fail-closed.
 - Learning is organization-scoped and evidence-based; it may not convert category stereotypes into creative defaults.
+- `CREATIVE_DYNAMIC_ARCHITECTURE_AUDIT_V2` is the strict release guard for hidden industry, media, channel, duration, format and fallback assumptions.

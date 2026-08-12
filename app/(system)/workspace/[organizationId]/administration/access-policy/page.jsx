@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { MapPin, RefreshCw, Save, ShieldCheck, TimerReset } from "lucide-react";
+import {
+  KeyRound,
+  MapPin,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  TimerReset,
+} from "lucide-react";
 
 const EMPTY_POLICY = {
   access: {
@@ -13,6 +20,7 @@ const EMPTY_POLICY = {
     early_clock_in_minutes: "",
     late_threshold_minutes: "",
     gps_clock_in_required: false,
+    passkey_clock_in_required: false,
     clock_in_site_latitude: "",
     clock_in_site_longitude: "",
     clock_in_radius_meters: "",
@@ -34,6 +42,8 @@ function normalizePolicy(policy = {}) {
         policy?.workforce?.late_threshold_minutes ?? "",
       gps_clock_in_required:
         policy?.workforce?.gps_clock_in_required === true,
+      passkey_clock_in_required:
+        policy?.workforce?.passkey_clock_in_required === true,
       clock_in_site_latitude:
         policy?.workforce?.clock_in_site_latitude ?? "",
       clock_in_site_longitude:
@@ -162,6 +172,8 @@ export default function OrganizationAccessPolicyPage() {
                 ? null
                 : Number(policy.workforce.late_threshold_minutes),
             gps_clock_in_required: policy.workforce.gps_clock_in_required,
+            passkey_clock_in_required:
+              policy.workforce.passkey_clock_in_required,
             clock_in_site_latitude: latitude,
             clock_in_site_longitude: longitude,
             clock_in_radius_meters: radius,
@@ -195,7 +207,7 @@ export default function OrganizationAccessPolicyPage() {
               </div>
               <h1 className="mt-3 text-4xl font-black">Organization Policy</h1>
               <p className="mt-2 max-w-3xl text-sm text-white/45">
-                Control organization app entry and staff portal availability separately from authentication, and configure workforce timing and clock-in location rules without platform defaults.
+                Control organization app entry and staff portal availability separately from authentication, and configure workforce timing, identity verification and clock-in location rules without platform defaults.
               </p>
             </div>
             <button
@@ -241,6 +253,18 @@ export default function OrganizationAccessPolicyPage() {
               onChange={(value) => updateWorkforce("late_threshold_minutes", value)}
               description="Leave blank to record minutes after scheduled start without classifying the shift as late."
             />
+          </PolicyCard>
+
+          <PolicyCard icon={<KeyRound className="h-5 w-5" />} title="Clock-in identity">
+            <Toggle
+              label="Require passkey verification for clock-in"
+              description="Staff must verify the passkey registered to their own Supabase account immediately before starting a shift. The device may use Face ID, Touch ID, Windows Hello, a device PIN, or a hardware security key."
+              checked={policy.workforce.passkey_clock_in_required}
+              onChange={(value) => updateWorkforce("passkey_clock_in_required", value)}
+            />
+            <div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.05] p-4 text-xs leading-5 text-violet-100/65">
+              Passkey clock-in is disabled by default. Enroll staff passkeys first in Workforce Profile, then enable this policy. Biometric templates stay on the employee device and are never stored by Avantiqo.
+            </div>
           </PolicyCard>
 
           <PolicyCard icon={<MapPin className="h-5 w-5" />} title="Clock-in location">

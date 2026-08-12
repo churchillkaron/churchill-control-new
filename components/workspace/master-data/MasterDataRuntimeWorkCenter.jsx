@@ -1046,95 +1046,6 @@ export default function MasterDataRuntimeWorkCenter({
       ? configuredCreate
       : null;
 
-  async function startWarehouseTask(row) {
-
-    if (
-      normalizedKey !== "warehouse_tasks"
-    ) {
-      return;
-    }
-
-
-    try {
-
-      console.log(
-        "WAREHOUSE START PAYLOAD",
-        {
-          organization_id:
-            resolvedOrganizationId,
-
-          entity_id:
-            resolvedEntityId ||
-            legalEntityId,
-
-          task_id:
-            row.id,
-        }
-      );
-
-
-      const response =
-        await fetch(
-          "/api/inventory/warehouse/tasks/start",
-          {
-            method:"POST",
-            credentials:"include",
-            headers:{
-              "Content-Type":"application/json",
-            },
-            body:JSON.stringify({
-
-              organization_id:
-                resolvedOrganizationId,
-
-              entity_id:
-                resolvedEntityId ||
-                legalEntityId,
-
-              task_id:
-                row.id,
-
-            }),
-          }
-        );
-
-
-      const result =
-        await response.json();
-
-
-      console.log(
-        "WAREHOUSE START RESULT",
-        {
-          status:
-            response.status,
-
-          result,
-        }
-      );
-
-
-      if (response.ok) {
-
-        setRefresh(
-          value => value + 1
-        );
-
-      }
-
-
-    } catch(error) {
-
-      console.error(
-        "WAREHOUSE START FAILED",
-        error
-      );
-
-    }
-
-  }
-
-
   return (
     <MasterDataWorkCenter
       workspaceId={workspaceId}
@@ -1177,15 +1088,6 @@ export default function MasterDataRuntimeWorkCenter({
       }
       selectedId={selected?.id}
       onSelect={setSelectedId}
-
-      onRowSelect={
-        moduleKey === "warehouse" ||
-        moduleKey === "warehouse_tasks"
-          ? row =>
-              startWarehouseTask(row)
-          : undefined
-      }
-
       menuId={menuId}
       onToggleMenu={setMenuId}
       searchPlaceholder={`Search ${String(resolvedCapability.name || "records").toLowerCase()}...`}

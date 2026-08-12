@@ -40,7 +40,8 @@ Business outcome
 → verified organization, brand, audience, asset, market and channel context
 → research
 → one accountable Creative Master Plan
-→ registered workflow and capability resolution
+→ dynamic independent Creative Tribunal
+→ registered workflow and organization-enabled capability resolution
 → specialist production runtimes
 → contextual quality and repair
 → governed human approval and release
@@ -53,8 +54,11 @@ Business outcome
 - The Creative Director chooses the medium and deliverable system when the mission does not explicitly constrain them.
 - Workflow families and aliases are registry-owned. Runtime code may not maintain parallel media-routing taxonomies.
 - The Creative Master Plan is the single creative and production-intent authority.
+- Independent review disciplines are selected dynamically from actual mission, medium, rights, identity, product, factual, technical, cultural and release risks rather than from an industry template or fixed creative-department list.
+- Specialist creative systems may critique, repair or refine an authoritative plan but may never replace the Master Plan runtime, silently change the workflow, or become an alternate Director.
 - Universal workflows must contain explicit Director-authored production steps and quality gates. Downstream planners may not invent default recipes.
 - Temporal work remains a specialist runtime behind the same Creative Director contract; it is never the implicit default.
+- Every executable production service/capability pair must be enabled for the organization in Avantiqo Service Runtime. Missing capabilities fail closed rather than causing invented services or provider routing.
 - No silent defaults for channel, audience, style, language, duration, aspect ratio, resolution, frame rate, provider, currency, or production technique.
 - Provider prompts are transport-only. They may be serialized from approved structured specifications at the final governed execution boundary, but they are never source of truth and are never persisted as creative direction.
 - Provider selection, pricing, wallet, usage, billing, credentials, and execution remain behind Avantiqo Service Runtime governance.

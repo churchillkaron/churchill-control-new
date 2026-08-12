@@ -8,10 +8,11 @@ import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 const LEGACY_WAKE_STORAGE_KEY = "avantiqo.wake.enabled";
 const WAKE_STORAGE_KEY = "avantiqo.wake.audio.enabled";
-const PRE_ROLL_CHUNKS = 5;
 const SPEECH_THRESHOLD = 0.028;
-const SILENCE_TO_FINISH_MS = 950;
+const SILENCE_TO_FINISH_MS = 850;
 const MAX_UTTERANCE_MS = 9000;
+const TRANSCRIPTION_TIMEOUT_MS = 12000;
+const SPEECH_TIMEOUT_MS = 12000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -48,14 +49,34 @@ function preferredAudioMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
 
   for (const type of [
+    "audio/mp4",
     "audio/webm;codecs=opus",
     "audio/webm",
-    "audio/mp4",
   ]) {
     if (MediaRecorder.isTypeSupported?.(type)) return type;
   }
 
   return "";
+}
+
+function fileNameForMime(mimeType = "") {
+  return mimeType.includes("mp4")
+    ? "avantiqo-voice.m4a"
+    : "avantiqo-voice.webm";
+}
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 export default function HeyAvantiqoWakeBridge() {
@@ -64,19 +85,18 @@ export default function HeyAvantiqoWakeBridge() {
 
   const streamRef = useRef(null);
   const recorderRef = useRef(null);
+  const recorderChunksRef = useRef([]);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
   const enabledRef = useRef(false);
   const processingRef = useRef(false);
-  const speechActiveRef = useRef(false);
-  const finalizingRef = useRef(false);
   const captureSuppressedRef = useRef(false);
   const speakingRef = useRef(false);
+  const recordingUtteranceRef = useRef(false);
+  const finalizingRef = useRef(false);
   const speechStartedAtRef = useRef(0);
   const lastSoundAtRef = useRef(0);
-  const preRollRef = useRef([]);
-  const utteranceChunksRef = useRef([]);
   const armedForCommandRef = useRef(false);
 
   const [supported, setSupported] = useState(true);
@@ -114,7 +134,9 @@ export default function HeyAvantiqoWakeBridge() {
       return undefined;
     }
 
-    const storedEnabled = window.localStorage.getItem(WAKE_STORAGE_KEY) === "true";
+    const storedEnabled =
+      window.localStorage.getItem(WAKE_STORAGE_KEY) === "true";
+
     if (storedEnabled) {
       window.setTimeout(() => {
         startWakeAudio().catch(() => {
@@ -123,7 +145,7 @@ export default function HeyAvantiqoWakeBridge() {
           setListening(false);
           setStatus("permission-required");
         });
-      }, 500);
+      }, 350);
     }
 
     return () => {
@@ -153,13 +175,28 @@ export default function HeyAvantiqoWakeBridge() {
     }
   }
 
-  function clearCaptureBuffers() {
-    speechActiveRef.current = false;
+  function clearUtteranceState() {
+    recordingUtteranceRef.current = false;
     finalizingRef.current = false;
-    preRollRef.current = [];
-    utteranceChunksRef.current = [];
+    recorderChunksRef.current = [];
     speechStartedAtRef.current = 0;
     lastSoundAtRef.current = Date.now();
+  }
+
+  function stopActiveRecorder() {
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+
+    if (recorder && recorder.state !== "inactive") {
+      try {
+        recorder.onstop = null;
+        recorder.stop();
+      } catch {
+        // Recorder may already be stopped.
+      }
+    }
+
+    clearUtteranceState();
   }
 
   function stopWakeAudio() {
@@ -168,18 +205,8 @@ export default function HeyAvantiqoWakeBridge() {
     captureSuppressedRef.current = false;
     speakingRef.current = false;
     armedForCommandRef.current = false;
-    clearCaptureBuffers();
     clearAnimationFrame();
-
-    const recorder = recorderRef.current;
-    recorderRef.current = null;
-    if (recorder && recorder.state !== "inactive") {
-      try {
-        recorder.stop();
-      } catch {
-        // Recorder may already be stopped.
-      }
-    }
+    stopActiveRecorder();
 
     for (const track of streamRef.current?.getTracks?.() || []) {
       track.stop();
@@ -222,27 +249,28 @@ export default function HeyAvantiqoWakeBridge() {
       window.dispatchEvent(
         new CustomEvent("avantiqo:operator-command", { detail }),
       );
-    }, 350);
+    }, 250);
   }
 
   async function transcribeUtterance(blob) {
     if (!blob?.size || !organizationId) return "";
 
     const form = new FormData();
-    form.append(
-      "audio",
-      blob,
-      blob.type.includes("mp4") ? "hey-avantiqo.m4a" : "hey-avantiqo.webm",
-    );
+    form.append("audio", blob, fileNameForMime(blob.type));
     form.append("organizationId", organizationId);
     if (entityId) form.append("entityId", entityId);
     form.append("locale", navigator.language || "en-US");
 
-    const response = await fetch("/api/operator/transcribe", {
-      method: "POST",
-      credentials: "same-origin",
-      body: form,
-    });
+    const response = await fetchWithTimeout(
+      "/api/operator/transcribe",
+      {
+        method: "POST",
+        credentials: "same-origin",
+        body: form,
+      },
+      TRANSCRIPTION_TIMEOUT_MS,
+    );
+
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok || result?.success === false) {
@@ -257,17 +285,21 @@ export default function HeyAvantiqoWakeBridge() {
       throw new Error("Voice response context unavailable");
     }
 
-    const response = await fetch("/api/operator/speak", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({
-        organizationId,
-        entityId,
-        text: text(message),
-        locale: navigator.language || "en-US",
-      }),
-    });
+    const response = await fetchWithTimeout(
+      "/api/operator/speak",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          organizationId,
+          entityId,
+          text: text(message),
+          locale: navigator.language || "en-US",
+        }),
+      },
+      SPEECH_TIMEOUT_MS,
+    );
 
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
@@ -282,9 +314,9 @@ export default function HeyAvantiqoWakeBridge() {
 
     captureSuppressedRef.current = true;
     speakingRef.current = true;
+    stopActiveRecorder();
     setSpeaking(true);
     setStatus(nextStatus);
-    clearCaptureBuffers();
 
     try {
       const audioBytes = await fetchSpeechAudio(message);
@@ -308,9 +340,8 @@ export default function HeyAvantiqoWakeBridge() {
         }
       });
     } finally {
-      clearCaptureBuffers();
-      await new Promise((resolve) => window.setTimeout(resolve, 180));
-      clearCaptureBuffers();
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+      clearUtteranceState();
       speakingRef.current = false;
       setSpeaking(false);
       captureSuppressedRef.current = false;
@@ -320,28 +351,37 @@ export default function HeyAvantiqoWakeBridge() {
 
   async function acknowledgeWake() {
     setStatus("acknowledging");
+
     try {
       await playSpeech("Yes?", "acknowledging");
     } catch (error) {
       console.error("HEY_AVANTIQO_ACKNOWLEDGEMENT_ERROR", error);
     }
 
-    clearCaptureBuffers();
     armedForCommandRef.current = true;
     setStatus("listening");
   }
 
   async function processUtterance(blob) {
-    if (processingRef.current || !enabledRef.current || captureSuppressedRef.current) {
+    if (
+      processingRef.current ||
+      !enabledRef.current ||
+      captureSuppressedRef.current
+    ) {
       return;
     }
 
     processingRef.current = true;
     setProcessing(true);
-    setStatus(armedForCommandRef.current ? "understanding-command" : "checking-wake");
+    setStatus(
+      armedForCommandRef.current
+        ? "understanding-command"
+        : "checking-wake",
+    );
 
     try {
       const transcript = await transcribeUtterance(blob);
+
       if (!transcript) {
         setStatus("listening");
         return;
@@ -369,51 +409,91 @@ export default function HeyAvantiqoWakeBridge() {
       await acknowledgeWake();
     } catch (error) {
       console.error("HEY_AVANTIQO_WAKE_TRANSCRIPTION_ERROR", error);
-      setStatus("retrying");
+      setStatus("listening");
     } finally {
       processingRef.current = false;
       setProcessing(false);
     }
   }
 
-  function finalizeUtterance() {
-    if (
-      !speechActiveRef.current ||
-      finalizingRef.current ||
-      captureSuppressedRef.current
-    ) {
+  function finishUtteranceRecording() {
+    if (!recordingUtteranceRef.current || finalizingRef.current) return;
+
+    const recorder = recorderRef.current;
+    if (!recorder || recorder.state === "inactive") {
+      clearUtteranceState();
       return;
     }
 
-    speechActiveRef.current = false;
     finalizingRef.current = true;
+    recordingUtteranceRef.current = false;
 
-    try {
-      recorderRef.current?.requestData?.();
-    } catch {
-      // Timeslice chunks already contain the speech if requestData is unavailable.
-    }
-
-    window.setTimeout(() => {
-      const chunks = utteranceChunksRef.current;
-      utteranceChunksRef.current = [];
+    recorder.onstop = () => {
+      const chunks = recorderChunksRef.current;
+      recorderChunksRef.current = [];
+      recorderRef.current = null;
       finalizingRef.current = false;
 
       if (!chunks.length || captureSuppressedRef.current) return;
 
-      const recorder = recorderRef.current;
-      const mimeType = recorder?.mimeType || preferredAudioMimeType() || "audio/webm";
+      const mimeType = recorder.mimeType || preferredAudioMimeType() || "audio/webm";
       const blob = new Blob(chunks, { type: mimeType });
       processUtterance(blob);
-    }, 160);
+    };
+
+    try {
+      recorder.stop();
+    } catch {
+      clearUtteranceState();
+    }
+  }
+
+  function startUtteranceRecording() {
+    if (
+      recordingUtteranceRef.current ||
+      finalizingRef.current ||
+      processingRef.current ||
+      captureSuppressedRef.current ||
+      speakingRef.current ||
+      !streamRef.current
+    ) {
+      return;
+    }
+
+    const mimeType = preferredAudioMimeType();
+    const recorder = mimeType
+      ? new MediaRecorder(streamRef.current, { mimeType })
+      : new MediaRecorder(streamRef.current);
+
+    recorderChunksRef.current = [];
+
+    recorder.ondataavailable = (event) => {
+      if (event.data?.size) recorderChunksRef.current.push(event.data);
+    };
+
+    recorder.onerror = () => {
+      recorderRef.current = null;
+      clearUtteranceState();
+      setStatus("listening");
+    };
+
+    recorderRef.current = recorder;
+    recordingUtteranceRef.current = true;
+    speechStartedAtRef.current = Date.now();
+    lastSoundAtRef.current = Date.now();
+
+    recorder.start(100);
   }
 
   function monitorAudio() {
     const analyser = analyserRef.current;
     if (!enabledRef.current || !analyser) return;
 
-    if (captureSuppressedRef.current || speakingRef.current) {
-      clearCaptureBuffers();
+    if (
+      captureSuppressedRef.current ||
+      speakingRef.current ||
+      processingRef.current
+    ) {
       animationFrameRef.current = window.requestAnimationFrame(monitorAudio);
       return;
     }
@@ -430,25 +510,22 @@ export default function HeyAvantiqoWakeBridge() {
     const rms = Math.sqrt(sum / samples.length);
     const now = Date.now();
 
-    if (!processingRef.current && rms > SPEECH_THRESHOLD) {
-      if (!speechActiveRef.current) {
-        speechActiveRef.current = true;
-        speechStartedAtRef.current = now;
-        utteranceChunksRef.current = [...preRollRef.current];
-        preRollRef.current = [];
+    if (rms > SPEECH_THRESHOLD) {
+      if (!recordingUtteranceRef.current && !finalizingRef.current) {
+        startUtteranceRecording();
       }
       lastSoundAtRef.current = now;
     }
 
-    if (speechActiveRef.current) {
+    if (recordingUtteranceRef.current) {
       const silentFor = now - lastSoundAtRef.current;
       const utteranceAge = now - speechStartedAtRef.current;
 
       if (
-        (utteranceAge > 500 && silentFor > SILENCE_TO_FINISH_MS) ||
+        (utteranceAge > 450 && silentFor > SILENCE_TO_FINISH_MS) ||
         utteranceAge > MAX_UTTERANCE_MS
       ) {
-        finalizeUtterance();
+        finishUtteranceRecording();
       }
     }
 
@@ -471,7 +548,8 @@ export default function HeyAvantiqoWakeBridge() {
       },
     });
 
-    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+    const AudioContextConstructor =
+      window.AudioContext || window.webkitAudioContext;
     const audioContext = new AudioContextConstructor();
     await audioContext.resume?.();
 
@@ -480,39 +558,11 @@ export default function HeyAvantiqoWakeBridge() {
     analyser.fftSize = 512;
     source.connect(analyser);
 
-    const mimeType = preferredAudioMimeType();
-    const recorder = mimeType
-      ? new MediaRecorder(stream, { mimeType })
-      : new MediaRecorder(stream);
-
-    recorder.ondataavailable = (event) => {
-      if (!event.data?.size || captureSuppressedRef.current) return;
-
-      if (speechActiveRef.current || finalizingRef.current) {
-        utteranceChunksRef.current.push(event.data);
-        return;
-      }
-
-      preRollRef.current.push(event.data);
-      if (preRollRef.current.length > PRE_ROLL_CHUNKS) {
-        preRollRef.current.shift();
-      }
-    };
-
-    recorder.onerror = () => {
-      setStatus("audio-error");
-      stopWakeAudio();
-      setEnabled(false);
-      window.localStorage.removeItem(WAKE_STORAGE_KEY);
-    };
-
     streamRef.current = stream;
-    recorderRef.current = recorder;
     audioContextRef.current = audioContext;
     analyserRef.current = analyser;
     enabledRef.current = true;
 
-    recorder.start(200);
     setEnabled(true);
     setListening(true);
     setStatus("listening");

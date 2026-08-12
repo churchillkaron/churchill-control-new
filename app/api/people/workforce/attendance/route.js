@@ -89,6 +89,16 @@ function staffDateKey(staffId, shiftDate) {
   return `${staffId || ""}:${shiftDate || ""}`;
 }
 
+function configuredLateThreshold(settings) {
+  const value = settings?.late_threshold_minutes;
+  if (value === null || value === undefined || value === "") return null;
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) return null;
+
+  return parsed;
+}
+
 async function loadMonthData({ organizationId, month, now = new Date() }) {
   const range = monthRange(month);
   const timeContext = await resolveOrganizationTimeContext({ organizationId });
@@ -204,7 +214,7 @@ async function loadMonthData({ organizationId, month, now = new Date() }) {
       (shift) =>
         String(shift.approval_status || "").toUpperCase() !== "REJECTED" &&
         shift.is_valid !== false &&
-        (Boolean(shift.is_late) || Number(shift.late_minutes || 0) > 0)
+        shift.is_late === true
     ),
     absenceCandidates,
   };
@@ -335,7 +345,17 @@ export async function PATCH(request) {
         organizationId: ctx.organizationId,
         domain: "WORKFORCE",
       });
-      const threshold = Number(settings?.late_threshold_minutes || 10);
+      const threshold = configuredLateThreshold(settings);
+      if (threshold === null) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Workforce late threshold is not configured",
+            code: "WORKFORCE_LATE_THRESHOLD_MISSING",
+          },
+          { status: 409 }
+        );
+      }
       const isLate = lateMinutes > threshold;
 
       const { data: shift, error: shiftError } = await supabaseAdmin

@@ -9,6 +9,7 @@ import {
   loadStaffWorkday,
 } from "@/lib/people/workforce/shiftRuntime";
 import { loadStaffPasskeyStatus } from "@/lib/people/workforce/passkeyClockInVerification";
+import { loadClockInExceptionState } from "@/lib/people/workforce/clockInExceptionApproval";
 import { loadOrganizationPolicy } from "@/lib/platform/security/organizationAccessPolicy";
 import { scheduleWindow } from "@/lib/shared/time/organizationTime";
 
@@ -66,6 +67,7 @@ export async function GET(request) {
       locationRequirements,
       organizationPolicy,
       passkeyStatus,
+      clockInExceptionState,
     ] = await Promise.all([
       loadStaffWorkday({
         organizationId,
@@ -85,6 +87,10 @@ export async function GET(request) {
       loadClockInRequirements({ organizationId }),
       loadOrganizationPolicy({ organizationId }),
       loadStaffPasskeyStatus({ userId: user.id }),
+      loadClockInExceptionState({
+        organizationId,
+        staffId: staff.id,
+      }),
     ]);
 
     if (latestPayroll.error) throw latestPayroll.error;
@@ -111,6 +117,12 @@ export async function GET(request) {
         organizationPolicy?.workforce?.passkey_clock_in_required === true,
       passkeyEnrolled: passkeyStatus.enrolled,
       passkeyCount: passkeyStatus.count,
+      exception: {
+        latest: clockInExceptionState.latest || null,
+        activeApprovedTargets:
+          clockInExceptionState.activeApprovedTargets || [],
+        pendingTargets: clockInExceptionState.pendingTargets || [],
+      },
     };
 
     return NextResponse.json({
@@ -139,6 +151,7 @@ export async function GET(request) {
         : "00:00",
       shiftStatus,
       clockInRequirements,
+      clockInExceptionState,
       runtime,
       socialFeed: [
         {

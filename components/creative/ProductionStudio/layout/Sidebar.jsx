@@ -14,7 +14,6 @@ import {
   Rocket,
   ScrollText,
   Sparkles,
-  WandSparkles,
 } from "lucide-react";
 
 const WORKSPACE_META = {
@@ -22,7 +21,6 @@ const WORKSPACE_META = {
   brief: { label: "Brief", group: "Direction", icon: FileText },
   research: { label: "Research", group: "Direction", icon: FlaskConical },
   strategy: { label: "Strategy", group: "Direction", icon: LineChart },
-  director: { label: "Director", group: "Direction", icon: WandSparkles },
   concept: { label: "Concept", group: "Direction", icon: Lightbulb },
   storyboard: { label: "Storyboard", group: "Production", icon: Frame },
   production: { label: "Production", group: "Production", icon: Clapperboard },
@@ -59,7 +57,6 @@ const STAGE_BY_WORKSPACE = {
   brief: "UNDERSTANDING",
   research: "RESEARCHING",
   strategy: "BUILDING_STRATEGY",
-  director: "BUILDING_CONCEPT",
   concept: "BUILDING_CONCEPT",
   storyboard: "BUILDING_STORYBOARD",
   production: "PLANNING_PRODUCTION",

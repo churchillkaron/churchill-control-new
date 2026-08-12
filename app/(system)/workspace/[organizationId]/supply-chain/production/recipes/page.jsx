@@ -2,383 +2,273 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 
-import PageWrapper from '@/components/PageWrapper'
+import PageWrapper from "@/components/PageWrapper";
 
-import { supabase } from '@/lib/shared/supabase/client'
+function normalizeOrganizationId(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default function RecipesPage() {
+  const params = useParams();
+  const organizationId = normalizeOrganizationId(params?.organizationId);
+  const [dishes, setDishes] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [selectedDish, setSelectedDish] = useState("");
+  const [recipeItems, setRecipeItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  const [
-    organizationId,
-    setOrganizationId,
-  ] = useState(null)
-
-  const [
-    dishes,
-    setDishes,
-  ] = useState([])
-
-  const [
-    ingredients,
-    setIngredients,
-  ] = useState([])
-
-  const [
-    selectedDish,
-    setSelectedDish,
-  ] = useState('')
-
-  const [
-    recipeItems,
-    setRecipeItems,
-  ] = useState([])
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(false)
-
-  useEffect(() => {
-
-    async function loadOrganization() {
-
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getSession()
-
-      if (!user) return
-
-      const {
-        data,
-      } = await supabase
-        .from('staff_accounts')
-        .select('*')
-        .eq(
-          'auth_user_id',
-          user.id
-        )
-        .single()
-
-      if (
-        data?.organization_id
-      ) {
-
-        setOrganizationId(
-          data.organization_id
-        )
-      }
+  const loadData = useCallback(async () => {
+    if (!organizationId) {
+      return;
     }
 
-    loadOrganization()
+    setLoading(true);
+    setError("");
 
-  }, [])
+    try {
+      const response = await fetch(
+        `/api/production/recipes?organizationId=${encodeURIComponent(organizationId)}`,
+        { cache: "no-store" },
+      );
+      const result = await response.json();
 
-  useEffect(() => {
-
-    async function loadData() {
-
-      if (!organizationId) {
-        return
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Unable to load recipes");
       }
 
-      const dishesResponse =
-        await fetch(
-          `/api/dishes?organization_id=${organizationId}`
-        )
-
-      const dishesResult =
-        await dishesResponse.json()
-
-      const {
-        data: ingredientsData,
-      } = await supabase
-        .from('ingredients')
-        .select('*')
-        .eq(
-          'organization_id',
-          organizationId
-        )
-        .order('name')
-
-      setDishes(
-        dishesResult.data || []
-      )
-
-      setIngredients(
-        ingredientsData || []
-      )
+      setDishes(result.dishes || []);
+      setInventoryItems(result.inventoryItems || []);
+    } catch (loadError) {
+      setDishes([]);
+      setInventoryItems([]);
+      setError(loadError.message || "Unable to load recipes");
+    } finally {
+      setLoading(false);
     }
+  }, [organizationId]);
 
-    loadData()
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  }, [
-    organizationId,
-  ])
-
-  function addIngredientRow() {
-
-    setRecipeItems([
-      ...recipeItems,
-      {
-        ingredient_id: '',
-        quantity: 1,
-      },
-    ])
-  }
-
-  function updateItem(
-    index,
-    field,
-    value
-  ) {
-
-    const updated = [
-      ...recipeItems,
-    ]
-
-    updated[index][field] =
-      value
+  useEffect(() => {
+    const dish = dishes.find((candidate) => candidate.id === selectedDish);
 
     setRecipeItems(
-      updated
-    )
+      (dish?.recipe_items || []).map((recipeItem) => ({
+        item_id: recipeItem.item_id || "",
+        quantity: Number(recipeItem.quantity || 1),
+        unit: recipeItem.unit || "",
+      })),
+    );
+  }, [dishes, selectedDish]);
+
+  const selectedDishData = useMemo(
+    () => dishes.find((dish) => dish.id === selectedDish) || null,
+    [dishes, selectedDish],
+  );
+
+  function addInventoryItemRow() {
+    setRecipeItems((current) => [
+      ...current,
+      {
+        item_id: "",
+        quantity: 1,
+        unit: "",
+      },
+    ]);
+  }
+
+  function updateItem(index, field, value) {
+    setRecipeItems((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item,
+      ),
+    );
+  }
+
+  function removeItem(index) {
+    setRecipeItems((current) =>
+      current.filter((_, itemIndex) => itemIndex !== index),
+    );
   }
 
   async function saveRecipe() {
+    if (!selectedDish) {
+      setError("Select a dish before saving a recipe");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setMessage("");
 
     try {
+      const response = await fetch("/api/production/recipes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          organizationId,
+          dish_id: selectedDish,
+          items: recipeItems,
+        }),
+      });
+      const result = await response.json();
 
-      setLoading(true)
-
-      const response =
-        await fetch(
-          '/api/production/recipes/create',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type':
-                'application/json',
-            },
-            body: JSON.stringify({
-              dish_id:
-                selectedDish,
-              organization_id:
-                organizationId,
-              items:
-                recipeItems,
-            }),
-          }
-        )
-
-      const result =
-        await response.json()
-
-      if (
-        !result.success
-      ) {
-
-        alert(
-          result.error
-        )
-
-        return
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Unable to save recipe");
       }
 
-      alert(
-        'Recipe Saved'
-      )
-
-      setRecipeItems([])
-
-    } catch (error) {
-
-      console.error(error)
-
-      alert('Failed')
-
+      setMessage(
+        `Recipe saved · ${result.item_count} item${result.item_count === 1 ? "" : "s"} · cost ${result.total_cost}`,
+      );
+      await loadData();
+    } catch (saveError) {
+      setError(saveError.message || "Unable to save recipe");
     } finally {
-
-      setLoading(false)
+      setSaving(false);
     }
   }
 
-  const selectedDishData =
-    dishes.find(
-      d =>
-        d.id ===
-        selectedDish
-    )
-
   return (
-
     <PageWrapper
       title="Production Recipes"
-      subtitle="Recipe costing and ingredient mapping"
+      subtitle="Organization-scoped recipe costing and inventory mapping"
     >
-
       <div className="p-6 text-white">
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
+            {error}
+          </div>
+        )}
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-6">
+        {message && (
+          <div className="mb-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-300">
+            {message}
+          </div>
+        )}
 
-          <label className="block mb-2 text-sm text-zinc-400">
-            Select Dish
-          </label>
-
+        <div className="mb-6 rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+          <label className="mb-2 block text-sm text-zinc-400">Select Dish</label>
           <select
             value={selectedDish}
-            onChange={(e) =>
-              setSelectedDish(
-                e.target.value
-              )
-            }
-            className="w-full bg-black border border-zinc-700 rounded-2xl p-4"
+            onChange={(event) => {
+              setSelectedDish(event.target.value);
+              setMessage("");
+            }}
+            disabled={loading}
+            className="w-full rounded-2xl border border-zinc-700 bg-black p-4"
           >
-
-            <option value="">
-              Select Dish
-            </option>
-
-            {dishes.map(
-              dish => (
-                <option
-                  key={dish.id}
-                  value={dish.id}
-                >
-                  {dish.name}
-                </option>
-              )
-            )}
-
+            <option value="">Select Dish</option>
+            {dishes.map((dish) => (
+              <option key={dish.id} value={dish.id}>
+                {dish.name}
+              </option>
+            ))}
           </select>
 
           {selectedDishData && (
-
-            <div className="mt-4 text-sm text-zinc-400">
-              Price:
-              {' '}
-              ฿
-              {selectedDishData.price || 0}
+            <div className="mt-4 flex flex-wrap gap-6 text-sm text-zinc-400">
+              <span>Price: {selectedDishData.price ?? 0}</span>
+              <span>Current cost: {selectedDishData.cost ?? 0}</span>
+              <span>
+                Components: {selectedDishData.recipe_items?.length || 0}
+              </span>
             </div>
-
           )}
-
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-
-          <div className="flex items-center justify-between mb-6">
-
-            <h2 className="text-2xl font-semibold">
-              Recipe Items
-            </h2>
-
+        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold">Recipe Items</h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                Recipes reference canonical inventory items for this organization.
+              </p>
+            </div>
             <button
-              onClick={
-                addIngredientRow
-              }
-              className="bg-violet-500 text-white px-5 py-3 rounded-2xl"
+              type="button"
+              onClick={addInventoryItemRow}
+              disabled={!selectedDish || loading}
+              className="rounded-2xl bg-violet-500 px-5 py-3 text-white disabled:opacity-40"
             >
-              Add Ingredient
+              Add Item
             </button>
-
           </div>
 
           <div className="space-y-4">
-
-            {recipeItems.map(
-              (
-                item,
-                index
-              ) => (
-
-                <div
-                  key={index}
-                  className="grid grid-cols-2 gap-4"
+            {recipeItems.map((item, index) => (
+              <div
+                key={`${item.item_id || "new"}-${index}`}
+                className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_120px]"
+              >
+                <select
+                  value={item.item_id}
+                  onChange={(event) =>
+                    updateItem(index, "item_id", event.target.value)
+                  }
+                  className="rounded-2xl border border-zinc-700 bg-black p-4"
                 >
-
-                  <select
-                    value={
-                      item.ingredient_id
-                    }
-                    onChange={(e) =>
-                      updateItem(
-                        index,
-                        'ingredient_id',
-                        e.target.value
-                      )
-                    }
-                    className="bg-black border border-zinc-700 rounded-2xl p-4"
-                  >
-
-                    <option value="">
-                      Select Ingredient
+                  <option value="">Select Inventory Item</option>
+                  {inventoryItems.map((inventoryItem) => (
+                    <option key={inventoryItem.id} value={inventoryItem.id}>
+                      {inventoryItem.name} · cost {inventoryItem.cost ?? 0}
                     </option>
+                  ))}
+                </select>
 
-                    {ingredients.map(
-                      ingredient => (
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={item.quantity}
+                  onChange={(event) =>
+                    updateItem(index, "quantity", event.target.value)
+                  }
+                  className="rounded-2xl border border-zinc-700 bg-black p-4"
+                  placeholder="Quantity"
+                />
 
-                        <option
-                          key={
-                            ingredient.id
-                          }
-                          value={
-                            ingredient.id
-                          }
-                        >
-                          {
-                            ingredient.name
-                          }
-                        </option>
-
-                      )
-                    )}
-
-                  </select>
-
-                  <input
-                    type="number"
-                    value={
-                      item.quantity
-                    }
-                    onChange={(e) =>
-                      updateItem(
-                        index,
-                        'quantity',
-                        e.target.value
-                      )
-                    }
-                    className="bg-black border border-zinc-700 rounded-2xl p-4"
-                    placeholder="Quantity"
-                  />
-
-                </div>
-
-              )
-            )}
-
+                <button
+                  type="button"
+                  onClick={() => removeItem(index)}
+                  className="rounded-2xl border border-red-500/20 px-4 py-3 text-sm text-red-300"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
           </div>
 
+          {!loading && selectedDish && recipeItems.length === 0 && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-zinc-500">
+              No recipe items yet. Add the first inventory item to define this recipe.
+            </div>
+          )}
+
           <button
-            onClick={
-              saveRecipe
-            }
-            disabled={loading}
-            className="mt-6 bg-green-500 text-black px-6 py-4 rounded-2xl font-bold"
+            type="button"
+            onClick={saveRecipe}
+            disabled={saving || loading || !selectedDish || recipeItems.length === 0}
+            className="mt-6 rounded-2xl bg-green-500 px-6 py-4 font-bold text-black disabled:opacity-40"
           >
-
-            {loading
-              ? 'Saving...'
-              : 'Save Recipe'}
-
+            {saving ? "Saving..." : "Save Recipe"}
           </button>
-
         </div>
-
       </div>
-
     </PageWrapper>
-  )
+  );
 }

@@ -5,8 +5,8 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
-  CreativeOutcomeLearningRuntime,
-} from "@/lib/creative/learning/runtime/CreativeOutcomeLearningRuntime";
+  CreativeStudioLearningRuntime,
+} from "@/lib/creative/learning/runtime/CreativeStudioLearningRuntime";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -33,9 +33,12 @@ export async function GET(request) {
       url.searchParams.get("campaignId"),
     );
 
-    if (!organizationId) {
+    if (!organizationId || !creativeProjectId) {
       return Response.json(
-        { success: false, error: "organization_id required" },
+        {
+          success: false,
+          error: "organization_id and creative_project_id required",
+        },
         { status: 400 },
       );
     }
@@ -54,9 +57,9 @@ export async function GET(request) {
       return Response.json(access, { status: access.status || 403 });
     }
 
-    const learning = await CreativeOutcomeLearningRuntime.resolve({
+    const learning = await CreativeStudioLearningRuntime.resolve({
       organization_id: access.organizationId,
-      creative_project_id: creativeProjectId || null,
+      creative_project_id: creativeProjectId,
       brand_id: brandId || null,
       campaign_id: campaignId || null,
       limit: 100,
@@ -66,6 +69,7 @@ export async function GET(request) {
       success: true,
       ...learning,
       observation_ingestion: "SERVER_RUNTIME_ONLY",
+      human_decisions: "AUTHENTICATED_IMMUTABLE_EVIDENCE",
       quality_floor_immutable: true,
     });
   } catch (error) {

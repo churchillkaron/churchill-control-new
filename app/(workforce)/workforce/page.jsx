@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock3,
   FileText,
+  MapPin,
   Play,
   ShieldCheck,
   Sparkles,
@@ -15,6 +16,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import captureClockInLocation from "@/lib/people/workforce/captureClockInLocation";
 
 const cards = [
   {
@@ -94,12 +96,17 @@ export default function PortalHomePage() {
     setError("");
 
     try {
+      const location =
+        action === "clock_in" && runtime?.clockInRequirements?.gpsRequired
+          ? await captureClockInLocation()
+          : null;
+
       const response = await fetch("/api/staff", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, location }),
       });
       const data = await response.json();
 
@@ -121,6 +128,7 @@ export default function PortalHomePage() {
   const shiftDuration = runtime?.shiftDuration || "00:00";
   const shiftStatus = runtime?.shiftStatus || "NO_SHIFT";
   const schedule = runtime?.schedule || null;
+  const gpsRequired = Boolean(runtime?.clockInRequirements?.gpsRequired);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -194,6 +202,12 @@ export default function PortalHomePage() {
                 </div>
               </div>
 
+              {!shiftActive && gpsRequired ? (
+                <div className="mt-4 flex items-center gap-2 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100/70">
+                  <MapPin className="h-4 w-4 shrink-0" /> GPS location is required and verified when you start your shift.
+                </div>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => runShiftAction(shiftActive ? "clock_out" : "clock_in")}
@@ -205,7 +219,13 @@ export default function PortalHomePage() {
                 }`}
               >
                 {shiftActive ? <Square className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                {loadingShift ? "Syncing..." : shiftActive ? "End Shift" : "Start Shift"}
+                {loadingShift
+                  ? gpsRequired && !shiftActive
+                    ? "Verifying location..."
+                    : "Syncing..."
+                  : shiftActive
+                    ? "End Shift"
+                    : "Start Shift"}
               </button>
             </div>
           </div>

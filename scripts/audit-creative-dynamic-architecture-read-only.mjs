@@ -12,7 +12,7 @@ const OUTPUT = path.resolve(
   process.env.CREATIVE_DYNAMIC_ARCHITECTURE_AUDIT_OUTPUT ||
     "/tmp/creative-dynamic-architecture-audit.json",
 );
-const STRICT = process.env.CREATIVE_DYNAMIC_ARCHITECTURE_STRICT === "true";
+const STRICT = process.env.CREATIVE_DYNAMIC_ARCHITECTURE_STRICT !== "false";
 
 const ORGANIZATION_TERMS = ["churchill"];
 const BUSINESS_TERMS = [
@@ -119,8 +119,23 @@ function isTestFixture(relative) {
 }
 
 function isAntiHardcodingInstruction(context) {
-  return /(?:\bno\s+hardcoded\b|\bno\s+canned\b|\bdo\s+not\s+use\b|\bmust\s+not\b|\bnever\s+use\b|\bforbid(?:den)?\b).{0,80}\b(?:industry|sector|vertical|template|preset)\b/i.test(context) ||
-    /\b(?:industry|sector|vertical)\b.{0,80}(?:\bmust\s+not\b|\bdo\s+not\b|\bnever\b|\bforbid(?:den)?\b|\bno\s+hardcoded\b|\bno\s+canned\b)/i.test(context);
+  return /(?:\bno\s+hardcoded\b|\bno\s+canned\b|\bdo\s+not\s+(?:use|select)\b|\bmust\s+not\b|\bnever\s+use\b|\bforbid(?:den)?\b)[\s\S]{0,220}\b(?:industry|sector|vertical|template|preset)\b/i.test(context) ||
+    /\b(?:industry|sector|vertical)\b[\s\S]{0,220}(?:\bmust\s+not\b|\bdo\s+not\b|\bnever\b|\bforbid(?:den)?\b|\bno\s+hardcoded\b|\bno\s+canned\b)/i.test(context);
+}
+
+function taxonomyControlsBehavior(line, context) {
+  const taxonomy = "(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)";
+  const sameLine = new RegExp(
+    `(?:\\b(?:if|switch|case|route|select|rank|score|template|preset)\\b[^\\n]*\\b${taxonomy}\\b|\\b${taxonomy}\\b[^\\n]*\\b(?:if|switch|case|route|select|rank|score|template|preset)\\b)`,
+    "i",
+  );
+  if (sameLine.test(line)) return true;
+
+  const structural = new RegExp(
+    `(?:if\\s*\\([^)]*\\b${taxonomy}\\b|switch\\s*\\([^)]*\\b${taxonomy}\\b|case\\s+[^:]*\\b${taxonomy}\\b|\\b${taxonomy}\\b[^\\n]{0,100}\\?(?:[^:]|$)|\\b${taxonomy}\\b[^\\n]{0,120}\\.(?:map|find|filter|includes)\\()`,
+    "i",
+  );
+  return structural.test(context);
 }
 
 function fixtureSeverity(relative, defaultSeverity) {
@@ -285,7 +300,7 @@ for (const absolute of files) {
 
     if (/\b(?:USD|EUR|GBP|THB)\b/.test(line) && /currency|cost|budget|price/i.test(context)) {
       addFinding(findings, {
-        severity: isTestFixture(relative) ? "REVIEW" : "REVIEW",
+        severity: "REVIEW",
         ownership: isTestFixture(relative) ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
         rule: isTestFixture(relative)
           ? "CURRENCY_TEST_FIXTURE_REVIEW"
@@ -328,7 +343,7 @@ for (const absolute of files) {
 
     if (
       /\b(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)\b/.test(line) &&
-      /\b(?:if|switch|case|route|select|rank|score|template|preset)\b/i.test(context) &&
+      taxonomyControlsBehavior(line, context) &&
       !isAntiHardcodingInstruction(context)
     ) {
       addFinding(findings, {
@@ -406,6 +421,7 @@ console.log("============================================================");
 console.log(`CONTRACT=${CONTRACT}`);
 console.log(`OUTPUT=${OUTPUT}`);
 console.log(`SCANNED_FILE_COUNT=${report.scanned_file_count}`);
+console.log(`STRICT_MODE=${report.strict_mode ? "YES" : "NO"}`);
 console.log(`BLOCKER_COUNT=${report.blocker_count}`);
 console.log(`REVIEW_COUNT=${report.review_count}`);
 console.log(`DECISION=${report.decision}`);

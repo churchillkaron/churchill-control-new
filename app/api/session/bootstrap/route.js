@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { getAvailableModules } from "@/lib/platform/getAvailableModules";
 import { resolvePlatformOperatorOrganizationId } from "@/lib/platform/security/PlatformOperatorWorkspaceRuntime";
+import { evaluateOrganizationAppAccess } from "@/lib/platform/security/organizationAccessPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 
@@ -124,6 +125,26 @@ async function loadBootstrapPayload({ request, user }) {
   }
 
   const organizationId = context.organizationId;
+  const accessPolicy = await evaluateOrganizationAppAccess({
+    organizationId,
+    role: context.role || context.staff?.role,
+  });
+
+  if (!accessPolicy.allowed) {
+    return {
+      response: Response.json(
+        {
+          success: false,
+          reason: accessPolicy.code,
+          error: accessPolicy.reason,
+          organization_id: organizationId,
+          active_organization_id: organizationId,
+        },
+        { status: 403 }
+      ),
+    };
+  }
+
   const supabase = createServerSupabase();
 
   const [organizations, entity, modules, operatorOrganizationId] = await Promise.all([
@@ -177,6 +198,7 @@ async function loadBootstrapPayload({ request, user }) {
       modules,
       permissions: context.permissions || [],
       role: context.role || context.staff?.role || "staff",
+      access_policy: accessPolicy.policy.access,
     },
   };
 }

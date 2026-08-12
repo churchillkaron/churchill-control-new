@@ -1,0 +1,35 @@
+AVANTIQO CREATIVE STUDIO — PERCEPTUAL PAIR RECOVERY CONVERGENCE
+Date: 2026-08-12
+Branch: agent/studio-director-cockpit
+
+Scope
+- Preserve canonical generated-media perceptual review nodes already inserted before production approval.
+- Resolve real review pricing before temporal production graph approval.
+- Include perceptual review estimates in the production graph cost plan.
+- Reserve approved spend for already charged work plus active unsettled planned work.
+- Recover rejected generated media as deterministic source+review replacement pairs.
+- Preserve active sealed dossier task count through 2-for-2 supersession.
+- Block the failed provider in the replacement source provider policy so Service Domain routing can challenge another eligible priced runtime.
+- Preserve promptless structured repair evidence and the approved Shot Bible.
+- Bridge canonical perceptual scores into the weakest-link shot candidate selector, avoiding duplicate visual-review spend for future temporal graphs.
+
+Governance
+- No provider generation executed by this implementation/validation change.
+- No perceptual-review provider call executed by this implementation/validation change.
+- No wallet mutation executed by this implementation/validation change.
+- No database schema migration.
+- No hardcoded provider price, currency, tax, or jurisdiction value introduced.
+- Service Domain remains owner of provider/pricing/usage/wallet/billing execution.
+- Pair recovery requires sealed approved-spend governance and refuses a pair when source+review would exceed remaining committed headroom.
+- Generic one-sided repair is suppressed while a perceptual pair remains unresolved.
+- Publication remains unauthorized by production approval.
+
+Quality
+- Existing AVANTIQO_WORLD_CLASS_QUALITY_V1 raise-only floors remain authoritative.
+- Candidate selection remains weakest-link based with 94 minimum overall and weakest applicable score.
+- Identity/product/artifact stricter thresholds remain inherited from the world-class generated-media perceptual policy.
+
+Expected validation
+- Governance audits pass.
+- Next.js production build compiles.
+- No paid provider call is made by the build.

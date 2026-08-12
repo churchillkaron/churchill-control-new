@@ -4,7 +4,10 @@ import { NextResponse } from "next/server";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import buildPeopleRuntime from "@/lib/people/runtime/PeopleRuntime";
-import { loadStaffWorkday } from "@/lib/people/workforce/shiftRuntime";
+import {
+  loadClockInRequirements,
+  loadStaffWorkday,
+} from "@/lib/people/workforce/shiftRuntime";
 import { scheduleWindow } from "@/lib/shared/time/organizationTime";
 
 function formatDuration(clockIn) {
@@ -55,7 +58,7 @@ export async function GET(request) {
 
     const { user, staff, organizationId } = context;
 
-    const [workday, latestPayroll] = await Promise.all([
+    const [workday, latestPayroll, clockInRequirements] = await Promise.all([
       loadStaffWorkday({
         organizationId,
         staffId: staff.id,
@@ -71,6 +74,7 @@ export async function GET(request) {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      loadClockInRequirements({ organizationId }),
     ]);
 
     if (latestPayroll.error) throw latestPayroll.error;
@@ -116,6 +120,7 @@ export async function GET(request) {
         ? formatDuration(workday.openShift.clock_in)
         : "00:00",
       shiftStatus,
+      clockInRequirements,
       runtime,
       socialFeed: [
         {

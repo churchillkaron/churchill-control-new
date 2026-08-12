@@ -50,6 +50,15 @@ function unique(values = []) {
   return [...new Set(values.map(text).filter(Boolean))];
 }
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function phraseRegex(value) {
+  const escaped = escapeRegex(value).replace(/\\ /g, "\\s+");
+  return new RegExp(`(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`, "iu");
+}
+
 function walk(root) {
   if (!fs.existsSync(root)) return [];
   const files = [];
@@ -117,10 +126,9 @@ function taxonomyControlsBehavior(line, context) {
 
 function addLiteralFindings(findings, relative, line, index) {
   const fixture = isTestFixture(relative);
-  const lower = line.toLowerCase();
 
   for (const term of ORGANIZATION_TERMS) {
-    if (!lower.includes(term)) continue;
+    if (!phraseRegex(term).test(line)) continue;
     addFinding(findings, {
       severity: fixture ? "REVIEW" : "BLOCKER",
       ownership: fixture ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
@@ -138,7 +146,7 @@ function addLiteralFindings(findings, relative, line, index) {
   }
 
   for (const term of BUSINESS_TERMS) {
-    if (!lower.includes(term)) continue;
+    if (!phraseRegex(term).test(line)) continue;
     if (antiHardcodingText(line)) continue;
     addFinding(findings, {
       severity: fixture ? "REVIEW" : "BLOCKER",

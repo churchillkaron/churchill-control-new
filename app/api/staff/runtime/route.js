@@ -8,6 +8,8 @@ import {
   loadClockInRequirements,
   loadStaffWorkday,
 } from "@/lib/people/workforce/shiftRuntime";
+import { loadStaffPasskeyStatus } from "@/lib/people/workforce/passkeyClockInVerification";
+import { loadOrganizationPolicy } from "@/lib/platform/security/organizationAccessPolicy";
 import { scheduleWindow } from "@/lib/shared/time/organizationTime";
 
 function formatDuration(clockIn) {
@@ -58,7 +60,13 @@ export async function GET(request) {
 
     const { user, staff, organizationId } = context;
 
-    const [workday, latestPayroll, clockInRequirements] = await Promise.all([
+    const [
+      workday,
+      latestPayroll,
+      locationRequirements,
+      organizationPolicy,
+      passkeyStatus,
+    ] = await Promise.all([
       loadStaffWorkday({
         organizationId,
         staffId: staff.id,
@@ -75,6 +83,8 @@ export async function GET(request) {
         .limit(1)
         .maybeSingle(),
       loadClockInRequirements({ organizationId }),
+      loadOrganizationPolicy({ organizationId }),
+      loadStaffPasskeyStatus({ userId: user.id }),
     ]);
 
     if (latestPayroll.error) throw latestPayroll.error;
@@ -94,6 +104,14 @@ export async function GET(request) {
       schedule: workday.schedule,
       timezone: workday.timezone,
     });
+
+    const clockInRequirements = {
+      ...locationRequirements,
+      passkeyRequired:
+        organizationPolicy?.workforce?.passkey_clock_in_required === true,
+      passkeyEnrolled: passkeyStatus.enrolled,
+      passkeyCount: passkeyStatus.count,
+    };
 
     return NextResponse.json({
       success: true,

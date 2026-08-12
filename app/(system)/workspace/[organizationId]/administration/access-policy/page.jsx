@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { RefreshCw, Save, ShieldCheck, TimerReset } from "lucide-react";
+import { MapPin, RefreshCw, Save, ShieldCheck, TimerReset } from "lucide-react";
 
 const EMPTY_POLICY = {
   access: {
@@ -12,6 +12,11 @@ const EMPTY_POLICY = {
   workforce: {
     early_clock_in_minutes: "",
     late_threshold_minutes: "",
+    gps_clock_in_required: false,
+    clock_in_site_latitude: "",
+    clock_in_site_longitude: "",
+    clock_in_radius_meters: "",
+    location_accuracy_max_meters: "",
   },
 };
 
@@ -27,8 +32,22 @@ function normalizePolicy(policy = {}) {
         policy?.workforce?.early_clock_in_minutes ?? "",
       late_threshold_minutes:
         policy?.workforce?.late_threshold_minutes ?? "",
+      gps_clock_in_required:
+        policy?.workforce?.gps_clock_in_required === true,
+      clock_in_site_latitude:
+        policy?.workforce?.clock_in_site_latitude ?? "",
+      clock_in_site_longitude:
+        policy?.workforce?.clock_in_site_longitude ?? "",
+      clock_in_radius_meters:
+        policy?.workforce?.clock_in_radius_meters ?? "",
+      location_accuracy_max_meters:
+        policy?.workforce?.location_accuracy_max_meters ?? "",
     },
   };
+}
+
+function optionalNumber(value) {
+  return value === "" ? null : Number(value);
 }
 
 export default function OrganizationAccessPolicyPage() {
@@ -99,6 +118,32 @@ export default function OrganizationAccessPolicyPage() {
       }
     }
 
+    const latitude = optionalNumber(policy.workforce.clock_in_site_latitude);
+    const longitude = optionalNumber(policy.workforce.clock_in_site_longitude);
+    const radius = optionalNumber(policy.workforce.clock_in_radius_meters);
+    const maxAccuracy = optionalNumber(policy.workforce.location_accuracy_max_meters);
+
+    if ((latitude === null) !== (longitude === null)) {
+      setError("Clock-in site latitude and longitude must be configured together.");
+      return;
+    }
+    if (latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) {
+      setError("Clock-in site latitude must be between -90 and 90.");
+      return;
+    }
+    if (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
+      setError("Clock-in site longitude must be between -180 and 180.");
+      return;
+    }
+    if (radius !== null && (!Number.isFinite(radius) || radius < 1)) {
+      setError("Clock-in radius must be at least 1 meter or left blank.");
+      return;
+    }
+    if (maxAccuracy !== null && (!Number.isFinite(maxAccuracy) || maxAccuracy < 0)) {
+      setError("Maximum GPS accuracy must be zero or greater, or left blank.");
+      return;
+    }
+
     try {
       setSaving(true);
       const response = await fetch("/api/administration/access-policy", {
@@ -116,6 +161,11 @@ export default function OrganizationAccessPolicyPage() {
               policy.workforce.late_threshold_minutes === ""
                 ? null
                 : Number(policy.workforce.late_threshold_minutes),
+            gps_clock_in_required: policy.workforce.gps_clock_in_required,
+            clock_in_site_latitude: latitude,
+            clock_in_site_longitude: longitude,
+            clock_in_radius_meters: radius,
+            location_accuracy_max_meters: maxAccuracy,
           },
         }),
       });
@@ -145,7 +195,7 @@ export default function OrganizationAccessPolicyPage() {
               </div>
               <h1 className="mt-3 text-4xl font-black">Organization Policy</h1>
               <p className="mt-2 max-w-3xl text-sm text-white/45">
-                Control organization app entry and staff portal availability separately from authentication, and configure workforce timing rules without platform defaults.
+                Control organization app entry and staff portal availability separately from authentication, and configure workforce timing and clock-in location rules without platform defaults.
               </p>
             </div>
             <button
@@ -190,6 +240,44 @@ export default function OrganizationAccessPolicyPage() {
               value={policy.workforce.late_threshold_minutes}
               onChange={(value) => updateWorkforce("late_threshold_minutes", value)}
               description="Leave blank to record minutes after scheduled start without classifying the shift as late."
+            />
+          </PolicyCard>
+
+          <PolicyCard icon={<MapPin className="h-5 w-5" />} title="Clock-in location">
+            <Toggle
+              label="Require GPS for clock-in"
+              description="Staff must provide a fresh browser GPS reading before a shift can start. The server validates and stores the evidence."
+              checked={policy.workforce.gps_clock_in_required}
+              onChange={(value) => updateWorkforce("gps_clock_in_required", value)}
+            />
+            <NumberField
+              label="Work site latitude"
+              value={policy.workforce.clock_in_site_latitude}
+              onChange={(value) => updateWorkforce("clock_in_site_latitude", value)}
+              description="Optional. Configure together with longitude to enable a site geofence."
+              step="any"
+            />
+            <NumberField
+              label="Work site longitude"
+              value={policy.workforce.clock_in_site_longitude}
+              onChange={(value) => updateWorkforce("clock_in_site_longitude", value)}
+              description="Optional. Configure together with latitude to enable a site geofence."
+              step="any"
+            />
+            <NumberField
+              label="Allowed radius in meters"
+              value={policy.workforce.clock_in_radius_meters}
+              onChange={(value) => updateWorkforce("clock_in_radius_meters", value)}
+              description="When site coordinates and a radius are configured, clock-in is rejected outside this distance."
+              min="1"
+              step="any"
+            />
+            <NumberField
+              label="Maximum GPS accuracy in meters"
+              value={policy.workforce.location_accuracy_max_meters}
+              onChange={(value) => updateWorkforce("location_accuracy_max_meters", value)}
+              description="Optional. Rejects weak location readings above this reported accuracy."
+              step="any"
             />
           </PolicyCard>
         </section>
@@ -237,15 +325,15 @@ function Toggle({ label, description, checked, onChange }) {
   );
 }
 
-function NumberField({ label, value, onChange, description }) {
+function NumberField({ label, value, onChange, description, min = "0", step = "1" }) {
   return (
     <label className="block rounded-2xl border border-white/10 bg-black/20 p-4">
       <span className="text-sm font-semibold text-white/80">{label}</span>
       <span className="mt-1 block text-xs leading-5 text-white/35">{description}</span>
       <input
         type="number"
-        min="0"
-        step="1"
+        min={min}
+        step={step}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder="Not configured"

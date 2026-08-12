@@ -1,5 +1,5 @@
 Production deployment trigger
 
-Requested: 2026-08-12T12:18:00+07:00
-Purpose: Deploy current main including the Reviews Google access route repair and Avantiqo-only platform AI/services visibility controls.
+Requested: 2026-08-12T12:44:00+07:00
+Purpose: Deploy the CI-verified Google Reviews integration route repair, customer Business Network restoration, and Avantiqo-only Services/AI control-plane visibility boundary.
 Policy: Update this file only for deliberate production deployments.

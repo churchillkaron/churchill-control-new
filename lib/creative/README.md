@@ -67,3 +67,4 @@ Business outcome
 - Weak work must be rejected, repaired or regenerated before the customer sees it. Release remains fail-closed.
 - Learning is organization-scoped and evidence-based; it may not convert category stereotypes into creative defaults.
 - `CREATIVE_DYNAMIC_ARCHITECTURE_AUDIT_V2` is the strict release guard for hidden industry, media, channel, duration, format and fallback assumptions, using phrase-aware matching so identifiers such as `dispatch`, `space`, `spawn`, and `reconstruction` are never mistaken for business categories.
+- Creative review evidence is shape-safe: unresolved repair content fails closed whether returned as a list or malformed scalar value.

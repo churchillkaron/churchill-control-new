@@ -97,7 +97,7 @@ export default function BriefWorkspace({ runtime }) {
     }
 
     ensureBrief();
-  }, [brief, runtime]);
+  }, [brief]);
 
   useEffect(() => {
     if (brief) setForm(formFromBrief(brief));

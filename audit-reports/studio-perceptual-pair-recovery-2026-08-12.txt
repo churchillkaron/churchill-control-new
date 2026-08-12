@@ -12,6 +12,8 @@ Scope
 - Block the failed provider in the replacement source provider policy so Service Domain routing can challenge another eligible priced runtime.
 - Preserve promptless structured repair evidence and the approved Shot Bible.
 - Bridge canonical perceptual scores into the weakest-link shot candidate selector, avoiding duplicate visual-review spend for future temporal graphs.
+- Automatically activate winner selection when canonical perceptual evidence exists; legacy projects may still opt into the fallback candidate-review path.
+- Mirror the same recovery/cost/selection bootstraps in both Next.js instrumentation and the Creative CLI runtime.
 
 Governance
 - No provider generation executed by this implementation/validation change.
@@ -28,6 +30,7 @@ Quality
 - Existing AVANTIQO_WORLD_CLASS_QUALITY_V1 raise-only floors remain authoritative.
 - Candidate selection remains weakest-link based with 94 minimum overall and weakest applicable score.
 - Identity/product/artifact stricter thresholds remain inherited from the world-class generated-media perceptual policy.
+- Canonical perceptual evidence is reused for selection instead of purchasing a duplicate review.
 
 Expected validation
 - Governance audits pass.

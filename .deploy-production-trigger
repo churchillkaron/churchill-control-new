@@ -1,5 +1,5 @@
 Production deployment trigger
 
-Requested: 2026-08-10T13:00:00+07:00
-Purpose: Deploy current main including Staff Portal role-aware login routing, upcoming roster, attendance history, canonical shift runtime, and payroll self-service visibility.
+Requested: 2026-08-12T12:13:00+07:00
+Purpose: Deploy current main including the Reviews Google access route repair and Avantiqo-only platform AI/services visibility controls.
 Policy: Update this file only for deliberate production deployments.

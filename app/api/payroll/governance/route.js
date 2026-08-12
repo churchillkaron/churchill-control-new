@@ -3,12 +3,14 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import loadOperationalSettings from "@/lib/settings/loadOperationalSettings";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { approvePayrollRecord } from "@/lib/payroll/consolidation/approvePayrollRecord";
 import rejectPayrollRecord from "@/lib/payroll/consolidation/rejectPayrollRecord";
 import lockPayrollRecord from "@/lib/payroll/consolidation/lockPayrollRecord";
 import resolvePayrollDispute from "@/lib/payroll/consolidation/resolvePayrollDispute";
 import { recalculatePayrollRecord } from "@/lib/payroll/consolidation/recalculatePayrollRecord";
+import reviewAttendancePenalty from "@/lib/payroll/consolidation/reviewAttendancePenalty";
 import finalizePayrollRecord from "@/lib/payroll/consolidation/finalizePayrollRecord";
 import closePayrollAccountingPeriod from "@/lib/payroll/consolidation/closePayrollAccountingPeriod";
 import certifyPayrollRecord from "@/lib/payroll/consolidation/certifyPayrollRecord";
@@ -89,19 +91,26 @@ export async function GET(request) {
     const context = await governanceContext(request);
     if (context.response) return context.response;
 
-    const { data, error } = await supabaseAdmin
-      .from("payroll_records")
-      .select("*")
-      .eq("organization_id", context.organizationId)
-      .order("payroll_month", { ascending: false })
-      .order("created_at", { ascending: false });
+    const [payrollResult, payrollSettings] = await Promise.all([
+      supabaseAdmin
+        .from("payroll_records")
+        .select("*")
+        .eq("organization_id", context.organizationId)
+        .order("payroll_month", { ascending: false })
+        .order("created_at", { ascending: false }),
+      loadOperationalSettings({
+        organizationId: context.organizationId,
+        domain: "PAYROLL",
+      }),
+    ]);
 
-    if (error) throw error;
+    if (payrollResult.error) throw payrollResult.error;
 
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
       role: context.role,
+      currency: String(payrollSettings?.currency || "").trim().toUpperCase(),
       capabilities: {
         canReview: true,
         canResolveDispute: true,
@@ -112,7 +121,7 @@ export async function GET(request) {
         canCertify: TERMINAL_ROLES.has(context.role),
         canArchive: TERMINAL_ROLES.has(context.role),
       },
-      payroll: data || [],
+      payroll: payrollResult.data || [],
     });
   } catch (error) {
     console.error("PAYROLL_GOVERNANCE_LIST_ERROR", error);
@@ -151,6 +160,17 @@ export async function POST(request) {
         approvedBy: context.staff.id,
         actorName,
         role: context.role,
+      });
+    } else if (action === "REVIEW_ATTENDANCE_PENALTY") {
+      result = await reviewAttendancePenalty({
+        payrollRecordId,
+        organizationId: context.organizationId,
+        reviewedBy: context.staff.id,
+        actorName,
+        role: context.role,
+        decision: body?.decision,
+        adjustedAmount: body?.adjustedAmount,
+        notes: body?.notes,
       });
     } else if (action === "REJECT") {
       result = await rejectPayrollRecord({
@@ -264,7 +284,7 @@ export async function POST(request) {
 
     return NextResponse.json(
       { success: false, error: error?.message || "Unable to execute payroll action" },
-      { status: 400 }
+      { status: Number(error?.status) || 400 }
     );
   }
 }

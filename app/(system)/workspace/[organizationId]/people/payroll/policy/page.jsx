@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = {
   default_hours_per_shift: "",
   default_working_days_per_week: "",
   salary_proration_enabled: false,
+  lateness_deduction_enabled: false,
   training_counts_as_worked: false,
   sick_leave_counts_as_worked: false,
   approved_leave_counts_as_worked: false,
@@ -146,6 +147,7 @@ export default function PayrollSettingsPage() {
         default_hours_per_shift: defaultHoursPerShift,
         default_working_days_per_week: defaultWorkingDaysPerWeek,
         salary_proration_enabled: Boolean(settings.salary_proration_enabled),
+        lateness_deduction_enabled: Boolean(settings.lateness_deduction_enabled),
         training_counts_as_worked: Boolean(settings.training_counts_as_worked),
         sick_leave_counts_as_worked: Boolean(settings.sick_leave_counts_as_worked),
         approved_leave_counts_as_worked: Boolean(settings.approved_leave_counts_as_worked),
@@ -258,11 +260,17 @@ export default function PayrollSettingsPage() {
                   <Toggle label="Manager approval required" description="Flag meaningful hours variance for manager review." checked={Boolean(settings.manager_approval_required)} onChange={(value) => update("manager_approval_required", value)} />
                   <Toggle label="Use scheduled expected hours" description="Use published schedules as the expected-hours source when available." checked={Boolean(settings.use_schedule_expected_hours)} onChange={(value) => update("use_schedule_expected_hours", value)} />
                   <Toggle label="Salary proration enabled" description="Allow payroll calculations to prorate salary according to configured attendance rules." checked={Boolean(settings.salary_proration_enabled)} onChange={(value) => update("salary_proration_enabled", value)} />
+                  <Toggle label="Reviewed lateness deductions" description="Propose minute-for-minute deductions only for lateness above the configured Workforce grace threshold. Every proposal requires manager review before the employee can acknowledge payroll." checked={Boolean(settings.lateness_deduction_enabled)} onChange={(value) => update("lateness_deduction_enabled", value)} />
                   <Toggle label="Training counts as worked" checked={Boolean(settings.training_counts_as_worked)} onChange={(value) => update("training_counts_as_worked", value)} />
                   <Toggle label="Sick leave counts as worked" checked={Boolean(settings.sick_leave_counts_as_worked)} onChange={(value) => update("sick_leave_counts_as_worked", value)} />
                   <Toggle label="Approved leave counts as worked" checked={Boolean(settings.approved_leave_counts_as_worked)} onChange={(value) => update("approved_leave_counts_as_worked", value)} />
                   <Toggle label="Public holiday counts as worked" checked={Boolean(settings.public_holiday_counts_as_worked)} onChange={(value) => update("public_holiday_counts_as_worked", value)} />
                 </div>
+                {settings.lateness_deduction_enabled ? (
+                  <div className="mt-3 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] px-4 py-3 text-xs leading-5 text-amber-100/70">
+                    Lateness deductions remain inactive when Workforce has no late threshold configured. The payroll engine uses the employee compensation profile and only deducts minutes above that threshold; it never invents a fixed fine.
+                  </div>
+                ) : null}
               </div>
             </div>
           )}

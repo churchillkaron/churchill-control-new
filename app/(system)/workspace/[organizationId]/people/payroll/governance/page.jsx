@@ -19,6 +19,11 @@ function money(value) {
   });
 }
 
+function formatMoney(value, currency) {
+  const code = String(currency || "").trim().toUpperCase();
+  return `${code ? `${code} ` : ""}${money(value)}`;
+}
+
 function canApprove(record) {
   return ["GENERATED", "RECALCULATED"].includes(record?.status);
 }
@@ -47,7 +52,9 @@ export default function PayrollGovernancePage() {
   const [payroll, setPayroll] = useState([]);
   const [role, setRole] = useState("");
   const [organizationId, setOrganizationId] = useState("");
+  const [currency, setCurrency] = useState("");
   const [capabilities, setCapabilities] = useState({
+    canReview: false,
     canLock: false,
     canFinalize: false,
     canAccountingClose: false,
@@ -62,6 +69,8 @@ export default function PayrollGovernancePage() {
   const [rejectReason, setRejectReason] = useState("");
   const [resolvingId, setResolvingId] = useState("");
   const [resolutionNotes, setResolutionNotes] = useState("");
+  const [reviewingId, setReviewingId] = useState("");
+  const [reviewNotes, setReviewNotes] = useState("");
 
   async function loadPayroll() {
     setLoading(true);
@@ -80,8 +89,10 @@ export default function PayrollGovernancePage() {
       setPayroll(result.payroll || []);
       setRole(result.role || "");
       setOrganizationId(result.organizationId || "");
+      setCurrency(result.currency || "");
       setCapabilities(
         result.capabilities || {
+          canReview: false,
           canLock: false,
           canFinalize: false,
           canAccountingClose: false,
@@ -104,6 +115,9 @@ export default function PayrollGovernancePage() {
     return payroll.reduce(
       (result, record) => {
         result.total += Number(record.final_salary || 0);
+        if (record.review_required === true && record.review_status === "PENDING") {
+          result.review += 1;
+        }
         if (["GENERATED", "RECALCULATED"].includes(record.status)) result.pending += 1;
         if (record.status === "APPROVED") result.approved += 1;
         if (["ACCOUNTING_CLOSED", "CERTIFIED", "ARCHIVED"].includes(record.status)) {
@@ -111,7 +125,7 @@ export default function PayrollGovernancePage() {
         }
         return result;
       },
-      { total: 0, pending: 0, approved: 0, terminal: 0 }
+      { total: 0, review: 0, pending: 0, approved: 0, terminal: 0 }
     );
   }, [payroll]);
 
@@ -120,6 +134,8 @@ export default function PayrollGovernancePage() {
     payrollRecordId,
     reason = "",
     resolutionNotes: notes = "",
+    decision = "",
+    reviewNotes: managerNotes = "",
   }) {
     setWorkingId(payrollRecordId);
     setError("");
@@ -134,6 +150,8 @@ export default function PayrollGovernancePage() {
           payrollRecordId,
           reason,
           resolutionNotes: notes,
+          decision,
+          notes: managerNotes,
         }),
       });
       const result = await response.json();
@@ -144,6 +162,7 @@ export default function PayrollGovernancePage() {
 
       const messages = {
         APPROVE: "Payroll month approved.",
+        REVIEW_ATTENDANCE_PENALTY: "Manager payroll review completed.",
         REJECT: "Payroll rejected.",
         RECALCULATE: "Payroll month recalculated. Employee acknowledgement is required again before approval.",
         RESOLVE_DISPUTE: "Employee payroll dispute resolved.",
@@ -159,6 +178,8 @@ export default function PayrollGovernancePage() {
       setRejectReason("");
       setResolvingId("");
       setResolutionNotes("");
+      setReviewingId("");
+      setReviewNotes("");
       await loadPayroll();
     } catch (actionError) {
       setError(actionError?.message || "Unable to execute payroll action");
@@ -198,9 +219,10 @@ export default function PayrollGovernancePage() {
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Payroll Total" value={`฿${money(summary.total)}`} />
-          <Metric label="Needs Review" value={summary.pending} />
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Metric label="Payroll Total" value={formatMoney(summary.total, currency)} />
+          <Metric label="Manager Review" value={summary.review} />
+          <Metric label="Needs Approval" value={summary.pending} />
           <Metric label="Approved" value={summary.approved} />
           <Metric label="Close / Archive" value={summary.terminal} />
         </section>
@@ -230,8 +252,12 @@ export default function PayrollGovernancePage() {
               const resolvedDispute = Boolean(
                 record.employee_dispute && record.dispute_resolved
               );
+              const pendingManagerReview = Boolean(
+                record.review_required === true && record.review_status === "PENDING"
+              );
               const acknowledgementMissing = !record.employee_acknowledged;
-              const approvalBlocked = unresolvedDispute || acknowledgementMissing;
+              const approvalBlocked =
+                pendingManagerReview || unresolvedDispute || acknowledgementMissing;
 
               return (
                 <article
@@ -243,6 +269,11 @@ export default function PayrollGovernancePage() {
                       <div className="flex flex-wrap items-center gap-3">
                         <h2 className="text-2xl font-black">{record.staff_name || "Employee"}</h2>
                         <StatusBadge status={record.status} />
+                        {record.review_required ? (
+                          <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${pendingManagerReview ? "border-amber-400/20 bg-amber-400/10 text-amber-200" : "border-cyan-400/20 bg-cyan-400/10 text-cyan-200"}`}>
+                            Review {record.review_status || "PENDING"}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="mt-2 text-sm text-white/40">
                         {record.role || "-"} · {record.payroll_month || "-"}
@@ -251,18 +282,104 @@ export default function PayrollGovernancePage() {
 
                     <div className="text-left lg:text-right">
                       <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Net Salary</div>
-                      <div className="mt-2 text-3xl font-black text-emerald-300">฿{money(record.final_salary)}</div>
+                      <div className="mt-2 text-3xl font-black text-emerald-300">{formatMoney(record.final_salary, currency)}</div>
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-                    <Data label="Gross" value={`฿${money(record.gross_salary)}`} />
-                    <Data label="Base" value={`฿${money(record.base_salary)}`} />
-                    <Data label="Service Charge" value={`฿${money(record.service_charge_bonus)}`} />
-                    <Data label="Deductions" value={`฿${money(record.deductions)}`} />
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+                    <Data label="Gross" value={formatMoney(record.gross_salary, currency)} />
+                    <Data label="Base" value={formatMoney(record.base_salary, currency)} />
+                    <Data label="Service Charge" value={formatMoney(record.service_charge_bonus, currency)} />
+                    <Data label="Deductions" value={formatMoney(record.deductions, currency)} />
+                    <Data label="Attendance" value={formatMoney(record.attendance_penalty, currency)} />
                     <Data label="Hours" value={Number(record.worked_hours || record.total_hours || 0).toFixed(2)} />
                     <Data label="Late" value={`${Number(record.total_late_minutes || 0)} min`} />
                   </div>
+
+                  {pendingManagerReview ? (
+                    <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.07] p-4">
+                      <div className="flex items-center gap-2 text-sm font-black text-amber-200">
+                        <AlertTriangle className="h-4 w-4" /> Manager review required
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-amber-100/65">
+                        {record.review_reason || "Payroll evidence requires manager review before employee acknowledgement."}
+                      </div>
+                      {Number(record.attendance_penalty || 0) > 0 ? (
+                        <div className="mt-2 text-xs text-white/45">
+                          Proposed attendance deduction: {formatMoney(record.attendance_penalty, currency)}. Approving keeps the proposal; waiving removes it and recalculates net payroll.
+                        </div>
+                      ) : null}
+
+                      {reviewingId === record.id ? (
+                        <div className="mt-4 space-y-3">
+                          <textarea
+                            value={reviewNotes}
+                            onChange={(event) => setReviewNotes(event.target.value)}
+                            placeholder="Manager notes. Required when waiving a proposed deduction."
+                            className="min-h-20 w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none placeholder:text-white/30"
+                          />
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReviewingId("");
+                                setReviewNotes("");
+                              }}
+                              className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black uppercase tracking-[0.14em]"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={workingId === record.id}
+                              onClick={() =>
+                                executeAction({
+                                  action: "REVIEW_ATTENDANCE_PENALTY",
+                                  payrollRecordId: record.id,
+                                  decision: "APPROVE",
+                                  reviewNotes: reviewNotes.trim(),
+                                })
+                              }
+                              className="h-11 rounded-xl bg-emerald-300 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+                            >
+                              Approve review
+                            </button>
+                            {Number(record.attendance_penalty || 0) > 0 ? (
+                              <button
+                                type="button"
+                                disabled={workingId === record.id || !reviewNotes.trim()}
+                                onClick={() =>
+                                  executeAction({
+                                    action: "REVIEW_ATTENDANCE_PENALTY",
+                                    payrollRecordId: record.id,
+                                    decision: "WAIVE",
+                                    reviewNotes: reviewNotes.trim(),
+                                  })
+                                }
+                                className="h-11 rounded-xl border border-amber-300/25 bg-amber-300/10 text-xs font-black uppercase tracking-[0.14em] text-amber-100 disabled:opacity-40"
+                              >
+                                Waive deduction
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : capabilities.canReview ? (
+                        <button
+                          type="button"
+                          disabled={workingId === record.id}
+                          onClick={() => {
+                            setRejectingId("");
+                            setResolvingId("");
+                            setReviewingId(record.id);
+                            setReviewNotes("");
+                          }}
+                          className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-amber-300 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+                        >
+                          Review payroll evidence
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   {record.status === "REJECTED" ? (
                     <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
@@ -320,6 +437,10 @@ export default function PayrollGovernancePage() {
                     <div className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300">
                       <CheckCircle2 className="h-4 w-4" /> Employee acknowledged
                     </div>
+                  ) : pendingManagerReview ? (
+                    <div className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-amber-300">
+                      <AlertTriangle className="h-4 w-4" /> Employee acknowledgement locked until manager review
+                    </div>
                   ) : canApprove(record) ? (
                     <div className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-amber-300">
                       <AlertTriangle className="h-4 w-4" /> Awaiting employee acknowledgement
@@ -373,6 +494,8 @@ export default function PayrollGovernancePage() {
                       onClick={() => {
                         setRejectingId("");
                         setRejectReason("");
+                        setReviewingId("");
+                        setReviewNotes("");
                         setResolvingId(record.id);
                         setResolutionNotes("");
                       }}
@@ -421,7 +544,8 @@ export default function PayrollGovernancePage() {
 
                   {(canApprove(record) || canReject(record)) &&
                   rejectingId !== record.id &&
-                  resolvingId !== record.id ? (
+                  resolvingId !== record.id &&
+                  reviewingId !== record.id ? (
                     <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                       {canApprove(record) ? (
                         <button
@@ -446,6 +570,8 @@ export default function PayrollGovernancePage() {
                           onClick={() => {
                             setResolvingId("");
                             setResolutionNotes("");
+                            setReviewingId("");
+                            setReviewNotes("");
                             setRejectingId(record.id);
                           }}
                           className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 text-xs font-black uppercase tracking-[0.16em] text-red-300 disabled:opacity-40"

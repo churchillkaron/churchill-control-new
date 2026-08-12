@@ -45,8 +45,11 @@ export async function GET(request) {
       [
         "pages_show_list",
         "pages_read_engagement",
+        "pages_manage_metadata",
+        "pages_messaging",
         "business_management",
         "instagram_basic",
+        "instagram_manage_messages",
         "instagram_content_publish",
       ].join(",")
     );

@@ -30,7 +30,7 @@ function clearOauthCookies(response) {
 
 function redirectToWorkspace(origin, organizationId, status, message = null) {
   const url = new URL(
-    `/workspace/${organizationId}/commercial/marketing/ads`,
+    `/workspace/${organizationId}/administration/integrations#meta`,
     origin
   );
   url.searchParams.set("meta", status);
@@ -38,8 +38,8 @@ function redirectToWorkspace(origin, organizationId, status, message = null) {
   return url;
 }
 
-async function graphJson(url) {
-  const response = await fetch(url, { cache: "no-store" });
+async function graphJson(url, options = {}) {
+  const response = await fetch(url, { cache: "no-store", ...options });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.error) {
     throw new Error(
@@ -49,6 +49,28 @@ async function graphJson(url) {
     );
   }
   return payload;
+}
+
+async function subscribePageMessaging(page) {
+  if (!page?.id || !page?.access_token) {
+    throw new Error("Meta Page messaging subscription requires a Page access token");
+  }
+
+  const url = new URL(
+    `https://graph.facebook.com/${graphVersion()}/${page.id}/subscribed_apps`
+  );
+  url.searchParams.set(
+    "subscribed_fields",
+    "messages,messaging_postbacks"
+  );
+  url.searchParams.set("access_token", page.access_token);
+
+  const result = await graphJson(url, { method: "POST" });
+  if (result?.success !== true && result?.success !== "true") {
+    throw new Error(`Meta messaging webhook subscription failed for ${page.name || page.id}`);
+  }
+
+  return true;
 }
 
 export async function GET(request) {
@@ -68,6 +90,9 @@ export async function GET(request) {
     }
     if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
       throw new Error("Meta application credentials are not configured");
+    }
+    if (!process.env.META_MESSAGING_WEBHOOK_VERIFY_TOKEN) {
+      throw new Error("META_MESSAGING_WEBHOOK_VERIFY_TOKEN is not configured");
     }
 
     const callbackUrl = `${origin}/api/meta/auth/callback`;
@@ -89,7 +114,7 @@ export async function GET(request) {
     );
     pagesUrl.searchParams.set(
       "fields",
-      "id,name,access_token,instagram_business_account{id,username}"
+      "id,name,access_token,tasks,instagram_business_account{id,username}"
     );
     pagesUrl.searchParams.set("limit", "100");
     pagesUrl.searchParams.set("access_token", tokenData.access_token);
@@ -100,7 +125,19 @@ export async function GET(request) {
       throw new Error("No Facebook Pages were available for this account");
     }
 
-    const primaryPage = pages[0];
+    const messagingPages = pages.filter((page) =>
+      Array.isArray(page?.tasks) ? page.tasks.includes("MESSAGING") : true
+    );
+    if (!messagingPages.length) {
+      throw new Error("No Facebook Page with the MESSAGING task was available");
+    }
+
+    for (const page of messagingPages) {
+      await subscribePageMessaging(page);
+    }
+
+    const primaryPage = messagingPages[0];
+    const primaryInstagramId = primaryPage.instagram_business_account?.id || null;
     const credential = await CredentialRuntime.store({
       provider_id: "meta",
       credential_type: "oauth_page_token",
@@ -109,7 +146,17 @@ export async function GET(request) {
         organization_id: organizationId,
         page_id: primaryPage.id,
         page_name: primaryPage.name,
+        instagram_business_id: primaryInstagramId,
+        instagram_username:
+          primaryPage.instagram_business_account?.username || null,
         purpose: "ORGANIZATION_CHANNEL_PUBLISHING",
+        messaging_permissions_requested: [
+          "pages_manage_metadata",
+          "pages_messaging",
+          "instagram_manage_messages",
+        ],
+        messaging_webhook_subscribed: true,
+        instagram_auth_mode: "FACEBOOK_LOGIN",
       },
     });
 
@@ -121,21 +168,25 @@ export async function GET(request) {
       metadata: {
         page_id: primaryPage.id,
         page_name: primaryPage.name,
-        instagram_business_id:
-          primaryPage.instagram_business_account?.id || null,
-        available_pages: pages.map((page) => ({
+        instagram_business_id: primaryInstagramId,
+        messaging_webhook_subscribed: true,
+        messaging_webhook_fields: ["messages", "messaging_postbacks"],
+        available_pages: messagingPages.map((page) => ({
           id: page.id,
           name: page.name,
           instagram_business_id:
             page.instagram_business_account?.id || null,
           instagram_username:
             page.instagram_business_account?.username || null,
+          messaging_task: Array.isArray(page?.tasks)
+            ? page.tasks.includes("MESSAGING")
+            : null,
         })),
         advertising_billing_model: "AVANTIQO_MANAGED",
       },
     });
 
-    for (const page of pages) {
+    for (const page of messagingPages) {
       await ChannelAssetRuntime.register({
         organization_id: organizationId,
         connection_id: connection.id,
@@ -148,6 +199,7 @@ export async function GET(request) {
             page.instagram_business_account?.id || null,
           instagram_username:
             page.instagram_business_account?.username || null,
+          messaging_webhook_subscribed: true,
         },
       });
 
@@ -161,7 +213,10 @@ export async function GET(request) {
           name:
             page.instagram_business_account.username ||
             `${page.name} Instagram`,
-          metadata: { facebook_page_id: page.id },
+          metadata: {
+            facebook_page_id: page.id,
+            messaging_webhook_subscribed: true,
+          },
         });
       }
     }

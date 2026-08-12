@@ -19,6 +19,11 @@ function money(value) {
   });
 }
 
+function formatMoney(value, currency) {
+  const code = String(currency || "").trim().toUpperCase();
+  return `${code ? `${code} ` : ""}${money(value)}`;
+}
+
 function canApprove(record) {
   return ["GENERATED", "RECALCULATED"].includes(record?.status);
 }
@@ -47,6 +52,7 @@ export default function PayrollGovernancePage() {
   const [payroll, setPayroll] = useState([]);
   const [role, setRole] = useState("");
   const [organizationId, setOrganizationId] = useState("");
+  const [currency, setCurrency] = useState("");
   const [capabilities, setCapabilities] = useState({
     canReview: false,
     canLock: false,
@@ -83,6 +89,7 @@ export default function PayrollGovernancePage() {
       setPayroll(result.payroll || []);
       setRole(result.role || "");
       setOrganizationId(result.organizationId || "");
+      setCurrency(result.currency || "");
       setCapabilities(
         result.capabilities || {
           canReview: false,
@@ -213,7 +220,7 @@ export default function PayrollGovernancePage() {
         </section>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Metric label="Payroll Total" value={`฿${money(summary.total)}`} />
+          <Metric label="Payroll Total" value={formatMoney(summary.total, currency)} />
           <Metric label="Manager Review" value={summary.review} />
           <Metric label="Needs Approval" value={summary.pending} />
           <Metric label="Approved" value={summary.approved} />
@@ -275,16 +282,16 @@ export default function PayrollGovernancePage() {
 
                     <div className="text-left lg:text-right">
                       <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Net Salary</div>
-                      <div className="mt-2 text-3xl font-black text-emerald-300">฿{money(record.final_salary)}</div>
+                      <div className="mt-2 text-3xl font-black text-emerald-300">{formatMoney(record.final_salary, currency)}</div>
                     </div>
                   </div>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
-                    <Data label="Gross" value={`฿${money(record.gross_salary)}`} />
-                    <Data label="Base" value={`฿${money(record.base_salary)}`} />
-                    <Data label="Service Charge" value={`฿${money(record.service_charge_bonus)}`} />
-                    <Data label="Deductions" value={`฿${money(record.deductions)}`} />
-                    <Data label="Attendance" value={`฿${money(record.attendance_penalty)}`} />
+                    <Data label="Gross" value={formatMoney(record.gross_salary, currency)} />
+                    <Data label="Base" value={formatMoney(record.base_salary, currency)} />
+                    <Data label="Service Charge" value={formatMoney(record.service_charge_bonus, currency)} />
+                    <Data label="Deductions" value={formatMoney(record.deductions, currency)} />
+                    <Data label="Attendance" value={formatMoney(record.attendance_penalty, currency)} />
                     <Data label="Hours" value={Number(record.worked_hours || record.total_hours || 0).toFixed(2)} />
                     <Data label="Late" value={`${Number(record.total_late_minutes || 0)} min`} />
                   </div>
@@ -299,7 +306,7 @@ export default function PayrollGovernancePage() {
                       </div>
                       {Number(record.attendance_penalty || 0) > 0 ? (
                         <div className="mt-2 text-xs text-white/45">
-                          Proposed attendance deduction: ฿{money(record.attendance_penalty)}. Approving keeps the proposal; waiving removes it and recalculates net payroll.
+                          Proposed attendance deduction: {formatMoney(record.attendance_penalty, currency)}. Approving keeps the proposal; waiving removes it and recalculates net payroll.
                         </div>
                       ) : null}
 

@@ -11,6 +11,7 @@
     "audit:openai-governance": "node scripts/openai-governance-release-audit.mjs",
     "audit:creative-studio": "node scripts/creative-studio-release-audit.mjs",
     "audit:creative-dynamic-architecture": "node scripts/audit-creative-dynamic-architecture-read-only.mjs",
+    "benchmark:creative-world-class": "node scripts/creative-world-class-benchmark.mjs",
     "audit:operations": "node scripts/operations-release-audit.mjs",
     "audit:operations-events": "node scripts/operations-event-release-audit.mjs",
     "audit:operations-authorization": "node scripts/operations-authorization-release-audit.mjs",

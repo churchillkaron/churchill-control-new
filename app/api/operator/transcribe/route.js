@@ -1,3 +1,5 @@
+import "@/lib/finance/bootstrap/registerFinanceBilling";
+
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
@@ -110,8 +112,8 @@ export async function POST(request) {
       service_id: "ai.speech.to.text",
       input: {
         upload_file: audio,
-        file_name: audio.name || "avantiqo-voice.webm",
-        mime_type: audio.type || "audio/webm",
+        file_name: audio.name || "avantiqo-voice.wav",
+        mime_type: audio.type || "audio/wav",
         language: locale ? locale.split("-")[0] : undefined,
       },
       metadata: {

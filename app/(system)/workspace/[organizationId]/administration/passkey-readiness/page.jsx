@@ -7,7 +7,9 @@ import {
   ArrowLeft,
   CheckCircle2,
   KeyRound,
+  Mail,
   RefreshCw,
+  Send,
   ShieldAlert,
   Users,
 } from "lucide-react";
@@ -31,12 +33,15 @@ export default function PasskeyReadinessPage() {
   const [readiness, setReadiness] = useState(null);
   const [required, setRequired] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sendingStaffId, setSendingStaffId] = useState(null);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  async function loadReadiness() {
+  async function loadReadiness({ preserveMessage = false } = {}) {
     if (!organizationId) return;
     setLoading(true);
     setError("");
+    if (!preserveMessage) setMessage("");
 
     try {
       const response = await fetch(
@@ -61,7 +66,39 @@ export default function PasskeyReadinessPage() {
     loadReadiness();
   }, [organizationId]);
 
+  async function sendEnrollmentAccess(staff) {
+    if (!staff?.staffId) return;
+
+    setSendingStaffId(staff.staffId);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/people/workforce/passkey-enrollment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          staffId: staff.staffId,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to send enrollment access");
+      }
+
+      setMessage(result.message || `Enrollment access sent to ${staff.email}.`);
+      await loadReadiness({ preserveMessage: true });
+    } catch (sendError) {
+      setError(sendError?.message || "Unable to send enrollment access");
+    } finally {
+      setSendingStaffId(null);
+    }
+  }
+
   const ready = readiness?.activationReady === true;
+  const staff = Array.isArray(readiness?.staff) ? readiness.staff : [];
 
   return (
     <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
@@ -75,8 +112,8 @@ export default function PasskeyReadinessPage() {
           </Link>
           <button
             type="button"
-            onClick={loadReadiness}
-            disabled={loading}
+            onClick={() => loadReadiness()}
+            disabled={loading || Boolean(sendingStaffId)}
             className="flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white/55 disabled:opacity-40"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
@@ -89,13 +126,19 @@ export default function PasskeyReadinessPage() {
           </div>
           <h1 className="mt-3 text-4xl font-black">Passkey rollout readiness</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-            Mandatory passkey clock-in is blocked until the Workforce roster is prepared. Clock-in staff must be linked to Supabase Auth, every active clock-in staff member must have a passkey, and at least one real verification must have succeeded recently. Owner, platform administration, and accounting-only roles are not counted as shift-clock users.
+            Prepare clock-in staff for passwordless identity verification before mandatory passkeys are enabled. Staff receive secure Supabase Auth access, sign in on the canonical Workforce origin, register a passkey, then run a real verification test.
           </p>
         </section>
 
         {error ? (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {error}
+          </div>
+        ) : null}
+
+        {message ? (
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            {message}
           </div>
         ) : null}
 
@@ -145,6 +188,40 @@ export default function PasskeyReadinessPage() {
                 detail={`Latest: ${dateTime(readiness.latestVerifiedAt)}`}
                 good={readiness.recentVerificationProven}
               />
+            </section>
+
+            <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <div className="text-sm font-black uppercase tracking-[0.14em] text-white/70">
+                    Clock-in staff enrollment
+                  </div>
+                  <p className="mt-2 max-w-3xl text-xs leading-5 text-white/40">
+                    New identities receive a Supabase invitation. Existing identities receive a passwordless sign-in link. No temporary or manager-created staff password is used. Access returns staff to https://avantiqo.ai/workforce/profile for passkey registration.
+                  </p>
+                </div>
+                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-white/30">
+                  {staff.length} staff
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {staff.length ? (
+                  staff.map((person) => (
+                    <StaffEnrollmentRow
+                      key={person.staffId}
+                      staff={person}
+                      sending={sendingStaffId === person.staffId}
+                      disabled={Boolean(sendingStaffId)}
+                      onSend={() => sendEnrollmentAccess(person)}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/40">
+                    No active clock-in staff are available for passkey enrollment.
+                  </div>
+                )}
+              </div>
             </section>
 
             <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
@@ -198,12 +275,66 @@ export default function PasskeyReadinessPage() {
             </section>
 
             <section className="rounded-[28px] border border-violet-400/15 bg-violet-400/[0.05] p-5 text-sm leading-6 text-violet-100/70">
-              Staff enroll and test their passkey from <strong>Workforce → Profile → Identity verification</strong>. The Test passkey verification action performs the same identity ceremony used immediately before Start Shift. A successful recent test is also the rollout proof that hosted Passkeys and the canonical Workforce origin work together. Biometric templates remain on the employee device.
+              Enrollment sequence: manager sends access → staff opens the email and signs in on <strong>avantiqo.ai</strong> → Workforce Profile → <strong>Register passkey</strong> → <strong>Test passkey verification</strong>. A recent successful test proves the hosted Passkey configuration and canonical Workforce origin work together. Biometric templates remain on the employee device.
             </section>
           </>
         ) : null}
       </div>
     </main>
+  );
+}
+
+function StaffEnrollmentRow({ staff, sending, disabled, onSend }) {
+  const enrolled = staff.enrolled === true;
+  const authLinked = staff.authLinked === true;
+  const hasEmail = Boolean(String(staff.email || "").trim());
+
+  let actionLabel = "Send enrollment invite";
+  if (authLinked) actionLabel = "Send sign-in link";
+  if (enrolled) actionLabel = "Enrolled";
+  if (!hasEmail) actionLabel = "Email required";
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-black text-white/85">{staff.name}</span>
+            <span className="rounded-lg border border-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/40">
+              {staff.role}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center gap-2 text-xs text-white/35">
+            <Mail className="h-3.5 w-3.5" /> {hasEmail ? staff.email : "No email configured"}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.1em]">
+            <StatusPill good={authLinked} label={authLinked ? "Auth linked" : "Auth missing"} />
+            <StatusPill good={enrolled} label={enrolled ? `${staff.passkeyCount || 1} passkey${Number(staff.passkeyCount || 0) === 1 ? "" : "s"}` : "Passkey missing"} />
+            {enrolled ? (
+              <StatusPill good={Boolean(staff.lastUsedAt)} label={staff.lastUsedAt ? `Verified ${dateTime(staff.lastUsedAt)}` : "Verification not tested"} />
+            ) : null}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onSend}
+          disabled={disabled || sending || enrolled || !hasEmail}
+          className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-violet-400/25 bg-violet-400/10 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-violet-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {enrolled ? <CheckCircle2 className="h-4 w-4" /> : <Send className={`h-4 w-4 ${sending ? "animate-pulse" : ""}`} />}
+          {sending ? "Sending..." : actionLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ good, label }) {
+  return (
+    <span className={`rounded-lg border px-2 py-1 ${good ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200" : "border-amber-400/20 bg-amber-400/[0.06] text-amber-200"}`}>
+      {label}
+    </span>
   );
 }
 

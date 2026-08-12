@@ -1,37 +1,53 @@
 import { NextResponse } from "next/server";
 
-import consumePreparedInventory from "@/lib/inventory/production/prepared/capabilities/consumePreparedInventory";
+import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+import {
+  listPreparedInventory,
+} from "@/lib/inventory/production/prepared/listPreparedInventory";
 
-export async function POST(req) {
-
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const organizationId =
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
 
-    const body =
-      await req.json();
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
 
-    const result =
-      await consumePreparedInventory(
-        body
+    if (!access.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        {
+          status: access.status,
+        },
       );
+    }
 
-    return NextResponse.json(
-      result
-    );
+    const items = await listPreparedInventory({
+      organizationId: access.organizationId,
+    });
 
+    return NextResponse.json({
+      success: true,
+      items,
+    });
   } catch (error) {
-
     return NextResponse.json(
       {
-
         success: false,
-
-        error:
-          error.message,
+        error: error.message,
       },
       {
-
         status: 500,
-      }
+      },
     );
   }
 }

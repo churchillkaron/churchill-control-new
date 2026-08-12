@@ -1,0 +1,1 @@
+drop table if exists public.organization_integration_setup_requests;

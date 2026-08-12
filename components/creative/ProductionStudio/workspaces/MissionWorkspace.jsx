@@ -4,36 +4,16 @@ import { useMemo, useState } from "react";
 import {
   ArrowRight,
   CalendarRange,
-  Check,
   Clapperboard,
   Coins,
-  FileImage,
-  Film,
   Globe2,
   Layers3,
   Megaphone,
-  Music2,
   Plus,
   Sparkles,
   Target,
   X,
 } from "lucide-react";
-
-const DELIVERABLES = [
-  { id: "VIDEO", label: "Film / video", icon: Film },
-  { id: "IMAGE", label: "Campaign visual", icon: FileImage },
-  { id: "DOCUMENT", label: "Document", icon: Layers3 },
-  { id: "AUDIO", label: "Audio", icon: Music2 },
-];
-
-const CHANNELS = [
-  "instagram",
-  "facebook",
-  "tiktok",
-  "youtube",
-  "website",
-  "display",
-];
 
 function statusLabel(value) {
   return String(value || "draft")
@@ -59,15 +39,11 @@ export default function MissionWorkspace({ runtime, editor }) {
   const mission = runtime.missionRuntime?.current || null;
   const projects = runtime.projectRuntime?.items || [];
   const assets = runtime.assetRuntime?.items || [];
-  const scenes = runtime.sceneRuntime?.items || [];
   const tasks = runtime.taskRuntime?.items || [];
   const activeProject = runtime.projectRuntime?.current || null;
 
   const [businessGoal, setBusinessGoal] = useState("");
   const [desiredOutcome, setDesiredOutcome] = useState("");
-  const [productionType, setProductionType] = useState("VIDEO");
-  const [duration, setDuration] = useState("30");
-  const [channels, setChannels] = useState(["instagram"]);
   const [budget, setBudget] = useState("");
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
@@ -80,14 +56,6 @@ export default function MissionWorkspace({ runtime, editor }) {
     [mission?.channels],
   );
 
-  function toggleChannel(channel) {
-    setChannels((current) =>
-      current.includes(channel)
-        ? current.filter((item) => item !== channel)
-        : [...current, channel],
-    );
-  }
-
   async function createMission(event) {
     event.preventDefault();
     if (!canCreate || !runtime.organizationId) return;
@@ -97,7 +65,6 @@ export default function MissionWorkspace({ runtime, editor }) {
 
     try {
       const numericBudget = Number(budget);
-      const numericDuration = Number(duration);
       const response = await fetch("/api/creative/missions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -107,20 +74,15 @@ export default function MissionWorkspace({ runtime, editor }) {
           business_goal: businessGoal.trim(),
           objective: desiredOutcome.trim(),
           status: "draft",
-          channels,
           metadata: {
-            source: "studio_structured_mission_composer",
-            production_type: productionType,
-            target_duration:
-              Number.isFinite(numericDuration) && numericDuration > 0
-                ? numericDuration
-                : null,
+            source: "studio_outcome_first_mission_composer",
             budget_ceiling:
-              Number.isFinite(numericBudget) && numericBudget >= 0
+              budget.trim() && Number.isFinite(numericBudget) && numericBudget >= 0
                 ? numericBudget
                 : null,
             budget_currency_source: "ORGANIZATION_CONFIGURATION",
             desired_outcome: desiredOutcome.trim(),
+            creative_solution_source: "DIRECTOR_RESOLVED_FROM_CONTEXT",
             publication_requires_human_approval: true,
             production_dossier_approval_required: true,
             promptless_input: true,
@@ -136,6 +98,7 @@ export default function MissionWorkspace({ runtime, editor }) {
       editor.closeMissionComposer?.();
       setBusinessGoal("");
       setDesiredOutcome("");
+      setBudget("");
       await runtime.refresh?.();
     } catch (createError) {
       setError(createError?.message || "Mission creation failed");
@@ -155,11 +118,11 @@ export default function MissionWorkspace({ runtime, editor }) {
               Mission control
             </div>
             <h2 className="mt-4 max-w-4xl text-3xl font-semibold tracking-[-0.03em] text-white lg:text-5xl">
-              {mission?.business_goal || "Give Studio a business objective. It handles the creative work."}
+              {mission?.business_goal || "Give Studio a business objective. It decides how to solve it."}
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-white/42 lg:text-base">
               {mission?.objective ||
-                "Set the outcome, deliverable and commercial constraints. Avantiqo researches, develops strategy, originates the concept, plans production and stops at governed approval points."}
+                "Set the business outcome and commercial constraints. Avantiqo resolves the creative strategy, media mix, production capabilities and governed approval points from organization evidence."}
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -174,7 +137,7 @@ export default function MissionWorkspace({ runtime, editor }) {
                 ))
               ) : (
                 <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-white/35">
-                  Channels selected by mission context
+                  Media and channels resolved from mission context
                 </span>
               )}
             </div>
@@ -210,10 +173,10 @@ export default function MissionWorkspace({ runtime, editor }) {
 
       <section className="px-6 py-7 lg:px-10">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric label="Deliverables" value={projects.length} detail={activeProject?.production_type || "Creative projects"} icon={Clapperboard} />
-          <Metric label="Scenes" value={scenes.length} detail="Storyboard + production structure" icon={Film} />
-          <Metric label="Assets" value={assets.length} detail="Approved and generated media" icon={Globe2} />
-          <Metric label="Tasks" value={tasks.length} detail={`${runtime.queueRuntime?.total || 0} in production queue`} icon={CalendarRange} />
+          <Metric label="Deliverables" value={projects.length} detail={activeProject?.production_type || "Director-resolved work"} icon={Clapperboard} />
+          <Metric label="Assets" value={assets.length} detail="Approved, source and generated assets" icon={Globe2} />
+          <Metric label="Tasks" value={tasks.length} detail="Capability-backed production work" icon={CalendarRange} />
+          <Metric label="Queue" value={runtime.queueRuntime?.total || 0} detail="Governed execution items" icon={Layers3} />
         </div>
 
         <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]">
@@ -221,16 +184,16 @@ export default function MissionWorkspace({ runtime, editor }) {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.24em] text-white/30">Creative workflow</div>
-                <h3 className="mt-2 text-xl font-semibold text-white/90">Studio works from evidence, not prompts</h3>
+                <h3 className="mt-2 text-xl font-semibold text-white/90">Studio works from evidence, not media presets</h3>
               </div>
               <Megaphone className="h-5 w-5 text-[#d5b56d]/60" />
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {[
-                ["01", "Understand", "Business context, brand, audience and approved assets."],
-                ["02", "Originate", "Research, strategy and distinct creative territories."],
-                ["03", "Produce", "Storyboard, production plan, cost control and provider governance."],
+                ["01", "Understand", "Business context, brand, audience, objective and approved evidence."],
+                ["02", "Originate", "Research, strategy and distinct creative direction from the actual mission."],
+                ["03", "Resolve", "Choose the required media, capabilities, production graph and cost envelope."],
                 ["04", "Improve", "Quality review, human decisions and verified outcome learning."],
               ].map(([number, title, detail]) => (
                 <div key={number} className="rounded-2xl border border-white/7 bg-black/20 p-4">
@@ -257,7 +220,7 @@ export default function MissionWorkspace({ runtime, editor }) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-white/75">{project.name || "Creative deliverable"}</div>
-                    <div className="mt-0.5 text-[10px] text-white/28">{project.production_type || "Production"} · {statusLabel(project.status)}</div>
+                    <div className="mt-0.5 text-[10px] text-white/28">{project.production_type || "Director resolving medium"} · {statusLabel(project.status)}</div>
                   </div>
                   <ArrowRight className="h-3.5 w-3.5 text-white/25" />
                 </button>
@@ -266,7 +229,7 @@ export default function MissionWorkspace({ runtime, editor }) {
               {!projects.length ? (
                 <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center">
                   <div className="text-sm font-medium text-white/55">No deliverable yet</div>
-                  <div className="mt-1 text-xs text-white/28">Create and start a mission to build the production plan.</div>
+                  <div className="mt-1 text-xs text-white/28">Create and start a mission. Studio will resolve what needs to be produced.</div>
                 </div>
               ) : null}
             </div>
@@ -301,7 +264,7 @@ export default function MissionWorkspace({ runtime, editor }) {
                   <input
                     value={businessGoal}
                     onChange={(event) => setBusinessGoal(event.target.value)}
-                    placeholder="Increase bookings for the September launch"
+                    placeholder="What should change for the business?"
                     className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-[#d5b56d]/35"
                   />
                 </label>
@@ -311,94 +274,29 @@ export default function MissionWorkspace({ runtime, editor }) {
                   <input
                     value={desiredOutcome}
                     onChange={(event) => setDesiredOutcome(event.target.value)}
-                    placeholder="Create a premium launch campaign that converts"
+                    placeholder="What measurable or observable result matters?"
                     className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-[#d5b56d]/35"
                   />
                 </label>
               </div>
 
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Primary deliverable</div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  {DELIVERABLES.map((item) => {
-                    const Icon = item.icon;
-                    const active = productionType === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setProductionType(item.id)}
-                        className={`rounded-xl border p-3 text-left transition ${
-                          active
-                            ? "border-[#d5b56d]/35 bg-[#d5b56d]/10 text-[#efd79e]"
-                            : "border-white/8 bg-white/[0.02] text-white/45 hover:bg-white/[0.04]"
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <div className="mt-2 text-xs font-medium">{item.label}</div>
-                      </button>
-                    );
-                  })}
+              <label className="block max-w-md">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Budget ceiling</span>
+                <div className="mt-2 flex rounded-xl border border-white/10 bg-black/30">
+                  <input
+                    type="number"
+                    min="0"
+                    value={budget}
+                    onChange={(event) => setBudget(event.target.value)}
+                    placeholder="Optional"
+                    className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-white/20"
+                  />
+                  <span className="flex items-center px-3 text-[10px] text-white/25">org currency</span>
                 </div>
-              </div>
-
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Delivery channels</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {CHANNELS.map((channel) => {
-                    const active = channels.includes(channel);
-                    return (
-                      <button
-                        key={channel}
-                        type="button"
-                        onClick={() => toggleChannel(channel)}
-                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs transition ${
-                          active
-                            ? "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100/80"
-                            : "border-white/8 bg-white/[0.02] text-white/35"
-                        }`}
-                      >
-                        {active ? <Check className="h-3 w-3" /> : null}
-                        {channel}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <label>
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Target duration</span>
-                  <div className="mt-2 flex rounded-xl border border-white/10 bg-black/30">
-                    <input
-                      type="number"
-                      min="1"
-                      value={duration}
-                      onChange={(event) => setDuration(event.target.value)}
-                      className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-white outline-none"
-                    />
-                    <span className="flex items-center px-3 text-xs text-white/25">sec</span>
-                  </div>
-                </label>
-
-                <label>
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Budget ceiling</span>
-                  <div className="mt-2 flex rounded-xl border border-white/10 bg-black/30">
-                    <input
-                      type="number"
-                      min="0"
-                      value={budget}
-                      onChange={(event) => setBudget(event.target.value)}
-                      placeholder="Optional"
-                      className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-white/20"
-                    />
-                    <span className="flex items-center px-3 text-[10px] text-white/25">org currency</span>
-                  </div>
-                </label>
-              </div>
+              </label>
 
               <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 text-xs leading-5 text-white/35">
-                Studio will derive research, strategy, creative direction and production specifications from organization context, brand evidence and approved assets. This form does not create or store a generation prompt. Currency and other jurisdiction-specific values resolve from organization configuration.
+                Studio will determine the creative strategy, deliverable mix, channels, formats and production capabilities from organization context, brand evidence, approved assets and the mission outcome. Nothing in this form silently defaults the work to a medium or channel. Production spend and publication remain governed approval decisions.
               </div>
 
               {error ? (

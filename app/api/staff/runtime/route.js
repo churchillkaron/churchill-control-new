@@ -4,7 +4,13 @@ import { NextResponse } from "next/server";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import buildPeopleRuntime from "@/lib/people/runtime/PeopleRuntime";
-import { loadStaffWorkday } from "@/lib/people/workforce/shiftRuntime";
+import {
+  loadClockInRequirements,
+  loadStaffWorkday,
+} from "@/lib/people/workforce/shiftRuntime";
+import { loadStaffPasskeyStatus } from "@/lib/people/workforce/passkeyClockInVerification";
+import { loadClockInExceptionState } from "@/lib/people/workforce/clockInExceptionApproval";
+import { loadOrganizationPolicy } from "@/lib/platform/security/organizationAccessPolicy";
 import { scheduleWindow } from "@/lib/shared/time/organizationTime";
 
 function formatDuration(clockIn) {
@@ -55,7 +61,14 @@ export async function GET(request) {
 
     const { user, staff, organizationId } = context;
 
-    const [workday, latestPayroll] = await Promise.all([
+    const [
+      workday,
+      latestPayroll,
+      locationRequirements,
+      organizationPolicy,
+      passkeyStatus,
+      clockInExceptionState,
+    ] = await Promise.all([
       loadStaffWorkday({
         organizationId,
         staffId: staff.id,
@@ -71,6 +84,13 @@ export async function GET(request) {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      loadClockInRequirements({ organizationId }),
+      loadOrganizationPolicy({ organizationId }),
+      loadStaffPasskeyStatus({ userId: user.id }),
+      loadClockInExceptionState({
+        organizationId,
+        staffId: staff.id,
+      }),
     ]);
 
     if (latestPayroll.error) throw latestPayroll.error;
@@ -90,6 +110,20 @@ export async function GET(request) {
       schedule: workday.schedule,
       timezone: workday.timezone,
     });
+
+    const clockInRequirements = {
+      ...locationRequirements,
+      passkeyRequired:
+        organizationPolicy?.workforce?.passkey_clock_in_required === true,
+      passkeyEnrolled: passkeyStatus.enrolled,
+      passkeyCount: passkeyStatus.count,
+      exception: {
+        latest: clockInExceptionState.latest || null,
+        activeApprovedTargets:
+          clockInExceptionState.activeApprovedTargets || [],
+        pendingTargets: clockInExceptionState.pendingTargets || [],
+      },
+    };
 
     return NextResponse.json({
       success: true,
@@ -116,6 +150,8 @@ export async function GET(request) {
         ? formatDuration(workday.openShift.clock_in)
         : "00:00",
       shiftStatus,
+      clockInRequirements,
+      clockInExceptionState,
       runtime,
       socialFeed: [
         {

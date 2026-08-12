@@ -5,15 +5,20 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Banknote,
   CalendarDays,
   Clock3,
+  KeyRound,
   LogIn,
   LogOut,
+  MapPin,
   RefreshCw,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
+import captureClockInLocation from "@/lib/people/workforce/captureClockInLocation";
+import verifyClockInPasskey from "@/lib/people/workforce/verifyClockInPasskey";
 
 function money(value, currency = "") {
   const amount = Number(value || 0).toLocaleString("en-US", {
@@ -107,6 +112,15 @@ export default function StaffPortalPage() {
   const timezone = profile?.timezone || runtime?.timezone || "UTC";
   const upcomingSchedules = profile?.upcomingSchedules || [];
   const recentAttendance = profile?.recentAttendance || [];
+  const requirements = runtime?.clockInRequirements || {};
+  const approvedTargets = new Set(
+    requirements?.exception?.activeApprovedTargets || []
+  );
+  const pendingTargets = requirements?.exception?.pendingTargets || [];
+  const passkeyExceptionApproved = approvedTargets.has("passkey");
+  const gpsExceptionApproved = approvedTargets.has("gps");
+  const exceptionApproved = passkeyExceptionApproved || gpsExceptionApproved;
+  const latestException = requirements?.exception?.latest || null;
 
   const shiftLabel = useMemo(() => {
     if (runtime?.shiftActive) return "Clocked in";
@@ -122,10 +136,38 @@ export default function StaffPortalPage() {
     setMessage("");
 
     try {
+      const currentRequirements = runtime?.clockInRequirements || {};
+      const currentApprovedTargets = new Set(
+        currentRequirements?.exception?.activeApprovedTargets || []
+      );
+      const passkeyApproved = currentApprovedTargets.has("passkey");
+      const gpsApproved = currentApprovedTargets.has("gps");
+
+      if (
+        action === "clock_in" &&
+        currentRequirements.passkeyRequired &&
+        !passkeyApproved
+      ) {
+        if (!currentRequirements.passkeyEnrolled) {
+          throw new Error(
+            "Register a passkey in Workforce Profile before starting your shift"
+          );
+        }
+
+        await verifyClockInPasskey();
+      }
+
+      const location =
+        action === "clock_in" &&
+        currentRequirements.gpsRequired &&
+        !gpsApproved
+          ? await captureClockInLocation()
+          : null;
+
       const response = await fetch("/api/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, location }),
       });
       const result = await response.json();
 
@@ -197,6 +239,50 @@ export default function StaffPortalPage() {
                     {runtime?.activeShift?.clock_in ? (
                       <p className="mt-2 text-xs text-white/30">Started {dateTime(runtime.activeShift.clock_in, timezone)} · elapsed {runtime.shiftDuration || "00:00"}</p>
                     ) : null}
+
+                    {!runtime?.shiftActive && exceptionApproved ? (
+                      <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-xs text-amber-100/80">
+                        <div className="flex items-center gap-2 font-black">
+                          <AlertTriangle className="h-3.5 w-3.5" /> Manager exception approved · one-time
+                        </div>
+                        <div className="mt-1 text-amber-100/55">
+                          {[passkeyExceptionApproved ? "Passkey" : null, gpsExceptionApproved ? "GPS" : null]
+                            .filter(Boolean)
+                            .join(" + ")}
+                          {latestException?.expiresAt
+                            ? ` · expires ${dateTime(latestException.expiresAt, timezone)}`
+                            : ""}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {!runtime?.shiftActive && pendingTargets.length && !exceptionApproved ? (
+                      <p className="mt-2 flex items-center gap-2 text-xs text-amber-200/65">
+                        <AlertTriangle className="h-3.5 w-3.5" /> Manager exception pending for {pendingTargets.join(" + ")}.
+                      </p>
+                    ) : null}
+
+                    {!runtime?.shiftActive && requirements.passkeyRequired && !passkeyExceptionApproved ? (
+                      <p className="mt-2 flex items-center gap-2 text-xs text-violet-200/70">
+                        <KeyRound className="h-3.5 w-3.5" />
+                        {requirements.passkeyEnrolled
+                          ? "Identity verification will be required before clock-in."
+                          : "Register a passkey in Workforce Profile before clock-in."}
+                      </p>
+                    ) : null}
+                    {!runtime?.shiftActive && requirements.gpsRequired && !gpsExceptionApproved ? (
+                      <p className="mt-2 flex items-center gap-2 text-xs text-cyan-200/60">
+                        <MapPin className="h-3.5 w-3.5" /> GPS location will be verified before clock-in.
+                      </p>
+                    ) : null}
+                    {!runtime?.shiftActive && (requirements.passkeyRequired || requirements.gpsRequired) ? (
+                      <Link
+                        href="/workforce/profile"
+                        className="mt-3 inline-flex text-[10px] font-black uppercase tracking-[0.12em] text-white/35 underline decoration-white/20 underline-offset-4"
+                      >
+                        Verification problem? Request manager exception
+                      </Link>
+                    ) : null}
                   </div>
                   <CalendarDays className="h-6 w-6 text-[#D6A66A]" />
                 </div>
@@ -208,7 +294,15 @@ export default function StaffPortalPage() {
                   className={`mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-xs font-black uppercase tracking-[0.16em] disabled:opacity-40 ${runtime?.shiftActive ? "border border-red-400/25 bg-red-400/10 text-red-200" : "bg-[#D6A66A] text-black"}`}
                 >
                   {runtime?.shiftActive ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
-                  {working ? "Updating..." : runtime?.shiftActive ? "Clock out" : "Clock in"}
+                  {working
+                    ? !runtime?.shiftActive && requirements.passkeyRequired && !passkeyExceptionApproved
+                      ? "Verifying identity..."
+                      : !runtime?.shiftActive && requirements.gpsRequired && !gpsExceptionApproved
+                        ? "Verifying location..."
+                        : "Starting shift..."
+                    : runtime?.shiftActive
+                      ? "Clock out"
+                      : "Clock in"}
                 </button>
               </article>
 

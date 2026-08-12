@@ -38,6 +38,20 @@ function canManageIntegrations(access) {
     .some((role) => INTEGRATION_ROLES.has(role));
 }
 
+function publicOrigin(request) {
+  const configured =
+    text(process.env.NEXT_PUBLIC_APP_URL) ||
+    text(process.env.NEXT_PUBLIC_BASE_URL) ||
+    text(process.env.NEXT_PUBLIC_SITE_URL) ||
+    text(process.env.APP_URL);
+  const origin = configured || new URL(request.url).origin;
+  return origin.replace(/\/$/, "");
+}
+
+function lineWebhookUrl(origin, connectionId) {
+  return `${origin}/api/commercial/communications/webhooks/line/${encodeURIComponent(connectionId)}`;
+}
+
 async function resolveAccess(request, body = {}) {
   const url = new URL(request.url);
   return requireOrganizationAccess({
@@ -58,6 +72,13 @@ function safeConnection(connection) {
     status: connection.status,
     accountLabel: metadata.display_name || metadata.basic_id || null,
     connectedAt: metadata.connected_at || null,
+    webhookUrl: metadata.webhook_url || null,
+    webhookActive: metadata.webhook_active === true,
+    webhookConfigured: Boolean(metadata.webhook_url),
+    actionRequired:
+      metadata.webhook_url && metadata.webhook_active !== true
+        ? "Enable Use webhook in the LINE Messaging API channel settings."
+        : null,
   };
 }
 
@@ -87,11 +108,40 @@ async function snapshot(organizationId) {
   };
 }
 
-async function connectLine({ access, channelId, channelSecret }) {
+async function lineJson(path, accessToken, options = {}) {
+  const response = await fetch(`https://api.line.me${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    cache: "no-store",
+  });
+  const raw = await response.text();
+  const payload = raw ? JSON.parse(raw) : {};
+  if (!response.ok) {
+    throw new Error(payload?.message || `LINE webhook configuration failed (${response.status})`);
+  }
+  return payload;
+}
+
+async function configureLineWebhook({ accessToken, endpoint }) {
+  await lineJson("/v2/bot/channel/webhook/endpoint", accessToken, {
+    method: "PUT",
+    body: JSON.stringify({ endpoint }),
+  });
+  return lineJson("/v2/bot/channel/webhook/endpoint", accessToken);
+}
+
+async function connectLine({ access, channelId, channelSecret, origin }) {
   const id = text(channelId);
   const secret = text(channelSecret);
   if (!id) throw new Error("LINE Messaging API Channel ID is required");
   if (!secret) throw new Error("LINE Messaging API Channel secret is required");
+  if (!text(origin).startsWith("https://")) {
+    throw new Error("LINE requires a public HTTPS application URL before Communications can receive messages");
+  }
 
   const issued = await issueLineStatelessChannelAccessToken({
     channel_id: id,
@@ -116,7 +166,8 @@ async function connectLine({ access, channelId, channelSecret }) {
     },
   });
 
-  const connection = await ChannelConnectionRuntime.connect({
+  const connectedAt = new Date().toISOString();
+  let connection = await ChannelConnectionRuntime.connect({
     organization_id: access.organizationId,
     provider: PROVIDER,
     channel_type: "messaging",
@@ -128,7 +179,32 @@ async function connectLine({ access, channelId, channelSecret }) {
       basic_id: bot.basicId || null,
       display_name: bot.displayName || null,
       connected_by_party_id: access.staff?.party_id || null,
-      connected_at: new Date().toISOString(),
+      connected_at: connectedAt,
+    },
+  });
+
+  const webhookUrl = lineWebhookUrl(origin, connection.id);
+  const webhookInfo = await configureLineWebhook({
+    accessToken: issued.access_token,
+    endpoint: webhookUrl,
+  });
+
+  connection = await ChannelConnectionRuntime.connect({
+    organization_id: access.organizationId,
+    provider: PROVIDER,
+    channel_type: "messaging",
+    credentials_reference: credential.id,
+    metadata: {
+      connection_model: "ORGANIZATION_LINE_MESSAGING_API",
+      channel_id: id,
+      bot_user_id: bot.userId,
+      basic_id: bot.basicId || null,
+      display_name: bot.displayName || null,
+      connected_by_party_id: access.staff?.party_id || null,
+      connected_at: connectedAt,
+      webhook_url: webhookUrl,
+      webhook_active: webhookInfo?.active === true,
+      webhook_configured_at: new Date().toISOString(),
     },
   });
 
@@ -199,6 +275,7 @@ export async function POST(request) {
       access,
       channelId: body.channelId,
       channelSecret: body.channelSecret,
+      origin: publicOrigin(request),
     });
 
     return NextResponse.json({

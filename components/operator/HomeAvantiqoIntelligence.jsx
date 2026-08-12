@@ -56,6 +56,20 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     messagesRef.current = messages;
   }, [messages]);
 
+  function speakResponse(message) {
+    const spoken = text(message);
+    if (!spoken) return;
+
+    window.dispatchEvent(
+      new CustomEvent("avantiqo:speak", {
+        detail: {
+          message: spoken,
+          source: "operator",
+        },
+      }),
+    );
+  }
+
   async function sendMessage(rawValue, source = "text") {
     const message = text(rawValue);
     if (!message || !organizationId || busyRef.current) return;
@@ -98,6 +112,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       }
 
       const decision = result?.decision || {};
+      const responseText = decision?.response_text || "Done.";
       agreementStateRef.current =
         result?.agreement_state ||
         decision?.agreement_state ||
@@ -105,23 +120,32 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
       setMessages((current) => [
         ...current,
-        createMessage("assistant", decision?.response_text || "Done.", {
+        createMessage("assistant", responseText, {
           options: Array.isArray(decision?.clarification?.options)
             ? decision.clarification.options
             : [],
         }),
       ]);
 
+      if (source === "voice") {
+        speakResponse(responseText);
+      }
+
       if (result?.navigation?.href) {
         router.push(result.navigation.href);
       }
     } catch (requestError) {
       const messageText = requestError?.message || "Avantiqo failed";
+      const responseText = `I couldn't complete that: ${messageText}`;
       setError(messageText);
       setMessages((current) => [
         ...current,
-        createMessage("assistant", `I couldn't complete that: ${messageText}`),
+        createMessage("assistant", responseText),
       ]);
+
+      if (source === "voice") {
+        speakResponse(responseText);
+      }
     } finally {
       busyRef.current = false;
       setBusy(false);

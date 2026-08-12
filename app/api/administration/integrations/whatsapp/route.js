@@ -34,6 +34,20 @@ function graphVersion() {
   return configured.startsWith("v") ? configured : `v${configured}`;
 }
 
+function publicOrigin(request) {
+  const configured =
+    text(process.env.NEXT_PUBLIC_APP_URL) ||
+    text(process.env.NEXT_PUBLIC_BASE_URL) ||
+    text(process.env.NEXT_PUBLIC_SITE_URL) ||
+    text(process.env.APP_URL);
+  const origin = configured || new URL(request.url).origin;
+  return origin.replace(/\/$/, "");
+}
+
+function whatsappWebhookUrl(origin) {
+  return `${origin}/api/commercial/communications/webhooks/whatsapp`;
+}
+
 function canManageIntegrations(access) {
   return [access?.role, access?.access?.role, access?.membership?.role, access?.staff?.role]
     .map(upper)
@@ -64,6 +78,9 @@ function safeConnection(connection) {
       metadata.business_name ||
       null,
     authorizedAt: connection.authorized_at || null,
+    webhookUrl: metadata.webhook_url || null,
+    webhookSubscribed: metadata.webhook_subscribed === true,
+    webhookVerifiedAt: metadata.webhook_verified_at || null,
   };
 }
 
@@ -76,7 +93,7 @@ function safePhone(asset) {
   };
 }
 
-async function snapshot(organizationId) {
+async function snapshot(organizationId, origin = null) {
   const [connection, assetsResult] = await Promise.all([
     ChannelConnectionRuntime.get({ organization_id: organizationId, provider: PROVIDER }),
     supabaseAdmin
@@ -89,6 +106,10 @@ async function snapshot(organizationId) {
 
   if (assetsResult.error) throw assetsResult.error;
 
+  const verifyTokenReady = Boolean(text(process.env.META_WHATSAPP_WEBHOOK_VERIFY_TOKEN));
+  const webhookUrl = origin ? whatsappWebhookUrl(origin) : null;
+  const webhookUrlReady = !webhookUrl || webhookUrl.startsWith("https://");
+
   return {
     connection: safeConnection(connection),
     phoneNumbers: (assetsResult.data || [])
@@ -98,20 +119,29 @@ async function snapshot(organizationId) {
       ready: Boolean(
         text(process.env.META_APP_ID) &&
         text(process.env.META_APP_SECRET) &&
-        text(process.env.META_WHATSAPP_CONFIG_ID),
+        text(process.env.META_WHATSAPP_CONFIG_ID) &&
+        verifyTokenReady &&
+        webhookUrlReady,
       ),
       appId: text(process.env.META_APP_ID) || null,
       configId: text(process.env.META_WHATSAPP_CONFIG_ID) || null,
       graphVersion: graphVersion(),
+      webhookReady: verifyTokenReady && webhookUrlReady,
+      webhookUrl,
     },
   };
 }
 
-async function graphJson(path, accessToken) {
+async function graphJson(path, accessToken, options = {}) {
   const response = await fetch(
     `https://graph.facebook.com/${graphVersion()}/${String(path).replace(/^\//, "")}`,
     {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      ...options,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.headers || {}),
+      },
       cache: "no-store",
     },
   );
@@ -144,7 +174,37 @@ async function exchangeCode(code) {
   return payload.access_token;
 }
 
-async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, businessId }) {
+async function subscribeWaba({ wabaId, accessToken, callbackUrl }) {
+  const verifyToken = text(process.env.META_WHATSAPP_WEBHOOK_VERIFY_TOKEN);
+  if (!verifyToken) {
+    throw new Error("META_WHATSAPP_WEBHOOK_VERIFY_TOKEN is required before WhatsApp can receive messages");
+  }
+  if (!text(callbackUrl).startsWith("https://")) {
+    throw new Error("WhatsApp requires a public HTTPS application URL before Communications can receive messages");
+  }
+
+  await graphJson(`${wabaId}/subscribed_apps`, accessToken, {
+    method: "POST",
+    body: JSON.stringify({
+      override_callback_uri: callbackUrl,
+      verify_token: verifyToken,
+    }),
+  });
+
+  const subscriptions = await graphJson(`${wabaId}/subscribed_apps`, accessToken);
+  const appId = text(process.env.META_APP_ID);
+  const subscription = (subscriptions?.data || []).find((row) => {
+    const rowAppId = text(row?.whatsapp_business_api_data?.id);
+    return (!appId || rowAppId === appId) && text(row?.override_callback_uri) === callbackUrl;
+  });
+  if (!subscription) {
+    throw new Error("WhatsApp webhook subscription could not be verified after Embedded Signup");
+  }
+
+  return subscription;
+}
+
+async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, businessId, origin }) {
   if (!text(code) || !text(phoneNumberId) || !text(wabaId)) {
     throw new Error("WhatsApp signup did not return the required business account information");
   }
@@ -154,6 +214,9 @@ async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, bus
     graphJson(`${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating`, accessToken),
     graphJson(`${wabaId}?fields=id,name`, accessToken),
   ]);
+
+  const callbackUrl = whatsappWebhookUrl(origin);
+  await subscribeWaba({ wabaId, accessToken, callbackUrl });
 
   const credential = await CredentialRuntime.store({
     provider_id: PROVIDER,
@@ -184,6 +247,9 @@ async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, bus
       business_name: businessAccount?.name || null,
       connected_by_party_id: access.staff?.party_id || null,
       connected_at: new Date().toISOString(),
+      webhook_url: callbackUrl,
+      webhook_subscribed: true,
+      webhook_verified_at: new Date().toISOString(),
     },
   });
 
@@ -215,7 +281,7 @@ async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, bus
     },
   });
 
-  return snapshot(access.organizationId);
+  return snapshot(access.organizationId, origin);
 }
 
 export async function GET(request) {
@@ -231,7 +297,7 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       organizationId: access.organizationId,
-      ...(await snapshot(access.organizationId)),
+      ...(await snapshot(access.organizationId, publicOrigin(request))),
     });
   } catch (error) {
     return NextResponse.json(
@@ -264,12 +330,14 @@ export async function POST(request) {
       );
     }
 
+    const origin = publicOrigin(request);
     const result = await completeEmbeddedSignup({
       access,
       code: body.code,
       phoneNumberId: body.phoneNumberId,
       wabaId: body.wabaId,
       businessId: body.businessId || null,
+      origin,
     });
 
     return NextResponse.json({

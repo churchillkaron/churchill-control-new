@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, ExternalLink, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, RefreshCw } from "lucide-react";
 
 function loadFacebookSdk({ appId, version }) {
   return new Promise((resolve, reject) => {
@@ -89,7 +89,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
         throw new Error(data.error || "WhatsApp Business connection failed");
       }
       setSnapshot(data);
-      setNotice("WhatsApp Business connected.");
+      setNotice("WhatsApp Business connected and inbound messaging is operational.");
       signupRef.current = { code: null, session: null, completing: false };
     } catch (actionError) {
       signupRef.current.completing = false;
@@ -162,6 +162,8 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
   }
 
   const connected = snapshot?.connection?.status === "ACTIVE";
+  const webhookSubscribed = snapshot?.connection?.webhookSubscribed === true;
+  const operational = connected && webhookSubscribed;
   const phone = snapshot?.phoneNumbers?.[0] || null;
 
   return (
@@ -183,8 +185,8 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                 Connect the WhatsApp Business account this organization uses for customer conversations and notifications.
               </p>
             </div>
-            <div className={`rounded-full border px-3 py-1 text-xs ${connected ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-white/10 bg-white/[0.04] text-white/50"}`}>
-              {connected ? "Connected" : "Not connected"}
+            <div className={`rounded-full border px-3 py-1 text-xs ${operational ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : connected ? "border-amber-400/20 bg-amber-400/10 text-amber-100" : "border-white/10 bg-white/[0.04] text-white/50"}`}>
+              {operational ? "Operational" : connected ? "Reconnect required" : "Not connected"}
             </div>
           </div>
 
@@ -195,16 +197,23 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
           )}
 
           {connected ? (
-            <div className="mt-6 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] p-5">
-              <div className="flex items-center gap-2 text-emerald-200">
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="font-medium">WhatsApp Business is connected</span>
+            <div className={`mt-6 rounded-2xl border p-5 ${operational ? "border-emerald-400/15 bg-emerald-400/[0.06]" : "border-amber-400/20 bg-amber-400/[0.06]"}`}>
+              <div className={`flex items-center gap-2 ${operational ? "text-emerald-200" : "text-amber-100"}`}>
+                {operational ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                <span className="font-medium">
+                  {operational ? "WhatsApp messaging is operational" : "This older connection does not have the Communications webhook subscription"}
+                </span>
               </div>
               <div className="mt-3 text-sm text-white/55">
                 {phone?.name || snapshot?.connection?.accountLabel || "Connected WhatsApp Business account"}
               </div>
               {phone?.displayPhoneNumber ? (
                 <div className="mt-1 text-xs text-white/35">{phone.displayPhoneNumber}</div>
+              ) : null}
+              {!operational ? (
+                <div className="mt-4 text-xs leading-5 text-amber-50/75">
+                  Reconnect this WhatsApp Business account with Embedded Signup. Avantiqo will subscribe and verify the WABA webhook automatically before reporting success.
+                </div>
               ) : null}
               <button
                 type="button"
@@ -227,7 +236,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
             </button>
           ) : (
             <div className="mt-6 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-5 text-sm text-amber-100/75">
-              WhatsApp Business connection is being enabled by Avantiqo. No customer configuration is required yet.
+              WhatsApp Business connection requires the Meta app, Embedded Signup configuration, a public HTTPS Avantiqo URL, and the server-only webhook verification token.
             </div>
           )}
         </div>

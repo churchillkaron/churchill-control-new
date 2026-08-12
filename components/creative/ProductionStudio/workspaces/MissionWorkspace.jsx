@@ -35,12 +35,6 @@ const CHANNELS = [
   "display",
 ];
 
-function compactNumber(value) {
-  return Number(value || 0).toLocaleString(undefined, {
-    maximumFractionDigits: 0,
-  });
-}
-
 function statusLabel(value) {
   return String(value || "draft")
     .replaceAll("_", " ")
@@ -75,7 +69,6 @@ export default function MissionWorkspace({ runtime, editor }) {
   const [duration, setDuration] = useState("30");
   const [channels, setChannels] = useState(["instagram"]);
   const [budget, setBudget] = useState("");
-  const [currency, setCurrency] = useState(mission?.currency || "USD");
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
 
@@ -115,8 +108,6 @@ export default function MissionWorkspace({ runtime, editor }) {
           objective: desiredOutcome.trim(),
           status: "draft",
           channels,
-          budget: Number.isFinite(numericBudget) ? numericBudget : 0,
-          currency,
           metadata: {
             source: "studio_structured_mission_composer",
             production_type: productionType,
@@ -124,6 +115,11 @@ export default function MissionWorkspace({ runtime, editor }) {
               Number.isFinite(numericDuration) && numericDuration > 0
                 ? numericDuration
                 : null,
+            budget_ceiling:
+              Number.isFinite(numericBudget) && numericBudget >= 0
+                ? numericBudget
+                : null,
+            budget_currency_source: "ORGANIZATION_CONFIGURATION",
             desired_outcome: desiredOutcome.trim(),
             publication_requires_human_approval: true,
             production_dossier_approval_required: true,
@@ -370,7 +366,7 @@ export default function MissionWorkspace({ runtime, editor }) {
                 </div>
               </div>
 
-              <div className="grid gap-5 sm:grid-cols-3">
+              <div className="grid gap-5 sm:grid-cols-2">
                 <label>
                   <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Target duration</span>
                   <div className="mt-2 flex rounded-xl border border-white/10 bg-black/30">
@@ -393,29 +389,16 @@ export default function MissionWorkspace({ runtime, editor }) {
                       min="0"
                       value={budget}
                       onChange={(event) => setBudget(event.target.value)}
-                      placeholder="0"
+                      placeholder="Optional"
                       className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-white/20"
                     />
+                    <span className="flex items-center px-3 text-[10px] text-white/25">org currency</span>
                   </div>
-                </label>
-
-                <label>
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Currency</span>
-                  <select
-                    value={currency}
-                    onChange={(event) => setCurrency(event.target.value)}
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-[#10100f] px-4 py-3 text-sm text-white outline-none"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="THB">THB</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                  </select>
                 </label>
               </div>
 
               <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 text-xs leading-5 text-white/35">
-                Studio will derive research, strategy, creative direction and production specifications from organization context, brand evidence and approved assets. This form does not create or store a generation prompt.
+                Studio will derive research, strategy, creative direction and production specifications from organization context, brand evidence and approved assets. This form does not create or store a generation prompt. Currency and other jurisdiction-specific values resolve from organization configuration.
               </div>
 
               {error ? (

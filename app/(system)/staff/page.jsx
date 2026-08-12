@@ -8,6 +8,7 @@ import {
   Banknote,
   CalendarDays,
   Clock3,
+  KeyRound,
   LogIn,
   LogOut,
   RefreshCw,
@@ -15,6 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 import captureClockInLocation from "@/lib/people/workforce/captureClockInLocation";
+import verifyClockInPasskey from "@/lib/people/workforce/verifyClockInPasskey";
 
 function money(value, currency = "") {
   const amount = Number(value || 0).toLocaleString("en-US", {
@@ -123,8 +125,20 @@ export default function StaffPortalPage() {
     setMessage("");
 
     try {
+      const requirements = runtime?.clockInRequirements || {};
+
+      if (action === "clock_in" && requirements.passkeyRequired) {
+        if (!requirements.passkeyEnrolled) {
+          throw new Error(
+            "Register a passkey in Workforce Profile before starting your shift"
+          );
+        }
+
+        await verifyClockInPasskey();
+      }
+
       const location =
-        action === "clock_in" && runtime?.clockInRequirements?.gpsRequired
+        action === "clock_in" && requirements.gpsRequired
           ? await captureClockInLocation()
           : null;
 
@@ -203,6 +217,14 @@ export default function StaffPortalPage() {
                     {runtime?.activeShift?.clock_in ? (
                       <p className="mt-2 text-xs text-white/30">Started {dateTime(runtime.activeShift.clock_in, timezone)} · elapsed {runtime.shiftDuration || "00:00"}</p>
                     ) : null}
+                    {!runtime?.shiftActive && runtime?.clockInRequirements?.passkeyRequired ? (
+                      <p className="mt-2 flex items-center gap-2 text-xs text-violet-200/70">
+                        <KeyRound className="h-3.5 w-3.5" />
+                        {runtime?.clockInRequirements?.passkeyEnrolled
+                          ? "Identity verification will be required before clock-in."
+                          : "Register a passkey in Workforce Profile before clock-in."}
+                      </p>
+                    ) : null}
                     {!runtime?.shiftActive && runtime?.clockInRequirements?.gpsRequired ? (
                       <p className="mt-2 text-xs text-cyan-200/60">GPS location will be verified before clock-in.</p>
                     ) : null}
@@ -217,7 +239,13 @@ export default function StaffPortalPage() {
                   className={`mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-xs font-black uppercase tracking-[0.16em] disabled:opacity-40 ${runtime?.shiftActive ? "border border-red-400/25 bg-red-400/10 text-red-200" : "bg-[#D6A66A] text-black"}`}
                 >
                   {runtime?.shiftActive ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
-                  {working ? "Updating..." : runtime?.shiftActive ? "Clock out" : "Clock in"}
+                  {working
+                    ? !runtime?.shiftActive && runtime?.clockInRequirements?.passkeyRequired
+                      ? "Verifying identity..."
+                      : "Updating..."
+                    : runtime?.shiftActive
+                      ? "Clock out"
+                      : "Clock in"}
                 </button>
               </article>
 

@@ -41,8 +41,9 @@ export async function POST(request) {
       {
         success: false,
         error: error?.message || "Unable to reject approval",
+        code: error?.code || null,
       },
-      { status: 500 }
+      { status: Number(error?.status) || 500 }
     );
   }
 }

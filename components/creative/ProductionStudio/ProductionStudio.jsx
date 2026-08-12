@@ -15,8 +15,7 @@ import BottomDock from "./layout/BottomDock";
 export default function ProductionStudio({
   runtime,
 }) {
-  const editor =
-    useCreativeEditor(runtime);
+  const editor = useCreativeEditor(runtime);
 
   const liveRuntime = {
     ...runtime,
@@ -32,8 +31,11 @@ export default function ProductionStudio({
     refreshing: editor.refreshing,
   };
 
-  const layout =
-    runtime.workspace?.layout || {};
+  const activeWorkspace =
+    runtime.workspaces?.find(
+      (workspace) => workspace.id === editor.activeWorkspace,
+    ) || runtime.workspace || null;
+  const layout = activeWorkspace?.layout || {};
 
   return (
     <CreativeWorkspaceLayout
@@ -55,12 +57,8 @@ export default function ProductionStudio({
           editor={editor}
         />
       }
-      showInspector={
-        layout.inspector !== false
-      }
-      showDock={
-        layout.dock === true
-      }
+      showInspector={layout.inspector !== false}
+      showDock={layout.dock === true}
       inspector={
         <Inspector
           runtime={liveRuntime}

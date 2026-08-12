@@ -1,0 +1,42 @@
+AVANTIQO CREATIVE STUDIO — HUMAN DECISION LEARNING CONVERGENCE
+Date: 2026-08-12
+Branch: main
+
+STATUS
+- CreativeHumanDecisionRuntime: ACTIVE
+- Authenticated rejection API: ACTIVE
+- CreativeHumanLearningRuntime: ACTIVE
+- CreativeStudioLearningRuntime: ACTIVE
+- LearningEngine: ACTIVE
+- Master Plan learning context: REQUEST-CONTEXT ONLY
+- Learning Center unified evidence UI: ACTIVE
+
+BOUNDARIES
+- Marketing owns publishing analytics and channel performance collection.
+- Creative Studio consumes only verified outcome evidence supplied through its canonical outcome ledger.
+- Human Creative approvals/rejections are Studio-owned evidence.
+- Rejection evidence does not mutate approved subjects or execute providers.
+- Human feedback is preference evidence, never executable instruction.
+- External outcome text is not interpreted as executable instruction.
+- Provider prompts are not persisted.
+- Provider routing cannot be overridden by learning evidence.
+- Rights, release and approval gates cannot be bypassed by learning evidence.
+- World-class quality floor remains immutable and may not be lowered by performance or preference evidence.
+- Prior-work imitation remains forbidden.
+
+EVIDENCE MODEL
+- Verified outcomes: immutable creative_outcome_observations.
+- Human approvals: existing immutable APPROVAL_RECORD nodes.
+- Human rejections: immutable APPROVAL_RECORD nodes with REJECTED status and CREATIVE_HUMAN_DECISION_V1 metadata.
+- Outcome scope: organization+brand when a brand is known, otherwise project-only.
+- Human-decision scope: project-only.
+
+DECISION TRANSPARENCY
+CreativeStudioLearningRuntime reports one of:
+- FRESH_JUDGMENT_REQUIRED
+- HUMAN_EVIDENCE_ONLY
+- OUTCOME_EVIDENCE_ONLY
+- COMBINED_EVIDENCE_AVAILABLE
+and includes a plain-language reason for the evidence state.
+
+NO PAID PROVIDER GENERATION EXECUTED BY THIS CONVERGENCE.

@@ -1,5 +1,3 @@
-import fs from "node:fs/promises";
-
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
@@ -14,24 +12,24 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-function findFilePath(value, depth = 0) {
+function findAudioBase64(value, depth = 0) {
   if (depth > 6 || !value) return null;
   if (typeof value !== "object") return null;
 
-  if (typeof value.file_path === "string" && value.file_path.trim()) {
-    return value.file_path.trim();
+  if (typeof value.audio_base64 === "string" && value.audio_base64.trim()) {
+    return value.audio_base64.trim();
   }
 
   if (Array.isArray(value)) {
     for (const item of value) {
-      const found = findFilePath(item, depth + 1);
+      const found = findAudioBase64(item, depth + 1);
       if (found) return found;
     }
     return null;
   }
 
   for (const key of ["output", "result", "data", "response", "raw"]) {
-    const found = findFilePath(value[key], depth + 1);
+    const found = findAudioBase64(value[key], depth + 1);
     if (found) return found;
   }
 
@@ -73,8 +71,6 @@ function errorResponse(error, status = 500) {
 }
 
 export async function POST(request) {
-  let filePath = null;
-
   try {
     const body = await request.json();
     const speechText = text(body?.text || body?.message);
@@ -153,12 +149,12 @@ export async function POST(request) {
       category: "AI",
     });
 
-    filePath = findFilePath(execution);
-    if (!filePath) {
+    const audioBase64 = findAudioBase64(execution);
+    if (!audioBase64) {
       return errorResponse("Speech generation returned no audio", 502);
     }
 
-    const audio = await fs.readFile(filePath);
+    const audio = Buffer.from(audioBase64, "base64");
     if (!audio.length) {
       return errorResponse("Speech generation returned empty audio", 502);
     }
@@ -179,9 +175,5 @@ export async function POST(request) {
       error?.message || "Voice response failed",
       error?.status || 500,
     );
-  } finally {
-    if (filePath) {
-      await fs.unlink(filePath).catch(() => null);
-    }
   }
 }

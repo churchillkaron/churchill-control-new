@@ -1,4 +1,10 @@
+export const dynamic = "force-dynamic";
+
+import { notFound } from "next/navigation";
+
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
+import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
+import { isPlatformOperatorWorkspace } from "@/lib/platform/security/PlatformOperatorWorkspaceRuntime";
 
 const groups = [
   {
@@ -11,7 +17,18 @@ const groups = [
   },
 ];
 
-export default function BusinessNetworkPage() {
+export default async function BusinessNetworkPage({ params }) {
+  const resolvedParams = await params;
+  const organizationId = String(resolvedParams?.organizationId || "").trim();
+  const access = await requirePlatformAdminAccess().catch(() => ({ success: false }));
+  const operatorWorkspace = access.success
+    ? await isPlatformOperatorWorkspace(organizationId).catch(() => false)
+    : false;
+
+  if (!access.success || !operatorWorkspace) {
+    notFound();
+  }
+
   return (
     <div className="space-y-6">
       <WorkspaceHeader

@@ -42,32 +42,6 @@ const BUSINESS_TERMS = [
   "accounting firm",
 ];
 
-const MEDIA_TERMS = [
-  "VIDEO",
-  "FILM",
-  "IMAGE",
-  "POSTER",
-  "BANNER",
-  "DOCUMENT",
-  "PRESENTATION",
-  "WEBSITE",
-  "LANDING_PAGE",
-  "APPLICATION",
-  "AUDIO",
-  "MUSIC",
-  "PODCAST",
-  "CAMPAIGN_SYSTEM",
-];
-
-const CHANNEL_TERMS = [
-  "instagram",
-  "facebook",
-  "tiktok",
-  "youtube",
-  "website",
-  "display",
-];
-
 const WORKFLOW_TERMS = [
   "TEMPORAL",
   "STILL",
@@ -140,6 +114,19 @@ function hasAny(haystack, needles) {
   return needles.some((needle) => haystack.includes(needle));
 }
 
+function isTestFixture(relative) {
+  return /^app\/api\/creative\/tests\//.test(relative);
+}
+
+function isAntiHardcodingInstruction(context) {
+  return /(?:\bno\s+hardcoded\b|\bno\s+canned\b|\bdo\s+not\s+use\b|\bmust\s+not\b|\bnever\s+use\b|\bforbid(?:den)?\b).{0,80}\b(?:industry|sector|vertical|template|preset)\b/i.test(context) ||
+    /\b(?:industry|sector|vertical)\b.{0,80}(?:\bmust\s+not\b|\bdo\s+not\b|\bnever\b|\bforbid(?:den)?\b|\bno\s+hardcoded\b|\bno\s+canned\b)/i.test(context);
+}
+
+function fixtureSeverity(relative, defaultSeverity) {
+  return isTestFixture(relative) ? "REVIEW" : defaultSeverity;
+}
+
 const files = unique(ROOTS.flatMap((root) => walk(path.resolve(root)))).sort();
 const findings = [];
 
@@ -157,14 +144,18 @@ for (const absolute of files) {
     for (const term of ORGANIZATION_TERMS) {
       if (!phraseRegex(term).test(line)) continue;
       addFinding(findings, {
-        severity: "BLOCKER",
-        ownership: "ORGANIZATION_CONTEXT",
-        rule: "ORGANIZATION_SPECIFIC_LITERAL",
+        severity: fixtureSeverity(relative, "BLOCKER"),
+        ownership: isTestFixture(relative) ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
+        rule: isTestFixture(relative)
+          ? "ORGANIZATION_SPECIFIC_TEST_FIXTURE_REVIEW"
+          : "ORGANIZATION_SPECIFIC_LITERAL",
         term,
         file: relative,
         line: index + 1,
         source: trimmed,
-        reason: "Universal Creative execution must not encode one organization as behavior.",
+        reason: isTestFixture(relative)
+          ? "Named organization test fixtures are review evidence and must not leak into production Creative routing."
+          : "Universal Creative execution must not encode one organization as behavior.",
       });
     }
 
@@ -173,14 +164,18 @@ for (const absolute of files) {
       const menuDeliverable = term === "menu" && /\b(?:type|deliverable|output|document)\b/i.test(context);
       if (menuDeliverable) continue;
       addFinding(findings, {
-        severity: "BLOCKER",
-        ownership: "ORGANIZATION_CONTEXT",
-        rule: "BUSINESS_CATEGORY_LITERAL",
+        severity: fixtureSeverity(relative, "BLOCKER"),
+        ownership: isTestFixture(relative) ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
+        rule: isTestFixture(relative)
+          ? "BUSINESS_CATEGORY_TEST_FIXTURE_REVIEW"
+          : "BUSINESS_CATEGORY_LITERAL",
         term,
         file: relative,
         line: index + 1,
         source: trimmed,
-        reason: "Business meaning must come from verified organization and mission context, not a fixed category vocabulary.",
+        reason: isTestFixture(relative)
+          ? "Business-category test fixtures are review evidence and must remain isolated from universal production logic."
+          : "Business meaning must come from verified organization and mission context, not a fixed category vocabulary.",
       });
     }
 
@@ -290,14 +285,18 @@ for (const absolute of files) {
 
     if (/\b(?:USD|EUR|GBP|THB)\b/.test(line) && /currency|cost|budget|price/i.test(context)) {
       addFinding(findings, {
-        severity: "REVIEW",
-        ownership: "ORGANIZATION_CONTEXT",
-        rule: "CURRENCY_LITERAL_REVIEW",
+        severity: isTestFixture(relative) ? "REVIEW" : "REVIEW",
+        ownership: isTestFixture(relative) ? "TEST_FIXTURE" : "ORGANIZATION_CONTEXT",
+        rule: isTestFixture(relative)
+          ? "CURRENCY_TEST_FIXTURE_REVIEW"
+          : "CURRENCY_LITERAL_REVIEW",
         term: line.match(/\b(?:USD|EUR|GBP|THB)\b/)?.[0] || "currency",
         file: relative,
         line: index + 1,
         source: trimmed,
-        reason: "Confirm currency is sample/schema data only and never a runtime default that bypasses organization configuration.",
+        reason: isTestFixture(relative)
+          ? "Currency in a test fixture must remain isolated from production defaults."
+          : "Confirm currency is sample/schema data only and never a runtime default that bypasses organization configuration.",
       });
     }
 
@@ -327,7 +326,11 @@ for (const absolute of files) {
       });
     }
 
-    if (/\b(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)\b/.test(line) && /\b(?:if|switch|case|route|select|rank|score|template|preset)\b/i.test(context)) {
+    if (
+      /\b(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)\b/.test(line) &&
+      /\b(?:if|switch|case|route|select|rank|score|template|preset)\b/i.test(context) &&
+      !isAntiHardcodingInstruction(context)
+    ) {
       addFinding(findings, {
         severity: "BLOCKER",
         ownership: "ORGANIZATION_CONTEXT",
@@ -374,6 +377,7 @@ const report = {
     "MISSION_DECISION",
     "CREATIVE_DIRECTOR_DECISION",
     "PROVIDER_TRANSPORT_DETAIL",
+    "TEST_FIXTURE",
   ],
   blocker_count: blockers.length,
   review_count: reviews.length,

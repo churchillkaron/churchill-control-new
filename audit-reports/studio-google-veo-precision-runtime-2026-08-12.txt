@@ -20,7 +20,7 @@ Direct precision controls
 - Native audio capability retained.
 
 Governance
-- Provider identity: google-veo.
+- Provider identity: google-veo end-to-end, including pending jobs, polling, output provenance, and extension-source validation.
 - Runtime remains inside the canonical Service Domain provider boundary.
 - Uses the same Avantiqo-managed Gemini API credential source; no second Google secret path.
 - Provider selection -> Pricing -> Usage -> Wallet -> Billing -> provider execution remains mandatory.
@@ -30,7 +30,7 @@ Governance
 - No provider/model selection UI added.
 
 Pricing
-- Live migration: 20260812034832_google_veo_precision_pricing.
+- Live and repository migration: 20260812034832_google_veo_precision_pricing.
 - Direct Veo pricing is configured as provider data, not application constants.
 - Currency and markup are inherited from the existing governed Gemini video pricing row.
 - Supplier basis records Google Veo 3.1 Standard at USD 0.40/second.
@@ -44,6 +44,6 @@ Safety
 - No hardcoded jurisdictional tax/currency/accounting values in application code.
 
 Validation target
-- Production Vercel build from main.
+- Production Vercel build from exact main head.
 - Creative/OpenAI/Operations governance audits must continue to pass.
 - Next.js production compile must succeed.

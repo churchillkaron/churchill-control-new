@@ -4,127 +4,83 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export function useCreativeEditor(runtime) {
+  const router = useRouter();
 
-  const router =
-    useRouter();
+  const [selection, setSelection] = useState(null);
+  const [activeWorkspace, setActiveWorkspace] = useState(
+    runtime.workspace?.id || "mission",
+  );
+  const [missionComposerOpen, setMissionComposerOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [selection,setSelection] =
-    useState(null);
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    router.refresh();
+    setTimeout(() => setRefreshing(false), 250);
+  }, [router]);
 
-  const [activeWorkspace,setActiveWorkspace] =
-    useState(
-      runtime.workspace?.id ||
-      "mission"
-    );
+  const openMissionComposer = useCallback(() => {
+    setActiveWorkspace("mission");
+    setMissionComposerOpen(true);
+  }, []);
 
-  const [saving,setSaving] =
-    useState(false);
+  const closeMissionComposer = useCallback(() => {
+    setMissionComposerOpen(false);
+  }, []);
 
-  const [refreshing,setRefreshing] =
-    useState(false);
-
-  const refresh =
-    useCallback(() => {
-
-      setRefreshing(true);
-
-      router.refresh();
-
-      setTimeout(
-        () => setRefreshing(false),
-        250,
-      );
-
-    }, [
-      router,
-    ]);
-
-  const save = useCallback(async(values)=>{
-
-    if(!selection) return;
+  const save = useCallback(async (values) => {
+    if (!selection) return;
 
     setSaving(true);
 
-    try{
-
+    try {
       const api =
-        selection.type==="scene"
+        selection.type === "scene"
           ? "/api/creative/scenes"
           : "/api/creative/shots";
 
-      const payload={
-
+      const payload = {
         ...values,
-
-        id:selection.data.id,
-
-        organization_id:
-          runtime.organizationId,
-
-        creative_project_id:
-          runtime.projectRuntime?.current?.id,
-
+        id: selection.data.id,
+        organization_id: runtime.organizationId,
+        creative_project_id: runtime.projectRuntime?.current?.id,
       };
 
-      const res =
-        await fetch(api,{
-          method:"PATCH",
-          headers:{
-            "Content-Type":"application/json",
-          },
-          body:JSON.stringify(payload),
-        });
+      const res = await fetch(api, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-      if(!res.ok)
-        throw new Error("Save failed");
+      if (!res.ok) throw new Error("Save failed");
 
-      const json =
-        await res.json();
+      const json = await res.json();
 
       setSelection({
-
         ...selection,
-
-        data:
-          json.scene ||
-          json.shot,
-
+        data: json.scene || json.shot,
       });
 
       refresh();
-
-    }
-
-    finally{
-
+    } finally {
       setSaving(false);
-
     }
+  }, [runtime, selection, refresh]);
 
-  },[
-    runtime,
-    selection,
-    refresh,
-  ]);
-
-  return{
-
+  return {
     activeWorkspace,
-
     setActiveWorkspace,
-
     selection,
-
     setSelection,
-
     save,
-
     saving,
-
     refresh,
-
     refreshing,
-
+    missionComposerOpen,
+    openMissionComposer,
+    closeMissionComposer,
   };
-
 }

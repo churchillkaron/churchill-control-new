@@ -71,6 +71,9 @@ export default function PortalPayrollPage() {
 
   const payroll = useMemo(() => profile?.payroll?.[0] || null, [profile]);
   const code = currencyCode(profile, payroll);
+  const pendingManagerReview = Boolean(
+    payroll?.review_required === true && payroll?.review_status === "PENDING"
+  );
 
   const bonusValue =
     Number(payroll?.overtime_pay || 0) + Number(payroll?.leave_payout || 0);
@@ -103,7 +106,7 @@ export default function PortalPayrollPage() {
   ];
 
   async function acknowledge() {
-    if (!payroll?.id) return;
+    if (!payroll?.id || pendingManagerReview) return;
 
     setWorking(true);
     setError("");
@@ -245,6 +248,25 @@ export default function PortalPayrollPage() {
         </section>
       ) : null}
 
+      {pendingManagerReview ? (
+        <section className="rounded-[28px] border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+          <div className="flex items-center gap-2 font-black">
+            <AlertTriangle className="h-4 w-4" /> Manager review in progress
+          </div>
+          <div className="mt-2 leading-6 text-amber-100/70">
+            {payroll.review_reason || "Attendance or hours evidence requires manager review."}
+          </div>
+          {Number(payroll.attendance_penalty || 0) > 0 ? (
+            <div className="mt-2 text-xs text-white/55">
+              Proposed attendance deduction: {formatMoney(payroll.attendance_penalty, code)}. This amount may change after manager review.
+            </div>
+          ) : null}
+          <div className="mt-2 text-xs text-white/45">
+            Payroll acknowledgement is locked until the review is completed.
+          </div>
+        </section>
+      ) : null}
+
       <section className="grid grid-cols-2 gap-3">
         {rows.map((item) => {
           const Icon = item.icon;
@@ -274,6 +296,7 @@ export default function PortalPayrollPage() {
               <div className="font-black">Payroll Status</div>
               <div className="mt-1 text-sm text-white/45">
                 {payroll.status || "GENERATED"}
+                {payroll.review_required ? ` · Review ${payroll.review_status || "PENDING"}` : ""}
                 {payroll.payout_status ? ` · ${payroll.payout_status}` : ""}
                 {payroll.payment_reference ? ` · ${payroll.payment_reference}` : ""}
               </div>
@@ -340,10 +363,10 @@ export default function PortalPayrollPage() {
             {!payroll.employee_acknowledged && !payroll.employee_dispute ? (
               <button
                 onClick={acknowledge}
-                disabled={working}
+                disabled={working || pendingManagerReview}
                 className="flex h-14 w-full items-center justify-center rounded-[24px] bg-white text-sm font-black uppercase tracking-[0.2em] text-black disabled:opacity-40"
               >
-                Acknowledge payroll
+                {pendingManagerReview ? "Awaiting manager review" : "Acknowledge payroll"}
               </button>
             ) : null}
 

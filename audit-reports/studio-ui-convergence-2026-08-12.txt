@@ -1,0 +1,33 @@
+AVANTIQO CREATIVE STUDIO UI CONVERGENCE
+Date: 2026-08-12
+Branch: main
+
+CANONICAL EXPERIENCE
+Goal -> Plan -> Approve / Request Revision -> Produce -> Review -> Learn
+
+CONVERGED UI
+- Prompt field removed from Creative Studio header.
+- window.prompt mission creation removed from CreativeCommandResolver.
+- Structured mission composer added for business goal, desired outcome, deliverable type, channels, duration and organization-currency budget ceiling.
+- Mission start planning action exposed without starting paid provider work.
+- Workflow navigation grouped into Direction, Production and Release.
+- Legacy unrouted Director navigation entry removed from Studio navigation.
+- Active workspace now controls inspector and dock layout correctly.
+- Mission Control rebuilt as executive business command center.
+- Production owner decision surface supports exact dossier approval or immutable revision request.
+- Revision feedback is evidence only; it does not become a provider prompt or lower quality floors.
+- Learning workspace remains the evidence surface for verified outcomes and human decisions.
+- Responsive Studio shell introduced for desktop and smaller screens.
+
+GOVERNANCE
+- No provider/model selection UI.
+- No stored generation prompt UI.
+- No paid generation executed by this convergence.
+- Production execution remains separately governed.
+- Quality, rights and human release controls remain authoritative.
+- Currency remains sourced from organization configuration rather than hardcoded Studio values.
+
+VALIDATION TARGET
+- Creative Studio release audit PASS.
+- Production Next.js build PASS.
+- Vercel production deployment READY.

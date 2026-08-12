@@ -53,6 +53,7 @@ Business outcome
 - Creative is not owned by any industry, company, venue type, deliverable type, provider, or channel.
 - Organization and mission evidence define the business problem. Industry labels may inform research but may not select canned creative behavior.
 - Research and asset intelligence are explicit request context before direction; they may not monkey-patch, replace, or bypass the Master Plan runtime.
+- The generic Creative create boundary captures business intent and explicit constraints only; it may not infer media, channels, or specialist production policy from keywords.
 - The Creative Director chooses the medium and deliverable system when the mission does not explicitly constrain them.
 - Workflow families and aliases are registry-owned. Runtime code may not maintain parallel media-routing taxonomies.
 - The Creative Master Plan is the single creative and production-intent authority.
@@ -70,3 +71,4 @@ Business outcome
 - Learning is organization-scoped and evidence-based; it is resolved explicitly before direction and may not monkey-patch the Master Plan runtime or convert category stereotypes into creative defaults.
 - `CREATIVE_DYNAMIC_ARCHITECTURE_AUDIT_V2` is the strict release guard for hidden industry, media, channel, duration, format and fallback assumptions, using phrase-aware matching so identifiers such as `dispatch`, `space`, `spawn`, and `reconstruction` are never mistaken for business categories.
 - Creative review evidence is shape-safe: unresolved repair content fails closed whether returned as a list or malformed scalar value.
+- `CREATIVE_WORLD_CLASS_BENCHMARK_V1` evaluates real captured Master Plans across at least five materially different briefs. It checks contextual specificity, declared review depth, rejection evidence, craft risk, finishing requirements, production-plan substance, tribunal quality, cross-case direction diversity, and generic AI-language collapse. The harness never calls providers, approves spend, or publishes; it measures evidence produced by real Studio runs rather than fabricating test success.

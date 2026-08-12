@@ -2,272 +2,138 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 
-import { supabase } from "@/lib/shared/supabase/client";
+function formatNumber(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 2,
+  }).format(numericValue);
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "—";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return date.toLocaleString();
+}
 
 export default function ProductionBatchPage() {
+  const params = useParams();
+  const organizationId = params.organizationId;
+  const [batches, setBatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [
-    ingredients,
-    setIngredients,
-  ] = useState([]);
+  const loadBatches = useCallback(async () => {
+    if (!organizationId) {
+      return;
+    }
 
-  const [
-    batches,
-    setBatches,
-  ] = useState([]);
+    setLoading(true);
+    setError("");
 
-  const [
-    form,
-    setForm,
-  ] = useState({
+    try {
+      const response = await fetch(
+        `/api/production/batches?organizationId=${encodeURIComponent(organizationId)}`,
+        { cache: "no-store" },
+      );
+      const data = await response.json();
 
-    batch_name: "",
-
-    output_quantity: 1,
-
-    output_unit: "kg",
-  });
-
-  async function loadData() {
-
-    const [
-      ingredientsRes,
-      batchesRes,
-    ] = await Promise.all([
-
-      supabase
-        .from("ingredients")
-        .select("*")
-        .order(
-          "name",
-          {
-            ascending: true,
-          }
-        ),
-
-      supabase
-        .from(
-          "production_batches"
-        )
-        .select("*")
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          }
-        ),
-    ]);
-
-    setIngredients(
-      ingredientsRes.data || []
-    );
-
-    setBatches(
-      batchesRes.data || []
-    );
-  }
-
-  async function createBatch() {
-
-    const payload = {
-
-      organization_id:
-        "demo",
-
-      batch_name:
-        form.batch_name,
-
-      output_quantity:
-        Number(
-          form.output_quantity
-        ),
-
-      output_unit:
-        form.output_unit,
-
-      ingredients:
-        ingredients
-          .slice(0, 2)
-          .map(
-            (
-              ingredient
-            ) => ({
-
-              ingredient_id:
-                ingredient.id,
-
-              quantity: 1,
-            })
-          ),
-    };
-
-    await fetch(
-      "/api/production/batches",
-      {
-
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-
-        body: JSON.stringify(
-          payload
-        ),
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to load production batches");
       }
-    );
 
-    loadData();
-  }
+      setBatches(data.batches || []);
+    } catch (loadError) {
+      setBatches([]);
+      setError(loadError.message || "Unable to load production batches");
+    } finally {
+      setLoading(false);
+    }
+  }, [organizationId]);
 
   useEffect(() => {
-
-    loadData();
-
-  }, []);
+    loadBatches();
+  }, [loadBatches]);
 
   return (
-
-    <div className="min-h-screen bg-black text-white p-10">
-
-      <div className="max-w-7xl mx-auto">
-
-        <h1 className="text-6xl font-bold mb-3">
-          Batch Production
-        </h1>
-
-        <div className="text-zinc-500 mb-10">
-          Manufacturing & Prep Engine
-        </div>
-
-        <div className="border border-zinc-800 rounded-3xl p-8 mb-10">
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-
-            <input
-              placeholder="Batch Name"
-              value={
-                form.batch_name
-              }
-              onChange={(e) =>
-                setForm({
-
-                  ...form,
-
-                  batch_name:
-                    e.target.value,
-                })
-              }
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
-            />
-
-            <input
-              type="number"
-              placeholder="Output Quantity"
-              value={
-                form.output_quantity
-              }
-              onChange={(e) =>
-                setForm({
-
-                  ...form,
-
-                  output_quantity:
-                    e.target.value,
-                })
-              }
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
-            />
-
-            <input
-              placeholder="Unit"
-              value={
-                form.output_unit
-              }
-              onChange={(e) =>
-                setForm({
-
-                  ...form,
-
-                  output_unit:
-                    e.target.value,
-                })
-              }
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4"
-            />
-
-            <button
-              onClick={
-                createBatch
-              }
-              className="bg-white text-black rounded-2xl font-bold"
-            >
-              CREATE BATCH
-            </button>
-
+    <div className="min-h-screen bg-black p-10 text-white">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-10 flex items-start justify-between gap-6">
+          <div>
+            <h1 className="mb-3 text-6xl font-bold">Production Batches</h1>
+            <div className="text-zinc-500">Organization-scoped production history</div>
           </div>
 
+          <button
+            type="button"
+            onClick={loadBatches}
+            disabled={loading || !organizationId}
+            className="rounded-2xl border border-white/10 px-5 py-3 text-sm text-white/70 disabled:opacity-40"
+          >
+            {loading ? "Loading..." : "Refresh"}
+          </button>
         </div>
+
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && batches.length === 0 && (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-zinc-500">
+            No production batches for this organization yet.
+          </div>
+        )}
 
         <div className="space-y-4">
-
-          {batches.map(
-            (
-              batch
-            ) => (
-
-              <div
-                key={batch.id}
-                className="border border-zinc-800 rounded-3xl p-6"
-              >
-
-                <div className="flex items-center justify-between">
-
-                  <div>
-
-                    <div className="text-2xl font-bold">
-                      {
-                        batch.batch_name
-                      }
-                    </div>
-
-                    <div className="text-zinc-500 mt-2">
-                      {
-                        batch.status
-                      }
-                    </div>
-
+          {batches.map((batch) => (
+            <div key={batch.id} className="rounded-3xl border border-zinc-800 p-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="text-2xl font-bold">
+                    {batch.dish_name || "Unknown dish"}
                   </div>
-
-                  <div className="text-right">
-
-                    <div className="text-2xl">
-                      {
-                        batch.output_quantity
-                      }
-                    </div>
-
-                    <div className="text-zinc-500 mt-2">
-                      {
-                        batch.output_unit
-                      }
-                    </div>
-
+                  <div className="mt-2 text-sm text-zinc-500">
+                    {batch.dish_category || "Uncategorized"} · {formatDate(batch.produced_at)}
                   </div>
-
                 </div>
 
+                <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 lg:min-w-[620px]">
+                  <Metric label="Produced" value={formatNumber(batch.quantity)} />
+                  <Metric label="Remaining" value={formatNumber(batch.remaining_quantity)} />
+                  <Metric label="Unit Cost" value={formatNumber(batch.cost_per_unit)} />
+                  <Metric label="Total Cost" value={formatNumber(batch.total_cost)} />
+                </div>
               </div>
-            )
-          )}
-
+            </div>
+          ))}
         </div>
-
       </div>
+    </div>
+  );
+}
 
+function Metric({ label, value }) {
+  return (
+    <div>
+      <div className="text-sm text-zinc-500">{label}</div>
+      <div className="mt-2 text-xl">{value}</div>
     </div>
   );
 }

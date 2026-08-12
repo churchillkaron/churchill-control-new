@@ -1,23 +1,22 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+import {
+  listProductionBatches,
+} from "@/lib/inventory/production/batches/listProductionBatches";
 
-export async function POST(req) {
+export async function GET(req) {
   try {
-    const body =
-      await req.json();
-
+    const { searchParams } = new URL(req.url);
     const organizationId =
-      body.organizationId ||
-      body.organization_id;
+      searchParams.get("organizationId") ||
+      searchParams.get("organization_id");
 
-    const access =
-      await requireOrganizationAccess({
-        organizationId,
-        request: req,
-      });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request: req,
+    });
 
     if (!access.success) {
       return NextResponse.json(
@@ -27,36 +26,27 @@ export async function POST(req) {
         },
         {
           status: access.status,
-        }
+        },
       );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("production_batches")
-      .select("*")
-      .eq(
-        "organization_id",
-        access.organizationId
-      )
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      throw error;
-    }
+    const batches = await listProductionBatches({
+      organizationId: access.organizationId,
+    });
 
     return NextResponse.json({
       success: true,
-      data: data || [],
+      batches,
     });
-  } catch (err) {
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error: err.message,
+        error: error.message,
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }

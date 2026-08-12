@@ -52,6 +52,18 @@ await import(
   "@/lib/creative/production/review/runtime/CreativeProductionTaskReviewSettlementGate"
 );
 await import(
+  "@/lib/creative/quality/runtime/CreativeGeneratedMediaRecoveryBootstrap"
+);
+await import(
+  "@/lib/creative/quality/runtime/CreativeGeneratedMediaPerceptualCostPlanningBootstrap"
+);
+await import(
+  "@/lib/creative/quality/runtime/CreativePerceptualPairRecoveryBootstrap"
+);
+await import(
+  "@/lib/creative/quality/runtime/CreativePerceptualCandidateSelectionBridgeBootstrap"
+);
+await import(
   "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
 );
 

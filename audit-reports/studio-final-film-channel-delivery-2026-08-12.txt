@@ -1,0 +1,31 @@
+AVANTIQO CREATIVE STUDIO — FINAL FILM DIRECTOR DELIVERY CONVERGENCE
+Date: 2026-08-12
+Branch: agent/studio-director-cockpit
+
+Scope
+- Preserve the existing whole-film semantic Director Review as the authority for narrative progression, pacing, emotional arc, identity/product continuity, camera/motion, audio, brand truth, cultural fit, accessibility, subtitles, safe area and synthetic-artifact quality.
+- Preserve the existing CREATIVE_MASTER_FILM_DIRECTOR_REVIEW_V1 weakest-link release floor: every applicable semantic dimension >= 94 and confidence >= 85.
+- Preserve deterministic professional finishing for shot timing, transitions, grade, VFX, titles, logos and final-master audio integrity.
+- Add CREATIVE_TEMPORAL_CHANNEL_DELIVERY_V1 as a first-class final release condition.
+- Resolve every configured target channel through CreativeExportProfileResolver.
+- Render every target-channel derivative through the canonical deterministic EDL + professional finishing path.
+- Require render presence, technical QC and final-master audio integrity for every target-channel derivative.
+- Persist one immutable channel-delivery quality report tied to the timeline, master render and derivative checksums.
+- Gate READY_FOR_APPROVAL on successful target-channel delivery proof.
+- Keep publication unauthorized; this wave only establishes release readiness evidence.
+
+Governance
+- No provider generation executed by this implementation/validation change.
+- No semantic-review provider call executed by this implementation/validation change.
+- No wallet mutation executed by this implementation/validation change.
+- No database schema migration.
+- No provider pricing changes.
+- No hardcoded tax, currency, country, accounting standard or jurisdiction values introduced.
+- Channel delivery uses configured project export profiles; manual arbitrary profiles remain subject to existing authorization rules.
+- Exact-font requirements remain fail-closed: the master Director Review continues blocking release when exact typeface/font binding cannot be proven.
+
+Expected validation
+- Governance and Operations audits pass.
+- Next.js production build compiles.
+- No paid provider call is made by the build.
+- Final Studio preview reaches READY.

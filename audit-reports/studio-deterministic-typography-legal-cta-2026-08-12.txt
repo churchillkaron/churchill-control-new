@@ -1,0 +1,33 @@
+Avantiqo Creative Studio — Deterministic Typography + Legal/CTA Proof
+Date: 2026-08-12
+Branch: agent/studio-director-cockpit
+PR: #131
+
+Scope
+- Professional finishing now preserves and renders structured TITLE, CTA and LEGAL copy.
+- Explicit typography requirements fail closed unless backed by an actual project FONT asset.
+- FONT assets are materialized through the canonical private-storage-safe media loader.
+- FFmpeg drawtext receives the exact materialized font file when an explicit font is required.
+- No machine-installed font-family guessing is accepted as exact-font proof.
+- Each rendered text item persists exact SHA-256 copy evidence, shot, role, timing, position and font binding evidence.
+- Font proof persists asset node ID, checksum and MIME type; filesystem paths are not persisted.
+- Master Film Director Review now validates deterministic text evidence instead of unconditionally rejecting explicit font requirements.
+- Master Film Director Review validates exact legal/CTA copy by hash and timing evidence.
+- Existing logo-overlay, audio-integrity, technical-QC, channel-profile and world-class semantic gates remain intact.
+
+Governance
+- No provider calls added.
+- No wallet mutation added.
+- No provider/model choice exposed to the owner.
+- No database schema migration.
+- No jurisdiction-specific legal copy is invented or hardcoded.
+- Legal/CTA content remains business/brand/project supplied structured data.
+- Publication approval remains separate.
+- World-class release floors remain minimum release score >= 94 and confidence >= 85.
+- B-grade release remains forbidden and weakest-link enforcement remains active.
+
+Contracts
+- CREATIVE_PROFESSIONAL_FINISHING_V2
+- CREATIVE_DETERMINISTIC_TEXT_RENDER_EVIDENCE_V1
+- CREATIVE_MASTER_FILM_DIRECTOR_REVIEW_V2
+- CREATIVE_MASTER_FILM_DETERMINISTIC_FINISHING_V2

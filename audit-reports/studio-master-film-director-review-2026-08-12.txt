@@ -1,0 +1,39 @@
+AVANTIQO CREATIVE STUDIO — MASTER FILM DIRECTOR REVIEW CONVERGENCE
+Date: 2026-08-12
+Branch: agent/studio-director-cockpit
+
+Scope
+- Reuse the existing final assembled render and professional finishing stack.
+- Make whole-film semantic review world-class and fail-closed instead of configuration-optional.
+- Resolve a priced executable ai.image.analyze model through Service Domain when the project does not explicitly pin a model.
+- Require every canonical temporal semantic quality dimension.
+- Raise minimum semantic score to 94 and minimum confidence to 85.
+- Enforce weakest-link quality: average score cannot hide a weak dimension.
+- Create one deterministic master-film director review report from the existing semantic evidence plus final finishing/audio evidence.
+- Require technical QC, professional finishing when the shot plan requires it, director segment coverage, exact title counts, required logo overlay evidence, and final master-audio integrity.
+- Fail closed when an explicit font/typeface requirement exists but the current finishing runtime cannot prove exact font binding.
+- Preserve separate human final-render approval and publication authorization.
+
+Governance
+- No new semantic-review provider call was added; the existing whole-film semantic review remains the only paid review call.
+- No provider generation executed by this implementation/validation change.
+- No semantic-review provider call executed by this implementation/validation change.
+- No wallet mutation executed by this implementation/validation change.
+- No database schema migration.
+- No hardcoded provider, model, provider price, currency, tax, country, or jurisdiction.
+- Service Domain remains owner of provider/model/pricing/usage/wallet/billing execution.
+- Existing professional finishing, master-audio mux, PCM integrity, rights gate, and human approval owners remain unchanged.
+
+Quality
+- Master-film contract: CREATIVE_MASTER_FILM_DIRECTOR_REVIEW_V1.
+- Minimum release score: 94.
+- Minimum confidence: 85.
+- All canonical temporal semantic checks required.
+- B-grade release forbidden.
+- Weakest-link enforced.
+- Deterministic finishing failures block READY_FOR_APPROVAL.
+
+Expected validation
+- Governance and Operations audits pass.
+- Next.js production build compiles.
+- No paid provider call is made by the build.

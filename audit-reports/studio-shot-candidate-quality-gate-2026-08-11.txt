@@ -1,0 +1,29 @@
+AVANTIQO_CREATIVE_STUDIO_SHOT_CANDIDATE_QUALITY_GATE_V1
+Date: 2026-08-11
+
+Scope
+- Review actual generated video candidates before final assembly when project shot-candidate review is enabled.
+- Judge visible output against the canonical CREATIVE_SHOT_BIBLE_V1.
+- Enforce raise-only world-class minimum score 94 and confidence 85.
+- Track both overall score and weakest applicable score; a candidate must meet 94 on both.
+- Select the strongest qualified candidate deterministically for master inclusion.
+- Reject weak candidates from master inclusion and persist bounded failed-check repair instructions.
+- Do not mark AI-selected candidates as human-approved.
+
+Spend governance
+- CREATIVE_APPROVED_PRODUCTION_SPEND_GUARD_V1 sums unique settled historical production spend, including superseded work.
+- Shot review is allowed only when its configured maximum review cost fits within remaining owner-approved sealed production headroom.
+- No provider execution is performed by this validation commit.
+- Automatic paid replacement is intentionally not retrofitted into already-sealed graphs without a pre-approved pair-aware review task.
+
+Finalisation
+- CREATIVE_SHOT_CANDIDATE_QUALITY_GATE_V1 wraps temporal finalisation.
+- Disabled/unconfigured legacy projects retain existing behavior.
+- Enabled projects with incomplete review policy block without a provider call.
+- Enabled projects cannot finalise while candidates remain unreviewed or while any shot has no world-class selected candidate.
+
+Architecture
+- Provider prompts remain execution-boundary transport only.
+- Review evidence is stored privately.
+- Existing final assembled-film semantic review remains authoritative and is not replaced.
+- Existing GENERATED_MEDIA_PERCEPTUAL_PAIR_REPAIR_RUNTIME_V1 remains the canonical future repair-pair contract.

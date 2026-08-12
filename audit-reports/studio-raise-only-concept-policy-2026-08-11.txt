@@ -1,0 +1,31 @@
+AVANTIQO CREATIVE STUDIO — RAISE-ONLY CONCEPT POLICY VALIDATION
+Date: 2026-08-11
+Branch: agent/studio-director-cockpit
+
+Scope
+- Added one shared world-class concept policy resolver.
+- Global Avantiqo concept minimums cannot be lowered by organization, company, project, brief, or direct policy input.
+- Minimum score/count thresholds resolve by highest value.
+- Maximum similarity thresholds resolve by lowest value.
+- Protected quality booleans remain enabled.
+- Provider execution remains reasoning-only until production approval.
+- Regeneration rounds are cost governance, default 2, hard maximum 3, and lower configured caps may reduce spend.
+- Autonomous regeneration now evaluates critic failures and cross-round similarity against the actual resolved policy.
+- Resolved policy is persisted into the creative plan and exposed by the read-only concept-status API.
+- Concept Director UI now displays autonomous recovery state, rejected prior rounds, failed critic dimensions, and rejected territories.
+
+Safety / architecture
+- No database or migration changes.
+- No wallet, payer, billing, provider credential, or OpenAI account changes.
+- No paid creative media generation was invoked for this validation wave.
+- Production dossier approval boundary remains unchanged.
+- ServiceExecutionRuntime governance remains unchanged.
+- Existing Creative Director / worker architecture remains unchanged.
+- No new user-facing regenerate button; recovery remains autonomous.
+
+Expected validation
+- OpenAI governance audit PASS.
+- Creative Studio release audit PASS.
+- Operations audits PASS.
+- Next.js production build PASS.
+- Static generation completes.

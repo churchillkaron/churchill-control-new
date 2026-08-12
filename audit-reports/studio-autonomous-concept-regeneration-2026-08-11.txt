@@ -1,0 +1,23 @@
+AVANTIQO CREATIVE STUDIO — AUTONOMOUS CONCEPT REGENERATION
+Date: 2026-08-11
+Branch: agent/studio-director-cockpit
+
+Scope
+- Bounded reasoning-only concept regeneration before production approval.
+- Default maximum rounds: 2.
+- Hard maximum rounds: 3.
+- Stop immediately when A-grade concept intelligence passes.
+- Fail closed when retry budget is exhausted.
+- Prior critic failures and rejected concept territory are fed into the next round.
+- Cross-round concept similarity must remain below the configured maximum.
+- AsyncLocalStorage isolates simultaneous creative runs.
+- No production provider execution is triggered by regeneration status reads.
+- No wallet, payer, billing, provider credential, or OpenAI account changes.
+- No paid production provider call performed for validation.
+
+Validation target
+- OpenAI governance audit PASS.
+- Creative Studio release audit PASS.
+- Next.js production compilation PASS.
+- Lint/type validation PASS.
+- Static generation completes.

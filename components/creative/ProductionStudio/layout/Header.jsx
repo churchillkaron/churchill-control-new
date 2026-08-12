@@ -2,20 +2,32 @@
 
 import { useState } from "react";
 
+function awaitingProductionApproval(result = {}) {
+  return (
+    result.next_action === "REVIEW_AND_APPROVE_PRODUCTION_DOSSIER" ||
+    result.execution?.status === "AWAITING_PRODUCTION_DOSSIER_APPROVAL" ||
+    (
+      result.execution?.approval?.required === true &&
+      result.execution?.approval?.scope === "PRODUCTION_DOSSIER"
+    )
+  );
+}
+
 function resultMessage(result = {}) {
-  if (result.next_action === "REVIEW_AND_APPROVE_PRODUCTION_DOSSIER") {
-    return "Production plan and exact cost are ready for approval.";
+  if (awaitingProductionApproval(result)) {
+    return "Production plan and exact cost are ready for approval. No provider execution has started.";
   }
   if (result.status === "ALREADY_COMPLETED") {
     return "This production is already complete.";
   }
   return result.status
     ? `Creative Studio: ${String(result.status).replaceAll("_", " ").toLowerCase()}.`
-    : "Creative production started.";
+    : "Creative production prepared.";
 }
 
 export default function Header({
   runtime,
+  editor,
 }) {
   const commands = runtime.commands || [];
   const [intent, setIntent] = useState("");
@@ -58,6 +70,11 @@ export default function Header({
 
       setMessage(resultMessage(result));
       setIntent("");
+
+      if (awaitingProductionApproval(result)) {
+        editor?.setActiveWorkspace?.("production");
+      }
+
       await runtime.refresh?.();
     } catch (commandError) {
       setError(commandError?.message || String(commandError));
@@ -83,6 +100,7 @@ export default function Header({
             {commands.map((command) => (
               <button
                 key={command.id}
+                type="button"
                 onClick={command.onClick}
                 className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm transition hover:bg-white/10"
               >
@@ -99,7 +117,7 @@ export default function Header({
           <input
             value={intent}
             onChange={(event) => setIntent(event.target.value)}
-            placeholder="Tell Avantiqo what to create — e.g. Make a 10-second Facebook video for Churchill"
+            placeholder="Tell Avantiqo the outcome — it will research, plan, create and stop for approval before governed execution"
             aria-label="Creative command"
             className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-white/35"
           />
@@ -108,7 +126,7 @@ export default function Header({
             disabled={submitting || !intent.trim()}
             className="shrink-0 rounded-xl border border-[#c8a96a]/40 bg-[#b48a45]/15 px-5 py-2 text-sm font-medium text-[#e2c681] transition hover:bg-[#b48a45]/25 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {submitting ? "Creating..." : "Create"}
+            {submitting ? "Directing..." : "Create"}
           </button>
         </form>
 

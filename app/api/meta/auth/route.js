@@ -7,8 +7,12 @@ import {
 } from "@/lib/platform/security/requireOrganizationAccess";
 
 function graphVersion() {
-  const configured = String(process.env.META_GRAPH_API_VERSION || "").trim();
-  if (!configured) throw new Error("META_GRAPH_API_VERSION is not configured");
+  const configured = String(
+    process.env.META_GRAPH_API_VERSION || process.env.META_GRAPH_VERSION || ""
+  ).trim();
+  if (!configured) {
+    throw new Error("META_GRAPH_API_VERSION or META_GRAPH_VERSION is not configured");
+  }
   return configured.startsWith("v") ? configured : `v${configured}`;
 }
 

@@ -32,12 +32,14 @@ function containsWakePhrase(value) {
     "hey avanti qo",
     "hey avanti co",
     "hey avanti go",
+    "hey avantico",
+    "hey avanti ko",
   ].some((phrase) => candidate.includes(phrase));
 }
 
 function commandAfterWake(value) {
   return text(value)
-    .replace(/hey\s+avanti(?:qo|\s+qo|\s+co|\s+go)/i, "")
+    .replace(/hey\s+avanti(?:qo|\s+qo|\s+co|\s+go|co|\s+ko)/i, "")
     .replace(/^[\s,.:;!?-]+/, "")
     .trim();
 }
@@ -56,21 +58,6 @@ function preferredAudioMimeType() {
   return "";
 }
 
-function speakAcknowledgement() {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance("Yes?");
-    utterance.lang = navigator.language || "en-US";
-    utterance.rate = 1.05;
-    utterance.volume = 0.7;
-    window.speechSynthesis.speak(utterance);
-  } catch {
-    // Voice acknowledgement is optional.
-  }
-}
-
 export default function HeyAvantiqoWakeBridge() {
   const pathname = usePathname();
   const businessContext = useBusinessContext();
@@ -84,6 +71,8 @@ export default function HeyAvantiqoWakeBridge() {
   const processingRef = useRef(false);
   const speechActiveRef = useRef(false);
   const finalizingRef = useRef(false);
+  const captureSuppressedRef = useRef(false);
+  const speakingRef = useRef(false);
   const speechStartedAtRef = useRef(0);
   const lastSoundAtRef = useRef(0);
   const preRollRef = useRef([]);
@@ -94,6 +83,7 @@ export default function HeyAvantiqoWakeBridge() {
   const [enabled, setEnabled] = useState(false);
   const [listening, setListening] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [status, setStatus] = useState("off");
 
   const organizationId =
@@ -141,6 +131,21 @@ export default function HeyAvantiqoWakeBridge() {
     };
   }, []);
 
+  useEffect(() => {
+    function handleSpeak(event) {
+      const message = text(event?.detail?.message || event?.detail?.text);
+      if (!message || !enabledRef.current) return;
+
+      playSpeech(message, "speaking").catch((error) => {
+        console.error("HEY_AVANTIQO_RESPONSE_PLAYBACK_ERROR", error);
+        setStatus("listening");
+      });
+    }
+
+    window.addEventListener("avantiqo:speak", handleSpeak);
+    return () => window.removeEventListener("avantiqo:speak", handleSpeak);
+  }, [organizationId, entityId]);
+
   function clearAnimationFrame() {
     if (animationFrameRef.current) {
       window.cancelAnimationFrame(animationFrameRef.current);
@@ -148,12 +153,22 @@ export default function HeyAvantiqoWakeBridge() {
     }
   }
 
+  function clearCaptureBuffers() {
+    speechActiveRef.current = false;
+    finalizingRef.current = false;
+    preRollRef.current = [];
+    utteranceChunksRef.current = [];
+    speechStartedAtRef.current = 0;
+    lastSoundAtRef.current = Date.now();
+  }
+
   function stopWakeAudio() {
     enabledRef.current = false;
     processingRef.current = false;
-    speechActiveRef.current = false;
-    finalizingRef.current = false;
+    captureSuppressedRef.current = false;
+    speakingRef.current = false;
     armedForCommandRef.current = false;
+    clearCaptureBuffers();
     clearAnimationFrame();
 
     const recorder = recorderRef.current;
@@ -178,10 +193,9 @@ export default function HeyAvantiqoWakeBridge() {
       audioContext.close().catch(() => null);
     }
 
-    preRollRef.current = [];
-    utteranceChunksRef.current = [];
     setListening(false);
     setProcessing(false);
+    setSpeaking(false);
   }
 
   function dispatchCommand(message) {
@@ -238,8 +252,89 @@ export default function HeyAvantiqoWakeBridge() {
     return text(result?.transcript);
   }
 
+  async function fetchSpeechAudio(message) {
+    if (!organizationId || !text(message)) {
+      throw new Error("Voice response context unavailable");
+    }
+
+    const response = await fetch("/api/operator/speak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        organizationId,
+        entityId,
+        text: text(message),
+        locale: navigator.language || "en-US",
+      }),
+    });
+
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result?.error || "Voice response failed");
+    }
+
+    return response.arrayBuffer();
+  }
+
+  async function playSpeech(message, nextStatus = "listening") {
+    if (!enabledRef.current || !text(message)) return;
+
+    captureSuppressedRef.current = true;
+    speakingRef.current = true;
+    setSpeaking(true);
+    setStatus(nextStatus);
+    clearCaptureBuffers();
+
+    try {
+      const audioBytes = await fetchSpeechAudio(message);
+      const audioContext = audioContextRef.current;
+      if (!audioContext) throw new Error("Voice playback context unavailable");
+
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+
+      const decoded = await audioContext.decodeAudioData(audioBytes.slice(0));
+      await new Promise((resolve, reject) => {
+        try {
+          const source = audioContext.createBufferSource();
+          source.buffer = decoded;
+          source.connect(audioContext.destination);
+          source.onended = resolve;
+          source.start(0);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    } finally {
+      clearCaptureBuffers();
+      await new Promise((resolve) => window.setTimeout(resolve, 180));
+      clearCaptureBuffers();
+      speakingRef.current = false;
+      setSpeaking(false);
+      captureSuppressedRef.current = false;
+      if (enabledRef.current) setStatus("listening");
+    }
+  }
+
+  async function acknowledgeWake() {
+    setStatus("acknowledging");
+    try {
+      await playSpeech("Yes?", "acknowledging");
+    } catch (error) {
+      console.error("HEY_AVANTIQO_ACKNOWLEDGEMENT_ERROR", error);
+    }
+
+    clearCaptureBuffers();
+    armedForCommandRef.current = true;
+    setStatus("listening");
+  }
+
   async function processUtterance(blob) {
-    if (processingRef.current || !enabledRef.current) return;
+    if (processingRef.current || !enabledRef.current || captureSuppressedRef.current) {
+      return;
+    }
 
     processingRef.current = true;
     setProcessing(true);
@@ -247,12 +342,15 @@ export default function HeyAvantiqoWakeBridge() {
 
     try {
       const transcript = await transcribeUtterance(blob);
-      if (!transcript) return;
+      if (!transcript) {
+        setStatus("listening");
+        return;
+      }
 
       if (armedForCommandRef.current) {
         armedForCommandRef.current = false;
         dispatchCommand(transcript);
-        setStatus("listening");
+        setStatus("waiting-answer");
         return;
       }
 
@@ -264,13 +362,11 @@ export default function HeyAvantiqoWakeBridge() {
       const immediateCommand = commandAfterWake(transcript);
       if (immediateCommand) {
         dispatchCommand(immediateCommand);
-        setStatus("listening");
+        setStatus("waiting-answer");
         return;
       }
 
-      armedForCommandRef.current = true;
-      setStatus("waiting-command");
-      speakAcknowledgement();
+      await acknowledgeWake();
     } catch (error) {
       console.error("HEY_AVANTIQO_WAKE_TRANSCRIPTION_ERROR", error);
       setStatus("retrying");
@@ -281,7 +377,13 @@ export default function HeyAvantiqoWakeBridge() {
   }
 
   function finalizeUtterance() {
-    if (!speechActiveRef.current || finalizingRef.current) return;
+    if (
+      !speechActiveRef.current ||
+      finalizingRef.current ||
+      captureSuppressedRef.current
+    ) {
+      return;
+    }
 
     speechActiveRef.current = false;
     finalizingRef.current = true;
@@ -297,7 +399,7 @@ export default function HeyAvantiqoWakeBridge() {
       utteranceChunksRef.current = [];
       finalizingRef.current = false;
 
-      if (!chunks.length) return;
+      if (!chunks.length || captureSuppressedRef.current) return;
 
       const recorder = recorderRef.current;
       const mimeType = recorder?.mimeType || preferredAudioMimeType() || "audio/webm";
@@ -309,6 +411,12 @@ export default function HeyAvantiqoWakeBridge() {
   function monitorAudio() {
     const analyser = analyserRef.current;
     if (!enabledRef.current || !analyser) return;
+
+    if (captureSuppressedRef.current || speakingRef.current) {
+      clearCaptureBuffers();
+      animationFrameRef.current = window.requestAnimationFrame(monitorAudio);
+      return;
+    }
 
     const samples = new Uint8Array(analyser.fftSize);
     analyser.getByteTimeDomainData(samples);
@@ -378,7 +486,7 @@ export default function HeyAvantiqoWakeBridge() {
       : new MediaRecorder(stream);
 
     recorder.ondataavailable = (event) => {
-      if (!event.data?.size) return;
+      if (!event.data?.size || captureSuppressedRef.current) return;
 
       if (speechActiveRef.current || finalizingRef.current) {
         utteranceChunksRef.current.push(event.data);
@@ -436,12 +544,10 @@ export default function HeyAvantiqoWakeBridge() {
   const label = !supported
     ? "Voice wake unavailable"
     : !enabled
-      ? status === "permission-required"
-        ? "Enable Hey Avantiqo"
-        : "Enable Hey Avantiqo"
-      : status === "waiting-command"
-        ? "Hey Avantiqo · Speak now"
-        : processing
+      ? "Enable Hey Avantiqo"
+      : speaking
+        ? "Hey Avantiqo · Speaking"
+        : processing || status === "waiting-answer"
           ? "Hey Avantiqo · Understanding"
           : listening
             ? "Hey Avantiqo · Listening"
@@ -470,7 +576,7 @@ export default function HeyAvantiqoWakeBridge() {
             : "fixed bottom-6 right-6 z-[90] flex h-12 items-center gap-3 rounded-full border border-[#D6A66A]/35 bg-[#0A0A0A]/95 px-5 text-white shadow-[0_20px_70px_rgba(0,0,0,.65)] backdrop-blur-2xl transition hover:border-[#D6A66A]/65 disabled:opacity-45"
         }
       >
-        {processing || (enabled && !listening) ? (
+        {processing || speaking || (enabled && !listening) ? (
           <Loader2 size={15} className="animate-spin" />
         ) : (
           <Mic size={15} />

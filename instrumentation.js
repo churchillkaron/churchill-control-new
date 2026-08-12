@@ -46,6 +46,12 @@ export async function register() {
       "@/lib/creative/quality/runtime/CreativeGeneratedMediaRecoveryBootstrap"
     );
     await import(
+      "@/lib/creative/quality/runtime/CreativeGeneratedMediaPerceptualCostPlanningBootstrap"
+    );
+    await import(
+      "@/lib/creative/quality/runtime/CreativePerceptualPairRecoveryBootstrap"
+    );
+    await import(
       "@/lib/creative/audio/runtime/CreativeMasterSoundtrackRenderGate"
     );
     await import(

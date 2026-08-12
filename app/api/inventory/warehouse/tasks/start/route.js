@@ -11,6 +11,13 @@ function errorResponse(error, status = 500) {
   );
 }
 
+function isExplicitStartAction(body) {
+  return (
+    String(body?.action || "").trim().toLowerCase() === "start" ||
+    String(body?.action_id || body?.actionId || "").trim().toLowerCase() === "start"
+  );
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -21,6 +28,13 @@ export async function POST(req) {
 
     if (!access.success) {
       return errorResponse(access.error, access.status || 403);
+    }
+
+    if (!isExplicitStartAction(body)) {
+      return errorResponse(
+        "Warehouse task start must be invoked through the explicit Start Task action",
+        409,
+      );
     }
 
     const actorId = access.access?.staffAccountId || null;

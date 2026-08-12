@@ -1,25 +1,31 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { completeWarehouseTask } from "@/lib/operations/tasks/completeWarehouseTask";
 
+function errorResponse(error, status = 500) {
+  return NextResponse.json(
+    { success: false, error },
+    { status },
+  );
+}
+
 export async function POST(req) {
   try {
-    await requireAuth();
     const body = await req.json();
-
     const access = await requireOrganizationAccess({
       organizationId: body.organizationId || body.organization_id,
       request: req,
     });
 
     if (!access.success) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status },
-      );
+      return errorResponse(access.error, access.status || 403);
+    }
+
+    const actorId = access.access?.staffAccountId || null;
+    if (!actorId) {
+      return errorResponse("Authenticated staff identity is required", 403);
     }
 
     const result = await completeWarehouseTask({
@@ -27,14 +33,14 @@ export async function POST(req) {
       entity_id: body.entity_id || body.entityId || null,
       task_id: body.task_id || body.taskId,
       location_id: body.location_id || body.locationId || null,
-      completed_by: access.access?.staffAccountId || null,
+      completed_by: actorId,
     });
 
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 },
+    return errorResponse(
+      error?.message || "Unable to complete warehouse task",
+      error?.status || 500,
     );
   }
 }

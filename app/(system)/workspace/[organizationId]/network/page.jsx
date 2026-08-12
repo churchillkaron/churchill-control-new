@@ -1,34 +1,26 @@
-export const dynamic = "force-dynamic";
-
-import { notFound } from "next/navigation";
-
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
-import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
-import { isPlatformOperatorWorkspace } from "@/lib/platform/security/PlatformOperatorWorkspaceRuntime";
 
 const groups = [
   {
     title: "Connections",
-    items: ["Customers", "Suppliers", "Partners", "Accounting Firms", "Banks", "Insurance", "Government", "Logistics"],
+    items: [
+      "Customers",
+      "Suppliers",
+      "Partners",
+      "Accounting Firms",
+      "Banks",
+      "Insurance",
+      "Government",
+      "Logistics",
+    ],
   },
   {
     title: "Discover",
-    items: ["Search Companies", "Marketplace", "Verified Businesses", "AI Services"],
+    items: ["Search Companies", "Marketplace", "Verified Businesses"],
   },
 ];
 
-export default async function BusinessNetworkPage({ params }) {
-  const resolvedParams = await params;
-  const organizationId = String(resolvedParams?.organizationId || "").trim();
-  const access = await requirePlatformAdminAccess().catch(() => ({ success: false }));
-  const operatorWorkspace = access.success
-    ? await isPlatformOperatorWorkspace(organizationId).catch(() => false)
-    : false;
-
-  if (!access.success || !operatorWorkspace) {
-    notFound();
-  }
-
+export default function BusinessNetworkPage() {
   return (
     <div className="space-y-6">
       <WorkspaceHeader
@@ -46,8 +38,9 @@ export default async function BusinessNetworkPage({ params }) {
         </h1>
 
         <p className="mt-3 max-w-3xl text-sm font-light leading-6 text-white/55">
-          Business Network is the Avantiqo platform layer for verified company identity,
-          relationships, shared documents, capabilities, marketplace discovery and AI-assisted collaboration.
+          Business Network is the Avantiqo business layer for verified company identity,
+          relationships, shared documents, capabilities, marketplace discovery and
+          business collaboration.
         </p>
       </section>
 

@@ -33,7 +33,7 @@ const ICONS = {
 };
 
 const PLATFORM_ADMIN_ROLES = new Set(["PLATFORM_OWNER", "SUPER_ADMIN"]);
-const PLATFORM_ONLY_HEADER_ITEMS = new Set(["network", "services", "ai"]);
+const PLATFORM_ONLY_HEADER_ITEMS = new Set(["services", "ai"]);
 
 function upper(value) {
   return String(value ?? "").trim().toUpperCase();

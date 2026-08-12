@@ -89,7 +89,7 @@ export default function PasskeyReadinessPage() {
           </div>
           <h1 className="mt-3 text-4xl font-black">Passkey rollout readiness</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-            Mandatory passkey clock-in is blocked until the organization is fully prepared. Enrollment alone is not enough: active members must be linked to Supabase Auth, every active member must have a passkey, and at least one real verification must have succeeded recently.
+            Mandatory passkey clock-in is blocked until the Workforce roster is prepared. Clock-in staff must be linked to Supabase Auth, every active clock-in staff member must have a passkey, and at least one real verification must have succeeded recently. Owner, platform administration, and accounting-only roles are not counted as shift-clock users.
           </p>
         </section>
 
@@ -126,7 +126,7 @@ export default function PasskeyReadinessPage() {
             <section className="grid gap-4 md:grid-cols-3">
               <Metric
                 icon={<Users className="h-5 w-5" />}
-                label="Active members"
+                label="Clock-in staff"
                 value={readiness.activeMemberCount}
                 detail={`${readiness.authLinkedMemberCount} linked to Supabase Auth`}
                 good={readiness.fullAuthCoverage}
@@ -153,8 +153,8 @@ export default function PasskeyReadinessPage() {
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <StatusRow
-                  label="Provider check"
-                  value={readiness.providerAvailable ? "Available" : "Not verified"}
+                  label="Passkey admin API"
+                  value={readiness.providerAvailable ? "Reachable" : "Not verified"}
                   good={readiness.providerAvailable}
                 />
                 <StatusRow
@@ -168,8 +168,8 @@ export default function PasskeyReadinessPage() {
                   good
                 />
                 <StatusRow
-                  label="Verification freshness"
-                  value={`${readiness.verificationWindowMinutes || 30} minutes`}
+                  label="Hosted configuration proof"
+                  value={readiness.recentVerificationProven ? "Recent real verification passed" : "Real verification still required"}
                   good={readiness.recentVerificationProven}
                 />
               </div>
@@ -198,7 +198,7 @@ export default function PasskeyReadinessPage() {
             </section>
 
             <section className="rounded-[28px] border border-violet-400/15 bg-violet-400/[0.05] p-5 text-sm leading-6 text-violet-100/70">
-              Staff enroll and test their passkey from <strong>Workforce → Profile → Identity verification</strong>. The new Test passkey verification action performs the same identity ceremony used immediately before Start Shift. Biometric templates remain on the employee device.
+              Staff enroll and test their passkey from <strong>Workforce → Profile → Identity verification</strong>. The Test passkey verification action performs the same identity ceremony used immediately before Start Shift. A successful recent test is also the rollout proof that hosted Passkeys and the canonical Workforce origin work together. Biometric templates remain on the employee device.
             </section>
           </>
         ) : null}

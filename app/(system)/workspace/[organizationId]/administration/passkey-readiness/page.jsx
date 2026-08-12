@@ -14,6 +14,8 @@ import {
   Users,
 } from "lucide-react";
 
+const PASSKEY_REDIRECT_URL = "https://avantiqo.ai/workforce/profile";
+
 function dateTime(value) {
   if (!value) return "Not yet verified";
   const date = new Date(value);
@@ -25,6 +27,21 @@ function dateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function supabaseProjectRef() {
+  try {
+    const url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
+    return String(url.hostname.split(".")[0] || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function hostedPasskeyState(hostedConfiguration) {
+  if (hostedConfiguration?.enabled === true) return "Enabled";
+  if (hostedConfiguration?.enabled === false) return "Disabled";
+  return "Not verified";
 }
 
 export default function PasskeyReadinessPage() {
@@ -99,6 +116,14 @@ export default function PasskeyReadinessPage() {
 
   const ready = readiness?.activationReady === true;
   const staff = Array.isArray(readiness?.staff) ? readiness.staff : [];
+  const hostedConfiguration = readiness?.hostedConfiguration || null;
+  const projectRef = supabaseProjectRef();
+  const passkeySettingsUrl = projectRef
+    ? `https://supabase.com/dashboard/project/${projectRef}/auth/passkeys`
+    : null;
+  const urlConfigurationUrl = projectRef
+    ? `https://supabase.com/dashboard/project/${projectRef}/auth/url-configuration`
+    : null;
 
   return (
     <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
@@ -225,14 +250,52 @@ export default function PasskeyReadinessPage() {
             </section>
 
             <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5">
-              <div className="text-sm font-black uppercase tracking-[0.14em] text-white/70">
-                Hosted Passkey configuration
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="text-sm font-black uppercase tracking-[0.14em] text-white/70">
+                    Hosted Passkey configuration
+                  </div>
+                  <p className="mt-2 max-w-2xl text-xs leading-5 text-white/40">
+                    Avantiqo checks the live Supabase Auth challenge before mandatory clock-in can be enabled. Configure the hosted Auth project once, then refresh this page to verify it.
+                  </p>
+                </div>
+                {passkeySettingsUrl ? (
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={passkeySettingsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-10 items-center rounded-xl border border-violet-400/25 bg-violet-400/10 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-violet-100"
+                    >
+                      Open Passkey settings ↗
+                    </a>
+                    <a
+                      href={urlConfigurationUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-10 items-center rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white/60"
+                    >
+                      Open URL configuration ↗
+                    </a>
+                  </div>
+                ) : null}
               </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <StatusRow
-                  label="Passkey admin API"
-                  value={readiness.providerAvailable ? "Reachable" : "Not verified"}
-                  good={readiness.providerAvailable}
+                  label="Hosted Passkeys"
+                  value={hostedPasskeyState(hostedConfiguration)}
+                  good={hostedConfiguration?.enabled === true}
+                />
+                <StatusRow
+                  label="Observed RP ID"
+                  value={hostedConfiguration?.rpId || "Not available"}
+                  good={hostedConfiguration?.rpIdMatches === true}
+                />
+                <StatusRow
+                  label="Required RP ID"
+                  value={readiness.requiredRpId || "avantiqo.ai"}
+                  good
                 />
                 <StatusRow
                   label="Canonical Workforce origin"
@@ -240,15 +303,31 @@ export default function PasskeyReadinessPage() {
                   good
                 />
                 <StatusRow
-                  label="Required RP ID"
-                  value="avantiqo.ai"
-                  good
+                  label="Passkey admin API"
+                  value={readiness.providerAvailable ? "Reachable" : "Not verified"}
+                  good={readiness.providerAvailable}
                 />
                 <StatusRow
-                  label="Hosted configuration proof"
-                  value={readiness.recentVerificationProven ? "Recent real verification passed" : "Real verification still required"}
+                  label="Real origin verification"
+                  value={readiness.recentVerificationProven ? "Recent verification passed" : "Still required"}
                   good={readiness.recentVerificationProven}
                 />
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-violet-400/15 bg-violet-400/[0.05] p-4">
+                <div className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-200">
+                  Required hosted values
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <SetupValue label="Enable Passkey authentication" value="On" />
+                  <SetupValue label="Relying Party Display Name" value="Avantiqo" />
+                  <SetupValue label="Relying Party ID" value={readiness.requiredRpId || "avantiqo.ai"} />
+                  <SetupValue label="Relying Party Origin" value={readiness.canonicalOrigin || "https://avantiqo.ai"} />
+                  <SetupValue label="Allowed redirect URL" value={PASSKEY_REDIRECT_URL} />
+                </div>
+                <p className="mt-3 text-xs leading-5 text-violet-100/55">
+                  Keep the RP ID stable after staff begin enrolling. The production redirect should be explicitly allowed for the passwordless enrollment flow.
+                </p>
               </div>
             </section>
 
@@ -355,9 +434,18 @@ function StatusRow({ label, value, good }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
       <div className="text-xs text-white/35">{label}</div>
-      <div className={`mt-1 text-sm font-semibold ${good ? "text-emerald-200" : "text-amber-200"}`}>
+      <div className={`mt-1 break-words text-sm font-semibold ${good ? "text-emerald-200" : "text-amber-200"}`}>
         {value}
       </div>
+    </div>
+  );
+}
+
+function SetupValue({ label, value }) {
+  return (
+    <div className="rounded-xl border border-violet-400/10 bg-black/20 p-3">
+      <div className="text-[10px] uppercase tracking-[0.12em] text-violet-100/40">{label}</div>
+      <div className="mt-1 break-all text-xs font-semibold text-violet-50/85">{value}</div>
     </div>
   );
 }

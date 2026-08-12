@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -181,7 +182,13 @@ export default function AttendanceManagementPage() {
               </p>
             ) : null}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={`/workspace/${organizationId}/people/attendance/clock-in-exceptions`}
+              className="flex h-11 items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.08] px-4 text-xs font-black uppercase tracking-[0.12em] text-amber-200"
+            >
+              <AlertTriangle size={16} /> Clock-in exceptions
+            </Link>
             <input
               type="month"
               value={month}

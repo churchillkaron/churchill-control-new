@@ -38,7 +38,7 @@ It converts a business objective and verified organization context into an accou
 
 Business outcome
 → verified organization, brand, audience, asset, market and channel context
-→ research
+→ explicit verified research and asset intelligence
 → organization-scoped outcome learning as evidence
 → one accountable Creative Master Plan
 → dynamic independent Creative Tribunal
@@ -52,6 +52,7 @@ Business outcome
 
 - Creative is not owned by any industry, company, venue type, deliverable type, provider, or channel.
 - Organization and mission evidence define the business problem. Industry labels may inform research but may not select canned creative behavior.
+- Research and asset intelligence are explicit request context before direction; they may not monkey-patch, replace, or bypass the Master Plan runtime.
 - The Creative Director chooses the medium and deliverable system when the mission does not explicitly constrain them.
 - Workflow families and aliases are registry-owned. Runtime code may not maintain parallel media-routing taxonomies.
 - The Creative Master Plan is the single creative and production-intent authority.

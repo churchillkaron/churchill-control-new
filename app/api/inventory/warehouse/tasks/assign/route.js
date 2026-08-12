@@ -1,88 +1,45 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { assignWarehouseTask } from "@/lib/operations/tasks/assignWarehouseTask";
 
-import {
-  requireAuth,
-} from "@/lib/shared/auth";
-
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
-
-import {
-  assignWarehouseTask,
-} from "@/lib/operations/tasks/assignWarehouseTask";
-
+function errorResponse(error, status = 500) {
+  return NextResponse.json(
+    { success: false, error },
+    { status },
+  );
+}
 
 export async function POST(req) {
-
   try {
-
-    await requireAuth();
-
-
-    const body =
-      await req.json();
-
-
-    const access =
-      await requireOrganizationAccess({
-
-        organizationId:
-          body.organization_id ||
-          body.organizationId,
-
-      });
-
+    const body = await req.json();
+    const access = await requireOrganizationAccess({
+      organizationId: body.organization_id || body.organizationId,
+      request: req,
+    });
 
     if (!access.success) {
-
-      return NextResponse.json(
-        {
-          success:false,
-          error:access.error,
-        },
-        {
-          status:access.status,
-        }
-      );
-
+      return errorResponse(access.error, access.status || 403);
     }
 
+    const actorId = access.access?.staffAccountId || null;
+    if (!actorId) {
+      return errorResponse("Authenticated staff identity is required", 403);
+    }
 
-    const result =
-      await assignWarehouseTask({
-
-        organization_id:
-          access.organizationId,
-
-        task_id:
-          body.task_id ||
-          body.taskId,
-
-        assigned_to:
-          body.assigned_to ||
-          body.assignedTo,
-
-      });
-
+    const result = await assignWarehouseTask({
+      organization_id: access.organizationId,
+      task_id: body.task_id || body.taskId,
+      assigned_to: body.assigned_to || body.assignedTo,
+      assigned_by: actorId,
+    });
 
     return NextResponse.json(result);
-
-
-  } catch(error) {
-
-    return NextResponse.json(
-      {
-        success:false,
-        error:error.message,
-      },
-      {
-        status:500,
-      }
+  } catch (error) {
+    return errorResponse(
+      error?.message || "Unable to assign warehouse task",
+      error?.status || 500,
     );
-
   }
-
 }

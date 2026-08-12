@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   Bot,
   CalendarDays,
   ChevronRight,
@@ -59,6 +60,13 @@ const cards = [
   },
 ];
 
+function dateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function PortalHomePage() {
   const [staff, setStaff] = useState(null);
   const [runtime, setRuntime] = useState(null);
@@ -99,8 +107,17 @@ export default function PortalHomePage() {
 
     try {
       const requirements = runtime?.clockInRequirements || {};
+      const approvedTargets = new Set(
+        requirements?.exception?.activeApprovedTargets || []
+      );
+      const passkeyExceptionApproved = approvedTargets.has("passkey");
+      const gpsExceptionApproved = approvedTargets.has("gps");
 
-      if (action === "clock_in" && requirements.passkeyRequired) {
+      if (
+        action === "clock_in" &&
+        requirements.passkeyRequired &&
+        !passkeyExceptionApproved
+      ) {
         if (!requirements.passkeyEnrolled) {
           throw new Error(
             "Register a passkey in Profile before starting your shift"
@@ -111,7 +128,9 @@ export default function PortalHomePage() {
       }
 
       const location =
-        action === "clock_in" && requirements.gpsRequired
+        action === "clock_in" &&
+        requirements.gpsRequired &&
+        !gpsExceptionApproved
           ? await captureClockInLocation()
           : null;
 
@@ -142,9 +161,18 @@ export default function PortalHomePage() {
   const shiftDuration = runtime?.shiftDuration || "00:00";
   const shiftStatus = runtime?.shiftStatus || "NO_SHIFT";
   const schedule = runtime?.schedule || null;
-  const gpsRequired = Boolean(runtime?.clockInRequirements?.gpsRequired);
-  const passkeyRequired = Boolean(runtime?.clockInRequirements?.passkeyRequired);
-  const passkeyEnrolled = Boolean(runtime?.clockInRequirements?.passkeyEnrolled);
+  const requirements = runtime?.clockInRequirements || {};
+  const gpsRequired = Boolean(requirements.gpsRequired);
+  const passkeyRequired = Boolean(requirements.passkeyRequired);
+  const passkeyEnrolled = Boolean(requirements.passkeyEnrolled);
+  const approvedTargets = new Set(
+    requirements?.exception?.activeApprovedTargets || []
+  );
+  const pendingTargets = requirements?.exception?.pendingTargets || [];
+  const latestException = requirements?.exception?.latest || null;
+  const passkeyExceptionApproved = approvedTargets.has("passkey");
+  const gpsExceptionApproved = approvedTargets.has("gps");
+  const exceptionApproved = passkeyExceptionApproved || gpsExceptionApproved;
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -218,7 +246,30 @@ export default function PortalHomePage() {
                 </div>
               </div>
 
-              {!shiftActive && passkeyRequired ? (
+              {!shiftActive && exceptionApproved ? (
+                <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.08] px-3 py-3 text-xs text-amber-100/80">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <div className="font-black">Manager exception approved · one-time</div>
+                    <div className="mt-1 text-amber-100/55">
+                      {[passkeyExceptionApproved ? "Passkey" : null, gpsExceptionApproved ? "GPS" : null]
+                        .filter(Boolean)
+                        .join(" + ")}
+                      {latestException?.expiresAt
+                        ? ` · expires ${dateTime(latestException.expiresAt)}`
+                        : ""}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {!shiftActive && pendingTargets.length && !exceptionApproved ? (
+                <div className="mt-4 flex items-center gap-2 rounded-2xl border border-amber-300/15 bg-amber-300/[0.05] px-3 py-2 text-xs text-amber-100/65">
+                  <AlertTriangle className="h-4 w-4 shrink-0" /> Manager exception pending for {pendingTargets.join(" + ")}.
+                </div>
+              ) : null}
+
+              {!shiftActive && passkeyRequired && !passkeyExceptionApproved ? (
                 <div className="mt-4 flex items-center gap-2 rounded-2xl border border-violet-400/15 bg-violet-400/[0.06] px-3 py-2 text-xs text-violet-100/70">
                   <KeyRound className="h-4 w-4 shrink-0" />
                   {passkeyEnrolled
@@ -227,10 +278,19 @@ export default function PortalHomePage() {
                 </div>
               ) : null}
 
-              {!shiftActive && gpsRequired ? (
+              {!shiftActive && gpsRequired && !gpsExceptionApproved ? (
                 <div className="mt-3 flex items-center gap-2 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100/70">
                   <MapPin className="h-4 w-4 shrink-0" /> GPS location is required and verified when you start your shift.
                 </div>
+              ) : null}
+
+              {(passkeyRequired || gpsRequired) && !shiftActive ? (
+                <Link
+                  href="/workforce/profile"
+                  className="mt-3 inline-flex text-[10px] font-black uppercase tracking-[0.13em] text-white/35 underline decoration-white/20 underline-offset-4"
+                >
+                  Verification problem? Request a manager exception
+                </Link>
               ) : null}
 
               <button
@@ -245,11 +305,11 @@ export default function PortalHomePage() {
               >
                 {shiftActive ? <Square className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                 {loadingShift
-                  ? !shiftActive && passkeyRequired
+                  ? !shiftActive && passkeyRequired && !passkeyExceptionApproved
                     ? "Verifying identity..."
-                    : gpsRequired && !shiftActive
+                    : gpsRequired && !shiftActive && !gpsExceptionApproved
                       ? "Verifying location..."
-                      : "Syncing..."
+                      : "Starting shift..."
                   : shiftActive
                     ? "End Shift"
                     : "Start Shift"}

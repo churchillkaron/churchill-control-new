@@ -1,3 +1,5 @@
+import "@/lib/finance/bootstrap/registerFinanceBilling";
+
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";

@@ -74,7 +74,7 @@ function buildMetaStatus(integration, connections, assets, credentials) {
     socialCredential?.credential_type === "oauth_page_token" &&
     upper(credentialMetadata.purpose) === "ORGANIZATION_CHANNEL_PUBLISHING" &&
     credentialMetadata.messaging_webhook_subscribed === true &&
-    credentialMetadata.messaging_webhook_app_configured === true;
+    credentialMetadata.messaging_app_webhooks_configured === true;
 
   const facebookReady = Boolean(socialConnection && facebookPage);
   const instagramReady = Boolean(socialConnection && instagramBusiness);

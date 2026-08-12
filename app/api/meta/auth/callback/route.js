@@ -51,6 +51,64 @@ async function graphJson(url, options = {}) {
   return payload;
 }
 
+function appAccessToken() {
+  if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
+    throw new Error("Meta application credentials are not configured");
+  }
+  return `${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`;
+}
+
+async function configureAppWebhookSubscription({ objectType, fields, origin }) {
+  const verifyToken = String(
+    process.env.META_MESSAGING_WEBHOOK_VERIFY_TOKEN || ""
+  ).trim();
+  if (!verifyToken) {
+    throw new Error("META_MESSAGING_WEBHOOK_VERIFY_TOKEN is not configured");
+  }
+
+  const callbackUrl = `${origin}/api/commercial/communications/webhooks/meta`;
+  const url = new URL(
+    `https://graph.facebook.com/${graphVersion()}/${process.env.META_APP_ID}/subscriptions`
+  );
+  url.searchParams.set("object", objectType);
+  url.searchParams.set("callback_url", callbackUrl);
+  url.searchParams.set("verify_token", verifyToken);
+  url.searchParams.set("fields", fields.join(","));
+  url.searchParams.set("access_token", appAccessToken());
+
+  const result = await graphJson(url, { method: "POST" });
+  if (result?.success !== true && result?.success !== "true") {
+    throw new Error(`Meta ${objectType} webhook configuration failed`);
+  }
+
+  return {
+    object_type: objectType,
+    callback_url: callbackUrl,
+    fields,
+  };
+}
+
+async function configureMessagingWebhooks(origin) {
+  const page = await configureAppWebhookSubscription({
+    objectType: "page",
+    origin,
+    fields: [
+      "messages",
+      "messaging_postbacks",
+      "message_deliveries",
+      "message_reads",
+    ],
+  });
+
+  const instagram = await configureAppWebhookSubscription({
+    objectType: "instagram",
+    origin,
+    fields: ["messages", "messaging_postbacks"],
+  });
+
+  return { page, instagram };
+}
+
 async function subscribePageMessaging(page) {
   if (!page?.id || !page?.access_token) {
     throw new Error("Meta Page messaging subscription requires a Page access token");
@@ -61,7 +119,7 @@ async function subscribePageMessaging(page) {
   );
   url.searchParams.set(
     "subscribed_fields",
-    "messages,messaging_postbacks"
+    "messages,messaging_postbacks,message_deliveries,message_reads"
   );
   url.searchParams.set("access_token", page.access_token);
 
@@ -108,6 +166,8 @@ export async function GET(request) {
     if (!tokenData.access_token) {
       throw new Error("Meta did not return an access token");
     }
+
+    const webhookConfiguration = await configureMessagingWebhooks(origin);
 
     const pagesUrl = new URL(
       `https://graph.facebook.com/${graphVersion()}/me/accounts`
@@ -156,6 +216,8 @@ export async function GET(request) {
           "instagram_manage_messages",
         ],
         messaging_webhook_subscribed: true,
+        messaging_app_webhooks_configured: true,
+        messaging_app_webhook_configuration: webhookConfiguration,
         instagram_auth_mode: "FACEBOOK_LOGIN",
       },
     });
@@ -170,7 +232,14 @@ export async function GET(request) {
         page_name: primaryPage.name,
         instagram_business_id: primaryInstagramId,
         messaging_webhook_subscribed: true,
-        messaging_webhook_fields: ["messages", "messaging_postbacks"],
+        messaging_app_webhooks_configured: true,
+        messaging_app_webhook_configuration: webhookConfiguration,
+        messaging_webhook_fields: [
+          "messages",
+          "messaging_postbacks",
+          "message_deliveries",
+          "message_reads",
+        ],
         available_pages: messagingPages.map((page) => ({
           id: page.id,
           name: page.name,
@@ -200,6 +269,7 @@ export async function GET(request) {
           instagram_username:
             page.instagram_business_account?.username || null,
           messaging_webhook_subscribed: true,
+          messaging_app_webhooks_configured: true,
         },
       });
 
@@ -216,6 +286,7 @@ export async function GET(request) {
           metadata: {
             facebook_page_id: page.id,
             messaging_webhook_subscribed: true,
+            messaging_app_webhooks_configured: true,
           },
         });
       }

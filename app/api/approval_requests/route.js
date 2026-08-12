@@ -4,6 +4,10 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
+const DEDICATED_APPROVAL_REFERENCE_TABLES = new Set([
+  "workforce_clock_in_exception",
+]);
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -59,6 +63,10 @@ export async function GET(request) {
     const requests = [];
 
     for (const approvalRequest of data || []) {
+      if (DEDICATED_APPROVAL_REFERENCE_TABLES.has(approvalRequest.reference_table)) {
+        continue;
+      }
+
       if (
         approvalRequest.approval_workflows?.organization_id &&
         approvalRequest.approval_workflows.organization_id !==

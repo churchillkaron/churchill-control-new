@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
+import captureClockInLocation from "@/lib/people/workforce/captureClockInLocation";
 
 function money(value, currency = "") {
   const amount = Number(value || 0).toLocaleString("en-US", {
@@ -122,10 +123,15 @@ export default function StaffPortalPage() {
     setMessage("");
 
     try {
+      const location =
+        action === "clock_in" && runtime?.clockInRequirements?.gpsRequired
+          ? await captureClockInLocation()
+          : null;
+
       const response = await fetch("/api/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, location }),
       });
       const result = await response.json();
 
@@ -196,6 +202,9 @@ export default function StaffPortalPage() {
                     </p>
                     {runtime?.activeShift?.clock_in ? (
                       <p className="mt-2 text-xs text-white/30">Started {dateTime(runtime.activeShift.clock_in, timezone)} · elapsed {runtime.shiftDuration || "00:00"}</p>
+                    ) : null}
+                    {!runtime?.shiftActive && runtime?.clockInRequirements?.gpsRequired ? (
+                      <p className="mt-2 text-xs text-cyan-200/60">GPS location will be verified before clock-in.</p>
                     ) : null}
                   </div>
                   <CalendarDays className="h-6 w-6 text-[#D6A66A]" />

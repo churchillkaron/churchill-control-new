@@ -1,0 +1,55 @@
+AVANTIQO CREATIVE STUDIO — OUTCOME LEARNING CONVERGENCE
+Date: 2026-08-12
+Source of truth: main
+
+Scope
+- Add canonical Creative-owned outcome learning from verified published work.
+- Keep legacy Marketing engine memory non-canonical for Creative direction.
+- Feed verified outcome evidence into future direction as bounded request context.
+- Expose read-only outcome intelligence in the Studio Learning workspace.
+
+Evidence authority
+- Outcome observations require a canonical Creative PUBLISH_EXECUTION asset node.
+- Publish execution must be APPROVED and execution_status COMPLETED.
+- External publication id or URL is mandatory.
+- Parent PUBLISH_COMMAND must be completed and contain human publish approval evidence.
+- RELEASE_READINESS_REPORT must exist and have passed=true.
+- FINAL_RENDER must exist in the same Creative release chain.
+- Raw provider text is excluded; only normalized numeric metrics and bounded creative context are stored.
+
+Learning semantics
+- Contract: CREATIVE_OUTCOME_LEARNING_V1.
+- Observation contract: CREATIVE_OUTCOME_OBSERVATION_V1.
+- Deterministic metric normalization includes impressions, reach, views, engagement, clicks, conversions, revenue, spend, watch time, completion rate, CTR, conversion rate and ROAS where supplied or safely derivable.
+- Learning currently summarizes evidence; it does not invent a universal performance score.
+- Sparse evidence explicitly requires fresh creative judgment.
+- Brand-scoped projects learn only from the same organization+brand evidence.
+- Unbranded projects remain project-scoped.
+
+World-class invariants
+- Outcome evidence may inform judgment but cannot replace it.
+- Quality floors cannot be lowered by outcome learning.
+- Rights gates cannot be bypassed.
+- Publish approval cannot be bypassed.
+- Provider routing cannot be overridden by business-outcome learning.
+- Prior creative work may not be imitated merely because it performed well.
+- No B-grade release becomes acceptable because of performance data.
+
+Persistence and security
+- Live migrations: 20260812041258_creative_outcome_learning and 20260812041832_creative_outcome_learning_immutability_hardening.
+- creative_outcome_observations is append-only.
+- service_role has SELECT and INSERT only.
+- anon and authenticated have no direct table privileges.
+- UPDATE, DELETE and TRUNCATE are denied to service_role.
+- Row-level security is enabled.
+- Runtime observation ingestion is server-side only.
+- Provider prompts are not persisted.
+
+Studio UX
+- Learning Center now shows verified outcomes, channel count, aggregate observed metrics, evidence sufficiency, and governance invariants.
+- With zero verified observations, the UI states Awaiting published outcomes instead of inventing insights.
+
+Validation
+- No paid provider execution during implementation or validation.
+- Production build must pass Creative Studio, OpenAI governance and Operations release audits.
+- Next.js compile/type validation must pass.

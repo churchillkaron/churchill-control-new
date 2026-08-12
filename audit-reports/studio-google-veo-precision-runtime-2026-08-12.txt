@@ -1,0 +1,49 @@
+AVANTIQO CREATIVE STUDIO — DIRECT GOOGLE VEO PRECISION RUNTIME
+Date: 2026-08-12
+Source of truth: main
+
+Scope
+- Add direct Google Gemini API Veo 3.1 precision execution for Creative Studio video shots.
+- Keep Gemini Omni Flash as the default general video generation/editing engine.
+- Keep Veo 3.1 Fast via fal as a non-precision challenger/high-fidelity candidate only.
+- Route hard precision requirements to direct Google Veo only when the runtime contract can satisfy them.
+
+Direct precision controls
+- Model: veo-3.1-generate-preview
+- Long-running Google video generation transport through predictLongRunning.
+- First-frame control.
+- Exact last-frame control.
+- Up to three reference images.
+- Veo-generated MP4 extension input with provenance enforcement.
+- 8-second precision execution contract.
+- 720p/1080p direct generation; extension is fail-closed to 720p.
+- Native audio capability retained.
+
+Governance
+- Provider identity: google-veo.
+- Runtime remains inside the canonical Service Domain provider boundary.
+- Uses the same Avantiqo-managed Gemini API credential source; no second Google secret path.
+- Provider selection -> Pricing -> Usage -> Wallet -> Billing -> provider execution remains mandatory.
+- Promptless Creative source of truth remains structured Shot Bible / mission / brand / assets.
+- Vendor prompt text is serialized only at execution transport and is not persisted.
+- Generated media is copied into Avantiqo private Creative Storage.
+- No provider/model selection UI added.
+
+Pricing
+- Live migration: 20260812034832_google_veo_precision_pricing.
+- Direct Veo pricing is configured as provider data, not application constants.
+- Currency and markup are inherited from the existing governed Gemini video pricing row.
+- Supplier basis records Google Veo 3.1 Standard at USD 0.40/second.
+- Current configured local supplier cost resolves to 14.0 THB/second with existing organization/platform pricing configuration.
+
+Safety
+- No paid Veo generation executed during implementation or validation.
+- Hard precision remains fail-closed if duration/control/provenance/resolution requirements are unsupported.
+- FAL Veo Fast is not treated as direct precision Veo.
+- No wallet debit outside Service Domain.
+- No hardcoded jurisdictional tax/currency/accounting values in application code.
+
+Validation target
+- Production Vercel build from main.
+- Creative/OpenAI/Operations governance audits must continue to pass.
+- Next.js production compile must succeed.

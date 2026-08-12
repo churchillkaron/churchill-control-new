@@ -62,6 +62,7 @@ export async function GET(request) {
       {
         success: false,
         error: error?.message || "Unable to load staff",
+        code: error?.code || null,
       },
       { status: error?.status || 500 }
     );
@@ -91,6 +92,7 @@ export async function POST(request) {
         ? await clockInStaff({
             organizationId: context.organizationId,
             staff: context.staff,
+            location: body?.location || null,
           })
         : await clockOutStaff({
             organizationId: context.organizationId,
@@ -109,6 +111,7 @@ export async function POST(request) {
       {
         success: false,
         error: error?.message || "Unable to update shift",
+        code: error?.code || null,
       },
       { status: error?.status || 500 }
     );

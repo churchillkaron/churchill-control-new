@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import {
+  CheckCircle2,
   Crosshair,
   KeyRound,
   MapPin,
   RefreshCw,
   Save,
   ShieldCheck,
+  TestTube2,
   TimerReset,
+  TriangleAlert,
 } from "lucide-react";
+import { distanceMeters } from "@/lib/people/workforce/locationMath";
 
 const EMPTY_POLICY = {
   access: {
@@ -61,6 +65,19 @@ function optionalNumber(value) {
   return value === "" ? null : Number(value);
 }
 
+function locationErrorMessage(locationError) {
+  const messageByCode = {
+    1: "Location permission was denied. Allow location access and try again.",
+    2: "The device could not determine its current location.",
+    3: "Location capture timed out. Move to an area with a stronger GPS signal and try again.",
+  };
+
+  return (
+    messageByCode[locationError?.code] ||
+    "Unable to capture the current business location."
+  );
+}
+
 export default function OrganizationAccessPolicyPage() {
   const params = useParams();
   const organizationId = String(params?.organizationId || "");
@@ -68,9 +85,33 @@ export default function OrganizationAccessPolicyPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [capturedAccuracy, setCapturedAccuracy] = useState(null);
+  const [testResult, setTestResult] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  const locationReadiness = useMemo(() => {
+    const latitude = optionalNumber(policy.workforce.clock_in_site_latitude);
+    const longitude = optionalNumber(policy.workforce.clock_in_site_longitude);
+    const radius = optionalNumber(policy.workforce.clock_in_radius_meters);
+    const maxAccuracy = optionalNumber(
+      policy.workforce.location_accuracy_max_meters
+    );
+    const coordinatesConfigured =
+      Number.isFinite(latitude) && Number.isFinite(longitude);
+    const geofenceConfigured =
+      coordinatesConfigured && Number.isFinite(radius) && radius >= 1;
+
+    return {
+      latitude,
+      longitude,
+      radius,
+      maxAccuracy,
+      coordinatesConfigured,
+      geofenceConfigured,
+    };
+  }, [policy.workforce]);
 
   async function loadPolicy() {
     if (!organizationId) return;
@@ -90,6 +131,7 @@ export default function OrganizationAccessPolicyPage() {
 
       setPolicy(normalizePolicy(result.policy));
       setCapturedAccuracy(null);
+      setTestResult(null);
     } catch (loadError) {
       setError(loadError?.message || "Unable to load organization policy");
     } finally {
@@ -109,6 +151,7 @@ export default function OrganizationAccessPolicyPage() {
   }
 
   function updateWorkforce(key, value) {
+    setTestResult(null);
     setPolicy((current) => ({
       ...current,
       workforce: { ...current.workforce, [key]: value },
@@ -118,6 +161,7 @@ export default function OrganizationAccessPolicyPage() {
   function captureCurrentLocation() {
     setError("");
     setMessage("");
+    setTestResult(null);
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setError("This device or browser does not provide GPS location access.");
@@ -146,16 +190,64 @@ export default function OrganizationAccessPolicyPage() {
         setLocating(false);
       },
       (locationError) => {
-        const messageByCode = {
-          1: "Location permission was denied. Allow location access and try again.",
-          2: "The device could not determine its current location.",
-          3: "Location capture timed out. Move to an area with a stronger GPS signal and try again.",
-        };
-        setError(
-          messageByCode[locationError?.code] ||
-            "Unable to capture the current business location."
-        );
+        setError(locationErrorMessage(locationError));
         setLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  }
+
+  function testCurrentLocation() {
+    setError("");
+    setMessage("");
+    setTestResult(null);
+
+    if (!locationReadiness.geofenceConfigured) {
+      setError(
+        "Configure valid site coordinates and an allowed radius before testing the geofence."
+      );
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError("This device or browser does not provide GPS location access.");
+      return;
+    }
+
+    setTesting(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = Number(position.coords.latitude);
+        const longitude = Number(position.coords.longitude);
+        const accuracy = Number(position.coords.accuracy || 0);
+        const distance = distanceMeters(
+          latitude,
+          longitude,
+          locationReadiness.latitude,
+          locationReadiness.longitude
+        );
+        const withinRadius = distance <= locationReadiness.radius;
+        const accuracyAccepted =
+          locationReadiness.maxAccuracy === null ||
+          !Number.isFinite(locationReadiness.maxAccuracy) ||
+          accuracy <= locationReadiness.maxAccuracy;
+
+        setTestResult({
+          distance,
+          accuracy,
+          withinRadius,
+          accuracyAccepted,
+          passed: withinRadius && accuracyAccepted,
+        });
+        setTesting(false);
+      },
+      (locationError) => {
+        setError(locationErrorMessage(locationError));
+        setTesting(false);
       },
       {
         enableHighAccuracy: true,
@@ -191,11 +283,17 @@ export default function OrganizationAccessPolicyPage() {
       setError("Clock-in site latitude and longitude must be configured together.");
       return;
     }
-    if (latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) {
+    if (
+      latitude !== null &&
+      (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)
+    ) {
       setError("Clock-in site latitude must be between -90 and 90.");
       return;
     }
-    if (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
+    if (
+      longitude !== null &&
+      (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)
+    ) {
       setError("Clock-in site longitude must be between -180 and 180.");
       return;
     }
@@ -203,7 +301,10 @@ export default function OrganizationAccessPolicyPage() {
       setError("Clock-in radius must be at least 1 meter or left blank.");
       return;
     }
-    if (maxAccuracy !== null && (!Number.isFinite(maxAccuracy) || maxAccuracy < 0)) {
+    if (
+      maxAccuracy !== null &&
+      (!Number.isFinite(maxAccuracy) || maxAccuracy < 0)
+    ) {
       setError("Maximum GPS accuracy must be zero or greater, or left blank.");
       return;
     }
@@ -242,6 +343,7 @@ export default function OrganizationAccessPolicyPage() {
       }
 
       setPolicy(normalizePolicy(result.policy));
+      setTestResult(null);
       setMessage("Organization access and workforce policy saved.");
     } catch (saveError) {
       setError(saveError?.message || "Unable to save organization policy");
@@ -329,25 +431,45 @@ export default function OrganizationAccessPolicyPage() {
               onChange={(value) => updateWorkforce("gps_clock_in_required", value)}
             />
 
+            <LocationReadinessCard
+              gpsRequired={policy.workforce.gps_clock_in_required}
+              coordinatesConfigured={locationReadiness.coordinatesConfigured}
+              geofenceConfigured={locationReadiness.geofenceConfigured}
+              radius={locationReadiness.radius}
+              maxAccuracy={locationReadiness.maxAccuracy}
+            />
+
             <div className="rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-4">
               <div className="text-sm font-semibold text-white/80">Business clock-in point</div>
               <p className="mt-1 text-xs leading-5 text-white/40">
                 Stand at the normal staff clock-in location and capture the current coordinates. They are saved only for this organization.
               </p>
-              <button
-                type="button"
-                onClick={captureCurrentLocation}
-                disabled={locating}
-                className="mt-3 flex h-11 items-center gap-2 rounded-xl border border-[#D6A66A]/30 bg-black/20 px-4 text-xs font-black uppercase tracking-[0.14em] text-[#F3D2A7] disabled:opacity-40"
-              >
-                <Crosshair className={`h-4 w-4 ${locating ? "animate-pulse" : ""}`} />
-                {locating ? "Capturing..." : "Use current location"}
-              </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={captureCurrentLocation}
+                  disabled={locating || testing}
+                  className="flex h-11 items-center gap-2 rounded-xl border border-[#D6A66A]/30 bg-black/20 px-4 text-xs font-black uppercase tracking-[0.14em] text-[#F3D2A7] disabled:opacity-40"
+                >
+                  <Crosshair className={`h-4 w-4 ${locating ? "animate-pulse" : ""}`} />
+                  {locating ? "Capturing..." : "Use current location"}
+                </button>
+                <button
+                  type="button"
+                  onClick={testCurrentLocation}
+                  disabled={locating || testing || !locationReadiness.geofenceConfigured}
+                  className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-[0.14em] text-white/70 disabled:opacity-40"
+                >
+                  <TestTube2 className={`h-4 w-4 ${testing ? "animate-pulse" : ""}`} />
+                  {testing ? "Testing..." : "Test current location"}
+                </button>
+              </div>
               {capturedAccuracy !== null ? (
                 <div className="mt-2 text-xs text-white/45">
-                  Device reported accuracy: approximately {Math.round(capturedAccuracy)} m.
+                  Last capture accuracy: approximately {Math.round(capturedAccuracy)} m.
                 </div>
               ) : null}
+              {testResult ? <LocationTestResult result={testResult} radius={locationReadiness.radius} maxAccuracy={locationReadiness.maxAccuracy} /> : null}
             </div>
 
             <NumberField
@@ -388,7 +510,7 @@ export default function OrganizationAccessPolicyPage() {
           <button
             type="button"
             onClick={savePolicy}
-            disabled={loading || saving || locating}
+            disabled={loading || saving || locating || testing}
             className="flex h-12 items-center gap-2 rounded-xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
           >
             <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save Policy"}
@@ -396,6 +518,79 @@ export default function OrganizationAccessPolicyPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function LocationReadinessCard({
+  gpsRequired,
+  coordinatesConfigured,
+  geofenceConfigured,
+  radius,
+  maxAccuracy,
+}) {
+  let title = "GPS not required";
+  let description = "Staff clock-in can proceed without GPS evidence for this organization.";
+  let tone = "neutral";
+
+  if (gpsRequired && !coordinatesConfigured) {
+    title = "GPS required · no site configured";
+    description = "GPS evidence is mandatory, but there is no business clock-in point yet. Staff location will be recorded without a site-boundary check.";
+    tone = "warning";
+  } else if (gpsRequired && coordinatesConfigured && !geofenceConfigured) {
+    title = "GPS required · geofence incomplete";
+    description = "Site coordinates are configured, but an allowed radius is still required before outside-site clock-ins can be rejected.";
+    tone = "warning";
+  } else if (gpsRequired && geofenceConfigured) {
+    title = "GPS + geofence ready";
+    description = `Staff must be within approximately ${Math.round(radius)} m of the saved business point${Number.isFinite(maxAccuracy) ? ` with device accuracy of ${Math.round(maxAccuracy)} m or better` : ""}.`;
+    tone = "success";
+  } else if (!gpsRequired && geofenceConfigured) {
+    title = "Geofence configured · GPS policy off";
+    description = "The site boundary is ready, but it is not enforced until Require GPS for clock-in is enabled.";
+  }
+
+  const classes =
+    tone === "success"
+      ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-100/80"
+      : tone === "warning"
+        ? "border-amber-400/20 bg-amber-400/[0.06] text-amber-100/80"
+        : "border-white/10 bg-white/[0.025] text-white/55";
+
+  const Icon = tone === "success" ? CheckCircle2 : tone === "warning" ? TriangleAlert : MapPin;
+
+  return (
+    <div className={`rounded-2xl border p-4 ${classes}`}>
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <Icon className="h-4 w-4" /> {title}
+      </div>
+      <p className="mt-1 text-xs leading-5 opacity-75">{description}</p>
+    </div>
+  );
+}
+
+function LocationTestResult({ result, radius, maxAccuracy }) {
+  const classes = result.passed
+    ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-100/80"
+    : "border-red-400/20 bg-red-400/[0.06] text-red-100/80";
+  const Icon = result.passed ? CheckCircle2 : TriangleAlert;
+
+  return (
+    <div className={`mt-3 rounded-xl border p-3 ${classes}`}>
+      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em]">
+        <Icon className="h-4 w-4" /> {result.passed ? "Geofence test passed" : "Geofence test failed"}
+      </div>
+      <div className="mt-2 space-y-1 text-xs leading-5 opacity-80">
+        <div>
+          Distance from saved site: approximately {Math.round(result.distance)} m · allowed {Math.round(radius)} m.
+        </div>
+        <div>
+          Device accuracy: approximately {Math.round(result.accuracy)} m
+          {Number.isFinite(maxAccuracy) ? ` · required ${Math.round(maxAccuracy)} m or better.` : "."}
+        </div>
+        {!result.withinRadius ? <div>This device is currently outside the configured work-site radius.</div> : null}
+        {!result.accuracyAccepted ? <div>The GPS reading is not accurate enough for the configured policy.</div> : null}
+      </div>
+    </div>
   );
 }
 

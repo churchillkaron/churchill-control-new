@@ -38,30 +38,6 @@ function findAudioBase64(value, depth = 0) {
   return null;
 }
 
-function findMimeType(value, depth = 0) {
-  if (depth > 6 || !value) return null;
-  if (typeof value !== "object") return null;
-
-  if (typeof value.mime_type === "string" && value.mime_type.trim()) {
-    return value.mime_type.trim();
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = findMimeType(item, depth + 1);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  for (const key of ["output", "result", "data", "response", "raw"]) {
-    const found = findMimeType(value[key], depth + 1);
-    if (found) return found;
-  }
-
-  return null;
-}
-
 function errorResponse(error, status = 500) {
   return Response.json(
     {
@@ -73,6 +49,8 @@ function errorResponse(error, status = 500) {
 }
 
 export async function POST(request) {
+  const startedAt = Date.now();
+
   try {
     const body = await request.json();
     const speechText = text(body?.text || body?.message);
@@ -139,7 +117,7 @@ export async function POST(request) {
       input: {
         input: speechText,
         voice: voice || undefined,
-        response_format: "mp3",
+        response_format: "wav",
         quantity: estimatedMinutes,
         locale: locale || undefined,
       },
@@ -153,6 +131,9 @@ export async function POST(request) {
 
     const audioBase64 = findAudioBase64(execution);
     if (!audioBase64) {
+      console.error("OPERATOR_SPEECH_NO_AUDIO", {
+        duration_ms: Date.now() - startedAt,
+      });
       return errorResponse("Speech generation returned no audio", 502);
     }
 
@@ -161,10 +142,16 @@ export async function POST(request) {
       return errorResponse("Speech generation returned empty audio", 502);
     }
 
+    console.log("OPERATOR_SPEECH_COMPLETE", {
+      duration_ms: Date.now() - startedAt,
+      bytes: audio.length,
+      format: "wav",
+    });
+
     return new Response(audio, {
       status: 200,
       headers: {
-        "Content-Type": findMimeType(execution) || "audio/mpeg",
+        "Content-Type": "audio/wav",
         "Content-Length": String(audio.length),
         "Cache-Control": "no-store",
         "X-Avantiqo-Voice": "governed",

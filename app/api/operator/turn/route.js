@@ -13,6 +13,9 @@ import {
   persistIntelligenceTurn,
   updateIntelligenceConversationState,
 } from "@/lib/operator/runtime/IntelligenceConversationRuntime";
+import {
+  mergeOperatorProjectState,
+} from "@/lib/operator/contracts/OperatorProjectState";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -65,17 +68,37 @@ function clientAgreementState(body) {
 
 function deriveProjectState(previousState, result) {
   const decision = object(result?.decision);
+  const execution = object(result?.execution);
+  const ubteResult = object(execution?.result);
+  const capabilityResult = object(ubteResult?.result);
+  const systemSnapshot =
+    text(execution?.capability?.domain) === "platform" &&
+    text(execution?.capability?.capability) === "system" &&
+    text(capabilityResult?.snapshot_id)
+      ? {
+          snapshot_id: text(capabilityResult.snapshot_id),
+          phase: text(capabilityResult.phase) || null,
+          status: text(capabilityResult.status) || null,
+          checked_at: text(capabilityResult.checked_at) || null,
+          diagnosis_codes: Array.isArray(capabilityResult.diagnoses)
+            ? capabilityResult.diagnoses
+                .map((item) => text(item?.code))
+                .filter(Boolean)
+                .slice(0, 20)
+            : [],
+          verification_required:
+            capabilityResult.verification_required_after_repair === true,
+        }
+      : null;
 
-  return {
-    ...object(previousState),
-    ...(object(decision.project_state)),
+  return mergeOperatorProjectState(previousState, decision.project_state, {
     last_intent: text(decision.intent) || null,
     last_plan: Array.isArray(decision.plan) ? decision.plan.slice(0, 12) : [],
     last_response: text(decision.response_text) || null,
-    last_execution: object(result?.execution),
+    last_execution: execution,
     last_navigation: object(result?.navigation),
-    updated_at: new Date().toISOString(),
-  };
+    ...(systemSnapshot ? { last_system_snapshot: systemSnapshot } : {}),
+  });
 }
 
 async function resolvePartyAccess(request, organizationId) {
@@ -251,6 +274,7 @@ export async function POST(request) {
       source,
       pathname: text(body.pathname) || null,
       agreementState,
+      projectState: memory.projectState,
       conversation,
     });
 

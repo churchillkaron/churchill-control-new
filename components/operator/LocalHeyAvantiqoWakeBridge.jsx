@@ -296,9 +296,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
     return await new Promise((resolve) => {
       let settled = false;
+      let timeoutId = null;
       const finish = (value) => {
         if (settled) return;
         settled = true;
+        if (timeoutId) window.clearTimeout(timeoutId);
         resolve(value);
       };
 
@@ -318,7 +320,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
         finish(false);
       }
 
-      window.setTimeout(() => finish(false), 2500);
+      const estimatedSpeechMs = Math.max(
+        4000,
+        Math.min(20000, clean.split(/\s+/).filter(Boolean).length * 520),
+      );
+      timeoutId = window.setTimeout(() => finish(false), estimatedSpeechMs);
     });
   }
 
@@ -384,6 +390,23 @@ export default function LocalHeyAvantiqoWakeBridge() {
     } catch (error) {
       const spoken = await speakBrowser(message);
       if (!spoken) throw error;
+    } finally {
+      speakingRef.current = false;
+      inSpeechRef.current = false;
+      featureFramesRef.current = [];
+      lastSoundRef.current = Date.now();
+    }
+  }
+
+  async function speakRecovery() {
+    speakingRef.current = true;
+    stopRecognition();
+    setStatus("speaking");
+
+    try {
+      return await speakBrowser(
+        "I couldn't answer that just now. Please try again.",
+      );
     } finally {
       speakingRef.current = false;
       inSpeechRef.current = false;
@@ -472,6 +495,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
             organizationId,
             entityId,
             periodId,
+            conversationKey: "primary",
             pathname,
             message: cleanMessage,
             source: "voice",
@@ -508,8 +532,16 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
       if (enabledRef.current) armCommandMode();
     } catch (error) {
-      setVoiceError(error?.message || "Voice request failed");
-      if (enabledRef.current) setStatus("listening");
+      const failureDetail = error?.message || "Voice request failed";
+      console.error("AVANTIQO_VOICE_COMMAND_ERROR", failureDetail);
+      setVoiceError(failureDetail);
+
+      const recoveredByVoice = await speakRecovery().catch(() => false);
+      if (enabledRef.current) {
+        armCommandMode();
+      } else {
+        setStatus(recoveredByVoice ? "off" : "voice-error");
+      }
     }
   }
 

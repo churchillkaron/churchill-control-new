@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getCommunicationInbox, openConversation } from "@/lib/commercial/communications/CommunicationService";
+import { syncMetaCommunicationHistory } from "@/lib/commercial/communications/CommunicationMetaInboxSyncRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 function clean(value) {
@@ -17,12 +18,38 @@ export async function GET(request) {
     if (!access.success) {
       return NextResponse.json({ success: false, error: access.error }, { status: access.status || 403 });
     }
+
+    let providerSync = null;
+    if (url.searchParams.get("sync") !== "0") {
+      try {
+        providerSync = await syncMetaCommunicationHistory({
+          organizationId: access.organizationId,
+        });
+      } catch (syncError) {
+        console.error("COMMUNICATION_META_HISTORY_SYNC_FAILED", {
+          organizationId: access.organizationId,
+          message: syncError?.message || "Meta inbox synchronization failed",
+          code: syncError?.code || null,
+          subcode: syncError?.subcode || null,
+        });
+        providerSync = {
+          success: false,
+          error: syncError?.message || "Meta inbox synchronization failed",
+        };
+      }
+    }
+
     const snapshot = await getCommunicationInbox({
       organizationId: access.organizationId,
       provider: clean(url.searchParams.get("provider")),
       search: clean(url.searchParams.get("search")),
     });
-    return NextResponse.json({ success: true, organizationId: access.organizationId, ...snapshot });
+    return NextResponse.json({
+      success: true,
+      organizationId: access.organizationId,
+      providerSync,
+      ...snapshot,
+    });
   } catch (error) {
     return NextResponse.json({ success: false, error: error?.message || "Communications inbox failed" }, { status: 500 });
   }

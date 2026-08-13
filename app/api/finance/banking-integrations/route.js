@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
 const CONNECTION_TYPES = Object.freeze({
   TRANSACTION_FEED: "Transaction Feed",
@@ -20,10 +21,7 @@ function decorateIntegration(row, bankAccount = null) {
     String(row.connection_type || "Bank Connection")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (character) => character.toUpperCase());
-  const accountName =
-    bankAccount?.account_name ||
-    bankAccount?.name ||
-    "Bank Account";
+  const accountName = bankAccount?.account_name || bankAccount?.name || "Bank Account";
 
   return {
     id: row.id,
@@ -57,20 +55,37 @@ async function loadBankAccounts(organizationId, ids) {
     .in("id", uniqueIds);
 
   if (error) throw error;
-
   return new Map((data || []).map((row) => [String(row.id), row]));
+}
+
+async function requireFinanceBanking(request, organizationId, permissionKey) {
+  const access = await requireOrganizationAccess({ organizationId, request });
+  if (!access.success) return access;
+
+  await checkFinancePermission({
+    organizationId: access.organizationId,
+    userId: access.user?.id,
+    permissionKey,
+    fullAccess: access.permissions?.includes("*") === true,
+  });
+
+  return access;
+}
+
+function statusFor(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (normalized.includes("permission denied")) return 403;
+  return /required|not found|not active|not supported|already exists/i.test(normalized) ? 400 : 500;
 }
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const access = await requireOrganizationAccess({
-      organizationId:
-        searchParams.get("organizationId") ||
-        searchParams.get("organization_id"),
+    const access = await requireFinanceBanking(
       request,
-      requiredPermission: "finance.banking.view",
-    });
+      searchParams.get("organizationId") || searchParams.get("organization_id"),
+      "finance.banking.view"
+    );
 
     if (!access.success) {
       return NextResponse.json(
@@ -81,9 +96,7 @@ export async function GET(request) {
 
     const { data, error } = await supabaseAdmin
       .from("finance_banking_integrations")
-      .select(
-        "id, organization_id, bank_account_id, provider_name, connection_type, status, last_sync_at, created_at, updated_at"
-      )
+      .select("id, organization_id, bank_account_id, provider_name, connection_type, status, last_sync_at, created_at, updated_at")
       .eq("organization_id", access.organizationId)
       .order("created_at", { ascending: false });
 
@@ -93,7 +106,6 @@ export async function GET(request) {
       access.organizationId,
       (data || []).map((row) => row.bank_account_id)
     );
-
     const rows = (data || []).map((row) =>
       decorateIntegration(row, accounts.get(String(row.bank_account_id)))
     );
@@ -105,13 +117,10 @@ export async function GET(request) {
       connections: rows,
     });
   } catch (error) {
+    const message = error?.message || "Unable to load bank connections";
     return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to load bank connections",
-        rows: [],
-      },
-      { status: 500 }
+      { success: false, error: message, rows: [] },
+      { status: statusFor(message) }
     );
   }
 }
@@ -119,38 +128,24 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const access = await requireOrganizationAccess({
-      organizationId: body.organizationId || body.organization_id,
+    const access = await requireFinanceBanking(
       request,
-      requiredPermission: "finance.banking.manage",
-    });
-
-    if (!access.success) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status }
-      );
-    }
-
-    const bankAccountId = String(
-      body.bank_account_id || body.bankAccountId || ""
-    ).trim();
-    const connectionType = normalizeConnectionType(
-      body.connection_type || body.connectionType
+      body.organizationId || body.organization_id,
+      "finance.banking.manage"
     );
 
-    if (!bankAccountId) {
-      return NextResponse.json(
-        { success: false, error: "Bank Account required" },
-        { status: 400 }
-      );
+    if (!access.success) {
+      return NextResponse.json({ success: false, error: access.error }, { status: access.status });
     }
 
+    const bankAccountId = String(body.bank_account_id || body.bankAccountId || "").trim();
+    const connectionType = normalizeConnectionType(body.connection_type || body.connectionType);
+
+    if (!bankAccountId) {
+      return NextResponse.json({ success: false, error: "Bank Account required" }, { status: 400 });
+    }
     if (!CONNECTION_TYPES[connectionType]) {
-      return NextResponse.json(
-        { success: false, error: "Connection Type is not supported" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Connection Type is not supported" }, { status: 400 });
     }
 
     const { data: bankAccount, error: bankAccountError } = await supabaseAdmin
@@ -162,22 +157,14 @@ export async function POST(request) {
 
     if (bankAccountError) throw bankAccountError;
     if (!bankAccount) {
-      return NextResponse.json(
-        { success: false, error: "Bank Account not found in this organisation" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Bank Account not found in this organisation" }, { status: 400 });
     }
 
     if (
       bankAccount.active === false ||
-      ["ARCHIVED", "INACTIVE"].includes(
-        String(bankAccount.status || "").toUpperCase()
-      )
+      ["ARCHIVED", "INACTIVE"].includes(String(bankAccount.status || "").toUpperCase())
     ) {
-      return NextResponse.json(
-        { success: false, error: "Bank Account is not active" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Bank Account is not active" }, { status: 400 });
     }
 
     const { data: existing, error: existingError } = await supabaseAdmin
@@ -192,13 +179,9 @@ export async function POST(request) {
     const activeExisting = (existing || []).find(
       (row) => String(row.status || "").toUpperCase() !== "ARCHIVED"
     );
-
     if (activeExisting) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "This bank connection request already exists",
-        },
+        { success: false, error: "This bank connection request already exists" },
         { status: 400 }
       );
     }
@@ -216,30 +199,18 @@ export async function POST(request) {
         created_by: access.user?.id || null,
         updated_at: now,
       })
-      .select(
-        "id, organization_id, bank_account_id, provider_name, connection_type, status, last_sync_at, created_at, updated_at"
-      )
+      .select("id, organization_id, bank_account_id, provider_name, connection_type, status, last_sync_at, created_at, updated_at")
       .single();
 
     if (createError) throw createError;
 
     return NextResponse.json({
       success: true,
-      message:
-        "Bank connection requested. Avantiqo will configure the compatible managed provider.",
+      message: "Bank connection requested. Avantiqo will configure the compatible managed provider.",
       record: decorateIntegration(created, bankAccount),
     });
   } catch (error) {
     const message = error?.message || "Unable to request bank connection";
-    return NextResponse.json(
-      { success: false, error: message },
-      {
-        status: /required|not found|not active|not supported|already exists/i.test(
-          message
-        )
-          ? 400
-          : 500,
-      }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: statusFor(message) });
   }
 }

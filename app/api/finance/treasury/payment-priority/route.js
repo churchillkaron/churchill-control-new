@@ -2,33 +2,43 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { runPaymentPriorityQueueCommand } from "@/lib/finance/payments/runtime/FinancePaymentApplicationService";
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
+function statusFor(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (normalized.includes("permission denied")) return 403;
+  return /required|invalid/i.test(normalized) ? 400 : 500;
+}
 
+export async function POST(request) {
+  try {
+    const body = await request.json();
     const access = await requireOrganizationAccess({
-      organizationId: body.organizationId,
+      organizationId: body.organizationId || body.organization_id,
+      request,
     });
 
     if (!access.success) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status }
-      );
+      return NextResponse.json({ success: false, error: access.error }, { status: access.status });
     }
 
-    const result = await runPaymentPriorityQueueCommand({
-      ...body,
+    await checkFinancePermission({
       organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.banking.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
+
+    const result = await runPaymentPriorityQueueCommand({
+      organization_id: access.organizationId,
+      entity_id: body.entity_id || body.entityId,
+      invoices: Array.isArray(body.invoices) ? body.invoices : [],
     });
 
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    const message = error.message || "Payment priority refresh failed";
+    return NextResponse.json({ success: false, error: message }, { status: statusFor(message) });
   }
 }

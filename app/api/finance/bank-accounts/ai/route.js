@@ -1,37 +1,37 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-
-import {
-  analyzeBankAccountsCommand,
-} from "@/lib/finance/bank-accounts/runtime/BankAccountsApplicationService";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
+import { analyzeBankAccountsCommand } from "@/lib/finance/bank-accounts/runtime/BankAccountsApplicationService";
 
 export async function POST(request) {
   try {
     const body = await request.json();
+    const access = await requireOrganizationAccess({
+      organizationId: body.organization_id || body.organizationId,
+      request,
+    });
 
-    const organization_id =
-      body.organization_id ||
-      body.organizationId;
+    if (!access.success) {
+      return NextResponse.json({ success: false, error: access.error }, { status: access.status });
+    }
 
-    const result =
-      await analyzeBankAccountsCommand({
-        organization_id,
-      });
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.banking.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
+
+    const result = await analyzeBankAccountsCommand({
+      organization_id: access.organizationId,
+    });
 
     return NextResponse.json(result);
-
   } catch (error) {
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
-    );
-
+    const message = error.message || "Bank account analysis failed";
+    const status = String(message).toLowerCase().includes("permission denied") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }

@@ -1,26 +1,28 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function byId(rows) {
-  return new Map((rows || []).map(row => [row.id, row]));
+  return new Map((rows || []).map((row) => [row.id, row]));
+}
+
+function statusFor(error) {
+  const message = String(error?.message || "");
+  if (message.toLowerCase().includes("permission denied")) return 403;
+  return error?.status || 500;
 }
 
 export async function GET(request) {
   try {
-    await requireAuth();
-
     const { searchParams } = new URL(request.url);
-    const requestedOrganizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
-
     const access = await requireOrganizationAccess({
-      organizationId: requestedOrganizationId,
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
       request,
     });
 
@@ -30,6 +32,13 @@ export async function GET(request) {
         { status: access.status }
       );
     }
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.payables.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const requestedEntityId =
       searchParams.get("entityId") ||
@@ -57,20 +66,16 @@ export async function GET(request) {
         .eq("organization_id", access.organizationId)
         .order(orderColumn, { ascending: false });
 
-      if (entity?.id) {
-        query = query.eq("entity_id", entity.id);
-      }
-
+      if (entity?.id) query = query.eq("entity_id", entity.id);
       return query;
     };
 
-    const [invoiceResult, poResult, receiptResult, matchResult] =
-      await Promise.all([
-        scoped("vendor_invoices", "invoice_date"),
-        scoped("purchase_orders"),
-        scoped("goods_receipts", "received_date"),
-        scoped("invoice_matches"),
-      ]);
+    const [invoiceResult, poResult, receiptResult, matchResult] = await Promise.all([
+      scoped("vendor_invoices", "invoice_date"),
+      scoped("purchase_orders"),
+      scoped("goods_receipts", "received_date"),
+      scoped("invoice_matches"),
+    ]);
 
     for (const result of [invoiceResult, poResult, receiptResult, matchResult]) {
       if (result.error) throw result.error;
@@ -80,7 +85,6 @@ export async function GET(request) {
     const purchaseOrders = poResult.data || [];
     const goodsReceipts = receiptResult.data || [];
     const storedMatches = matchResult.data || [];
-
     const purchaseOrderById = byId(purchaseOrders);
     const receiptById = byId(goodsReceipts);
     const matchByInvoiceId = new Map();
@@ -94,13 +98,10 @@ export async function GET(request) {
       if (invoiceId) matchByInvoiceId.set(invoiceId, match);
     }
 
-    const matches = invoices.map(invoice => {
+    const matches = invoices.map((invoice) => {
       const stored = matchByInvoiceId.get(invoice.id) || null;
       const purchaseOrderId =
-        stored?.purchase_order_id ||
-        invoice.purchase_order_id ||
-        invoice.po_id ||
-        null;
+        stored?.purchase_order_id || invoice.purchase_order_id || invoice.po_id || null;
       const goodsReceiptId =
         stored?.goods_receipt_id ||
         stored?.receipt_id ||
@@ -108,7 +109,6 @@ export async function GET(request) {
         null;
       const purchaseOrder = purchaseOrderById.get(purchaseOrderId) || null;
       const goodsReceipt = receiptById.get(goodsReceiptId) || null;
-
       const status =
         stored?.status ||
         (purchaseOrderId && goodsReceiptId
@@ -126,17 +126,11 @@ export async function GET(request) {
           invoice.vendor_invoice_number ||
           invoice.reference_number ||
           invoice.id,
-        vendor_name:
-          invoice.vendor_name ||
-          invoice.supplier_name ||
-          null,
+        vendor_name: invoice.vendor_name || invoice.supplier_name || null,
         invoice_date: invoice.invoice_date || null,
         due_date: invoice.due_date || null,
         invoice_amount:
-          invoice.total_amount ??
-          invoice.amount ??
-          invoice.invoice_total ??
-          null,
+          invoice.total_amount ?? invoice.amount ?? invoice.invoice_total ?? null,
         currency_code: invoice.currency_code || invoice.currency || null,
         purchase_order_id: purchaseOrderId,
         purchase_order_number:
@@ -145,10 +139,7 @@ export async function GET(request) {
           purchaseOrder?.order_number ||
           null,
         goods_receipt_id: goodsReceiptId,
-        receipt_number:
-          goodsReceipt?.receipt_number ||
-          goodsReceipt?.grn_number ||
-          null,
+        receipt_number: goodsReceipt?.receipt_number || goodsReceipt?.grn_number || null,
         status,
         has_purchase_order: Boolean(purchaseOrderId),
         has_goods_receipt: Boolean(goodsReceiptId),
@@ -157,6 +148,7 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
+      organizationId: access.organizationId,
       entityId: entity?.id || null,
       invoices,
       purchaseOrders,
@@ -169,13 +161,13 @@ export async function GET(request) {
         purchaseOrders: purchaseOrders.length,
         goodsReceipts: goodsReceipts.length,
         formalMatches: storedMatches.length,
-        exceptions: matches.filter(row => row.status !== "MATCHED").length,
+        exceptions: matches.filter((row) => row.status !== "MATCHED").length,
       },
     });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: error.status || 500 }
+      { success: false, error: error?.message || "Invoice matching load failed" },
+      { status: statusFor(error) }
     );
   }
 }

@@ -2,6 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -46,6 +47,10 @@ function canCertify(record) {
 
 function canArchive(record) {
   return record?.status === "CERTIFIED";
+}
+
+function attendanceHref(organizationId) {
+  return `/workspace/${encodeURIComponent(organizationId)}/people/attendance`;
 }
 
 export default function PayrollGovernancePage() {
@@ -157,6 +162,14 @@ export default function PayrollGovernancePage() {
       const result = await response.json();
 
       if (!response.ok || !result?.success) {
+        if (result?.code === "PAYROLL_ATTENDANCE_CLASSIFICATION_REQUIRED") {
+          const count = Array.isArray(result?.unresolvedScheduleIds)
+            ? result.unresolvedScheduleIds.length
+            : 0;
+          throw new Error(
+            `${count || "Unresolved"} attendance schedule${count === 1 ? "" : "s"} must be classified in Attendance Management before payroll review can be completed.`
+          );
+        }
         throw new Error(result?.error || "Unable to execute payroll action");
       }
 
@@ -255,6 +268,18 @@ export default function PayrollGovernancePage() {
               const pendingManagerReview = Boolean(
                 record.review_required === true && record.review_status === "PENDING"
               );
+              const attendanceReadiness = record.attendance_reconciliation || null;
+              const attendanceReadinessAvailable = attendanceReadiness?.available === true;
+              const unresolvedAttendanceCount = attendanceReadinessAvailable
+                ? Number(attendanceReadiness?.unresolvedSchedules || 0)
+                : null;
+              const attendanceClassificationBlocked =
+                unresolvedAttendanceCount !== null && unresolvedAttendanceCount > 0;
+              const attendanceReadinessUnavailable = Boolean(
+                pendingManagerReview && !attendanceReadinessAvailable
+              );
+              const managerReviewBlocked =
+                attendanceClassificationBlocked || attendanceReadinessUnavailable;
               const acknowledgementMissing = !record.employee_acknowledged;
               const approvalBlocked =
                 pendingManagerReview || unresolvedDispute || acknowledgementMissing;
@@ -286,7 +311,7 @@ export default function PayrollGovernancePage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-8">
                     <Data label="Gross" value={formatMoney(record.gross_salary, currency)} />
                     <Data label="Base" value={formatMoney(record.base_salary, currency)} />
                     <Data label="Service Charge" value={formatMoney(record.service_charge_bonus, currency)} />
@@ -294,6 +319,16 @@ export default function PayrollGovernancePage() {
                     <Data label="Attendance" value={formatMoney(record.attendance_penalty, currency)} />
                     <Data label="Hours" value={Number(record.worked_hours || record.total_hours || 0).toFixed(2)} />
                     <Data label="Late" value={`${Number(record.total_late_minutes || 0)} min`} />
+                    <Data
+                      label="Unresolved"
+                      value={
+                        pendingManagerReview
+                          ? attendanceReadinessAvailable
+                            ? String(unresolvedAttendanceCount)
+                            : "Check"
+                          : "0"
+                      }
+                    />
                   </div>
 
                   {pendingManagerReview ? (
@@ -304,13 +339,46 @@ export default function PayrollGovernancePage() {
                       <div className="mt-2 text-sm leading-6 text-amber-100/65">
                         {record.review_reason || "Payroll evidence requires manager review before employee acknowledgement."}
                       </div>
+
+                      {attendanceClassificationBlocked ? (
+                        <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/[0.08] p-4">
+                          <div className="flex items-center gap-2 text-sm font-black text-red-200">
+                            <AlertTriangle className="h-4 w-4" /> Attendance classification required
+                          </div>
+                          <div className="mt-2 text-sm leading-6 text-red-100/70">
+                            {unresolvedAttendanceCount} expired published shift{unresolvedAttendanceCount === 1 ? "" : "s"} for {record.payroll_month || "this payroll month"} still need a worked or manager-classified attendance outcome before Payroll review can be completed.
+                          </div>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                            <MiniData label="Missed" value={Number(attendanceReadiness?.missedShifts || 0)} />
+                            <MiniData label="Credited hours" value={Number(attendanceReadiness?.creditedHours || 0).toFixed(2)} />
+                            <MiniData label="Unresolved" value={unresolvedAttendanceCount} />
+                          </div>
+                          {organizationId ? (
+                            <Link
+                              href={attendanceHref(organizationId)}
+                              className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-red-300 text-xs font-black uppercase tracking-[0.14em] text-black"
+                            >
+                              Resolve in Attendance
+                            </Link>
+                          ) : null}
+                        </div>
+                      ) : attendanceReadinessUnavailable ? (
+                        <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-4 text-sm leading-6 text-amber-100/70">
+                          Live attendance readiness could not be verified. Refresh Payroll Governance before completing manager review. The server-side payroll guard remains active.
+                        </div>
+                      ) : (
+                        <div className="mt-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-300">
+                          <CheckCircle2 className="h-4 w-4" /> Attendance reconciled live · 0 unresolved schedules
+                        </div>
+                      )}
+
                       {Number(record.attendance_penalty || 0) > 0 ? (
                         <div className="mt-2 text-xs text-white/45">
                           Proposed attendance deduction: {formatMoney(record.attendance_penalty, currency)}. Approving keeps the proposal; waiving removes it and recalculates net payroll.
                         </div>
                       ) : null}
 
-                      {reviewingId === record.id ? (
+                      {!managerReviewBlocked && reviewingId === record.id ? (
                         <div className="mt-4 space-y-3">
                           <textarea
                             value={reviewNotes}
@@ -363,7 +431,7 @@ export default function PayrollGovernancePage() {
                             ) : null}
                           </div>
                         </div>
-                      ) : capabilities.canReview ? (
+                      ) : !managerReviewBlocked && capabilities.canReview ? (
                         <button
                           type="button"
                           disabled={workingId === record.id}
@@ -705,6 +773,15 @@ function Data({ label, value }) {
     <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3">
       <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
       <div className="mt-2 text-sm font-black text-white/75">{value}</div>
+    </div>
+  );
+}
+
+function MiniData({ label, value }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+      <div className="text-[9px] uppercase tracking-[0.14em] text-white/35">{label}</div>
+      <div className="mt-1 text-sm font-black text-white/80">{value}</div>
     </div>
   );
 }

@@ -25,6 +25,29 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+function validMonth(value) {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || ""));
+}
+
+function requestedMonth() {
+  if (typeof window === "undefined") return currentMonth();
+
+  const value = new URLSearchParams(window.location.search).get("month");
+  return validMonth(value) ? value : currentMonth();
+}
+
+function syncMonthQuery(month) {
+  if (typeof window === "undefined" || !validMonth(month)) return;
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("month", month);
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${url.pathname}${url.search}${url.hash}`
+  );
+}
+
 function organizationQuery(organizationId) {
   return organizationId
     ? `&organizationId=${encodeURIComponent(organizationId)}`
@@ -42,6 +65,7 @@ export default function AttendanceManagementPage() {
   const params = useParams();
   const organizationId = String(params?.organizationId || "").trim();
   const [month, setMonth] = useState(currentMonth());
+  const [monthReady, setMonthReady] = useState(false);
   const [data, setData] = useState({
     shifts: [],
     attendance: [],
@@ -52,6 +76,13 @@ export default function AttendanceManagementPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const initialMonth = requestedMonth();
+    setMonth(initialMonth);
+    syncMonthQuery(initialMonth);
+    setMonthReady(true);
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -74,8 +105,9 @@ export default function AttendanceManagementPage() {
   }
 
   useEffect(() => {
+    if (!monthReady) return;
     load();
-  }, [month, organizationId]);
+  }, [monthReady, month, organizationId]);
 
   const summary = useMemo(
     () => ({
@@ -86,6 +118,12 @@ export default function AttendanceManagementPage() {
     }),
     [data]
   );
+
+  function changeMonth(value) {
+    if (!validMonth(value)) return;
+    setMonth(value);
+    syncMonthQuery(value);
+  }
 
   async function patch(action, body, successMessage) {
     const id = body.shiftId || body.scheduleId || action;
@@ -284,12 +322,13 @@ export default function AttendanceManagementPage() {
             <input
               type="month"
               value={month}
-              onChange={(event) => setMonth(event.target.value)}
+              onChange={(event) => changeMonth(event.target.value)}
               className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
             />
             <button
               onClick={load}
-              className="rounded-xl border border-white/10 bg-white/5 p-3"
+              disabled={!monthReady || loading}
+              className="rounded-xl border border-white/10 bg-white/5 p-3 disabled:opacity-40"
               aria-label="Refresh"
             >
               <RefreshCw size={18} />

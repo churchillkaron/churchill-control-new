@@ -20,7 +20,7 @@ export async function GET(request) {
     }
 
     let providerSync = null;
-    if (url.searchParams.get("sync") !== "0") {
+    if (url.searchParams.get("sync") === "1") {
       try {
         providerSync = await syncMetaCommunicationHistory({
           organizationId: access.organizationId,
@@ -44,6 +44,7 @@ export async function GET(request) {
       provider: clean(url.searchParams.get("provider")),
       search: clean(url.searchParams.get("search")),
     });
+
     return NextResponse.json({
       success: true,
       organizationId: access.organizationId,
@@ -63,6 +64,7 @@ export async function POST(request) {
     if (!access.success) {
       return NextResponse.json({ success: false, error: access.error }, { status: access.status || 403 });
     }
+
     const conversation = await openConversation({
       organizationId: access.organizationId,
       connectionId: clean(body?.connectionId || body?.connection_id),
@@ -71,6 +73,7 @@ export async function POST(request) {
       subject: clean(body?.subject),
       customerPartyId: clean(body?.customerPartyId || body?.customer_party_id),
     });
+
     return NextResponse.json({ success: true, conversation }, { status: 201 });
   } catch (error) {
     const message = error?.message || "Conversation creation failed";

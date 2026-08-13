@@ -34,7 +34,7 @@ function authorized(request) {
   return secrets.includes(bearer) || secrets.includes(headerSecret);
 }
 
-async function process(request, body = {}) {
+async function processRequest(request, body = {}) {
   if (!authorized(request)) {
     return Response.json({
       success: false,
@@ -73,9 +73,9 @@ async function process(request, body = {}) {
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
-  return process(request, body);
+  return processRequest(request, body);
 }
 
 export async function GET(request) {
-  return process(request, {});
+  return processRequest(request, {});
 }

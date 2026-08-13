@@ -268,6 +268,10 @@ export async function POST(request) {
         agreementState,
         projectState: memory.projectState,
         conversation,
+        // Required by registry-generated capabilities: they call the same internal
+        // APIs the UI calls and forward this request's cookie, so a read runs with
+        // the caller's own session. Without it those capabilities cannot execute.
+        callerRequest: request,
       }),
       persistIntelligenceTurn({
         organizationId: businessContext.organizationId,

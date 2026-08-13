@@ -25,6 +25,31 @@ function formatMoney(value, currency) {
   return `${code ? `${code} ` : ""}${money(value)}`;
 }
 
+function validMonth(value) {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || ""));
+}
+
+function validStaffId(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "").trim()
+  );
+}
+
+function readFocusQuery() {
+  if (typeof window === "undefined") {
+    return { month: "", staffId: "" };
+  }
+
+  const query = new URLSearchParams(window.location.search);
+  const month = query.get("month");
+  const staffId = query.get("staffId");
+
+  return {
+    month: validMonth(month) ? month : "",
+    staffId: validStaffId(staffId) ? String(staffId).trim() : "",
+  };
+}
+
 function canApprove(record) {
   return ["GENERATED", "RECALCULATED"].includes(record?.status);
 }
@@ -49,13 +74,16 @@ function canArchive(record) {
   return record?.status === "CERTIFIED";
 }
 
-function attendanceHref(organizationId, payrollMonth) {
+function attendanceHref(organizationId, payrollMonth, staffId) {
   const base = `/workspace/${encodeURIComponent(organizationId)}/people/attendance`;
+  const query = new URLSearchParams();
   const month = String(payrollMonth || "").trim();
 
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(month)
-    ? `${base}?month=${encodeURIComponent(month)}`
-    : base;
+  if (validMonth(month)) query.set("month", month);
+  if (validStaffId(staffId)) query.set("staffId", staffId);
+
+  const suffix = query.toString();
+  return suffix ? `${base}?${suffix}` : base;
 }
 
 export default function PayrollGovernancePage() {
@@ -63,6 +91,7 @@ export default function PayrollGovernancePage() {
   const [role, setRole] = useState("");
   const [organizationId, setOrganizationId] = useState("");
   const [currency, setCurrency] = useState("");
+  const [focus, setFocus] = useState({ month: "", staffId: "" });
   const [capabilities, setCapabilities] = useState({
     canReview: false,
     canLock: false,
@@ -118,8 +147,28 @@ export default function PayrollGovernancePage() {
   }
 
   useEffect(() => {
+    setFocus(readFocusQuery());
     loadPayroll();
   }, []);
+
+  useEffect(() => {
+    if (loading || !focus.staffId) return;
+
+    const matchingRecord = payroll.find(
+      (record) =>
+        String(record?.staff_id || "") === focus.staffId &&
+        (!focus.month || String(record?.payroll_month || "") === focus.month)
+    );
+    if (!matchingRecord?.id) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`payroll-focus-${matchingRecord.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [focus.month, focus.staffId, loading, payroll]);
 
   const summary = useMemo(() => {
     return payroll.reduce(
@@ -242,6 +291,12 @@ export default function PayrollGovernancePage() {
           </div>
         </section>
 
+        {focus.staffId ? (
+          <section className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.07] px-4 py-3 text-sm text-cyan-100/80">
+            Returned from Attendance Management{focus.month ? ` for ${focus.month}` : ""}. The matching payroll record is highlighted below.
+          </section>
+        ) : null}
+
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Metric label="Payroll Total" value={formatMoney(summary.total, currency)} />
           <Metric label="Manager Review" value={summary.review} />
@@ -298,11 +353,20 @@ export default function PayrollGovernancePage() {
               const acknowledgementMissing = !record.employee_acknowledged;
               const approvalBlocked =
                 pendingManagerReview || unresolvedDispute || acknowledgementMissing;
+              const focused =
+                focus.staffId &&
+                String(record?.staff_id || "") === focus.staffId &&
+                (!focus.month || String(record?.payroll_month || "") === focus.month);
 
               return (
                 <article
                   key={record.id}
-                  className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6"
+                  id={focused ? `payroll-focus-${record.id}` : undefined}
+                  className={`rounded-[30px] border p-5 lg:p-6 ${
+                    focused
+                      ? "border-cyan-300/30 bg-cyan-300/[0.07] ring-1 ring-inset ring-cyan-300/20"
+                      : "border-white/10 bg-white/[0.035]"
+                  }`}
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
@@ -370,7 +434,11 @@ export default function PayrollGovernancePage() {
                           </div>
                           {organizationId ? (
                             <Link
-                              href={attendanceHref(organizationId, record.payroll_month)}
+                              href={attendanceHref(
+                                organizationId,
+                                record.payroll_month,
+                                record.staff_id
+                              )}
                               className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-red-300 text-xs font-black uppercase tracking-[0.14em] text-black"
                             >
                               Resolve in Attendance

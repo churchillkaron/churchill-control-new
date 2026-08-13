@@ -15,6 +15,7 @@ import finalizePayrollRecord from "@/lib/payroll/consolidation/finalizePayrollRe
 import closePayrollAccountingPeriod from "@/lib/payroll/consolidation/closePayrollAccountingPeriod";
 import certifyPayrollRecord from "@/lib/payroll/consolidation/certifyPayrollRecord";
 import archivePayrollRecord from "@/lib/payroll/consolidation/archivePayrollRecord";
+import loadPayrollAttendanceReconciliation from "@/lib/payroll/consolidation/loadPayrollAttendanceReconciliation";
 
 const GOVERNANCE_ROLES = new Set([
   "OWNER",
@@ -42,6 +43,11 @@ const FINALIZE_ROLES = new Set([
 const TERMINAL_ROLES = new Set([
   "OWNER",
   "ACCOUNTING_ADMIN",
+]);
+
+const LIVE_ATTENDANCE_REVIEW_STATUSES = new Set([
+  "GENERATED",
+  "RECALCULATED",
 ]);
 
 function normalizeRole(value) {
@@ -86,6 +92,88 @@ async function governanceContext(request) {
   };
 }
 
+function needsLiveAttendanceReadiness(record) {
+  return Boolean(
+    record?.review_required === true &&
+      record?.review_status === "PENDING" &&
+      LIVE_ATTENDANCE_REVIEW_STATUSES.has(String(record?.status || "").toUpperCase()) &&
+      record?.staff_id &&
+      record?.payroll_month
+  );
+}
+
+async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
+  const records = Array.isArray(payroll) ? payroll : [];
+  const candidates = records.filter(needsLiveAttendanceReadiness);
+
+  if (!candidates.length) return records;
+
+  const uniqueKeys = new Map();
+  for (const record of candidates) {
+    const key = `${record.staff_id}:${record.payroll_month}`;
+    if (!uniqueKeys.has(key)) {
+      uniqueKeys.set(key, {
+        staffId: record.staff_id,
+        payrollMonth: record.payroll_month,
+      });
+    }
+  }
+
+  const readinessEntries = await Promise.all(
+    [...uniqueKeys.entries()].map(async ([key, target]) => {
+      try {
+        const reconciliation = await loadPayrollAttendanceReconciliation({
+          organizationId,
+          staffId: target.staffId,
+          payrollMonth: target.payrollMonth,
+        });
+
+        return [
+          key,
+          {
+            available: true,
+            unresolvedSchedules: reconciliation.unresolvedSchedules,
+            unresolvedScheduleIds: reconciliation.unresolvedScheduleIds,
+            missedShifts: reconciliation.missedShifts,
+            creditedHours: reconciliation.creditedHours,
+            creditedSchedules: reconciliation.creditedSchedules,
+            classificationCounts: reconciliation.classificationCounts,
+          },
+        ];
+      } catch (error) {
+        console.error("PAYROLL_ATTENDANCE_READINESS_ERROR", {
+          organizationId,
+          staffId: target.staffId,
+          payrollMonth: target.payrollMonth,
+          error,
+        });
+
+        return [
+          key,
+          {
+            available: false,
+            unresolvedSchedules: null,
+            unresolvedScheduleIds: [],
+            error: error?.message || "Unable to verify attendance readiness",
+          },
+        ];
+      }
+    })
+  );
+
+  const readinessByKey = new Map(readinessEntries);
+
+  return records.map((record) => {
+    if (!needsLiveAttendanceReadiness(record)) return record;
+
+    const key = `${record.staff_id}:${record.payroll_month}`;
+    return {
+      ...record,
+      attendance_reconciliation: readinessByKey.get(key) || null,
+    };
+  });
+}
+
 export async function GET(request) {
   try {
     const context = await governanceContext(request);
@@ -106,6 +194,11 @@ export async function GET(request) {
 
     if (payrollResult.error) throw payrollResult.error;
 
+    const payroll = await attachLiveAttendanceReadiness({
+      organizationId: context.organizationId,
+      payroll: payrollResult.data || [],
+    });
+
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
@@ -121,7 +214,7 @@ export async function GET(request) {
         canCertify: TERMINAL_ROLES.has(context.role),
         canArchive: TERMINAL_ROLES.has(context.role),
       },
-      payroll: payrollResult.data || [],
+      payroll,
     });
   } catch (error) {
     console.error("PAYROLL_GOVERNANCE_LIST_ERROR", error);

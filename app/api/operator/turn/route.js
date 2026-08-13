@@ -245,38 +245,39 @@ export async function POST(request) {
       ...object(memory.agreementState),
     };
 
-    await persistIntelligenceTurn({
-      organizationId: businessContext.organizationId,
-      conversationId: memory.conversation.id,
-      partyId,
-      role: "user",
-      source,
-      content: message,
-    });
-
-    const result = await runOperatorTurn({
-      organizationId: businessContext.organizationId,
-      entityId: businessContext.entityId,
-      periodId: businessContext.periodId,
-      partyId,
-      actor,
-      role: access.role,
-      permissions:
-        businessContext.permissions ||
-        access.permissions ||
-        [],
-      locale:
-        text(body.locale) ||
-        businessContext.locale ||
-        null,
-      timezone: businessContext.timezone || null,
-      message,
-      source,
-      pathname: text(body.pathname) || null,
-      agreementState,
-      projectState: memory.projectState,
-      conversation,
-    });
+    const [result] = await Promise.all([
+      runOperatorTurn({
+        organizationId: businessContext.organizationId,
+        entityId: businessContext.entityId,
+        periodId: businessContext.periodId,
+        partyId,
+        actor,
+        role: access.role,
+        permissions:
+          businessContext.permissions ||
+          access.permissions ||
+          [],
+        locale:
+          text(body.locale) ||
+          businessContext.locale ||
+          null,
+        timezone: businessContext.timezone || null,
+        message,
+        source,
+        pathname: text(body.pathname) || null,
+        agreementState,
+        projectState: memory.projectState,
+        conversation,
+      }),
+      persistIntelligenceTurn({
+        organizationId: businessContext.organizationId,
+        conversationId: memory.conversation.id,
+        partyId,
+        role: "user",
+        source,
+        content: message,
+      }),
+    ]);
 
     const responseText =
       text(result?.decision?.response_text) ||
@@ -295,25 +296,26 @@ export async function POST(request) {
       result,
     );
 
-    await persistIntelligenceTurn({
-      organizationId: businessContext.organizationId,
-      conversationId: memory.conversation.id,
-      partyId,
-      role: "assistant",
-      source,
-      content: responseText,
-      decision: object(result?.decision),
-      evidence: object(result?.provider_evidence),
-      execution: object(result?.execution),
-      navigation: object(result?.navigation),
-    });
-
-    const persistedState = await updateIntelligenceConversationState({
-      organizationId: businessContext.organizationId,
-      conversationId: memory.conversation.id,
-      agreementState: nextAgreementState,
-      projectState: nextProjectState,
-    });
+    const [, persistedState] = await Promise.all([
+      persistIntelligenceTurn({
+        organizationId: businessContext.organizationId,
+        conversationId: memory.conversation.id,
+        partyId,
+        role: "assistant",
+        source,
+        content: responseText,
+        decision: object(result?.decision),
+        evidence: object(result?.provider_evidence),
+        execution: object(result?.execution),
+        navigation: object(result?.navigation),
+      }),
+      updateIntelligenceConversationState({
+        organizationId: businessContext.organizationId,
+        conversationId: memory.conversation.id,
+        agreementState: nextAgreementState,
+        projectState: nextProjectState,
+      }),
+    ]);
 
     return Response.json({
       ...result,

@@ -13,6 +13,14 @@ import {
   XCircle,
 } from "lucide-react";
 
+const ATTENDANCE_CLASSIFICATIONS = [
+  "ABSENT",
+  "APPROVED_LEAVE",
+  "SICK_LEAVE",
+  "PUBLIC_HOLIDAY",
+  "TRAINING",
+];
+
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
@@ -21,6 +29,13 @@ function organizationQuery(organizationId) {
   return organizationId
     ? `&organizationId=${encodeURIComponent(organizationId)}`
     : "";
+}
+
+function humanizeClassification(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 export default function AttendanceManagementPage() {
@@ -133,28 +148,104 @@ export default function AttendanceManagementPage() {
     );
   }
 
-  async function markAbsent(schedule) {
-    const notes = window.prompt("Reason / manager note for absence:", "");
-    if (!notes) return;
+  async function classifyAttendance(schedule) {
+    const requested = window.prompt(
+      `Classify this completed schedule:\n${ATTENDANCE_CLASSIFICATIONS.join("\n")}`,
+      "ABSENT"
+    );
+    if (requested === null) return;
+
+    const classification = String(requested || "").trim().toUpperCase();
+    if (!ATTENDANCE_CLASSIFICATIONS.includes(classification)) {
+      setMessage(
+        `Classification must be one of: ${ATTENDANCE_CLASSIFICATIONS.join(", ")}.`
+      );
+      return;
+    }
+
+    const notes = window.prompt(
+      `Manager evidence / note for ${humanizeClassification(classification)}:`,
+      ""
+    );
+    if (!notes || notes.trim().length < 3) {
+      setMessage("A manager note of at least 3 characters is required.");
+      return;
+    }
 
     setBusyId(schedule.id);
     setMessage("");
     try {
-      const response = await fetch("/api/people/workforce/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "mark_absent",
-          scheduleId: schedule.id,
-          notes,
-          ...(organizationId ? { organizationId } : {}),
-        }),
-      });
+      const response = await fetch(
+        "/api/people/workforce/attendance-classification",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scheduleId: schedule.id,
+            classification,
+            notes: notes.trim(),
+            ...(organizationId ? { organizationId } : {}),
+          }),
+        }
+      );
       const payload = await response.json();
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Unable to record absence");
+        throw new Error(payload.error || "Unable to classify attendance");
       }
-      setMessage("Absence confirmed.");
+      setMessage(`${humanizeClassification(classification)} recorded for payroll review.`);
+      await load();
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function reclassifyAttendance(row) {
+    const current = String(row.attendance_status || "ABSENT").toUpperCase();
+    if (!ATTENDANCE_CLASSIFICATIONS.includes(current)) return;
+
+    const requested = window.prompt(
+      `Reclassify attendance. Current: ${current}\n${ATTENDANCE_CLASSIFICATIONS.join("\n")}`,
+      current
+    );
+    if (requested === null) return;
+
+    const classification = String(requested || "").trim().toUpperCase();
+    if (!ATTENDANCE_CLASSIFICATIONS.includes(classification)) {
+      setMessage(
+        `Classification must be one of: ${ATTENDANCE_CLASSIFICATIONS.join(", ")}.`
+      );
+      return;
+    }
+
+    const notes = window.prompt("Reason / evidence for reclassification:", "");
+    if (!notes || notes.trim().length < 3) {
+      setMessage("A manager note of at least 3 characters is required.");
+      return;
+    }
+
+    setBusyId(row.id);
+    setMessage("");
+    try {
+      const response = await fetch(
+        "/api/people/workforce/attendance-classification",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            attendanceId: row.id,
+            classification,
+            notes: notes.trim(),
+            ...(organizationId ? { organizationId } : {}),
+          }),
+        }
+      );
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "Unable to reclassify attendance");
+      }
+      setMessage(`${humanizeClassification(classification)} saved.`);
       await load();
     } catch (error) {
       setMessage(error.message);
@@ -174,7 +265,8 @@ export default function AttendanceManagementPage() {
             <h1 className="mt-2 text-4xl font-black">Attendance Management</h1>
             <p className="mt-2 max-w-3xl text-zinc-400">
               Review unscheduled work, lateness and missed published shifts before payroll.
-              Raw clock-in and clock-out evidence remains unchanged.
+              Classify every unworked completed schedule as absence, approved leave, sick leave,
+              public holiday or training. Raw clock-in and clock-out evidence remains unchanged.
             </p>
             {data.organizationId ? (
               <p className="mt-2 text-xs text-zinc-600">
@@ -209,7 +301,7 @@ export default function AttendanceManagementPage() {
           <Metric icon={<Clock3 size={18} />} label="Shift evidence" value={summary.shifts} />
           <Metric icon={<ShieldCheck size={18} />} label="Pending review" value={summary.pending} />
           <Metric icon={<AlertTriangle size={18} />} label="Late shifts" value={summary.late} />
-          <Metric icon={<UserX size={18} />} label="Absence candidates" value={summary.absences} />
+          <Metric icon={<UserX size={18} />} label="Needs classification" value={summary.absences} />
         </section>
 
         {message && (
@@ -275,8 +367,8 @@ export default function AttendanceManagementPage() {
         </WorkspaceSection>
 
         <WorkspaceSection
-          title="Missed Published Shifts"
-          eyebrow="Absence reconciliation"
+          title="Unworked Published Shifts"
+          eyebrow="Attendance classification"
           empty="No completed published shifts are missing attendance evidence."
           loading={loading}
         >
@@ -288,8 +380,8 @@ export default function AttendanceManagementPage() {
               </div>
               <div className="text-sm text-zinc-300">{schedule.shift_date}</div>
               <div className="text-sm text-zinc-400">{schedule.start_time} - {schedule.end_time}</div>
-              <button disabled={busyId === schedule.id} onClick={() => markAbsent(schedule)} className="action action-bad">
-                <UserX size={16} /> Confirm absence
+              <button disabled={busyId === schedule.id} onClick={() => classifyAttendance(schedule)} className="action action-bad">
+                <UserX size={16} /> Classify
               </button>
             </div>
           ))}
@@ -301,17 +393,42 @@ export default function AttendanceManagementPage() {
           empty="No attendance rows for this month."
           loading={loading}
         >
-          {(data.attendance || []).map((row) => (
-            <div key={row.id} className="grid gap-4 border-t border-white/5 px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:items-center">
-              <div>
-                <div className="font-bold">{row.staff_name}</div>
-                <div className="text-xs text-zinc-500">{row.shift_date}</div>
+          {(data.attendance || []).map((row) => {
+            const classification = String(row.attendance_status || "").toUpperCase();
+            const canReclassify =
+              ATTENDANCE_CLASSIFICATIONS.includes(classification) &&
+              !row.shift_id &&
+              !row.actual_start &&
+              !row.actual_end;
+
+            return (
+              <div key={row.id} className="grid gap-4 border-t border-white/5 px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center">
+                <div>
+                  <div className="font-bold">{row.staff_name}</div>
+                  <div className="text-xs text-zinc-500">{row.shift_date}</div>
+                </div>
+                <div className="text-sm text-zinc-300">
+                  {humanizeClassification(classification || "PRESENT")}
+                </div>
+                <div className="text-sm text-zinc-500">
+                  {row.approved_at ? `Reviewed ${formatDateTime(row.approved_at)}` : "Not reviewed"}
+                </div>
+                {canReclassify ? (
+                  <button
+                    disabled={busyId === row.id}
+                    onClick={() => reclassifyAttendance(row)}
+                    className="action"
+                  >
+                    Reclassify
+                  </button>
+                ) : (
+                  <div className="text-xs text-zinc-600">
+                    {Number(row.late_minutes || 0)} late min
+                  </div>
+                )}
               </div>
-              <div className="text-sm text-zinc-300">{row.attendance_status || "PRESENT"}</div>
-              <div className="text-sm text-zinc-400">{Number(row.late_minutes || 0)} late min</div>
-              <div className="text-sm text-zinc-500">{row.approved_at ? `Reviewed ${formatDateTime(row.approved_at)}` : "Not reviewed"}</div>
-            </div>
-          ))}
+            );
+          })}
         </WorkspaceSection>
       </div>
 

@@ -10,6 +10,10 @@ import {
   CreativeWorldClassLiveBenchmarkRuntime,
 } from "@/lib/creative/quality/runtime/CreativeWorldClassLiveBenchmarkRuntime";
 import {
+  CREATIVE_WORLD_CLASS_BENCHMARK_CASES,
+  getCreativeWorldClassBenchmarkCase,
+} from "@/app/api/creative/tests/world-class-benchmark/fixtures";
+import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
@@ -23,14 +27,30 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function publicCase(benchmarkCase) {
+  return {
+    id: benchmarkCase.id,
+    label: benchmarkCase.label,
+    production_type: benchmarkCase.production_type,
+  };
+}
+
 function errorStatus(error) {
   const message = text(error?.message).toUpperCase();
   const code = text(error?.code).toUpperCase();
   const value = `${code}:${message}`;
-  if (value.includes("REQUIRED") || value.includes("INVALID") || value.includes("NOT_REGISTERED")) {
+  if (
+    value.includes("REQUIRED") ||
+    value.includes("INVALID") ||
+    value.includes("NOT_REGISTERED")
+  ) {
     return 400;
   }
-  if (value.includes("PERMISSION") || value.includes("FORBIDDEN") || value.includes("UNAUTHORIZED")) {
+  if (
+    value.includes("PERMISSION") ||
+    value.includes("FORBIDDEN") ||
+    value.includes("UNAUTHORIZED")
+  ) {
     return 403;
   }
   if (value.includes("NOT_FOUND")) return 404;
@@ -38,8 +58,7 @@ function errorStatus(error) {
   return 500;
 }
 
-async function requireCaseAccess(request, caseId) {
-  const benchmarkCase = CreativeWorldClassLiveBenchmarkRuntime.getCase(caseId);
+async function requireCaseAccess(request, benchmarkCase) {
   const access = await requireOrganizationAccess({
     organizationId: benchmarkCase.organization_id,
     request,
@@ -47,19 +66,21 @@ async function requireCaseAccess(request, caseId) {
   });
 
   if (!access.success) {
-    const error = new Error(access.error || "CREATIVE_BENCHMARK_ACCESS_FORBIDDEN");
+    const error = new Error(
+      access.error || "CREATIVE_BENCHMARK_ACCESS_FORBIDDEN",
+    );
     error.code = access.code || "CREATIVE_BENCHMARK_ACCESS_FORBIDDEN";
     error.status = access.status || 403;
     throw error;
   }
 
-  return { benchmarkCase, access };
+  return access;
 }
 
 async function requireAllCaseAccess(request) {
   const uniqueOrganizations = [
     ...new Set(
-      CreativeWorldClassLiveBenchmarkRuntime.listCases().map(
+      CREATIVE_WORLD_CLASS_BENCHMARK_CASES.map(
         (entry) => entry.organization_id,
       ),
     ),
@@ -72,7 +93,9 @@ async function requireAllCaseAccess(request) {
       requiredAnyPermission: EXECUTION_PERMISSIONS,
     });
     if (!access.success) {
-      const error = new Error(access.error || "CREATIVE_BENCHMARK_ACCESS_FORBIDDEN");
+      const error = new Error(
+        access.error || "CREATIVE_BENCHMARK_ACCESS_FORBIDDEN",
+      );
       error.code = access.code || "CREATIVE_BENCHMARK_ACCESS_FORBIDDEN";
       error.status = access.status || 403;
       throw error;
@@ -109,13 +132,16 @@ export async function POST(request) {
         );
       }
 
-      const { benchmarkCase } = await requireCaseAccess(request, caseId);
-      const result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(caseId);
+      const benchmarkCase = getCreativeWorldClassBenchmarkCase(caseId);
+      await requireCaseAccess(request, benchmarkCase);
+      const result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(
+        benchmarkCase,
+      );
 
       return NextResponse.json({
         success: true,
         action: "run_case",
-        case: benchmarkCase,
+        case: publicCase(benchmarkCase),
         ...result,
         safety: {
           reasoning_provider_calls_executed: true,
@@ -129,7 +155,10 @@ export async function POST(request) {
 
     if (action === "evaluate") {
       await requireAllCaseAccess(request);
-      const report = CreativeWorldClassLiveBenchmarkRuntime.evaluate(body.cases);
+      const report = CreativeWorldClassLiveBenchmarkRuntime.evaluate(
+        body.cases,
+        CREATIVE_WORLD_CLASS_BENCHMARK_CASES,
+      );
 
       return NextResponse.json({
         success: true,

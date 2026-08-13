@@ -1,167 +1,106 @@
 export const dynamic = "force-dynamic";
-import { NextResponse }
-from "next/server";
 
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
+
+function statusFor(message) {
+  return String(message || "").toLowerCase().includes("permission denied") ? 403 : 500;
+}
 
 export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const sourceType = searchParams.get("source_type");
+    const sourceId = searchParams.get("source_id");
+    const requestedOrganizationId =
+      searchParams.get("organizationId") || searchParams.get("organization_id");
 
-  const { searchParams } =
-    new URL(request.url);
+    if (!sourceType || !sourceId) {
+      return NextResponse.json(
+        { success: false, error: "source_type and source_id required" },
+        { status: 400 }
+      );
+    }
 
-  const sourceType =
-    searchParams.get(
-      "source_type"
-    );
+    if (!requestedOrganizationId) {
+      return NextResponse.json(
+        { success: false, error: "organizationId required" },
+        { status: 400 }
+      );
+    }
 
-  const sourceId =
-    searchParams.get(
-      "source_id"
-    );
-
-  if (
-    !sourceType ||
-    !sourceId
-  ) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        "source_type and source_id required",
-
-    }, {
-
-      status: 400,
-
+    const access = await requireOrganizationAccess({
+      organizationId: requestedOrganizationId,
+      request,
     });
 
-  }
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
 
-  const {
-    data,
-    error,
-  } = await supabaseAdmin
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
-    .from("journal_entries")
-
-    .select(`
-      *,
-      journal_entry_lines (
+    const { data, error } = await supabaseAdmin
+      .from("journal_entries")
+      .select(`
         *,
-        chart_of_accounts (
-          id,
-          account_code,
-          account_name,
-          account_category,
-          account_type
+        journal_entry_lines (
+          *,
+          chart_of_accounts (
+            id,
+            account_code,
+            account_name,
+            account_category,
+            account_type
+          )
         )
-      )
-    `)
+      `)
+      .eq("organization_id", access.organizationId)
+      .eq("source_type", sourceType)
+      .eq("source_id", sourceId)
+      .order("created_at", { ascending: true });
 
-    .eq(
-      "source_type",
-      sourceType
-    )
+    if (error) throw error;
 
-    .eq(
-      "source_id",
-      sourceId
-    )
-
-    .order(
-      "created_at",
-      { ascending: true }
-    );
-
-  if (error) {
+    const chain = (data || []).map((journal) => ({
+      id: journal.id,
+      description: journal.description,
+      status: journal.status,
+      created_at: journal.created_at,
+      lines: (journal.journal_entry_lines || []).map((line) => ({
+        id: line.id,
+        debit: Number(line.debit || 0),
+        credit: Number(line.credit || 0),
+        account: {
+          code: line.chart_of_accounts?.account_code,
+          name: line.chart_of_accounts?.account_name,
+          category: line.chart_of_accounts?.account_category,
+        },
+      })),
+    }));
 
     return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-
-      status: 500,
-
+      success: true,
+      source_type: sourceType,
+      source_id: sourceId,
+      count: chain.length,
+      chain,
     });
-
-  }
-
-  const chain =
-
-    (data || []).map(
-      (journal) => ({
-
-        id:
-          journal.id,
-
-        description:
-          journal.description,
-
-        status:
-          journal.status,
-
-        created_at:
-          journal.created_at,
-
-        lines:
-
-          (journal.journal_entry_lines || [])
-            .map((line) => ({
-
-              id:
-                line.id,
-
-              debit:
-                Number(
-                  line.debit || 0
-                ),
-
-              credit:
-                Number(
-                  line.credit || 0
-                ),
-
-              account: {
-
-                code:
-                  line.chart_of_accounts?.account_code,
-
-                name:
-                  line.chart_of_accounts?.account_name,
-
-                category:
-                  line.chart_of_accounts?.account_category,
-
-              },
-
-            })),
-
-      })
-
+  } catch (error) {
+    const message = error.message || "Journal chain load failed";
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: statusFor(message) }
     );
-
-  return NextResponse.json({
-
-    success: true,
-
-    source_type:
-      sourceType,
-
-    source_id:
-      sourceId,
-
-    count:
-      chain.length,
-
-    chain,
-
-  });
-
+  }
 }

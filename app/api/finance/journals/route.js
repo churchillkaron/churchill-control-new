@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
 function amount(value) {
   const number = Number(value || 0);
@@ -10,8 +11,7 @@ function amount(value) {
 }
 
 function summaryText(journal, totalDebit, lineCount) {
-  const type = String(journal.journal_type || "GENERAL")
-    .replace(/_/g, " ");
+  const type = String(journal.journal_type || "GENERAL").replace(/_/g, " ");
   const narrative =
     journal.description ||
     journal.reference ||
@@ -29,20 +29,21 @@ function summaryText(journal, totalDebit, lineCount) {
     narrative,
     `${lineCount} line${lineCount === 1 ? "" : "s"}`,
     currency ? `${currency} ${total}` : total,
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function statusFor(message) {
+  return String(message || "").toLowerCase().includes("permission denied") ? 403 : 500;
 }
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-
     const requestedOrganizationId =
-      searchParams.get("organizationId") ||
-      searchParams.get("organization_id");
-
-    const entityId =
-      searchParams.get("entityId") ||
-      searchParams.get("entity_id");
+      searchParams.get("organizationId") || searchParams.get("organization_id");
+    const entityId = searchParams.get("entityId") || searchParams.get("entity_id");
 
     if (!requestedOrganizationId) {
       return NextResponse.json(
@@ -60,6 +61,7 @@ export async function GET(request) {
 
     const access = await requireOrganizationAccess({
       organizationId: requestedOrganizationId,
+      request,
     });
 
     if (!access.success) {
@@ -69,8 +71,14 @@ export async function GET(request) {
       );
     }
 
-    const organizationId = access.organizationId;
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
+    const organizationId = access.organizationId;
     const { data: journals, error } = await supabaseAdmin
       .from("journal_entries")
       .select(`
@@ -94,7 +102,7 @@ export async function GET(request) {
 
     if (error) throw error;
 
-    const formatted = (journals || []).map(journal => {
+    const formatted = (journals || []).map((journal) => {
       const sourceLines = journal.journal_entry_lines || [];
       const totalDebit = sourceLines.reduce(
         (total, line) => total + amount(line.debit),
@@ -144,7 +152,7 @@ export async function GET(request) {
         total_amount: totalDebit,
         is_active: !reversed,
         code: summaryText(journal, totalDebit, lineCount),
-        lines: sourceLines.map(line => ({
+        lines: sourceLines.map((line) => ({
           id: line.id,
           account_id: line.account_id,
           account_code: line.chart_of_accounts?.account_code || null,
@@ -177,7 +185,7 @@ export async function GET(request) {
       rows: formatted,
       metrics: {
         journal_count: formatted.length,
-        unreversed_count: formatted.filter(journal => journal.is_active).length,
+        unreversed_count: formatted.filter((journal) => journal.is_active).length,
         total_posted_value: formatted.reduce(
           (total, journal) => total + amount(journal.total_amount),
           0
@@ -186,13 +194,10 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error("finance journals GET", error);
-
+    const message = error.message || "Journals load failed";
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Journals load failed",
-      },
-      { status: 500 }
+      { success: false, error: message },
+      { status: statusFor(message) }
     );
   }
 }

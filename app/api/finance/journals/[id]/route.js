@@ -1,109 +1,59 @@
 export const dynamic = "force-dynamic";
-import { NextResponse }
-from "next/server";
 
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+function statusFor(message) {
+  return String(message || "").toLowerCase().includes("permission denied") ? 403 : 500;
+}
 
-export async function GET(
-  request,
-  { params }
-) {
+export async function GET(request, { params }) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const requestedOrganizationId =
+      searchParams.get("organizationId") || searchParams.get("organization_id");
 
-  const {
-    searchParams,
-  } = new URL(
-    request.url
-  );
-
-  const access =
-    await requireOrganizationAccess({
-
-      organizationId:
-        searchParams.get(
-          "organizationId"
-        ),
-
+    const access = await requireOrganizationAccess({
+      organizationId: requestedOrganizationId,
+      request,
     });
 
-  if (!access.success) {
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          access.error,
-      },
-      {
-        status:
-          access.status,
-      }
-    );
-
-  }
-
-  const organizationId =
-    access.organizationId;
-
-  try {
-
-    const journalId =
-      params.id;
-
-    const {
-      data: journal,
-      error: journalError,
-    } = await supabaseAdmin
-
-      .from("journal_entries")
-
-      .select("*")
-
-      .eq(
-        "organization_id",
-        organizationId
-      )
-
-      .eq(
-        "id",
-        journalId
-      )
-
-      .single();
-
-    if (
-      journalError ||
-      !journal
-    ) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          "Journal not found",
-
-      }, {
-
-        status: 404,
-
-      });
-
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
     }
 
-    const {
-      data: lines,
-      error: linesError,
-    } = await supabaseAdmin
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
+    const journalId = params.id;
+    const { data: journal, error: journalError } = await supabaseAdmin
+      .from("journal_entries")
+      .select("*")
+      .eq("organization_id", access.organizationId)
+      .eq("id", journalId)
+      .maybeSingle();
+
+    if (journalError) throw journalError;
+
+    if (!journal) {
+      return NextResponse.json(
+        { success: false, error: "Journal not found" },
+        { status: 404 }
+      );
+    }
+
+    const { data: lines, error: linesError } = await supabaseAdmin
       .from("journal_entry_lines")
-
       .select(`
-
         *,
         chart_of_accounts (
           id,
@@ -112,61 +62,23 @@ export async function GET(
           account_category,
           account_type
         )
-
       `)
+      .eq("organization_id", access.organizationId)
+      .eq("journal_entry_id", journalId)
+      .order("created_at", { ascending: true });
 
-      .eq(
-        "journal_entry_id",
-        journalId
-      )
-
-      .order(
-        "created_at",
-        { ascending: true }
-      );
-
-    if (linesError) {
-
-      return NextResponse.json({
-
-        success: false,
-
-        error:
-          linesError.message,
-
-      }, {
-
-        status: 500,
-
-      });
-
-    }
+    if (linesError) throw linesError;
 
     return NextResponse.json({
-
       success: true,
-
       journal,
-      lines:
-        lines || [],
-
+      lines: lines || [],
     });
-
   } catch (error) {
-
-    return NextResponse.json({
-
-      success: false,
-
-      error:
-        error.message,
-
-    }, {
-
-      status: 500,
-
-    });
-
+    const message = error.message || "Journal load failed";
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: statusFor(message) }
+    );
   }
-
 }

@@ -2,14 +2,27 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { postVendorPaymentGLCommand } from "@/lib/finance/general-ledger/runtime/GeneralLedgerApplicationService";
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
+function required(value, field) {
+  const normalized = String(value || "").trim();
+  if (!normalized) throw new Error(`${field} required`);
+  return normalized;
+}
 
+function statusFor(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (normalized.includes("permission denied")) return 403;
+  return normalized.includes("required") ? 400 : 500;
+}
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
     const access = await requireOrganizationAccess({
-      organizationId: body.organizationId,
+      organizationId: body.organizationId || body.organization_id,
+      request,
     });
 
     if (!access.success) {
@@ -19,17 +32,28 @@ export async function POST(req) {
       );
     }
 
+    const actorId = required(access.user?.id, "authenticated user");
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: actorId,
+      permissionKey: "finance.payables.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
+
     const result = await postVendorPaymentGLCommand({
       ...body,
       organizationId: access.organizationId,
+      organization_id: access.organizationId,
+      posted_by: actorId,
+      postedBy: actorId,
     });
 
     return NextResponse.json(result);
-
   } catch (error) {
+    const message = error.message || "GL posting failed";
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: message },
+      { status: statusFor(message) }
     );
   }
 }

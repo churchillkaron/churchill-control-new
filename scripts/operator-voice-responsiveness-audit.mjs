@@ -8,6 +8,9 @@ import {
   averageWakeTemplates,
   scoreWakeCandidate,
 } from "../lib/operator/voice/localWakeMatcher.js";
+import {
+  resolveInstantOperatorNavigation,
+} from "../lib/operator/runtime/OperatorNavigationMatcher.js";
 
 const ROOT = process.cwd();
 const violations = [];
@@ -30,6 +33,10 @@ function requireAll(label, source, needles) {
 const bridge = read("components/operator/LocalHeyAvantiqoWakeBridge.jsx");
 const fastRuntime = read("lib/operator/runtime/OperatorFastConversationRuntime.js");
 const turnRoute = read("app/api/operator/turn/route.js");
+const navigationMatcher = read("lib/operator/runtime/OperatorNavigationMatcher.js");
+const turnRuntime = read("lib/operator/runtime/OperatorTurnRuntime.js");
+const acknowledgementRuntime = read("lib/operator/runtime/OperatorVoiceAcknowledgementRuntime.js");
+const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.js");
 
 requireAll("VOICE_BRIDGE", bridge, [
   "MIN_SPEECH_THRESHOLD",
@@ -54,6 +61,87 @@ requireAll("TURN_LATENCY", turnRoute, [
   "const [result] = await Promise.all([",
   "const [, persistedState] = await Promise.all([",
 ]);
+
+requireAll("INSTANT_NAVIGATION_MATCHER", navigationMatcher, [
+  "export function resolveInstantOperatorNavigation",
+  "function navigationQuery(message)",
+  "function targetAliases(target = {})",
+  "ambiguous: true",
+]);
+
+const navigationTargets = [
+  {
+    id: "domain:finance",
+    kind: "domain",
+    domain_id: "finance",
+    name: "Finance",
+    route: "/finance",
+    href: "/workspace/test/finance",
+  },
+  {
+    id: "workspace:commercial:design_studio",
+    kind: "workspace",
+    domain_id: "commercial",
+    item_id: "design_studio",
+    name: "Design Studio",
+    route: "/commercial/marketing/design",
+    href: "/workspace/test/commercial/marketing/design",
+  },
+  {
+    id: "workspace:finance:finance_ai",
+    kind: "workspace",
+    domain_id: "finance",
+    item_id: "finance_ai",
+    name: "Finance AI",
+    route: "/intelligence/finance",
+    href: "/workspace/test/intelligence/finance",
+  },
+];
+
+const financeNavigation = resolveInstantOperatorNavigation({
+  message: "go to finance",
+  targets: navigationTargets,
+});
+if (financeNavigation?.target?.id !== "domain:finance") {
+  violations.push("INSTANT_FINANCE_NAVIGATION_NOT_RESOLVED");
+}
+
+const studioNavigation = resolveInstantOperatorNavigation({
+  message: "open studio",
+  targets: navigationTargets,
+});
+if (studioNavigation?.target?.id !== "workspace:commercial:design_studio") {
+  violations.push("INSTANT_STUDIO_NAVIGATION_NOT_RESOLVED");
+}
+
+const nonNavigation = resolveInstantOperatorNavigation({
+  message: "show me finance report",
+  targets: navigationTargets,
+});
+if (nonNavigation !== null) {
+  violations.push("BUSINESS_READ_CAPTURED_AS_NAVIGATION");
+}
+
+requireAll("INSTANT_NAVIGATION_RUNTIME", turnRuntime, [
+  "resolveInstantOperatorNavigation",
+  "Opening ${target.name}.",
+  "instant-navigation-v1",
+  "bypassed_for_instant_navigation: true",
+]);
+
+requireAll("INSTANT_ACKNOWLEDGEMENT", acknowledgementRuntime, [
+  "const ACKNOWLEDGEMENTS",
+  "instant-acknowledgement-v1",
+  "provider: \"avantiqo-local\"",
+  "usage_id: null",
+]);
+
+if (acknowledgementRuntime.includes("ServiceExecutionRuntime")) {
+  violations.push("WAKE_ACKNOWLEDGEMENT_CALLS_AI_PROVIDER");
+}
+if (acknowledgementRoute.includes("registerFinanceBilling")) {
+  violations.push("WAKE_ACKNOWLEDGEMENT_LOADS_BILLING_RUNTIME");
+}
 
 const baseFrames = Array.from({ length: 24 }, (_, index) => [
   0.3 + (index % 4) * 0.02,
@@ -94,4 +182,6 @@ if (violations.length) {
   console.log("VOICE_TRANSCRIPT=INTERIM_COMMIT_ENABLED");
   console.log("VOICE_WAKE=ADAPTIVE_NOISE_AND_STRICT_MATCH");
   console.log("VOICE_MEMORY=SESSION_STATE_PRESERVED");
+  console.log("VOICE_NAVIGATION=REGISTERED_ROUTE_INSTANT_PATH");
+  console.log("VOICE_ACKNOWLEDGEMENT=LOCAL_WITHOUT_PROVIDER_OR_BILLING");
 }

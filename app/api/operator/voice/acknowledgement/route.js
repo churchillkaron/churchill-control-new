@@ -1,11 +1,6 @@
-import "@/lib/finance/bootstrap/registerFinanceBilling";
-
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
-import {
-  resolveBusinessContext,
-} from "@/lib/business-context/resolveBusinessContext";
 import {
   generateOperatorVoiceAcknowledgement,
 } from "@/lib/operator/runtime/OperatorVoiceAcknowledgementRuntime";
@@ -36,12 +31,6 @@ export async function POST(request) {
       "organizationId",
       "organization_id",
     );
-    const requestedEntityId = readValue(
-      body,
-      "entityId",
-      "entity_id",
-    );
-
     const access = await requireOrganizationAccess({
       organizationId,
       request,
@@ -63,25 +52,10 @@ export async function POST(request) {
       );
     }
 
-    const businessContext = await resolveBusinessContext({
-      organizationId: access.organizationId,
-      entityId: requestedEntityId,
-      request,
-      access,
-    });
-
-    if (!businessContext.success) {
-      return errorResponse(
-        businessContext.error,
-        businessContext.status || 400,
-      );
-    }
-
     const result = await generateOperatorVoiceAcknowledgement({
-      organizationId: businessContext.organizationId,
-      entityId: businessContext.entityId,
+      organizationId: access.organizationId,
       partyId,
-      locale: text(body.locale) || businessContext.locale || null,
+      locale: text(body.locale) || null,
       organizationName:
         text(body.organizationName) ||
         text(body.organization_name) ||

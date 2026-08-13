@@ -9,6 +9,10 @@ const FILES = Object.freeze({
   reviewer: "lib/payroll/consolidation/reviewAttendancePenalty.js",
   recalculator: "lib/payroll/consolidation/recalculatePayrollRecord.js",
   scheduleApi: "app/api/people/workforce/schedules/route.js",
+  attendancePage:
+    "app/(system)/workspace/[organizationId]/people/attendance/page.jsx",
+  governancePage:
+    "app/(system)/workspace/[organizationId]/people/payroll/governance/page.jsx",
   freshnessMigration:
     "supabase/migrations/20260813044651_workforce_schedule_mutation_freshness.sql",
   statusMigration:
@@ -214,6 +218,58 @@ requireMatch(
 );
 
 requireMatch(
+  source.governancePage,
+  /function attendanceHref\(organizationId, payrollMonth, staffId\)[\s\S]*?validMonth\(month\)[\s\S]*?query\.set\("month", month\)[\s\S]*?validStaffId\(staffId\)[\s\S]*?query\.set\("staffId", staffId\)/,
+  "Payroll Governance attendance resolution link",
+);
+requireMatch(
+  source.governancePage,
+  /href=\{attendanceHref\([\s\S]{0,180}?organizationId,[\s\S]{0,80}?record\.payroll_month,[\s\S]{0,80}?record\.staff_id[\s\S]{0,80}?\)\}/,
+  "Payroll Governance exact employee/month resolution target",
+);
+requireMatch(
+  source.governancePage,
+  /function readFocusQuery\(\)[\s\S]*?query\.get\("month"\)[\s\S]*?query\.get\("staffId"\)[\s\S]*?validStaffId\(staffId\)/,
+  "Payroll Governance validated return focus",
+);
+requireMatch(
+  source.governancePage,
+  /payroll\.find\([\s\S]{0,300}?record\?\.staff_id[\s\S]{0,180}?record\?\.payroll_month[\s\S]{0,300}?payroll-focus-/,
+  "Payroll Governance focused record recovery",
+);
+requireNoMatch(
+  source.governancePage,
+  /returnTo/i,
+  "Payroll Governance arbitrary return target",
+);
+
+requireMatch(
+  source.attendancePage,
+  /function requestedStaffId\(\)[\s\S]*?searchParams\)?\.get\("staffId"\)|function requestedStaffId\(\)[\s\S]*?URLSearchParams\(window\.location\.search\)\.get\("staffId"\)[\s\S]*?validStaffId\(value\)/,
+  "Attendance validated payroll staff focus",
+);
+requireMatch(
+  source.attendancePage,
+  /function payrollGovernanceHref\(organizationId, month, staffId\)[\s\S]*?validMonth\(month\)[\s\S]*?query\.set\("month", month\)[\s\S]*?validStaffId\(staffId\)[\s\S]*?query\.set\("staffId", staffId\)/,
+  "Attendance Payroll Governance return link",
+);
+requireMatch(
+  source.attendancePage,
+  /href=\{payrollGovernanceHref\(organizationId, month, focusStaffId\)\}/,
+  "Attendance focused Payroll Governance return target",
+);
+requireMatch(
+  source.attendancePage,
+  /data\.absenceCandidates[\s\S]{0,300}?schedule\?\.staff_id[\s\S]{0,320}?attendance-focus-/,
+  "Attendance focused unworked schedule recovery",
+);
+requireNoMatch(
+  source.attendancePage,
+  /returnTo/i,
+  "Attendance arbitrary return target",
+);
+
+requireMatch(
   source.generator,
   /\.from\("staff_schedules"\)[\s\S]{0,300}?\.eq\("status",\s*"PUBLISHED"\)/,
   "Monthly payroll published-schedule calculation",
@@ -272,5 +328,5 @@ requireMatch(
 );
 
 console.log(
-  "Workforce/Payroll reconciliation release audit passed: database-enforced schedule history, canonical schedule statuses, no active schedule hard deletes, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, and no automatic absence deduction are intact.",
+  "Workforce/Payroll reconciliation release audit passed: database-enforced schedule history, canonical schedule statuses, exact payroll-attendance resolution links, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, and no automatic absence deduction are intact.",
 );

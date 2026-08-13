@@ -332,17 +332,34 @@ export async function DELETE(request) {
       );
     }
 
-    const { error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("staff_schedules")
-      .delete()
+      .update({
+        status: "CANCELLED",
+        created_by: ctx.manager?.id || null,
+      })
       .eq("id", id)
-      .eq("organization_id", ctx.organizationId);
+      .eq("organization_id", ctx.organizationId)
+      .select("id,status,updated_at")
+      .maybeSingle();
 
     if (error) throw error;
-    return NextResponse.json({ success: true });
+    if (!data) {
+      return NextResponse.json(
+        { success: false, error: "Schedule not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      scheduleId: data.id,
+      status: data.status,
+      updatedAt: data.updated_at,
+    });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error?.message || "Unable to delete schedule" },
+      { success: false, error: error?.message || "Unable to cancel schedule" },
       { status: 400 }
     );
   }

@@ -13,6 +13,9 @@ const FILES = Object.freeze({
     "supabase/migrations/20260813044651_workforce_schedule_mutation_freshness.sql",
 });
 
+const ACTIVE_SOURCE_ROOTS = Object.freeze(["app", "lib", "components"]);
+const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"]);
+
 function read(relativePath) {
   const absolutePath = path.join(ROOT, relativePath);
 
@@ -35,9 +38,63 @@ function requireNoMatch(source, pattern, label) {
   }
 }
 
+function collectSourceFiles(relativeRoot) {
+  const absoluteRoot = path.join(ROOT, relativeRoot);
+  if (!fs.existsSync(absoluteRoot)) return [];
+
+  const files = [];
+  const stack = [absoluteRoot];
+
+  while (stack.length) {
+    const current = stack.pop();
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const absolutePath = path.join(current, entry.name);
+
+      if (entry.isDirectory()) {
+        stack.push(absolutePath);
+        continue;
+      }
+
+      if (!entry.isFile() || !SOURCE_EXTENSIONS.has(path.extname(entry.name))) {
+        continue;
+      }
+
+      files.push(path.relative(ROOT, absolutePath));
+    }
+  }
+
+  return files;
+}
+
+function assertNoScheduleHardDeletes() {
+  const sourceFiles = ACTIVE_SOURCE_ROOTS.flatMap(collectSourceFiles);
+  const supabaseHardDelete =
+    /\.from\(\s*["']staff_schedules["']\s*\)[\s\S]{0,800}?\.delete\s*\(/;
+  const sqlHardDelete = /\bdelete\s+from\s+(?:public\.)?staff_schedules\b/i;
+  const violations = [];
+
+  for (const relativePath of sourceFiles) {
+    const fileSource = read(relativePath);
+
+    if (supabaseHardDelete.test(fileSource) || sqlHardDelete.test(fileSource)) {
+      violations.push(relativePath);
+    }
+  }
+
+  if (violations.length) {
+    throw new Error(
+      `Workforce schedules are append/mutate history. Hard delete is forbidden; use status CANCELLED so payroll freshness remains observable. Violations: ${violations.join(", ")}`
+    );
+  }
+}
+
 const source = Object.fromEntries(
   Object.entries(FILES).map(([key, relativePath]) => [key, read(relativePath)]),
 );
+
+assertNoScheduleHardDeletes();
 
 requireMatch(
   source.reconciliation,
@@ -174,5 +231,5 @@ requireMatch(
 );
 
 console.log(
-  "Workforce/Payroll reconciliation release audit passed: schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, and no automatic absence deduction are intact.",
+  "Workforce/Payroll reconciliation release audit passed: no active schedule hard deletes, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, and no automatic absence deduction are intact.",
 );

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
 import {
   createVendorInvoice,
@@ -22,6 +23,8 @@ function required(value, field) {
 
 function statusFor(message) {
   const normalized = String(message || "").toLowerCase();
+
+  if (normalized.includes("permission denied")) return 403;
 
   if (
     normalized.includes("required") ||
@@ -45,6 +48,7 @@ export async function POST(request) {
       organizationId:
         body.organizationId ||
         body.organization_id,
+      request,
     });
 
     if (!access.success) {
@@ -58,6 +62,15 @@ export async function POST(request) {
         }
       );
     }
+
+    const actorId = required(access.user?.id, "authenticated user");
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: actorId,
+      permissionKey: "finance.payables.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const entityId = required(
       body.entityId || body.entity_id,
@@ -110,7 +123,7 @@ export async function POST(request) {
       source: body.source || "manual",
       aiExtracted: Boolean(body.ai_extracted),
       ocrConfidence: Number(body.ocr_confidence || 0),
-      createdBy: access.user?.id || null,
+      createdBy: actorId,
       idempotencyKey,
     });
 

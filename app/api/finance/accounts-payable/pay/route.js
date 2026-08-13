@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { processVendorPaymentCommand } from "@/lib/finance/payments/runtime/FinancePaymentApplicationService";
 
 function required(value, field) {
@@ -13,6 +14,7 @@ function required(value, field) {
 
 function statusFor(message) {
   const normalized = String(message || "").toLowerCase();
+  if (normalized.includes("permission denied")) return 403;
   if (
     normalized.includes("required") ||
     normalized.includes("must be") ||
@@ -38,11 +40,6 @@ export async function POST(req) {
     const access = await requireOrganizationAccess({
       organizationId,
       request: req,
-      requiredAnyPermission: [
-        "finance.vendor-payments.create",
-        "finance.accounts-payable.pay",
-        "finance.*",
-      ],
     });
 
     if (!access.success) {
@@ -51,6 +48,15 @@ export async function POST(req) {
         { status: access.status }
       );
     }
+
+    const actorId = required(access.user?.id, "authenticated user");
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: actorId,
+      permissionKey: "finance.payables.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const entityId = required(
       body.entityId || body.entity_id,
@@ -85,7 +91,7 @@ export async function POST(req) {
         "payment_method"
       ),
       reference_number: body.reference_number || body.referenceNumber || null,
-      paid_by: required(access.user?.id, "authenticated user"),
+      paid_by: actorId,
       paid_at: body.paid_at || body.paidAt || null,
       currency_code: body.currency_code || body.currencyCode || null,
       exchange_rate: body.exchange_rate ?? body.exchangeRate ?? null,

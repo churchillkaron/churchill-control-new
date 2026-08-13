@@ -4,6 +4,7 @@ import runThreeWayMatch from "@/lib/finance/accounts-payable/workflows/runThreeW
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
 function required(value, field) {
   const normalized = String(value || "").trim();
@@ -17,6 +18,8 @@ function required(value, field) {
 
 function statusFor(message) {
   const normalized = String(message || "").toLowerCase();
+
+  if (normalized.includes("permission denied")) return 403;
 
   if (
     normalized.includes("required") ||
@@ -66,11 +69,20 @@ export async function POST(request) {
       );
     }
 
+    const actorId = required(access.user?.id, "authenticated user");
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: actorId,
+      permissionKey: "finance.payables.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
+
     const match = await runThreeWayMatch({
       organization_id: access.organizationId,
       entity_id: entityId,
       vendor_invoice_id: vendorInvoiceId,
-      matched_by: access.user?.id,
+      matched_by: actorId,
     });
 
     if (match?.success === false) {

@@ -71,7 +71,7 @@ export async function POST(req) {
     return NextResponse.json(
       result,
       {
-        status: result.success ? 200 : 400,
+        status: result.success ? 200 : result.status || 400,
       },
     );
   } catch (error) {

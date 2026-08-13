@@ -49,8 +49,13 @@ function canArchive(record) {
   return record?.status === "CERTIFIED";
 }
 
-function attendanceHref(organizationId) {
-  return `/workspace/${encodeURIComponent(organizationId)}/people/attendance`;
+function attendanceHref(organizationId, payrollMonth) {
+  const base = `/workspace/${encodeURIComponent(organizationId)}/people/attendance`;
+  const month = String(payrollMonth || "").trim();
+
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(month)
+    ? `${base}?month=${encodeURIComponent(month)}`
+    : base;
 }
 
 export default function PayrollGovernancePage() {
@@ -365,7 +370,7 @@ export default function PayrollGovernancePage() {
                           </div>
                           {organizationId ? (
                             <Link
-                              href={attendanceHref(organizationId)}
+                              href={attendanceHref(organizationId, record.payroll_month)}
                               className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-red-300 text-xs font-black uppercase tracking-[0.14em] text-black"
                             >
                               Resolve in Attendance

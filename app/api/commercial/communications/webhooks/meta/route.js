@@ -18,6 +18,19 @@ function object(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function messagingWebhookVerifyToken() {
+  const configured = text(process.env.META_MESSAGING_WEBHOOK_VERIFY_TOKEN);
+  if (configured) return configured;
+
+  const appSecret = text(process.env.META_APP_SECRET);
+  if (!appSecret) return null;
+
+  return crypto
+    .createHash("sha256")
+    .update(`avantiqo:meta-messaging-webhook:${appSecret}`)
+    .digest("hex");
+}
+
 function validSignature(rawBody, signatureHeader) {
   const appSecret = text(process.env.META_APP_SECRET);
   const provided = text(signatureHeader);
@@ -112,7 +125,7 @@ export async function GET(request) {
   const mode = url.searchParams.get("hub.mode");
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
-  const expectedToken = text(process.env.META_MESSAGING_WEBHOOK_VERIFY_TOKEN);
+  const expectedToken = messagingWebhookVerifyToken();
 
   if (
     mode === "subscribe" &&

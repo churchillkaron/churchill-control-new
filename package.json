@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/prepare-creative-media-binaries.mjs && npm run audit:openai-governance && npm run audit:openai-json-mode && npm run audit:creative-studio && npm run audit:creative-dynamic-architecture && npm run audit:operations && npm run audit:operations-capabilities && npm run audit:operations-pos && npm run audit:operations-hotel && npm run audit:operations-retail && npm run audit:operations-venue && npm run audit:operations-project-execution && npm run audit:operations-field-service && npm run audit:operations-healthcare && npm run audit:operations-events && npm run audit:operations-authorization && npm run audit:operations-roles && npm run audit:operations-readiness && npm run audit:operations-migrations && npm run audit:operator-exposure && npm run audit:operator-goal-continuity && npm run audit:operator-domain-actions && npm run audit:operator-system-management && npm run audit:operator-voice-responsiveness && npm run audit:pos-client-contract && npm run audit:operator-caller-context && npm run audit:workforce-payroll && node scripts/finance-production-master-data-bootstrap.mjs",
+    "prebuild": "node scripts/prepare-creative-media-binaries.mjs && npm run audit:openai-governance && npm run audit:openai-json-mode && npm run audit:creative-studio && npm run audit:creative-dynamic-architecture && npm run audit:creative-hardcoding && npm run audit:creative-pipeline-readiness && npm run audit:operations && npm run audit:operations-capabilities && npm run audit:operations-pos && npm run audit:operations-hotel && npm run audit:operations-retail && npm run audit:operations-venue && npm run audit:operations-project-execution && npm run audit:operations-field-service && npm run audit:operations-healthcare && npm run audit:operations-events && npm run audit:operations-authorization && npm run audit:operations-roles && npm run audit:operations-readiness && npm run audit:operations-migrations && npm run audit:operator-exposure && npm run audit:operator-goal-continuity && npm run audit:operator-domain-actions && npm run audit:operator-system-management && npm run audit:operator-voice-responsiveness && npm run audit:pos-client-contract && npm run audit:operator-caller-context && npm run audit:workforce-payroll && node scripts/finance-production-master-data-bootstrap.mjs",
     "build": "next build",
     "start": "next start",
     "creative": "sh scripts/run-creative-command.sh",
@@ -12,6 +12,8 @@
     "audit:openai-json-mode": "node scripts/openai-responses-json-mode-audit.mjs",
     "audit:creative-studio": "node scripts/creative-studio-release-audit.mjs",
     "audit:creative-dynamic-architecture": "node scripts/audit-creative-dynamic-architecture-read-only.mjs",
+    "audit:creative-hardcoding": "node --loader ./scripts/next-alias-loader.mjs scripts/audit-creative-universal-business-hardcoding-read-only.mjs",
+    "audit:creative-pipeline-readiness": "node scripts/creative-pipeline-readiness-audit.mjs",
     "benchmark:creative-world-class": "node scripts/creative-world-class-benchmark.mjs",
     "benchmark:creative-world-class-live": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-world-class-live-benchmark-runner.mjs",
     "audit:operations": "node scripts/operations-release-audit.mjs",

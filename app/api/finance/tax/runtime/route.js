@@ -3,84 +3,62 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
+
+function statusFor(message) {
+  return String(message || "").toLowerCase().includes("permission denied") ? 403 : 500;
+}
 
 export async function GET(req) {
   try {
-
-    const { searchParams } =
-      new URL(req.url);
-
-    const access =
-      await requireOrganizationAccess({
-        organizationId:
-          searchParams.get("organizationId"),
-      });
+    const { searchParams } = new URL(req.url);
+    const access = await requireOrganizationAccess({
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
+      request: req,
+    });
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
-        {
-          status: access.status,
-        }
+        { success: false, error: access.error },
+        { status: access.status }
       );
     }
 
-    const organizationId =
-      access.organizationId;
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.tax.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
-    const {
-      data: reports,
-      error,
-    } = await supabaseAdmin
+    const { data: reports, error } = await supabaseAdmin
       .from("finance_tax_reports")
       .select("*")
-      .eq(
-        "organization_id",
-        organizationId
-      );
+      .eq("organization_id", access.organizationId);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     const rows = reports || [];
-
-    const pendingFiling =
-      rows.filter(
-        r =>
-          r.status === "PENDING" ||
-          r.status === "DRAFT"
-      ).length;
-
-    const reportsAwaitingReview =
-      rows.filter(
-        r =>
-          r.status === "REVIEW"
-      ).length;
-
-    const totalTaxPayable =
-      rows.reduce(
-        (sum, r) =>
-          sum + Number(r.tax_payable || 0),
-        0
-      );
-
-    const totalOutputTax =
-      rows.reduce(
-        (sum, r) =>
-          sum + Number(r.output_tax || 0),
-        0
-      );
-
-    const totalInputTax =
-      rows.reduce(
-        (sum, r) =>
-          sum + Number(r.input_tax || 0),
-        0
-      );
+    const pendingFiling = rows.filter(
+      (row) => row.status === "PENDING" || row.status === "DRAFT"
+    ).length;
+    const reportsAwaitingReview = rows.filter(
+      (row) => row.status === "REVIEW"
+    ).length;
+    const totalTaxPayable = rows.reduce(
+      (sum, row) => sum + Number(row.tax_payable || 0),
+      0
+    );
+    const totalOutputTax = rows.reduce(
+      (sum, row) => sum + Number(row.output_tax || 0),
+      0
+    );
+    const totalInputTax = rows.reduce(
+      (sum, row) => sum + Number(row.input_tax || 0),
+      0
+    );
 
     return NextResponse.json({
       success: true,
@@ -91,18 +69,11 @@ export async function GET(req) {
       outputTax: totalOutputTax,
       inputTax: totalInputTax,
     });
-
   } catch (error) {
-
+    const message = error.message || "Tax runtime load failed";
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
+      { success: false, error: message },
+      { status: statusFor(message) }
     );
-
   }
 }

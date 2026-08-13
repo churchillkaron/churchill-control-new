@@ -11,6 +11,8 @@ const FILES = Object.freeze({
   scheduleApi: "app/api/people/workforce/schedules/route.js",
   freshnessMigration:
     "supabase/migrations/20260813044651_workforce_schedule_mutation_freshness.sql",
+  statusMigration:
+    "supabase/migrations/20260813054525_workforce_schedule_status_convergence.sql",
 });
 
 const ACTIVE_SOURCE_ROOTS = Object.freeze(["app", "lib", "components"]);
@@ -173,6 +175,22 @@ requireMatch(
 );
 
 requireMatch(
+  source.statusMigration,
+  /alter column status drop default/,
+  "Workforce schedule status default retirement",
+);
+requireMatch(
+  source.statusMigration,
+  /add constraint staff_schedules_status_canonical[\s\S]*?status is not null[\s\S]*?status in \('PUBLISHED', 'CANCELLED'\)[\s\S]*?not valid/,
+  "Workforce schedule canonical-status constraint",
+);
+requireNoMatch(
+  source.statusMigration,
+  /update\s+(?:public\.)?staff_schedules\b|alter\s+table[\s\S]*?validate\s+constraint\s+staff_schedules_status_canonical/i,
+  "Workforce legacy schedule status preservation",
+);
+
+requireMatch(
   source.generator,
   /\.from\("staff_schedules"\)[\s\S]{0,300}?\.eq\("status",\s*"PUBLISHED"\)/,
   "Monthly payroll published-schedule calculation",
@@ -231,5 +249,5 @@ requireMatch(
 );
 
 console.log(
-  "Workforce/Payroll reconciliation release audit passed: no active schedule hard deletes, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, and no automatic absence deduction are intact.",
+  "Workforce/Payroll reconciliation release audit passed: canonical schedule statuses, no active schedule hard deletes, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, and no automatic absence deduction are intact.",
 );

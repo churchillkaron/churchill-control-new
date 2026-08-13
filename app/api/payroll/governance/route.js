@@ -15,7 +15,9 @@ import finalizePayrollRecord from "@/lib/payroll/consolidation/finalizePayrollRe
 import closePayrollAccountingPeriod from "@/lib/payroll/consolidation/closePayrollAccountingPeriod";
 import certifyPayrollRecord from "@/lib/payroll/consolidation/certifyPayrollRecord";
 import archivePayrollRecord from "@/lib/payroll/consolidation/archivePayrollRecord";
-import loadPayrollAttendanceReconciliation from "@/lib/payroll/consolidation/loadPayrollAttendanceReconciliation";
+import loadPayrollAttendanceReconciliation, {
+  isPayrollAttendanceSnapshotStale,
+} from "@/lib/payroll/consolidation/loadPayrollAttendanceReconciliation";
 
 const GOVERNANCE_ROLES = new Set([
   "OWNER",
@@ -128,18 +130,7 @@ async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
           payrollMonth: target.payrollMonth,
         });
 
-        return [
-          key,
-          {
-            available: true,
-            unresolvedSchedules: reconciliation.unresolvedSchedules,
-            unresolvedScheduleIds: reconciliation.unresolvedScheduleIds,
-            missedShifts: reconciliation.missedShifts,
-            creditedHours: reconciliation.creditedHours,
-            creditedSchedules: reconciliation.creditedSchedules,
-            classificationCounts: reconciliation.classificationCounts,
-          },
-        ];
+        return [key, reconciliation];
       } catch (error) {
         console.error("PAYROLL_ATTENDANCE_READINESS_ERROR", {
           organizationId,
@@ -148,15 +139,7 @@ async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
           error,
         });
 
-        return [
-          key,
-          {
-            available: false,
-            unresolvedSchedules: null,
-            unresolvedScheduleIds: [],
-            error: error?.message || "Unable to verify attendance readiness",
-          },
-        ];
+        return [key, { error: error?.message || "Unable to verify attendance readiness" }];
       }
     })
   );
@@ -167,9 +150,47 @@ async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
     if (!needsLiveAttendanceReadiness(record)) return record;
 
     const key = `${record.staff_id}:${record.payroll_month}`;
+    const reconciliation = readinessByKey.get(key) || null;
+
+    if (!reconciliation || reconciliation.error) {
+      return {
+        ...record,
+        attendance_reconciliation: {
+          available: false,
+          unresolvedSchedules: null,
+          unresolvedScheduleIds: [],
+          recalculationRequired: false,
+          error: reconciliation?.error || "Unable to verify attendance readiness",
+        },
+      };
+    }
+
+    const expectedApprovedHours = Number(
+      (Number(record.worked_hours || 0) + Number(reconciliation.creditedHours || 0)).toFixed(2)
+    );
+    const reconciledValuesChanged =
+      Number(record.missed_shifts || 0) !== Number(reconciliation.missedShifts || 0) ||
+      Math.abs(Number(record.approved_hours || 0) - expectedApprovedHours) > 0.01;
+    const snapshotStale = isPayrollAttendanceSnapshotStale({
+      reconciliation,
+      calculatedAt: record.created_at,
+    });
+
     return {
       ...record,
-      attendance_reconciliation: readinessByKey.get(key) || null,
+      attendance_reconciliation: {
+        available: true,
+        unresolvedSchedules: reconciliation.unresolvedSchedules,
+        unresolvedScheduleIds: reconciliation.unresolvedScheduleIds,
+        missedShifts: reconciliation.missedShifts,
+        creditedHours: reconciliation.creditedHours,
+        creditedSchedules: reconciliation.creditedSchedules,
+        classificationCounts: reconciliation.classificationCounts,
+        latestPayrollInputAt: reconciliation.latestPayrollInputAt,
+        recalculationRequired:
+          reconciliation.unresolvedSchedules === 0 &&
+          (snapshotStale || reconciledValuesChanged),
+      },
     };
   });
 }
@@ -383,6 +404,7 @@ export async function POST(request) {
         unresolvedScheduleIds: Array.isArray(error?.unresolvedScheduleIds)
           ? error.unresolvedScheduleIds
           : [],
+        latestPayrollInputAt: error?.latestPayrollInputAt || null,
       },
       { status: Number(error?.status) || 400 }
     );

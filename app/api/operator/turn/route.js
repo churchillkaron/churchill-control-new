@@ -257,13 +257,15 @@ export async function POST(request) {
     const responseText =
       text(result?.decision?.response_text) ||
       "Done.";
-    const nextAgreementState = {
-      ...agreementState,
-      ...object(
-        result?.agreement_state ||
-        result?.decision?.agreement_state,
-      ),
-    };
+    const returnedAgreementState =
+      result?.agreement_state ||
+      result?.decision?.agreement_state;
+    const nextAgreementState =
+      returnedAgreementState &&
+      typeof returnedAgreementState === "object" &&
+      !Array.isArray(returnedAgreementState)
+        ? returnedAgreementState
+        : agreementState;
     const nextProjectState = deriveProjectState(
       memory.projectState,
       result,

@@ -19,6 +19,13 @@ function createMessage(role, content, extra = {}) {
   };
 }
 
+function greetingMessage() {
+  return createMessage(
+    "assistant",
+    "I’m Avantiqo. Ask me about this organization, tell me what to open, or tell me what you need done.",
+  );
+}
+
 export default function HomeAvantiqoIntelligence({ organizationId: organizationIdProp }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -30,13 +37,9 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState(true);
   const [error, setError] = useState("");
-  const [messages, setMessages] = useState([
-    createMessage(
-      "assistant",
-      "I’m Avantiqo. Ask me about this organization, tell me what to open, or tell me what you need done.",
-    ),
-  ]);
+  const [messages, setMessages] = useState([greetingMessage()]);
 
   const organizationId =
     organizationIdProp ||
@@ -56,6 +59,69 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     messagesRef.current = messages;
   }, [messages]);
 
+  useEffect(() => {
+    if (!organizationId) {
+      agreementStateRef.current = {};
+      setMessages([greetingMessage()]);
+      setRestoring(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    async function restoreConversation() {
+      setRestoring(true);
+      setError("");
+
+      try {
+        const query = new URLSearchParams({
+          organizationId,
+          conversationKey: "primary",
+        });
+        const response = await fetch(`/api/operator/turn?${query.toString()}`, {
+          method: "GET",
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || result?.success === false) {
+          throw new Error(result?.error || "Avantiqo conversation could not be restored");
+        }
+
+        agreementStateRef.current = result?.agreement_state || {};
+
+        const restored = Array.isArray(result?.turns)
+          ? result.turns
+              .filter((turn) => text(turn?.content))
+              .map((turn) =>
+                createMessage(turn.role === "assistant" ? "assistant" : "user", turn.content, {
+                  id: turn.id || undefined,
+                  options: Array.isArray(turn?.decision?.clarification?.options)
+                    ? turn.decision.clarification.options
+                    : [],
+                }),
+              )
+          : [];
+
+        setMessages(restored.length ? restored : [greetingMessage()]);
+      } catch (restoreError) {
+        if (restoreError?.name === "AbortError") return;
+        setError(restoreError?.message || "Avantiqo conversation restore failed");
+        agreementStateRef.current = {};
+        setMessages([greetingMessage()]);
+      } finally {
+        if (!controller.signal.aborted) {
+          setRestoring(false);
+        }
+      }
+    }
+
+    restoreConversation();
+
+    return () => controller.abort();
+  }, [organizationId]);
+
   function speakResponse(message) {
     const spoken = text(message);
     if (!spoken) return;
@@ -72,7 +138,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
   async function sendMessage(rawValue, source = "text") {
     const message = text(rawValue);
-    if (!message || !organizationId || busyRef.current) return;
+    if (!message || !organizationId || busyRef.current || restoring) return;
 
     const priorConversation = messagesRef.current.map(({ role, content }) => ({
       role,
@@ -94,6 +160,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           organizationId,
           entityId,
           periodId,
+          conversationKey: "primary",
           pathname,
           message,
           source,
@@ -163,7 +230,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     return () => {
       window.removeEventListener("avantiqo:home-command", receiveVoiceCommand);
     };
-  }, [organizationId, entityId, periodId, pathname]);
+  }, [organizationId, entityId, periodId, pathname, restoring]);
 
   return (
     <section
@@ -182,12 +249,20 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
         <p className="mt-3 max-w-xl text-sm leading-6 text-white/50">
           Talk with Avantiqo about the business, ask for an explanation, open a workspace,
-          prepare work or execute connected capabilities.
+          prepare work or execute connected capabilities. The conversation and your agreements
+          continue across sessions for this organization.
         </p>
       </div>
 
       <div className="mt-6 flex-1 space-y-3 overflow-y-auto pr-1">
-        {messages.map((message) => (
+        {restoring ? (
+          <div className="mr-16 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-3 text-xs text-white/45">
+            <Loader2 size={14} className="animate-spin text-[#D6A66A]" />
+            Restoring our conversation…
+          </div>
+        ) : null}
+
+        {!restoring && messages.map((message) => (
           <div
             key={message.id}
             className={
@@ -238,7 +313,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             data-avantiqo-home-input="true"
             value={input}
             rows={1}
-            disabled={busy}
+            disabled={busy || restoring}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -246,14 +321,14 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                 sendMessage(input);
               }
             }}
-            placeholder="Ask Avantiqo anything…"
+            placeholder={restoring ? "Restoring conversation…" : "Ask Avantiqo anything…"}
             className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm leading-5 text-white outline-none placeholder:text-white/25 disabled:opacity-50"
           />
 
           <button
             type="button"
             onClick={() => sendMessage(input)}
-            disabled={busy || !text(input)}
+            disabled={busy || restoring || !text(input)}
             className="flex h-11 items-center gap-2 rounded-xl bg-[#D6A66A] px-4 text-sm font-medium text-black transition hover:bg-[#E7C48E] disabled:cursor-not-allowed disabled:opacity-30"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}

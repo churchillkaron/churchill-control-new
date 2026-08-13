@@ -2,12 +2,20 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { loadPeriodCloseChecklist } from "@/lib/finance/period-close/runtime/PeriodCloseStepApplicationService";
 
 function required(value, field) {
   const normalized = String(value || "").trim();
   if (!normalized) throw new Error(`${field} required`);
   return normalized;
+}
+
+function statusFor(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (normalized.includes("permission denied")) return 403;
+  if (/required|outside|closed|locked/i.test(message || "")) return 400;
+  return 500;
 }
 
 export async function GET(request) {
@@ -17,45 +25,34 @@ export async function GET(request) {
       searchParams.get("organization_id") || searchParams.get("organizationId"),
       "organization_id"
     );
-    const access = await requireOrganizationAccess({ organizationId });
+    const access = await requireOrganizationAccess({ organizationId, request });
 
     if (!access.success) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.status }
-      );
+      return NextResponse.json({ success: false, error: access.error }, { status: access.status });
     }
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const checklist = await loadPeriodCloseChecklist({
       organizationId: access.organizationId,
-      entityId: required(
-        searchParams.get("entity_id") || searchParams.get("entityId"),
-        "entity_id"
-      ),
-      periodId: required(
-        searchParams.get("period_id") || searchParams.get("periodId"),
-        "period_id"
-      ),
+      entityId: required(searchParams.get("entity_id") || searchParams.get("entityId"), "entity_id"),
+      periodId: required(searchParams.get("period_id") || searchParams.get("periodId"), "period_id"),
     });
 
-    const completedByType = new Map(
-      (checklist.steps || []).map(step => [step.step_type, step])
-    );
-    const rows = [
-      ...checklist.required_steps,
-      ...checklist.year_end_steps,
-    ].map(stepType => {
+    const completedByType = new Map((checklist.steps || []).map((step) => [step.step_type, step]));
+    const rows = [...checklist.required_steps, ...checklist.year_end_steps].map((stepType) => {
       const completed = completedByType.get(stepType);
       return {
         id: `${checklist.period.id}:${stepType}`,
         period_id: checklist.period.id,
         period: checklist.period.period_name || checklist.period.id,
         step_type: stepType,
-        name: stepType
-          .toLowerCase()
-          .split("_")
-          .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-          .join(" "),
+        name: stepType.toLowerCase().split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "),
         status: completed?.status || "PENDING",
         evidence: completed?.evidence || {},
         journal_entry_id: completed?.journal_entry_id || null,
@@ -63,15 +60,11 @@ export async function GET(request) {
         execute_api: "/api/finance/period-close/steps",
       };
     });
-    const monthEndReady = checklist.required_steps.every(
-      stepType => ["COMPLETED", "SKIPPED"].includes(
-        String(completedByType.get(stepType)?.status || "").toUpperCase()
-      )
+    const monthEndReady = checklist.required_steps.every((stepType) =>
+      ["COMPLETED", "SKIPPED"].includes(String(completedByType.get(stepType)?.status || "").toUpperCase())
     );
-    const yearEndReady = monthEndReady && checklist.year_end_steps.every(
-      stepType => ["COMPLETED", "SKIPPED"].includes(
-        String(completedByType.get(stepType)?.status || "").toUpperCase()
-      )
+    const yearEndReady = monthEndReady && checklist.year_end_steps.every((stepType) =>
+      ["COMPLETED", "SKIPPED"].includes(String(completedByType.get(stepType)?.status || "").toUpperCase())
     );
 
     return NextResponse.json({
@@ -85,10 +78,6 @@ export async function GET(request) {
     });
   } catch (error) {
     const message = error.message || "Period close runtime failed";
-    const status = /required|outside|closed|locked/i.test(message) ? 400 : 500;
-    return NextResponse.json(
-      { success: false, error: message },
-      { status }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: statusFor(message) });
   }
 }

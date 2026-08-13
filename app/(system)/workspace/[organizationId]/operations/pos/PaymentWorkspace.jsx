@@ -49,6 +49,25 @@ function realtimeLabel(status, refreshing) {
   return "Offline";
 }
 
+function resolveSettlementRules(paymentState) {
+  const settlement = paymentState?.settlement || null;
+
+  return {
+    settlement,
+    paymentOptions:
+      Array.isArray(settlement?.payment_methods) && settlement.payment_methods.length
+        ? PAYMENT_OPTIONS.filter((option) =>
+            settlement.payment_methods.includes(option.value),
+          )
+        : PAYMENT_OPTIONS,
+    partialAllowed: settlement?.partial_allowed !== false,
+    itemSelectionAllowed: settlement?.item_selection_allowed !== false,
+    blocked: settlement ? settlement.ready === false : false,
+    blocker: settlement?.blocker || null,
+    cashSessionId: settlement?.cash_session_id || null,
+  };
+}
+
 export default function PaymentWorkspace({ posConfiguration }) {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -57,8 +76,16 @@ export default function PaymentWorkspace({ posConfiguration }) {
   const organization = businessContext.organization || null;
   const organizationId =
     params?.organizationId || businessContext.organization_id || organization?.id || null;
+  const entityId =
+    businessContext.entity_id || businessContext.entity?.id || null;
+  const applicationId = posConfiguration?.applicationId || null;
   const currencyCode =
-    organization?.currency_code || organization?.currency || businessContext.currency || null;
+    businessContext.entity?.currency ||
+    businessContext.entity?.currency_code ||
+    organization?.currency_code ||
+    organization?.currency ||
+    businessContext.currency ||
+    null;
   const contextQueryKey = posConfiguration?.context?.queryKey || "service_context";
   const requestedReference =
     searchParams.get(contextQueryKey) || searchParams.get("table") || "";
@@ -80,8 +107,13 @@ export default function PaymentWorkspace({ posConfiguration }) {
 
   const loadPayableContexts = useCallback(async () => {
     if (!organizationId) return [];
+
+    const search = new URLSearchParams({ organizationId });
+    if (entityId) search.set("entityId", entityId);
+    if (applicationId) search.set("applicationId", applicationId);
+
     const response = await fetch(
-      `/api/pos/payable-contexts?organizationId=${encodeURIComponent(organizationId)}`,
+      `/api/pos/payable-contexts?${search.toString()}`,
       { cache: "no-store", credentials: "include" }
     );
     const result = await response.json();
@@ -91,7 +123,7 @@ export default function PaymentWorkspace({ posConfiguration }) {
     const contexts = result.contexts || [];
     setPayableContexts(contexts);
     return contexts;
-  }, [organizationId]);
+  }, [applicationId, entityId, organizationId]);
 
   const loadPaymentState = useCallback(async (
     context,
@@ -105,7 +137,12 @@ export default function PaymentWorkspace({ posConfiguration }) {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId, context }),
+      body: JSON.stringify({
+        organizationId,
+        ...(entityId ? { entityId } : {}),
+        ...(applicationId ? { applicationId } : {}),
+        context,
+      }),
     });
     const result = await response.json();
     if (!response.ok || result.success === false) {
@@ -132,7 +169,7 @@ export default function PaymentWorkspace({ posConfiguration }) {
 
     paymentRequestKey.current = null;
     return nextState;
-  }, [organizationId]);
+  }, [applicationId, entityId, organizationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +198,19 @@ export default function PaymentWorkspace({ posConfiguration }) {
 
   const items = paymentState?.items || [];
   const activePaymentContext = paymentState?.context || selectedContext;
+  const settlementRules = useMemo(
+    () => resolveSettlementRules(paymentState),
+    [paymentState],
+  );
+
+  useEffect(() => {
+    const allowed = settlementRules.paymentOptions;
+    if (!allowed.length) return;
+    if (allowed.some((option) => option.value === paymentMethod)) return;
+
+    paymentRequestKey.current = null;
+    setPaymentMethod(allowed[0].value);
+  }, [paymentMethod, settlementRules.paymentOptions]);
   const selectedRows = useMemo(
     () => items.filter((item) => selectedItems.includes(item.id) && !item.fully_paid),
     [items, selectedItems]
@@ -312,6 +362,7 @@ export default function PaymentWorkspace({ posConfiguration }) {
 
   function toggleItem(item) {
     if (item.fully_paid || actionLoading) return;
+    if (!settlementRules.itemSelectionAllowed) return;
     paymentRequestKey.current = null;
     setSelectedItems((current) => current.includes(item.id)
       ? current.filter((id) => id !== item.id)
@@ -323,6 +374,14 @@ export default function PaymentWorkspace({ posConfiguration }) {
     if (!context) return;
     if (!Number(paymentAmount) || Number(paymentAmount) <= 0) {
       setError("Payment amount must be greater than zero");
+      return;
+    }
+    if (settlementRules.blocked) {
+      setError(settlementRules.blocker || "Settlement is not ready");
+      return;
+    }
+    if (partial && !settlementRules.partialAllowed) {
+      setError("Partial settlement is not allowed for this transaction");
       return;
     }
     if (!paymentRequestKey.current) paymentRequestKey.current = crypto.randomUUID();
@@ -338,11 +397,18 @@ export default function PaymentWorkspace({ posConfiguration }) {
         },
         body: JSON.stringify({
           organizationId,
+          ...(entityId ? { entityId } : {}),
+          ...(applicationId ? { applicationId } : {}),
           context,
+          ...(context?.id ? { salesOrderId: context.id } : {}),
+          ...(settlementRules.cashSessionId
+            ? { cashSessionId: settlementRules.cashSessionId }
+            : {}),
           partial,
           idempotencyKey: paymentRequestKey.current,
           paymentMethod,
           paidAmount: Number(paymentAmount),
+          tenderedAmount: Number(paymentAmount),
           itemIds,
         }),
       });
@@ -445,8 +511,13 @@ export default function PaymentWorkspace({ posConfiguration }) {
 
         <aside className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
           <p className="text-xs uppercase tracking-[0.2em] text-white/40">Payment method</p>
+          {settlementRules.blocked ? (
+            <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-sm text-amber-100/70">
+              {settlementRules.blocker}
+            </div>
+          ) : null}
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {PAYMENT_OPTIONS.map((option) => {
+            {settlementRules.paymentOptions.map((option) => {
               const Icon = option.icon;
               return <button key={option.value} onClick={() => { paymentRequestKey.current = null; setPaymentMethod(option.value); }} className={paymentMethod === option.value ? "rounded-2xl border border-[#D6A66A]/50 bg-[#D6A66A]/10 p-4 text-[#F3D7A2]" : "rounded-2xl border border-white/10 bg-black/20 p-4 text-white/55"}><Icon className="mx-auto h-5 w-5" /><div className="mt-2 text-xs">{option.label}</div></button>;
             })}
@@ -455,9 +526,13 @@ export default function PaymentWorkspace({ posConfiguration }) {
           <input type="number" min="1" value={splitCount} onChange={(event) => { paymentRequestKey.current = null; setSplitCount(Math.max(1, Number(event.target.value || 1))); }} className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3" />
           <label className="mt-5 block text-xs uppercase tracking-[0.2em] text-white/40">Amount</label>
           <input type="number" min="0" step="0.01" value={amount} onChange={(event) => { paymentRequestKey.current = null; setAmount(event.target.value); }} className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-xl" />
-          <button disabled={actionLoading || !selectedItems.length || selectedGross <= 0} onClick={() => pay(selectedGross, true, selectedItems)} className="mt-6 w-full rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 py-4 text-sm font-semibold text-[#F3D7A2] disabled:opacity-30">Pay Selected Items</button>
-          <button disabled={actionLoading} onClick={() => pay(Number(amount || 0), true, [])} className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold disabled:opacity-30">Pay Partial Amount</button>
-          <button disabled={actionLoading} onClick={() => pay(paymentState.remainingBalance, false, [])} className="mt-3 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black disabled:opacity-30">Pay Full Balance</button>
+          {settlementRules.itemSelectionAllowed ? (
+            <button disabled={actionLoading || settlementRules.blocked || !selectedItems.length || selectedGross <= 0} onClick={() => pay(selectedGross, true, selectedItems)} className="mt-6 w-full rounded-2xl border border-[#D6A66A]/40 bg-[#D6A66A]/10 py-4 text-sm font-semibold text-[#F3D7A2] disabled:opacity-30">Pay Selected Items</button>
+          ) : null}
+          {settlementRules.partialAllowed ? (
+            <button disabled={actionLoading || settlementRules.blocked} onClick={() => pay(Number(amount || 0), true, [])} className="mt-3 w-full rounded-2xl border border-white/10 py-4 text-sm font-semibold disabled:opacity-30">Pay Partial Amount</button>
+          ) : null}
+          <button disabled={actionLoading || settlementRules.blocked} onClick={() => pay(paymentState.remainingBalance, false, [])} className="mt-3 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black disabled:opacity-30">Pay Full Balance</button>
         </aside>
       </div>
     </PageWrapper>

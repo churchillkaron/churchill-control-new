@@ -7,7 +7,6 @@ import {
 import RestaurantStationaryPOSSurface from "./RestaurantStationaryPOSSurface";
 import PaymentWorkspace from "./PaymentWorkspace";
 import RetailCatalogWorkspace from "./RetailCatalogWorkspace";
-import RetailCheckoutWorkspace from "./RetailCheckoutWorkspace";
 import RetailOrdersWorkspace from "./RetailOrdersWorkspace";
 import POSFinalUI from "./waiter/POS_FINAL_UI";
 import POSOrdersPage from "./orders/page";
@@ -123,7 +122,7 @@ const APPLICATION_SURFACES =
           RetailOrdersWorkspace,
 
         payment:
-          RetailCheckoutWorkspace,
+          PaymentWorkspace,
 
         receipts:
           ReceiptsPage,

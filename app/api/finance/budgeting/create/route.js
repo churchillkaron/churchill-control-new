@@ -1,35 +1,46 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { createBudgetDocument } from "@/lib/finance/budgeting/runtime/BudgetApplicationService";
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
+function statusFor(error) {
+  const message = String(error?.message || "").toLowerCase();
+  if (message.includes("permission denied")) return 403;
+  return error?.status || 500;
+}
 
+export async function POST(request) {
+  try {
+    const body = await request.json();
     const access = await requireOrganizationAccess({
-      organizationId: body.organizationId,
+      organizationId:
+        body.organizationId ||
+        body.organization_id,
+      request,
     });
 
     if (!access.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
-        {
-          status: access.status,
-        }
+        { success: false, error: access.error },
+        { status: access.status }
       );
     }
 
-    const budget = await createBudgetDocument({
+    await checkFinancePermission({
       organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
+
+    const budget = await createBudgetDocument({
+      organization_id: access.organizationId,
       category: body.category,
       amount: body.amount,
       month: body.month,
       year: body.year,
-      createdBy: body.userId || "system",
     });
 
     return NextResponse.json({
@@ -40,11 +51,9 @@ export async function POST(req) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: error?.message || "Budget creation failed",
       },
-      {
-        status: 500,
-      }
+      { status: statusFor(error) }
     );
   }
 }

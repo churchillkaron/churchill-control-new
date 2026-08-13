@@ -170,6 +170,11 @@ export default function PayrollGovernancePage() {
             `${count || "Unresolved"} attendance schedule${count === 1 ? "" : "s"} must be classified in Attendance Management before payroll review can be completed.`
           );
         }
+        if (result?.code === "PAYROLL_ATTENDANCE_RECALCULATION_REQUIRED") {
+          throw new Error(
+            "Attendance changed after this payroll was calculated. Recalculate the payroll month before manager review."
+          );
+        }
         throw new Error(result?.error || "Unable to execute payroll action");
       }
 
@@ -275,11 +280,16 @@ export default function PayrollGovernancePage() {
                 : null;
               const attendanceClassificationBlocked =
                 unresolvedAttendanceCount !== null && unresolvedAttendanceCount > 0;
+              const attendanceRecalculationRequired = Boolean(
+                attendanceReadinessAvailable && attendanceReadiness?.recalculationRequired === true
+              );
               const attendanceReadinessUnavailable = Boolean(
                 pendingManagerReview && !attendanceReadinessAvailable
               );
               const managerReviewBlocked =
-                attendanceClassificationBlocked || attendanceReadinessUnavailable;
+                attendanceClassificationBlocked ||
+                attendanceRecalculationRequired ||
+                attendanceReadinessUnavailable;
               const acknowledgementMissing = !record.employee_acknowledged;
               const approvalBlocked =
                 pendingManagerReview || unresolvedDispute || acknowledgementMissing;
@@ -360,6 +370,35 @@ export default function PayrollGovernancePage() {
                             >
                               Resolve in Attendance
                             </Link>
+                          ) : null}
+                        </div>
+                      ) : attendanceRecalculationRequired ? (
+                        <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.07] p-4">
+                          <div className="flex items-center gap-2 text-sm font-black text-cyan-200">
+                            <RefreshCw className="h-4 w-4" /> Payroll recalculation required
+                          </div>
+                          <div className="mt-2 text-sm leading-6 text-cyan-100/70">
+                            Attendance was classified or changed after this payroll record was calculated. Recalculate the payroll month before completing manager review so hours, missed shifts, credited leave and salary evidence are current.
+                          </div>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                            <MiniData label="Missed" value={Number(attendanceReadiness?.missedShifts || 0)} />
+                            <MiniData label="Credited hours" value={Number(attendanceReadiness?.creditedHours || 0).toFixed(2)} />
+                            <MiniData label="Unresolved" value="0" />
+                          </div>
+                          {capabilities.canRecalculate ? (
+                            <button
+                              type="button"
+                              disabled={workingId === record.id}
+                              onClick={() =>
+                                executeAction({
+                                  action: "RECALCULATE",
+                                  payrollRecordId: record.id,
+                                })
+                              }
+                              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+                            >
+                              <RefreshCw className="h-4 w-4" /> Recalculate payroll month
+                            </button>
                           ) : null}
                         </div>
                       ) : attendanceReadinessUnavailable ? (

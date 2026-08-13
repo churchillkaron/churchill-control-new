@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import {
   listFinancePermissionGrants,
   listFinancePermissions,
@@ -27,6 +28,10 @@ function accessError(access) {
   );
 }
 
+function statusFor(message) {
+  return String(message || "").toLowerCase().includes("permission denied") ? 403 : 500;
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -42,6 +47,13 @@ export async function GET(request) {
     if (!access.success) {
       return accessError(access);
     }
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.permissions.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const organizationId = access.organizationId;
     const [availableRoles, permissions, grants, assignments] = await Promise.all([
@@ -79,12 +91,11 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error("FINANCE ACCESS LIST ERROR", error);
-
+    const message = error.message || "Unable to load Finance access";
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Unable to load Finance access",
+        error: message,
         rows: [],
         roles: [],
         available_roles: [],
@@ -93,7 +104,7 @@ export async function GET(request) {
         assignments: [],
       },
       {
-        status: 500,
+        status: statusFor(message),
       }
     );
   }

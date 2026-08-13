@@ -30,7 +30,14 @@ export default function ShiftPage({ posConfiguration }) {
     businessContext.organization_id ||
     organization?.id ||
     null;
+  const entityId =
+    businessContext.entity_id ||
+    businessContext.entity?.id ||
+    null;
+  const applicationId = posConfiguration?.applicationId || null;
   const currencyCode =
+    businessContext.entity?.currency ||
+    businessContext.entity?.currency_code ||
     organization?.currency_code ||
     organization?.currency ||
     businessContext.currency ||
@@ -49,12 +56,24 @@ export default function ShiftPage({ posConfiguration }) {
 
   const loadSessions = useCallback(async () => {
     if (!organizationId) return;
+
+    if (!entityId) {
+      setError("Select an active legal entity before cash control");
+      setSessions([]);
+      setActiveSession(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
+      const search = new URLSearchParams({ organizationId, entityId });
+      if (applicationId) search.set("applicationId", applicationId);
+
       const response = await fetch(
-        `/api/pos/cash-sessions?organizationId=${encodeURIComponent(organizationId)}`,
+        `/api/pos/cash-sessions?${search.toString()}`,
         { cache: "no-store", credentials: "include" }
       );
       const result = await response.json();
@@ -74,7 +93,7 @@ export default function ShiftPage({ posConfiguration }) {
     } finally {
       setLoading(false);
     }
-  }, [configuredPresentation, organizationId]);
+  }, [applicationId, configuredPresentation, entityId, organizationId]);
 
   useEffect(() => {
     loadSessions();
@@ -92,6 +111,8 @@ export default function ShiftPage({ posConfiguration }) {
         body: JSON.stringify({
           action,
           organizationId,
+          entityId,
+          ...(applicationId ? { applicationId } : {}),
           sessionId: activeSession?.session_id || activeSession?.id || null,
           openingFloat: Number(openingFloat || 0),
           closingCount: Number(closingCount || 0),
@@ -169,7 +190,7 @@ export default function ShiftPage({ posConfiguration }) {
                   />
                   <button
                     onClick={() => execute("OPEN")}
-                    disabled={actionLoading}
+                    disabled={actionLoading || !entityId}
                     className="mt-5 w-full rounded-2xl bg-[#D6A66A] py-4 text-sm font-semibold text-black disabled:opacity-40"
                   >
                     {actionLoading ? "Opening..." : "Open Cash Session"}

@@ -9,7 +9,6 @@ import PaymentWorkspace from "./PaymentWorkspace";
 import RetailCatalogWorkspace from "./RetailCatalogWorkspace";
 import RetailCheckoutWorkspace from "./RetailCheckoutWorkspace";
 import RetailOrdersWorkspace from "./RetailOrdersWorkspace";
-import RetailCashControlWorkspace from "./RetailCashControlWorkspace";
 import POSFinalUI from "./waiter/POS_FINAL_UI";
 import POSOrdersPage from "./orders/page";
 import ReceiptsPage from "./receipts/page";
@@ -130,7 +129,7 @@ const APPLICATION_SURFACES =
           ReceiptsPage,
 
         cash:
-          RetailCashControlWorkspace,
+          ShiftPage,
       }),
   });
 

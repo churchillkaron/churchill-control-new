@@ -2,14 +2,21 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { postDepreciationToLedgerCommand } from "@/lib/finance/general-ledger/runtime/GeneralLedgerApplicationService";
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
+function statusFor(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (normalized.includes("permission denied")) return 403;
+  return /required|invalid|period|posting|currency|exchange/i.test(message || "") ? 400 : 500;
+}
 
+export async function POST(request) {
+  try {
+    const body = await request.json();
     const access = await requireOrganizationAccess({
-      organizationId: body.organizationId,
+      organizationId: body.organizationId || body.organization_id,
+      request,
     });
 
     if (!access.success) {
@@ -19,17 +26,27 @@ export async function POST(req) {
       );
     }
 
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
+
     const result = await postDepreciationToLedgerCommand({
       ...body,
       organizationId: access.organizationId,
+      organization_id: access.organizationId,
+      createdBy: access.user?.id,
+      created_by: access.user?.id,
     });
 
     return NextResponse.json(result);
-
   } catch (error) {
+    const message = error.message || "Depreciation posting failed";
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: message },
+      { status: statusFor(message) }
     );
   }
 }

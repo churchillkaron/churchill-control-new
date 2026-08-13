@@ -11,6 +11,10 @@ function statusOf(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+function sourceTypeOf(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function elapsed(createdAt) {
   const created = new Date(createdAt || 0).getTime();
   if (!created) return "—";
@@ -33,6 +37,7 @@ export default function FulfillmentDispatchWorkspace({
   description = "Live fulfillment work routed through operational queues and work centres.",
   emptyLabel = "No fulfillment work in this view.",
   contextFallback = "Unassigned context",
+  sourceTypes = null,
 } = {}) {
   const params = useParams();
   const businessContext = useBusinessContext() || {};
@@ -49,6 +54,14 @@ export default function FulfillmentDispatchWorkspace({
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState(null);
   const [error, setError] = useState(null);
+
+  const normalizedSourceTypes = useMemo(() => {
+    if (!Array.isArray(sourceTypes) || sourceTypes.length === 0) {
+      return null;
+    }
+
+    return new Set(sourceTypes.map(sourceTypeOf).filter(Boolean));
+  }, [sourceTypes]);
 
   const loadQueue = useCallback(async () => {
     if (!organizationId) return;
@@ -81,10 +94,18 @@ export default function FulfillmentDispatchWorkspace({
     loadQueue();
   }, [loadQueue]);
 
+  const scopedEntries = useMemo(() => {
+    if (!normalizedSourceTypes) return entries;
+
+    return entries.filter((entry) =>
+      normalizedSourceTypes.has(sourceTypeOf(entry.source?.type))
+    );
+  }, [entries, normalizedSourceTypes]);
+
   const visibleEntries = useMemo(() => {
-    if (filter === "ALL") return entries;
+    if (filter === "ALL") return scopedEntries;
     if (filter === "READY") {
-      return entries.filter(
+      return scopedEntries.filter(
         (entry) =>
           statusOf(entry.status) === "READY" ||
           (entry.work_items || []).some(
@@ -93,10 +114,30 @@ export default function FulfillmentDispatchWorkspace({
       );
     }
 
-    return entries.filter(
+    return scopedEntries.filter(
       (entry) => !CLOSED_STATUSES.has(statusOf(entry.status))
     );
-  }, [entries, filter]);
+  }, [scopedEntries, filter]);
+
+  const viewMetrics = useMemo(() => {
+    if (!normalizedSourceTypes) {
+      return metrics;
+    }
+
+    return {
+      total: scopedEntries.length,
+      active: scopedEntries.filter(
+        (entry) => !CLOSED_STATUSES.has(statusOf(entry.status))
+      ).length,
+      ready: scopedEntries.filter(
+        (entry) =>
+          statusOf(entry.status) === "READY" ||
+          (entry.work_items || []).some(
+            (item) => statusOf(item.status) === "READY"
+          )
+      ).length,
+    };
+  }, [metrics, normalizedSourceTypes, scopedEntries]);
 
   async function updateItem(entry, item, status) {
     const itemId = item.id || item.source_id;
@@ -115,6 +156,7 @@ export default function FulfillmentDispatchWorkspace({
           applicationId,
           queueEntryId: entry.id,
           workItemId: itemId,
+          sourceType: entry.source?.type || null,
           status,
         }),
       });
@@ -165,16 +207,16 @@ export default function FulfillmentDispatchWorkspace({
               </button>
             ))}
 
-            {metrics ? (
+            {viewMetrics ? (
               <div className="ml-auto flex flex-wrap gap-2 text-xs text-white/40">
                 <span className="rounded-xl border border-white/10 px-3 py-2">
-                  Active {metrics.active ?? 0}
+                  Active {viewMetrics.active ?? 0}
                 </span>
                 <span className="rounded-xl border border-white/10 px-3 py-2">
-                  Ready {metrics.ready ?? 0}
+                  Ready {viewMetrics.ready ?? 0}
                 </span>
                 <span className="rounded-xl border border-white/10 px-3 py-2">
-                  Total {metrics.total ?? entries.length}
+                  Total {viewMetrics.total ?? scopedEntries.length}
                 </span>
               </div>
             ) : null}
@@ -283,9 +325,7 @@ export default function FulfillmentDispatchWorkspace({
                             </button>
 
                             <button
-                              disabled={
-                                busy || status !== "READY"
-                              }
+                              disabled={busy || status !== "READY"}
                               onClick={() =>
                                 updateItem(entry, item, "SERVED")
                               }
@@ -295,9 +335,7 @@ export default function FulfillmentDispatchWorkspace({
                             </button>
 
                             <button
-                              disabled={
-                                busy || status !== "SERVED"
-                              }
+                              disabled={busy || status !== "SERVED"}
                               onClick={() =>
                                 updateItem(entry, item, "COMPLETED")
                               }

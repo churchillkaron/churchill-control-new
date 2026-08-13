@@ -13,14 +13,17 @@ import {
 
 const ENABLED_KEY = "avantiqo.local-wake.enabled";
 const TEMPLATE_KEY = "avantiqo.local-wake.template.v2";
-const LEGACY_TEMPLATE_KEY = "avantiqo.local-wake.template.v1";
+const ACK_KEY = "avantiqo.voice.acknowledgement.v1";
 const SPEECH_THRESHOLD = 0.035;
 const SILENCE_MS = 650;
 const MAX_WAKE_MS = 2800;
 const MAX_COMMAND_MS = 15000;
-const API_TIMEOUT_MS = 20000;
 const WAKE_COOLDOWN_MS = 2200;
 const FOLLOW_UP_WINDOW_MS = 15000;
+const TRANSCRIBE_TIMEOUT_MS = 8000;
+const OPERATOR_TIMEOUT_MS = 20000;
+const SPEECH_TIMEOUT_MS = 12000;
+const ACK_REFRESH_TIMEOUT_MS = 6000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -44,11 +47,20 @@ function audioName(type = "") {
   return type.includes("mp4") ? "avantiqo-command.m4a" : "avantiqo-command.webm";
 }
 
-async function fetchWithTimeout(url, options, timeout = API_TIMEOUT_MS) {
+async function fetchWithTimeout(url, options, timeout) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeout);
+
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("Avantiqo response timed out");
+    }
+    throw error;
   } finally {
     window.clearTimeout(timer);
   }
@@ -80,9 +92,8 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const followUpTimerRef = useRef(null);
   const conversationRef = useRef([]);
   const agreementStateRef = useRef({});
-  const acknowledgementRef = useRef(null);
-  const acknowledgementPreparingRef = useRef(null);
-  const previousAcknowledgementRef = useRef(null);
+  const acknowledgementRef = useRef("");
+  const acknowledgementRefreshingRef = useRef(false);
 
   const [supported, setSupported] = useState(true);
   const [enabled, setEnabled] = useState(false);
@@ -96,14 +107,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
     routeOrganizationId(params) ||
     null;
 
-  const organizationName =
-    text(businessContext?.organization?.name) || null;
-
+  const organizationName = text(businessContext?.organization?.name) || null;
   const entityId =
     text(businessContext?.entity_id) ||
     text(businessContext?.entity?.id) ||
     null;
-
   const periodId =
     text(businessContext?.period_id) ||
     text(businessContext?.period?.id) ||
@@ -119,25 +127,34 @@ export default function LocalHeyAvantiqoWakeBridge() {
     );
 
     setSupported(canUse);
-    window.localStorage.removeItem(LEGACY_TEMPLATE_KEY);
 
     try {
-      const stored = JSON.parse(window.localStorage.getItem(TEMPLATE_KEY) || "null");
-      templateRef.current = Number(stored?.version) === 2 ? stored : null;
-      if (!templateRef.current) window.localStorage.removeItem(TEMPLATE_KEY);
+      const storedTemplate = JSON.parse(
+        window.localStorage.getItem(TEMPLATE_KEY) || "null",
+      );
+      templateRef.current =
+        Number(storedTemplate?.version) === 2 ? storedTemplate : null;
+
+      acknowledgementRef.current = text(
+        window.localStorage.getItem(ACK_KEY),
+      );
     } catch {
       templateRef.current = null;
-      window.localStorage.removeItem(TEMPLATE_KEY);
+      acknowledgementRef.current = "";
     }
 
     return () => stopAll();
   }, []);
 
   useEffect(() => {
-    if (!supported || !contextReady || enabledRef.current) return;
+    if (!contextReady) return;
+
+    refreshAcknowledgement().catch(() => null);
+
+    if (!supported || enabledRef.current) return;
     if (window.localStorage.getItem(ENABLED_KEY) !== "true") return;
 
-    const timer = window.setTimeout(() => enableWake(false), 350);
+    const timer = window.setTimeout(() => enableWake(false), 250);
     return () => window.clearTimeout(timer);
   }, [supported, contextReady, organizationId]);
 
@@ -164,7 +181,9 @@ export default function LocalHeyAvantiqoWakeBridge() {
     const recorder = recorderRef.current;
     recorderRef.current = null;
     if (recorder && recorder.state !== "inactive") {
-      try { recorder.stop(); } catch {}
+      try {
+        recorder.stop();
+      } catch {}
     }
   }
 
@@ -172,6 +191,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     const playback = playbackRef.current;
     playbackRef.current = null;
     if (!playback) return;
+
     try {
       playback.pause();
       playback.removeAttribute("src");
@@ -203,97 +223,103 @@ export default function LocalHeyAvantiqoWakeBridge() {
     setEnabled(false);
   }
 
-  async function transcribe(blob) {
-    if (!organizationId) throw new Error("Organization context is not ready");
+  async function refreshAcknowledgement() {
+    if (!organizationId || acknowledgementRefreshingRef.current) return;
 
-    const form = new FormData();
-    form.append("audio", blob, audioName(blob.type));
-    form.append("organizationId", organizationId);
-    if (entityId) form.append("entityId", entityId);
-    form.append("locale", navigator.language || "en-US");
-    form.append("mode", "command");
+    acknowledgementRefreshingRef.current = true;
 
-    const response = await fetchWithTimeout("/api/operator/transcribe", {
-      method: "POST",
-      credentials: "same-origin",
-      body: form,
-    });
+    try {
+      const response = await fetchWithTimeout(
+        "/api/operator/voice/acknowledgement",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            organizationId,
+            entityId,
+            organizationName,
+            locale: navigator.language || "en-US",
+            previousAcknowledgement: acknowledgementRef.current || null,
+          }),
+        },
+        ACK_REFRESH_TIMEOUT_MS,
+      );
 
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result?.success === false) {
-      throw new Error(result?.error || "Voice transcription failed");
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result?.success === false) return;
+
+      const acknowledgement = text(result?.acknowledgement);
+      if (!acknowledgement) return;
+
+      acknowledgementRef.current = acknowledgement;
+      window.localStorage.setItem(ACK_KEY, acknowledgement);
+    } catch (error) {
+      console.warn("AVANTIQO_ACK_REFRESH_SKIPPED", error?.message || error);
+    } finally {
+      acknowledgementRefreshingRef.current = false;
+    }
+  }
+
+  async function speakBrowser(message) {
+    const clean = text(message);
+    if (!clean || !window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") {
+      return false;
     }
 
-    return text(result?.transcript);
+    return await new Promise((resolve) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = navigator.language || "en-US";
+      utterance.rate = 1.04;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      utterance.onstart = () => setStatus("speaking");
+      utterance.onend = () => finish(true);
+      utterance.onerror = () => finish(false);
+
+      try {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        finish(false);
+      }
+
+      window.setTimeout(() => finish(false), 2500);
+    });
   }
 
   async function fetchSpeech(message) {
-    if (!organizationId) throw new Error("Organization context is not ready");
-
-    const response = await fetchWithTimeout("/api/operator/speak", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({
-        organizationId,
-        entityId,
-        text: message,
-        locale: navigator.language || "en-US",
-      }),
-    });
+    const response = await fetchWithTimeout(
+      "/api/operator/speak",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          organizationId,
+          entityId,
+          text: message,
+          locale: navigator.language || "en-US",
+        }),
+      },
+      SPEECH_TIMEOUT_MS,
+    );
 
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
-      throw new Error(result?.error || `Voice response failed (${response.status})`);
+      throw new Error(result?.error || "Voice generation failed");
     }
 
     const blob = await response.blob();
-    if (!blob.size) throw new Error("Voice response returned empty audio");
+    if (!blob.size) throw new Error("Voice generation returned no audio");
     return blob;
-  }
-
-  async function fetchAcknowledgementText() {
-    const response = await fetchWithTimeout("/api/operator/voice/acknowledgement", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({
-        organizationId,
-        entityId,
-        organizationName,
-        locale: navigator.language || "en-US",
-        previousAcknowledgement: previousAcknowledgementRef.current,
-      }),
-    }, 30000);
-
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result?.success === false) {
-      throw new Error(result?.error || "Avantiqo acknowledgement failed");
-    }
-
-    const acknowledgement = text(result?.acknowledgement);
-    if (!acknowledgement) throw new Error("Avantiqo returned no acknowledgement");
-    return acknowledgement;
-  }
-
-  async function prepareAcknowledgement() {
-    if (!organizationId) return null;
-    if (acknowledgementRef.current) return acknowledgementRef.current;
-    if (acknowledgementPreparingRef.current) return acknowledgementPreparingRef.current;
-
-    acknowledgementPreparingRef.current = (async () => {
-      const acknowledgement = await fetchAcknowledgementText();
-      const audio = await fetchSpeech(acknowledgement);
-      const prepared = { acknowledgement, audio };
-      acknowledgementRef.current = prepared;
-      return prepared;
-    })();
-
-    try {
-      return await acknowledgementPreparingRef.current;
-    } finally {
-      acknowledgementPreparingRef.current = null;
-    }
   }
 
   async function playAudioBlob(blob) {
@@ -305,29 +331,12 @@ export default function LocalHeyAvantiqoWakeBridge() {
         playbackRef.current = audio;
         audio.preload = "auto";
         audio.volume = 1;
-
-        const cleanup = () => {
-          audio.onplaying = null;
-          audio.onended = null;
-          audio.onerror = null;
-        };
-
         audio.onplaying = () => setStatus("speaking");
-        audio.onended = () => {
-          cleanup();
-          resolve();
-        };
-        audio.onerror = () => {
-          cleanup();
-          reject(new Error("Safari could not play Avantiqo voice audio"));
-        };
-
+        audio.onended = resolve;
+        audio.onerror = () => reject(new Error("Safari could not play Avantiqo voice"));
         audio.src = url;
         audio.load();
-        audio.play()?.catch?.((error) => {
-          cleanup();
-          reject(new Error(error?.message || "Safari blocked voice playback"));
-        });
+        audio.play()?.catch?.(reject);
       });
     } finally {
       playbackRef.current = null;
@@ -335,16 +344,17 @@ export default function LocalHeyAvantiqoWakeBridge() {
     }
   }
 
-  async function speakRemote(message) {
-    if (!enabledRef.current || !text(message)) return;
-
+  async function speakAnswer(message) {
     speakingRef.current = true;
     setVoiceError("");
-    setStatus("preparing-speech");
 
     try {
+      setStatus("speaking");
       const blob = await fetchSpeech(message);
       await playAudioBlob(blob);
+    } catch (error) {
+      const spoken = await speakBrowser(message);
+      if (!spoken) throw error;
     } finally {
       speakingRef.current = false;
       inSpeechRef.current = false;
@@ -363,16 +373,10 @@ export default function LocalHeyAvantiqoWakeBridge() {
     speakingRef.current = true;
     setVoiceError("");
 
-    try {
-      const prepared = acknowledgementRef.current || await prepareAcknowledgement();
-      if (!prepared?.audio) throw new Error("Avantiqo voice acknowledgement is not ready");
+    const acknowledgement = acknowledgementRef.current || "I'm here.";
 
-      acknowledgementRef.current = null;
-      previousAcknowledgementRef.current = prepared.acknowledgement;
-      await playAudioBlob(prepared.audio);
-    } catch (error) {
-      console.error("AVANTIQO_ACKNOWLEDGEMENT_ERROR", error);
-      setVoiceError(error?.message || "Avantiqo could not acknowledge the wake phrase");
+    try {
+      await speakBrowser(acknowledgement);
     } finally {
       speakingRef.current = false;
       inSpeechRef.current = false;
@@ -381,9 +385,33 @@ export default function LocalHeyAvantiqoWakeBridge() {
     }
 
     armCommandMode();
-    prepareAcknowledgement().catch((error) => {
-      console.error("AVANTIQO_ACKNOWLEDGEMENT_PREFETCH_ERROR", error);
-    });
+    refreshAcknowledgement().catch(() => null);
+  }
+
+  async function transcribe(blob) {
+    const form = new FormData();
+    form.append("audio", blob, audioName(blob.type));
+    form.append("organizationId", organizationId);
+    if (entityId) form.append("entityId", entityId);
+    form.append("locale", navigator.language || "en-US");
+    form.append("mode", "command");
+
+    const response = await fetchWithTimeout(
+      "/api/operator/transcribe",
+      {
+        method: "POST",
+        credentials: "same-origin",
+        body: form,
+      },
+      TRANSCRIBE_TIMEOUT_MS,
+    );
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result?.success === false) {
+      throw new Error(result?.error || "I couldn't understand that");
+    }
+
+    return text(result?.transcript);
   }
 
   async function runVoiceCommand(message) {
@@ -402,22 +430,26 @@ export default function LocalHeyAvantiqoWakeBridge() {
     ];
 
     try {
-      const response = await fetchWithTimeout("/api/operator/turn", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          organizationId,
-          entityId,
-          periodId,
-          pathname,
-          message: cleanMessage,
-          source: "voice",
-          locale: navigator.language || "en-US",
-          agreementState: agreementStateRef.current,
-          conversation: priorConversation,
-        }),
-      }, 45000);
+      const response = await fetchWithTimeout(
+        "/api/operator/turn",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            organizationId,
+            entityId,
+            periodId,
+            pathname,
+            message: cleanMessage,
+            source: "voice",
+            locale: navigator.language || "en-US",
+            agreementState: agreementStateRef.current,
+            conversation: priorConversation,
+          }),
+        },
+        OPERATOR_TIMEOUT_MS,
+      );
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success === false) {
@@ -439,16 +471,12 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
       if (result?.navigation?.href) router.push(result.navigation.href);
 
-      try {
-        await speakRemote(answer);
-      } catch (error) {
-        console.error("AVANTIQO_ANSWER_PLAYBACK_ERROR", error);
-        setVoiceError(error?.message || "I completed the request but could not speak the answer");
-      }
+      await speakAnswer(answer).catch((error) => {
+        setVoiceError(error?.message || "I completed it but couldn't speak the answer");
+      });
 
       if (enabledRef.current) armCommandMode();
     } catch (error) {
-      console.error("AVANTIQO_VOICE_OPERATOR_ERROR", error);
       setVoiceError(error?.message || "Voice request failed");
       if (enabledRef.current) setStatus("listening");
     }
@@ -500,7 +528,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
         if (transcript) await runVoiceCommand(transcript);
         else setStatus("listening");
       } catch (error) {
-        console.error("AVANTIQO_COMMAND_TRANSCRIPTION_ERROR", error);
         setVoiceError(error?.message || "I couldn't understand that");
         setStatus("listening");
       }
@@ -539,22 +566,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
       window.localStorage.setItem(TEMPLATE_KEY, JSON.stringify(learned));
       enrollmentRef.current = [];
       setEnrollmentCount(3);
-      setStatus("preparing-acknowledgement");
-      try {
-        await prepareAcknowledgement();
-        setStatus("listening");
-      } catch (error) {
-        setVoiceError(error?.message || "Avantiqo voice preparation failed");
-        setStatus("voice-error");
-      }
+      setStatus("listening");
+      refreshAcknowledgement().catch(() => null);
       return;
     }
 
     const match = scoreWakeCandidate(frames, template, durationMs);
-    if (!match.matched) {
-      setStatus("listening");
-      return;
-    }
+    if (!match.matched) return;
 
     await acknowledge();
   }
@@ -607,10 +625,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
         if (commandModeRef.current) {
           finishCommandRecorder();
         } else if (frames.length >= 6 && duration >= 350 && duration <= MAX_WAKE_MS) {
-          handleWakeCandidate(frames, duration).catch((error) => {
-            console.error("LOCAL_WAKE_MATCH_ERROR", error);
-            setStatus("listening");
-          });
+          handleWakeCandidate(frames, duration).catch(() => null);
         }
       }
     }
@@ -630,6 +645,14 @@ export default function LocalHeyAvantiqoWakeBridge() {
     source.buffer = buffer;
     source.connect(context.destination);
     source.start(0);
+
+    if (window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined") {
+      try {
+        const primer = new SpeechSynthesisUtterance(" ");
+        primer.volume = 0;
+        window.speechSynthesis.speak(primer);
+      } catch {}
+    }
 
     return context;
   }
@@ -667,18 +690,12 @@ export default function LocalHeyAvantiqoWakeBridge() {
       if (persist) window.localStorage.setItem(ENABLED_KEY, "true");
 
       const hasTemplate = Number(templateRef.current?.version) === 2;
-      if (!hasTemplate) {
-        setStatus("enrolling");
-      } else {
-        setStatus("preparing-acknowledgement");
-        await prepareAcknowledgement();
-        setStatus("listening");
-      }
-
+      setStatus(hasTemplate ? "listening" : "enrolling");
       monitor();
+
+      refreshAcknowledgement().catch(() => null);
     } catch (error) {
-      console.error("LOCAL_WAKE_ENABLE_ERROR", error);
-      setVoiceError(error?.message || "Microphone or voice preparation failed");
+      setVoiceError(error?.message || "Microphone access failed");
       setStatus("voice-error");
       window.localStorage.removeItem(ENABLED_KEY);
       stopAll();
@@ -716,12 +733,10 @@ export default function LocalHeyAvantiqoWakeBridge() {
   else if (status === "starting") label = "Avantiqo · Starting";
   else if (status === "enrolling") {
     label = `Say “Hey Avantiqo” · ${Math.min(enrollmentCount + 1, 3)}/3`;
-  } else if (status === "preparing-acknowledgement") label = "Avantiqo · Preparing voice";
-  else if (status === "speaking") label = "Avantiqo · Speaking";
+  } else if (status === "speaking") label = "Avantiqo · Speaking";
   else if (status === "listening-command") label = "Avantiqo · Listening";
   else if (status === "understanding") label = "Avantiqo · Understanding";
   else if (status === "working") label = "Avantiqo · Working";
-  else if (status === "preparing-speech") label = "Avantiqo · Preparing answer";
   else if (status === "voice-error") label = "Avantiqo · Voice error";
   else if (enabled) label = "Hey Avantiqo · Listening";
 
@@ -744,7 +759,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
             : "flex h-12 items-center gap-3 rounded-full border border-[#D6A66A]/35 bg-[#0A0A0A]/95 px-5 text-white shadow-[0_20px_70px_rgba(0,0,0,.65)] backdrop-blur-2xl disabled:opacity-45"
         }
       >
-        {["starting", "preparing-acknowledgement", "understanding", "working", "preparing-speech"].includes(status) ? (
+        {["starting", "understanding", "working"].includes(status) ? (
           <Loader2 size={15} className="animate-spin" />
         ) : (
           <Mic size={15} />

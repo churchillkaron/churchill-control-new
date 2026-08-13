@@ -28,19 +28,31 @@ function normalized(value) {
 
 function containsWakePhrase(value) {
   const candidate = normalized(value);
-  return [
-    "hey avantiqo",
-    "hey avanti qo",
-    "hey avanti co",
-    "hey avanti go",
-    "hey avantico",
-    "hey avanti ko",
-  ].some((phrase) => candidate.includes(phrase));
+  const compact = candidate.replace(/\s+/g, "");
+  const hasName = [
+    "avantiqo",
+    "avantiq",
+    "avantico",
+    "avantigo",
+    "avantiko",
+    "avanti",
+  ].some((name) => compact.includes(name));
+
+  if (!hasName) return false;
+
+  const words = candidate.split(" ").filter(Boolean);
+  return (
+    words.some((word) => ["hey", "hay", "hei", "hi", "hello"].includes(word)) ||
+    words.length <= 3
+  );
 }
 
 function commandAfterWake(value) {
   return text(value)
-    .replace(/hey\s+avanti(?:qo|\s+qo|\s+co|\s+go|co|\s+ko)/i, "")
+    .replace(
+      /(?:hey|hay|hei|hi|hello)\s+avanti(?:qo|q|\s+qo|\s+co|\s+go|co|go|ko)?/i,
+      "",
+    )
     .replace(/^[\s,.:;!?-]+/, "")
     .trim();
 }
@@ -252,14 +264,17 @@ export default function HeyAvantiqoWakeBridge() {
     }, 250);
   }
 
-  async function transcribeUtterance(blob) {
-    if (!blob?.size || !organizationId) return "";
+  async function transcribeUtterance(blob, mode) {
+    if (!blob?.size || !organizationId) {
+      return { transcript: "", wakeDetected: false };
+    }
 
     const form = new FormData();
     form.append("audio", blob, fileNameForMime(blob.type));
     form.append("organizationId", organizationId);
     if (entityId) form.append("entityId", entityId);
     form.append("locale", navigator.language || "en-US");
+    form.append("mode", mode);
 
     const response = await fetchWithTimeout(
       "/api/operator/transcribe",
@@ -274,10 +289,13 @@ export default function HeyAvantiqoWakeBridge() {
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok || result?.success === false) {
-      throw new Error(result?.error || "Wake transcription failed");
+      throw new Error(result?.error || "Voice transcription failed");
     }
 
-    return text(result?.transcript);
+    return {
+      transcript: text(result?.transcript),
+      wakeDetected: Boolean(result?.wake_detected),
+    };
   }
 
   async function fetchSpeechAudio(message) {
@@ -371,36 +389,37 @@ export default function HeyAvantiqoWakeBridge() {
       return;
     }
 
+    const commandMode = armedForCommandRef.current;
     processingRef.current = true;
     setProcessing(true);
-    setStatus(
-      armedForCommandRef.current
-        ? "understanding-command"
-        : "checking-wake",
-    );
+    setStatus(commandMode ? "understanding-command" : "listening");
 
     try {
-      const transcript = await transcribeUtterance(blob);
+      const result = await transcribeUtterance(
+        blob,
+        commandMode ? "command" : "wake",
+      );
+      const transcript = result.transcript;
 
       if (!transcript) {
         setStatus("listening");
         return;
       }
 
-      if (armedForCommandRef.current) {
+      if (commandMode) {
         armedForCommandRef.current = false;
         dispatchCommand(transcript);
         setStatus("waiting-answer");
         return;
       }
 
-      if (!containsWakePhrase(transcript)) {
+      if (!result.wakeDetected && !containsWakePhrase(transcript)) {
         setStatus("listening");
         return;
       }
 
       const immediateCommand = commandAfterWake(transcript);
-      if (immediateCommand) {
+      if (immediateCommand && immediateCommand !== transcript) {
         dispatchCommand(immediateCommand);
         setStatus("waiting-answer");
         return;
@@ -436,7 +455,8 @@ export default function HeyAvantiqoWakeBridge() {
 
       if (!chunks.length || captureSuppressedRef.current) return;
 
-      const mimeType = recorder.mimeType || preferredAudioMimeType() || "audio/webm";
+      const mimeType =
+        recorder.mimeType || preferredAudioMimeType() || "audio/webm";
       const blob = new Blob(chunks, { type: mimeType });
       processUtterance(blob);
     };
@@ -591,13 +611,16 @@ export default function HeyAvantiqoWakeBridge() {
     window.localStorage.removeItem(WAKE_STORAGE_KEY);
   }
 
+  const commandBusy =
+    status === "understanding-command" || status === "waiting-answer";
+
   const label = !supported
     ? "Voice wake unavailable"
     : !enabled
       ? "Enable Hey Avantiqo"
       : speaking
         ? "Hey Avantiqo · Speaking"
-        : processing || status === "waiting-answer"
+        : commandBusy
           ? "Hey Avantiqo · Understanding"
           : listening
             ? "Hey Avantiqo · Listening"
@@ -626,7 +649,7 @@ export default function HeyAvantiqoWakeBridge() {
             : "fixed bottom-6 right-6 z-[90] flex h-12 items-center gap-3 rounded-full border border-[#D6A66A]/35 bg-[#0A0A0A]/95 px-5 text-white shadow-[0_20px_70px_rgba(0,0,0,.65)] backdrop-blur-2xl transition hover:border-[#D6A66A]/65 disabled:opacity-45"
         }
       >
-        {processing || speaking || (enabled && !listening) ? (
+        {speaking || commandBusy || (enabled && !listening) ? (
           <Loader2 size={15} className="animate-spin" />
         ) : (
           <Mic size={15} />

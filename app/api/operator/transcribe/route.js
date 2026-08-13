@@ -14,6 +14,38 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function normalized(value) {
+  return text(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function wakeDetected(value) {
+  const candidate = normalized(value);
+  if (!candidate) return false;
+
+  const compact = candidate.replace(/\s+/g, "");
+  const hasName = [
+    "avantiqo",
+    "avantiq",
+    "avantico",
+    "avantigo",
+    "avantiko",
+    "avanti",
+  ].some((name) => compact.includes(name));
+
+  if (!hasName) return false;
+
+  const words = candidate.split(" ").filter(Boolean);
+  const hasGreeting = words.some((word) =>
+    ["hey", "hay", "hei", "hi", "hello"].includes(word),
+  );
+
+  return hasGreeting || words.length <= 3;
+}
+
 function findTranscript(value, depth = 0) {
   if (depth > 6 || value === null || value === undefined) return "";
   if (typeof value === "string") return value;
@@ -51,6 +83,8 @@ function errorResponse(error, status = 500) {
 }
 
 export async function POST(request) {
+  const startedAt = Date.now();
+
   try {
     const form = await request.formData();
     const audio = form.get("audio");
@@ -61,6 +95,9 @@ export async function POST(request) {
       form.get("entityId") || form.get("entity_id"),
     ) || null;
     const locale = text(form.get("locale")) || null;
+    const mode = text(form.get("mode")).toLowerCase() === "wake"
+      ? "wake"
+      : "command";
 
     if (!audio || typeof audio.arrayBuffer !== "function") {
       return errorResponse("Audio file required", 400);
@@ -115,11 +152,19 @@ export async function POST(request) {
         file_name: audio.name || "avantiqo-voice.wav",
         mime_type: audio.type || "audio/wav",
         language: locale ? locale.split("-")[0] : undefined,
+        prompt:
+          mode === "wake"
+            ? "The speaker may say the wake phrase Hey Avantiqo. Avantiqo is spelled A-v-a-n-t-i-q-o. Preserve the name Avantiqo exactly when it is heard."
+            : undefined,
       },
       metadata: {
         module: "OPERATOR",
-        operation: "VOICE_TRANSCRIPTION",
+        operation:
+          mode === "wake"
+            ? "WAKE_TRANSCRIPTION"
+            : "VOICE_TRANSCRIPTION",
         channel: "voice",
+        transcription_mode: mode,
       },
       category: "AI",
     });
@@ -129,9 +174,20 @@ export async function POST(request) {
       return errorResponse("Voice transcription returned no text", 502);
     }
 
+    const detected = mode === "wake" ? wakeDetected(transcript) : false;
+
+    console.log("OPERATOR_TRANSCRIPTION_COMPLETE", {
+      mode,
+      duration_ms: Date.now() - startedAt,
+      transcript_length: transcript.length,
+      wake_detected: detected,
+    });
+
     return Response.json({
       success: true,
       transcript,
+      wake_detected: detected,
+      mode,
       language:
         execution?.output?.output?.language ||
         execution?.output?.language ||

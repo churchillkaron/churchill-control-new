@@ -21,7 +21,6 @@ const MAX_COMMAND_MS = 15000;
 const WAKE_COOLDOWN_MS = 2200;
 const FOLLOW_UP_WINDOW_MS = 15000;
 const TRANSCRIBE_TIMEOUT_MS = 8000;
-const OPERATOR_TIMEOUT_MS = 20000;
 const SPEECH_TIMEOUT_MS = 12000;
 const ACK_REFRESH_TIMEOUT_MS = 6000;
 
@@ -430,7 +429,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     ];
 
     try {
-      const response = await fetchWithTimeout(
+      const response = await fetch(
         "/api/operator/turn",
         {
           method: "POST",
@@ -448,7 +447,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
             conversation: priorConversation,
           }),
         },
-        OPERATOR_TIMEOUT_MS,
       );
 
       const result = await response.json().catch(() => ({}));

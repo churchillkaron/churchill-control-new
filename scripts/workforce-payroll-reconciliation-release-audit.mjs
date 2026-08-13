@@ -13,6 +13,8 @@ const FILES = Object.freeze({
     "supabase/migrations/20260813044651_workforce_schedule_mutation_freshness.sql",
   statusMigration:
     "supabase/migrations/20260813054525_workforce_schedule_status_convergence.sql",
+  deleteGuardMigration:
+    "supabase/migrations/20260813060210_workforce_schedule_delete_guard.sql",
 });
 
 const ACTIVE_SOURCE_ROOTS = Object.freeze(["app", "lib", "components"]);
@@ -191,6 +193,27 @@ requireNoMatch(
 );
 
 requireMatch(
+  source.deleteGuardMigration,
+  /create or replace function public\.prevent_staff_schedule_hard_delete\(\)[\s\S]*?returns trigger[\s\S]*?raise exception[\s\S]*?CANCELLED instead/,
+  "Workforce schedule database hard-delete guard",
+);
+requireMatch(
+  source.deleteGuardMigration,
+  /create trigger staff_schedules_prevent_delete[\s\S]*?before delete on public\.staff_schedules[\s\S]*?execute function public\.prevent_staff_schedule_hard_delete\(\)/,
+  "Workforce schedule database delete trigger",
+);
+requireNoMatch(
+  source.deleteGuardMigration,
+  /security\s+definer/i,
+  "Workforce schedule delete guard privilege boundary",
+);
+requireMatch(
+  source.deleteGuardMigration,
+  /revoke execute on function public\.prevent_staff_schedule_hard_delete\(\) from public[\s\S]*?from anon[\s\S]*?from authenticated/,
+  "Workforce schedule delete guard execution grants",
+);
+
+requireMatch(
   source.generator,
   /\.from\("staff_schedules"\)[\s\S]{0,300}?\.eq\("status",\s*"PUBLISHED"\)/,
   "Monthly payroll published-schedule calculation",
@@ -249,5 +272,5 @@ requireMatch(
 );
 
 console.log(
-  "Workforce/Payroll reconciliation release audit passed: canonical schedule statuses, no active schedule hard deletes, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, and no automatic absence deduction are intact.",
+  "Workforce/Payroll reconciliation release audit passed: database-enforced schedule history, canonical schedule statuses, no active schedule hard deletes, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, and no automatic absence deduction are intact.",
 );

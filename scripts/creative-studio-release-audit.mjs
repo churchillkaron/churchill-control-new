@@ -39,6 +39,7 @@ const oneTimeExecuteRoute = read("app/api/creative/tests/gemini-omni-5s/perceptu
 const releaseReadiness = read("lib/creative/release/runtime/CreativeReleaseReadinessRuntime.js");
 const finalAudioIntegrity = read("lib/creative/post-production/runtime/CreativeProfessionalFinalAudioIntegrityRuntime.js");
 const openAIGovernanceAudit = read("scripts/openai-governance-release-audit.mjs");
+const executionJobRepository = read("lib/creative/execution/repositories/CreativeExecutionJobRepository.js");
 
 requireAll("Creative provider callback authentication", callbackRoute, [
   "CREATIVE_PROVIDER_CALLBACK_SECRET",
@@ -124,6 +125,13 @@ requireAll("Avantiqo OpenAI governance audit", openAIGovernanceAudit, [
   "OPENAI_USAGE_PATH=SERVICE_PROVIDER_PRICING_WALLET_USAGE_BILLING",
 ]);
 
+requireAll("Creative execution empty-queue handling", executionJobRepository, [
+  "function normalizeClaimedJob(data)",
+  "Array.isArray(data) ? data[0] : data",
+  "return claimed?.id ? claimed : null",
+  "return normalizeClaimedJob(data)",
+]);
+
 if (violations.length) {
   console.error("CREATIVE_STUDIO_RELEASE_AUDIT=FAIL");
   for (const violation of violations) {
@@ -137,6 +145,7 @@ if (violations.length) {
   console.log("CREATIVE_WALLET_SETTLEMENT=ATOMIC_IDEMPOTENT");
   console.log("CREATIVE_BILLING_USAGE=DEDUPLICATED");
   console.log("CREATIVE_ONE_TIME_EXECUTION=DURABLE_LEDGER_GOVERNED");
+  console.log("CREATIVE_EXECUTION_EMPTY_QUEUE=IDLE_WITHOUT_ERROR");
   console.log("CREATIVE_OPENAI_EXECUTION=AVANTIQO_MANAGED_ONLY");
   console.log("CREATIVE_FINAL_AUDIO=POST_FINISHING_PCM_INTEGRITY_REQUIRED");
   console.log("CREATIVE_RELEASE=QUALITY_RIGHTS_HUMAN_APPROVAL_REQUIRED");

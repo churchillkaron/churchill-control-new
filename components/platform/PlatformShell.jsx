@@ -1,7 +1,7 @@
 "use client";
 
 import AvantiqoOperator from "@/components/operator/AvantiqoOperator";
-import HeyAvantiqoWakeBridge from "@/components/operator/HeyAvantiqoWakeBridge";
+import LocalHeyAvantiqoWakeBridge from "@/components/operator/LocalHeyAvantiqoWakeBridge";
 import WorkspaceTopBar from "@/components/workspace/WorkspaceTopBar";
 
 export default function PlatformShell({
@@ -16,7 +16,7 @@ export default function PlatformShell({
       </main>
 
       <AvantiqoOperator />
-      <HeyAvantiqoWakeBridge />
+      <LocalHeyAvantiqoWakeBridge />
     </div>
   );
 }

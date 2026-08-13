@@ -35,6 +35,8 @@ const fastRuntime = read("lib/operator/runtime/OperatorFastConversationRuntime.j
 const turnRoute = read("app/api/operator/turn/route.js");
 const navigationMatcher = read("lib/operator/runtime/OperatorNavigationMatcher.js");
 const turnRuntime = read("lib/operator/runtime/OperatorTurnRuntime.js");
+const acknowledgementRuntime = read("lib/operator/runtime/OperatorVoiceAcknowledgementRuntime.js");
+const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.js");
 
 requireAll("VOICE_BRIDGE", bridge, [
   "MIN_SPEECH_THRESHOLD",
@@ -127,6 +129,20 @@ requireAll("INSTANT_NAVIGATION_RUNTIME", turnRuntime, [
   "bypassed_for_instant_navigation: true",
 ]);
 
+requireAll("INSTANT_ACKNOWLEDGEMENT", acknowledgementRuntime, [
+  "const ACKNOWLEDGEMENTS",
+  "instant-acknowledgement-v1",
+  "provider: \"avantiqo-local\"",
+  "usage_id: null",
+]);
+
+if (acknowledgementRuntime.includes("ServiceExecutionRuntime")) {
+  violations.push("WAKE_ACKNOWLEDGEMENT_CALLS_AI_PROVIDER");
+}
+if (acknowledgementRoute.includes("registerFinanceBilling")) {
+  violations.push("WAKE_ACKNOWLEDGEMENT_LOADS_BILLING_RUNTIME");
+}
+
 const baseFrames = Array.from({ length: 24 }, (_, index) => [
   0.3 + (index % 4) * 0.02,
   0.2 + (index % 3) * 0.01,
@@ -167,4 +183,5 @@ if (violations.length) {
   console.log("VOICE_WAKE=ADAPTIVE_NOISE_AND_STRICT_MATCH");
   console.log("VOICE_MEMORY=SESSION_STATE_PRESERVED");
   console.log("VOICE_NAVIGATION=REGISTERED_ROUTE_INSTANT_PATH");
+  console.log("VOICE_ACKNOWLEDGEMENT=LOCAL_WITHOUT_PROVIDER_OR_BILLING");
 }

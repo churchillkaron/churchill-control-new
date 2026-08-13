@@ -5,6 +5,9 @@ import path from "node:path";
 import process from "node:process";
 
 import {
+  CREATIVE_WORLD_CLASS_BENCHMARK_CASES,
+} from "@/app/api/creative/tests/world-class-benchmark/fixtures";
+import {
   CreativeWorldClassLiveBenchmarkRuntime,
 } from "@/lib/creative/quality/runtime/CreativeWorldClassLiveBenchmarkRuntime";
 
@@ -51,10 +54,10 @@ async function main() {
   const captured = [];
   const execution = [];
 
-  for (const benchmarkCase of CreativeWorldClassLiveBenchmarkRuntime.listCases()) {
+  for (const benchmarkCase of CREATIVE_WORLD_CLASS_BENCHMARK_CASES) {
     console.log(`BENCHMARK_CASE_START=${benchmarkCase.id}`);
     const result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(
-      benchmarkCase.id,
+      benchmarkCase,
     );
     captured.push(result.case_result);
     execution.push({
@@ -68,7 +71,10 @@ async function main() {
     );
   }
 
-  const benchmark = CreativeWorldClassLiveBenchmarkRuntime.evaluate(captured);
+  const benchmark = CreativeWorldClassLiveBenchmarkRuntime.evaluate(
+    captured,
+    CREATIVE_WORLD_CLASS_BENCHMARK_CASES,
+  );
   const report = {
     ...benchmark,
     execution: {

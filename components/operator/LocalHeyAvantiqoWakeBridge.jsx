@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import {
@@ -17,12 +17,19 @@ const LEGACY_TEMPLATE_KEY = "avantiqo.local-wake.template.v1";
 const SPEECH_THRESHOLD = 0.035;
 const SILENCE_MS = 650;
 const MAX_WAKE_MS = 2800;
-const MAX_COMMAND_MS = 12000;
-const API_TIMEOUT_MS = 12000;
+const MAX_COMMAND_MS = 15000;
+const API_TIMEOUT_MS = 20000;
 const WAKE_COOLDOWN_MS = 2200;
+const FOLLOW_UP_WINDOW_MS = 15000;
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function routeOrganizationId(params) {
+  const value = params?.organizationId;
+  if (Array.isArray(value)) return text(value[0]);
+  return text(value);
 }
 
 function preferredMime() {
@@ -40,6 +47,7 @@ function audioName(type = "") {
 async function fetchWithTimeout(url, options, timeout = API_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeout);
+
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
@@ -47,14 +55,10 @@ async function fetchWithTimeout(url, options, timeout = API_TIMEOUT_MS) {
   }
 }
 
-function routeOrganizationId(params) {
-  const value = params?.organizationId;
-  if (Array.isArray(value)) return text(value[0]);
-  return text(value);
-}
-
 export default function LocalHeyAvantiqoWakeBridge() {
   const params = useParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const businessContext = useBusinessContext();
 
   const streamRef = useRef(null);
@@ -74,6 +78,9 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const playbackRef = useRef(null);
+  const followUpTimerRef = useRef(null);
+  const conversationRef = useRef([]);
+  const agreementStateRef = useRef({});
 
   const [supported, setSupported] = useState(true);
   const [enabled, setEnabled] = useState(false);
@@ -90,6 +97,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const entityId =
     text(businessContext?.entity_id) ||
     text(businessContext?.entity?.id) ||
+    null;
+
+  const periodId =
+    text(businessContext?.period_id) ||
+    text(businessContext?.period?.id) ||
     null;
 
   const contextReady = Boolean(organizationId);
@@ -124,22 +136,30 @@ export default function LocalHeyAvantiqoWakeBridge() {
     return () => window.clearTimeout(timer);
   }, [supported, contextReady, organizationId]);
 
-  useEffect(() => {
-    const handler = (event) => {
-      const message = text(event?.detail?.message || event?.detail?.text);
-      if (!message || !enabledRef.current) return;
-      speak(message).catch((error) => {
-        console.error("AVANTIQO_SPEAK_EVENT_ERROR", error);
-      });
-    };
+  function clearFollowUpTimer() {
+    if (followUpTimerRef.current) {
+      window.clearTimeout(followUpTimerRef.current);
+      followUpTimerRef.current = null;
+    }
+  }
 
-    window.addEventListener("avantiqo:speak", handler);
-    return () => window.removeEventListener("avantiqo:speak", handler);
-  }, [organizationId, entityId]);
+  function armCommandMode() {
+    if (!enabledRef.current) return;
+
+    clearFollowUpTimer();
+    commandModeRef.current = true;
+    setStatus("listening-command");
+
+    followUpTimerRef.current = window.setTimeout(() => {
+      commandModeRef.current = false;
+      if (enabledRef.current) setStatus("listening");
+    }, FOLLOW_UP_WINDOW_MS);
+  }
 
   function stopRecorder() {
     const recorder = recorderRef.current;
     recorderRef.current = null;
+
     if (recorder && recorder.state !== "inactive") {
       try {
         recorder.stop();
@@ -150,7 +170,9 @@ export default function LocalHeyAvantiqoWakeBridge() {
   function stopPlayback() {
     const playback = playbackRef.current;
     playbackRef.current = null;
+
     if (!playback) return;
+
     try {
       playback.pause();
       playback.removeAttribute("src");
@@ -160,9 +182,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
   function stopAll() {
     enabledRef.current = false;
-    commandModeRef.current = false;
     speakingRef.current = false;
+    commandModeRef.current = false;
     inSpeechRef.current = false;
+
+    clearFollowUpTimer();
 
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
@@ -179,21 +203,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     context?.close?.().catch(() => null);
 
     setEnabled(false);
-  }
-
-  function dispatchCommand(message) {
-    const detail = { message: text(message), source: "voice" };
-    if (!detail.message) return;
-
-    if (document.querySelector('[data-avantiqo-home-intelligence="true"]')) {
-      window.dispatchEvent(new CustomEvent("avantiqo:home-command", { detail }));
-      return;
-    }
-
-    document.querySelector('button[aria-label="Open Avantiqo Operator"]')?.click?.();
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("avantiqo:operator-command", { detail }));
-    }, 200);
   }
 
   async function transcribe(blob) {
@@ -213,6 +222,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     });
 
     const result = await response.json().catch(() => ({}));
+
     if (!response.ok || result?.success === false) {
       throw new Error(result?.error || "Voice transcription failed");
     }
@@ -261,15 +271,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
           audio.onerror = null;
         };
 
-        audio.onplaying = () => {
-          setStatus("speaking");
-        };
-
+        audio.onplaying = () => setStatus("speaking");
         audio.onended = () => {
           cleanup();
           resolve();
         };
-
         audio.onerror = () => {
           cleanup();
           reject(new Error("Safari could not play Avantiqo voice audio"));
@@ -278,27 +284,20 @@ export default function LocalHeyAvantiqoWakeBridge() {
         audio.src = url;
         audio.load();
 
-        const playPromise = audio.play();
-        if (playPromise?.catch) {
-          playPromise.catch((error) => {
-            cleanup();
-            reject(new Error(error?.message || "Safari blocked voice playback"));
-          });
-        }
+        const promise = audio.play();
+        promise?.catch?.((error) => {
+          cleanup();
+          reject(new Error(error?.message || "Safari blocked voice playback"));
+        });
       });
     } finally {
-      if (playbackRef.current) playbackRef.current = null;
+      playbackRef.current = null;
       URL.revokeObjectURL(url);
     }
   }
 
-  async function speak(message) {
+  async function speakRemote(message) {
     if (!enabledRef.current || !text(message)) return;
-    if (!organizationId) {
-      setVoiceError("Organization context is still loading");
-      setStatus("voice-error");
-      return;
-    }
 
     speakingRef.current = true;
     setVoiceError("");
@@ -307,11 +306,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     try {
       const blob = await fetchSpeech(message);
       await playAudioBlob(blob);
-    } catch (error) {
-      console.error("AVANTIQO_VOICE_PLAYBACK_ERROR", error);
-      setVoiceError(error?.message || "Voice playback failed");
-      setStatus("voice-error");
-      throw error;
     } finally {
       speakingRef.current = false;
       inSpeechRef.current = false;
@@ -320,27 +314,137 @@ export default function LocalHeyAvantiqoWakeBridge() {
     }
   }
 
+  async function speakInstantAcknowledgement() {
+    const synth = window.speechSynthesis;
+
+    if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
+      return false;
+    }
+
+    return await new Promise((resolve) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+
+      const utterance = new SpeechSynthesisUtterance("Yes?");
+      utterance.lang = navigator.language || "en-US";
+      utterance.rate = 1.05;
+      utterance.volume = 1;
+      utterance.onstart = () => setStatus("speaking");
+      utterance.onend = () => finish(true);
+      utterance.onerror = () => finish(false);
+
+      try {
+        synth.cancel();
+        synth.speak(utterance);
+      } catch {
+        finish(false);
+      }
+
+      window.setTimeout(() => finish(false), 1600);
+    });
+  }
+
   async function acknowledge() {
     const now = Date.now();
     if (now - lastWakeRef.current < WAKE_COOLDOWN_MS) return;
     lastWakeRef.current = now;
 
+    clearFollowUpTimer();
     commandModeRef.current = false;
+    speakingRef.current = true;
+    setVoiceError("");
 
     try {
-      await speak("Yes?");
-    } catch {
-      commandModeRef.current = false;
-      return;
+      await speakInstantAcknowledgement();
+    } finally {
+      speakingRef.current = false;
+      inSpeechRef.current = false;
+      featureFramesRef.current = [];
+      lastSoundRef.current = Date.now();
     }
 
-    if (!enabledRef.current) return;
-    commandModeRef.current = true;
-    setStatus("listening-command");
+    armCommandMode();
+  }
+
+  async function runVoiceCommand(message) {
+    const cleanMessage = text(message);
+    if (!cleanMessage || !organizationId) return;
+
+    clearFollowUpTimer();
+    commandModeRef.current = false;
+    setStatus("working");
+    setVoiceError("");
+
+    const priorConversation = conversationRef.current.slice(-12);
+    conversationRef.current = [
+      ...priorConversation,
+      { role: "user", content: cleanMessage },
+    ];
+
+    try {
+      const response = await fetchWithTimeout("/api/operator/turn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          organizationId,
+          entityId,
+          periodId,
+          pathname,
+          message: cleanMessage,
+          source: "voice",
+          locale: navigator.language || "en-US",
+          agreementState: agreementStateRef.current,
+          conversation: priorConversation,
+        }),
+      }, 45000);
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || result?.success === false) {
+        throw new Error(result?.error || "Avantiqo could not complete that request");
+      }
+
+      const decision = result?.decision || {};
+      const answer = text(decision?.response_text) || "Done.";
+
+      agreementStateRef.current =
+        result?.agreement_state ||
+        decision?.agreement_state ||
+        agreementStateRef.current;
+
+      conversationRef.current = [
+        ...conversationRef.current,
+        { role: "assistant", content: answer },
+      ].slice(-12);
+
+      if (result?.navigation?.href) {
+        router.push(result.navigation.href);
+      }
+
+      try {
+        await speakRemote(answer);
+      } catch (error) {
+        console.error("AVANTIQO_ANSWER_PLAYBACK_ERROR", error);
+        setVoiceError(error?.message || "I completed the request but could not speak the answer");
+      }
+
+      if (enabledRef.current) armCommandMode();
+    } catch (error) {
+      console.error("AVANTIQO_VOICE_OPERATOR_ERROR", error);
+      setVoiceError(error?.message || "Voice request failed");
+      if (enabledRef.current) setStatus("listening");
+    }
   }
 
   function startCommandRecorder() {
     if (!streamRef.current || recorderRef.current) return;
+
+    clearFollowUpTimer();
 
     const mime = preferredMime();
     const recorder = mime
@@ -380,16 +484,12 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
       try {
         const transcript = await transcribe(blob);
-        if (transcript) {
-          dispatchCommand(transcript);
-          setStatus("waiting-answer");
-        } else {
-          setStatus("listening");
-        }
+        if (transcript) await runVoiceCommand(transcript);
+        else setStatus("listening");
       } catch (error) {
         console.error("AVANTIQO_COMMAND_TRANSCRIPTION_ERROR", error);
         setVoiceError(error?.message || "I couldn't understand that");
-        setStatus("voice-error");
+        setStatus("listening");
       }
     };
 
@@ -414,6 +514,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
       }
 
       const learned = averageWakeTemplates(enrollmentRef.current);
+
       if (!learned) {
         enrollmentRef.current = [];
         setEnrollmentCount(0);
@@ -511,6 +612,14 @@ export default function LocalHeyAvantiqoWakeBridge() {
     source.connect(context.destination);
     source.start(0);
 
+    if (window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined") {
+      try {
+        const primer = new SpeechSynthesisUtterance(" ");
+        primer.volume = 0;
+        window.speechSynthesis.speak(primer);
+      } catch {}
+    }
+
     return context;
   }
 
@@ -589,18 +698,18 @@ export default function LocalHeyAvantiqoWakeBridge() {
   else if (status === "starting") label = "Avantiqo · Starting";
   else if (status === "enrolling") {
     label = `Say “Hey Avantiqo” · ${Math.min(enrollmentCount + 1, 3)}/3`;
-  } else if (status === "preparing-speech") label = "Avantiqo · Preparing voice";
-  else if (status === "speaking") label = "Avantiqo · Speaking";
+  } else if (status === "speaking") label = "Avantiqo · Speaking";
   else if (status === "listening-command") label = "Avantiqo · Listening";
   else if (status === "understanding") label = "Avantiqo · Understanding";
-  else if (status === "waiting-answer") label = "Avantiqo · Working";
+  else if (status === "working") label = "Avantiqo · Working";
+  else if (status === "preparing-speech") label = "Avantiqo · Preparing voice";
   else if (status === "voice-error") label = "Avantiqo · Voice error";
   else if (enabled) label = "Hey Avantiqo · Listening";
 
   return (
     <div className="fixed bottom-6 right-6 z-[95] flex flex-col items-end gap-2">
       {voiceError ? (
-        <div className="max-w-[320px] rounded-2xl border border-red-400/25 bg-[#160909]/95 px-4 py-2 text-[11px] text-red-200 shadow-xl backdrop-blur-xl">
+        <div className="max-w-[340px] rounded-2xl border border-red-400/25 bg-[#160909]/95 px-4 py-2 text-[11px] text-red-200 shadow-xl backdrop-blur-xl">
           {voiceError}
         </div>
       ) : null}
@@ -616,7 +725,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
             : "flex h-12 items-center gap-3 rounded-full border border-[#D6A66A]/35 bg-[#0A0A0A]/95 px-5 text-white shadow-[0_20px_70px_rgba(0,0,0,.65)] backdrop-blur-2xl disabled:opacity-45"
         }
       >
-        {["starting", "preparing-speech", "understanding", "waiting-answer"].includes(status) ? (
+        {["starting", "understanding", "working", "preparing-speech"].includes(status) ? (
           <Loader2 size={15} className="animate-spin" />
         ) : (
           <Mic size={15} />

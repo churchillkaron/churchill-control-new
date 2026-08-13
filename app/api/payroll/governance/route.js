@@ -283,7 +283,14 @@ export async function POST(request) {
     console.error("PAYROLL_GOVERNANCE_ACTION_ERROR", error);
 
     return NextResponse.json(
-      { success: false, error: error?.message || "Unable to execute payroll action" },
+      {
+        success: false,
+        error: error?.message || "Unable to execute payroll action",
+        code: error?.code || null,
+        unresolvedScheduleIds: Array.isArray(error?.unresolvedScheduleIds)
+          ? error.unresolvedScheduleIds
+          : [],
+      },
       { status: Number(error?.status) || 400 }
     );
   }

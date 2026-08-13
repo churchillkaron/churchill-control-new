@@ -5,7 +5,9 @@ import {
   assignRole,
   grantPermission,
 } from "@/lib/finance/security/runtime/FinanceSecurityApplicationService";
+import { listFinancePermissions } from "@/lib/finance/security/repositories/FinancePermissionRepository";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
 function accessError(access) {
   return NextResponse.json(
@@ -19,6 +21,19 @@ function accessError(access) {
   );
 }
 
+function statusFor(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (normalized.includes("permission denied")) return 403;
+  if (
+    /required|not found|does not belong|already|unknown finance permission/i.test(
+      message || ""
+    )
+  ) {
+    return 400;
+  }
+  return 500;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -29,12 +44,18 @@ export async function POST(request) {
     const access = await requireOrganizationAccess({
       organizationId: requestedOrganizationId,
       request,
-      requiredPermission: "finance.permissions.grant",
     });
 
     if (!access.success) {
       return accessError(access);
     }
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.permissions.grant",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const roleId =
       body.roleId ||
@@ -63,7 +84,7 @@ export async function POST(request) {
         organizationId: access.organizationId,
         userId,
         roleId,
-        assignedBy: access.userId,
+        assignedBy: access.user.id,
       });
 
       return NextResponse.json({
@@ -78,8 +99,22 @@ export async function POST(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Staff member required",
+          error: "Staff member or Finance permission required",
         },
+        { status: 400 }
+      );
+    }
+
+    const canonicalPermissions = await listFinancePermissions(
+      access.organizationId
+    );
+    const knownPermission = canonicalPermissions.some(
+      (permission) => permission.permission_key === permissionKey
+    );
+
+    if (!knownPermission) {
+      return NextResponse.json(
+        { success: false, error: "Unknown Finance permission" },
         { status: 400 }
       );
     }
@@ -88,7 +123,7 @@ export async function POST(request) {
       organizationId: access.organizationId,
       roleId,
       permissionKey,
-      grantedBy: access.userId,
+      grantedBy: access.user.id,
     });
 
     return NextResponse.json({
@@ -99,9 +134,6 @@ export async function POST(request) {
     });
   } catch (error) {
     const message = error.message || "Unable to assign Finance role";
-    const status = /required|not found|does not belong|already/i.test(message)
-      ? 400
-      : 500;
 
     return NextResponse.json(
       {
@@ -109,7 +141,7 @@ export async function POST(request) {
         error: message,
       },
       {
-        status,
+        status: statusFor(message),
       }
     );
   }

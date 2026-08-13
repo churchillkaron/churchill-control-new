@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 
 import {
@@ -20,6 +21,23 @@ function graphVersion() {
     process.env.META_GRAPH_API_VERSION || process.env.META_GRAPH_VERSION || "v24.0"
   ).trim();
   return configured.startsWith("v") ? configured : `v${configured}`;
+}
+
+function messagingWebhookVerifyToken() {
+  const configured = String(
+    process.env.META_MESSAGING_WEBHOOK_VERIFY_TOKEN || ""
+  ).trim();
+  if (configured) return configured;
+
+  const appSecret = String(process.env.META_APP_SECRET || "").trim();
+  if (!appSecret) {
+    throw new Error("Meta application secret is not configured");
+  }
+
+  return crypto
+    .createHash("sha256")
+    .update(`avantiqo:meta-messaging-webhook:${appSecret}`)
+    .digest("hex");
 }
 
 function clearOauthCookies(response) {
@@ -60,12 +78,7 @@ function appAccessToken() {
 }
 
 async function configureAppWebhookSubscription({ objectType, fields, origin }) {
-  const verifyToken = String(
-    process.env.META_MESSAGING_WEBHOOK_VERIFY_TOKEN || ""
-  ).trim();
-  if (!verifyToken) {
-    throw new Error("META_MESSAGING_WEBHOOK_VERIFY_TOKEN is not configured");
-  }
+  const verifyToken = messagingWebhookVerifyToken();
 
   const callbackUrl = `${origin}/api/commercial/communications/webhooks/meta`;
   const url = new URL(
@@ -149,9 +162,6 @@ export async function GET(request) {
     }
     if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
       throw new Error("Meta application credentials are not configured");
-    }
-    if (!process.env.META_MESSAGING_WEBHOOK_VERIFY_TOKEN) {
-      throw new Error("META_MESSAGING_WEBHOOK_VERIFY_TOKEN is not configured");
     }
 
     const callbackUrl = `${origin}/api/meta/auth/callback`;
@@ -298,6 +308,10 @@ export async function GET(request) {
     );
     return clearOauthCookies(response);
   } catch (error) {
+    console.error("META_OAUTH_CALLBACK_ERROR", {
+      organizationId: organizationId || null,
+      message: error?.message || "Meta connection failed",
+    });
     const response = NextResponse.redirect(
       redirectToWorkspace(
         origin,

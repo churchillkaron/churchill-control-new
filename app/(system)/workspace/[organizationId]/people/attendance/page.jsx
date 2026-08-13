@@ -29,11 +29,24 @@ function validMonth(value) {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || ""));
 }
 
+function validStaffId(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "").trim()
+  );
+}
+
 function requestedMonth() {
   if (typeof window === "undefined") return currentMonth();
 
   const value = new URLSearchParams(window.location.search).get("month");
   return validMonth(value) ? value : currentMonth();
+}
+
+function requestedStaffId() {
+  if (typeof window === "undefined") return "";
+
+  const value = new URLSearchParams(window.location.search).get("staffId");
+  return validStaffId(value) ? String(value).trim() : "";
 }
 
 function syncMonthQuery(month) {
@@ -54,6 +67,17 @@ function organizationQuery(organizationId) {
     : "";
 }
 
+function payrollGovernanceHref(organizationId, month, staffId) {
+  const base = `/workspace/${encodeURIComponent(organizationId)}/people/payroll/governance`;
+  const query = new URLSearchParams();
+
+  if (validMonth(month)) query.set("month", month);
+  if (validStaffId(staffId)) query.set("staffId", staffId);
+
+  const suffix = query.toString();
+  return suffix ? `${base}?${suffix}` : base;
+}
+
 function humanizeClassification(value) {
   return String(value || "")
     .toLowerCase()
@@ -65,6 +89,7 @@ export default function AttendanceManagementPage() {
   const params = useParams();
   const organizationId = String(params?.organizationId || "").trim();
   const [month, setMonth] = useState(currentMonth());
+  const [focusStaffId, setFocusStaffId] = useState("");
   const [monthReady, setMonthReady] = useState(false);
   const [data, setData] = useState({
     shifts: [],
@@ -80,6 +105,7 @@ export default function AttendanceManagementPage() {
   useEffect(() => {
     const initialMonth = requestedMonth();
     setMonth(initialMonth);
+    setFocusStaffId(requestedStaffId());
     syncMonthQuery(initialMonth);
     setMonthReady(true);
   }, []);
@@ -118,6 +144,28 @@ export default function AttendanceManagementPage() {
     }),
     [data]
   );
+
+  const focusScheduleId = useMemo(() => {
+    if (!focusStaffId) return "";
+
+    return String(
+      (data.absenceCandidates || []).find(
+        (schedule) => String(schedule?.staff_id || "") === focusStaffId
+      )?.id || ""
+    );
+  }, [data.absenceCandidates, focusStaffId]);
+
+  useEffect(() => {
+    if (loading || !focusScheduleId) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`attendance-focus-${focusScheduleId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [loading, focusScheduleId]);
 
   function changeMonth(value) {
     if (!validMonth(value)) return;
@@ -313,6 +361,14 @@ export default function AttendanceManagementPage() {
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {focusStaffId && organizationId ? (
+              <Link
+                href={payrollGovernanceHref(organizationId, month, focusStaffId)}
+                className="flex h-11 items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.08] px-4 text-xs font-black uppercase tracking-[0.12em] text-cyan-200"
+              >
+                <ShieldCheck size={16} /> Return to Payroll Governance
+              </Link>
+            ) : null}
             <Link
               href={`/workspace/${organizationId}/people/attendance/clock-in-exceptions`}
               className="flex h-11 items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.08] px-4 text-xs font-black uppercase tracking-[0.12em] text-amber-200"
@@ -335,6 +391,12 @@ export default function AttendanceManagementPage() {
             </button>
           </div>
         </header>
+
+        {focusStaffId ? (
+          <section className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.07] px-4 py-3 text-sm text-cyan-100/80">
+            Payroll resolution focus is active for this employee and {month}. Matching unworked published shifts are highlighted below.
+          </section>
+        ) : null}
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric icon={<Clock3 size={18} />} label="Shift evidence" value={summary.shifts} />
@@ -411,19 +473,32 @@ export default function AttendanceManagementPage() {
           empty="No completed published shifts are missing attendance evidence."
           loading={loading}
         >
-          {(data.absenceCandidates || []).map((schedule) => (
-            <div key={schedule.id} className="grid gap-4 border-t border-white/5 px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center">
-              <div>
-                <div className="font-bold">{schedule.staff_name}</div>
-                <div className="text-xs text-zinc-500">{schedule.department || schedule.role || "Workforce"}</div>
+          {(data.absenceCandidates || []).map((schedule) => {
+            const focused =
+              focusStaffId && String(schedule?.staff_id || "") === focusStaffId;
+
+            return (
+              <div
+                key={schedule.id}
+                id={focused ? `attendance-focus-${schedule.id}` : undefined}
+                className={`grid gap-4 border-t px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center ${
+                  focused
+                    ? "border-cyan-300/30 bg-cyan-300/[0.08] ring-1 ring-inset ring-cyan-300/20"
+                    : "border-white/5"
+                }`}
+              >
+                <div>
+                  <div className="font-bold">{schedule.staff_name}</div>
+                  <div className="text-xs text-zinc-500">{schedule.department || schedule.role || "Workforce"}</div>
+                </div>
+                <div className="text-sm text-zinc-300">{schedule.shift_date}</div>
+                <div className="text-sm text-zinc-400">{schedule.start_time} - {schedule.end_time}</div>
+                <button disabled={busyId === schedule.id} onClick={() => classifyAttendance(schedule)} className="action action-bad">
+                  <UserX size={16} /> Classify
+                </button>
               </div>
-              <div className="text-sm text-zinc-300">{schedule.shift_date}</div>
-              <div className="text-sm text-zinc-400">{schedule.start_time} - {schedule.end_time}</div>
-              <button disabled={busyId === schedule.id} onClick={() => classifyAttendance(schedule)} className="action action-bad">
-                <UserX size={16} /> Classify
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </WorkspaceSection>
 
         <WorkspaceSection
@@ -439,9 +514,16 @@ export default function AttendanceManagementPage() {
               !row.shift_id &&
               !row.actual_start &&
               !row.actual_end;
+            const focused =
+              focusStaffId && String(row?.staff_id || "") === focusStaffId;
 
             return (
-              <div key={row.id} className="grid gap-4 border-t border-white/5 px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center">
+              <div
+                key={row.id}
+                className={`grid gap-4 border-t px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center ${
+                  focused ? "border-cyan-300/20 bg-cyan-300/[0.04]" : "border-white/5"
+                }`}
+              >
                 <div>
                   <div className="font-bold">{row.staff_name}</div>
                   <div className="text-xs text-zinc-500">{row.shift_date}</div>

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
 function upper(value) {
   return String(value || "").trim().toUpperCase();
@@ -24,6 +25,13 @@ export async function GET(request) {
         { status: access.status }
       );
     }
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const organizationId = access.organizationId;
     const [{ data: transactions, error }, { data: entities, error: entityError }] =
@@ -95,9 +103,11 @@ export async function GET(request) {
       },
     });
   } catch (error) {
+    const message = error?.message || "Intercompany load failed";
+    const status = String(message).toLowerCase().includes("permission denied") ? 403 : 500;
     return NextResponse.json(
-      { success: false, error: error?.message || "Intercompany load failed", rows: [] },
-      { status: 500 }
+      { success: false, error: message, rows: [] },
+      { status }
     );
   }
 }

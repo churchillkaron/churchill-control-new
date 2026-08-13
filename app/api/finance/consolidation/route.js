@@ -2,14 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { runConsolidation } from "@/lib/finance/intercompany/workflows/runConsolidation";
 
 const MISSING_RELATION_CODES = new Set(["42P01", "PGRST204", "PGRST205"]);
-const CONSOLIDATION_TABLES = [
-  "finance_consolidation_runs",
-  "consolidation_runs",
-];
+const CONSOLIDATION_TABLES = ["finance_consolidation_runs", "consolidation_runs"];
 
 function organizationIdFrom(value = {}) {
   return value.organizationId || value.organization_id || null;
@@ -17,12 +15,11 @@ function organizationIdFrom(value = {}) {
 
 function entityIdsFrom(value = {}) {
   const raw = value.entityIds || value.entity_ids || [];
-
   return Array.isArray(raw)
     ? raw
     : String(raw || "")
         .split(",")
-        .map(item => item.trim())
+        .map((item) => item.trim())
         .filter(Boolean);
 }
 
@@ -31,29 +28,26 @@ async function readConsolidationRuns(organizationId) {
     const parentColumn = table === "consolidation_runs"
       ? "parent_organization_id"
       : "organization_id";
-
     const { data, error } = await supabaseAdmin
       .from(table)
       .select("*")
       .eq(parentColumn, organizationId)
       .order("created_at", { ascending: false });
 
-    if (!error) {
-      return {
-        rows: data || [],
-        sourceTable: table,
-      };
-    }
-
-    if (!MISSING_RELATION_CODES.has(String(error.code || ""))) {
-      throw error;
-    }
+    if (!error) return { rows: data || [], sourceTable: table };
+    if (!MISSING_RELATION_CODES.has(String(error.code || ""))) throw error;
   }
 
-  return {
-    rows: [],
-    sourceTable: null,
-  };
+  return { rows: [], sourceTable: null };
+}
+
+async function authorizeFinance(access, permissionKey) {
+  await checkFinancePermission({
+    organizationId: access.organizationId,
+    userId: access.user?.id,
+    permissionKey,
+    fullAccess: access.permissions?.includes("*") === true,
+  });
 }
 
 export async function GET(request) {
@@ -63,6 +57,7 @@ export async function GET(request) {
       organizationId:
         searchParams.get("organizationId") ||
         searchParams.get("organization_id"),
+      request,
     });
 
     if (!access.success) {
@@ -72,6 +67,7 @@ export async function GET(request) {
       );
     }
 
+    await authorizeFinance(access, "finance.accounting.view");
     const result = await readConsolidationRuns(access.organizationId);
 
     return NextResponse.json({
@@ -81,10 +77,9 @@ export async function GET(request) {
       unavailable: result.sourceTable === null,
     });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    const message = error.message || "Consolidation load failed";
+    const status = String(message).toLowerCase().includes("permission denied") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }
 
@@ -93,6 +88,7 @@ export async function POST(request) {
     const body = await request.json();
     const access = await requireOrganizationAccess({
       organizationId: organizationIdFrom(body),
+      request,
     });
 
     if (!access.success) {
@@ -102,30 +98,25 @@ export async function POST(request) {
       );
     }
 
+    await authorizeFinance(access, "finance.accounting.manage");
     const result = await runConsolidation({
       organizationId: access.organizationId,
       entityIds: entityIdsFrom(body),
       periodId: body.periodId || body.period_id || null,
-      reportingPeriod:
-        body.reportingPeriod || body.reporting_period || null,
+      reportingPeriod: body.reportingPeriod || body.reporting_period || null,
       startDate: body.startDate || body.start_date || null,
       endDate: body.endDate || body.end_date || null,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
-    const status = /required|outside|cannot|must|requires/i.test(
-      String(error.message || "")
-    )
-      ? 400
-      : 500;
-
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status }
-    );
+    const message = error.message || "Consolidation failed";
+    const normalized = String(message).toLowerCase();
+    const status = normalized.includes("permission denied")
+      ? 403
+      : /required|outside|cannot|must|requires/i.test(message)
+        ? 400
+        : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }

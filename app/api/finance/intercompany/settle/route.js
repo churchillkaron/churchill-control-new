@@ -2,11 +2,17 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { settleIntercompanyTransactionAtomic } from "@/lib/finance/intercompany/IntercompanyPolicy";
 
 function failure(error) {
   const message = error?.message || "Intercompany settlement failed";
-  const status = /required|not found|must|cannot|exceeds|reconciled|already|account|rate|date|idempotency/i.test(message) ? 400 : 500;
+  const normalized = String(message).toLowerCase();
+  const status = normalized.includes("permission denied")
+    ? 403
+    : /required|not found|must|cannot|exceeds|reconciled|already|account|rate|date|idempotency/i.test(message)
+      ? 400
+      : 500;
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
@@ -24,6 +30,13 @@ export async function POST(request) {
         { status: access.status }
       );
     }
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const transactionId = body.transaction_id || body.transactionId || body.id;
     const settlementDate = body.settlement_date;

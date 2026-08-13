@@ -11,11 +11,12 @@ import {
 } from "@/lib/operator/voice/localWakeMatcher";
 
 const ENABLED_KEY = "avantiqo.local-wake.enabled";
-const TEMPLATE_KEY = "avantiqo.local-wake.template.v1";
+const TEMPLATE_KEY = "avantiqo.local-wake.template.v2";
+const OLD_TEMPLATE_KEY = "avantiqo.local-wake.template.v1";
 const SPEECH_THRESHOLD = 0.028;
 const SILENCE_MS = 700;
 const MAX_SPEECH_MS = 5500;
-const API_TIMEOUT_MS = 12000;
+const API_TIMEOUT_MS = 15000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -60,11 +61,14 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const templateRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const audioElementRef = useRef(null);
+  const audioUrlRef = useRef(null);
 
   const [supported, setSupported] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [status, setStatus] = useState("off");
   const [enrollmentCount, setEnrollmentCount] = useState(0);
+  const [voiceError, setVoiceError] = useState("");
 
   const organizationId =
     businessContext?.organization_id || businessContext?.organization?.id || null;
@@ -80,8 +84,10 @@ export default function LocalHeyAvantiqoWakeBridge() {
     setSupported(canUse);
     if (!canUse) setStatus("unsupported");
 
+    window.localStorage.removeItem(OLD_TEMPLATE_KEY);
     try {
-      templateRef.current = JSON.parse(window.localStorage.getItem(TEMPLATE_KEY) || "null");
+      const stored = JSON.parse(window.localStorage.getItem(TEMPLATE_KEY) || "null");
+      templateRef.current = Number(stored?.version) === 2 ? stored : null;
     } catch {
       templateRef.current = null;
     }
@@ -97,11 +103,31 @@ export default function LocalHeyAvantiqoWakeBridge() {
     const handler = (event) => {
       const message = text(event?.detail?.message || event?.detail?.text);
       if (!message || !enabledRef.current) return;
-      speak(message).catch(() => setStatus("listening"));
+      speak(message).catch((error) => {
+        console.error("AVANTIQO_SPEAK_EVENT_ERROR", error);
+        setVoiceError(error?.message || "Voice playback failed");
+        setStatus("listening");
+      });
     };
     window.addEventListener("avantiqo:speak", handler);
     return () => window.removeEventListener("avantiqo:speak", handler);
   }, [organizationId, entityId]);
+
+  function cleanupAudio() {
+    const audio = audioElementRef.current;
+    audioElementRef.current = null;
+    if (audio) {
+      try {
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
+      } catch {}
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+  }
 
   function stopRecorder() {
     const recorder = recorderRef.current;
@@ -116,6 +142,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
     stopRecorder();
+    cleanupAudio();
     for (const track of streamRef.current?.getTracks?.() || []) track.stop();
     streamRef.current = null;
     const context = audioContextRef.current;
@@ -165,41 +192,82 @@ export default function LocalHeyAvantiqoWakeBridge() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ organizationId, entityId, text: message, locale: navigator.language || "en-US" }),
+      body: JSON.stringify({
+        organizationId,
+        entityId,
+        text: message,
+        locale: navigator.language || "en-US",
+      }),
     });
-    if (!response.ok) throw new Error("Voice response failed");
-    return response.arrayBuffer();
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result?.error || `Voice response failed (${response.status})`);
+    }
+    const blob = await response.blob();
+    if (!blob.size) throw new Error("Voice response returned empty audio");
+    return blob;
+  }
+
+  async function playSpeechBlob(blob) {
+    cleanupAudio();
+    const url = URL.createObjectURL(blob);
+    audioUrlRef.current = url;
+    const audio = new Audio();
+    audio.preload = "auto";
+    audio.playsInline = true;
+    audio.volume = 1;
+    audio.src = url;
+    audioElementRef.current = audio;
+
+    await new Promise((resolve, reject) => {
+      let started = false;
+      audio.onplaying = () => {
+        started = true;
+        setStatus("speaking");
+      };
+      audio.onended = resolve;
+      audio.onerror = () => reject(new Error("Safari could not play Avantiqo audio"));
+      const playPromise = audio.play();
+      if (playPromise?.catch) {
+        playPromise.catch((error) => reject(new Error(error?.message || "Audio playback was blocked")));
+      }
+      window.setTimeout(() => {
+        if (!started && audio.paused) reject(new Error("Audio playback did not start"));
+      }, 2500);
+    });
+    cleanupAudio();
   }
 
   async function speak(message) {
     if (!enabledRef.current || !text(message)) return;
     speakingRef.current = true;
-    setStatus("speaking");
+    setVoiceError("");
+    setStatus("preparing-speech");
     try {
-      const bytes = await fetchSpeech(message);
-      const context = audioContextRef.current;
-      if (!context) throw new Error("Audio context unavailable");
-      if (context.state === "suspended") await context.resume();
-      const decoded = await context.decodeAudioData(bytes.slice(0));
-      await new Promise((resolve) => {
-        const source = context.createBufferSource();
-        source.buffer = decoded;
-        source.connect(context.destination);
-        source.onended = resolve;
-        source.start();
-      });
+      const blob = await fetchSpeech(message);
+      await playSpeechBlob(blob);
+    } catch (error) {
+      console.error("AVANTIQO_VOICE_PLAYBACK_ERROR", error);
+      setVoiceError(error?.message || "Voice playback failed");
+      setStatus("voice-error");
+      throw error;
     } finally {
       speakingRef.current = false;
       inSpeechRef.current = false;
       featureFramesRef.current = [];
       lastSoundRef.current = Date.now();
-      if (enabledRef.current) setStatus("listening");
     }
   }
 
   async function acknowledge() {
     commandModeRef.current = false;
-    await speak("Yes?");
+    try {
+      await speak("Yes?");
+    } catch {
+      commandModeRef.current = false;
+      return;
+    }
+    if (!enabledRef.current) return;
     commandModeRef.current = true;
     setStatus("listening-command");
   }
@@ -240,16 +308,20 @@ export default function LocalHeyAvantiqoWakeBridge() {
       } catch (error) {
         console.error("AVANTIQO_COMMAND_TRANSCRIPTION_ERROR", error);
         commandModeRef.current = false;
+        setVoiceError(error?.message || "Voice transcription failed");
         setStatus("listening");
       }
     };
     recorder.stop();
   }
 
-  async function handleWakeCandidate(frames) {
+  async function handleWakeCandidate(frames, durationMs) {
     const template = templateRef.current;
     if (!template) {
-      enrollmentRef.current = [...enrollmentRef.current, frames];
+      enrollmentRef.current = [
+        ...enrollmentRef.current,
+        { frames, duration_ms: durationMs },
+      ];
       const count = enrollmentRef.current.length;
       setEnrollmentCount(count);
       if (count < 3) {
@@ -261,6 +333,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
       if (!learned) {
         enrollmentRef.current = [];
         setEnrollmentCount(0);
+        setVoiceError("Please say Hey Avantiqo three times at a similar speed.");
         setStatus("enrolling");
         return;
       }
@@ -270,11 +343,10 @@ export default function LocalHeyAvantiqoWakeBridge() {
       enrollmentRef.current = [];
       setEnrollmentCount(3);
       setStatus("listening");
-      await acknowledge();
       return;
     }
 
-    const match = scoreWakeCandidate(frames, template);
+    const match = scoreWakeCandidate(frames, template, durationMs);
     if (!match.matched) {
       setStatus("listening");
       return;
@@ -325,7 +397,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
         if (commandModeRef.current) {
           finishCommandRecorder();
         } else if (frames.length >= 5) {
-          handleWakeCandidate(frames).catch((error) => {
+          handleWakeCandidate(frames, duration).catch((error) => {
             console.error("LOCAL_WAKE_MATCH_ERROR", error);
             setStatus("listening");
           });
@@ -336,15 +408,30 @@ export default function LocalHeyAvantiqoWakeBridge() {
     frameRef.current = requestAnimationFrame(monitor);
   }
 
+  async function unlockAudio() {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    const context = audioContextRef.current || new AudioContextCtor();
+    audioContextRef.current = context;
+    if (context.state === "suspended") await context.resume();
+
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    gain.gain.value = 0.00001;
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.02);
+  }
+
   async function enableWake(persist = true) {
     if (!supported || enabledRef.current) return;
     try {
+      setVoiceError("");
+      await unlockAudio();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-      const context = new AudioContextCtor();
-      if (context.state === "suspended") await context.resume();
+      const context = audioContextRef.current;
       const source = context.createMediaStreamSource(stream);
       const analyser = context.createAnalyser();
       analyser.fftSize = 1024;
@@ -352,7 +439,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
       source.connect(analyser);
 
       streamRef.current = stream;
-      audioContextRef.current = context;
       analyserRef.current = analyser;
       enabledRef.current = true;
       setEnabled(true);
@@ -361,6 +447,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
       monitor();
     } catch (error) {
       console.error("LOCAL_WAKE_ENABLE_ERROR", error);
+      setVoiceError(error?.message || "Microphone/audio permission failed");
       setStatus("permission-error");
       window.localStorage.removeItem(ENABLED_KEY);
     }
@@ -378,6 +465,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     enrollmentRef.current = [];
     setEnrollmentCount(0);
     commandModeRef.current = false;
+    setVoiceError("");
     setStatus("enrolling");
   }
 
@@ -385,41 +473,56 @@ export default function LocalHeyAvantiqoWakeBridge() {
   if (!supported) label = "Voice wake unavailable";
   else if (status === "permission-error") label = "Microphone permission required";
   else if (status === "enrolling") label = `Say “Hey Avantiqo” · ${Math.min(enrollmentCount + 1, 3)}/3`;
+  else if (status === "preparing-speech") label = "Avantiqo · Preparing voice";
   else if (status === "speaking") label = "Avantiqo · Speaking";
+  else if (status === "voice-error") label = "Avantiqo · Voice error";
   else if (status === "listening-command") label = "Avantiqo · Listening";
   else if (status === "understanding") label = "Avantiqo · Understanding";
   else if (status === "waiting-answer") label = "Avantiqo · Working";
   else if (enabled) label = "Hey Avantiqo · Listening";
 
   return (
-    <div className="fixed bottom-6 right-6 z-[95] flex items-center gap-2">
-      {enabled && templateRef.current ? (
-        <button
-          type="button"
-          onClick={relearnWake}
-          className="rounded-full border border-white/10 bg-black/75 px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-white/45 backdrop-blur-xl hover:text-white/75"
-        >
-          Relearn
-        </button>
+    <div className="fixed bottom-6 right-6 z-[95] flex flex-col items-end gap-2">
+      {voiceError ? (
+        <div className="max-w-[360px] rounded-xl border border-red-400/20 bg-black/90 px-3 py-2 text-[10px] text-red-200/80 backdrop-blur-xl">
+          {voiceError}
+        </div>
       ) : null}
 
-      <button
-        type="button"
-        onClick={enabled ? disableWake : () => enableWake(true)}
-        disabled={!supported}
-        className={
-          enabled
-            ? "flex h-12 items-center gap-3 rounded-full border border-emerald-400/30 bg-[#07100B]/95 px-5 text-emerald-200 shadow-[0_20px_70px_rgba(0,0,0,.65)] backdrop-blur-2xl"
-            : "flex h-12 items-center gap-3 rounded-full border border-[#D6A66A]/35 bg-[#0A0A0A]/95 px-5 text-white shadow-[0_20px_70px_rgba(0,0,0,.65)] backdrop-blur-2xl"
-        }
-      >
-        {status === "understanding" || status === "waiting-answer" || status === "speaking" ? (
-          <Loader2 size={15} className="animate-spin" />
-        ) : (
-          <Mic size={15} />
-        )}
-        <span className="text-[11px] font-medium uppercase tracking-[0.13em]">{label}</span>
-      </button>
+      <div className="flex items-center gap-2">
+        {enabled && templateRef.current ? (
+          <button
+            type="button"
+            onClick={relearnWake}
+            className="rounded-full border border-white/10 bg-black/75 px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-white/45 backdrop-blur-xl hover:text-white/75"
+          >
+            Relearn
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={enabled ? disableWake : () => enableWake(true)}
+          disabled={!supported}
+          className={
+            enabled
+              ? "flex h-12 items-center gap-3 rounded-full border border-emerald-400/30 bg-[#07100B]/95 px-5 text-emerald-200 shadow-[0_20px_70px_rgba(0,0,0,.65)] backdrop-blur-2xl"
+              : "flex h-12 items-center gap-3 rounded-full border border-[#D6A66A]/35 bg-[#0A0A0A]/95 px-5 text-white shadow-[0_20px_70px_rgba(0,0,0,.65)] backdrop-blur-2xl"
+          }
+        >
+          {[
+            "understanding",
+            "waiting-answer",
+            "preparing-speech",
+            "speaking",
+          ].includes(status) ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : (
+            <Mic size={15} />
+          )}
+          <span className="text-[11px] font-medium uppercase tracking-[0.13em]">{label}</span>
+        </button>
+      </div>
     </div>
   );
 }

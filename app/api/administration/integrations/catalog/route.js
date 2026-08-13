@@ -47,6 +47,34 @@ function unavailableCapability(id, label, detail = null) {
   return { id, label, status: "NOT_AVAILABLE", detail };
 }
 
+function assignedMetaAssets(assets) {
+  const metaAssets = assets.filter((row) => row.channel_provider === "meta");
+  const facebookAssets = metaAssets.filter((row) => row.asset_type === "facebook_page");
+  const instagramAssets = metaAssets.filter((row) => row.asset_type === "instagram_business");
+
+  const instagramPageIds = new Set(
+    instagramAssets
+      .map((row) => clean(row?.metadata?.facebook_page_id))
+      .filter(Boolean),
+  );
+
+  const facebookPage =
+    facebookAssets.find((row) =>
+      clean(row?.metadata?.identity_connection_model) === "MANAGED_ASSET_ASSIGNMENT" ||
+      clean(row?.metadata?.managed_ad_account_id),
+    ) ||
+    facebookAssets.find((row) => instagramPageIds.has(clean(row.external_id))) ||
+    (facebookAssets.length === 1 ? facebookAssets[0] : null);
+
+  const instagramBusiness =
+    instagramAssets.find((row) =>
+      clean(row?.metadata?.facebook_page_id) === clean(facebookPage?.external_id),
+    ) ||
+    (instagramAssets.length === 1 ? instagramAssets[0] : null);
+
+  return { facebookPage, instagramBusiness };
+}
+
 function buildMetaStatus(integration, connections, assets, credentials) {
   const metaConnections = connections.filter((row) => row.provider === "meta" && isActive(row));
   const socialConnection =
@@ -54,12 +82,7 @@ function buildMetaStatus(integration, connections, assets, credentials) {
     metaConnections.find((row) => upper(row.channel_type) !== "ADVERTISING") ||
     null;
 
-  const facebookPage = assets.find(
-    (row) => row.channel_provider === "meta" && row.asset_type === "facebook_page",
-  ) || null;
-  const instagramBusiness = assets.find(
-    (row) => row.channel_provider === "meta" && row.asset_type === "instagram_business",
-  ) || null;
+  const { facebookPage, instagramBusiness } = assignedMetaAssets(assets);
 
   const socialCredential = socialConnection?.credentials_reference
     ? credentials.get(socialConnection.credentials_reference) || null
@@ -69,16 +92,27 @@ function buildMetaStatus(integration, connections, assets, credentials) {
       ? socialCredential.metadata
       : {};
 
+  const credentialMatchesFacebook =
+    Boolean(facebookPage) &&
+    clean(credentialMetadata.page_id) === clean(facebookPage.external_id);
+  const credentialMatchesInstagram =
+    !instagramBusiness ||
+    clean(credentialMetadata.instagram_business_id) === clean(instagramBusiness.external_id);
+
   const messagingCredentialReady =
     upper(socialCredential?.status) === "ACTIVE" &&
     socialCredential?.credential_type === "oauth_page_token" &&
     upper(credentialMetadata.purpose) === "ORGANIZATION_CHANNEL_PUBLISHING" &&
     credentialMetadata.messaging_webhook_subscribed === true &&
-    credentialMetadata.messaging_app_webhooks_configured === true;
+    credentialMetadata.messaging_app_webhooks_configured === true &&
+    credentialMatchesFacebook &&
+    credentialMatchesInstagram;
 
   const facebookReady = Boolean(socialConnection && facebookPage);
   const instagramReady = Boolean(socialConnection && instagramBusiness);
   const managedAdAccountId =
+    clean(facebookPage?.metadata?.managed_ad_account_id) ||
+    clean(instagramBusiness?.metadata?.managed_ad_account_id) ||
     clean(socialConnection?.metadata?.managed_ad_account_id) ||
     clean(metaConnections.find((row) => upper(row.channel_type) === "ADVERTISING")?.metadata?.managed_ad_account_id) ||
     null;
@@ -92,15 +126,15 @@ function buildMetaStatus(integration, connections, assets, credentials) {
       ? readyCapability("facebook-publishing", "Facebook Posts / Publishing", "Page publishing identity is available.")
       : setupCapability("facebook-publishing", "Facebook Posts / Publishing", "Facebook Page connection is required."),
     messagingCredentialReady && facebookReady
-      ? readyCapability("facebook-messenger", "Facebook Messenger", "Messenger webhook and reply credential are ready.")
-      : setupCapability("facebook-messenger", "Facebook Messenger", "Reconnect Meta once to enable messaging permissions and webhooks."),
+      ? readyCapability("facebook-messenger", "Facebook Messenger", "Messenger webhook and reply credential are ready for this Page.")
+      : setupCapability("facebook-messenger", "Facebook Messenger", "Reconnect Meta once to bind messaging to this organization's Facebook Page."),
     instagramReady
       ? readyCapability("instagram-publishing", "Instagram Posts / Reels", instagramBusiness.name || null)
       : unavailableCapability("instagram-publishing", "Instagram Posts / Reels", "No Instagram professional account is linked."),
     messagingCredentialReady && instagramReady
-      ? readyCapability("instagram-messaging", "Instagram Messaging", "Instagram professional-account messaging is ready.")
+      ? readyCapability("instagram-messaging", "Instagram Messaging", "Instagram messaging is ready for this professional account.")
       : instagramReady
-        ? setupCapability("instagram-messaging", "Instagram Messaging", "Reconnect Meta once to enable Instagram messaging permissions and webhooks.")
+        ? setupCapability("instagram-messaging", "Instagram Messaging", "Reconnect Meta once to bind messaging to this organization's Instagram account.")
         : unavailableCapability("instagram-messaging", "Instagram Messaging", "No Instagram professional account is linked."),
     adsReady
       ? readyCapability("meta-ads", "Meta Ads", managedAdAccountId)
@@ -130,9 +164,9 @@ function buildMetaStatus(integration, connections, assets, credentials) {
     state: needsMessagingSetup ? "SETUP_IN_PROGRESS" : "CONNECTED",
     label: needsMessagingSetup ? "Messaging setup required" : "Connected",
     detail: needsMessagingSetup
-      ? "Facebook and Instagram are connected, but messaging needs the current Meta permissions and webhook setup."
+      ? "Facebook, Instagram and Meta Ads are assigned, but messaging must be bound to this organization's exact Meta assets."
       : "Meta publishing, messaging and advertising capabilities are ready where configured.",
-    account: safeAccountLabel(socialConnection) || facebookPage?.name || instagramBusiness?.name || null,
+    account: facebookPage?.name || instagramBusiness?.name || safeAccountLabel(socialConnection) || null,
     action: needsMessagingSetup && integration.connectPath ? "CONNECT" : null,
     actionLabel: needsMessagingSetup ? "Reconnect Meta" : null,
     capabilities,

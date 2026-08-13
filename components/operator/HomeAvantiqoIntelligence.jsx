@@ -26,6 +26,16 @@ function greetingMessage() {
   );
 }
 
+function projectStatusLabel(value) {
+  const status = text(value).toLowerCase();
+  if (status === "awaiting_confirmation") return "Check the outcome";
+  if (status === "completed") return "Goal reached";
+  if (status === "blocked") return "Needs attention";
+  if (status === "discussing") return "Shaping the goal";
+  if (status === "cancelled") return "Cancelled";
+  return "In progress";
+}
+
 export default function HomeAvantiqoIntelligence({ organizationId: organizationIdProp }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -40,6 +50,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const [restoring, setRestoring] = useState(true);
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([greetingMessage()]);
+  const [projectState, setProjectState] = useState({});
 
   const organizationId =
     organizationIdProp ||
@@ -62,6 +73,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   useEffect(() => {
     if (!organizationId) {
       agreementStateRef.current = {};
+      setProjectState({});
       setMessages([greetingMessage()]);
       setRestoring(false);
       return undefined;
@@ -90,6 +102,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         }
 
         agreementStateRef.current = result?.agreement_state || {};
+        setProjectState(result?.project_state || {});
 
         const restored = Array.isArray(result?.turns)
           ? result.turns
@@ -109,6 +122,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         if (restoreError?.name === "AbortError") return;
         setError(restoreError?.message || "Avantiqo conversation restore failed");
         agreementStateRef.current = {};
+        setProjectState({});
         setMessages([greetingMessage()]);
       } finally {
         if (!controller.signal.aborted) {
@@ -184,6 +198,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         result?.agreement_state ||
         decision?.agreement_state ||
         agreementStateRef.current;
+      setProjectState(result?.project_state || decision?.project_state || {});
 
       setMessages((current) => [
         ...current,
@@ -255,6 +270,27 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       </div>
 
       <div className="mt-6 flex-1 space-y-3 overflow-y-auto pr-1">
+        {text(projectState?.objective) ? (
+          <div className="rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]/75">
+                Current goal
+              </div>
+              <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-white/45">
+                {projectStatusLabel(projectState?.status)}
+              </div>
+            </div>
+            <div className="mt-2 text-sm font-light leading-6 text-white/80">
+              {projectState.objective}
+            </div>
+            {text(projectState?.progress_summary || projectState?.next_step) ? (
+              <div className="mt-2 text-xs leading-5 text-white/45">
+                {projectState.progress_summary || `Next: ${projectState.next_step}`}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {restoring ? (
           <div className="mr-16 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-3 text-xs text-white/45">
             <Loader2 size={14} className="animate-spin text-[#D6A66A]" />

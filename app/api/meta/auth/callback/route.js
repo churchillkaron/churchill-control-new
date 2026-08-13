@@ -23,6 +23,15 @@ function graphVersion() {
   return configured.startsWith("v") ? configured : `v${configured}`;
 }
 
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function clean(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
+
 function messagingWebhookVerifyToken() {
   const configured = String(
     process.env.META_MESSAGING_WEBHOOK_VERIFY_TOKEN || ""
@@ -145,6 +154,64 @@ async function subscribePageMessaging(page) {
   return true;
 }
 
+function assignedFacebookAsset(assets) {
+  const facebookAssets = assets.filter((asset) => asset.asset_type === "facebook_page");
+  const instagramPageIds = new Set(
+    assets
+      .filter((asset) => asset.asset_type === "instagram_business")
+      .map((asset) => clean(asset?.metadata?.facebook_page_id))
+      .filter(Boolean),
+  );
+
+  return (
+    facebookAssets.find((asset) =>
+      clean(asset?.metadata?.identity_connection_model) === "MANAGED_ASSET_ASSIGNMENT" ||
+      clean(asset?.metadata?.managed_ad_account_id),
+    ) ||
+    facebookAssets.find((asset) => instagramPageIds.has(clean(asset.external_id))) ||
+    (facebookAssets.length === 1 ? facebookAssets[0] : null)
+  );
+}
+
+function resolvePrimaryMessagingPage({ messagingPages, existingAssets, existingConnection }) {
+  const assignedAsset = assignedFacebookAsset(existingAssets);
+  const existingFacebookAssets = existingAssets.filter(
+    (asset) => asset.asset_type === "facebook_page",
+  );
+
+  const preferredPageId =
+    clean(assignedAsset?.external_id) ||
+    (existingFacebookAssets.length === 0
+      ? clean(existingConnection?.metadata?.page_id)
+      : null);
+
+  if (preferredPageId) {
+    const matchedPage = messagingPages.find(
+      (page) => clean(page?.id) === preferredPageId,
+    );
+    if (!matchedPage) {
+      throw new Error(
+        "The Facebook Page assigned to this organization was not included in the Meta authorization. Reconnect and keep that Page selected.",
+      );
+    }
+    return { page: matchedPage, existingFacebookAsset: assignedAsset };
+  }
+
+  if (existingFacebookAssets.length > 1) {
+    throw new Error(
+      "Multiple Facebook Pages are already linked to this organization and no primary Page is assigned.",
+    );
+  }
+
+  if (messagingPages.length === 1) {
+    return { page: messagingPages[0], existingFacebookAsset: null };
+  }
+
+  throw new Error(
+    "Multiple Facebook Pages are available. Assign the organization's primary Facebook Page before reconnecting Meta.",
+  );
+}
+
 export async function GET(request) {
   const requestUrl = new URL(request.url);
   const origin = request.cookies.get("meta_oauth_origin")?.value || requestUrl.origin;
@@ -163,6 +230,17 @@ export async function GET(request) {
     if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
       throw new Error("Meta application credentials are not configured");
     }
+
+    const existingConnection = await ChannelConnectionRuntime.get({
+      organization_id: organizationId,
+      provider: "meta",
+    });
+    const existingAssets = existingConnection?.id
+      ? await ChannelAssetRuntime.list({
+          organization_id: organizationId,
+          connection_id: existingConnection.id,
+        })
+      : [];
 
     const callbackUrl = `${origin}/api/meta/auth/callback`;
     const tokenUrl = new URL(
@@ -203,12 +281,25 @@ export async function GET(request) {
       throw new Error("No Facebook Page with the MESSAGING task was available");
     }
 
-    for (const page of messagingPages) {
-      await subscribePageMessaging(page);
-    }
+    const { page: primaryPage, existingFacebookAsset } =
+      resolvePrimaryMessagingPage({
+        messagingPages,
+        existingAssets,
+        existingConnection,
+      });
 
-    const primaryPage = messagingPages[0];
+    await subscribePageMessaging(primaryPage);
+
     const primaryInstagramId = primaryPage.instagram_business_account?.id || null;
+    const existingInstagramAsset = existingAssets.find(
+      (asset) =>
+        asset.asset_type === "instagram_business" &&
+        (
+          clean(asset.external_id) === clean(primaryInstagramId) ||
+          clean(asset?.metadata?.facebook_page_id) === clean(primaryPage.id)
+        ),
+    ) || null;
+
     const credential = await CredentialRuntime.store({
       provider_id: "meta",
       credential_type: "oauth_page_token",
@@ -233,15 +324,19 @@ export async function GET(request) {
       },
     });
 
+    const existingConnectionMetadata = object(existingConnection?.metadata);
     const connection = await ChannelConnectionRuntime.connect({
       organization_id: organizationId,
       provider: "meta",
       channel_type: "social",
       credentials_reference: credential.id,
       metadata: {
+        ...existingConnectionMetadata,
         page_id: primaryPage.id,
         page_name: primaryPage.name,
         instagram_business_id: primaryInstagramId,
+        instagram_username:
+          primaryPage.instagram_business_account?.username || null,
         messaging_webhook_subscribed: true,
         messaging_app_webhooks_configured: true,
         messaging_app_webhook_configuration: webhookConfiguration,
@@ -262,45 +357,51 @@ export async function GET(request) {
             ? page.tasks.includes("MESSAGING")
             : null,
         })),
-        advertising_billing_model: "AVANTIQO_MANAGED",
+        advertising_billing_model:
+          existingConnectionMetadata.advertising_billing_model || "AVANTIQO_MANAGED",
       },
     });
 
-    for (const page of messagingPages) {
+    await ChannelAssetRuntime.register({
+      organization_id: organizationId,
+      connection_id: connection.id,
+      provider: "meta",
+      asset_type: "facebook_page",
+      external_id: primaryPage.id,
+      name: primaryPage.name,
+      entity_id: existingFacebookAsset?.entity_id || null,
+      selected_by_party_id: existingFacebookAsset?.selected_by_party_id || null,
+      selected_at: existingFacebookAsset?.selected_at || null,
+      metadata: {
+        ...object(existingFacebookAsset?.metadata),
+        instagram_business_id: primaryInstagramId,
+        instagram_username:
+          primaryPage.instagram_business_account?.username || null,
+        messaging_webhook_subscribed: true,
+        messaging_app_webhooks_configured: true,
+      },
+    });
+
+    if (primaryInstagramId) {
       await ChannelAssetRuntime.register({
         organization_id: organizationId,
         connection_id: connection.id,
         provider: "meta",
-        asset_type: "facebook_page",
-        external_id: page.id,
-        name: page.name,
+        asset_type: "instagram_business",
+        external_id: primaryInstagramId,
+        name:
+          primaryPage.instagram_business_account?.username ||
+          `${primaryPage.name} Instagram`,
+        entity_id: existingInstagramAsset?.entity_id || null,
+        selected_by_party_id: existingInstagramAsset?.selected_by_party_id || null,
+        selected_at: existingInstagramAsset?.selected_at || null,
         metadata: {
-          instagram_business_id:
-            page.instagram_business_account?.id || null,
-          instagram_username:
-            page.instagram_business_account?.username || null,
+          ...object(existingInstagramAsset?.metadata),
+          facebook_page_id: primaryPage.id,
           messaging_webhook_subscribed: true,
           messaging_app_webhooks_configured: true,
         },
       });
-
-      if (page.instagram_business_account?.id) {
-        await ChannelAssetRuntime.register({
-          organization_id: organizationId,
-          connection_id: connection.id,
-          provider: "meta",
-          asset_type: "instagram_business",
-          external_id: page.instagram_business_account.id,
-          name:
-            page.instagram_business_account.username ||
-            `${page.name} Instagram`,
-          metadata: {
-            facebook_page_id: page.id,
-            messaging_webhook_subscribed: true,
-            messaging_app_webhooks_configured: true,
-          },
-        });
-      }
     }
 
     const response = NextResponse.redirect(

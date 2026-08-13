@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { getFinanceWorkspaceContract } from "@/lib/finance/workspaces/FinanceWorkspaceContracts";
+import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import {
   decorateFinanceWorkspaceRows,
   normalizeFinanceWorkspacePayload,
@@ -152,6 +153,12 @@ async function resolveWriteContext(request, params) {
     };
   }
 
+  await requireFinanceWorkspacePermission({
+    capabilityId,
+    operation: "write",
+    access,
+  });
+
   const requestedEntityId = body.entity_id || body.entityId || null;
   const entityId = await resolveScopedEntity({
     contract,
@@ -189,9 +196,11 @@ async function readTable({ table, contract, organizationId, entityId }) {
 
 function failureResponse(error, fallback) {
   const message = error?.message || fallback;
-  const status = /required|not found|read-only|valid JSON|duplicate|unique|already exists|must be|not supported|greater than|no editable fields|does not support archive/i.test(message)
-    ? 400
-    : 500;
+  const status = /permission denied/i.test(message)
+    ? 403
+    : /required|not found|read-only|valid JSON|duplicate|unique|already exists|must be|not supported|greater than|no editable fields|does not support archive/i.test(message)
+      ? 400
+      : 500;
 
   return NextResponse.json({ success: false, error: message }, { status });
 }
@@ -220,6 +229,12 @@ export async function GET(request, { params }) {
         { status: access.status }
       );
     }
+
+    await requireFinanceWorkspacePermission({
+      capabilityId,
+      operation: "read",
+      access,
+    });
 
     const entityId = await resolveScopedEntity({
       contract,

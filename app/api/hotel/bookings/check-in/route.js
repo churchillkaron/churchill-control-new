@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  HotelBookingTransitionError,
+  transitionHotelBooking,
+} from "@/lib/hotel/server/transitionHotelBooking";
 
 export const dynamic = "force-dynamic";
 
@@ -31,39 +35,20 @@ export async function POST(request) {
     });
 
     if (!access.success) return errorResponse(access.error, access.status);
-    if (existing.status === "CHECKED_OUT") {
-      return errorResponse("Checked-out booking cannot be checked in", 409);
-    }
 
-    const { data: booking, error: bookingError } = await supabaseAdmin
-      .from("hotel_bookings")
-      .update({
-        status: "CHECKED_IN",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", bookingId)
-      .eq("organization_id", access.organizationId)
-      .select()
-      .single();
-
-    if (bookingError) throw bookingError;
-
-    if (existing.room_id) {
-      const { error: roomError } = await supabaseAdmin
-        .from("hotel_rooms")
-        .update({
-          status: "OCCUPIED",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.room_id)
-        .eq("organization_id", access.organizationId);
-
-      if (roomError) throw roomError;
-    }
+    const booking = await transitionHotelBooking({
+      supabase: supabaseAdmin,
+      organizationId: access.organizationId,
+      bookingId,
+      action: "CHECK_IN",
+    });
 
     return NextResponse.json({ success: true, booking });
   } catch (error) {
     console.error("HOTEL_BOOKING_CHECK_IN_ERROR", error);
-    return errorResponse(error?.message || "Check-in failed");
+    return errorResponse(
+      error?.message || "Check-in failed",
+      error instanceof HotelBookingTransitionError ? error.status : 500
+    );
   }
 }

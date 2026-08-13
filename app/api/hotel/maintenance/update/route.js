@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  HotelMaintenanceTransitionError,
+  transitionHotelMaintenanceTask,
+} from "@/lib/hotel/server/transitionHotelMaintenanceTask";
 
 export const dynamic = "force-dynamic";
-
-const ALLOWED_STATUSES = new Set(["PENDING", "IN_PROGRESS", "COMPLETED"]);
 
 function errorResponse(error, status = 500) {
   return NextResponse.json({ success: false, error }, { status });
@@ -15,16 +17,13 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const taskId = String(body.taskId || body.task_id || "").trim();
-    const status = String(body.status || "").trim().toUpperCase();
+    const action = String(body.action || "").trim().toUpperCase();
 
     if (!taskId) return errorResponse("taskId required", 400);
-    if (!ALLOWED_STATUSES.has(status)) {
-      return errorResponse("Invalid maintenance status", 400);
-    }
 
     const { data: existing, error: existingError } = await supabaseAdmin
       .from("hotel_maintenance_tasks")
-      .select("id,organization_id,status")
+      .select("id,organization_id")
       .eq("id", taskId)
       .maybeSingle();
 
@@ -40,19 +39,12 @@ export async function POST(request) {
       return errorResponse(access.error, access.status);
     }
 
-    const { data: task, error: taskError } = await supabaseAdmin
-      .from("hotel_maintenance_tasks")
-      .update({
-        status,
-        completed_at: status === "COMPLETED" ? new Date().toISOString() : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", taskId)
-      .eq("organization_id", access.organizationId)
-      .select()
-      .single();
-
-    if (taskError) throw taskError;
+    const task = await transitionHotelMaintenanceTask({
+      supabase: supabaseAdmin,
+      organizationId: access.organizationId,
+      taskId,
+      action,
+    });
 
     return NextResponse.json({
       success: true,
@@ -61,6 +53,9 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("HOTEL_MAINTENANCE_UPDATE_ERROR", error);
-    return errorResponse(error?.message || "Maintenance update failed");
+    return errorResponse(
+      error?.message || "Maintenance update failed",
+      error instanceof HotelMaintenanceTransitionError ? error.status : 500
+    );
   }
 }

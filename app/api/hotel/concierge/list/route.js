@@ -40,7 +40,9 @@ export async function GET(request) {
       .eq("organization_id", access.organizationId)
       .order("created_at", { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     return NextResponse.json({
       success: true,

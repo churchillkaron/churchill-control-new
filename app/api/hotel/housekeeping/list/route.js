@@ -47,7 +47,7 @@ export async function GET(request) {
     if (roomIds.length > 0) {
       const { data: rooms, error: roomsError } = await supabaseAdmin
         .from("hotel_rooms")
-        .select("id,room_number,room_type")
+        .select("id,room_number,room_type,status")
         .eq("organization_id", access.organizationId)
         .in("id", roomIds);
 

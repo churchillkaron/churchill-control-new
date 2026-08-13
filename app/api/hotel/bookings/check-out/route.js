@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  HotelBookingTransitionError,
+  transitionHotelBooking,
+} from "@/lib/hotel/server/transitionHotelBooking";
 
 export const dynamic = "force-dynamic";
 
@@ -40,48 +44,19 @@ export async function POST(request) {
       });
     }
 
-    const { data: booking, error: bookingError } = await supabaseAdmin
-      .from("hotel_bookings")
-      .update({
-        status: "CHECKED_OUT",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", bookingId)
-      .eq("organization_id", access.organizationId)
-      .select()
-      .single();
-
-    if (bookingError) throw bookingError;
-
-    if (existing.room_id) {
-      const { error: roomError } = await supabaseAdmin
-        .from("hotel_rooms")
-        .update({
-          status: "DIRTY",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.room_id)
-        .eq("organization_id", access.organizationId);
-
-      if (roomError) throw roomError;
-
-      const { error: taskError } = await supabaseAdmin
-        .from("hotel_housekeeping_tasks")
-        .insert({
-          organization_id: access.organizationId,
-          room_id: existing.room_id,
-          task_status: "PENDING",
-          priority: "NORMAL",
-          task_date: new Date().toISOString().slice(0, 10),
-          notes: "Post-checkout cleaning",
-        });
-
-      if (taskError) throw taskError;
-    }
+    const booking = await transitionHotelBooking({
+      supabase: supabaseAdmin,
+      organizationId: access.organizationId,
+      bookingId,
+      action: "CHECK_OUT",
+    });
 
     return NextResponse.json({ success: true, booking });
   } catch (error) {
     console.error("HOTEL_BOOKING_CHECK_OUT_ERROR", error);
-    return errorResponse(error?.message || "Check-out failed");
+    return errorResponse(
+      error?.message || "Check-out failed",
+      error instanceof HotelBookingTransitionError ? error.status : 500
+    );
   }
 }

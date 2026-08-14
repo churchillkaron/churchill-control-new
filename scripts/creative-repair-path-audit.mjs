@@ -209,6 +209,44 @@ async function repairWithEmbeddedRoleDecisionsLands() {
   );
 }
 
+// 5. A tribunal repair that breaks the contract must be rejected, not adopted.
+//    The repaired plan used to replace the working plan before being validated, so a
+//    repair that broke the contract threw out of the loop and destroyed a case whose
+//    plan had been valid a moment earlier. One benchmark case was lost to a single
+//    SELECTED_ASSET_UNACCOUNTED introduced by the repair itself.
+function invalidRepairIsRejectedNotAdopted() {
+  const fs = require_fs();
+  const source = fs.readFileSync(
+    "lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js",
+    "utf8",
+  );
+
+  // The merged candidate must be validated before `plan` is reassigned. If `plan =`
+  // appears before the assertion inside the repair loop, a bad repair is adopted.
+  const loopStart = source.indexOf("while (!tribunal.verdict.passed");
+  const loopBody = source.slice(loopStart, source.indexOf("if (!tribunal.verdict.passed", loopStart));
+  const candidateIndex = loopBody.indexOf("mergeCreativeRepairedPlan(plan, repair.output)");
+  const assertIndex = loopBody.indexOf("assertCreativeMasterPlan(");
+  const adoptIndex = loopBody.indexOf("plan = candidate");
+
+  check(
+    "repair is merged into a candidate, not straight onto plan",
+    candidateIndex >= 0 && loopBody.includes("const candidate ="),
+  );
+  check(
+    "candidate is validated before it is adopted",
+    assertIndex >= 0 && adoptIndex >= 0 && assertIndex < adoptIndex,
+  );
+  check(
+    "a failing repair continues instead of throwing out of the loop",
+    loopBody.includes("continue;") && loopBody.includes("rejectedRepairs.push"),
+  );
+}
+
+function require_fs() {
+  return globalThis.__auditFs;
+}
+
 // 3. A repaired list entry must revise, never erase.
 function skeletonEntryDoesNotEraseDeliverable() {
   const base = planBody();
@@ -284,6 +322,7 @@ async function runtimeModulesReferenceOnlyRealIdentifiers() {
 }
 
 async function main() {
+  globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
   console.log("CREATIVE REPAIR PATH AUDIT");
   console.log("============================================================");
@@ -294,6 +333,7 @@ async function main() {
   await repairWithEmbeddedRoleDecisionsLands();
   skeletonEntryDoesNotEraseDeliverable();
   await runtimeModulesReferenceOnlyRealIdentifiers();
+  invalidRepairIsRejectedNotAdopted();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

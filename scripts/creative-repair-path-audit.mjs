@@ -981,6 +981,83 @@ async function temporalRepairFixesANestedShotField() {
   check("the shot's own direction survives", Boolean(shot.title) && Boolean(shot.camera?.framing));
 }
 
+// 17. Scene shot planning must run concurrently and still come back in scene order. Each scene is
+//     planned independently -- shotPlanPrompt receives the base plan, its own scene and the output
+//     spec, and never sees another scene's shots -- so running fifteen of them one after another for
+//     a 205 second master bought nothing and cost most of the fifty minutes a single film took to
+//     produce direction, with no media generated at all.
+//
+//     Concurrency is only safe if order survives it, because scene order is the film.
+async function sceneShotPlanningRunsConcurrentlyInOrder() {
+  const { CreativeTemporalMasterPlanRuntime } = await import(
+    "@/lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime"
+  );
+  const transport = await import(
+    "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const sceneCount = 6;
+  transport.resetTransport();
+  transport.queueResponse(fixture.temporalBasePlan());
+  transport.queueResponse({
+    scenes: Array.from({ length: sceneCount }, (_, index) => ({
+      ...fixture.temporalScene(`scene-${index + 1}`),
+      duration_seconds: 5,
+      // Distinct objectives: the validator requires each scene to advance a different one.
+      objective: `Scene ${index + 1} advances a distinct and specific story objective for this film.`,
+    })),
+  });
+  for (let index = 1; index <= sceneCount; index += 1) {
+    const shot = fixture.temporalShot(`scene-${index}-shot-1`);
+    shot.duration_seconds = 5;
+    // Generated output duration must match the directed shot duration.
+    shot.generation.output_spec.duration_seconds = 5;
+    transport.queueResponse({ shots: [shot] });
+  }
+  for (let index = 0; index < 3; index += 1) transport.queueResponse({});
+
+  let plan = null;
+  let failure = "";
+  try {
+    const result = await CreativeTemporalMasterPlanRuntime.create({
+      organization_id: ORGANIZATION,
+      mission: { id: "m1" },
+      project: {
+        id: "p1", production_type: "VIDEO", objective: "concurrency audit",
+        target_duration: 30,
+        metadata: { creative_quality_policy: fixture.TEMPORAL_QUALITY },
+      },
+      brief: { id: "b1", duration_seconds: 30 },
+      assets: [{ id: "a1", asset_type: "video", file_name: "clip.mov" }],
+    });
+    plan = result.plan;
+  } catch (error) {
+    failure = String(error?.message || error).slice(0, 160);
+  }
+
+  check("a multi-scene film plans successfully", Boolean(plan), failure);
+  if (!plan) return;
+
+  const ids = (plan.scenes || []).map((scene) => scene.id);
+  const expected = Array.from({ length: sceneCount }, (_, index) => `scene-${index + 1}`);
+  check(
+    "scene order survives concurrent planning",
+    JSON.stringify(ids) === JSON.stringify(expected),
+    ids.join(","),
+  );
+  check(
+    "every scene received its shots",
+    (plan.scenes || []).every((scene) => (scene.shots || []).length > 0),
+  );
+  check(
+    "one shot call per scene, no duplicates from the waves",
+    transport.recordedCalls().filter(
+      (entry) => entry.operation === "TEMPORAL_SCENE_SHOT_DIRECTION_V1",
+    ).length === sceneCount,
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1005,6 +1082,7 @@ async function main() {
   await oneFailedSceneDoesNotLoseTheFilm();
   await requestIsScopedToTheOperativeWorkflow();
   await temporalRepairFixesANestedShotField();
+  await sceneShotPlanningRunsConcurrentlyInOrder();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

@@ -10,8 +10,8 @@ import {
 import {
   loadIntelligenceConversationSnapshot,
   loadOrCreateIntelligenceConversation,
+  persistAssistantTurnAndConversationState,
   persistIntelligenceTurn,
-  updateIntelligenceConversationState,
 } from "@/lib/operator/runtime/IntelligenceConversationRuntime";
 import {
   mergeOperatorProjectState,
@@ -268,9 +268,6 @@ export async function POST(request) {
         agreementState,
         projectState: memory.projectState,
         conversation,
-        // Required by registry-generated capabilities: they call the same internal
-        // APIs the UI calls and forward this request's cookie, so a read runs with
-        // the caller's own session. Without it those capabilities cannot execute.
         callerRequest: request,
       }),
       persistIntelligenceTurn({
@@ -300,26 +297,20 @@ export async function POST(request) {
       result,
     );
 
-    const [, persistedState] = await Promise.all([
-      persistIntelligenceTurn({
-        organizationId: businessContext.organizationId,
-        conversationId: memory.conversation.id,
-        partyId,
-        role: "assistant",
-        source,
-        content: responseText,
-        decision: object(result?.decision),
-        evidence: object(result?.provider_evidence),
-        execution: object(result?.execution),
-        navigation: object(result?.navigation),
-      }),
-      updateIntelligenceConversationState({
-        organizationId: businessContext.organizationId,
-        conversationId: memory.conversation.id,
-        agreementState: nextAgreementState,
-        projectState: nextProjectState,
-      }),
-    ]);
+    const persisted = await persistAssistantTurnAndConversationState({
+      organizationId: businessContext.organizationId,
+      conversationId: memory.conversation.id,
+      partyId,
+      source,
+      content: responseText,
+      decision: object(result?.decision),
+      evidence: object(result?.provider_evidence),
+      execution: object(result?.execution),
+      navigation: object(result?.navigation),
+      agreementState: nextAgreementState,
+      projectState: nextProjectState,
+    });
+    const persistedState = object(persisted.conversation);
 
     return Response.json({
       ...result,

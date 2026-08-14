@@ -27,6 +27,35 @@ function authorized() {
     .includes(AUTHORIZATION_MARKER);
 }
 
+function structuralFailureReport({ captured, execution, caseErrors }) {
+  return {
+    contract: "CREATIVE_WORLD_CLASS_BENCHMARK_V1",
+    passed: false,
+    evaluated_at: new Date().toISOString(),
+    score: null,
+    cases: captured.map((entry) => ({
+      id: entry.id,
+      label: entry.label,
+      status: "COMPLETED",
+    })),
+    case_errors: caseErrors,
+    failures: caseErrors.map(
+      (entry) => `${entry.id}:STRUCTURAL_FAILURE:${entry.error}`,
+    ),
+    benchmark_provider_calls_executed: true,
+    benchmark_provider_spend_approved: true,
+    publication_executed: false,
+    execution: {
+      reasoning_provider_calls_executed: true,
+      media_generation_executed: false,
+      publication_executed: false,
+      production_graph_created: false,
+      production_task_created: false,
+      cases: execution,
+    },
+  };
+}
+
 async function main() {
   console.log("============================================================");
   console.log("AVANTIQO CREATIVE LIVE WORLD-CLASS PROOF");
@@ -53,97 +82,95 @@ async function main() {
 
   const captured = [];
   const execution = [];
-
-  const caseFailures = [];
+  const caseErrors = [];
 
   for (const benchmarkCase of CREATIVE_WORLD_CLASS_BENCHMARK_CASES) {
     console.log(`BENCHMARK_CASE_START=${benchmarkCase.id}`);
 
-    // A case the tribunal rejects, or that fails mid-pipeline, is a result worth
-    // recording. Previously the first such case threw and aborted the whole run,
-    // so every later case went unscored and one weak case hid the state of the
-    // rest. Cases are now isolated and the benchmark always reports on all of them.
-    let result;
+    // A case that fails is a result worth recording. The first such case used to
+    // throw and abort the whole run, so every later case went unscored and one weak
+    // case hid the state of the rest. Cases are isolated and every one is reported.
+    //
+    // A structural failure is kept distinct from a poor score. Scoring a run where
+    // cases never produced a plan would report OVERALL_SCORE=0 as though it were a
+    // quality verdict, when the pipeline simply broke, so caseErrors routes to a
+    // structural failure report instead of through evaluate().
     try {
-      result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(benchmarkCase);
-    } catch (error) {
-      const message = String(error?.message || error);
-      const rejection = message.match(/REJECTED:([\d.]+):([\d.]+)/);
-
-      caseFailures.push({ id: benchmarkCase.id, error: message });
-      // An empty plan is the honest representation of a case that never produced
-      // one: the scorer reads it, awards nothing, and the case counts against the
-      // benchmark. Omitting the case entirely would trip the "all cases required"
-      // guard in evaluate() and abort exactly the run we are trying to complete.
-      captured.push({
+      const result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(
+        benchmarkCase,
+      );
+      captured.push(result.case_result);
+      execution.push({
         id: benchmarkCase.id,
-        label: benchmarkCase.label,
-        benchmark: benchmarkCase.benchmark,
-        master_plan: { plan: {} },
-        failure: message.slice(0, 300),
+        status: "COMPLETED",
+        ...result.execution,
+      });
+      console.log(
+        `BENCHMARK_CASE_RESULT=${benchmarkCase.id}|score=${result.score.score}|passed=${
+          result.score.passed ? "YES" : "NO"
+        }|workflow=${result.score.workflow_kind || "UNKNOWN"}`,
+      );
+    } catch (error) {
+      const message = error?.message || String(error);
+      caseErrors.push({
+        id: benchmarkCase.id,
+        error: message,
       });
       execution.push({
         id: benchmarkCase.id,
-        failed: true,
+        status: "STRUCTURAL_FAILURE",
         error: message,
-        // The validator attaches every failure with its path; keeping it here means
-        // a failed run can be diagnosed from the report instead of paying for
-        // another full set of reasoning calls just to see which field was rejected.
+        // The validators attach every failure with the path that produced it.
+        // Keeping that here means a failed run is diagnosable from the report
+        // instead of paying for another full set of reasoning calls just to see
+        // which field was rejected.
         validation_failures: Array.isArray(error?.validation?.failures)
           ? error.validation.failures
           : null,
+        reasoning_provider_calls_executed: true,
+        media_generation_executed: false,
+        publication_executed: false,
+        production_graph_created: false,
+        production_task_created: false,
       });
-
-      console.log(
-        `BENCHMARK_CASE_RESULT=${benchmarkCase.id}|score=${
-          rejection ? rejection[1] : "0"
-        }|passed=NO|reason=${message.slice(0, 280)}`,
+      console.error(
+        `BENCHMARK_CASE_ERROR=${benchmarkCase.id}|${message}`,
       );
-      continue;
     }
+  }
 
-    captured.push(result.case_result);
-    execution.push({
-      id: benchmarkCase.id,
-      ...result.execution,
+  let report;
+  if (caseErrors.length) {
+    report = structuralFailureReport({
+      captured,
+      execution,
+      caseErrors,
     });
-    console.log(
-      `BENCHMARK_CASE_RESULT=${benchmarkCase.id}|score=${result.score.score}|passed=${
-        result.score.passed ? "YES" : "NO"
-      }|workflow=${result.score.workflow_kind || "UNKNOWN"}`,
+  } else {
+    const benchmark = CreativeWorldClassLiveBenchmarkRuntime.evaluate(
+      captured,
+      CREATIVE_WORLD_CLASS_BENCHMARK_CASES,
     );
+    report = {
+      ...benchmark,
+      execution: {
+        reasoning_provider_calls_executed: true,
+        media_generation_executed: false,
+        publication_executed: false,
+        production_graph_created: false,
+        production_task_created: false,
+        cases: execution,
+      },
+    };
   }
-
-  if (caseFailures.length) {
-    console.log(`BENCHMARK_CASES_FAILED=${caseFailures.length}`);
-    for (const failure of caseFailures) {
-      console.log(
-        `BENCHMARK_CASE_FAILURE=${failure.id}|${failure.error.slice(0, 500)}`,
-      );
-    }
-  }
-
-  const benchmark = CreativeWorldClassLiveBenchmarkRuntime.evaluate(
-    captured,
-    CREATIVE_WORLD_CLASS_BENCHMARK_CASES,
-  );
-  const report = {
-    ...benchmark,
-    execution: {
-      reasoning_provider_calls_executed: true,
-      media_generation_executed: false,
-      publication_executed: false,
-      production_graph_created: false,
-      production_task_created: false,
-      cases: execution,
-    },
-  };
 
   fs.writeFileSync(OUTPUT, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
   console.log(`CONTRACT=${report.contract}`);
-  console.log(`CASE_COUNT=${report.cases.length}`);
-  console.log(`OVERALL_SCORE=${report.score}`);
+  console.log(`CASE_COUNT=${CREATIVE_WORLD_CLASS_BENCHMARK_CASES.length}`);
+  console.log(`COMPLETED_CASE_COUNT=${captured.length}`);
+  console.log(`STRUCTURAL_ERROR_COUNT=${caseErrors.length}`);
+  console.log(`OVERALL_SCORE=${report.score ?? "NOT_EVALUATED"}`);
   console.log(`PASSED=${report.passed ? "YES" : "NO"}`);
   console.log(`REPORT=${OUTPUT}`);
   console.log("MEDIA_GENERATION_EXECUTED=NO");
@@ -151,14 +178,18 @@ async function main() {
   console.log("PRODUCTION_GRAPH_CREATED=NO");
   console.log("PRODUCTION_TASK_CREATED=NO");
 
-  for (const entry of report.cases) {
+  for (const entry of report.cases || []) {
+    if (entry.score == null) continue;
     console.log(
       `CASE=${entry.id}|score=${entry.score}|passed=${
         entry.passed ? "YES" : "NO"
       }|workflow=${entry.workflow_kind || "UNKNOWN"}`,
     );
   }
-  for (const failure of report.failures) {
+  for (const entry of caseErrors) {
+    console.log(`CASE_ERROR=${entry.id}|${entry.error}`);
+  }
+  for (const failure of report.failures || []) {
     console.log(`FAILURE=${failure}`);
   }
 

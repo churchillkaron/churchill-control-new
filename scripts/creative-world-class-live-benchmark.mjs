@@ -19,6 +19,10 @@ const OUTPUT = path.resolve(
   process.env.CREATIVE_WORLD_CLASS_LIVE_BENCHMARK_OUTPUT ||
     "/tmp/creative-world-class-live-benchmark.json",
 );
+const DIRECTION_OUTPUT = path.resolve(
+  process.env.CREATIVE_WORLD_CLASS_LIVE_BENCHMARK_DIRECTION_OUTPUT ||
+    OUTPUT.replace(/\.json$/, "") + "-direction.json",
+);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -107,6 +111,7 @@ async function main() {
   const captured = [];
   const execution = [];
   const caseErrors = [];
+  const rejectedDirections = [];
 
   for (const benchmarkCase of CREATIVE_WORLD_CLASS_BENCHMARK_CASES) {
     console.log(`BENCHMARK_CASE_START=${benchmarkCase.id}`);
@@ -139,6 +144,15 @@ async function main() {
       caseErrors.push({
         id: benchmarkCase.id,
         error: message,
+      });
+      // The rejected direction is kept where the runtime attaches it, so a failed case still
+      // leaves behind the work it produced rather than only the reason it was refused.
+      rejectedDirections.push({
+        id: benchmarkCase.id,
+        label: benchmarkCase.label,
+        status: "REJECTED",
+        error: message,
+        plan: error?.repaired_plan || error?.rejected_master?.plan || null,
       });
       execution.push({
         id: benchmarkCase.id,
@@ -189,6 +203,26 @@ async function main() {
   }
 
   fs.writeFileSync(OUTPUT, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+
+  // The report keeps scores, metrics and a direction_hash -- a hash of the work rather than the work.
+  // Every concept, story, scene architecture and shot plan these runs produce was being discarded at
+  // the end of the run, so a day of paid reasoning left behind numbers and no readable direction. The
+  // creative output is written alongside the report so it can actually be read, reviewed and reused.
+  //
+  // Rejected cases are written too. A plan refused for contract completeness still contains real
+  // story and shot work, and that work is worth reading even when the case did not pass.
+  const directions = {
+    contract: "CREATIVE_WORLD_CLASS_BENCHMARK_DIRECTION_V1",
+    produced_at: new Date().toISOString(),
+    accepted: captured.map((entry) => ({
+      id: entry.id,
+      label: entry.label,
+      plan: entry.master_plan?.plan || null,
+    })),
+    rejected: rejectedDirections,
+  };
+  fs.writeFileSync(DIRECTION_OUTPUT, `${JSON.stringify(directions, null, 2)}\n`, "utf8");
+  console.log(`DIRECTION_OUTPUT=${DIRECTION_OUTPUT}`);
 
   console.log(`CONTRACT=${report.contract}`);
   console.log(`CASE_COUNT=${CREATIVE_WORLD_CLASS_BENCHMARK_CASES.length}`);

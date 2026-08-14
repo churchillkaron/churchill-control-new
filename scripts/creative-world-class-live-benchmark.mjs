@@ -97,7 +97,7 @@ async function main() {
       console.log(
         `BENCHMARK_CASE_RESULT=${benchmarkCase.id}|score=${
           rejection ? rejection[1] : "0"
-        }|passed=NO|reason=${message.slice(0, 90)}`,
+        }|passed=NO|reason=${message.slice(0, 280)}`,
       );
       continue;
     }

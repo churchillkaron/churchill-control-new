@@ -796,6 +796,76 @@ async function panelCountViolationIsReplannedOnce() {
   );
 }
 
+// 14. One failed scene must not lose the film. A film is one shot call per scene, so a 205 second
+//     master is around fifteen calls after the base plan and architecture. A single unparseable
+//     response or empty shots array used to throw and discard every completed scene with it -- the
+//     most expensive failure in the studio, and the one that killed both Cole films at different
+//     points.
+async function oneFailedSceneDoesNotLoseTheFilm() {
+  const { CreativeTemporalMasterPlanRuntime } = await import(
+    "@/lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime"
+  );
+  const transport = await import(
+    "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  async function attempt(shotResponses) {
+    transport.resetTransport();
+    transport.queueResponse(fixture.temporalBasePlan());
+    transport.queueResponse({ scenes: [fixture.temporalScene("scene-1")] });
+    for (const response of shotResponses) transport.queueResponse(response);
+    for (let index = 0; index < 3; index += 1) transport.queueResponse({});
+
+    let succeeded = false;
+    try {
+      await CreativeTemporalMasterPlanRuntime.create({
+        organization_id: ORGANIZATION,
+        mission: { id: "m1" },
+        project: {
+          id: "p1", production_type: "VIDEO", objective: "scene retry audit",
+          target_duration: 30,
+          metadata: { creative_quality_policy: fixture.TEMPORAL_QUALITY },
+        },
+        brief: { id: "b1", duration_seconds: 30 },
+        assets: [{ id: "a1", asset_type: "video", file_name: "clip.mov" }],
+      });
+      succeeded = true;
+    } catch {
+      succeeded = false;
+    }
+    return {
+      succeeded,
+      shotCalls: transport.recordedCalls().filter(
+        (entry) => entry.operation === "TEMPORAL_SCENE_SHOT_DIRECTION_V1",
+      ).length,
+    };
+  }
+
+  const good = fixture.temporalShot("scene-1-shot-1");
+
+  const recovered = await attempt([{ shots: [] }, { shots: [good] }]);
+  check(
+    "a scene that fails once is retried and the film survives",
+    recovered.succeeded && recovered.shotCalls === 2,
+    `succeeded=${recovered.succeeded} shot calls=${recovered.shotCalls}`,
+  );
+
+  const clean = await attempt([{ shots: [good] }]);
+  check(
+    "a scene that succeeds first time is not retried",
+    clean.succeeded && clean.shotCalls === 1,
+    `shot calls=${clean.shotCalls}`,
+  );
+
+  const persistent = await attempt([{ shots: [] }, { shots: [] }]);
+  check(
+    "a scene that fails twice still fails closed",
+    !persistent.succeeded && persistent.shotCalls === 2,
+    `succeeded=${persistent.succeeded} shot calls=${persistent.shotCalls}`,
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -817,6 +887,7 @@ async function main() {
   shotCallBudgetScalesWithShots();
   await genericLanguagePatternsAreFairAndDisclosed();
   await panelCountViolationIsReplannedOnce();
+  await oneFailedSceneDoesNotLoseTheFilm();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

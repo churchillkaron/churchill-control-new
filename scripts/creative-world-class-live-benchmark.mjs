@@ -27,6 +27,35 @@ function authorized() {
     .includes(AUTHORIZATION_MARKER);
 }
 
+function structuralFailureReport({ captured, execution, caseErrors }) {
+  return {
+    contract: "CREATIVE_WORLD_CLASS_BENCHMARK_V1",
+    passed: false,
+    evaluated_at: new Date().toISOString(),
+    score: null,
+    cases: captured.map((entry) => ({
+      id: entry.id,
+      label: entry.label,
+      status: "COMPLETED",
+    })),
+    case_errors: caseErrors,
+    failures: caseErrors.map(
+      (entry) => `${entry.id}:STRUCTURAL_FAILURE:${entry.error}`,
+    ),
+    benchmark_provider_calls_executed: true,
+    benchmark_provider_spend_approved: true,
+    publication_executed: false,
+    execution: {
+      reasoning_provider_calls_executed: true,
+      media_generation_executed: false,
+      publication_executed: false,
+      production_graph_created: false,
+      production_task_created: false,
+      cases: execution,
+    },
+  };
+}
+
 async function main() {
   console.log("============================================================");
   console.log("AVANTIQO CREATIVE LIVE WORLD-CLASS PROOF");
@@ -53,45 +82,80 @@ async function main() {
 
   const captured = [];
   const execution = [];
+  const caseErrors = [];
 
   for (const benchmarkCase of CREATIVE_WORLD_CLASS_BENCHMARK_CASES) {
     console.log(`BENCHMARK_CASE_START=${benchmarkCase.id}`);
-    const result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(
-      benchmarkCase,
-    );
-    captured.push(result.case_result);
-    execution.push({
-      id: benchmarkCase.id,
-      ...result.execution,
-    });
-    console.log(
-      `BENCHMARK_CASE_RESULT=${benchmarkCase.id}|score=${result.score.score}|passed=${
-        result.score.passed ? "YES" : "NO"
-      }|workflow=${result.score.workflow_kind || "UNKNOWN"}`,
-    );
+
+    try {
+      const result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(
+        benchmarkCase,
+      );
+      captured.push(result.case_result);
+      execution.push({
+        id: benchmarkCase.id,
+        status: "COMPLETED",
+        ...result.execution,
+      });
+      console.log(
+        `BENCHMARK_CASE_RESULT=${benchmarkCase.id}|score=${result.score.score}|passed=${
+          result.score.passed ? "YES" : "NO"
+        }|workflow=${result.score.workflow_kind || "UNKNOWN"}`,
+      );
+    } catch (error) {
+      const message = error?.message || String(error);
+      caseErrors.push({
+        id: benchmarkCase.id,
+        error: message,
+      });
+      execution.push({
+        id: benchmarkCase.id,
+        status: "STRUCTURAL_FAILURE",
+        error: message,
+        reasoning_provider_calls_executed: true,
+        media_generation_executed: false,
+        publication_executed: false,
+        production_graph_created: false,
+        production_task_created: false,
+      });
+      console.error(
+        `BENCHMARK_CASE_ERROR=${benchmarkCase.id}|${message}`,
+      );
+    }
   }
 
-  const benchmark = CreativeWorldClassLiveBenchmarkRuntime.evaluate(
-    captured,
-    CREATIVE_WORLD_CLASS_BENCHMARK_CASES,
-  );
-  const report = {
-    ...benchmark,
-    execution: {
-      reasoning_provider_calls_executed: true,
-      media_generation_executed: false,
-      publication_executed: false,
-      production_graph_created: false,
-      production_task_created: false,
-      cases: execution,
-    },
-  };
+  let report;
+  if (caseErrors.length) {
+    report = structuralFailureReport({
+      captured,
+      execution,
+      caseErrors,
+    });
+  } else {
+    const benchmark = CreativeWorldClassLiveBenchmarkRuntime.evaluate(
+      captured,
+      CREATIVE_WORLD_CLASS_BENCHMARK_CASES,
+    );
+    report = {
+      ...benchmark,
+      execution: {
+        reasoning_provider_calls_executed: true,
+        media_generation_executed: false,
+        publication_executed: false,
+        production_graph_created: false,
+        production_task_created: false,
+        cases: execution,
+      },
+    };
+  }
 
   fs.writeFileSync(OUTPUT, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
   console.log(`CONTRACT=${report.contract}`);
-  console.log(`CASE_COUNT=${report.cases.length}`);
-  console.log(`OVERALL_SCORE=${report.score}`);
+  console.log(`CASE_COUNT=${CREATIVE_WORLD_CLASS_BENCHMARK_CASES.length}`);
+  console.log(`COMPLETED_CASE_COUNT=${captured.length}`);
+  console.log(`STRUCTURAL_ERROR_COUNT=${caseErrors.length}`);
+  console.log(`OVERALL_SCORE=${report.score ?? "NOT_EVALUATED"}`);
   console.log(`PASSED=${report.passed ? "YES" : "NO"}`);
   console.log(`REPORT=${OUTPUT}`);
   console.log("MEDIA_GENERATION_EXECUTED=NO");
@@ -99,14 +163,18 @@ async function main() {
   console.log("PRODUCTION_GRAPH_CREATED=NO");
   console.log("PRODUCTION_TASK_CREATED=NO");
 
-  for (const entry of report.cases) {
+  for (const entry of report.cases || []) {
+    if (entry.score == null) continue;
     console.log(
       `CASE=${entry.id}|score=${entry.score}|passed=${
         entry.passed ? "YES" : "NO"
       }|workflow=${entry.workflow_kind || "UNKNOWN"}`,
     );
   }
-  for (const failure of report.failures) {
+  for (const entry of caseErrors) {
+    console.log(`CASE_ERROR=${entry.id}|${entry.error}`);
+  }
+  for (const failure of report.failures || []) {
     console.log(`FAILURE=${failure}`);
   }
 

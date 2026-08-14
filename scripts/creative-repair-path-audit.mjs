@@ -916,6 +916,71 @@ async function requestIsScopedToTheOperativeWorkflow() {
   );
 }
 
+// 16. The temporal repair must be able to fix a field nested inside a shot. This is the mechanism
+//     both Cole films now depend on: their remaining failures are shot-level completeness --
+//     SHOT_OUTPUT_SPEC_REQUIRED, SHOT_GENERATION_REQUIRED_FLAG_INVALID,
+//     SHOT_SAFETY_AND_REPAIR_DETAIL_REQUIRED -- against a contract of around forty fields per shot.
+//
+//     Checking the prompt first showed it already names every field the validator requires, so the
+//     answer is not more instruction text. It is whether a repair returning one nested field lands
+//     without flattening the shot around it, which needs the identity-matched array merge to work
+//     three levels deep: scenes by id, shots by id, then the field itself.
+async function temporalRepairFixesANestedShotField() {
+  const { CreativeTemporalMasterPlanRuntime } = await import(
+    "@/lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime"
+  );
+  const transport = await import(
+    "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const broken = fixture.temporalShot("scene-1-shot-1");
+  delete broken.generation.output_spec.resolution;
+
+  transport.resetTransport();
+  transport.queueResponse(fixture.temporalBasePlan());
+  transport.queueResponse({ scenes: [fixture.temporalScene("scene-1")] });
+  transport.queueResponse({ shots: [broken] });
+  transport.queueResponse({
+    scenes: [{
+      id: "scene-1",
+      shots: [{ id: "scene-1-shot-1", generation: { output_spec: { resolution: "1920x1080" } } }],
+    }],
+  });
+  transport.queueResponse({});
+
+  let plan = null;
+  let failure = "";
+  try {
+    const result = await CreativeTemporalMasterPlanRuntime.create({
+      organization_id: ORGANIZATION,
+      mission: { id: "m1" },
+      project: {
+        id: "p1", production_type: "VIDEO", objective: "nested shot repair audit",
+        target_duration: 30,
+        metadata: { creative_quality_policy: fixture.TEMPORAL_QUALITY },
+      },
+      brief: { id: "b1", duration_seconds: 30 },
+      assets: [{ id: "a1", asset_type: "video", file_name: "clip.mov" }],
+    });
+    plan = result.plan;
+  } catch (error) {
+    failure = String(error?.message || error).slice(0, 200);
+  }
+
+  check("a repair reaching into a shot lands", Boolean(plan), failure);
+  if (!plan) return;
+
+  const shot = plan.scenes?.[0]?.shots?.[0] || {};
+  check(
+    "the repaired field is present",
+    shot.generation?.output_spec?.resolution === "1920x1080",
+  );
+  // The point of merging rather than replacing: everything the repair did not mention survives.
+  check("sibling output_spec fields survive", shot.generation?.output_spec?.width === 1920);
+  check("the shot's own direction survives", Boolean(shot.title) && Boolean(shot.camera?.framing));
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -939,6 +1004,7 @@ async function main() {
   await panelCountViolationIsReplannedOnce();
   await oneFailedSceneDoesNotLoseTheFilm();
   await requestIsScopedToTheOperativeWorkflow();
+  await temporalRepairFixesANestedShotField();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

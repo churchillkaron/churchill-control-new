@@ -78,14 +78,35 @@ const REQUIRED_SCHEMA = Object.freeze({
   creative_missions: ["id", "status"],
 });
 
+// Env being present is not the same as the database being reachable. CI sets
+// NEXT_PUBLIC_SUPABASE_URL to a local address that no runner can connect to, so this
+// guard passed and the unhandled fetch crashed the whole audit -- and because the
+// audit sits inside the prebuild chain, everything after it stopped running too,
+// including the repair-path guard directly behind it. A build was red for a reason
+// that had nothing to do with the build.
+//
+// A database this audit cannot reach is not evidence of a schema problem. It is
+// recorded as a skip, exactly as absent env is. What still fails hard is the database
+// answering and reporting a column or table the pipeline needs as absent, which is the
+// thing this check exists to catch.
 if (!url || !key) {
   notes.push("SCHEMA_CHECK_SKIPPED: supabase env not available in this context");
 } else {
   for (const [table, columns] of Object.entries(REQUIRED_SCHEMA)) {
-    const response = await fetch(
-      `${url}/rest/v1/${table}?select=${columns.join(",")}&limit=0`,
-      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
-    );
+    let response;
+    try {
+      response = await fetch(
+        `${url}/rest/v1/${table}?select=${columns.join(",")}&limit=0`,
+        { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+      );
+    } catch (error) {
+      notes.push(
+        `SCHEMA_CHECK_SKIPPED: database unreachable at ${url} (${
+          error?.cause?.code || error?.code || "FETCH_FAILED"
+        })`,
+      );
+      break;
+    }
 
     if (response.ok) continue;
 

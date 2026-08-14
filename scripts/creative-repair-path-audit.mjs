@@ -648,6 +648,66 @@ function shotCallBudgetScalesWithShots() {
   );
 }
 
+// 12. The clichés the benchmark penalises must be named to the director, and must not catch honest
+//     craft language. The contract asked it to "identify the most likely advertising clichés and
+//     design against them" while the benchmark judged against a private list of fourteen -- the
+//     same gap that had rejected_patterns supplying three when full marks needed four. Two of those
+//     patterns also caught exact craft description: "journey" matched audience and customer
+//     journey, and an unanchored "where .* meets .*" matched any sentence with where before meets.
+async function genericLanguagePatternsAreFairAndDisclosed() {
+  const fs = globalThis.__auditFs;
+  const { CREATIVE_GENERIC_LANGUAGE_PATTERNS } = await import(
+    "@/lib/creative/quality/runtime/CreativeWorldClassBenchmarkRuntime"
+  );
+  const contract = fs.readFileSync(
+    "lib/creative/director/registry/CreativeMasterPlanContractRegistry.js",
+    "utf8",
+  );
+
+  const hits = (value) =>
+    CREATIVE_GENERIC_LANGUAGE_PATTERNS.filter(
+      (entry) => (value.toLowerCase().match(entry.pattern) || []).length,
+    ).map((entry) => entry.id);
+
+  check(
+    "the penalised clichés are disclosed in the contract",
+    /elevate your/i.test(contract) && /cutting-edge/i.test(contract),
+    "the director is judged against a list it is never shown",
+  );
+
+  // Craft and strategy language must not be scored as advertising filler.
+  for (const honest of [
+    "the audience journey from doorway to table",
+    "customer journey mapping informs the sequence",
+    "a shot list where camera movement meets the beat of the track",
+    "framing where the bar rail meets the window light",
+  ]) {
+    const fired = hits(honest);
+    check(
+      `craft language is not penalised: "${honest.slice(0, 44)}"`,
+      fired.length === 0,
+      fired.join(","),
+    );
+  }
+
+  // Real clichés must still be caught, including every inflection of redefine, which the original
+  // pattern could not match in its commonest form.
+  for (const cliche of [
+    "Where luxury meets convenience.",
+    "elevate your evening",
+    "begin your journey with us",
+    "redefining the sports bar",
+    "redefines the category",
+    "cutting-edge sound design",
+  ]) {
+    check(
+      `cliché is caught: "${cliche.slice(0, 40)}"`,
+      hits(cliche).length > 0,
+      "advertising filler scoring as acceptable direction",
+    );
+  }
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -667,6 +727,7 @@ async function main() {
   await temporalContractIsSatisfiable();
   await directionSurvivesIntoProviderInstruction();
   shotCallBudgetScalesWithShots();
+  await genericLanguagePatternsAreFairAndDisclosed();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

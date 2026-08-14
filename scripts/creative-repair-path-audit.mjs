@@ -386,6 +386,41 @@ async function temporalPathRepairsBeforeFailing() {
   );
 }
 
+// 7. Every director runtime that parses its output as JSON must request JSON mode.
+//    The temporal runtime did not, while the master plan runtime and the tribunal both
+//    did, so the model was free to answer in prose or fenced markdown and the call failed
+//    with TEMPORAL_SCENE_SHOT_DIRECTION_V1_JSON_REQUIRED. A film was lost to an output
+//    format that was never asked for.
+//
+//    audit:openai-json-mode could not catch this: it unit-tests the JSON mode helper and
+//    never inspects whether callers pass response_format at all.
+function reasoningCallsRequestJsonMode() {
+  const fs = globalThis.__auditFs;
+  const runtimes = [
+    "lib/creative/director/runtime/CreativeMasterPlanRuntime.js",
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js",
+  ];
+
+  for (const file of runtimes) {
+    const source = fs.readFileSync(file, "utf8");
+    const callsReasoning = source.includes('service_id: "ai.reasoning.execute"');
+    if (!callsReasoning) continue;
+
+    // Structured output schemas are a stricter form of the same guarantee, so either
+    // satisfies the requirement.
+    const requestsJson =
+      source.includes('response_format: { type: "json_object" }') ||
+      source.includes('type: "json_schema"');
+
+    check(
+      `requests JSON mode: ${file.split("/").pop()}`,
+      requestsJson,
+      "parses output as JSON without asking for it",
+    );
+  }
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -400,6 +435,7 @@ async function main() {
   await runtimeModulesReferenceOnlyRealIdentifiers();
   invalidRepairIsRejectedNotAdopted();
   await temporalPathRepairsBeforeFailing();
+  reasoningCallsRequestJsonMode();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

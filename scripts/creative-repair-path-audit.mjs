@@ -602,6 +602,52 @@ async function directionSurvivesIntoProviderInstruction() {
   }
 }
 
+// 11. The shot call's token budget must scale with the shots it asks for. It was a flat 15,000
+//     against a contract requiring around forty fields per shot and a request for up to eight,
+//     and the showreel died on OPENAI_TEXT_RESPONSE_NOT_COMPLETE:max_output_tokens. Scene count
+//     and shot count interact, so the same film needs different budgets depending on how the
+//     architecture step divided it -- which is exactly what a flat ceiling cannot express.
+function shotCallBudgetScalesWithShots() {
+  const fs = globalThis.__auditFs;
+  const source = fs.readFileSync(
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "utf8",
+  );
+
+  check(
+    "shot call budget is computed, not a flat literal",
+    source.includes("shotCallTokenBudget(shotRange)"),
+    "a flat ceiling cannot fit both a three-shot and an eight-shot scene",
+  );
+
+  // The whole function body is re-derived, not just its return expression, so a change to how
+  // the budget is computed surfaces here rather than silently evaluating against a stale copy.
+  // An earlier version of this check captured only the return line and threw on the local it
+  // referenced.
+  const budget = /function shotCallTokenBudget\(range = \{\}\) \{([\s\S]*?)\n\}/.exec(source);
+  check("shot call budget function is present", Boolean(budget));
+  if (!budget) return;
+
+  const compute = new Function("range", budget[1]);
+  const small = compute({ maximum: 3 });
+  const large = compute({ maximum: 8 });
+
+  check(
+    "a larger shot request receives a larger budget",
+    large > small,
+    `3 shots=${small}, 8 shots=${large}`,
+  );
+  check(
+    "an eight-shot scene is budgeted above the old flat ceiling",
+    large > 15000,
+    `8 shots=${large}`,
+  );
+  check(
+    "the budget stays bounded",
+    compute({ maximum: 999 }) <= 32000,
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -620,6 +666,7 @@ async function main() {
   contractStandardMatchesScoring();
   await temporalContractIsSatisfiable();
   await directionSurvivesIntoProviderInstruction();
+  shotCallBudgetScalesWithShots();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

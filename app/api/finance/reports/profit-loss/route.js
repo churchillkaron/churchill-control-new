@@ -20,8 +20,8 @@ function accessError(context) {
   );
 }
 
-async function execute(source) {
-  const context = await resolveReportRequestContext(source);
+async function execute(source, request) {
+  const context = await resolveReportRequestContext(source, { request });
 
   if (!context.success) {
     return accessError(context);
@@ -41,7 +41,8 @@ async function execute(source) {
 export async function GET(request) {
   try {
     return await execute(
-      new URL(request.url).searchParams
+      new URL(request.url).searchParams,
+      request
     );
   } catch (error) {
     return NextResponse.json(
@@ -56,7 +57,8 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    return await execute(await request.json());
+    const body = await request.json();
+    return await execute(body, request);
   } catch (error) {
     return NextResponse.json(
       {

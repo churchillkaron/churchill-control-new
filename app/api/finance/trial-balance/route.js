@@ -11,7 +11,8 @@ import {
 export async function GET(request) {
   try {
     const context = await resolveReportRequestContext(
-      new URL(request.url).searchParams
+      new URL(request.url).searchParams,
+      { request }
     );
 
     if (!context.success) {

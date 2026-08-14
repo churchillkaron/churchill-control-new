@@ -468,6 +468,62 @@ function contractStandardMatchesScoring() {
   }
 }
 
+// 9. The temporal contract must be satisfiable. Every film observed had failed somewhere
+//    earlier in the pipeline, so it was never established that a valid temporal plan is
+//    reachable at all -- an unsatisfiable contract and a badly behaved model look identical
+//    from the outside. This drives a fully specified plan through the real runtime and
+//    requires it to pass with no repair needed.
+async function temporalContractIsSatisfiable() {
+  const { CreativeTemporalMasterPlanRuntime } = await import(
+    "@/lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime"
+  );
+  const transport = await import(
+    "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  transport.resetTransport();
+  transport.queueResponse(fixture.temporalBasePlan());
+  transport.queueResponse({ scenes: [fixture.temporalScene("scene-1")] });
+  transport.queueResponse({ shots: [fixture.temporalShot("scene-1-shot-1")] });
+
+  let result = null;
+  let failure = "";
+  try {
+    result = await CreativeTemporalMasterPlanRuntime.create({
+      organization_id: ORGANIZATION,
+      mission: { id: "m1" },
+      project: {
+        id: "p1",
+        production_type: "VIDEO",
+        objective: "temporal contract satisfiability",
+        target_duration: 30,
+        metadata: { creative_quality_policy: fixture.TEMPORAL_QUALITY },
+      },
+      brief: { id: "b1", duration_seconds: 30 },
+      assets: [{ id: "a1", asset_type: "video", file_name: "clip.mov" }],
+    });
+  } catch (error) {
+    failure = String(error?.message || error).slice(0, 260);
+  }
+
+  check("temporal contract is satisfiable", Boolean(result), failure);
+  if (!result) return;
+
+  check(
+    "temporal plan carries scenes and shots",
+    (result.plan.scenes || []).length > 0 &&
+      (result.plan.scenes[0].shots || []).length > 0,
+  );
+  // Needing a repair here would mean the fixture no longer matches the contract, which is
+  // the drift this check exists to surface.
+  check(
+    "a fully specified temporal plan needs no repair",
+    (result.contract_repair?.attempts ?? 0) === 0,
+    `attempts=${result.contract_repair?.attempts}`,
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -484,6 +540,7 @@ async function main() {
   await temporalPathRepairsBeforeFailing();
   reasoningCallsRequestJsonMode();
   contractStandardMatchesScoring();
+  await temporalContractIsSatisfiable();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

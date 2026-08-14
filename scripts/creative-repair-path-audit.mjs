@@ -524,6 +524,84 @@ async function temporalContractIsSatisfiable() {
   );
 }
 
+// 10. Direction must survive from the plan, through the production graph, into the
+//     instruction the provider actually receives. This is where the studio's output happens
+//     and nothing in the build covered it. The identity lock had already been found missing
+//     at the serializer -- the binding that preserves a real person's face, absent while the
+//     instruction claimed identities were preserved -- so the chain needs a standing guard
+//     rather than a one-off check.
+//
+//     buildProductionGraph is a pure function with no provider and no database, so this
+//     costs nothing to run.
+async function directionSurvivesIntoProviderInstruction() {
+  const { buildProductionGraph } = await import(
+    "@/lib/creative/production-graph/planner/ProductionGraphPlanner"
+  );
+  const { serializeCreativeProviderInstruction } = await import(
+    "@/lib/creative/execution/runtime/CreativeProviderInstructionSerializer"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const plan = fixture.temporalBasePlan();
+  plan.story_lineage = {
+    story_contract_hash: "a".repeat(16),
+    master_plan_hash: "b".repeat(16),
+  };
+  const scene = fixture.temporalScene("scene-1");
+  const shot = fixture.temporalShot("scene-1-shot-1");
+  shot.generation.identity_lock = {
+    profile_id: "identity-1",
+    preserve_exactly: "facial geometry, skin tone, age, hairline, body proportions",
+    minimum_identity_score: 90,
+  };
+  plan.scenes = [{ ...scene, shots: [shot] }];
+
+  let graph = null;
+  let failure = "";
+  try {
+    graph = buildProductionGraph({
+      organization_id: ORGANIZATION,
+      creative_project_id: "p1",
+      storyboard: { id: "sb1", title: "Audit", synopsis: "Audit synopsis" },
+      scenes: [scene],
+      shots: [{ ...shot, scene_id: "scene-1" }],
+      creative_plan: plan,
+    });
+  } catch (error) {
+    failure = String(error?.message || error).slice(0, 200);
+  }
+
+  check("production graph builds from a valid plan", Boolean(graph), failure);
+  if (!graph) return;
+
+  const generationNodes = (graph.nodes || []).filter(
+    (node) => node.generation?.required === true || node.generation?.capability,
+  );
+  check("graph contains a generation node", generationNodes.length > 0);
+  if (!generationNodes.length) return;
+
+  const node = generationNodes[0];
+  const instruction = serializeCreativeProviderInstruction(node);
+
+  // Anything present in the node and absent from the instruction is direction lost between
+  // planning and execution, which is invisible until it shows up in a finished frame.
+  for (const probe of [
+    "identity_lock",
+    "camera",
+    "lighting",
+    "action",
+    "negative_constraints",
+    "primary_source",
+  ]) {
+    if (!JSON.stringify(node).includes(probe)) continue;
+    check(
+      `direction reaches the provider: ${probe}`,
+      instruction.includes(probe),
+      "present in the graph node and absent from the instruction",
+    );
+  }
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -541,6 +619,7 @@ async function main() {
   reasoningCallsRequestJsonMode();
   contractStandardMatchesScoring();
   await temporalContractIsSatisfiable();
+  await directionSurvivesIntoProviderInstruction();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

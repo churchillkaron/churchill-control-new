@@ -421,6 +421,53 @@ function reasoningCallsRequestJsonMode() {
   }
 }
 
+// 8. What the contract asks for must match what the benchmark rewards. The scorer awards
+//    25 points per substantive entry for rejected_patterns, craft_risks and
+//    finishing_requirements, so full marks need four. The contract asked for "at least
+//    three" and the gate fails below three, so the director supplied exactly three -- the
+//    stated minimum -- and lost 25 points on each of two dimensions for a fourth entry
+//    nothing had ever requested. Two cases scored 79.95 and 80.99 with three dimensions
+//    pinned at exactly 75, which is what a discrete count-based band looks like.
+function contractStandardMatchesScoring() {
+  const fs = globalThis.__auditFs;
+  const scorer = fs.readFileSync(
+    "lib/creative/quality/runtime/CreativeWorldClassBenchmarkRuntime.js",
+    "utf8",
+  );
+  const contract = fs.readFileSync(
+    "lib/creative/director/registry/CreativeMasterPlanContractRegistry.js",
+    "utf8",
+  );
+
+  // The multiplier is read from the scorer so a change there surfaces here rather than
+  // silently reopening the gap.
+  const multipliers = [
+    ...scorer.matchAll(/substantive\(review\.(\w+), 20\)\.length \* (\d+)/g),
+  ].map((match) => ({ field: match[1], multiplier: Number(match[2]) }));
+
+  check(
+    "scorer exposes count-based multipliers for the review lists",
+    multipliers.length >= 3,
+    `found ${multipliers.length}`,
+  );
+
+  for (const { field, multiplier } of multipliers) {
+    const fullMarks = Math.ceil(100 / multiplier);
+    const description = new RegExp(`${field}:\\s*\n?\\s*"([^"]+)"`).exec(contract);
+    const text = description ? description[1] : "";
+
+    // A contract that names a smaller number than full marks requires is the mismatch.
+    const statesFullMarks = /four or more/i.test(text) && fullMarks <= 4;
+    const statesLess = /at least three|at least two/i.test(text);
+
+    check(
+      `contract asks for what full marks require: ${field} (needs ${fullMarks})`,
+      statesFullMarks && !statesLess,
+      text.slice(0, 70),
+    );
+  }
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -436,6 +483,7 @@ async function main() {
   invalidRepairIsRejectedNotAdopted();
   await temporalPathRepairsBeforeFailing();
   reasoningCallsRequestJsonMode();
+  contractStandardMatchesScoring();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

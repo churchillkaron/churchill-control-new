@@ -664,10 +664,51 @@ async function genericLanguagePatternsAreFairAndDisclosed() {
     "utf8",
   );
 
+  const { genericLanguageHits, scoreCreativeWorldClassBenchmarkCase } = await import(
+    "@/lib/creative/quality/runtime/CreativeWorldClassBenchmarkRuntime"
+  );
+
   const hits = (value) =>
     CREATIVE_GENERIC_LANGUAGE_PATTERNS.filter(
       (entry) => (value.toLowerCase().match(entry.pattern) || []).length,
     ).map((entry) => entry.id);
+
+  // The penalty in the score must be computed from this same list. Testing the exported list alone is
+  // what let a stale inline copy survive inside genericLanguagePenalty: the list was narrowed, the
+  // diagnostic reported the narrowed result, and the score went on using the broad originals.
+  // churchill-audio-package exposed it by reporting a penalty of 35 alongside hits worth 21.
+  const probePlan = {
+    workflow_kind: "AUDIO",
+    concept: {
+      title: "t",
+      creative_thesis: "seamless transitions, seamless mix, seamless handoff",
+      narrative: "the audience journey from door to table",
+      creative_system: "framing where the bar rail meets the window light",
+      hook: "h", message: "m", emotional_promise: "e", call_to_action: "c",
+    },
+    creative_review: {
+      passed: true, overall_score: 95, dimensions: {},
+      rejected_patterns: [], craft_risks: [], finishing_requirements: [],
+      selected_direction_reason: "r",
+    },
+    deliverables: [], production: {},
+  };
+  const reportedHits = genericLanguageHits(probePlan)
+    .reduce((sum, entry) => sum + entry.count, 0);
+  const scoredPenalty = scoreCreativeWorldClassBenchmarkCase({
+    id: "probe", label: "probe", benchmark: {}, master_plan: { plan: probePlan },
+  }).metrics.generic_language_penalty;
+
+  check(
+    "the scored penalty is computed from the disclosed list",
+    scoredPenalty === Math.min(35, reportedHits * 7),
+    `hits=${reportedHits} expected=${Math.min(35, reportedHits * 7)} scored=${scoredPenalty}`,
+  );
+  check(
+    "craft language contributes nothing to the scored penalty",
+    scoredPenalty === 21,
+    `three cliché uses should score 21, got ${scoredPenalty}`,
+  );
 
   check(
     "the penalised clichés are disclosed in the contract",

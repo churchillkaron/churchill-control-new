@@ -708,6 +708,94 @@ async function genericLanguagePatternsAreFairAndDisclosed() {
   }
 }
 
+// 13. A panel one reviewer over the bound must not lose the case. food-editorial returned seven
+//     reviewers against a maximum of six and was thrown away at
+//     CREATIVE_TRIBUNAL_REVIEWER_COUNT_INVALID:7 -- after its plan had been built and scored, for a
+//     violation the planner can simply be told about. The panel is one cheap call next to the six
+//     reviews that follow it.
+//
+//     Trimming the list here was the alternative and was rejected: dropping a discipline the
+//     planner judged necessary would also make unanimity easier to reach, and that is not a change
+//     to make silently while trying to pass a benchmark.
+async function panelCountViolationIsReplannedOnce() {
+  const { CreativeDynamicTribunalRuntime } = await import(
+    "@/lib/creative/director/runtime/CreativeDynamicTribunalRuntime"
+  );
+  const transport = await import(
+    "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const reviewer = (index) => ({
+    id: `r${index}`,
+    role: "discipline role",
+    weight: 1,
+    mandate: "a specific independent review responsibility of adequate length to pass",
+  });
+  const panelOf = (count) => ({
+    reviewers: Array.from({ length: count }, (_, index) => reviewer(index + 1)),
+    rationale: "sufficient for this mission",
+  });
+
+  async function panelCallsFor(panels) {
+    transport.resetTransport();
+    for (const panel of panels) transport.queueResponse(panel);
+    for (let index = 1; index <= 8; index += 1) {
+      transport.queueResponse({
+        reviewer_id: `r${index}`, score: 95, passed: true, strengths: ["s"],
+        failures: [], mandatory_repairs: [], fatal_rejection_reason: null,
+        weakest_link: "minor", evidence_used: ["e"],
+      });
+    }
+    const plan = fixture.temporalBasePlan();
+    plan.quality = fixture.TEMPORAL_QUALITY;
+    let error = null;
+    try {
+      await CreativeDynamicTribunalRuntime.review({
+        organization_id: ORGANIZATION,
+        creative_project_id: "p1",
+        creative_mission_id: "m1",
+        mission: { id: "m1" }, project: { id: "p1" }, brief: { id: "b1" },
+        assets: [{ id: "a1" }], available_capabilities: [], master: { plan },
+      });
+    } catch (caught) {
+      error = String(caught?.message || caught);
+    }
+    return {
+      calls: transport.recordedCalls().filter(
+        (entry) => entry.operation === "CREATIVE_DYNAMIC_TRIBUNAL_PANEL_V1",
+      ).length,
+      error,
+    };
+  }
+
+  const corrected = await panelCallsFor([panelOf(7), panelOf(4)]);
+  check(
+    "an over-bound panel is replanned once",
+    corrected.calls === 2,
+    `panel calls=${corrected.calls}`,
+  );
+  check(
+    "a replanned panel proceeds past the count check",
+    !String(corrected.error || "").includes("REVIEWER_COUNT_INVALID"),
+    corrected.error?.slice(0, 90),
+  );
+
+  const persistent = await panelCallsFor([panelOf(7), panelOf(7)]);
+  check(
+    "a panel still out of range after replanning fails closed",
+    String(persistent.error || "").includes("REVIEWER_COUNT_INVALID") && persistent.calls === 2,
+    `calls=${persistent.calls} error=${persistent.error?.slice(0, 60)}`,
+  );
+
+  const compliant = await panelCallsFor([panelOf(3)]);
+  check(
+    "a compliant panel is not replanned",
+    compliant.calls === 1,
+    `panel calls=${compliant.calls}`,
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -728,6 +816,7 @@ async function main() {
   await directionSurvivesIntoProviderInstruction();
   shotCallBudgetScalesWithShots();
   await genericLanguagePatternsAreFairAndDisclosed();
+  await panelCountViolationIsReplannedOnce();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

@@ -866,6 +866,56 @@ async function oneFailedSceneDoesNotLoseTheFilm() {
   );
 }
 
+// 15. The request must not carry craft guidance for media the job is not in. The seven workflow
+//     contracts were 10,345 of 25,899 characters -- forty per cent of the request -- and six of them
+//     described a different medium. An audio package was carrying the full temporal, still, document,
+//     interactive, software and campaign craft contracts, all visually oriented, and audio has been
+//     the weakest case in every run.
+async function requestIsScopedToTheOperativeWorkflow() {
+  const { CreativeMasterPlanContractRegistry } = await import(
+    "@/lib/creative/director/registry/CreativeMasterPlanContractRegistry"
+  );
+
+  // Calling it at all is part of the check: an earlier version of this scoping referenced a text()
+  // helper the module does not have, which node --check cannot see and only a call reveals.
+  let unscoped;
+  let scoped;
+  try {
+    unscoped = CreativeMasterPlanContractRegistry.buildDecisionContract();
+    scoped = CreativeMasterPlanContractRegistry.buildDecisionContract("AUDIO");
+  } catch (error) {
+    check("decision contract builds", false, String(error?.message).slice(0, 120));
+    return;
+  }
+  check("decision contract builds", true);
+
+  check(
+    "scoping the workflow shrinks the request",
+    JSON.stringify(scoped).length < JSON.stringify(unscoped).length,
+  );
+  check(
+    "every workflow kind is still listed",
+    scoped.workflow_contracts.length === unscoped.workflow_contracts.length,
+  );
+
+  const operative = scoped.workflow_contracts.find((entry) => entry.workflow_kind === "AUDIO");
+  check(
+    "the operative workflow keeps its full contract",
+    Boolean(operative?.contract?.required_sections?.length),
+  );
+  check(
+    "non-operative workflows carry identity only",
+    scoped.workflow_contracts
+      .filter((entry) => entry.workflow_kind !== "AUDIO")
+      .every((entry) => !entry.contract && entry.workflow_kind && entry.executor),
+  );
+  // With no declared medium the model must still be able to choose, so every contract is sent.
+  check(
+    "an undetermined medium still receives every contract",
+    unscoped.workflow_contracts.every((entry) => Boolean(entry.contract)),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -888,6 +938,7 @@ async function main() {
   await genericLanguagePatternsAreFairAndDisclosed();
   await panelCountViolationIsReplannedOnce();
   await oneFailedSceneDoesNotLoseTheFilm();
+  await requestIsScopedToTheOperativeWorkflow();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

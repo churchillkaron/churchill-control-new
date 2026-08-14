@@ -1,33 +1,53 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import {
   buildRevenueForecastCommand,
 } from "@/lib/finance/reporting/runtime/ReportingApplicationService";
 
-export async function POST(req) {
+function statusFor(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (normalized.includes("permission denied")) return 403;
+  if (/required|invalid/i.test(normalized)) return 400;
+  return 500;
+}
+
+export async function POST(request) {
   try {
+    const body = await request.json();
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId || body.organization_id,
+      request,
+    });
 
-    const body =
-      await req.json();
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
 
-    const result =
-      await buildRevenueForecastCommand(body);
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
+
+    const result = await buildRevenueForecastCommand({
+      ...body,
+      organizationId: access.organizationId,
+      organization_id: access.organizationId,
+    });
 
     return NextResponse.json(result);
-
   } catch (error) {
-
+    const message = error.message || "Forecast failed";
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
+      { success: false, error: message },
+      { status: statusFor(message) }
     );
-
   }
 }

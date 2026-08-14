@@ -10,6 +10,9 @@ import {
 import {
   CreativeWorldClassLiveBenchmarkRuntime,
 } from "@/lib/creative/quality/runtime/CreativeWorldClassLiveBenchmarkRuntime";
+import {
+  scoreCreativeWorldClassBenchmarkCase,
+} from "@/lib/creative/quality/runtime/CreativeWorldClassBenchmarkRuntime";
 
 const AUTHORIZATION_MARKER = "[creative-benchmark]";
 const OUTPUT = path.resolve(
@@ -27,17 +30,38 @@ function authorized() {
     .includes(AUTHORIZATION_MARKER);
 }
 
+// Withholding the overall score when cases failed structurally is right: a partial
+// run cannot claim a benchmark result. Reducing the cases that did succeed to an id
+// and a label was not. Their scores and per-dimension components were computed and
+// then discarded, so a run reporting 80.68 against a floor of 90 gave no way to see
+// which dimension was short -- and quality that cannot be measured cannot be improved.
+//
+// Completed cases are now scored individually and kept in full. Scoring one case needs
+// nothing from the others; only the cross-case checks (direction similarity, workflow
+// diversity) require the whole set, and those stay out of a partial run along with the
+// overall score.
+function scoredCase(entry) {
+  try {
+    const { direction_text, ...score } = scoreCreativeWorldClassBenchmarkCase(entry);
+    return { ...score, id: entry.id, label: entry.label, status: "COMPLETED" };
+  } catch (error) {
+    return {
+      id: entry.id,
+      label: entry.label,
+      status: "COMPLETED",
+      score: null,
+      scoring_error: String(error?.message || error).slice(0, 200),
+    };
+  }
+}
+
 function structuralFailureReport({ captured, execution, caseErrors }) {
   return {
     contract: "CREATIVE_WORLD_CLASS_BENCHMARK_V1",
     passed: false,
     evaluated_at: new Date().toISOString(),
     score: null,
-    cases: captured.map((entry) => ({
-      id: entry.id,
-      label: entry.label,
-      status: "COMPLETED",
-    })),
+    cases: captured.map(scoredCase),
     case_errors: caseErrors,
     failures: caseErrors.map(
       (entry) => `${entry.id}:STRUCTURAL_FAILURE:${entry.error}`,

@@ -182,7 +182,15 @@ async function main() {
         label: benchmarkCase.label,
         status: "REJECTED",
         error: message,
-        plan: error?.repaired_plan || error?.rejected_master?.plan || null,
+        // Checked in every place a runtime attaches one: the tribunal's repaired plan, its rejected
+        // master, a validation failure's own plan, and through the FAILED_CLOSED wrapper that the
+        // universal path adds around the original error.
+        plan:
+          error?.repaired_plan ||
+          error?.rejected_master?.plan ||
+          error?.rejected_plan ||
+          error?.cause?.rejected_plan ||
+          null,
       });
       execution.push({
         id: benchmarkCase.id,

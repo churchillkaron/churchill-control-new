@@ -1246,6 +1246,73 @@ async function advertisingFillerIsRejectedNotOnlyScored() {
   );
 }
 
+// 20. Roles the registry says cannot apply to a medium must be completed from the registry, not demanded
+//     from the director. Every film attempt today failed partly on
+//     AGENCY_ROLE_DECISION_REQUIRED@role_decisions.experience_director and .technical_architect. Those
+//     roles are registered INTERACTIVE, and INTERACTIVE plus SOFTWARE, so neither can apply to a film --
+//     the registry says so before anyone is asked. The director was told about them and sensibly omitted
+//     them, and around fifteen calls of story, scene architecture and shot direction were rejected for
+//     not declaring inapplicable disciplines inapplicable.
+//
+//     The accountability that matters is untouched: a role that could have applied and was skipped still
+//     fails, and an explicit decision is never overwritten.
+async function ineligibleRolesAreDerivedNotDemanded() {
+  const { applyDerivedRoleDecisions } = await import(
+    "@/lib/creative/director/planner/creativeRoleDecisionDefaults"
+  );
+  const { CREATIVE_AGENCY_ROLES } = await import(
+    "@/lib/creative/director/registry/CreativeAgencyRoleRegistry"
+  );
+
+  const film = applyDerivedRoleDecisions(
+    { workflow_kind: "TEMPORAL", role_decisions: {} },
+    CREATIVE_AGENCY_ROLES,
+  ).role_decisions;
+
+  for (const id of ["experience_director", "technical_architect"]) {
+    check(
+      `ineligible role is derived for a film: ${id}`,
+      film[id]?.status === "NOT_REQUIRED" && film[id]?.derived_from_registry === true,
+      JSON.stringify(film[id] || null),
+    );
+  }
+
+  // The judgement for a role that could apply stays the director's.
+  const wronglyFilled = CREATIVE_AGENCY_ROLES.filter(
+    (role) =>
+      (role.applies_to.includes("ALL") || role.applies_to.includes("TEMPORAL")) &&
+      Object.prototype.hasOwnProperty.call(film, role.id),
+  ).map((role) => role.id);
+  check(
+    "no eligible role is filled in for the director",
+    wronglyFilled.length === 0,
+    wronglyFilled.join(","),
+  );
+
+  const explicit = applyDerivedRoleDecisions(
+    {
+      workflow_kind: "TEMPORAL",
+      role_decisions: { experience_director: { status: "ACTIVE", decision: "deliberate choice" } },
+    },
+    CREATIVE_AGENCY_ROLES,
+  ).role_decisions;
+  check(
+    "an explicit decision is never overwritten",
+    explicit.experience_director.status === "ACTIVE" &&
+      !explicit.experience_director.derived_from_registry,
+  );
+
+  // The same roles are eligible for interactive work and must not be derived away there.
+  const interactive = applyDerivedRoleDecisions(
+    { workflow_kind: "INTERACTIVE", role_decisions: {} },
+    CREATIVE_AGENCY_ROLES,
+  ).role_decisions;
+  check(
+    "a role eligible for another medium is not derived there",
+    !interactive.experience_director,
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1273,6 +1340,7 @@ async function main() {
   await sceneShotPlanningRunsConcurrentlyInOrder();
   await everyPenalisedClicheIsDisclosedAndReplaceable();
   await advertisingFillerIsRejectedNotOnlyScored();
+  await ineligibleRolesAreDerivedNotDemanded();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

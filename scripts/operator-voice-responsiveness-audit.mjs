@@ -68,7 +68,8 @@ requireAll("FAST_CONVERSATION_LOCAL_ACKNOWLEDGEMENTS", fastRuntime, [
 
 requireAll("TURN_LATENCY", turnRoute, [
   "const [result] = await Promise.all([",
-  "const [, persistedState] = await Promise.all([",
+  "persistAssistantTurnAndConversationState({",
+  "const persistedState = object(persisted.conversation);",
 ]);
 
 requireAll("INSTANT_NAVIGATION_MATCHER", navigationMatcher, [

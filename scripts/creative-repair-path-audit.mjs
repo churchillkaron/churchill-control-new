@@ -1099,6 +1099,66 @@ async function sceneShotPlanningRunsConcurrentlyInOrder() {
   );
 }
 
+// 18. Every penalised cliché must be findable in what the director is told, and the instruction must
+//     require replacing it rather than merely avoiding it. Re-scoring a saved direction showed the
+//     whole remaining gap on an audio case was one word used three times: at the corrected penalty it
+//     scored 70.66 against a case floor of 82, and removing that word alone would put it near 91.
+//
+//     The two rules were disconnected. anti_cliche_test forbade "seamless" while craft_translation --
+//     which requires abstract adjectives to be replaced by observable craft -- did not list it, so the
+//     director was told not to use a word without being told what it stands in for.
+async function everyPenalisedClicheIsDisclosedAndReplaceable() {
+  const { CREATIVE_GENERIC_LANGUAGE_PATTERNS } = await import(
+    "@/lib/creative/quality/runtime/CreativeWorldClassBenchmarkRuntime"
+  );
+  const { CreativeMasterPlanContractRegistry } = await import(
+    "@/lib/creative/director/registry/CreativeMasterPlanContractRegistry"
+  );
+
+  const gate = CreativeMasterPlanContractRegistry.buildDecisionContract("AUDIO")
+    .pre_return_excellence_gate;
+  const disclosure = `${gate.anti_cliche_test} ${gate.craft_translation}`.toLowerCase();
+
+  const phrases = {
+    elevate_your: "elevate your",
+    unforgettable_experience: "unforgettable experience",
+    where_x_meets_y: "where x meets y",
+    more_than_just: "more than just",
+    discover_the_difference: "discover the difference",
+    unlock_potential: "unlock potential",
+    redefine: "redefine",
+    journey: "journey",
+    premium_experience: "premium experience",
+    seamless: "seamless",
+    innovative_solutions: "innovative solutions",
+    cutting_edge: "cutting-edge",
+    game_changer: "game-changer",
+    transform_your: "transform your",
+  };
+
+  const undisclosed = CREATIVE_GENERIC_LANGUAGE_PATTERNS
+    .map((entry) => entry.id)
+    .filter((id) => !phrases[id] || !disclosure.includes(phrases[id]));
+
+  check(
+    "every penalised cliché is disclosed to the director",
+    undisclosed.length === 0,
+    undisclosed.join(","),
+  );
+  check(
+    "seamless is classified as an abstract adjective requiring craft",
+    gate.craft_translation.toLowerCase().includes("seamless"),
+  );
+  check(
+    "the instruction requires replacement, not only avoidance",
+    /replace it with the observable execution/i.test(gate.anti_cliche_test),
+  );
+  check(
+    "a concrete replacement is given rather than an abstract rule",
+    /no audible edit point|matched room tone|crossfade/i.test(gate.craft_translation),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1124,6 +1184,7 @@ async function main() {
   await requestIsScopedToTheOperativeWorkflow();
   await temporalRepairFixesANestedShotField();
   await sceneShotPlanningRunsConcurrentlyInOrder();
+  await everyPenalisedClicheIsDisclosedAndReplaceable();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

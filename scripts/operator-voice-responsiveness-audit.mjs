@@ -57,6 +57,15 @@ requireAll("FAST_CONVERSATION", fastRuntime, [
   "project_state: projectState",
 ]);
 
+requireAll("FAST_CONVERSATION_LOCAL_ACKNOWLEDGEMENTS", fastRuntime, [
+  "good|great|perfect|excellent|nice|all good|sounds good",
+  "got it|understood",
+  "you re welcome|youre welcome|no problem|no worries|anytime",
+  'return "Great.";',
+  'return "Got it.";',
+  'return "Thank you.";',
+]);
+
 requireAll("TURN_LATENCY", turnRoute, [
   "const [result] = await Promise.all([",
   "const [, persistedState] = await Promise.all([",

@@ -321,6 +321,71 @@ async function runtimeModulesReferenceOnlyRealIdentifiers() {
   );
 }
 
+// 6. The temporal path must have a contract repair. It had none: the plan was built
+//    across a base call, a scene architecture call and a shot call per scene, asserted
+//    once, and thrown on any failure -- while the universal path got two attempts. Every
+//    film died on its first imperfection, and the imperfections were contract
+//    completeness rather than creative quality.
+async function temporalPathRepairsBeforeFailing() {
+  const { CreativeTemporalMasterPlanRuntime } = await import(
+    "@/lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime"
+  );
+  const transport = await import(
+    "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime"
+  );
+
+  transport.resetTransport();
+  transport.queueResponse({
+    workflow_kind: "TEMPORAL",
+    concept: { title: "Audit film" },
+    role_decisions: {},
+    deliverables: [{ code: "D1", type: "FILM", purpose: "audit", output_spec: { width: 1920 } }],
+  });
+  transport.queueResponse({ scenes: [{ id: "s1", objective: "open", duration_seconds: 30 }] });
+  transport.queueResponse({ shots: [{ id: "sh1", purpose: "establish", duration_seconds: 30 }] });
+  transport.queueResponse({ concept: { creative_system: "x".repeat(140) } });
+  transport.queueResponse({ concept: { creative_system: "x".repeat(140) } });
+
+  try {
+    await CreativeTemporalMasterPlanRuntime.create({
+      organization_id: ORGANIZATION,
+      mission: { id: "m1", objective: "temporal repair audit" },
+      project: {
+        id: "p1",
+        production_type: "VIDEO",
+        objective: "temporal repair audit",
+        target_duration: 30,
+        metadata: { creative_quality_policy: QUALITY },
+      },
+      brief: { id: "b1", duration_seconds: 30 },
+      assets: [{ id: "a1", asset_type: "video", file_name: "clip.mov" }],
+    });
+  } catch {
+    // Failing closed on a plan too thin to save is correct. What matters is whether a
+    // repair was attempted before it gave up.
+  }
+
+  const operations = transport
+    .recordedCalls()
+    .map((entry) => entry.operation)
+    .filter(Boolean);
+  const repairs = operations.filter(
+    (operation) => operation === "TEMPORAL_MASTER_PLAN_CONTRACT_REPAIR_V1",
+  ).length;
+
+  check(
+    "temporal path builds scenes and shots before validating",
+    operations.includes("TEMPORAL_SCENE_ARCHITECTURE_V1") &&
+      operations.includes("TEMPORAL_SCENE_SHOT_DIRECTION_V1"),
+    operations.join(" | "),
+  );
+  check(
+    "temporal path attempts a contract repair rather than failing immediately",
+    repairs > 0,
+    `repairs=${repairs} ops=${operations.join(" | ")}`,
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -334,6 +399,7 @@ async function main() {
   skeletonEntryDoesNotEraseDeliverable();
   await runtimeModulesReferenceOnlyRealIdentifiers();
   invalidRepairIsRejectedNotAdopted();
+  await temporalPathRepairsBeforeFailing();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

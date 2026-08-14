@@ -8,6 +8,7 @@ import { calculateBudgetVarianceCommand } from "@/lib/finance/budgeting/runtime/
 function statusFor(error) {
   const message = String(error?.message || "").toLowerCase();
   if (message.includes("permission denied")) return 403;
+  if (/required|invalid/i.test(message)) return 400;
   return error?.status || 500;
 }
 
@@ -37,6 +38,12 @@ export async function GET(request) {
 
     const result = await calculateBudgetVarianceCommand({
       organizationId: access.organizationId,
+      entityId:
+        searchParams.get("entityId") ||
+        searchParams.get("entity_id"),
+      periodId:
+        searchParams.get("periodId") ||
+        searchParams.get("period_id"),
     });
 
     return NextResponse.json(result);

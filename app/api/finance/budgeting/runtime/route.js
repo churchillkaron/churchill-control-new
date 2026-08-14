@@ -8,6 +8,7 @@ import { listBudgetsCommand } from "@/lib/finance/budgeting/runtime/BudgetApplic
 function statusFor(error) {
   const message = String(error?.message || "").toLowerCase();
   if (message.includes("permission denied")) return 403;
+  if (/required|invalid/i.test(message)) return 400;
   return error?.status || 500;
 }
 
@@ -37,6 +38,13 @@ export async function GET(request) {
 
     const budgets = await listBudgetsCommand({
       organization_id: access.organizationId,
+      entity_id:
+        searchParams.get("entityId") ||
+        searchParams.get("entity_id"),
+      period_id:
+        searchParams.get("periodId") ||
+        searchParams.get("period_id") ||
+        null,
     });
 
     return NextResponse.json({

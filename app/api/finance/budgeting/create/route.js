@@ -8,6 +8,7 @@ import { createBudgetDocument } from "@/lib/finance/budgeting/runtime/BudgetAppl
 function statusFor(error) {
   const message = String(error?.message || "").toLowerCase();
   if (message.includes("permission denied")) return 403;
+  if (/required|invalid/i.test(message)) return 400;
   return error?.status || 500;
 }
 
@@ -37,10 +38,14 @@ export async function POST(request) {
 
     const budget = await createBudgetDocument({
       organization_id: access.organizationId,
+      entity_id: body.entityId || body.entity_id,
+      period_id: body.periodId || body.period_id,
+      currency_code:
+        body.currencyCode ||
+        body.currency_code ||
+        body.currency,
       category: body.category,
       amount: body.amount,
-      month: body.month,
-      year: body.year,
     });
 
     return NextResponse.json({

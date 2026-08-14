@@ -28,6 +28,30 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+// Running one case instead of five. A full run is roughly fifty to seventy THB of reasoning and, for
+// a temporal case, close to an hour, so iterating on a single failing case by paying for the other
+// four is waste. A subset run scores and keeps the direction for exactly the cases named and refuses
+// to claim an overall verdict, because an overall score is a statement about the whole set.
+function selectedCases() {
+  const only = text(process.env.CREATIVE_BENCHMARK_ONLY);
+  if (!only) return { cases: CREATIVE_WORLD_CLASS_BENCHMARK_CASES, subset: false };
+
+  const wanted = new Set(only.split(",").map((entry) => text(entry)).filter(Boolean));
+  const cases = CREATIVE_WORLD_CLASS_BENCHMARK_CASES.filter((entry) => wanted.has(entry.id));
+  const unknown = [...wanted].filter(
+    (id) => !CREATIVE_WORLD_CLASS_BENCHMARK_CASES.some((entry) => entry.id === id),
+  );
+  if (unknown.length) {
+    throw new Error(`CREATIVE_BENCHMARK_UNKNOWN_CASE:${unknown.join(",")}`);
+  }
+  if (!cases.length) throw new Error("CREATIVE_BENCHMARK_NO_CASE_SELECTED");
+
+  return {
+    cases,
+    subset: cases.length !== CREATIVE_WORLD_CLASS_BENCHMARK_CASES.length,
+  };
+}
+
 function authorized() {
   return text(process.env.VERCEL_GIT_COMMIT_MESSAGE)
     .toLowerCase()
@@ -108,12 +132,18 @@ async function main() {
   console.log("PRODUCTION_GRAPH_CREATED=NO");
   console.log("PRODUCTION_TASK_CREATED=NO");
 
+  const { cases: selected, subset } = selectedCases();
+  if (subset) {
+    console.log(`BENCHMARK_SUBSET=${selected.map((entry) => entry.id).join(",")}`);
+    console.log("OVERALL_VERDICT_WITHHELD=SUBSET_RUN");
+  }
+
   const captured = [];
   const execution = [];
   const caseErrors = [];
   const rejectedDirections = [];
 
-  for (const benchmarkCase of CREATIVE_WORLD_CLASS_BENCHMARK_CASES) {
+  for (const benchmarkCase of selected) {
     console.log(`BENCHMARK_CASE_START=${benchmarkCase.id}`);
 
     // A case that fails is a result worth recording. The first such case used to
@@ -178,7 +208,7 @@ async function main() {
   }
 
   let report;
-  if (caseErrors.length) {
+  if (subset || caseErrors.length) {
     report = structuralFailureReport({
       captured,
       execution,
@@ -225,7 +255,7 @@ async function main() {
   console.log(`DIRECTION_OUTPUT=${DIRECTION_OUTPUT}`);
 
   console.log(`CONTRACT=${report.contract}`);
-  console.log(`CASE_COUNT=${CREATIVE_WORLD_CLASS_BENCHMARK_CASES.length}`);
+  console.log(`CASE_COUNT=${selected.length}`);
   console.log(`COMPLETED_CASE_COUNT=${captured.length}`);
   console.log(`STRUCTURAL_ERROR_COUNT=${caseErrors.length}`);
   console.log(`OVERALL_SCORE=${report.score ?? "NOT_EVALUATED"}`);

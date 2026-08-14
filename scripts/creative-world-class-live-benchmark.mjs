@@ -54,11 +54,54 @@ async function main() {
   const captured = [];
   const execution = [];
 
+  const caseFailures = [];
+
   for (const benchmarkCase of CREATIVE_WORLD_CLASS_BENCHMARK_CASES) {
     console.log(`BENCHMARK_CASE_START=${benchmarkCase.id}`);
-    const result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(
-      benchmarkCase,
-    );
+
+    // A case the tribunal rejects, or that fails mid-pipeline, is a result worth
+    // recording. Previously the first such case threw and aborted the whole run,
+    // so every later case went unscored and one weak case hid the state of the
+    // rest. Cases are now isolated and the benchmark always reports on all of them.
+    let result;
+    try {
+      result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(benchmarkCase);
+    } catch (error) {
+      const message = String(error?.message || error);
+      const rejection = message.match(/REJECTED:([\d.]+):([\d.]+)/);
+
+      caseFailures.push({ id: benchmarkCase.id, error: message });
+      // An empty plan is the honest representation of a case that never produced
+      // one: the scorer reads it, awards nothing, and the case counts against the
+      // benchmark. Omitting the case entirely would trip the "all cases required"
+      // guard in evaluate() and abort exactly the run we are trying to complete.
+      captured.push({
+        id: benchmarkCase.id,
+        label: benchmarkCase.label,
+        benchmark: benchmarkCase.benchmark,
+        master_plan: { plan: {} },
+        failure: message.slice(0, 300),
+      });
+      execution.push({
+        id: benchmarkCase.id,
+        failed: true,
+        error: message,
+        // The validator attaches every failure with its path; keeping it here means
+        // a failed run can be diagnosed from the report instead of paying for
+        // another full set of reasoning calls just to see which field was rejected.
+        validation_failures: Array.isArray(error?.validation?.failures)
+          ? error.validation.failures
+          : null,
+      });
+
+      console.log(
+        `BENCHMARK_CASE_RESULT=${benchmarkCase.id}|score=${
+          rejection ? rejection[1] : "0"
+        }|passed=NO|reason=${message.slice(0, 90)}`,
+      );
+      continue;
+    }
+
     captured.push(result.case_result);
     execution.push({
       id: benchmarkCase.id,
@@ -69,6 +112,15 @@ async function main() {
         result.score.passed ? "YES" : "NO"
       }|workflow=${result.score.workflow_kind || "UNKNOWN"}`,
     );
+  }
+
+  if (caseFailures.length) {
+    console.log(`BENCHMARK_CASES_FAILED=${caseFailures.length}`);
+    for (const failure of caseFailures) {
+      console.log(
+        `BENCHMARK_CASE_FAILURE=${failure.id}|${failure.error.slice(0, 500)}`,
+      );
+    }
   }
 
   const benchmark = CreativeWorldClassLiveBenchmarkRuntime.evaluate(

@@ -428,16 +428,21 @@ function reasoningCallsRequestJsonMode() {
 //    stated minimum -- and lost 25 points on each of two dimensions for a fourth entry
 //    nothing had ever requested. Two cases scored 79.95 and 80.99 with three dimensions
 //    pinned at exactly 75, which is what a discrete count-based band looks like.
-function contractStandardMatchesScoring() {
+async function contractStandardMatchesScoring() {
   const fs = globalThis.__auditFs;
   const scorer = fs.readFileSync(
     "lib/creative/quality/runtime/CreativeWorldClassBenchmarkRuntime.js",
     "utf8",
   );
-  const contract = fs.readFileSync(
-    "lib/creative/director/registry/CreativeMasterPlanContractRegistry.js",
-    "utf8",
+  // The built contract's own field descriptions, read as data rather than scraped out of the source
+  // file. Regexing the file worked until a description became a template literal, at which point it
+  // would have silently matched nothing and passed for the wrong reason.
+  const { CreativeMasterPlanContractRegistry } = await import(
+    "@/lib/creative/director/registry/CreativeMasterPlanContractRegistry"
   );
+  const reviewContract =
+    CreativeMasterPlanContractRegistry.buildDecisionContract("AUDIO")
+      .common_plan_contract.creative_review || {};
 
   // The multiplier is read from the scorer so a change there surfaces here rather than
   // silently reopening the gap.
@@ -453,8 +458,7 @@ function contractStandardMatchesScoring() {
 
   for (const { field, multiplier } of multipliers) {
     const fullMarks = Math.ceil(100 / multiplier);
-    const description = new RegExp(`${field}:\\s*\n?\\s*"([^"]+)"`).exec(contract);
-    const text = description ? description[1] : "";
+    const text = String(reviewContract[field] ?? "");
 
     // A contract that names a smaller number than full marks requires is the mismatch.
     const statesFullMarks = /four or more/i.test(text) && fullMarks <= 4;
@@ -659,10 +663,15 @@ async function genericLanguagePatternsAreFairAndDisclosed() {
   const { CREATIVE_GENERIC_LANGUAGE_PATTERNS } = await import(
     "@/lib/creative/quality/runtime/CreativeWorldClassBenchmarkRuntime"
   );
-  const contract = fs.readFileSync(
-    "lib/creative/director/registry/CreativeMasterPlanContractRegistry.js",
-    "utf8",
+  // The built contract's own field descriptions, read as data rather than scraped out of the source
+  // file. Regexing the file worked until a description became a template literal, at which point it
+  // would have silently matched nothing and passed for the wrong reason.
+  const { CreativeMasterPlanContractRegistry } = await import(
+    "@/lib/creative/director/registry/CreativeMasterPlanContractRegistry"
   );
+  const reviewContract =
+    CreativeMasterPlanContractRegistry.buildDecisionContract("AUDIO")
+      .common_plan_contract.creative_review || {};
 
   const { genericLanguageHits, scoreCreativeWorldClassBenchmarkCase } = await import(
     "@/lib/creative/quality/runtime/CreativeWorldClassBenchmarkRuntime"
@@ -710,9 +719,16 @@ async function genericLanguagePatternsAreFairAndDisclosed() {
     `three cliché uses should score 21, got ${scoredPenalty}`,
   );
 
+  // The built contract rather than the source file. The disclosure is derived from the filler registry
+  // now, so grepping the file for literal phrases would fail on a correctly derived disclosure and pass
+  // on a hardcoded one that had drifted from the list -- the wrong artefact in both directions.
+  const excellenceGate = CreativeMasterPlanContractRegistry
+    .buildDecisionContract("AUDIO").pre_return_excellence_gate;
+  const disclosedContract = `${excellenceGate.anti_cliche_test} ${excellenceGate.craft_translation}`;
+
   check(
     "the penalised clichés are disclosed in the contract",
-    /elevate your/i.test(contract) && /cutting-edge/i.test(contract),
+    /elevate your/i.test(disclosedContract) && /cutting-edge/i.test(disclosedContract),
     "the director is judged against a list it is never shown",
   );
 
@@ -1159,6 +1175,77 @@ async function everyPenalisedClicheIsDisclosedAndReplaceable() {
   );
 }
 
+// 19. Advertising filler must be rejected by the gate, not only scored. This is why telling the
+//     director to avoid it failed twice: filler was punished at scoring and never rejected anywhere, so
+//     the repair loop was never told. GENERIC_DIRECTION in the validator only matches a whole field that
+//     is a placeholder -- n/a, tbd -- so "seamlessly integrated mix" inside good prose passed validation
+//     and the gate untouched, then lost 21 points and failed outright.
+//
+//     Disclosure was added and the next run used "seamless" three times. A concrete replacement was
+//     added and the run after used "seamlessly" twice plus "premium experience". Prompting was the wrong
+//     lever; the repair paths work when the gate names the problem.
+async function advertisingFillerIsRejectedNotOnlyScored() {
+  const { validateCreativeMasterPlanDecision } = await import(
+    "@/lib/creative/director/validation/CreativeMasterPlanDecisionGate"
+  );
+  const { genericLanguageHits, CREATIVE_GENERIC_LANGUAGE_PATTERNS } = await import(
+    "@/lib/creative/quality/runtime/CreativeWorldClassBenchmarkRuntime"
+  );
+  const { CREATIVE_ADVERTISING_FILLER, advertisingFillerDisclosure } = await import(
+    "@/lib/creative/director/registry/CreativeAdvertisingFillerRegistry"
+  );
+
+  const planWith = (thesis) => ({
+    workflow_kind: "AUDIO",
+    concept: {
+      title: "t", creative_thesis: thesis, narrative: "n", hook: "h", message: "m",
+      creative_system: "c", emotional_promise: "e", call_to_action: "a",
+    },
+    creative_review: {
+      passed: true, overall_score: 95, dimensions: {}, rejected_patterns: [],
+      craft_risks: [], finishing_requirements: [], selected_direction_reason: "r",
+    },
+    deliverables: [], production: {},
+  });
+  const rejected = (thesis) =>
+    validateCreativeMasterPlanDecision({ plan: planWith(thesis), available_capabilities: [] })
+      .failures.some((entry) => entry.code === "ADVERTISING_FILLER_REJECTED");
+
+  // The exact combination that cost a real case: premium experience once, seamless twice.
+  check(
+    "three filler uses are rejected by the gate",
+    rejected("seamless mix, seamlessly cut, a premium experience"),
+    "the repair loop is never told and the case is lost at scoring",
+  );
+  check(
+    "two uses are not rejected",
+    !rejected("seamless mix and seamlessly cut"),
+    "the threshold should match the benchmark's own hard failure",
+  );
+  check(
+    "craft language is not rejected as filler",
+    !rejected("the audience journey where the bar rail meets the window light"),
+  );
+
+  // One list behind disclosure, rejection and scoring. A private copy in any of the three is how the
+  // score came to charge for patterns the disclosure had already narrowed.
+  check(
+    "the benchmark uses the registry list rather than a copy",
+    CREATIVE_GENERIC_LANGUAGE_PATTERNS === CREATIVE_ADVERTISING_FILLER,
+  );
+  check(
+    "the disclosure is derived from the same list",
+    CREATIVE_ADVERTISING_FILLER.every((entry) =>
+      advertisingFillerDisclosure().includes(entry.phrase),
+    ),
+  );
+  check(
+    "the scorer and the gate see the same hits",
+    genericLanguageHits(planWith("seamless seamlessly premium experience"))
+      .reduce((sum, entry) => sum + entry.count, 0) === 3,
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1174,7 +1261,7 @@ async function main() {
   invalidRepairIsRejectedNotAdopted();
   await temporalPathRepairsBeforeFailing();
   reasoningCallsRequestJsonMode();
-  contractStandardMatchesScoring();
+  await contractStandardMatchesScoring();
   await temporalContractIsSatisfiable();
   await directionSurvivesIntoProviderInstruction();
   shotCallBudgetScalesWithShots();
@@ -1185,6 +1272,7 @@ async function main() {
   await temporalRepairFixesANestedShotField();
   await sceneShotPlanningRunsConcurrentlyInOrder();
   await everyPenalisedClicheIsDisclosedAndReplaceable();
+  await advertisingFillerIsRejectedNotOnlyScored();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

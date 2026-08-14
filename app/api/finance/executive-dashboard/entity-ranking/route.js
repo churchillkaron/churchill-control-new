@@ -34,7 +34,7 @@ export async function POST(request) {
 
     const rankings = await getEntityRanking({
       organizationId: access.organizationId,
-      entities: Array.isArray(body.entities) ? body.entities : [],
+      entityIds: Array.isArray(body.entities) ? body.entities : null,
     });
 
     const intelligence = await BusinessIntelligenceRuntime

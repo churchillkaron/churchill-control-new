@@ -1,223 +1,127 @@
 export const dynamic = "force-dynamic";
-import { NextResponse }
-from "next/server";
 
-import { supabaseAdmin }
-from "@/lib/shared/supabase/admin";
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 
-import {
-  requireOrganizationAccess,
-} from "@/lib/platform/security/requireOrganizationAccess";
+function statusFor(message) {
+  return String(message || "").toLowerCase().includes("permission denied") ? 403 : 500;
+}
 
 export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
 
-  const {
-    searchParams,
-  } = new URL(
-    request.url
-  );
-
-  const access =
-    await requireOrganizationAccess({
-
+    const access = await requireOrganizationAccess({
       organizationId:
-        searchParams.get(
-          "organizationId"
-        ),
-
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
+      request,
     });
 
-  if (!access.success) {
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status }
+      );
+    }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          access.error,
-      },
-      {
-        status:
-          access.status,
-      }
-    );
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
-  }
+    const organizationId = access.organizationId;
+    const anomalies = [];
 
-  const organizationId =
-    access.organizationId;
-
-  const anomalies = [];
-
-  const {
-    data: journals,
-  } = await supabaseAdmin
-
-    .from("journal_entries")
-
-    .select(`
-      *,
-      journal_entry_lines (
+    const { data: journals } = await supabaseAdmin
+      .from("journal_entries")
+      .select(`
         *,
-        chart_of_accounts (
-          id,
-          account_code,
-          account_name,
-          account_category,
-          account_type
+        journal_entry_lines (
+          *,
+          chart_of_accounts (
+            id,
+            account_code,
+            account_name,
+            account_category,
+            account_type
+          )
         )
-      )
-    `)
+      `)
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: false })
+      .limit(500);
 
-    .eq(
-      "organization_id",
-      organizationId
-    )
+    for (const journal of journals || []) {
+      let debits = 0;
+      let credits = 0;
 
-    .order(
-      "created_at",
-      { ascending: false }
-    )
+      for (const line of journal.journal_entry_lines || []) {
+        debits += Number(line.debit || 0);
+        credits += Number(line.credit || 0);
+      }
 
-    .limit(500);
+      // -----------------------------------
+      // UNBALANCED JOURNAL
+      // -----------------------------------
 
-  for (const journal of journals || []) {
+      if (Math.abs(debits - credits) > 0.01) {
+        anomalies.push({
+          severity: "critical",
+          type: "UNBALANCED_JOURNAL",
+          journal_id: journal.id,
+          entry_number: journal.journal_number,
+          description: journal.description,
+          message: `Journal imbalance detected: ${debits} vs ${credits}`,
+        });
+      }
 
-    let debits = 0;
+      // -----------------------------------
+      // LARGE JOURNAL
+      // -----------------------------------
 
-    let credits = 0;
+      if (debits > 100000) {
+        anomalies.push({
+          severity: "warning",
+          type: "LARGE_TRANSACTION",
+          journal_id: journal.id,
+          entry_number: journal.journal_number,
+          description: journal.description,
+          message: `Large transaction detected: ${debits}`,
+        });
+      }
 
-    for (
-      const line of
-      journal.journal_entry_lines || []
-    ) {
+      // -----------------------------------
+      // MISSING SOURCE
+      // -----------------------------------
 
-      debits +=
-        Number(
-          line.debit || 0
-        );
-
-      credits +=
-        Number(
-          line.credit || 0
-        );
-
+      if (!journal.source_type) {
+        anomalies.push({
+          severity: "warning",
+          type: "MISSING_SOURCE",
+          journal_id: journal.id,
+          entry_number: journal.journal_number,
+          description: journal.description,
+          message: "Journal missing source traceability",
+        });
+      }
     }
 
-    // -----------------------------------
-    // UNBALANCED JOURNAL
-    // -----------------------------------
-
-    if (
-
-      Math.abs(
-        debits - credits
-      ) > 0.01
-
-    ) {
-
-      anomalies.push({
-
-        severity:
-          "critical",
-
-        type:
-          "UNBALANCED_JOURNAL",
-
-        journal_id:
-          journal.id,
-
-        entry_number:
-          journal.journal_number,
-
-        description:
-          journal.description,
-
-        message:
-          `Journal imbalance detected: ${debits} vs ${credits}`,
-
-      });
-
-    }
-
-    // -----------------------------------
-    // LARGE JOURNAL
-    // -----------------------------------
-
-    if (
-
-      debits > 100000
-
-    ) {
-
-      anomalies.push({
-
-        severity:
-          "warning",
-
-        type:
-          "LARGE_TRANSACTION",
-
-        journal_id:
-          journal.id,
-
-        entry_number:
-          journal.journal_number,
-
-        description:
-          journal.description,
-
-        message:
-          `Large transaction detected: ${debits}`,
-
-      });
-
-    }
-
-    // -----------------------------------
-    // MISSING SOURCE
-    // -----------------------------------
-
-    if (
-      !journal.source_type
-    ) {
-
-      anomalies.push({
-
-        severity:
-          "warning",
-
-        type:
-          "MISSING_SOURCE",
-
-        journal_id:
-          journal.id,
-
-        entry_number:
-          journal.journal_number,
-
-        description:
-          journal.description,
-
-        message:
-          "Journal missing source traceability",
-
-      });
-
-    }
-
+    return NextResponse.json({
+      success: true,
+      organizationId,
+      count: anomalies.length,
+      anomalies,
+    });
+  } catch (error) {
+    const message = error.message || "Finance anomaly load failed";
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: statusFor(message) }
+    );
   }
-
-  return NextResponse.json({
-
-    success: true,
-
-    organizationId,
-
-    count:
-      anomalies.length,
-
-    anomalies,
-
-  });
-
 }

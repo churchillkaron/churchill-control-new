@@ -12,6 +12,14 @@ function ageLabel(item) {
   return `${item.age_days} day${item.age_days === 1 ? "" : "s"}`;
 }
 
+function escalationLabel(item) {
+  const level = String(item?.escalation_level || "NONE");
+  if (level === "CRITICAL") return "Critical escalation";
+  if (level === "ESCALATED") return "Escalated";
+  if (level === "ATTENTION") return "Attention";
+  return "No escalation";
+}
+
 export default function FinanceForecastExceptionOversightEngine({
   action,
   organizationId,
@@ -20,7 +28,7 @@ export default function FinanceForecastExceptionOversightEngine({
   const [report, setReport] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [view, setView] = useState("overdue");
+  const [view, setView] = useState("critical_escalations");
 
   const load = useCallback(async () => {
     if (!organizationId) {
@@ -60,6 +68,9 @@ export default function FinanceForecastExceptionOversightEngine({
   const summary = report?.summary || {};
   const queues = report?.queues || {};
   const rows = useMemo(() => {
+    if (view === "critical_escalations") return queues.critical_escalations || [];
+    if (view === "escalated") return queues.escalated || [];
+    if (view === "attention") return queues.attention || [];
     if (view === "unassigned") return queues.unassigned || [];
     if (view === "open") return queues.open_unacknowledged || [];
     if (view === "aging") return queues.unresolved_aging || [];
@@ -84,12 +95,12 @@ export default function FinanceForecastExceptionOversightEngine({
   }
 
   const cards = [
-    ["Unresolved", summary.unresolved_exceptions || 0],
-    ["Critical", summary.critical_unresolved || 0],
+    ["Critical Escalations", summary.critical_escalations || 0],
+    ["Escalated", summary.escalated_exceptions || 0],
+    ["Attention", summary.attention_escalations || 0],
     ["Overdue", summary.overdue_unresolved || 0],
     ["Unassigned", summary.unassigned_unresolved || 0],
-    ["Not Governed", summary.not_yet_governed || 0],
-    ["Owners", summary.owners_with_unresolved_work || 0],
+    ["Unresolved", summary.unresolved_exceptions || 0],
   ];
 
   return (
@@ -104,7 +115,7 @@ export default function FinanceForecastExceptionOversightEngine({
               Exception Oversight
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">
-              Executive control over unresolved forecast exceptions, ownership, due dates, governed aging, and resolution performance.
+              Objective escalation control for governed forecast exceptions using ownership, lifecycle, and due-date facts only.
             </p>
           </div>
 
@@ -162,10 +173,10 @@ export default function FinanceForecastExceptionOversightEngine({
                   <div className="flex justify-between gap-4"><span>Open unacknowledged</span><span className="text-white">{summary.open_unacknowledged || 0}</span></div>
                   <div className="flex justify-between gap-4"><span>Acknowledged unresolved</span><span className="text-white">{summary.acknowledged_unresolved || 0}</span></div>
                   <div className="flex justify-between gap-4"><span>Without due date</span><span className="text-white">{summary.without_due_date_unresolved || 0}</span></div>
+                  <div className="flex justify-between gap-4"><span>Not yet governed</span><span className="text-white">{summary.not_yet_governed || 0}</span></div>
                   <div className="flex justify-between gap-4"><span>Average governed age</span><span className="text-white">{summary.average_governed_age_days === null ? "—" : `${summary.average_governed_age_days} days`}</span></div>
                   <div className="flex justify-between gap-4"><span>Oldest governed age</span><span className="text-white">{summary.oldest_governed_age_days === null ? "—" : `${summary.oldest_governed_age_days} days`}</span></div>
                   <div className="flex justify-between gap-4"><span>Average resolution time</span><span className="text-white">{summary.average_resolution_days === null ? "—" : `${summary.average_resolution_days} days`}</span></div>
-                  <div className="flex justify-between gap-4"><span>Resolved history</span><span className="text-white">{summary.resolved_case_history || 0}</span></div>
                   <div className="flex justify-between gap-4"><span>Resolved but source still active</span><span className="text-white">{summary.resolved_active_conditions || 0}</span></div>
                 </div>
               </div>
@@ -183,7 +194,7 @@ export default function FinanceForecastExceptionOversightEngine({
                         <div className="text-xs text-white/35">{owner.unresolved} unresolved</div>
                       </div>
                       <div className="mt-2 text-xs text-white/40">
-                        {owner.overdue} overdue · {owner.critical} critical · {owner.without_due_date} without due date · oldest {valueOrDash(owner.oldest_age_days)} day(s)
+                        {owner.escalated || 0} escalated · {owner.overdue} overdue · {owner.critical} critical source exceptions · oldest {valueOrDash(owner.oldest_age_days)} day(s)
                       </div>
                     </div>
                   ))}
@@ -193,6 +204,9 @@ export default function FinanceForecastExceptionOversightEngine({
 
             <div className="mt-6 flex flex-wrap gap-2">
               {[
+                ["critical_escalations", "Critical Escalations"],
+                ["escalated", "Escalated"],
+                ["attention", "Attention"],
                 ["overdue", "Overdue"],
                 ["unassigned", "Unassigned"],
                 ["open", "Unacknowledged"],
@@ -225,7 +239,7 @@ export default function FinanceForecastExceptionOversightEngine({
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                        {item.severity} · {item.status} · {String(item.exception_type || "").replaceAll("_", " ")}
+                        {escalationLabel(item)} · {item.severity} · {item.status} · {String(item.exception_type || "").replaceAll("_", " ")}
                       </div>
                       <div className="mt-2 text-lg text-white">{item.entity_name}</div>
                       <div className="mt-1 text-sm text-white/70">{item.title}</div>
@@ -244,17 +258,26 @@ export default function FinanceForecastExceptionOversightEngine({
 
                   <p className="mt-4 text-sm leading-6 text-white/50">{item.detail}</p>
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="mt-4 grid gap-3 md:grid-cols-4">
                     <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/40">
                       Owner: <span className="text-white/65">{item.assigned_to_name || "Unassigned"}</span>
                     </div>
                     <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/40">
-                      Governance: <span className="text-white/65">{item.persisted ? "Persisted" : "Not yet governed"}</span>
+                      Escalation: <span className="text-white/65">{escalationLabel(item)}</span>
+                    </div>
+                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/40">
+                      Reason: <span className="text-white/65">{item.escalation_reason ? String(item.escalation_reason).replaceAll("_", " ") : "None"}</span>
                     </div>
                     <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/40">
                       Due: <span className="text-white/65">{item.due_date || "Not set"}</span>
                     </div>
                   </div>
+
+                  {item.escalation_changed_at ? (
+                    <div className="mt-3 text-[11px] text-white/30">
+                      Escalation state changed {new Date(item.escalation_changed_at).toLocaleString()} · revision {item.escalation_revision || 0}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

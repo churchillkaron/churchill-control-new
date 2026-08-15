@@ -8,8 +8,10 @@ import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/ru
 import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
-import { syncEmailConnection } from "@/lib/commercial/communications/CommunicationEmailInboxSyncRuntime";
-import { ensureEmailConnectionSubscription } from "@/lib/commercial/communications/CommunicationEmailSubscriptionRuntime";
+import {
+  ensureEmailConnectionSubscription,
+  requestEmailSync,
+} from "@/lib/commercial/communications/CommunicationEmailSubscriptionRuntime";
 
 function callbackOrigin() {
   return new URL(
@@ -62,25 +64,24 @@ async function ensureEmailService(organizationId) {
 
 async function initializeMailbox(connection) {
   const warnings = [];
-  let current = connection;
 
   try {
-    await syncEmailConnection({ connection: current });
-  } catch (error) {
-    warnings.push(error?.message || "INITIAL_EMAIL_SYNC_FAILED");
-  }
-
-  current =
-    (await ChannelConnectionRuntime.getById({
-      organization_id: connection.organization_id,
-      connection_id: connection.id,
-    }).catch(() => null)) || current;
-
-  try {
-    const subscription = await ensureEmailConnectionSubscription({ connection: current });
-    if (subscription?.skipped && subscription?.reason) warnings.push(subscription.reason);
+    const subscription = await ensureEmailConnectionSubscription({ connection });
+    if (subscription?.skipped && subscription?.reason) {
+      warnings.push(subscription.reason);
+    }
   } catch (error) {
     warnings.push(error?.message || "EMAIL_PUSH_SETUP_FAILED");
+  }
+
+  try {
+    const requested = await requestEmailSync({
+      provider: connection.provider,
+      connectionId: connection.id,
+    });
+    if (!requested?.matched) warnings.push("INITIAL_EMAIL_SYNC_QUEUE_FAILED");
+  } catch (error) {
+    warnings.push(error?.message || "INITIAL_EMAIL_SYNC_QUEUE_FAILED");
   }
 
   return warnings;
@@ -170,7 +171,7 @@ export async function GET(request) {
       "message",
       warnings.length
         ? "Google mailbox connected. Avantiqo is completing incoming-mail setup automatically."
-        : "Google mailbox connected and incoming mail is ready.",
+        : "Google mailbox connected. Incoming mail synchronization has started automatically.",
     );
     return NextResponse.redirect(destination);
   } catch (error) {

@@ -59,6 +59,10 @@ async function ensureSocialService(organizationId, provider) {
       service_id: "threads",
       package_id: "core",
     },
+    x: {
+      service_id: "x",
+      package_id: "core",
+    },
   }[provider];
   if (!SERVICE) return null;
 
@@ -89,7 +93,8 @@ async function ensureSocialService(organizationId, provider) {
     metadata: {
       ...(existing?.metadata || {}),
       provider,
-      connection_model: "ORGANIZATION_OAUTH",
+      connection_model:
+        provider === "x" ? "ORGANIZATION_OAUTH_PKCE" : "ORGANIZATION_OAUTH",
     },
     configuration: existing?.configuration || {},
   });
@@ -135,6 +140,7 @@ export async function GET(request, { params }) {
         organization_id: organizationId,
         purpose: "ORGANIZATION_SOCIAL_CONNECTION",
         external_account_id: identity.id,
+        username: identity.username || null,
         enabled: true,
       },
     });

@@ -11,6 +11,9 @@ import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/servi
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const PROVIDER = "whatsapp";
+const PENDING_PURPOSE = "ORGANIZATION_WHATSAPP_EXISTING_SELECTION";
+const PENDING_TTL_MS = 15 * 60 * 1000;
+
 const INTEGRATION_ROLES = new Set([
   "OWNER",
   "ORGANIZATION_OWNER",
@@ -70,18 +73,16 @@ async function resolveAccess(request, body = {}) {
 async function ensureWhatsAppService(organizationId) {
   const existing = await OrganizationServiceRuntime.get({
     organization_id: organizationId,
-    service_id: "whatsapp",
+    service_id: PROVIDER,
   }).catch(() => null);
 
-  if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") {
-    return existing;
-  }
+  if (existing && upper(existing.status) === "ACTIVE") return existing;
 
   return OrganizationServiceRuntime.save({
     ...(existing || {}),
     organization_id: organizationId,
     service_category_id: existing?.service_category_id || "communication",
-    service_id: "whatsapp",
+    service_id: PROVIDER,
     package_id: existing?.package_id || "core",
     status: "ACTIVE",
     managed_by: existing?.managed_by || "organization",
@@ -180,13 +181,16 @@ async function graphJson(path, accessToken, options = {}) {
       cache: "no-store",
     },
   );
+
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.error) {
-    throw new Error(
+    const error = new Error(
       payload?.error?.error_user_msg ||
-      payload?.error?.message ||
-      `WhatsApp request failed (${response.status})`,
+        payload?.error?.message ||
+        `WhatsApp request failed (${response.status})`,
     );
+    error.metaCode = payload?.error?.code || null;
+    throw error;
   }
   return payload;
 }
@@ -207,6 +211,179 @@ async function exchangeCode(code) {
     throw new Error(payload?.error?.message || "Meta did not return a WhatsApp access token");
   }
   return payload.access_token;
+}
+
+async function resolveAuthorizationToken({ code, sdkAccessToken }) {
+  if (text(sdkAccessToken)) return text(sdkAccessToken);
+  if (text(code)) return exchangeCode(code);
+  throw new Error("Meta did not return an authorization credential");
+}
+
+async function debugMetaToken(accessToken) {
+  const appId = text(process.env.META_APP_ID);
+  const appSecret = text(process.env.META_APP_SECRET);
+  if (!appId || !appSecret) {
+    throw new Error("Meta app credentials are not configured");
+  }
+
+  const url = new URL(`https://graph.facebook.com/${graphVersion()}/debug_token`);
+  url.searchParams.set("input_token", accessToken);
+  url.searchParams.set("access_token", `${appId}|${appSecret}`);
+
+  const response = await fetch(url, { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.error || !payload?.data) {
+    throw new Error(payload?.error?.message || "Meta authorization could not be inspected");
+  }
+  if (payload.data.is_valid === false) {
+    throw new Error("Meta authorization is no longer valid");
+  }
+  return payload.data;
+}
+
+function sharedWabaIdsFromDebug(debugData) {
+  const scopes = Array.isArray(debugData?.granular_scopes) ? debugData.granular_scopes : [];
+  const management = scopes.filter(
+    (row) => text(row?.scope) === "whatsapp_business_management",
+  );
+  const messaging = scopes.filter(
+    (row) => text(row?.scope) === "whatsapp_business_messaging",
+  );
+  const source = management.length ? management : messaging;
+
+  return [...new Set(
+    source
+      .flatMap((row) => (Array.isArray(row?.target_ids) ? row.target_ids : []))
+      .map(text)
+      .filter(Boolean),
+  )];
+}
+
+async function describeWaba(wabaId, accessToken) {
+  try {
+    const [waba, phonesResult] = await Promise.all([
+      graphJson(`${wabaId}?fields=id,name`, accessToken),
+      graphJson(
+        `${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,name_status`,
+        accessToken,
+      ),
+    ]);
+
+    const phones = Array.isArray(phonesResult?.data) ? phonesResult.data : [];
+    return {
+      id: text(waba?.id) || text(wabaId),
+      name: text(waba?.name) || "WhatsApp Business Account",
+      phones: phones
+        .map((phone) => ({
+          id: text(phone?.id),
+          displayPhoneNumber: text(phone?.display_phone_number) || null,
+          verifiedName: text(phone?.verified_name) || null,
+          qualityRating: text(phone?.quality_rating) || null,
+          nameStatus: text(phone?.name_status) || null,
+        }))
+        .filter((phone) => phone.id),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function discoverExistingWabas({ accessToken, wabaId = null, phoneNumberId = null }) {
+  let ids = [];
+
+  if (text(wabaId)) {
+    ids = [text(wabaId)];
+  } else {
+    const debugData = await debugMetaToken(accessToken);
+    ids = sharedWabaIdsFromDebug(debugData);
+  }
+
+  const described = (
+    await Promise.all(ids.map((id) => describeWaba(id, accessToken)))
+  ).filter(Boolean);
+
+  const phoneHint = text(phoneNumberId);
+  if (phoneHint) {
+    for (const candidate of described) {
+      candidate.phones = candidate.phones.filter((phone) => phone.id === phoneHint);
+    }
+  }
+
+  return described.filter((candidate) => candidate.phones.length > 0);
+}
+
+async function storePendingSelection({ access, accessToken, candidates }) {
+  const expiresAt = new Date(Date.now() + PENDING_TTL_MS).toISOString();
+  const { data, error } = await supabaseAdmin
+    .from("provider_credentials")
+    .insert({
+      provider_id: PROVIDER,
+      credential_type: "oauth_pending_selection",
+      secret_reference: accessToken,
+      status: "INACTIVE",
+      metadata: {
+        organization_id: access.organizationId,
+        purpose: PENDING_PURPOSE,
+        authorized_by_party_id: access.staff?.party_id || null,
+        candidate_wabas: candidates,
+        expires_at: expiresAt,
+        enabled: false,
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  return data.id;
+}
+
+async function loadPendingSelection({ access, pendingCredentialId }) {
+  const id = text(pendingCredentialId);
+  if (!id) throw new Error("Pending WhatsApp authorization is missing");
+
+  const { data, error } = await supabaseAdmin
+    .from("provider_credentials")
+    .select("*")
+    .eq("id", id)
+    .eq("provider_id", PROVIDER)
+    .eq("credential_type", "oauth_pending_selection")
+    .eq("status", "INACTIVE")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("Pending WhatsApp authorization expired or was already used");
+
+  const metadata = data.metadata || {};
+  if (text(metadata.organization_id) !== text(access.organizationId)) {
+    throw new Error("Pending WhatsApp authorization belongs to another organization");
+  }
+  if (text(metadata.purpose) !== PENDING_PURPOSE) {
+    throw new Error("Pending WhatsApp authorization is invalid");
+  }
+
+  const expiresAt = Date.parse(text(metadata.expires_at));
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    await supabaseAdmin
+      .from("provider_credentials")
+      .update({ status: "REVOKED", secret_reference: "", updated_at: new Date().toISOString() })
+      .eq("id", data.id);
+    throw new Error("Pending WhatsApp authorization expired. Authorize Meta again.");
+  }
+
+  return data;
+}
+
+async function clearPendingSelection(id) {
+  await supabaseAdmin
+    .from("provider_credentials")
+    .update({
+      status: "REVOKED",
+      secret_reference: "",
+      updated_at: new Date().toISOString(),
+      metadata: { revoked_at: new Date().toISOString(), purpose: PENDING_PURPOSE },
+    })
+    .eq("id", id)
+    .eq("provider_id", PROVIDER);
 }
 
 async function subscribeWaba({ wabaId, accessToken, callbackUrl }) {
@@ -232,83 +409,22 @@ async function subscribeWaba({ wabaId, accessToken, callbackUrl }) {
     const rowAppId = text(row?.whatsapp_business_api_data?.id);
     return (!appId || rowAppId === appId) && text(row?.override_callback_uri) === callbackUrl;
   });
-  if (!subscription) {
-    throw new Error("WhatsApp webhook subscription could not be verified after Embedded Signup");
-  }
 
+  if (!subscription) {
+    throw new Error("WhatsApp webhook subscription could not be verified");
+  }
   return subscription;
 }
 
-async function resolvePhone({ wabaId, phoneNumberId, accessToken }) {
-  if (text(phoneNumberId)) {
-    return graphJson(
-      `${text(phoneNumberId)}?fields=id,display_phone_number,verified_name,quality_rating,name_status`,
-      accessToken,
-    );
-  }
-
-  const result = await graphJson(
-    `${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,name_status`,
-    accessToken,
-  );
-  const phones = Array.isArray(result?.data) ? result.data : [];
-
-  if (phones.length === 1) return phones[0];
-
-  if (phones.length === 0) {
-    const error = new Error(
-      "The WhatsApp Business Account was created in Meta, but no phone number is attached yet. Reopen Connect WhatsApp Business and add or verify the Churchill phone number.",
-    );
-    error.code = "WHATSAPP_PHONE_REQUIRED";
-    throw error;
-  }
-
-  const error = new Error(
-    "This WhatsApp Business Account has multiple phone numbers. Reopen Embedded Signup and select the Churchill phone number so Avantiqo can bind the correct asset.",
-  );
-  error.code = "WHATSAPP_PHONE_SELECTION_REQUIRED";
-  throw error;
-}
-
-async function completeEmbeddedSignup({
+async function activateExistingSelection({
   access,
-  code,
-  sdkAccessToken,
-  phoneNumberId,
-  wabaId,
-  businessId,
+  accessToken,
+  waba,
+  phone,
   origin,
 }) {
-  if (!text(code) && !text(sdkAccessToken)) {
-    throw new Error("WhatsApp signup did not return an authorization credential");
-  }
-  if (!text(wabaId)) {
-    throw new Error("WhatsApp signup completed without returning the WhatsApp Business Account ID");
-  }
-
-  const accessToken = text(sdkAccessToken) || (await exchangeCode(code));
-
-  const businessAccount = await graphJson(
-    `${wabaId}?fields=id,name,owner_business_info`,
-    accessToken,
-  );
-  const phone = await resolvePhone({
-    wabaId,
-    phoneNumberId,
-    accessToken,
-  });
-  const resolvedPhoneNumberId = text(phone?.id) || text(phoneNumberId);
-  const resolvedBusinessId =
-    text(businessId) ||
-    text(businessAccount?.owner_business_info?.id) ||
-    null;
-
-  if (!resolvedPhoneNumberId) {
-    throw new Error("WhatsApp phone number could not be resolved after Embedded Signup");
-  }
-
   const callbackUrl = whatsappWebhookUrl(origin);
-  await subscribeWaba({ wabaId, accessToken, callbackUrl });
+  await subscribeWaba({ wabaId: waba.id, accessToken, callbackUrl });
 
   const credential = await CredentialRuntime.store({
     provider_id: PROVIDER,
@@ -317,9 +433,8 @@ async function completeEmbeddedSignup({
     metadata: {
       organization_id: access.organizationId,
       purpose: "ORGANIZATION_WHATSAPP_BUSINESS",
-      phone_number_id: resolvedPhoneNumberId,
-      waba_id: wabaId,
-      business_id: resolvedBusinessId,
+      phone_number_id: phone.id,
+      waba_id: waba.id,
       enabled: true,
     },
   });
@@ -330,13 +445,12 @@ async function completeEmbeddedSignup({
     channel_type: "messaging",
     credentials_reference: credential.id,
     metadata: {
-      connection_model: "ORGANIZATION_WHATSAPP_EMBEDDED_SIGNUP",
-      phone_number_id: resolvedPhoneNumberId,
-      waba_id: wabaId,
-      business_id: resolvedBusinessId,
-      display_phone_number: phone?.display_phone_number || null,
-      verified_name: phone?.verified_name || null,
-      business_name: businessAccount?.name || null,
+      connection_model: "ORGANIZATION_WHATSAPP_EXISTING_WABA",
+      phone_number_id: phone.id,
+      waba_id: waba.id,
+      display_phone_number: phone.displayPhoneNumber || null,
+      verified_name: phone.verifiedName || null,
+      business_name: waba.name || null,
       connected_by_party_id: access.staff?.party_id || null,
       connected_at: new Date().toISOString(),
       webhook_url: callbackUrl,
@@ -350,14 +464,14 @@ async function completeEmbeddedSignup({
     connection_id: connection.id,
     provider: PROVIDER,
     asset_type: "whatsapp_phone_number",
-    external_id: resolvedPhoneNumberId,
-    name: phone?.verified_name || phone?.display_phone_number || "WhatsApp Business",
+    external_id: phone.id,
+    name: phone.verifiedName || phone.displayPhoneNumber || "WhatsApp Business",
     metadata: {
-      display_phone_number: phone?.display_phone_number || null,
-      verified_name: phone?.verified_name || null,
-      quality_rating: phone?.quality_rating || null,
-      name_status: phone?.name_status || null,
-      waba_id: wabaId,
+      display_phone_number: phone.displayPhoneNumber || null,
+      verified_name: phone.verifiedName || null,
+      quality_rating: phone.qualityRating || null,
+      name_status: phone.nameStatus || null,
+      waba_id: waba.id,
     },
   });
 
@@ -366,17 +480,82 @@ async function completeEmbeddedSignup({
     connection_id: connection.id,
     provider: PROVIDER,
     asset_type: "whatsapp_business_account",
-    external_id: wabaId,
-    name: businessAccount?.name || "WhatsApp Business Account",
+    external_id: waba.id,
+    name: waba.name || "WhatsApp Business Account",
     metadata: {
-      business_id: resolvedBusinessId,
-      phone_number_id: resolvedPhoneNumberId,
+      phone_number_id: phone.id,
     },
   });
 
   await ensureWhatsAppService(access.organizationId);
-
   return snapshot(access.organizationId, origin);
+}
+
+async function prepareExistingSelection({
+  access,
+  code,
+  sdkAccessToken,
+  wabaId,
+  phoneNumberId,
+}) {
+  const accessToken = await resolveAuthorizationToken({ code, sdkAccessToken });
+  const candidates = await discoverExistingWabas({
+    accessToken,
+    wabaId,
+    phoneNumberId,
+  });
+
+  if (!candidates.length) {
+    const error = new Error(
+      "Meta authorized Avantiqo, but no existing WhatsApp Business Account with an existing phone number was shared. Do not create another account or number. Choose the existing business assets in Meta and authorize them for Avantiqo.",
+    );
+    error.code = "WHATSAPP_EXISTING_WABA_NOT_SHARED";
+    throw error;
+  }
+
+  const pendingCredentialId = await storePendingSelection({
+    access,
+    accessToken,
+    candidates,
+  });
+
+  return {
+    selectionRequired: true,
+    pendingCredentialId,
+    candidates,
+  };
+}
+
+async function confirmExistingSelection({
+  access,
+  pendingCredentialId,
+  wabaId,
+  phoneNumberId,
+  origin,
+}) {
+  const pending = await loadPendingSelection({ access, pendingCredentialId });
+  const candidates = Array.isArray(pending.metadata?.candidate_wabas)
+    ? pending.metadata.candidate_wabas
+    : [];
+
+  const waba = candidates.find((row) => text(row?.id) === text(wabaId));
+  if (!waba) throw new Error("Selected WhatsApp Business Account was not authorized");
+
+  const phone = (Array.isArray(waba.phones) ? waba.phones : []).find(
+    (row) => text(row?.id) === text(phoneNumberId),
+  );
+  if (!phone) throw new Error("Selected WhatsApp phone number was not authorized");
+
+  const result = await activateExistingSelection({
+    access,
+    accessToken: pending.secret_reference,
+    waba,
+    phone,
+    origin,
+  });
+
+  await clearPendingSelection(pending.id);
+  return result;
 }
 
 export async function GET(request) {
@@ -418,23 +597,35 @@ export async function POST(request) {
         { status: 403 },
       );
     }
-    if (body.action !== "complete-embedded-signup") {
+
+    const origin = publicOrigin(request);
+    let result;
+
+    if (
+      body.action === "recover-existing-embedded-signup" ||
+      body.action === "complete-embedded-signup"
+    ) {
+      result = await prepareExistingSelection({
+        access,
+        code: body.code,
+        sdkAccessToken: body.accessToken,
+        wabaId: body.wabaId || null,
+        phoneNumberId: body.phoneNumberId || null,
+      });
+    } else if (body.action === "confirm-existing-selection") {
+      result = await confirmExistingSelection({
+        access,
+        pendingCredentialId: body.pendingCredentialId,
+        wabaId: body.wabaId,
+        phoneNumberId: body.phoneNumberId,
+        origin,
+      });
+    } else {
       return NextResponse.json(
         { success: false, error: "Unsupported WhatsApp integration action" },
         { status: 400 },
       );
     }
-
-    const origin = publicOrigin(request);
-    const result = await completeEmbeddedSignup({
-      access,
-      code: body.code,
-      sdkAccessToken: body.accessToken,
-      phoneNumberId: body.phoneNumberId,
-      wabaId: body.wabaId,
-      businessId: body.businessId || null,
-      origin,
-    });
 
     return NextResponse.json({
       success: true,
@@ -443,11 +634,7 @@ export async function POST(request) {
     });
   } catch (error) {
     const code = text(error?.code) || "WHATSAPP_CONNECTION_FAILED";
-    const status =
-      code === "WHATSAPP_PHONE_REQUIRED" ||
-      code === "WHATSAPP_PHONE_SELECTION_REQUIRED"
-        ? 409
-        : 500;
+    const status = code === "WHATSAPP_EXISTING_WABA_NOT_SHARED" ? 409 : 500;
 
     return NextResponse.json(
       {

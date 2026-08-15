@@ -240,6 +240,22 @@ assert.match(turnRuntimeSource, /function completedAgreementState/);
 assert.match(turnRuntimeSource, /status:\s*"superseded"/);
 assert.match(turnRuntimeSource, /status:\s*"awaiting_approval"/);
 assert.match(turnRuntimeSource, /status:\s*"completed"/);
+assert.match(turnRuntimeSource, /function isAutonomousRunStatusQuery/);
+assert.match(turnRuntimeSource, /function autonomousRunStatusText/);
+assert.match(turnRuntimeSource, /model:\s*"autonomous-run-status-v1"/);
+assert.match(turnRuntimeSource, /bypassed_for_run_status:\s*true/);
+assert.match(
+  turnRuntimeSource,
+  /if \(activeRun && isAutonomousRunStatusQuery\(message\)\) \{\s*return runStatusTurn/s,
+);
+assert.match(
+  turnRuntimeSource,
+  /const governanceState = agreementWithRunTransition\(\s*agreementState,/s,
+);
+assert.doesNotMatch(
+  turnRuntimeSource,
+  /const governanceState = agreementWithRunTransition\(\s*clearedAgreementState\(agreementState\)/s,
+);
 
 assert.match(registryRuntimeSource, /erpRegistry\.js/);
 assert.match(registryRuntimeSource, /serializeCapability/);
@@ -282,5 +298,7 @@ console.log("OPERATOR_AUTONOMOUS_RUN=BOUNDED_DURABLE_CONTINUATION_STATE");
 console.log("OPERATOR_AUTONOMOUS_RUN_MAX_STEPS=6");
 console.log("OPERATOR_AUTONOMOUS_RUN_STOP_GATES=CONFIRMATION_APPROVAL_VERIFICATION_SUPERSESSION");
 console.log("OPERATOR_AUTONOMOUS_RUN_PAYLOAD_OWNER=PENDING_EXECUTION_ONLY");
+console.log("OPERATOR_AUTONOMOUS_RUN_STATUS=LOCAL_NONDESTRUCTIVE_INTROSPECTION");
+console.log("OPERATOR_APPROVAL_RESUME=PENDING_ACTION_PRESERVED");
 console.log("OPERATOR_GOAL_SURFACES=TEXT_AND_VOICE_PRIMARY_CONVERSATION");
 console.log("OPERATOR_VOICE_FAILURE=ALWAYS_AUDIBLE_WITH_FOLLOW_UP");

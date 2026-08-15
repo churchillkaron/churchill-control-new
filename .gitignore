@@ -47,3 +47,8 @@ backups/
 .env.vercel
 .env.staging
 .env.staging
+
+# Clearance input files. These carry references to real licences and signed releases, and the recorder
+# reads them from disk rather than from the repository -- a filled-in clearance file committed here would
+# put legal document identifiers into git history permanently.
+clearances*.json

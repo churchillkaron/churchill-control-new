@@ -9,6 +9,8 @@ const FILES = Object.freeze({
   reviewer: "lib/payroll/consolidation/reviewAttendancePenalty.js",
   recalculator: "lib/payroll/consolidation/recalculatePayrollRecord.js",
   scheduleApi: "app/api/people/workforce/schedules/route.js",
+  schedulePage:
+    "app/(system)/workspace/[organizationId]/people/scheduling/page.jsx",
   attendancePage:
     "app/(system)/workspace/[organizationId]/people/attendance/page.jsx",
   governancePage:
@@ -20,6 +22,8 @@ const FILES = Object.freeze({
     "supabase/migrations/20260813054525_workforce_schedule_status_convergence.sql",
   deleteGuardMigration:
     "supabase/migrations/20260813060210_workforce_schedule_delete_guard.sql",
+  evidenceLockMigration:
+    "supabase/migrations/20260815060400_workforce_schedule_evidence_lock.sql",
 });
 
 const ACTIVE_SOURCE_ROOTS = Object.freeze(["app", "lib", "components"]);
@@ -164,6 +168,42 @@ requireMatch(
   /const commonUpdate = \{[\s\S]{0,300}?status:\s*"PUBLISHED"/,
   "Workforce schedule republish lifecycle",
 );
+requireMatch(
+  source.scheduleApi,
+  /async function loadScheduleEvidence[\s\S]*?\.from\("staff_shifts"\)[\s\S]*?\.select\("schedule_id"\)[\s\S]*?\.from\("staff_attendance"\)[\s\S]*?\.select\("schedule_id"\)/,
+  "Workforce schedule dependent evidence lookup",
+);
+requireMatch(
+  source.scheduleApi,
+  /SCHEDULE_EVIDENCE_LOCKED/,
+  "Workforce schedule evidence-lock conflict",
+);
+requireMatch(
+  source.scheduleApi,
+  /evidenceLocked:\s*evidence\.lockedScheduleIds\.has\(row\.id\)/,
+  "Workforce schedule evidence-lock projection",
+);
+requireMatch(
+  deleteHandler,
+  /loadScheduleEvidence\([\s\S]*?scheduleEvidenceError\([\s\S]*?\.update\(\{[\s\S]*?status:\s*"CANCELLED"/,
+  "Workforce schedule cancellation evidence guard",
+);
+
+requireMatch(
+  source.schedulePage,
+  /row\.evidenceLocked/,
+  "Workforce scheduling evidence-lock UI",
+);
+requireMatch(
+  source.schedulePage,
+  /Evidence locked/,
+  "Workforce scheduling evidence-lock label",
+);
+requireMatch(
+  source.schedulePage,
+  /row\.evidenceLocked[\s\S]{0,900}?Manage in Attendance[\s\S]{0,900}?removeSchedule\(row\.id\)/,
+  "Workforce scheduling locked cancellation guard",
+);
 
 requireMatch(
   source.freshnessMigration,
@@ -216,6 +256,42 @@ requireMatch(
   source.deleteGuardMigration,
   /revoke execute on function public\.prevent_staff_schedule_hard_delete\(\) from public[\s\S]*?from anon[\s\S]*?from authenticated/,
   "Workforce schedule delete guard execution grants",
+);
+
+requireMatch(
+  source.evidenceLockMigration,
+  /create unique index if not exists staff_schedules_org_staff_date_unique[\s\S]*?organization_id, staff_id, shift_date/,
+  "Workforce schedule one-row-per-staff-date constraint",
+);
+requireMatch(
+  source.evidenceLockMigration,
+  /create or replace function public\.prevent_staff_schedule_evidence_mutation\(\)[\s\S]*?returns trigger/,
+  "Workforce schedule evidence-lock function",
+);
+requireMatch(
+  source.evidenceLockMigration,
+  /old\.organization_id is distinct from new\.organization_id[\s\S]*?old\.staff_id is distinct from new\.staff_id[\s\S]*?old\.party_id is distinct from new\.party_id[\s\S]*?old\.shift_date is distinct from new\.shift_date[\s\S]*?old\.start_time is distinct from new\.start_time[\s\S]*?old\.end_time is distinct from new\.end_time[\s\S]*?old\.shift_type is distinct from new\.shift_type[\s\S]*?old\.status is distinct from new\.status/,
+  "Workforce schedule immutable evidence fields",
+);
+requireMatch(
+  source.evidenceLockMigration,
+  /from public\.staff_shifts[\s\S]*?schedule_id = old\.id[\s\S]*?from public\.staff_attendance[\s\S]*?schedule_id = old\.id/,
+  "Workforce schedule database dependent-evidence lookup",
+);
+requireMatch(
+  source.evidenceLockMigration,
+  /create trigger staff_schedules_prevent_evidence_mutation[\s\S]*?before update on public\.staff_schedules[\s\S]*?execute function public\.prevent_staff_schedule_evidence_mutation\(\)/,
+  "Workforce schedule database evidence-lock trigger",
+);
+requireNoMatch(
+  source.evidenceLockMigration,
+  /security\s+definer/i,
+  "Workforce schedule evidence-lock privilege boundary",
+);
+requireMatch(
+  source.evidenceLockMigration,
+  /revoke execute on function public\.prevent_staff_schedule_evidence_mutation\(\) from public[\s\S]*?from anon[\s\S]*?from authenticated/,
+  "Workforce schedule evidence-lock execution grants",
 );
 
 requireMatch(
@@ -350,5 +426,5 @@ requireMatch(
 );
 
 console.log(
-  "Workforce/Payroll reconciliation release audit passed: database-enforced schedule history, canonical schedule statuses, exact payroll-attendance resolution links, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, organization-timezone staff payroll, and no automatic absence deduction are intact.",
+  "Workforce/Payroll reconciliation release audit passed: database-enforced immutable schedule evidence, one roster row per staff/date, database-enforced schedule history, canonical schedule statuses, exact payroll-attendance resolution links, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, organization-timezone staff payroll, and no automatic absence deduction are intact.",
 );

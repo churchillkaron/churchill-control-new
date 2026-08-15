@@ -31,14 +31,14 @@ function money(value, currency = "") {
   return currency ? `${currency} ${amount}` : amount;
 }
 
-function dateTime(value) {
+function dateTime(value, timezone = "UTC") {
   if (!value) return "-";
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
 
   return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Bangkok",
+    timeZone: timezone,
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -87,6 +87,7 @@ export default function StaffEarningsPage() {
     profile?.compensation?.currency_code ||
     profile?.compensation?.currency ||
     "";
+  const timezone = profile?.timezone || "UTC";
 
   const summary = useMemo(() => {
     return {
@@ -300,7 +301,7 @@ export default function StaffEarningsPage() {
 
                   {acknowledged ? (
                     <div className="mt-5 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.07] p-4 text-sm text-cyan-100">
-                      Payroll acknowledged {record.employee_acknowledged_at ? dateTime(record.employee_acknowledged_at) : ""}.
+                      Payroll acknowledged {record.employee_acknowledged_at ? dateTime(record.employee_acknowledged_at, timezone) : ""}.
                     </div>
                   ) : null}
 

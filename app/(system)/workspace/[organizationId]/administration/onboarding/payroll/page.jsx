@@ -13,6 +13,7 @@ import {
   CircleDashed,
   ClipboardCheck,
   Coins,
+  CreditCard,
   RefreshCw,
   Settings2,
   Users,
@@ -28,6 +29,11 @@ function peopleRoute(organizationId, path) {
   return `/workspace/${encodeURIComponent(organizationId)}/people${path}`;
 }
 
+function financeRoute(organizationId, path) {
+  if (!organizationId) return "#";
+  return `/workspace/${encodeURIComponent(organizationId)}/finance${path}`;
+}
+
 function blockerAction(code, organizationId) {
   const actions = {
     PAYROLL_PERIOD_OPEN: { href: peopleRoute(organizationId, "/attendance"), label: "Review attendance" },
@@ -36,10 +42,16 @@ function blockerAction(code, organizationId) {
     PAYROLL_CURRENCY_MISSING: { href: peopleRoute(organizationId, "/payroll/policy"), label: "Configure payroll" },
     COMPENSATION_PROFILE_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Open compensation" },
     COMPENSATION_AMOUNT_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Set pay amounts" },
+    COMPENSATION_CURRENCY_MISMATCH: { href: peopleRoute(organizationId, "/compensation"), label: "Fix compensation" },
     SCHEDULES_MISSING: { href: peopleRoute(organizationId, "/scheduling"), label: "Open scheduling" },
     PAYROLL_ALREADY_LOCKED: { href: peopleRoute(organizationId, "/payroll/governance"), label: "Open governance" },
     SHIFT_EVIDENCE_MISSING: { href: peopleRoute(organizationId, "/attendance"), label: "Review attendance" },
     ATTENDANCE_EVIDENCE_MISSING: { href: peopleRoute(organizationId, "/attendance"), label: "Review attendance" },
+    PAYMENT_METHOD_MISSING: { href: peopleRoute(organizationId, "/payroll/payments"), label: "Open payments" },
+    PAYMENT_CURRENCY_MISMATCH: { href: peopleRoute(organizationId, "/payroll/payments"), label: "Review payment setup" },
+    BANK_DETAILS_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Add bank details" },
+    ACCOUNTING_PERIOD_NOT_OPEN: { href: financeRoute(organizationId, "/fiscal-periods"), label: "Open fiscal periods" },
+    PAYROLL_POSTING_RULES_MISSING: { href: financeRoute(organizationId, "/posting-rules"), label: "Open posting rules" },
   };
 
   return actions[code] || null;
@@ -52,6 +64,9 @@ function stageState({ readiness, errorCode, kind }) {
   if (!readiness) return "waiting";
 
   const blockers = new Set((readiness.blockers || []).map((item) => item.code));
+  const lifecycleBlockers = new Set(
+    (readiness.lifecycleBlockers || []).map((item) => item.code)
+  );
 
   if (kind === "entity") return readiness.entityId ? "ready" : "blocked";
   if (kind === "settings") {
@@ -60,7 +75,10 @@ function stageState({ readiness, errorCode, kind }) {
       : "ready";
   }
   if (kind === "compensation") {
-    return blockers.has("COMPENSATION_PROFILE_MISSING") || blockers.has("COMPENSATION_AMOUNT_MISSING")
+    return blockers.has("COMPENSATION_PROFILE_MISSING") ||
+      blockers.has("COMPENSATION_AMOUNT_MISSING") ||
+      blockers.has("COMPENSATION_CURRENCY_MISMATCH") ||
+      lifecycleBlockers.has("BANK_DETAILS_MISSING")
       ? "blocked"
       : "ready";
   }
@@ -75,11 +93,14 @@ function stageState({ readiness, errorCode, kind }) {
         ? "ready"
         : "waiting";
   }
+  if (kind === "payment") {
+    return lifecycleBlockers.size === 0 ? "ready" : "blocked";
+  }
   if (kind === "run") {
-    const configurationBlockers = (readiness.blockers || []).filter(
+    const generationBlockers = (readiness.blockers || []).filter(
       (item) => item.code !== "PAYROLL_PERIOD_OPEN"
     );
-    return configurationBlockers.length === 0 ? "ready" : "blocked";
+    return generationBlockers.length === 0 ? "ready" : "blocked";
   }
 
   return "waiting";
@@ -106,7 +127,7 @@ function getStages(organizationId) {
     {
       id: "compensation",
       title: "Compensation",
-      description: "Configure an effective compensation profile and pay amount for each payroll employee.",
+      description: "Configure effective pay, entity currency and bank-transfer destination for every payroll employee.",
       href: peopleRoute(organizationId, "/compensation"),
       action: "Compensation",
       icon: Coins,
@@ -126,6 +147,14 @@ function getStages(organizationId) {
       href: peopleRoute(organizationId, "/attendance"),
       action: "Attendance",
       icon: ClipboardCheck,
+    },
+    {
+      id: "payment",
+      title: "Payment Readiness",
+      description: "Confirm payout destinations, payment configuration, Finance period state and payroll posting rules before settlement.",
+      href: peopleRoute(organizationId, "/payroll/payments"),
+      action: "Payroll payments",
+      icon: CreditCard,
     },
     {
       id: "run",
@@ -188,8 +217,18 @@ export default function AdministrationPayrollOnboardingPage() {
     [readiness]
   );
 
+  const lifecycleBlockers = useMemo(
+    () => readiness?.lifecycleBlockers || [],
+    [readiness]
+  );
+
+  const requiredBlockers = useMemo(
+    () => [...setupBlockers, ...lifecycleBlockers],
+    [setupBlockers, lifecycleBlockers]
+  );
+
   const setupReady = Boolean(
-    readiness && readiness.entityId && setupBlockers.length === 0
+    readiness && readiness.entityId && requiredBlockers.length === 0
   );
 
   const completedStages = stages.filter(
@@ -282,13 +321,13 @@ export default function AdministrationPayrollOnboardingPage() {
                 <AlertTriangle className="h-4 w-4" /> Required setup
               </div>
 
-              {setupBlockers.length === 0 ? (
+              {requiredBlockers.length === 0 ? (
                 <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-                  All configuration prerequisites for this payroll month are complete. Period-close rules may still prevent generation while the month is open.
+                  All configuration and settlement prerequisites for this payroll month are complete. Period-close rules may still prevent generation while the month is open.
                 </div>
               ) : (
                 <div className="mt-4 space-y-2">
-                  {setupBlockers.map((item) => {
+                  {requiredBlockers.map((item) => {
                     const action = blockerAction(item.code, organizationId);
                     return (
                       <div key={item.code} className="rounded-2xl border border-red-500/15 bg-red-500/[0.06] p-4">
@@ -319,6 +358,8 @@ export default function AdministrationPayrollOnboardingPage() {
                 <Mini label="Scheduled staff" value={readiness.summary?.scheduledStaff || 0} />
                 <Mini label="Shifts" value={readiness.summary?.shiftRows || 0} />
                 <Mini label="Attendance" value={readiness.summary?.attendanceRows || 0} />
+                <Mini label="Settlement blockers" value={lifecycleBlockers.length} />
+                <Mini label="Generation blockers" value={setupBlockers.length} />
               </div>
               <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-xs leading-6 text-white/40">
                 Payroll country: <span className="text-white/70">{readiness.settings?.country || "Not configured"}</span><br />

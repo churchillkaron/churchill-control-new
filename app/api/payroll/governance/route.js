@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
-import loadOperationalSettings from "@/lib/settings/loadOperationalSettings";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   approvePayrollRecord,
@@ -55,6 +54,11 @@ const LIVE_ATTENDANCE_REVIEW_STATUSES = new Set([
 
 function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
+}
+
+function normalizeCurrency(value) {
+  const currency = String(value || "").trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(currency) ? currency : null;
 }
 
 function contextResponse(context) {
@@ -196,36 +200,72 @@ async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
   });
 }
 
+async function attachLegalEntityCurrency({ organizationId, payroll }) {
+  const records = Array.isArray(payroll) ? payroll : [];
+  const entityIds = [...new Set(records.map((record) => record.entity_id).filter(Boolean))];
+
+  if (!entityIds.length) return records;
+
+  const { data, error } = await supabaseAdmin
+    .from("legal_entities")
+    .select("id,legal_name,display_name,currency")
+    .eq("organization_id", organizationId)
+    .in("id", entityIds);
+
+  if (error) throw error;
+
+  const entityById = new Map((data || []).map((entity) => [entity.id, entity]));
+
+  return records.map((record) => {
+    const entity = entityById.get(record.entity_id) || null;
+    const currency = normalizeCurrency(entity?.currency);
+
+    return {
+      ...record,
+      currency_code: currency,
+      legal_entity: entity
+        ? {
+            id: entity.id,
+            name: entity.display_name || entity.legal_name || entity.id,
+            currency,
+          }
+        : null,
+    };
+  });
+}
+
 export async function GET(request) {
   try {
     const context = await governanceContext(request);
     if (context.response) return context.response;
 
-    const [payrollResult, payrollSettings] = await Promise.all([
-      supabaseAdmin
-        .from("payroll_records")
-        .select("*")
-        .eq("organization_id", context.organizationId)
-        .order("payroll_month", { ascending: false })
-        .order("created_at", { ascending: false }),
-      loadOperationalSettings({
-        organizationId: context.organizationId,
-        domain: "PAYROLL",
-      }),
-    ]);
+    const { data, error } = await supabaseAdmin
+      .from("payroll_records")
+      .select("*")
+      .eq("organization_id", context.organizationId)
+      .order("payroll_month", { ascending: false })
+      .order("created_at", { ascending: false });
 
-    if (payrollResult.error) throw payrollResult.error;
+    if (error) throw error;
 
-    const payroll = await attachLiveAttendanceReadiness({
+    const payrollWithAttendance = await attachLiveAttendanceReadiness({
       organizationId: context.organizationId,
-      payroll: payrollResult.data || [],
+      payroll: data || [],
     });
+    const payroll = await attachLegalEntityCurrency({
+      organizationId: context.organizationId,
+      payroll: payrollWithAttendance,
+    });
+
+    const currencies = [...new Set(payroll.map((record) => record.currency_code).filter(Boolean))];
 
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
       role: context.role,
-      currency: String(payrollSettings?.currency || "").trim().toUpperCase(),
+      currency: currencies.length === 1 ? currencies[0] : "",
+      currencies,
+      mixedCurrencies: currencies.length > 1,
       capabilities: {
         canReview: true,
         canResolveDispute: true,

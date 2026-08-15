@@ -85,12 +85,24 @@ assert.equal(merged.objective, established.objective);
 assert.equal(merged.last_intent, "plan");
 assert.ok(Number.isFinite(Date.parse(merged.updated_at)));
 
-const [reasoningSource, verificationSource, routeSource, homeSource, voiceSource] = await Promise.all([
+const [
+  reasoningSource,
+  verificationSource,
+  routeSource,
+  homeSource,
+  voiceSource,
+  registryRuntimeSource,
+  registryBridgeSource,
+  capabilityCatalogSource,
+] = await Promise.all([
   readFile("lib/operator/runtime/OperatorReasoningRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorVerificationRuntime.js", "utf8"),
   readFile("app/api/operator/turn/route.js", "utf8"),
   readFile("components/operator/HomeAvantiqoIntelligence.jsx", "utf8"),
   readFile("components/operator/LocalHeyAvantiqoWakeBridge.jsx", "utf8"),
+  readFile("lib/platform/registry/OperatorRegistryDomainRuntimes.js", "utf8"),
+  readFile("lib/platform/registry/operatorRegistryBridge.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorCapabilityCatalog.js", "utf8"),
 ]);
 
 assert.match(
@@ -126,6 +138,17 @@ assert.match(verificationSource, /choose one best safe next step/i);
 assert.match(verificationSource, /interpretive_synthesis:\s*true/);
 assert.match(verificationSource, /evidence_compaction:\s*"collection-aware-v1"/);
 
+assert.match(registryRuntimeSource, /erpRegistry\.js/);
+assert.match(registryRuntimeSource, /serializeCapability/);
+assert.match(registryRuntimeSource, /serializeCapability\(ERP_REGISTRY\)/);
+assert.doesNotMatch(registryRuntimeSource, /erpRegistry\.base\.js/);
+assert.match(registryBridgeSource, /function contextScope\(item\)/);
+assert.match(registryBridgeSource, /contextScope:\s*scope/);
+assert.match(registryBridgeSource, /OPERATOR_ENTITY_CONTEXT_REQUIRED/);
+assert.match(registryBridgeSource, /scope === "entity" && !text\(context\?\.entityId\)/);
+assert.match(capabilityCatalogSource, /function normalizeContextScope\(value\)/);
+assert.match(capabilityCatalogSource, /context_scope:\s*normalizeContextScope/);
+
 assert.match(routeSource, /projectState:\s*memory\.projectState/);
 assert.match(routeSource, /mergeOperatorProjectState/);
 assert.match(homeSource, /setProjectState\(result\?\.project_state/);
@@ -143,5 +166,7 @@ console.log("OPERATOR_READ_EVIDENCE=NESTED_COLLECTION_AWARE_BOUNDED_SAMPLE");
 console.log("OPERATOR_READ_SAMPLE_GUARD=NO_DATASET_TOTALS_OR_TRENDS_FROM_PARTIAL_SAMPLE");
 console.log("OPERATOR_VERIFIED_READ_INTERPRETATION=FACT_INFERENCE_RECOMMENDATION_SEPARATED");
 console.log("OPERATOR_RECOMMENDATION_GUARD=NO_INVENTED_BENCHMARKS_ONE_SAFE_NEXT_STEP");
+console.log("OPERATOR_REGISTRY_SOURCE=CANONICAL_CONVERGED_ERP");
+console.log("OPERATOR_CONTEXT_SCOPE=DECLARED_AND_ENTITY_GUARDED");
 console.log("OPERATOR_GOAL_SURFACES=TEXT_AND_VOICE_PRIMARY_CONVERSATION");
 console.log("OPERATOR_VOICE_FAILURE=ALWAYS_AUDIBLE_WITH_FOLLOW_UP");

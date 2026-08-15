@@ -7,10 +7,11 @@ const SURFACE_REGISTRY =
   "app/(system)/workspace/[organizationId]/operations/pos/POSApplicationSurfaceRegistry.jsx";
 const ROUTE_ROOT = "app/api/pos";
 
-// An adapter only forces the *client* to send the entity when it rejects a
-// missing entity AND has no server-side fallback. Adapters that fall back to the
-// authenticated access context resolve it themselves, so a client that omits it
-// still works and must not be reported.
+// An adapter capability only forces the client to send the entity when that
+// capability rejects a missing entity AND has no server-side fallback. This is
+// deliberately capability-scoped: one function such as checkout must not make
+// an unrelated function such as order creation look entity-required merely
+// because both live in the same adapter module.
 const ENTITY_REJECTED_WHEN_MISSING =
   /if\s*\(\s*!\s*(?:entityId|scope\.entityId)\s*\)[\s\S]{0,240}?throw/;
 const ENTITY_RESOLVED_FROM_ACCESS =
@@ -27,6 +28,19 @@ function matchingCloseParen(source, openIndex) {
     const character = source[index];
     if (character === "(") depth += 1;
     else if (character === ")") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function matchingCloseBrace(source, openIndex) {
+  let depth = 0;
+  for (let index = openIndex; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === "{") depth += 1;
+    else if (character === "}") {
       depth -= 1;
       if (depth === 0) return index;
     }
@@ -129,20 +143,44 @@ function importMap(baseFile, source) {
   return map;
 }
 
+function capabilitySource(source, capability) {
+  const escaped = String(capability).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const patterns = [
+    new RegExp(`(?:async\\s+)?function\\s+${escaped}\\s*\\(`),
+    new RegExp(`(?:async\\s+)?${escaped}\\s*\\(`),
+  ];
+
+  for (const pattern of patterns) {
+    const match = pattern.exec(source);
+    if (!match) continue;
+    const openBrace = source.indexOf("{", match.index + match[0].length);
+    if (openBrace === -1) continue;
+    const closeBrace = matchingCloseBrace(source, openBrace);
+    if (closeBrace === -1) continue;
+    return source.slice(match.index, closeBrace + 1);
+  }
+
+  return null;
+}
+
 function requiresEntityCache() {
   const cache = new Map();
-  return (module) => {
-    if (cache.has(module)) return cache.get(module);
+  return (module, capability) => {
+    const key = `${module}:${capability}`;
+    if (cache.has(key)) return cache.get(key);
+
     let value = false;
     try {
-      const source = read(module);
+      const moduleSource = read(module);
+      const source = capabilitySource(moduleSource, capability) || moduleSource;
       value =
         ENTITY_REJECTED_WHEN_MISSING.test(source) &&
         !ENTITY_RESOLVED_FROM_ACCESS.test(source);
     } catch {
       value = false;
     }
-    cache.set(module, value);
+
+    cache.set(key, value);
     return value;
   };
 }
@@ -275,7 +313,7 @@ for (const [surfaceModule, applications] of surfaceApplications) {
     const requiringApplications = [...applications].filter((applicationId) =>
       [...capabilities].some((capability) => {
         const module = applicationCapabilities[applicationId]?.[capability];
-        return module ? requiresEntity(module) : false;
+        return module ? requiresEntity(module, capability) : false;
       }),
     );
 

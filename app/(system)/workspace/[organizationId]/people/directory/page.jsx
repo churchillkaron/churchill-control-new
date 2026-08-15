@@ -1,16 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   Banknote,
   CircleAlert,
   KeyRound,
+  Pencil,
+  Plus,
   RefreshCw,
-  Save,
   Search,
   ShieldCheck,
   UserRound,
+  UserRoundCheck,
+  UserRoundX,
   UsersRound,
 } from "lucide-react";
 
@@ -39,8 +43,9 @@ function dateTime(value) {
 }
 
 function accessLabel(status) {
-  if (status === "ACTIVE") return "Active";
+  if (status === "ACTIVE") return "Portal active";
   if (status === "ACCOUNT_LINKED") return "Account linked";
+  if (status === "INACTIVE") return "Employee inactive";
   return "Setup required";
 }
 
@@ -51,6 +56,10 @@ function accessClass(status) {
 
   if (status === "ACCOUNT_LINKED") {
     return "border-cyan-400/20 bg-cyan-400/10 text-cyan-100";
+  }
+
+  if (status === "INACTIVE") {
+    return "border-white/10 bg-white/[0.04] text-white/45";
   }
 
   return "border-amber-400/20 bg-amber-400/10 text-amber-100";
@@ -66,7 +75,20 @@ function compensationAmount(compensation) {
     return `${money(compensation.hourly_rate, currency)} / hour`;
   }
 
-  return `${money(compensation.monthly_salary, currency)} / month`;
+  if (salaryType === "MONTHLY") {
+    return `${money(compensation.monthly_salary, currency)} / month`;
+  }
+
+  return "Configuration incomplete";
+}
+
+function emptyEmployeeForm() {
+  return {
+    name: "",
+    email: "",
+    position: "",
+    department: "",
+  };
 }
 
 export default function PeopleDirectoryPage({ params }) {
@@ -76,18 +98,11 @@ export default function PeopleDirectoryPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
   const [editingId, setEditingId] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [form, setForm] = useState({
-    salaryType: "MONTHLY",
-    payrollFrequency: "MONTHLY",
-    currency: "THB",
-    monthlySalary: "",
-    hourlyRate: "",
-    bankName: "",
-    bankAccount: "",
-  });
+  const [form, setForm] = useState(emptyEmployeeForm());
 
   async function load() {
     setLoading(true);
@@ -101,13 +116,13 @@ export default function PeopleDirectoryPage({ params }) {
       const result = await response.json();
 
       if (!response.ok || !result?.success) {
-        throw new Error(result?.error || "Unable to load staff directory");
+        throw new Error(result?.error || "Unable to load employee directory");
       }
 
       setEmployees(result.employees || []);
       setSummary(result.summary || null);
     } catch (loadError) {
-      setError(loadError?.message || "Unable to load staff directory");
+      setError(loadError?.message || "Unable to load employee directory");
     } finally {
       setLoading(false);
     }
@@ -125,7 +140,7 @@ export default function PeopleDirectoryPage({ params }) {
       [
         employee.name,
         employee.email,
-        employee.role,
+        employee.accessRole,
         employee.position,
         employee.department,
       ]
@@ -134,29 +149,131 @@ export default function PeopleDirectoryPage({ params }) {
     );
   }, [employees, query]);
 
-  function editCompensation(employee) {
-    const compensation = employee.compensation || {};
+  function beginCreate() {
+    setEditingId("");
+    setForm(emptyEmployeeForm());
+    setShowCreate(true);
+    setError("");
+    setMessage("");
+  }
 
+  function beginEdit(employee) {
+    setShowCreate(false);
     setEditingId(employee.id);
+    setForm({
+      name: employee.name || "",
+      email: employee.email || "",
+      position: employee.position || "",
+      department: employee.department || "",
+    });
+    setError("");
+    setMessage("");
+  }
+
+  function cancelForm() {
+    setEditingId("");
+    setShowCreate(false);
+    setForm(emptyEmployeeForm());
+  }
+
+  async function createEmployee() {
+    setWorkingId("CREATE");
     setMessage("");
     setError("");
-    setForm({
-      salaryType: compensation.salary_type || "MONTHLY",
-      payrollFrequency: compensation.payroll_frequency || "MONTHLY",
-      currency: compensation.currency || "THB",
-      monthlySalary:
-        compensation.monthly_salary === null ||
-        typeof compensation.monthly_salary === "undefined"
-          ? ""
-          : String(compensation.monthly_salary),
-      hourlyRate:
-        compensation.hourly_rate === null ||
-        typeof compensation.hourly_rate === "undefined"
-          ? ""
-          : String(compensation.hourly_rate),
-      bankName: compensation.bank_name || "",
-      bankAccount: compensation.bank_account || "",
-    });
+
+    try {
+      const response = await fetch(
+        `/api/people/directory?organizationId=${encodeURIComponent(organizationId)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "create_employee",
+            ...form,
+          }),
+        }
+      );
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to create employee");
+      }
+
+      setMessage(result.message || "Employee created.");
+      cancelForm();
+      await load();
+    } catch (actionError) {
+      setError(actionError?.message || "Unable to create employee");
+    } finally {
+      setWorkingId("");
+    }
+  }
+
+  async function saveEmployee(employee) {
+    setWorkingId(employee.id);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/people/directory?organizationId=${encodeURIComponent(organizationId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_profile",
+            staffId: employee.id,
+            ...form,
+          }),
+        }
+      );
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to update employee");
+      }
+
+      setMessage(result.message || "Employee profile updated.");
+      cancelForm();
+      await load();
+    } catch (actionError) {
+      setError(actionError?.message || "Unable to update employee");
+    } finally {
+      setWorkingId("");
+    }
+  }
+
+  async function setActive(employee, active) {
+    setWorkingId(employee.id);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/people/directory?organizationId=${encodeURIComponent(organizationId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "set_active",
+            staffId: employee.id,
+            active,
+          }),
+        }
+      );
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to update employee status");
+      }
+
+      setMessage(result.message || "Employee status updated.");
+      await load();
+    } catch (actionError) {
+      setError(actionError?.message || "Unable to update employee status");
+    } finally {
+      setWorkingId("");
+    }
   }
 
   async function sendActivation(employee) {
@@ -191,44 +308,7 @@ export default function PeopleDirectoryPage({ params }) {
     }
   }
 
-  async function saveCompensation(employee) {
-    setWorkingId(employee.id);
-    setMessage("");
-    setError("");
-
-    try {
-      const response = await fetch(
-        `/api/people/compensation?organizationId=${encodeURIComponent(organizationId)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            staffId: employee.id,
-            salaryType: form.salaryType,
-            payrollFrequency: form.payrollFrequency,
-            currency: form.currency,
-            monthlySalary: form.monthlySalary,
-            hourlyRate: form.hourlyRate,
-            bankName: form.bankName,
-            bankAccount: form.bankAccount,
-          }),
-        }
-      );
-      const result = await response.json();
-
-      if (!response.ok || !result?.success) {
-        throw new Error(result?.error || "Unable to save compensation");
-      }
-
-      setMessage(`Compensation saved for ${employee.name}.`);
-      setEditingId("");
-      await load();
-    } catch (saveError) {
-      setError(saveError?.message || "Unable to save compensation");
-    } finally {
-      setWorkingId("");
-    }
-  }
+  const compensationHref = `/workspace/${encodeURIComponent(organizationId)}/people/compensation`;
 
   return (
     <main className="min-h-screen bg-[#030303] p-5 text-white lg:p-10">
@@ -238,22 +318,31 @@ export default function PeopleDirectoryPage({ params }) {
           <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.34em] text-[#D6A66A]">
-                <UsersRound className="h-4 w-4" /> People · Staff Directory
+                <UsersRound className="h-4 w-4" /> People · Employees
               </div>
-              <h1 className="mt-3 text-4xl font-black">Staff Management</h1>
-              <p className="mt-2 max-w-2xl text-sm text-white/45">
-                Manage portal access and the approved compensation profile linked to each employee Party and legal entity.
+              <h1 className="mt-3 text-4xl font-black">Employee Directory</h1>
+              <p className="mt-2 max-w-3xl text-sm text-white/45">
+                Manage canonical employee identity, Party linkage, employment status and staff portal access. Compensation and domain permissions remain in their dedicated workspaces.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={load}
-              disabled={loading}
-              className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
-            >
-              <RefreshCw className="h-4 w-4" /> Refresh
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={beginCreate}
+                className="flex h-12 items-center gap-2 rounded-2xl bg-[#D6A66A] px-4 text-xs font-black uppercase tracking-[0.16em] text-black"
+              >
+                <Plus className="h-4 w-4" /> New employee
+              </button>
+              <button
+                type="button"
+                onClick={load}
+                disabled={loading}
+                className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
+              >
+                <RefreshCw className="h-4 w-4" /> Refresh
+              </button>
+            </div>
           </div>
         </section>
 
@@ -269,13 +358,51 @@ export default function PeopleDirectoryPage({ params }) {
           </div>
         ) : null}
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <Metric label="Active staff" value={summary?.activeStaff ?? "-"} icon={UsersRound} />
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <Metric label="Total employees" value={summary?.totalStaff ?? "-"} icon={UsersRound} />
+          <Metric label="Active" value={summary?.activeStaff ?? "-"} icon={UserRoundCheck} />
+          <Metric label="Inactive" value={summary?.inactiveStaff ?? "-"} icon={UserRoundX} />
           <Metric label="Setup required" value={summary?.setupRequired ?? "-"} icon={CircleAlert} />
-          <Metric label="Account linked" value={summary?.accountLinked ?? "-"} icon={KeyRound} />
           <Metric label="Portal active" value={summary?.activePortal ?? "-"} icon={BadgeCheck} />
           <Metric label="Pay not configured" value={summary?.compensationUnconfigured ?? "-"} icon={Banknote} />
         </section>
+
+        {showCreate ? (
+          <section className="rounded-[30px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.05] p-5 lg:p-6">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-[#D6A66A]/10 p-3 text-[#D6A66A]">
+                <Plus className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-[#D6A66A]">Employee master</div>
+                <h2 className="mt-1 text-2xl font-black">Create employee</h2>
+                <p className="mt-2 text-sm text-white/40">
+                  Creates the employee Party, employee relationship and organization membership. Portal activation and compensation are separate controlled steps.
+                </p>
+              </div>
+            </div>
+
+            <EmployeeFields form={form} setForm={setForm} />
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={cancelForm}
+                className="h-11 rounded-xl border border-white/10 bg-white/[0.04] px-5 text-xs font-black uppercase tracking-[0.14em]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={workingId === "CREATE" || !form.name.trim() || !form.email.trim()}
+                onClick={createEmployee}
+                className="h-11 rounded-xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+              >
+                {workingId === "CREATE" ? "Creating..." : "Create employee"}
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -291,7 +418,7 @@ export default function PeopleDirectoryPage({ params }) {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search staff"
+                placeholder="Search employees"
                 className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/25"
               />
             </label>
@@ -299,7 +426,7 @@ export default function PeopleDirectoryPage({ params }) {
 
           {loading ? (
             <div className="mt-5 rounded-2xl border border-white/[0.07] bg-black/20 p-5 text-sm text-white/35">
-              Loading staff directory...
+              Loading employee directory...
             </div>
           ) : (
             <div className="mt-5 space-y-3">
@@ -307,32 +434,38 @@ export default function PeopleDirectoryPage({ params }) {
                 const accessStatus = employee.portalAccess?.status || "SETUP_REQUIRED";
                 const isEditing = editingId === employee.id;
                 const configured = Boolean(employee.compensation?.configured);
+                const active = employee.active !== false;
 
                 return (
                   <article
                     key={employee.id}
-                    className="rounded-[26px] border border-white/[0.08] bg-black/25 p-5"
+                    className={`rounded-[26px] border p-5 ${
+                      active
+                        ? "border-white/[0.08] bg-black/25"
+                        : "border-white/[0.06] bg-white/[0.02] opacity-75"
+                    }`}
                   >
-                    <div className="grid gap-5 xl:grid-cols-[1.2fr_.9fr_.9fr_auto] xl:items-center">
+                    <div className="grid gap-5 xl:grid-cols-[1.25fr_.8fr_.9fr_auto] xl:items-center">
                       <div className="min-w-0">
                         <div className="flex items-center gap-3">
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05]">
                             <UserRound className="h-5 w-5 text-[#D6A66A]" />
                           </div>
                           <div className="min-w-0">
-                            <div className="truncate text-lg font-black">{employee.name || "Unnamed staff"}</div>
+                            <div className="truncate text-lg font-black">{employee.name || "Unnamed employee"}</div>
                             <div className="mt-1 truncate text-xs text-white/35">{employee.email || "No email"}</div>
                           </div>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-white/40">
                           <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
-                            {employee.role || "Staff"}
+                            {employee.position || "Position not set"}
                           </span>
-                          {(employee.position || employee.department) && (
-                            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
-                              {employee.position || employee.department}
-                            </span>
-                          )}
+                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                            {employee.department || "Department not set"}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                            Access: {employee.accessRole || "STAFF"}
+                          </span>
                         </div>
                       </div>
 
@@ -352,122 +485,98 @@ export default function PeopleDirectoryPage({ params }) {
                           {compensationAmount(employee.compensation)}
                         </div>
                         <div className="mt-2 text-xs text-white/30">
-                          {employee.compensation?.payroll_frequency || "Payroll frequency not set"}
+                          {employee.compensation?.payroll_frequency || "Payroll setup required"}
                         </div>
+                        <Link
+                          href={compensationHref}
+                          className="mt-2 inline-flex text-[10px] font-black uppercase tracking-[0.12em] text-[#D6A66A]"
+                        >
+                          Open compensation
+                        </Link>
                       </div>
 
                       <div className="flex flex-col gap-2 sm:flex-row xl:flex-col">
                         <button
                           type="button"
-                          disabled={workingId === employee.id || !employee.email}
-                          onClick={() => sendActivation(employee)}
-                          className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#E8C18C] disabled:opacity-35"
-                        >
-                          <KeyRound className="h-4 w-4" />
-                          {workingId === employee.id
-                            ? "Sending..."
-                            : accessStatus === "SETUP_REQUIRED"
-                              ? "Send setup link"
-                              : "Resend setup link"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => (isEditing ? setEditingId("") : editCompensation(employee))}
+                          onClick={() => (isEditing ? cancelForm() : beginEdit(employee))}
                           className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-[10px] font-black uppercase tracking-[0.12em] text-white/65"
                         >
-                          <Banknote className="h-4 w-4" /> {isEditing ? "Cancel" : "Edit pay"}
+                          <Pencil className="h-4 w-4" /> {isEditing ? "Cancel edit" : "Edit profile"}
                         </button>
+
+                        {active ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={workingId === employee.id || !employee.email}
+                              onClick={() => sendActivation(employee)}
+                              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#E8C18C] disabled:opacity-35"
+                            >
+                              <KeyRound className="h-4 w-4" />
+                              {workingId === employee.id
+                                ? "Working..."
+                                : accessStatus === "SETUP_REQUIRED"
+                                  ? "Send setup link"
+                                  : "Resend setup link"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={workingId === employee.id}
+                              onClick={() => setActive(employee, false)}
+                              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-red-400/15 bg-red-400/[0.06] px-4 text-[10px] font-black uppercase tracking-[0.12em] text-red-200 disabled:opacity-35"
+                            >
+                              <UserRoundX className="h-4 w-4" /> Deactivate
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={workingId === employee.id}
+                            onClick={() => setActive(employee, true)}
+                            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-200 disabled:opacity-35"
+                          >
+                            <UserRoundCheck className="h-4 w-4" /> Reactivate
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     {isEditing ? (
                       <div className="mt-5 border-t border-white/[0.07] pt-5">
-                        {!employee.compensation ? (
-                          <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-sm text-amber-100">
-                            No active compensation profile exists for this employee. Create the canonical profile before entering pay.
+                        <div className="flex items-start gap-3">
+                          <div>
+                            <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Employee profile</div>
+                            <div className="mt-1 text-sm text-white/45">
+                              Position and department describe the employee's job. Access roles and domain permissions are managed separately.
+                            </div>
                           </div>
-                        ) : (
-                          <>
-                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                              <Field label="Salary type">
-                                <select
-                                  value={form.salaryType}
-                                  onChange={(event) => setForm((current) => ({ ...current, salaryType: event.target.value }))}
-                                  className="input-control"
-                                >
-                                  <option value="MONTHLY">Monthly</option>
-                                  <option value="HOURLY">Hourly</option>
-                                </select>
-                              </Field>
+                        </div>
 
-                              <Field label="Payroll frequency">
-                                <input
-                                  value={form.payrollFrequency}
-                                  onChange={(event) => setForm((current) => ({ ...current, payrollFrequency: event.target.value.toUpperCase() }))}
-                                  className="input-control"
-                                />
-                              </Field>
+                        <EmployeeFields form={form} setForm={setForm} />
 
-                              <Field label="Currency">
-                                <input
-                                  value={form.currency}
-                                  maxLength={3}
-                                  onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value.toUpperCase() }))}
-                                  className="input-control"
-                                />
-                              </Field>
+                        {employee.auth_user_id && form.email.trim().toLowerCase() !== String(employee.email || "").trim().toLowerCase() ? (
+                          <div className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-sm text-amber-100/80">
+                            This employee already has portal access. Login-email changes require the identity email-change workflow and cannot be performed from Employee Directory.
+                          </div>
+                        ) : null}
 
-                              <Field label={form.salaryType === "HOURLY" ? "Hourly rate" : "Monthly salary"}>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={form.salaryType === "HOURLY" ? form.hourlyRate : form.monthlySalary}
-                                  onChange={(event) =>
-                                    setForm((current) =>
-                                      form.salaryType === "HOURLY"
-                                        ? { ...current, hourlyRate: event.target.value }
-                                        : { ...current, monthlySalary: event.target.value }
-                                    )
-                                  }
-                                  className="input-control"
-                                />
-                              </Field>
-
-                              <Field label="Bank name">
-                                <input
-                                  value={form.bankName}
-                                  onChange={(event) => setForm((current) => ({ ...current, bankName: event.target.value }))}
-                                  className="input-control"
-                                />
-                              </Field>
-
-                              <Field label="Bank account">
-                                <input
-                                  value={form.bankAccount}
-                                  onChange={(event) => setForm((current) => ({ ...current, bankAccount: event.target.value }))}
-                                  className="input-control"
-                                />
-                              </Field>
-                            </div>
-
-                            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 lg:flex-row lg:items-center lg:justify-between">
-                              <div className="text-xs leading-5 text-white/35">
-                                Party and legal-entity scope are preserved from the employee's existing active compensation profile. Saving does not create a second payroll identity.
-                              </div>
-                              <button
-                                type="button"
-                                disabled={workingId === employee.id}
-                                onClick={() => saveCompensation(employee)}
-                                className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#D6A66A] px-5 text-[10px] font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
-                              >
-                                <Save className="h-4 w-4" />
-                                {workingId === employee.id ? "Saving..." : "Save compensation"}
-                              </button>
-                            </div>
-                          </>
-                        )}
+                        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={cancelForm}
+                            className="h-11 rounded-xl border border-white/10 bg-white/[0.04] px-5 text-xs font-black uppercase tracking-[0.14em]"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={workingId === employee.id || !form.name.trim() || !form.email.trim()}
+                            onClick={() => saveEmployee(employee)}
+                            className="h-11 rounded-xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
+                          >
+                            {workingId === employee.id ? "Saving..." : "Save employee"}
+                          </button>
+                        </div>
                       </div>
                     ) : null}
                   </article>
@@ -476,7 +585,7 @@ export default function PeopleDirectoryPage({ params }) {
 
               {!filteredEmployees.length ? (
                 <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-5 text-sm text-white/35">
-                  No staff match this search.
+                  No employees match this search.
                 </div>
               ) : null}
             </div>
@@ -499,11 +608,57 @@ export default function PeopleDirectoryPage({ params }) {
         :global(.input-control:focus) {
           border-color: rgba(214, 166, 106, 0.45);
         }
-        :global(.input-control option) {
-          background: #111;
-        }
       `}</style>
     </main>
+  );
+}
+
+function EmployeeFields({ form, setForm }) {
+  return (
+    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <Field label="Name">
+        <input
+          value={form.name}
+          onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+          className="input-control"
+          autoComplete="name"
+        />
+      </Field>
+      <Field label="Email">
+        <input
+          type="email"
+          value={form.email}
+          onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+          className="input-control"
+          autoComplete="email"
+        />
+      </Field>
+      <Field label="Position">
+        <input
+          value={form.position}
+          onChange={(event) => setForm((current) => ({ ...current, position: event.target.value }))}
+          placeholder="e.g. Supervisor, Technician, Accountant"
+          className="input-control"
+        />
+      </Field>
+      <Field label="Department">
+        <input
+          value={form.department}
+          onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))}
+          placeholder="e.g. Operations, Finance, Service"
+          className="input-control"
+        />
+      </Field>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label>
+      <div className="mb-2 text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
+      {children}
+    </label>
   );
 }
 
@@ -516,16 +671,5 @@ function Metric({ label, value, icon: Icon }) {
       </div>
       <div className="mt-3 text-2xl font-black">{value}</div>
     </article>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }

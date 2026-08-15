@@ -2147,6 +2147,116 @@ async function assetAssignmentsExplainThemselves() {
   );
 }
 
+// 34. A shot may not reference an asset that does not exist.
+//
+// The source-binding check verified that a shot's ids agreed with each other and never that they were
+// real. A film used the content-hash filename out of an asset's storage URL as an asset id -- the same
+// asset it had already named correctly by id as its PRIMARY_SOURCE, referenced a second time by
+// filename as an AUDIO_REFERENCE -- and 52 of those references passed silently. Only the five that
+// collided with primary_source_asset_id were reported, and they were reported as a mismatch, which
+// described the symptom and hid the cause.
+async function inventedAssetIdsAreRejected() {
+  const { validateCreativeMasterPlan, creativeTemporalSceneShotFailures } = await import(
+    "@/lib/creative/director/validation/CreativeMasterPlanValidator"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const build = (mutate) => {
+    const plan = JSON.parse(JSON.stringify(fixture.temporalBasePlan()));
+    plan.scenes = [fixture.temporalScene("scene-1")];
+    plan.scenes[0].shots = [fixture.temporalShot("scene-1-shot-1")];
+    plan.quality = fixture.TEMPORAL_QUALITY;
+    mutate(plan.scenes[0].shots[0], plan);
+    return plan;
+  };
+  const failuresFor = (mutate) => {
+    const plan = build(mutate);
+    return validateCreativeMasterPlan({
+      plan,
+      assets: plan.asset_manifest.map((entry) => ({ id: entry.asset_id, asset_type: "video" })),
+    }).failures;
+  };
+
+  const clean = failuresFor(() => {});
+  check("the fixture shot references only real assets", clean.length === 0,
+    clean.map((f) => `${f.code}@${f.path}`).join(", "));
+
+  const hash = "f39fc9273753c6a2101bee9f42cd3caafe4036689c50ad8daeb617c4bb6ed0bc";
+  const invented = failuresFor((shot) => {
+    shot.reference_assets = [
+      ...shot.reference_assets,
+      { asset_id: hash, role: "AUDIO_REFERENCE", reason: "the soundtrack this cut is built on" },
+    ];
+  });
+  const unknown = invented.filter((failure) => failure.code === "SHOT_ASSET_REFERENCE_UNKNOWN");
+  check("a shot referencing an id that does not exist is rejected", unknown.length > 0,
+    invented.map((f) => f.code).join(", "));
+  check(
+    "the rejection names the id and says what an id is not",
+    unknown.length > 0 && unknown[0].evidence === hash &&
+      /is not one of the supplied assets/.test(String(unknown[0].message)) &&
+      /hash, filename/.test(String(unknown[0].message)),
+    String(unknown[0]?.message || "").slice(0, 80),
+  );
+
+  // The same invention in primary_source_asset_id, which is where it surfaced as a mismatch.
+  const primary = failuresFor((shot) => { shot.primary_source_asset_id = hash; });
+  check(
+    "an invented primary source id is named as unknown, not merely mismatched",
+    primary.some((failure) =>
+      failure.code === "SHOT_ASSET_REFERENCE_UNKNOWN" &&
+      String(failure.path).endsWith("primary_source_asset_id")),
+    primary.map((f) => f.code).join(", "),
+  );
+
+  // The per-scene retry has to see it too, or a scene invents an id and survives to final assembly
+  // where the reason arrives as a mismatch.
+  const plan = build((shot) => {
+    shot.reference_assets = [
+      ...shot.reference_assets,
+      { asset_id: hash, role: "AUDIO_REFERENCE", reason: "the soundtrack this cut is built on" },
+    ];
+  });
+  const perScene = creativeTemporalSceneShotFailures({
+    shots: plan.scenes[0].shots,
+    sceneIndex: 0,
+    quality: plan.quality,
+    assets: plan.asset_manifest.map((entry) => ({ id: entry.asset_id, asset_type: "video" })),
+  });
+  check(
+    "a scene inventing an asset id is caught on its own retry",
+    perScene.some((failure) => failure.code === "SHOT_ASSET_REFERENCE_UNKNOWN"),
+    perScene.map((f) => f.code).join(", "),
+  );
+  // Without the assets there is nothing to check against, and it must not invent a verdict.
+  const blind = creativeTemporalSceneShotFailures({
+    shots: plan.scenes[0].shots,
+    sceneIndex: 0,
+    quality: plan.quality,
+  });
+  check(
+    "the check is skipped rather than guessed when no asset list is supplied",
+    !blind.some((failure) => failure.code === "SHOT_ASSET_REFERENCE_UNKNOWN"),
+  );
+
+  const runtime = globalThis.__auditFs.readFileSync(
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "utf8",
+  );
+  check(
+    "the shot prompt lists the ids that exist",
+    /SUPPLIED ASSET IDS \(the only ids that exist/.test(runtime),
+  );
+  check(
+    "the shot prompt says a hash is not an id",
+    /a 64-character hash is never an asset id/.test(runtime),
+  );
+  check(
+    "the per-scene check is given the assets",
+    /assets: normalizedAssets,\s*\}\);/.test(runtime),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2188,6 +2298,7 @@ async function main() {
   await theTemporalPathAsksForItsOwnReview();
   await dependentFieldsFollowTheirParent();
   await assetAssignmentsExplainThemselves();
+  await inventedAssetIdsAreRejected();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

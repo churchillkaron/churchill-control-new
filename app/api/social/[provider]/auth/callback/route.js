@@ -63,6 +63,10 @@ async function ensureSocialService(organizationId, provider) {
       service_id: "x",
       package_id: "core",
     },
+    tiktok: {
+      service_id: "tiktok",
+      package_id: "core",
+    },
   }[provider];
   if (!SERVICE) return null;
 
@@ -95,6 +99,12 @@ async function ensureSocialService(organizationId, provider) {
       provider,
       connection_model:
         provider === "x" ? "ORGANIZATION_OAUTH_PKCE" : "ORGANIZATION_OAUTH",
+      ...(provider === "tiktok"
+        ? {
+            explicit_creator_consent_required: true,
+            current_privacy_options_required: true,
+          }
+        : {}),
     },
     configuration: existing?.configuration || {},
   });

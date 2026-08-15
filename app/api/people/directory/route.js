@@ -1,29 +1,29 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// Staff portal activation uses trusted server-side Auth administration only.
 import { NextResponse } from "next/server";
 
-import activateStaffPortalAccess, {
-  staffPortalAccessStatus,
-} from "@/lib/people/identity/activateStaffPortalAccess";
+import {
+  createEmployeeRecord,
+  loadEmployeeDirectory,
+  setEmployeeActiveStatus,
+  updateEmployeeRecord,
+} from "@/lib/people/employees/employeeDirectoryService";
+import activateStaffPortalAccess from "@/lib/people/identity/activateStaffPortalAccess";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const MANAGE_ROLES = new Set([
   "OWNER",
+  "ORGANIZATION_OWNER",
+  "ORG_OWNER",
+  "PLATFORM_OWNER",
   "SUPER_ADMIN",
   "MANAGER",
   "HR_ADMIN",
-  "PAYROLL_ADMIN",
 ]);
 
 function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
-}
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function contextResponse(context) {
@@ -50,7 +50,7 @@ async function managementContext(request) {
   if (!MANAGE_ROLES.has(role)) {
     return {
       response: NextResponse.json(
-        { success: false, error: "Staff management permission required" },
+        { success: false, error: "Employee management permission required" },
         { status: 403 }
       ),
     };
@@ -61,19 +61,6 @@ async function managementContext(request) {
     staff: resolved.staff,
     organizationId: resolved.organizationId,
   };
-}
-
-function compensationConfigured(profile) {
-  if (!profile) return false;
-
-  const salaryType = normalizeRole(profile.salary_type);
-  const monthlySalary = Number(profile.monthly_salary || 0);
-  const hourlyRate = Number(profile.hourly_rate || 0);
-
-  if (salaryType === "HOURLY") return hourlyRate > 0;
-  if (salaryType === "MONTHLY") return monthlySalary > 0;
-
-  return monthlySalary > 0 || hourlyRate > 0;
 }
 
 function resolveRedirectOrigin(request) {
@@ -90,17 +77,18 @@ function resolveRedirectOrigin(request) {
   return new URL(request.url).origin;
 }
 
-async function authUsersById(authUserIds) {
-  const entries = await Promise.all(
-    [...new Set(authUserIds.filter(Boolean))].map(async (authUserId) => {
-      const { data, error } = await supabaseAdmin.auth.admin.getUserById(authUserId);
+function errorResponse(error, fallback = "Employee directory action failed") {
+  const message = error?.message || fallback;
+  const status = /not found/i.test(message)
+    ? 404
+    : /permission|required|cannot|already|inactive|workflow/i.test(message)
+      ? 400
+      : 500;
 
-      if (error || !data?.user) return [authUserId, null];
-      return [authUserId, data.user];
-    })
+  return NextResponse.json(
+    { success: false, error: message },
+    { status }
   );
-
-  return new Map(entries);
 }
 
 export async function GET(request) {
@@ -108,94 +96,19 @@ export async function GET(request) {
     const ctx = await managementContext(request);
     if (ctx.response) return ctx.response;
 
-    const date = today();
-
-    const [staffResult, compensationResult] = await Promise.all([
-      supabaseAdmin
-        .from("staff_accounts")
-        .select(
-          "id,name,email,role,position,department,party_id,auth_user_id,active,active_organization_id"
-        )
-        .eq("active_organization_id", ctx.organizationId)
-        .eq("active", true)
-        .order("name", { ascending: true }),
-      supabaseAdmin
-        .from("employee_compensation_profiles")
-        .select(
-          "id,organization_id,entity_id,party_id,staff_account_id,effective_from,effective_to,salary_type,payroll_frequency,currency,monthly_salary,hourly_rate,overtime_eligible,tax_exempt,social_security_enabled,pension_rate,bank_name,bank_account"
-        )
-        .eq("organization_id", ctx.organizationId)
-        .lte("effective_from", date)
-        .or(`effective_to.is.null,effective_to.gte.${date}`)
-        .order("effective_from", { ascending: false }),
-    ]);
-
-    if (staffResult.error) throw staffResult.error;
-    if (compensationResult.error) throw compensationResult.error;
-
-    const staffRows = staffResult.data || [];
-    const authUsers = await authUsersById(
-      staffRows.map((staff) => staff.auth_user_id)
-    );
-
-    const compensationByStaff = new Map();
-
-    for (const profile of compensationResult.data || []) {
-      if (!compensationByStaff.has(profile.staff_account_id)) {
-        compensationByStaff.set(profile.staff_account_id, profile);
-      }
-    }
-
-    const employees = staffRows.map((staff) => {
-      const authUser = staff.auth_user_id
-        ? authUsers.get(staff.auth_user_id) || null
-        : null;
-      const compensation = compensationByStaff.get(staff.id) || null;
-
-      return {
-        ...staff,
-        portalAccess: {
-          status: staffPortalAccessStatus({ staff, authUser }),
-          lastSignInAt: authUser?.last_sign_in_at || null,
-          emailConfirmedAt: authUser?.email_confirmed_at || null,
-        },
-        compensation: compensation
-          ? {
-              ...compensation,
-              configured: compensationConfigured(compensation),
-            }
-          : null,
-      };
+    const directory = await loadEmployeeDirectory({
+      organizationId: ctx.organizationId,
     });
 
     return NextResponse.json({
       success: true,
       organizationId: ctx.organizationId,
       role: ctx.role,
-      employees,
-      summary: {
-        activeStaff: employees.length,
-        setupRequired: employees.filter(
-          (employee) => employee.portalAccess.status === "SETUP_REQUIRED"
-        ).length,
-        accountLinked: employees.filter(
-          (employee) => employee.portalAccess.status === "ACCOUNT_LINKED"
-        ).length,
-        activePortal: employees.filter(
-          (employee) => employee.portalAccess.status === "ACTIVE"
-        ).length,
-        compensationUnconfigured: employees.filter(
-          (employee) => !employee.compensation?.configured
-        ).length,
-      },
+      ...directory,
     });
   } catch (error) {
     console.error("PEOPLE_DIRECTORY_LIST_ERROR", error);
-
-    return NextResponse.json(
-      { success: false, error: error?.message || "Unable to load staff directory" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Unable to load employee directory");
   }
 }
 
@@ -204,9 +117,71 @@ export async function POST(request) {
     const ctx = await managementContext(request);
     if (ctx.response) return ctx.response;
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const action = String(body?.action || "create_employee").trim().toLowerCase();
+
+    if (action === "create_employee") {
+      const result = await createEmployeeRecord({
+        organizationId: ctx.organizationId,
+        name: body?.name,
+        email: body?.email,
+        position: body?.position,
+        department: body?.department,
+      });
+
+      return NextResponse.json({
+        success: true,
+        employee: result.staff,
+        party: result.party,
+        message: "Employee created. Portal access and compensation can now be configured separately.",
+      });
+    }
+
+    if (action === "send_activation") {
+      const staffId = String(body?.staffId || "").trim();
+      if (!staffId) {
+        return NextResponse.json(
+          { success: false, error: "staffId required" },
+          { status: 400 }
+        );
+      }
+
+      const redirectTo = new URL(
+        "/login#type=recovery",
+        resolveRedirectOrigin(request)
+      ).toString();
+
+      const activation = await activateStaffPortalAccess({
+        staffId,
+        organizationId: ctx.organizationId,
+        redirectTo,
+      });
+
+      return NextResponse.json({
+        success: true,
+        activation,
+        message: "Secure staff portal setup link sent.",
+      });
+    }
+
+    return NextResponse.json(
+      { success: false, error: "Unsupported employee directory action" },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error("PEOPLE_DIRECTORY_ACTION_ERROR", error);
+    return errorResponse(error, "Unable to update employee directory");
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const ctx = await managementContext(request);
+    if (ctx.response) return ctx.response;
+
+    const body = await request.json().catch(() => ({}));
     const staffId = String(body?.staffId || "").trim();
-    const action = String(body?.action || "").trim().toLowerCase();
+    const action = String(body?.action || "update_profile").trim().toLowerCase();
 
     if (!staffId) {
       return NextResponse.json(
@@ -215,38 +190,45 @@ export async function POST(request) {
       );
     }
 
-    if (action !== "send_activation") {
-      return NextResponse.json(
-        { success: false, error: "Unsupported staff management action" },
-        { status: 400 }
-      );
+    if (action === "update_profile") {
+      const result = await updateEmployeeRecord({
+        organizationId: ctx.organizationId,
+        staffId,
+        name: body?.name,
+        email: body?.email,
+        position: body?.position,
+        department: body?.department,
+      });
+
+      return NextResponse.json({
+        success: true,
+        employee: result.staff,
+        party: result.party,
+        message: "Employee profile updated.",
+      });
     }
 
-    const redirectTo = new URL(
-      "/login#type=recovery",
-      resolveRedirectOrigin(request)
-    ).toString();
+    if (action === "set_active") {
+      const result = await setEmployeeActiveStatus({
+        organizationId: ctx.organizationId,
+        staffId,
+        active: body?.active,
+        actingStaffId: ctx.staff?.id || null,
+      });
 
-    const activation = await activateStaffPortalAccess({
-      staffId,
-      organizationId: ctx.organizationId,
-      redirectTo,
-    });
-
-    return NextResponse.json({
-      success: true,
-      activation,
-      message: "Secure staff portal setup link sent.",
-    });
-  } catch (error) {
-    console.error("PEOPLE_DIRECTORY_ACTION_ERROR", error);
-
-    const message = error?.message || "Unable to update staff portal access";
-    const status = message.includes("not found") ? 404 : 400;
+      return NextResponse.json({
+        success: true,
+        employee: result.staff,
+        message: body?.active ? "Employee reactivated." : "Employee deactivated.",
+      });
+    }
 
     return NextResponse.json(
-      { success: false, error: message },
-      { status }
+      { success: false, error: "Unsupported employee directory update" },
+      { status: 400 }
     );
+  } catch (error) {
+    console.error("PEOPLE_DIRECTORY_UPDATE_ERROR", error);
+    return errorResponse(error, "Unable to update employee");
   }
 }

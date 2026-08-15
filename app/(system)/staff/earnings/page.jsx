@@ -20,6 +20,9 @@ const PAYMENT_COMPLETE_STATUSES = new Set([
   "DISPUTED",
   "RESOLVED",
   "FINALIZED",
+  "ACCOUNTING_CLOSED",
+  "CERTIFIED",
+  "ARCHIVED",
 ]);
 
 function money(value, currency = "") {
@@ -45,6 +48,19 @@ function dateTime(value, timezone = "UTC") {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function recordCurrency(record, fallback = "") {
+  return String(record?.currency_code || fallback || "").trim().toUpperCase();
+}
+
+function otherDeductions(record) {
+  return Math.max(
+    0,
+    Number(record?.deductions || 0) -
+      Number(record?.tax_amount || 0) -
+      Number(record?.social_security || 0)
+  );
 }
 
 export default function StaffEarningsPage() {
@@ -83,27 +99,36 @@ export default function StaffEarningsPage() {
   }, []);
 
   const payroll = profile?.payroll || [];
-  const currency =
+  const fallbackCurrency =
     profile?.compensation?.currency_code ||
     profile?.compensation?.currency ||
     "";
   const timezone = profile?.timezone || "UTC";
 
   const summary = useMemo(() => {
+    const paidRows = payroll.filter((row) => PAYMENT_COMPLETE_STATUSES.has(row.status));
+    const paidCurrencies = new Set(
+      paidRows.map((row) => recordCurrency(row, fallbackCurrency)).filter(Boolean)
+    );
+
     return {
       records: payroll.length,
-      paid: payroll.filter((row) => PAYMENT_COMPLETE_STATUSES.has(row.status)).length,
+      paid: paidRows.length,
       review: payroll.filter(
         (row) =>
           REVIEWABLE_STATUSES.has(row.status) &&
           !row.employee_acknowledged &&
           !row.employee_dispute
       ).length,
-      totalPaid: payroll
-        .filter((row) => PAYMENT_COMPLETE_STATUSES.has(row.status))
-        .reduce((sum, row) => sum + Number(row.final_salary || 0), 0),
+      totalPaid:
+        paidCurrencies.size <= 1
+          ? paidRows.reduce((sum, row) => sum + Number(row.final_salary || 0), 0)
+          : null,
+      totalPaidCurrency:
+        paidCurrencies.size === 1 ? [...paidCurrencies][0] : fallbackCurrency,
+      mixedCurrencies: paidCurrencies.size > 1,
     };
-  }, [payroll]);
+  }, [fallbackCurrency, payroll]);
 
   async function acknowledge(record) {
     setWorkingId(record.id);
@@ -235,7 +260,14 @@ export default function StaffEarningsPage() {
           <Metric label="Payroll Records" value={summary.records} />
           <Metric label="Awaiting Review" value={summary.review} />
           <Metric label="Paid Periods" value={summary.paid} />
-          <Metric label="Total Paid" value={money(summary.totalPaid, currency)} />
+          <Metric
+            label="Total Paid"
+            value={
+              summary.mixedCurrencies
+                ? "Multiple currencies"
+                : money(summary.totalPaid, summary.totalPaidCurrency)
+            }
+          />
         </section>
 
         {error ? (
@@ -251,6 +283,7 @@ export default function StaffEarningsPage() {
         ) : payroll.length ? (
           <section className="space-y-4">
             {payroll.map((record) => {
+              const currency = recordCurrency(record, fallbackCurrency);
               const canReview = REVIEWABLE_STATUSES.has(record.status);
               const canDisputeAfterPayment = record.status === "PAID";
               const canOpenDispute =
@@ -268,23 +301,30 @@ export default function StaffEarningsPage() {
                         <StatusBadge value={record.status} />
                         <StatusBadge value={record.payout_status || "PENDING"} muted />
                       </div>
+                      <div className="mt-2 text-xs text-white/30">
+                        {record.legal_entity?.name || "Payroll entity"}
+                      </div>
                       <div className="mt-3 text-3xl font-black text-[#D6A66A]">{money(record.final_salary, currency)}</div>
-                      <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/25">Net salary</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/25">Net pay</div>
                     </div>
 
                     <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:max-w-2xl lg:grid-cols-4">
                       <Metric label="Gross" value={money(record.gross_salary, currency)} compact />
-                      <Metric label="Deductions" value={money(record.deductions, currency)} compact />
+                      <Metric label="Total deductions" value={money(record.deductions, currency)} compact />
                       <Metric label="Tax" value={money(record.tax_amount, currency)} compact />
                       <Metric label="Social Security" value={money(record.social_security, currency)} compact />
                     </div>
                   </div>
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Info label="Base salary" value={money(record.base_salary, currency)} />
+                    <Info label="Base pay" value={money(record.base_salary, currency)} />
                     <Info label="Overtime" value={money(record.overtime_pay, currency)} />
                     <Info label="Service charge" value={money(record.service_charge_bonus, currency)} />
+                    <Info label="Other deductions" value={money(otherDeductions(record), currency)} />
+                    <Info label="Approved hours" value={Number(record.approved_hours || 0).toFixed(2)} />
+                    <Info label="Overtime hours" value={Number(record.overtime_hours || 0).toFixed(2)} />
                     <Info label="Worked hours" value={Number(record.worked_hours || 0).toFixed(2)} />
+                    <Info label="Leave payout" value={money(record.leave_payout, currency)} />
                   </div>
 
                   {paymentComplete ? (
@@ -293,7 +333,7 @@ export default function StaffEarningsPage() {
                         <CheckCircle2 className="h-4 w-4" /> Paid
                       </div>
                       <div className="mt-2 text-sm text-emerald-100">
-                        {record.payout_date || "Payment date unavailable"}
+                        {record.payout_date ? dateTime(record.payout_date, timezone) : "Payment date unavailable"}
                         {record.payment_reference ? ` · Reference ${record.payment_reference}` : ""}
                       </div>
                     </div>
@@ -363,10 +403,12 @@ export default function StaffEarningsPage() {
                       <button
                         type="button"
                         onClick={() => acknowledge(record)}
-                        disabled={workingId === record.id}
+                        disabled={workingId === record.id || (record.review_required === true && record.review_status === "PENDING")}
                         className="h-11 rounded-xl bg-[#D6A66A] px-5 text-[10px] font-black uppercase tracking-[0.14em] text-black disabled:opacity-40"
                       >
-                        Acknowledge payroll
+                        {record.review_required === true && record.review_status === "PENDING"
+                          ? "Awaiting manager review"
+                          : "Acknowledge payroll"}
                       </button>
                     ) : null}
 

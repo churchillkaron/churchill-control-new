@@ -25,12 +25,38 @@ function money(value, currency = "") {
   return currency ? `${currency} ${amount}` : amount;
 }
 
-function draftFromEmployee(employee) {
+function normalizedSalaryType(profile) {
+  return String(profile?.salary_type || "").trim().toUpperCase();
+}
+
+function isPayConfigured(profile) {
+  const salaryType = normalizedSalaryType(profile);
+
+  if (salaryType === "MONTHLY") {
+    return Number(profile?.monthly_salary || 0) > 0;
+  }
+
+  if (salaryType === "HOURLY") {
+    return Number(profile?.hourly_rate || 0) > 0;
+  }
+
+  return false;
+}
+
+function isBankReady(profile) {
+  return Boolean(
+    String(profile?.bank_name || "").trim() &&
+      String(profile?.bank_account || "").trim()
+  );
+}
+
+function draftFromEmployee(employee, entityCurrency = "") {
   const profile = employee?.compensation || null;
+
   return {
     salaryType: profile?.salary_type || "",
-    payrollFrequency: profile?.payroll_frequency || "",
-    currency: profile?.currency || "",
+    payrollFrequency: profile?.payroll_frequency || "MONTHLY",
+    currency: entityCurrency || profile?.currency || "",
     monthlySalary: profile ? String(profile.monthly_salary ?? 0) : "",
     hourlyRate: profile ? String(profile.hourly_rate ?? 0) : "",
     bankName: profile?.bank_name || "",
@@ -39,16 +65,12 @@ function draftFromEmployee(employee) {
   };
 }
 
-function isPayConfigured(profile) {
-  return Boolean(
-    profile &&
-      (Number(profile.monthly_salary || 0) > 0 ||
-        Number(profile.hourly_rate || 0) > 0)
-  );
-}
+function isEmployeeIncomplete(employee, bankTransferEnabled) {
+  if (!employee?.compensation || !isPayConfigured(employee.compensation)) {
+    return true;
+  }
 
-function isEmployeeReady(employee) {
-  return Boolean(employee?.compensation && isPayConfigured(employee.compensation));
+  return bankTransferEnabled && !isBankReady(employee.compensation);
 }
 
 export default function CompensationPage() {
@@ -74,12 +96,16 @@ export default function CompensationPage() {
         throw new Error(result?.error || "Unable to load compensation profiles");
       }
 
+      const entityCurrency = String(result?.entity?.currency || "")
+        .trim()
+        .toUpperCase();
+
       setData(result);
       setDrafts(
         Object.fromEntries(
           (result.employees || []).map((employee) => [
             employee.id,
-            draftFromEmployee(employee),
+            draftFromEmployee(employee, entityCurrency),
           ])
         )
       );
@@ -100,30 +126,45 @@ export default function CompensationPage() {
     const payConfigured = employees.filter((employee) =>
       isPayConfigured(employee.compensation)
     ).length;
-    const bankReady = employees.filter(
-      (employee) =>
-        employee.compensation?.bank_name && employee.compensation?.bank_account
+    const bankReady = employees.filter((employee) =>
+      isBankReady(employee.compensation)
     ).length;
+    const paymentReady = data?.bankTransferEnabled
+      ? employees.filter(
+          (employee) =>
+            isPayConfigured(employee.compensation) &&
+            isBankReady(employee.compensation)
+        ).length
+      : payConfigured;
 
     return {
       employees: employees.length,
       withProfile,
       payConfigured,
       bankReady,
+      paymentReady,
       missingProfile: Math.max(employees.length - withProfile, 0),
       missingPay: Math.max(employees.length - payConfigured, 0),
+      missingBank: data?.bankTransferEnabled
+        ? Math.max(payConfigured - paymentReady, 0)
+        : 0,
     };
   }, [data]);
 
   const visibleEmployees = useMemo(() => {
     const employees = [...(data?.employees || [])].sort((left, right) => {
-      const readyDifference = Number(isEmployeeReady(left)) - Number(isEmployeeReady(right));
-      if (readyDifference !== 0) return readyDifference;
+      const leftIncomplete = isEmployeeIncomplete(left, data?.bankTransferEnabled);
+      const rightIncomplete = isEmployeeIncomplete(right, data?.bankTransferEnabled);
+      const incompleteDifference = Number(rightIncomplete) - Number(leftIncomplete);
+
+      if (incompleteDifference !== 0) return incompleteDifference;
       return String(left.name || "").localeCompare(String(right.name || ""));
     });
 
     return showIncompleteOnly
-      ? employees.filter((employee) => !isEmployeeReady(employee))
+      ? employees.filter((employee) =>
+          isEmployeeIncomplete(employee, data?.bankTransferEnabled)
+        )
       : employees;
   }, [data, showIncompleteOnly]);
 
@@ -138,10 +179,15 @@ export default function CompensationPage() {
   }
 
   async function save(employee) {
-    const draft = drafts[employee.id] || draftFromEmployee(employee);
+    const entityCurrency = String(data?.entity?.currency || "")
+      .trim()
+      .toUpperCase();
+    const draft =
+      drafts[employee.id] || draftFromEmployee(employee, entityCurrency);
     const salaryType = String(draft.salaryType || "").trim().toUpperCase();
-    const payrollFrequency = String(draft.payrollFrequency || "").trim().toUpperCase();
-    const currency = String(draft.currency || "").trim().toUpperCase();
+    const payrollFrequency = String(draft.payrollFrequency || "")
+      .trim()
+      .toUpperCase();
     const monthlySalary = Number(draft.monthlySalary || 0);
     const hourlyRate = Number(draft.hourlyRate || 0);
 
@@ -153,8 +199,8 @@ export default function CompensationPage() {
       setError(`Choose a payroll frequency for ${employee.name}.`);
       return;
     }
-    if (!/^[A-Z]{3}$/.test(currency)) {
-      setError(`Enter a valid 3-letter currency code for ${employee.name}.`);
+    if (!/^[A-Z]{3}$/.test(entityCurrency)) {
+      setError("The legal entity currency must be configured before compensation can be saved.");
       return;
     }
     if (salaryType === "MONTHLY" && monthlySalary <= 0) {
@@ -185,9 +231,9 @@ export default function CompensationPage() {
           effectiveFrom: creating ? draft.effectiveFrom : undefined,
           salaryType,
           payrollFrequency,
-          currency,
+          currency: entityCurrency,
           monthlySalary: salaryType === "MONTHLY" ? monthlySalary : 0,
-          hourlyRate: salaryType === "HOURLY" ? hourlyRate : 0,
+          hourlyRate,
           bankName: String(draft.bankName || "").trim(),
           bankAccount: String(draft.bankAccount || "").trim(),
         }),
@@ -223,13 +269,14 @@ export default function CompensationPage() {
               </div>
               <h1 className="mt-3 text-4xl font-black">Compensation Onboarding</h1>
               <p className="mt-2 max-w-3xl text-sm text-white/45">
-                Create and maintain the canonical compensation profile used by Payroll for each active employee. Pay terms remain employee-specific and are scoped to the selected legal entity.
+                Complete the pay contract Payroll actually uses, then add payout details required by the organization payment method.
               </p>
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[10px] uppercase tracking-[0.18em] text-white/30">
                 <span>{data?.role || "Role"}</span>
                 <span>
                   Entity: {data?.entity?.display_name || data?.entity?.legal_name || "Not configured"}
                 </span>
+                <span>Currency: {data?.entity?.currency || "-"}</span>
               </div>
             </div>
 
@@ -260,11 +307,17 @@ export default function CompensationPage() {
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <Metric label="Active Employees" value={summary.employees} icon={<Users className="h-4 w-4" />} />
           <Metric label="Profiles" value={summary.withProfile} icon={<CheckCircle2 className="h-4 w-4" />} />
-          <Metric label="Missing Profiles" value={summary.missingProfile} icon={<CirclePlus className="h-4 w-4" />} />
-          <Metric label="Pay Configured" value={summary.payConfigured} icon={<Banknote className="h-4 w-4" />} />
+          <Metric label="Pay Ready" value={summary.payConfigured} icon={<Banknote className="h-4 w-4" />} />
           <Metric label="Missing Pay" value={summary.missingPay} icon={<TriangleAlert className="h-4 w-4" />} />
-          <Metric label="Bank Ready" value={summary.bankReady} icon={<CheckCircle2 className="h-4 w-4" />} />
+          <Metric label="Payment Ready" value={summary.paymentReady} icon={<CheckCircle2 className="h-4 w-4" />} />
+          <Metric label="Missing Bank" value={summary.missingBank} icon={<TriangleAlert className="h-4 w-4" />} />
         </section>
+
+        {data?.bankTransferEnabled ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/55">
+            Bank transfer is enabled for this organization. Employees can be pay-configured before bank details exist, but bank details are required before the payroll lifecycle can reach payment.
+          </div>
+        ) : null}
 
         {error ? (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
@@ -279,16 +332,21 @@ export default function CompensationPage() {
           </section>
         ) : visibleEmployees.length === 0 ? (
           <section className="rounded-[30px] border border-emerald-500/20 bg-emerald-500/[0.07] p-6 text-sm text-emerald-200">
-            All active employees have a configured compensation profile for this legal entity.
+            All active employees are ready for the configured payroll and payment lifecycle.
           </section>
         ) : (
           <section className="space-y-4">
             {visibleEmployees.map((employee) => {
               const profile = employee.compensation;
-              const draft = drafts[employee.id] || draftFromEmployee(employee);
-              const configured = isPayConfigured(profile);
-              const bankReady = Boolean(profile?.bank_name && profile?.bank_account);
+              const draft =
+                drafts[employee.id] ||
+                draftFromEmployee(employee, data?.entity?.currency || "");
+              const payReady = isPayConfigured(profile);
+              const bankReady = isBankReady(profile);
+              const paymentReady =
+                payReady && (!data?.bankTransferEnabled || bankReady);
               const creating = !profile;
+              const monthly = String(draft.salaryType || "").toUpperCase() === "MONTHLY";
 
               return (
                 <article key={employee.id} className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 lg:p-6">
@@ -298,8 +356,13 @@ export default function CompensationPage() {
                         <div className="flex flex-wrap items-center gap-3">
                           <h2 className="text-xl font-black">{employee.name}</h2>
                           <StatusBadge good={Boolean(profile)} goodLabel="Profile active" badLabel="Profile required" />
-                          <StatusBadge good={configured} goodLabel="Pay configured" badLabel="Pay required" />
-                          <StatusBadge good={bankReady} goodLabel="Bank ready" badLabel="Bank optional" neutral={!bankReady} />
+                          <StatusBadge good={payReady} goodLabel="Pay ready" badLabel="Pay required" />
+                          <StatusBadge
+                            good={paymentReady}
+                            goodLabel="Payment ready"
+                            badLabel={data?.bankTransferEnabled ? "Bank required" : "Payment setup"}
+                            neutral={!data?.bankTransferEnabled && !paymentReady}
+                          />
                         </div>
                         <div className="mt-2 text-xs text-white/35">
                           {employee.role || "-"} · {employee.position || employee.department || "-"}
@@ -319,13 +382,17 @@ export default function CompensationPage() {
 
                     {creating ? (
                       <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.06] p-4 text-xs leading-5 text-amber-100/70">
-                        This employee has no effective compensation profile for the payroll legal entity. Complete the required fields below to onboard them.
+                        This employee has no effective compensation profile for the payroll legal entity. Complete the pay contract below to onboard them.
                       </div>
                     ) : null}
 
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <Field label="Salary type">
-                        <select value={draft.salaryType} onChange={(event) => updateDraft(employee.id, "salaryType", event.target.value)} className="input">
+                        <select
+                          value={draft.salaryType}
+                          onChange={(event) => updateDraft(employee.id, "salaryType", event.target.value)}
+                          className="input"
+                        >
                           <option value="">Select type</option>
                           <option value="MONTHLY">Monthly</option>
                           <option value="HOURLY">Hourly</option>
@@ -333,8 +400,11 @@ export default function CompensationPage() {
                       </Field>
 
                       <Field label="Payroll frequency">
-                        <select value={draft.payrollFrequency} onChange={(event) => updateDraft(employee.id, "payrollFrequency", event.target.value)} className="input">
-                          <option value="">Select frequency</option>
+                        <select
+                          value={draft.payrollFrequency}
+                          onChange={(event) => updateDraft(employee.id, "payrollFrequency", event.target.value)}
+                          className="input"
+                        >
                           <option value="MONTHLY">Monthly</option>
                           <option value="WEEKLY">Weekly</option>
                           <option value="BIWEEKLY">Biweekly</option>
@@ -342,24 +412,80 @@ export default function CompensationPage() {
                       </Field>
 
                       <Field label="Currency">
-                        <input value={draft.currency} maxLength={3} onChange={(event) => updateDraft(employee.id, "currency", event.target.value.toUpperCase())} placeholder="3-letter code" className="input uppercase" />
+                        <input
+                          value={data?.entity?.currency || draft.currency}
+                          disabled
+                          className="input uppercase"
+                        />
                       </Field>
 
-                      <Field label={draft.salaryType === "HOURLY" ? "Hourly rate" : "Monthly salary"}>
-                        <input type="number" min="0" step="0.01" value={draft.salaryType === "HOURLY" ? draft.hourlyRate : draft.monthlySalary} onChange={(event) => updateDraft(employee.id, draft.salaryType === "HOURLY" ? "hourlyRate" : "monthlySalary", event.target.value)} className="input" />
+                      <Field label={monthly ? "Monthly salary" : "Hourly rate"}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={monthly ? draft.monthlySalary : draft.hourlyRate}
+                          onChange={(event) =>
+                            updateDraft(
+                              employee.id,
+                              monthly ? "monthlySalary" : "hourlyRate",
+                              event.target.value
+                            )
+                          }
+                          className="input"
+                        />
                       </Field>
 
                       <Field label="Effective from">
-                        <input type="date" value={draft.effectiveFrom} disabled={!creating} onChange={(event) => updateDraft(employee.id, "effectiveFrom", event.target.value)} className="input" />
+                        <input
+                          type="date"
+                          value={draft.effectiveFrom}
+                          disabled={!creating}
+                          onChange={(event) => updateDraft(employee.id, "effectiveFrom", event.target.value)}
+                          className="input"
+                        />
                       </Field>
                     </div>
 
+                    {monthly ? (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <Field label="Overtime hourly rate (optional)">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={draft.hourlyRate}
+                            onChange={(event) => updateDraft(employee.id, "hourlyRate", event.target.value)}
+                            placeholder="Leave 0 to derive from salary and expected hours"
+                            className="input"
+                          />
+                        </Field>
+                        <div className="flex items-end rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3 text-xs leading-5 text-white/35">
+                          Monthly salary remains the regular base. This rate is only used for overtime when supplied; otherwise Payroll derives an overtime rate from monthly salary and expected hours.
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3 text-xs leading-5 text-white/35">
+                        Hourly payroll pays approved regular hours at the hourly rate. Overtime hours are removed from regular hours and paid separately under the legal jurisdiction overtime rules.
+                      </div>
+                    )}
+
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1.2fr_auto] xl:items-end">
                       <Field label="Bank name">
-                        <input value={draft.bankName} onChange={(event) => updateDraft(employee.id, "bankName", event.target.value)} placeholder="Optional until payment setup" className="input" />
+                        <input
+                          value={draft.bankName}
+                          onChange={(event) => updateDraft(employee.id, "bankName", event.target.value)}
+                          placeholder={data?.bankTransferEnabled ? "Required before bank payment" : "Optional"}
+                          className="input"
+                        />
                       </Field>
                       <Field label="Account number">
-                        <input value={draft.bankAccount} onChange={(event) => updateDraft(employee.id, "bankAccount", event.target.value)} placeholder="Optional until payment setup" className="input" />
+                        <input
+                          value={draft.bankAccount}
+                          onChange={(event) => updateDraft(employee.id, "bankAccount", event.target.value)}
+                          placeholder={data?.bankTransferEnabled ? "Required before bank payment" : "Optional"}
+                          className="input"
+                        />
                       </Field>
                       <button
                         type="button"
@@ -391,7 +517,8 @@ export default function CompensationPage() {
           outline: none;
         }
         .input:disabled {
-          opacity: 0.45;
+          opacity: 0.55;
+          cursor: not-allowed;
         }
       `}</style>
     </main>

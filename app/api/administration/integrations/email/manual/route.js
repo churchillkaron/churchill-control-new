@@ -8,7 +8,7 @@ import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/Channe
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
 import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
-import { syncEmailConnection } from "@/lib/commercial/communications/CommunicationEmailInboxSyncRuntime";
+import { requestEmailSync } from "@/lib/commercial/communications/CommunicationEmailSubscriptionRuntime";
 
 async function ensureEmailService(organizationId) {
   const existing = await OrganizationServiceRuntime.get({
@@ -141,25 +141,27 @@ export async function POST(request) {
 
     await ensureEmailService(access.organizationId);
 
-    let syncReady = false;
-    let syncMessage = null;
+    let queued = false;
     try {
-      await syncEmailConnection({ connection });
-      syncReady = true;
-    } catch (error) {
-      syncMessage = error?.message || "INITIAL_EMAIL_SYNC_FAILED";
+      const requested = await requestEmailSync({
+        provider: "email_imap",
+        connectionId: connection.id,
+      });
+      queued = requested?.matched === true;
+    } catch {
+      queued = false;
     }
 
     return NextResponse.json({
       success: true,
       mailbox: { email: verified.email },
       incoming: {
-        ready: syncReady,
+        ready: false,
+        queued,
         mode: "IMAP_POLLING",
-        detail: syncReady
-          ? "Incoming mail synchronization is ready."
-          : "Mailbox connected. Avantiqo will retry incoming mail synchronization automatically.",
-        internal_error: syncMessage,
+        detail: queued
+          ? "Mailbox connected. Avantiqo has started incoming-mail synchronization automatically."
+          : "Mailbox connected. Avantiqo will retry incoming-mail synchronization automatically.",
       },
     });
   } catch (error) {

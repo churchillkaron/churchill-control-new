@@ -30,6 +30,7 @@ const formContractPath = "lib/platform/forms/FinanceFormContract.js";
 const formRegistryPath = "lib/platform/forms/FormRegistry.js";
 const rendererRegistryPath = "lib/platform/erp-engine/renderers/RendererRegistry.js";
 const dynamicWorkspaceRoutePath = "app/api/finance/workspaces/[capabilityId]/route.js";
+const generalLedgerRoutePath = "app/api/finance/general-ledger/route.js";
 
 const manifest = JSON.parse(read(manifestPath));
 const registry = read(registryPath);
@@ -42,6 +43,9 @@ const formRegistry = read(formRegistryPath);
 const rendererRegistry = read(rendererRegistryPath);
 const dynamicWorkspaceRoute = exists(dynamicWorkspaceRoutePath)
   ? read(dynamicWorkspaceRoutePath)
+  : "";
+const generalLedgerRoute = exists(generalLedgerRoutePath)
+  ? read(generalLedgerRoutePath)
   : "";
 
 const rows = [];
@@ -110,6 +114,8 @@ const globalChecks = [
   ["Dynamic Finance workspace API supports POST", /export\s+async\s+function\s+POST\b/.test(dynamicWorkspaceRoute)],
   ["Dynamic Finance workspace API supports PATCH", /export\s+async\s+function\s+PATCH\b/.test(dynamicWorkspaceRoute)],
   ["Dynamic Finance workspace API supports DELETE", /export\s+async\s+function\s+DELETE\b/.test(dynamicWorkspaceRoute)],
+  ["General Ledger accepts canonical date_from", generalLedgerRoute.includes('searchParams.get("date_from")')],
+  ["General Ledger accepts canonical date_to", generalLedgerRoute.includes('searchParams.get("date_to")')],
   ["No tenant boundary in Finance registry", !/tenant_id|tenantId/.test(financeRegistry)],
   ["No fixed currency or country defaults in Finance form contract", !/default(?:Value)?\s*:\s*["'](?:THB|USD|EUR|GBP|Thailand)["']/i.test(formContract)],
 ];

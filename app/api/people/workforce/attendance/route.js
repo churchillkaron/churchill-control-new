@@ -3,7 +3,11 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
-import loadOperationalSettings from "@/lib/settings/loadOperationalSettings";
+import {
+  applyEffectiveShiftCorrections,
+  createAttendanceCorrection,
+  loadAttendanceCorrections,
+} from "@/lib/people/workforce/attendanceCorrectionRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   localDateString,
@@ -85,18 +89,20 @@ function completedShift(shift) {
   return shift?.shift_status === "COMPLETED" || Boolean(shift?.clock_out);
 }
 
-function staffDateKey(staffId, shiftDate) {
-  return `${staffId || ""}:${shiftDate || ""}`;
+function correctionEligibleShift(shift) {
+  const approvalStatus = String(shift?.approval_status || "").toUpperCase();
+
+  return (
+    completedShift(shift) &&
+    Boolean(shift?.clock_out) &&
+    shift?.is_valid !== false &&
+    approvalStatus !== "PENDING" &&
+    approvalStatus !== "REJECTED"
+  );
 }
 
-function configuredLateThreshold(settings) {
-  const value = settings?.late_threshold_minutes;
-  if (value === null || value === undefined || value === "") return null;
-
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) return null;
-
-  return parsed;
+function staffDateKey(staffId, shiftDate) {
+  return `${staffId || ""}:${shiftDate || ""}`;
 }
 
 async function loadMonthData({ organizationId, month, now = new Date() }) {
@@ -151,8 +157,17 @@ async function loadMonthData({ organizationId, month, now = new Date() }) {
   }
 
   const schedules = scheduleResult.data || [];
-  const shifts = shiftResult.data || [];
+  const rawShifts = shiftResult.data || [];
   const attendance = attendanceResult.data || [];
+  const attendanceCorrections = await loadAttendanceCorrections({
+    organizationId,
+    shiftIds: rawShifts.map((shift) => shift.id),
+  });
+  const shifts = applyEffectiveShiftCorrections({
+    shifts: rawShifts,
+    corrections: attendanceCorrections,
+  });
+
   const workedScheduleIds = new Set(
     shifts
       .filter(completedShift)
@@ -207,6 +222,8 @@ async function loadMonthData({ organizationId, month, now = new Date() }) {
     schedules,
     shifts,
     attendance,
+    attendanceCorrections,
+    correctableShifts: shifts.filter(correctionEligibleShift),
     pendingShifts: shifts.filter(
       (shift) => String(shift.approval_status || "").toUpperCase() === "PENDING"
     ),
@@ -330,96 +347,49 @@ export async function PATCH(request) {
       return NextResponse.json({ success: true, shift: updatedShift });
     }
 
-    if (action === "adjust_lateness") {
+    if (action === "correct_shift_time") {
       const shiftId = String(body?.shiftId || "").trim();
-      const lateMinutes = Number(body?.lateMinutes);
-      const note = String(body?.notes || "").trim();
-      if (!shiftId || !Number.isInteger(lateMinutes) || lateMinutes < 0 || !note) {
+      const correctedClockInLocal = String(
+        body?.correctedClockInLocal || ""
+      ).trim();
+      const correctedClockOutLocal = String(
+        body?.correctedClockOutLocal || ""
+      ).trim();
+      const reason = String(body?.reason || body?.notes || "").trim();
+
+      if (!shiftId || !correctedClockInLocal || !correctedClockOutLocal || !reason) {
         return NextResponse.json(
-          { success: false, error: "shiftId, non-negative lateMinutes and adjustment notes required" },
+          {
+            success: false,
+            error:
+              "shiftId, correctedClockInLocal, correctedClockOutLocal and correction reason required",
+          },
           { status: 400 }
         );
       }
 
-      const settings = await loadOperationalSettings({
+      const result = await createAttendanceCorrection({
         organizationId: ctx.organizationId,
-        domain: "WORKFORCE",
+        shiftId,
+        manager: ctx.manager,
+        correctedClockInLocal,
+        correctedClockOutLocal,
+        reason,
       });
-      const threshold = configuredLateThreshold(settings);
-      if (threshold === null) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Workforce late threshold is not configured",
-            code: "WORKFORCE_LATE_THRESHOLD_MISSING",
-          },
-          { status: 409 }
-        );
-      }
-      const isLate = lateMinutes > threshold;
 
-      const { data: shift, error: shiftError } = await supabaseAdmin
-        .from("staff_shifts")
-        .select("*")
-        .eq("id", shiftId)
-        .eq("organization_id", ctx.organizationId)
-        .maybeSingle();
-      if (shiftError) throw shiftError;
-      if (!shift) {
-        return NextResponse.json(
-          { success: false, error: "Shift not found in organization" },
-          { status: 404 }
-        );
-      }
+      return NextResponse.json({ success: true, ...result });
+    }
 
-      if (
-        String(shift.approval_status || "").toUpperCase() === "REJECTED" ||
-        shift.is_valid === false
-      ) {
-        return NextResponse.json(
-          { success: false, error: "Rejected shift evidence cannot be used for lateness" },
-          { status: 409 }
-        );
-      }
-
-      const { data: updatedShift, error: updateError } = await supabaseAdmin
-        .from("staff_shifts")
-        .update({
-          late_minutes: lateMinutes,
-          is_late: isLate,
-          approved_by: ctx.manager?.id || shift.approved_by || null,
-          approved_at: new Date().toISOString(),
-          replacement_reason: mergeNotes(shift.replacement_reason, note, managerName),
-        })
-        .eq("id", shiftId)
-        .eq("organization_id", ctx.organizationId)
-        .select("*")
-        .single();
-      if (updateError) throw updateError;
-
-      const { data: attendance, error: attendanceLoadError } = await supabaseAdmin
-        .from("staff_attendance")
-        .select("*")
-        .eq("organization_id", ctx.organizationId)
-        .eq("shift_id", shiftId)
-        .maybeSingle();
-      if (attendanceLoadError) throw attendanceLoadError;
-
-      if (attendance) {
-        const { error: attendanceUpdateError } = await supabaseAdmin
-          .from("staff_attendance")
-          .update({
-            late_minutes: lateMinutes,
-            approved_by: String(ctx.manager?.id || managerName),
-            approved_at: new Date().toISOString(),
-            notes: mergeNotes(attendance.notes, note, managerName),
-          })
-          .eq("id", attendance.id)
-          .eq("organization_id", ctx.organizationId);
-        if (attendanceUpdateError) throw attendanceUpdateError;
-      }
-
-      return NextResponse.json({ success: true, shift: updatedShift });
+    if (action === "adjust_lateness") {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "ATTENDANCE_CORRECTION_REQUIRED",
+          error:
+            "Raw lateness evidence is immutable. Correct the effective shift time with a manager reason instead.",
+        },
+        { status: 409 }
+      );
     }
 
     return NextResponse.json(
@@ -428,7 +398,11 @@ export async function PATCH(request) {
     );
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error?.message || "Unable to update attendance" },
+      {
+        success: false,
+        error: error?.message || "Unable to update attendance",
+        ...(error?.code ? { code: error.code } : {}),
+      },
       { status: error?.status || 400 }
     );
   }

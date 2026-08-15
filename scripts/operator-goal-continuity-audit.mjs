@@ -85,8 +85,9 @@ assert.equal(merged.objective, established.objective);
 assert.equal(merged.last_intent, "plan");
 assert.ok(Number.isFinite(Date.parse(merged.updated_at)));
 
-const [reasoningSource, routeSource, homeSource, voiceSource] = await Promise.all([
+const [reasoningSource, verificationSource, routeSource, homeSource, voiceSource] = await Promise.all([
   readFile("lib/operator/runtime/OperatorReasoningRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorVerificationRuntime.js", "utf8"),
   readFile("app/api/operator/turn/route.js", "utf8"),
   readFile("components/operator/HomeAvantiqoIntelligence.jsx", "utf8"),
   readFile("components/operator/LocalHeyAvantiqoWakeBridge.jsx", "utf8"),
@@ -98,6 +99,18 @@ assert.match(
 );
 assert.match(reasoningSource, /user_confirmed_complete/);
 assert.match(reasoningSource, /awaiting_confirmation/);
+assert.match(reasoningSource, /assistant-only recommendation is not yet a decision/);
+assert.match(reasoningSource, /Add or update project_state\.decisions only when the user clearly accepts/);
+
+assert.match(verificationSource, /function verifiedProjectState/);
+assert.match(verificationSource, /goal_update\.applies/);
+assert.match(verificationSource, /completed_step/);
+assert.match(verificationSource, /progress_summary/);
+assert.match(verificationSource, /Never add or change decisions here/);
+assert.match(verificationSource, /Never declare the overall goal completed here/);
+assert.match(verificationSource, /goal_continuity:\s*true/);
+assert.match(verificationSource, /project_state:\s*verifiedProjectState\(projectState, parsed \|\| \{\}\)/);
+
 assert.match(routeSource, /projectState:\s*memory\.projectState/);
 assert.match(routeSource, /mergeOperatorProjectState/);
 assert.match(homeSource, /setProjectState\(result\?\.project_state/);
@@ -109,5 +122,7 @@ assert.match(voiceSource, /if \(enabledRef\.current\) \{\s*armCommandMode\(\)/);
 console.log("OPERATOR_GOAL_CONTINUITY_AUDIT=PASS");
 console.log("OPERATOR_GOAL_STATE_OWNER=OperatorProjectState");
 console.log("OPERATOR_GOAL_COMPLETION=USER_CONFIRMATION_REQUIRED");
+console.log("OPERATOR_STRATEGIC_MEMORY=WORKING_DIRECTION_WITH_USER_DECISIONS_SEPARATE");
+console.log("OPERATOR_VERIFIED_EXECUTION_MEMORY=COMPLETED_STEP_PROGRESS_NEXT_STEP");
 console.log("OPERATOR_GOAL_SURFACES=TEXT_AND_VOICE_PRIMARY_CONVERSATION");
 console.log("OPERATOR_VOICE_FAILURE=ALWAYS_AUDIBLE_WITH_FOLLOW_UP");

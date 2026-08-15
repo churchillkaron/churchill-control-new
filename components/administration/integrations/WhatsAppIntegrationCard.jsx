@@ -387,7 +387,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                 <ExternalLink className="h-4 w-4" />
               </button>
               <div className="mt-3 text-xs leading-5 text-white/35">
-                In Meta, authorize the existing business assets. Do not create a new WhatsApp Business Account and do not add a new phone number.
+                In Meta, authorize the existing business assets. A number linked to a Facebook Page or ad account can still need to be shared separately with Avantiqo for WhatsApp Cloud API access. Do not create a new WhatsApp Business Account and do not add a new phone number.
               </div>
             </div>
           ) : (

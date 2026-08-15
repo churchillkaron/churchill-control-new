@@ -20,9 +20,9 @@ export async function GET(request) {
 
   try {
     const result = await syncDueMetaCommunicationHistory({
-      organizationLimit: 1,
+      organizationLimit: 3,
       successIntervalHours: 24,
-      retryIntervalMinutes: 30,
+      retryIntervalMinutes: 5,
     });
 
     return Response.json(result, {

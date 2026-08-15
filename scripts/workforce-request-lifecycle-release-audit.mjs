@@ -28,9 +28,17 @@ const staffPage = requireFile(
   "staff request portal exists",
   "app/(system)/staff/requests/page.jsx"
 );
+const staffLayout = requireFile(
+  "staff portal request navigation exists",
+  "app/(system)/staff/layout.jsx"
+);
 const managerPage = requireFile(
   "manager request workspace exists",
   "app/(system)/workspace/[organizationId]/people/requests/page.jsx"
+);
+const schedulingLayout = requireFile(
+  "scheduling workforce context exists",
+  "app/(system)/workspace/[organizationId]/people/scheduling/layout.jsx"
 );
 const registry = requireFile(
   "People registry exists",
@@ -71,7 +79,14 @@ requireText("manager API reviews swaps", managerApi, 'kind === "shift_swap"');
 requireText("staff page submits time off", staffPage, 'action: "request_time_off"');
 requireText("staff page submits swaps", staffPage, 'action: "request_shift_swap"');
 requireText("staff page accepts incoming swap", staffPage, 'decision: "ACCEPT"');
+requireText("staff navigation links requests", staffLayout, 'href: "/staff/requests"');
+requireText("staff navigation links earnings", staffLayout, 'href: "/staff/earnings"');
 requireText("manager page approves requests", managerPage, 'decision, notes');
+requireText("scheduling context reads request API", schedulingLayout, "/api/people/workforce/requests");
+requireText("scheduling shows pending leave", schedulingLayout, 'label="Pending leave"');
+requireText("scheduling shows approved leave", schedulingLayout, 'label="Approved leave"');
+requireText("scheduling shows open swaps", schedulingLayout, 'label="Open swaps"');
+requireText("scheduling links manager review", schedulingLayout, "people/requests");
 requireText("People registry exposes requests", registry, 'route: "/people/requests"');
 
 requireText("reconciliation loads canonical approved time off", reconciliation, "loadApprovedTimeOffForRange");

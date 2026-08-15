@@ -20,6 +20,16 @@ import {
 import captureClockInLocation from "@/lib/people/workforce/captureClockInLocation";
 import verifyClockInPasskey from "@/lib/people/workforce/verifyClockInPasskey";
 
+const PAYMENT_COMPLETE_STATUSES = new Set([
+  "PAID",
+  "DISPUTED",
+  "RESOLVED",
+  "FINALIZED",
+  "ACCOUNTING_CLOSED",
+  "CERTIFIED",
+  "ARCHIVED",
+]);
+
 function money(value, currency = "") {
   const amount = Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -106,7 +116,15 @@ export default function StaffPortalPage() {
   const latestPayroll = profile?.payroll?.[0] || runtime?.latestPayroll || null;
   const compensation = profile?.compensation || null;
   const compensationConfigured = Boolean(compensation?.configured);
-  const currency = compensation?.currency_code || compensation?.currency || "";
+  const compensationCurrency =
+    compensation?.currency_code || compensation?.currency || "";
+  const latestPayrollCurrency =
+    latestPayroll?.currency_code ||
+    latestPayroll?.legal_entity?.currency ||
+    compensationCurrency;
+  const latestPayrollPaid = Boolean(
+    latestPayroll && PAYMENT_COMPLETE_STATUSES.has(latestPayroll.status)
+  );
   const staff = profile?.staff || runtime?.staff || null;
   const schedule = runtime?.schedule || null;
   const timezone = profile?.timezone || runtime?.timezone || "UTC";
@@ -314,7 +332,7 @@ export default function StaffPortalPage() {
                   <Metric label="Role" value={staff?.role || "-"} />
                   <Metric label="Payroll" value={latestPayroll?.status || "No payroll"} />
                   <Metric label="Salary type" value={compensation?.salary_type || "-"} />
-                  <Metric label="Currency" value={currency || "-"} />
+                  <Metric label="Currency" value={compensationCurrency || "-"} />
                 </div>
                 {!compensationConfigured ? (
                   <div className="mt-4 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-4 text-xs leading-5 text-amber-100/75">
@@ -391,12 +409,15 @@ export default function StaffPortalPage() {
                   <h2 className="mt-2 text-2xl font-black">{latestPayroll?.payroll_month || "No payroll record yet"}</h2>
                   {latestPayroll ? (
                     <>
-                      <div className="mt-3 text-3xl font-black text-[#D6A66A]">{money(latestPayroll.final_salary, currency)}</div>
+                      <div className="mt-3 text-3xl font-black text-[#D6A66A]">{money(latestPayroll.final_salary, latestPayrollCurrency)}</div>
                       <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.14em]">
                         <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-white/60">{latestPayroll.status || "-"}</span>
                         <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-white/60">{latestPayroll.payout_status || "PENDING"}</span>
+                        {latestPayroll.legal_entity?.name ? (
+                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-white/60">{latestPayroll.legal_entity.name}</span>
+                        ) : null}
                       </div>
-                      {latestPayroll.status === "PAID" ? (
+                      {latestPayrollPaid ? (
                         <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.07] p-4 text-sm text-emerald-100">
                           Paid {latestPayroll.payout_date || "-"}
                           {latestPayroll.payment_reference ? ` · Ref ${latestPayroll.payment_reference}` : ""}

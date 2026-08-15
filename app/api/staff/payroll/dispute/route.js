@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
-import disputePayrollRecord from "@/lib/payroll/consolidation/disputePayrollRecord";
+import { disputePayrollRecord } from "@/lib/people/payroll";
 
 export async function POST(request) {
   try {

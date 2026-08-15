@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
-import { calculateMonthlyPayroll } from "@/lib/payroll/consolidation/generateMonthlyPayroll";
-import buildPayrollReadiness from "@/lib/payroll/readiness/buildPayrollReadiness";
+import {
+  calculateMonthlyPayroll,
+  buildPayrollReadiness,
+} from "@/lib/people/payroll";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   resolveOrganizationTimeContext,

@@ -66,10 +66,6 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/internal/commercial/communications/meta-history-sync",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/internal/commercial/communications/email-inbox-sync",
       "schedule": "* * * * *"
     },

@@ -13,13 +13,17 @@ const FILES = Object.freeze({
   payslipApi: "app/api/payroll/payslip/route.js",
   acknowledgeApi: "app/api/staff/payroll/acknowledge/route.js",
   disputeApi: "app/api/staff/payroll/dispute/route.js",
+  staffProfileApi: "app/api/staff/profile-overview/route.js",
   compensationApi: "app/api/people/compensation/route.js",
   compensationUi: "app/(system)/workspace/[organizationId]/people/compensation/page.jsx",
   payrollControlUi: "app/(system)/workspace/[organizationId]/people/payroll/page.jsx",
+  staffEarningsUi: "app/(system)/staff/earnings/page.jsx",
+  workforcePayrollUi: "app/(workforce)/workforce/payroll/page.jsx",
   countryLoader: "lib/payroll/countries/loadPayrollCountryPack.js",
   jurisdiction: "lib/payroll/countries/resolvePayrollJurisdiction.js",
   payrollRecords: "lib/payroll/generatePayrollRecords.js",
   readiness: "lib/payroll/readiness/buildPayrollReadiness.js",
+  payslipGenerator: "lib/payroll/payslips/generatePayslipPdf.js",
   accrual: "lib/payroll/accounting/postPayrollAccrual.js",
   settlement: "lib/payroll/payments/reconcilePayrollPaymentBatch.js",
   financeEvidence: "lib/payroll/accounting/verifyPayrollFinanceEvidence.js",
@@ -219,6 +223,106 @@ requireMatch(
   "Payroll control Finance remediation links"
 );
 
+requireMatch(
+  source.staffProfileApi,
+  /\.from\("legal_entities"\)[\s\S]*currency_code:[\s\S]*legal_entity:/,
+  "Staff payroll legal-entity currency mapping"
+);
+requireMatch(
+  source.staffProfileApi,
+  /profile\.entity_id === latestPayrollEntityId[\s\S]*is_default_accounting_entity/,
+  "Staff compensation legal-entity selection"
+);
+requireNoMatch(
+  source.staffProfileApi,
+  /staff\.payroll_currency|staff_accounts[\s\S]*payroll_currency/,
+  "Staff profile legacy payroll-currency fallback"
+);
+
+for (const [label, file] of [
+  ["Staff earnings", source.staffEarningsUi],
+  ["Workforce payroll", source.workforcePayrollUi],
+]) {
+  requireMatch(
+    file,
+    /ACCOUNTING_CLOSED[\s\S]*CERTIFIED[\s\S]*ARCHIVED/,
+    `${label} terminal paid-state coverage`
+  );
+  requireMatch(
+    file,
+    /currency_code/,
+    `${label} per-record payroll currency`
+  );
+  requireNoMatch(
+    file,
+    /staff\?\.payroll_currency|staff\.payroll_currency|payroll\?\.payroll_currency/,
+    `${label} legacy staff payroll currency fallback`
+  );
+}
+
+requireMatch(
+  source.workforcePayrollUi,
+  /REVIEWABLE_STATUSES[\s\S]*employee_acknowledged[\s\S]*record\.status === "PAID"/,
+  "Workforce payroll pre-approval and post-payment dispute lifecycle"
+);
+requireMatch(
+  source.workforcePayrollUi,
+  /canAcknowledge[\s\S]*reviewable[\s\S]*pendingManagerReview[\s\S]*unresolvedDispute/,
+  "Workforce payroll acknowledgement lifecycle gate"
+);
+requireMatch(
+  source.workforcePayrollUi,
+  /paymentComplete[\s\S]*Open payslip/,
+  "Workforce payroll payslip payment gate"
+);
+requireMatch(
+  source.staffEarningsUi,
+  /mixedCurrencies[\s\S]*Multiple currencies/,
+  "Staff earnings mixed-currency total protection"
+);
+
+requireNoMatch(
+  source.governanceApi,
+  /loadOperationalSettings|payrollSettings\?\.currency/,
+  "Payroll governance operational-settings currency"
+);
+requireMatch(
+  source.governanceApi,
+  /attachLegalEntityCurrency[\s\S]*\.from\("legal_entities"\)[\s\S]*currency_code/,
+  "Payroll governance legal-entity currency mapping"
+);
+requireMatch(
+  source.governanceApi,
+  /mixedCurrencies:\s*currencies\.length > 1/,
+  "Payroll governance mixed-currency detection"
+);
+
+requireMatch(
+  source.payslipGenerator,
+  /PAYSLIP_STATUSES[\s\S]*ACCOUNTING_CLOSED[\s\S]*CERTIFIED[\s\S]*ARCHIVED/,
+  "Payslip terminal status coverage"
+);
+requireMatch(
+  source.payslipGenerator,
+  /\.from\("legal_entities"\)[\s\S]*Payroll legal entity currency is not configured/,
+  "Payslip legal-entity currency"
+);
+requireMatch(
+  source.payslipGenerator,
+  /otherDeductions[\s\S]*totalDeductions - taxAmount - socialSecurity/,
+  "Payslip deduction component separation"
+);
+requireMatch(
+  source.payslipGenerator,
+  /Payment Date:[\s\S]*record\.payout_date/,
+  "Payslip payout date"
+);
+requireNoMatch(
+  source.payslipGenerator,
+  /record\.payment_date|Other Deductions:[^\n]*record\.deductions/,
+  "Payslip legacy payment-date or deduction presentation"
+);
+
 for (const [label, file] of [
   ["Payroll accrual", source.accrual],
   ["Payroll settlement", source.settlement],
@@ -307,5 +411,5 @@ for (const [label, file] of [
 }
 
 console.log(
-  "People/Payroll terminal release audit passed: People application boundary, explicit legal-entity jurisdiction, hourly and monthly compensation semantics, entity-currency enforcement, pay/payment readiness separation, generation and lifecycle readiness, Finance currency policy, durable settlement journal identity, complete paid-batch evidence, active posted accrual and settlement journals, reversal protection, and Finance-evidence gates for finalization through archive are intact."
+  "People/Payroll terminal release audit passed: People application boundary, explicit legal-entity jurisdiction, hourly and monthly compensation semantics, entity-currency enforcement, pay/payment readiness separation, staff and workforce lifecycle convergence, terminal paid-state continuity, legal-entity payslip evidence, generation and lifecycle readiness, Finance currency policy, durable settlement journal identity, complete paid-batch evidence, active posted accrual and settlement journals, reversal protection, and Finance-evidence gates for finalization through archive are intact."
 );

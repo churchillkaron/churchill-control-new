@@ -7,6 +7,40 @@ import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAsse
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
+
+async function ensureEmailService(organizationId) {
+  const existing = await OrganizationServiceRuntime.get({
+    organization_id: organizationId,
+    service_id: "email",
+  }).catch(() => null);
+
+  if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") {
+    return existing;
+  }
+
+  return OrganizationServiceRuntime.save({
+    ...(existing || {}),
+    organization_id: organizationId,
+    service_category_id: existing?.service_category_id || "communication",
+    service_id: "email",
+    package_id: existing?.package_id || "core",
+    status: "ACTIVE",
+    managed_by: existing?.managed_by || "organization",
+    authorization_required: true,
+    usage_enabled: true,
+    billing_enabled: true,
+    billing_mode: existing?.billing_mode || "USAGE",
+    pricing_mode: existing?.pricing_mode || "PROVIDER",
+    fallback_enabled: false,
+    activated_at: existing?.activated_at || new Date().toISOString(),
+    metadata: {
+      ...(existing?.metadata || {}),
+      connection_model: "ORGANIZATION_MAILBOX",
+    },
+    configuration: existing?.configuration || {},
+  });
+}
 
 export async function POST(request) {
   try {
@@ -78,6 +112,7 @@ export async function POST(request) {
         outgoing_host: settings.smtpHost,
       },
     });
+    await ensureEmailService(access.organizationId);
 
     return NextResponse.json({
       success: true,

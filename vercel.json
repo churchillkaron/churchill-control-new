@@ -16,6 +16,9 @@
     },
     "app/api/internal/commercial/communications/meta-history-sync/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/commercial/communications/email-inbox-sync/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -62,6 +65,10 @@
     {
       "path": "/api/internal/commercial/communications/meta-history-sync",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/commercial/communications/email-inbox-sync",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

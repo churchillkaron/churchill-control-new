@@ -22,6 +22,9 @@
     },
     "app/api/internal/commercial/communications/email-subscriptions/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/commerce/shopify/project-events/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -72,6 +75,10 @@
     {
       "path": "/api/internal/commercial/communications/email-subscriptions",
       "schedule": "17 2 * * *"
+    },
+    {
+      "path": "/api/internal/commerce/shopify/project-events",
+      "schedule": "* * * * *"
     }
   ]
 }

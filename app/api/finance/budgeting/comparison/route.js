@@ -44,6 +44,14 @@ export async function GET(request) {
       periodId:
         searchParams.get("periodId") ||
         searchParams.get("period_id"),
+      forecastSource:
+        searchParams.get("forecastSource") ||
+        searchParams.get("forecast_source") ||
+        "live",
+      scenarioKind:
+        searchParams.get("scenarioKind") ||
+        searchParams.get("scenario_kind") ||
+        "SCENARIOS_VS_BUDGET",
     });
 
     return NextResponse.json(result);

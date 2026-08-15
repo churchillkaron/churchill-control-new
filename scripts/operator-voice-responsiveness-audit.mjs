@@ -74,6 +74,13 @@ requireAll("STRATEGIC_FOLLOW_UP_REASONING", fastRuntime, [
   "if (STRATEGIC_FOLLOW_UP_PATTERN.test(clean)) return false;",
 ]);
 
+requireAll("CONTEXTUAL_FOLLOW_UP_REASONING", fastRuntime, [
+  "CONTEXTUAL_FOLLOW_UP_PATTERN",
+  "why|why not|how so|then what|and then",
+  "what do you mean|what does that mean|can you explain",
+  "if (CONTEXTUAL_FOLLOW_UP_PATTERN.test(clean)) return false;",
+]);
+
 requireAll("COMPACT_REASONING_GOAL_CONTEXT", reasoningRuntime, [
   "function voiceRankingContext",
   "text(state.objective)",
@@ -233,6 +240,7 @@ if (violations.length) {
   console.log("OPERATOR_VOICE_RESPONSIVENESS_AUDIT=PASS");
   console.log("VOICE_SIMPLE_REPLY=INSTANT_LOCAL_OR_FAST_MODEL");
   console.log("VOICE_STRATEGIC_FOLLOW_UP=COMPACT_REASONING");
+  console.log("VOICE_CONTEXTUAL_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_COMPACT_REASONING=GOAL_CONTEXT_RANKED");
   console.log("VOICE_POLITE_NAVIGATION=INSTANT_LOCAL");
   console.log("VOICE_PLAYBACK=BROWSER_FIRST_FOR_SHORT_RESPONSES");

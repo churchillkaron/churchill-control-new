@@ -5,6 +5,7 @@ const ROOT = process.cwd();
 
 const FILES = Object.freeze({
   peopleBoundary: "lib/people/payroll/index.js",
+  frequencyReadiness: "lib/people/payroll/buildPayrollFrequencyReadiness.js",
   governanceApi: "app/api/payroll/governance/route.js",
   previewApi: "app/api/payroll/preview/route.js",
   generateApi: "app/api/payroll/generate/route.js",
@@ -15,8 +16,13 @@ const FILES = Object.freeze({
   disputeApi: "app/api/staff/payroll/dispute/route.js",
   staffProfileApi: "app/api/staff/profile-overview/route.js",
   compensationApi: "app/api/people/compensation/route.js",
+  payrollPolicyLoadApi: "app/api/settings/payroll/load/route.js",
+  payrollPolicySaveApi: "app/api/settings/payroll/save/route.js",
   compensationUi: "app/(system)/workspace/[organizationId]/people/compensation/page.jsx",
   payrollControlUi: "app/(system)/workspace/[organizationId]/people/payroll/page.jsx",
+  payrollGovernanceUi: "app/(system)/workspace/[organizationId]/people/payroll/governance/page.jsx",
+  payrollPolicyUi: "app/(system)/workspace/[organizationId]/people/payroll/policy/page.jsx",
+  staffHomeUi: "app/(system)/staff/page.jsx",
   staffEarningsUi: "app/(system)/staff/earnings/page.jsx",
   workforcePayrollUi: "app/(workforce)/workforce/payroll/page.jsx",
   countryLoader: "lib/payroll/countries/loadPayrollCountryPack.js",
@@ -68,6 +74,7 @@ for (const [label, file] of [
   ["Payroll payslip API", source.payslipApi],
   ["Staff payroll acknowledgement API", source.acknowledgeApi],
   ["Staff payroll dispute API", source.disputeApi],
+  ["Payroll policy load API", source.payrollPolicyLoadApi],
 ]) {
   requireMatch(
     file,
@@ -85,6 +92,21 @@ requireMatch(
   source.peopleBoundary,
   /generateMonthlyPayroll[\s\S]*buildPayrollReadiness[\s\S]*preparePayrollPaymentBatch[\s\S]*reconcilePayrollPaymentBatch/,
   "People payroll application boundary"
+);
+requireMatch(
+  source.peopleBoundary,
+  /buildEnginePayrollReadiness[\s\S]*buildPayrollFrequencyReadiness[\s\S]*PAYROLL_FREQUENCY_UNSUPPORTED|buildPayrollFrequencyReadiness[\s\S]*canGenerate:\s*false/,
+  "People payroll frequency readiness boundary"
+);
+requireMatch(
+  source.frequencyReadiness,
+  /SUPPORTED_PAYROLL_FREQUENCY\s*=\s*"MONTHLY"[\s\S]*PAYROLL_FREQUENCY_UNSUPPORTED/,
+  "Monthly payroll frequency guard"
+);
+requireMatch(
+  source.frequencyReadiness,
+  /employee_compensation_profiles[\s\S]*organization_id[\s\S]*entity_id[\s\S]*effective_from[\s\S]*effective_to/,
+  "Payroll frequency effective-profile scope"
 );
 
 requireMatch(
@@ -146,6 +168,16 @@ requireMatch(
 );
 requireMatch(
   source.compensationApi,
+  /SUPPORTED_PAYROLL_FREQUENCY\s*=\s*"MONTHLY"[\s\S]*Only MONTHLY payroll frequency is supported/,
+  "Compensation monthly payroll-frequency write guard"
+);
+requireNoMatch(
+  source.compensationApi,
+  /PAYROLL_FREQUENCIES\s*=\s*new Set\(\["MONTHLY",\s*"WEEKLY",\s*"BIWEEKLY"\]\)/,
+  "Compensation unsupported frequency write surface"
+);
+requireMatch(
+  source.compensationApi,
   /monthly_salary:\s*payload\.salaryType === "MONTHLY" \? payload\.monthlySalary : 0[\s\S]*hourly_rate:\s*payload\.hourlyRate \|\| 0/,
   "Compensation monthly overtime-rate preservation"
 );
@@ -172,8 +204,13 @@ requireMatch(
 );
 requireMatch(
   source.compensationUi,
-  /Pay Ready[\s\S]*Payment Ready[\s\S]*Missing Bank/,
-  "Compensation UI pay and payment readiness separation"
+  /Pay Ready[\s\S]*Payment Ready[\s\S]*Unsupported Period/,
+  "Compensation UI pay payment and period readiness separation"
+);
+requireMatch(
+  source.compensationUi,
+  /Weekly — not supported yet[\s\S]*Biweekly — not supported yet/,
+  "Compensation UI unsupported payroll periods"
 );
 requireMatch(
   source.compensationUi,
@@ -224,6 +261,42 @@ requireMatch(
 );
 
 requireMatch(
+  source.payrollPolicyLoadApi,
+  /resolvePayrollJurisdiction[\s\S]*legal_entities[\s\S]*jurisdiction/,
+  "Payroll policy legal-entity jurisdiction load"
+);
+requireMatch(
+  source.payrollPolicyLoadApi,
+  /operationalOnly[\s\S]*country:[\s\S]*currency:/,
+  "Payroll policy legacy jurisdiction stripping on load"
+);
+requireMatch(
+  source.payrollPolicySaveApi,
+  /operationalOnly[\s\S]*country:[\s\S]*currency:[\s\S]*saveOperationalSettings/,
+  "Payroll policy legacy jurisdiction stripping on save"
+);
+requireNoMatch(
+  source.payrollPolicySaveApi,
+  /Payroll country is required|Payroll currency must be a 3-letter code/,
+  "Payroll policy duplicate jurisdiction validation"
+);
+requireMatch(
+  source.payrollPolicyUi,
+  /Legal payroll context[\s\S]*legalEntity[\s\S]*jurisdiction\?\.country[\s\S]*jurisdiction\?\.currency/,
+  "Payroll policy read-only legal-entity context"
+);
+requireMatch(
+  source.payrollPolicyUi,
+  /Salary proration is reserved[\s\S]*not an active generic attendance deduction/,
+  "Payroll policy truthful proration semantics"
+);
+requireNoMatch(
+  source.payrollPolicyUi,
+  /settings\.country|settings\.currency|onChange=\{\(event\) => update\("country"|onChange=\{\(event\) => update\("currency"/,
+  "Payroll policy editable duplicate jurisdiction"
+);
+
+requireMatch(
   source.staffProfileApi,
   /\.from\("legal_entities"\)[\s\S]*currency_code:[\s\S]*legal_entity:/,
   "Staff payroll legal-entity currency mapping"
@@ -237,6 +310,22 @@ requireNoMatch(
   source.staffProfileApi,
   /staff\.payroll_currency|staff_accounts[\s\S]*payroll_currency/,
   "Staff profile legacy payroll-currency fallback"
+);
+
+requireMatch(
+  source.staffHomeUi,
+  /PAYMENT_COMPLETE_STATUSES[\s\S]*ACCOUNTING_CLOSED[\s\S]*CERTIFIED[\s\S]*ARCHIVED/,
+  "Staff home terminal paid-state coverage"
+);
+requireMatch(
+  source.staffHomeUi,
+  /latestPayrollCurrency[\s\S]*latestPayroll\?\.currency_code[\s\S]*latestPayroll\?\.legal_entity\?\.currency/,
+  "Staff home payroll-record currency"
+);
+requireMatch(
+  source.staffHomeUi,
+  /money\(latestPayroll\.final_salary, latestPayrollCurrency\)/,
+  "Staff home latest-payroll money currency"
 );
 
 for (const [label, file] of [
@@ -295,6 +384,21 @@ requireMatch(
   source.governanceApi,
   /mixedCurrencies:\s*currencies\.length > 1/,
   "Payroll governance mixed-currency detection"
+);
+requireMatch(
+  source.payrollGovernanceUi,
+  /mixedCurrencies[\s\S]*Multiple currencies[\s\S]*recordCurrency/,
+  "Payroll governance mixed-currency presentation"
+);
+requireMatch(
+  source.payrollGovernanceUi,
+  /record\.currency_code[\s\S]*record\.legal_entity\?\.currency/,
+  "Payroll governance per-record currency"
+);
+requireNoMatch(
+  source.payrollGovernanceUi,
+  /formatMoney\(record\.(final_salary|gross_salary|base_salary|service_charge_bonus|deductions|attendance_penalty),\s*currency\)/,
+  "Payroll governance global currency rendering"
 );
 
 requireMatch(
@@ -411,5 +515,5 @@ for (const [label, file] of [
 }
 
 console.log(
-  "People/Payroll terminal release audit passed: People application boundary, explicit legal-entity jurisdiction, hourly and monthly compensation semantics, entity-currency enforcement, pay/payment readiness separation, staff and workforce lifecycle convergence, terminal paid-state continuity, legal-entity payslip evidence, generation and lifecycle readiness, Finance currency policy, durable settlement journal identity, complete paid-batch evidence, active posted accrual and settlement journals, reversal protection, and Finance-evidence gates for finalization through archive are intact."
+  "People/Payroll terminal release audit passed: People application boundary, explicit legal-entity jurisdiction, monthly payroll-period enforcement, hourly and monthly compensation semantics, entity-currency enforcement, pay/payment readiness separation, staff/workforce/governance lifecycle convergence, terminal paid-state continuity, legal-entity payslip evidence, operational payroll-policy ownership, generation and lifecycle readiness, Finance currency policy, durable settlement journal identity, complete paid-batch evidence, active posted accrual and settlement journals, reversal protection, and Finance-evidence gates for finalization through archive are intact."
 );

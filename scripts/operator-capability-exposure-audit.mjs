@@ -5,6 +5,7 @@ register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
 const MINIMUM_EXPOSED_CAPABILITIES = 100;
 const MINIMUM_EXPOSED_DOMAINS = 2;
+const READ_CHAIN_KEY = "platform.operator_read_chain.execute";
 
 const { DOMAIN_RUNTIMES } = await import(
   "@/lib/ubte/runtime/domains/DomainRuntimeRegistry"
@@ -70,6 +71,34 @@ for (const capability of capabilities) {
   }
 }
 
+const readChain = capabilities.find((capability) => capability.key === READ_CHAIN_KEY);
+if (!readChain) {
+  throw new Error(
+    `OPERATOR_EXPOSURE: ${READ_CHAIN_KEY} is missing, so multi-read business questions cannot execute autonomously`,
+  );
+}
+
+if (
+  readChain.mode !== "read" ||
+  readChain.auto_execute !== true ||
+  readChain.requires_confirmation === true ||
+  readChain.transactional === true ||
+  readChain.risk !== "low"
+) {
+  throw new Error(
+    `OPERATOR_EXPOSURE: ${READ_CHAIN_KEY} must remain a low-risk, non-transactional, auto-executing read capability`,
+  );
+}
+
+const readChainFields = Array.isArray(readChain.input_schema?.required)
+  ? readChain.input_schema.required
+  : [];
+if (!readChainFields.includes("steps")) {
+  throw new Error(
+    `OPERATOR_EXPOSURE: ${READ_CHAIN_KEY} must require an explicit bounded steps array`,
+  );
+}
+
 const registeredDomains = Object.keys(DOMAIN_RUNTIMES || {});
 const silentDomains = registeredDomains.filter((domain) => !byDomain[domain]);
 
@@ -95,3 +124,5 @@ console.log(
   `OPERATOR_SILENT_DOMAINS=${silentDomains.length ? silentDomains.join(",") : "NONE"}`,
 );
 console.log("OPERATOR_WRITE_GOVERNANCE=CONFIRMATION_AND_AUDIT_REQUIRED");
+console.log("OPERATOR_AUTONOMOUS_READ_CHAIN=BOUNDED_2_TO_4_READS");
+console.log("OPERATOR_AUTONOMOUS_READ_CHAIN_GUARD=READ_ONLY_SCOPE_PERMISSION_PREFLIGHT");

@@ -100,6 +100,14 @@ requireAll("COMPACT_REASONING_STRATEGIC_INTELLIGENCE", reasoningRuntime, [
   "Do not ask the user to repeat facts, decisions or constraints already present",
 ]);
 
+requireAll("STRATEGIC_MEMORY_CONVERGENCE", reasoningRuntime, [
+  "update project_state.progress_summary with the current working direction",
+  "project_state.next_step with the best next step",
+  "Do not put an assistant-only recommendation into decisions.",
+  "Add or update project_state.decisions only when the user clearly accepts, chooses, rejects or commits",
+  "An assistant-only recommendation is not yet a decision.",
+]);
+
 requireAll("TURN_LATENCY", turnRoute, [
   "const [result] = await Promise.all([",
   "persistAssistantTurnAndConversationState({",
@@ -242,6 +250,7 @@ if (violations.length) {
   console.log("VOICE_STRATEGIC_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_CONTEXTUAL_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_COMPACT_REASONING=GOAL_CONTEXT_RANKED");
+  console.log("VOICE_STRATEGIC_MEMORY=WORKING_DIRECTION_AND_ACCEPTED_DECISIONS");
   console.log("VOICE_POLITE_NAVIGATION=INSTANT_LOCAL");
   console.log("VOICE_PLAYBACK=BROWSER_FIRST_FOR_SHORT_RESPONSES");
   console.log("VOICE_TRANSCRIPT=INTERIM_COMMIT_ENABLED");

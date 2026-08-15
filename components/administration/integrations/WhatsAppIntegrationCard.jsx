@@ -37,12 +37,42 @@ function loadFacebookSdk({ appId, version }) {
   });
 }
 
+function normalizeEmbeddedSignupSession(payload) {
+  const data = payload?.data && typeof payload.data === "object" ? payload.data : {};
+  return {
+    waba_id:
+      data.waba_id ||
+      data.wabaId ||
+      data.whatsapp_business_account_id ||
+      data.whatsappBusinessAccountId ||
+      null,
+    phone_number_id:
+      data.phone_number_id ||
+      data.phoneNumberId ||
+      data.whatsapp_business_phone_number_id ||
+      data.whatsappBusinessPhoneNumberId ||
+      null,
+    business_id:
+      data.business_id ||
+      data.businessId ||
+      data.business_manager_id ||
+      data.businessManagerId ||
+      null,
+  };
+}
+
+function isFinishEvent(payload) {
+  if (payload?.type !== "WA_EMBEDDED_SIGNUP") return false;
+  const event = String(payload?.event || "").trim().toUpperCase();
+  return event === "FINISH" || event === "FINISH_ONLY_WABA";
+}
+
 export default function WhatsAppIntegrationCard({ organizationId }) {
   const [snapshot, setSnapshot] = useState(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const signupRef = useRef({ code: null, session: null, completing: false });
+  const signupRef = useRef({ code: null, accessToken: null, session: null, completing: false });
 
   async function load() {
     if (!organizationId) return;
@@ -61,8 +91,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
     const current = signupRef.current;
     if (
       current.completing ||
-      !current.code ||
-      !current.session?.phone_number_id ||
+      (!current.code && !current.accessToken) ||
       !current.session?.waba_id
     ) {
       return;
@@ -71,6 +100,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
     current.completing = true;
     setWorking(true);
     setError("");
+
     try {
       const response = await fetch("/api/administration/integrations/whatsapp", {
         method: "POST",
@@ -79,18 +109,26 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
           organizationId,
           action: "complete-embedded-signup",
           code: current.code,
-          phoneNumberId: current.session.phone_number_id,
+          accessToken: current.accessToken,
+          phoneNumberId: current.session.phone_number_id || null,
           wabaId: current.session.waba_id,
           businessId: current.session.business_id || null,
         }),
       });
+
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.error || "WhatsApp Business connection failed");
       }
+
       setSnapshot(data);
       setNotice("WhatsApp Business connected and inbound messaging is operational.");
-      signupRef.current = { code: null, session: null, completing: false };
+      signupRef.current = {
+        code: null,
+        accessToken: null,
+        session: null,
+        completing: false,
+      };
     } catch (actionError) {
       signupRef.current.completing = false;
       setError(actionError?.message || "WhatsApp Business connection failed");
@@ -107,7 +145,8 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
 
   useEffect(() => {
     function onMessage(event) {
-      if (!event.origin.endsWith("facebook.com")) return;
+      if (!String(event.origin || "").endsWith("facebook.com")) return;
+
       let payload = event.data;
       if (typeof payload === "string") {
         try {
@@ -116,10 +155,16 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
           return;
         }
       }
-      if (payload?.type !== "WA_EMBEDDED_SIGNUP" || payload?.event !== "FINISH") {
+
+      if (!isFinishEvent(payload)) return;
+
+      const session = normalizeEmbeddedSignupSession(payload);
+      if (!session.waba_id) {
+        setError("Meta finished WhatsApp setup but did not return the WhatsApp Business Account ID. Please reopen setup and try again.");
         return;
       }
-      signupRef.current.session = payload.data || null;
+
+      signupRef.current.session = session;
       completeIfReady();
     }
 
@@ -131,7 +176,12 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
     if (!snapshot?.publicConfig?.ready) return;
     setError("");
     setNotice("");
-    signupRef.current = { code: null, session: null, completing: false };
+    signupRef.current = {
+      code: null,
+      accessToken: null,
+      session: null,
+      completing: false,
+    };
 
     try {
       const FB = await loadFacebookSdk({
@@ -142,18 +192,25 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
       FB.login(
         (response) => {
           const code = response?.authResponse?.code || null;
-          if (!code) {
+          const accessToken = response?.authResponse?.accessToken || null;
+
+          if (!code && !accessToken) {
             setError("WhatsApp connection was cancelled or did not complete.");
             return;
           }
+
           signupRef.current.code = code;
+          signupRef.current.accessToken = accessToken;
           completeIfReady();
         },
         {
           config_id: snapshot.publicConfig.configId,
           response_type: "code",
           override_default_response_type: true,
-          extras: { setup: {}, sessionInfoVersion: "3" },
+          extras: {
+            setup: {},
+            sessionInfoVersion: "3",
+          },
         },
       );
     } catch (sdkError) {
@@ -201,7 +258,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
               <div className={`flex items-center gap-2 ${operational ? "text-emerald-200" : "text-amber-100"}`}>
                 {operational ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                 <span className="font-medium">
-                  {operational ? "WhatsApp messaging is operational" : "This older connection does not have the Communications webhook subscription"}
+                  {operational ? "WhatsApp messaging is operational" : "This connection does not have the Communications webhook subscription"}
                 </span>
               </div>
               <div className="mt-3 text-sm text-white/55">

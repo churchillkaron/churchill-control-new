@@ -42,10 +42,17 @@ async function normalizeProviderTokens(provider, tokens) {
   if (!response.ok || !payload?.access_token) {
     throw new Error(payload?.error?.message || "Threads long-lived token exchange failed");
   }
+
+  const obtainedAt = new Date();
+  const expiresIn = Number(payload.expires_in) || null;
   return {
     ...tokens,
     ...payload,
     token_lifecycle: "THREADS_LONG_LIVED",
+    token_obtained_at: obtainedAt.toISOString(),
+    token_expires_at: expiresIn
+      ? new Date(obtainedAt.getTime() + expiresIn * 1000).toISOString()
+      : null,
   };
 }
 
@@ -167,6 +174,7 @@ export async function GET(request, { params }) {
         connected_at: new Date().toISOString(),
         connection_model: config.pkce ? "ORGANIZATION_OAUTH_PKCE" : "ORGANIZATION_OAUTH",
         token_lifecycle: tokens.token_lifecycle || null,
+        token_expires_at: tokens.token_expires_at || null,
       },
     });
 

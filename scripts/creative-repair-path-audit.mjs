@@ -1557,6 +1557,87 @@ async function promptSkeletonMatchesValidatorRequirements() {
   );
 }
 
+// 25. The prompt must not name a provider capability, and its example values must be values the
+// validator accepts. The shot skeleton did both wrong: it wrote "service": "ai.video.generate"
+// literally -- a hardcoded capability in a runtime that resolves everything else from the
+// organization -- and it showed "output_spec": {} as the example, which is exactly the empty object
+// the validator rejects with SHOT_OUTPUT_SPEC_REQUIRED. Every shot of every film copied the example
+// and failed. Field-name checks cannot catch this; the example value has to be checked too.
+async function promptExamplesAreValidAndCapabilityFree() {
+  const { readFileSync } = globalThis.__auditFs;
+  const runtime = readFileSync(
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "utf8",
+  );
+
+  // Scope this to the text that actually reaches the model. Two references in this file are
+  // legitimate and a whole-file grep condemns both: the runtime names ai.reasoning.execute to make
+  // its own reasoning calls, which is transport rather than a creative capability the director plans
+  // against, and a comment quotes the id this check exists to prevent.
+  //
+  // The prompts are template literals, so read those directly. Matching function bodies with a lazy
+  // /\n\}/ terminator silently stopped at the first closing brace inside the JSON skeleton, which
+  // truncated the text before the generation block and made this check pass against nothing -- a
+  // reinstated "ai.video.generate" went undetected until the mutation test.
+  const promptText = runtime
+    .split("`")
+    .filter((_, index) => index % 2 === 1)
+    .join("\n")
+    .replace(/^\s*\/\/.*$/gm, "");
+  check(
+    "the prompt template literals are locatable",
+    promptText.includes("MANDATORY RULES") && promptText.length > 6000,
+    `${promptText.length} chars`,
+  );
+  const hardcoded = [...promptText.matchAll(/"(ai\.[a-z0-9_.]+)"/g)].map((match) => match[1]);
+  check(
+    "the temporal prompt names no provider capability literally",
+    hardcoded.length === 0,
+    `hardcoded: ${[...new Set(hardcoded)].join(", ")}`,
+  );
+  check(
+    "the temporal path resolves capabilities from the organization",
+    /availableProductionCapabilities\(organization_id\)/.test(runtime),
+  );
+  // Assert the list itself is interpolated, not merely that the heading is mentioned. The mandatory
+  // rule below the skeleton names the same heading, so testing for the phrase alone passed while the
+  // resolved pairs had been removed from the prompt entirely.
+  check(
+    "the resolved capability pairs are interpolated into the shot prompt",
+    /PRODUCTION CAPABILITIES YOU MAY PLAN AGAINST: \$\{JSON\.stringify\(capabilityPairs\)\}/
+      .test(runtime),
+  );
+
+  const start = runtime.indexOf('"id": "stable unique shot id"');
+  if (start < 0) return check("the shot skeleton is locatable for example checks", false);
+  const skeleton = runtime.slice(start, runtime.indexOf("MANDATORY RULES", start));
+
+  // The validator rejects an empty generation.output_spec, so the prompt must never demonstrate one.
+  // Check every output_spec example in every prompt, not only the shot skeleton: the deliverable
+  // skeleton carries one too, and the validator rejects an empty object in both places.
+  const outputSpecExamples = [...promptText.matchAll(/"output_spec":\s*(\{[^{}]*\}|\{)/g)]
+    .map((match) => match[1]);
+  check(
+    "every output_spec example is populated",
+    outputSpecExamples.length > 0 && outputSpecExamples.every((example) => example !== "{}"),
+    `examples: ${outputSpecExamples.join(" | ") || "none found"}`,
+  );
+  const emptyExamples = [...skeleton.matchAll(/"(\w+)":\s*\{\}/g)].map((match) => match[1]);
+  check(
+    "the shot skeleton does not show an empty output_spec",
+    !emptyExamples.includes("output_spec"),
+    `empty object examples: ${emptyExamples.join(", ")}`,
+  );
+  check(
+    "the output_spec example carries the duration the validator compares",
+    /"output_spec":\s*\{[^}]*duration_seconds/.test(skeleton),
+  );
+  check(
+    "the shot call is told output_spec must be populated",
+    /output_spec must be a populated object, never empty/.test(runtime),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1589,6 +1670,7 @@ async function main() {
   await contractRequiresStructuralInvention();
   await contractRequiresSurfaceInvention();
   await promptSkeletonMatchesValidatorRequirements();
+  await promptExamplesAreValidAndCapabilityFree();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

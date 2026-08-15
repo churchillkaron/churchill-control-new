@@ -270,7 +270,8 @@ assert.match(turnRuntimeSource, /function pendingVerificationExecution/);
 assert.match(turnRuntimeSource, /original_message:\s*text\(candidate\.original_message\)/);
 assert.match(turnRuntimeSource, /pending\.original_message \|\| message/);
 assert.match(turnRuntimeSource, /pending\.original_message \|\| text\(activeRun\?\.objective\) \|\| message/);
-assert.match(turnRuntimeSource, /original_message:\s*text\(message\)/);
+assert.match(turnRuntimeSource, /original_message:\s*text\(originalMessage\)/);
+assert.match(turnRuntimeSource, /originalMessage:\s*message/);
 assert.ok(
   (turnRuntimeSource.match(/let nextProjectState = projectState;/g) || []).length >= 2,
   "confirmed execution and verification retry must both preserve verified project state",

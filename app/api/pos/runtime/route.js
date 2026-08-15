@@ -126,6 +126,8 @@ export async function GET(request) {
       resolvePOSFinancialPolicy({
         organizationId:
           resolved.organizationId,
+        entityId:
+          requestedEntityId,
       }),
     ]);
 
@@ -199,6 +201,8 @@ export async function GET(request) {
         entity_id:
           applicationRuntime
             ?.entity_id ||
+          financialPolicy
+            ?.entityId ||
           requestedEntityId ||
           null,
         currency_code:

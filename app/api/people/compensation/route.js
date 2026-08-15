@@ -169,6 +169,22 @@ function readPayload(body) {
   };
 }
 
+function entityCurrency(entity) {
+  const currency = String(entity?.currency || "").trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw new Error("Payroll legal entity currency is not configured correctly");
+  }
+  return currency;
+}
+
+function assertEntityCurrency(payloadCurrency, entity) {
+  const currency = entityCurrency(entity);
+  if (payloadCurrency && payloadCurrency !== currency) {
+    throw new Error(`Compensation currency must match legal entity currency ${currency}`);
+  }
+  return currency;
+}
+
 export async function GET(request) {
   try {
     const ctx = await context(request);
@@ -188,8 +204,10 @@ export async function GET(request) {
       );
     }
 
+    entityCurrency(entity);
+
     const date = today();
-    const [staffResult, profileResult] = await Promise.all([
+    const [staffResult, profileResult, paymentMethodResult] = await Promise.all([
       supabaseAdmin
         .from("staff_accounts")
         .select("id,name,email,role,position,department,party_id,active")
@@ -204,10 +222,17 @@ export async function GET(request) {
         .lte("effective_from", date)
         .or(`effective_to.is.null,effective_to.gte.${date}`)
         .order("effective_from", { ascending: false }),
+      supabaseAdmin
+        .from("organization_payment_config")
+        .select("payment_method,currency,enabled")
+        .eq("organization_id", ctx.organizationId)
+        .eq("enabled", true)
+        .order("payment_method", { ascending: true }),
     ]);
 
     if (staffResult.error) throw staffResult.error;
     if (profileResult.error) throw profileResult.error;
+    if (paymentMethodResult.error) throw paymentMethodResult.error;
 
     const profileByStaff = new Map();
     for (const profile of profileResult.data || []) {
@@ -227,6 +252,12 @@ export async function GET(request) {
       role: ctx.role,
       entity,
       employees,
+      paymentMethods: paymentMethodResult.data || [],
+      bankTransferEnabled: (paymentMethodResult.data || []).some(
+        (method) =>
+          String(method.payment_method || "").trim().toLowerCase() ===
+          "bank_transfer"
+      ),
     });
   } catch (error) {
     console.error("COMPENSATION_LIST_ERROR", error);
@@ -289,6 +320,8 @@ export async function POST(request) {
       );
     }
 
+    const currency = assertEntityCurrency(payload.currency, entity);
+
     const { data: existing, error: existingError } = await supabaseAdmin
       .from("employee_compensation_profiles")
       .select("id,effective_from,effective_to")
@@ -317,9 +350,9 @@ export async function POST(request) {
         effective_from: effectiveFrom,
         salary_type: payload.salaryType,
         payroll_frequency: payload.payrollFrequency,
-        currency: payload.currency,
+        currency,
         monthly_salary: payload.salaryType === "MONTHLY" ? payload.monthlySalary : 0,
-        hourly_rate: payload.salaryType === "HOURLY" ? payload.hourlyRate : 0,
+        hourly_rate: payload.hourlyRate || 0,
         bank_name: payload.bankName || null,
         bank_account: payload.bankAccount || null,
       })
@@ -355,22 +388,6 @@ export async function PATCH(request) {
 
     validateCompensationInput(payload);
 
-    const updates = {};
-    if (payload.bankName !== undefined) updates.bank_name = payload.bankName || null;
-    if (payload.bankAccount !== undefined) updates.bank_account = payload.bankAccount || null;
-    if (payload.salaryType !== undefined) updates.salary_type = payload.salaryType;
-    if (payload.payrollFrequency !== undefined) updates.payroll_frequency = payload.payrollFrequency;
-    if (payload.currency !== undefined) updates.currency = payload.currency;
-    if (payload.monthlySalary !== undefined) updates.monthly_salary = payload.monthlySalary;
-    if (payload.hourlyRate !== undefined) updates.hourly_rate = payload.hourlyRate;
-
-    if (!Object.keys(updates).length) {
-      return NextResponse.json(
-        { success: false, error: "No compensation changes supplied" },
-        { status: 400 }
-      );
-    }
-
     const [employee, entity] = await Promise.all([
       loadEmployee({ organizationId: ctx.organizationId, staffId: payload.staffId }),
       resolveEntity({
@@ -398,10 +415,12 @@ export async function PATCH(request) {
       );
     }
 
+    const currency = assertEntityCurrency(payload.currency, entity);
+
     const date = today();
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("employee_compensation_profiles")
-      .select("id,organization_id,entity_id,party_id,staff_account_id,salary_type,monthly_salary,hourly_rate")
+      .select("id,organization_id,entity_id,party_id,staff_account_id,salary_type,payroll_frequency,currency,monthly_salary,hourly_rate,bank_name,bank_account")
       .eq("organization_id", ctx.organizationId)
       .eq("entity_id", entity.id)
       .eq("staff_account_id", payload.staffId)
@@ -426,19 +445,41 @@ export async function PATCH(request) {
     }
 
     const effectiveSalaryType = payload.salaryType || profile.salary_type;
+    const effectivePayrollFrequency =
+      payload.payrollFrequency || profile.payroll_frequency;
+    const effectiveMonthlySalary =
+      effectiveSalaryType === "HOURLY"
+        ? 0
+        : payload.monthlySalary ?? profile.monthly_salary;
+    const effectiveHourlyRate =
+      payload.hourlyRate ?? profile.hourly_rate;
+
     validateCompensationInput({
       salaryType: effectiveSalaryType,
-      payrollFrequency: payload.payrollFrequency,
-      currency: payload.currency,
-      monthlySalary: payload.monthlySalary ?? profile.monthly_salary,
-      hourlyRate: payload.hourlyRate ?? profile.hourly_rate,
+      payrollFrequency: effectivePayrollFrequency,
+      currency,
+      monthlySalary: effectiveMonthlySalary,
+      hourlyRate: effectiveHourlyRate,
+      requireComplete: true,
     });
 
-    if (payload.salaryType === "MONTHLY" && payload.hourlyRate === undefined) {
-      updates.hourly_rate = 0;
-    }
-    if (payload.salaryType === "HOURLY" && payload.monthlySalary === undefined) {
-      updates.monthly_salary = 0;
+    const updates = {
+      currency,
+      salary_type: effectiveSalaryType,
+      payroll_frequency: effectivePayrollFrequency,
+      monthly_salary: effectiveMonthlySalary,
+      hourly_rate: effectiveHourlyRate,
+    };
+
+    if (payload.bankName !== undefined) updates.bank_name = payload.bankName || null;
+    if (payload.bankAccount !== undefined) updates.bank_account = payload.bankAccount || null;
+
+    const changed = Object.entries(updates).some(([key, value]) =>
+      String(profile[key] ?? "") !== String(value ?? "")
+    );
+
+    if (!changed) {
+      return NextResponse.json({ success: true, compensation: profile, unchanged: true });
     }
 
     const { data: updated, error: updateError } = await supabaseAdmin

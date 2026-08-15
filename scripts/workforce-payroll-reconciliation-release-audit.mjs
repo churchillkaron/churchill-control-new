@@ -13,6 +13,7 @@ const FILES = Object.freeze({
     "app/(system)/workspace/[organizationId]/people/attendance/page.jsx",
   governancePage:
     "app/(system)/workspace/[organizationId]/people/payroll/governance/page.jsx",
+  staffEarningsPage: "app/(system)/staff/earnings/page.jsx",
   freshnessMigration:
     "supabase/migrations/20260813044651_workforce_schedule_mutation_freshness.sql",
   statusMigration:
@@ -270,6 +271,27 @@ requireNoMatch(
 );
 
 requireMatch(
+  source.staffEarningsPage,
+  /function dateTime\(value, timezone = "UTC"\)[\s\S]*?timeZone:\s*timezone/,
+  "Staff earnings organization timezone formatter",
+);
+requireMatch(
+  source.staffEarningsPage,
+  /const timezone = profile\?\.timezone \|\| "UTC"/,
+  "Staff earnings organization timezone source",
+);
+requireMatch(
+  source.staffEarningsPage,
+  /dateTime\(record\.employee_acknowledged_at, timezone\)/,
+  "Staff earnings acknowledgement timezone usage",
+);
+requireNoMatch(
+  source.staffEarningsPage,
+  /timeZone:\s*"Asia\/Bangkok"/,
+  "Staff earnings hardcoded organization timezone",
+);
+
+requireMatch(
   source.generator,
   /\.from\("staff_schedules"\)[\s\S]{0,300}?\.eq\("status",\s*"PUBLISHED"\)/,
   "Monthly payroll published-schedule calculation",
@@ -328,5 +350,5 @@ requireMatch(
 );
 
 console.log(
-  "Workforce/Payroll reconciliation release audit passed: database-enforced schedule history, canonical schedule statuses, exact payroll-attendance resolution links, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, and no automatic absence deduction are intact.",
+  "Workforce/Payroll reconciliation release audit passed: database-enforced schedule history, canonical schedule statuses, exact payroll-attendance resolution links, schedule mutation freshness, attendance classification, credited leave, stale-payroll blocking, controlled lateness, organization-timezone staff payroll, and no automatic absence deduction are intact.",
 );

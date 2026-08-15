@@ -22,11 +22,15 @@ create index if not exists order_items_organization_entity_idx
 -- exactly one active legal entity. Multi-entity history remains intentionally
 -- unresolved rather than being guessed.
 with single_active_entity as (
-  select organization_id, min(id) as entity_id
-  from public.legal_entities
-  where is_active = true
-  group by organization_id
-  having count(*) = 1
+  select le.organization_id, le.id as entity_id
+  from public.legal_entities le
+  where le.is_active = true
+    and 1 = (
+      select count(*)
+      from public.legal_entities sibling
+      where sibling.organization_id = le.organization_id
+        and sibling.is_active = true
+    )
 )
 update public.orders o
 set entity_id = scope.entity_id
@@ -35,11 +39,15 @@ where o.organization_id = scope.organization_id
   and o.entity_id is null;
 
 with single_active_entity as (
-  select organization_id, min(id) as entity_id
-  from public.legal_entities
-  where is_active = true
-  group by organization_id
-  having count(*) = 1
+  select le.organization_id, le.id as entity_id
+  from public.legal_entities le
+  where le.is_active = true
+    and 1 = (
+      select count(*)
+      from public.legal_entities sibling
+      where sibling.organization_id = le.organization_id
+        and sibling.is_active = true
+    )
 )
 update public.table_sessions s
 set entity_id = scope.entity_id

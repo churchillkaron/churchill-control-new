@@ -28,6 +28,16 @@ function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+function operationalOnly(settings = {}) {
+  const {
+    country: _legacyCountry,
+    currency: _legacyCurrency,
+    ...operationalSettings
+  } = settings || {};
+
+  return operationalSettings;
+}
+
 function finiteNumber(value, label, { min = 0, max = null, required = false } = {}) {
   if (value === "" || value === null || typeof value === "undefined") {
     if (required) throw new Error(`${label} is required`);
@@ -80,29 +90,13 @@ export async function POST(request) {
     }
 
     const {
-      organizationId,
-      organization_id,
+      organizationId: _organizationId,
+      organization_id: _organization_id,
       settings: nestedSettings,
       ...flatSettings
     } = body || {};
 
-    const incoming = nestedSettings || flatSettings;
-    const country = String(incoming?.country || "").trim();
-    const currency = String(incoming?.currency || "").trim().toUpperCase();
-
-    if (!country) {
-      return NextResponse.json(
-        { success: false, error: "Payroll country is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!/^[A-Z]{3}$/.test(currency)) {
-      return NextResponse.json(
-        { success: false, error: "Payroll currency must be a 3-letter code" },
-        { status: 400 }
-      );
-    }
+    const incoming = operationalOnly(nestedSettings || flatSettings);
 
     const defaultHoursPerShift = finiteNumber(
       incoming?.default_hours_per_shift,
@@ -120,16 +114,16 @@ export async function POST(request) {
       { min: 0 }
     );
 
-    const existing = await loadOperationalSettings({
-      organizationId: context.organizationId,
-      domain: "PAYROLL",
-    });
+    const existing = operationalOnly(
+      await loadOperationalSettings({
+        organizationId: context.organizationId,
+        domain: "PAYROLL",
+      })
+    );
 
     const settings = {
       ...existing,
       ...incoming,
-      country,
-      currency,
       default_hours_per_shift: defaultHoursPerShift,
       default_working_days_per_week: defaultWorkingDaysPerWeek,
       variance_threshold_hours: varianceThresholdHours ?? 0,
@@ -150,7 +144,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
-      settings: result?.settings || settings,
+      settings: operationalOnly(result?.settings || settings),
     });
   } catch (error) {
     return NextResponse.json(

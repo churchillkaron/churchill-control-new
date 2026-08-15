@@ -1810,10 +1810,10 @@ async function absenceIsADecisionNotALoophole() {
     baseline.map((f) => `${f.code}@${f.path}`).join(", "));
 
   // A photographed shot answering "none" stays rejected.
-  const blanked = failuresFor((shot) => { shot.camera.movement_speed = "none"; });
+  const blanked = failuresFor((shot) => { shot.camera.framing = "none"; });
   check(
     "a photographed shot cannot answer none",
-    blanked.some((failure) => failure.path === "scenes.0.shots.0.camera.movement_speed"),
+    blanked.some((failure) => failure.path === "scenes.0.shots.0.camera.framing"),
     `failures=${blanked.length}`,
   );
 
@@ -1823,7 +1823,7 @@ async function absenceIsADecisionNotALoophole() {
       titles: [{ content: "a real closing line of type", style: "amber", animation: "fade" }],
       overlays: [],
     };
-    shot.camera.movement_speed = "none";
+    shot.camera.framing = "none";
     shot.camera.lens_intent = "";
     shot.lighting.source = "";
     shot.production_design.wardrobe = "";
@@ -1832,7 +1832,7 @@ async function absenceIsADecisionNotALoophole() {
   const cardPaths = card.map((failure) => failure.path);
   check(
     "a type-driven shot is not asked for camera, lighting, design or continuity it does not have",
-    !cardPaths.some((path) => /camera\.(movement_speed|lens_intent)|lighting\.source|production_design\.wardrobe|continuity\.screen_direction/.test(String(path))),
+    !cardPaths.some((path) => /camera\.(framing|lens_intent)|lighting\.source|production_design\.wardrobe|continuity\.screen_direction/.test(String(path))),
     `still demanded: ${cardPaths.join(", ")}`,
   );
 
@@ -1896,12 +1896,14 @@ async function rejectionsNameTheirRemedy() {
   };
 
   for (const [label, mutate] of [
-    ["a value of none", (shot) => { shot.camera.movement_speed = "none"; }],
-    ["an empty value", (shot) => { shot.camera.movement_speed = ""; }],
-    ["a value of N/A", (shot) => { shot.camera.movement_speed = "N/A"; }],
+    // camera.framing rather than movement_speed: speed is a property of movement_path and is excused
+    // when the parent carries real direction, so it no longer probes plain absence.
+    ["a value of none", (shot) => { shot.camera.framing = "none"; }],
+    ["an empty value", (shot) => { shot.camera.framing = ""; }],
+    ["a value of N/A", (shot) => { shot.camera.framing = "N/A"; }],
   ]) {
     const failures = failuresFor(mutate).filter(
-      (failure) => failure.path === "scenes.0.shots.0.camera.movement_speed",
+      (failure) => failure.path === "scenes.0.shots.0.camera.framing",
     );
     check(`${label} is rejected`, failures.length > 0);
     check(
@@ -1915,8 +1917,8 @@ async function rejectionsNameTheirRemedy() {
 
   // Both codes fire on an absence token, so both messages have to carry the remedy. One of the two
   // repeating the offence would waste the half of the feedback the director reads.
-  const both = failuresFor((shot) => { shot.camera.movement_speed = "none"; })
-    .filter((failure) => failure.path === "scenes.0.shots.0.camera.movement_speed");
+  const both = failuresFor((shot) => { shot.camera.framing = "none"; })
+    .filter((failure) => failure.path === "scenes.0.shots.0.camera.framing");
   check(
     "every code raised by a blank carries the remedy",
     both.length >= 2 && new Set(both.map((failure) => failure.code)).size >= 2,
@@ -2038,6 +2040,113 @@ async function theTemporalPathAsksForItsOwnReview() {
   );
 }
 
+// 32. A field that describes a property of another field has nothing to say when that other field
+// reports there is nothing to describe.
+//
+// movement_speed is the speed of the movement in movement_path. A locked-off shot answered
+// movement_path "locked off on tripod, no movement", stabilization "locked tripod" and
+// movement_motivation "stillness supports emotional gravity" -- it stated the absence as a decision
+// exactly as instructed -- and was still required to write prose about the speed of a movement that
+// does not exist. It was the last surviving instance of that failure after the guidance had cleared
+// every other one, and no wording of the guidance can fill a field with nothing in it.
+async function dependentFieldsFollowTheirParent() {
+  const { validateCreativeMasterPlan } = await import(
+    "@/lib/creative/director/validation/CreativeMasterPlanValidator"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const failuresFor = (mutate) => {
+    const plan = JSON.parse(JSON.stringify(fixture.temporalBasePlan()));
+    plan.scenes = [fixture.temporalScene("scene-1")];
+    plan.scenes[0].shots = [fixture.temporalShot("scene-1-shot-1")];
+    plan.quality = fixture.TEMPORAL_QUALITY;
+    mutate(plan.scenes[0].shots[0]);
+    return validateCreativeMasterPlan({
+      plan,
+      assets: plan.asset_manifest.map((entry) => ({ id: entry.asset_id, asset_type: "video" })),
+    }).failures.filter((failure) => String(failure.path).includes("shots.0"));
+  };
+
+  // The exact shape produced in the run.
+  const locked = failuresFor((shot) => {
+    shot.camera.movement_path = "locked off on tripod, no movement";
+    shot.camera.movement_speed = "none";
+  });
+  check(
+    "a still frame may report no speed for a movement it does not have",
+    !locked.some((failure) => String(failure.path).endsWith("camera.movement_speed")),
+    locked.map((f) => `${f.code}@${f.path}`).join(", "),
+  );
+
+  // Both blank is still a blank: the parent has to carry real direction for the child to be excused.
+  const bothBlank = failuresFor((shot) => {
+    shot.camera.movement_path = "none";
+    shot.camera.movement_speed = "none";
+  });
+  check(
+    "a shot cannot blank both the movement and its speed",
+    bothBlank.some((failure) => String(failure.path).endsWith("camera.movement_speed")) &&
+      bothBlank.some((failure) => String(failure.path).endsWith("camera.movement_path")),
+    bothBlank.map((f) => f.path).join(", "),
+  );
+
+  // The dependency runs one way only.
+  const parentBlank = failuresFor((shot) => {
+    shot.camera.movement_path = "none";
+    shot.camera.movement_speed = "eases from a standstill over the first second";
+  });
+  check(
+    "the parent is not excused by the child being answered",
+    parentBlank.some((failure) => String(failure.path).endsWith("camera.movement_path")),
+  );
+
+  // Nothing else inherits the exemption.
+  const other = failuresFor((shot) => {
+    shot.camera.movement_path = "slow dolly in along the counter";
+    shot.camera.framing = "none";
+  });
+  check(
+    "an unrelated camera field is not excused",
+    other.some((failure) => String(failure.path).endsWith("camera.framing")),
+  );
+}
+
+// 33. A rejection about asset assignments must say what an assignment is for. A REFERENCE asset was
+// given an empty assignments array, which the contract refuses for every disposition except EXCLUDE,
+// and neither the prompt nor the message said that a reference names the deliverable it informs.
+async function assetAssignmentsExplainThemselves() {
+  const { validateCreativeMasterPlan } = await import(
+    "@/lib/creative/director/validation/CreativeMasterPlanValidator"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+  const plan = JSON.parse(JSON.stringify(fixture.temporalBasePlan()));
+  plan.scenes = [fixture.temporalScene("scene-1")];
+  plan.scenes[0].shots = [fixture.temporalShot("scene-1-shot-1")];
+  plan.quality = fixture.TEMPORAL_QUALITY;
+  plan.asset_manifest[0].disposition = "REFERENCE";
+  plan.asset_manifest[0].assignments = [];
+
+  const failures = validateCreativeMasterPlan({
+    plan,
+    assets: plan.asset_manifest.map((entry) => ({ id: entry.asset_id, asset_type: "video" })),
+  }).failures.filter((failure) => failure.code === "ASSET_ASSIGNMENT_REQUIRED");
+
+  check("an unassigned reference asset is rejected", failures.length > 0);
+  check(
+    "the rejection explains what a REFERENCE assignment means",
+    failures.length > 0 && /names the deliverable it informs/.test(String(failures[0].message)),
+    String(failures[0]?.message || "").slice(0, 90),
+  );
+  const runtime = globalThis.__auditFs.readFileSync(
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "utf8",
+  );
+  check(
+    "the prompt states the rule before the director can break it",
+    /an empty assignments array is only valid for EXCLUDE/.test(runtime),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2077,6 +2186,8 @@ async function main() {
   await rejectionsNameTheirRemedy();
   await declaredLengthIsEnforced();
   await theTemporalPathAsksForItsOwnReview();
+  await dependentFieldsFollowTheirParent();
+  await assetAssignmentsExplainThemselves();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

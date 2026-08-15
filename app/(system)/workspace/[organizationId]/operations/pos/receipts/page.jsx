@@ -71,21 +71,19 @@ export default function ReceiptsPage({
 
   const loadReceipts = useCallback(async () => {
     if (!organizationId) return;
+    if (!entityId) {
+      setReceipts([]);
+      setLoading(false);
+      setError("Select a legal entity before loading POS receipts.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const query =
-        new URLSearchParams({
-          organizationId,
-        });
-
-      if (entityId) {
-        query.set(
-          "entityId",
-          entityId
-        );
-      }
+      const query = new URLSearchParams({ organizationId });
+      query.set("entityId", entityId);
 
       const response = await fetch(
         `/api/pos/receipts?${query.toString()}`,

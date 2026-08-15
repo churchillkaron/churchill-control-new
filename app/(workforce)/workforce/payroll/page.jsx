@@ -13,12 +13,22 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+const REVIEWABLE_STATUSES = new Set(["GENERATED", "RECALCULATED"]);
+const PAYMENT_COMPLETE_STATUSES = new Set([
+  "PAID",
+  "DISPUTED",
+  "RESOLVED",
+  "FINALIZED",
+  "ACCOUNTING_CLOSED",
+  "CERTIFIED",
+  "ARCHIVED",
+]);
+
 function currencyCode(profile, payroll) {
   return (
     payroll?.currency_code ||
-    payroll?.payroll_currency ||
     profile?.compensation?.currency_code ||
-    profile?.staff?.payroll_currency ||
+    profile?.compensation?.currency ||
     ""
   );
 }
@@ -31,8 +41,26 @@ function formatMoney(value, code) {
   })}`;
 }
 
+function otherDeductions(record) {
+  return Math.max(
+    0,
+    Number(record?.deductions || 0) -
+      Number(record?.tax_amount || 0) -
+      Number(record?.social_security || 0)
+  );
+}
+
 function canDispute(record) {
-  return ["PAID"].includes(record?.status) && !record?.employee_dispute;
+  if (!record || record.employee_dispute) return false;
+
+  if (
+    REVIEWABLE_STATUSES.has(record.status) &&
+    !record.employee_acknowledged
+  ) {
+    return true;
+  }
+
+  return record.status === "PAID";
 }
 
 export default function PortalPayrollPage() {
@@ -74,13 +102,22 @@ export default function PortalPayrollPage() {
   const pendingManagerReview = Boolean(
     payroll?.review_required === true && payroll?.review_status === "PENDING"
   );
-
-  const bonusValue =
-    Number(payroll?.overtime_pay || 0) + Number(payroll?.leave_payout || 0);
+  const reviewable = REVIEWABLE_STATUSES.has(payroll?.status);
+  const paymentComplete = PAYMENT_COMPLETE_STATUSES.has(payroll?.status);
+  const unresolvedDispute = Boolean(
+    payroll?.employee_dispute && !payroll?.dispute_resolved
+  );
+  const canAcknowledge = Boolean(
+    payroll &&
+      reviewable &&
+      !pendingManagerReview &&
+      !payroll.employee_acknowledged &&
+      !unresolvedDispute
+  );
 
   const rows = [
     {
-      label: "Base Salary",
+      label: "Base Pay",
       value: formatMoney(payroll?.base_salary, code),
       icon: Wallet,
       tone: "text-cyan-300",
@@ -92,13 +129,13 @@ export default function PortalPayrollPage() {
       tone: "text-emerald-300",
     },
     {
-      label: "Overtime + Leave",
-      value: formatMoney(bonusValue, code),
+      label: "Overtime",
+      value: formatMoney(payroll?.overtime_pay, code),
       icon: CheckCircle2,
       tone: "text-fuchsia-300",
     },
     {
-      label: "Deductions",
+      label: "Total Deductions",
       value: formatMoney(payroll?.deductions, code),
       icon: MinusCircle,
       tone: "text-orange-300",
@@ -106,7 +143,7 @@ export default function PortalPayrollPage() {
   ];
 
   async function acknowledge() {
-    if (!payroll?.id || pendingManagerReview) return;
+    if (!payroll?.id || !canAcknowledge) return;
 
     setWorking(true);
     setError("");
@@ -132,7 +169,7 @@ export default function PortalPayrollPage() {
   }
 
   async function submitDispute() {
-    if (!payroll?.id || !disputeReason.trim()) return;
+    if (!payroll?.id || !canDispute(payroll) || !disputeReason.trim()) return;
 
     setWorking(true);
     setError("");
@@ -163,7 +200,7 @@ export default function PortalPayrollPage() {
   }
 
   async function openPayslip() {
-    if (!payroll?.id) return;
+    if (!payroll?.id || !paymentComplete) return;
 
     setWorking(true);
     setError("");
@@ -212,7 +249,7 @@ export default function PortalPayrollPage() {
               </div>
               <div className="mt-3 text-4xl font-black">My Payroll</div>
               <div className="mt-2 text-sm text-white/45">
-                Salary, service charge, overtime, deductions and payment confirmation.
+                Base pay, service charge, overtime, deductions and payment confirmation from the canonical payroll record.
               </div>
             </div>
 
@@ -236,8 +273,13 @@ export default function PortalPayrollPage() {
             </div>
 
             <div className="mt-1 text-sm text-white/45">
-              {payroll ? "Net payroll from the canonical payroll record" : "No payroll has been generated yet"}
+              {payroll ? "Net pay from the canonical payroll record" : "No payroll has been generated yet"}
             </div>
+            {payroll?.legal_entity?.name ? (
+              <div className="mt-2 text-xs text-white/35">
+                {payroll.legal_entity.name} · {code || "Currency unavailable"}
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -304,46 +346,65 @@ export default function PortalPayrollPage() {
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3 text-xs text-white/55">
-            <div className="rounded-2xl border border-white/10 p-3">
-              <div className="uppercase tracking-[0.18em] text-white/35">Gross</div>
-              <div className="mt-2 font-black text-white">{formatMoney(payroll.gross_salary, code)}</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 p-3">
-              <div className="uppercase tracking-[0.18em] text-white/35">Tax + Social Security</div>
-              <div className="mt-2 font-black text-white">
-                {formatMoney(Number(payroll.tax_amount || 0) + Number(payroll.social_security || 0), code)}
+            <Detail label="Gross" value={formatMoney(payroll.gross_salary, code)} />
+            <Detail label="Tax" value={formatMoney(payroll.tax_amount, code)} />
+            <Detail label="Social Security" value={formatMoney(payroll.social_security, code)} />
+            <Detail label="Other Deductions" value={formatMoney(otherDeductions(payroll), code)} />
+            <Detail label="Leave Payout" value={formatMoney(payroll.leave_payout, code)} />
+            <Detail label="Approved Hours" value={Number(payroll.approved_hours || 0).toFixed(2)} />
+            <Detail label="Overtime Hours" value={Number(payroll.overtime_hours || 0).toFixed(2)} />
+            <Detail label="Late" value={`${Number(payroll.total_late_minutes || 0)} min`} />
+          </div>
+
+          {paymentComplete ? (
+            <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+              <div className="flex items-center gap-2 font-black">
+                <CheckCircle2 className="h-4 w-4" /> Payment complete
+              </div>
+              <div className="mt-2 text-emerald-100/70">
+                {payroll.payout_date || "Payment date unavailable"}
+                {payroll.payment_reference ? ` · ${payroll.payment_reference}` : ""}
               </div>
             </div>
-            <div className="rounded-2xl border border-white/10 p-3">
-              <div className="uppercase tracking-[0.18em] text-white/35">Hours</div>
-              <div className="mt-2 font-black text-white">{Number(payroll.worked_hours || payroll.total_hours || 0).toFixed(2)}</div>
+          ) : null}
+
+          {payroll.employee_acknowledged ? (
+            <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4 text-sm text-cyan-100">
+              Payroll acknowledged.
             </div>
-            <div className="rounded-2xl border border-white/10 p-3">
-              <div className="uppercase tracking-[0.18em] text-white/35">Late</div>
-              <div className="mt-2 font-black text-white">{Number(payroll.total_late_minutes || 0)} min</div>
-            </div>
-          </div>
+          ) : null}
 
           {payroll.employee_dispute ? (
             <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
               <div className="flex items-center gap-2 font-black">
-                <AlertTriangle className="h-4 w-4" /> Payroll dispute
+                <AlertTriangle className="h-4 w-4" />
+                {unresolvedDispute ? "Payroll dispute open" : "Payroll dispute resolved"}
               </div>
               <div className="mt-2 text-amber-100/70">{payroll.employee_dispute}</div>
+              {payroll.dispute_resolution_notes ? (
+                <div className="mt-2 text-white/50">Resolution: {payroll.dispute_resolution_notes}</div>
+              ) : null}
             </div>
           ) : null}
 
-          {showDispute ? (
+          {showDispute && canDispute(payroll) ? (
             <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
               <textarea
                 value={disputeReason}
                 onChange={(event) => setDisputeReason(event.target.value)}
-                placeholder="Explain what is incorrect in this payroll record"
+                placeholder={
+                  payroll.status === "PAID"
+                    ? "Explain what is wrong with this payment"
+                    : "Explain what is incorrect in this payroll record"
+                }
                 className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none placeholder:text-white/30"
               />
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => setShowDispute(false)}
+                  onClick={() => {
+                    setShowDispute(false);
+                    setDisputeReason("");
+                  }}
                   className="h-12 rounded-2xl border border-white/10 bg-white/[0.05] text-xs font-black uppercase tracking-[0.14em]"
                 >
                   Cancel
@@ -360,13 +421,20 @@ export default function PortalPayrollPage() {
           ) : null}
 
           <div className="mt-5 grid gap-3">
-            {!payroll.employee_acknowledged && !payroll.employee_dispute ? (
+            {canAcknowledge ? (
               <button
                 onClick={acknowledge}
-                disabled={working || pendingManagerReview}
+                disabled={working}
                 className="flex h-14 w-full items-center justify-center rounded-[24px] bg-white text-sm font-black uppercase tracking-[0.2em] text-black disabled:opacity-40"
               >
-                {pendingManagerReview ? "Awaiting manager review" : "Acknowledge payroll"}
+                Acknowledge payroll
+              </button>
+            ) : pendingManagerReview && reviewable && !payroll.employee_acknowledged && !unresolvedDispute ? (
+              <button
+                disabled
+                className="flex h-14 w-full items-center justify-center rounded-[24px] bg-white text-sm font-black uppercase tracking-[0.2em] text-black opacity-40"
+              >
+                Awaiting manager review
               </button>
             ) : null}
 
@@ -376,18 +444,20 @@ export default function PortalPayrollPage() {
                 disabled={working}
                 className="flex h-14 w-full items-center justify-center rounded-[24px] border border-amber-400/20 bg-amber-400/10 text-sm font-black uppercase tracking-[0.2em] text-amber-200 disabled:opacity-40"
               >
-                Dispute payroll
+                {payroll.status === "PAID" ? "Dispute payment" : "Dispute payroll"}
               </button>
             ) : null}
 
-            <button
-              onClick={openPayslip}
-              disabled={working}
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-[24px] border border-white/10 bg-white/[0.06] text-sm font-black uppercase tracking-[0.2em] text-white disabled:opacity-40"
-            >
-              <FileDown className="h-4 w-4" />
-              Open payslip
-            </button>
+            {paymentComplete ? (
+              <button
+                onClick={openPayslip}
+                disabled={working}
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-[24px] border border-white/10 bg-white/[0.06] text-sm font-black uppercase tracking-[0.2em] text-white disabled:opacity-40"
+              >
+                <FileDown className="h-4 w-4" />
+                Open payslip
+              </button>
+            ) : null}
           </div>
         </section>
       ) : (
@@ -395,6 +465,15 @@ export default function PortalPayrollPage() {
           Payroll has not been generated for this employee yet.
         </section>
       )}
+    </div>
+  );
+}
+
+function Detail({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-white/10 p-3">
+      <div className="uppercase tracking-[0.18em] text-white/35">{label}</div>
+      <div className="mt-2 font-black text-white">{value}</div>
     </div>
   );
 }

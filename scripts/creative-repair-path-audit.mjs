@@ -1943,6 +1943,101 @@ async function rejectionsNameTheirRemedy() {
   check("the floor still applies to fields that need a sentence", stillFloored.length > 0);
 }
 
+// 30. The declared length is a contract. A full-song film came back 66.26 seconds against a 205.16
+// second song -- two scenes and five shots where the director had produced eight and thirty-nine -- and
+// passed with zero structural failures, because temporal_contract announced
+// scene_duration_sum_must_equal_master and nothing ever compared the two. The tribunal's repair had
+// replaced the scenes array with an abbreviated one, which its own rules permit ("any array you return
+// replaces the existing array in full"), and the benchmark then scored the fragment: 34.98 was never
+// measuring the film.
+async function declaredLengthIsEnforced() {
+  const { validateCreativeMasterPlan } = await import(
+    "@/lib/creative/director/validation/CreativeMasterPlanValidator"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const failuresFor = (mutate) => {
+    const plan = JSON.parse(JSON.stringify(fixture.temporalBasePlan()));
+    plan.scenes = [fixture.temporalScene("scene-1")];
+    plan.scenes[0].shots = [fixture.temporalShot("scene-1-shot-1")];
+    plan.quality = fixture.TEMPORAL_QUALITY;
+    mutate(plan);
+    return validateCreativeMasterPlan({
+      plan,
+      assets: plan.asset_manifest.map((entry) => ({ id: entry.asset_id, asset_type: "video" })),
+    }).failures;
+  };
+
+  const intact = failuresFor(() => {});
+  check("the fixture film covers its declared length", intact.length === 0,
+    intact.map((f) => `${f.code}@${f.path}`).join(", "));
+
+  // A scene dropped from a longer film: the exact shape of the truncation seen in production.
+  const truncated = failuresFor((plan) => {
+    plan.temporal_contract = { duration_seconds: 205.161293 };
+    plan.deliverables[0].output_spec.duration_seconds = 205.161293;
+  });
+  check(
+    "a film shorter than its declared duration is rejected",
+    truncated.some((failure) => failure.code === "TEMPORAL_SCENE_DURATION_SUM_MISMATCH"),
+    truncated.map((f) => f.code).join(", "),
+  );
+  const mismatch = truncated.find((f) => f.code === "TEMPORAL_SCENE_DURATION_SUM_MISMATCH");
+  check(
+    "the rejection reports both durations so the gap is readable",
+    Boolean(mismatch?.evidence?.scene_duration_sum && mismatch?.evidence?.declared_duration),
+    JSON.stringify(mismatch?.evidence),
+  );
+  // The deliverable output spec is checked as well as the contract block, because the same truncation
+  // that drops scenes can drop the block that would have caught it.
+  const contractDropped = failuresFor((plan) => {
+    plan.temporal_contract = null;
+    plan.deliverables[0].output_spec.duration_seconds = 205.161293;
+  });
+  check(
+    "the length is still enforced when the contract block is missing",
+    contractDropped.some((failure) => failure.code === "TEMPORAL_SCENE_DURATION_SUM_MISMATCH"),
+  );
+  // Rounding across a film is fair; a missing scene is not.
+  const rounding = failuresFor((plan) => {
+    plan.temporal_contract = { duration_seconds: 30.04 };
+    plan.deliverables[0].output_spec.duration_seconds = 30.04;
+  });
+  check(
+    "rounding within a tenth of a second is not a failure",
+    !rounding.some((failure) => failure.code === "TEMPORAL_SCENE_DURATION_SUM_MISMATCH"),
+  );
+}
+
+// 31. The temporal path never asked for creative_review at all -- the word appeared nowhere in the
+// runtime -- while the benchmark weights it at 0.28 plus 0.08 each for rejected patterns, craft risks
+// and finishing requirements. Over half the available score was unreachable by construction, which is
+// most of the distance between 34.98 and the floor.
+async function theTemporalPathAsksForItsOwnReview() {
+  const runtime = globalThis.__auditFs.readFileSync(
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "utf8",
+  );
+  const start = runtime.indexOf("function basePlanPrompt");
+  const body = runtime.slice(start, runtime.indexOf("`;", start));
+
+  check("the base prompt asks for creative_review", /"creative_review"/.test(body));
+  for (const field of [
+    "rejected_patterns",
+    "craft_risks",
+    "finishing_requirements",
+    "weakest_link",
+    "dimensions",
+    "selected_direction_reason",
+  ]) {
+    check(`the base prompt asks for creative_review.${field}`, body.includes(`"${field}"`));
+  }
+  check(
+    "the four-or-more floor is stated rather than left to inference",
+    /four or more entries substantial enough to stand alone/.test(body),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1980,6 +2075,8 @@ async function main() {
   await stubShotsAreRejectedPerScene();
   await absenceIsADecisionNotALoophole();
   await rejectionsNameTheirRemedy();
+  await declaredLengthIsEnforced();
+  await theTemporalPathAsksForItsOwnReview();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

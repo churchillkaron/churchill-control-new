@@ -308,8 +308,13 @@ requireMatch(
 );
 requireMatch(
   source.staffProfileApi,
-  /profile\.entity_id === latestPayrollEntityId[\s\S]*is_default_accounting_entity/,
-  "Staff compensation legal-entity selection"
+  /profile\.entity_id === latestPayrollEntityId/,
+  "Staff compensation latest-payroll entity selection"
+);
+requireMatch(
+  source.staffProfileApi,
+  /is_default_accounting_entity/,
+  "Staff compensation default legal-entity fallback"
 );
 requireNoMatch(
   source.staffProfileApi,

@@ -28,6 +28,9 @@
     },
     "app/api/internal/commerce/shopify/reconcile/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/finance/forecast-exception-escalations/process/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -86,6 +89,10 @@
     {
       "path": "/api/internal/commerce/shopify/reconcile",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/internal/finance/forecast-exception-escalations/process",
+      "schedule": "0 * * * *"
     }
   ]
 }

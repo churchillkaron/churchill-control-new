@@ -211,7 +211,7 @@ assert.match(verificationSource, /interpretive_synthesis:\s*true/);
 assert.match(verificationSource, /evidence_compaction:\s*"collection-aware-v1"/);
 assert.match(verificationSource, /function supportedPendingExecution/);
 assert.match(verificationSource, /readChainCompleted\(result\)/);
-assert.match(verificationSource, /object\(parsed\?\.follow_up\)\.supported !== true/);
+assert.match(verificationSource, /followUp\.supported !== true/);
 assert.match(verificationSource, /pending_execution:\s*pendingExecution/);
 assert.match(verificationSource, /original_message:\s*text\(originalMessage\)/);
 assert.match(verificationSource, /supportedPendingExecution\(\{\s*result,\s*parsed:\s*parsed \|\| \{\},\s*originalMessage,/s);

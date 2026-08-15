@@ -1872,6 +1872,77 @@ async function absenceIsADecisionNotALoophole() {
   );
 }
 
+// 29. A rejection has to name its remedy. The scene retry quotes failure messages straight back to the
+// director, so "contains generic placeholder direction" spends a call and teaches nothing: the last
+// film was told exactly that about camera.movement_speed and answered "none" again, on three separate
+// shots, across two attempts each. Naming the replacement is what made the advertising-filler
+// rejection work after prompting had failed twice, and this is the same problem.
+async function rejectionsNameTheirRemedy() {
+  const { validateCreativeMasterPlan } = await import(
+    "@/lib/creative/director/validation/CreativeMasterPlanValidator"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const failuresFor = (mutate) => {
+    const plan = JSON.parse(JSON.stringify(fixture.temporalBasePlan()));
+    plan.scenes = [fixture.temporalScene("scene-1")];
+    plan.scenes[0].shots = [fixture.temporalShot("scene-1-shot-1")];
+    plan.quality = fixture.TEMPORAL_QUALITY;
+    mutate(plan.scenes[0].shots[0]);
+    return validateCreativeMasterPlan({
+      plan,
+      assets: plan.asset_manifest.map((entry) => ({ id: entry.asset_id, asset_type: "video" })),
+    }).failures.filter((failure) => String(failure.path).includes("shots.0"));
+  };
+
+  for (const [label, mutate] of [
+    ["a value of none", (shot) => { shot.camera.movement_speed = "none"; }],
+    ["an empty value", (shot) => { shot.camera.movement_speed = ""; }],
+    ["a value of N/A", (shot) => { shot.camera.movement_speed = "N/A"; }],
+  ]) {
+    const failures = failuresFor(mutate).filter(
+      (failure) => failure.path === "scenes.0.shots.0.camera.movement_speed",
+    );
+    check(`${label} is rejected`, failures.length > 0);
+    check(
+      `${label} is told what to write instead`,
+      failures.length > 0 && failures.every((failure) =>
+        /say that in real words/.test(String(failure.message)) &&
+        /locked off on sticks/.test(String(failure.message))),
+      failures.map((failure) => String(failure.message).slice(0, 60)).join(" | "),
+    );
+  }
+
+  // Both codes fire on an absence token, so both messages have to carry the remedy. One of the two
+  // repeating the offence would waste the half of the feedback the director reads.
+  const both = failuresFor((shot) => { shot.camera.movement_speed = "none"; })
+    .filter((failure) => failure.path === "scenes.0.shots.0.camera.movement_speed");
+  check(
+    "every code raised by a blank carries the remedy",
+    both.length >= 2 && new Set(both.map((failure) => failure.code)).size >= 2,
+    both.map((failure) => failure.code).join(", "),
+  );
+
+  // Ordinary thin direction keeps its own message: it is short, not absent, and padding it is not
+  // the fix being asked for.
+  const thin = failuresFor((shot) => { shot.camera.framing = "ok"; })
+    .filter((failure) => failure.path === "scenes.0.shots.0.camera.framing");
+  check(
+    "thin direction is not told to state an absence",
+    thin.length > 0 && thin.every((failure) => !/locked off on sticks/.test(String(failure.message))),
+  );
+
+  // A focus target is "eyes", "hands", "the ring". The flat five-character floor rejected the most
+  // precise answer the field can hold and would have passed a longer, vaguer one.
+  const precise = failuresFor((shot) => { shot.camera.focus_target = "eyes"; })
+    .filter((failure) => failure.path === "scenes.0.shots.0.camera.focus_target");
+  check("a one-word focus target is accepted", precise.length === 0,
+    precise.map((f) => f.code).join(", "));
+  const stillFloored = failuresFor((shot) => { shot.camera.framing = "ab"; })
+    .filter((failure) => failure.path === "scenes.0.shots.0.camera.framing");
+  check("the floor still applies to fields that need a sentence", stillFloored.length > 0);
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1908,6 +1979,7 @@ async function main() {
   await basePromptNamesTheSuppliedAssets();
   await stubShotsAreRejectedPerScene();
   await absenceIsADecisionNotALoophole();
+  await rejectionsNameTheirRemedy();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

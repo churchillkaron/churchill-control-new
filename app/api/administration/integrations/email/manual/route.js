@@ -8,6 +8,7 @@ import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/Channe
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
 import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
+import { syncEmailConnection } from "@/lib/commercial/communications/CommunicationEmailInboxSyncRuntime";
 
 async function ensureEmailService(organizationId) {
   const existing = await OrganizationServiceRuntime.get({
@@ -48,7 +49,13 @@ export async function POST(request) {
     const organizationId = body?.organizationId || body?.organization_id;
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) {
-      return NextResponse.json({ success: false, error: access.error || "Organization access denied" }, { status: access.status || 403 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error || "Organization access denied",
+        },
+        { status: access.status || 403 },
+      );
     }
 
     const settings = {
@@ -63,10 +70,20 @@ export async function POST(request) {
     };
 
     if (!["TLS", "STARTTLS"].includes(settings.smtpSecurity)) {
-      return NextResponse.json({ success: false, error: "Outgoing mail security must be TLS or STARTTLS" }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Outgoing mail security must be TLS or STARTTLS",
+        },
+        { status: 400 },
+      );
     }
+
     if (!Number.isInteger(settings.imapPort) || !Number.isInteger(settings.smtpPort)) {
-      return NextResponse.json({ success: false, error: "Mail server ports are invalid" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Mail server ports are invalid" },
+        { status: 400 },
+      );
     }
 
     const verified = await verifyManualMailbox(settings);
@@ -76,8 +93,16 @@ export async function POST(request) {
       secret_reference: JSON.stringify({
         username: verified.username,
         password: settings.password,
-        imap: { host: settings.imapHost, port: settings.imapPort, security: "TLS" },
-        smtp: { host: settings.smtpHost, port: settings.smtpPort, security: settings.smtpSecurity },
+        imap: {
+          host: settings.imapHost,
+          port: settings.imapPort,
+          security: "TLS",
+        },
+        smtp: {
+          host: settings.smtpHost,
+          port: settings.smtpPort,
+          security: settings.smtpSecurity,
+        },
       }),
       metadata: {
         organization_id: access.organizationId,
@@ -99,6 +124,7 @@ export async function POST(request) {
         connected_at: new Date().toISOString(),
       },
     });
+
     await ChannelAssetRuntime.register({
       organization_id: access.organizationId,
       connection_id: connection.id,
@@ -112,15 +138,36 @@ export async function POST(request) {
         outgoing_host: settings.smtpHost,
       },
     });
+
     await ensureEmailService(access.organizationId);
+
+    let syncReady = false;
+    let syncMessage = null;
+    try {
+      await syncEmailConnection({ connection });
+      syncReady = true;
+    } catch (error) {
+      syncMessage = error?.message || "INITIAL_EMAIL_SYNC_FAILED";
+    }
 
     return NextResponse.json({
       success: true,
       mailbox: { email: verified.email },
+      incoming: {
+        ready: syncReady,
+        mode: "IMAP_POLLING",
+        detail: syncReady
+          ? "Incoming mail synchronization is ready."
+          : "Mailbox connected. Avantiqo will retry incoming mail synchronization automatically.",
+        internal_error: syncMessage,
+      },
     });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error?.message || "Mailbox connection failed" },
+      {
+        success: false,
+        error: error?.message || "Mailbox connection failed",
+      },
       { status: 500 },
     );
   }

@@ -113,6 +113,13 @@ assert.match(reasoningSource, /user_confirmed_complete/);
 assert.match(reasoningSource, /awaiting_confirmation/);
 assert.match(reasoningSource, /assistant-only recommendation is not yet a decision/);
 assert.match(reasoningSource, /Add or update project_state\.decisions only when the user clearly accepts/);
+assert.match(reasoningSource, /context_scope/);
+assert.match(reasoningSource, /function executionNeedsEntity/);
+assert.match(reasoningSource, /function entityContextClarification/);
+assert.match(reasoningSource, /Which legal entity should I use for this request\?/);
+assert.match(reasoningSource, /entity_scope_guard:\s*true/);
+assert.match(reasoningSource, /Apply the same rule to every child capability inside platform\.operator_read_chain\.execute/);
+assert.match(reasoningSource, /const guardedParsed = executionNeedsEntity\(parsed, capabilities, entityId\)/);
 
 assert.match(verificationSource, /function verifiedProjectState/);
 assert.match(verificationSource, /goal_update\.applies/);
@@ -168,5 +175,7 @@ console.log("OPERATOR_VERIFIED_READ_INTERPRETATION=FACT_INFERENCE_RECOMMENDATION
 console.log("OPERATOR_RECOMMENDATION_GUARD=NO_INVENTED_BENCHMARKS_ONE_SAFE_NEXT_STEP");
 console.log("OPERATOR_REGISTRY_SOURCE=CANONICAL_CONVERGED_ERP");
 console.log("OPERATOR_CONTEXT_SCOPE=DECLARED_AND_ENTITY_GUARDED");
+console.log("OPERATOR_REASONING_ENTITY_SCOPE=VISIBLE_AND_CLARIFIED_BEFORE_EXECUTION");
+console.log("OPERATOR_READ_CHAIN_ENTITY_SCOPE=CHILD_CAPABILITIES_GUARDED");
 console.log("OPERATOR_GOAL_SURFACES=TEXT_AND_VOICE_PRIMARY_CONVERSATION");
 console.log("OPERATOR_VOICE_FAILURE=ALWAYS_AUDIBLE_WITH_FOLLOW_UP");

@@ -83,7 +83,16 @@ export default function ShiftPage({ posConfiguration }) {
 
   const activeExpectedCash = useMemo(() => {
     if (!activeSession) return 0;
-    return numeric(activeSession.opening_float) + numeric(activeSession.cash_total) - numeric(activeSession.refund_total) - numeric(activeSession.reversal_total);
+    return (
+      numeric(activeSession.opening_float) +
+      numeric(activeSession.cash_total) +
+      numeric(activeSession.paid_in_total) +
+      numeric(activeSession.adjustment_in_total) -
+      numeric(activeSession.paid_out_total) -
+      numeric(activeSession.adjustment_out_total) -
+      numeric(activeSession.refund_total) -
+      numeric(activeSession.reversal_total)
+    );
   }, [activeSession]);
 
   const loadSessions = useCallback(async () => {
@@ -188,7 +197,7 @@ export default function ShiftPage({ posConfiguration }) {
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">{presentation.cashControlEyebrow || "Commerce Operations"}</p>
               <h1 className="mt-3 text-4xl font-semibold">POS Cash Control</h1>
-              <p className="mt-2 text-sm text-white/45">Drawer reconciliation, cash corrections, manager review and Finance-confirmed final lock.</p>
+              <p className="mt-2 text-sm text-white/45">Drawer reconciliation, governed cash in/out, refunds and reversals, manager review and Finance-confirmed final lock.</p>
             </div>
             <button onClick={loadSessions} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60"><RefreshCw size={15} /> Refresh</button>
           </div>
@@ -225,6 +234,10 @@ export default function ShiftPage({ posConfiguration }) {
                     <Stat label="Opening float" value={activeSession.opening_float} currencyCode={currencyCode} />
                     <Stat label="Cash sales" value={activeSession.cash_total} currencyCode={currencyCode} />
                     <Stat label="Expected cash" value={activeExpectedCash} currencyCode={currencyCode} emphasis />
+                    <Stat label="Cash in" value={activeSession.paid_in_total} currencyCode={currencyCode} />
+                    <Stat label="Cash out" value={activeSession.paid_out_total} currencyCode={currencyCode} />
+                    <Stat label="Adjustment in" value={activeSession.adjustment_in_total} currencyCode={currencyCode} />
+                    <Stat label="Adjustment out" value={activeSession.adjustment_out_total} currencyCode={currencyCode} />
                     <Stat label="Refunds" value={activeSession.refund_total} currencyCode={currencyCode} />
                     <Stat label="Reversals" value={activeSession.reversal_total} currencyCode={currencyCode} />
                     <Stat label="Card" value={activeSession.card_total} currencyCode={currencyCode} />
@@ -261,6 +274,10 @@ export default function ShiftPage({ posConfiguration }) {
                       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-white/50">
                         <div>Open {formatMoney(session.opening_float, currencyCode)}</div>
                         <div>Cash {formatMoney(session.cash_total, currencyCode)}</div>
+                        <div>Cash in {formatMoney(session.paid_in_total, currencyCode)}</div>
+                        <div>Cash out {formatMoney(session.paid_out_total, currencyCode)}</div>
+                        <div>Adjustment in {formatMoney(session.adjustment_in_total, currencyCode)}</div>
+                        <div>Adjustment out {formatMoney(session.adjustment_out_total, currencyCode)}</div>
                         <div>Refunds {formatMoney(session.refund_total, currencyCode)}</div>
                         <div>Reversals {formatMoney(session.reversal_total, currencyCode)}</div>
                         <div>Card {formatMoney(session.card_total, currencyCode)}</div>
@@ -307,7 +324,7 @@ export default function ShiftPage({ posConfiguration }) {
                           ) : null}
 
                           {approvalStatus === "REJECTED" || accountingStatus === "BLOCKED" ? <div className="mt-4 rounded-xl border border-red-400/20 bg-red-500/[0.06] p-3 text-xs text-red-100">Reconciliation is blocked. A rejected drawer cannot proceed to accounting confirmation.</div> : null}
-                          {session.period_closed && accountingStatus === "CONFIRMED" ? <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3 text-xs text-emerald-100"><div className="flex items-center gap-2 font-semibold"><LockKeyhole size={14} /> Final accounting lock</div><div className="mt-1 text-emerald-100/60">Finance posting evidence verified. This POS session is final.{session.accounting_confirmed_by_name ? ` Confirmed by ${session.accounting_confirmed_by_name}.` : ""}</div></div> : null}
+                          {session.period_closed && accountingStatus === "CONFIRMED" ? <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3 text-xs text-emerald-100"><div className="flex items-center gap-2 font-semibold"><LockKeyhole size={14} /> Final accounting lock</div><div className="mt-1 text-emerald-100/60">Finance posting evidence verified. This POS session is final.{session.variance_journal_entry_id ? " Cash over/short variance was posted to Finance." : ""}{session.accounting_confirmed_by_name ? ` Confirmed by ${session.accounting_confirmed_by_name}.` : ""}</div></div> : null}
                         </>
                       ) : null}
                     </div>

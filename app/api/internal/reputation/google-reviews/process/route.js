@@ -34,40 +34,31 @@ export async function GET(request) {
 
     const { data: connections, error: connectionError } = await supabaseAdmin
       .from("organization_channel_connections")
-      .select("organization_id,metadata")
+      .select("organization_id")
       .eq("provider", "google")
       .eq("status", "ACTIVE")
       .in("organization_id", organizationIds);
     if (connectionError) throw connectionError;
 
-    const readyIds = [
-      ...new Set(
-        (connections || [])
-          .filter((connection) => {
-            const metadata = connection.metadata || {};
-            return (
-              metadata.location_discovery_status === "READY" &&
-              Number(metadata.location_count || 0) > 0
-            );
-          })
-          .map((item) => item.organization_id)
-      ),
+    const connectedIds = [
+      ...new Set((connections || []).map((item) => item.organization_id)),
     ];
 
-    const skipped = (connections || [])
-      .filter((connection) => !readyIds.includes(connection.organization_id))
-      .map((connection) => ({
-        organizationId: connection.organization_id,
+    const results = organizationIds
+      .filter((organizationId) => !connectedIds.includes(organizationId))
+      .map((organizationId) => ({
+        organizationId,
         success: true,
         skipped: true,
-        reason:
-          connection.metadata?.location_discovery_status ||
-          "LOCATION_DISCOVERY_NOT_READY",
+        reason: "GOOGLE_NOT_CONNECTED",
       }));
 
-    const results = [...skipped];
-
-    for (const organizationId of readyIds) {
+    // The Commercial Reputation runtime owns Google discovery state and cooldowns.
+    // Every active Google connection is therefore allowed through this scheduler.
+    // This is important for API_ACCESS_PENDING/RATE_LIMITED connections: once their
+    // retry time expires, the runtime can retry location discovery automatically and
+    // promote the connection to READY without requiring a manual Administration action.
+    for (const organizationId of connectedIds) {
       try {
         const result = await syncGoogleReviews({ organizationId });
         results.push({ organizationId, success: true, ...result });

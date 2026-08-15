@@ -1,8 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": true
   },
+  "ignoreCommand": "node scripts/vercel-ignore-build.mjs",
   "functions": {
     "app/api/creative/tests/gemini-omni-5s/route.js": {
       "maxDuration": 800

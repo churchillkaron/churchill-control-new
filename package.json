@@ -37,7 +37,7 @@
     "audit:operator-voice-responsiveness": "node scripts/operator-voice-responsiveness-audit.mjs",
     "audit:pos-client-contract": "node scripts/pos-client-contract-audit.mjs",
     "audit:operator-caller-context": "node scripts/operator-caller-context-audit.mjs",
-    "audit:workforce-payroll": "node scripts/workforce-payroll-reconciliation-release-audit.mjs",
+    "audit:workforce-payroll": "node scripts/workforce-payroll-reconciliation-release-audit.mjs && node scripts/people-payroll-terminal-release-audit.mjs",
     "audit:finance": "node scripts/finance-normal-audit.mjs",
     "audit:finance-capabilities": "node scripts/finance-capability-reality-audit.mjs",
     "audit:finance-live": "node scripts/finance-live-capability-matrix.mjs",

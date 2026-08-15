@@ -2,6 +2,9 @@ export const metadata = {
   title: "Data Deletion | Avantiqo",
   description:
     "Instructions for requesting deletion of Avantiqo account, organization and connected-service data.",
+  alternates: {
+    canonical: "https://avantiqo.ai/data-deletion",
+  },
 };
 
 const steps = [

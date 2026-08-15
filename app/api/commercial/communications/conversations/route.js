@@ -3,11 +3,20 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getCommunicationInbox, openConversation } from "@/lib/commercial/communications/CommunicationService";
 import { syncMetaCommunicationHistory } from "@/lib/commercial/communications/CommunicationMetaInboxSyncRuntime";
+import { listInternalConversations } from "@/lib/commercial/communications/InternalCommunicationAdapter";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 function clean(value) {
   const normalized = String(value ?? "").trim();
   return normalized || null;
+}
+
+function sortedConversations(rows = []) {
+  return [...rows].sort((left, right) => {
+    const leftTime = new Date(left?.last_message_at || left?.updated_at || left?.created_at || 0).getTime();
+    const rightTime = new Date(right?.last_message_at || right?.updated_at || right?.created_at || 0).getTime();
+    return rightTime - leftTime;
+  });
 }
 
 export async function GET(request) {
@@ -39,17 +48,49 @@ export async function GET(request) {
       }
     }
 
-    const snapshot = await getCommunicationInbox({
-      organizationId: access.organizationId,
-      provider: clean(url.searchParams.get("provider")),
-      search: clean(url.searchParams.get("search")),
-    });
+    const requestedProvider = clean(url.searchParams.get("provider"));
+    const includeExternal = requestedProvider !== "internal";
+    const includeInternal = !requestedProvider || requestedProvider === "internal";
+
+    const [snapshot, internalConversations] = await Promise.all([
+      includeExternal
+        ? getCommunicationInbox({
+            organizationId: access.organizationId,
+            provider: requestedProvider,
+            search: clean(url.searchParams.get("search")),
+          })
+        : Promise.resolve({ conversations: [], connections: [] }),
+      includeInternal
+        ? listInternalConversations({
+            organizationId: access.organizationId,
+            staffId: access.staff?.id,
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const internalConnection = includeInternal
+      ? [{
+          id: "internal",
+          provider: "internal",
+          family: "internal",
+          label: "Internal",
+          channelType: "internal",
+          sendable: true,
+          deliveryServiceId: null,
+          deliveryCapability: null,
+          name: "Internal team",
+        }]
+      : [];
 
     return NextResponse.json({
       success: true,
       organizationId: access.organizationId,
       providerSync,
-      ...snapshot,
+      conversations: sortedConversations([
+        ...(snapshot.conversations || []),
+        ...internalConversations,
+      ]),
+      connections: [...internalConnection, ...(snapshot.connections || [])],
     });
   } catch (error) {
     return NextResponse.json({ success: false, error: error?.message || "Communications inbox failed" }, { status: 500 });

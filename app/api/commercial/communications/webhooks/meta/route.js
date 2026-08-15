@@ -58,20 +58,41 @@ function stableEventId(prefix, event = {}) {
   return `${prefix}_${crypto.createHash("sha256").update(seed).digest("hex")}`;
 }
 
+function messageAttachments(message = {}) {
+  return (Array.isArray(message.attachments) ? message.attachments : [])
+    .map((entry, index) => {
+      const attachment = object(entry);
+      const payload = object(attachment.payload);
+      const url = text(payload.url || attachment.url);
+      if (!url) return null;
+      const providerType = text(attachment.type).toLowerCase() || "file";
+      return {
+        external_url: url,
+        file_name:
+          text(attachment.title || payload.title || attachment.name) ||
+          `${providerType}-${index + 1}`,
+        mime_type: text(attachment.mime_type || payload.mime_type) || null,
+        metadata: {
+          source: "META_MESSAGING_WEBHOOK",
+          provider_attachment_type: providerType,
+          provider_attachment: attachment,
+        },
+      };
+    })
+    .filter(Boolean);
+}
+
 function messageBody(message = {}) {
   if (message.text != null) return String(message.text);
   const attachment = Array.isArray(message.attachments)
     ? message.attachments[0]
     : null;
-  return (
-    attachment?.title ||
-    attachment?.payload?.title ||
-    attachment?.payload?.url ||
-    null
-  );
+  return attachment?.title || attachment?.payload?.title || null;
 }
 
 function messageType(message = {}) {
+  const attachments = messageAttachments(message);
+  if (message.text != null && attachments.length) return "mixed";
   if (message.text != null) return "text";
   const attachmentType = text(message?.attachments?.[0]?.type);
   return attachmentType || "message";
@@ -81,7 +102,7 @@ function messageMetadata(event = {}) {
   const message = object(event.message);
   return {
     webhook_provider: "meta_messaging",
-    attachments: Array.isArray(message.attachments) ? message.attachments : [],
+    attachment_count: Array.isArray(message.attachments) ? message.attachments.length : 0,
     quick_reply: message.quick_reply || null,
     reply_to: message.reply_to || null,
     referral: event.referral || null,
@@ -231,6 +252,7 @@ export async function POST(request) {
           body: messageBody(event.message),
           receivedAt: event.timestamp || null,
           metadata: messageMetadata(event),
+          attachments: messageAttachments(event.message),
         });
         processedMessages += 1;
         continue;

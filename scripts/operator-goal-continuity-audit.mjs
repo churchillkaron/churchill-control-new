@@ -211,7 +211,27 @@ assert.match(verificationSource, /interpretive_synthesis:\s*true/);
 assert.match(verificationSource, /evidence_compaction:\s*"collection-aware-v1"/);
 assert.match(verificationSource, /function supportedPendingExecution/);
 assert.match(verificationSource, /readChainCompleted\(result\)/);
+assert.match(verificationSource, /function followUpRequestAligned/);
 assert.match(verificationSource, /followUp\.supported !== true/);
+assert.match(verificationSource, /followUp\.request_aligned !== true/);
+assert.match(
+  verificationSource,
+  /text\(followUp\.request_alignment\)\.toLowerCase\(\) !== "explicit"/,
+);
+assert.match(
+  verificationSource,
+  /text\(followUp\.requested_capability_key\) === staged\.capability_key/,
+);
+assert.match(
+  verificationSource,
+  /if \(!followUpRequestAligned\(\{ parsed, staged, originalMessage \}\)\) return null/,
+);
+assert.match(verificationSource, /independently compare the staged action with the user's original request/i);
+assert.match(verificationSource, /are not authorization/i);
+assert.match(verificationSource, /"request_aligned":false/);
+assert.match(verificationSource, /"request_alignment":"not_explicit"/);
+assert.match(verificationSource, /"requested_capability_key":null/);
+assert.match(verificationSource, /follow_up_request_alignment_guard:\s*Boolean\(staged\)/);
 assert.match(verificationSource, /pending_execution:\s*pendingExecution/);
 assert.match(verificationSource, /original_message:\s*text\(originalMessage\)/);
 assert.match(verificationSource, /supportedPendingExecution\(\{\s*result,\s*parsed:\s*parsed \|\| \{\},\s*originalMessage,/s);
@@ -343,6 +363,8 @@ console.log("OPERATOR_MIXED_ACTION_PLANNING=EXPLICIT_REQUEST_EVIDENCE_FIRST");
 console.log("OPERATOR_MIXED_ACTION_AUTHORIZATION=EVIDENCE_NEVER_AUTO_WRITES");
 console.log("OPERATOR_EVIDENCE_GATED_ACTION=STAGED_THEN_USER_CONFIRMED");
 console.log("OPERATOR_EVIDENCE_GATED_ACTION_GUARD=NO_AUTOWRITE_EXACT_PAYLOAD_ONLY");
+console.log("OPERATOR_EVIDENCE_GATED_REQUEST_ALIGNMENT=EXPLICIT_ORIGINAL_REQUEST_ONLY");
+console.log("OPERATOR_EVIDENCE_GATED_REQUEST_ALIGNMENT_GUARD=SUPPORTED_EXPLICIT_EXACT_CAPABILITY");
 console.log("OPERATOR_POST_ACTION_VERIFICATION=REGISTERED_READ_AFTER_CONFIRMED_WRITE");
 console.log("OPERATOR_POST_ACTION_VERIFICATION_GUARD=NO_EFFECT_CLAIM_WITHOUT_FRESH_READ");
 console.log("OPERATOR_AUTONOMOUS_RUN=BOUNDED_DURABLE_CONTINUATION_STATE");

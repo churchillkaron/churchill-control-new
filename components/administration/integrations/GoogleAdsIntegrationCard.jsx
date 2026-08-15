@@ -236,15 +236,17 @@ export default function GoogleAdsIntegrationCard({
         </div>
       ) : null}
 
-      <div className="mt-5 border-t border-white/10 pt-4">
-        <a
-          href={`/api/google-ads/auth?organizationId=${encodeURIComponent(organizationId)}`}
-          className="inline-flex items-center gap-2 text-xs font-medium text-white/50 hover:text-white"
-        >
-          Connect an existing Google Ads account
-          <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-      </div>
+      {!platformSetupPending ? (
+        <div className="mt-5 border-t border-white/10 pt-4">
+          <a
+            href={`/api/google-ads/auth?organizationId=${encodeURIComponent(organizationId)}`}
+            className="inline-flex items-center gap-2 text-xs font-medium text-white/50 hover:text-white"
+          >
+            Connect an existing Google Ads account
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="mt-5 flex items-center gap-2 text-sm text-white/35">

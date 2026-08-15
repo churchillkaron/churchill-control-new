@@ -72,7 +72,16 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const signupRef = useRef({ code: null, accessToken: null, session: null, completing: false });
+  const [pendingCredentialId, setPendingCredentialId] = useState(null);
+  const [candidates, setCandidates] = useState([]);
+  const [selectedWabaId, setSelectedWabaId] = useState("");
+  const [selectedPhoneId, setSelectedPhoneId] = useState("");
+  const signupRef = useRef({
+    code: null,
+    accessToken: null,
+    session: null,
+    recovering: false,
+  });
 
   async function load() {
     if (!organizationId) return;
@@ -87,17 +96,17 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
     setSnapshot(data);
   }
 
-  async function completeIfReady() {
+  async function recoverIfReady() {
     const current = signupRef.current;
     if (
-      current.completing ||
+      current.recovering ||
       (!current.code && !current.accessToken) ||
-      !current.session?.waba_id
+      (!current.session?.waba_id && !current.accessToken)
     ) {
       return;
     }
 
-    current.completing = true;
+    current.recovering = true;
     setWorking(true);
     setError("");
 
@@ -107,12 +116,56 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           organizationId,
-          action: "complete-embedded-signup",
+          action: "recover-existing-embedded-signup",
           code: current.code,
           accessToken: current.accessToken,
-          phoneNumberId: current.session.phone_number_id || null,
-          wabaId: current.session.waba_id,
-          businessId: current.session.business_id || null,
+          wabaId: current.session?.waba_id || null,
+          phoneNumberId: current.session?.phone_number_id || null,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to discover existing WhatsApp Business assets");
+      }
+
+      const rows = Array.isArray(data.candidates) ? data.candidates : [];
+      if (!data.pendingCredentialId || !rows.length) {
+        throw new Error("Meta authorization succeeded but no existing WhatsApp Business assets were returned");
+      }
+
+      setPendingCredentialId(data.pendingCredentialId);
+      setCandidates(rows);
+
+      const firstWaba = rows[0] || null;
+      const firstPhone = firstWaba?.phones?.[0] || null;
+      setSelectedWabaId(firstWaba?.id || "");
+      setSelectedPhoneId(firstPhone?.id || "");
+      setNotice("Existing WhatsApp Business assets found. Confirm the exact Churchill account and number below before Avantiqo activates anything.");
+    } catch (actionError) {
+      setError(actionError?.message || "Unable to discover existing WhatsApp Business assets");
+    } finally {
+      signupRef.current.recovering = false;
+      setWorking(false);
+    }
+  }
+
+  async function confirmSelection() {
+    if (!pendingCredentialId || !selectedWabaId || !selectedPhoneId) return;
+    setWorking(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/administration/integrations/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          action: "confirm-existing-selection",
+          pendingCredentialId,
+          wabaId: selectedWabaId,
+          phoneNumberId: selectedPhoneId,
         }),
       });
 
@@ -122,15 +175,12 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
       }
 
       setSnapshot(data);
+      setPendingCredentialId(null);
+      setCandidates([]);
+      setSelectedWabaId("");
+      setSelectedPhoneId("");
       setNotice("WhatsApp Business connected and inbound messaging is operational.");
-      signupRef.current = {
-        code: null,
-        accessToken: null,
-        session: null,
-        completing: false,
-      };
     } catch (actionError) {
-      signupRef.current.completing = false;
       setError(actionError?.message || "WhatsApp Business connection failed");
     } finally {
       setWorking(false);
@@ -158,14 +208,8 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
 
       if (!isFinishEvent(payload)) return;
 
-      const session = normalizeEmbeddedSignupSession(payload);
-      if (!session.waba_id) {
-        setError("Meta finished WhatsApp setup but did not return the WhatsApp Business Account ID. Please reopen setup and try again.");
-        return;
-      }
-
-      signupRef.current.session = session;
-      completeIfReady();
+      signupRef.current.session = normalizeEmbeddedSignupSession(payload);
+      recoverIfReady();
     }
 
     window.addEventListener("message", onMessage);
@@ -174,13 +218,18 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
 
   async function startEmbeddedSignup() {
     if (!snapshot?.publicConfig?.ready) return;
+
     setError("");
     setNotice("");
+    setPendingCredentialId(null);
+    setCandidates([]);
+    setSelectedWabaId("");
+    setSelectedPhoneId("");
     signupRef.current = {
       code: null,
       accessToken: null,
       session: null,
-      completing: false,
+      recovering: false,
     };
 
     try {
@@ -195,13 +244,13 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
           const accessToken = response?.authResponse?.accessToken || null;
 
           if (!code && !accessToken) {
-            setError("WhatsApp connection was cancelled or did not complete.");
+            setError("Meta authorization was cancelled or did not complete.");
             return;
           }
 
           signupRef.current.code = code;
           signupRef.current.accessToken = accessToken;
-          completeIfReady();
+          recoverIfReady();
         },
         {
           config_id: snapshot.publicConfig.configId,
@@ -222,6 +271,8 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
   const webhookSubscribed = snapshot?.connection?.webhookSubscribed === true;
   const operational = connected && webhookSubscribed;
   const phone = snapshot?.phoneNumbers?.[0] || null;
+  const selectedWaba = candidates.find((row) => row.id === selectedWabaId) || candidates[0] || null;
+  const selectablePhones = Array.isArray(selectedWaba?.phones) ? selectedWaba.phones : [];
 
   return (
     <main className="min-h-screen bg-black p-6 text-white lg:p-10">
@@ -239,7 +290,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
               <div className="text-xs uppercase tracking-[0.22em] text-white/30">Messaging</div>
               <h1 className="mt-2 text-4xl font-light">WhatsApp Business</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45">
-                Connect the WhatsApp Business account this organization uses for customer conversations and notifications.
+                Connect the existing WhatsApp Business account and phone number this organization already uses. Avantiqo will never create a new WABA or phone number without an explicit separate action.
               </p>
             </div>
             <div className={`rounded-full border px-3 py-1 text-xs ${operational ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : connected ? "border-amber-400/20 bg-amber-400/10 text-amber-100" : "border-white/10 bg-white/[0.04] text-white/50"}`}>
@@ -253,7 +304,55 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
             </div>
           )}
 
-          {connected ? (
+          {pendingCredentialId && candidates.length ? (
+            <div className="mt-6 rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-5">
+              <div className="text-sm font-medium text-[#E5C18D]">Confirm existing Churchill WhatsApp assets</div>
+              <div className="mt-2 text-xs leading-5 text-white/45">
+                Nothing is connected until you confirm. Check both the WhatsApp Business Account and the phone number.
+              </div>
+
+              <label className="mt-5 block text-xs text-white/45">WhatsApp Business Account</label>
+              <select
+                value={selectedWabaId}
+                onChange={(event) => {
+                  const nextWabaId = event.target.value;
+                  const nextWaba = candidates.find((row) => row.id === nextWabaId);
+                  setSelectedWabaId(nextWabaId);
+                  setSelectedPhoneId(nextWaba?.phones?.[0]?.id || "");
+                }}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white"
+              >
+                {candidates.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.name || candidate.id}
+                  </option>
+                ))}
+              </select>
+
+              <label className="mt-4 block text-xs text-white/45">Existing phone number</label>
+              <select
+                value={selectedPhoneId}
+                onChange={(event) => setSelectedPhoneId(event.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white"
+              >
+                {selectablePhones.map((candidatePhone) => (
+                  <option key={candidatePhone.id} value={candidatePhone.id}>
+                    {candidatePhone.verifiedName || "WhatsApp Business"}
+                    {candidatePhone.displayPhoneNumber ? ` — ${candidatePhone.displayPhoneNumber}` : ""}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={confirmSelection}
+                disabled={working || !selectedWabaId || !selectedPhoneId}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black disabled:opacity-50"
+              >
+                {working ? "Connecting…" : "Confirm and connect this existing number"}
+              </button>
+            </div>
+          ) : connected ? (
             <div className={`mt-6 rounded-2xl border p-5 ${operational ? "border-emerald-400/15 bg-emerald-400/[0.06]" : "border-amber-400/20 bg-amber-400/[0.06]"}`}>
               <div className={`flex items-center gap-2 ${operational ? "text-emerald-200" : "text-amber-100"}`}>
                 {operational ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
@@ -267,11 +366,6 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
               {phone?.displayPhoneNumber ? (
                 <div className="mt-1 text-xs text-white/35">{phone.displayPhoneNumber}</div>
               ) : null}
-              {!operational ? (
-                <div className="mt-4 text-xs leading-5 text-amber-50/75">
-                  Reconnect this WhatsApp Business account with Embedded Signup. Avantiqo will subscribe and verify the WABA webhook automatically before reporting success.
-                </div>
-              ) : null}
               <button
                 type="button"
                 onClick={() => load().catch((e) => setError(e?.message || "Refresh failed"))}
@@ -282,15 +376,20 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
               </button>
             </div>
           ) : snapshot?.publicConfig?.ready ? (
-            <button
-              type="button"
-              onClick={startEmbeddedSignup}
-              disabled={working}
-              className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black disabled:opacity-50"
-            >
-              {working ? "Connecting…" : "Connect WhatsApp Business"}
-              <ExternalLink className="h-4 w-4" />
-            </button>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={startEmbeddedSignup}
+                disabled={working}
+                className="inline-flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black disabled:opacity-50"
+              >
+                {working ? "Checking existing account…" : "Connect existing WhatsApp Business"}
+                <ExternalLink className="h-4 w-4" />
+              </button>
+              <div className="mt-3 text-xs leading-5 text-white/35">
+                In Meta, authorize the existing business assets. Do not create a new WhatsApp Business Account and do not add a new phone number.
+              </div>
+            </div>
           ) : (
             <div className="mt-6 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-5 text-sm text-amber-100/75">
               WhatsApp Business connection requires the Meta app, Embedded Signup configuration, a public HTTPS Avantiqo URL, and the server-only webhook verification token.

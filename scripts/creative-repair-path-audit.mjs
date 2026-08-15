@@ -2483,6 +2483,62 @@ async function benchmarkEvidenceIsPinned() {
   );
 }
 
+// 39. The clearance recorder must demand exactly what the release gate reads.
+//
+// The studio blocks release without rights and consent, and had nowhere to record either -- so a tribunal
+// rights reviewer scored a still 70 and no amount of creative work could move it, because the fault was
+// missing data rather than weak direction. There is now a worklist that names the gaps and a recorder that
+// writes what a person supplies from real documents.
+//
+// The risk this guards is drift of the kind that has produced most of today's findings: if the gate starts
+// reading a field the recorder does not demand, a clearance gets stored that looks complete and fails at
+// release, or worse passes while resting on nothing. The two lists are compared directly.
+async function clearanceRecordingMatchesTheReleaseGate() {
+  const { readFileSync } = globalThis.__auditFs;
+  const gate = readFileSync(
+    "lib/creative/quality/runtime/CreativeReleaseGateRuntime.js",
+    "utf8",
+  );
+  const recorder = readFileSync("scripts/creative-rights-consent-record.mjs", "utf8");
+  const worklist = readFileSync("scripts/creative-rights-consent-worklist.mjs", "utf8");
+
+  // Fields the gate inspects on each record, read from the gate rather than restated here.
+  const gateBlock = gate.slice(gate.indexOf("function assetCheck"), gate.indexOf("const requiredIdentities"));
+  const rightsRead = [...gateBlock.matchAll(/rights\.(\w+)/g)].map((m) => m[1]);
+  const consentRead = [...gateBlock.matchAll(/consent\.(\w+)/g)].map((m) => m[1]);
+  check("the release gate's rights checks are readable", rightsRead.length >= 4, rightsRead.join(","));
+  check("the release gate's consent checks are readable", consentRead.length >= 3, consentRead.join(","));
+
+  for (const field of [...new Set(rightsRead)]) {
+    if (field === "licence") continue;
+    check(`the recorder demands rights.${field}`, recorder.includes(field));
+    check(`the worklist reports rights.${field}`, worklist.includes(field));
+  }
+  for (const field of [...new Set(consentRead)]) {
+    check(`the recorder demands consent.${field}`, recorder.includes(field));
+  }
+
+  // The statuses the gate accepts are the only ones the recorder may write.
+  check("only CLEARED counts as cleared rights",
+    /rights\.status !== "CLEARED"/.test(gate) && /!== "CLEARED"/.test(recorder));
+  check("only GRANTED counts as granted consent",
+    /status !== "GRANTED"/.test(gate) && /!== "GRANTED"/.test(recorder));
+
+  // Writing is opt-in, an incomplete record is refused rather than stored, and a batch with any refusal
+  // writes nothing: a half-entered clearance batch leaves nobody able to say which assets were done.
+  check("recording is a dry run unless explicitly applied",
+    /CREATIVE_RIGHTS_APPLY[\s\S]{0,80}=== "YES"/.test(recorder));
+  check("an incomplete record is refused rather than written",
+    /CREATIVE_RIGHTS_REFUSED_ENTRIES_PRESENT/.test(recorder));
+  check("a clearance cannot be recorded against an asset that does not exist",
+    /no asset with this id exists/.test(recorder));
+  check("the existing value is read and shown before it is replaced",
+    /-> \$\{describe\(entry\.rights\)\}/.test(recorder) || /describe\(currentRights\)/.test(recorder));
+  // Nothing in either script may supply a value of its own.
+  check("the recorder states that it invents nothing",
+    /It invents nothing/.test(recorder) && /no default status/.test(recorder));
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2529,6 +2585,7 @@ async function main() {
   await transportPlanSurvivesAMisplacedField();
   await sourceTextMustBeTranscribed();
   await benchmarkEvidenceIsPinned();
+  await clearanceRecordingMatchesTheReleaseGate();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, RefreshCw, Save, Settings2, TriangleAlert } from "lucide-react";
 
 const DEFAULT_SETTINGS = {
-  country: "",
-  currency: "",
   manager_approval_required: true,
   use_schedule_expected_hours: true,
   variance_threshold_hours: "",
@@ -23,8 +21,6 @@ function normalizeSettings(settings = {}) {
   return {
     ...DEFAULT_SETTINGS,
     ...settings,
-    country: settings.country || "",
-    currency: settings.currency || "",
     variance_threshold_hours: settings.variance_threshold_hours ?? "",
     default_hours_per_shift: settings.default_hours_per_shift ?? "",
     default_working_days_per_week: settings.default_working_days_per_week ?? "",
@@ -33,6 +29,8 @@ function normalizeSettings(settings = {}) {
 
 export default function PayrollSettingsPage() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [legalEntity, setLegalEntity] = useState(null);
+  const [jurisdiction, setJurisdiction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -55,6 +53,8 @@ export default function PayrollSettingsPage() {
       }
 
       setSettings(normalizeSettings(data.settings || {}));
+      setLegalEntity(data.legalEntity || null);
+      setJurisdiction(data.jurisdiction || null);
     } catch (loadError) {
       setError(loadError?.message || "Unable to load payroll settings");
     } finally {
@@ -69,15 +69,16 @@ export default function PayrollSettingsPage() {
   const readiness = useMemo(() => {
     const missing = [];
 
-    if (!String(settings.country || "").trim()) missing.push("Country");
-    if (!/^[A-Z]{3}$/.test(String(settings.currency || "").trim().toUpperCase())) {
-      missing.push("Currency");
+    if (!legalEntity?.id) missing.push("Default legal entity");
+    if (!String(jurisdiction?.country || "").trim()) missing.push("Payroll jurisdiction");
+    if (!/^[A-Z]{3}$/.test(String(jurisdiction?.currency || "").trim().toUpperCase())) {
+      missing.push("Legal entity currency");
     }
     if (!Number(settings.default_hours_per_shift || 0)) missing.push("Hours per shift");
     if (!Number(settings.default_working_days_per_week || 0)) missing.push("Working days per week");
 
     return { missing, ready: missing.length === 0 };
-  }, [settings]);
+  }, [jurisdiction, legalEntity, settings]);
 
   function update(key, value) {
     setSettings((current) => ({ ...current, [key]: value }));
@@ -107,16 +108,8 @@ export default function PayrollSettingsPage() {
     setError("");
     setMessage("");
 
-    const country = String(settings.country || "").trim();
-    const currency = String(settings.currency || "").trim().toUpperCase();
-
-    if (!country) {
-      setError("Payroll country is required before payroll can run.");
-      return;
-    }
-
-    if (!/^[A-Z]{3}$/.test(currency)) {
-      setError("Currency must be a 3-letter code.");
+    if (!legalEntity?.id || !jurisdiction?.country || !jurisdiction?.currency) {
+      setError("Configure the default legal entity jurisdiction and currency before payroll can run.");
       return;
     }
 
@@ -139,14 +132,11 @@ export default function PayrollSettingsPage() {
       setSaving(true);
 
       const payload = {
-        country,
-        currency,
         manager_approval_required: Boolean(settings.manager_approval_required),
         use_schedule_expected_hours: Boolean(settings.use_schedule_expected_hours),
         variance_threshold_hours: varianceThresholdHours,
         default_hours_per_shift: defaultHoursPerShift,
         default_working_days_per_week: defaultWorkingDaysPerWeek,
-        salary_proration_enabled: Boolean(settings.salary_proration_enabled),
         lateness_deduction_enabled: Boolean(settings.lateness_deduction_enabled),
         training_counts_as_worked: Boolean(settings.training_counts_as_worked),
         sick_leave_counts_as_worked: Boolean(settings.sick_leave_counts_as_worked),
@@ -165,8 +155,13 @@ export default function PayrollSettingsPage() {
         throw new Error(result?.error || "Unable to save payroll settings");
       }
 
-      setSettings(normalizeSettings(result.settings || payload));
-      setMessage("Payroll policy saved and aligned with the payroll runtime.");
+      setSettings((current) =>
+        normalizeSettings({
+          ...current,
+          ...(result.settings || payload),
+        })
+      );
+      setMessage("Operational payroll policy saved. Jurisdiction and currency remain owned by the legal entity.");
     } catch (saveError) {
       setError(saveError?.message || "Unable to save payroll settings");
     } finally {
@@ -184,7 +179,7 @@ export default function PayrollSettingsPage() {
               <div className="text-[10px] uppercase tracking-[0.34em] text-[#D6A66A]">People · Payroll</div>
               <h1 className="mt-3 text-4xl font-black">Payroll Policy</h1>
               <p className="mt-2 max-w-3xl text-sm text-white/45">
-                Configure the organization policy the payroll runtime actually uses. Jurisdiction, currency and working rules are explicit business configuration; the platform does not invent them.
+                Configure operational payroll rules. Payroll jurisdiction and currency are inherited from the legal entity and cannot be duplicated or overridden here.
               </p>
             </div>
 
@@ -228,14 +223,15 @@ export default function PayrollSettingsPage() {
           ) : (
             <div className="space-y-6">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Payroll identity</div>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <Field label="Payroll country" required>
-                    <input value={settings.country} onChange={(event) => update("country", event.target.value)} placeholder="Enter payroll country" className="input" />
-                  </Field>
-                  <Field label="Currency" required>
-                    <input value={settings.currency} maxLength={3} onChange={(event) => update("currency", event.target.value.toUpperCase())} placeholder="3-letter currency code" className="input uppercase" />
-                  </Field>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Legal payroll context</div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <ReadOnly label="Legal entity" value={legalEntity?.name || "Not configured"} />
+                  <ReadOnly label="Payroll country" value={jurisdiction?.country || "Not configured"} />
+                  <ReadOnly label="Currency" value={jurisdiction?.currency || "Not configured"} />
+                  <ReadOnly label="Timezone" value={jurisdiction?.timezone || "Organization timezone"} />
+                </div>
+                <div className="mt-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] px-4 py-3 text-xs leading-5 text-cyan-100/65">
+                  These values come from Legal Entity setup. Change legal jurisdiction or accounting currency there so Payroll, Finance and statutory logic stay aligned.
                 </div>
               </div>
 
@@ -259,13 +255,17 @@ export default function PayrollSettingsPage() {
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <Toggle label="Manager approval required" description="Flag meaningful hours variance for manager review." checked={Boolean(settings.manager_approval_required)} onChange={(value) => update("manager_approval_required", value)} />
                   <Toggle label="Use scheduled expected hours" description="Use published schedules as the expected-hours source when available." checked={Boolean(settings.use_schedule_expected_hours)} onChange={(value) => update("use_schedule_expected_hours", value)} />
-                  <Toggle label="Salary proration enabled" description="Allow payroll calculations to prorate salary according to configured attendance rules." checked={Boolean(settings.salary_proration_enabled)} onChange={(value) => update("salary_proration_enabled", value)} />
                   <Toggle label="Reviewed lateness deductions" description="Propose minute-for-minute deductions only for lateness above the configured Workforce grace threshold. Every proposal requires manager review before the employee can acknowledge payroll." checked={Boolean(settings.lateness_deduction_enabled)} onChange={(value) => update("lateness_deduction_enabled", value)} />
                   <Toggle label="Training counts as worked" checked={Boolean(settings.training_counts_as_worked)} onChange={(value) => update("training_counts_as_worked", value)} />
                   <Toggle label="Sick leave counts as worked" checked={Boolean(settings.sick_leave_counts_as_worked)} onChange={(value) => update("sick_leave_counts_as_worked", value)} />
                   <Toggle label="Approved leave counts as worked" checked={Boolean(settings.approved_leave_counts_as_worked)} onChange={(value) => update("approved_leave_counts_as_worked", value)} />
                   <Toggle label="Public holiday counts as worked" checked={Boolean(settings.public_holiday_counts_as_worked)} onChange={(value) => update("public_holiday_counts_as_worked", value)} />
                 </div>
+
+                <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs leading-5 text-white/45">
+                  Salary proration is reserved and is not an active generic attendance deduction. Monthly base salary is not automatically reduced from attendance variance; any payroll deduction must follow an explicit supported rule and review path.
+                </div>
+
                 {settings.lateness_deduction_enabled ? (
                   <div className="mt-3 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] px-4 py-3 text-xs leading-5 text-amber-100/70">
                     Lateness deductions remain inactive when Workforce has no late threshold configured. The payroll engine uses the employee compensation profile and only deducts minutes above that threshold; it never invents a fixed fine.
@@ -279,7 +279,7 @@ export default function PayrollSettingsPage() {
             <button
               type="button"
               onClick={saveSettings}
-              disabled={loading || saving}
+              disabled={loading || saving || !readiness.ready}
               className="flex h-12 items-center gap-2 rounded-xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
             >
               <Save className="h-4 w-4" />
@@ -328,6 +328,15 @@ function Field({ label, required = false, children }) {
       </span>
       {children}
     </label>
+  );
+}
+
+function ReadOnly({ label, value }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+      <div className="text-[9px] uppercase tracking-[0.16em] text-white/30">{label}</div>
+      <div className="mt-2 text-sm font-black text-white/75">{value}</div>
+    </div>
   );
 }
 

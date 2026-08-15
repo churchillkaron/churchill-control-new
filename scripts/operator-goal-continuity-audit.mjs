@@ -94,6 +94,7 @@ const [
   registryRuntimeSource,
   registryBridgeSource,
   capabilityCatalogSource,
+  readChainSource,
 ] = await Promise.all([
   readFile("lib/operator/runtime/OperatorReasoningRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorVerificationRuntime.js", "utf8"),
@@ -103,6 +104,7 @@ const [
   readFile("lib/platform/registry/OperatorRegistryDomainRuntimes.js", "utf8"),
   readFile("lib/platform/registry/operatorRegistryBridge.js", "utf8"),
   readFile("lib/operator/runtime/OperatorCapabilityCatalog.js", "utf8"),
+  readFile("lib/platform/capabilities/createOperatorReadChainCapability.js", "utf8"),
 ]);
 
 assert.match(
@@ -144,6 +146,23 @@ assert.match(verificationSource, /Do not invent a benchmark, target, budget, exp
 assert.match(verificationSource, /choose one best safe next step/i);
 assert.match(verificationSource, /interpretive_synthesis:\s*true/);
 assert.match(verificationSource, /evidence_compaction:\s*"collection-aware-v1"/);
+assert.match(verificationSource, /function supportedPendingExecution/);
+assert.match(verificationSource, /readChainCompleted\(result\)/);
+assert.match(verificationSource, /object\(parsed\?\.follow_up\)\.supported !== true/);
+assert.match(verificationSource, /pending_execution:\s*pendingExecution/);
+assert.match(verificationSource, /The user must still explicitly confirm/);
+assert.match(verificationSource, /evidence_gated_follow_up:\s*Boolean\(staged\)/);
+
+assert.match(readChainSource, /function preflightFollowUp/);
+assert.match(readChainSource, /FOLLOW_UP_MUST_BE_ACTION/);
+assert.match(readChainSource, /FOLLOW_UP_PERMISSION_REQUIRED/);
+assert.match(readChainSource, /requires_confirmation:\s*true/);
+assert.match(readChainSource, /staged_follow_up/);
+assert.match(readChainSource, /this capability never executes it/i);
+assert.doesNotMatch(
+  readChainSource,
+  /executeUbteCapability\([^)]*followUp/s,
+);
 
 assert.match(registryRuntimeSource, /erpRegistry\.js/);
 assert.match(registryRuntimeSource, /serializeCapability/);
@@ -177,5 +196,7 @@ console.log("OPERATOR_REGISTRY_SOURCE=CANONICAL_CONVERGED_ERP");
 console.log("OPERATOR_CONTEXT_SCOPE=DECLARED_AND_ENTITY_GUARDED");
 console.log("OPERATOR_REASONING_ENTITY_SCOPE=VISIBLE_AND_CLARIFIED_BEFORE_EXECUTION");
 console.log("OPERATOR_READ_CHAIN_ENTITY_SCOPE=CHILD_CAPABILITIES_GUARDED");
+console.log("OPERATOR_EVIDENCE_GATED_ACTION=STAGED_THEN_USER_CONFIRMED");
+console.log("OPERATOR_EVIDENCE_GATED_ACTION_GUARD=NO_AUTOWRITE_EXACT_PAYLOAD_ONLY");
 console.log("OPERATOR_GOAL_SURFACES=TEXT_AND_VOICE_PRIMARY_CONVERSATION");
 console.log("OPERATOR_VOICE_FAILURE=ALWAYS_AUDIBLE_WITH_FOLLOW_UP");

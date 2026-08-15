@@ -53,8 +53,16 @@ export async function GET(request) {
       organizationId: access.organizationId,
       entityId,
       accountId: searchParams.get("accountId") || searchParams.get("account_id") || null,
-      startDate: searchParams.get("startDate") || searchParams.get("start_date") || null,
-      endDate: searchParams.get("endDate") || searchParams.get("end_date") || null,
+      startDate:
+        searchParams.get("startDate") ||
+        searchParams.get("start_date") ||
+        searchParams.get("date_from") ||
+        null,
+      endDate:
+        searchParams.get("endDate") ||
+        searchParams.get("end_date") ||
+        searchParams.get("date_to") ||
+        null,
     });
 
     return NextResponse.json({

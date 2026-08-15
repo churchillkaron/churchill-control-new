@@ -19,6 +19,9 @@
     },
     "app/api/internal/commercial/communications/email-inbox-sync/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/commercial/communications/email-subscriptions/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -68,7 +71,11 @@
     },
     {
       "path": "/api/internal/commercial/communications/email-inbox-sync",
-      "schedule": "*/5 * * * *"
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/commercial/communications/email-subscriptions",
+      "schedule": "17 2 * * *"
     }
   ]
 }

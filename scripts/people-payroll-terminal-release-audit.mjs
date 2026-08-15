@@ -13,6 +13,9 @@ const FILES = Object.freeze({
   payslipApi: "app/api/payroll/payslip/route.js",
   acknowledgeApi: "app/api/staff/payroll/acknowledge/route.js",
   disputeApi: "app/api/staff/payroll/dispute/route.js",
+  compensationApi: "app/api/people/compensation/route.js",
+  compensationUi: "app/(system)/workspace/[organizationId]/people/compensation/page.jsx",
+  payrollControlUi: "app/(system)/workspace/[organizationId]/people/payroll/page.jsx",
   countryLoader: "lib/payroll/countries/loadPayrollCountryPack.js",
   jurisdiction: "lib/payroll/countries/resolvePayrollJurisdiction.js",
   payrollRecords: "lib/payroll/generatePayrollRecords.js",
@@ -112,6 +115,69 @@ requireNoMatch(
 );
 
 requireMatch(
+  source.payrollRecords,
+  /salaryType === "HOURLY"[\s\S]*approvedHours - overtimeHours[\s\S]*regularHours \* configuredHourlyRate/,
+  "Hourly payroll regular wage calculation"
+);
+requireMatch(
+  source.payrollRecords,
+  /overtimeHours: pay\.overtimeHours[\s\S]*hourlyRate: pay\.overtimeHourlyRate/,
+  "Payroll overtime separation"
+);
+requireMatch(
+  source.payrollRecords,
+  /salaryType === "MONTHLY"[\s\S]*monthlySalary \/ expectedHours/,
+  "Monthly payroll overtime-rate derivation"
+);
+requireNoMatch(
+  source.payrollRecords,
+  /approvedHours\s*\*\s*configuredHourlyRate\s*\+[\s\S]*overtimePay/,
+  "Hourly overtime double payment"
+);
+
+requireMatch(
+  source.compensationApi,
+  /function assertEntityCurrency[\s\S]*Compensation currency must match legal entity currency/,
+  "Compensation legal-entity currency enforcement"
+);
+requireMatch(
+  source.compensationApi,
+  /monthly_salary:\s*payload\.salaryType === "MONTHLY" \? payload\.monthlySalary : 0[\s\S]*hourly_rate:\s*payload\.hourlyRate \|\| 0/,
+  "Compensation monthly overtime-rate preservation"
+);
+requireMatch(
+  source.compensationApi,
+  /effectiveSalaryType === "HOURLY"[\s\S]*\? 0[\s\S]*effectiveMonthlySalary/,
+  "Compensation hourly monthly-salary exclusion"
+);
+requireNoMatch(
+  source.compensationApi,
+  /payload\.salaryType === "MONTHLY" && payload\.hourlyRate === undefined[\s\S]*updates\.hourly_rate = 0/,
+  "Compensation monthly overtime-rate destruction"
+);
+
+requireMatch(
+  source.compensationUi,
+  /Currency[\s\S]*data\?\.entity\?\.currency[\s\S]*disabled/,
+  "Compensation UI locked entity currency"
+);
+requireMatch(
+  source.compensationUi,
+  /Overtime hourly rate \(optional\)/,
+  "Compensation UI monthly overtime rate"
+);
+requireMatch(
+  source.compensationUi,
+  /Pay Ready[\s\S]*Payment Ready[\s\S]*Missing Bank/,
+  "Compensation UI pay and payment readiness separation"
+);
+requireMatch(
+  source.compensationUi,
+  /bankTransferEnabled[\s\S]*isBankReady/,
+  "Compensation UI bank-transfer readiness"
+);
+
+requireMatch(
   source.readiness,
   /resolvePayrollJurisdiction/,
   "Payroll readiness legal-entity jurisdiction"
@@ -135,6 +201,22 @@ requireMatch(
   source.readiness,
   /canCompleteLifecycle:\s*blockers\.length === 0 && lifecycleBlockers\.length === 0/,
   "Payroll end-to-end lifecycle readiness result"
+);
+
+requireMatch(
+  source.payrollControlUi,
+  /Generation readiness[\s\S]*End-to-end lifecycle readiness/,
+  "Payroll control generation and lifecycle readiness separation"
+);
+requireMatch(
+  source.payrollControlUi,
+  /readiness\.lifecycleBlockers[\s\S]*canCompleteLifecycle/,
+  "Payroll control lifecycle blocker visibility"
+);
+requireMatch(
+  source.payrollControlUi,
+  /ACCOUNTING_PERIOD_NOT_OPEN[\s\S]*fiscal-periods[\s\S]*PAYROLL_POSTING_RULES_MISSING[\s\S]*posting-rules/,
+  "Payroll control Finance remediation links"
 );
 
 for (const [label, file] of [
@@ -225,5 +307,5 @@ for (const [label, file] of [
 }
 
 console.log(
-  "People/Payroll terminal release audit passed: People application boundary, explicit legal-entity jurisdiction, no implicit Thailand fallback, generation and lifecycle readiness, Finance currency policy, durable settlement journal identity, complete paid-batch evidence, active posted accrual and settlement journals, reversal protection, and Finance-evidence gates for finalization through archive are intact."
+  "People/Payroll terminal release audit passed: People application boundary, explicit legal-entity jurisdiction, hourly and monthly compensation semantics, entity-currency enforcement, pay/payment readiness separation, generation and lifecycle readiness, Finance currency policy, durable settlement journal identity, complete paid-batch evidence, active posted accrual and settlement journals, reversal protection, and Finance-evidence gates for finalization through archive are intact."
 );

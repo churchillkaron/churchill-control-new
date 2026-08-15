@@ -88,6 +88,7 @@ assert.ok(Number.isFinite(Date.parse(merged.updated_at)));
 const [
   reasoningSource,
   verificationSource,
+  turnRuntimeSource,
   routeSource,
   homeSource,
   voiceSource,
@@ -98,6 +99,7 @@ const [
 ] = await Promise.all([
   readFile("lib/operator/runtime/OperatorReasoningRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorVerificationRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
   readFile("app/api/operator/turn/route.js", "utf8"),
   readFile("components/operator/HomeAvantiqoIntelligence.jsx", "utf8"),
   readFile("components/operator/LocalHeyAvantiqoWakeBridge.jsx", "utf8"),
@@ -152,6 +154,9 @@ assert.match(verificationSource, /object\(parsed\?\.follow_up\)\.supported !== t
 assert.match(verificationSource, /pending_execution:\s*pendingExecution/);
 assert.match(verificationSource, /The user must still explicitly confirm/);
 assert.match(verificationSource, /evidence_gated_follow_up:\s*Boolean\(staged\)/);
+assert.match(verificationSource, /verify_after:\s*normalizedVerificationRead/);
+assert.match(verificationSource, /post_action_verification_aware:\s*true/);
+assert.match(verificationSource, /do not claim the intended business effect was independently confirmed/i);
 
 assert.match(readChainSource, /function preflightFollowUp/);
 assert.match(readChainSource, /FOLLOW_UP_MUST_BE_ACTION/);
@@ -159,10 +164,20 @@ assert.match(readChainSource, /FOLLOW_UP_PERMISSION_REQUIRED/);
 assert.match(readChainSource, /requires_confirmation:\s*true/);
 assert.match(readChainSource, /staged_follow_up/);
 assert.match(readChainSource, /this capability never executes it/i);
+assert.match(readChainSource, /function preflightVerificationRead/);
+assert.match(readChainSource, /verify_after/);
+assert.match(readChainSource, /post-action-verification/);
 assert.doesNotMatch(
   readChainSource,
   /executeUbteCapability\([^)]*followUp/s,
 );
+
+assert.match(turnRuntimeSource, /function normalizedPendingVerificationRead/);
+assert.match(turnRuntimeSource, /function runPendingPostActionVerification/);
+assert.match(turnRuntimeSource, /item\.mode === "read"/);
+assert.match(turnRuntimeSource, /post_action_verification/);
+assert.match(turnRuntimeSource, /result:\s*verificationResult/);
+assert.match(turnRuntimeSource, /POST_ACTION_VERIFICATION_CAPABILITY_NOT_AVAILABLE/);
 
 assert.match(registryRuntimeSource, /erpRegistry\.js/);
 assert.match(registryRuntimeSource, /serializeCapability/);
@@ -198,5 +213,7 @@ console.log("OPERATOR_REASONING_ENTITY_SCOPE=VISIBLE_AND_CLARIFIED_BEFORE_EXECUT
 console.log("OPERATOR_READ_CHAIN_ENTITY_SCOPE=CHILD_CAPABILITIES_GUARDED");
 console.log("OPERATOR_EVIDENCE_GATED_ACTION=STAGED_THEN_USER_CONFIRMED");
 console.log("OPERATOR_EVIDENCE_GATED_ACTION_GUARD=NO_AUTOWRITE_EXACT_PAYLOAD_ONLY");
+console.log("OPERATOR_POST_ACTION_VERIFICATION=REGISTERED_READ_AFTER_CONFIRMED_WRITE");
+console.log("OPERATOR_POST_ACTION_VERIFICATION_GUARD=NO_EFFECT_CLAIM_WITHOUT_FRESH_READ");
 console.log("OPERATOR_GOAL_SURFACES=TEXT_AND_VOICE_PRIMARY_CONVERSATION");
 console.log("OPERATOR_VOICE_FAILURE=ALWAYS_AUDIBLE_WITH_FOLLOW_UP");

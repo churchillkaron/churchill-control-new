@@ -62,21 +62,27 @@ function verifyHmac(url) {
 }
 
 function destination(origin, organizationId, message) {
-  const url = new URL(`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`, origin);
+  const url = new URL(
+    `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+    origin,
+  );
   url.searchParams.set("message", message);
   return url;
 }
 
 async function graph({ shop, accessToken, query, variables = {} }) {
-  const response = await fetch(`https://${shop}/admin/api/${API_VERSION}/graphql.json`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Shopify-Access-Token": accessToken,
+  const response = await fetch(
+    `https://${shop}/admin/api/${API_VERSION}/graphql.json`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
+      },
+      body: JSON.stringify({ query, variables }),
+      cache: "no-store",
     },
-    body: JSON.stringify({ query, variables }),
-    cache: "no-store",
-  });
+  );
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.errors?.length) {
     throw new Error(
@@ -187,10 +193,22 @@ async function ensureOnlineStoreService(organizationId) {
   });
 }
 
+async function automaticEntityId(organizationId) {
+  const result = await supabaseAdmin
+    .from("legal_entities")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .limit(2);
+  if (result.error) throw result.error;
+  return result.data?.length === 1 ? result.data[0].id : null;
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
   let authorization = null;
+
   try {
     if (!clientId() || !clientSecret()) {
       throw new Error("Shopify connection is not configured by Avantiqo yet");
@@ -201,7 +219,9 @@ export async function GET(request) {
 
     authorization = await consumeOAuthAuthorization({ state, provider: "shopify" });
     const organizationId = authorization.organization_id;
-    const shop = text(url.searchParams.get("shop") || authorization.metadata?.shop).toLowerCase();
+    const shop = text(
+      url.searchParams.get("shop") || authorization.metadata?.shop,
+    ).toLowerCase();
     const code = url.searchParams.get("code");
     if (!shop || !code) {
       throw new Error("Shopify did not return the required authorization data");
@@ -219,7 +239,9 @@ export async function GET(request) {
     });
     const token = await tokenResponse.json().catch(() => ({}));
     if (!tokenResponse.ok || !token.access_token) {
-      throw new Error(token.error_description || "Shopify access token exchange failed");
+      throw new Error(
+        token.error_description || "Shopify access token exchange failed",
+      );
     }
 
     const granted = new Set(
@@ -228,10 +250,17 @@ export async function GET(request) {
         .map((value) => value.trim())
         .filter(Boolean),
     );
-    const required = ["read_products", "read_orders", "read_inventory", "read_locations"];
+    const required = [
+      "read_products",
+      "read_orders",
+      "read_inventory",
+      "read_locations",
+    ];
     const missing = required.filter((scope) => !granted.has(scope));
     if (missing.length) {
-      throw new Error(`Shopify did not grant required access: ${missing.join(", ")}`);
+      throw new Error(
+        `Shopify did not grant required access: ${missing.join(", ")}`,
+      );
     }
 
     const identityData = await graph({
@@ -251,6 +280,11 @@ export async function GET(request) {
     });
     const identity = identityData?.shop;
     if (!identity?.id) throw new Error("Shopify store verification failed");
+
+    const priorConnection = await ChannelConnectionRuntime.get({
+      organization_id: organizationId,
+      provider: "shopify",
+    }).catch(() => null);
 
     const credential = await CredentialRuntime.store({
       provider_id: "shopify",
@@ -272,6 +306,7 @@ export async function GET(request) {
       channel_type: "commerce",
       credentials_reference: credential.id,
       metadata: {
+        ...(priorConnection?.metadata || {}),
         shop,
         shop_id: identity.id,
         account_name: identity.name || shop,
@@ -282,6 +317,15 @@ export async function GET(request) {
       },
     });
 
+    const existingStore = await ChannelAssetRuntime.find({
+      organization_id: organizationId,
+      provider: "shopify",
+      asset_type: "shopify_store",
+      external_id: identity.id,
+    }).catch(() => null);
+    const inferredEntityId = await automaticEntityId(organizationId);
+    const entityId = existingStore?.entity_id || inferredEntityId || null;
+
     await ChannelAssetRuntime.register({
       organization_id: organizationId,
       connection_id: connection.id,
@@ -289,9 +333,22 @@ export async function GET(request) {
       asset_type: "shopify_store",
       external_id: identity.id,
       name: identity.name || shop,
+      entity_id: entityId,
+      selected_by_party_id: existingStore?.selected_by_party_id || null,
+      selected_at:
+        existingStore?.selected_at ||
+        (entityId ? new Date().toISOString() : null),
       metadata: {
+        ...(existingStore?.metadata || {}),
         shop,
         primary_domain: identity.primaryDomain?.url || null,
+        entity_id: entityId,
+        entity_mapping_mode: existingStore?.entity_id
+          ? "PRESERVED"
+          : inferredEntityId
+            ? "AUTO_SINGLE_ENTITY"
+            : "MANUAL_REQUIRED",
+        projection_ready: Boolean(entityId),
       },
     });
 
@@ -308,6 +365,7 @@ export async function GET(request) {
       channel_type: "commerce",
       credentials_reference: credential.id,
       metadata: {
+        ...(priorConnection?.metadata || {}),
         shop,
         shop_id: identity.id,
         account_name: identity.name || shop,
@@ -318,11 +376,19 @@ export async function GET(request) {
         webhook_url: webhookUrl,
         webhook_topics: webhookTopics,
         webhook_configured_at: new Date().toISOString(),
+        shopify_reconciliation: {
+          status: "QUEUED",
+          requested_at: new Date().toISOString(),
+          products: {},
+          orders: {},
+          inventory: {},
+          locations: {},
+        },
       },
     });
 
     const authorizedAt = new Date().toISOString();
-    await supabaseAdmin
+    const authorizationUpdate = await supabaseAdmin
       .from("organization_channel_connections")
       .update({
         authorized_by_party_id: authorization.party_id || null,
@@ -331,6 +397,7 @@ export async function GET(request) {
       })
       .eq("id", connection.id)
       .eq("organization_id", organizationId);
+    if (authorizationUpdate.error) throw authorizationUpdate.error;
 
     await ensureOnlineStoreService(organizationId);
 
@@ -338,7 +405,9 @@ export async function GET(request) {
       destination(
         authorization.return_origin || url.origin,
         organizationId,
-        "Shopify connected and synchronized.",
+        entityId
+          ? "Shopify connected. Avantiqo is importing the store and activating commerce synchronization automatically."
+          : "Shopify connected. Choose the legal entity for this store to activate order synchronization.",
       ),
     );
   } catch (error) {

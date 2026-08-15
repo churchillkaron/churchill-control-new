@@ -271,6 +271,18 @@ assert.match(turnRuntimeSource, /original_message:\s*text\(candidate\.original_m
 assert.match(turnRuntimeSource, /pending\.original_message \|\| message/);
 assert.match(turnRuntimeSource, /pending\.original_message \|\| text\(activeRun\?\.objective\) \|\| message/);
 assert.match(turnRuntimeSource, /original_message:\s*text\(message\)/);
+assert.ok(
+  (turnRuntimeSource.match(/let nextProjectState = projectState;/g) || []).length >= 2,
+  "confirmed execution and verification retry must both preserve verified project state",
+);
+assert.ok(
+  (turnRuntimeSource.match(/nextProjectState = verification\?\.decision\?\.project_state \|\| nextProjectState;/g) || []).length >= 2,
+  "verified project state must be captured after both confirmation and verification resume",
+);
+assert.ok(
+  (turnRuntimeSource.match(/project_state:\s*nextProjectState/g) || []).length >= 2,
+  "verified project state must be returned for persistence",
+);
 assert.match(
   turnRuntimeSource,
   /if \(activeRun && isAutonomousRunStatusQuery\(message\)\) \{\s*return runStatusTurn/s,
@@ -309,6 +321,8 @@ console.log("OPERATOR_GOAL_STATE_OWNER=OperatorProjectState");
 console.log("OPERATOR_GOAL_COMPLETION=USER_CONFIRMATION_REQUIRED");
 console.log("OPERATOR_STRATEGIC_MEMORY=WORKING_DIRECTION_WITH_USER_DECISIONS_SEPARATE");
 console.log("OPERATOR_VERIFIED_EXECUTION_MEMORY=COMPLETED_STEP_PROGRESS_NEXT_STEP");
+console.log("OPERATOR_VERIFIED_GOAL_PROGRESS=PERSISTED_AFTER_CONFIRMED_ACTION");
+console.log("OPERATOR_VERIFICATION_RESUME_GOAL_PROGRESS=PERSISTED_AFTER_RETRY");
 console.log("OPERATOR_READ_EVIDENCE=NESTED_COLLECTION_AWARE_BOUNDED_SAMPLE");
 console.log("OPERATOR_READ_SAMPLE_GUARD=NO_DATASET_TOTALS_OR_TRENDS_FROM_PARTIAL_SAMPLE");
 console.log("OPERATOR_VERIFIED_READ_INTERPRETATION=FACT_INFERENCE_RECOMMENDATION_SEPARATED");

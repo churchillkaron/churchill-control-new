@@ -343,6 +343,10 @@ async function temporalPathRepairsBeforeFailing() {
   });
   transport.queueResponse({ scenes: [{ id: "s1", objective: "open", duration_seconds: 30 }] });
   transport.queueResponse({ shots: [{ id: "sh1", purpose: "establish", duration_seconds: 30 }] });
+  // A scene is retried once now that incompleteness is judged per scene rather than only emptiness,
+  // so its second attempt has to be scripted too. It stays deliberately thin: this test is about the
+  // whole-plan repair that runs after the scene has spent both of its attempts.
+  transport.queueResponse({ shots: [{ id: "sh1", purpose: "establish", duration_seconds: 30 }] });
   transport.queueResponse({ concept: { creative_system: "x".repeat(140) } });
   transport.queueResponse({ concept: { creative_system: "x".repeat(140) } });
 
@@ -999,6 +1003,9 @@ async function temporalRepairFixesANestedShotField() {
   transport.queueResponse(fixture.temporalBasePlan());
   transport.queueResponse({ scenes: [fixture.temporalScene("scene-1")] });
   transport.queueResponse({ shots: [broken] });
+  // Still broken on the retry, so the scene spends both attempts and keeps its work, which is what
+  // hands the defect to the whole-plan repair this test is about.
+  transport.queueResponse({ shots: [broken] });
   transport.queueResponse({
     scenes: [{
       id: "scene-1",
@@ -1628,6 +1635,33 @@ async function promptExamplesAreValidAndCapabilityFree() {
     !emptyExamples.includes("output_spec"),
     `empty object examples: ${emptyExamples.join(", ")}`,
   );
+
+  // Generalised, because this was the same defect three times over. Any field the validator rejects
+  // when empty must not be shown as an empty example: negative_constraints, known_failure_modes and
+  // repair_instructions were all "[]" in the skeleton while the validator demanded at least one entry,
+  // which is three failures on every shot -- around two hundred on the last film -- from a copied
+  // example. Empty examples are legitimate for genuinely optional fields, so this compares against
+  // what the validator actually enforces rather than banning them outright.
+  const validator = readFileSync(
+    "lib/creative/director/validation/CreativeMasterPlanValidator.js",
+    "utf8",
+  );
+  const nonEmptyRequired = new Set();
+  for (const match of validator.matchAll(/for \(const field of \[([^\]]+)\]\)\s*\{\s*if \(!list\(shot\[field\]\)\.length\)/g)) {
+    for (const field of match[1].matchAll(/"(\w+)"/g)) nonEmptyRequired.add(field[1]);
+  }
+  check(
+    "the validator's non-empty shot array requirements are readable",
+    nonEmptyRequired.size >= 3,
+    `found ${nonEmptyRequired.size}`,
+  );
+  const emptyArrayExamples = [...skeleton.matchAll(/"(\w+)":\s*\[\]/g)].map((match) => match[1]);
+  const contradicted = emptyArrayExamples.filter((field) => nonEmptyRequired.has(field));
+  check(
+    "no shot field required non-empty is shown as an empty example",
+    contradicted.length === 0,
+    `prompt demonstrates the rejected value for: ${contradicted.join(", ")}`,
+  );
   check(
     "the output_spec example carries the duration the validator compares",
     /"output_spec":\s*\{[^}]*duration_seconds/.test(skeleton),
@@ -1635,6 +1669,110 @@ async function promptExamplesAreValidAndCapabilityFree() {
   check(
     "the shot call is told output_spec must be populated",
     /output_spec must be a populated object, never empty/.test(runtime),
+  );
+}
+
+// 26. The base prompt must name the supplied asset ids where they cannot be missed, and forbid
+// inventing them. The rejected full-song film returned thirteen asset_manifest entries of which nine
+// were ids that do not exist, while a real supplied asset went unaccounted -- which is what
+// SELECTED_ASSET_UNACCOUNTED was reporting. The ids were only reachable inside a whole-input
+// JSON.stringify dump, and unlike the shot prompt the base prompt never forbade invention.
+async function basePromptNamesTheSuppliedAssets() {
+  const { readFileSync } = globalThis.__auditFs;
+  const runtime = readFileSync(
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "utf8",
+  );
+  const start = runtime.indexOf("function basePlanPrompt");
+  check("the base prompt is locatable", start > 0);
+  if (start < 0) return;
+  const body = runtime.slice(start, runtime.indexOf("`;", start));
+
+  check(
+    "the base prompt lists the supplied asset ids explicitly",
+    /SUPPLIED ASSET IDS/.test(body) && /input\.assets\.map\(/.test(body),
+  );
+  check(
+    "the base prompt forbids inventing an asset id",
+    /Never invent, guess, reformat or substitute an asset id/.test(body),
+  );
+  check(
+    "the manifest must match the supplied ids exactly",
+    /exactly one entry for each id in SUPPLIED ASSET IDS, and no other entries/.test(body),
+  );
+}
+
+// 27. A scene of stub shots must be re-directed, not accepted. The retry used to fire only when a
+// scene came back with no shots at all, so five shots carrying an id and a title counted as success
+// and the gaps surfaced at final assembly -- 1,178 failures at once on the last rejected film, with
+// 34 of 68 shots missing their generation block and 23 missing camera entirely. Two whole-plan repair
+// calls cannot fix that. This proves the scene is judged on completeness and that the rejection
+// reasons are fed back into the retry.
+async function stubShotsAreRejectedPerScene() {
+  const { CreativeTemporalMasterPlanRuntime } = await import(
+    "@/lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime"
+  );
+  const transport = await import(
+    "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const stub = { id: "scene-1-shot-1", title: "a titled stub", duration_seconds: 30 };
+
+  transport.resetTransport();
+  transport.queueResponse(fixture.temporalBasePlan());
+  transport.queueResponse({ scenes: [fixture.temporalScene("scene-1")] });
+  transport.queueResponse({ shots: [stub] });
+  // The retry is answered with a complete shot, so a pass here means the scene was re-directed and
+  // the film finished on the second attempt rather than carrying stubs to assembly.
+  transport.queueResponse({ shots: [fixture.temporalShot("scene-1-shot-1")] });
+  transport.queueResponse({});
+
+  let plan = null;
+  let failure = "";
+  try {
+    const result = await CreativeTemporalMasterPlanRuntime.create({
+      organization_id: ORGANIZATION,
+      mission: { id: "m1" },
+      project: {
+        id: "p1", production_type: "VIDEO", objective: "stub shot rejection audit",
+        target_duration: 30,
+        metadata: { creative_quality_policy: fixture.TEMPORAL_QUALITY },
+      },
+      brief: { id: "b1", duration_seconds: 30 },
+      assets: [{ id: "a1", asset_type: "video", file_name: "clip.mov" }],
+    });
+    plan = result.plan;
+  } catch (error) {
+    failure = String(error?.message || error);
+  }
+
+  const shotCalls = transport
+    .recordedCalls()
+    .filter((call) => String(call?.operation || call?.input?.operation || "")
+      .includes("SCENE_SHOT_DIRECTION"));
+  check(
+    "a scene of stub shots is re-directed rather than accepted",
+    shotCalls.length === 2,
+    `shot calls=${shotCalls.length} failure=${failure || "none"}`,
+  );
+  const retryPrompt = String(
+    shotCalls[1]?.prompt || shotCalls[1]?.input?.prompt || shotCalls[1]?.input?.input?.prompt || "",
+  );
+  check(
+    "the retry is told what was wrong with the previous attempt",
+    /YOUR PREVIOUS ATTEMPT AT THIS SCENE WAS REJECTED/.test(retryPrompt),
+    `retry prompt ${retryPrompt.length} chars`,
+  );
+  // Naming the failing paths is the difference between a retry and a re-roll.
+  check(
+    "the retry names the specific failing shot fields",
+    /scenes\.0\.shots\.0\.(camera|frame_plan|generation)/.test(retryPrompt),
+  );
+  check(
+    "the re-directed scene completes the film",
+    Boolean(plan) && (plan.scenes?.[0]?.shots || []).length > 0,
+    failure || "no plan",
   );
 }
 
@@ -1671,6 +1809,8 @@ async function main() {
   await contractRequiresSurfaceInvention();
   await promptSkeletonMatchesValidatorRequirements();
   await promptExamplesAreValidAndCapabilityFree();
+  await basePromptNamesTheSuppliedAssets();
+  await stubShotsAreRejectedPerScene();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

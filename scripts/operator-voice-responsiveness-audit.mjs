@@ -124,6 +124,23 @@ requireAll("READ_BEFORE_NAVIGATION", reasoningRuntime, [
   "A request for the information shown on a page is a read request, not a navigation request.",
 ]);
 
+requireAll("TEMPORAL_READ_GROUNDING", reasoningRuntime, [
+  "function temporalReference(timezone)",
+  "temporal_reference: temporal",
+  "week_starts_on: \"monday\"",
+  "yesterday: dateWindow(yesterday)",
+  "last_month: dateWindow(lastMonthStart, lastMonthEnd)",
+  "year_to_date: dateWindow(yearStart, today)",
+  "temporal_grounding: true",
+  "Never guess the current date from model knowledge or server UTC.",
+  "use date_from and date_to",
+]);
+
+requireAll("OPEN_READ_INPUT_CONTRACT", reasoningRuntime, [
+  "const open = inputSchema.additionalProperties === true;",
+  "...(open ? { open: true } : {})",
+]);
+
 requireAll("TURN_LATENCY", turnRoute, [
   "const [result] = await Promise.all([",
   "persistAssistantTurnAndConversationState({",
@@ -269,6 +286,8 @@ if (violations.length) {
   console.log("VOICE_STRATEGIC_MEMORY=WORKING_DIRECTION_AND_ACCEPTED_DECISIONS");
   console.log("VOICE_SEMANTIC_READ_RANKING=BUSINESS_LANGUAGE_HINTED");
   console.log("VOICE_FACT_REQUEST=READ_BEFORE_NAVIGATION");
+  console.log("VOICE_TEMPORAL_READS=ORGANIZATION_TIMEZONE_GROUNDED");
+  console.log("VOICE_OPEN_READ_INPUTS=DATE_FILTER_READY");
   console.log("VOICE_POLITE_NAVIGATION=INSTANT_LOCAL");
   console.log("VOICE_PLAYBACK=BROWSER_FIRST_FOR_SHORT_RESPONSES");
   console.log("VOICE_TRANSCRIPT=INTERIM_COMMIT_ENABLED");

@@ -150,11 +150,20 @@ export default function POSFinalUI({
   posRuntime,
   refreshPOSRuntime,
 }) {
-  const { organization } = useBusinessContext();
+  const businessContext = useBusinessContext() || {};
+  const organization = businessContext.organization || null;
 
   const organizationId =
     posRuntime?.organization?.id ||
+    businessContext.organization_id ||
     organization?.id ||
+    null;
+
+  const entityId =
+    posRuntime?.terminal?.entity_id ||
+    posRuntime?.entity_id ||
+    businessContext.entity_id ||
+    businessContext.entity?.id ||
     null;
 
   const holdTimer = useRef(null);
@@ -722,6 +731,11 @@ export default function POSFinalUI({
       return;
     }
 
+    if (!entityId) {
+      alert("Select a legal entity before sending a POS order");
+      return;
+    }
+
     if (!orderRequestKey.current) {
       orderRequestKey.current = crypto.randomUUID();
     }
@@ -735,6 +749,7 @@ export default function POSFinalUI({
       },
       body: JSON.stringify({
         organizationId,
+        entityId,
         idempotencyKey: orderRequestKey.current,
         table: activeTable.table_number || activeTable.table_name,
         tableId: activeTable.id,

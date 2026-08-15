@@ -93,7 +93,13 @@ function cleanDate(value) {
 }
 
 function uniqueStrings(values) {
-  return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
+  return [
+    ...new Set(
+      (values || [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    ),
+  ];
 }
 
 function readStaffIds(body) {
@@ -106,7 +112,9 @@ function readStaffIds(body) {
   const staffIds = uniqueStrings(values);
   if (!staffIds.length) throw new Error("At least one staff member is required");
   if (staffIds.length > MAX_STAFF_PER_BATCH) {
-    throw new Error(`A scheduling batch can include at most ${MAX_STAFF_PER_BATCH} staff members`);
+    throw new Error(
+      `A scheduling batch can include at most ${MAX_STAFF_PER_BATCH} staff members`
+    );
   }
 
   return staffIds;
@@ -122,7 +130,9 @@ function readShiftDates(body) {
   const shiftDates = uniqueStrings(values).map(cleanDate).sort();
   if (!shiftDates.length) throw new Error("At least one shift date is required");
   if (shiftDates.length > MAX_DATES_PER_BATCH) {
-    throw new Error(`A scheduling batch can include at most ${MAX_DATES_PER_BATCH} dates`);
+    throw new Error(
+      `A scheduling batch can include at most ${MAX_DATES_PER_BATCH} dates`
+    );
   }
 
   return shiftDates;
@@ -144,20 +154,89 @@ async function loadActiveStaff({ organizationId, staffIds }) {
 
   const staff = data || [];
   if (staff.length !== staffIds.length) {
-    throw new Error("One or more selected staff members are not active in this organization");
+    throw new Error(
+      "One or more selected staff members are not active in this organization"
+    );
   }
 
   return staff;
 }
 
+async function loadScheduleEvidence({ organizationId, scheduleIds }) {
+  const ids = uniqueStrings(scheduleIds);
+  if (!ids.length) {
+    return {
+      lockedScheduleIds: new Set(),
+      shiftScheduleIds: new Set(),
+      attendanceScheduleIds: new Set(),
+    };
+  }
+
+  const [shiftResult, attendanceResult] = await Promise.all([
+    supabaseAdmin
+      .from("staff_shifts")
+      .select("schedule_id")
+      .eq("organization_id", organizationId)
+      .in("schedule_id", ids),
+    supabaseAdmin
+      .from("staff_attendance")
+      .select("schedule_id")
+      .eq("organization_id", organizationId)
+      .in("schedule_id", ids),
+  ]);
+
+  if (shiftResult.error) throw shiftResult.error;
+  if (attendanceResult.error) throw attendanceResult.error;
+
+  const shiftScheduleIds = new Set(
+    (shiftResult.data || []).map((row) => row.schedule_id).filter(Boolean)
+  );
+  const attendanceScheduleIds = new Set(
+    (attendanceResult.data || []).map((row) => row.schedule_id).filter(Boolean)
+  );
+
+  return {
+    shiftScheduleIds,
+    attendanceScheduleIds,
+    lockedScheduleIds: new Set([
+      ...shiftScheduleIds,
+      ...attendanceScheduleIds,
+    ]),
+  };
+}
+
+function scheduleEvidenceError({ rows, evidence }) {
+  const lockedRows = (rows || []).filter((row) =>
+    evidence.lockedScheduleIds.has(row.id)
+  );
+
+  if (!lockedRows.length) return null;
+
+  const sample = lockedRows
+    .slice(0, 5)
+    .map((row) => `${row.staff_id}:${row.shift_date}`)
+    .join(", ");
+  const suffix = lockedRows.length > 5 ? ` +${lockedRows.length - 5} more` : "";
+
+  const error = new Error(
+    `Published schedule evidence is locked after clock-in or attendance classification. Review attendance/shift evidence instead of rewriting the roster. Locked rows: ${sample}${suffix}`
+  );
+  error.status = 409;
+  error.code = "SCHEDULE_EVIDENCE_LOCKED";
+  error.lockedScheduleIds = lockedRows.map((row) => row.id);
+  return error;
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
-    const requestedOrganizationId = url.searchParams.get("organizationId") || null;
+    const requestedOrganizationId =
+      url.searchParams.get("organizationId") || null;
     const ctx = await managementContext(request, requestedOrganizationId);
     if (ctx.response) return ctx.response;
 
-    const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
+    const month =
+      url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
     const range = monthRange(month);
 
     const [staffResult, scheduleResult] = await Promise.all([
@@ -181,18 +260,29 @@ export async function GET(request) {
     if (staffResult.error) throw staffResult.error;
     if (scheduleResult.error) throw scheduleResult.error;
 
+    const schedules = scheduleResult.data || [];
+    const evidence = await loadScheduleEvidence({
+      organizationId: ctx.organizationId,
+      scheduleIds: schedules.map((row) => row.id),
+    });
+
     return NextResponse.json({
       success: true,
       organizationId: ctx.organizationId,
       role: ctx.role,
       month,
       staff: staffResult.data || [],
-      schedules: scheduleResult.data || [],
+      schedules: schedules.map((row) => ({
+        ...row,
+        evidenceLocked: evidence.lockedScheduleIds.has(row.id),
+        hasShiftEvidence: evidence.shiftScheduleIds.has(row.id),
+        hasAttendanceEvidence: evidence.attendanceScheduleIds.has(row.id),
+      })),
     });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error?.message || "Unable to load schedules" },
-      { status: 400 }
+      { status: error?.status || 400 }
     );
   }
 }
@@ -209,7 +299,8 @@ export async function POST(request) {
     const shiftDates = readShiftDates(body);
     const startTime = cleanTime(body?.startTime);
     const endTime = cleanTime(body?.endTime);
-    const shiftType = String(body?.shiftType || "STANDARD").trim().toUpperCase() || "STANDARD";
+    const shiftType =
+      String(body?.shiftType || "STANDARD").trim().toUpperCase() || "STANDARD";
     const notes = String(body?.notes || "").trim() || null;
     const requestedRows = staffIds.length * shiftDates.length;
 
@@ -231,12 +322,22 @@ export async function POST(request) {
 
     const { data: existingRows, error: existingError } = await supabaseAdmin
       .from("staff_schedules")
-      .select("id,staff_id,shift_date")
+      .select("id,staff_id,shift_date,status")
       .eq("organization_id", ctx.organizationId)
       .in("staff_id", staffIds)
       .in("shift_date", shiftDates);
 
     if (existingError) throw existingError;
+
+    const evidence = await loadScheduleEvidence({
+      organizationId: ctx.organizationId,
+      scheduleIds: (existingRows || []).map((row) => row.id),
+    });
+    const evidenceError = scheduleEvidenceError({
+      rows: existingRows || [],
+      evidence,
+    });
+    if (evidenceError) throw evidenceError;
 
     const existingKeys = new Set(
       (existingRows || []).map((row) => rowKey(row.staff_id, row.shift_date))
@@ -253,12 +354,12 @@ export async function POST(request) {
 
     let updatedCount = 0;
     if ((existingRows || []).length > 0) {
+      const existingIds = (existingRows || []).map((row) => row.id);
       const { data: updated, error: updateError } = await supabaseAdmin
         .from("staff_schedules")
         .update(commonUpdate)
         .eq("organization_id", ctx.organizationId)
-        .in("staff_id", staffIds)
-        .in("shift_date", shiftDates)
+        .in("id", existingIds)
         .select("id");
 
       if (updateError) throw updateError;
@@ -296,7 +397,17 @@ export async function POST(request) {
         .insert(inserts)
         .select("id");
 
-      if (createError) throw createError;
+      if (createError) {
+        if (createError.code === "23505") {
+          const conflict = new Error(
+            "A schedule for one of these staff/date combinations was published concurrently. Refresh the roster and try again."
+          );
+          conflict.status = 409;
+          conflict.code = "SCHEDULE_ALREADY_EXISTS";
+          throw conflict;
+        }
+        throw createError;
+      }
       createdCount = (created || []).length;
     }
 
@@ -311,8 +422,13 @@ export async function POST(request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error?.message || "Unable to save schedule" },
-      { status: 400 }
+      {
+        success: false,
+        error: error?.message || "Unable to save schedule",
+        code: error?.code || null,
+        lockedScheduleIds: error?.lockedScheduleIds || [],
+      },
+      { status: error?.status || 400 }
     );
   }
 }
@@ -320,7 +436,8 @@ export async function POST(request) {
 export async function DELETE(request) {
   try {
     const url = new URL(request.url);
-    const requestedOrganizationId = url.searchParams.get("organizationId") || null;
+    const requestedOrganizationId =
+      url.searchParams.get("organizationId") || null;
     const ctx = await managementContext(request, requestedOrganizationId);
     if (ctx.response) return ctx.response;
 
@@ -331,6 +448,28 @@ export async function DELETE(request) {
         { status: 400 }
       );
     }
+
+    const { data: schedule, error: scheduleError } = await supabaseAdmin
+      .from("staff_schedules")
+      .select("id,staff_id,shift_date,status")
+      .eq("id", id)
+      .eq("organization_id", ctx.organizationId)
+      .maybeSingle();
+
+    if (scheduleError) throw scheduleError;
+    if (!schedule) {
+      return NextResponse.json(
+        { success: false, error: "Schedule not found" },
+        { status: 404 }
+      );
+    }
+
+    const evidence = await loadScheduleEvidence({
+      organizationId: ctx.organizationId,
+      scheduleIds: [schedule.id],
+    });
+    const evidenceError = scheduleEvidenceError({ rows: [schedule], evidence });
+    if (evidenceError) throw evidenceError;
 
     const { data, error } = await supabaseAdmin
       .from("staff_schedules")
@@ -359,8 +498,13 @@ export async function DELETE(request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error?.message || "Unable to cancel schedule" },
-      { status: 400 }
+      {
+        success: false,
+        error: error?.message || "Unable to cancel schedule",
+        code: error?.code || null,
+        lockedScheduleIds: error?.lockedScheduleIds || [],
+      },
+      { status: error?.status || 400 }
     );
   }
 }

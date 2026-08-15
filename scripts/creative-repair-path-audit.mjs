@@ -2340,6 +2340,59 @@ async function inventedManifestEntriesAreRejected() {
     /are not its id/.test(universal));
 }
 
+// 36. A plan arriving through plan_json must not be thrown away for one misplaced field.
+//
+// The universal transport gate was object(repairedTransport).workflow_kind. A still returned a complete
+// plan inside plan_json -- title, thesis, signature device, refused devices, asset manifest, creative
+// review -- with workflow_kind under operative_workflow instead of at the top level, echoing the shape
+// of the request it was given. The whole plan was discarded in favour of the transport envelope, whose
+// only concept was a stub, and the run reported eight absent concept fields plus an unaccounted manifest.
+// One misplaced field became eight false ones and the real fault was nowhere in the report. Validating
+// the actual plan afterwards showed nineteen real failures, every one of them actionable.
+async function transportPlanSurvivesAMisplacedField() {
+  const { readFileSync } = globalThis.__auditFs;
+  const runtime = readFileSync(
+    "lib/creative/director/runtime/CreativeMasterPlanRuntime.js",
+    "utf8",
+  );
+
+  check(
+    "the transport gate no longer hinges on workflow_kind alone",
+    !/object\(repairedTransport\)\.workflow_kind\s*\n?\s*\?/.test(runtime),
+  );
+  check(
+    "a plan_json carrying any plan section is accepted",
+    /TRANSPORT_PLAN_SECTIONS\.some\(\(section\) => transportPlan\[section\] != null\)/.test(runtime),
+  );
+  // Wider than the search list on purpose, and the reason has to stay written down.
+  const sections = /const TRANSPORT_PLAN_SECTIONS = \[([\s\S]*?)\];/.exec(runtime);
+  check("the transport section list is present", Boolean(sections));
+  if (sections) {
+    const names = [...sections[1].matchAll(/"(\w+)"/g)].map((m) => m[1]);
+    for (const required of ["concept", "asset_manifest", "creative_review", "deliverables"]) {
+      check(`plan_json is recognised by ${required}`, names.includes(required));
+    }
+  }
+  // The narrow search list must stay narrow: findPlan walks a whole response where a contract echo can
+  // look plan-like, and loosening it there would pick the echo.
+  check(
+    "the response-wide search still requires workflow_kind",
+    /function looksLikePlan[\s\S]*?if \(!candidate\.workflow_kind\) return false;/.test(runtime),
+  );
+
+  // The two instructions the still's failures traced back to.
+  check(
+    "the director is told workflow_kind belongs at the top level",
+    /workflow_kind must be a top-level key of the plan you return/.test(runtime),
+  );
+  check(
+    "the manifest instruction names every field an entry needs",
+    /reason of real substance/.test(runtime) &&
+      /confidence as a number from 0 to 100/.test(runtime) &&
+      /assignments may be empty only for EXCLUDE/.test(runtime),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2383,6 +2436,7 @@ async function main() {
   await assetAssignmentsExplainThemselves();
   await inventedAssetIdsAreRejected();
   await inventedManifestEntriesAreRejected();
+  await transportPlanSurvivesAMisplacedField();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

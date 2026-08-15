@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, ExternalLink, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck } from "lucide-react";
 
 export default function LINEIntegrationCard({ organizationId }) {
   const [snapshot, setSnapshot] = useState(null);
-  const [channelId, setChannelId] = useState("");
-  const [channelSecret, setChannelSecret] = useState("");
-  const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
 
   async function load() {
     if (!organizationId) return;
@@ -29,46 +25,6 @@ export default function LINEIntegrationCard({ organizationId }) {
       setError(loadError?.message || "Unable to load LINE integration"),
     );
   }, [organizationId]);
-
-  async function connect() {
-    if (!channelId.trim() || !channelSecret.trim()) {
-      setError("Enter the Messaging API Channel ID and Channel secret from LINE Developers.");
-      return;
-    }
-
-    setWorking(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/administration/integrations/line", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organizationId,
-          action: "connect",
-          channelId: channelId.trim(),
-          channelSecret: channelSecret.trim(),
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "LINE connection failed");
-      }
-
-      setSnapshot(data);
-      setChannelSecret("");
-      setNotice(
-        data?.connection?.webhookActive
-          ? "LINE Official Account connected and webhook is active."
-          : "LINE Official Account connected. Enable Use webhook in LINE to finish inbound messaging.",
-      );
-    } catch (actionError) {
-      setError(actionError?.message || "LINE connection failed");
-    } finally {
-      setWorking(false);
-    }
-  }
 
   const connected = snapshot?.connection?.status === "ACTIVE";
   const webhookActive = snapshot?.connection?.webhookActive === true;
@@ -94,91 +50,49 @@ export default function LINEIntegrationCard({ organizationId }) {
               </p>
             </div>
             <div className={`rounded-full border px-3 py-1 text-xs ${connected && webhookActive ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : connected ? "border-amber-400/20 bg-amber-400/10 text-amber-100" : "border-white/10 bg-white/[0.04] text-white/50"}`}>
-              {connected && webhookActive ? "Operational" : connected ? "Setup required" : "Not connected"}
+              {connected && webhookActive ? "Operational" : connected ? "Setup in progress" : "Avantiqo setup"}
             </div>
           </div>
 
-          {(error || notice) && (
-            <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm ${error ? "border-red-400/20 bg-red-400/10 text-red-100" : "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"}`}>
-              {error || notice}
+          {error ? (
+            <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+              {error}
             </div>
-          )}
+          ) : null}
 
           {connected ? (
-            <div className="mt-6 space-y-4">
-              <div className={`rounded-2xl border p-5 ${webhookActive ? "border-emerald-400/15 bg-emerald-400/[0.06]" : "border-amber-400/20 bg-amber-400/[0.06]"}`}>
-                <div className={`flex items-center gap-2 ${webhookActive ? "text-emerald-200" : "text-amber-100"}`}>
-                  {webhookActive ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                  <span className="font-medium">
-                    {webhookActive ? "LINE messaging is operational" : "LINE is connected but inbound webhooks are not enabled"}
-                  </span>
-                </div>
-                <div className="mt-3 text-sm text-white/55">
-                  {account?.name || snapshot?.connection?.accountLabel || "Connected LINE Official Account"}
-                </div>
-                {account?.basicId ? (
-                  <div className="mt-1 text-xs text-white/35">{account.basicId}</div>
-                ) : null}
-
-                {!webhookActive ? (
-                  <div className="mt-5 rounded-xl border border-amber-400/15 bg-black/20 p-4 text-xs leading-5 text-amber-50/80">
-                    <div className="font-semibold text-amber-100">One provider-side switch remains</div>
-                    <div className="mt-2">
-                      Open the LINE Developers Console → Messaging API → Webhook settings and enable <strong>Use webhook</strong>. Avantiqo has already registered the webhook URL automatically.
-                    </div>
-                    {snapshot?.connection?.webhookUrl ? (
-                      <div className="mt-3 break-all text-white/40">{snapshot.connection.webhookUrl}</div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={() => load().catch((e) => setError(e?.message || "Refresh failed"))}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Refresh connection
-                </button>
+            <div className={`mt-6 rounded-2xl border p-5 ${webhookActive ? "border-emerald-400/15 bg-emerald-400/[0.06]" : "border-amber-400/20 bg-amber-400/[0.06]"}`}>
+              <div className={`flex items-center gap-2 ${webhookActive ? "text-emerald-200" : "text-amber-100"}`}>
+                {webhookActive ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                <span className="font-medium">
+                  {webhookActive ? "LINE messaging is operational" : "Avantiqo is completing the LINE connection"}
+                </span>
               </div>
-            </div>
-          ) : (
-            <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
-                <div className="text-sm font-medium text-white">LINE Messaging API credentials</div>
-                <p className="mt-2 text-xs leading-5 text-white/40">
-                  Use the Messaging API channel connected to the business LINE Official Account. LINE Login credentials are not used for this connection.
-                </p>
-
-                <label className="mt-5 block text-xs text-white/45">Channel ID</label>
-                <input
-                  value={channelId}
-                  onChange={(event) => setChannelId(event.target.value)}
-                  autoComplete="off"
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none"
-                  placeholder="Messaging API Channel ID"
-                />
-
-                <label className="mt-4 block text-xs text-white/45">Channel secret</label>
-                <input
-                  type="password"
-                  value={channelSecret}
-                  onChange={(event) => setChannelSecret(event.target.value)}
-                  autoComplete="new-password"
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none"
-                  placeholder="Messaging API Channel secret"
-                />
+              <div className="mt-3 text-sm text-white/55">
+                {account?.name || snapshot?.connection?.accountLabel || "Connected LINE Official Account"}
               </div>
-
+              {account?.basicId ? <div className="mt-1 text-xs text-white/35">{account.basicId}</div> : null}
               <button
                 type="button"
-                onClick={connect}
-                disabled={working}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black disabled:opacity-50"
+                onClick={() => load().catch((e) => setError(e?.message || "Refresh failed"))}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70"
               >
-                {working ? "Connecting…" : "Connect LINE Official Account"}
-                <ExternalLink className="h-4 w-4" />
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh connection
               </button>
+            </div>
+          ) : (
+            <div className="mt-6 rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-5">
+              <div className="flex items-center gap-2 text-[#E5C18D]">
+                <ShieldCheck className="h-4 w-4" />
+                <span className="font-medium">No technical setup is required from the customer</span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-white/55">
+                Avantiqo is preparing the shared LINE partner connection. When it is approved and ready, this page will show a simple LINE authorization flow for the Official Account administrator.
+              </p>
+              <p className="mt-3 text-xs leading-5 text-white/35">
+                Customers will not enter Channel IDs, Channel secrets, access tokens, webhook URLs, or LINE Developers settings in Avantiqo.
+              </p>
             </div>
           )}
         </div>

@@ -239,16 +239,73 @@ async function subscribeWaba({ wabaId, accessToken, callbackUrl }) {
   return subscription;
 }
 
-async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, businessId, origin }) {
-  if (!text(code) || !text(phoneNumberId) || !text(wabaId)) {
-    throw new Error("WhatsApp signup did not return the required business account information");
+async function resolvePhone({ wabaId, phoneNumberId, accessToken }) {
+  if (text(phoneNumberId)) {
+    return graphJson(
+      `${text(phoneNumberId)}?fields=id,display_phone_number,verified_name,quality_rating,name_status`,
+      accessToken,
+    );
   }
 
-  const accessToken = await exchangeCode(code);
-  const [phone, businessAccount] = await Promise.all([
-    graphJson(`${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating`, accessToken),
-    graphJson(`${wabaId}?fields=id,name`, accessToken),
-  ]);
+  const result = await graphJson(
+    `${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,name_status`,
+    accessToken,
+  );
+  const phones = Array.isArray(result?.data) ? result.data : [];
+
+  if (phones.length === 1) return phones[0];
+
+  if (phones.length === 0) {
+    const error = new Error(
+      "The WhatsApp Business Account was created in Meta, but no phone number is attached yet. Reopen Connect WhatsApp Business and add or verify the Churchill phone number.",
+    );
+    error.code = "WHATSAPP_PHONE_REQUIRED";
+    throw error;
+  }
+
+  const error = new Error(
+    "This WhatsApp Business Account has multiple phone numbers. Reopen Embedded Signup and select the Churchill phone number so Avantiqo can bind the correct asset.",
+  );
+  error.code = "WHATSAPP_PHONE_SELECTION_REQUIRED";
+  throw error;
+}
+
+async function completeEmbeddedSignup({
+  access,
+  code,
+  sdkAccessToken,
+  phoneNumberId,
+  wabaId,
+  businessId,
+  origin,
+}) {
+  if (!text(code) && !text(sdkAccessToken)) {
+    throw new Error("WhatsApp signup did not return an authorization credential");
+  }
+  if (!text(wabaId)) {
+    throw new Error("WhatsApp signup completed without returning the WhatsApp Business Account ID");
+  }
+
+  const accessToken = text(sdkAccessToken) || (await exchangeCode(code));
+
+  const businessAccount = await graphJson(
+    `${wabaId}?fields=id,name,owner_business_info`,
+    accessToken,
+  );
+  const phone = await resolvePhone({
+    wabaId,
+    phoneNumberId,
+    accessToken,
+  });
+  const resolvedPhoneNumberId = text(phone?.id) || text(phoneNumberId);
+  const resolvedBusinessId =
+    text(businessId) ||
+    text(businessAccount?.owner_business_info?.id) ||
+    null;
+
+  if (!resolvedPhoneNumberId) {
+    throw new Error("WhatsApp phone number could not be resolved after Embedded Signup");
+  }
 
   const callbackUrl = whatsappWebhookUrl(origin);
   await subscribeWaba({ wabaId, accessToken, callbackUrl });
@@ -260,9 +317,9 @@ async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, bus
     metadata: {
       organization_id: access.organizationId,
       purpose: "ORGANIZATION_WHATSAPP_BUSINESS",
-      phone_number_id: phoneNumberId,
+      phone_number_id: resolvedPhoneNumberId,
       waba_id: wabaId,
-      business_id: businessId || null,
+      business_id: resolvedBusinessId,
       enabled: true,
     },
   });
@@ -274,9 +331,9 @@ async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, bus
     credentials_reference: credential.id,
     metadata: {
       connection_model: "ORGANIZATION_WHATSAPP_EMBEDDED_SIGNUP",
-      phone_number_id: phoneNumberId,
+      phone_number_id: resolvedPhoneNumberId,
       waba_id: wabaId,
-      business_id: businessId || null,
+      business_id: resolvedBusinessId,
       display_phone_number: phone?.display_phone_number || null,
       verified_name: phone?.verified_name || null,
       business_name: businessAccount?.name || null,
@@ -293,12 +350,13 @@ async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, bus
     connection_id: connection.id,
     provider: PROVIDER,
     asset_type: "whatsapp_phone_number",
-    external_id: phoneNumberId,
+    external_id: resolvedPhoneNumberId,
     name: phone?.verified_name || phone?.display_phone_number || "WhatsApp Business",
     metadata: {
       display_phone_number: phone?.display_phone_number || null,
       verified_name: phone?.verified_name || null,
       quality_rating: phone?.quality_rating || null,
+      name_status: phone?.name_status || null,
       waba_id: wabaId,
     },
   });
@@ -311,8 +369,8 @@ async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, bus
     external_id: wabaId,
     name: businessAccount?.name || "WhatsApp Business Account",
     metadata: {
-      business_id: businessId || null,
-      phone_number_id: phoneNumberId,
+      business_id: resolvedBusinessId,
+      phone_number_id: resolvedPhoneNumberId,
     },
   });
 
@@ -371,6 +429,7 @@ export async function POST(request) {
     const result = await completeEmbeddedSignup({
       access,
       code: body.code,
+      sdkAccessToken: body.accessToken,
       phoneNumberId: body.phoneNumberId,
       wabaId: body.wabaId,
       businessId: body.businessId || null,
@@ -383,9 +442,20 @@ export async function POST(request) {
       ...result,
     });
   } catch (error) {
+    const code = text(error?.code) || "WHATSAPP_CONNECTION_FAILED";
+    const status =
+      code === "WHATSAPP_PHONE_REQUIRED" ||
+      code === "WHATSAPP_PHONE_SELECTION_REQUIRED"
+        ? 409
+        : 500;
+
     return NextResponse.json(
-      { success: false, error: error?.message || "WhatsApp Business connection failed" },
-      { status: 500 },
+      {
+        success: false,
+        code,
+        error: error?.message || "WhatsApp Business connection failed",
+      },
+      { status },
     );
   }
 }

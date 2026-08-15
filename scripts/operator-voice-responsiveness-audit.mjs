@@ -35,6 +35,7 @@ const fastRuntime = read("lib/operator/runtime/OperatorFastConversationRuntime.j
 const turnRoute = read("app/api/operator/turn/route.js");
 const navigationMatcher = read("lib/operator/runtime/OperatorNavigationMatcher.js");
 const turnRuntime = read("lib/operator/runtime/OperatorTurnRuntime.js");
+const reasoningRuntime = read("lib/operator/runtime/OperatorReasoningRuntime.js");
 const acknowledgementRuntime = read("lib/operator/runtime/OperatorVoiceAcknowledgementRuntime.js");
 const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.js");
 
@@ -71,6 +72,25 @@ requireAll("STRATEGIC_FOLLOW_UP_REASONING", fastRuntime, [
   "what should (?:we|i) do",
   "what do you (?:suggest|recommend|think)",
   "if (STRATEGIC_FOLLOW_UP_PATTERN.test(clean)) return false;",
+]);
+
+requireAll("COMPACT_REASONING_GOAL_CONTEXT", reasoningRuntime, [
+  "function voiceRankingContext",
+  "text(state.objective)",
+  "...list(state.decisions).slice(-4).map(text)",
+  "text(state.progress_summary)",
+  "text(state.next_step)",
+  "text(state.blocker)",
+  "...list(state.open_questions).slice(-3).map(text)",
+  "const rankingContext = voiceRankingContext({",
+  "contextual_ranking: true",
+]);
+
+requireAll("COMPACT_REASONING_STRATEGIC_INTELLIGENCE", reasoningRuntime, [
+  "give a specific recommendation grounded in the recorded objective",
+  "Do not reset to generic advice.",
+  "choose the best safe next step when the recorded context is sufficient.",
+  "Do not ask the user to repeat facts, decisions or constraints already present",
 ]);
 
 requireAll("TURN_LATENCY", turnRoute, [
@@ -213,6 +233,7 @@ if (violations.length) {
   console.log("OPERATOR_VOICE_RESPONSIVENESS_AUDIT=PASS");
   console.log("VOICE_SIMPLE_REPLY=INSTANT_LOCAL_OR_FAST_MODEL");
   console.log("VOICE_STRATEGIC_FOLLOW_UP=COMPACT_REASONING");
+  console.log("VOICE_COMPACT_REASONING=GOAL_CONTEXT_RANKED");
   console.log("VOICE_POLITE_NAVIGATION=INSTANT_LOCAL");
   console.log("VOICE_PLAYBACK=BROWSER_FIRST_FOR_SHORT_RESPONSES");
   console.log("VOICE_TRANSCRIPT=INTERIM_COMMIT_ENABLED");

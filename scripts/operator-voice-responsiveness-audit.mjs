@@ -87,10 +87,17 @@ requireAll("COMPACT_REASONING_GOAL_CONTEXT", reasoningRuntime, [
   "...list(state.decisions).slice(-4).map(text)",
   "text(state.progress_summary)",
   "text(state.next_step)",
+  "...list(state.completed_steps).slice(-3).map(text)",
   "text(state.blocker)",
   "...list(state.open_questions).slice(-3).map(text)",
   "const rankingContext = voiceRankingContext({",
   "contextual_ranking: true",
+]);
+
+requireAll("COMPLETED_STEP_AWARENESS", reasoningRuntime, [
+  "Treat current_project_state.completed_steps as work already completed.",
+  "Do not propose or execute the same completed step again",
+  "completed_step_context: true",
 ]);
 
 requireAll("COMPACT_REASONING_STRATEGIC_INTELLIGENCE", reasoningRuntime, [
@@ -257,7 +264,6 @@ const template = averageWakeTemplates([
   { frames: baseFrames, duration_ms: 960 },
   { frames: baseFrames, duration_ms: 900 },
 ]);
-
 if (!template) violations.push("WAKE_TEMPLATE_NOT_CREATED");
 if (!scoreWakeCandidate(baseFrames, template, 930).matched) {
   violations.push("TRAINED_WAKE_PHRASE_NOT_MATCHED");
@@ -283,6 +289,7 @@ if (violations.length) {
   console.log("VOICE_STRATEGIC_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_CONTEXTUAL_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_COMPACT_REASONING=GOAL_CONTEXT_RANKED");
+  console.log("VOICE_COMPLETED_STEPS=RANKED_AND_NOT_REPEATED");
   console.log("VOICE_STRATEGIC_MEMORY=WORKING_DIRECTION_AND_ACCEPTED_DECISIONS");
   console.log("VOICE_SEMANTIC_READ_RANKING=BUSINESS_LANGUAGE_HINTED");
   console.log("VOICE_FACT_REQUEST=READ_BEFORE_NAVIGATION");

@@ -5,15 +5,45 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { consumeOAuthAuthorization } from "@/lib/platform/security/oauthAuthorizationState";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+const API_VERSION = "2026-07";
+const WEBHOOK_TOPICS = [
+  "PRODUCTS_CREATE",
+  "PRODUCTS_UPDATE",
+  "PRODUCTS_DELETE",
+  "ORDERS_CREATE",
+  "ORDERS_UPDATED",
+  "ORDERS_CANCELLED",
+  "INVENTORY_ITEMS_UPDATE",
+  "INVENTORY_LEVELS_UPDATE",
+  "LOCATIONS_CREATE",
+  "LOCATIONS_UPDATE",
+  "LOCATIONS_DELETE",
+];
+
+function text(value) {
+  return String(value ?? "").trim();
+}
 
 function clientId() {
-  return String(process.env.SHOPIFY_CLIENT_ID || process.env.SHOPIFY_API_KEY || "").trim();
+  return text(process.env.SHOPIFY_CLIENT_ID || process.env.SHOPIFY_API_KEY);
 }
 
 function clientSecret() {
-  return String(process.env.SHOPIFY_CLIENT_SECRET || process.env.SHOPIFY_API_SECRET || "").trim();
+  return text(process.env.SHOPIFY_CLIENT_SECRET || process.env.SHOPIFY_API_SECRET);
+}
+
+function publicOrigin(requestUrl) {
+  return new URL(
+    process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      requestUrl.origin,
+  ).origin;
 }
 
 function safeEqual(a, b) {
@@ -37,42 +67,190 @@ function destination(origin, organizationId, message) {
   return url;
 }
 
+async function graph({ shop, accessToken, query, variables = {} }) {
+  const response = await fetch(`https://${shop}/admin/api/${API_VERSION}/graphql.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": accessToken,
+    },
+    body: JSON.stringify({ query, variables }),
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.errors?.length) {
+    throw new Error(
+      payload?.errors?.[0]?.message ||
+        `Shopify GraphQL request failed (${response.status})`,
+    );
+  }
+  return payload?.data || {};
+}
+
+async function registerWebhooks({ shop, accessToken, webhookUrl }) {
+  const existingData = await graph({
+    shop,
+    accessToken,
+    query: `
+      query AvantiqoWebhookSubscriptions {
+        webhookSubscriptions(first: 100) {
+          nodes { id topic uri }
+        }
+      }
+    `,
+  });
+  const existing = new Set(
+    (existingData?.webhookSubscriptions?.nodes || []).map(
+      (row) => `${row.topic}|${row.uri}`,
+    ),
+  );
+
+  const mutation = `
+    mutation AvantiqoWebhookSubscriptionCreate(
+      $topic: WebhookSubscriptionTopic!,
+      $webhookSubscription: WebhookSubscriptionInput!
+    ) {
+      webhookSubscriptionCreate(
+        topic: $topic,
+        webhookSubscription: $webhookSubscription
+      ) {
+        webhookSubscription { id topic uri }
+        userErrors { field message }
+      }
+    }
+  `;
+
+  const registered = [];
+  for (const topic of WEBHOOK_TOPICS) {
+    if (existing.has(`${topic}|${webhookUrl}`)) {
+      registered.push(topic);
+      continue;
+    }
+    const data = await graph({
+      shop,
+      accessToken,
+      query: mutation,
+      variables: {
+        topic,
+        webhookSubscription: {
+          uri: webhookUrl,
+          format: "JSON",
+        },
+      },
+    });
+    const result = data?.webhookSubscriptionCreate || {};
+    if (result?.userErrors?.length) {
+      throw new Error(
+        result.userErrors.map((row) => row.message).filter(Boolean).join("; ") ||
+          `Shopify webhook setup failed for ${topic}`,
+      );
+    }
+    if (!result?.webhookSubscription?.id) {
+      throw new Error(`Shopify webhook setup failed for ${topic}`);
+    }
+    registered.push(topic);
+  }
+  return registered;
+}
+
+async function ensureOnlineStoreService(organizationId) {
+  const existing = await OrganizationServiceRuntime.get({
+    organization_id: organizationId,
+    service_id: "online-store",
+  }).catch(() => null);
+
+  if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") {
+    return existing;
+  }
+
+  return OrganizationServiceRuntime.save({
+    ...(existing || {}),
+    organization_id: organizationId,
+    service_category_id: existing?.service_category_id || "commerce",
+    service_id: "online-store",
+    package_id: existing?.package_id || "growth",
+    status: "ACTIVE",
+    managed_by: existing?.managed_by || "organization",
+    authorization_required: true,
+    usage_enabled: true,
+    billing_enabled: true,
+    billing_mode: existing?.billing_mode || "USAGE",
+    pricing_mode: existing?.pricing_mode || "PROVIDER",
+    fallback_enabled: false,
+    activated_at: existing?.activated_at || new Date().toISOString(),
+    metadata: {
+      ...(existing?.metadata || {}),
+      provider: "shopify",
+      connection_model: "ORGANIZATION_OAUTH",
+    },
+    configuration: existing?.configuration || {},
+  });
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
   let authorization = null;
   try {
-    if (!clientId() || !clientSecret()) throw new Error("Shopify connection is not configured by Avantiqo yet");
-    if (!state || !verifyHmac(url)) throw new Error("Shopify connection validation failed");
+    if (!clientId() || !clientSecret()) {
+      throw new Error("Shopify connection is not configured by Avantiqo yet");
+    }
+    if (!state || !verifyHmac(url)) {
+      throw new Error("Shopify connection validation failed");
+    }
+
     authorization = await consumeOAuthAuthorization({ state, provider: "shopify" });
     const organizationId = authorization.organization_id;
-    const shop = String(url.searchParams.get("shop") || authorization.metadata?.shop || "").trim().toLowerCase();
+    const shop = text(url.searchParams.get("shop") || authorization.metadata?.shop).toLowerCase();
     const code = url.searchParams.get("code");
-    if (!shop || !code) throw new Error("Shopify did not return the required authorization data");
+    if (!shop || !code) {
+      throw new Error("Shopify did not return the required authorization data");
+    }
 
     const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: clientId(), client_secret: clientSecret(), code }),
+      body: JSON.stringify({
+        client_id: clientId(),
+        client_secret: clientSecret(),
+        code,
+      }),
       cache: "no-store",
     });
     const token = await tokenResponse.json().catch(() => ({}));
-    if (!tokenResponse.ok || !token.access_token) throw new Error(token.error_description || "Shopify access token exchange failed");
+    if (!tokenResponse.ok || !token.access_token) {
+      throw new Error(token.error_description || "Shopify access token exchange failed");
+    }
 
-    const granted = new Set(String(token.scope || "").split(",").map((value) => value.trim()).filter(Boolean));
+    const granted = new Set(
+      String(token.scope || "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
     const required = ["read_products", "read_orders", "read_inventory", "read_locations"];
     const missing = required.filter((scope) => !granted.has(scope));
-    if (missing.length) throw new Error(`Shopify did not grant required access: ${missing.join(", ")}`);
+    if (missing.length) {
+      throw new Error(`Shopify did not grant required access: ${missing.join(", ")}`);
+    }
 
-    const gqlResponse = await fetch(`https://${shop}/admin/api/2026-07/graphql.json`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token.access_token },
-      body: JSON.stringify({ query: "query AvantiqoShopIdentity { shop { id name email myshopifyDomain primaryDomain { url } } }" }),
-      cache: "no-store",
+    const identityData = await graph({
+      shop,
+      accessToken: token.access_token,
+      query: `
+        query AvantiqoShopIdentity {
+          shop {
+            id
+            name
+            email
+            myshopifyDomain
+            primaryDomain { url }
+          }
+        }
+      `,
     });
-    const gql = await gqlResponse.json().catch(() => ({}));
-    const identity = gql?.data?.shop;
-    if (!gqlResponse.ok || !identity?.id) throw new Error(gql?.errors?.[0]?.message || "Shopify store verification failed");
+    const identity = identityData?.shop;
+    if (!identity?.id) throw new Error("Shopify store verification failed");
 
     const credential = await CredentialRuntime.store({
       provider_id: "shopify",
@@ -86,7 +264,9 @@ export async function GET(request) {
         enabled: true,
       },
     });
-    const connection = await ChannelConnectionRuntime.connect({
+
+    const connectedAt = new Date().toISOString();
+    let connection = await ChannelConnectionRuntime.connect({
       organization_id: organizationId,
       provider: "shopify",
       channel_type: "commerce",
@@ -96,9 +276,12 @@ export async function GET(request) {
         shop_id: identity.id,
         account_name: identity.name || shop,
         primary_domain: identity.primaryDomain?.url || null,
-        connected_at: new Date().toISOString(),
+        connected_at: connectedAt,
+        connection_model: "ORGANIZATION_SHOPIFY_OAUTH",
+        webhook_ready: false,
       },
     });
+
     await ChannelAssetRuntime.register({
       organization_id: organizationId,
       connection_id: connection.id,
@@ -106,10 +289,58 @@ export async function GET(request) {
       asset_type: "shopify_store",
       external_id: identity.id,
       name: identity.name || shop,
-      metadata: { shop, primary_domain: identity.primaryDomain?.url || null },
+      metadata: {
+        shop,
+        primary_domain: identity.primaryDomain?.url || null,
+      },
     });
 
-    return NextResponse.redirect(destination(authorization.return_origin || url.origin, organizationId, "Shopify connected."));
+    const webhookUrl = `${publicOrigin(url)}/api/commerce/shopify/webhooks`;
+    const webhookTopics = await registerWebhooks({
+      shop,
+      accessToken: token.access_token,
+      webhookUrl,
+    });
+
+    connection = await ChannelConnectionRuntime.connect({
+      organization_id: organizationId,
+      provider: "shopify",
+      channel_type: "commerce",
+      credentials_reference: credential.id,
+      metadata: {
+        shop,
+        shop_id: identity.id,
+        account_name: identity.name || shop,
+        primary_domain: identity.primaryDomain?.url || null,
+        connected_at: connectedAt,
+        connection_model: "ORGANIZATION_SHOPIFY_OAUTH",
+        webhook_ready: true,
+        webhook_url: webhookUrl,
+        webhook_topics: webhookTopics,
+        webhook_configured_at: new Date().toISOString(),
+      },
+    });
+
+    const authorizedAt = new Date().toISOString();
+    await supabaseAdmin
+      .from("organization_channel_connections")
+      .update({
+        authorized_by_party_id: authorization.party_id || null,
+        authorized_at: authorizedAt,
+        updated_at: authorizedAt,
+      })
+      .eq("id", connection.id)
+      .eq("organization_id", organizationId);
+
+    await ensureOnlineStoreService(organizationId);
+
+    return NextResponse.redirect(
+      destination(
+        authorization.return_origin || url.origin,
+        organizationId,
+        "Shopify connected and synchronized.",
+      ),
+    );
   } catch (error) {
     return NextResponse.redirect(
       destination(

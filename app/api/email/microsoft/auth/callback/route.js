@@ -6,6 +6,7 @@ import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAsse
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { consumeOAuthAuthorization } from "@/lib/platform/security/oauthAuthorizationState";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 
 function callbackOrigin() {
   return new URL(process.env.MICROSOFT_EMAIL_OAUTH_CALLBACK_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || "https://avantiqo.ai").origin;
@@ -19,6 +20,39 @@ function destination(origin, organizationId, message) {
   const url = new URL(`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`, origin);
   url.searchParams.set("message", message);
   return url;
+}
+
+async function ensureEmailService(organizationId) {
+  const existing = await OrganizationServiceRuntime.get({
+    organization_id: organizationId,
+    service_id: "email",
+  }).catch(() => null);
+
+  if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") {
+    return existing;
+  }
+
+  return OrganizationServiceRuntime.save({
+    ...(existing || {}),
+    organization_id: organizationId,
+    service_category_id: existing?.service_category_id || "communication",
+    service_id: "email",
+    package_id: existing?.package_id || "core",
+    status: "ACTIVE",
+    managed_by: existing?.managed_by || "organization",
+    authorization_required: true,
+    usage_enabled: true,
+    billing_enabled: true,
+    billing_mode: existing?.billing_mode || "USAGE",
+    pricing_mode: existing?.pricing_mode || "PROVIDER",
+    fallback_enabled: false,
+    activated_at: existing?.activated_at || new Date().toISOString(),
+    metadata: {
+      ...(existing?.metadata || {}),
+      connection_model: "ORGANIZATION_MAILBOX",
+    },
+    configuration: existing?.configuration || {},
+  });
 }
 
 export async function GET(request) {
@@ -100,6 +134,7 @@ export async function GET(request) {
       name: identity.displayName || email,
       metadata: { email },
     });
+    await ensureEmailService(organizationId);
 
     return NextResponse.redirect(destination(authorization.return_origin || callbackOrigin(), organizationId, "Microsoft mailbox connected."));
   } catch (error) {

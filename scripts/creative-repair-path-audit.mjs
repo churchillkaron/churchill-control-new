@@ -1776,6 +1776,102 @@ async function stubShotsAreRejectedPerScene() {
   );
 }
 
+// 28. A shot that works through type rather than a camera must not be asked for camera direction, and
+// a photographed shot must still not be allowed to answer "none".
+//
+// The contract assumed every shot was live-action photography. A closing typographic card -- black
+// frame, animated text, no wardrobe, no props, no location -- produced twenty-two failures for fields
+// that do not exist in it, two thirds of everything still wrong with the last film, and the director
+// had answered correctly every time. The reverse error matters just as much: "none" on a photographed
+// shot is a blank, and accepting it would let every locked-off frame go undescribed. Worse, rejecting
+// it outright is what made camera movement effectively mandatory on every shot, which is its own
+// route to boring work.
+async function absenceIsADecisionNotALoophole() {
+  const { validateCreativeMasterPlan } = await import(
+    "@/lib/creative/director/validation/CreativeMasterPlanValidator"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const failuresFor = (mutate) => {
+    const plan = JSON.parse(JSON.stringify(fixture.temporalBasePlan()));
+    plan.scenes = [fixture.temporalScene("scene-1")];
+    plan.scenes[0].shots = [fixture.temporalShot("scene-1-shot-1")];
+    plan.quality = fixture.TEMPORAL_QUALITY;
+    mutate(plan.scenes[0].shots[0]);
+    const result = validateCreativeMasterPlan({
+      plan,
+      assets: plan.asset_manifest.map((entry) => ({ id: entry.asset_id, asset_type: "video" })),
+    });
+    return result.failures.filter((failure) => failure.path?.includes("shots.0"));
+  };
+
+  const baseline = failuresFor(() => {});
+  check("the fixture shot is valid before mutation", baseline.length === 0,
+    baseline.map((f) => `${f.code}@${f.path}`).join(", "));
+
+  // A photographed shot answering "none" stays rejected.
+  const blanked = failuresFor((shot) => { shot.camera.movement_speed = "none"; });
+  check(
+    "a photographed shot cannot answer none",
+    blanked.some((failure) => failure.path === "scenes.0.shots.0.camera.movement_speed"),
+    `failures=${blanked.length}`,
+  );
+
+  // The same value on a shot carrying real type direction is a statement, not a gap.
+  const card = failuresFor((shot) => {
+    shot.graphics = {
+      titles: [{ content: "a real closing line of type", style: "amber", animation: "fade" }],
+      overlays: [],
+    };
+    shot.camera.movement_speed = "none";
+    shot.camera.lens_intent = "";
+    shot.lighting.source = "";
+    shot.production_design.wardrobe = "";
+    shot.continuity.screen_direction = "";
+  });
+  const cardPaths = card.map((failure) => failure.path);
+  check(
+    "a type-driven shot is not asked for camera, lighting, design or continuity it does not have",
+    !cardPaths.some((path) => /camera\.(movement_speed|lens_intent)|lighting\.source|production_design\.wardrobe|continuity\.screen_direction/.test(String(path))),
+    `still demanded: ${cardPaths.join(", ")}`,
+  );
+
+  // The relief has to be earned, not claimed: without real graphic direction it does not apply.
+  const claimed = failuresFor((shot) => {
+    shot.graphics = { titles: [], overlays: [] };
+    shot.lighting.source = "";
+  });
+  check(
+    "the relief does not apply to a shot with no graphic direction",
+    claimed.some((failure) => failure.path === "scenes.0.shots.0.lighting.source"),
+  );
+
+  // Sound and frames survive a card, because the track keeps playing across it.
+  const silentCard = failuresFor((shot) => {
+    shot.graphics = { titles: [{ content: "a real closing line of type" }], overlays: [] };
+    shot.audio.source_sound = "";
+    shot.audio.mix_intent = "";
+  });
+  check(
+    "a card still has to account for its sound",
+    silentCard.some((failure) => String(failure.path).includes("audio.")),
+  );
+
+  const runtime = globalThis.__auditFs.readFileSync(
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "utf8",
+  );
+  check(
+    "the director is told how to state absence",
+    /State absence as a decision, never as a blank/.test(runtime) &&
+      /locked off on sticks/.test(runtime),
+  );
+  check(
+    "the director is told a card needs no camera",
+    /works through graphics or type rather than a camera/.test(runtime),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1811,6 +1907,7 @@ async function main() {
   await promptExamplesAreValidAndCapabilityFree();
   await basePromptNamesTheSuppliedAssets();
   await stubShotsAreRejectedPerScene();
+  await absenceIsADecisionNotALoophole();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

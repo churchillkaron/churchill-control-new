@@ -2257,6 +2257,89 @@ async function inventedAssetIdsAreRejected() {
   );
 }
 
+// 35. The asset manifest may not account for assets that do not exist, and the check has to cover every
+// place the contract lets an id appear: asset_manifest.asset_id, shot.primary_source_asset_id and
+// shot.reference_assets are the three, and all three are now checked for existence rather than only for
+// agreeing with each other.
+//
+// validateAssetManifest walked the supplied ids asking whether each had an entry, so an entry for an id
+// nobody supplied was never looked at. One film returned thirteen entries of which nine were invented and
+// only the genuinely missing ones were reported. Unaccounted selected assets and a manifest naming
+// assets that do not exist are different faults and both need saying.
+async function inventedManifestEntriesAreRejected() {
+  const { validateCreativeMasterPlan } = await import(
+    "@/lib/creative/director/validation/CreativeMasterPlanValidator"
+  );
+  const fixture = await import("../scripts/creative-temporal-contract-fixture.mjs");
+
+  const build = () => {
+    const plan = JSON.parse(JSON.stringify(fixture.temporalBasePlan()));
+    plan.scenes = [fixture.temporalScene("scene-1")];
+    plan.scenes[0].shots = [fixture.temporalShot("scene-1-shot-1")];
+    plan.quality = fixture.TEMPORAL_QUALITY;
+    return plan;
+  };
+  const validate = (plan, assets) =>
+    validateCreativeMasterPlan({ plan, assets }).failures;
+
+  const clean = build();
+  const realAssets = clean.asset_manifest.map((e) => ({ id: e.asset_id, asset_type: "video" }));
+  check("the fixture manifest names only real assets",
+    validate(clean, realAssets).length === 0);
+
+  // A filename used as an id, which is the shape that actually occurred.
+  const invented = build();
+  invented.asset_manifest.push({
+    asset_id: "IMG_0023.MOV", disposition: "REFERENCE",
+    reason: "the handheld clip this sequence is built from", confidence: 90,
+    assignments: ["del-1"], restrictions: {}, continuity_anchors: {}, repair_requirements: [],
+  });
+  const unknown = validate(invented, realAssets)
+    .filter((failure) => failure.code === "MANIFEST_ASSET_UNKNOWN");
+  check("a manifest entry for an asset that does not exist is rejected", unknown.length === 1,
+    `${unknown.length} raised`);
+  check(
+    "the rejection names the id and says what an id is not",
+    unknown.length > 0 && unknown[0].evidence === "IMG_0023.MOV" &&
+      /a file name is not an asset id/.test(String(unknown[0].message)),
+    String(unknown[0]?.message || "").slice(0, 80),
+  );
+
+  // A genuinely missing asset is still its own separate fault.
+  const missing = build();
+  const extraAssets = [...realAssets, { id: "aaaaaaaa-1111-2222-3333-444444444444", asset_type: "video" }];
+  const codes = validate(missing, extraAssets).map((failure) => failure.code);
+  check("an unaccounted supplied asset is still reported separately",
+    codes.includes("SELECTED_ASSET_UNACCOUNTED") && !codes.includes("MANIFEST_ASSET_UNKNOWN"),
+    codes.join(", "));
+
+  // Every field the contract lets an id appear in is covered.
+  const validator = globalThis.__auditFs.readFileSync(
+    "lib/creative/director/validation/CreativeMasterPlanValidator.js",
+    "utf8",
+  );
+  check("manifest ids are existence-checked", /MANIFEST_ASSET_UNKNOWN/.test(validator));
+  check("shot reference and primary-source ids are existence-checked",
+    /SHOT_ASSET_REFERENCE_UNKNOWN/.test(validator));
+
+  // The storage URL is no longer handed to either director, because that hashed path is where the ids
+  // were being mined from.
+  for (const [label, file] of [
+    ["temporal", "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js"],
+    ["universal", "lib/creative/director/runtime/CreativeMasterPlanRuntime.js"],
+  ]) {
+    const runtime = globalThis.__auditFs.readFileSync(file, "utf8");
+    check(`the ${label} director is not given a storage url`,
+      !/url: asset\.url/.test(runtime));
+  }
+  const universal = globalThis.__auditFs.readFileSync(
+    "lib/creative/director/runtime/CreativeMasterPlanRuntime.js",
+    "utf8",
+  );
+  check("the universal path is told what is not an asset id",
+    /are not its id/.test(universal));
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2299,6 +2382,7 @@ async function main() {
   await dependentFieldsFollowTheirParent();
   await assetAssignmentsExplainThemselves();
   await inventedAssetIdsAreRejected();
+  await inventedManifestEntriesAreRejected();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

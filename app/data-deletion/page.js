@@ -49,6 +49,7 @@ export default function DataDeletionPage() {
           <p className="mt-7 max-w-4xl text-lg leading-8 text-white/55">
             These instructions explain how an Avantiqo user or authorized organization representative can request deletion of eligible account, organization and connected-service data.
           </p>
+          <p className="mt-3 text-xs text-white/35">Last updated: 15 August 2026</p>
           <div className="mt-8 max-w-4xl rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.04] p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#D6A66A]">Legal operator</p>
             <p className="mt-3 text-sm leading-7 text-white/55">

@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
+  History,
   RefreshCw,
   ShieldCheck,
   UserX,
@@ -85,6 +86,25 @@ function humanizeClassification(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function organizationLocalInput(value, timeZone) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timeZone || "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type) => parts.find((item) => item.type === type)?.value || "";
+
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+}
+
 export default function AttendanceManagementPage() {
   const params = useParams();
   const organizationId = String(params?.organizationId || "").trim();
@@ -94,6 +114,8 @@ export default function AttendanceManagementPage() {
   const [data, setData] = useState({
     shifts: [],
     attendance: [],
+    attendanceCorrections: [],
+    correctableShifts: [],
     pendingShifts: [],
     lateShifts: [],
     absenceCandidates: [],
@@ -140,6 +162,7 @@ export default function AttendanceManagementPage() {
       shifts: data.shifts?.length || 0,
       pending: data.pendingShifts?.length || 0,
       late: data.lateShifts?.length || 0,
+      corrections: data.attendanceCorrections?.length || 0,
       absences: data.absenceCandidates?.length || 0,
     }),
     [data]
@@ -213,24 +236,38 @@ export default function AttendanceManagementPage() {
     );
   }
 
-  async function adjustLateness(shift) {
-    const current = Number(shift.late_minutes || 0);
-    const value = window.prompt("Correct late minutes:", String(current));
-    if (value === null) return;
-    const lateMinutes = Number(value);
-    if (!Number.isInteger(lateMinutes) || lateMinutes < 0) {
-      setMessage("Late minutes must be a non-negative whole number.");
+  async function correctShiftTime(shift) {
+    const timezone = data.timezone || "UTC";
+    const correctedClockInLocal = window.prompt(
+      `Correct effective clock-in (${timezone})\nUse YYYY-MM-DDTHH:MM`,
+      organizationLocalInput(shift.clock_in, timezone)
+    );
+    if (correctedClockInLocal === null) return;
+
+    const correctedClockOutLocal = window.prompt(
+      `Correct effective clock-out (${timezone})\nUse YYYY-MM-DDTHH:MM`,
+      organizationLocalInput(shift.clock_out, timezone)
+    );
+    if (correctedClockOutLocal === null) return;
+
+    const reason = window.prompt(
+      "Manager correction reason / evidence (required):",
+      ""
+    );
+    if (!reason || reason.trim().length < 3) {
+      setMessage("A correction reason of at least 3 characters is required.");
       return;
     }
-    const notes = window.prompt("Reason for lateness adjustment:", "");
-    if (!notes) {
-      setMessage("An adjustment reason is required.");
-      return;
-    }
+
     await patch(
-      "adjust_lateness",
-      { shiftId: shift.id, lateMinutes, notes },
-      "Lateness adjusted and approved."
+      "correct_shift_time",
+      {
+        shiftId: shift.id,
+        correctedClockInLocal: correctedClockInLocal.trim(),
+        correctedClockOutLocal: correctedClockOutLocal.trim(),
+        reason: reason.trim(),
+      },
+      "Attendance correction recorded. Raw clock evidence was preserved and payroll will use the approved effective time."
     );
   }
 
@@ -350,9 +387,9 @@ export default function AttendanceManagementPage() {
             </p>
             <h1 className="mt-2 text-4xl font-black">Attendance Management</h1>
             <p className="mt-2 max-w-3xl text-zinc-400">
-              Review unscheduled work, lateness and missed published shifts before payroll.
-              Classify every unworked completed schedule as absence, approved leave, sick leave,
-              public holiday or training. Raw clock-in and clock-out evidence remains unchanged.
+              Review work evidence before payroll. Raw clock-in and clock-out records are immutable.
+              Manager time corrections are appended as approved evidence with a reason, actor and timestamp;
+              payroll uses the latest approved effective time without rewriting the original clock record.
             </p>
             {data.organizationId ? (
               <p className="mt-2 text-xs text-zinc-600">
@@ -398,10 +435,11 @@ export default function AttendanceManagementPage() {
           </section>
         ) : null}
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Metric icon={<Clock3 size={18} />} label="Shift evidence" value={summary.shifts} />
           <Metric icon={<ShieldCheck size={18} />} label="Pending review" value={summary.pending} />
-          <Metric icon={<AlertTriangle size={18} />} label="Late shifts" value={summary.late} />
+          <Metric icon={<AlertTriangle size={18} />} label="Effective late" value={summary.late} />
+          <Metric icon={<History size={18} />} label="Corrections" value={summary.corrections} />
           <Metric icon={<UserX size={18} />} label="Needs classification" value={summary.absences} />
         </section>
 
@@ -424,11 +462,11 @@ export default function AttendanceManagementPage() {
                 <div className="text-xs text-zinc-500">{shift.shift_source || "UNSCHEDULED"}</div>
               </div>
               <div className="text-sm text-zinc-300">
-                <div>{formatDateTime(shift.clock_in)}</div>
-                <div className="text-zinc-500">{shift.clock_out ? formatDateTime(shift.clock_out) : "Open shift"}</div>
+                <div>{formatDateTime(shift.raw_clock_in || shift.clock_in, data.timezone)}</div>
+                <div className="text-zinc-500">{shift.raw_clock_out || shift.clock_out ? formatDateTime(shift.raw_clock_out || shift.clock_out, data.timezone) : "Open shift"}</div>
               </div>
               <div className="text-sm text-zinc-400">
-                {Number(shift.worked_minutes || 0)} worked min · {Number(shift.overtime_minutes || 0)} OT min
+                {Number(shift.raw_worked_minutes ?? shift.worked_minutes ?? 0)} worked min · {Number(shift.raw_overtime_minutes ?? shift.overtime_minutes ?? 0)} OT min
               </div>
               <div className="flex gap-2">
                 <button disabled={busyId === shift.id} onClick={() => reviewShift(shift, "APPROVED")} className="action action-ok">
@@ -443,28 +481,60 @@ export default function AttendanceManagementPage() {
         </WorkspaceSection>
 
         <WorkspaceSection
-          title="Lateness Review"
-          eyebrow="Attendance exceptions"
-          empty="No late shift evidence for this month."
+          title="Worked Shift Corrections"
+          eyebrow="Immutable raw evidence · approved effective time"
+          empty="No completed approved shifts are available for correction this month."
           loading={loading}
         >
-          {(data.lateShifts || []).map((shift) => (
-            <div key={shift.id} className="grid gap-4 border-t border-white/5 px-5 py-4 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center">
-              <div>
-                <div className="font-bold">{shift.staff_name}</div>
-                <div className="text-xs text-zinc-500">{shift.shift_source || "SCHEDULED"}</div>
+          {(data.correctableShifts || []).map((shift) => {
+            const corrected = Boolean(shift.attendance_correction_id);
+            return (
+              <div key={shift.id} className="grid gap-4 border-t border-white/5 px-5 py-4 lg:grid-cols-[1.25fr_1.35fr_1.35fr_auto] lg:items-center">
+                <div>
+                  <div className="font-bold">{shift.staff_name}</div>
+                  <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                    <span className="text-zinc-500">{shift.shift_source || "SCHEDULED"}</span>
+                    {corrected ? (
+                      <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-0.5 text-cyan-200">
+                        Correction #{shift.attendance_correction_no}
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-zinc-500">Raw evidence</span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-sm">
+                  <div className="text-xs uppercase tracking-wider text-zinc-600">Raw clock</div>
+                  <div className="mt-1 text-zinc-400">
+                    {formatDateTime(shift.raw_clock_in || shift.clock_in, data.timezone)}
+                  </div>
+                  <div className="text-zinc-600">
+                    → {formatDateTime(shift.raw_clock_out || shift.clock_out, data.timezone)}
+                  </div>
+                </div>
+                <div className="text-sm">
+                  <div className="text-xs uppercase tracking-wider text-zinc-600">Effective for payroll</div>
+                  <div className={corrected ? "mt-1 text-cyan-200" : "mt-1 text-zinc-300"}>
+                    {formatDateTime(shift.clock_in, data.timezone)}
+                  </div>
+                  <div className={corrected ? "text-cyan-300/70" : "text-zinc-500"}>
+                    → {formatDateTime(shift.clock_out, data.timezone)}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    {Number(shift.worked_minutes || 0)} worked · {Number(shift.overtime_minutes || 0)} OT · {Number(shift.late_minutes || 0)} late min
+                  </div>
+                  {corrected ? (
+                    <div className="mt-2 text-xs text-zinc-500">
+                      {shift.attendance_correction_reason} · {shift.attendance_corrected_by || "Manager"} · {formatDateTime(shift.attendance_corrected_at, data.timezone)}
+                    </div>
+                  ) : null}
+                </div>
+                <button disabled={busyId === shift.id} onClick={() => correctShiftTime(shift)} className="action">
+                  <History size={15} /> {corrected ? "Correct again" : "Correct time"}
+                </button>
               </div>
-              <div className="text-sm text-zinc-300">{formatDateTime(shift.clock_in)}</div>
-              <div className="text-sm">
-                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-300">
-                  {Number(shift.late_minutes || 0)} late min
-                </span>
-              </div>
-              <button disabled={busyId === shift.id} onClick={() => adjustLateness(shift)} className="action">
-                Adjust
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </WorkspaceSection>
 
         <WorkspaceSection
@@ -532,7 +602,7 @@ export default function AttendanceManagementPage() {
                   {humanizeClassification(classification || "PRESENT")}
                 </div>
                 <div className="text-sm text-zinc-500">
-                  {row.approved_at ? `Reviewed ${formatDateTime(row.approved_at)}` : "Not reviewed"}
+                  {row.approved_at ? `Reviewed ${formatDateTime(row.approved_at, data.timezone)}` : "Raw attendance record"}
                 </div>
                 {canReclassify ? (
                   <button
@@ -544,7 +614,7 @@ export default function AttendanceManagementPage() {
                   </button>
                 ) : (
                   <div className="text-xs text-zinc-600">
-                    {Number(row.late_minutes || 0)} late min
+                    {Number(row.late_minutes || 0)} raw late min
                   </div>
                 )}
               </div>
@@ -594,11 +664,12 @@ function Metric({ icon, label, value }) {
   );
 }
 
-function formatDateTime(value) {
+function formatDateTime(value, timeZone) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString([], {
+    timeZone: timeZone || undefined,
     year: "numeric",
     month: "short",
     day: "2-digit",

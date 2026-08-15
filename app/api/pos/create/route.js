@@ -41,6 +41,9 @@ export async function POST(request) {
       "organizationId",
       "organization_id"
     );
+    const requestedEntityId =
+      readValue(body, "entityId", "entity_id") ||
+      readValue(body, "legalEntityId", "legal_entity_id");
     const access = await requireOrganizationAccess({
       organizationId: requestedOrganizationId,
       request,
@@ -75,6 +78,7 @@ export async function POST(request) {
     const result = await application.adapter.createOrder({
       body,
       access,
+      entityId: requestedEntityId,
       organization,
       organizationId,
       request,

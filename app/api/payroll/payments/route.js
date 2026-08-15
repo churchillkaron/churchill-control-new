@@ -3,8 +3,10 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
-import preparePayrollPaymentBatch from "@/lib/payroll/payments/preparePayrollPaymentBatch";
-import reconcilePayrollPaymentBatch from "@/lib/payroll/payments/reconcilePayrollPaymentBatch";
+import {
+  preparePayrollPaymentBatch,
+  reconcilePayrollPaymentBatch,
+} from "@/lib/people/payroll";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const PAYMENT_ROLES = new Set([

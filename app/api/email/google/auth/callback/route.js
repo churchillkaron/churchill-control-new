@@ -8,9 +8,15 @@ import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/ru
 import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
+import { syncEmailConnection } from "@/lib/commercial/communications/CommunicationEmailInboxSyncRuntime";
+import { ensureEmailConnectionSubscription } from "@/lib/commercial/communications/CommunicationEmailSubscriptionRuntime";
 
 function callbackOrigin() {
-  return new URL(process.env.GOOGLE_EMAIL_OAUTH_CALLBACK_ORIGIN || process.env.GOOGLE_OAUTH_CALLBACK_ORIGIN || "https://avantiqo.ai").origin;
+  return new URL(
+    process.env.GOOGLE_EMAIL_OAUTH_CALLBACK_ORIGIN ||
+      process.env.GOOGLE_OAUTH_CALLBACK_ORIGIN ||
+      "https://avantiqo.ai",
+  ).origin;
 }
 
 function client() {
@@ -54,24 +60,67 @@ async function ensureEmailService(organizationId) {
   });
 }
 
+async function initializeMailbox(connection) {
+  const warnings = [];
+  let current = connection;
+
+  try {
+    await syncEmailConnection({ connection: current });
+  } catch (error) {
+    warnings.push(error?.message || "INITIAL_EMAIL_SYNC_FAILED");
+  }
+
+  current =
+    (await ChannelConnectionRuntime.getById({
+      organization_id: connection.organization_id,
+      connection_id: connection.id,
+    }).catch(() => null)) || current;
+
+  try {
+    const subscription = await ensureEmailConnectionSubscription({ connection: current });
+    if (subscription?.skipped && subscription?.reason) warnings.push(subscription.reason);
+  } catch (error) {
+    warnings.push(error?.message || "EMAIL_PUSH_SETUP_FAILED");
+  }
+
+  return warnings;
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
   let authorization = null;
+
   try {
-    if (!state) throw new Error("Google mailbox connection validation failed or expired");
-    authorization = await consumeOAuthAuthorization({ state, provider: "email_google" });
+    if (!state) {
+      throw new Error("Google mailbox connection validation failed or expired");
+    }
+
+    authorization = await consumeOAuthAuthorization({
+      state,
+      provider: "email_google",
+    });
+
     const code = url.searchParams.get("code");
-    if (url.searchParams.get("error")) throw new Error(`Google mailbox connection was not approved: ${url.searchParams.get("error")}`);
+    if (url.searchParams.get("error")) {
+      throw new Error(
+        `Google mailbox connection was not approved: ${url.searchParams.get("error")}`,
+      );
+    }
     if (!code) throw new Error("Google did not return an authorization code");
 
     const oauth = client();
     const { tokens } = await oauth.getToken(code);
-    if (!tokens.access_token) throw new Error("Google did not return a mailbox access token");
+    if (!tokens.access_token) {
+      throw new Error("Google did not return a mailbox access token");
+    }
+
     oauth.setCredentials(tokens);
     const oauth2 = google.oauth2({ version: "v2", auth: oauth });
     const identityResult = await oauth2.userinfo.get();
-    const email = String(identityResult?.data?.email || "").trim().toLowerCase();
+    const email = String(identityResult?.data?.email || "")
+      .trim()
+      .toLowerCase();
     if (!email) throw new Error("Google mailbox identity could not be verified");
 
     const organizationId = authorization.organization_id;
@@ -79,15 +128,27 @@ export async function GET(request) {
       provider_id: "email_google",
       credential_type: "oauth_token",
       secret_reference: JSON.stringify(tokens),
-      metadata: { organization_id: organizationId, purpose: "ORGANIZATION_GOOGLE_MAILBOX", email, enabled: true },
+      metadata: {
+        organization_id: organizationId,
+        purpose: "ORGANIZATION_GOOGLE_MAILBOX",
+        email,
+        enabled: true,
+      },
     });
+
     const connection = await ChannelConnectionRuntime.connect({
       organization_id: organizationId,
       provider: "email_google",
       channel_type: "email",
       credentials_reference: credential.id,
-      metadata: { account_name: email, email, connected_at: new Date().toISOString(), connection_model: "ORGANIZATION_GOOGLE_OAUTH" },
+      metadata: {
+        account_name: email,
+        email,
+        connected_at: new Date().toISOString(),
+        connection_model: "ORGANIZATION_GOOGLE_OAUTH",
+      },
     });
+
     await ChannelAssetRuntime.register({
       organization_id: organizationId,
       connection_id: connection.id,
@@ -97,15 +158,31 @@ export async function GET(request) {
       name: email,
       metadata: { email, provider: "google" },
     });
-    await ensureEmailService(organizationId);
 
-    const destination = new URL(`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`, authorization.return_origin || callbackOrigin());
-    destination.searchParams.set("message", "Google mailbox connected.");
+    await ensureEmailService(organizationId);
+    const warnings = await initializeMailbox(connection);
+
+    const destination = new URL(
+      `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+      authorization.return_origin || callbackOrigin(),
+    );
+    destination.searchParams.set(
+      "message",
+      warnings.length
+        ? "Google mailbox connected. Avantiqo is completing incoming-mail setup automatically."
+        : "Google mailbox connected and incoming mail is ready.",
+    );
     return NextResponse.redirect(destination);
   } catch (error) {
     const organizationId = authorization?.organization_id || "unknown";
-    const destination = new URL(`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`, authorization?.return_origin || callbackOrigin());
-    destination.searchParams.set("message", error?.message || "Google mailbox connection failed");
+    const destination = new URL(
+      `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
+      authorization?.return_origin || callbackOrigin(),
+    );
+    destination.searchParams.set(
+      "message",
+      error?.message || "Google mailbox connection failed",
+    );
     return NextResponse.redirect(destination);
   }
 }

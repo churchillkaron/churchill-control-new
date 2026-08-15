@@ -66,6 +66,13 @@ requireAll("FAST_CONVERSATION_LOCAL_ACKNOWLEDGEMENTS", fastRuntime, [
   'return "Thank you.";',
 ]);
 
+requireAll("STRATEGIC_FOLLOW_UP_REASONING", fastRuntime, [
+  "STRATEGIC_FOLLOW_UP_PATTERN",
+  "what should (?:we|i) do",
+  "what do you (?:suggest|recommend|think)",
+  "if (STRATEGIC_FOLLOW_UP_PATTERN.test(clean)) return false;",
+]);
+
 requireAll("TURN_LATENCY", turnRoute, [
   "const [result] = await Promise.all([",
   "persistAssistantTurnAndConversationState({",
@@ -75,6 +82,7 @@ requireAll("TURN_LATENCY", turnRoute, [
 requireAll("INSTANT_NAVIGATION_MATCHER", navigationMatcher, [
   "export function resolveInstantOperatorNavigation",
   "function navigationQuery(message)",
+  "function navigationCommandSpeech(value)",
   "function targetAliases(target = {})",
   "ambiguous: true",
 ]);
@@ -114,6 +122,22 @@ const financeNavigation = resolveInstantOperatorNavigation({
 });
 if (financeNavigation?.target?.id !== "domain:finance") {
   violations.push("INSTANT_FINANCE_NAVIGATION_NOT_RESOLVED");
+}
+
+const politeFinanceNavigation = resolveInstantOperatorNavigation({
+  message: "go to finance please",
+  targets: navigationTargets,
+});
+if (politeFinanceNavigation?.target?.id !== "domain:finance") {
+  violations.push("TRAILING_PLEASE_NAVIGATION_NOT_RESOLVED");
+}
+
+const conversationalFinanceNavigation = resolveInstantOperatorNavigation({
+  message: "can you go to finance please",
+  targets: navigationTargets,
+});
+if (conversationalFinanceNavigation?.target?.id !== "domain:finance") {
+  violations.push("CONVERSATIONAL_NAVIGATION_NOT_RESOLVED");
 }
 
 const studioNavigation = resolveInstantOperatorNavigation({
@@ -188,6 +212,7 @@ if (violations.length) {
 } else {
   console.log("OPERATOR_VOICE_RESPONSIVENESS_AUDIT=PASS");
   console.log("VOICE_SIMPLE_REPLY=INSTANT_LOCAL_OR_FAST_MODEL");
+  console.log("VOICE_STRATEGIC_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_PLAYBACK=BROWSER_FIRST_FOR_SHORT_RESPONSES");
   console.log("VOICE_TRANSCRIPT=INTERIM_COMMIT_ENABLED");
   console.log("VOICE_WAKE=ADAPTIVE_NOISE_AND_STRICT_MATCH");

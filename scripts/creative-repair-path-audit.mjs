@@ -1313,6 +1313,95 @@ async function ineligibleRolesAreDerivedNotDemanded() {
   );
 }
 
+// 21. Form must be the story's decision, not arithmetic on the running time.
+//
+//     sceneCountRange computed duration / 14 and forced the result into a narrow band, so a 205 second
+//     film could only ever be 13 to 18 scenes. It could not be one continuous take, three long movements,
+//     or forty rapid fragments. Every film of a given length came out the same shape, which is how a
+//     studio produces competent forgettable work. shotCountRange nearly repeated the mistake: narrowing
+//     it to enforce a 6.5 second average would have forbidden a fast-cut passage outright.
+//
+//     The contract also policed language without policing form -- it rejected advertising clichés while
+//     leaving structure entirely unexamined.
+function formIsChosenNotDerived() {
+  const fs = globalThis.__auditFs;
+  const source = fs.readFileSync(
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "utf8",
+  );
+
+  const sceneRange = /function sceneCountRange\(duration\) \{([\s\S]*?)\n\}/.exec(source);
+  const shotRange = /function shotCountRange\(duration\) \{([\s\S]*?)\n\}/.exec(source);
+  check("scene and shot ranges are present", Boolean(sceneRange && shotRange));
+  if (!sceneRange || !shotRange) return;
+
+  const scenes = new Function("duration", sceneRange[1])(205.16);
+  const shots = new Function("duration", shotRange[1])(205.16 / 13);
+
+  check(
+    "a single continuous take is permitted",
+    scenes.minimum === 1,
+    `minimum ${scenes.minimum} scenes forbids it on arithmetic grounds`,
+  );
+  check(
+    "a rapid montage is permitted",
+    scenes.maximum >= 20,
+    `maximum ${scenes.maximum} scenes`,
+  );
+  check(
+    "the derived number is a reference, not the whole range",
+    scenes.maximum - scenes.minimum >= 15,
+    `range spans only ${scenes.maximum - scenes.minimum}`,
+  );
+  // A scene must still be able to hold a fast sequence rather than an enforced average.
+  check(
+    "a scene may hold a fast-cut sequence",
+    shots.maximum >= 6,
+    `maximum ${shots.maximum} shots per scene`,
+  );
+
+  const prompt = source.slice(source.indexOf("function sceneArchitecturePrompt"));
+  check(
+    "the director is told the structure is its to invent",
+    /STRUCTURE IS YOURS TO INVENT/.test(prompt) &&
+      /unbroken take|continuous unbroken take/i.test(prompt),
+  );
+  check(
+    "the director is told shot length follows the action",
+    /Shot length is a story decision, not an average/.test(source),
+  );
+}
+
+// 22. The contract must require invention in form, not only in language.
+async function contractRequiresStructuralInvention() {
+  const { CreativeMasterPlanContractRegistry } = await import(
+    "@/lib/creative/director/registry/CreativeMasterPlanContractRegistry"
+  );
+  const gate = CreativeMasterPlanContractRegistry.buildDecisionContract("TEMPORAL")
+    .pre_return_excellence_gate;
+
+  check("structural invention is part of the excellence gate", Boolean(gate.structural_invention));
+  if (!gate.structural_invention) return;
+
+  check(
+    "unconventional forms are named as available",
+    /unbroken take|non-linear|repeating motif/i.test(gate.structural_invention),
+  );
+  check(
+    "the default shape is rejected",
+    /the one anybody would default to/i.test(gate.structural_invention),
+  );
+  // Without this the rule becomes an instruction to be strange, which is its own kind of bad work.
+  check(
+    "novelty for its own sake is excluded",
+    /novelty for its own sake/i.test(gate.structural_invention),
+  );
+  check(
+    "stills are covered, not only film",
+    /a still may be/i.test(gate.structural_invention),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1341,6 +1430,8 @@ async function main() {
   await everyPenalisedClicheIsDisclosedAndReplaceable();
   await advertisingFillerIsRejectedNotOnlyScored();
   await ineligibleRolesAreDerivedNotDemanded();
+  formIsChosenNotDerived();
+  await contractRequiresStructuralInvention();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

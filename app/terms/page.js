@@ -42,6 +42,12 @@ export default function TermsPage() {
           <p className="mt-7 max-w-4xl text-lg leading-8 text-white/55">
             These terms govern authorized access to Avantiqo, organization workspaces, connected providers, AI functionality and business workflows.
           </p>
+          <div className="mt-8 max-w-4xl rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.04] p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#D6A66A]">Legal operator and contracting entity</p>
+            <p className="mt-3 text-sm leading-7 text-white/55">
+              Avantiqo is operated by BEA Co., Ltd., Thailand, Company Registration No. 0835553004601. References to “Avantiqo” in these Terms refer to the Avantiqo platform operated by BEA Co., Ltd., with registered office at 514, 1-8 Patak Rd, Karon Beach, Karon, Mueang Phuket District, Phuket 83100, Thailand.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -58,7 +64,10 @@ export default function TermsPage() {
 
       <footer className="border-t border-white/[0.07] px-6 py-8 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 text-sm text-white/40">
-          <span>Avantiqo Business Operating System</span>
+          <div>
+            <div>Avantiqo Business Operating System</div>
+            <div className="mt-1 text-xs text-white/30">Operated by BEA Co., Ltd. · Company Registration No. 0835553004601</div>
+          </div>
           <div className="flex gap-5">
             <a href="/" className="hover:text-white">Home</a>
             <a href="/policy" className="hover:text-white">Privacy Policy</a>

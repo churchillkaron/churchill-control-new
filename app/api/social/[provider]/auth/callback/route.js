@@ -14,6 +14,10 @@ import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/ru
 import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
+function text(value) {
+  return String(value ?? "").trim();
+}
+
 function destination(origin, organizationId, message) {
   const url = new URL(
     `/workspace/${encodeURIComponent(organizationId)}/administration/integrations`,
@@ -23,10 +27,44 @@ function destination(origin, organizationId, message) {
   return url;
 }
 
-async function ensureLinkedInService(organizationId) {
+async function normalizeProviderTokens(provider, tokens) {
+  if (provider !== "threads" || !text(tokens?.access_token)) return tokens;
+  const secret = text(process.env.THREADS_APP_SECRET);
+  if (!secret) throw new Error("THREADS_APP_SECRET is not configured");
+
+  const url = new URL("https://graph.threads.net/access_token");
+  url.searchParams.set("grant_type", "th_exchange_token");
+  url.searchParams.set("client_secret", secret);
+  url.searchParams.set("access_token", tokens.access_token);
+
+  const response = await fetch(url, { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.access_token) {
+    throw new Error(payload?.error?.message || "Threads long-lived token exchange failed");
+  }
+  return {
+    ...tokens,
+    ...payload,
+    token_lifecycle: "THREADS_LONG_LIVED",
+  };
+}
+
+async function ensureSocialService(organizationId, provider) {
+  const SERVICE = {
+    linkedin: {
+      service_id: "linkedin",
+      package_id: "core",
+    },
+    threads: {
+      service_id: "threads",
+      package_id: "core",
+    },
+  }[provider];
+  if (!SERVICE) return null;
+
   const existing = await OrganizationServiceRuntime.get({
     organization_id: organizationId,
-    service_id: "linkedin",
+    service_id: SERVICE.service_id,
   }).catch(() => null);
 
   if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") {
@@ -37,8 +75,8 @@ async function ensureLinkedInService(organizationId) {
     ...(existing || {}),
     organization_id: organizationId,
     service_category_id: existing?.service_category_id || "marketing-social",
-    service_id: "linkedin",
-    package_id: existing?.package_id || "core",
+    service_id: SERVICE.service_id,
+    package_id: existing?.package_id || SERVICE.package_id,
     status: "ACTIVE",
     managed_by: existing?.managed_by || "organization",
     authorization_required: true,
@@ -50,7 +88,7 @@ async function ensureLinkedInService(organizationId) {
     activated_at: existing?.activated_at || new Date().toISOString(),
     metadata: {
       ...(existing?.metadata || {}),
-      provider: "linkedin",
+      provider,
       connection_model: "ORGANIZATION_OAUTH",
     },
     configuration: existing?.configuration || {},
@@ -60,7 +98,7 @@ async function ensureLinkedInService(organizationId) {
 export async function GET(request, { params }) {
   const requestUrl = new URL(request.url);
   const resolved = await params;
-  const provider = String(resolved?.provider || "").trim().toLowerCase();
+  const provider = text(resolved?.provider).toLowerCase();
   const config = getSocialOAuthConfig(provider);
   let authorization = null;
 
@@ -70,16 +108,19 @@ export async function GET(request, { params }) {
     if (!state) throw new Error("Provider connection validation failed or expired");
     authorization = await consumeOAuthAuthorization({ state, provider });
 
-    const providerError = requestUrl.searchParams.get("error") || requestUrl.searchParams.get("error_description");
+    const providerError =
+      requestUrl.searchParams.get("error") ||
+      requestUrl.searchParams.get("error_description");
     if (providerError) throw new Error(`Connection was not approved: ${providerError}`);
     const code = requestUrl.searchParams.get("code");
     if (!code) throw new Error("Provider did not return an authorization code");
 
-    const tokens = await exchangeSocialAuthorizationCode({
+    const exchangedTokens = await exchangeSocialAuthorizationCode({
       provider,
       code,
       codeVerifier: authorization.metadata?.code_verifier || null,
     });
+    const tokens = await normalizeProviderTokens(provider, exchangedTokens);
     const identity = await fetchSocialIdentity({
       provider,
       accessToken: tokens.access_token,
@@ -109,6 +150,7 @@ export async function GET(request, { params }) {
         username: identity.username || null,
         connected_at: new Date().toISOString(),
         connection_model: config.pkce ? "ORGANIZATION_OAUTH_PKCE" : "ORGANIZATION_OAUTH",
+        token_lifecycle: tokens.token_lifecycle || null,
       },
     });
 
@@ -135,9 +177,7 @@ export async function GET(request, { params }) {
       .eq("id", connection.id)
       .eq("organization_id", organizationId);
 
-    if (provider === "linkedin") {
-      await ensureLinkedInService(organizationId);
-    }
+    await ensureSocialService(organizationId, provider);
 
     return NextResponse.redirect(
       destination(

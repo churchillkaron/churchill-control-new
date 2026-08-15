@@ -1,5 +1,5 @@
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
-import generatePayslipPdf from "@/lib/payroll/payslips/generatePayslipPdf";
+import { generatePayslipPdf } from "@/lib/people/payroll";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export async function POST(request) {

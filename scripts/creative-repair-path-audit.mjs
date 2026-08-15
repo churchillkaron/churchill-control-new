@@ -694,6 +694,7 @@ async function genericLanguagePatternsAreFairAndDisclosed() {
       narrative: "the audience journey from door to table",
       creative_system: "framing where the bar rail meets the window light",
       hook: "h", message: "m", emotional_promise: "e", call_to_action: "c",
+      signature_device: "d", refused_devices: "r",
     },
     creative_review: {
       passed: true, overall_score: 95, dimensions: {},
@@ -1200,6 +1201,7 @@ async function advertisingFillerIsRejectedNotOnlyScored() {
     concept: {
       title: "t", creative_thesis: thesis, narrative: "n", hook: "h", message: "m",
       creative_system: "c", emotional_promise: "e", call_to_action: "a",
+      signature_device: "d", refused_devices: "r",
     },
     creative_review: {
       passed: true, overall_score: 95, dimensions: {}, rejected_patterns: [],
@@ -1402,6 +1404,159 @@ async function contractRequiresStructuralInvention() {
   );
 }
 
+// 23. Imagination has to be demanded, not hoped for. The contract asked for ten camera fields per
+// shot and nothing about what makes the work memorable, so competent coverage satisfied it. These
+// checks assert the surface is examined: a declared device, the reflex answers rejected, a form for
+// the call to action, and typography and effects treated as instruments rather than a caption layer
+// and a cleanup pass.
+async function contractRequiresSurfaceInvention() {
+  const { CreativeMasterPlanContractRegistry } = await import(
+    "@/lib/creative/director/registry/CreativeMasterPlanContractRegistry"
+  );
+  const contract = CreativeMasterPlanContractRegistry.buildDecisionContract("TEMPORAL");
+  const gate = contract.pre_return_excellence_gate;
+  const concept = contract.common_plan_contract?.concept || {};
+  // The shot schema is disclosed through the workflow contracts, not common_plan_contract, so
+  // resolve it from the serialised contract the model actually receives rather than from a path
+  // that happens to exist. A guard that reads a private copy passes while the model sees nothing.
+  const shot = (() => {
+    const found = [];
+    const walk = (node) => {
+      if (!node || typeof node !== "object") return;
+      if (!Array.isArray(node) && typeof node.purpose === "string" && typeof node.camera === "string") {
+        found.push(node);
+      }
+      for (const value of Object.values(node)) walk(value);
+    };
+    walk(contract);
+    return found[0] || {};
+  })();
+
+  check("surface invention is part of the excellence gate", Boolean(gate.surface_invention));
+  if (gate.surface_invention) {
+    // The specific failure the user named: a camera move described in detail is craft, and the
+    // contract used to accept it as the whole of the idea.
+    check(
+      "camera movement is explicitly not a device",
+      /camera movement is not a device/i.test(gate.surface_invention),
+    );
+    check(
+      "typography and effects are named as instruments",
+      /typograph/i.test(gate.surface_invention) && /not a finishing layer/i.test(gate.surface_invention),
+    );
+    check(
+      "the call to action must take a form",
+      /call to action/i.test(gate.surface_invention) &&
+        /never the default/i.test(gate.surface_invention),
+    );
+    // A device on every shot is decoration; the gate has to say so or it produces maximalism.
+    check(
+      "restraint is required alongside invention",
+      /decoration|leave the rest plain/i.test(gate.surface_invention),
+    );
+    check(
+      "stills are covered, not only film",
+      /stills/i.test(gate.surface_invention),
+    );
+  }
+
+  check("the concept must declare a signature device", Boolean(concept.signature_device));
+  check("the concept must reject the reflex devices", Boolean(concept.refused_devices));
+  check(
+    "refused devices must name mechanisms rather than categories",
+    /push-in|title card|logo end frame/i.test(String(concept.refused_devices)),
+  );
+  check("every shot must state its part in the device", Boolean(shot.device));
+  check(
+    "a deliberately plain shot is a valid answer",
+    /plain/i.test(String(shot.device)),
+  );
+  // The two fields that could carry a device used to argue against using one.
+  check(
+    "typography is no longer described as a caption layer",
+    /creative instrument/i.test(String(shot.graphics)) &&
+      !/^Typography and graphic behavior as a caption/.test(String(shot.graphics)),
+  );
+  check(
+    "an effect may be the idea itself",
+    /the idea itself/i.test(String(shot.vfx)),
+  );
+  // The fidelity rule is a rights constraint and must survive the rewrite.
+  check(
+    "text fidelity outside generated pixels is preserved",
+    /outside generated pixels/i.test(String(shot.graphics)),
+  );
+}
+
+// 24. The prompt and the validator must agree on field names. The temporal skeleton asked the
+// director for concept.visual_system while the validator required concept.creative_system, with no
+// normalisation on that path -- so every film failed validation on a field-name mismatch and spent
+// one of its two repair attempts renaming a field. Nothing detected it because both sides were
+// internally valid. This compares the two directly.
+async function promptSkeletonMatchesValidatorRequirements() {
+  const { readFileSync } = globalThis.__auditFs;
+  const runtime = readFileSync(
+    "lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js",
+    "utf8",
+  );
+  const validator = readFileSync(
+    "lib/creative/director/validation/CreativeMasterPlanValidator.js",
+    "utf8",
+  );
+
+  const conceptBlock = /const concept = object\(normalized\.concept\);\s*for \(const field of \[([\s\S]*?)\]\)/
+    .exec(validator);
+  check("the validator's required concept fields are readable", Boolean(conceptBlock));
+  if (!conceptBlock) return;
+
+  const required = [...conceptBlock[1].matchAll(/"(\w+)"/g)].map((match) => match[1]);
+  check("the concept requirement list is non-trivial", required.length >= 8, `${required.length} fields`);
+
+  const skeleton = runtime.slice(
+    runtime.indexOf('"workflow_kind": "TEMPORAL"'),
+    runtime.indexOf('"story": {'),
+  );
+  const missing = required.filter((field) => !skeleton.includes(`"${field}"`));
+  check(
+    "every required concept field is asked for in the prompt skeleton",
+    missing.length === 0,
+    `never requested: ${missing.join(", ")}`,
+  );
+
+  // The same class of drift for the shot contract, which is where the field count is highest.
+  const shotSkeletonStart = runtime.indexOf('"id": "stable unique shot id"');
+  check("the shot skeleton is locatable", shotSkeletonStart > 0);
+  if (shotSkeletonStart < 0) return;
+  // There are three MANDATORY RULES blocks in this file; the shot one is the first after the
+  // skeleton opens, and slicing to the earliest match produced an empty string that passed nothing.
+  const shotSkeleton = runtime.slice(
+    shotSkeletonStart,
+    runtime.indexOf("MANDATORY RULES", shotSkeletonStart),
+  );
+  check("the shot skeleton is non-empty", shotSkeleton.length > 400, `${shotSkeleton.length} chars`);
+  const shotBlock = /function validateShot\([\s\S]*?for \(const \[field, minimum\] of \[([\s\S]*?)\]\)/
+    .exec(validator);
+  check("the validator's required shot fields are readable", Boolean(shotBlock));
+  if (!shotBlock) return;
+
+  const shotRequired = [...shotBlock[1].matchAll(/\["(\w+)"/g)].map((match) => match[1]);
+  const shotMissing = shotRequired.filter((field) => !shotSkeleton.includes(`"${field}"`));
+  check(
+    "every required shot field is asked for in the shot skeleton",
+    shotMissing.length === 0,
+    `never requested: ${shotMissing.join(", ")}`,
+  );
+
+  check(
+    "the director is told the device is its to invent",
+    /THE DEVICE IS YOURS TO INVENT/.test(runtime),
+  );
+  check(
+    "the shot call is told a camera move is not a device",
+    /a push-in is camera behaviour, not a device/.test(runtime),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -1432,6 +1587,8 @@ async function main() {
   await ineligibleRolesAreDerivedNotDemanded();
   formIsChosenNotDerived();
   await contractRequiresStructuralInvention();
+  await contractRequiresSurfaceInvention();
+  await promptSkeletonMatchesValidatorRequirements();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

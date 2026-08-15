@@ -21,7 +21,7 @@ const fields = (names, n) => Object.fromEntries(names.map((k) => [k, long(n)]));
 export function temporalShot(id) {
   return {
     id, title: long(20), purpose: long(30), subject: long(20), action: long(30),
-    performance: long(30), duration_seconds: 30,
+    performance: long(30), device: long(60), duration_seconds: 30,
     frame_plan: { opening_frame: long(40), progression: long(50), closing_frame: long(40) },
     camera: fields(["framing","angle","camera_distance","lens_intent","movement_path",
       "movement_speed","stabilization","movement_motivation","focus_target","focus_transition"], 12),
@@ -55,7 +55,8 @@ export function temporalBasePlan() {
     workflow_kind: "TEMPORAL",
     concept: { title: long(20), creative_thesis: long(320), hook: long(60), message: long(90),
       narrative: long(240), creative_system: long(220), emotional_promise: long(90),
-      call_to_action: long(70), target_audience: long(140) },
+      call_to_action: long(70), target_audience: long(140),
+      signature_device: long(180), refused_devices: long(200) },
     story: { hook: long(80), audience_tension: long(120), escalation: long(120),
       observable_proof: long(120), turn: long(90), resolution: long(90),
       call_to_action: long(70), emotional_arc: long(110), anti_cliche_strategy: long(140) },

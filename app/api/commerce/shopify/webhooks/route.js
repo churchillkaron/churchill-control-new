@@ -44,12 +44,11 @@ async function resolveConnection(shop) {
 }
 
 function eventValue(payload) {
-  const candidates = [
+  for (const candidate of [
     payload?.current_total_price,
     payload?.total_price,
     payload?.subtotal_price,
-  ];
-  for (const candidate of candidates) {
+  ]) {
     const value = Number(candidate);
     if (Number.isFinite(value)) return value;
   }
@@ -71,7 +70,7 @@ export async function POST(request) {
     const shop = text(request.headers.get("x-shopify-shop-domain")).toLowerCase();
     const topic = text(request.headers.get("x-shopify-topic")).toLowerCase();
     const webhookId = text(request.headers.get("x-shopify-webhook-id"));
-    if (!shop || !topic) {
+    if (!shop || !topic || !webhookId) {
       return NextResponse.json({ success: false }, { status: 400 });
     }
 
@@ -81,24 +80,30 @@ export async function POST(request) {
     }
 
     const payload = JSON.parse(rawBody.toString("utf8") || "{}");
-    await ProviderEventRuntime.record({
+    const event = await ProviderEventRuntime.ingest({
       organization_id: connection.organization_id,
       connection_id: connection.id,
       provider_id: "shopify",
       event_type: `shopify.${topic.replace(/\//g, ".")}`,
-      external_event_id: webhookId || null,
+      external_event_id: webhookId,
       customer_reference: customerReference(payload),
       value: eventValue(payload),
       currency: text(payload?.currency || payload?.presentment_currency) || null,
       payload: {
         topic,
         shop,
-        webhook_id: webhookId || null,
+        webhook_id: webhookId,
+        triggered_at: text(request.headers.get("x-shopify-triggered-at")) || null,
+        api_version: text(request.headers.get("x-shopify-api-version")) || null,
         data: payload,
       },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      accepted: true,
+      duplicate: event?.duplicate === true,
+    });
   } catch (error) {
     console.error("SHOPIFY_WEBHOOK_INGEST_FAILED", error);
     return NextResponse.json({ success: false }, { status: 500 });

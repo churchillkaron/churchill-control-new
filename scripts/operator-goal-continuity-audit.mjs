@@ -9,6 +9,11 @@ const {
   mergeOperatorProjectState,
   normalizeOperatorProjectState,
 } = await import("@/lib/operator/contracts/OperatorProjectState");
+const {
+  OPERATOR_AUTONOMOUS_RUN_MAX_STEPS,
+  createOperatorAutonomousRun,
+  transitionOperatorAutonomousRun,
+} = await import("@/lib/operator/contracts/OperatorAutonomousRun");
 
 const established = normalizeOperatorProjectState({
   objective: "Prepare a launch campaign with the user",
@@ -85,10 +90,49 @@ assert.equal(merged.objective, established.objective);
 assert.equal(merged.last_intent, "plan");
 assert.ok(Number.isFinite(Date.parse(merged.updated_at)));
 
+assert.equal(OPERATOR_AUTONOMOUS_RUN_MAX_STEPS, 6);
+const autonomousRun = createOperatorAutonomousRun({
+  objective: "Check inventory and create a purchase action if required",
+  evidenceSteps: [
+    {
+      id: "inventory_read",
+      label: "Check inventory",
+      capability_key: "inventory.stock.list",
+      status: "completed",
+    },
+  ],
+  pendingExecution: {
+    capability_key: "procurement.purchase_order.create",
+    description: "Create the requested purchase order",
+    verify_after: {
+      capability_key: "procurement.purchase_order.get",
+      description: "Verify the purchase order exists",
+    },
+  },
+});
+assert.equal(autonomousRun.status, "awaiting_confirmation");
+assert.equal(autonomousRun.current_step_id, "requested_action");
+assert.deepEqual(autonomousRun.completed_steps, ["inventory_read"]);
+assert.ok(autonomousRun.planned_steps.length <= OPERATOR_AUTONOMOUS_RUN_MAX_STEPS);
+
+const cancelledRun = transitionOperatorAutonomousRun(autonomousRun, {
+  status: "cancelled",
+  stepId: "requested_action",
+  stepStatus: "cancelled",
+  blocker: "User cancelled the pending action",
+});
+assert.equal(cancelledRun.status, "cancelled");
+assert.equal(cancelledRun.current_step_id, null);
+assert.equal(
+  cancelledRun.planned_steps.find((step) => step.id === "requested_action")?.status,
+  "cancelled",
+);
+
 const [
   reasoningSource,
   verificationSource,
   turnRuntimeSource,
+  autonomousRunSource,
   routeSource,
   homeSource,
   voiceSource,
@@ -100,6 +144,7 @@ const [
   readFile("lib/operator/runtime/OperatorReasoningRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorVerificationRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
+  readFile("lib/operator/contracts/OperatorAutonomousRun.js", "utf8"),
   readFile("app/api/operator/turn/route.js", "utf8"),
   readFile("components/operator/HomeAvantiqoIntelligence.jsx", "utf8"),
   readFile("components/operator/LocalHeyAvantiqoWakeBridge.jsx", "utf8"),
@@ -157,6 +202,9 @@ assert.match(verificationSource, /evidence_gated_follow_up:\s*Boolean\(staged\)/
 assert.match(verificationSource, /verify_after:\s*normalizedVerificationRead/);
 assert.match(verificationSource, /post_action_verification_aware:\s*true/);
 assert.match(verificationSource, /do not claim the intended business effect was independently confirmed/i);
+assert.match(verificationSource, /createOperatorAutonomousRun/);
+assert.match(verificationSource, /agreementWithAutonomousRun/);
+assert.match(verificationSource, /bounded_autonomous_run:\s*Boolean\(staged\)/);
 
 assert.match(readChainSource, /function preflightFollowUp/);
 assert.match(readChainSource, /FOLLOW_UP_MUST_BE_ACTION/);
@@ -172,12 +220,26 @@ assert.doesNotMatch(
   /executeUbteCapability\([^)]*followUp/s,
 );
 
+assert.match(autonomousRunSource, /const MAX_RUN_STEPS = 6/);
+assert.match(autonomousRunSource, /awaiting_confirmation/);
+assert.match(autonomousRunSource, /awaiting_approval/);
+assert.match(autonomousRunSource, /superseded/);
+assert.match(autonomousRunSource, /createOperatorAutonomousRun/);
+assert.match(autonomousRunSource, /transitionOperatorAutonomousRun/);
+assert.doesNotMatch(autonomousRunSource, /payload/);
+
 assert.match(turnRuntimeSource, /function normalizedPendingVerificationRead/);
 assert.match(turnRuntimeSource, /function runPendingPostActionVerification/);
 assert.match(turnRuntimeSource, /item\.mode === "read"/);
 assert.match(turnRuntimeSource, /post_action_verification/);
 assert.match(turnRuntimeSource, /result:\s*verificationResult/);
 assert.match(turnRuntimeSource, /POST_ACTION_VERIFICATION_CAPABILITY_NOT_AVAILABLE/);
+assert.match(turnRuntimeSource, /function agreementWithRunTransition/);
+assert.match(turnRuntimeSource, /function clearPendingAndSupersedeRun/);
+assert.match(turnRuntimeSource, /function completedAgreementState/);
+assert.match(turnRuntimeSource, /status:\s*"superseded"/);
+assert.match(turnRuntimeSource, /status:\s*"awaiting_approval"/);
+assert.match(turnRuntimeSource, /status:\s*"completed"/);
 
 assert.match(registryRuntimeSource, /erpRegistry\.js/);
 assert.match(registryRuntimeSource, /serializeCapability/);
@@ -192,6 +254,7 @@ assert.match(capabilityCatalogSource, /context_scope:\s*normalizeContextScope/);
 
 assert.match(routeSource, /projectState:\s*memory\.projectState/);
 assert.match(routeSource, /mergeOperatorProjectState/);
+assert.match(routeSource, /agreementState:\s*nextAgreementState/);
 assert.match(homeSource, /setProjectState\(result\?\.project_state/);
 assert.match(homeSource, /Current goal/);
 assert.match(voiceSource, /conversationKey:\s*"primary"/);
@@ -215,5 +278,9 @@ console.log("OPERATOR_EVIDENCE_GATED_ACTION=STAGED_THEN_USER_CONFIRMED");
 console.log("OPERATOR_EVIDENCE_GATED_ACTION_GUARD=NO_AUTOWRITE_EXACT_PAYLOAD_ONLY");
 console.log("OPERATOR_POST_ACTION_VERIFICATION=REGISTERED_READ_AFTER_CONFIRMED_WRITE");
 console.log("OPERATOR_POST_ACTION_VERIFICATION_GUARD=NO_EFFECT_CLAIM_WITHOUT_FRESH_READ");
+console.log("OPERATOR_AUTONOMOUS_RUN=BOUNDED_DURABLE_CONTINUATION_STATE");
+console.log("OPERATOR_AUTONOMOUS_RUN_MAX_STEPS=6");
+console.log("OPERATOR_AUTONOMOUS_RUN_STOP_GATES=CONFIRMATION_APPROVAL_VERIFICATION_SUPERSESSION");
+console.log("OPERATOR_AUTONOMOUS_RUN_PAYLOAD_OWNER=PENDING_EXECUTION_ONLY");
 console.log("OPERATOR_GOAL_SURFACES=TEXT_AND_VOICE_PRIMARY_CONVERSATION");
 console.log("OPERATOR_VOICE_FAILURE=ALWAYS_AUDIBLE_WITH_FOLLOW_UP");

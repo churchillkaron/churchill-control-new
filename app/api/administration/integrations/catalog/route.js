@@ -20,10 +20,12 @@ function upper(value) {
   return String(value ?? "").trim().toUpperCase();
 }
 
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 function safeAccountLabel(connection) {
-  const metadata = connection?.metadata && typeof connection.metadata === "object"
-    ? connection.metadata
-    : {};
+  const metadata = object(connection?.metadata);
   return (
     clean(metadata.page_name) ||
     clean(metadata.instagram_username) ||
@@ -82,7 +84,9 @@ function assignedMetaAssets(assets) {
 }
 
 function buildMetaStatus(integration, connections, assets, credentials) {
-  const metaConnections = connections.filter((row) => row.provider === "meta" && isActive(row));
+  const metaConnections = connections.filter(
+    (row) => row.provider === "meta" && isActive(row),
+  );
   const socialConnection =
     metaConnections.find((row) => upper(row.channel_type) === "SOCIAL") ||
     metaConnections.find((row) => upper(row.channel_type) !== "ADVERTISING") ||
@@ -93,10 +97,7 @@ function buildMetaStatus(integration, connections, assets, credentials) {
   const socialCredential = socialConnection?.credentials_reference
     ? credentials.get(socialConnection.credentials_reference) || null
     : null;
-  const credentialMetadata =
-    socialCredential?.metadata && typeof socialCredential.metadata === "object"
-      ? socialCredential.metadata
-      : {};
+  const credentialMetadata = object(socialCredential?.metadata);
 
   const credentialMatchesFacebook =
     Boolean(facebookPage) &&
@@ -120,37 +121,87 @@ function buildMetaStatus(integration, connections, assets, credentials) {
     clean(facebookPage?.metadata?.managed_ad_account_id) ||
     clean(instagramBusiness?.metadata?.managed_ad_account_id) ||
     clean(socialConnection?.metadata?.managed_ad_account_id) ||
-    clean(metaConnections.find((row) => upper(row.channel_type) === "ADVERTISING")?.metadata?.managed_ad_account_id) ||
+    clean(
+      metaConnections.find((row) => upper(row.channel_type) === "ADVERTISING")
+        ?.metadata?.managed_ad_account_id,
+    ) ||
     null;
   const adsReady = Boolean(managedAdAccountId);
 
   const capabilities = [
     facebookReady
       ? readyCapability("facebook-page", "Facebook Page", facebookPage.name || null)
-      : setupCapability("facebook-page", "Facebook Page", "Connect a business Facebook Page."),
+      : setupCapability(
+          "facebook-page",
+          "Facebook Page",
+          "Connect a business Facebook Page.",
+        ),
     facebookReady
-      ? readyCapability("facebook-publishing", "Facebook Posts / Publishing", "Page publishing identity is available.")
-      : setupCapability("facebook-publishing", "Facebook Posts / Publishing", "Facebook Page connection is required."),
+      ? readyCapability(
+          "facebook-publishing",
+          "Facebook Posts / Publishing",
+          "Page publishing identity is available.",
+        )
+      : setupCapability(
+          "facebook-publishing",
+          "Facebook Posts / Publishing",
+          "Facebook Page connection is required.",
+        ),
     messagingCredentialReady && facebookReady
-      ? readyCapability("facebook-messenger", "Facebook Messenger", "Messenger webhook and reply credential are ready for this Page.")
-      : setupCapability("facebook-messenger", "Facebook Messenger", "Reconnect Meta once to bind messaging to this organization's Facebook Page."),
+      ? readyCapability(
+          "facebook-messenger",
+          "Facebook Messenger",
+          "Messenger webhook and reply credential are ready for this Page.",
+        )
+      : setupCapability(
+          "facebook-messenger",
+          "Facebook Messenger",
+          "Reconnect Meta once to bind messaging to this organization's Facebook Page.",
+        ),
     instagramReady
-      ? readyCapability("instagram-publishing", "Instagram Posts / Reels", instagramBusiness.name || null)
-      : unavailableCapability("instagram-publishing", "Instagram Posts / Reels", "No Instagram professional account is linked."),
+      ? readyCapability(
+          "instagram-publishing",
+          "Instagram Posts / Reels",
+          instagramBusiness.name || null,
+        )
+      : unavailableCapability(
+          "instagram-publishing",
+          "Instagram Posts / Reels",
+          "No Instagram professional account is linked.",
+        ),
     messagingCredentialReady && instagramReady
-      ? readyCapability("instagram-messaging", "Instagram Messaging", "Instagram messaging is ready for this professional account.")
+      ? readyCapability(
+          "instagram-messaging",
+          "Instagram Messaging",
+          "Instagram messaging is ready for this professional account.",
+        )
       : instagramReady
-        ? setupCapability("instagram-messaging", "Instagram Messaging", "Reconnect Meta once to bind messaging to this organization's Instagram account.")
-        : unavailableCapability("instagram-messaging", "Instagram Messaging", "No Instagram professional account is linked."),
+        ? setupCapability(
+            "instagram-messaging",
+            "Instagram Messaging",
+            "Reconnect Meta once to bind messaging to this organization's Instagram account.",
+          )
+        : unavailableCapability(
+            "instagram-messaging",
+            "Instagram Messaging",
+            "No Instagram professional account is linked.",
+          ),
     adsReady
       ? readyCapability("meta-ads", "Meta Ads", managedAdAccountId)
-      : setupCapability("meta-ads", "Meta Ads", "Assign or connect the managed Meta ad account."),
+      : setupCapability(
+          "meta-ads",
+          "Meta Ads",
+          "Assign or connect the managed Meta ad account.",
+        ),
   ];
 
-  const hasBaseConnection = Boolean(socialConnection || facebookPage || instagramBusiness || adsReady);
+  const hasBaseConnection = Boolean(
+    socialConnection || facebookPage || instagramBusiness || adsReady,
+  );
   const needsMessagingSetup = capabilities.some(
     (capability) =>
-      (capability.id === "facebook-messenger" || capability.id === "instagram-messaging") &&
+      (capability.id === "facebook-messenger" ||
+        capability.id === "instagram-messaging") &&
       capability.status === "SETUP_REQUIRED",
   );
 
@@ -158,7 +209,8 @@ function buildMetaStatus(integration, connections, assets, credentials) {
     return {
       state: "ACTION_REQUIRED",
       label: "Not connected",
-      detail: "Connect the Meta business identity used for Facebook, Instagram, messaging and advertising.",
+      detail:
+        "Connect the Meta business identity used for Facebook, Instagram, messaging and advertising.",
       account: null,
       action: integration.connectPath ? "CONNECT" : null,
       actionLabel: "Connect Meta",
@@ -172,9 +224,113 @@ function buildMetaStatus(integration, connections, assets, credentials) {
     detail: needsMessagingSetup
       ? "Facebook, Instagram and Meta Ads are assigned, but messaging must be bound to this organization's exact Meta assets."
       : "Meta publishing, messaging and advertising capabilities are ready where configured.",
-    account: facebookPage?.name || instagramBusiness?.name || safeAccountLabel(socialConnection) || null,
+    account:
+      facebookPage?.name ||
+      instagramBusiness?.name ||
+      safeAccountLabel(socialConnection) ||
+      null,
     action: needsMessagingSetup && integration.connectPath ? "CONNECT" : null,
     actionLabel: needsMessagingSetup ? "Reconnect Meta" : null,
+    capabilities,
+  };
+}
+
+function buildEmailStatus(integration, connections) {
+  const active = connections.filter(
+    (row) =>
+      integration.connectionProviders.includes(row.provider) &&
+      isActive(row),
+  );
+
+  if (!active.length) {
+    return {
+      state: "ACTION_REQUIRED",
+      label: "Not connected",
+      detail: "Choose a mailbox provider and sign in. Avantiqo handles synchronization automatically.",
+      account: null,
+      action: integration.connectPath ? "CONNECT" : null,
+      actionLabel: "Connect Email",
+      capabilities: [
+        setupCapability("email-send", "Sending", "Connect a mailbox first."),
+        setupCapability("email-incoming", "Incoming sync", "Connect a mailbox first."),
+        unavailableCapability("email-push", "Near-real-time incoming mail", "Available for supported OAuth mailboxes."),
+      ],
+    };
+  }
+
+  const primary = active[0];
+  const metadata = object(primary.metadata);
+  const sync = object(metadata.email_sync);
+  const push = object(metadata.email_push);
+  const syncReady = upper(sync.status) === "READY" && Boolean(clean(sync.last_success_at));
+  const syncError = upper(sync.status) === "ERROR";
+  const pushProvider = primary.provider === "email_google" || primary.provider === "email_microsoft";
+  const pushExpiration = Date.parse(push.expiration || "");
+  const pushReady =
+    pushProvider &&
+    upper(push.status) === "ACTIVE" &&
+    Number.isFinite(pushExpiration) &&
+    pushExpiration > Date.now();
+
+  const capabilities = [
+    readyCapability(
+      "email-send",
+      "Sending",
+      "Outbound email is connected through this mailbox.",
+    ),
+    syncReady
+      ? readyCapability(
+          "email-incoming",
+          "Incoming sync",
+          sync.last_success_at
+            ? `Last synchronized ${new Date(sync.last_success_at).toISOString()}.`
+            : "Incoming mail synchronization is ready.",
+        )
+      : setupCapability(
+          "email-incoming",
+          "Incoming sync",
+          syncError
+            ? "Avantiqo is retrying incoming mailbox synchronization automatically."
+            : "Avantiqo is initializing incoming mailbox synchronization.",
+        ),
+    primary.provider === "email_imap"
+      ? readyCapability(
+          "email-push",
+          "Incoming polling",
+          "IMAP mailboxes are checked automatically on the recovery schedule.",
+        )
+      : pushReady
+        ? readyCapability(
+            "email-push",
+            "Near-real-time incoming mail",
+            `Provider notifications are active until ${new Date(pushExpiration).toISOString()}.`,
+          )
+        : setupCapability(
+            "email-push",
+            "Near-real-time incoming mail",
+            upper(push.status) === "ERROR"
+              ? "Avantiqo is repairing the provider notification subscription automatically."
+              : "Avantiqo is completing provider notification setup automatically.",
+          ),
+  ];
+
+  const needsSetup = !syncReady || (pushProvider && !pushReady);
+  const account =
+    active.length > 1
+      ? `${active.length} connected mailboxes`
+      : safeAccountLabel(primary);
+
+  return {
+    state: needsSetup ? "SETUP_IN_PROGRESS" : "CONNECTED",
+    label: needsSetup ? "Connected — finishing setup" : "Connected",
+    detail: needsSetup
+      ? "The mailbox connection is saved. Avantiqo is completing or repairing incoming-mail automation; no reconnect is required."
+      : primary.provider === "email_imap"
+        ? "Sending and automatic incoming-mail polling are ready."
+        : "Sending, incoming synchronization and near-real-time provider notifications are ready.",
+    account,
+    action: null,
+    actionLabel: null,
     capabilities,
   };
 }
@@ -184,16 +340,29 @@ function statusForIntegration(integration, connections, assets, credentials) {
     return buildMetaStatus(integration, connections, assets, credentials);
   }
 
+  if (integration.id === "email") {
+    return buildEmailStatus(integration, connections);
+  }
+
   const matchingConnections = connections.filter((row) =>
     integration.connectionProviders.includes(row.provider),
   );
-  const activeConnection = matchingConnections.find(
-    (row) => upper(row.status) === "ACTIVE",
-  ) || null;
+  const activeConnection =
+    matchingConnections.find((row) => upper(row.status) === "ACTIVE") || null;
 
   const matchingAssets = assets.filter((row) => {
-    if (integration.assetProviders?.length && !integration.assetProviders.includes(row.channel_provider)) return false;
-    if (integration.assetTypes?.length && !integration.assetTypes.includes(row.asset_type)) return false;
+    if (
+      integration.assetProviders?.length &&
+      !integration.assetProviders.includes(row.channel_provider)
+    ) {
+      return false;
+    }
+    if (
+      integration.assetTypes?.length &&
+      !integration.assetTypes.includes(row.asset_type)
+    ) {
+      return false;
+    }
     return true;
   });
 
@@ -203,7 +372,8 @@ function statusForIntegration(integration, connections, assets, credentials) {
       return {
         state: "SETUP_IN_PROGRESS",
         label: "Connected",
-        detail: "Avantiqo is completing the remaining Google setup. No reconnect is required.",
+        detail:
+          "Avantiqo is completing the remaining Google setup. No reconnect is required.",
         account: safeAccountLabel(activeConnection),
         action: integration.detailAnchor ? "MANAGE" : null,
       };
@@ -211,7 +381,9 @@ function statusForIntegration(integration, connections, assets, credentials) {
   }
 
   if (integration.id === "google-ads") {
-    const advertisers = matchingAssets.filter((asset) => asset?.metadata?.manager !== true);
+    const advertisers = matchingAssets.filter(
+      (asset) => asset?.metadata?.manager !== true,
+    );
     if (advertisers.length) {
       return {
         state: "CONNECTED",
@@ -225,7 +397,8 @@ function statusForIntegration(integration, connections, assets, credentials) {
       return {
         state: "SETUP_IN_PROGRESS",
         label: "Connected",
-        detail: "Google Ads authorization is active. Select the advertiser account to finish setup.",
+        detail:
+          "Google Ads authorization is active. Select the advertiser account to finish setup.",
         account: safeAccountLabel(activeConnection),
         action: integration.detailAnchor ? "MANAGE" : null,
       };
@@ -254,6 +427,7 @@ function statusForIntegration(integration, connections, assets, credentials) {
 function applyPlatformReadiness(integration, status) {
   const registry = getBusinessConnection(integration.id);
   if (!registry) return { ...status, platformReady: false };
+
   const readiness = checkBusinessConnectionPlatformReadiness(registry);
   if (readiness.ready) {
     return {
@@ -263,7 +437,8 @@ function applyPlatformReadiness(integration, status) {
     };
   }
 
-  const alreadyConnected = status.state === "CONNECTED" || status.state === "SETUP_IN_PROGRESS";
+  const alreadyConnected =
+    status.state === "CONNECTED" || status.state === "SETUP_IN_PROGRESS";
   return {
     ...status,
     state: "PLATFORM_SETUP",
@@ -282,27 +457,45 @@ export async function GET(request) {
   try {
     const url = new URL(request.url);
     const organizationId = clean(
-      url.searchParams.get("organizationId") || url.searchParams.get("organization_id"),
+      url.searchParams.get("organizationId") ||
+        url.searchParams.get("organization_id"),
     );
     if (!organizationId) {
-      return NextResponse.json({ success: false, error: "organizationId required" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "organizationId required" },
+        { status: 400 },
+      );
     }
 
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) {
-      return NextResponse.json({ success: false, error: access.error || "Organization access denied" }, { status: access.status || 403 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error || "Organization access denied",
+        },
+        { status: access.status || 403 },
+      );
     }
 
-    const [{ data: connections, error: connectionsError }, { data: assets, error: assetsError }] = await Promise.all([
+    const [
+      { data: connections, error: connectionsError },
+      { data: assets, error: assetsError },
+    ] = await Promise.all([
       supabaseAdmin
         .from("organization_channel_connections")
-        .select("id,organization_id,provider,channel_type,status,credentials_reference,metadata,authorized_at,updated_at")
+        .select(
+          "id,organization_id,provider,channel_type,status,credentials_reference,metadata,authorized_at,updated_at",
+        )
         .eq("organization_id", access.organizationId),
       supabaseAdmin
         .from("organization_channel_assets")
-        .select("id,organization_id,channel_provider,asset_type,external_id,name,entity_id,metadata,updated_at")
+        .select(
+          "id,organization_id,channel_provider,asset_type,external_id,name,entity_id,metadata,updated_at",
+        )
         .eq("organization_id", access.organizationId),
     ]);
+
     if (connectionsError) throw connectionsError;
     if (assetsError) throw assetsError;
 
@@ -318,12 +511,17 @@ export async function GET(request) {
     if (credentialIds.length) {
       const { data, error } = await supabaseAdmin
         .from("provider_credentials")
-        .select("id,provider_id,credential_type,status,metadata,created_at,updated_at")
+        .select(
+          "id,provider_id,credential_type,status,metadata,created_at,updated_at",
+        )
         .in("id", credentialIds);
       if (error) throw error;
       credentialRows = data || [];
     }
-    const credentials = new Map(credentialRows.map((row) => [row.id, row]));
+
+    const credentials = new Map(
+      credentialRows.map((row) => [row.id, row]),
+    );
 
     const rows = listCustomerIntegrations().map((integration) => {
       const status = statusForIntegration(
@@ -351,6 +549,12 @@ export async function GET(request) {
       rows,
     });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error?.message || "Integration catalog lookup failed" }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Integration catalog lookup failed",
+      },
+      { status: 500 },
+    );
   }
 }

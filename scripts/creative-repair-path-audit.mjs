@@ -2393,6 +2393,42 @@ async function transportPlanSurvivesAMisplacedField() {
   );
 }
 
+// 37. Source text must be transcribed, not described.
+//
+// The still scored 89.77 with one blocker: a unanimous panel of five, three at 91, architectural
+// authenticity at 88 and rights compliance at 70. The architectural reviewer's failure was specific --
+// "inconsistent text content placement compared to 'THE CURRENT CORNER' and 'THE QUEEN HOUSE'" -- so the
+// source imagery carries legible signage the plan never pinned. The contract said to state what exact
+// text must remain unchanged and never required quoting it, which is satisfiable by promising fidelity
+// in the abstract while the work comes back with plausible words that are not the real ones.
+async function sourceTextMustBeTranscribed() {
+  const { CreativeMasterPlanContractRegistry } = await import(
+    "@/lib/creative/director/registry/CreativeMasterPlanContractRegistry"
+  );
+  for (const workflowKind of ["TEMPORAL", "STILL"]) {
+    let gate;
+    try {
+      gate = CreativeMasterPlanContractRegistry.buildDecisionContract(workflowKind)
+        .pre_return_excellence_gate;
+    } catch {
+      continue;
+    }
+    const intent = String(gate?.source_asset_intent || "");
+    check(`${workflowKind}: source intent requires verbatim transcription`,
+      /Transcribe, do not paraphrase/.test(intent));
+    check(`${workflowKind}: quoting is required rather than promising fidelity`,
+      /has not pinned anything/.test(intent));
+    check(`${workflowKind}: exact text stays out of generated pixels`,
+      /composited from the source or set as type rather than reproduced inside generated pixels/
+        .test(intent));
+    // The other two failures the same reviewer raised were a blue cast in a warm grade and textures
+    // smoothed away, both of which are source truths the plan has to commit to preserving.
+    check(`${workflowKind}: source light and material truth must be stated`,
+      /lighting state, a colour temperature, a surface or a texture/.test(intent) &&
+        /cannot introduce a cast the location never had/.test(intent));
+  }
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2437,6 +2473,7 @@ async function main() {
   await inventedAssetIdsAreRejected();
   await inventedManifestEntriesAreRejected();
   await transportPlanSurvivesAMisplacedField();
+  await sourceTextMustBeTranscribed();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

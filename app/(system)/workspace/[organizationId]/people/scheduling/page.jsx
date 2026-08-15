@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CheckSquare2,
   Clock3,
+  Lock,
   RefreshCw,
   Save,
   Trash2,
@@ -109,7 +110,9 @@ export default function SchedulePage() {
       setStaff(payload.staff || []);
       setSchedules(payload.schedules || []);
       setSelectedStaffIds((current) =>
-        current.filter((staffId) => (payload.staff || []).some((member) => member.id === staffId))
+        current.filter((staffId) =>
+          (payload.staff || []).some((member) => member.id === staffId)
+        )
       );
     } catch (error) {
       setMessage(error?.message || "Unable to load schedules");
@@ -138,7 +141,9 @@ export default function SchedulePage() {
       activeStaff: staff.length,
       scheduledStaff: scheduledStaffIds.size,
       shifts: schedules.length,
-      unscheduledStaff: staff.filter((member) => !scheduledStaffIds.has(member.id)).length,
+      unscheduledStaff: staff.filter(
+        (member) => !scheduledStaffIds.has(member.id)
+      ).length,
     }),
     [staff, schedules, scheduledStaffIds]
   );
@@ -156,7 +161,9 @@ export default function SchedulePage() {
 
   function selectUnscheduled() {
     setSelectedStaffIds(
-      staff.filter((member) => !scheduledStaffIds.has(member.id)).map((member) => member.id)
+      staff
+        .filter((member) => !scheduledStaffIds.has(member.id))
+        .map((member) => member.id)
     );
   }
 
@@ -219,7 +226,7 @@ export default function SchedulePage() {
   }
 
   async function removeSchedule(id) {
-    if (!window.confirm("Delete this published shift?")) return;
+    if (!window.confirm("Cancel this published shift?")) return;
 
     const query = new URLSearchParams({ id });
     if (organizationId) query.set("organizationId", organizationId);
@@ -231,10 +238,11 @@ export default function SchedulePage() {
     const payload = await response.json();
 
     if (!response.ok || !payload.success) {
-      setMessage(payload.error || "Unable to delete schedule");
+      setMessage(payload.error || "Unable to cancel schedule");
       return;
     }
 
+    setMessage("Published shift cancelled.");
     await load();
   }
 
@@ -245,10 +253,12 @@ export default function SchedulePage() {
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />
           <div className="flex flex-col gap-4 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-[#D6A66A]">People · Workforce</p>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[#D6A66A]">
+                People · Workforce
+              </p>
               <h1 className="mt-2 text-4xl font-black">Scheduling Management</h1>
               <p className="mt-2 max-w-3xl text-sm text-white/45">
-                Publish real roster evidence for staff clock-in, attendance and payroll readiness. Shift times and working days are always explicit manager inputs.
+                Publish real roster evidence for staff clock-in, attendance and payroll readiness. Shift times and working days are explicit manager inputs; once shift or attendance evidence exists, the roster row is locked and corrections move to Attendance Management.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -271,45 +281,111 @@ export default function SchedulePage() {
         </header>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric icon={<Users size={18} />} label="Active staff" value={summary.activeStaff} />
-          <Metric icon={<CalendarDays size={18} />} label="Scheduled staff" value={summary.scheduledStaff} />
-          <Metric icon={<Clock3 size={18} />} label="Published shifts" value={summary.shifts} />
-          <Metric icon={<Users size={18} />} label="Unscheduled staff" value={summary.unscheduledStaff} />
+          <Metric
+            icon={<Users size={18} />}
+            label="Active staff"
+            value={summary.activeStaff}
+          />
+          <Metric
+            icon={<CalendarDays size={18} />}
+            label="Scheduled staff"
+            value={summary.scheduledStaff}
+          />
+          <Metric
+            icon={<Clock3 size={18} />}
+            label="Published shifts"
+            value={summary.shifts}
+          />
+          <Metric
+            icon={<Users size={18} />}
+            label="Unscheduled staff"
+            value={summary.unscheduledStaff}
+          />
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[430px_1fr]">
-          <form onSubmit={publishSchedule} className="space-y-5 rounded-[30px] border border-white/10 bg-white/[0.035] p-5">
+          <form
+            onSubmit={publishSchedule}
+            className="space-y-5 rounded-[30px] border border-white/10 bg-white/[0.035] p-5"
+          >
             <div>
-              <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">Manager action</p>
+              <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">
+                Manager action
+              </p>
               <h2 className="mt-1 text-2xl font-black">Publish Roster</h2>
               <p className="mt-2 text-xs leading-5 text-white/35">
-                Select staff, a date range, working weekdays and actual shift times. Existing staff/date rows are updated; missing rows are created as PUBLISHED.
+                Select staff, a date range, working weekdays and actual shift times. Existing staff/date rows can be corrected only before workforce evidence exists; missing rows are created as PUBLISHED.
               </p>
             </div>
 
             <Field label="Staff">
               <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-black/20 p-3">
                 <div className="mb-3 flex gap-2">
-                  <button type="button" onClick={() => setSelectedStaffIds(staff.map((member) => member.id))} className="mini-button">Select all</button>
-                  <button type="button" onClick={selectUnscheduled} className="mini-button">Unscheduled</button>
-                  <button type="button" onClick={() => setSelectedStaffIds([])} className="mini-button">Clear</button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedStaffIds(staff.map((member) => member.id))
+                    }
+                    className="mini-button"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={selectUnscheduled}
+                    className="mini-button"
+                  >
+                    Unscheduled
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStaffIds([])}
+                    className="mini-button"
+                  >
+                    Clear
+                  </button>
                 </div>
                 {staff.map((member) => (
-                  <label key={member.id} className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/[0.04]">
+                  <label
+                    key={member.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/[0.04]"
+                  >
                     <input
                       type="checkbox"
                       checked={selectedStaffIds.includes(member.id)}
                       onChange={() => toggleStaff(member.id)}
                     />
-                    <span className="text-sm text-white/70">{memberLabel(member)}</span>
+                    <span className="text-sm text-white/70">
+                      {memberLabel(member)}
+                    </span>
                   </label>
                 ))}
               </div>
             </Field>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="From"><input type="date" value={plan.startDate} onChange={(event) => setPlan({ ...plan, startDate: event.target.value })} required className="input" /></Field>
-              <Field label="To"><input type="date" value={plan.endDate} onChange={(event) => setPlan({ ...plan, endDate: event.target.value })} required className="input" /></Field>
+              <Field label="From">
+                <input
+                  type="date"
+                  value={plan.startDate}
+                  onChange={(event) =>
+                    setPlan({ ...plan, startDate: event.target.value })
+                  }
+                  required
+                  className="input"
+                />
+              </Field>
+              <Field label="To">
+                <input
+                  type="date"
+                  value={plan.endDate}
+                  onChange={(event) =>
+                    setPlan({ ...plan, endDate: event.target.value })
+                  }
+                  required
+                  className="input"
+                />
+              </Field>
             </div>
 
             <Field label="Working weekdays">
@@ -321,7 +397,11 @@ export default function SchedulePage() {
                       key={day.value}
                       type="button"
                       onClick={() => toggleWeekday(day.value)}
-                      className={`rounded-lg border px-1 py-2 text-[10px] font-bold ${active ? "border-[#D6A66A]/50 bg-[#D6A66A]/15 text-[#E7C797]" : "border-white/10 bg-white/[0.03] text-white/35"}`}
+                      className={`rounded-lg border px-1 py-2 text-[10px] font-bold ${
+                        active
+                          ? "border-[#D6A66A]/50 bg-[#D6A66A]/15 text-[#E7C797]"
+                          : "border-white/10 bg-white/[0.03] text-white/35"
+                      }`}
                     >
                       {day.label}
                     </button>
@@ -331,37 +411,91 @@ export default function SchedulePage() {
             </Field>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Start time"><input type="time" value={plan.startTime} onChange={(event) => setPlan({ ...plan, startTime: event.target.value })} required className="input" /></Field>
-              <Field label="End time"><input type="time" value={plan.endTime} onChange={(event) => setPlan({ ...plan, endTime: event.target.value })} required className="input" /></Field>
+              <Field label="Start time">
+                <input
+                  type="time"
+                  value={plan.startTime}
+                  onChange={(event) =>
+                    setPlan({ ...plan, startTime: event.target.value })
+                  }
+                  required
+                  className="input"
+                />
+              </Field>
+              <Field label="End time">
+                <input
+                  type="time"
+                  value={plan.endTime}
+                  onChange={(event) =>
+                    setPlan({ ...plan, endTime: event.target.value })
+                  }
+                  required
+                  className="input"
+                />
+              </Field>
             </div>
 
             <Field label="Shift type">
-              <input value={plan.shiftType} onChange={(event) => setPlan({ ...plan, shiftType: event.target.value })} placeholder="Optional classification" className="input" />
+              <input
+                value={plan.shiftType}
+                onChange={(event) =>
+                  setPlan({ ...plan, shiftType: event.target.value })
+                }
+                placeholder="Optional classification"
+                className="input"
+              />
             </Field>
             <Field label="Notes">
-              <textarea value={plan.notes} onChange={(event) => setPlan({ ...plan, notes: event.target.value })} rows={3} placeholder="Optional" className="input resize-none" />
+              <textarea
+                value={plan.notes}
+                onChange={(event) =>
+                  setPlan({ ...plan, notes: event.target.value })
+                }
+                rows={3}
+                placeholder="Optional"
+                className="input resize-none"
+              />
             </Field>
 
             <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-xs text-white/45">
-              <div className="flex items-center justify-between"><span>Selected staff</span><strong className="text-white/80">{selectedStaffIds.length}</strong></div>
-              <div className="mt-2 flex items-center justify-between"><span>Selected dates</span><strong className="text-white/80">{shiftDates.length}</strong></div>
-              <div className="mt-2 flex items-center justify-between"><span>Published rows</span><strong className="text-[#D6A66A]">{plannedRows}</strong></div>
+              <div className="flex items-center justify-between">
+                <span>Selected staff</span>
+                <strong className="text-white/80">{selectedStaffIds.length}</strong>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span>Selected dates</span>
+                <strong className="text-white/80">{shiftDates.length}</strong>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span>Published rows</span>
+                <strong className="text-[#D6A66A]">{plannedRows}</strong>
+              </div>
             </div>
 
             <button
-              disabled={saving || !selectedStaffIds.length || !shiftDates.length || !plan.startTime || !plan.endTime}
+              disabled={
+                saving ||
+                !selectedStaffIds.length ||
+                !shiftDates.length ||
+                !plan.startTime ||
+                !plan.endTime
+              }
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#D6A66A] px-4 py-3 font-black text-black disabled:opacity-35"
             >
               <Save size={18} /> {saving ? "Publishing..." : "Publish Schedule"}
             </button>
 
-            {message ? <p className="text-sm text-white/60">{message}</p> : null}
+            {message ? (
+              <p className="text-sm text-white/60">{message}</p>
+            ) : null}
           </form>
 
           <section className="overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.035]">
             <div className="flex flex-col gap-2 border-b border-white/10 p-5 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">{month}</p>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">
+                  {month}
+                </p>
                 <h2 className="mt-1 text-2xl font-black">Published Roster</h2>
               </div>
               <div className="flex items-center gap-2 text-xs text-white/35">
@@ -383,19 +517,73 @@ export default function SchedulePage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={6} className="px-5 py-10 text-center text-white/35">Loading schedules...</td></tr>
-                  ) : schedules.length === 0 ? (
-                    <tr><td colSpan={6} className="px-5 py-10 text-center text-white/35">No published shifts for this month.</td></tr>
-                  ) : schedules.map((row) => (
-                    <tr key={row.id} className="border-t border-white/5">
-                      <td className="px-5 py-4 font-semibold">{row.shift_date}</td>
-                      <td className="px-5 py-4">{row.staff_name || "Staff"}</td>
-                      <td className="px-5 py-4 text-white/45">{row.department || "-"}</td>
-                      <td className="px-5 py-4">{row.start_time} - {row.end_time}</td>
-                      <td className="px-5 py-4"><span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-300">PUBLISHED</span></td>
-                      <td className="px-5 py-4 text-right"><button type="button" onClick={() => removeSchedule(row.id)} className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-red-300" aria-label="Delete shift"><Trash2 size={16} /></button></td>
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-5 py-10 text-center text-white/35"
+                      >
+                        Loading schedules...
+                      </td>
                     </tr>
-                  ))}
+                  ) : schedules.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-5 py-10 text-center text-white/35"
+                      >
+                        No published shifts for this month.
+                      </td>
+                    </tr>
+                  ) : (
+                    schedules.map((row) => (
+                      <tr key={row.id} className="border-t border-white/5">
+                        <td className="px-5 py-4 font-semibold">
+                          {row.shift_date}
+                        </td>
+                        <td className="px-5 py-4">
+                          {row.staff_name || "Staff"}
+                        </td>
+                        <td className="px-5 py-4 text-white/45">
+                          {row.department || "-"}
+                        </td>
+                        <td className="px-5 py-4">
+                          {row.start_time} - {row.end_time}
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-300">
+                              PUBLISHED
+                            </span>
+                            {row.evidenceLocked ? (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-xs text-amber-200"
+                                title="Shift or attendance evidence exists. Correct the evidence in Attendance Management instead of rewriting the roster."
+                              >
+                                <Lock size={12} /> Evidence locked
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          {row.evidenceLocked ? (
+                            <span className="text-[11px] text-white/30">
+                              Manage in Attendance
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => removeSchedule(row.id)}
+                              className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-red-300"
+                              aria-label="Cancel published shift"
+                              title="Cancel published shift"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -413,9 +601,24 @@ export default function SchedulePage() {
 }
 
 function Field({ label, children }) {
-  return <label className="block space-y-2"><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">{label}</span>{children}</label>;
+  return (
+    <label className="block space-y-2">
+      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
 }
 
 function Metric({ icon, label, value }) {
-  return <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4"><div className="flex items-center gap-2 text-white/35">{icon}<span className="text-[10px] uppercase tracking-[0.16em]">{label}</span></div><div className="mt-3 text-3xl font-black">{value}</div></div>;
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+      <div className="flex items-center gap-2 text-white/35">
+        {icon}
+        <span className="text-[10px] uppercase tracking-[0.16em]">{label}</span>
+      </div>
+      <div className="mt-3 text-3xl font-black">{value}</div>
+    </div>
+  );
 }

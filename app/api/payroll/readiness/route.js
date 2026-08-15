@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
-import buildPayrollReadiness from "@/lib/payroll/readiness/buildPayrollReadiness";
+import { buildPayrollReadiness } from "@/lib/people/payroll";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 // Payroll readiness reads privileged workforce and payroll data on the trusted server.

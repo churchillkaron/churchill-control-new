@@ -7,6 +7,7 @@ import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAsse
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const PROVIDER = "whatsapp";
@@ -63,6 +64,40 @@ async function resolveAccess(request, body = {}) {
       url.searchParams.get("organizationId") ||
       url.searchParams.get("organization_id"),
     request,
+  });
+}
+
+async function ensureWhatsAppService(organizationId) {
+  const existing = await OrganizationServiceRuntime.get({
+    organization_id: organizationId,
+    service_id: "whatsapp",
+  }).catch(() => null);
+
+  if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") {
+    return existing;
+  }
+
+  return OrganizationServiceRuntime.save({
+    ...(existing || {}),
+    organization_id: organizationId,
+    service_category_id: existing?.service_category_id || "communication",
+    service_id: "whatsapp",
+    package_id: existing?.package_id || "core",
+    status: "ACTIVE",
+    managed_by: existing?.managed_by || "organization",
+    authorization_required: true,
+    usage_enabled: true,
+    billing_enabled: true,
+    billing_mode: existing?.billing_mode || "USAGE",
+    pricing_mode: existing?.pricing_mode || "PROVIDER",
+    fallback_enabled: false,
+    activated_at: existing?.activated_at || new Date().toISOString(),
+    metadata: {
+      ...(existing?.metadata || {}),
+      provider: PROVIDER,
+      connection_model: "ORGANIZATION_WHATSAPP_EMBEDDED_SIGNUP",
+    },
+    configuration: existing?.configuration || {},
   });
 }
 
@@ -280,6 +315,8 @@ async function completeEmbeddedSignup({ access, code, phoneNumberId, wabaId, bus
       phone_number_id: phoneNumberId,
     },
   });
+
+  await ensureWhatsAppService(access.organizationId);
 
   return snapshot(access.organizationId, origin);
 }

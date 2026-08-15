@@ -5,19 +5,20 @@ import { NextResponse } from "next/server";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import loadOperationalSettings from "@/lib/settings/loadOperationalSettings";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { approvePayrollRecord } from "@/lib/payroll/consolidation/approvePayrollRecord";
-import rejectPayrollRecord from "@/lib/payroll/consolidation/rejectPayrollRecord";
-import lockPayrollRecord from "@/lib/payroll/consolidation/lockPayrollRecord";
-import resolvePayrollDispute from "@/lib/payroll/consolidation/resolvePayrollDispute";
-import { recalculatePayrollRecord } from "@/lib/payroll/consolidation/recalculatePayrollRecord";
-import reviewAttendancePenalty from "@/lib/payroll/consolidation/reviewAttendancePenalty";
-import finalizePayrollRecord from "@/lib/payroll/consolidation/finalizePayrollRecord";
-import closePayrollAccountingPeriod from "@/lib/payroll/consolidation/closePayrollAccountingPeriod";
-import certifyPayrollRecord from "@/lib/payroll/consolidation/certifyPayrollRecord";
-import archivePayrollRecord from "@/lib/payroll/consolidation/archivePayrollRecord";
-import loadPayrollAttendanceReconciliation, {
+import {
+  approvePayrollRecord,
+  rejectPayrollRecord,
+  lockPayrollRecord,
+  resolvePayrollDispute,
+  recalculatePayrollRecord,
+  reviewAttendancePenalty,
+  finalizePayrollRecord,
+  closePayrollAccountingPeriod,
+  certifyPayrollRecord,
+  archivePayrollRecord,
+  loadPayrollAttendanceReconciliation,
   isPayrollAttendanceSnapshotStale,
-} from "@/lib/payroll/consolidation/loadPayrollAttendanceReconciliation";
+} from "@/lib/people/payroll";
 
 const GOVERNANCE_ROLES = new Set([
   "OWNER",

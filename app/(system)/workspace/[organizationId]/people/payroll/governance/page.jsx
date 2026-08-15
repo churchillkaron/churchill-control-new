@@ -91,6 +91,8 @@ export default function PayrollGovernancePage() {
   const [role, setRole] = useState("");
   const [organizationId, setOrganizationId] = useState("");
   const [currency, setCurrency] = useState("");
+  const [currencies, setCurrencies] = useState([]);
+  const [mixedCurrencies, setMixedCurrencies] = useState(false);
   const [focus, setFocus] = useState({ month: "", staffId: "" });
   const [capabilities, setCapabilities] = useState({
     canReview: false,
@@ -129,6 +131,8 @@ export default function PayrollGovernancePage() {
       setRole(result.role || "");
       setOrganizationId(result.organizationId || "");
       setCurrency(result.currency || "");
+      setCurrencies(result.currencies || []);
+      setMixedCurrencies(result.mixedCurrencies === true);
       setCapabilities(
         result.capabilities || {
           canReview: false,
@@ -297,8 +301,17 @@ export default function PayrollGovernancePage() {
           </section>
         ) : null}
 
+        {mixedCurrencies ? (
+          <section className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3 text-sm text-amber-100/80">
+            Payroll records span multiple legal-entity currencies ({currencies.join(", ")}). Monetary totals are not combined; each employee record is shown in its own payroll currency.
+          </section>
+        ) : null}
+
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Metric label="Payroll Total" value={formatMoney(summary.total, currency)} />
+          <Metric
+            label="Payroll Total"
+            value={mixedCurrencies ? "Multiple currencies" : formatMoney(summary.total, currency)}
+          />
           <Metric label="Manager Review" value={summary.review} />
           <Metric label="Needs Approval" value={summary.pending} />
           <Metric label="Approved" value={summary.approved} />
@@ -324,6 +337,8 @@ export default function PayrollGovernancePage() {
         ) : payroll.length ? (
           <section className="space-y-4">
             {payroll.map((record) => {
+              const recordCurrency =
+                record.currency_code || record.legal_entity?.currency || currency;
               const unresolvedDispute = Boolean(
                 record.employee_dispute && !record.dispute_resolved
               );
@@ -381,21 +396,22 @@ export default function PayrollGovernancePage() {
                       </div>
                       <div className="mt-2 text-sm text-white/40">
                         {record.role || "-"} · {record.payroll_month || "-"}
+                        {record.legal_entity?.name ? ` · ${record.legal_entity.name}` : ""}
                       </div>
                     </div>
 
                     <div className="text-left lg:text-right">
                       <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">Net Salary</div>
-                      <div className="mt-2 text-3xl font-black text-emerald-300">{formatMoney(record.final_salary, currency)}</div>
+                      <div className="mt-2 text-3xl font-black text-emerald-300">{formatMoney(record.final_salary, recordCurrency)}</div>
                     </div>
                   </div>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-8">
-                    <Data label="Gross" value={formatMoney(record.gross_salary, currency)} />
-                    <Data label="Base" value={formatMoney(record.base_salary, currency)} />
-                    <Data label="Service Charge" value={formatMoney(record.service_charge_bonus, currency)} />
-                    <Data label="Deductions" value={formatMoney(record.deductions, currency)} />
-                    <Data label="Attendance" value={formatMoney(record.attendance_penalty, currency)} />
+                    <Data label="Gross" value={formatMoney(record.gross_salary, recordCurrency)} />
+                    <Data label="Base" value={formatMoney(record.base_salary, recordCurrency)} />
+                    <Data label="Service Charge" value={formatMoney(record.service_charge_bonus, recordCurrency)} />
+                    <Data label="Deductions" value={formatMoney(record.deductions, recordCurrency)} />
+                    <Data label="Attendance" value={formatMoney(record.attendance_penalty, recordCurrency)} />
                     <Data label="Hours" value={Number(record.worked_hours || record.total_hours || 0).toFixed(2)} />
                     <Data label="Late" value={`${Number(record.total_late_minutes || 0)} min`} />
                     <Data
@@ -486,7 +502,7 @@ export default function PayrollGovernancePage() {
 
                       {Number(record.attendance_penalty || 0) > 0 ? (
                         <div className="mt-2 text-xs text-white/45">
-                          Proposed attendance deduction: {formatMoney(record.attendance_penalty, currency)}. Approving keeps the proposal; waiving removes it and recalculates net payroll.
+                          Proposed attendance deduction: {formatMoney(record.attendance_penalty, recordCurrency)}. Approving keeps the proposal; waiving removes it and recalculates net payroll.
                         </div>
                       ) : null}
 

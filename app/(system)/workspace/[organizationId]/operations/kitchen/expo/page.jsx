@@ -19,34 +19,44 @@ export default function ExpoPage() {
     businessContext.organization_id ||
     businessContext.organization?.id ||
     null;
+  const entityId = businessContext.entity_id || businessContext.entity?.id || null;
 
-  const [tickets, setTickets] = useState([]);
+  const [entries, setEntries] = useState([]);
+  const [applicationId, setApplicationId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState(null);
   const [error, setError] = useState(null);
 
   const loadExpo = useCallback(async () => {
     if (!organizationId) return;
+    if (!entityId) {
+      setEntries([]);
+      setLoading(false);
+      setError("Select a legal entity before loading Expo.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `/api/restaurant/operations?scope=expo&organizationId=${encodeURIComponent(organizationId)}`,
+        `/api/operations/fulfillment?scope=ready&organizationId=${encodeURIComponent(organizationId)}&entityId=${encodeURIComponent(entityId)}`,
         { cache: "no-store", credentials: "include" }
       );
       const result = await response.json();
       if (!response.ok || result.success === false) {
         throw new Error(result.error || "Unable to load Expo");
       }
-      setTickets(result.readyTickets || []);
+      setEntries(result.entries || []);
+      setApplicationId(result.application_id || null);
     } catch (loadError) {
-      setTickets([]);
+      setEntries([]);
       setError(loadError.message);
     } finally {
       setLoading(false);
     }
-  }, [organizationId]);
+  }, [organizationId, entityId]);
 
   useEffect(() => {
     loadExpo();
@@ -55,42 +65,48 @@ export default function ExpoPage() {
   const readyTables = useMemo(() => {
     const grouped = new Map();
 
-    for (const ticket of tickets) {
-      const table = ticket.table_number || "Unassigned";
-      const readyItems = (ticket.items || []).filter(
+    for (const entry of entries) {
+      const table = entry.context?.reference || "Unassigned";
+      const readyItems = (entry.work_items || []).filter(
         (item) => statusOf(item.status) === "READY"
       );
-      if (!readyItems.length && statusOf(ticket.status) === "READY") {
-        readyItems.push(...(ticket.items || []).filter((item) => statusOf(item.status) !== "SERVED"));
-      }
-      if (!readyItems.length) continue;
 
+      if (!readyItems.length) continue;
       if (!grouped.has(table)) grouped.set(table, []);
+
       grouped.get(table).push(
-        ...readyItems.map((item) => ({ ...item, ticketId: ticket.id }))
+        ...readyItems.map((item) => ({
+          ...item,
+          ticketId: entry.id,
+          sourceType: entry.source?.type || null,
+          queueName: entry.queue_name || entry.work_center?.name || null,
+        }))
       );
     }
 
     return [...grouped.entries()];
-  }, [tickets]);
+  }, [entries]);
 
   async function serveItems(items) {
+    if (!entityId) return;
     setError(null);
 
     for (const item of items) {
-      const itemId = item.id || item.order_item_id;
+      const itemId = item.id || item.source_id;
       if (!itemId) continue;
       setActionId(`${item.ticketId}:${itemId}`);
 
-      const response = await fetch("/api/restaurant/operations", {
+      const response = await fetch("/api/operations/fulfillment", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "UPDATE_KITCHEN_ITEM",
           organizationId,
-          ticketId: item.ticketId,
-          itemId,
+          entityId,
+          applicationId,
+          queueEntryId: item.ticketId,
+          workItemId: itemId,
+          sourceType: item.sourceType,
           status: "SERVED",
         }),
       });
@@ -121,7 +137,7 @@ export default function ExpoPage() {
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">Restaurant Operations</p>
               <h1 className="mt-3 text-4xl font-semibold">Expo & Service Handoff</h1>
-              <p className="mt-2 text-sm text-white/45">Assemble ready items, call service and confirm collection.</p>
+              <p className="mt-2 text-sm text-white/45">Kitchen and Bar ready items converge here before service and payment.</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="rounded-2xl border border-white/10 bg-black/25 px-5 py-3">
@@ -152,13 +168,14 @@ export default function ExpoPage() {
 
                 <div className="mt-6 space-y-3">
                   {items.map((item) => {
-                    const itemId = item.id || item.order_item_id;
+                    const itemId = item.id || item.source_id;
                     return (
                       <div key={`${item.ticketId}:${itemId}`} className="rounded-2xl border border-white/10 bg-black/30 p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-lg font-medium">{Number(item.quantity || 1)} × {item.item_name || item.name || "Item"}</div>
-                            {item.seat_position ? <div className="mt-1 text-xs text-cyan-200/70">Seat {item.seat_position}</div> : null}
+                            <div className="text-lg font-medium">{Number(item.quantity || 1)} × {item.name || "Item"}</div>
+                            {item.attributes?.seat_position ? <div className="mt-1 text-xs text-cyan-200/70">Seat {item.attributes.seat_position}</div> : null}
+                            {item.queueName ? <div className="mt-1 text-xs text-[#D6A66A]/70">{item.queueName}</div> : null}
                             {item.notes ? <div className="mt-1 text-sm text-orange-200/70">{item.notes}</div> : null}
                           </div>
                           <div className="text-xs font-semibold text-emerald-300">READY</div>
@@ -178,9 +195,7 @@ export default function ExpoPage() {
               </article>
             ))
           ) : (
-            <div className="col-span-full rounded-3xl border border-dashed border-white/10 p-16 text-center text-white/35">
-              No items are ready for service.
-            </div>
+            <div className="col-span-full rounded-3xl border border-dashed border-white/10 p-16 text-center text-white/35">No items are ready for service.</div>
           )}
         </section>
       </div>

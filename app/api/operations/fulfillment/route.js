@@ -6,6 +6,29 @@ function errorResponse(error, status = 500) {
   return Response.json({ success: false, error }, { status });
 }
 
+function requestEntityId(request, body = null) {
+  if (body) {
+    return (
+      body.entityId ||
+      body.entity_id ||
+      body.legalEntityId ||
+      body.legal_entity_id ||
+      request.headers.get("x-entity-id") ||
+      null
+    );
+  }
+
+  const { searchParams } = new URL(request.url);
+  return (
+    searchParams.get("entityId") ||
+    searchParams.get("entity_id") ||
+    searchParams.get("legalEntityId") ||
+    searchParams.get("legal_entity_id") ||
+    request.headers.get("x-entity-id") ||
+    null
+  );
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -34,6 +57,7 @@ export async function GET(request) {
       application: resolved.application,
       organization: resolved.organization,
       organizationId: resolved.organizationId,
+      entityId: requestEntityId(request),
       scope: searchParams.get("scope") || "active",
     });
 
@@ -77,6 +101,7 @@ export async function POST(request) {
       application: resolved.application,
       organization: resolved.organization,
       organizationId: resolved.organizationId,
+      entityId: requestEntityId(request, body),
       request,
     });
 

@@ -46,6 +46,7 @@ export default function FulfillmentDispatchWorkspace({
     businessContext.organization_id ||
     businessContext.organization?.id ||
     null;
+  const entityId = businessContext.entity_id || businessContext.entity?.id || null;
 
   const [entries, setEntries] = useState([]);
   const [metrics, setMetrics] = useState(null);
@@ -56,21 +57,26 @@ export default function FulfillmentDispatchWorkspace({
   const [error, setError] = useState(null);
 
   const normalizedSourceTypes = useMemo(() => {
-    if (!Array.isArray(sourceTypes) || sourceTypes.length === 0) {
-      return null;
-    }
-
+    if (!Array.isArray(sourceTypes) || sourceTypes.length === 0) return null;
     return new Set(sourceTypes.map(sourceTypeOf).filter(Boolean));
   }, [sourceTypes]);
 
   const loadQueue = useCallback(async () => {
     if (!organizationId) return;
+    if (!entityId) {
+      setEntries([]);
+      setMetrics(null);
+      setLoading(false);
+      setError("Select a legal entity before loading fulfillment work.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `/api/operations/fulfillment?scope=all&organizationId=${encodeURIComponent(organizationId)}`,
+        `/api/operations/fulfillment?scope=all&organizationId=${encodeURIComponent(organizationId)}&entityId=${encodeURIComponent(entityId)}`,
         { cache: "no-store", credentials: "include" }
       );
       const result = await response.json();
@@ -88,7 +94,7 @@ export default function FulfillmentDispatchWorkspace({
     } finally {
       setLoading(false);
     }
-  }, [organizationId]);
+  }, [organizationId, entityId]);
 
   useEffect(() => {
     loadQueue();
@@ -96,7 +102,6 @@ export default function FulfillmentDispatchWorkspace({
 
   const scopedEntries = useMemo(() => {
     if (!normalizedSourceTypes) return entries;
-
     return entries.filter((entry) =>
       normalizedSourceTypes.has(sourceTypeOf(entry.source?.type))
     );
@@ -120,9 +125,7 @@ export default function FulfillmentDispatchWorkspace({
   }, [scopedEntries, filter]);
 
   const viewMetrics = useMemo(() => {
-    if (!normalizedSourceTypes) {
-      return metrics;
-    }
+    if (!normalizedSourceTypes) return metrics;
 
     return {
       total: scopedEntries.length,
@@ -141,7 +144,7 @@ export default function FulfillmentDispatchWorkspace({
 
   async function updateItem(entry, item, status) {
     const itemId = item.id || item.source_id;
-    if (!itemId) return;
+    if (!itemId || !entityId) return;
 
     setActionId(`${entry.id}:${itemId}`);
     setError(null);
@@ -153,6 +156,7 @@ export default function FulfillmentDispatchWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           organizationId,
+          entityId,
           applicationId,
           queueEntryId: entry.id,
           workItemId: itemId,
@@ -178,16 +182,11 @@ export default function FulfillmentDispatchWorkspace({
         <header className="rounded-[34px] border border-white/10 bg-white/[0.035] p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
-                {eyebrow}
-              </p>
+              <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">{eyebrow}</p>
               <h1 className="mt-3 text-4xl font-semibold">{title}</h1>
               <p className="mt-2 text-sm text-white/45">{description}</p>
             </div>
-            <button
-              onClick={loadQueue}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60"
-            >
+            <button onClick={loadQueue} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60">
               <RefreshCw size={15} /> Refresh
             </button>
           </div>
@@ -197,11 +196,7 @@ export default function FulfillmentDispatchWorkspace({
               <button
                 key={value}
                 onClick={() => setFilter(value)}
-                className={
-                  filter === value
-                    ? "rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-semibold text-black"
-                    : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50"
-                }
+                className={filter === value ? "rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-semibold text-black" : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50"}
               >
                 {value}
               </button>
@@ -209,48 +204,27 @@ export default function FulfillmentDispatchWorkspace({
 
             {viewMetrics ? (
               <div className="ml-auto flex flex-wrap gap-2 text-xs text-white/40">
-                <span className="rounded-xl border border-white/10 px-3 py-2">
-                  Active {viewMetrics.active ?? 0}
-                </span>
-                <span className="rounded-xl border border-white/10 px-3 py-2">
-                  Ready {viewMetrics.ready ?? 0}
-                </span>
-                <span className="rounded-xl border border-white/10 px-3 py-2">
-                  Total {viewMetrics.total ?? scopedEntries.length}
-                </span>
+                <span className="rounded-xl border border-white/10 px-3 py-2">Active {viewMetrics.active ?? 0}</span>
+                <span className="rounded-xl border border-white/10 px-3 py-2">Ready {viewMetrics.ready ?? 0}</span>
+                <span className="rounded-xl border border-white/10 px-3 py-2">Total {viewMetrics.total ?? scopedEntries.length}</span>
               </div>
             ) : null}
           </div>
 
-          {error ? (
-            <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
-              {error}
-            </div>
-          ) : null}
+          {error ? <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">{error}</div> : null}
         </header>
 
         <section className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {loading ? (
-            <div className="col-span-full rounded-3xl border border-white/10 p-10 text-center text-white/35">
-              Loading fulfillment queue...
-            </div>
+            <div className="col-span-full rounded-3xl border border-white/10 p-10 text-center text-white/35">Loading fulfillment queue...</div>
           ) : visibleEntries.length ? (
             visibleEntries.map((entry) => (
-              <article
-                key={entry.id}
-                className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5"
-              >
+              <article key={entry.id} className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-[#D6A66A]">
-                      {entry.work_center?.name || entry.queue_name || "Work centre"}
-                    </div>
-                    <h2 className="mt-2 text-2xl font-semibold">
-                      {entryTitle(entry, contextFallback)}
-                    </h2>
-                    <div className="mt-1 text-xs text-white/35">
-                      {entry.demand?.reference || entry.demand?.id || entry.id}
-                    </div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-[#D6A66A]">{entry.work_center?.name || entry.queue_name || "Work centre"}</div>
+                    <h2 className="mt-2 text-2xl font-semibold">{entryTitle(entry, contextFallback)}</h2>
+                    <div className="mt-1 text-xs text-white/35">{entry.demand?.reference || entry.demand?.id || entry.id}</div>
                   </div>
                   <div className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs text-white/45">
                     <Clock3 size={13} /> {elapsed(entry.created_at)}
@@ -265,80 +239,40 @@ export default function FulfillmentDispatchWorkspace({
                       const busy = actionId === `${entry.id}:${itemId}`;
 
                       return (
-                        <div
-                          key={itemId || item.name}
-                          className="rounded-2xl border border-white/10 bg-black/25 p-4"
-                        >
+                        <div key={itemId || item.name} className="rounded-2xl border border-white/10 bg-black/25 p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <div className="font-medium">
-                                {Number(item.quantity || 1)} × {item.name || "Item"}
-                              </div>
-                              {item.notes ? (
-                                <div className="mt-1 text-xs text-orange-200/70">
-                                  {item.notes}
-                                </div>
-                              ) : null}
+                              <div className="font-medium">{Number(item.quantity || 1)} × {item.name || "Item"}</div>
+                              {item.notes ? <div className="mt-1 text-xs text-orange-200/70">{item.notes}</div> : null}
                             </div>
                             <div className="text-xs text-white/40">{status}</div>
                           </div>
 
                           <div className="mt-4 grid grid-cols-2 gap-2">
                             <button
-                              disabled={
-                                busy ||
-                                [
-                                  "IN_PROGRESS",
-                                  "PREPARING",
-                                  "READY",
-                                  "SERVED",
-                                  "COMPLETED",
-                                  "CANCELLED",
-                                  "VOID",
-                                ].includes(status)
-                              }
-                              onClick={() =>
-                                updateItem(entry, item, "PREPARING")
-                              }
+                              disabled={busy || ["IN_PROGRESS", "PREPARING", "READY", "SERVED", "COMPLETED", "CANCELLED", "VOID"].includes(status)}
+                              onClick={() => updateItem(entry, item, "PREPARING")}
                               className="rounded-xl border border-white/10 py-2 text-xs text-white/60 disabled:opacity-30"
                             >
                               Start
                             </button>
-
                             <button
-                              disabled={
-                                busy ||
-                                [
-                                  "READY",
-                                  "SERVED",
-                                  "COMPLETED",
-                                  "CANCELLED",
-                                  "VOID",
-                                ].includes(status)
-                              }
-                              onClick={() =>
-                                updateItem(entry, item, "READY")
-                              }
+                              disabled={busy || ["READY", "SERVED", "COMPLETED", "CANCELLED", "VOID"].includes(status)}
+                              onClick={() => updateItem(entry, item, "READY")}
                               className="rounded-xl bg-[#D6A66A] py-2 text-xs font-semibold text-black disabled:opacity-30"
                             >
                               Ready
                             </button>
-
                             <button
                               disabled={busy || status !== "READY"}
-                              onClick={() =>
-                                updateItem(entry, item, "SERVED")
-                              }
+                              onClick={() => updateItem(entry, item, "SERVED")}
                               className="rounded-xl border border-[#D6A66A]/30 py-2 text-xs font-semibold text-[#E2C48A] disabled:opacity-30"
                             >
                               Served
                             </button>
-
                             <button
                               disabled={busy || status !== "SERVED"}
-                              onClick={() =>
-                                updateItem(entry, item, "COMPLETED")
-                              }
+                              onClick={() => updateItem(entry, item, "COMPLETED")}
                               className="rounded-xl border border-white/10 py-2 text-xs font-semibold text-white/70 disabled:opacity-30"
                             >
                               Complete
@@ -348,17 +282,13 @@ export default function FulfillmentDispatchWorkspace({
                       );
                     })
                   ) : (
-                    <div className="rounded-2xl border border-white/10 p-4 text-sm text-white/35">
-                      Queue entry has no persisted work items.
-                    </div>
+                    <div className="rounded-2xl border border-white/10 p-4 text-sm text-white/35">Queue entry has no persisted work items.</div>
                   )}
                 </div>
               </article>
             ))
           ) : (
-            <div className="col-span-full rounded-3xl border border-dashed border-white/10 p-12 text-center text-white/35">
-              {emptyLabel}
-            </div>
+            <div className="col-span-full rounded-3xl border border-dashed border-white/10 p-12 text-center text-white/35">{emptyLabel}</div>
           )}
         </section>
       </div>

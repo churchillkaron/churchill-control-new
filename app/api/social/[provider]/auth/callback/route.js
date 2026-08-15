@@ -11,6 +11,7 @@ import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAsse
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { consumeOAuthAuthorization } from "@/lib/platform/security/oauthAuthorizationState";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function destination(origin, organizationId, message) {
@@ -20,6 +21,40 @@ function destination(origin, organizationId, message) {
   );
   url.searchParams.set("message", message);
   return url;
+}
+
+async function ensureLinkedInService(organizationId) {
+  const existing = await OrganizationServiceRuntime.get({
+    organization_id: organizationId,
+    service_id: "linkedin",
+  }).catch(() => null);
+
+  if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") {
+    return existing;
+  }
+
+  return OrganizationServiceRuntime.save({
+    ...(existing || {}),
+    organization_id: organizationId,
+    service_category_id: existing?.service_category_id || "marketing-social",
+    service_id: "linkedin",
+    package_id: existing?.package_id || "core",
+    status: "ACTIVE",
+    managed_by: existing?.managed_by || "organization",
+    authorization_required: true,
+    usage_enabled: true,
+    billing_enabled: true,
+    billing_mode: existing?.billing_mode || "USAGE",
+    pricing_mode: existing?.pricing_mode || "PROVIDER",
+    fallback_enabled: false,
+    activated_at: existing?.activated_at || new Date().toISOString(),
+    metadata: {
+      ...(existing?.metadata || {}),
+      provider: "linkedin",
+      connection_model: "ORGANIZATION_OAUTH",
+    },
+    configuration: existing?.configuration || {},
+  });
 }
 
 export async function GET(request, { params }) {
@@ -99,6 +134,10 @@ export async function GET(request, { params }) {
       })
       .eq("id", connection.id)
       .eq("organization_id", organizationId);
+
+    if (provider === "linkedin") {
+      await ensureLinkedInService(organizationId);
+    }
 
     return NextResponse.redirect(
       destination(

@@ -11,6 +11,7 @@ import {
   MapPin,
   RefreshCw,
   Settings2,
+  ShieldCheck,
 } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
@@ -24,7 +25,7 @@ function toneClass(state) {
   if (state === "CONNECTED") {
     return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
   }
-  if (state === "SETUP_IN_PROGRESS") {
+  if (state === "SETUP_IN_PROGRESS" || state === "PLATFORM_SETUP") {
     return "border-amber-400/20 bg-amber-400/10 text-amber-100";
   }
   return "border-white/10 bg-white/[0.035] text-white/65";
@@ -75,6 +76,7 @@ export default function IntegrationsPage() {
   const business = useBusinessContext();
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalog, setCatalog] = useState([]);
+  const [platformOperator, setPlatformOperator] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(true);
   const [googleWorking, setGoogleWorking] = useState(false);
   const [googleSnapshot, setGoogleSnapshot] = useState({ connection: null, locations: [], entities: [] });
@@ -94,6 +96,7 @@ export default function IntegrationsPage() {
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || "Unable to load integrations");
       setCatalog(Array.isArray(data.rows) ? data.rows : []);
+      setPlatformOperator(data.platformOperator === true);
     } catch (loadError) {
       setError(loadError?.message || "Unable to load integrations");
     } finally {
@@ -174,6 +177,8 @@ export default function IntegrationsPage() {
 
   const googleConnected = upper(googleSnapshot.connection?.status) === "ACTIVE";
   const googleSetupPending = googleConnected && upper(googleSnapshot.connection?.metadata?.location_discovery_status) !== "READY";
+  const googleCatalog = catalog.find((row) => row.id === "google-business") || null;
+  const googlePlatformReady = googleCatalog?.platformReady !== false;
   const allLocationsMapped = googleSnapshot.locations.length > 0 && googleSnapshot.locations.every((location) => location.entity_id);
   const activeCount = useMemo(() => catalog.filter((row) => row.state === "CONNECTED").length, [catalog]);
 
@@ -188,15 +193,26 @@ export default function IntegrationsPage() {
   return (
     <main className="min-h-screen bg-black p-6 text-white lg:p-10">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-10">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
-            <Settings2 className="h-4 w-4" />
-            Administration / Integrations
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-5">
+          <div>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
+              <Settings2 className="h-4 w-4" />
+              Administration / Integrations
+            </div>
+            <h1 className="mt-4 text-5xl font-light lg:text-6xl">Integrations</h1>
+            <p className="mt-4 max-w-3xl text-lg leading-7 text-white/45">
+              Connect the external business accounts this organization uses. Avantiqo handles the technical infrastructure behind them.
+            </p>
           </div>
-          <h1 className="mt-4 text-5xl font-light lg:text-6xl">Integrations</h1>
-          <p className="mt-4 max-w-3xl text-lg leading-7 text-white/45">
-            Connect the external business accounts this organization uses. Avantiqo handles the technical infrastructure behind them.
-          </p>
+          {platformOperator ? (
+            <a
+              href={`/workspace/${encodeURIComponent(organizationId)}/administration/integrations/platform-setup`}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/10 px-4 py-2.5 text-xs font-medium text-[#E5C18D]"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Avantiqo Provider Setup
+            </a>
+          ) : null}
         </div>
 
         {(error || notice) && (
@@ -258,7 +274,13 @@ export default function IntegrationsPage() {
                         <Link2 className="h-3.5 w-3.5" />
                       </a>
                     ) : (
-                      <span className="text-xs text-white/30">{integration.state === "COMING_SOON" ? "Not available yet" : "No action required"}</span>
+                      <span className="text-xs text-white/30">
+                        {integration.state === "PLATFORM_SETUP"
+                          ? "No customer action required"
+                          : integration.state === "COMING_SOON"
+                            ? "Not available yet"
+                            : "No action required"}
+                      </span>
                     )}
                   </div>
                 </article>
@@ -275,11 +297,19 @@ export default function IntegrationsPage() {
               <p className="mt-2 max-w-2xl text-sm leading-6 text-white/45">Connect the business profile used for locations, reviews and public business information.</p>
             </div>
             <div className={`rounded-full border px-3 py-1 text-xs ${googleConnected ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-white/10 bg-white/[0.04] text-white/50"}`}>
-              {googleConnected ? "Connected" : "Not connected"}
+              {googleConnected ? "Connected" : googlePlatformReady ? "Not connected" : "Avantiqo setup"}
             </div>
           </div>
 
-          {!googleConnected ? (
+          {!googleConnected && !googlePlatformReady ? (
+            <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] px-4 py-4 text-amber-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <div className="text-sm font-medium">Avantiqo is completing Google setup</div>
+                <div className="mt-1 text-xs leading-5 text-amber-100/65">No customer action is required. The Connect button will appear automatically when the platform connection is ready.</div>
+              </div>
+            </div>
+          ) : !googleConnected ? (
             <a href={`/api/google/auth?organizationId=${encodeURIComponent(organizationId)}`} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-black">
               Connect Google Business Profile
               <ExternalLink className="h-4 w-4" />

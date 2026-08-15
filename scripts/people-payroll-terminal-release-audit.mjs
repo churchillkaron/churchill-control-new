@@ -251,8 +251,13 @@ requireMatch(
 );
 requireMatch(
   source.payrollControlUi,
-  /readiness\.lifecycleBlockers[\s\S]*canCompleteLifecycle/,
+  /readiness\.lifecycleBlockers/,
   "Payroll control lifecycle blocker visibility"
+);
+requireMatch(
+  source.payrollControlUi,
+  /readiness\?\.canCompleteLifecycle/,
+  "Payroll control lifecycle completion visibility"
 );
 requireMatch(
   source.payrollControlUi,

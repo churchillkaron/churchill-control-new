@@ -270,6 +270,12 @@ assert.match(turnRuntimeSource, /function pendingVerificationExecution/);
 assert.match(turnRuntimeSource, /original_message:\s*text\(candidate\.original_message\)/);
 assert.match(turnRuntimeSource, /pending\.original_message \|\| message/);
 assert.match(turnRuntimeSource, /pending\.original_message \|\| text\(activeRun\?\.objective\) \|\| message/);
+// The pending record still carries the user's own message. b791e715 moved its construction into helpers
+// and renamed the local to originalMessage, so the previous assertion was checking a spelling that no
+// longer exists rather than a requirement that was lost -- the behaviour is intact, because
+// runOperatorTurn passes originalMessage: message, the same value the removed line used. Both halves are
+// asserted: the helper stores what it is given, and a caller gives it the message. These are presence
+// checks rather than site-specific ones, exactly as strong as the assertion they replace.
 assert.match(turnRuntimeSource, /original_message:\s*text\(originalMessage\)/);
 assert.match(turnRuntimeSource, /originalMessage:\s*message/);
 assert.ok(

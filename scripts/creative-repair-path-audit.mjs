@@ -2429,6 +2429,60 @@ async function sourceTextMustBeTranscribed() {
   }
 }
 
+// 38. The benchmark must score every run against the same evidence.
+//
+// Each fixture declares asset_ids and they were read for exactly one thing: Math.max(6, length), a count.
+// Selection came from relevance ranking over the organization's whole library, so the entrance still --
+// which pins three assets -- was scored against six, four of them never pinned and one pinned asset left
+// out, and the set moves as the library grows. A benchmark whose inputs drift cannot tell you whether the
+// work improved, which is the only thing it is for.
+//
+// This is a drift guard rather than a behavioural test: the resolver needs a database and this audit runs
+// without one. The behaviour was verified directly against all five fixtures, every pinned asset present,
+// modes PINNED or PINNED_TOPPED_UP, nothing unresolved.
+async function benchmarkEvidenceIsPinned() {
+  const { readFileSync } = globalThis.__auditFs;
+  const resolver = readFileSync(
+    "lib/creative/quality/runtime/CreativeBenchmarkAssetResolver.js",
+    "utf8",
+  );
+  const runtime = readFileSync(
+    "lib/creative/quality/runtime/CreativeWorldClassLiveBenchmarkRuntime.js",
+    "utf8",
+  );
+
+  check("the resolver accepts pinned asset ids", /pinned_asset_ids = \[\]/.test(resolver));
+  check(
+    "the benchmark passes the fixture's declared assets, not just their count",
+    /pinned_asset_ids: list\(benchmarkFixture\.asset_ids\)/.test(runtime),
+  );
+  check(
+    "the count use of asset_ids survives alongside it",
+    /maximum: Math\.max\(6, list\(benchmarkFixture\.asset_ids\)\.length\)/.test(runtime),
+  );
+  check(
+    "pinned assets are placed ahead of ranked ones",
+    /\[\.\.\.pinnedEntries, \.\.\.remainder\]/.test(resolver),
+  );
+  // A pinned asset that has been archived must degrade to something runnable and say so, not fail the
+  // case and not silently score against different evidence.
+  check(
+    "unresolvable pinned ids are reported rather than dropped",
+    /unresolved_pinned_asset_ids/.test(resolver),
+  );
+  check(
+    "how the set was chosen travels with the result",
+    /selection_mode/.test(resolver) &&
+      /PINNED_PARTIALLY_RESOLVED/.test(resolver) &&
+      /RELEVANCE_RANKED/.test(resolver),
+  );
+  // Ranking still fills the remainder, because a fixture pinning fewer than the minimum should run.
+  check(
+    "relevance ranking still applies when nothing is pinned",
+    /: ranked\.slice\(0, count\)/.test(resolver),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2474,6 +2528,7 @@ async function main() {
   await inventedManifestEntriesAreRejected();
   await transportPlanSurvivesAMisplacedField();
   await sourceTextMustBeTranscribed();
+  await benchmarkEvidenceIsPinned();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

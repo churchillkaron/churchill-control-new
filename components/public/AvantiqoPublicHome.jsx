@@ -181,7 +181,12 @@ export default function AvantiqoPublicHome() {
 
       <footer className="border-t border-white/[0.07] bg-black/50">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-8 text-sm text-white/40 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-          <div><span className="font-medium text-white/65">Avantiqo</span><span className="ml-2">Business Operating System</span></div>
+          <div>
+            <div><span className="font-medium text-white/65">Avantiqo</span><span className="ml-2">Business Operating System</span></div>
+            <div className="mt-2 text-xs leading-5 text-white/32">
+              Avantiqo is operated by BEA Co., Ltd., Thailand. Company Registration No. 0835553004601.
+            </div>
+          </div>
           <div className="flex gap-5">
             <a href="/policy" className="transition hover:text-white">Privacy Policy</a>
             <a href="/terms" className="transition hover:text-white">Terms of Service</a>

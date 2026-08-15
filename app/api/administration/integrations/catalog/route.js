@@ -2,8 +2,14 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { listCustomerIntegrations } from "@/lib/platform/channels/CustomerIntegrationCatalog";
+import {
+  checkBusinessConnectionPlatformReadiness,
+  getBusinessConnection,
+} from "@/lib/platform/channels/BusinessConnectionRegistry";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+
+const PLATFORM_ROLES = new Set(["PLATFORM_OWNER", "SUPER_ADMIN"]);
 
 function clean(value) {
   const normalized = String(value ?? "").trim();
@@ -245,6 +251,33 @@ function statusForIntegration(integration, connections, assets, credentials) {
   };
 }
 
+function applyPlatformReadiness(integration, status) {
+  const registry = getBusinessConnection(integration.id);
+  if (!registry) return { ...status, platformReady: false };
+  const readiness = checkBusinessConnectionPlatformReadiness(registry);
+  if (readiness.ready) {
+    return {
+      ...status,
+      platformReady: true,
+      customerSetup: registry.customerSetup || null,
+    };
+  }
+
+  const alreadyConnected = status.state === "CONNECTED" || status.state === "SETUP_IN_PROGRESS";
+  return {
+    ...status,
+    state: "PLATFORM_SETUP",
+    label: alreadyConnected ? "Avantiqo setup in progress" : "Available soon",
+    detail: alreadyConnected
+      ? "The business connection is saved. Avantiqo is completing provider-side setup; no customer action is required."
+      : "Avantiqo is completing the provider setup. This connection will become available automatically when ready.",
+    action: null,
+    actionLabel: null,
+    platformReady: false,
+    customerSetup: registry.customerSetup || null,
+  };
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -292,18 +325,31 @@ export async function GET(request) {
     }
     const credentials = new Map(credentialRows.map((row) => [row.id, row]));
 
-    const rows = listCustomerIntegrations().map((integration) => ({
-      id: integration.id,
-      name: integration.name,
-      category: integration.category,
-      description: integration.description,
-      connectPath: integration.connectPath,
-      detailAnchor: integration.detailAnchor,
-      availability: integration.availability,
-      ...statusForIntegration(integration, connections || [], assets || [], credentials),
-    }));
+    const rows = listCustomerIntegrations().map((integration) => {
+      const status = statusForIntegration(
+        integration,
+        connections || [],
+        assets || [],
+        credentials,
+      );
+      return {
+        id: integration.id,
+        name: integration.name,
+        category: integration.category,
+        description: integration.description,
+        connectPath: integration.connectPath,
+        detailAnchor: integration.detailAnchor,
+        availability: integration.availability,
+        ...applyPlatformReadiness(integration, status),
+      };
+    });
 
-    return NextResponse.json({ success: true, organizationId: access.organizationId, rows });
+    return NextResponse.json({
+      success: true,
+      organizationId: access.organizationId,
+      platformOperator: PLATFORM_ROLES.has(upper(access.role)),
+      rows,
+    });
   } catch (error) {
     return NextResponse.json({ success: false, error: error?.message || "Integration catalog lookup failed" }, { status: 500 });
   }

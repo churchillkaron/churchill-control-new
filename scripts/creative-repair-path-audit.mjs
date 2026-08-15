@@ -2539,6 +2539,47 @@ async function clearanceRecordingMatchesTheReleaseGate() {
     /It invents nothing/.test(recorder) && /no default status/.test(recorder));
 }
 
+// 40. A case that passes must leave its whole plan behind, and scoring must not change because of it.
+//
+// scoringPlan keeps workflow_kind, concept, story, creative_review, the tribunal, deliverables, production
+// and scenes, and drops asset_manifest, role_decisions and quality. That is right for the scorer and wrong
+// for the archive: a rejected case kept its entire plan through rejected_plan while an accepted one was
+// persisted as the projection, so the asset and agency decisions of every case that actually worked were
+// discarded at the end of the run. It is also why a question about how a plan handled its rights position
+// could not be answered from the artifact -- I went looking for the manifest of a passing still and found
+// it absent, which looked like a validation hole and was really a projection.
+async function passingCasesKeepTheirWholePlan() {
+  const { readFileSync } = globalThis.__auditFs;
+  const runtime = readFileSync(
+    "lib/creative/quality/runtime/CreativeWorldClassLiveBenchmarkRuntime.js",
+    "utf8",
+  );
+  const script = readFileSync("scripts/creative-world-class-live-benchmark.mjs", "utf8");
+
+  check("the runtime returns the complete plan", /full_plan: reviewed\.plan/.test(runtime));
+  check("the run carries it onto the captured case", /full_plan: result\.full_plan/.test(script));
+  check("the archive prefers the complete plan", /plan: entry\.full_plan \|\| entry\.master_plan/.test(script));
+  check("the projection is still kept for reference", /scoring_projection:/.test(script));
+
+  // The scorer must be unaffected. It reads master_plan.plan, which normalizeSubmittedCases rebuilds from
+  // the fixture and the projection, so the extra key cannot reach it -- and if that ever changes, every
+  // score comparison across runs silently stops meaning the same thing.
+  check(
+    "scoring still receives only the projection",
+    /plan: scoringPlan\(entry\.master_plan\.plan\)/.test(runtime),
+  );
+  const projection = /function scoringPlan[\s\S]*?\n\}/.exec(runtime);
+  check("the projection is still a projection", Boolean(projection));
+  if (projection) {
+    for (const dropped of ["asset_manifest", "role_decisions"]) {
+      check(
+        `the projection still omits ${dropped}, so nothing about scoring changed`,
+        !projection[0].includes(dropped),
+      );
+    }
+  }
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2586,6 +2627,7 @@ async function main() {
   await sourceTextMustBeTranscribed();
   await benchmarkEvidenceIsPinned();
   await clearanceRecordingMatchesTheReleaseGate();
+  await passingCasesKeepTheirWholePlan();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

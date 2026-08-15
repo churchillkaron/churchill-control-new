@@ -158,7 +158,9 @@ async function main() {
       const result = await CreativeWorldClassLiveBenchmarkRuntime.runCase(
         benchmarkCase,
       );
-      captured.push(result.case_result);
+      // The full plan travels alongside the scoring case so the archive keeps the asset and agency
+      // decisions the scoring projection drops.
+      captured.push({ ...result.case_result, full_plan: result.full_plan || null });
       execution.push({
         id: benchmarkCase.id,
         status: "COMPLETED",
@@ -255,7 +257,11 @@ async function main() {
     accepted: captured.map((entry) => ({
       id: entry.id,
       label: entry.label,
-      plan: entry.master_plan?.plan || null,
+      // The complete plan when the run carried one through, falling back to the scoring projection for
+      // an older shape. The projection drops asset_manifest, role_decisions and quality, so persisting
+      // only that discarded the asset and agency decisions of every case that passed.
+      plan: entry.full_plan || entry.master_plan?.plan || null,
+      scoring_projection: entry.master_plan?.plan || null,
     })),
     rejected: rejectedDirections,
   };

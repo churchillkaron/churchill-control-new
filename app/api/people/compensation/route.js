@@ -14,7 +14,7 @@ const MANAGE_ROLES = new Set([
 ]);
 
 const SALARY_TYPES = new Set(["MONTHLY", "HOURLY"]);
-const PAYROLL_FREQUENCIES = new Set(["MONTHLY", "WEEKLY", "BIWEEKLY"]);
+const SUPPORTED_PAYROLL_FREQUENCY = "MONTHLY";
 
 function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
@@ -124,9 +124,11 @@ function validateCompensationInput({
 
   if (
     payrollFrequency !== undefined &&
-    !PAYROLL_FREQUENCIES.has(payrollFrequency)
+    payrollFrequency !== SUPPORTED_PAYROLL_FREQUENCY
   ) {
-    throw new Error("payrollFrequency must be MONTHLY, WEEKLY or BIWEEKLY");
+    throw new Error(
+      "Only MONTHLY payroll frequency is supported by the current payroll engine"
+    );
   }
 
   if (currency !== undefined && !/^[A-Z]{3}$/.test(currency)) {
@@ -135,8 +137,8 @@ function validateCompensationInput({
 
   if (requireComplete) {
     if (!SALARY_TYPES.has(salaryType)) throw new Error("salaryType required");
-    if (!PAYROLL_FREQUENCIES.has(payrollFrequency)) {
-      throw new Error("payrollFrequency required");
+    if (payrollFrequency !== SUPPORTED_PAYROLL_FREQUENCY) {
+      throw new Error("payrollFrequency must be MONTHLY");
     }
     if (!/^[A-Z]{3}$/.test(currency || "")) {
       throw new Error("currency must be a 3-letter code");
@@ -251,6 +253,7 @@ export async function GET(request) {
       organizationId: ctx.organizationId,
       role: ctx.role,
       entity,
+      supportedPayrollFrequencies: [SUPPORTED_PAYROLL_FREQUENCY],
       employees,
       paymentMethods: paymentMethodResult.data || [],
       bankTransferEnabled: (paymentMethodResult.data || []).some(

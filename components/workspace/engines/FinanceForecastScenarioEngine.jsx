@@ -29,6 +29,70 @@ function numberValue(values, key, label) {
   return value;
 }
 
+function buildAssumptions(values) {
+  return {
+    conservative: {
+      revenue_change_percent: numberValue(
+        values,
+        "conservative_revenue",
+        "Conservative Revenue Change %"
+      ),
+      cogs_change_percent: numberValue(
+        values,
+        "conservative_cogs",
+        "Conservative COGS / Direct Cost Change %"
+      ),
+      expense_change_percent: numberValue(
+        values,
+        "conservative_expenses",
+        "Conservative Operating Expense Change %"
+      ),
+    },
+    growth: {
+      revenue_change_percent: numberValue(
+        values,
+        "growth_revenue",
+        "Growth Revenue Change %"
+      ),
+      cogs_change_percent: numberValue(
+        values,
+        "growth_cogs",
+        "Growth COGS / Direct Cost Change %"
+      ),
+      expense_change_percent: numberValue(
+        values,
+        "growth_expenses",
+        "Growth Operating Expense Change %"
+      ),
+    },
+  };
+}
+
+function dispatchPreview({
+  action,
+  document,
+  organizationId,
+  entityId,
+  periodId,
+  title,
+}) {
+  window.dispatchEvent(
+    new CustomEvent("workspace:preview", {
+      detail: {
+        action: {
+          ...action,
+          title: document?.title || title,
+        },
+        documentType: "FinancialReport",
+        payload: { document },
+        organizationId,
+        entityId,
+        periodId,
+      },
+    })
+  );
+}
+
 export default function FinanceForecastScenarioEngine({
   action,
   organizationId,
@@ -55,42 +119,7 @@ export default function FinanceForecastScenarioEngine({
     try {
       setBusy(true);
       setError("");
-
-      const conservative = {
-        revenue_change_percent: numberValue(
-          values,
-          "conservative_revenue",
-          "Conservative Revenue Change %"
-        ),
-        cogs_change_percent: numberValue(
-          values,
-          "conservative_cogs",
-          "Conservative COGS / Direct Cost Change %"
-        ),
-        expense_change_percent: numberValue(
-          values,
-          "conservative_expenses",
-          "Conservative Operating Expense Change %"
-        ),
-      };
-
-      const growth = {
-        revenue_change_percent: numberValue(
-          values,
-          "growth_revenue",
-          "Growth Revenue Change %"
-        ),
-        cogs_change_percent: numberValue(
-          values,
-          "growth_cogs",
-          "Growth COGS / Direct Cost Change %"
-        ),
-        expense_change_percent: numberValue(
-          values,
-          "growth_expenses",
-          "Growth Operating Expense Change %"
-        ),
-      };
+      const assumptions = buildAssumptions(values);
 
       const response = await fetch(
         action?.api || "/api/finance/forecast/scenarios",
@@ -104,10 +133,7 @@ export default function FinanceForecastScenarioEngine({
             entity_id: entityId || null,
             periodId: periodId || null,
             period_id: periodId || null,
-            assumptions: {
-              conservative,
-              growth,
-            },
+            assumptions,
           }),
         }
       );
@@ -117,27 +143,65 @@ export default function FinanceForecastScenarioEngine({
         throw new Error(json?.error || "Forecast scenario generation failed");
       }
 
-      window.dispatchEvent(
-        new CustomEvent("workspace:preview", {
-          detail: {
-            action: {
-              ...action,
-              title: json.document?.title || "Forecast Scenarios",
-            },
-            documentType: "FinancialReport",
-            payload: {
-              document: json.document,
-            },
-            organizationId,
-            entityId,
-            periodId,
-          },
-        })
-      );
+      dispatchPreview({
+        action,
+        document: json.document,
+        organizationId,
+        entityId,
+        periodId,
+        title: "Forecast Scenarios",
+      });
 
       onClose?.();
     } catch (generationError) {
       setError(generationError.message || "Forecast scenario generation failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveDraft() {
+    try {
+      if (!entityId || !periodId) {
+        throw new Error("Select a legal entity and accounting period before saving a forecast version.");
+      }
+      if (!action?.persistApi || !action?.scenarioKind) {
+        throw new Error("Forecast version persistence is not configured for this action.");
+      }
+
+      setBusy(true);
+      setError("");
+      const assumptions = buildAssumptions(values);
+
+      const response = await fetch(action.persistApi, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          entityId,
+          periodId,
+          scenarioKind: action.scenarioKind,
+          assumptions,
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok || json?.success === false) {
+        throw new Error(json?.error || "Forecast version creation failed");
+      }
+
+      dispatchPreview({
+        action,
+        document: json.version?.result_snapshot?.document,
+        organizationId,
+        entityId,
+        periodId,
+        title: `Saved Forecast Version ${json.version?.version_number || ""}`.trim(),
+      });
+
+      onClose?.();
+    } catch (saveError) {
+      setError(saveError.message || "Forecast version creation failed");
     } finally {
       setBusy(false);
     }
@@ -150,10 +214,10 @@ export default function FinanceForecastScenarioEngine({
           Finance Forecasting
         </div>
         <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-white">
-          Forecast Scenarios
+          {action?.title || "Forecast Scenarios"}
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45">
-          Base uses the canonical guarded ledger run-rate. Conservative and Growth require explicit assumptions; Avantiqo does not invent scenario percentages.
+          Base uses the canonical guarded ledger run-rate. Conservative and Growth require explicit assumptions; Avantiqo does not invent scenario percentages. Saved drafts are regenerated on the server and preserve an immutable result snapshot for approval.
         </p>
 
         <div className="mt-7 grid gap-4 md:grid-cols-2">
@@ -179,7 +243,7 @@ export default function FinanceForecastScenarioEngine({
           </div>
         ) : null}
 
-        <div className="mt-7 flex justify-end gap-3">
+        <div className="mt-7 flex flex-wrap justify-end gap-3">
           <button
             onClick={onClose}
             disabled={busy}
@@ -187,6 +251,15 @@ export default function FinanceForecastScenarioEngine({
           >
             Cancel
           </button>
+          {action?.persistApi ? (
+            <button
+              onClick={saveDraft}
+              disabled={busy}
+              className="rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-3 text-sm font-medium text-white/80 disabled:opacity-50"
+            >
+              {busy ? "Working..." : "Save Draft"}
+            </button>
+          ) : null}
           <button
             onClick={generate}
             disabled={busy}

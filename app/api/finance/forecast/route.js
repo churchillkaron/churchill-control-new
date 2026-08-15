@@ -5,7 +5,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import {
-  buildRevenueForecastCommand,
+  buildProfitAndLossForecastCommand,
 } from "@/lib/finance/reporting/runtime/ReportingApplicationService";
 
 function statusFor(message) {
@@ -59,12 +59,14 @@ export async function POST(request) {
       }
     }
 
-    const result = await buildRevenueForecastCommand({
+    const result = await buildProfitAndLossForecastCommand({
       ...body,
       organizationId: access.organizationId,
       organization_id: access.organizationId,
       entityId: requestedEntityId,
       entity_id: requestedEntityId,
+      periodId: body.periodId || body.period_id || null,
+      period_id: body.periodId || body.period_id || null,
     });
 
     return NextResponse.json(result);

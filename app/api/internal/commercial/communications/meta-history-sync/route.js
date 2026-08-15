@@ -18,21 +18,41 @@ export async function GET(request) {
     );
   }
 
+  const url = new URL(request.url);
+  const recoveryRequested = url.searchParams.get("recovery") === "1";
+
+  if (!recoveryRequested) {
+    return Response.json({
+      success: true,
+      mode: "WEBHOOK_FIRST",
+      providerCalls: 0,
+      message:
+        "Meta Messenger and Instagram messaging use real-time webhooks. History synchronization is recovery-only.",
+    });
+  }
+
   try {
     const result = await syncDueMetaCommunicationHistory({
-      organizationLimit: 3,
-      successIntervalHours: 24,
-      retryIntervalMinutes: 5,
+      organizationLimit: 1,
+      successIntervalHours: 168,
+      retryIntervalMinutes: 1440,
     });
 
-    return Response.json(result, {
-      status: result.success ? 200 : 207,
-    });
+    return Response.json(
+      {
+        ...result,
+        mode: "RECOVERY_ONLY",
+      },
+      {
+        status: result.success ? 200 : 207,
+      },
+    );
   } catch (error) {
     return Response.json(
       {
         success: false,
-        error: error?.message || "Meta communication catch-up failed",
+        mode: "RECOVERY_ONLY",
+        error: error?.message || "Meta communication recovery failed",
       },
       { status: 500 },
     );

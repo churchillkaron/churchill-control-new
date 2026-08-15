@@ -5,6 +5,7 @@ import { google } from "googleapis";
 import { NextResponse } from "next/server";
 import { consumeOAuthAuthorization } from "@/lib/platform/security/oauthAuthorizationState";
 import { CredentialRuntime } from "@/lib/platform/service-runtime/credentials/runtime/CredentialRuntime";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { ChannelConnectionRuntime } from "@/lib/platform/channels/runtime/ChannelConnectionRuntime";
 import { ChannelAssetRuntime } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
 
@@ -18,6 +19,39 @@ function client() {
     process.env.GOOGLE_CLIENT_SECRET,
     `${callbackOrigin()}/api/email/google/auth/callback`,
   );
+}
+
+async function ensureEmailService(organizationId) {
+  const existing = await OrganizationServiceRuntime.get({
+    organization_id: organizationId,
+    service_id: "email",
+  }).catch(() => null);
+
+  if (existing && String(existing.status || "").toUpperCase() === "ACTIVE") {
+    return existing;
+  }
+
+  return OrganizationServiceRuntime.save({
+    ...(existing || {}),
+    organization_id: organizationId,
+    service_category_id: existing?.service_category_id || "communication",
+    service_id: "email",
+    package_id: existing?.package_id || "core",
+    status: "ACTIVE",
+    managed_by: existing?.managed_by || "organization",
+    authorization_required: true,
+    usage_enabled: true,
+    billing_enabled: true,
+    billing_mode: existing?.billing_mode || "USAGE",
+    pricing_mode: existing?.pricing_mode || "PROVIDER",
+    fallback_enabled: false,
+    activated_at: existing?.activated_at || new Date().toISOString(),
+    metadata: {
+      ...(existing?.metadata || {}),
+      connection_model: "ORGANIZATION_MAILBOX",
+    },
+    configuration: existing?.configuration || {},
+  });
 }
 
 export async function GET(request) {
@@ -63,6 +97,7 @@ export async function GET(request) {
       name: email,
       metadata: { email, provider: "google" },
     });
+    await ensureEmailService(organizationId);
 
     const destination = new URL(`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`, authorization.return_origin || callbackOrigin());
     destination.searchParams.set("message", "Google mailbox connected.");

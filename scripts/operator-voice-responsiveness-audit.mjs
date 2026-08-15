@@ -108,6 +108,22 @@ requireAll("STRATEGIC_MEMORY_CONVERGENCE", reasoningRuntime, [
   "An assistant-only recommendation is not yet a decision.",
 ]);
 
+requireAll("SEMANTIC_READ_RANKING", reasoningRuntime, [
+  "BUSINESS_SEMANTIC_HINT_RULES",
+  "what)\\s+(?:did|do|have)\\s+we\\s+(?:make|made|earn|earned)",
+  "function semanticTokens",
+  "function rankedCapabilities",
+  "relevanceScore(item, hintTokens) * 0.45",
+  "semantic_capability_ranking: true",
+]);
+
+requireAll("READ_BEFORE_NAVIGATION", reasoningRuntime, [
+  "prefer a supplied read capability and execute it in this turn",
+  "Do not navigate to a workspace instead when a read can answer the request",
+  "Navigation is for explicit requests to open, go to, switch to, or show a workspace/page",
+  "A request for the information shown on a page is a read request, not a navigation request.",
+]);
+
 requireAll("TURN_LATENCY", turnRoute, [
   "const [result] = await Promise.all([",
   "persistAssistantTurnAndConversationState({",
@@ -251,6 +267,8 @@ if (violations.length) {
   console.log("VOICE_CONTEXTUAL_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_COMPACT_REASONING=GOAL_CONTEXT_RANKED");
   console.log("VOICE_STRATEGIC_MEMORY=WORKING_DIRECTION_AND_ACCEPTED_DECISIONS");
+  console.log("VOICE_SEMANTIC_READ_RANKING=BUSINESS_LANGUAGE_HINTED");
+  console.log("VOICE_FACT_REQUEST=READ_BEFORE_NAVIGATION");
   console.log("VOICE_POLITE_NAVIGATION=INSTANT_LOCAL");
   console.log("VOICE_PLAYBACK=BROWSER_FIRST_FOR_SHORT_RESPONSES");
   console.log("VOICE_TRANSCRIPT=INTERIM_COMMIT_ENABLED");

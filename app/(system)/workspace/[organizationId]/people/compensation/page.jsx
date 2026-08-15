@@ -29,8 +29,18 @@ function normalizedSalaryType(profile) {
   return String(profile?.salary_type || "").trim().toUpperCase();
 }
 
+function normalizedPayrollFrequency(profile) {
+  return String(profile?.payroll_frequency || "").trim().toUpperCase();
+}
+
+function isFrequencySupported(profile) {
+  return normalizedPayrollFrequency(profile) === "MONTHLY";
+}
+
 function isPayConfigured(profile) {
   const salaryType = normalizedSalaryType(profile);
+
+  if (!isFrequencySupported(profile)) return false;
 
   if (salaryType === "MONTHLY") {
     return Number(profile?.monthly_salary || 0) > 0;
@@ -123,6 +133,9 @@ export default function CompensationPage() {
   const summary = useMemo(() => {
     const employees = data?.employees || [];
     const withProfile = employees.filter((employee) => employee.compensation).length;
+    const unsupportedFrequency = employees.filter(
+      (employee) => employee.compensation && !isFrequencySupported(employee.compensation)
+    ).length;
     const payConfigured = employees.filter((employee) =>
       isPayConfigured(employee.compensation)
     ).length;
@@ -140,6 +153,7 @@ export default function CompensationPage() {
     return {
       employees: employees.length,
       withProfile,
+      unsupportedFrequency,
       payConfigured,
       bankReady,
       paymentReady,
@@ -195,8 +209,10 @@ export default function CompensationPage() {
       setError(`Choose a salary type for ${employee.name}.`);
       return;
     }
-    if (!["MONTHLY", "WEEKLY", "BIWEEKLY"].includes(payrollFrequency)) {
-      setError(`Choose a payroll frequency for ${employee.name}.`);
+    if (payrollFrequency !== "MONTHLY") {
+      setError(
+        `Set ${employee.name}'s payroll frequency to Monthly. Weekly and Biweekly periods require a separate payroll-period engine and are not processed by the current monthly payroll runtime.`
+      );
       return;
     }
     if (!/^[A-Z]{3}$/.test(entityCurrency)) {
@@ -277,6 +293,7 @@ export default function CompensationPage() {
                   Entity: {data?.entity?.display_name || data?.entity?.legal_name || "Not configured"}
                 </span>
                 <span>Currency: {data?.entity?.currency || "-"}</span>
+                <span>Payroll period: Monthly</span>
               </div>
             </div>
 
@@ -310,8 +327,14 @@ export default function CompensationPage() {
           <Metric label="Pay Ready" value={summary.payConfigured} icon={<Banknote className="h-4 w-4" />} />
           <Metric label="Missing Pay" value={summary.missingPay} icon={<TriangleAlert className="h-4 w-4" />} />
           <Metric label="Payment Ready" value={summary.paymentReady} icon={<CheckCircle2 className="h-4 w-4" />} />
-          <Metric label="Missing Bank" value={summary.missingBank} icon={<TriangleAlert className="h-4 w-4" />} />
+          <Metric label="Unsupported Period" value={summary.unsupportedFrequency} icon={<TriangleAlert className="h-4 w-4" />} />
         </section>
+
+        {summary.unsupportedFrequency > 0 ? (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100/80">
+            Existing Weekly or Biweekly compensation profiles are blocked from payroll preview and generation. Change each affected profile to Monthly before running payroll.
+          </div>
+        ) : null}
 
         {data?.bankTransferEnabled ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/55">
@@ -341,6 +364,7 @@ export default function CompensationPage() {
               const draft =
                 drafts[employee.id] ||
                 draftFromEmployee(employee, data?.entity?.currency || "");
+              const frequencySupported = !profile || isFrequencySupported(profile);
               const payReady = isPayConfigured(profile);
               const bankReady = isBankReady(profile);
               const paymentReady =
@@ -357,6 +381,11 @@ export default function CompensationPage() {
                           <h2 className="text-xl font-black">{employee.name}</h2>
                           <StatusBadge good={Boolean(profile)} goodLabel="Profile active" badLabel="Profile required" />
                           <StatusBadge good={payReady} goodLabel="Pay ready" badLabel="Pay required" />
+                          <StatusBadge
+                            good={frequencySupported}
+                            goodLabel="Monthly period"
+                            badLabel="Unsupported period"
+                          />
                           <StatusBadge
                             good={paymentReady}
                             goodLabel="Payment ready"
@@ -384,6 +413,10 @@ export default function CompensationPage() {
                       <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.06] p-4 text-xs leading-5 text-amber-100/70">
                         This employee has no effective compensation profile for the payroll legal entity. Complete the pay contract below to onboard them.
                       </div>
+                    ) : !frequencySupported ? (
+                      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.08] p-4 text-xs leading-5 text-amber-100/75">
+                        This legacy profile uses {profile.payroll_frequency || "an unsupported"} payroll frequency. Select Monthly below and save before payroll can be previewed or generated.
+                      </div>
                     ) : null}
 
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -406,8 +439,8 @@ export default function CompensationPage() {
                           className="input"
                         >
                           <option value="MONTHLY">Monthly</option>
-                          <option value="WEEKLY">Weekly</option>
-                          <option value="BIWEEKLY">Biweekly</option>
+                          <option value="WEEKLY" disabled>Weekly — not supported yet</option>
+                          <option value="BIWEEKLY" disabled>Biweekly — not supported yet</option>
                         </select>
                       </Field>
 

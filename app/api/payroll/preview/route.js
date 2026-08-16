@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import { loadEmploymentCohort } from "@/lib/people/employees/employmentAssignmentService";
 import {
   calculateMonthlyPayroll,
   buildPayrollReadiness,
@@ -32,7 +33,9 @@ function monthRange(payrollMonth) {
   const start = `${payrollMonth}-01`;
   const end = new Date(`${start}T00:00:00.000Z`);
   end.setUTCMonth(end.getUTCMonth() + 1);
-  return { start, end: end.toISOString().slice(0, 10) };
+  const endExclusive = end.toISOString().slice(0, 10);
+  end.setUTCDate(0);
+  return { start, end: end.toISOString().slice(0, 10), endExclusive };
 }
 
 async function resolveEntityId({ organizationId, requestedEntityId }) {
@@ -53,16 +56,31 @@ async function resolveEntityId({ organizationId, requestedEntityId }) {
   return data?.id || null;
 }
 
-async function loadPendingAttendanceReviews({ organizationId, payrollMonth }) {
+async function loadPendingAttendanceReviews({
+  organizationId,
+  entityId,
+  payrollMonth,
+}) {
   const range = monthRange(payrollMonth);
-  const timeContext = await resolveOrganizationTimeContext({ organizationId });
+  const [timeContext, employmentCohort] = await Promise.all([
+    resolveOrganizationTimeContext({ organizationId, entityId }),
+    loadEmploymentCohort({
+      organizationId,
+      entityId,
+      startDate: range.start,
+      endDate: range.end,
+    }),
+  ]);
+
+  if (!employmentCohort.staffIds.length) return [];
+
   const rangeStart = zonedDateTimeToUtc({
     date: range.start,
     time: "00:00:00",
     timezone: timeContext.timezone,
   });
   const rangeEnd = zonedDateTimeToUtc({
-    date: range.end,
+    date: range.endExclusive,
     time: "00:00:00",
     timezone: timeContext.timezone,
   });
@@ -72,6 +90,7 @@ async function loadPendingAttendanceReviews({ organizationId, payrollMonth }) {
     .select("id,staff_id,staff_name,clock_in,shift_source,approval_status")
     .eq("organization_id", organizationId)
     .eq("approval_status", "PENDING")
+    .in("staff_id", employmentCohort.staffIds)
     .gte("clock_in", rangeStart.toISOString())
     .lt("clock_in", rangeEnd.toISOString());
 
@@ -161,6 +180,7 @@ export async function POST(request) {
       }),
       loadPendingAttendanceReviews({
         organizationId: context.organizationId,
+        entityId,
         payrollMonth,
       }),
     ]);
@@ -230,7 +250,6 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("PAYROLL_PREVIEW_ERROR", error);
-
     return NextResponse.json(
       {
         success: false,

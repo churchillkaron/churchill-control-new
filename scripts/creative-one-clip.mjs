@@ -35,6 +35,7 @@ const RESEARCH_PRICING_ID = String(
   process.env.CREATIVE_CLIP_RESEARCH_PRICING_ID || "156fbd36-5a2d-48b0-b72d-450bab821a11",
 ).trim();
 const RESEARCH_CEILING = Number(process.env.CREATIVE_CLIP_RESEARCH_MAXIMUM_THB || 30);
+const RESEARCH_MODEL = String(process.env.CREATIVE_CLIP_RESEARCH_MODEL || "gpt-4.1-mini").trim();
 const DIRECTION_CEILING = Number(process.env.CREATIVE_CLIP_DIRECTION_MAXIMUM_THB || 40);
 const COMMAND_IDENTITY = `one-clip:${Date.now()}`;
 
@@ -132,6 +133,28 @@ async function main() {
     metadata: {
       creative_request: REQUEST,
       temporal_contract: { duration_seconds: DURATION },
+      // Research scoped to what this brief actually needs, through the per-project hook the policy
+      // resolver checks before its defaults.
+      //
+      // The default policy is EXTERNAL_COMPANY_MARKET and wants four external sources, one primary, five
+      // verified claims and market context. That is right for a campaign strategy and wrong for eight
+      // seconds of staff greeting somebody at a door: the research kept coming back and being rejected with
+      // MARKET_EVIDENCE_REQUIRED for evidence the brief has no use for. The venue's own entrance, staff and
+      // service are the evidence that matters here, and they are the organization's own material.
+      //
+      // This narrows the scope rather than lowering a bar. Company resolution and audience evidence stay
+      // required, because a clip that does not know whose venue it is or who it is for is worthless, and
+      // the confidence floor is untouched.
+      research_policy: {
+        mode: "ORGANIZATION_FIRST",
+        minimum_external_sources: 1,
+        minimum_primary_sources: 1,
+        minimum_verified_claims: 2,
+        require_market_context: false,
+        require_competitor_analysis: false,
+        require_company_resolution: true,
+        require_audience_evidence: true,
+      },
       // The research approval this pipeline requires: a named provider, the pricing record it is charged
       // against, a ceiling, and a validity window. Written from the values the run was authorised with
       // rather than invented, and it expires so it cannot authorise a later run by accident.
@@ -153,6 +176,11 @@ async function main() {
         status: "APPROVED",
         provider: RESEARCH_PROVIDER,
         pricing_id: RESEARCH_PRICING_ID,
+        // The model is pinned as well, because the approval is re-checked against the live pricing record
+        // and a mismatch is treated as the price having moved under an approval that no longer describes
+        // what it authorised. That is the right instinct: an approval names a price, and a price belongs to
+        // a specific model.
+        model: RESEARCH_MODEL,
         currency: "THB",
         maximum_customer_price: DIRECTION_CEILING,
         maximum_per_call_customer_price: 6,

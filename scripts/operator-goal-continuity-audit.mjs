@@ -281,6 +281,12 @@ assert.match(turnRuntimeSource, /status:\s*"completed"/);
 assert.match(turnRuntimeSource, /function isAutonomousRunStatusQuery/);
 assert.match(turnRuntimeSource, /function isAutonomousRunResumeRequest/);
 assert.match(turnRuntimeSource, /function autonomousRunStatusText/);
+assert.match(turnRuntimeSource, /const hasEvidenceReads = steps\.some/);
+assert.match(turnRuntimeSource, /text\(step\?\.kind\)\.toLowerCase\(\) === "read"/);
+assert.match(
+  turnRuntimeSource,
+  /return hasEvidenceReads\s*\?\s*"The evidence checks are complete\. The requested action is ready and still waiting for your confirmation\."\s*:\s*"The requested action is ready and still waiting for your confirmation\."/s,
+);
 assert.match(turnRuntimeSource, /model:\s*"autonomous-run-status-v1"/);
 assert.match(turnRuntimeSource, /model:\s*"autonomous-run-resume-v1"/);
 assert.match(turnRuntimeSource, /bypassed_for_run_status:\s*true/);
@@ -372,6 +378,7 @@ console.log("OPERATOR_AUTONOMOUS_RUN_MAX_STEPS=6");
 console.log("OPERATOR_AUTONOMOUS_RUN_STOP_GATES=CONFIRMATION_APPROVAL_VERIFICATION_SUPERSESSION");
 console.log("OPERATOR_AUTONOMOUS_RUN_PAYLOAD_OWNER=PENDING_EXECUTION_ONLY");
 console.log("OPERATOR_AUTONOMOUS_RUN_STATUS=LOCAL_NONDESTRUCTIVE_INTROSPECTION");
+console.log("OPERATOR_AUTONOMOUS_RUN_STATUS_EVIDENCE=ONLY_CLAIMED_WHEN_READ_STEPS_EXIST");
 console.log("OPERATOR_AUTONOMOUS_RUN_RESUME=STOP_GATE_AWARE");
 console.log("OPERATOR_AUTONOMOUS_RUN_RESUME_GUARD=NO_REPLAY_COMPLETED_ACTION");
 console.log("OPERATOR_PENDING_VERIFICATION=EXACT_REGISTERED_READ_ONLY");

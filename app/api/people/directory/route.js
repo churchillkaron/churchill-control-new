@@ -4,11 +4,12 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import {
-  createEmployeeRecord,
-  loadEmployeeDirectory,
-  setEmployeeActiveStatus,
-  updateEmployeeRecord,
-} from "@/lib/people/employees/employeeDirectoryService";
+  createEmployeeWithEmployment,
+  loadEmployeeDirectoryWithEmployment,
+  setEmployeeActiveWithEmployment,
+  transferEmployeeLegalEntity,
+} from "@/lib/people/employees/employeeEmploymentLifecycleService";
+import { updateEmployeeRecord } from "@/lib/people/employees/employeeDirectoryService";
 import activateStaffPortalAccess from "@/lib/people/identity/activateStaffPortalAccess";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 
@@ -41,12 +42,9 @@ function contextResponse(context) {
 async function managementContext(request) {
   const resolved = await resolveAuthenticatedStaffContext({ request });
 
-  if (!resolved.success) {
-    return { response: contextResponse(resolved) };
-  }
+  if (!resolved.success) return { response: contextResponse(resolved) };
 
   const role = normalizeRole(resolved.role || resolved.staff?.role);
-
   if (!MANAGE_ROLES.has(role)) {
     return {
       response: NextResponse.json(
@@ -81,12 +79,14 @@ function errorResponse(error, fallback = "Employee directory action failed") {
   const message = error?.message || fallback;
   const status = /not found/i.test(message)
     ? 404
-    : /permission|required|cannot|already|inactive|workflow/i.test(message)
+    : /permission|required|cannot|already|inactive|workflow|legal entity|employment|first day/i.test(
+          message
+        )
       ? 400
       : 500;
 
   return NextResponse.json(
-    { success: false, error: message },
+    { success: false, error: message, code: error?.code || null },
     { status }
   );
 }
@@ -96,7 +96,7 @@ export async function GET(request) {
     const ctx = await managementContext(request);
     if (ctx.response) return ctx.response;
 
-    const directory = await loadEmployeeDirectory({
+    const directory = await loadEmployeeDirectoryWithEmployment({
       organizationId: ctx.organizationId,
     });
 
@@ -121,19 +121,25 @@ export async function POST(request) {
     const action = String(body?.action || "create_employee").trim().toLowerCase();
 
     if (action === "create_employee") {
-      const result = await createEmployeeRecord({
+      const result = await createEmployeeWithEmployment({
         organizationId: ctx.organizationId,
         name: body?.name,
         email: body?.email,
         position: body?.position,
         department: body?.department,
+        entityId: body?.entityId,
+        effectiveFrom: body?.effectiveFrom,
+        actingStaffId: ctx.staff?.id || null,
       });
 
       return NextResponse.json({
         success: true,
         employee: result.staff,
         party: result.party,
-        message: "Employee created. Portal access and compensation can now be configured separately.",
+        employment: result.employment,
+        entity: result.entity,
+        message:
+          "Employee created with a legal employer assignment. Portal access and compensation can now be configured.",
       });
     }
 
@@ -209,17 +215,41 @@ export async function PATCH(request) {
     }
 
     if (action === "set_active") {
-      const result = await setEmployeeActiveStatus({
+      const result = await setEmployeeActiveWithEmployment({
         organizationId: ctx.organizationId,
         staffId,
         active: body?.active,
         actingStaffId: ctx.staff?.id || null,
+        entityId: body?.entityId || null,
+        effectiveDate: body?.effectiveDate || null,
       });
 
       return NextResponse.json({
         success: true,
         employee: result.staff,
-        message: body?.active ? "Employee reactivated." : "Employee deactivated.",
+        employment: result.employment || null,
+        entity: result.entity || null,
+        message: body?.active
+          ? "Employee reactivated with a legal employer assignment."
+          : "Employee deactivated and legal employer assignment ended.",
+      });
+    }
+
+    if (action === "transfer_entity") {
+      const result = await transferEmployeeLegalEntity({
+        organizationId: ctx.organizationId,
+        staffId,
+        entityId: body?.entityId,
+        effectiveFrom: body?.effectiveFrom,
+        actingStaffId: ctx.staff?.id || null,
+        notes: body?.notes || null,
+      });
+
+      return NextResponse.json({
+        success: true,
+        employment: result.employment,
+        entity: result.entity,
+        message: "Legal employer transfer scheduled from the month boundary.",
       });
     }
 

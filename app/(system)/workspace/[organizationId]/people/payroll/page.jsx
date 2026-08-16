@@ -57,6 +57,11 @@ function readinessAction(code, organizationId) {
       href: peopleRoute(organizationId, "/directory"),
       label: "Open employees",
     },
+    EMPLOYMENT_PERIOD_UNSUPPORTED: {
+      href: peopleRoute(organizationId, "/directory"),
+      label: "Review legal employer",
+      note: "Monthly payroll requires a legal-employer assignment covering the full payroll month until split-period proration is supported.",
+    },
     COMPENSATION_PROFILE_MISSING: {
       href: peopleCompensationRoute(organizationId),
       label: "Open compensation",
@@ -399,11 +404,12 @@ export default function PayrollPage() {
                   {readinessLoading ? "Checking payroll inputs" : readiness?.canGenerate ? "Ready to generate" : "Action required before payroll"}
                 </h2>
                 <p className="mt-2 text-sm text-white/40">
-                  Payroll generation is blocked until compensation, schedule coverage and period-close inputs are complete.
+                  Payroll generation is blocked until legal-employer scope, compensation, schedule coverage and period-close inputs are complete.
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Link href={peopleRoute(organizationId, "/directory")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Employees</Link>
               <Link href={peopleCompensationRoute(organizationId)} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Compensation</Link>
               <Link href={peopleRoute(organizationId, "/scheduling")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Scheduling</Link>
               <Link href={peopleRoute(organizationId, "/attendance")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/65">Attendance</Link>

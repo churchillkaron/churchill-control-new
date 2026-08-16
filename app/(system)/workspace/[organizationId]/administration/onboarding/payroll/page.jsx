@@ -38,6 +38,7 @@ function blockerAction(code, organizationId) {
   const actions = {
     PAYROLL_PERIOD_OPEN: { href: peopleRoute(organizationId, "/attendance"), label: "Review attendance" },
     NO_ACTIVE_STAFF: { href: peopleRoute(organizationId, "/directory"), label: "Open employees" },
+    EMPLOYMENT_PERIOD_UNSUPPORTED: { href: peopleRoute(organizationId, "/directory"), label: "Review legal employer" },
     PAYROLL_COUNTRY_MISSING: { href: peopleRoute(organizationId, "/payroll/policy"), label: "Configure payroll" },
     PAYROLL_CURRENCY_MISSING: { href: peopleRoute(organizationId, "/payroll/policy"), label: "Configure payroll" },
     COMPENSATION_PROFILE_MISSING: { href: peopleRoute(organizationId, "/compensation"), label: "Open compensation" },
@@ -68,7 +69,11 @@ function stageState({ readiness, errorCode, kind }) {
     (readiness.lifecycleBlockers || []).map((item) => item.code)
   );
 
-  if (kind === "entity") return readiness.entityId ? "ready" : "blocked";
+  if (kind === "entity") {
+    return readiness.entityId && !blockers.has("EMPLOYMENT_PERIOD_UNSUPPORTED")
+      ? "ready"
+      : "blocked";
+  }
   if (kind === "settings") {
     return blockers.has("PAYROLL_COUNTRY_MISSING") || blockers.has("PAYROLL_CURRENCY_MISSING")
       ? "blocked"
@@ -112,8 +117,8 @@ function getStages(organizationId) {
       id: "entity",
       title: "Legal Entity",
       description: "Confirm the employing legal entity and accounting scope used by payroll.",
-      href: "/finance/legal-entities",
-      action: "Legal entities",
+      href: peopleRoute(organizationId, "/directory"),
+      action: "Employee employers",
       icon: Building2,
     },
     {

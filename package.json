@@ -38,7 +38,7 @@
     "audit:pos-client-contract": "node scripts/pos-client-contract-audit.mjs",
     "audit:operator-caller-context": "node scripts/operator-caller-context-audit.mjs",
     "audit:people-employees": "node scripts/people-employee-directory-release-audit.mjs",
-    "audit:workforce-payroll": "node scripts/workforce-payroll-reconciliation-release-audit.mjs && node scripts/workforce-attendance-correction-release-audit.mjs && node scripts/workforce-request-lifecycle-release-audit.mjs && node scripts/workforce-availability-release-audit.mjs && node scripts/workforce-calendar-release-audit.mjs && node scripts/people-payroll-terminal-release-audit.mjs",
+    "audit:workforce-payroll": "node scripts/workforce-payroll-reconciliation-release-audit.mjs && node scripts/workforce-attendance-correction-release-audit.mjs && node scripts/workforce-request-lifecycle-release-audit.mjs && node scripts/workforce-availability-release-audit.mjs && node scripts/workforce-calendar-release-audit.mjs && node scripts/people-employment-entity-release-audit.mjs && node scripts/people-payroll-terminal-release-audit.mjs",
     "audit:finance": "node scripts/finance-normal-audit.mjs",
     "audit:finance-capabilities": "node scripts/finance-capability-reality-audit.mjs",
     "audit:finance-live": "node scripts/finance-live-capability-matrix.mjs",

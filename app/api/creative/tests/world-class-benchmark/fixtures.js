@@ -23,6 +23,50 @@ const COLE_QUALITY = Object.freeze({
   require_identity_continuity: true,
 });
 
+// A fixed review panel for this case.
+//
+// Two runs of the entrance still were examined by different panels -- architectural authenticity, brand
+// integrity, visual quality, rights and assurance on one; brand integrity, visual quality, rights,
+// workflow and image quality on the next -- so its tribunal score moved from 87.4 to 85 between runs and
+// neither number could be compared to the other. No fix can be shown to work against an instrument that
+// changes shape between measurements. These reviewers are the ones a real run composed, copied verbatim
+// rather than invented, so the exam is the one the studio chose for this mission and now stays put.
+const CHURCHILL_ENTRANCE_PANEL = Object.freeze({
+  rationale: "Panel observed on a real run of this case and pinned so the same reviewers examine it every time. Composing a panel per run is right for production work, where the disciplines that matter depend on the mission, and wrong for a benchmark: two runs of this case drew different examiners and their scores could not be compared to each other.",
+  reviewers: Object.freeze([
+    Object.freeze({
+      id: "brand-integrity-specialist",
+      role: "Brand Identity and Visual Consistency Expert",
+      mandate: "Ensure strict adherence to Churchill's brand elements, including signage, logo accuracy, and color fidelity in the master still.",
+      evidence_focus: Object.freeze(["3D metallic CC logo signage image", "Neon CC sign in entrance video and images"]),
+    }),
+    Object.freeze({
+      id: "creative-visual-quality-expert",
+      role: "Art and Cinematography Director for Still Image",
+      mandate: "Validate visual composition, lighting simulation, and material realism for the AI-generated master still image.",
+      evidence_focus: Object.freeze(["Red carpet stairway reference image", "Entrance video frames showing lighting and composition"]),
+    }),
+    Object.freeze({
+      id: "rights-and-usage-compliance-officer",
+      role: "Legal and Rights Review Specialist",
+      mandate: "Confirm all image assets and brand elements comply with usage rights, releasing only after full clearance.",
+      evidence_focus: Object.freeze(["Rights status of image and video assets", "Consent and release documentation"]),
+    }),
+    Object.freeze({
+      id: "production-workflow-controller",
+      role: "Production Process and Quality Assurance Expert",
+      mandate: "Oversee AI-image analysis, generation, and upscaling steps ensuring quality gates and dependencies are strictly followed.",
+      evidence_focus: Object.freeze(["Production plan steps for AI analysis, generation, upscaling", "Quality gate protocols and final quality criteria"]),
+    }),
+    Object.freeze({
+      id: "master-image-quality-director",
+      role: "Overall Visual Quality and Consistency Auditor",
+      mandate: "Final gatekeeper to verify absence of AI artifacts, brand color accuracy, and spatial plus identity continuity.",
+      evidence_focus: Object.freeze(["Quality policies (AVANTIQO_CREATIVE_QUALITY_V1)", "Final master still AI-generated outputs"]),
+    }),
+  ]),
+});
+
 export const CREATIVE_WORLD_CLASS_BENCHMARK_CASES = Object.freeze([
   Object.freeze({
     id: "churchill-entrance-still",
@@ -31,6 +75,7 @@ export const CREATIVE_WORLD_CLASS_BENCHMARK_CASES = Object.freeze([
     source_project_id: "5dc4897b-88a5-40f0-a269-033a4e96cd65",
     production_type: "IMAGE",
     quality: CHURCHILL_QUALITY,
+    review_panel: CHURCHILL_ENTRANCE_PANEL,
     asset_ids: Object.freeze([
       "f0c96f1a-6719-4dc2-8b9a-d095864d273a",
       "d10ddc3a-386f-403b-9bb4-2cfe40c7c655",

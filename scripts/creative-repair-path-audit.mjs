@@ -2580,6 +2580,73 @@ async function passingCasesKeepTheirWholePlan() {
   }
 }
 
+// 41. A benchmark case must be examined by the same reviewers every run.
+//
+// Two runs of the entrance still drew different panels -- architectural authenticity, brand integrity,
+// visual quality, rights and assurance on one; brand integrity, visual quality, rights, workflow and image
+// quality on the next -- so its tribunal score moved from 87.4 to 85 and neither number could be compared
+// to the other. That made the tribunal useless for the thing it was being used for: deciding whether a fix
+// worked. Composing a panel per run stays the default for production, where the disciplines that matter
+// depend on the mission; a benchmark case may pin one.
+async function benchmarkPanelsAreStable() {
+  const { readFileSync } = globalThis.__auditFs;
+  const tribunal = readFileSync(
+    "lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js",
+    "utf8",
+  );
+  const benchmark = readFileSync(
+    "lib/creative/quality/runtime/CreativeWorldClassLiveBenchmarkRuntime.js",
+    "utf8",
+  );
+
+  check("review accepts a caller-supplied panel", /review_panel = null,/.test(tribunal));
+  check(
+    "the supplied panel reaches the first inspection, not only the repair",
+    /existing_panel: review_panel,/.test(tribunal),
+  );
+  check(
+    "the benchmark passes the fixture's panel",
+    /review_panel: benchmarkFixture\.review_panel \|\| null,/.test(benchmark),
+  );
+  // Dynamic composition has to remain the default, or production loses the mission-specific panel that is
+  // the whole point of the tribunal.
+  check(
+    "a case without a pinned panel still composes one",
+    /existing_panel = null,/.test(tribunal) && /if \(existing_panel\?\.reviewers\)/.test(tribunal),
+  );
+
+  const { CREATIVE_WORLD_CLASS_BENCHMARK_CASES } = await import(
+    "@/app/api/creative/tests/world-class-benchmark/fixtures"
+  );
+  const pinned = CREATIVE_WORLD_CLASS_BENCHMARK_CASES.filter((entry) => entry.review_panel);
+  check("at least one case pins its panel", pinned.length >= 1, `${pinned.length} pinned`);
+  for (const entry of pinned) {
+    const reviewers = entry.review_panel.reviewers || [];
+    check(`${entry.id}: the panel has reviewers`, reviewers.length >= 2, `${reviewers.length}`);
+    check(
+      `${entry.id}: every reviewer carries an id, role and mandate`,
+      reviewers.every((reviewer) =>
+        String(reviewer?.id || "").trim() &&
+        String(reviewer?.role || "").trim() &&
+        String(reviewer?.mandate || "").trim()),
+    );
+    check(
+      `${entry.id}: reviewer ids are unique`,
+      new Set(reviewers.map((reviewer) => reviewer.id)).size === reviewers.length,
+    );
+    // A pinned panel must not quietly drop the discipline that keeps unclearable material out.
+    check(
+      `${entry.id}: the panel still includes a rights reviewer`,
+      reviewers.some((reviewer) =>
+        /right|consent|legal|complian/i.test(`${reviewer.id} ${reviewer.role}`)),
+    );
+    check(
+      `${entry.id}: the panel says why it is pinned`,
+      /pinned/i.test(String(entry.review_panel.rationale || "")),
+    );
+  }
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2628,6 +2695,7 @@ async function main() {
   await benchmarkEvidenceIsPinned();
   await clearanceRecordingMatchesTheReleaseGate();
   await passingCasesKeepTheirWholePlan();
+  await benchmarkPanelsAreStable();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

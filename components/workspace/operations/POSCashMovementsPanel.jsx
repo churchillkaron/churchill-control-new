@@ -84,15 +84,13 @@ export default function POSCashMovementsPanel({
       setActor(result.actor || null);
       setAccounts(result.counter_accounts || []);
       setMovements(result.movements || []);
-      if (!counterAccountId && result.counter_accounts?.length) {
-        setCounterAccountId(result.counter_accounts[0].id);
-      }
+      setCounterAccountId((current) => current || result.counter_accounts?.[0]?.id || "");
     } catch (loadError) {
       setError(loadError.message);
     } finally {
       setLoading(false);
     }
-  }, [applicationId, counterAccountId, entityId, organizationId]);
+  }, [applicationId, entityId, organizationId]);
 
   useEffect(() => {
     load();
@@ -162,7 +160,7 @@ export default function POSCashMovementsPanel({
           </div>
           <h2 className="mt-2 text-2xl font-semibold">Cash In & Cash Out</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-white/40">
-            Record real cash entering or leaving the active drawer. Every movement creates a Finance journal against the selected legal-entity account and changes expected cash without changing sales revenue.
+            Record non-transfer cash entering or leaving the active drawer. Every movement creates a Finance journal against the selected legal-entity account and changes expected cash without changing sales revenue. Use Cash Custody above for safe, petty-cash, or other location transfers.
           </p>
         </div>
         <button
@@ -252,7 +250,7 @@ export default function POSCashMovementsPanel({
           <textarea
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Required — e.g. petty cash purchase, owner float top-up, safe deposit"
+            placeholder="Required — e.g. owner float top-up, non-transfer drawer expense, correction"
             rows={3}
             className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none"
           />
@@ -339,7 +337,7 @@ export default function POSCashMovementsPanel({
       </div>
 
       <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-xs leading-5 text-white/35">
-        Closing shortages and overages are not entered here. The counted variance remains visible for manager review and is recognized to the configured Cash Over / Short account only when Accounting confirms the closed drawer.
+        Safe and petty-cash custody transfers belong in Cash Custody above. Closing shortages and overages are not entered here; the counted variance remains visible for manager review and is recognized to the configured Cash Over / Short account only when Accounting confirms the closed drawer.
       </div>
     </article>
   );

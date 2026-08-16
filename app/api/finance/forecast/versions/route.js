@@ -7,6 +7,7 @@ import {
   approveForecastScenarioVersionCommand,
   createForecastScenarioVersionDraft,
   listForecastScenarioVersionsCommand,
+  overrideForecastScenarioVersionApprovalCommand,
 } from "@/lib/finance/budgeting/runtime/ForecastScenarioVersionService";
 
 function statusFor(error) {
@@ -14,6 +15,8 @@ function statusFor(error) {
   if (message.includes("permission denied")) return 403;
   if (message.includes("not found")) return 404;
   if (message.includes("superseded")) return 409;
+  if (message.includes("approval blocked")) return 409;
+  if (message.includes("override not applicable")) return 409;
   if (/required|invalid|at least -100/i.test(message)) return 400;
   return error?.status || 500;
 }
@@ -37,8 +40,29 @@ async function canManageFinance(access) {
   }
 }
 
+async function canOverrideForecastApproval(access) {
+  try {
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.manage",
+      fullAccess: false,
+    });
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.configuration.manage",
+      fullAccess: false,
+    });
+    return true;
+  } catch (error) {
+    if (String(error?.message || "").toLowerCase().includes("permission denied")) return false;
+    throw error;
+  }
+}
+
 function actorName(access) {
-  return access.user?.email || access.user?.user_metadata?.full_name || "Authenticated User";
+  return access.user?.email || "Authenticated User";
 }
 
 export async function GET(request) {
@@ -48,7 +72,7 @@ export async function GET(request) {
     if (!access.success) return NextResponse.json({ success: false, error: access.error }, { status: access.status });
     await requireFinancePermission(access, "finance.accounting.view");
 
-    const [result, canManage] = await Promise.all([
+    const [result, canManage, canOverride] = await Promise.all([
       listForecastScenarioVersionsCommand({
         organizationId: access.organizationId,
         entityId: searchParams.get("entityId") || searchParams.get("entity_id"),
@@ -56,8 +80,10 @@ export async function GET(request) {
         scenarioKind: searchParams.get("scenarioKind") || searchParams.get("scenario_kind") || null,
       }),
       canManageFinance(access),
+      canOverrideForecastApproval(access),
     ]);
-    return NextResponse.json({ ...result, can_manage: canManage });
+
+    return NextResponse.json({ ...result, can_manage: canManage, can_override_approval: canOverride });
   } catch (error) {
     return NextResponse.json({ success: false, error: error?.message || "Forecast version listing failed" }, { status: statusFor(error) });
   }
@@ -93,14 +119,29 @@ export async function PATCH(request) {
     await requireFinancePermission(access, "finance.accounting.manage");
 
     const action = String(body.action || "").trim().toLowerCase();
-    if (action !== "approve") throw new Error("Invalid forecast version action");
+    let result;
 
-    const result = await approveForecastScenarioVersionCommand({
-      organizationId: access.organizationId,
-      versionId: body.versionId || body.version_id,
-      approvedBy: access.user?.id,
-      performedByName: actorName(access),
-    });
+    if (action === "approve") {
+      result = await approveForecastScenarioVersionCommand({
+        organizationId: access.organizationId,
+        versionId: body.versionId || body.version_id,
+        approvedBy: access.user?.id,
+        performedByName: actorName(access),
+      });
+    } else if (action === "override_approve") {
+      const overrideAllowed = await canOverrideForecastApproval(access);
+      if (!overrideAllowed) throw new Error("Permission denied: finance.configuration.manage");
+      result = await overrideForecastScenarioVersionApprovalCommand({
+        organizationId: access.organizationId,
+        versionId: body.versionId || body.version_id,
+        approvedBy: access.user?.id,
+        performedByName: actorName(access),
+        overrideReason: body.overrideReason || body.override_reason,
+      });
+    } else {
+      throw new Error("Invalid forecast version action");
+    }
+
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json({ success: false, error: error?.message || "Forecast version update failed" }, { status: statusFor(error) });

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import { resolveActiveLegalEntitySelection } from "@/lib/platform/runtime/resolveActiveLegalEntitySelection";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   approvePayrollRecord,
@@ -245,10 +246,19 @@ export async function GET(request) {
     const context = await governanceContext(request);
     if (context.response) return context.response;
 
+    const url = new URL(request.url);
+    const requestedEntityId = url.searchParams.get("entityId") || null;
+    const { entity, entities } = await resolveActiveLegalEntitySelection({
+      request,
+      organizationId: context.organizationId,
+      entityId: requestedEntityId,
+    });
+
     const { data, error } = await supabaseAdmin
       .from("payroll_records")
       .select("*")
       .eq("organization_id", context.organizationId)
+      .eq("entity_id", entity.id)
       .order("payroll_month", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -269,7 +279,9 @@ export async function GET(request) {
       success: true,
       organizationId: context.organizationId,
       role: context.role,
-      currency: currencies.length === 1 ? currencies[0] : "",
+      entity,
+      entities,
+      currency: normalizeCurrency(entity.currency) || (currencies.length === 1 ? currencies[0] : ""),
       currencies,
       mixedCurrencies: currencies.length > 1,
       capabilities: {

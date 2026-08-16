@@ -7,6 +7,7 @@ import {
   preparePayrollPaymentBatch,
   reconcilePayrollPaymentBatch,
 } from "@/lib/people/payroll";
+import { resolveActiveLegalEntitySelection } from "@/lib/platform/runtime/resolveActiveLegalEntitySelection";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const PAYMENT_ROLES = new Set([
@@ -67,48 +68,6 @@ async function paymentContext(request) {
   };
 }
 
-async function loadActiveEntities(organizationId) {
-  const { data, error } = await supabaseAdmin
-    .from("legal_entities")
-    .select(
-      "id,legal_name,display_name,code,country,currency,is_default_accounting_entity"
-    )
-    .eq("organization_id", organizationId)
-    .eq("is_active", true)
-    .order("is_default_accounting_entity", { ascending: false })
-    .order("legal_name", { ascending: true });
-
-  if (error) throw error;
-  return data || [];
-}
-
-async function resolveEntity({ organizationId, requestedEntityId = null }) {
-  const entities = await loadActiveEntities(organizationId);
-
-  if (!entities.length) {
-    throw new Error("No active payroll legal entity is configured");
-  }
-
-  const requested = String(requestedEntityId || "").trim();
-  if (requested) {
-    const entity = entities.find((item) => item.id === requested) || null;
-    if (!entity) {
-      throw new Error("Payroll legal entity does not belong to this organization");
-    }
-    return { entity, entities };
-  }
-
-  const defaultEntity =
-    entities.find((item) => item.is_default_accounting_entity === true) || null;
-
-  if (defaultEntity) return { entity: defaultEntity, entities };
-  if (entities.length === 1) return { entity: entities[0], entities };
-
-  throw new Error(
-    "Legal entity selection is required because this organization has multiple active legal entities"
-  );
-}
-
 function matchingPaymentMethods({ methods, entity }) {
   const entityCurrency = normalizeCurrency(entity?.currency);
   const entityCountry = normalizeCountry(entity?.country);
@@ -131,9 +90,10 @@ export async function GET(request) {
 
     const url = new URL(request.url);
     const requestedEntityId = url.searchParams.get("entityId") || null;
-    const { entity, entities } = await resolveEntity({
+    const { entity, entities } = await resolveActiveLegalEntitySelection({
+      request,
       organizationId: context.organizationId,
-      requestedEntityId,
+      entityId: requestedEntityId,
     });
 
     const [batchResult, payoutResult, lockedResult, paymentMethodResult] = await Promise.all([
@@ -230,9 +190,10 @@ export async function POST(request) {
         );
       }
 
-      const { entity } = await resolveEntity({
+      const { entity } = await resolveActiveLegalEntitySelection({
+        request,
         organizationId: context.organizationId,
-        requestedEntityId: body?.entityId || null,
+        entityId: body?.entityId || null,
       });
 
       const result = await preparePayrollPaymentBatch({

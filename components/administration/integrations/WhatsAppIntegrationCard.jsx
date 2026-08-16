@@ -64,7 +64,11 @@ function normalizeEmbeddedSignupSession(payload) {
 function isFinishEvent(payload) {
   if (payload?.type !== "WA_EMBEDDED_SIGNUP") return false;
   const event = String(payload?.event || "").trim().toUpperCase();
-  return event === "FINISH" || event === "FINISH_ONLY_WABA";
+  return (
+    event === "FINISH" ||
+    event === "FINISH_ONLY_WABA" ||
+    event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
+  );
 }
 
 export default function WhatsAppIntegrationCard({ organizationId }) {
@@ -258,6 +262,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
           override_default_response_type: true,
           extras: {
             setup: {},
+            featureType: "whatsapp_business_app_onboarding",
             sessionInfoVersion: "3",
           },
         },
@@ -290,7 +295,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
               <div className="text-xs uppercase tracking-[0.22em] text-white/30">Messaging</div>
               <h1 className="mt-2 text-4xl font-light">WhatsApp Business</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45">
-                Connect the existing WhatsApp Business account and phone number this organization already uses. Avantiqo will never create a new WABA or phone number without an explicit separate action.
+                Connect the existing WhatsApp Business account and phone number this organization already uses. Avantiqo uses WhatsApp Business App coexistence so the existing mobile app can remain active while Cloud API access is added.
               </p>
             </div>
             <div className={`rounded-full border px-3 py-1 text-xs ${operational ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : connected ? "border-amber-400/20 bg-amber-400/10 text-amber-100" : "border-white/10 bg-white/[0.04] text-white/50"}`}>
@@ -387,7 +392,7 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
                 <ExternalLink className="h-4 w-4" />
               </button>
               <div className="mt-3 text-xs leading-5 text-white/35">
-                In Meta, authorize the existing business assets. A number linked to a Facebook Page or ad account can still need to be shared separately with Avantiqo for WhatsApp Cloud API access. Do not create a new WhatsApp Business Account and do not add a new phone number.
+                Use the existing WhatsApp Business app number. Do not migrate it away from the app, disconnect it, create another WABA, or add another phone number.
               </div>
             </div>
           ) : (

@@ -10,15 +10,29 @@ const files = {
     "lib/people/employees/employmentAssignmentService.js",
   lifecycleService:
     "lib/people/employees/employeeEmploymentLifecycleService.js",
+  entityResolver:
+    "lib/platform/runtime/resolveActiveLegalEntitySelection.js",
+  sessionEntityApi: "app/api/session/entity/route.js",
+  sessionBootstrap: "app/api/session/bootstrap/route.js",
+  businessContext: "app/providers/BusinessContextProvider.jsx",
+  workspaceTopBar: "components/workspace/WorkspaceTopBar.jsx",
+  organizationRuntime: "lib/hooks/useOrganizationRuntime.js",
   directoryApi: "app/api/people/directory/route.js",
   compensationApi: "app/api/people/compensation/route.js",
+  compensationPage:
+    "app/(system)/workspace/[organizationId]/people/compensation/page.jsx",
   readiness: "lib/payroll/readiness/buildPayrollReadiness.js",
+  readinessApi: "app/api/payroll/readiness/route.js",
   calculation: "lib/payroll/consolidation/generateMonthlyPayroll.js",
   reconciliation:
     "lib/payroll/consolidation/loadPayrollAttendanceReconciliation.js",
   paymentBatch: "lib/payroll/payments/preparePayrollPaymentBatch.js",
   paymentApi: "app/api/payroll/payments/route.js",
+  paymentPage:
+    "app/(system)/workspace/[organizationId]/people/payroll/payments/page.jsx",
   previewApi: "app/api/payroll/preview/route.js",
+  previewPage:
+    "app/(system)/workspace/[organizationId]/people/payroll/preview/page.jsx",
   generateApi: "app/api/payroll/generate/route.js",
   governanceApi: "app/api/payroll/governance/route.js",
   payrollControl:
@@ -97,6 +111,82 @@ assertContains(
   "Employee lifecycle"
 );
 
+const entityResolver = read("entityResolver");
+assertContains(
+  entityResolver,
+  [
+    'ACTIVE_ENTITY_COOKIE = "avantiqo_active_entity_id"',
+    "readActiveEntityId",
+    "loadActiveLegalEntities",
+    "resolveActiveLegalEntitySelection",
+    'source: "explicit"',
+    'source: "session"',
+    'source: "default"',
+    'source: "single"',
+    "multiple active legal entities",
+  ],
+  "Global legal entity resolver"
+);
+
+const sessionEntityApi = read("sessionEntityApi");
+assertContains(
+  sessionEntityApi,
+  [
+    'avantiqo_active_entity_id',
+    '.from("legal_entities")',
+    '.eq("organization_id", context.organizationId)',
+    '.eq("is_active", true)',
+    "response.cookies.set",
+  ],
+  "Legal entity session API"
+);
+
+const sessionBootstrap = read("sessionBootstrap");
+assertContains(
+  sessionBootstrap,
+  [
+    'avantiqo_active_entity_id',
+    "entities",
+    "is_default_accounting_entity",
+  ],
+  "Workspace bootstrap legal entity context"
+);
+
+const businessContext = read("businessContext");
+assertContains(
+  businessContext,
+  [
+    "entities:",
+    "data.entities",
+    "entity:",
+  ],
+  "Business context legal entities"
+);
+
+const workspaceTopBar = read("workspaceTopBar");
+assertContains(
+  workspaceTopBar,
+  [
+    "EntitySelector",
+    'fetch("/api/session/entity"',
+    "businessContext.entities",
+    "window.location.reload()",
+  ],
+  "Global Header legal entity selector"
+);
+
+const organizationRuntime = read("organizationRuntime");
+assertContains(
+  organizationRuntime,
+  [
+    "entity:",
+    "entities:",
+    "entityId:",
+    "legalEntityId:",
+  ],
+  "Organization runtime legal entity context"
+);
+
 const directoryApi = read("directoryApi");
 assertContains(
   directoryApi,
@@ -104,6 +194,8 @@ assertContains(
     "loadEmployeeDirectoryWithEmployment",
     "createEmployeeWithEmployment",
     "setEmployeeActiveWithEmployment",
+    'ACTIVE_ENTITY_COOKIE = "avantiqo_active_entity_id"',
+    "resolveEntityId(request",
     'action === "transfer_entity"',
   ],
   "Employee Directory API"
@@ -120,6 +212,19 @@ assertContains(
     "employmentCohort.staff",
   ],
   "Compensation API"
+);
+
+const compensationPage = read("compensationPage");
+assertContains(
+  compensationPage,
+  [
+    "useOrganizationRuntime",
+    "runtime.entityId",
+    "/api/people/compensation?entityId=",
+    "entityId,",
+    "selected payroll legal entity",
+  ],
+  "Compensation active entity UI"
 );
 
 const readiness = read("readiness");
@@ -142,6 +247,18 @@ assertNotContains(
     '.from("staff_accounts")\n      .select("id,name,email,role,department,position,party_id")\n      .eq("active_organization_id", organizationId)',
   ],
   "Payroll readiness"
+);
+
+const readinessApi = read("readinessApi");
+assertContains(
+  readinessApi,
+  [
+    "resolveActiveLegalEntitySelection",
+    'url.searchParams.get("entityId")',
+    "entityId: requestedEntityId",
+    "entityId: entity.id",
+  ],
+  "Payroll readiness active entity boundary"
 );
 
 const calculation = read("calculation");
@@ -190,19 +307,29 @@ const paymentApi = read("paymentApi");
 assertContains(
   paymentApi,
   [
-    "loadActiveEntities",
-    "requestedEntityId",
+    "resolveActiveLegalEntitySelection",
     'url.searchParams.get("entityId")',
-    "entities.find((item) => item.id === requested)",
-    "multiple active legal entities",
+    "entityId: requestedEntityId",
     "matchingPaymentMethods",
     "methodCurrency === entityCurrency",
     "methodCountry === entityCountry",
     "entities,",
-    "requestedEntityId: body?.entityId || null",
+    "entityId: body?.entityId || null",
     "entityId: entity.id",
   ],
   "Payroll payment API legal entity selection"
+);
+
+const paymentPage = read("paymentPage");
+assertContains(
+  paymentPage,
+  [
+    "useOrganizationRuntime",
+    "runtime.entityId",
+    "/api/payroll/payments?entityId=",
+    "entityId,",
+  ],
+  "Payroll payment active entity UI"
 );
 
 const previewApi = read("previewApi");
@@ -216,6 +343,17 @@ assertContains(
   "Payroll preview API"
 );
 
+const previewPage = read("previewPage");
+assertContains(
+  previewPage,
+  [
+    "useOrganizationRuntime",
+    "runtime.entityId",
+    "entityId,",
+  ],
+  "Payroll preview active entity UI"
+);
+
 const generateApi = read("generateApi");
 assertContains(
   generateApi,
@@ -223,21 +361,28 @@ assertContains(
     "loadEmploymentCohort",
     "employmentCohort.staffIds",
     '.in("staff_id", employmentCohort.staffIds)',
+    "resolveActiveLegalEntitySelection",
+    "entityId: body?.entityId || null",
   ],
-  "Payroll generation API"
+  "Payroll generation active entity boundary"
 );
 
 const governanceApi = read("governanceApi");
 assertContains(
   governanceApi,
   [
+    "resolveActiveLegalEntitySelection",
+    'url.searchParams.get("entityId")',
+    '.eq("entity_id", entity.id)',
+    "entity,",
+    "entities,",
     "record?.entity_id",
     "record.entity_id}:${record.staff_id}:${record.payroll_month}",
     "entityId: record.entity_id",
     "entityId: target.entityId",
     "employmentAssignmentId",
   ],
-  "Payroll governance reconciliation"
+  "Payroll governance legal entity selection"
 );
 
 const payrollControl = read("payrollControl");

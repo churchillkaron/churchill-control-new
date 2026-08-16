@@ -104,6 +104,7 @@ function needsLiveAttendanceReadiness(record) {
     record?.review_required === true &&
       record?.review_status === "PENDING" &&
       LIVE_ATTENDANCE_REVIEW_STATUSES.has(String(record?.status || "").toUpperCase()) &&
+      record?.entity_id &&
       record?.staff_id &&
       record?.payroll_month
   );
@@ -117,9 +118,10 @@ async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
 
   const uniqueKeys = new Map();
   for (const record of candidates) {
-    const key = `${record.staff_id}:${record.payroll_month}`;
+    const key = `${record.entity_id}:${record.staff_id}:${record.payroll_month}`;
     if (!uniqueKeys.has(key)) {
       uniqueKeys.set(key, {
+        entityId: record.entity_id,
         staffId: record.staff_id,
         payrollMonth: record.payroll_month,
       });
@@ -131,6 +133,7 @@ async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
       try {
         const reconciliation = await loadPayrollAttendanceReconciliation({
           organizationId,
+          entityId: target.entityId,
           staffId: target.staffId,
           payrollMonth: target.payrollMonth,
         });
@@ -139,6 +142,7 @@ async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
       } catch (error) {
         console.error("PAYROLL_ATTENDANCE_READINESS_ERROR", {
           organizationId,
+          entityId: target.entityId,
           staffId: target.staffId,
           payrollMonth: target.payrollMonth,
           error,
@@ -154,7 +158,7 @@ async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
   return records.map((record) => {
     if (!needsLiveAttendanceReadiness(record)) return record;
 
-    const key = `${record.staff_id}:${record.payroll_month}`;
+    const key = `${record.entity_id}:${record.staff_id}:${record.payroll_month}`;
     const reconciliation = readinessByKey.get(key) || null;
 
     if (!reconciliation || reconciliation.error) {
@@ -185,6 +189,8 @@ async function attachLiveAttendanceReadiness({ organizationId, payroll }) {
       ...record,
       attendance_reconciliation: {
         available: true,
+        entityId: reconciliation.entityId,
+        employmentAssignmentId: reconciliation.employmentAssignmentId,
         unresolvedSchedules: reconciliation.unresolvedSchedules,
         unresolvedScheduleIds: reconciliation.unresolvedScheduleIds,
         missedShifts: reconciliation.missedShifts,

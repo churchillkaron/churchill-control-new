@@ -18,6 +18,12 @@ const WEBHOOK_TOPICS = [
   "ORDERS_CREATE",
   "ORDERS_UPDATED",
   "ORDERS_CANCELLED",
+  "ORDERS_PAID",
+  "ORDERS_FULFILLED",
+  "ORDERS_PARTIALLY_FULFILLED",
+  "REFUNDS_CREATE",
+  "FULFILLMENTS_CREATE",
+  "FULFILLMENTS_UPDATE",
   "INVENTORY_ITEMS_UPDATE",
   "INVENTORY_LEVELS_UPDATE",
   "LOCATIONS_CREATE",
@@ -255,6 +261,7 @@ export async function GET(request) {
       "read_orders",
       "read_inventory",
       "read_locations",
+      "read_fulfillments",
     ];
     const missing = required.filter((scope) => !granted.has(scope));
     if (missing.length) {

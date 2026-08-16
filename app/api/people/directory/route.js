@@ -13,6 +13,8 @@ import { updateEmployeeRecord } from "@/lib/people/employees/employeeDirectorySe
 import activateStaffPortalAccess from "@/lib/people/identity/activateStaffPortalAccess";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 
+const ACTIVE_ENTITY_COOKIE = "avantiqo_active_entity_id";
+
 const MANAGE_ROLES = new Set([
   "OWNER",
   "ORGANIZATION_OWNER",
@@ -61,6 +63,27 @@ async function managementContext(request) {
   };
 }
 
+function requestCookie(request, name) {
+  const cookieHeader = String(request?.headers?.get?.("cookie") || "");
+
+  for (const part of cookieHeader.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName === name) {
+      return decodeURIComponent(rawValue.join("=") || "").trim() || null;
+    }
+  }
+
+  return null;
+}
+
+function resolveEntityId(request, explicitEntityId = null) {
+  return (
+    String(explicitEntityId || "").trim() ||
+    requestCookie(request, ACTIVE_ENTITY_COOKIE) ||
+    null
+  );
+}
+
 function resolveRedirectOrigin(request) {
   const configuredOrigin = String(process.env.NEXT_PUBLIC_APP_URL || "").trim();
 
@@ -103,6 +126,7 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       organizationId: ctx.organizationId,
+      activeEntityId: resolveEntityId(request),
       role: ctx.role,
       ...directory,
     });
@@ -127,7 +151,7 @@ export async function POST(request) {
         email: body?.email,
         position: body?.position,
         department: body?.department,
-        entityId: body?.entityId,
+        entityId: resolveEntityId(request, body?.entityId),
         effectiveFrom: body?.effectiveFrom,
         actingStaffId: ctx.staff?.id || null,
       });
@@ -220,7 +244,9 @@ export async function PATCH(request) {
         staffId,
         active: body?.active,
         actingStaffId: ctx.staff?.id || null,
-        entityId: body?.entityId || null,
+        entityId: body?.active
+          ? resolveEntityId(request, body?.entityId)
+          : body?.entityId || null,
         effectiveDate: body?.effectiveDate || null,
       });
 

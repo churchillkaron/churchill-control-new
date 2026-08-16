@@ -162,6 +162,7 @@ assert.match(reasoningSource, /user_confirmed_complete/);
 assert.match(reasoningSource, /awaiting_confirmation/);
 assert.match(reasoningSource, /assistant-only recommendation is not yet a decision/);
 assert.match(reasoningSource, /Add or update project_state\.decisions only when the user clearly accepts/);
+assert.match(reasoningSource, /Continue an active goal from the best safe next step/i);
 assert.match(reasoningSource, /context_scope/);
 assert.match(reasoningSource, /function executionNeedsEntity/);
 assert.match(reasoningSource, /function readChainExecutionKeys/);
@@ -280,6 +281,26 @@ assert.match(turnRuntimeSource, /status:\s*"awaiting_approval"/);
 assert.match(turnRuntimeSource, /status:\s*"completed"/);
 assert.match(turnRuntimeSource, /function isAutonomousRunStatusQuery/);
 assert.match(turnRuntimeSource, /function isAutonomousRunResumeRequest/);
+assert.match(turnRuntimeSource, /const TERMINAL_AUTONOMOUS_RUN_STATUSES = new Set/);
+assert.match(
+  turnRuntimeSource,
+  /"completed",\s*"cancelled",\s*"superseded"/s,
+);
+assert.match(turnRuntimeSource, /function hasContinuableProjectGoal/);
+assert.match(
+  turnRuntimeSource,
+  /!\["idle", "completed", "cancelled"\]\.includes\(status\)/,
+);
+assert.match(turnRuntimeSource, /function shouldContinueProjectInsteadOfTerminalRun/);
+assert.match(turnRuntimeSource, /TERMINAL_AUTONOMOUS_RUN_STATUSES\.has/);
+assert.match(
+  turnRuntimeSource,
+  /const continueProjectAfterTerminalRun =\s*shouldContinueProjectInsteadOfTerminalRun/s,
+);
+assert.match(
+  turnRuntimeSource,
+  /const resumeRequested = Boolean\(\s*activeRun &&\s*isAutonomousRunResumeRequest\(message\) &&\s*!continueProjectAfterTerminalRun,/s,
+);
 assert.match(turnRuntimeSource, /function autonomousRunStatusText/);
 assert.match(turnRuntimeSource, /const hasEvidenceReads = steps\.some/);
 assert.match(turnRuntimeSource, /text\(step\?\.kind\)\.toLowerCase\(\) === "read"/);
@@ -356,6 +377,8 @@ console.log("OPERATOR_STRATEGIC_MEMORY=WORKING_DIRECTION_WITH_USER_DECISIONS_SEP
 console.log("OPERATOR_VERIFIED_EXECUTION_MEMORY=COMPLETED_STEP_PROGRESS_NEXT_STEP");
 console.log("OPERATOR_VERIFIED_GOAL_PROGRESS=PERSISTED_AFTER_CONFIRMED_ACTION");
 console.log("OPERATOR_VERIFICATION_RESUME_GOAL_PROGRESS=PERSISTED_AFTER_RETRY");
+console.log("OPERATOR_GOAL_CONTINUATION=TERMINAL_RUN_YIELDS_TO_ACTIVE_PROJECT");
+console.log("OPERATOR_GOAL_CONTINUATION_GUARD=NONTERMINAL_RUN_STOP_GATES_REMAIN_AUTHORITATIVE");
 console.log("OPERATOR_READ_EVIDENCE=NESTED_COLLECTION_AWARE_BOUNDED_SAMPLE");
 console.log("OPERATOR_READ_SAMPLE_GUARD=NO_DATASET_TOTALS_OR_TRENDS_FROM_PARTIAL_SAMPLE");
 console.log("OPERATOR_VERIFIED_READ_INTERPRETATION=FACT_INFERENCE_RECOMMENDATION_SEPARATED");

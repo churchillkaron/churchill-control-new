@@ -16,6 +16,10 @@ import {
   ChannelAssetRuntime,
 } from "@/lib/platform/channels/runtime/ChannelAssetRuntime";
 
+import {
+  inspectMetaMessagingAccess,
+} from "@/lib/platform/service-runtime/providers/meta/MetaMessagingAccessDiagnosticRuntime";
+
 function graphVersion() {
   const configured = String(
     process.env.META_GRAPH_API_VERSION || process.env.META_GRAPH_VERSION || "v24.0"
@@ -30,6 +34,28 @@ function object(value) {
 function clean(value) {
   const normalized = String(value ?? "").trim();
   return normalized || null;
+}
+
+function messagingReadinessMetadata(readiness) {
+  const token = object(readiness?.token);
+  const page = object(readiness?.page);
+
+  return {
+    messaging_readiness_checked_at:
+      clean(readiness?.checked_at) || new Date().toISOString(),
+    messaging_readiness: readiness,
+    messaging_granted_scopes: Array.isArray(token.granted_scopes)
+      ? token.granted_scopes
+      : [],
+    messaging_required_scopes_missing: Array.isArray(token.missing_instagram_scopes)
+      ? token.missing_instagram_scopes
+      : [],
+    messaging_page_instagram_link_ok:
+      page.page_matches === true &&
+      page.instagram_business_id_matches === true,
+    instagram_messaging_ready:
+      readiness?.ready_for_instagram_messaging === true,
+  };
 }
 
 function messagingWebhookVerifyToken() {
@@ -300,6 +326,13 @@ export async function GET(request) {
         ),
     ) || null;
 
+    const messagingReadiness = await inspectMetaMessagingAccess({
+      access_token: primaryPage.access_token,
+      page_id: primaryPage.id,
+      instagram_business_id: primaryInstagramId,
+    });
+    const readinessMetadata = messagingReadinessMetadata(messagingReadiness);
+
     const credential = await CredentialRuntime.store({
       provider_id: "meta",
       credential_type: "oauth_page_token",
@@ -359,6 +392,12 @@ export async function GET(request) {
         })),
         advertising_billing_model:
           existingConnectionMetadata.advertising_billing_model || "AVANTIQO_MANAGED",
+        ...readinessMetadata,
+        communication_history_sync_status: "PENDING",
+        communication_history_sync_attempt_at: null,
+        communication_history_sync_at: null,
+        communication_history_sync_error: null,
+        communication_history_sync_summary: null,
       },
     });
 

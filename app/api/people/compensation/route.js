@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import {
+  loadEmploymentAssignmentsForPeriod,
+  loadEmploymentCohort,
+} from "@/lib/people/employees/employmentAssignmentService";
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -39,12 +43,9 @@ function contextResponse(context) {
 async function context(request) {
   const resolved = await resolveAuthenticatedStaffContext({ request });
 
-  if (!resolved.success) {
-    return { response: contextResponse(resolved) };
-  }
+  if (!resolved.success) return { response: contextResponse(resolved) };
 
   const role = normalizeRole(resolved.role || resolved.staff?.role);
-
   if (!MANAGE_ROLES.has(role)) {
     return {
       response: NextResponse.json(
@@ -68,11 +69,8 @@ async function resolveEntity({ organizationId, requestedEntityId = null }) {
     .eq("organization_id", organizationId)
     .eq("is_active", true);
 
-  if (requestedEntityId) {
-    query = query.eq("id", requestedEntityId);
-  } else {
-    query = query.eq("is_default_accounting_entity", true).limit(1);
-  }
+  if (requestedEntityId) query = query.eq("id", requestedEntityId);
+  else query = query.eq("is_default_accounting_entity", true).limit(1);
 
   const { data, error } = await query.maybeSingle();
   if (error) throw error;
@@ -90,6 +88,31 @@ async function loadEmployee({ organizationId, staffId }) {
 
   if (error) throw error;
   return data || null;
+}
+
+async function assertEmploymentAssignment({
+  organizationId,
+  entityId,
+  staffId,
+  effectiveDate,
+}) {
+  const rows = await loadEmploymentAssignmentsForPeriod({
+    organizationId,
+    entityId,
+    staffId,
+    startDate: effectiveDate,
+    endDate: effectiveDate,
+  });
+
+  if (!rows.length) {
+    const error = new Error(
+      "Employee is not assigned to this legal entity on the compensation effective date"
+    );
+    error.code = "EMPLOYMENT_ASSIGNMENT_REQUIRED";
+    throw error;
+  }
+
+  return rows[0];
 }
 
 function optionalText(body, key, { uppercase = false } = {}) {
@@ -206,16 +229,16 @@ export async function GET(request) {
       );
     }
 
-    entityCurrency(entity);
-
+    const currency = entityCurrency(entity);
+    const country = String(entity.country || "").trim().toUpperCase();
     const date = today();
-    const [staffResult, profileResult, paymentMethodResult] = await Promise.all([
-      supabaseAdmin
-        .from("staff_accounts")
-        .select("id,name,email,role,position,department,party_id,active")
-        .eq("active_organization_id", ctx.organizationId)
-        .eq("active", true)
-        .order("name", { ascending: true }),
+    const [employmentCohort, profileResult, paymentMethodResult] = await Promise.all([
+      loadEmploymentCohort({
+        organizationId: ctx.organizationId,
+        entityId: entity.id,
+        startDate: date,
+        endDate: date,
+      }),
       supabaseAdmin
         .from("employee_compensation_profiles")
         .select("*")
@@ -226,13 +249,12 @@ export async function GET(request) {
         .order("effective_from", { ascending: false }),
       supabaseAdmin
         .from("organization_payment_config")
-        .select("payment_method,currency,enabled")
+        .select("payment_method,country,currency,enabled")
         .eq("organization_id", ctx.organizationId)
         .eq("enabled", true)
         .order("payment_method", { ascending: true }),
     ]);
 
-    if (staffResult.error) throw staffResult.error;
     if (profileResult.error) throw profileResult.error;
     if (paymentMethodResult.error) throw paymentMethodResult.error;
 
@@ -243,10 +265,23 @@ export async function GET(request) {
       }
     }
 
-    const employees = (staffResult.data || []).map((employee) => ({
-      ...employee,
-      compensation: profileByStaff.get(employee.id) || null,
-    }));
+    const employees = employmentCohort.staff
+      .map((employee) => ({
+        ...employee,
+        employment: employmentCohort.assignmentByStaff.get(employee.id) || null,
+        compensation: profileByStaff.get(employee.id) || null,
+      }))
+      .sort((left, right) =>
+        String(left.name || left.email || "").localeCompare(
+          String(right.name || right.email || "")
+        )
+      );
+
+    const paymentMethods = (paymentMethodResult.data || []).filter((method) => {
+      const methodCurrency = String(method.currency || "").trim().toUpperCase();
+      const methodCountry = String(method.country || "").trim().toUpperCase();
+      return methodCurrency === currency && (!methodCountry || methodCountry === country);
+    });
 
     return NextResponse.json({
       success: true,
@@ -255,11 +290,10 @@ export async function GET(request) {
       entity,
       supportedPayrollFrequencies: [SUPPORTED_PAYROLL_FREQUENCY],
       employees,
-      paymentMethods: paymentMethodResult.data || [],
-      bankTransferEnabled: (paymentMethodResult.data || []).some(
+      paymentMethods,
+      bankTransferEnabled: paymentMethods.some(
         (method) =>
-          String(method.payment_method || "").trim().toLowerCase() ===
-          "bank_transfer"
+          String(method.payment_method || "").trim().toLowerCase() === "bank_transfer"
       ),
     });
   } catch (error) {
@@ -280,10 +314,7 @@ export async function POST(request) {
     const payload = readPayload(body);
 
     if (!payload.staffId) {
-      return NextResponse.json(
-        { success: false, error: "staffId required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "staffId required" }, { status: 400 });
     }
 
     validateCompensationInput({ ...payload, requireComplete: true });
@@ -323,6 +354,13 @@ export async function POST(request) {
       );
     }
 
+    await assertEmploymentAssignment({
+      organizationId: ctx.organizationId,
+      entityId: entity.id,
+      staffId: employee.id,
+      effectiveDate: effectiveFrom,
+    });
+
     const currency = assertEntityCurrency(payload.currency, entity);
 
     const { data: existing, error: existingError } = await supabaseAdmin
@@ -338,7 +376,11 @@ export async function POST(request) {
     if (existingError) throw existingError;
     if (existing) {
       return NextResponse.json(
-        { success: false, error: "A compensation profile already overlaps this effective date for the employee and legal entity" },
+        {
+          success: false,
+          error:
+            "A compensation profile already overlaps this effective date for the employee and legal entity",
+        },
         { status: 409 }
       );
     }
@@ -354,7 +396,8 @@ export async function POST(request) {
         salary_type: payload.salaryType,
         payroll_frequency: payload.payrollFrequency,
         currency,
-        monthly_salary: payload.salaryType === "MONTHLY" ? payload.monthlySalary : 0,
+        monthly_salary:
+          payload.salaryType === "MONTHLY" ? payload.monthlySalary : 0,
         hourly_rate: payload.hourlyRate || 0,
         bank_name: payload.bankName || null,
         bank_account: payload.bankAccount || null,
@@ -363,12 +406,18 @@ export async function POST(request) {
       .single();
 
     if (createError) throw createError;
-
-    return NextResponse.json({ success: true, compensation: created }, { status: 201 });
+    return NextResponse.json(
+      { success: true, compensation: created },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("COMPENSATION_CREATE_ERROR", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Unable to create compensation profile" },
+      {
+        success: false,
+        error: error?.message || "Unable to create compensation profile",
+        code: error?.code || null,
+      },
       { status: 400 }
     );
   }
@@ -383,10 +432,7 @@ export async function PATCH(request) {
     const payload = readPayload(body);
 
     if (!payload.staffId) {
-      return NextResponse.json(
-        { success: false, error: "staffId required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "staffId required" }, { status: 400 });
     }
 
     validateCompensationInput(payload);
@@ -418,9 +464,15 @@ export async function PATCH(request) {
       );
     }
 
-    const currency = assertEntityCurrency(payload.currency, entity);
-
     const date = today();
+    await assertEmploymentAssignment({
+      organizationId: ctx.organizationId,
+      entityId: entity.id,
+      staffId: employee.id,
+      effectiveDate: date,
+    });
+
+    const currency = assertEntityCurrency(payload.currency, entity);
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("employee_compensation_profiles")
       .select("id,organization_id,entity_id,party_id,staff_account_id,salary_type,payroll_frequency,currency,monthly_salary,hourly_rate,bank_name,bank_account")
@@ -454,8 +506,7 @@ export async function PATCH(request) {
       effectiveSalaryType === "HOURLY"
         ? 0
         : payload.monthlySalary ?? profile.monthly_salary;
-    const effectiveHourlyRate =
-      payload.hourlyRate ?? profile.hourly_rate;
+    const effectiveHourlyRate = payload.hourlyRate ?? profile.hourly_rate;
 
     validateCompensationInput({
       salaryType: effectiveSalaryType,
@@ -475,14 +526,20 @@ export async function PATCH(request) {
     };
 
     if (payload.bankName !== undefined) updates.bank_name = payload.bankName || null;
-    if (payload.bankAccount !== undefined) updates.bank_account = payload.bankAccount || null;
+    if (payload.bankAccount !== undefined) {
+      updates.bank_account = payload.bankAccount || null;
+    }
 
-    const changed = Object.entries(updates).some(([key, value]) =>
-      String(profile[key] ?? "") !== String(value ?? "")
+    const changed = Object.entries(updates).some(
+      ([key, value]) => String(profile[key] ?? "") !== String(value ?? "")
     );
 
     if (!changed) {
-      return NextResponse.json({ success: true, compensation: profile, unchanged: true });
+      return NextResponse.json({
+        success: true,
+        compensation: profile,
+        unchanged: true,
+      });
     }
 
     const { data: updated, error: updateError } = await supabaseAdmin
@@ -501,7 +558,11 @@ export async function PATCH(request) {
   } catch (error) {
     console.error("COMPENSATION_UPDATE_ERROR", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Unable to update compensation profile" },
+      {
+        success: false,
+        error: error?.message || "Unable to update compensation profile",
+        code: error?.code || null,
+      },
       { status: 400 }
     );
   }

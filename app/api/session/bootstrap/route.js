@@ -10,20 +10,37 @@ import { evaluateOrganizationAppAccess } from "@/lib/platform/security/organizat
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 
-async function loadActiveEntity({ supabase, organizationId }) {
-  if (!organizationId) return null;
+const ACTIVE_ENTITY_COOKIE = "avantiqo_active_entity_id";
 
-  const { data } = await supabase
+async function loadEntities({ organizationId }) {
+  if (!organizationId) return [];
+
+  const { data, error } = await supabaseAdmin
     .from("legal_entities")
     .select("*")
     .eq("organization_id", organizationId)
     .eq("is_active", true)
     .order("is_default_accounting_entity", { ascending: false })
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
-  return data || null;
+  if (error) throw error;
+  return data || [];
+}
+
+function resolveActiveEntity({ entities, requestedEntityId }) {
+  const rows = Array.isArray(entities) ? entities : [];
+  const requested = String(requestedEntityId || "").trim();
+
+  if (requested) {
+    const selected = rows.find((row) => String(row?.id || "") === requested);
+    if (selected) return selected;
+  }
+
+  return (
+    rows.find((row) => row?.is_default_accounting_entity === true) ||
+    rows[0] ||
+    null
+  );
 }
 
 async function loadActivePeriod({ supabase, organizationId, entityId }) {
@@ -147,9 +164,9 @@ async function loadBootstrapPayload({ request, user }) {
 
   const supabase = createServerSupabase();
 
-  const [organizations, entity, modules, operatorOrganizationId] = await Promise.all([
+  const [organizations, entities, modules, operatorOrganizationId] = await Promise.all([
     loadOrganizations(context.availableOrganizationIds || [organizationId]),
-    loadActiveEntity({ supabase, organizationId }),
+    loadEntities({ organizationId }),
     getAvailableModules({ organizationId, supabase }),
     resolvePlatformOperatorOrganizationId().catch(() => null),
   ]);
@@ -170,6 +187,12 @@ async function loadBootstrapPayload({ request, user }) {
     };
   }
 
+  const cookieStore = cookies();
+  const entity = resolveActiveEntity({
+    entities,
+    requestedEntityId: cookieStore.get(ACTIVE_ENTITY_COOKIE)?.value || null,
+  });
+
   const period = await loadActivePeriod({
     supabase,
     organizationId,
@@ -188,13 +211,14 @@ async function loadBootstrapPayload({ request, user }) {
         operatorOrganizationId && organizationId === operatorOrganizationId,
       ),
       entity,
+      entities,
       entity_id: entity?.id || null,
       active_entity_id: entity?.id || null,
       period,
       period_id: period?.id || null,
       active_period_id: period?.id || null,
-      country: organization.country || entity?.country || null,
-      currency: organization.default_currency || entity?.currency || null,
+      country: entity?.country || organization.country || null,
+      currency: entity?.currency || organization.default_currency || null,
       modules,
       permissions: context.permissions || [],
       role: context.role || context.staff?.role || "staff",

@@ -2725,6 +2725,68 @@ async function brandMarksAreCompositedNotGenerated() {
     /logo, wordmark, neon sign, signage, exact text/.test(universal));
 }
 
+// 43. Every Avantiqo AI service is available to every organization.
+//
+// Entitlement was a row in organization_services and nothing else, so what an organization could do
+// depended on which rows existed. Twenty-three organizations held thirty-one active services for one, ten
+// for another and two to six for nineteen of them, and Churchill carried an ai.video.generate row that was
+// ACTIVE with billing enabled and usage_enabled false -- one boolean was the whole reason it could not
+// generate video, and I had reported that to the user as a capability it lacked.
+//
+// It contradicted the billing model too. Bea pays every provider and each organization's prepaid wallet is
+// charged per use, so availability belongs to the platform and spending belongs to the organization. The
+// wallet enforces spending correctly already: thirteen of the twenty-three have no wallet at all and cannot
+// reserve, so they cannot spend. Gating availability as well meant a funded customer could be blocked from
+// a service Bea was already paying for.
+async function platformAiIsAvailableToEveryOrganization() {
+  const { readFileSync } = globalThis.__auditFs;
+  const resolver = readFileSync(
+    "lib/platform/service-runtime/services/resolver/OrganizationServiceResolver.js",
+    "utf8",
+  );
+  const { PLATFORM_AI_SERVICES } = await import(
+    "@/lib/platform/service-runtime/ai/PlatformAIServiceCatalog"
+  );
+
+  check("the platform AI catalogue is the source of the standard",
+    /PLATFORM_AI_SERVICES/.test(resolver));
+  check("the catalogue is non-trivial", (PLATFORM_AI_SERVICES || []).length >= 15,
+    `${(PLATFORM_AI_SERVICES || []).length} services`);
+  check("the standard is applied for every organization",
+    /function platformAiEntitlements/.test(resolver) &&
+      /entitlement: "PLATFORM_STANDARD"/.test(resolver));
+  // A per-organization flag on a platform service is what this corrects, so the standard has to win.
+  check("a per-organization row cannot switch a platform service off",
+    /standard\.has\(service\.service_id\)/.test(resolver) &&
+      /category\.services\.filter\(/.test(resolver));
+  check("platform services are usage enabled by the standard",
+    /usage_enabled: true,/.test(resolver) && /status: "ACTIVE",/.test(resolver));
+
+  // Business services must not be swept in: they need the organization's own account, and declaring an
+  // unconnected channel available would advertise a connection that does not exist.
+  const { SERVICE_CATALOG } = await import(
+    "@/lib/platform/registry/business-services/BusinessServiceRegistry"
+  );
+  const businessIds = new Set();
+  for (const category of SERVICE_CATALOG || []) {
+    for (const service of category.services || []) {
+      businessIds.add(String(service.service_id || service.id));
+    }
+  }
+  const standardIds = (PLATFORM_AI_SERVICES || [])
+    .map((service) => String(service.service_id || service.id));
+  const swept = standardIds.filter((id) => businessIds.has(id));
+  check(
+    "no business or channel service is entitled by the standard",
+    swept.length === 0,
+    `would have entitled: ${swept.join(", ")}`,
+  );
+  check(
+    "the exclusion of connected channels is written down",
+    /an unconnected Instagram is the customer's account, not an Avantiqo service/.test(resolver),
+  );
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2775,6 +2837,7 @@ async function main() {
   await passingCasesKeepTheirWholePlan();
   await benchmarkPanelsAreStable();
   await brandMarksAreCompositedNotGenerated();
+  await platformAiIsAvailableToEveryOrganization();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

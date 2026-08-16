@@ -22,6 +22,7 @@ const EMPTY_STATE = {
   organization_id: null,
   is_platform_operator_workspace: false,
   entity: null,
+  entities: [],
   entity_id: null,
   period: null,
   period_id: null,
@@ -75,6 +76,7 @@ export function BusinessContextProvider({ children }) {
             organizations: [],
             organization_id: null,
             is_platform_operator_workspace: false,
+            entities: [],
             modules: [],
             permissions: [],
             error: data?.error || data?.reason || "Business context bootstrap failed",
@@ -103,18 +105,23 @@ export function BusinessContextProvider({ children }) {
           is_platform_operator_workspace:
             data.is_platform_operator_workspace === true,
           entity: data.entity || null,
+          entities: Array.isArray(data.entities)
+            ? data.entities
+            : data.entity
+              ? [data.entity]
+              : [],
           entity_id: data.entity_id || data.active_entity_id || null,
           period: data.period || null,
           period_id: data.period_id || data.active_period_id || null,
           country:
             data.country ||
-            data.organization?.country ||
             data.entity?.country ||
+            data.organization?.country ||
             null,
           currency:
             data.currency ||
-            data.organization?.default_currency ||
             data.entity?.currency ||
+            data.organization?.default_currency ||
             null,
           modules: Array.isArray(data.modules) ? data.modules : [],
           permissions: Array.isArray(data.permissions) ? data.permissions : [],
@@ -131,6 +138,7 @@ export function BusinessContextProvider({ children }) {
           ready: true,
           loading: false,
           organizations: [],
+          entities: [],
           modules: [],
           is_platform_operator_workspace: false,
           error: error.message,

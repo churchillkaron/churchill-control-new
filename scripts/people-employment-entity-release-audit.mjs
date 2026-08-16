@@ -121,9 +121,9 @@ assertContains(
   [
     "loadEmploymentCohort",
     "employmentCohort.staff",
+    "employmentCohort.assignments",
     "partialPeriodStaffIds",
     "EMPLOYMENT_PERIOD_UNSUPPORTED",
-    "employee_employment_assignments",
     "method.country",
     "method.currency",
   ],
@@ -176,15 +176,15 @@ const payrollSetup = read("payrollSetup");
 assertContains(
   payrollSetup,
   [
-    "readiness?.lifecycleBlockers",
+    "readiness.lifecycleBlockers",
     "requiredBlockers",
     "BANK_DETAILS_MISSING",
     "ACCOUNTING_PERIOD_NOT_OPEN",
     "PAYROLL_POSTING_RULES_MISSING",
     "Payment Readiness",
-    "/people/payroll/payments",
-    "/finance/fiscal-periods",
-    "/finance/posting-rules",
+    'peopleRoute(organizationId, "/payroll/payments")',
+    'financeRoute(organizationId, "/fiscal-periods")',
+    'financeRoute(organizationId, "/posting-rules")',
   ],
   "Payroll Setup lifecycle visibility"
 );

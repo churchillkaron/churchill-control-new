@@ -2623,12 +2623,34 @@ async function benchmarkPanelsAreStable() {
   for (const entry of pinned) {
     const reviewers = entry.review_panel.reviewers || [];
     check(`${entry.id}: the panel has reviewers`, reviewers.length >= 2, `${reviewers.length}`);
+    // Checked against what the normaliser actually enforces, read out of the tribunal source rather than
+    // from my idea of what a reviewer needs. The first version of this check tested id, role and mandate
+    // and passed while the pinned panel was missing weight entirely, so the run failed on
+    // CREATIVE_TRIBUNAL_REVIEWER_WEIGHT_INVALID and cost thirteen baht to discover a field I had dropped
+    // while copying the panel. A guard that encodes its author's assumptions instead of the code's
+    // requirements is the thing it was supposed to prevent.
+    const tribunalSource = readFileSync(
+      "lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js",
+      "utf8",
+    );
+    const roleFloor = /text\(reviewer\.role\)\.length < (\d+)/.exec(tribunalSource);
+    const mandateFloor = /text\(reviewer\.mandate\)\.length < (\d+)/.exec(tribunalSource);
+    check("the reviewer floors are readable from the normaliser",
+      Boolean(roleFloor && mandateFloor), `${roleFloor?.[1]} / ${mandateFloor?.[1]}`);
+    check("the normaliser requires a positive weight",
+      /const weight = finite\(reviewer\.weight\)/.test(tribunalSource) &&
+      /REVIEWER_WEIGHT_INVALID/.test(tribunalSource));
     check(
-      `${entry.id}: every reviewer carries an id, role and mandate`,
+      `${entry.id}: every reviewer satisfies every field the normaliser checks`,
       reviewers.every((reviewer) =>
         String(reviewer?.id || "").trim() &&
-        String(reviewer?.role || "").trim() &&
-        String(reviewer?.mandate || "").trim()),
+        String(reviewer?.role || "").length >= Number(roleFloor?.[1] || 8) &&
+        String(reviewer?.mandate || "").length >= Number(mandateFloor?.[1] || 40) &&
+        Number(reviewer?.weight) > 0),
+      reviewers
+        .filter((reviewer) => !(Number(reviewer?.weight) > 0))
+        .map((reviewer) => `${reviewer.id} has no weight`)
+        .join(", ") || "field lengths",
     );
     check(
       `${entry.id}: reviewer ids are unique`,

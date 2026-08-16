@@ -13,6 +13,8 @@ import {
   Users,
 } from "lucide-react";
 
+import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
+
 function money(value, currency = "") {
   const amount = Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -40,6 +42,8 @@ function maskAccount(value) {
 }
 
 export default function PayrollPaymentsPage() {
+  const runtime = useOrganizationRuntime();
+  const entityId = String(runtime.entityId || "").trim();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState("");
@@ -50,13 +54,23 @@ export default function PayrollPaymentsPage() {
   const [references, setReferences] = useState({});
 
   async function loadPayments() {
+    if (!entityId) {
+      setData(null);
+      setSelectedMonth("");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/payroll/payments", {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `/api/payroll/payments?entityId=${encodeURIComponent(entityId)}`,
+        {
+          cache: "no-store",
+        }
+      );
       const result = await response.json();
 
       if (!response.ok || !result?.success) {
@@ -65,16 +79,21 @@ export default function PayrollPaymentsPage() {
 
       setData(result);
 
-      if (!selectedMonth && result.lockedMonths?.length) {
-        setSelectedMonth(result.lockedMonths[0]);
-      }
+      const firstLockedMonth = result.lockedMonths?.[0] || "";
+      setSelectedMonth((current) =>
+        current && result.lockedMonths?.includes(current) ? current : firstLockedMonth
+      );
 
       const bankTransferAvailable = result.paymentMethods?.some(
         (method) => method.payment_method === "bank_transfer"
       );
 
-      if (!bankTransferAvailable && result.paymentMethods?.length) {
+      if (bankTransferAvailable) {
+        setPaymentMethod("bank_transfer");
+      } else if (result.paymentMethods?.length) {
         setPaymentMethod(result.paymentMethods[0].payment_method);
+      } else {
+        setPaymentMethod("");
       }
     } catch (loadError) {
       setError(loadError?.message || "Unable to load payroll payments");
@@ -84,12 +103,19 @@ export default function PayrollPaymentsPage() {
   }
 
   useEffect(() => {
+    setData(null);
+    setSelectedMonth("");
+    setPaymentMethod("bank_transfer");
+    setReferences({});
+    setMessage("");
+    setError("");
     loadPayments();
-  }, []);
+  }, [entityId]);
 
   const currency =
     data?.paymentMethods?.find((method) => method.payment_method === paymentMethod)?.currency ||
     data?.entity?.currency ||
+    runtime.entity?.currency ||
     "";
 
   const lockedForMonth = useMemo(
@@ -122,6 +148,11 @@ export default function PayrollPaymentsPage() {
   }, [data]);
 
   async function prepareBatch() {
+    if (!entityId) {
+      setError("Select an active legal entity in the global header first.");
+      return;
+    }
+
     if (!selectedMonth) {
       setError("Select a locked payroll month first.");
       return;
@@ -137,6 +168,7 @@ export default function PayrollPaymentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "PREPARE",
+          entityId,
           payrollMonth: selectedMonth,
           paymentMethod,
         }),
@@ -198,6 +230,14 @@ export default function PayrollPaymentsPage() {
     }
   }
 
+  const entityName =
+    data?.entity?.display_name ||
+    data?.entity?.legal_name ||
+    runtime.entity?.display_name ||
+    runtime.entity?.legal_name ||
+    runtime.entity?.name ||
+    "Accounting entity";
+
   return (
     <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -214,20 +254,26 @@ export default function PayrollPaymentsPage() {
                 Convert locked payroll into a controlled payment batch, verify employee payout details, then reconcile against the real bank reference before payroll becomes paid.
               </p>
               <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
-                {data?.entity?.legal_name || "Accounting entity"} · {data?.role || "Role"}
+                {entityName} · {data?.role || runtime.role || "Role"}
               </div>
             </div>
 
             <button
               type="button"
               onClick={loadPayments}
-              disabled={loading}
+              disabled={loading || !entityId}
               className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
             >
               <RefreshCw className="h-4 w-4" /> Refresh
             </button>
           </div>
         </section>
+
+        {!entityId && runtime.ready ? (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Select an active legal entity in the global header before managing payroll payments.
+          </div>
+        ) : null}
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Locked Payroll" value={data?.lockedPayroll?.length || 0} icon={<Users className="h-4 w-4" />} />
@@ -288,7 +334,7 @@ export default function PayrollPaymentsPage() {
               <button
                 type="button"
                 onClick={prepareBatch}
-                disabled={working === "prepare" || !selectedMonth || !lockedForMonth.length}
+                disabled={working === "prepare" || !entityId || !paymentMethod || !selectedMonth || !lockedForMonth.length}
                 className="mt-auto h-12 rounded-xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
               >
                 {working === "prepare" ? "Preparing..." : "Prepare batch"}

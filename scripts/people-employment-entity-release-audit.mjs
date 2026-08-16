@@ -17,6 +17,7 @@ const files = {
   reconciliation:
     "lib/payroll/consolidation/loadPayrollAttendanceReconciliation.js",
   paymentBatch: "lib/payroll/payments/preparePayrollPaymentBatch.js",
+  paymentApi: "app/api/payroll/payments/route.js",
   previewApi: "app/api/payroll/preview/route.js",
   generateApi: "app/api/payroll/generate/route.js",
   governanceApi: "app/api/payroll/governance/route.js",
@@ -183,6 +184,25 @@ assertContains(
     "legal entity jurisdiction",
   ],
   "Payroll payment batch"
+);
+
+const paymentApi = read("paymentApi");
+assertContains(
+  paymentApi,
+  [
+    "loadActiveEntities",
+    "requestedEntityId",
+    'url.searchParams.get("entityId")',
+    "entities.find((item) => item.id === requested)",
+    "multiple active legal entities",
+    "matchingPaymentMethods",
+    "methodCurrency === entityCurrency",
+    "methodCountry === entityCountry",
+    "entities,",
+    "requestedEntityId: body?.entityId || null",
+    "entityId: entity.id",
+  ],
+  "Payroll payment API legal entity selection"
 );
 
 const previewApi = read("previewApi");

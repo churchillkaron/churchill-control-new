@@ -21,6 +21,14 @@ function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+function normalizeCurrency(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function normalizeCountry(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
 function contextResponse(context) {
   return NextResponse.json(
     {
@@ -59,19 +67,61 @@ async function paymentContext(request) {
   };
 }
 
-async function resolveDefaultEntity(organizationId) {
+async function loadActiveEntities(organizationId) {
   const { data, error } = await supabaseAdmin
     .from("legal_entities")
-    .select("id,legal_name,currency")
+    .select(
+      "id,legal_name,display_name,code,country,currency,is_default_accounting_entity"
+    )
     .eq("organization_id", organizationId)
     .eq("is_active", true)
-    .eq("is_default_accounting_entity", true)
-    .limit(1)
-    .maybeSingle();
+    .order("is_default_accounting_entity", { ascending: false })
+    .order("legal_name", { ascending: true });
 
   if (error) throw error;
-  if (!data?.id) throw new Error("Default accounting legal entity not configured");
-  return data;
+  return data || [];
+}
+
+async function resolveEntity({ organizationId, requestedEntityId = null }) {
+  const entities = await loadActiveEntities(organizationId);
+
+  if (!entities.length) {
+    throw new Error("No active payroll legal entity is configured");
+  }
+
+  const requested = String(requestedEntityId || "").trim();
+  if (requested) {
+    const entity = entities.find((item) => item.id === requested) || null;
+    if (!entity) {
+      throw new Error("Payroll legal entity does not belong to this organization");
+    }
+    return { entity, entities };
+  }
+
+  const defaultEntity =
+    entities.find((item) => item.is_default_accounting_entity === true) || null;
+
+  if (defaultEntity) return { entity: defaultEntity, entities };
+  if (entities.length === 1) return { entity: entities[0], entities };
+
+  throw new Error(
+    "Legal entity selection is required because this organization has multiple active legal entities"
+  );
+}
+
+function matchingPaymentMethods({ methods, entity }) {
+  const entityCurrency = normalizeCurrency(entity?.currency);
+  const entityCountry = normalizeCountry(entity?.country);
+
+  return (methods || []).filter((method) => {
+    const methodCurrency = normalizeCurrency(method.currency);
+    const methodCountry = normalizeCountry(method.country);
+
+    return (
+      methodCurrency === entityCurrency &&
+      (!methodCountry || methodCountry === entityCountry)
+    );
+  });
 }
 
 export async function GET(request) {
@@ -79,7 +129,12 @@ export async function GET(request) {
     const context = await paymentContext(request);
     if (context.response) return context.response;
 
-    const entity = await resolveDefaultEntity(context.organizationId);
+    const url = new URL(request.url);
+    const requestedEntityId = url.searchParams.get("entityId") || null;
+    const { entity, entities } = await resolveEntity({
+      organizationId: context.organizationId,
+      requestedEntityId,
+    });
 
     const [batchResult, payoutResult, lockedResult, paymentMethodResult] = await Promise.all([
       supabaseAdmin
@@ -104,7 +159,7 @@ export async function GET(request) {
         .order("staff_name", { ascending: true }),
       supabaseAdmin
         .from("organization_payment_config")
-        .select("payment_method,currency,enabled")
+        .select("payment_method,country,currency,enabled")
         .eq("organization_id", context.organizationId)
         .eq("enabled", true)
         .order("payment_method", { ascending: true }),
@@ -132,16 +187,21 @@ export async function GET(request) {
     const lockedMonths = Array.from(
       new Set(lockedPayroll.map((record) => record.payroll_month).filter(Boolean))
     );
+    const paymentMethods = matchingPaymentMethods({
+      methods: paymentMethodResult.data || [],
+      entity,
+    });
 
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
       role: context.role,
       entity,
+      entities,
       payments,
       lockedPayroll,
       lockedMonths,
-      paymentMethods: paymentMethodResult.data || [],
+      paymentMethods,
     });
   } catch (error) {
     console.error("PAYROLL_PAYMENT_LIST_ERROR", error);
@@ -170,7 +230,10 @@ export async function POST(request) {
         );
       }
 
-      const entity = await resolveDefaultEntity(context.organizationId);
+      const { entity } = await resolveEntity({
+        organizationId: context.organizationId,
+        requestedEntityId: body?.entityId || null,
+      });
 
       const result = await preparePayrollPaymentBatch({
         organizationId: context.organizationId,

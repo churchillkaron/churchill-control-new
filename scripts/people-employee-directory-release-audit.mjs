@@ -5,6 +5,7 @@ const ROOT = process.cwd();
 
 const FILES = Object.freeze({
   service: "lib/people/employees/employeeDirectoryService.js",
+  employment: "lib/people/employees/employeeEmploymentLifecycleService.js",
   api: "app/api/people/directory/route.js",
   ui: "app/(system)/workspace/[organizationId]/people/directory/page.jsx",
   activation: "lib/people/identity/activateStaffPortalAccess.js",
@@ -44,22 +45,28 @@ requireMatch(
 );
 
 for (const contract of [
-  /createEmployeeRecord/,
-  /loadEmployeeDirectory/,
-  /setEmployeeActiveStatus/,
+  /createEmployeeWithEmployment/,
+  /loadEmployeeDirectoryWithEmployment/,
+  /setEmployeeActiveWithEmployment/,
+  /transferEmployeeLegalEntity/,
   /updateEmployeeRecord/,
 ]) {
   requireMatch(
     source.api,
     contract,
-    "People Directory API employee service boundary"
+    "People Directory API employee lifecycle boundary"
   );
 }
 
 requireMatch(
   source.api,
+  /@\/lib\/people\/employees\/employeeEmploymentLifecycleService/,
+  "People Directory API canonical employment lifecycle import"
+);
+requireMatch(
+  source.api,
   /@\/lib\/people\/employees\/employeeDirectoryService/,
-  "People Directory API canonical employee service import"
+  "People Directory API canonical profile service import"
 );
 requireNoMatch(
   source.api,
@@ -68,7 +75,7 @@ requireNoMatch(
 );
 requireMatch(
   source.api,
-  /action === "create_employee"[\s\S]*createEmployeeRecord/,
+  /action === "create_employee"[\s\S]*createEmployeeWithEmployment/,
   "People Directory employee creation action"
 );
 requireMatch(
@@ -83,13 +90,40 @@ requireMatch(
 );
 requireMatch(
   source.api,
-  /action === "set_active"[\s\S]*setEmployeeActiveStatus/,
+  /action === "set_active"[\s\S]*setEmployeeActiveWithEmployment/,
   "People Directory employment status action"
+);
+requireMatch(
+  source.api,
+  /action === "transfer_entity"[\s\S]*transferEmployeeLegalEntity/,
+  "People Directory legal employer transfer action"
 );
 requireNoMatch(
   source.api,
   /PAYROLL_ADMIN/,
   "Payroll administration ownership of employee master"
+);
+
+for (const contract of [
+  /createEmployeeRecord/,
+  /loadEmployeeDirectory/,
+  /setEmployeeActiveStatus/,
+]) {
+  requireMatch(
+    source.employment,
+    contract,
+    "People employment lifecycle delegation to employee master"
+  );
+}
+requireMatch(
+  source.employment,
+  /assignEmployeeEmploymentEntity/,
+  "People employment lifecycle legal employer assignment"
+);
+requireMatch(
+  source.employment,
+  /endEmployeeEmploymentAssignment/,
+  "People employment lifecycle legal employer closure"
 );
 
 requireMatch(
@@ -205,6 +239,9 @@ console.log(
 );
 console.log(
   "EMPLOYEE_MASTER_OWNER=PEOPLE_DIRECTORY_SERVICE"
+);
+console.log(
+  "EMPLOYEE_EMPLOYMENT_LIFECYCLE=PEOPLE_EMPLOYMENT_SERVICE"
 );
 console.log(
   "EMPLOYEE_SCOPE=ORGANIZATION_PARTY_MEMBERSHIP"

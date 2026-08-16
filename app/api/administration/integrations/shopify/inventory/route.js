@@ -250,9 +250,15 @@ export async function POST(request) {
     if (!MODES.has(requestedMode)) {
       return NextResponse.json({ success: false, error: "Unsupported inventory sync mode" }, { status: 400 });
     }
-    if (!clear && (!warehouseId || !locationId)) {
+    if (requestedMode === "SHOPIFY_TO_AVANTIQO" && (!warehouseId || !locationId)) {
       return NextResponse.json(
-        { success: false, error: "Warehouse and inventory location are both required" },
+        { success: false, error: "Warehouse and inventory location are required before enabling stock synchronization" },
+        { status: 400 },
+      );
+    }
+    if (locationId && !warehouseId) {
+      return NextResponse.json(
+        { success: false, error: "Choose the warehouse before choosing its inventory location" },
         { status: 400 },
       );
     }
@@ -283,26 +289,33 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Shopify store connection is not available" }, { status: 409 });
     }
 
-    if (!clear) {
-      const [warehouseResult, locationResult] = await Promise.all([
-        supabaseAdmin
-          .from("inventory_warehouses")
-          .select("id")
-          .eq("organization_id", context.organizationId)
-          .eq("id", warehouseId)
-          .maybeSingle(),
-        supabaseAdmin
-          .from("inventory_locations")
-          .select("id,warehouse_id")
-          .eq("id", locationId)
-          .eq("warehouse_id", warehouseId)
-          .maybeSingle(),
-      ]);
+    if (warehouseId) {
+      const warehouseResult = await supabaseAdmin
+        .from("inventory_warehouses")
+        .select("id")
+        .eq("organization_id", context.organizationId)
+        .eq("id", warehouseId)
+        .maybeSingle();
       if (warehouseResult.error) throw warehouseResult.error;
-      if (locationResult.error) throw locationResult.error;
-      if (!warehouseResult.data || !locationResult.data) {
+      if (!warehouseResult.data) {
         return NextResponse.json(
-          { success: false, error: "Inventory warehouse/location is not available for this organization" },
+          { success: false, error: "Inventory warehouse is not available for this organization" },
+          { status: 400 },
+        );
+      }
+    }
+
+    if (locationId) {
+      const locationResult = await supabaseAdmin
+        .from("inventory_locations")
+        .select("id,warehouse_id")
+        .eq("id", locationId)
+        .eq("warehouse_id", warehouseId)
+        .maybeSingle();
+      if (locationResult.error) throw locationResult.error;
+      if (!locationResult.data) {
+        return NextResponse.json(
+          { success: false, error: "Inventory location does not belong to the selected warehouse" },
           { status: 400 },
         );
       }
@@ -327,8 +340,8 @@ export async function POST(request) {
         updated_at: now,
         metadata: {
           ...metadata,
-          inventory_warehouse_id: clear ? null : warehouseId,
-          inventory_location_id: clear ? null : locationId,
+          inventory_warehouse_id: clear ? null : warehouseId || null,
+          inventory_location_id: clear ? null : locationId || null,
           inventory_sync_mode: mode,
           inventory_mapping_updated_at: now,
           inventory_mapping_updated_by_party_id: partyId,

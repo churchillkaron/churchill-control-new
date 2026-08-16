@@ -16,6 +16,8 @@ const files = {
   calculation: "lib/payroll/consolidation/generateMonthlyPayroll.js",
   previewApi: "app/api/payroll/preview/route.js",
   generateApi: "app/api/payroll/generate/route.js",
+  payrollControl:
+    "app/(system)/workspace/[organizationId]/people/payroll/page.jsx",
   payrollSetup:
     "app/(system)/workspace/[organizationId]/administration/onboarding/payroll/page.jsx",
 };
@@ -172,16 +174,31 @@ assertContains(
   "Payroll generation API"
 );
 
+const payrollControl = read("payrollControl");
+assertContains(
+  payrollControl,
+  [
+    "EMPLOYMENT_PERIOD_UNSUPPORTED",
+    "Review legal employer",
+    'peopleRoute(organizationId, "/directory")',
+    "legal-employer scope",
+  ],
+  "Payroll Control legal employer remediation"
+);
+
 const payrollSetup = read("payrollSetup");
 assertContains(
   payrollSetup,
   [
     "readiness.lifecycleBlockers",
     "requiredBlockers",
+    "EMPLOYMENT_PERIOD_UNSUPPORTED",
+    "Review legal employer",
     "BANK_DETAILS_MISSING",
     "ACCOUNTING_PERIOD_NOT_OPEN",
     "PAYROLL_POSTING_RULES_MISSING",
     "Payment Readiness",
+    'peopleRoute(organizationId, "/directory")',
     'peopleRoute(organizationId, "/payroll/payments")',
     'financeRoute(organizationId, "/fiscal-periods")',
     'financeRoute(organizationId, "/posting-rules")',

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Calculator,
@@ -10,6 +10,8 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+
+import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 
 function currentPayrollMonth() {
   const date = new Date();
@@ -40,15 +42,29 @@ function otherDeductions(row) {
 
 export default function PayrollPreviewPage() {
   const params = useParams();
+  const runtime = useOrganizationRuntime();
   const organizationId = String(params?.organizationId || "").trim();
+  const entityId = String(runtime.entityId || "").trim();
+  const entityName =
+    runtime.entity?.display_name ||
+    runtime.entity?.legal_name ||
+    runtime.entity?.name ||
+    runtime.entity?.code ||
+    "Legal entity";
   const [payrollMonth, setPayrollMonth] = useState(currentPayrollMonth());
   const [preview, setPreview] = useState(null);
   const [readiness, setReadiness] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    setPreview(null);
+    setReadiness(null);
+    setError("");
+  }, [entityId]);
+
   async function runPreview() {
-    if (!organizationId || !/^\d{4}-\d{2}$/.test(payrollMonth)) return;
+    if (!organizationId || !entityId || !/^\d{4}-\d{2}$/.test(payrollMonth)) return;
 
     setLoading(true);
     setError("");
@@ -58,7 +74,7 @@ export default function PayrollPreviewPage() {
       const response = await fetch("/api/payroll/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organizationId, payrollMonth }),
+        body: JSON.stringify({ organizationId, entityId, payrollMonth }),
       });
       const result = await response.json();
 
@@ -99,6 +115,9 @@ export default function PayrollPreviewPage() {
               <p className="mt-2 max-w-3xl text-sm text-white/45">
                 Calculate the same canonical payroll result used by generation without creating payroll, payment or accounting records.
               </p>
+              <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
+                {entityName}
+              </div>
             </div>
             <Link
               href={peopleRoute(organizationId, "/payroll")}
@@ -128,7 +147,7 @@ export default function PayrollPreviewPage() {
               <button
                 type="button"
                 onClick={runPreview}
-                disabled={loading}
+                disabled={loading || !entityId}
                 className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#D6A66A] px-6 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
               >
                 {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
@@ -137,6 +156,12 @@ export default function PayrollPreviewPage() {
             </div>
           </div>
         </section>
+
+        {!entityId && runtime.ready ? (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Select an active legal entity in the global header before running payroll preview.
+          </div>
+        ) : null}
 
         {error ? (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">

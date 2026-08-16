@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
 import { buildPayrollReadiness } from "@/lib/people/payroll";
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { resolveActiveLegalEntitySelection } from "@/lib/platform/runtime/resolveActiveLegalEntitySelection";
 
 // Payroll readiness reads privileged workforce and payroll data on the trusted server.
 // Production deployment marker: payroll readiness convergence is validated for release.
@@ -21,33 +21,6 @@ const READINESS_ROLES = new Set([
 
 function normalizeRole(value) {
   return String(value || "").trim().toUpperCase();
-}
-
-async function resolveEntityId({ organizationId, requestedEntityId }) {
-  if (requestedEntityId) {
-    const { data: entity, error } = await supabaseAdmin
-      .from("legal_entities")
-      .select("id")
-      .eq("id", requestedEntityId)
-      .eq("organization_id", organizationId)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (error) throw error;
-    return entity?.id || null;
-  }
-
-  const { data: entity, error } = await supabaseAdmin
-    .from("legal_entities")
-    .select("id")
-    .eq("organization_id", organizationId)
-    .eq("is_active", true)
-    .eq("is_default_accounting_entity", true)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return entity?.id || null;
 }
 
 export async function GET(request) {
@@ -85,27 +58,22 @@ export async function GET(request) {
       );
     }
 
-    const entityId = await resolveEntityId({
+    const { entity } = await resolveActiveLegalEntitySelection({
+      request,
       organizationId: context.organizationId,
-      requestedEntityId,
+      entityId: requestedEntityId,
     });
-
-    if (!entityId) {
-      return NextResponse.json(
-        { success: false, error: "Default legal entity not configured" },
-        { status: 400 }
-      );
-    }
 
     const readiness = await buildPayrollReadiness({
       organizationId: context.organizationId,
-      entityId,
+      entityId: entity.id,
       payrollMonth,
     });
 
     return NextResponse.json({
       success: true,
       role,
+      entity,
       readiness,
     });
   } catch (error) {

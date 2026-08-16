@@ -178,6 +178,124 @@ function OrganizationSelector({ organization, organizations, pathname }) {
   );
 }
 
+function EntitySelector({ entity, entities }) {
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [error, setError] = useState("");
+
+  const available = Array.isArray(entities)
+    ? entities.filter((row) => row?.id && row?.is_active !== false)
+    : [];
+
+  const label =
+    entity?.display_name ||
+    entity?.legal_name ||
+    entity?.name ||
+    entity?.code ||
+    "Legal entity";
+
+  async function switchEntity(nextEntity) {
+    if (!nextEntity?.id || nextEntity.id === entity?.id) {
+      setOpen(false);
+      return;
+    }
+
+    try {
+      setSwitching(true);
+      setError("");
+
+      const response = await fetch("/api/session/entity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ entityId: nextEntity.id }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to switch legal entity");
+      }
+
+      window.location.reload();
+    } catch (switchError) {
+      setError(switchError.message || "Unable to switch legal entity");
+      setSwitching(false);
+    }
+  }
+
+  if (!available.length || !entity) return null;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        disabled={switching || available.length < 2}
+        className="flex h-9 min-w-0 max-w-[240px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-left text-white/65 transition hover:border-[#D6A66A]/30 hover:bg-[#D6A66A]/10 hover:text-white disabled:cursor-default"
+      >
+        <Building2 size={14} className="shrink-0 text-[#D6A66A]/80" />
+        <span className="min-w-0 flex-1 truncate text-[12px] font-light tracking-[0.02em]">
+          {switching ? "Switching..." : label}
+        </span>
+        {available.length > 1 && (
+          <ChevronDown size={12} className="shrink-0 text-white/25" />
+        )}
+      </button>
+
+      {open && available.length > 1 && (
+        <div className="absolute left-0 top-11 z-[90] w-[340px] overflow-hidden rounded-2xl border border-[#D6A66A]/25 bg-[#050505] p-2 shadow-[0_28px_90px_rgba(0,0,0,.95),0_0_0_1px_rgba(255,255,255,.03)]">
+          <div className="border-b border-white/[0.06] px-3 pb-3 pt-2 text-[9px] uppercase tracking-[0.22em] text-[#D6A66A]/65">
+            Select legal entity
+          </div>
+
+          <div className="mt-1 max-h-[360px] overflow-y-auto bg-[#050505]">
+            {available.map((item) => {
+              const active = item.id === entity?.id;
+              const itemName =
+                item.display_name || item.legal_name || item.name || item.code || item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => switchEntity(item)}
+                  className={
+                    active
+                      ? "flex w-full items-center gap-3 rounded-xl border border-[#D6A66A]/35 bg-[#18130C] px-3 py-3 text-left text-[#F0D29A] shadow-[inset_0_0_0_1px_rgba(214,166,106,.04)]"
+                      : "flex w-full items-center gap-3 rounded-xl border border-transparent bg-[#050505] px-3 py-3 text-left text-white/75 transition hover:border-white/10 hover:bg-[#121212] hover:text-white"
+                  }
+                >
+                  <Building2
+                    size={14}
+                    className={active ? "shrink-0 text-[#D6A66A]" : "shrink-0 text-white/45"}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12px]">{itemName}</span>
+                    <span className="mt-0.5 block truncate text-[9px] uppercase tracking-[0.12em] text-white/30">
+                      {[item.code, item.country, item.currency].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                  {active && (
+                    <span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] text-[#E7C991]">
+                      Active
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {error && (
+            <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-300">
+              {error}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HeaderItem({ item, organizationId, userName }) {
   const Icon = ICONS[item.icon] || Search;
 
@@ -242,6 +360,7 @@ export default function WorkspaceTopBar() {
   const organization = businessContext?.organization || null;
   const organizations = businessContext?.organizations || [];
   const entity = businessContext?.entity || null;
+  const entities = businessContext?.entities || [];
   const period = businessContext?.period || null;
   const staff = businessContext?.staff || null;
   const role = upper(businessContext?.role || staff?.role);
@@ -256,7 +375,6 @@ export default function WorkspaceTopBar() {
     params?.organizationId ||
     null;
 
-  const entityName = entity?.name || entity?.legal_name || "";
   const periodName = period?.name || period?.period_name || "Current Period";
   const userName = staff?.name || staff?.email || "User";
 
@@ -296,9 +414,7 @@ export default function WorkspaceTopBar() {
             pathname={pathname}
           />
 
-          {entityName && entityName !== organization?.name && (
-            <ContextPill icon={Building2} value={entityName} />
-          )}
+          <EntitySelector entity={entity} entities={entities} />
 
           <ContextPill icon={Calendar} value={periodName} />
 

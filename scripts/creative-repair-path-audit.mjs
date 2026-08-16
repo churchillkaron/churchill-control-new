@@ -2647,6 +2647,52 @@ async function benchmarkPanelsAreStable() {
   }
 }
 
+// 42. A brand mark cannot be produced by asking a generator to imitate it.
+//
+// The still that scored 90.74 planned three steps: analyse the evidence, ai.image.generate an image
+// "replicating the authentic Churchill entrance with verified lighting, signage", and upscale it. Its
+// manifest correctly named what had to stay stable -- the neon CC sign's appearance and position, the 3D
+// metallic CC letterform, the Churchill wordmark's metal finish -- and then handed every one of them to a
+// generator. The phrase "outside generated pixels" appeared nowhere in the plan, though the contract
+// requires it for logos and text. Two reviewers independently failed it for neon colour fidelity and halo
+// artifacts, and they were right: a generated mark is approximately the right colour with nearly the right
+// edges, which is how a logo reads as counterfeit.
+async function brandMarksAreCompositedNotGenerated() {
+  const { CreativeMasterPlanContractRegistry } = await import(
+    "@/lib/creative/director/registry/CreativeMasterPlanContractRegistry"
+  );
+  const { readFileSync } = globalThis.__auditFs;
+
+  for (const workflowKind of ["STILL", "TEMPORAL"]) {
+    let gate;
+    try {
+      gate = CreativeMasterPlanContractRegistry.buildDecisionContract(workflowKind)
+        .pre_return_excellence_gate;
+    } catch {
+      continue;
+    }
+    const proof = String(gate?.production_proof || "");
+    check(`${workflowKind}: a source truth may not be imitated by a generator`,
+      /cannot be produced by asking a generator to imitate it/.test(proof));
+    check(`${workflowKind}: a compositing step is required for exact marks`,
+      /composites or places that mark from the source asset/.test(proof));
+    check(`${workflowKind}: the generated layer must be told what to omit`,
+      /leave room for it rather than to replicate it/.test(proof));
+    // Naming the mark and generating it anyway is the exact failure observed, so the gate says so.
+    check(`${workflowKind}: naming a mark is not the same as preserving it`,
+      /continuity anchors and then handing it to an image generator is not fidelity/.test(proof));
+  }
+
+  const universal = readFileSync(
+    "lib/creative/director/runtime/CreativeMasterPlanRuntime.js",
+    "utf8",
+  );
+  check("the universal path is instructed to composite exact marks",
+    /must be composited or placed from its source asset by a named production step/.test(universal));
+  check("the instruction names what counts as such a mark",
+    /logo, wordmark, neon sign, signage, exact text/.test(universal));
+}
+
 async function main() {
   globalThis.__auditFs = await import("node:fs");
   console.log("============================================================");
@@ -2696,6 +2742,7 @@ async function main() {
   await clearanceRecordingMatchesTheReleaseGate();
   await passingCasesKeepTheirWholePlan();
   await benchmarkPanelsAreStable();
+  await brandMarksAreCompositedNotGenerated();
 
   console.log(`CHECKS_PASSED=${passes.length}`);
   console.log(`CHECKS_FAILED=${failures.length}`);

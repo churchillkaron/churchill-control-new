@@ -2681,6 +2681,16 @@ async function brandMarksAreCompositedNotGenerated() {
     // Naming the mark and generating it anyway is the exact failure observed, so the gate says so.
     check(`${workflowKind}: naming a mark is not the same as preserving it`,
       /continuity anchors and then handing it to an image generator is not fidelity/.test(proof));
+    // Churchill can generate and upscale an image and cannot composite one: no compositing, editing,
+    // inpainting or overlay capability is enabled for it. Requiring a compositing step without this escape
+    // would have made the contract unsatisfiable for that organization, and the run would have failed on my
+    // own rule. The escape is a declaration, not a waiver -- generating the mark quietly is still refused.
+    check(`${workflowKind}: an absent compositing capability is declared, not worked around`,
+      /no capability that can composite/.test(proof) &&
+        /name the capability that is missing/.test(proof) &&
+        /repair required before release/.test(proof));
+    check(`${workflowKind}: the escape does not permit generating the mark anyway`,
+      /do not quietly generate the mark as though the problem did not exist/.test(proof));
   }
 
   const universal = readFileSync(

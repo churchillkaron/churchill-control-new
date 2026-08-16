@@ -188,10 +188,15 @@ export async function POST(request) {
   let processedMessages = 0;
   let processedStatuses = 0;
   let ignoredEvents = 0;
+  let totalEvents = 0;
+  let resolvedInstagramEvents = 0;
+  let resolvedMessengerEvents = 0;
   const objectType = text(payload?.object).toLowerCase();
+  const entries = Array.isArray(payload?.entry) ? payload.entry : [];
 
-  for (const entry of payload?.entry || []) {
+  for (const entry of entries) {
     const events = Array.isArray(entry?.messaging) ? entry.messaging : [];
+    totalEvents += events.length;
 
     for (const event of events) {
       const resolved = await connectionForEvent({
@@ -205,6 +210,12 @@ export async function POST(request) {
       }
 
       const { connection, providerOverride, channelTypeOverride } = resolved;
+      if (channelTypeOverride === "instagram") {
+        resolvedInstagramEvents += 1;
+      } else if (channelTypeOverride === "messenger") {
+        resolvedMessengerEvents += 1;
+      }
+
       const participantId = text(event?.sender?.id);
       const recipientId = text(event?.recipient?.id || entry?.id);
 
@@ -311,6 +322,17 @@ export async function POST(request) {
       ignoredEvents += 1;
     }
   }
+
+  console.info("META_MESSAGING_WEBHOOK_RESULT", {
+    objectType: objectType || "unknown",
+    entryCount: entries.length,
+    totalEvents,
+    resolvedInstagramEvents,
+    resolvedMessengerEvents,
+    processedMessages,
+    processedStatuses,
+    ignoredEvents,
+  });
 
   return NextResponse.json({
     success: true,

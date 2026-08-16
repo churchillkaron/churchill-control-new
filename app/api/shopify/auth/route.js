@@ -53,7 +53,10 @@ export async function GET(request) {
     const redirectUri = `${url.origin}/api/shopify/auth/callback`;
     const authorize = new URL(`https://${shop}/admin/oauth/authorize`);
     authorize.searchParams.set("client_id", clientId());
-    authorize.searchParams.set("scope", "read_products,read_orders,read_inventory,read_locations");
+    authorize.searchParams.set(
+      "scope",
+      "read_products,read_orders,read_inventory,read_locations,read_fulfillments",
+    );
     authorize.searchParams.set("redirect_uri", redirectUri);
     authorize.searchParams.set("state", state);
     return NextResponse.redirect(authorize);

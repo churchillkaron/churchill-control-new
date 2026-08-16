@@ -6,6 +6,7 @@ import {
   buildPayrollReadiness,
   generateMonthlyPayroll,
 } from "@/lib/people/payroll";
+import { resolveActiveLegalEntitySelection } from "@/lib/platform/runtime/resolveActiveLegalEntitySelection";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   resolveOrganizationTimeContext,
@@ -111,45 +112,12 @@ export async function POST(request) {
       );
     }
 
-    let entityId = body?.entityId || null;
-
-    if (entityId) {
-      const { data: entity, error: entityError } = await supabaseAdmin
-        .from("legal_entities")
-        .select("id")
-        .eq("id", entityId)
-        .eq("organization_id", context.organizationId)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (entityError) throw entityError;
-
-      if (!entity) {
-        return NextResponse.json(
-          { success: false, error: "Legal entity does not belong to organization" },
-          { status: 400 }
-        );
-      }
-    } else {
-      const { data: entity, error: entityError } = await supabaseAdmin
-        .from("legal_entities")
-        .select("id")
-        .eq("organization_id", context.organizationId)
-        .eq("is_active", true)
-        .eq("is_default_accounting_entity", true)
-        .limit(1)
-        .maybeSingle();
-
-      if (entityError) throw entityError;
-      entityId = entity?.id || null;
-    }
-
-    if (!entityId) {
-      return NextResponse.json(
-        { success: false, error: "Default legal entity not configured" },
-        { status: 400 }
-      );
-    }
+    const { entity } = await resolveActiveLegalEntitySelection({
+      request,
+      organizationId: context.organizationId,
+      entityId: body?.entityId || null,
+    });
+    const entityId = entity.id;
 
     const [readiness, pendingAttendanceReviews] = await Promise.all([
       buildPayrollReadiness({
@@ -198,6 +166,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
+      entity,
       readiness,
       result,
     });

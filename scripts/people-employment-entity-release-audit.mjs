@@ -14,8 +14,12 @@ const files = {
   compensationApi: "app/api/people/compensation/route.js",
   readiness: "lib/payroll/readiness/buildPayrollReadiness.js",
   calculation: "lib/payroll/consolidation/generateMonthlyPayroll.js",
+  reconciliation:
+    "lib/payroll/consolidation/loadPayrollAttendanceReconciliation.js",
+  paymentBatch: "lib/payroll/payments/preparePayrollPaymentBatch.js",
   previewApi: "app/api/payroll/preview/route.js",
   generateApi: "app/api/payroll/generate/route.js",
+  governanceApi: "app/api/payroll/governance/route.js",
   payrollControl:
     "app/(system)/workspace/[organizationId]/people/payroll/page.jsx",
   payrollSetup:
@@ -152,6 +156,35 @@ assertContains(
   "Payroll calculation"
 );
 
+const reconciliation = read("reconciliation");
+assertContains(
+  reconciliation,
+  [
+    "loadEmploymentAssignmentsForPeriod",
+    "full-month legal-employer assignment",
+    "employmentAssignments.flatMap",
+    "assignment.updated_at",
+    "employmentAssignmentId",
+  ],
+  "Payroll attendance reconciliation"
+);
+
+const paymentBatch = read("paymentBatch");
+assertContains(
+  paymentBatch,
+  [
+    '.from("legal_entities")',
+    '.eq("id", entityId)',
+    '.eq("organization_id", organizationId)',
+    '.eq("is_active", true)',
+    '.from("organization_payment_config")',
+    "configCurrency === currency",
+    "configCountry === country",
+    "legal entity jurisdiction",
+  ],
+  "Payroll payment batch"
+);
+
 const previewApi = read("previewApi");
 assertContains(
   previewApi,
@@ -172,6 +205,19 @@ assertContains(
     '.in("staff_id", employmentCohort.staffIds)',
   ],
   "Payroll generation API"
+);
+
+const governanceApi = read("governanceApi");
+assertContains(
+  governanceApi,
+  [
+    "record?.entity_id",
+    "record.entity_id}:${record.staff_id}:${record.payroll_month}",
+    "entityId: record.entity_id",
+    "entityId: target.entityId",
+    "employmentAssignmentId",
+  ],
+  "Payroll governance reconciliation"
 );
 
 const payrollControl = read("payrollControl");

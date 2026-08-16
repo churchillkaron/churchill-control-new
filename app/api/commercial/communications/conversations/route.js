@@ -6,6 +6,7 @@ import { syncMetaCommunicationHistory } from "@/lib/commercial/communications/Co
 import { listInternalConversations } from "@/lib/commercial/communications/InternalCommunicationAdapter";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
+// Connection payloads expose sanitized channel readiness only; provider credentials remain server-side.
 function clean(value) {
   const normalized = String(value ?? "").trim();
   return normalized || null;

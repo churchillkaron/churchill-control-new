@@ -13,6 +13,8 @@ import {
   Users,
 } from "lucide-react";
 
+import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
+
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -84,6 +86,8 @@ function isEmployeeIncomplete(employee, bankTransferEnabled) {
 }
 
 export default function CompensationPage() {
+  const runtime = useOrganizationRuntime();
+  const entityId = String(runtime.entityId || "").trim();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
@@ -93,13 +97,23 @@ export default function CompensationPage() {
   const [message, setMessage] = useState("");
 
   async function load() {
+    if (!entityId) {
+      setData(null);
+      setDrafts({});
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/people/compensation", {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `/api/people/compensation?entityId=${encodeURIComponent(entityId)}`,
+        {
+          cache: "no-store",
+        }
+      );
       const result = await response.json();
 
       if (!response.ok || !result?.success) {
@@ -127,8 +141,13 @@ export default function CompensationPage() {
   }
 
   useEffect(() => {
+    setData(null);
+    setDrafts({});
+    setWorkingId("");
+    setMessage("");
+    setError("");
     load();
-  }, []);
+  }, [entityId]);
 
   const summary = useMemo(() => {
     const employees = data?.employees || [];
@@ -193,6 +212,11 @@ export default function CompensationPage() {
   }
 
   async function save(employee) {
+    if (!entityId) {
+      setError("Select an active legal entity in the global header first.");
+      return;
+    }
+
     const entityCurrency = String(data?.entity?.currency || "")
       .trim()
       .toUpperCase();
@@ -243,7 +267,7 @@ export default function CompensationPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           staffId: employee.id,
-          entityId: data?.entity?.id || null,
+          entityId,
           effectiveFrom: creating ? draft.effectiveFrom : undefined,
           salaryType,
           payrollFrequency,
@@ -273,6 +297,14 @@ export default function CompensationPage() {
     }
   }
 
+  const entityName =
+    data?.entity?.display_name ||
+    data?.entity?.legal_name ||
+    runtime.entity?.display_name ||
+    runtime.entity?.legal_name ||
+    runtime.entity?.name ||
+    "Not configured";
+
   return (
     <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -288,11 +320,9 @@ export default function CompensationPage() {
                 Complete the pay contract Payroll actually uses, then add payout details required by the organization payment method.
               </p>
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[10px] uppercase tracking-[0.18em] text-white/30">
-                <span>{data?.role || "Role"}</span>
-                <span>
-                  Entity: {data?.entity?.display_name || data?.entity?.legal_name || "Not configured"}
-                </span>
-                <span>Currency: {data?.entity?.currency || "-"}</span>
+                <span>{data?.role || runtime.role || "Role"}</span>
+                <span>Entity: {entityName}</span>
+                <span>Currency: {data?.entity?.currency || runtime.entity?.currency || "-"}</span>
                 <span>Payroll period: Monthly</span>
               </div>
             </div>
@@ -312,7 +342,7 @@ export default function CompensationPage() {
               <button
                 type="button"
                 onClick={load}
-                disabled={loading}
+                disabled={loading || !entityId}
                 className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-xs font-black uppercase tracking-[0.16em] text-white/70 disabled:opacity-40"
               >
                 <RefreshCw className="h-4 w-4" /> Refresh
@@ -320,6 +350,12 @@ export default function CompensationPage() {
             </div>
           </div>
         </section>
+
+        {!entityId && runtime.ready ? (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Select an active legal entity in the global header before managing compensation.
+          </div>
+        ) : null}
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <Metric label="Active Employees" value={summary.employees} icon={<Users className="h-4 w-4" />} />
@@ -338,7 +374,7 @@ export default function CompensationPage() {
 
         {data?.bankTransferEnabled ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/55">
-            Bank transfer is enabled for this organization. Employees can be pay-configured before bank details exist, but bank details are required before the payroll lifecycle can reach payment.
+            Bank transfer is enabled for this legal entity. Employees can be pay-configured before bank details exist, but bank details are required before the payroll lifecycle can reach payment.
           </div>
         ) : null}
 
@@ -363,7 +399,7 @@ export default function CompensationPage() {
               const profile = employee.compensation;
               const draft =
                 drafts[employee.id] ||
-                draftFromEmployee(employee, data?.entity?.currency || "");
+                draftFromEmployee(employee, data?.entity?.currency || runtime.entity?.currency || "");
               const frequencySupported = !profile || isFrequencySupported(profile);
               const payReady = isPayConfigured(profile);
               const bankReady = isBankReady(profile);
@@ -411,7 +447,7 @@ export default function CompensationPage() {
 
                     {creating ? (
                       <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.06] p-4 text-xs leading-5 text-amber-100/70">
-                        This employee has no effective compensation profile for the payroll legal entity. Complete the pay contract below to onboard them.
+                        This employee has no effective compensation profile for the selected payroll legal entity. Complete the pay contract below to onboard them.
                       </div>
                     ) : !frequencySupported ? (
                       <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.08] p-4 text-xs leading-5 text-amber-100/75">
@@ -446,7 +482,7 @@ export default function CompensationPage() {
 
                       <Field label="Currency">
                         <input
-                          value={data?.entity?.currency || draft.currency}
+                          value={data?.entity?.currency || runtime.entity?.currency || draft.currency}
                           disabled
                           className="input uppercase"
                         />
@@ -523,7 +559,7 @@ export default function CompensationPage() {
                       <button
                         type="button"
                         onClick={() => save(employee)}
-                        disabled={workingId === employee.id}
+                        disabled={workingId === employee.id || !entityId}
                         className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#D6A66A] px-5 text-xs font-black uppercase tracking-[0.16em] text-black disabled:opacity-40"
                       >
                         {creating ? <CirclePlus className="h-4 w-4" /> : <Save className="h-4 w-4" />}

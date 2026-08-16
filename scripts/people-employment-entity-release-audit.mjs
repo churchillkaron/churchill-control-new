@@ -169,7 +169,8 @@ assertContains(
   [
     "EntitySelector",
     'fetch("/api/session/entity"',
-    "businessContext.entities",
+    "businessContext?.entities",
+    "<EntitySelector entity={entity} entities={entities} />",
     "window.location.reload()",
   ],
   "Global Header legal entity selector"

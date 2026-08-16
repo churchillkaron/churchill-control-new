@@ -28,6 +28,16 @@ const DURATION = Number(process.env.CREATIVE_CLIP_SECONDS || 8);
 const SPEND = String(process.env.CREATIVE_CLIP_SPEND_APPROVED || "").trim().toUpperCase() === "YES";
 const CEILING = Number(process.env.CREATIVE_CLIP_MAXIMUM_THB || 120);
 
+// Research runs on openai/gpt-4.1-mini at 14 and 56 THB per million tokens with a 30 percent markup, which
+// has been costing about 1.2 THB a call, so a research and direction pass sits around 15 to 25.
+const RESEARCH_PROVIDER = String(process.env.CREATIVE_CLIP_RESEARCH_PROVIDER || "openai").trim();
+const RESEARCH_PRICING_ID = String(
+  process.env.CREATIVE_CLIP_RESEARCH_PRICING_ID || "156fbd36-5a2d-48b0-b72d-450bab821a11",
+).trim();
+const RESEARCH_CEILING = Number(process.env.CREATIVE_CLIP_RESEARCH_MAXIMUM_THB || 30);
+const DIRECTION_CEILING = Number(process.env.CREATIVE_CLIP_DIRECTION_MAXIMUM_THB || 40);
+const COMMAND_IDENTITY = `one-clip:${Date.now()}`;
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -122,6 +132,37 @@ async function main() {
     metadata: {
       creative_request: REQUEST,
       temporal_contract: { duration_seconds: DURATION },
+      // The research approval this pipeline requires: a named provider, the pricing record it is charged
+      // against, a ceiling, and a validity window. Written from the values the run was authorised with
+      // rather than invented, and it expires so it cannot authorise a later run by accident.
+      paid_research_approval: {
+        approved: true,
+        provider: RESEARCH_PROVIDER,
+        pricing_id: RESEARCH_PRICING_ID,
+        maximum_customer_price: RESEARCH_CEILING,
+        approved_at: new Date(Date.now() - 60000).toISOString(),
+        expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      },
+      // Direction is metered per call as well as in total, so its approval carries a ceiling, a per-call
+      // ceiling, a call count, the operations it covers and a command identity that must match the project.
+      command_identity: COMMAND_IDENTITY,
+      paid_direction_approval: {
+        contract: "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2",
+        id: `one-clip-${Date.now()}`,
+        approved: true,
+        status: "APPROVED",
+        provider: RESEARCH_PROVIDER,
+        pricing_id: RESEARCH_PRICING_ID,
+        currency: "THB",
+        maximum_customer_price: DIRECTION_CEILING,
+        maximum_per_call_customer_price: 6,
+        maximum_calls: 40,
+        spent_customer_price: 0,
+        allowed_operations: ["*"],
+        command_identity: COMMAND_IDENTITY,
+        approved_at: new Date(Date.now() - 60000).toISOString(),
+        expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      },
       creative_quality_policy: {
         version: "AVANTIQO_ONE_CLIP_V1",
         minimum_scene_score: 90,

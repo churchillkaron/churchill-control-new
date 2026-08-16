@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, RotateCcw, Undo2 } from "lucide-react";
 import POSCashTransfersPanel from "@/components/workspace/operations/POSCashTransfersPanel";
+import POSBankDepositsPanel from "@/components/workspace/operations/POSBankDepositsPanel";
 import POSCashMovementsPanel from "@/components/workspace/operations/POSCashMovementsPanel";
 
 function numeric(value) {
@@ -143,6 +144,14 @@ export default function POSPaymentCorrectionsPanel({
         applicationId={applicationId}
         currencyCode={currencyCode}
         activeSessionId={activeSessionId}
+        onChanged={onChanged}
+      />
+
+      <POSBankDepositsPanel
+        organizationId={organizationId}
+        entityId={entityId}
+        applicationId={applicationId}
+        currencyCode={currencyCode}
         onChanged={onChanged}
       />
 

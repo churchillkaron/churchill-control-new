@@ -180,10 +180,11 @@ const organizationRuntime = read("organizationRuntime");
 assertContains(
   organizationRuntime,
   [
-    "entity:",
+    "const entity = context?.entity || null",
+    "entity,",
     "entities:",
-    "entityId:",
-    "legalEntityId:",
+    "entityId: resolveId(entity",
+    "legalEntityId: resolveId(entity",
   ],
   "Organization runtime legal entity context"
 );

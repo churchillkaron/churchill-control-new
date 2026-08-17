@@ -35,6 +35,12 @@ function statusClasses(status) {
   return "border-white/[0.08] bg-white/[0.04] text-white/45";
 }
 
+function reviewStatusClasses(status) {
+  if (status === "RESOLVED") return "border-emerald-300/25 bg-emerald-300/10 text-emerald-200";
+  if (status === "ACKNOWLEDGED") return "border-sky-300/25 bg-sky-300/10 text-sky-200";
+  return "border-amber-300/25 bg-amber-300/10 text-amber-200";
+}
+
 export default function FinanceForecastVersionEngine({ action, organizationId, entityId, periodId, onClose }) {
   const [versions, setVersions] = useState([]);
   const [canManage, setCanManage] = useState(false);
@@ -140,7 +146,7 @@ export default function FinanceForecastVersionEngine({ action, organizationId, e
           <div>
             <div className="text-[11px] uppercase tracking-[0.30em] text-amber-300/65">Finance Forecasting</div>
             <h2 className="mt-3 text-3xl font-light tracking-[-0.04em] text-white">Forecast Versions</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">Normal approval is available only when the stored forecast is ready and, for Scenarios vs Budget, the budget is both available and complete. Exceptional approval is separately permission-gated, reason-required, and audit-visible.</p>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">Normal approval is available only when the stored forecast is ready and, for Scenarios vs Budget, the budget is both available and complete. Exceptional approval is separately permission-gated, reason-required, audit-visible, and remains under governed review until formally resolved.</p>
           </div>
           <button onClick={onClose} className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/60">Close</button>
         </div>
@@ -167,6 +173,8 @@ export default function FinanceForecastVersionEngine({ action, organizationId, e
             const blockers = approvalBlockers(version);
             const overridden = version.approval_override === true;
             const overrideEvidence = version.governance?.approval_override;
+            const overrideReview = version.governance?.approval_override_review;
+            const reviewStatus = String(overrideReview?.status || "OPEN").toUpperCase();
             return (
               <div key={version.id} className={`rounded-2xl border p-5 ${status === "APPROVED" ? "border-emerald-300/20 bg-emerald-300/[0.035]" : "border-white/[0.08] bg-white/[0.025]"}`}>
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -175,6 +183,7 @@ export default function FinanceForecastVersionEngine({ action, organizationId, e
                       <div className="text-base font-medium text-white">Version {version.version_number} · {kindLabel(version.scenario_kind)}</div>
                       <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusClasses(status)}`}>{status}</span>
                       {overridden ? <span className="rounded-full border border-fuchsia-300/25 bg-fuchsia-300/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-fuchsia-200">Override</span> : null}
+                      {overrideReview ? <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${reviewStatusClasses(reviewStatus)}`}>Review {reviewStatus}</span> : null}
                     </div>
                     <div className="mt-2 text-xs text-white/40">Created {dateLabel(version.created_at)} · Forecast ready {version.forecast_ready ? "Yes" : "No"} · Budget {version.budget_available === null ? "N/A" : version.budget_complete ? "Complete" : version.budget_available ? "Incomplete" : "Unavailable"}</div>
                   </div>
@@ -187,7 +196,7 @@ export default function FinanceForecastVersionEngine({ action, organizationId, e
 
                 {status === "DRAFT" && blockers.length > 0 ? <div className="mt-4 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] px-4 py-3 text-xs text-amber-100/75"><div className="font-semibold uppercase tracking-[0.12em]">Normal approval blocked</div><div className="mt-2">{blockers.join(" · ")}</div>{canOverride ? <div className="mt-2 text-white/45">Exceptional approval requires a recorded business reason and creates immutable override audit evidence.</div> : null}</div> : null}
 
-                {overridden ? <div className="mt-4 rounded-xl border border-fuchsia-300/20 bg-fuchsia-300/[0.05] px-4 py-3 text-xs text-fuchsia-100/75"><div className="font-semibold uppercase tracking-[0.12em]">Approved by exceptional override</div><div className="mt-2">Reason: {version.approval_override_reason || overrideEvidence?.reason || "Recorded in governance evidence"}</div><div className="mt-1">By {overrideEvidence?.name || "Recorded actor"} · {dateLabel(overrideEvidence?.at || version.approved_at)}</div>{overrideEvidence?.blockers?.length ? <div className="mt-1">Overridden blockers: {overrideEvidence.blockers.join(" · ")}</div> : null}</div> : null}
+                {overridden ? <div className="mt-4 rounded-xl border border-fuchsia-300/20 bg-fuchsia-300/[0.05] px-4 py-3 text-xs text-fuchsia-100/75"><div className="font-semibold uppercase tracking-[0.12em]">Approved by exceptional override</div><div className="mt-2">Reason: {version.approval_override_reason || overrideEvidence?.reason || "Recorded in governance evidence"}</div><div className="mt-1">By {overrideEvidence?.name || "Recorded actor"} · {dateLabel(overrideEvidence?.at || version.approved_at)}</div>{overrideEvidence?.blockers?.length ? <div className="mt-1">Overridden blockers: {overrideEvidence.blockers.join(" · ")}</div> : null}{overrideReview ? <div className="mt-3 border-t border-fuchsia-200/10 pt-3 text-white/55"><div>Governance review: <span className="text-white/80">{reviewStatus}</span> · Owner {overrideReview.assigned_to_name || "Unassigned"} · Due {overrideReview.due_date || "Not set"}</div>{overrideReview.acknowledged_at ? <div className="mt-1">Acknowledged {dateLabel(overrideReview.acknowledged_at)} by {overrideReview.acknowledged_by_name || "Finance"}</div> : null}{reviewStatus === "RESOLVED" ? <div className="mt-1 text-emerald-100/75">Resolved {dateLabel(overrideReview.resolved_at)} by {overrideReview.resolved_by_name || "Finance"} · {overrideReview.resolution_note || "Resolution evidence recorded"}</div> : null}</div> : <div className="mt-3 border-t border-fuchsia-200/10 pt-3 text-amber-100/70">Governance review case is expected for every exceptional approval.</div>}</div> : null}
               </div>
             );
           })}

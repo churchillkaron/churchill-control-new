@@ -239,6 +239,7 @@ export async function POST(request) {
 
       const result = await reconcilePayrollPaymentBatch({
         organizationId: context.organizationId,
+        entityId: entity.id,
         payrollPaymentId,
         paymentReference,
         reconciledBy: context.staff.id,
